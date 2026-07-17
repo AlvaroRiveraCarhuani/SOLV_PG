@@ -1,0 +1,45 @@
+services:
+  traefik:
+    image: traefik:latest
+    container_name: solv_traefik
+    environment:
+      - DOCKER_API_VERSION=1.41
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.websecure.http3=true" # HTTP/3 nativo (Traefik v3)
+      - "--api.insecure=true" # Dashboard para desarrollo
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # UDP requerido para HTTP/3
+      - "8080:8080"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro" # Acceso al socket para descubrir contenedores
+    networks:
+      - solv_net
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: solv_db
+    environment:
+      POSTGRES_USER: solv_user
+      POSTGRES_PASSWORD: solv_password
+      POSTGRES_DB: solv_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql
+    networks:
+      - solv_net
+    # Aislado de Traefik (Sin labels, no expuesto a la web)
+
+networks:
+  solv_net:
+    name: solv_net
+    driver: bridge
+
+volumes:
+  pg_data:
