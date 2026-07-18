@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 
-	"solv-backend/internal/domain"
+	"solv-backend/internal/core/domain"
 )
 
 // Client implementa la interfaz domain.ContainerOrchestrator
@@ -18,7 +18,6 @@ type Client struct {
 	cli *client.Client
 }
 
-// NewClient inicializa un nuevo adaptador de Docker
 func NewClient() (*Client, error) {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -50,7 +49,6 @@ func (c *Client) EnsureVolumeExists(ctx context.Context, volumeName string) erro
 	return nil
 }
 
-// StartContainer aprovisiona un entorno inyectando los límites de RAM (ADR-008) y mapeando volúmenes (ADR-005)
 func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerConfig) (string, error) {
 	mountMode := "rw"
 	if config.ReadOnly {
@@ -85,11 +83,10 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	return resp.ID, nil
 }
 
-// HibernateContainer frena y destruye el contenedor para liberar RAM, pero mantiene intacto el volumen (ADR-011)
 func (c *Client) HibernateContainer(ctx context.Context, containerID string) error {
 	timeout := 5
 	stopOpts := container.StopOptions{Timeout: &timeout}
-	
+
 	err := c.cli.ContainerStop(ctx, containerID, stopOpts)
 	if err != nil && !errdefs.IsNotFound(err) {
 		return fmt.Errorf("failed to gracefully stop container %q during hibernation: %w", containerID, err)

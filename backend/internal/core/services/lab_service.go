@@ -1,0 +1,84 @@
+package services
+
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+
+	"solv-backend/internal/core/domain"
+)
+
+type LabService struct {
+	repo   domain.LabInstanceRepository
+	docker domain.ContainerOrchestrator
+}
+
+func NewLabService(repo domain.LabInstanceRepository, docker domain.ContainerOrchestrator) *LabService {
+	return &LabService{
+		repo:   repo,
+		docker: docker,
+	}
+}
+
+func (s *LabService) StartLab(ctx context.Context, userID string, templateID string, ramLimitMB int) (*domain.LabInstance, error) {
+	// 1. Idempotency Check
+	existing, err := s.repo.GetByUserAndTemplate(ctx, userID, templateID)
+	if err == nil && existing != nil {
+		if existing.Status == "active" {
+			return existing, nil
+		}
+	}
+
+	// 2. Create pending record
+	id := uuid.NewString()
+	instance := &domain.LabInstance{
+		ID:         id,
+		UserID:     userID,
+		TemplateID: templateID,
+		Status:     "pending",
+		RAMLimitMB: ramLimitMB,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	if err := s.repo.Create(ctx, instance); err != nil {
+		return nil, fmt.Errorf("failed to create pending instance: %w", err)
+	}
+
+	// 3. Docker Adapter Call
+	// Hardcoding image for test purposes since TemplateRepository is not injected
+	config := domain.LabContainerConfig{
+		Image:         "nginx:alpine",
+		ContainerName: fmt.Sprintf("solv-lab-%s", id),
+		VolumeName:    fmt.Sprintf("vol-%s", id),
+		MemoryLimitMB: int64(ramLimitMB),
+		NetworkMode:   "bridge",
+		ReadOnly:      false,
+	}
+
+	if err := s.docker.EnsureVolumeExists(ctx, config.VolumeName); err != nil {
+		s.repo.UpdateStatus(ctx, id, "failed")
+		return nil, fmt.Errorf("failed to ensure volume: %w", err)
+	}
+
+	containerID, err := s.docker.StartContainer(ctx, config)
+	if err != nil {
+		s.repo.UpdateStatus(ctx, id, "failed")
+		return nil, fmt.Errorf("docker start failed: %w", err)
+	}
+
+	// 4. Update Database
+	if err := s.repo.UpdateContainerID(ctx, id, containerID); err != nil {
+		return nil, fmt.Errorf("failed to update container ID: %w", err)
+	}
+	if err := s.repo.UpdateStatus(ctx, id, "active"); err != nil {
+		return nil, fmt.Errorf("failed to update status: %w", err)
+	}
+
+	instance.ContainerID = &containerID
+	instance.Status = "active"
+
+	return instance, nil
+}
