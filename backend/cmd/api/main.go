@@ -45,15 +45,15 @@ func main() {
 
 	v := validator.New()
 
-	userHandler := httpdelivery.NewUserHandler(db, v)
-	templateHandler := httpdelivery.NewTemplateHandler(db, v)
-	labHandler := httpdelivery.NewLabHandler(labService, v)
+	handlers := httpdelivery.Handlers{
+		UserHandler:     httpdelivery.NewUserHandler(db, v),
+		TemplateHandler: httpdelivery.NewTemplateHandler(db, v),
+		LabHandler:      httpdelivery.NewLabHandler(labService, v),
+	}
 
 	mux := http.NewServeMux()
-	mux.HandleFunc("POST /api/v1/users", userHandler.Create)
-	mux.HandleFunc("POST /api/v1/templates", templateHandler.Create)
-	mux.HandleFunc("GET /api/v1/templates", templateHandler.GetAll)
-	mux.HandleFunc("POST /api/v1/labs/start", labHandler.Start)
+	httpdelivery.SetupRoutes(mux, &handlers)
+	handler := httpdelivery.WithCORS(mux)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	log.Printf("Server listening on :%s\n", port)
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
+	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

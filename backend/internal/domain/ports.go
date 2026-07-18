@@ -21,3 +21,18 @@ type InstanceRepository interface {
 type DockerService interface {
 	StartContainer(ctx context.Context, image, containerName, traefikHost string) error
 }
+
+type LabContainerConfig struct {
+	Image         string
+	ContainerName string
+	VolumeName    string
+	MemoryLimitMB int64
+	NetworkMode   string
+	ReadOnly      bool
+}
+
+type ContainerOrchestrator interface {
+	EnsureVolumeExists(ctx context.Context, volumeName string) error
+	StartContainer(ctx context.Context, config LabContainerConfig) (string, error)
+	HibernateContainer(ctx context.Context, containerID string) error
+}
