@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
+	"github.com/lib/pq"
 
 	"solv-backend/internal/domain"
 )
@@ -19,11 +19,24 @@ func (db *Database) CreateUser(ctx context.Context, dto domain.CreateUserDTO) (s
 	var id string
 	err := db.db.QueryRowContext(ctx, query, dto.FirstName, dto.LastName, dto.Email).Scan(&id)
 	if err != nil {
-		if strings.Contains(err.Error(), "unique constraint") || strings.Contains(err.Error(), "duplicate key value") {
-			return "", errors.New("email already exists")
+		if pqErr, ok := err.(*pq.Error); ok {
+			if pqErr.Code == "23505" { // unique_violation
+				return "", errors.New("email already exists")
+			}
 		}
 		return "", fmt.Errorf("failed to insert user: %w", err)
 	}
 
 	return id, nil
+}
+
+// GetUserByID retrieves a user by UUID.
+func (db *Database) GetUserByID(ctx context.Context, id string) (domain.UserResponseDTO, error) {
+	query := `SELECT id, first_name, last_name, email, role FROM users WHERE id = $1`
+	var u domain.UserResponseDTO
+	err := db.db.QueryRowContext(ctx, query, id).Scan(&u.ID, &u.FirstName, &u.LastName, &u.Email, &u.Role)
+	if err != nil {
+		return domain.UserResponseDTO{}, fmt.Errorf("failed to get user by id: %w", err)
+	}
+	return u, nil
 }

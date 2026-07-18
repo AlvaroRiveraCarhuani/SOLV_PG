@@ -49,3 +49,14 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 
 	return templates, nil
 }
+
+// GetTemplateByID retrieves a template by UUID.
+func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.TemplateResponseDTO, error) {
+	query := `SELECT id, name, docker_image, base_ram_mb FROM lab_templates WHERE id = $1`
+	var t domain.TemplateResponseDTO
+	err := db.db.QueryRowContext(ctx, query, id).Scan(&t.ID, &t.Name, &t.DockerImage, &t.BaseRamMB)
+	if err != nil {
+		return domain.TemplateResponseDTO{}, fmt.Errorf("failed to get template by id: %w", err)
+	}
+	return t, nil
+}
