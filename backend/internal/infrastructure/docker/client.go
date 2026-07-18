@@ -66,7 +66,8 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	}
 
 	containerConfig := &container.Config{
-		Image: config.Image,
+		Image:  config.Image,
+		Labels: config.Labels,
 	}
 
 	networkingConfig := &network.NetworkingConfig{}

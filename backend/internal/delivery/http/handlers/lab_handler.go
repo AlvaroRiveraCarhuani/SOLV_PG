@@ -19,6 +19,7 @@ type StartLabRequest struct {
 	UserID     string `json:"user_id"`
 	TemplateID string `json:"template_id"`
 	RAMLimitMB int    `json:"ram_limit_mb"`
+	UserEmail  string `json:"user_email"`
 }
 
 func (h *LabHandler) HandleStartLab(w http.ResponseWriter, r *http.Request) {
@@ -28,7 +29,7 @@ func (h *LabHandler) HandleStartLab(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	instance, err := h.service.StartLab(r.Context(), req.UserID, req.TemplateID, req.RAMLimitMB)
+	instance, err := h.service.StartLab(r.Context(), req.UserID, req.TemplateID, req.RAMLimitMB, req.UserEmail)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

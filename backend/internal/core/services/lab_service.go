@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ func NewLabService(repo domain.LabInstanceRepository, docker domain.ContainerOrc
 	}
 }
 
-func (s *LabService) StartLab(ctx context.Context, userID string, templateID string, ramLimitMB int) (*domain.LabInstance, error) {
+func (s *LabService) StartLab(ctx context.Context, userID string, templateID string, ramLimitMB int, userEmail string) (*domain.LabInstance, error) {
 	// 1. Idempotency Check
 	existing, err := s.repo.GetByUserAndTemplate(ctx, userID, templateID)
 	if err == nil && existing != nil {
@@ -48,14 +49,25 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 	}
 
 	// 3. Docker Adapter Call
-	// Hardcoding image for test purposes since TemplateRepository is not injected
+	// Generate Traefik Labels
+	prefix := strings.Split(userEmail, "@")[0]
+	subdomain := fmt.Sprintf("%s-lab.solv.uab.edu.bo", prefix)
+	containerName := fmt.Sprintf("solv-lab-%s", id)
+
+	labels := map[string]string{
+		"traefik.enable": "true",
+		fmt.Sprintf("traefik.http.routers.lab-%s.rule", containerName): fmt.Sprintf("Host(`%s`)", subdomain),
+		fmt.Sprintf("traefik.http.services.lab-%s.loadbalancer.server.port", containerName): "8080", // Using 8080 as internal default or configurable
+	}
+
 	config := domain.LabContainerConfig{
 		Image:         "nginx:alpine",
-		ContainerName: fmt.Sprintf("solv-lab-%s", id),
+		ContainerName: containerName,
 		VolumeName:    fmt.Sprintf("vol-%s", id),
 		MemoryLimitMB: int64(ramLimitMB),
 		NetworkMode:   "bridge",
 		ReadOnly:      false,
+		Labels:        labels,
 	}
 
 	if err := s.docker.EnsureVolumeExists(ctx, config.VolumeName); err != nil {

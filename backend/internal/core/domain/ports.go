@@ -9,6 +9,7 @@ type LabContainerConfig struct {
 	MemoryLimitMB int64
 	NetworkMode   string
 	ReadOnly      bool
+	Labels        map[string]string
 }
 
 type ContainerOrchestrator interface {
