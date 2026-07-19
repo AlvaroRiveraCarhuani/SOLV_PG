@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/docker/docker/api/types/container"
@@ -102,4 +103,53 @@ func (c *Client) HibernateContainer(ctx context.Context, containerID string) err
 	}
 
 	return nil
+}
+
+// ExecuteDryRun arranca un contenedor efímero, obtiene sus stats y devuelve el pico de RAM usado.
+func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error) {
+	hostConfig := &container.HostConfig{
+		NetworkMode: "none",
+	}
+
+	containerConfig := &container.Config{
+		Image: image,
+		Cmd:   []string{"sh", "-c", "echo test && sleep 1"},
+	}
+
+	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+	if err != nil {
+		return 0, fmt.Errorf("dry-run create failed: %w", err)
+	}
+	containerID := resp.ID
+
+	// Asegurar destrucción al finalizar
+	defer func() {
+		_ = c.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := c.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+		return 0, fmt.Errorf("dry-run start failed: %w", err)
+	}
+
+	stats, err := c.cli.ContainerStats(ctx, containerID, true)
+	if err != nil {
+		return 0, fmt.Errorf("dry-run stats failed: %w", err)
+	}
+	defer stats.Body.Close()
+
+	decoder := json.NewDecoder(stats.Body)
+	var maxRAM int64
+
+	for {
+		var s container.StatsResponse
+		if err := decoder.Decode(&s); err != nil {
+			break // EOF or container exit
+		}
+		usage := int64(s.MemoryStats.Usage)
+		if usage > maxRAM {
+			maxRAM = usage
+		}
+	}
+
+	return maxRAM, nil
 }

@@ -57,7 +57,7 @@ func main() {
 
 	mux := http.NewServeMux()
 	httpdelivery.SetupRoutes(mux, &handlersStruct)
-	
+
 	// Mount the new handler as strictly requested
 	mux.HandleFunc("POST /labs/start", newLabHandler.HandleStartLab)
 

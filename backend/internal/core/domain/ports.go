@@ -14,6 +14,7 @@ type LabContainerConfig struct {
 
 type ContainerOrchestrator interface {
 	EnsureVolumeExists(ctx context.Context, volumeName string) error
+	ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	StartContainer(ctx context.Context, config LabContainerConfig) (string, error)
 	HibernateContainer(ctx context.Context, containerID string) error
 }

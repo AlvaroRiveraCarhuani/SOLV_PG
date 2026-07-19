@@ -56,7 +56,7 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 
 	labels := map[string]string{
 		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.routers.lab-%s.rule", containerName): fmt.Sprintf("Host(`%s`)", subdomain),
+		fmt.Sprintf("traefik.http.routers.lab-%s.rule", containerName):                      fmt.Sprintf("Host(`%s`)", subdomain),
 		fmt.Sprintf("traefik.http.services.lab-%s.loadbalancer.server.port", containerName): "8080", // Using 8080 as internal default or configurable
 	}
 
