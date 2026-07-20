@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
@@ -72,6 +74,19 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	}
 
 	networkingConfig := &network.NetworkingConfig{}
+	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			out, pullErr := c.cli.ImagePull(ctx, config.Image, image.PullOptions{})
+			if pullErr != nil {
+				return "", fmt.Errorf("failed to pull image %q: %w", config.Image, pullErr)
+			}
+			defer out.Close()
+			_, _ = io.Copy(io.Discard, out)
+		} else {
+			return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, err)
+		}
+	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, config.ContainerName)
 	if err != nil {
