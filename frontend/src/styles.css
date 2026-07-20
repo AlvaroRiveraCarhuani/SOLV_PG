@@ -1,0 +1,137 @@
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --bg: #0f172a;
+  --surface: #1e293b;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --error: #ef4444;
+  --success: #10b981;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  max-width: 600px;
+  padding: 2rem;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  background: linear-gradient(to right, #60a5fa, #c084fc);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.header p {
+  color: var(--text-muted);
+  margin-bottom: 2rem;
+}
+
+.btn-primary {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: white;
+  background: var(--primary);
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  transform: translateY(-2px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255,255,255,0.3);
+  border-radius: 50%;
+  border-top-color: white;
+  animation: spin 1s ease-in-out infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.alert {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  animation: slideIn 0.3s ease;
+}
+
+.alert-error {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--error);
+  color: #fca5a5;
+}
+
+.alert-success {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid var(--success);
+}
+
+.alert-success h3 {
+  margin: 0 0 0.5rem 0;
+  color: #34d399;
+}
+
+.alert-success p {
+  margin: 0 0 1rem 0;
+  color: var(--text-muted);
+}
+
+.lab-link {
+  display: inline-block;
+  color: #60a5fa;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  background: rgba(255,255,255,0.05);
+  border-radius: 0.25rem;
+  font-family: monospace;
+  transition: background 0.2s;
+}
+
+.lab-link:hover {
+  background: rgba(255,255,255,0.1);
+  text-decoration: underline;
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,36 @@
+<main class="container">
+  <div class="card">
+    <div class="header">
+      <h1>🔬 SOLV PG - Slice 1</h1>
+      <p>Prueba de conexión Frontend -> Backend -> Docker Traefik</p>
+    </div>
+
+    <div class="actions">
+      <button 
+        (click)="startLab()" 
+        [disabled]="loading()"
+        class="btn-primary"
+      >
+        @if (loading()) {
+          <span class="spinner"></span> Levantando Laboratorio...
+        } @else {
+          🚀 Iniciar Laboratorio
+        }
+      </button>
+    </div>
+
+    @if (errorMsg()) {
+      <div class="alert alert-error">
+        {{ errorMsg() }}
+      </div>
+    }
+
+    @if (labUrl()) {
+      <div class="alert alert-success">
+        <h3>✅ ¡Laboratorio Activo!</h3>
+        <p>Tu contenedor fue aprovisionado con éxito. Ingresa a:</p>
+        <a [href]="labUrl()" target="_blank" class="lab-link">{{ labUrl() }}</a>
+      </div>
+    }
+  </div>
+</main>
