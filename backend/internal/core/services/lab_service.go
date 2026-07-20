@@ -12,14 +12,16 @@ import (
 )
 
 type LabService struct {
-	repo   domain.LabInstanceRepository
-	docker domain.ContainerOrchestrator
+	repo      domain.LabInstanceRepository
+	templates domain.TemplateRepository
+	docker    domain.ContainerOrchestrator
 }
 
-func NewLabService(repo domain.LabInstanceRepository, docker domain.ContainerOrchestrator) *LabService {
+func NewLabService(repo domain.LabInstanceRepository, templates domain.TemplateRepository, docker domain.ContainerOrchestrator) *LabService {
 	return &LabService{
-		repo:   repo,
-		docker: docker,
+		repo:      repo,
+		templates: templates,
+		docker:    docker,
 	}
 }
 
@@ -60,8 +62,13 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 		fmt.Sprintf("traefik.http.services.lab-%s.loadbalancer.server.port", containerName): "8080", // Using 8080 as internal default or configurable
 	}
 
+	template, err := s.templates.GetTemplateByID(ctx, templateID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch template for image resolution: %w", err)
+	}
+
 	config := domain.LabContainerConfig{
-		Image:         "nginx:alpine",
+		Image:         template.DockerImage,
 		ContainerName: containerName,
 		VolumeName:    fmt.Sprintf("vol-%s", id),
 		MemoryLimitMB: int64(ramLimitMB),

@@ -44,7 +44,8 @@ func main() {
 	}
 
 	labInstanceRepo := postgres.NewPostgresLabInstanceRepository(db.GetDB())
-	labService := services.NewLabService(labInstanceRepo, dockerClient)
+	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
+	labService := services.NewLabService(labInstanceRepo, templateRepo, dockerClient)
 	newLabHandler := handlers.NewLabHandler(labService)
 
 	v := validator.New()
