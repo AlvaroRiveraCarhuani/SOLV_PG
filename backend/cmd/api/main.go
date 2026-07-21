@@ -7,7 +7,6 @@ import (
 
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
-	"solv-backend/internal/delivery/http/handlers"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/docker"
 	"solv-backend/internal/infrastructure/storage/postgres"
@@ -46,21 +45,20 @@ func main() {
 	labInstanceRepo := postgres.NewPostgresLabInstanceRepository(db.GetDB())
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	labService := services.NewLabService(labInstanceRepo, templateRepo, dockerClient)
-	newLabHandler := handlers.NewLabHandler(labService)
 
 	v := validator.New()
+
+	authService := services.NewAuthService(db)
 
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:     httpdelivery.NewUserHandler(db, v),
 		TemplateHandler: httpdelivery.NewTemplateHandler(db, v),
-		// LabHandler:      httpdelivery.NewLabHandler(labService, v),
+		AuthHandler:     httpdelivery.NewAuthHandler(authService),
+		LabHandler:      httpdelivery.NewLabHandler(labService, v),
 	}
 
 	mux := http.NewServeMux()
 	httpdelivery.SetupRoutes(mux, &handlersStruct)
-
-	// Mount the new handler as strictly requested
-	mux.HandleFunc("POST /labs/start", newLabHandler.HandleStartLab)
 
 	handler := httpdelivery.WithCORS(mux)
 
