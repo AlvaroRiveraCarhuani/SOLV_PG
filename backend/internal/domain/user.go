@@ -1,5 +1,6 @@
 package domain
 
+
 type CreateUserDTO struct {
 	FirstName string `json:"first_name" validate:"required"`
 	LastName  string `json:"last_name" validate:"required"`
@@ -13,3 +14,13 @@ type UserResponseDTO struct {
 	Email     string `json:"email"`
 	Role      string `json:"role"`
 }
+
+type User struct {
+	ID        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+}
+
+
