@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -77,12 +78,14 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
 	if err != nil {
 		if errdefs.IsNotFound(err) {
+			log.Printf("Image %q not found locally. Pulling from registry (this may take a while)...", config.Image)
 			out, pullErr := c.cli.ImagePull(ctx, config.Image, image.PullOptions{})
 			if pullErr != nil {
 				return "", fmt.Errorf("failed to pull image %q: %w", config.Image, pullErr)
 			}
 			defer out.Close()
 			_, _ = io.Copy(io.Discard, out)
+			log.Printf("Image %q pulled successfully.", config.Image)
 		} else {
 			return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, err)
 		}
