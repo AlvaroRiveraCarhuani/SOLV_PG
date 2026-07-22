@@ -17,7 +17,7 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-// Client implementa la interfaz domain.ContainerOrchestrator
+// Client implementa la interfaz domain.ContainerOrchestrator y domain.WorkspaceOrchestrator
 type Client struct {
 	cli *client.Client
 }
@@ -48,6 +48,30 @@ func (c *Client) EnsureVolumeExists(ctx context.Context, volumeName string) erro
 	})
 	if err != nil {
 		return fmt.Errorf("failed to create local volume %q: %w", volumeName, err)
+	}
+
+	return nil
+}
+
+// EnsureICCDisabledNetworkExists asegura que exista la red de Docker con la directiva ICC (Inter-Container Communication) desactivada
+func (c *Client) EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error {
+	_, err := c.cli.NetworkInspect(ctx, networkName, network.InspectOptions{})
+	if err == nil {
+		return nil // La red ya existe
+	}
+
+	if !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to inspect docker network %q: %w", networkName, err)
+	}
+
+	_, err = c.cli.NetworkCreate(ctx, networkName, network.CreateOptions{
+		Driver: "bridge",
+		Options: map[string]string{
+			"com.docker.network.bridge.enable_icc": "false",
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create network with enable_icc=false %q: %w", networkName, err)
 	}
 
 	return nil
@@ -103,6 +127,55 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	return resp.ID, nil
 }
 
+func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
+	memLimit := config.MemoryLimitMB
+	if memLimit <= 0 {
+		memLimit = 512
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/workspace:rw", config.VolumeName),
+		},
+		Resources: container.Resources{
+			Memory: memLimit * 1024 * 1024,
+		},
+		NetworkMode: container.NetworkMode(config.NetworkName),
+	}
+
+	containerConfig := &container.Config{
+		Image:  config.Image,
+		Labels: config.Labels,
+		Env:    config.Env,
+	}
+
+	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			log.Printf("Image %q not found. Pulling...", config.Image)
+			out, pullErr := c.cli.ImagePull(ctx, config.Image, image.PullOptions{})
+			if pullErr != nil {
+				return "", fmt.Errorf("failed to pull image %q: %w", config.Image, pullErr)
+			}
+			defer out.Close()
+			_, _ = io.Copy(io.Discard, out)
+		} else {
+			return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, err)
+		}
+	}
+
+	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, config.ContainerName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create workspace container %q: %w", config.ContainerName, err)
+	}
+
+	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return "", fmt.Errorf("failed to start workspace container %q: %w", config.ContainerName, err)
+	}
+
+	return resp.ID, nil
+}
+
 func (c *Client) HibernateContainer(ctx context.Context, containerID string) error {
 	timeout := 5
 	stopOpts := container.StopOptions{Timeout: &timeout}
@@ -113,7 +186,7 @@ func (c *Client) HibernateContainer(ctx context.Context, containerID string) err
 	}
 
 	removeOpts := container.RemoveOptions{
-		Force: true, // Asegura la eliminación incluso si Stop falló parcialmente
+		Force: true,
 	}
 	err = c.cli.ContainerRemove(ctx, containerID, removeOpts)
 	if err != nil && !errdefs.IsNotFound(err) {
@@ -162,7 +235,6 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	}
 	containerID := resp.ID
 
-	// Asegurar destrucción al finalizar
 	defer func() {
 		_ = c.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
 	}()
@@ -183,7 +255,7 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	for {
 		var s container.StatsResponse
 		if err := decoder.Decode(&s); err != nil {
-			break // EOF or container exit
+			break
 		}
 		usage := int64(s.MemoryStats.Usage)
 		if usage > maxRAM {
