@@ -55,3 +55,17 @@ type EvaluationRunner interface {
 	RunDBDryRun(ctx context.Context, config DBEvaluationRunConfig) (string, error)
 	RunDBEvaluation(ctx context.Context, config DBEvaluationRunConfig) (DBEvaluationResult, error)
 }
+
+type WorkspaceRepository interface {
+	GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*WorkspaceInstance, error)
+	Create(ctx context.Context, workspace *WorkspaceInstance) error
+	UpdateContainerID(ctx context.Context, id string, containerID string) error
+	UpdateStatus(ctx context.Context, id string, status string) error
+}
+
+type WorkspaceOrchestrator interface {
+	EnsureVolumeExists(ctx context.Context, volumeName string) error
+	EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error
+	StartWorkspaceContainer(ctx context.Context, config WorkspaceContainerConfig) (string, error)
+	StopAndRemoveContainer(ctx context.Context, containerID string) error
+}
