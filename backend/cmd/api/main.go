@@ -5,37 +5,35 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/docker/docker/client"
+	"github.com/go-playground/validator/v10"
+
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/docker"
 	"solv-backend/internal/infrastructure/storage/postgres"
-
-	"github.com/docker/docker/client"
-	"github.com/go-playground/validator/v10"
-	_ "github.com/lib/pq"
 )
 
 func main() {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-	if err != nil {
-		log.Fatalf("Fatal: failed to initialize docker client: %v", err)
+	dbDSN := os.Getenv("DATABASE_URL")
+	if dbDSN == "" {
+		log.Fatal("DATABASE_URL environment variable is required")
 	}
-	defer cli.Close()
+
+	db, err := database.NewPostgresDB(dbDSN)
+	if err != nil {
+		log.Fatalf("Fatal: failed to connect to Postgres: %v", err)
+	}
 
 	dockerClient, err := docker.NewClient()
 	if err != nil {
-		log.Fatalf("Fatal: failed to initialize docker service client: %v", err)
+		log.Fatalf("Fatal: failed to initialize Docker client: %v", err)
 	}
 
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		log.Fatalf("Fatal: DATABASE_URL environment variable is required")
-	}
-
-	db, err := database.NewPostgresDB(dsn)
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Fatalf("Fatal: failed to initialize postgres database: %v", err)
+		log.Fatalf("Fatal: failed to initialize raw docker SDK client: %v", err)
 	}
 
 	if err := db.RunInitialMigrations(); err != nil {
@@ -45,6 +43,7 @@ func main() {
 	labInstanceRepo := postgres.NewPostgresLabInstanceRepository(db.GetDB())
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
+	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
 
 	labService := services.NewLabService(labInstanceRepo, templateRepo, dockerClient)
 	authService := services.NewAuthService(db)
@@ -52,6 +51,7 @@ func main() {
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, dockerRunner)
+	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient)
 
 	v := validator.New()
 
@@ -61,6 +61,7 @@ func main() {
 		AuthHandler:       httpdelivery.NewAuthHandler(authService),
 		LabHandler:        httpdelivery.NewLabHandler(labService, v),
 		EvaluationHandler: httpdelivery.NewEvaluationHandler(evaluationService, v),
+		WorkspaceHandler:  httpdelivery.NewWorkspaceHandler(workspaceService, v),
 	}
 
 	mux := http.NewServeMux()
@@ -73,7 +74,7 @@ func main() {
 		port = "3000"
 	}
 
-	log.Printf("Server listening on :%s\n", port)
+	log.Printf("Server starting on port %s...", port)
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}

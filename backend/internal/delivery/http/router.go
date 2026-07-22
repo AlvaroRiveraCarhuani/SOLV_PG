@@ -10,6 +10,7 @@ type Handlers struct {
 	LabHandler        *LabHandler
 	AuthHandler       *AuthHandler
 	EvaluationHandler *EvaluationHandler
+	WorkspaceHandler  *WorkspaceHandler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -18,6 +19,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerLabRoutes(mux, deps.LabHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler)
+	registerWorkspaceRoutes(mux, deps.WorkspaceHandler)
 }
 
 func registerUserRoutes(mux *http.ServeMux, h *UserHandler) {
@@ -41,4 +43,8 @@ func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 
 func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler) {
 	mux.Handle("POST /api/v1/evaluations", WithAuth(http.HandlerFunc(h.Evaluate)))
+}
+
+func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler) {
+	mux.Handle("POST /api/v1/workspaces/start", WithAuth(http.HandlerFunc(h.StartWorkspace)))
 }
