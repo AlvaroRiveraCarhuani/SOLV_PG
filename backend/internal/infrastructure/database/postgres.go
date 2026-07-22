@@ -81,9 +81,20 @@ func (d *Database) RunInitialMigrations() error {
 		container_id VARCHAR(255),
 		status VARCHAR(50) NOT NULL DEFAULT 'pending',
 		access_url TEXT NOT NULL,
+		memory_limit_mb INT NOT NULL DEFAULT 256,
+		last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
+		last_oom_killed_at TIMESTAMPTZ,
+		oom_strike_count INT NOT NULL DEFAULT 0,
 		created_at TIMESTAMPTZ DEFAULT NOW(),
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);`
+
+	alterWorkspacesQuery := `
+	ALTER TABLE workspaces 
+	ADD COLUMN IF NOT EXISTS memory_limit_mb INT NOT NULL DEFAULT 256,
+	ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
+	ADD COLUMN IF NOT EXISTS last_oom_killed_at TIMESTAMPTZ,
+	ADD COLUMN IF NOT EXISTS oom_strike_count INT NOT NULL DEFAULT 0;`
 
 	log.Println("Running initial database migrations...")
 
@@ -106,6 +117,10 @@ func (d *Database) RunInitialMigrations() error {
 
 	if _, err := d.db.Exec(workspacesTableQuery); err != nil {
 		return fmt.Errorf("failed to create workspaces table: %w", err)
+	}
+
+	if _, err := d.db.Exec(alterWorkspacesQuery); err != nil {
+		log.Printf("Notice: alter workspaces query: %v", err)
 	}
 
 	// Semillas para ejercicios de prueba (Algoritmia & BD)
