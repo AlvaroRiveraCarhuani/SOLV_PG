@@ -30,3 +30,28 @@ type Template struct {
 type TemplateRepository interface {
 	GetTemplateByID(ctx context.Context, id string) (*Template, error)
 }
+
+type ExerciseRepository interface {
+	GetByID(ctx context.Context, id string) (*Exercise, error)
+	Create(ctx context.Context, exercise *Exercise) error
+	UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error
+}
+
+type ASTAnalyzer interface {
+	ValidateCode(language string, sourceCode string, rules ASTRules) (bool, string)
+}
+
+type LanguageStrategy interface {
+	ExecuteTestCase(ctx context.Context, config EvaluationRunConfig) (TestCaseRunResult, error)
+}
+
+type DBEngineStrategy interface {
+	ExecuteDryRun(ctx context.Context, config DBEvaluationRunConfig) (string, error)
+	ExecuteEvaluation(ctx context.Context, config DBEvaluationRunConfig) (DBEvaluationResult, error)
+}
+
+type EvaluationRunner interface {
+	RunTestCase(ctx context.Context, config EvaluationRunConfig) (TestCaseRunResult, error)
+	RunDBDryRun(ctx context.Context, config DBEvaluationRunConfig) (string, error)
+	RunDBEvaluation(ctx context.Context, config DBEvaluationRunConfig) (DBEvaluationResult, error)
+}
