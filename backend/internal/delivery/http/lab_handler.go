@@ -44,3 +44,18 @@ func (h *LabHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	SendJSON(w, http.StatusOK, dto, "Laboratorio iniciado exitosamente")
 }
+
+func (h *LabHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		SendError(w, http.StatusBadRequest, "Missing lab ID", "ID de laboratorio no proporcionado")
+		return
+	}
+
+	if err := h.service.DestroyLab(r.Context(), id); err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudo destruir el laboratorio")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]string{"id": id, "status": "inactive"}, "Laboratorio destruido exitosamente")
+}

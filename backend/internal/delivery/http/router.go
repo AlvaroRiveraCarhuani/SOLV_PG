@@ -29,6 +29,7 @@ func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
 
 func registerLabRoutes(mux *http.ServeMux, h *LabHandler) {
 	mux.Handle("POST /api/v1/labs/start", WithAuth(http.HandlerFunc(h.Start)))
+	mux.Handle("DELETE /api/v1/labs/{id}", WithAuth(http.HandlerFunc(h.Delete)))
 }
 
 func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {

@@ -43,6 +43,20 @@ func (r *postgresLabInstanceRepo) GetByUserAndTemplate(ctx context.Context, user
 	return &instance, nil
 }
 
+func (r *postgresLabInstanceRepo) GetByID(ctx context.Context, id string) (*domain.LabInstance, error) {
+	query := `
+		SELECT id, template_id, user_id, container_id, status, ram_limit_mb, created_at, updated_at 
+		FROM lab_instances 
+		WHERE id = $1
+	`
+	var instance domain.LabInstance
+	err := r.db.GetContext(ctx, &instance, query, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get lab instance by id: %w", err)
+	}
+	return &instance, nil
+}
+
 func (r *postgresLabInstanceRepo) UpdateStatus(ctx context.Context, id string, status string) error {
 	query := `
 		UPDATE lab_instances 

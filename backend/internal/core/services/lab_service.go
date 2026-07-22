@@ -70,7 +70,7 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 	config := domain.LabContainerConfig{
 		Image:         template.DockerImage,
 		ContainerName: containerName,
-		VolumeName:    fmt.Sprintf("vol-%s", id),
+		VolumeName:    fmt.Sprintf("solv_vol_%s_%s", userID, templateID),
 		MemoryLimitMB: int64(ramLimitMB),
 		NetworkMode:   "bridge",
 		ReadOnly:      false,
@@ -100,4 +100,23 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 	instance.Status = "active"
 
 	return instance, nil
+}
+
+func (s *LabService) DestroyLab(ctx context.Context, id string) error {
+	instance, err := s.repo.GetByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("lab instance %s not found: %w", id, err)
+	}
+
+	if instance.ContainerID != nil && *instance.ContainerID != "" {
+		if err := s.docker.StopAndRemoveContainer(ctx, *instance.ContainerID); err != nil {
+			return fmt.Errorf("failed to stop and remove container: %w", err)
+		}
+	}
+
+	if err := s.repo.UpdateStatus(ctx, id, "inactive"); err != nil {
+		return fmt.Errorf("failed to update lab status to inactive: %w", err)
+	}
+
+	return nil
 }

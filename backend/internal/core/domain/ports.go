@@ -17,6 +17,7 @@ type ContainerOrchestrator interface {
 	ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	StartContainer(ctx context.Context, config LabContainerConfig) (string, error)
 	HibernateContainer(ctx context.Context, containerID string) error
+	StopAndRemoveContainer(ctx context.Context, containerID string) error
 }
 
 type Template struct {

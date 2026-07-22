@@ -123,6 +123,28 @@ func (c *Client) HibernateContainer(ctx context.Context, containerID string) err
 	return nil
 }
 
+// StopAndRemoveContainer detiene y elimina el contenedor respetando estrictamente el volumen persistente.
+func (c *Client) StopAndRemoveContainer(ctx context.Context, containerID string) error {
+	timeout := 5
+	stopOpts := container.StopOptions{Timeout: &timeout}
+
+	err := c.cli.ContainerStop(ctx, containerID, stopOpts)
+	if err != nil && !errdefs.IsNotFound(err) {
+		log.Printf("Warning: ContainerStop returned error for %s: %v", containerID, err)
+	}
+
+	removeOpts := container.RemoveOptions{
+		Force:         true,
+		RemoveVolumes: false, // Regla de Oro ADR-001: Jamás eliminar el volumen del estudiante
+	}
+	err = c.cli.ContainerRemove(ctx, containerID, removeOpts)
+	if err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to remove container %q: %w", containerID, err)
+	}
+
+	return nil
+}
+
 // ExecuteDryRun arranca un contenedor efímero, obtiene sus stats y devuelve el pico de RAM usado.
 func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error) {
 	hostConfig := &container.HostConfig{

@@ -18,6 +18,7 @@ type LabInstance struct {
 
 type LabInstanceRepository interface {
 	Create(ctx context.Context, instance *LabInstance) error
+	GetByID(ctx context.Context, id string) (*LabInstance, error)
 	GetByUserAndTemplate(ctx context.Context, userID string, templateID string) (*LabInstance, error)
 	UpdateStatus(ctx context.Context, id string, status string) error
 	UpdateContainerID(ctx context.Context, id string, containerID string) error
