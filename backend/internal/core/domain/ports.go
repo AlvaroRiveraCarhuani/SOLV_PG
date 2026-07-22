@@ -56,16 +56,29 @@ type EvaluationRunner interface {
 	RunDBEvaluation(ctx context.Context, config DBEvaluationRunConfig) (DBEvaluationResult, error)
 }
 
+type HostMonitor interface {
+	GetHostMemoryStats() (freePct float64, availableMB uint64, err error)
+	CanAllocateMemory(requiredMB int64) bool
+}
+
 type WorkspaceRepository interface {
 	GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*WorkspaceInstance, error)
+	GetByID(ctx context.Context, id string) (*WorkspaceInstance, error)
 	Create(ctx context.Context, workspace *WorkspaceInstance) error
 	UpdateContainerID(ctx context.Context, id string, containerID string) error
 	UpdateStatus(ctx context.Context, id string, status string) error
+	UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error
+	RecordHeartbeat(ctx context.Context, id string) error
+	IncrementOOMStrike(ctx context.Context, id string) error
+	ResetOOMStrikes(ctx context.Context, id string) error
+	GetActiveWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
 }
 
 type WorkspaceOrchestrator interface {
 	EnsureVolumeExists(ctx context.Context, volumeName string) error
 	EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error
 	StartWorkspaceContainer(ctx context.Context, config WorkspaceContainerConfig) (string, error)
+	UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error
+	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
 }
