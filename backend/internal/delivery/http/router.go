@@ -5,10 +5,11 @@ import (
 )
 
 type Handlers struct {
-	UserHandler     *UserHandler
-	TemplateHandler *TemplateHandler
-	LabHandler      *LabHandler
-	AuthHandler     *AuthHandler
+	UserHandler       *UserHandler
+	TemplateHandler   *TemplateHandler
+	LabHandler        *LabHandler
+	AuthHandler       *AuthHandler
+	EvaluationHandler *EvaluationHandler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -16,6 +17,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerTemplateRoutes(mux, deps.TemplateHandler)
 	registerLabRoutes(mux, deps.LabHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
+	registerEvaluationRoutes(mux, deps.EvaluationHandler)
 }
 
 func registerUserRoutes(mux *http.ServeMux, h *UserHandler) {
@@ -35,4 +37,8 @@ func registerLabRoutes(mux *http.ServeMux, h *LabHandler) {
 func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 	mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
 	mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
+}
+
+func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler) {
+	mux.Handle("POST /api/v1/evaluations", WithAuth(http.HandlerFunc(h.Evaluate)))
 }

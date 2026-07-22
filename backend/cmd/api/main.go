@@ -44,17 +44,23 @@ func main() {
 
 	labInstanceRepo := postgres.NewPostgresLabInstanceRepository(db.GetDB())
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
+	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
+
 	labService := services.NewLabService(labInstanceRepo, templateRepo, dockerClient)
+	authService := services.NewAuthService(db)
+
+	astAnalyzer := services.NewStaticASTAnalyzer()
+	dockerRunner := docker.NewDockerEvaluationRunner(cli)
+	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, dockerRunner)
 
 	v := validator.New()
 
-	authService := services.NewAuthService(db)
-
 	handlersStruct := httpdelivery.Handlers{
-		UserHandler:     httpdelivery.NewUserHandler(db, v),
-		TemplateHandler: httpdelivery.NewTemplateHandler(db, v),
-		AuthHandler:     httpdelivery.NewAuthHandler(authService),
-		LabHandler:      httpdelivery.NewLabHandler(labService, v),
+		UserHandler:       httpdelivery.NewUserHandler(db, v),
+		TemplateHandler:   httpdelivery.NewTemplateHandler(db, v),
+		AuthHandler:       httpdelivery.NewAuthHandler(authService),
+		LabHandler:        httpdelivery.NewLabHandler(labService, v),
+		EvaluationHandler: httpdelivery.NewEvaluationHandler(evaluationService, v),
 	}
 
 	mux := http.NewServeMux()
