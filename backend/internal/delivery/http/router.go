@@ -47,4 +47,6 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler) {
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler) {
 	mux.Handle("POST /api/v1/workspaces/start", WithAuth(http.HandlerFunc(h.StartWorkspace)))
+	mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
+	mux.Handle("POST /api/v1/workspaces/{id}/restart", WithAuth(http.HandlerFunc(h.RestartWorkspace)))
 }
