@@ -130,7 +130,7 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
 	memLimit := config.MemoryLimitMB
 	if memLimit <= 0 {
-		memLimit = 512
+		memLimit = domain.DefaultBaseMemoryMB // 256MB base limit
 	}
 
 	hostConfig := &container.HostConfig{
@@ -174,6 +174,76 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	}
 
 	return resp.ID, nil
+}
+
+func (c *Client) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {
+	updateConfig := container.UpdateConfig{
+		Resources: container.Resources{
+			Memory: newMemoryMB * 1024 * 1024,
+		},
+	}
+	_, err := c.cli.ContainerUpdate(ctx, containerID, updateConfig)
+	if err != nil {
+		return fmt.Errorf("failed to update memory via ContainerUpdate for container %s to %d MB: %w", containerID, newMemoryMB, err)
+	}
+	log.Printf("[QoS Auto-Bursting] Scaled UP container %s memory limit to %d MB in-place", containerID, newMemoryMB)
+	return nil
+}
+
+func (c *Client) GetContainerMetrics(ctx context.Context, containerID string) (*domain.ContainerMetrics, error) {
+	inspect, err := c.cli.ContainerInspect(ctx, containerID)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return &domain.ContainerMetrics{IsRunning: false}, nil
+		}
+		return nil, fmt.Errorf("failed to inspect container %s: %w", containerID, err)
+	}
+
+	metrics := &domain.ContainerMetrics{
+		IsRunning: inspect.State.Running,
+		OOMKilled: inspect.State.OOMKilled,
+		ExitCode:  inspect.State.ExitCode,
+	}
+
+	if !inspect.State.Running {
+		return metrics, nil
+	}
+
+	stats, err := c.cli.ContainerStatsOneShot(ctx, containerID)
+	if err != nil {
+		return metrics, nil
+	}
+	defer stats.Body.Close()
+
+	var s container.StatsResponse
+	if err := json.NewDecoder(stats.Body).Decode(&s); err != nil {
+		return metrics, nil
+	}
+
+	metrics.MemoryUsageBytes = int64(s.MemoryStats.Usage)
+	metrics.MemoryLimitBytes = int64(s.MemoryStats.Limit)
+
+	// Cálculo exacto del delta de CPU: ((cpuDelta / systemDelta) * onlineCPUs) * 100.0
+	cpuDelta := float64(s.CPUStats.CPUUsage.TotalUsage - s.PreCPUStats.CPUUsage.TotalUsage)
+	systemDelta := float64(s.CPUStats.SystemUsage - s.PreCPUStats.SystemUsage)
+	onlineCPUs := float64(s.CPUStats.OnlineCPUs)
+	if onlineCPUs == 0 {
+		onlineCPUs = float64(len(s.CPUStats.CPUUsage.PercpuUsage))
+	}
+	if onlineCPUs == 0 {
+		onlineCPUs = 1.0
+	}
+
+	if cpuDelta > 0.0 && systemDelta > 0.0 {
+		metrics.CPUPercent = (cpuDelta / systemDelta) * onlineCPUs * 100.0
+	}
+
+	for _, netStats := range s.Networks {
+		metrics.RxBytes += netStats.RxBytes
+		metrics.TxBytes += netStats.TxBytes
+	}
+
+	return metrics, nil
 }
 
 func (c *Client) HibernateContainer(ctx context.Context, containerID string) error {
