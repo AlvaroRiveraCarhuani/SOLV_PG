@@ -1,0 +1,37 @@
+package lang
+
+import "io"
+
+func stdCopy(dstOut, dstErr io.Writer, src io.Reader) (int64, error) {
+	var written int64
+	header := make([]byte, 8)
+	for {
+		_, err := io.ReadFull(src, header)
+		if err != nil {
+			if err == io.EOF || err == io.ErrUnexpectedEOF {
+				break
+			}
+			return written, err
+		}
+
+		streamType := header[0]
+		count := int64(header[4])<<24 | int64(header[5])<<16 | int64(header[6])<<8 | int64(header[7])
+
+		var w io.Writer
+		switch streamType {
+		case 1: // stdout
+			w = dstOut
+		case 2: // stderr
+			w = dstErr
+		default:
+			w = io.Discard
+		}
+
+		n, err := io.CopyN(w, src, count)
+		written += n
+		if err != nil {
+			return written, err
+		}
+	}
+	return written, nil
+}
