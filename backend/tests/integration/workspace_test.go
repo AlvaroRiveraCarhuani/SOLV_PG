@@ -33,6 +33,13 @@ func (m *MockWorkspaceRepository) GetByStudentAndSubject(ctx context.Context, st
 	return nil, nil
 }
 
+func (m *MockWorkspaceRepository) GetByID(ctx context.Context, id string) (*domain.WorkspaceInstance, error) {
+	if ws, exists := m.workspaces[id]; exists {
+		return ws, nil
+	}
+	return nil, nil
+}
+
 func (m *MockWorkspaceRepository) Create(ctx context.Context, workspace *domain.WorkspaceInstance) error {
 	key := workspace.StudentID + ":" + workspace.SubjectID
 	m.workspaces[key] = workspace
@@ -56,6 +63,51 @@ func (m *MockWorkspaceRepository) UpdateStatus(ctx context.Context, id string, s
 	return nil
 }
 
+func (m *MockWorkspaceRepository) UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error {
+	if ws, exists := m.workspaces[id]; exists {
+		ws.MemoryLimitMB = memoryMB
+		ws.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
+func (m *MockWorkspaceRepository) RecordHeartbeat(ctx context.Context, id string) error {
+	if ws, exists := m.workspaces[id]; exists {
+		ws.LastHeartbeatAt = time.Now()
+		ws.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
+func (m *MockWorkspaceRepository) IncrementOOMStrike(ctx context.Context, id string) error {
+	if ws, exists := m.workspaces[id]; exists {
+		ws.OOMStrikeCount++
+		now := time.Now()
+		ws.LastOOMKilledAt = &now
+		ws.Status = domain.WorkspaceStatusOOMKilled
+		ws.UpdatedAt = now
+	}
+	return nil
+}
+
+func (m *MockWorkspaceRepository) ResetOOMStrikes(ctx context.Context, id string) error {
+	if ws, exists := m.workspaces[id]; exists {
+		ws.OOMStrikeCount = 0
+		ws.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
+func (m *MockWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
+	var active []*domain.WorkspaceInstance
+	for _, ws := range m.workspaces {
+		if ws.Status == domain.WorkspaceStatusRunning || ws.Status == domain.WorkspaceStatusPending {
+			active = append(active, ws)
+		}
+	}
+	return active, nil
+}
+
 func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
@@ -69,7 +121,8 @@ func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 	}
 
 	repo := NewMockWorkspaceRepository()
-	service := services.NewWorkspaceService(repo, dockerClient)
+	healthyHostMonitor := &MockHostMonitor{FreePct: 50.0, AvailableMB: 8192}
+	service := services.NewWorkspaceService(repo, dockerClient, healthyHostMonitor)
 
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()
