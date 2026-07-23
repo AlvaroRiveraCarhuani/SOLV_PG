@@ -3,6 +3,8 @@ package system
 import (
 	"fmt"
 	"log"
+	"os"
+	"strconv"
 
 	"github.com/shirou/gopsutil/v3/mem"
 	"solv-backend/internal/core/domain"
@@ -46,6 +48,17 @@ func (h *GopsutilHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 		return false
 	}
 
+	// 1. Verificación por OOM_GUARD_MB (si se obtuvo del Auto-Tuner y existe en .env)
+	if guardEnv := os.Getenv("OOM_GUARD_MB"); guardEnv != "" {
+		if guardMB, parseErr := strconv.ParseUint(guardEnv, 10, 64); parseErr == nil && guardMB > 0 {
+			if availableMB < guardMB {
+				log.Printf("Admission Control Triggered (OOM_GUARD_MB): Host available RAM %d MB is below calibrated guard threshold %d MB", availableMB, guardMB)
+				return false
+			}
+		}
+	}
+
+	// 2. Verificación por porcentaje libre mínimo (fallback 15%)
 	if freePct < h.minFreePct {
 		log.Printf("Admission Control Triggered: Host available RAM is %.2f%% (< %.2f%% threshold). Available: %d MB", freePct, h.minFreePct, availableMB)
 		return false
