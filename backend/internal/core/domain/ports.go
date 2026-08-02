@@ -84,6 +84,7 @@ type WorkspaceRepository interface {
 	ResetOOMStrikes(ctx context.Context, id string) error
 	GetActiveWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
 	GetAllRunningWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
+	SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error
 }
 
 type WorkspaceOrchestrator interface {
@@ -94,4 +95,5 @@ type WorkspaceOrchestrator interface {
 	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
 	ListAllManagedContainers(ctx context.Context) ([]string, error)
+	RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error)
 }

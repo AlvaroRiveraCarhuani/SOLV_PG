@@ -171,3 +171,16 @@ func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Contex
 	return workspaces, nil
 }
 
+func (r *PostgresWorkspaceRepository) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
+	query := `
+		UPDATE workspaces
+		SET semgrep_audit = $1, updated_at = NOW()
+		WHERE id = $2
+	`
+	_, err := r.db.ExecContext(ctx, query, auditJSON, id)
+	if err != nil {
+		return fmt.Errorf("failed to save semgrep audit for workspace %s: %w", id, err)
+	}
+	return nil
+}
+

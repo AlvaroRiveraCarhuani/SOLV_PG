@@ -105,7 +105,12 @@ func (d *Database) RunInitialMigrations() error {
 	ADD COLUMN IF NOT EXISTS memory_limit_mb INT NOT NULL DEFAULT 256,
 	ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
 	ADD COLUMN IF NOT EXISTS last_oom_killed_at TIMESTAMPTZ,
-	ADD COLUMN IF NOT EXISTS oom_strike_count INT NOT NULL DEFAULT 0;`
+	ADD COLUMN IF NOT EXISTS oom_strike_count INT NOT NULL DEFAULT 0,
+	ADD COLUMN IF NOT EXISTS semgrep_audit JSONB DEFAULT '{}'::jsonb;`
+
+	alterLabInstancesQuery := `
+	ALTER TABLE lab_instances
+	ADD COLUMN IF NOT EXISTS semgrep_audit JSONB DEFAULT '{}'::jsonb;`
 
 	log.Println("Running initial database migrations...")
 
@@ -123,6 +128,10 @@ func (d *Database) RunInitialMigrations() error {
 
 	if _, err := d.db.Exec(labInstancesTableQuery); err != nil {
 		return fmt.Errorf("failed to create lab_instances table: %w", err)
+	}
+
+	if _, err := d.db.Exec(alterLabInstancesQuery); err != nil {
+		log.Printf("Notice: alter lab_instances query: %v", err)
 	}
 
 	d.db.Exec("DROP TABLE IF EXISTS exercises CASCADE")
