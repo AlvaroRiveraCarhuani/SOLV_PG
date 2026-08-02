@@ -93,37 +93,31 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 		return nil, fmt.Errorf("failed to ensure ICC-disabled docker network %s: %w", networkName, err)
 	}
 
-	// 7. Inyección de Dynamic Labels de Traefik v3
+	// 7. Inyección de Dynamic Labels de Traefik v3 (Puerto 3000 para OpenVSCode Server)
 	labels := map[string]string{
 		"traefik.enable": "true",
 		fmt.Sprintf("traefik.http.routers.%s.rule", workspaceID):                      fmt.Sprintf("Host(`%s.solv.local`)", workspaceID),
-		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", workspaceID): "8443",
+		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", workspaceID): "3000",
 	}
 
-	// 8. Configuración de seguridad del contenedor (linuxserver/code-server con AUTH=none y 256MB base)
+	// 8. Configuración del contenedor OpenVSCode Server (gitpod/openvscode-server sin token interno)
 	config := domain.WorkspaceContainerConfig{
-		Image:         "linuxserver/code-server:latest",
+		Image:         "gitpod/openvscode-server:latest",
 		ContainerName: containerName,
 		VolumeName:    volumeName,
 		MemoryLimitMB: domain.DefaultBaseMemoryMB,
 		NetworkName:   networkName,
 		Labels:        labels,
 		Env: []string{
-			"AUTH=none",
-			"PASSWORD=",
-			"SUDO_PASSWORD=",
-			"DEFAULT_WORKSPACE=/workspace",
-			"PUID=1000",
-			"PGID=1000",
-			"TZ=Etc/UTC",
+			"DONT_PROMPT_WSL_INSTALL=true",
 		},
 	}
 
-	// 9. Instanciación e inicio del contenedor code-server
+	// 9. Instanciación e inicio del contenedor OpenVSCode Server
 	containerID, err := s.docker.StartWorkspaceContainer(ctx, config)
 	if err != nil {
 		_ = s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusFailed)
-		return nil, fmt.Errorf("failed to start code-server container: %w", err)
+		return nil, fmt.Errorf("failed to start openvscode-server container: %w", err)
 	}
 
 	// 10. Actualización del registro en PostgreSQL a estado 'running'

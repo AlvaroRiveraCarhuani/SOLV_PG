@@ -135,7 +135,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 
 	hostConfig := &container.HostConfig{
 		Binds: []string{
-			fmt.Sprintf("%s:/workspace:rw", config.VolumeName),
+			fmt.Sprintf("%s:/home/workspace:rw", config.VolumeName),
 		},
 		Resources: container.Resources{
 			Memory: memLimit * 1024 * 1024,
@@ -147,6 +147,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		Image:  config.Image,
 		Labels: config.Labels,
 		Env:    config.Env,
+		Cmd:    []string{"--without-connection-token", "--host", "0.0.0.0"},
 	}
 
 	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
@@ -365,5 +366,82 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 	}
 
 	return managedIDs, nil
+}
+
+func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {
+	semgrepImage := "semgrep/semgrep:latest"
+
+	_, _, err := c.cli.ImageInspectWithRaw(ctx, semgrepImage)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			log.Printf("[Semgrep] Image %q not found. Pulling...", semgrepImage)
+			out, pullErr := c.cli.ImagePull(ctx, semgrepImage, image.PullOptions{})
+			if pullErr != nil {
+				return nil, fmt.Errorf("failed to pull semgrep image: %w", pullErr)
+			}
+			defer out.Close()
+			_, _ = io.Copy(io.Discard, out)
+		}
+	}
+
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/src:ro", volumeName), // Montaje de Solo Lectura estricto (ADR / Ticket 2)
+		},
+		AutoRemove: false,
+	}
+
+	containerConfig := &container.Config{
+		Image: semgrepImage,
+		Cmd:   []string{"semgrep", "scan", "--json", "--config", "auto", "/src"},
+	}
+
+	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create semgrep scanner container: %w", err)
+	}
+	containerID := resp.ID
+
+	// Garantizar eliminación limpia e inmediata del contenedor efímero
+	defer func() {
+		_ = c.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := c.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to start semgrep container: %w", err)
+	}
+
+	// Esperar finalización de la ejecución de Semgrep
+	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, fmt.Errorf("error waiting for semgrep container: %w", err)
+		}
+	case <-statusCh:
+	}
+
+	// Capturar Stdout del contenedor con la salida JSON
+	logsOpts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: false,
+	}
+	outStream, err := c.cli.ContainerLogs(ctx, containerID, logsOpts)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read semgrep container logs: %w", err)
+	}
+	defer outStream.Close()
+
+	outputBytes, err := io.ReadAll(outStream)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse semgrep log output stream: %w", err)
+	}
+
+	// Si Docker antepone cabeceras de stream (stdcopy), limpiar o retornar cuerpo
+	if len(outputBytes) > 8 && (outputBytes[0] == 1 || outputBytes[0] == 2) {
+		outputBytes = outputBytes[8:]
+	}
+
+	return outputBytes, nil
 }
 
