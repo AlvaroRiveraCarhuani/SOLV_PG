@@ -156,3 +156,18 @@ func (r *PostgresWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) (
 	}
 	return workspaces, nil
 }
+
+func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
+	query := `
+		SELECT id, student_id, subject_id, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, created_at, updated_at
+		FROM workspaces
+		WHERE status = 'running'
+	`
+	var workspaces []*domain.WorkspaceInstance
+	err := r.db.SelectContext(ctx, &workspaces, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get running workspaces: %w", err)
+	}
+	return workspaces, nil
+}
+

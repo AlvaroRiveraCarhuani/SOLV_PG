@@ -50,6 +50,17 @@ func (d *Database) RunInitialMigrations() error {
 		created_at TIMESTAMPTZ DEFAULT NOW()
 	);`
 
+	labTemplateProfilesTableQuery := `
+	CREATE TABLE IF NOT EXISTS lab_template_profiles (
+		signature_hash VARCHAR(64) PRIMARY KEY,
+		name VARCHAR(255) NOT NULL,
+		base_image VARCHAR(255) NOT NULL,
+		setup_script TEXT NOT NULL DEFAULT '',
+		resource_profile JSONB NOT NULL DEFAULT '{}'::jsonb,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);`
+
 	labInstancesTableQuery := `
 	CREATE TABLE IF NOT EXISTS lab_instances (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -104,6 +115,10 @@ func (d *Database) RunInitialMigrations() error {
 
 	if _, err := d.db.Exec(labTemplatesTableQuery); err != nil {
 		return fmt.Errorf("failed to create lab_templates table: %w", err)
+	}
+
+	if _, err := d.db.Exec(labTemplateProfilesTableQuery); err != nil {
+		return fmt.Errorf("failed to create lab_template_profiles table: %w", err)
 	}
 
 	if _, err := d.db.Exec(labInstancesTableQuery); err != nil {

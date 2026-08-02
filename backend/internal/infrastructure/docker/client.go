@@ -335,3 +335,35 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 
 	return maxRAM, nil
 }
+
+func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error) {
+	containers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list docker containers: %w", err)
+	}
+
+	var managedIDs []string
+	for _, cnt := range containers {
+		// Filtrar contenedores gestionados por SOLV (por label o por prefijo /solv-workspace-)
+		isSolvManaged := false
+		for _, name := range cnt.Names {
+			if len(name) > 0 && (name[0] == '/' && (len(name) > 16 && name[1:16] == "solv-workspace-") || (len(name) > 15 && name[0:15] == "solv-workspace-")) {
+				isSolvManaged = true
+				break
+			}
+		}
+
+		if !isSolvManaged {
+			if cnt.Labels != nil && (cnt.Labels["solv.managed"] == "true" || cnt.Labels["traefik.enable"] == "true") {
+				isSolvManaged = true
+			}
+		}
+
+		if isSolvManaged {
+			managedIDs = append(managedIDs, cnt.ID)
+		}
+	}
+
+	return managedIDs, nil
+}
+
