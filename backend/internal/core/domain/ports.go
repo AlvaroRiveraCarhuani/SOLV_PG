@@ -31,6 +31,17 @@ type TemplateRepository interface {
 	GetTemplateByID(ctx context.Context, id string) (*Template, error)
 }
 
+type LabTemplateRepository interface {
+	GetBySignatureHash(ctx context.Context, signatureHash string) (*LabTemplate, error)
+	CreateOrUpdateProfile(ctx context.Context, template *LabTemplate) error
+	UpdateProfileAtomic(ctx context.Context, signatureHash string, sampleMB float64) (*LabTemplate, error)
+}
+
+type EWMAProfilerService interface {
+	CalculateSignatureHash(baseImage string, setupScript string) string
+	RecordSessionPeakAndRecalculate(ctx context.Context, baseImage string, setupScript string, peakRAMMB float64) (*ResourceProfile, error)
+}
+
 type ExerciseRepository interface {
 	GetByID(ctx context.Context, id string) (*Exercise, error)
 	Create(ctx context.Context, exercise *Exercise) error
@@ -72,6 +83,7 @@ type WorkspaceRepository interface {
 	IncrementOOMStrike(ctx context.Context, id string) error
 	ResetOOMStrikes(ctx context.Context, id string) error
 	GetActiveWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
+	GetAllRunningWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
 }
 
 type WorkspaceOrchestrator interface {
@@ -81,4 +93,5 @@ type WorkspaceOrchestrator interface {
 	UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error
 	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
+	ListAllManagedContainers(ctx context.Context) ([]string, error)
 }
