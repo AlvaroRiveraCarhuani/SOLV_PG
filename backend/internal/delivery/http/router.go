@@ -7,7 +7,6 @@ import (
 type Handlers struct {
 	UserHandler       *UserHandler
 	TemplateHandler   *TemplateHandler
-	LabHandler        *LabHandler
 	AuthHandler       *AuthHandler
 	EvaluationHandler *EvaluationHandler
 	WorkspaceHandler  *WorkspaceHandler
@@ -17,7 +16,6 @@ type Handlers struct {
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerUserRoutes(mux, deps.UserHandler)
 	registerTemplateRoutes(mux, deps.TemplateHandler)
-	registerLabRoutes(mux, deps.LabHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler)
 	registerWorkspaceRoutes(mux, deps.WorkspaceHandler)
@@ -33,11 +31,6 @@ func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
 	mux.HandleFunc("GET /api/v1/templates", h.GetAll)
 }
 
-func registerLabRoutes(mux *http.ServeMux, h *LabHandler) {
-	mux.Handle("POST /api/v1/labs/start", WithAuth(http.HandlerFunc(h.Start)))
-	mux.Handle("DELETE /api/v1/labs/{id}", WithAuth(http.HandlerFunc(h.Delete)))
-}
-
 func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 	mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
 	mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
@@ -49,6 +42,8 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler) {
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler) {
 	mux.Handle("POST /api/v1/workspaces/start", WithAuth(http.HandlerFunc(h.StartWorkspace)))
+	mux.Handle("DELETE /api/v1/workspaces/{id}", WithAuth(http.HandlerFunc(h.TerminateWorkspace)))
+	mux.Handle("GET /api/v1/workspaces/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
 	mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
 	mux.Handle("POST /api/v1/workspaces/{id}/restart", WithAuth(http.HandlerFunc(h.RestartWorkspace)))
 }

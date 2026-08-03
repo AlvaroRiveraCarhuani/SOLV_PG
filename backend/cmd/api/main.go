@@ -45,12 +45,9 @@ func main() {
 
 	hostMonitor := system.NewGopsutilHostMonitor(15.0)
 
-	labInstanceRepo := postgres.NewPostgresLabInstanceRepository(db.GetDB())
-	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
 
-	labService := services.NewLabService(labInstanceRepo, templateRepo, dockerClient)
 	authService := services.NewAuthService(db)
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
@@ -58,10 +55,13 @@ func main() {
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, dockerRunner)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
 
+	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
+
 	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	qosWorker.Start(ctx)
+	go zombieCollector.Start(ctx)
 
 	v := validator.New()
 
@@ -69,9 +69,9 @@ func main() {
 		UserHandler:       httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:   httpdelivery.NewTemplateHandler(db, v),
 		AuthHandler:       httpdelivery.NewAuthHandler(authService),
-		LabHandler:        httpdelivery.NewLabHandler(labService, v),
 		EvaluationHandler: httpdelivery.NewEvaluationHandler(evaluationService, v),
 		WorkspaceHandler:  httpdelivery.NewWorkspaceHandler(workspaceService, v),
+		MetricsHandler:    httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
 	}
 
 	mux := http.NewServeMux()

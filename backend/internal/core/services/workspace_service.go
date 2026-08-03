@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -190,4 +191,27 @@ func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID str
 	}
 
 	return s.StartWorkspace(ctx, ws.StudentID, ws.SubjectID)
+}
+
+func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID string) error {
+	ws, err := s.repo.GetByID(ctx, workspaceID)
+	if err != nil {
+		return fmt.Errorf("workspace not found: %w", err)
+	}
+
+	if ws.ContainerID != nil && *ws.ContainerID != "" {
+		if err := s.docker.StopAndRemoveContainer(ctx, *ws.ContainerID); err != nil {
+			log.Printf("[WorkspaceService] Warning: error stopping container %s: %v", *ws.ContainerID, err)
+		}
+	}
+
+	return s.repo.UpdateStatus(ctx, workspaceID, "terminated")
+}
+
+func (s *WorkspaceService) GetSemgrepAudit(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
+	ws, err := s.repo.GetByID(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("workspace not found: %w", err)
+	}
+	return ws, nil
 }

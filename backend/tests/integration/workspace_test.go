@@ -108,6 +108,24 @@ func (m *MockWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) ([]*d
 	return active, nil
 }
 
+func (m *MockWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
+	var running []*domain.WorkspaceInstance
+	for _, ws := range m.workspaces {
+		if ws.Status == domain.WorkspaceStatusRunning {
+			running = append(running, ws)
+		}
+	}
+	return running, nil
+}
+
+func (m *MockWorkspaceRepository) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
+	if ws, exists := m.workspaces[id]; exists {
+		ws.SemgrepAudit = auditJSON
+		ws.UpdatedAt = time.Now()
+	}
+	return nil
+}
+
 func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
@@ -177,10 +195,10 @@ func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 		t.Errorf("Expected label %s='%s', got '%s'", ruleKey, expectedRule, inspect.Config.Labels[ruleKey])
 	}
 
-	// Verificar puerto del servicio Traefik (8443)
+	// Verificar puerto del servicio Traefik (3000)
 	portKey := "traefik.http.services." + ws1.ID + ".loadbalancer.server.port"
-	if inspect.Config.Labels[portKey] != "8443" {
-		t.Errorf("Expected label %s='8443', got '%s'", portKey, inspect.Config.Labels[portKey])
+	if inspect.Config.Labels[portKey] != "3000" {
+		t.Errorf("Expected label %s='3000', got '%s'", portKey, inspect.Config.Labels[portKey])
 	}
 
 	// 4. Inspección de la Red Docker deshabilitada ICC

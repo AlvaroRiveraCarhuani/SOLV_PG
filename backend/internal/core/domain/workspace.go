@@ -31,6 +31,7 @@ type WorkspaceInstance struct {
 	LastHeartbeatAt time.Time  `db:"last_heartbeat_at" json:"last_heartbeat_at"`
 	LastOOMKilledAt *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 	OOMStrikeCount  int        `db:"oom_strike_count" json:"oom_strike_count"`
+	SemgrepAudit    []byte     `db:"semgrep_audit" json:"semgrep_audit,omitempty"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
 }

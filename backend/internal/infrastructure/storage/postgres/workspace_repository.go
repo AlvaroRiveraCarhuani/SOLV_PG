@@ -19,7 +19,7 @@ func NewPostgresWorkspaceRepository(db *sqlx.DB) domain.WorkspaceRepository {
 
 func (r *PostgresWorkspaceRepository) GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
 	query := `
-		SELECT id, student_id, subject_id, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, created_at, updated_at
+		SELECT id, student_id, subject_id, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, created_at, updated_at
 		FROM workspaces
 		WHERE student_id = $1 AND subject_id = $2
 	`
@@ -33,7 +33,7 @@ func (r *PostgresWorkspaceRepository) GetByStudentAndSubject(ctx context.Context
 
 func (r *PostgresWorkspaceRepository) GetByID(ctx context.Context, id string) (*domain.WorkspaceInstance, error) {
 	query := `
-		SELECT id, student_id, subject_id, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, created_at, updated_at
+		SELECT id, student_id, subject_id, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, created_at, updated_at
 		FROM workspaces
 		WHERE id = $1
 	`

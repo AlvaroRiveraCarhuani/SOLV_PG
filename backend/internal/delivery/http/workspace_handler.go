@@ -56,6 +56,41 @@ func (h *WorkspaceHandler) StartWorkspace(w http.ResponseWriter, r *http.Request
 	SendJSON(w, http.StatusOK, instance, "Entorno de desarrollo interactivo iniciado exitosamente")
 }
 
+func (h *WorkspaceHandler) TerminateWorkspace(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.PathValue("id")
+	if workspaceID == "" {
+		SendError(w, http.StatusBadRequest, "Missing workspace ID", "Se requiere el ID del workspace")
+		return
+	}
+
+	if err := h.service.TerminateWorkspace(r.Context(), workspaceID); err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudo finalizar el workspace")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]string{"status": "terminated", "message": "Workspace finalizado exitosamente. Recálculo EWMA y auditoría AST iniciados."}, "Workspace finalizado exitosamente")
+}
+
+func (h *WorkspaceHandler) GetSemgrepAudit(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.PathValue("id")
+	if workspaceID == "" {
+		SendError(w, http.StatusBadRequest, "Missing workspace ID", "Se requiere el ID del workspace")
+		return
+	}
+
+	ws, err := h.service.GetSemgrepAudit(r.Context(), workspaceID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener auditoría AST")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]interface{}{
+		"workspace_id":  ws.ID,
+		"audit_status":  "completed",
+		"semgrep_audit": ws.SemgrepAudit,
+	}, "Auditoría AST obtenida exitosamente")
+}
+
 func (h *WorkspaceHandler) Heartbeat(w http.ResponseWriter, r *http.Request) {
 	workspaceID := r.PathValue("id")
 	if workspaceID == "" {

@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"solv-backend/internal/domain"
 
@@ -39,12 +40,47 @@ func (h *TemplateHandler) Create(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusCreated, map[string]string{"id": id}, "Plantilla creada exitosamente")
 }
 
+type PaginationMeta struct {
+	Total int `json:"total"`
+	Page  int `json:"page"`
+	Limit int `json:"limit"`
+}
+
+type PaginatedResponse struct {
+	Data interface{}    `json:"data"`
+	Meta PaginationMeta `json:"meta"`
+}
+
 func (h *TemplateHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page := 1
+	if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+		page = p
+	}
+
+	limit := 10
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
+		limit = l
+	}
+
 	templates, err := h.repo.GetAllTemplates(r.Context())
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudieron obtener las plantillas")
 		return
 	}
 
-	SendJSON(w, http.StatusOK, templates, "Plantillas obtenidas exitosamente")
+	total := len(templates)
+
+	response := PaginatedResponse{
+		Data: templates,
+		Meta: PaginationMeta{
+			Total: total,
+			Page:  page,
+			Limit: limit,
+		},
+	}
+
+	SendJSON(w, http.StatusOK, response, "Plantillas obtenidas exitosamente")
 }
