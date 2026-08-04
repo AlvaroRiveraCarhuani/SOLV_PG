@@ -1,0 +1,1 @@
+Filtro AST, motor I/O con Docker SDK y generación de veredictos.
