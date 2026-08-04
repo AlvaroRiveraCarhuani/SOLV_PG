@@ -9,6 +9,9 @@ const (
 	WorkspaceStatusOOMKilled  = "oom_killed"
 	WorkspaceStatusFailed     = "failed"
 
+	WorkspaceTypeIDEPersistente = "IDE_PERSISTENTE"
+	WorkspaceTypeJuezEfimero    = "JUEZ_EFIMERO"
+
 	DefaultBaseMemoryMB int64   = 256
 	HardQuotaMemoryMB   int64   = 2048
 	MinHostFreeRAMPct   float64 = 15.0 // Porcentaje mínimo de RAM libre en el Host
@@ -24,6 +27,7 @@ type WorkspaceInstance struct {
 	ID              string     `db:"id" json:"workspace_id"`
 	StudentID       string     `db:"student_id" json:"student_id"`
 	SubjectID       string     `db:"subject_id" json:"subject_id"`
+	Type            string     `db:"type" json:"type"`
 	ContainerID     *string    `db:"container_id" json:"-"`
 	Status          string     `db:"status" json:"status"`
 	AccessURL       string     `db:"access_url" json:"access_url"`

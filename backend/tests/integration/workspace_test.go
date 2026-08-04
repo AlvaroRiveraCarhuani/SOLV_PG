@@ -118,6 +118,18 @@ func (m *MockWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Context) (
 	return running, nil
 }
 
+func (m *MockWorkspaceRepository) GetByType(ctx context.Context, workspaceType string) ([]*domain.WorkspaceInstance, error) {
+	seen := make(map[string]bool)
+	var result []*domain.WorkspaceInstance
+	for _, ws := range m.workspaces {
+		if ws.Type == workspaceType && !seen[ws.ID] {
+			seen[ws.ID] = true
+			result = append(result, ws)
+		}
+	}
+	return result, nil
+}
+
 func (m *MockWorkspaceRepository) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
 	if ws, exists := m.workspaces[id]; exists {
 		ws.SemgrepAudit = auditJSON

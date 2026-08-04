@@ -84,6 +84,7 @@ type WorkspaceRepository interface {
 	ResetOOMStrikes(ctx context.Context, id string) error
 	GetActiveWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
 	GetAllRunningWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
+	GetByType(ctx context.Context, workspaceType string) ([]*WorkspaceInstance, error)
 	SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error
 }
 

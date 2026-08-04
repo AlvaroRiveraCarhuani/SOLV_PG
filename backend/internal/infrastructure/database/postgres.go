@@ -61,19 +61,6 @@ func (d *Database) RunInitialMigrations() error {
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);`
 
-	labInstancesTableQuery := `
-	CREATE TABLE IF NOT EXISTS lab_instances (
-		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-		user_id UUID NOT NULL,
-		template_id UUID NOT NULL,
-		container_id VARCHAR(255),
-		status VARCHAR(50) NOT NULL,
-		ram_limit_mb INT NOT NULL,
-		last_active_at TIMESTAMPTZ DEFAULT NOW(),
-		created_at TIMESTAMPTZ DEFAULT NOW(),
-		updated_at TIMESTAMPTZ DEFAULT NOW()
-	);`
-
 	exercisesTableQuery := `
 	CREATE TABLE IF NOT EXISTS exercises (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -89,28 +76,40 @@ func (d *Database) RunInitialMigrations() error {
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		student_id UUID NOT NULL,
 		subject_id UUID NOT NULL,
+		type VARCHAR(50) NOT NULL DEFAULT 'IDE_PERSISTENTE',
 		container_id VARCHAR(255),
 		status VARCHAR(50) NOT NULL DEFAULT 'pending',
-		access_url TEXT NOT NULL,
+		access_url TEXT NOT NULL DEFAULT '',
 		memory_limit_mb INT NOT NULL DEFAULT 256,
 		last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
 		last_oom_killed_at TIMESTAMPTZ,
 		oom_strike_count INT NOT NULL DEFAULT 0,
+		semgrep_audit JSONB DEFAULT '{}'::jsonb,
 		created_at TIMESTAMPTZ DEFAULT NOW(),
 		updated_at TIMESTAMPTZ DEFAULT NOW()
 	);`
 
 	alterWorkspacesQuery := `
 	ALTER TABLE workspaces 
+	ADD COLUMN IF NOT EXISTS type VARCHAR(50) NOT NULL DEFAULT 'IDE_PERSISTENTE',
 	ADD COLUMN IF NOT EXISTS memory_limit_mb INT NOT NULL DEFAULT 256,
 	ADD COLUMN IF NOT EXISTS last_heartbeat_at TIMESTAMPTZ DEFAULT NOW(),
 	ADD COLUMN IF NOT EXISTS last_oom_killed_at TIMESTAMPTZ,
 	ADD COLUMN IF NOT EXISTS oom_strike_count INT NOT NULL DEFAULT 0,
 	ADD COLUMN IF NOT EXISTS semgrep_audit JSONB DEFAULT '{}'::jsonb;`
 
-	alterLabInstancesQuery := `
-	ALTER TABLE lab_instances
-	ADD COLUMN IF NOT EXISTS semgrep_audit JSONB DEFAULT '{}'::jsonb;`
+	migrateLabInstancesQuery := `
+	DO $$ 
+	BEGIN
+		IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'lab_instances') THEN
+			INSERT INTO workspaces (id, student_id, subject_id, container_id, status, type, access_url, memory_limit_mb, semgrep_audit, created_at, updated_at)
+			SELECT id, user_id, template_id, container_id, status, 'JUEZ_EFIMERO', '', ram_limit_mb, semgrep_audit, created_at, updated_at
+			FROM lab_instances
+			ON CONFLICT (id) DO NOTHING;
+			
+			DROP TABLE lab_instances CASCADE;
+		END IF;
+	END $$;`
 
 	log.Println("Running initial database migrations...")
 
@@ -126,14 +125,6 @@ func (d *Database) RunInitialMigrations() error {
 		return fmt.Errorf("failed to create lab_template_profiles table: %w", err)
 	}
 
-	if _, err := d.db.Exec(labInstancesTableQuery); err != nil {
-		return fmt.Errorf("failed to create lab_instances table: %w", err)
-	}
-
-	if _, err := d.db.Exec(alterLabInstancesQuery); err != nil {
-		log.Printf("Notice: alter lab_instances query: %v", err)
-	}
-
 	d.db.Exec("DROP TABLE IF EXISTS exercises CASCADE")
 	if _, err := d.db.Exec(exercisesTableQuery); err != nil {
 		return fmt.Errorf("failed to create exercises table: %w", err)
@@ -145,6 +136,10 @@ func (d *Database) RunInitialMigrations() error {
 
 	if _, err := d.db.Exec(alterWorkspacesQuery); err != nil {
 		log.Printf("Notice: alter workspaces query: %v", err)
+	}
+
+	if _, err := d.db.Exec(migrateLabInstancesQuery); err != nil {
+		log.Printf("Notice: migrate lab_instances query: %v", err)
 	}
 
 	// Semillas para ejercicios de prueba (Algoritmia & BD)
