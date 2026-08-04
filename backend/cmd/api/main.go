@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/docker/docker/client"
@@ -12,6 +13,7 @@ import (
 
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
+	"solv-backend/internal/delivery/http/middleware"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/docker"
 	"solv-backend/internal/infrastructure/storage/postgres"
@@ -47,8 +49,9 @@ func main() {
 
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
+	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 
-	authService := services.NewAuthService(db)
+	authService := services.NewAuthService(db, tenantRepo)
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
@@ -65,6 +68,9 @@ func main() {
 
 	v := validator.New()
 
+	jwtSecret := strings.Trim(strings.TrimSpace(os.Getenv("JWT_SECRET")), `"`)
+	tenantMiddleware := middleware.WithTenant(tenantRepo, []byte(jwtSecret))
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:       httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:   httpdelivery.NewTemplateHandler(db, v),
@@ -72,6 +78,8 @@ func main() {
 		EvaluationHandler: httpdelivery.NewEvaluationHandler(evaluationService, v),
 		WorkspaceHandler:  httpdelivery.NewWorkspaceHandler(workspaceService, v),
 		MetricsHandler:    httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
+		ConfigHandler:     httpdelivery.NewConfigHandler(tenantRepo),
+		TenantMiddleware:  tenantMiddleware,
 	}
 
 	mux := http.NewServeMux()

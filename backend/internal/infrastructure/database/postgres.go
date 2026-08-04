@@ -142,9 +142,84 @@ func (d *Database) RunInitialMigrations() error {
 		log.Printf("Notice: migrate lab_instances query: %v", err)
 	}
 
+	// Migraciones de Multi-tenancy (Orden crítico de ejecución)
+	multitenancyMigrationQuery := `
+	-- 1. Crear tabla tenants
+	CREATE TABLE IF NOT EXISTS tenants (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		name VARCHAR(255) NOT NULL,
+		slug VARCHAR(100) UNIQUE NOT NULL,
+		allowed_domains JSONB NOT NULL DEFAULT '["@uab.edu.bo"]'::jsonb,
+		config JSONB DEFAULT '{}'::jsonb,
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
+	-- Seed UAB
+	INSERT INTO tenants (id, name, slug, allowed_domains, config) VALUES (
+		'00000000-0000-0000-0000-000000000001',
+		'Universidad Adventista de Bolivia',
+		'uab',
+		'["@uab.edu.bo"]'::jsonb,
+		'{"institution_name": "Universidad Adventista de Bolivia", "logo_url": "/assets/uab-logo.png", "base_domain": "solv.uab.edu.bo", "support_email": "soporte.solv@uab.edu.bo"}'::jsonb
+	) ON CONFLICT (id) DO NOTHING;
+
+	-- 2. Añadir tenant_id como NULLABLE
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS tenant_id UUID;
+	ALTER TABLE lab_template_profiles ADD COLUMN IF NOT EXISTS tenant_id UUID;
+	ALTER TABLE exercises ADD COLUMN IF NOT EXISTS tenant_id UUID;
+	ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS tenant_id UUID;
+
+	-- 3. UPDATE masivo para registros existentes al tenant UAB
+	UPDATE users SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+	UPDATE lab_templates SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+	UPDATE lab_template_profiles SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+	UPDATE exercises SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+	UPDATE workspaces SET tenant_id = '00000000-0000-0000-0000-000000000001' WHERE tenant_id IS NULL;
+
+	-- 4. ALTER COLUMN tenant_id SET NOT NULL
+	ALTER TABLE users ALTER COLUMN tenant_id SET NOT NULL;
+	ALTER TABLE lab_templates ALTER COLUMN tenant_id SET NOT NULL;
+	ALTER TABLE lab_template_profiles ALTER COLUMN tenant_id SET NOT NULL;
+	ALTER TABLE exercises ALTER COLUMN tenant_id SET NOT NULL;
+	ALTER TABLE workspaces ALTER COLUMN tenant_id SET NOT NULL;
+
+	-- 5. Añadir foreign keys con ON DELETE RESTRICT
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_users_tenant') THEN
+			ALTER TABLE users ADD CONSTRAINT fk_users_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT;
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_lab_templates_tenant') THEN
+			ALTER TABLE lab_templates ADD CONSTRAINT fk_lab_templates_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT;
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_lab_template_profiles_tenant') THEN
+			ALTER TABLE lab_template_profiles ADD CONSTRAINT fk_lab_template_profiles_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT;
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_exercises_tenant') THEN
+			ALTER TABLE exercises ADD CONSTRAINT fk_exercises_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT;
+		END IF;
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_workspaces_tenant') THEN
+			ALTER TABLE workspaces ADD CONSTRAINT fk_workspaces_tenant FOREIGN KEY (tenant_id) REFERENCES tenants(id) ON DELETE RESTRICT;
+		END IF;
+	END $$;
+
+	-- 6. Crear índices en columnas tenant_id
+	CREATE INDEX IF NOT EXISTS idx_users_tenant_id ON users(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_tenant_id ON lab_templates(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_lab_template_profiles_tenant_id ON lab_template_profiles(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_exercises_tenant_id ON exercises(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_workspaces_tenant_id ON workspaces(tenant_id);
+	`
+
+	if _, err := d.db.Exec(multitenancyMigrationQuery); err != nil {
+		return fmt.Errorf("failed to run multitenancy migration: %w", err)
+	}
+
 	// Semillas para ejercicios de prueba (Algoritmia & BD)
 	seedAlgoQuery := `
-	INSERT INTO exercises (id, title, description, type, config)
+	INSERT INTO exercises (id, title, description, type, config, tenant_id)
 	VALUES (
 		'e1e1e1e1-e1e1-4e1e-a1e1-e1e1e1e1e1e1',
 		'Suma de Dos Números',
@@ -163,11 +238,12 @@ func (d *Database) RunInitialMigrations() error {
 					"forbidden_functions": ["eval", "exec", "open"]
 				}
 			}
-		}'::jsonb
+		}'::jsonb,
+		'00000000-0000-0000-0000-000000000001'
 	) ON CONFLICT (id) DO NOTHING;`
 
 	seedDBQuery := `
-	INSERT INTO exercises (id, title, description, type, config)
+	INSERT INTO exercises (id, title, description, type, config, tenant_id)
 	VALUES (
 		'd2d2d2d2-d2d2-4d2d-b2d2-d2d2d2d2d2d2',
 		'Actualización de Saldo Bancario',
@@ -183,7 +259,8 @@ func (d *Database) RunInitialMigrations() error {
 				"time_limit_ms": 5000,
 				"memory_limit_mb": 256
 			}
-		}'::jsonb
+		}'::jsonb,
+		'00000000-0000-0000-0000-000000000001'
 	) ON CONFLICT (id) DO NOTHING;`
 
 	if _, err := d.db.Exec(seedAlgoQuery); err != nil {

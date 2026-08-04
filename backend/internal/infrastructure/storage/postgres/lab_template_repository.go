@@ -26,18 +26,20 @@ type labTemplateProfileRow struct {
 	BaseImage       string    `db:"base_image"`
 	SetupScript     string    `db:"setup_script"`
 	ResourceProfile []byte    `db:"resource_profile"`
+	TenantID        string    `db:"tenant_id"`
 	CreatedAt       time.Time `db:"created_at"`
 	UpdatedAt       time.Time `db:"updated_at"`
 }
 
 func (r *PostgresLabTemplateRepository) GetBySignatureHash(ctx context.Context, signatureHash string) (*domain.LabTemplate, error) {
+	tenantID := domain.GetTenantID(ctx)
 	query := `
-	SELECT signature_hash, name, base_image, setup_script, resource_profile, created_at, updated_at
+	SELECT signature_hash, name, base_image, setup_script, resource_profile, tenant_id, created_at, updated_at
 	FROM lab_template_profiles
-	WHERE signature_hash = $1;`
+	WHERE signature_hash = $1 AND tenant_id = $2;`
 
 	var row labTemplateProfileRow
-	if err := r.db.GetContext(ctx, &row, query, signatureHash); err != nil {
+	if err := r.db.GetContext(ctx, &row, query, signatureHash, tenantID); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil
 		}
@@ -58,6 +60,7 @@ func (r *PostgresLabTemplateRepository) GetBySignatureHash(ctx context.Context, 
 		SetupScript:     row.SetupScript,
 		SignatureHash:   row.SignatureHash,
 		ResourceProfile: profile,
+		TenantID:        row.TenantID,
 		CreatedAt:       row.CreatedAt,
 		UpdatedAt:       row.UpdatedAt,
 	}, nil
@@ -69,15 +72,20 @@ func (r *PostgresLabTemplateRepository) CreateOrUpdateProfile(ctx context.Contex
 		return fmt.Errorf("failed to marshal resource profile: %w", err)
 	}
 
+	tenantID := domain.GetTenantID(ctx)
+	if template.TenantID == "" {
+		template.TenantID = tenantID
+	}
+
 	query := `
-	INSERT INTO lab_template_profiles (signature_hash, name, base_image, setup_script, resource_profile, created_at, updated_at)
-	VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+	INSERT INTO lab_template_profiles (signature_hash, name, base_image, setup_script, resource_profile, tenant_id, created_at, updated_at)
+	VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 	ON CONFLICT (signature_hash) DO UPDATE SET
 		name = EXCLUDED.name,
 		resource_profile = EXCLUDED.resource_profile,
 		updated_at = NOW();`
 
-	_, err = r.db.ExecContext(ctx, query, template.SignatureHash, template.Name, template.BaseImage, template.SetupScript, profileJSON)
+	_, err = r.db.ExecContext(ctx, query, template.SignatureHash, template.Name, template.BaseImage, template.SetupScript, profileJSON, template.TenantID)
 	if err != nil {
 		return fmt.Errorf("failed to upsert lab template profile: %w", err)
 	}
@@ -93,14 +101,15 @@ func (r *PostgresLabTemplateRepository) UpdateProfileAtomic(ctx context.Context,
 	}
 	defer tx.Rollback()
 
+	tenantID := domain.GetTenantID(ctx)
 	query := `
-	SELECT signature_hash, name, base_image, setup_script, resource_profile, created_at, updated_at
+	SELECT signature_hash, name, base_image, setup_script, resource_profile, tenant_id, created_at, updated_at
 	FROM lab_template_profiles
-	WHERE signature_hash = $1
+	WHERE signature_hash = $1 AND tenant_id = $2
 	FOR UPDATE;`
 
 	var row labTemplateProfileRow
-	if err := tx.GetContext(ctx, &row, query, signatureHash); err != nil {
+	if err := tx.GetContext(ctx, &row, query, signatureHash, tenantID); err != nil {
 		return nil, fmt.Errorf("failed to lock profile for update: %w", err)
 	}
 
@@ -139,9 +148,9 @@ func (r *PostgresLabTemplateRepository) UpdateProfileAtomic(ctx context.Context,
 	updateQuery := `
 	UPDATE lab_template_profiles
 	SET resource_profile = $1, updated_at = NOW()
-	WHERE signature_hash = $2;`
+	WHERE signature_hash = $2 AND tenant_id = $3;`
 
-	if _, err := tx.ExecContext(ctx, updateQuery, profileJSON, signatureHash); err != nil {
+	if _, err := tx.ExecContext(ctx, updateQuery, profileJSON, signatureHash, tenantID); err != nil {
 		return nil, fmt.Errorf("failed to execute EWMA atomic update: %w", err)
 	}
 
@@ -156,6 +165,7 @@ func (r *PostgresLabTemplateRepository) UpdateProfileAtomic(ctx context.Context,
 		SetupScript:     row.SetupScript,
 		SignatureHash:   row.SignatureHash,
 		ResourceProfile: profile,
+		TenantID:        row.TenantID,
 		CreatedAt:       row.CreatedAt,
 		UpdatedAt:       row.UpdatedAt,
 	}, nil

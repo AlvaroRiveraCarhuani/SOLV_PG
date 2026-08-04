@@ -98,3 +98,10 @@ type WorkspaceOrchestrator interface {
 	ListAllManagedContainers(ctx context.Context) ([]string, error)
 	RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error)
 }
+
+type TenantRepository interface {
+	GetByID(ctx context.Context, id string) (*Tenant, error)
+	GetBySlug(ctx context.Context, slug string) (*Tenant, error)
+	GetAll(ctx context.Context) ([]*Tenant, error)
+}
+

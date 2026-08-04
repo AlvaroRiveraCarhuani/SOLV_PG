@@ -36,6 +36,7 @@ type WorkspaceInstance struct {
 	LastOOMKilledAt *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 	OOMStrikeCount  int        `db:"oom_strike_count" json:"oom_strike_count"`
 	SemgrepAudit    []byte     `db:"semgrep_audit" json:"semgrep_audit,omitempty"`
+	TenantID        string     `db:"tenant_id" json:"tenant_id"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
 }
@@ -81,6 +82,7 @@ type LabTemplate struct {
 	SetupScript     string          `db:"setup_script" json:"setup_script"`
 	SignatureHash   string          `db:"signature_hash" json:"signature_hash"`
 	ResourceProfile ResourceProfile `json:"resource_profile"`
+	TenantID        string          `db:"tenant_id" json:"tenant_id"`
 	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time       `db:"updated_at" json:"updated_at"`
 }

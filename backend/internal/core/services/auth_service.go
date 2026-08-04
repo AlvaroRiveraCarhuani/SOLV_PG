@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	coredomain "solv-backend/internal/core/domain"
 	"solv-backend/internal/domain"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -25,11 +26,12 @@ var (
 
 type AuthService struct {
 	repo        domain.UserRepository
+	tenantRepo  coredomain.TenantRepository
 	oauthConfig *oauth2.Config
 	jwtSecret   []byte
 }
 
-func NewAuthService(repo domain.UserRepository) *AuthService {
+func NewAuthService(repo domain.UserRepository, tenantRepo coredomain.TenantRepository) *AuthService {
 	cleanEnv := func(key string) string {
 		return strings.Trim(strings.TrimSpace(os.Getenv(key)), `"`)
 	}
@@ -56,6 +58,7 @@ func NewAuthService(repo domain.UserRepository) *AuthService {
 
 	return &AuthService{
 		repo:        repo,
+		tenantRepo:  tenantRepo,
 		oauthConfig: config,
 		jwtSecret:   []byte(jwtSecret),
 	}
@@ -94,8 +97,32 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 		return "", fmt.Errorf("failed to unmarshal user data: %w", err)
 	}
 
-	if !strings.HasSuffix(googleUser.Email, "@uab.edu.bo") {
-		return "", errors.New("unauthorized: email must end with @uab.edu.bo")
+	// 1. Obtener todos los tenants para validar el email de forma dinámica
+	tenants, err := s.tenantRepo.GetAll(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch tenants: %w", err)
+	}
+
+	var matchedTenant *coredomain.Tenant
+	for _, tenant := range tenants {
+		var domains []string
+		if len(tenant.AllowedDomains) > 0 {
+			if err := json.Unmarshal(tenant.AllowedDomains, &domains); err == nil {
+				for _, dom := range domains {
+					if strings.HasSuffix(googleUser.Email, dom) {
+						matchedTenant = tenant
+						break
+					}
+				}
+			}
+		}
+		if matchedTenant != nil {
+			break
+		}
+	}
+
+	if matchedTenant == nil {
+		return "", errors.New("unauthorized: email domain not allowed by any registered tenant")
 	}
 
 	user, err := s.repo.GetUserByEmail(ctx, googleUser.Email)
@@ -107,6 +134,7 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 				LastName:  googleUser.FamilyName,
 				Email:     googleUser.Email,
 				Role:      "student", // Default role
+				TenantID:  matchedTenant.ID,
 			}
 			id, createErr := s.repo.CreateUserFromSSO(ctx, newUser)
 			if createErr != nil {
@@ -119,12 +147,13 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 		}
 	}
 
-	// Generate JWT token
+	// Generate JWT token including tenant_id claim
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"user_id": user.ID,
-		"email":   user.Email,
-		"role":    user.Role,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+		"user_id":   user.ID,
+		"email":     user.Email,
+		"role":      user.Role,
+		"tenant_id": user.TenantID,
+		"exp":       time.Now().Add(24 * time.Hour).Unix(),
 	})
 
 	tokenString, err := jwtToken.SignedString(s.jwtSecret)

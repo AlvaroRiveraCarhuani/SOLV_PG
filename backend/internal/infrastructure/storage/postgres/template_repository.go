@@ -19,9 +19,10 @@ func NewPostgresTemplateRepository(db *sqlx.DB) *PostgresTemplateRepository {
 }
 
 func (r *PostgresTemplateRepository) GetTemplateByID(ctx context.Context, id string) (*domain.Template, error) {
-	query := `SELECT id, name, docker_image, base_ram_mb FROM lab_templates WHERE id = $1`
+	tenantID := domain.GetTenantID(ctx)
+	query := `SELECT id, name, docker_image, base_ram_mb FROM lab_templates WHERE id = $1 AND tenant_id = $2`
 	var t domain.Template
-	err := r.db.QueryRowContext(ctx, query, id).Scan(&t.ID, &t.Name, &t.DockerImage, &t.BaseRamMB)
+	err := r.db.QueryRowContext(ctx, query, id, tenantID).Scan(&t.ID, &t.Name, &t.DockerImage, &t.BaseRamMB)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, fmt.Errorf("template not found")

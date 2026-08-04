@@ -37,7 +37,7 @@ func setupForwardAuthTestServer(t *testing.T, jwtSecret string) (*http.ServeMux,
 	os.Setenv("JWT_SECRET", jwtSecret)
 	os.Setenv("COOKIE_DOMAIN", ".solv.uab.edu.bo")
 
-	authService := services.NewAuthService(nil)
+	authService := services.NewAuthService(nil, nil)
 	authHandler := httpdelivery.NewAuthHandler(authService)
 
 	mux := http.NewServeMux()

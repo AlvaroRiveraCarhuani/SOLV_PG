@@ -81,6 +81,7 @@ type Exercise struct {
 	Description string         `json:"description" db:"description"`
 	Type        ExerciseType   `json:"type" db:"type"`
 	Config      ExerciseConfig `json:"config" db:"config"`
+	TenantID    string         `json:"tenant_id" db:"tenant_id"`
 	CreatedAt   time.Time      `json:"created_at" db:"created_at"`
 }
 
