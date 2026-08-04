@@ -34,6 +34,8 @@ func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
 func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 	mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
 	mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
+	mux.HandleFunc("GET /api/v1/auth/verify", h.VerifyAuth)
+	mux.HandleFunc("POST /api/v1/auth/logout", h.HandleLogout)
 }
 
 func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler) {

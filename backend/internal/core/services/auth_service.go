@@ -18,6 +18,11 @@ import (
 	"golang.org/x/oauth2/google"
 )
 
+var (
+	ErrJWTExpired = errors.New("jwt token has expired")
+	ErrJWTInvalid = errors.New("jwt token signature or claims invalid")
+)
+
 type AuthService struct {
 	repo        domain.UserRepository
 	oauthConfig *oauth2.Config
@@ -128,4 +133,31 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 	}
 
 	return tokenString, nil
+}
+
+func (s *AuthService) ValidateSessionToken(tokenString string) (jwt.MapClaims, error) {
+	if tokenString == "" {
+		return nil, ErrJWTInvalid
+	}
+
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return s.jwtSecret, nil
+	})
+
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) || strings.Contains(err.Error(), "expired") {
+			return nil, ErrJWTExpired
+		}
+		return nil, ErrJWTInvalid
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, ErrJWTInvalid
+	}
+
+	return claims, nil
 }

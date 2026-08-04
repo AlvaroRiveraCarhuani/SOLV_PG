@@ -7,17 +7,19 @@ services:
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.file.filename=/etc/traefik/dynamic_conf.yml"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http3=true" # HTTP/3 nativo (Traefik v3)
-      - "--api.insecure=true" # Dashboard para desarrollo
+      - "--entrypoints.websecure.http3=true" 
+      - "--api.insecure=true" 
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" # UDP requerido para HTTP/3
+      - "443:443/udp" 
       - "8080:8080"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro" # Acceso al socket para descubrir contenedores
+      - "/var/run/docker.sock:/var/run/docker.sock:ro" 
+      - "./infra/traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro"
     networks:
       - solv_net
 

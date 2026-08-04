@@ -1,0 +1,9 @@
+http:
+  middlewares:
+    solv-forwardauth:
+      forwardAuth:
+        address: "http://solv_backend:3000/api/v1/auth/verify"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - "X-User-Id"
+          - "X-User-Role"
