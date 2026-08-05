@@ -9,7 +9,7 @@ Este documento mapea las 24 capacidades de endurecimiento de la plataforma **SOL
 | # | Capacidad Técnica | Descripción | Slice | ADR | Estado |
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | **01** | Aislamiento de Red Host vía DOCKER-USER | Inserción de reglas `iptables` en la cadena `DOCKER-USER` para impedir el bypass de firewall de Docker. | Slice 8 | ADR-023 | **COMPLETADO** |
-| **02** | Límite de Procesos e Inmunidad a ForkBombs | Restricción `--pids-limit 100` en contenedores para evitar saturación de la tabla de procesos del Kernel. | Slice 9 | - | **PENDIENTE** |
+| **02** | Esquema Académico Multi-Tenant Unificado | Tablas relacionales de materias, inscripciones, entregas e invitaciones docentes con filtrado `tenant_id`. | Slice 9 | ADR-024 | **COMPLETADO** |
 | **03** | Perfiles Seccomp y AppArmor para Ejecución | Aplicación de filtros de llamadas al sistema para mitigar escalada de privilegios en el host. | Slice 9 | - | **PENDIENTE** |
 | **04** | Multi-Tenancy Lógico con Discriminador `tenant_id` | Columna `tenant_id` en PostgreSQL y middleware HTTP en Go para aislamiento por inquilino. | Slice 8 | ADR-018 | **COMPLETADO** |
 | **05** | Autenticación ForwardAuth HttpOnly en Traefik v3 | Endpoint `GET /api/v1/auth/verify` para validación perimetral de cookies `solv_session` en `iframes` (<50ms). | Slice 8 | ADR-017 | **COMPLETADO** |

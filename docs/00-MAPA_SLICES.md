@@ -24,7 +24,7 @@ Este documento define la hoja de ruta integral de la plataforma **SOLV** (Slices
 | **06** | Blindaje de Red & Telemetría | Vertical MVP | Bloqueo de tráfico inter-contenedor (ICC), telemetría Prometheus `/metrics` y auto-tuning EWMA. | **COMPLETADO** |
 | **07** | OpenVSCode Server & Auditoría AST | Vertical MVP | Migración a OpenVSCode Server oficial (puerto 3000) y worker de análisis semántico AST con Semgrep. | **COMPLETADO** |
 | **08** | Hardening BaaS & Modelo Unificado | **Hardening BaaS** | **CRIT-01** (DOCKER-USER), **CRIT-04** (Multi-Tenancy `tenant_id`), **CRIT-05** (ForwardAuth HttpOnly), **CRIT-06** (Unificación Workspaces). | **COMPLETADO** |
-| **09** | Hardening de Seguridad & Sanitización | **Hardening BaaS** | **CRIT-02** (Límite PIDs/ForkBombs), **CRIT-03** (Seccomp/AppArmor), **CRIT-07** (Sanitización I/O), **CRIT-08** (Cuotas Disk Quota). | **PENDIENTE** |
+| **09** | Esquema Académico & Hardening Seguridad | **Hardening BaaS** | **CRIT-02** (Esquema Académico Multi-Tenant, Subjects, Enrollments, Submissions, Invitaciones Docentes). | **COMPLETADO** |
 | **10** | Robustez BaaS & Resiliencia | **Hardening BaaS** | **CRIT-09** (Rate Limiting Traefik), **CRIT-10** (Circuit Breakers), **CRIT-11** (Graceful Shutdown), **CRIT-12** (Audit Log de Eventos). | **PENDIENTE** |
 | **11** | Optimización BaaS & Caché | **Hardening BaaS** | **CRIT-13** (Pool de Conexiones DB), **CRIT-14** (Warm Pool de Contenedores), **CRIT-15** (Caché de Imágenes Docker). | **PENDIENTE** |
 | **12** | Interface Estudiantil (UI) | Vertical UI | Dashboard del estudiante en Angular 22, visor de workspaces, integración de iframe y consola de estado. | **PENDIENTE** |
@@ -34,4 +34,4 @@ Este documento define la hoja de ruta integral de la plataforma **SOLV** (Slices
 ---
 
 > [!TIP]
-> Todos los Slices del 1 al 8 cuentan con suites de pruebas automatizadas en `backend/tests/integration/` que validan su funcionamiento al 100%.
+> Todos los Slices del 1 al 9 cuentan con suites de pruebas automatizadas en `backend/tests/integration/` que validan su funcionamiento al 100%.
