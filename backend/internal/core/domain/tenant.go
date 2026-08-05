@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -20,6 +21,8 @@ type contextKey string
 const (
 	TenantIDKey contextKey = "tenant_id"
 	UserIDKey   contextKey = "user_id"
+
+	DefaultTenantID = "00000000-0000-0000-0000-000000000001"
 )
 
 func GetTenantID(ctx context.Context) string {
@@ -41,4 +44,6 @@ func GetUserID(ctx context.Context) string {
 	}
 	return ""
 }
+
+var ErrTenantIDMissing = errors.New("missing tenant_id in context")
 

@@ -105,3 +105,25 @@ type TenantRepository interface {
 	GetAll(ctx context.Context) ([]*Tenant, error)
 }
 
+type SubjectRepository interface {
+	Create(ctx context.Context, subject *Subject) error
+	GetByID(ctx context.Context, tenantID, id string) (*Subject, error)
+	ListByTenant(ctx context.Context, tenantID string) ([]*Subject, error)
+	EnrollStudent(ctx context.Context, enrollment *Enrollment) error
+	ListStudentsBySubject(ctx context.Context, tenantID, subjectID string) ([]string, error)
+}
+
+type SubmissionRepository interface {
+	Create(ctx context.Context, submission *Submission) error
+	GetByID(ctx context.Context, tenantID, id string) (*Submission, error)
+	ListByExerciseAndStudent(ctx context.Context, tenantID, exerciseID, studentID string) ([]*Submission, error)
+	ListByExercise(ctx context.Context, tenantID, exerciseID string) ([]*Submission, error)
+}
+
+type TeacherInvitationRepository interface {
+	Create(ctx context.Context, invitation *TeacherInvitation) error
+	GetByToken(ctx context.Context, tenantID, token string) (*TeacherInvitation, error)
+	AcceptInvitationTx(ctx context.Context, tenantID, token, userID, userEmail string) error
+}
+
+

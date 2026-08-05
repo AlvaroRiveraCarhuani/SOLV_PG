@@ -211,6 +211,71 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_lab_template_profiles_tenant_id ON lab_template_profiles(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_exercises_tenant_id ON exercises(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_workspaces_tenant_id ON workspaces(tenant_id);
+
+	-- 7. Esquema Académico (Slice 9 / CRIT-02)
+	CREATE TABLE IF NOT EXISTS subjects (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		name VARCHAR(255) NOT NULL,
+		code VARCHAR(50) NOT NULL,
+		classroom_course_id VARCHAR(255),
+		created_at TIMESTAMPTZ DEFAULT NOW(),
+		updated_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS enrollments (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+		enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+		CONSTRAINT unique_enrollment_per_tenant UNIQUE (tenant_id, student_id, subject_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS submissions (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+		student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL,
+		code TEXT NOT NULL DEFAULT '',
+		verdict VARCHAR(50) NOT NULL,
+		ast_result JSONB DEFAULT '{}'::jsonb,
+		execution_time_ms INT NOT NULL DEFAULT 0,
+		memory_used_mb INT NOT NULL DEFAULT 0,
+		submitted_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
+	CREATE TABLE IF NOT EXISTS teacher_invitations (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		token VARCHAR(255) UNIQUE NOT NULL,
+		email VARCHAR(255) NOT NULL,
+		used BOOLEAN DEFAULT FALSE,
+		expires_at TIMESTAMPTZ NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
+	-- Foreign key FK_workspaces_subject con saneamiento de registros preexistentes
+	INSERT INTO subjects (id, tenant_id, name, code)
+	VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101')
+	ON CONFLICT (id) DO NOTHING;
+
+	UPDATE workspaces SET subject_id = '00000000-0000-0000-0000-000000000001'
+	WHERE subject_id NOT IN (SELECT id FROM subjects);
+
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'fk_workspaces_subject') THEN
+			ALTER TABLE workspaces ADD CONSTRAINT fk_workspaces_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE RESTRICT;
+		END IF;
+	END $$;
+
+	-- Índices académicos requeridos (CRIT-02)
+	CREATE INDEX IF NOT EXISTS idx_subjects_tenant ON subjects(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_submissions_tenant ON submissions(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
+	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 	`
 
 	if _, err := d.db.Exec(multitenancyMigrationQuery); err != nil {
