@@ -68,17 +68,64 @@ El presente documento establece la especificación formal del contrato de interf
 
 ---
 
-## 3. Interfaces TypeScript Mapeadas (Angular 22)
+## 3. Esquema Académico (`/api/v1/subjects`, `/api/v1/submissions`, `/api/v1/invitations`, `/api/v1/classroom`)
+
+### 3.1 `POST /api/v1/subjects` & `GET /api/v1/subjects`
+* **Propósito:** Creación y listado de materias filtradas por tenant.
+
+### 3.2 `POST /api/v1/subjects/{id}/enroll` & `GET /api/v1/subjects/{id}/students`
+* **Propósito:** Inscripción de alumnos y listado de alumnos inscritos en una materia.
+
+### 3.3 `POST /api/v1/submissions`
+* **Propósito:** Registrar un intento/solución enviado al Juez Virtual.
+
+### 3.4 `GET /api/v1/exercises/{id}/submissions`
+* **Propósito:** Consultar historial de entregas de un ejercicio.
+* **Regla de Filtrado por Rol:**
+  * Rol `student`: Filtra únicamente las entregas del usuario solicitante (`student_id = X-User-Id`).
+  * Rol `teacher` / `admin`: Retorna todas las entregas del ejercicio dentro del `tenant_id`.
+
+### 3.5 `POST /api/v1/invitations/teachers` & `POST /api/v1/invitations/teachers/accept`
+* **Propósito:** Emisión y aceptación de invitaciones a docentes.
+* **Regla Transaccional:** La aceptación valida que el email del usuario en sesión (`X-User-Email`) coincida con el email de la invitación y actualiza el rol a `teacher` con `used = TRUE` en una transacción atómica.
+
+### 3.6 `GET /api/v1/classroom/import`
+* **Propósito:** Importación manual unidireccional de nóminas desde Google Classroom (D6 compliant).
+
+---
+
+## 4. Interfaces TypeScript Mapeadas (Angular 22)
 
 ```typescript
-export interface WorkspaceInstance {
+export interface Subject {
   id: string;
-  student_id: string;
-  subject_id: string;
   tenant_id: string;
-  type: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO';
-  status: 'pending' | 'running' | 'hibernated' | 'failed' | 'oom_killed';
-  access_url: string;
-  memory_limit_mb: number;
+  name: string;
+  code: string;
+  classroom_course_id?: string;
+  created_at: string;
+}
+
+export interface Submission {
+  id: string;
+  tenant_id: string;
+  exercise_id: string;
+  student_id: string;
+  workspace_id?: string;
+  code: string;
+  verdict: 'AC' | 'WA' | 'TLE' | 'RE' | 'AST_BLOCKED';
+  ast_result: any;
+  execution_time_ms: number;
+  memory_used_mb: number;
+  submitted_at: string;
+}
+
+export interface TeacherInvitation {
+  id: string;
+  tenant_id: string;
+  token: string;
+  email: string;
+  used: boolean;
+  expires_at: string;
 }
 ```

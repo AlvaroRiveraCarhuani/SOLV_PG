@@ -1,6 +1,6 @@
 # Diseño de Base de Datos y Modelo Relacional — SOLV BaaS
 
-Este documento define la estructura oficial de la base de datos relacional PostgreSQL 18 del proyecto **SOLV**, incorporando el aislamiento Multi-Tenant por discriminador y la unificación del modelo de workspaces.
+Este documento define la estructura oficial de la base de datos relacional PostgreSQL 18 del proyecto **SOLV**, incorporando el aislamiento Multi-Tenant por discriminador, la unificación del modelo de workspaces y el esquema académico (Slice 9 / CRIT-02).
 
 ---
 
@@ -11,8 +11,14 @@ erDiagram
     TENANTS ||--o{ USERS : "posee"
     TENANTS ||--o{ WORKSPACES : "posee"
     TENANTS ||--o{ EXERCISES : "posee"
+    TENANTS ||--o{ SUBJECTS : "posee"
+    TENANTS ||--o{ TEACHER_INVITATIONS : "emite"
     USERS ||--o{ WORKSPACES : "ejecuta"
-    LAB_TEMPLATES ||--o{ WORKSPACES : "instancia"
+    USERS ||--o{ ENROLLMENTS : "inscribe"
+    USERS ||--o{ SUBMISSIONS : "envía"
+    SUBJECTS ||--o{ ENROLLMENTS : "contiene"
+    SUBJECTS ||--o{ WORKSPACES : "vincula"
+    EXERCISES ||--o{ SUBMISSIONS : "evalúa"
 
     TENANTS {
         uuid id PK
@@ -32,38 +38,57 @@ erDiagram
         timestamptz created_at
     }
 
+    SUBJECTS {
+        uuid id PK
+        uuid tenant_id FK
+        string name
+        string code
+        string classroom_course_id
+        timestamptz created_at
+    }
+
+    ENROLLMENTS {
+        uuid id PK
+        uuid tenant_id FK
+        uuid student_id FK
+        uuid subject_id FK
+        timestamptz enrolled_at
+    }
+
     WORKSPACES {
         uuid id PK
         uuid tenant_id FK
         uuid student_id FK
-        uuid subject_id
-        string type "IDE_PERSISTENTE | JUEZ_EFIMERO"
+        uuid subject_id FK
+        string type
         string container_id
         string status
         text access_url
         int memory_limit_mb
-        timestamptz last_heartbeat_at
-        timestamptz last_oom_killed_at
-        int oom_strike_count
-        jsonb semgrep_audit
         timestamptz created_at
     }
 
-    EXERCISES {
+    SUBMISSIONS {
         uuid id PK
         uuid tenant_id FK
-        string title
-        text description
-        string type
-        jsonb config
-        timestamptz created_at
+        uuid exercise_id FK
+        uuid student_id FK
+        uuid workspace_id FK
+        text code
+        string verdict
+        jsonb ast_result
+        int execution_time_ms
+        int memory_used_mb
+        timestamptz submitted_at
     }
 
-    LAB_TEMPLATES {
+    TEACHER_INVITATIONS {
         uuid id PK
-        string name
-        string docker_image
-        int base_ram_mb
+        uuid tenant_id FK
+        string token UK
+        string email
+        boolean used
+        timestamptz expires_at
         timestamptz created_at
     }
 ```
@@ -93,11 +118,30 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS subjects (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    name VARCHAR(255) NOT NULL,
+    code VARCHAR(50) NOT NULL,
+    classroom_course_id VARCHAR(255),
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ DEFAULT NOW(),
+    CONSTRAINT unique_enrollment_per_tenant UNIQUE (tenant_id, student_id, subject_id)
+);
+
 CREATE TABLE IF NOT EXISTS workspaces (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000001',
     student_id UUID NOT NULL,
-    subject_id UUID NOT NULL,
+    subject_id UUID NOT NULL REFERENCES subjects(id) ON DELETE RESTRICT,
     type VARCHAR(50) NOT NULL DEFAULT 'IDE_PERSISTENTE',
     container_id VARCHAR(255),
     status VARCHAR(50) NOT NULL DEFAULT 'pending',
@@ -110,7 +154,34 @@ CREATE TABLE IF NOT EXISTS workspaces (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
-```
 
-> [!NOTE]
-> La tabla legacy `lab_instances` ha sido eliminada por completo mediante la migración idempotente de consolidación D3 (`DROP TABLE IF EXISTS lab_instances CASCADE`).
+CREATE TABLE IF NOT EXISTS submissions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    exercise_id UUID NOT NULL REFERENCES exercises(id) ON DELETE CASCADE,
+    student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL,
+    code TEXT NOT NULL DEFAULT '',
+    verdict VARCHAR(50) NOT NULL,
+    ast_result JSONB DEFAULT '{}'::jsonb,
+    execution_time_ms INT NOT NULL DEFAULT 0,
+    memory_used_mb INT NOT NULL DEFAULT 0,
+    submitted_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS teacher_invitations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    token VARCHAR(255) UNIQUE NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    used BOOLEAN DEFAULT FALSE,
+    expires_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Índices de Rendimiento y Filtrado Tenant
+CREATE INDEX IF NOT EXISTS idx_subjects_tenant ON subjects(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_tenant ON submissions(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
+CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+```
