@@ -30,7 +30,7 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 	}
 
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
-	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient)
+	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 
 	ctx := context.Background()
 
