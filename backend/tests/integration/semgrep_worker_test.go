@@ -37,13 +37,13 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 	// 1. Crear un registro de workspace simulado en DB
 	wsID := uuid.NewString()
 	studentID := uuid.NewString()
-	subjectID := uuid.NewString()
 	volumeName := "solv_test_semgrep_vol_" + wsID[:8]
 
 	instance := &domain.WorkspaceInstance{
 		ID:              wsID,
+		TenantID:        "00000000-0000-0000-0000-000000000001",
 		StudentID:       studentID,
-		SubjectID:       subjectID,
+		SubjectID:       "00000000-0000-0000-0000-000000000001",
 		Status:          domain.WorkspaceStatusRunning,
 		AccessURL:       "http://" + wsID + ".solv.local",
 		MemoryLimitMB:   256,
