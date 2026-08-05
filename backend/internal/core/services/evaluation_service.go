@@ -33,6 +33,10 @@ func NewEvaluationService(
 }
 
 
+func (s *EvaluationService) GetExerciseByID(ctx context.Context, id string) (*domain.Exercise, error) {
+	return s.exerciseRepo.GetByID(ctx, id)
+}
+
 func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {
 	// 1. Decodificar Base64
 	decodedBytes, err := base64.StdEncoding.DecodeString(sourceCodeB64)

@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	"solv-backend/internal/core/services"
+	"solv-backend/internal/delivery/http/dto"
 )
 
 type EvaluationHandler struct {
@@ -45,4 +46,32 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	SendJSON(w, http.StatusOK, result, "Evaluación procesada exitosamente")
+}
+
+func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Request) {
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Exercise ID missing", "ID de ejercicio faltante")
+		return
+	}
+
+	exercise, err := h.service.GetExerciseByID(r.Context(), exerciseID)
+	if err != nil {
+		SendError(w, http.StatusNotFound, err.Error(), "Ejercicio no encontrado")
+		return
+	}
+
+	userRole := r.Header.Get("X-User-Role")
+	if userRole == "" {
+		userRole = "student"
+	}
+
+	if userRole == "teacher" || userRole == "admin" {
+		SendJSON(w, http.StatusOK, exercise, "Ejercicio obtenido exitosamente")
+		return
+	}
+
+	// Rol student: DTO público sin test_cases
+	publicResp := dto.ToExercisePublicResponse(exercise)
+	SendJSON(w, http.StatusOK, publicResp, "Ejercicio obtenido exitosamente")
 }

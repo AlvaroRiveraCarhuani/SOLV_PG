@@ -77,8 +77,10 @@ func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMiddleware func(http.Handler) http.Handler) {
 	if tenantMiddleware != nil {
 		mux.Handle("POST /api/v1/evaluations", tenantMiddleware(http.HandlerFunc(h.Evaluate)))
+		mux.Handle("GET /api/v1/exercises/{id}", tenantMiddleware(http.HandlerFunc(h.GetExerciseByID)))
 	} else {
 		mux.Handle("POST /api/v1/evaluations", WithAuth(http.HandlerFunc(h.Evaluate)))
+		mux.Handle("GET /api/v1/exercises/{id}", WithAuth(http.HandlerFunc(h.GetExerciseByID)))
 	}
 }
 
