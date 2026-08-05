@@ -33,6 +33,9 @@ type labTemplateProfileRow struct {
 
 func (r *PostgresLabTemplateRepository) GetBySignatureHash(ctx context.Context, signatureHash string) (*domain.LabTemplate, error) {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 	SELECT signature_hash, name, base_image, setup_script, resource_profile, tenant_id, created_at, updated_at
 	FROM lab_template_profiles
@@ -73,6 +76,9 @@ func (r *PostgresLabTemplateRepository) CreateOrUpdateProfile(ctx context.Contex
 	}
 
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	if template.TenantID == "" {
 		template.TenantID = tenantID
 	}
@@ -102,6 +108,9 @@ func (r *PostgresLabTemplateRepository) UpdateProfileAtomic(ctx context.Context,
 	defer tx.Rollback()
 
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 	SELECT signature_hash, name, base_image, setup_script, resource_profile, tenant_id, created_at, updated_at
 	FROM lab_template_profiles

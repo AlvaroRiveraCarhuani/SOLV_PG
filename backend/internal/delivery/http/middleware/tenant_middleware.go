@@ -64,3 +64,11 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 		})
 	}
 }
+
+func GetTenantIDFromContext(ctx context.Context) (string, error) {
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		return "", domain.ErrTenantIDMissing
+	}
+	return tenantID, nil
+}

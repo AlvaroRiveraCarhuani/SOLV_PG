@@ -50,6 +50,9 @@ func main() {
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
+	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
+	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
+	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 
 	authService := services.NewAuthService(db, tenantRepo)
 
@@ -57,6 +60,9 @@ func main() {
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, dockerRunner)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
+	subjectService := services.NewSubjectService(subjectRepo)
+	submissionService := services.NewSubmissionService(submissionRepo)
+	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
 
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
 
@@ -72,14 +78,18 @@ func main() {
 	tenantMiddleware := middleware.WithTenant(tenantRepo, []byte(jwtSecret))
 
 	handlersStruct := httpdelivery.Handlers{
-		UserHandler:       httpdelivery.NewUserHandler(db, v),
-		TemplateHandler:   httpdelivery.NewTemplateHandler(db, v),
-		AuthHandler:       httpdelivery.NewAuthHandler(authService),
-		EvaluationHandler: httpdelivery.NewEvaluationHandler(evaluationService, v),
-		WorkspaceHandler:  httpdelivery.NewWorkspaceHandler(workspaceService, v),
-		MetricsHandler:    httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
-		ConfigHandler:     httpdelivery.NewConfigHandler(tenantRepo),
-		TenantMiddleware:  tenantMiddleware,
+		UserHandler:              httpdelivery.NewUserHandler(db, v),
+		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
+		AuthHandler:              httpdelivery.NewAuthHandler(authService),
+		EvaluationHandler:        httpdelivery.NewEvaluationHandler(evaluationService, v),
+		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, v),
+		MetricsHandler:           httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
+		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),
+		SubjectHandler:           httpdelivery.NewSubjectHandler(subjectService),
+		SubmissionHandler:        httpdelivery.NewSubmissionHandler(submissionService),
+		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
+		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
+		TenantMiddleware:         tenantMiddleware,
 	}
 
 	mux := http.NewServeMux()

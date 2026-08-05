@@ -65,8 +65,14 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
 	networkName := "solv-traefik-net"
 
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
 	instance := &domain.WorkspaceInstance{
 		ID:              workspaceID,
+		TenantID:        tenantID,
 		StudentID:       studentID,
 		SubjectID:       subjectID,
 		Status:          domain.WorkspaceStatusPending,

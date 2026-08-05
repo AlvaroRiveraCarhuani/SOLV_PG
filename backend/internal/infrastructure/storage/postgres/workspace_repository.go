@@ -19,6 +19,9 @@ func NewPostgresWorkspaceRepository(db *sqlx.DB) domain.WorkspaceRepository {
 
 func (r *PostgresWorkspaceRepository) GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
@@ -34,6 +37,9 @@ func (r *PostgresWorkspaceRepository) GetByStudentAndSubject(ctx context.Context
 
 func (r *PostgresWorkspaceRepository) GetByID(ctx context.Context, id string) (*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
@@ -51,6 +57,12 @@ func (r *PostgresWorkspaceRepository) Create(ctx context.Context, workspace *dom
 	tenantID := domain.GetTenantID(ctx)
 	if workspace.TenantID == "" {
 		workspace.TenantID = tenantID
+	}
+	if workspace.TenantID == "" {
+		workspace.TenantID = domain.DefaultTenantID
+	}
+	if workspace.SubjectID == "" {
+		workspace.SubjectID = "00000000-0000-0000-0000-000000000001"
 	}
 	if workspace.MemoryLimitMB <= 0 {
 		workspace.MemoryLimitMB = domain.DefaultBaseMemoryMB

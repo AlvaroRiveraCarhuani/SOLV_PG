@@ -5,14 +5,18 @@ import (
 )
 
 type Handlers struct {
-	UserHandler       *UserHandler
-	TemplateHandler   *TemplateHandler
-	AuthHandler       *AuthHandler
-	EvaluationHandler *EvaluationHandler
-	WorkspaceHandler  *WorkspaceHandler
-	MetricsHandler    *MetricsHandler
-	ConfigHandler     *ConfigHandler
-	TenantMiddleware  func(http.Handler) http.Handler
+	UserHandler              *UserHandler
+	TemplateHandler          *TemplateHandler
+	AuthHandler              *AuthHandler
+	EvaluationHandler        *EvaluationHandler
+	WorkspaceHandler         *WorkspaceHandler
+	MetricsHandler           *MetricsHandler
+	ConfigHandler            *ConfigHandler
+	SubjectHandler           *SubjectHandler
+	SubmissionHandler        *SubmissionHandler
+	TeacherInvitationHandler *TeacherInvitationHandler
+	ClassroomHandler         *ClassroomHandler
+	TenantMiddleware         func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -23,6 +27,35 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
+	registerAcademicRoutes(mux, deps)
+}
+
+func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	if deps.SubjectHandler != nil {
+		mux.Handle("POST /api/v1/subjects", tm(http.HandlerFunc(deps.SubjectHandler.CreateSubject)))
+		mux.Handle("GET /api/v1/subjects", tm(http.HandlerFunc(deps.SubjectHandler.ListSubjects)))
+		mux.Handle("POST /api/v1/subjects/{id}/enroll", tm(http.HandlerFunc(deps.SubjectHandler.EnrollStudent)))
+		mux.Handle("GET /api/v1/subjects/{id}/students", tm(http.HandlerFunc(deps.SubjectHandler.ListStudents)))
+	}
+
+	if deps.SubmissionHandler != nil {
+		mux.Handle("POST /api/v1/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission)))
+		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
+	}
+
+	if deps.TeacherInvitationHandler != nil {
+		mux.Handle("POST /api/v1/invitations/teachers", tm(http.HandlerFunc(deps.TeacherInvitationHandler.CreateInvitation)))
+		mux.Handle("POST /api/v1/invitations/teachers/accept", tm(http.HandlerFunc(deps.TeacherInvitationHandler.AcceptInvitation)))
+	}
+
+	if deps.ClassroomHandler != nil {
+		mux.Handle("GET /api/v1/classroom/import", tm(http.HandlerFunc(deps.ClassroomHandler.ImportRosterManual)))
+	}
 }
 
 func registerUserRoutes(mux *http.ServeMux, h *UserHandler) {
