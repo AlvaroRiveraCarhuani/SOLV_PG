@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -13,20 +14,24 @@ import (
 type EvaluationService struct {
 	exerciseRepo domain.ExerciseRepository
 	astAnalyzer  domain.ASTAnalyzer
+	codeScanner  domain.CodeScanner
 	runner       domain.EvaluationRunner
 }
 
 func NewEvaluationService(
 	exerciseRepo domain.ExerciseRepository,
 	astAnalyzer domain.ASTAnalyzer,
+	codeScanner domain.CodeScanner,
 	runner domain.EvaluationRunner,
 ) *EvaluationService {
 	return &EvaluationService{
 		exerciseRepo: exerciseRepo,
 		astAnalyzer:  astAnalyzer,
+		codeScanner:  codeScanner,
 		runner:       runner,
 	}
 }
+
 
 func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {
 	// 1. Decodificar Base64
@@ -59,7 +64,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		return nil, fmt.Errorf("configuración de algoritmia faltante para el ejercicio %s", exercise.ID)
 	}
 
-	// 1. Filtro AST Estático
+	// 1. Filtro AST Estático Rápido (Regex)
 	if ok, violationMsg := s.astAnalyzer.ValidateCode(language, sourceCode, cfg.ASTRules); !ok {
 		return &domain.EvaluationResult{
 			Verdict:         domain.VerdictASTViolation,
@@ -67,6 +72,28 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			MemoryUsedMB:    0,
 			Message:         violationMsg,
 		}, nil
+	}
+
+	// 2. Pre-chequeo AST Semántico (Semgrep CLI)
+	if s.codeScanner != nil {
+		scanRes, err := s.codeScanner.ScanCode(sourceCode, language)
+		if err != nil {
+			return nil, fmt.Errorf("error en pre-chequeo AST Semgrep: %w", err)
+		}
+		if scanRes != nil && scanRes.HasViolations {
+			msg := "Violación de seguridad AST (Semgrep)"
+			if len(scanRes.Violations) > 0 {
+				msg = fmt.Sprintf("Violación de seguridad AST (Semgrep): %s (Línea %d)", scanRes.Violations[0].Message, scanRes.Violations[0].Line)
+			}
+			jsonBytes, _ := json.Marshal(scanRes)
+			return &domain.EvaluationResult{
+				Verdict:         domain.VerdictASTBlocked,
+				ExecutionTimeMS: 0,
+				MemoryUsedMB:    0,
+				Message:         msg,
+				ActualJSON:      string(jsonBytes),
+			}, nil
+		}
 	}
 
 	// 2. Ejecución de casos de prueba

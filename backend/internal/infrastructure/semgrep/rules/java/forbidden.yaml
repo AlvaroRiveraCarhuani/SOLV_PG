@@ -1,0 +1,26 @@
+rules:
+  - id: solv-java-forbidden-runtime-exec
+    pattern: Runtime.getRuntime().exec(...)
+    message: "Use of Runtime.exec() is forbidden for security reasons"
+    severity: ERROR
+    languages: [java]
+
+  - id: solv-java-forbidden-processbuilder
+    pattern: new ProcessBuilder(...)
+    message: "Use of ProcessBuilder is forbidden for security reasons"
+    severity: ERROR
+    languages: [java]
+
+  - id: solv-java-forbidden-import-io-file
+    pattern: |
+      import java.io.File;
+    message: "Import of java.io.File is forbidden for security reasons"
+    severity: ERROR
+    languages: [java]
+
+  - id: solv-java-forbidden-import-runtime
+    pattern: |
+      import java.lang.Runtime;
+    message: "Import of java.lang.Runtime is forbidden for security reasons"
+    severity: ERROR
+    languages: [java]

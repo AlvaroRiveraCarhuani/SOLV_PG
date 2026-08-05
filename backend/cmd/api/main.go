@@ -58,7 +58,8 @@ func main() {
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
-	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, dockerRunner)
+	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
+	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
 	subjectService := services.NewSubjectService(subjectRepo)
 	submissionService := services.NewSubmissionService(submissionRepo)

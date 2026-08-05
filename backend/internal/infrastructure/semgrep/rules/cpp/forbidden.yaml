@@ -1,0 +1,26 @@
+rules:
+  - id: solv-cpp-forbidden-system
+    pattern: system(...)
+    message: "Use of system() is forbidden for security reasons"
+    severity: ERROR
+    languages: [cpp, c]
+
+  - id: solv-cpp-forbidden-popen
+    pattern: popen(...)
+    message: "Use of popen() is forbidden for security reasons"
+    severity: ERROR
+    languages: [cpp, c]
+
+  - id: solv-cpp-forbidden-include-stdlib
+    pattern: |
+      #include <stdlib.h>
+    message: "Include of stdlib.h is forbidden for security reasons"
+    severity: ERROR
+    languages: [cpp, c]
+
+  - id: solv-cpp-forbidden-include-cstdlib
+    pattern: |
+      #include <cstdlib>
+    message: "Include of cstdlib is forbidden for security reasons"
+    severity: ERROR
+    languages: [cpp, c]

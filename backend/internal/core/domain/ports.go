@@ -52,6 +52,11 @@ type ASTAnalyzer interface {
 	ValidateCode(language string, sourceCode string, rules ASTRules) (bool, string)
 }
 
+// CodeScanner runs Semgrep CLI against source code and returns structured violations
+type CodeScanner interface {
+	ScanCode(code string, language string) (*ScanResult, error)
+}
+
 type LanguageStrategy interface {
 	ExecuteTestCase(ctx context.Context, config EvaluationRunConfig) (TestCaseRunResult, error)
 }

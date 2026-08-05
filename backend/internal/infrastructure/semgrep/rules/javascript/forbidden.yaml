@@ -1,0 +1,36 @@
+rules:
+  - id: solv-js-forbidden-require-child-process
+    pattern: require('child_process')
+    message: "Require of 'child_process' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: solv-js-forbidden-require-child-process-dq
+    pattern: require("child_process")
+    message: "Require of 'child_process' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: solv-js-forbidden-eval
+    pattern: eval(...)
+    message: "Use of eval() is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: solv-js-forbidden-new-function
+    pattern: new Function(...)
+    message: "Use of new Function() is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: solv-js-forbidden-require-fs
+    pattern: require('fs')
+    message: "Require of 'fs' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: solv-js-forbidden-require-fs-dq
+    pattern: require("fs")
+    message: "Require of 'fs' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [javascript, typescript]

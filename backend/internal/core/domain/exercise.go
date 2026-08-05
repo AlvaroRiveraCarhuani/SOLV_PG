@@ -22,8 +22,22 @@ const (
 	VerdictTLE          Verdict = "TLE"          // Time Limit Exceeded
 	VerdictRE           Verdict = "RE"           // Runtime Error
 	VerdictCE           Verdict = "CE"           // Compilation Error
-	VerdictASTViolation Verdict = "AST_VIOLATION" // AST Security Violation
+	VerdictASTViolation Verdict = "AST_VIOLATION" // AST Security Violation (regex)
+	VerdictASTBlocked   Verdict = "AST_BLOCKED"   // AST Security Violation (Semgrep)
 )
+
+// ScanViolation represents a single Semgrep finding
+type ScanViolation struct {
+	RuleID  string `json:"rule_id"`
+	Message string `json:"message"`
+	Line    int    `json:"line"`
+}
+
+// ScanResult holds the aggregated output of a Semgrep pre-check scan
+type ScanResult struct {
+	Violations    []ScanViolation `json:"violations"`
+	HasViolations bool            `json:"has_violations"`
+}
 
 type TestCase struct {
 	Input          string `json:"input"`

@@ -1,0 +1,25 @@
+rules:
+  - id: solv-csharp-forbidden-process-start
+    pattern: Process.Start(...)
+    message: "Use of Process.Start() is forbidden for security reasons"
+    severity: ERROR
+    languages: [csharp]
+
+  - id: solv-csharp-forbidden-file-read
+    pattern: System.IO.File.$METHOD(...)
+    message: "Use of System.IO.File is forbidden for security reasons"
+    severity: ERROR
+    languages: [csharp]
+
+  - id: solv-csharp-forbidden-file-short
+    pattern: File.$METHOD(...)
+    message: "Use of File I/O methods is forbidden for security reasons"
+    severity: ERROR
+    languages: [csharp]
+
+  - id: solv-csharp-forbidden-using-io
+    pattern: |
+      using System.IO;
+    message: "Using System.IO namespace is forbidden for security reasons"
+    severity: ERROR
+    languages: [csharp]

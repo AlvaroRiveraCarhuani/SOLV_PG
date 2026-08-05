@@ -1,0 +1,42 @@
+rules:
+  - id: solv-python-forbidden-import-os
+    pattern: import os
+    message: "Import of 'os' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-from-os
+    pattern: from os import $X
+    message: "Import from 'os' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-import-subprocess
+    pattern: import subprocess
+    message: "Import of 'subprocess' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-from-subprocess
+    pattern: from subprocess import $X
+    message: "Import from 'subprocess' module is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-eval
+    pattern: eval(...)
+    message: "Use of eval() is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-exec
+    pattern: exec(...)
+    message: "Use of exec() is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
+
+  - id: solv-python-forbidden-dunder-import
+    pattern: __import__(...)
+    message: "Use of __import__() is forbidden for security reasons"
+    severity: ERROR
+    languages: [python]
