@@ -128,6 +128,16 @@ CREATE TABLE IF NOT EXISTS subjects (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS exercises (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    type VARCHAR(50) NOT NULL DEFAULT 'algorithm',
+    config JSONB NOT NULL DEFAULT '{}'::jsonb, -- Contiene test_cases con inputs/outputs (SENSIBLE: NO exponer a rol student, usar ExercisePublicResponse DTO - CRIT-03)
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS enrollments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
@@ -162,8 +172,8 @@ CREATE TABLE IF NOT EXISTS submissions (
     student_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     workspace_id UUID REFERENCES workspaces(id) ON DELETE SET NULL,
     code TEXT NOT NULL DEFAULT '',
-    verdict VARCHAR(50) NOT NULL,
-    ast_result JSONB DEFAULT '{}'::jsonb,
+    verdict VARCHAR(50) NOT NULL, -- AC, WA, TLE, RE, CE, AST_VIOLATION, AST_BLOCKED
+    ast_result JSONB DEFAULT '{}'::jsonb, -- Almacena violaciones del pre-chequeo Semgrep (has_violations, violations[])
     execution_time_ms INT NOT NULL DEFAULT 0,
     memory_used_mb INT NOT NULL DEFAULT 0,
     submitted_at TIMESTAMPTZ DEFAULT NOW()

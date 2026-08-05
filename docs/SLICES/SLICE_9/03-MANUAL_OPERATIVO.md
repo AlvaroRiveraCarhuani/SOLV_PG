@@ -14,5 +14,10 @@ Al arrancar el backend Go (`cmd/api/main.go`), las migraciones en `postgres.go` 
 | `POST` | `/api/v1/submissions` | Registrar solución enviada al juez | `student` |
 | `GET` | `/api/v1/exercises/{id}/submissions` | Consultar entregas de un ejercicio | Todos (Filtrado por rol) |
 | `POST` | `/api/v1/invitations/teachers` | Generar token de invitación docente | `admin` |
-| `POST` | `/api/v1/invitations/teachers/accept` | Aceptar token e incrementar rol a docente | Todos (Email coincide) |
-| `GET` | `/api/v1/classroom/import` | Importar nómina manualmente (D6) | `teacher` / `admin` |
+
+## 3. Dependencias del Host
+El pre-chequeo AST de seguridad del Juez Virtual utiliza **Semgrep CLI** local para realizar análisis semántico estático previo al aprovisionamiento del contenedor sandbox.
+- **Requisito:** Python 3.8+ y `semgrep` CLI instalados en el host.
+- **Instalación:** `pip3 install semgrep` (o `pipx install semgrep`).
+- **Verificación:** `semgrep --version`.
+- **Ruta de reglas:** `backend/internal/infrastructure/semgrep/rules/{language}/forbidden.yaml`.

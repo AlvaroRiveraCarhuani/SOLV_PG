@@ -92,6 +92,12 @@ El presente documento establece la especificación formal del contrato de interf
 ### 3.6 `GET /api/v1/classroom/import`
 * **Propósito:** Importación manual unidireccional de nóminas desde Google Classroom (D6 compliant).
 
+### 3.7 `GET /api/v1/exercises/{id}`
+* **Propósito:** Obtener la información técnica de un ejercicio para el Juez Virtual.
+* **Regla de Seguridad por Rol (CRIT-03):**
+  * Rol `student`: Retorna el **DTO público** (`ExercisePublicResponse`) enmascarando los `test_cases` del Juez Virtual, `reference_solution`, `validation_query` y `expected_json` para prevenir la lectura de respuestas desde DevTools del navegador.
+  * Rol `teacher` / `admin`: Retorna el objeto `Exercise` completo incluyendo el bloque `config` con los `test_cases` completos.
+
 ---
 
 ## 4. Interfaces TypeScript Mapeadas (Angular 22)
