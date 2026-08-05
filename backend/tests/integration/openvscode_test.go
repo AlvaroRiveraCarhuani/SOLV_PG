@@ -34,7 +34,7 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
 
 	studentID := uuid.NewString()
-	subjectID := uuid.NewString()
+	subjectID := "00000000-0000-0000-0000-000000000001"
 
 	ctx := context.Background()
 

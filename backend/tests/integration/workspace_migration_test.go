@@ -121,7 +121,7 @@ func TestCRIT06WorkspaceMigrationAndTypeDiscriminator(t *testing.T) {
 	wsPersistente := &domain.WorkspaceInstance{
 		ID:        uuid.NewString(),
 		StudentID: uuid.NewString(),
-		SubjectID: uuid.NewString(),
+		SubjectID: "00000000-0000-0000-0000-000000000001",
 		Status:    domain.WorkspaceStatusPending,
 		AccessURL: "http://test-ide.solv.local",
 	}
@@ -141,7 +141,7 @@ func TestCRIT06WorkspaceMigrationAndTypeDiscriminator(t *testing.T) {
 	wsJuez := &domain.WorkspaceInstance{
 		ID:        uuid.NewString(),
 		StudentID: uuid.NewString(),
-		SubjectID: uuid.NewString(),
+		SubjectID: "00000000-0000-0000-0000-000000000001",
 		Type:      domain.WorkspaceTypeJuezEfimero,
 		Status:    domain.WorkspaceStatusPending,
 		AccessURL: "",

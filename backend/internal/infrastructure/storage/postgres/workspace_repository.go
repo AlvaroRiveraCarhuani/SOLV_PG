@@ -86,6 +86,9 @@ func (r *PostgresWorkspaceRepository) Create(ctx context.Context, workspace *dom
 
 func (r *PostgresWorkspaceRepository) UpdateContainerID(ctx context.Context, id string, containerID string) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET container_id = $2, updated_at = $3
@@ -100,6 +103,9 @@ func (r *PostgresWorkspaceRepository) UpdateContainerID(ctx context.Context, id 
 
 func (r *PostgresWorkspaceRepository) UpdateStatus(ctx context.Context, id string, status string) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET status = $2, updated_at = $3
@@ -114,6 +120,9 @@ func (r *PostgresWorkspaceRepository) UpdateStatus(ctx context.Context, id strin
 
 func (r *PostgresWorkspaceRepository) UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET memory_limit_mb = $2, updated_at = $3
@@ -128,6 +137,9 @@ func (r *PostgresWorkspaceRepository) UpdateMemoryLimit(ctx context.Context, id 
 
 func (r *PostgresWorkspaceRepository) RecordHeartbeat(ctx context.Context, id string) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET last_heartbeat_at = $2, updated_at = $2
@@ -143,6 +155,9 @@ func (r *PostgresWorkspaceRepository) RecordHeartbeat(ctx context.Context, id st
 
 func (r *PostgresWorkspaceRepository) IncrementOOMStrike(ctx context.Context, id string) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET oom_strike_count = oom_strike_count + 1, last_oom_killed_at = $2, status = $3, updated_at = $2
@@ -158,6 +173,9 @@ func (r *PostgresWorkspaceRepository) IncrementOOMStrike(ctx context.Context, id
 
 func (r *PostgresWorkspaceRepository) ResetOOMStrikes(ctx context.Context, id string) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
 		SET oom_strike_count = 0, updated_at = $2
@@ -172,6 +190,9 @@ func (r *PostgresWorkspaceRepository) ResetOOMStrikes(ctx context.Context, id st
 
 func (r *PostgresWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
@@ -189,6 +210,9 @@ func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Contex
 	// A veces las tareas de limpieza global corren sin tenant_id en background.
 	// Si no hay tenant_id, consultamos todos.
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	var query string
 	var args []interface{}
 	if tenantID == "" {
@@ -215,6 +239,9 @@ func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Contex
 
 func (r *PostgresWorkspaceRepository) GetByType(ctx context.Context, workspaceType string) ([]*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
@@ -230,12 +257,15 @@ func (r *PostgresWorkspaceRepository) GetByType(ctx context.Context, workspaceTy
 
 func (r *PostgresWorkspaceRepository) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
 	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
 	query := `
 		UPDATE workspaces
-		SET semgrep_audit = $1, updated_at = NOW()
-		WHERE id = $2 AND tenant_id = $3
+		SET semgrep_audit = $2, updated_at = $3
+		WHERE id = $1 AND tenant_id = $4
 	`
-	_, err := r.db.ExecContext(ctx, query, auditJSON, id, tenantID)
+	_, err := r.db.ExecContext(ctx, query, id, auditJSON, time.Now(), tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to save semgrep audit for workspace %s: %w", id, err)
 	}
