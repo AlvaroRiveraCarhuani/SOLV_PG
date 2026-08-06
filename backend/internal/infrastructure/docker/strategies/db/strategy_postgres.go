@@ -84,9 +84,13 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 		return domain.DBEvaluationResult{}, fmt.Errorf("failed to start Postgres container: %w", err)
 	}
 
-	// Ready check con psql -U evaluser -d evaldb -c "SELECT 1;" usando stdCopy demux
+	// Ready check con psql -U evaluser -d evaldb -c "SELECT 1;" usando stdCopy demux y reintentos (máx 60s)
 	ready := false
-	for i := 0; i < 60; i++ {
+	startTimeReady := time.Now()
+	sleepDur := 500 * time.Millisecond
+	var lastErrStr string
+
+	for time.Since(startTimeReady) < 60*time.Second {
 		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
 			Cmd:          []string{"psql", "-U", "evaluser", "-d", "evaldb", "-c", "SELECT 1;"},
 			AttachStdout: true,
@@ -96,25 +100,33 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 			attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
 			if err == nil {
 				var outBuf, errBuf bytes.Buffer
-				_, _ = stdCopy(&outBuf, &errBuf, attach.Reader)
-				attach.Close()
+				_ = copyWithTimeout(&outBuf, &errBuf, attach.Reader, &attach, 5*time.Second)
 
 				inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
 				if err == nil && inspect.ExitCode == 0 {
 					ready = true
 					break
 				}
+				lastErrStr = strings.TrimSpace(errBuf.String())
+				if lastErrStr == "" {
+					lastErrStr = strings.TrimSpace(outBuf.String())
+				}
 			}
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(sleepDur)
+		if sleepDur < 2*time.Second {
+			sleepDur = sleepDur * 2
+		}
 	}
 
 	if !ready {
 		return domain.DBEvaluationResult{
 			Verdict:      domain.VerdictRE,
-			ErrorDetails: "PostgreSQL engine failed to become ready inside ephemeral container",
+			ErrorDetails: fmt.Sprintf("PostgreSQL engine failed to become ready inside ephemeral container (last check: %s)", lastErrStr),
 		}, nil
 	}
+
+	time.Sleep(1 * time.Second)
 
 	// 1. Inyectar init_script
 	if strings.TrimSpace(config.InitScript) != "" {
@@ -142,9 +154,9 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 		valQuery = "SELECT 1;"
 	}
 
-	jsonWrappedQuery := fmt.Sprintf("SELECT json_agg(t) FROM (%s) t;", strings.TrimRight(valQuery, ";"))
+	wrappedQuery := fmt.Sprintf("SELECT json_agg(t) FROM (%s) t;", strings.TrimRight(valQuery, ";"))
 	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"psql", "-t", "-A", "-U", "evaluser", "-d", "evaldb", "-c", jsonWrappedQuery},
+		Cmd:          []string{"psql", "-U", "evaluser", "-d", "evaldb", "-t", "-A", "-c", wrappedQuery},
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -156,10 +168,9 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 	if err != nil {
 		return domain.DBEvaluationResult{}, err
 	}
-	defer attach.Close()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+	_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 30*time.Second)
 
 	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil || inspect.ExitCode != 0 {
@@ -182,36 +193,44 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 }
 
 func (s *PostgresStrategy) execPSQL(ctx context.Context, containerID string, sqlCommand string) error {
-	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"psql", "-U", "evaluser", "-d", "evaldb", "-c", sqlCommand},
-		AttachStdout: true,
-		AttachStderr: true,
-	})
-	if err != nil {
-		return err
-	}
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+			Cmd:          []string{"psql", "-U", "evaluser", "-d", "evaldb", "-c", sqlCommand},
+			AttachStdout: true,
+			AttachStderr: true,
+		})
+		if err != nil {
+			return err
+		}
 
-	attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
-	if err != nil {
-		return err
-	}
-	defer attach.Close()
+		attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+		if err != nil {
+			return err
+		}
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+		var stdoutBuf, stderrBuf bytes.Buffer
+		_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 30*time.Second)
 
-	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
-	if err != nil {
-		return err
-	}
+		inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
+		if err != nil {
+			return err
+		}
 
-	if inspect.ExitCode != 0 {
+		if inspect.ExitCode == 0 {
+			return nil
+		}
+
 		errStr := strings.TrimSpace(stderrBuf.String())
 		if errStr == "" {
 			errStr = strings.TrimSpace(stdoutBuf.String())
 		}
-		return fmt.Errorf("Postgres Exit Code %d: %s", inspect.ExitCode, errStr)
+		lastErr = fmt.Errorf("Postgres Exit Code %d: %s", inspect.ExitCode, errStr)
+		if strings.Contains(errStr, "could not connect to server") || strings.Contains(errStr, "starting up") {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		break
 	}
-
-	return nil
+	return lastErr
 }

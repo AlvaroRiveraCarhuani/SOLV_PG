@@ -1,6 +1,10 @@
 package db
 
-import "io"
+import (
+	"fmt"
+	"io"
+	"time"
+)
 
 // stdCopy demuxes Docker multiplexed stdout/stderr streams
 func stdCopy(dstOut, dstErr io.Writer, src io.Reader) (int64, error) {
@@ -35,4 +39,30 @@ func stdCopy(dstOut, dstErr io.Writer, src io.Reader) (int64, error) {
 		}
 	}
 	return written, nil
+}
+
+type streamCloser interface {
+	Close()
+}
+
+// copyWithTimeout runs stdCopy in a goroutine and enforces a max timeout to prevent blocking stream reads
+func copyWithTimeout(dstOut, dstErr io.Writer, src io.Reader, c streamCloser, timeout time.Duration) error {
+	done := make(chan error, 1)
+	go func() {
+		_, err := stdCopy(dstOut, dstErr, src)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		if c != nil {
+			c.Close()
+		}
+		return err
+	case <-time.After(timeout):
+		if c != nil {
+			c.Close()
+		}
+		return fmt.Errorf("read stream timed out after %v", timeout)
+	}
 }

@@ -48,8 +48,8 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 	}
 
 	memLimit := int64(config.MemoryLimitMB)
-	if memLimit <= 0 {
-		memLimit = 256
+	if memLimit < 512 {
+		memLimit = 512
 	}
 
 	hostConfig := &container.HostConfig{
@@ -82,29 +82,28 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 		return domain.DBEvaluationResult{}, fmt.Errorf("failed to start Mongo container: %w", err)
 	}
 
-	// Ready check con mongosh eval db.adminCommand('ping') usando stdCopy demux
+	// Ready check via container logs: espera el mensaje "waiting for connections" que mongod
+	// imprime cuando está listo. No ejecuta procesos adicionales dentro del container.
 	ready := false
-	for i := 0; i < 60; i++ {
-		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-			Cmd:          []string{"mongosh", "--quiet", "--eval", "db.adminCommand('ping')"},
-			AttachStdout: true,
-			AttachStderr: true,
-		})
+	deadline := time.Now().Add(120 * time.Second)
+	for time.Now().Before(deadline) {
+		logsOpts := container.LogsOptions{
+			ShowStdout: true,
+			ShowStderr: true,
+			Tail:       "50",
+		}
+		logReader, err := s.cli.ContainerLogs(ctx, containerID, logsOpts)
 		if err == nil {
-			attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
-			if err == nil {
-				var outBuf, errBuf bytes.Buffer
-				_, _ = stdCopy(&outBuf, &errBuf, attach.Reader)
-				attach.Close()
-
-				inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
-				if err == nil && inspect.ExitCode == 0 {
-					ready = true
-					break
-				}
+			var logBuf bytes.Buffer
+			_, _ = io.Copy(&logBuf, logReader)
+			logReader.Close()
+			if strings.Contains(logBuf.String(), "Waiting for connections") ||
+				strings.Contains(logBuf.String(), "waiting for connections") {
+				ready = true
+				break
 			}
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 	}
 
 	if !ready {
@@ -113,6 +112,8 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 			ErrorDetails: "MongoDB engine failed to become ready inside ephemeral container",
 		}, nil
 	}
+
+	time.Sleep(500 * time.Millisecond)
 
 	// 1. Inyectar init_script
 	if strings.TrimSpace(config.InitScript) != "" {
@@ -135,14 +136,18 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 	}
 
 	// 3. Extracción de estado NoSQL serializado en JSON
+	// print(EJSON.stringify(...)) fuerza la iteración del cursor y cierra el stream correctamente.
+	// --json=relaxed produce un cursor lazy que nunca hace EOF al stream de Docker exec.
+	time.Sleep(500 * time.Millisecond)
+
 	valQuery := strings.TrimSpace(config.ValidationQuery)
 	if valQuery == "" {
 		valQuery = "db.getCollectionNames()"
 	}
 
-	jsonWrappedScript := fmt.Sprintf("EJSON.stringify(%s)", strings.TrimRight(valQuery, ";"))
+	jsonScript := fmt.Sprintf("print(EJSON.stringify(%s))", strings.TrimRight(valQuery, ";"))
 	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"mongosh", "--quiet", "evaldb", "--eval", jsonWrappedScript},
+		Cmd:          []string{"mongosh", "--quiet", "mongodb://127.0.0.1:27017/evaldb?serverSelectionTimeoutMS=10000", "--eval", jsonScript},
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -154,10 +159,9 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 	if err != nil {
 		return domain.DBEvaluationResult{}, err
 	}
-	defer attach.Close()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+	_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 120*time.Second)
 
 	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil || inspect.ExitCode != 0 {
@@ -180,36 +184,44 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 }
 
 func (s *MongoStrategy) execMongo(ctx context.Context, containerID string, jsScript string) error {
-	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"mongosh", "--quiet", "evaldb", "--eval", jsScript},
-		AttachStdout: true,
-		AttachStderr: true,
-	})
-	if err != nil {
-		return err
-	}
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+			Cmd:          []string{"mongosh", "--quiet", "mongodb://127.0.0.1:27017/evaldb?serverSelectionTimeoutMS=10000", "--eval", jsScript},
+			AttachStdout: true,
+			AttachStderr: true,
+		})
+		if err != nil {
+			return err
+		}
 
-	attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
-	if err != nil {
-		return err
-	}
-	defer attach.Close()
+		attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+		if err != nil {
+			return err
+		}
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+		var stdoutBuf, stderrBuf bytes.Buffer
+		_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 120*time.Second)
 
-	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
-	if err != nil {
-		return err
-	}
+		inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
+		if err != nil {
+			return err
+		}
 
-	if inspect.ExitCode != 0 {
+		if inspect.ExitCode == 0 {
+			return nil
+		}
+
 		errStr := strings.TrimSpace(stderrBuf.String())
 		if errStr == "" {
 			errStr = strings.TrimSpace(stdoutBuf.String())
 		}
-		return fmt.Errorf("MongoDB Exit Code %d: %s", inspect.ExitCode, errStr)
+		lastErr = fmt.Errorf("MongoDB Exit Code %d: %s", inspect.ExitCode, errStr)
+		if strings.Contains(errStr, "Server selection timed out") || strings.Contains(errStr, "MongoServerSelectionError") || strings.Contains(errStr, "ECONNREFUSED") || strings.Contains(errStr, "MongoNetworkError") || strings.Contains(errStr, "connect") {
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
 	}
-
-	return nil
+	return lastErr
 }

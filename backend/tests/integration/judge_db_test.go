@@ -76,7 +76,7 @@ func TestJudgeDatabaseDryRunAndEvaluationAllEngines(t *testing.T) {
 				MemoryLimitMB:   256,
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
 			defer cancel()
 
 			t.Logf("[%s] 1. Ejecutando Dry Run para autogenerar expected_json...", e.engine)

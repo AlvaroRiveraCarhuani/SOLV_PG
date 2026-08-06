@@ -90,12 +90,15 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 		return domain.DBEvaluationResult{}, fmt.Errorf("failed to start MySQL container: %w", err)
 	}
 
-	// Ready check: espera a que la BD evaldb esté disponible en MySQL
+	// Ready check: espera a que la BD evaldb esté disponible en MySQL (backoff 500ms->2s->4s, máx 60s)
 	var lastErrStr string
 	ready := false
-	for i := 0; i < 100; i++ {
+	startTimeReady := time.Now()
+	sleepDur := 500 * time.Millisecond
+
+	for time.Since(startTimeReady) < 60*time.Second {
 		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-			Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "evaldb", "-e", "SELECT 1;"},
+			Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "-e", "SELECT 1;"},
 			AttachStdout: true,
 			AttachStderr: true,
 		})
@@ -103,11 +106,10 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 			attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
 			if err == nil {
 				var outBuf, errBuf bytes.Buffer
-				_, _ = stdCopy(&outBuf, &errBuf, attach.Reader)
-				attach.Close()
+				_ = copyWithTimeout(&outBuf, &errBuf, attach.Reader, &attach, 5*time.Second)
 
 				inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
-				if err == nil && !inspect.Running && inspect.ExitCode == 0 {
+				if err == nil && inspect.ExitCode == 0 {
 					ready = true
 					break
 				} else {
@@ -115,7 +117,13 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 				}
 			}
 		}
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(sleepDur)
+		if sleepDur < 4*time.Second {
+			sleepDur = sleepDur * 2
+			if sleepDur > 4*time.Second {
+				sleepDur = 4 * time.Second
+			}
+		}
 	}
 
 	if !ready {
@@ -124,6 +132,8 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 			ErrorDetails: fmt.Sprintf("MySQL engine failed to become ready inside ephemeral container (last check: %s)", lastErrStr),
 		}, nil
 	}
+
+	time.Sleep(2 * time.Second)
 
 	// 1. Inyectar init_script
 	if strings.TrimSpace(config.InitScript) != "" {
@@ -164,10 +174,9 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 	if err != nil {
 		return domain.DBEvaluationResult{}, err
 	}
-	defer attach.Close()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+	_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 30*time.Second)
 
 	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
 	if err != nil || inspect.ExitCode != 0 {
@@ -198,38 +207,46 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 }
 
 func (s *MySQLStrategy) execMySQL(ctx context.Context, containerID string, sqlCommand string) error {
-	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "evaldb", "-e", sqlCommand},
-		AttachStdout: true,
-		AttachStderr: true,
-	})
-	if err != nil {
-		return err
-	}
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+			Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "evaldb", "-e", sqlCommand},
+			AttachStdout: true,
+			AttachStderr: true,
+		})
+		if err != nil {
+			return err
+		}
 
-	attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
-	if err != nil {
-		return err
-	}
-	defer attach.Close()
+		attach, err := s.cli.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+		if err != nil {
+			return err
+		}
 
-	var stdoutBuf, stderrBuf bytes.Buffer
-	_, _ = stdCopy(&stdoutBuf, &stderrBuf, attach.Reader)
+		var stdoutBuf, stderrBuf bytes.Buffer
+		_ = copyWithTimeout(&stdoutBuf, &stderrBuf, attach.Reader, &attach, 30*time.Second)
 
-	inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
-	if err != nil {
-		return err
-	}
+		inspect, err := s.cli.ContainerExecInspect(ctx, execResp.ID)
+		if err != nil {
+			return err
+		}
 
-	if inspect.ExitCode != 0 {
+		if inspect.ExitCode == 0 {
+			return nil
+		}
+
 		errStr := strings.TrimSpace(stderrBuf.String())
 		if errStr == "" {
 			errStr = strings.TrimSpace(stdoutBuf.String())
 		}
-		return fmt.Errorf("MySQL Exit Code %d: %s", inspect.ExitCode, errStr)
+		lastErr = fmt.Errorf("MySQL Exit Code %d: %s", inspect.ExitCode, errStr)
+		if strings.Contains(errStr, "Lost connection") || strings.Contains(errStr, "Can't connect") {
+			time.Sleep(500 * time.Millisecond)
+			continue
+		}
+		break
 	}
-
-	return nil
+	return lastErr
 }
 
 func tsvToJSON(tsvStr string) (string, error) {
