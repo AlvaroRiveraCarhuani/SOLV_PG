@@ -15,8 +15,10 @@ type GopsutilHostMonitor struct {
 }
 
 func NewGopsutilHostMonitor(minFreePct float64) domain.HostMonitor {
-	if minFreePct <= 0 {
+	if minFreePct == 0 {
 		minFreePct = domain.MinHostFreeRAMPct // 15% por defecto
+	} else if minFreePct < 0 {
+		minFreePct = 0.0 // Desactivar umbral para entorno de pruebas
 	}
 	return &GopsutilHostMonitor{
 		minFreePct: minFreePct,

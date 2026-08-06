@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
 
 	ctx := context.Background()
 	baseImage := "python:3.12-slim"
-	setupScript := "pip install numpy"
+	setupScript := fmt.Sprintf("pip install numpy # test-%d", time.Now().UnixNano())
 	sigHash := profilerService.CalculateSignatureHash(baseImage, setupScript)
 
 	// 1. Inicializar perfil
@@ -111,7 +112,7 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 
 	// Crear contenedor huérfano simulado
 	orphanConfig := domain.WorkspaceContainerConfig{
-		Image:         "alpine:latest",
+		Image:         "gitpod/openvscode-server:latest",
 		ContainerName: "solv-workspace-orphan-test-12345",
 		VolumeName:    "solv_test_vol_orphan",
 		MemoryLimitMB: 256,

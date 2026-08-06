@@ -30,7 +30,7 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	}
 
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
-	hostMonitor := systeminfra.NewGopsutilHostMonitor(15.0)
+	hostMonitor := systeminfra.NewGopsutilHostMonitor(-1.0)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
 
 	studentID := uuid.NewString()

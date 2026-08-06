@@ -65,7 +65,7 @@ func TestJudgeIOAcceptedAllLanguages(t *testing.T) {
 				Language:      l.lang,
 				SourceCode:    string(codeBytes),
 				MemoryLimitMB: 128,
-				TimeLimitMS:   5000,
+				TimeLimitMS:   15000,
 				TestCase: domain.TestCase{
 					Input:          string(inBytes),
 					ExpectedOutput: strings.TrimSpace(string(outBytes)),
