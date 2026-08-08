@@ -4,22 +4,18 @@ services:
     container_name: solv_traefik
     environment:
       - DOCKER_API_VERSION=1.41
-    command:
-      - "--providers.docker=true"
-      - "--providers.docker.exposedbydefault=false"
-      - "--providers.file.filename=/etc/traefik/dynamic_conf.yml"
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.websecure.address=:443"
-      - "--entrypoints.websecure.http3=true" 
-      - "--api.dashboard=false"
-      - "--api.insecure=false"
+      - DESEC_TOKEN=${DESEC_TOKEN}
+      - DESEC_API_BASE_URL=https://desec.io/api/v1/
+      - ACME_EMAIL=${ACME_EMAIL}
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" 
+      - "443:443/udp"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock:ro" 
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./infra/traefik/traefik.yml:/etc/traefik/traefik.yml:ro"
       - "./infra/traefik/dynamic_conf.yml:/etc/traefik/dynamic_conf.yml:ro"
+      - "./letsencrypt/acme.json:/letsencrypt/acme.json"
     networks:
       - solv_net
 

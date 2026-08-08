@@ -1,0 +1,29 @@
+certificatesResolvers:
+  letsencrypt:
+    acme:
+      email: ${ACME_EMAIL}
+      storage: /letsencrypt/acme.json
+      dnsChallenge:
+        provider: desec
+        delayBeforeCheck: 10
+      domains:
+        - main: "solv.dedyn.io"
+          sans:
+            - "*.solv.dedyn.io"
+
+providers:
+  docker:
+    exposedByDefault: false
+  file:
+    filename: /etc/traefik/dynamic_conf.yml
+
+entryPoints:
+  web:
+    address: ":80"
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
+  websecure:
+    address: ":443"

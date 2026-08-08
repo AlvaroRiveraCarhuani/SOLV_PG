@@ -7,3 +7,20 @@ http:
         authResponseHeaders:
           - "X-User-Id"
           - "X-User-Role"
+
+  routers:
+    workspaces:
+      rule: "HostRegexp(`{subdomain:[a-z0-9-]+}.solv.dedyn.io`) || Host(`solv.dedyn.io`)"
+      service: solv-backend-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: letsencrypt
+      middlewares:
+        - solv-forwardauth
+
+  services:
+    solv-backend-service:
+      loadBalancer:
+        servers:
+          - url: "http://solv_backend:3000"
