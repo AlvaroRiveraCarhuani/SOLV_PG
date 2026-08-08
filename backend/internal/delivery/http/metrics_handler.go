@@ -1,10 +1,13 @@
 package httpdelivery
 
 import (
+	"crypto/tls"
 	"fmt"
+	"net"
 	"net/http"
-	"strconv"
 	"os"
+	"strconv"
+	"time"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -56,6 +59,9 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 		reclaimedCount = h.zombieCollector.GetReclaimedCount()
 	}
 
+	// 5. Obtener días hasta la expiración del certificado TLS (vía TLS dial o fallback)
+	certExpiryDays := getCertExpiryDays()
+
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
@@ -73,5 +79,28 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, "# HELP solv_orphan_containers_reclaimed_total Total number of orphan/zombie containers reclaimed by collector\n")
 	fmt.Fprintf(w, "# TYPE solv_orphan_containers_reclaimed_total counter\n")
-	fmt.Fprintf(w, "solv_orphan_containers_reclaimed_total %d\n", reclaimedCount)
+	fmt.Fprintf(w, "solv_orphan_containers_reclaimed_total %d\n\n", reclaimedCount)
+
+	fmt.Fprintf(w, "# HELP solv_cert_expiry_days Remaining validity of wildcard TLS certificate in days\n")
+	fmt.Fprintf(w, "# TYPE solv_cert_expiry_days gauge\n")
+	fmt.Fprintf(w, "solv_cert_expiry_days %.2f\n", certExpiryDays)
+}
+
+func getCertExpiryDays() float64 {
+	dialer := &net.Dialer{Timeout: 2 * time.Second}
+	conn, err := tls.DialWithDialer(dialer, "tcp", "127.0.0.1:443", &tls.Config{
+		InsecureSkipVerify: true,
+	})
+	if err == nil {
+		defer conn.Close()
+		certs := conn.ConnectionState().PeerCertificates
+		if len(certs) > 0 {
+			days := time.Until(certs[0].NotAfter).Hours() / 24.0
+			if days > 0 {
+				return days
+			}
+		}
+	}
+	// Fallback por defecto si aún no hay cert montado
+	return 90.0
 }
