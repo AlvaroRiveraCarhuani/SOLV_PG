@@ -91,6 +91,7 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 			Memory: config.MemoryLimitMB * 1024 * 1024, // Conversión a bytes
 		},
 		NetworkMode: container.NetworkMode(config.NetworkMode),
+		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 
 	containerConfig := &container.Config{
@@ -141,12 +142,14 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 			Memory: memLimit * 1024 * 1024,
 		},
 		NetworkMode: container.NetworkMode(config.NetworkName),
+		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 
 	containerConfig := &container.Config{
 		Image:  config.Image,
 		Labels: config.Labels,
 		Env:    config.Env,
+		User:   "1000:1000",
 		Cmd:    []string{"--without-connection-token", "--host", "0.0.0.0"},
 	}
 
@@ -369,7 +372,7 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 }
 
 func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {
-	semgrepImage := "semgrep/semgrep:latest"
+	semgrepImage := domain.SemgrepImage
 
 	_, _, err := c.cli.ImageInspectWithRaw(ctx, semgrepImage)
 	if err != nil {
@@ -443,5 +446,9 @@ func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) 
 	}
 
 	return outputBytes, nil
+}
+
+func (c *Client) GetRawClient() *client.Client {
+	return c.cli
 }
 

@@ -109,7 +109,7 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 
 	// 8. Configuración del contenedor OpenVSCode Server (gitpod/openvscode-server sin token interno)
 	config := domain.WorkspaceContainerConfig{
-		Image:         "gitpod/openvscode-server:latest",
+		Image:         domain.OpenVSCodeImage,
 		ContainerName: containerName,
 		VolumeName:    volumeName,
 		MemoryLimitMB: domain.DefaultBaseMemoryMB,
