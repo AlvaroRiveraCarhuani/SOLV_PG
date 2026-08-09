@@ -31,3 +31,5 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 024 | [Esquema Académico Multi-Tenant Unificado](ADR-024-esquema-academico-multitenant.md) | Activo | Slice 9 |
 | 025 | [Invitaciones a Docentes mediante Transacciones Atómicas SQL](ADR-025-invitaciones-docentes-transaccionales.md) | Activo | Slice 9 |
 | 026 | [Pre-chequeo AST con Semgrep previo a la Aprovisionamiento del Contenedor](ADR-026-pre-chequeo-ast-semgrep.md) | Activo | Slice 9 |
+| 027 | [Operabilidad B2B — Audit Logs, Rate Limiting y Lock de Migraciones](ADR-027-operabilidad-b2b.md) | Activo | Slice 11 |
+| 028 | [Selección del Driver PostgreSQL (`lib/pq`) frente a `pgx`](ADR-028-driver-postgresql-libpq.md) | Activo | Slice 11 |
