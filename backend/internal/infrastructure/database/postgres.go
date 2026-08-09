@@ -30,6 +30,16 @@ func (d *Database) GetDB() *sqlx.DB {
 }
 
 func (d *Database) RunInitialMigrations() error {
+	// CRIT-19: Advisory lock de migraciones (bloqueante)
+	_, errLock := d.db.Exec("SELECT pg_advisory_lock(1337)")
+	if errLock != nil {
+		log.Printf("Notice: Could not acquire migration advisory lock 1337: %v. Continuing if pre-existing...", errLock)
+	} else {
+		defer func() {
+			_, _ = d.db.Exec("SELECT pg_advisory_unlock(1337)")
+		}()
+	}
+
 	usersTableQuery := `
 	CREATE TABLE IF NOT EXISTS users (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -276,6 +286,25 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_submissions_tenant ON submissions(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+
+	-- Tabla audit_logs (CRIT-11)
+	CREATE TABLE IF NOT EXISTS audit_logs (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		actor_id UUID NOT NULL,
+		action VARCHAR(255) NOT NULL,
+		resource_type VARCHAR(100) NOT NULL,
+		resource_id UUID,
+		status_code INT NOT NULL DEFAULT 200,
+		metadata JSONB DEFAULT '{}'::jsonb,
+		ip_address INET,
+		user_agent TEXT,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id);
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 	`
 
 	if _, err := d.db.Exec(multitenancyMigrationQuery); err != nil {

@@ -21,6 +21,7 @@ type contextKey string
 const (
 	TenantIDKey contextKey = "tenant_id"
 	UserIDKey   contextKey = "user_id"
+	UserRoleKey contextKey = "user_role"
 
 	DefaultTenantID = "00000000-0000-0000-0000-000000000001"
 )
@@ -40,6 +41,16 @@ func GetUserID(ctx context.Context) string {
 		return ""
 	}
 	if val, ok := ctx.Value(UserIDKey).(string); ok {
+		return val
+	}
+	return ""
+}
+
+func GetUserRole(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if val, ok := ctx.Value(UserRoleKey).(string); ok {
 		return val
 	}
 	return ""

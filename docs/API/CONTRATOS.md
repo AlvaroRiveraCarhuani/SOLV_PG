@@ -46,6 +46,10 @@ El presente documento establece la especificación formal del contrato de interf
   "type": "IDE_PERSISTENTE"
 }
 ```
+* **Cabeceras de Respuesta (RFC 6585):**
+  * `X-RateLimit-Limit: 5`
+  * `X-RateLimit-Remaining: <N>`
+  * `X-RateLimit-Reset: <timestamp_unix>`
 * **Respuesta 200 OK:**
 ```json
 {
@@ -57,6 +61,14 @@ El presente documento establece la especificación formal del contrato de interf
   "status": "running",
   "access_url": "http://bd430809-b45f-4be0-95a4-472da081ec11.solv.uab.edu.bo",
   "memory_limit_mb": 256
+}
+```
+* **Respuesta 429 Too Many Requests (Exceso de Cuota):**
+  * `Retry-After: 60`
+  * `Content-Type: application/json`
+```json
+{
+  "error": "Rate limit exceeded. Please wait before starting another workspace."
 }
 ```
 

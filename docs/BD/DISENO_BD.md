@@ -189,9 +189,26 @@ CREATE TABLE IF NOT EXISTS teacher_invitations (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+    actor_id UUID NOT NULL,
+    action VARCHAR(255) NOT NULL,
+    resource_type VARCHAR(100) NOT NULL,
+    resource_id UUID,
+    status_code INT NOT NULL DEFAULT 200,
+    metadata JSONB DEFAULT '{}'::jsonb,
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Índices de Rendimiento y Filtrado Tenant
 CREATE INDEX IF NOT EXISTS idx_subjects_tenant ON subjects(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_tenant ON submissions(tenant_id);
 CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 ```

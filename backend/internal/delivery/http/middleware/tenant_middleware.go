@@ -60,6 +60,9 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 
 			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
 			ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+			if userRole, _ := claims["role"].(string); userRole != "" {
+				ctx = context.WithValue(ctx, domain.UserRoleKey, userRole)
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

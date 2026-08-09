@@ -17,6 +17,8 @@ type Handlers struct {
 	TeacherInvitationHandler *TeacherInvitationHandler
 	ClassroomHandler         *ClassroomHandler
 	TenantMiddleware         func(http.Handler) http.Handler
+	AuditMiddleware          func(http.Handler) http.Handler
+	RateLimitMiddleware      func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -24,7 +26,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerTemplateRoutes(mux, deps.TemplateHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware)
-	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware)
+	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
 	registerAcademicRoutes(mux, deps)
@@ -35,22 +37,26 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	if tm == nil {
 		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
 	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
 
 	if deps.SubjectHandler != nil {
-		mux.Handle("POST /api/v1/subjects", tm(http.HandlerFunc(deps.SubjectHandler.CreateSubject)))
+		mux.Handle("POST /api/v1/subjects", am(tm(http.HandlerFunc(deps.SubjectHandler.CreateSubject))))
 		mux.Handle("GET /api/v1/subjects", tm(http.HandlerFunc(deps.SubjectHandler.ListSubjects)))
-		mux.Handle("POST /api/v1/subjects/{id}/enroll", tm(http.HandlerFunc(deps.SubjectHandler.EnrollStudent)))
+		mux.Handle("POST /api/v1/subjects/{id}/enroll", am(tm(http.HandlerFunc(deps.SubjectHandler.EnrollStudent))))
 		mux.Handle("GET /api/v1/subjects/{id}/students", tm(http.HandlerFunc(deps.SubjectHandler.ListStudents)))
 	}
 
 	if deps.SubmissionHandler != nil {
-		mux.Handle("POST /api/v1/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission)))
+		mux.Handle("POST /api/v1/submissions", am(tm(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission))))
 		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
 	}
 
 	if deps.TeacherInvitationHandler != nil {
-		mux.Handle("POST /api/v1/invitations/teachers", tm(http.HandlerFunc(deps.TeacherInvitationHandler.CreateInvitation)))
-		mux.Handle("POST /api/v1/invitations/teachers/accept", tm(http.HandlerFunc(deps.TeacherInvitationHandler.AcceptInvitation)))
+		mux.Handle("POST /api/v1/invitations/teachers", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.CreateInvitation))))
+		mux.Handle("POST /api/v1/invitations/teachers/accept", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.AcceptInvitation))))
 	}
 
 	if deps.ClassroomHandler != nil {
@@ -84,15 +90,18 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 	}
 }
 
-func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler) {
+func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {
+	if rateLimitMiddleware == nil {
+		rateLimitMiddleware = func(next http.Handler) http.Handler { return next }
+	}
 	if tenantMiddleware != nil {
-		mux.Handle("POST /api/v1/workspaces/start", tenantMiddleware(http.HandlerFunc(h.StartWorkspace)))
+		mux.Handle("POST /api/v1/workspaces/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", tenantMiddleware(http.HandlerFunc(h.TerminateWorkspace)))
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/workspaces/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartWorkspace)))
 	} else {
-		mux.Handle("POST /api/v1/workspaces/start", WithAuth(http.HandlerFunc(h.StartWorkspace)))
+		mux.Handle("POST /api/v1/workspaces/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", WithAuth(http.HandlerFunc(h.TerminateWorkspace)))
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
+
+	"solv-backend/internal/core/domain"
 )
 func WithCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -65,6 +67,13 @@ func WithAuth(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
+		ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
+			ctx = context.WithValue(ctx, domain.TenantIDKey, tenantID)
+		}
+		if role, ok := claims["role"].(string); ok && role != "" {
+			ctx = context.WithValue(ctx, domain.UserRoleKey, role)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
