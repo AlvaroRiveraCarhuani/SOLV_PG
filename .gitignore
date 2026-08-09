@@ -3,4 +3,5 @@
 !example.env
 /backend/bin/
 letsencrypt/
+backups/
 
