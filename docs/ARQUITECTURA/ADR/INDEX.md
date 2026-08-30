@@ -22,7 +22,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 015 | [Migración a la Distribución Oficial OpenVSCode Server](ADR-015-migracion-openvscode-server.md) | Activo | Slice 7, Slice 8 |
 | 016 | [Motor de Auditoría Semántica AST con SemgrepWorker](ADR-016-auditoria-semantica-ast-semgrep.md) | Activo | Slice 7 |
 | 017 | [Autenticación Perimetral ForwardAuth vía Cookie HttpOnly Cross-Subdomain (D1)](ADR-017-autenticacion-perimetral-forwardauth-httponly.md) | Activo | Slice 8 |
-| 018 | [Automatización TLS Wildcard y Certificados SSL vía ACME DNS-01 (D2)](ADR-018-renovacion-automatica-tls-wildcard-acme-dns01.md) | Activo | Slice 8 |
+| 018 | [Automatización TLS Wildcard y Certificados SSL vía ACME DNS-01](ADR-018-renovacion-automatica-tls-wildcard-acme-dns01.md) | Activo | Slice 8 |
 | 019 | [Consolidación del Modelo de Dominio de Workspaces y Discriminador `type` (D3)](ADR-019-consolidacion-modelo-workspaces-type-discriminator.md) | Activo | Slice 8 |
 | 020 | [Motor de Auditoría Semántica AST Inmutable con Montaje de Solo Lectura (D4)](ADR-020-auditoria-semantica-ast-inmutable-solo-lectura.md) | Activo | Slice 8 |
 | 021 | [Registro Abierto OpenVSX para Entornos Interactivos (D5)](ADR-021-integracion-registro-abierto-openvsx.md) | Activo | Slice 8 |

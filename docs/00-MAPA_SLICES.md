@@ -25,9 +25,9 @@ Este documento define la hoja de ruta integral de la plataforma **SOLV** (Slices
 | **07** | OpenVSCode Server & Auditoría AST | Vertical MVP | Migración a OpenVSCode Server oficial (puerto 3000) y worker de análisis semántico AST con Semgrep. | **COMPLETADO** |
 | **08** | Hardening BaaS & Modelo Unificado | **Hardening BaaS** | **CRIT-01** (DOCKER-USER), **CRIT-04** (Multi-Tenancy `tenant_id`), **CRIT-05** (ForwardAuth HttpOnly), **CRIT-06** (Unificación Workspaces). | **COMPLETADO** |
 | **09** | Esquema Académico & Hardening Seguridad | **Hardening BaaS** | **CRIT-02** (Esquema Académico Multi-Tenant, Subjects, Enrollments, Submissions, Invitaciones Docentes). | **COMPLETADO** |
-| **10** | Robustez BaaS & Resiliencia | **Hardening BaaS** | **CRIT-09** (Rate Limiting Traefik), **CRIT-10** (Circuit Breakers), **CRIT-11** (Graceful Shutdown), **CRIT-12** (Audit Log de Eventos). | **PENDIENTE** |
-| **11** | Optimización BaaS & Caché | **Hardening BaaS** | **CRIT-13** (Pool de Conexiones DB), **CRIT-14** (Warm Pool de Contenedores), **CRIT-15** (Caché de Imágenes Docker). | **PENDIENTE** |
-| **12** | Interface Estudiantil (UI) | Vertical UI | Dashboard del estudiante en Angular 22, visor de workspaces, integración de iframe y consola de estado. | **PENDIENTE** |
+| **10** | Robustez BaaS & Resiliencia | **Hardening BaaS** | **CRIT-09** (Rate Limiting Traefik), **CRIT-10** (Circuit Breakers), **CRIT-11** (Graceful Shutdown), **CRIT-12** (Audit Log de Eventos). | **COMPLETADO** |
+| **11** | Operabilidad B2B — Audit Logs, Rate Limiting & Migrations Lock | **Hardening BaaS** | **CRIT-13** (Pool de Conexiones DB), **CRIT-19** (Advisory Lock de Migraciones SQL), **CRIT-20** (Audit Logs & Rate Limiting). | **COMPLETADO (`v0.11.0`)** |
+| **12** | Interface Estudiantil & Vistas UI | Vertical UI | Dashboard del estudiante en Angular 22, visor de workspaces, integración de iframe y consola de estado. | **EN PROCESO** |
 | **13** | Interface Docente & Calificador (UI) | Vertical UI | Panel de control de ejercicios, visualizador de reportes AST Semgrep y gestión de laboratorios. | **PENDIENTE** |
 | **14** | Admin Portal & Multi-Tenant UI | Vertical UI | Panel de administración de Tenants, métricas globales de servidor Asus y configuración de plataforma. | **PENDIENTE** |
 

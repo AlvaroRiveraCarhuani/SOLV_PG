@@ -46,6 +46,14 @@ func (m *MockTenantRepository) GetAll(ctx context.Context) ([]*coredomain.Tenant
 	return list, nil
 }
 
+func (m *MockTenantRepository) UpdateConfig(ctx context.Context, id string, config []byte) error {
+	if t, exists := m.tenants[id]; exists {
+		t.Config = config
+		return nil
+	}
+	return errors.New("tenant not found")
+}
+
 type MockUserRepoForMT struct {
 	users map[string]*domain.User
 }
