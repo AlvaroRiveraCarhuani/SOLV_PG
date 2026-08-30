@@ -22,4 +22,5 @@ type AuditLog struct {
 type AuditLogRepository interface {
 	Create(ctx context.Context, log *AuditLog) error
 	ListByTenant(ctx context.Context, tenantID string, limit int) ([]*AuditLog, error)
+	ListFiltered(ctx context.Context, tenantID, actorID, action string, limit, offset int) ([]*AuditLog, error)
 }

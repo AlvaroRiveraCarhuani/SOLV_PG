@@ -78,6 +78,11 @@ func main() {
 	jwtSecret := strings.Trim(strings.TrimSpace(os.Getenv("JWT_SECRET")), `"`)
 	tenantMiddleware := middleware.WithTenant(tenantRepo, []byte(jwtSecret))
 
+	auditLogRepo := postgres.NewAuditLogRepository(db.GetDB())
+
+	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
@@ -90,6 +95,8 @@ func main() {
 		SubmissionHandler:        httpdelivery.NewSubmissionHandler(submissionService),
 		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
+		AdminHandler:             adminHandler,
+		StudentHandler:           studentHandler,
 		TenantMiddleware:         tenantMiddleware,
 	}
 

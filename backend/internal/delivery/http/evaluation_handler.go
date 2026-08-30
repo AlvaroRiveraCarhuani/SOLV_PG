@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/go-playground/validator/v10"
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	"solv-backend/internal/delivery/http/dto"
 )
@@ -75,3 +76,33 @@ func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Reque
 	publicResp := dto.ToExercisePublicResponse(exercise)
 	SendJSON(w, http.StatusOK, publicResp, "Ejercicio obtenido exitosamente")
 }
+
+func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
+	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
+	if tenantID == "" {
+		tenantID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	var ex domain.Exercise
+	if err := json.NewDecoder(r.Body).Decode(&ex); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
+		return
+	}
+
+	if ex.Title == "" {
+		SendError(w, http.StatusBadRequest, "Title is required", "El título del ejercicio es obligatorio")
+		return
+	}
+	if ex.Type == "" {
+		ex.Type = domain.ExerciseTypeAlgorithm
+	}
+	ex.TenantID = tenantID
+
+	if err := h.service.CreateExercise(r.Context(), &ex); err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al crear el ejercicio")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, ex, "Ejercicio creado exitosamente")
+}
+

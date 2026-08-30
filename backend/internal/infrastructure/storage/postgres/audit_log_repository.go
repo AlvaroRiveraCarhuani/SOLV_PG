@@ -38,20 +38,31 @@ func (r *AuditLogRepository) Create(ctx context.Context, log *domain.AuditLog) e
 }
 
 func (r *AuditLogRepository) ListByTenant(ctx context.Context, tenantID string, limit int) ([]*domain.AuditLog, error) {
+	return r.ListFiltered(ctx, tenantID, "", "", limit, 0)
+}
+
+func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID, action string, limit, offset int) ([]*domain.AuditLog, error) {
 	if limit <= 0 {
 		limit = 50
 	}
+	if offset < 0 {
+		offset = 0
+	}
+
 	query := `
 		SELECT id, tenant_id, actor_id, action, resource_type, resource_id, status_code, metadata, COALESCE(ip_address::text, '') as ip_address, COALESCE(user_agent, '') as user_agent, created_at
 		FROM audit_logs
 		WHERE tenant_id = $1
+		  AND ($2 = '' OR actor_id::text = $2)
+		  AND ($3 = '' OR action = $3)
 		ORDER BY created_at DESC
-		LIMIT $2
+		LIMIT $4 OFFSET $5
 	`
 	var logs []*domain.AuditLog
-	err := r.db.SelectContext(ctx, &logs, query, tenantID, limit)
+	err := r.db.SelectContext(ctx, &logs, query, tenantID, actorID, action, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list audit logs by tenant: %w", err)
+		return nil, fmt.Errorf("failed to list filtered audit logs: %w", err)
 	}
 	return logs, nil
 }
+

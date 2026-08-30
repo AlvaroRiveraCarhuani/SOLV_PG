@@ -108,6 +108,7 @@ type TenantRepository interface {
 	GetByID(ctx context.Context, id string) (*Tenant, error)
 	GetBySlug(ctx context.Context, slug string) (*Tenant, error)
 	GetAll(ctx context.Context) ([]*Tenant, error)
+	UpdateConfig(ctx context.Context, id string, config []byte) error
 }
 
 type SubjectRepository interface {
@@ -116,6 +117,7 @@ type SubjectRepository interface {
 	ListByTenant(ctx context.Context, tenantID string) ([]*Subject, error)
 	EnrollStudent(ctx context.Context, enrollment *Enrollment) error
 	ListStudentsBySubject(ctx context.Context, tenantID, subjectID string) ([]string, error)
+	ListByStudent(ctx context.Context, tenantID, studentID string) ([]*Subject, error)
 }
 
 type SubmissionRepository interface {
@@ -123,6 +125,8 @@ type SubmissionRepository interface {
 	GetByID(ctx context.Context, tenantID, id string) (*Submission, error)
 	ListByExerciseAndStudent(ctx context.Context, tenantID, exerciseID, studentID string) ([]*Submission, error)
 	ListByExercise(ctx context.Context, tenantID, exerciseID string) ([]*Submission, error)
+	ListByStudent(ctx context.Context, tenantID, studentID string) ([]*Submission, error)
+	UpdateOverride(ctx context.Context, tenantID, id, verdict, reason string, score *int, gradedBy *string) error
 }
 
 type TeacherInvitationRepository interface {

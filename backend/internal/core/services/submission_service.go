@@ -60,3 +60,18 @@ func (s *SubmissionService) GetSubmissionsForExercise(ctx context.Context, tenan
 	}
 	return s.repo.ListByExercise(ctx, tenantID, exerciseID)
 }
+
+func (s *SubmissionService) GetSubmissionByID(ctx context.Context, tenantID, id string) (*domain.Submission, error) {
+	return s.repo.GetByID(ctx, tenantID, id)
+}
+
+func (s *SubmissionService) OverrideSubmission(ctx context.Context, tenantID, id, verdict, reason string, score *int, gradedBy *string) error {
+	if verdict == "" {
+		return errors.New("verdict is required")
+	}
+	if reason == "" {
+		return errors.New("override_reason is required")
+	}
+	return s.repo.UpdateOverride(ctx, tenantID, id, verdict, reason, score, gradedBy)
+}
+

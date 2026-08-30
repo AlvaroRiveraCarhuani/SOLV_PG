@@ -53,3 +53,20 @@ func (r *PostgresTenantRepository) GetAll(ctx context.Context) ([]*domain.Tenant
 	}
 	return list, nil
 }
+
+func (r *PostgresTenantRepository) UpdateConfig(ctx context.Context, id string, config []byte) error {
+	query := `UPDATE tenants SET config = $1, updated_at = NOW() WHERE id = $2`
+	res, err := r.db.ExecContext(ctx, query, config, id)
+	if err != nil {
+		return fmt.Errorf("failed to update tenant config: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("failed to check affected rows: %w", err)
+	}
+	if rows == 0 {
+		return fmt.Errorf("tenant not found")
+	}
+	return nil
+}
+

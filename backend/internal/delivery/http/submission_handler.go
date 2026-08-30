@@ -2,6 +2,7 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"solv-backend/internal/core/services"
@@ -76,3 +77,76 @@ func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *
 		"data":        list,
 	})
 }
+
+func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
+		return
+	}
+
+	submissionID := r.PathValue("id")
+	if submissionID == "" {
+		http.Error(w, `{"error":"Submission ID missing"}`, http.StatusBadRequest)
+		return
+	}
+
+	sub, err := h.service.GetSubmissionByID(r.Context(), tenantID, submissionID)
+	if err != nil {
+		http.Error(w, `{"error":"Submission not found"}`, http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(sub)
+}
+
+type OverrideSubmissionDTO struct {
+	Verdict        string  `json:"verdict"`
+	OverrideReason string  `json:"override_reason"`
+	Score          *int    `json:"score,omitempty"`
+}
+
+func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
+		return
+	}
+
+	submissionID := r.PathValue("id")
+	if submissionID == "" {
+		http.Error(w, `{"error":"Submission ID missing"}`, http.StatusBadRequest)
+		return
+	}
+
+	var dto OverrideSubmissionDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
+		return
+	}
+
+	if dto.Verdict == "" || dto.OverrideReason == "" {
+		http.Error(w, `{"error":"verdict and override_reason are required"}`, http.StatusBadRequest)
+		return
+	}
+
+	var gradedBy *string
+	userID := r.Header.Get("X-User-Id")
+	if userID != "" {
+		gradedBy = &userID
+	}
+
+	err = h.service.OverrideSubmission(r.Context(), tenantID, submissionID, dto.Verdict, dto.OverrideReason, dto.Score, gradedBy)
+	if err != nil {
+		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "overridden",
+		"message": "Submission verdict updated successfully",
+	})
+}
+

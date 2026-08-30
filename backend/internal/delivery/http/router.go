@@ -16,6 +16,8 @@ type Handlers struct {
 	SubmissionHandler        *SubmissionHandler
 	TeacherInvitationHandler *TeacherInvitationHandler
 	ClassroomHandler         *ClassroomHandler
+	AdminHandler             *AdminHandler
+	StudentHandler           *StudentHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
@@ -25,11 +27,13 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerUserRoutes(mux, deps.UserHandler)
 	registerTemplateRoutes(mux, deps.TemplateHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
-	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware)
+	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
 	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
 	registerAcademicRoutes(mux, deps)
+	registerAdminRoutes(mux, deps)
+	registerStudentRoutes(mux, deps)
 }
 
 func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -52,6 +56,8 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.SubmissionHandler != nil {
 		mux.Handle("POST /api/v1/submissions", am(tm(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission))))
 		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
+		mux.Handle("GET /api/v1/submissions/{id}", tm(http.HandlerFunc(deps.SubmissionHandler.GetSubmissionByID)))
+		mux.Handle("POST /api/v1/submissions/{id}/override", am(tm(http.HandlerFunc(deps.SubmissionHandler.OverrideSubmission))))
 	}
 
 	if deps.TeacherInvitationHandler != nil {
@@ -62,6 +68,36 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.ClassroomHandler != nil {
 		mux.Handle("GET /api/v1/classroom/import", tm(http.HandlerFunc(deps.ClassroomHandler.ImportRosterManual)))
 	}
+}
+
+func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.AdminHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/admin/audit-logs", tm(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
+	mux.Handle("PUT /api/v1/admin/branding", am(tm(http.HandlerFunc(deps.AdminHandler.UpdateBranding))))
+	mux.Handle("GET /api/v1/admin/metrics/health", tm(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
+}
+
+func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.StudentHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	mux.Handle("GET /api/v1/student/dashboard", tm(http.HandlerFunc(deps.StudentHandler.GetDashboard)))
 }
 
 func registerUserRoutes(mux *http.ServeMux, h *UserHandler) {
@@ -80,14 +116,22 @@ func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
 	mux.HandleFunc("POST /api/v1/auth/logout", h.HandleLogout)
 }
 
-func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMiddleware func(http.Handler) http.Handler) {
-	if tenantMiddleware != nil {
-		mux.Handle("POST /api/v1/evaluations", tenantMiddleware(http.HandlerFunc(h.Evaluate)))
-		mux.Handle("GET /api/v1/exercises/{id}", tenantMiddleware(http.HandlerFunc(h.GetExerciseByID)))
-	} else {
-		mux.Handle("POST /api/v1/evaluations", WithAuth(http.HandlerFunc(h.Evaluate)))
-		mux.Handle("GET /api/v1/exercises/{id}", WithAuth(http.HandlerFunc(h.GetExerciseByID)))
+func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMiddleware func(http.Handler) http.Handler, auditMiddleware func(http.Handler) http.Handler) {
+	if h == nil {
+		return
 	}
+	tm := tenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := auditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("POST /api/v1/evaluations", tm(http.HandlerFunc(h.Evaluate)))
+	mux.Handle("GET /api/v1/exercises/{id}", tm(http.HandlerFunc(h.GetExerciseByID)))
+	mux.Handle("POST /api/v1/exercises", am(tm(http.HandlerFunc(h.CreateExercise))))
 }
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {

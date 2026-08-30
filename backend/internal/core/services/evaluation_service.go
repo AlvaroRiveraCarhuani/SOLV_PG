@@ -37,6 +37,13 @@ func (s *EvaluationService) GetExerciseByID(ctx context.Context, id string) (*do
 	return s.exerciseRepo.GetByID(ctx, id)
 }
 
+func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exercise) error {
+	if ex.ID == "" {
+		ex.ID = fmt.Sprintf("%s", time.Now().Format("20060102150405"))
+	}
+	return s.exerciseRepo.Create(ctx, ex)
+}
+
 func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {
 	// 1. Decodificar Base64
 	decodedBytes, err := base64.StdEncoding.DecodeString(sourceCodeB64)

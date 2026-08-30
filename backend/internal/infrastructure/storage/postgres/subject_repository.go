@@ -70,3 +70,20 @@ func (r *PostgresSubjectRepository) ListStudentsBySubject(ctx context.Context, t
 	}
 	return studentIDs, nil
 }
+
+func (r *PostgresSubjectRepository) ListByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.Subject, error) {
+	var list []*domain.Subject
+	query := `
+		SELECT s.id, s.tenant_id, s.name, s.code, s.classroom_course_id, s.created_at, s.updated_at
+		FROM subjects s
+		INNER JOIN enrollments e ON s.id = e.subject_id AND s.tenant_id = e.tenant_id
+		WHERE s.tenant_id = $1 AND e.student_id = $2
+		ORDER BY s.name ASC
+	`
+	err := r.db.SelectContext(ctx, &list, query, tenantID, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list student subjects: %w", err)
+	}
+	return list, nil
+}
+

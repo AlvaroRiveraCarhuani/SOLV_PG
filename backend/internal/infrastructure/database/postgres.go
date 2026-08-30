@@ -253,8 +253,17 @@ func (d *Database) RunInitialMigrations() error {
 		ast_result JSONB DEFAULT '{}'::jsonb,
 		execution_time_ms INT NOT NULL DEFAULT 0,
 		memory_used_mb INT NOT NULL DEFAULT 0,
+		manual_override BOOLEAN DEFAULT FALSE,
+		override_reason TEXT DEFAULT '',
+		score INT,
+		graded_by UUID REFERENCES users(id) ON DELETE SET NULL,
 		submitted_at TIMESTAMPTZ DEFAULT NOW()
 	);
+
+	ALTER TABLE submissions ADD COLUMN IF NOT EXISTS manual_override BOOLEAN DEFAULT FALSE;
+	ALTER TABLE submissions ADD COLUMN IF NOT EXISTS override_reason TEXT DEFAULT '';
+	ALTER TABLE submissions ADD COLUMN IF NOT EXISTS score INT;
+	ALTER TABLE submissions ADD COLUMN IF NOT EXISTS graded_by UUID REFERENCES users(id) ON DELETE SET NULL;
 
 	CREATE TABLE IF NOT EXISTS teacher_invitations (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
