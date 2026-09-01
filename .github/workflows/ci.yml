@@ -1,0 +1,64 @@
+name: SOLV DevSecOps CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-test:
+    name: Backend Go Tests & Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Go 1.25
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install PostgreSQL & Start Docker Services
+        run: |
+          docker compose up -d postgres
+          docker compose ps
+
+      - name: Run Go Unit and Integration Tests
+        run: |
+          cd backend
+          go test -v ./... -count=1
+
+  frontend-build:
+    name: Frontend Angular Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci || npm install
+
+      - name: Build Angular Application
+        run: |
+          cd frontend
+          npm run build --if-present
+
+  security-scan:
+    name: DevSecOps Semgrep Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Semgrep AST Security Scan
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: p/default
