@@ -33,3 +33,13 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 026 | [Pre-chequeo AST con Semgrep previo a la Aprovisionamiento del Contenedor](ADR-026-pre-chequeo-ast-semgrep.md) | Activo | Slice 9 |
 | 027 | [Operabilidad B2B — Audit Logs, Rate Limiting y Lock de Migraciones](ADR-027-operabilidad-b2b.md) | Activo | Slice 11 |
 | 028 | [Selección del Driver PostgreSQL (`lib/pq`) frente a `pgx`](ADR-028-driver-postgresql-libpq.md) | Activo | Slice 11 |
+| 029 | [Períodos Académicos y Archivado de Cursos](ADR-029-periodos-academicos-archivado-cursos.md) | Aprobado | Slice 14 |
+| 030 | [Catálogo de Plantillas Docker con Flujo de Aprobación](ADR-030-catalogo-plantillas-docker-aprobacion.md) | Aprobado | Slice 14 |
+| 031 | [Modo Mantenimiento Global](ADR-031-modo-mantenimiento-global.md) | Aprobado | Slice 14 |
+| 032 | [Acciones de Emergencia del Administrador](ADR-032-acciones-emergencia-administrador.md) | Aprobado | Slice 14 |
+| 033 | [Gestión de Estudiantes por el Administrador](ADR-033-gestion-estudiantes-administrador.md) | Aprobado | Slice 14 |
+| 034 | [Sistema de Notificaciones Proactivas (In-App y Correo)](ADR-034-sistema-notificaciones-proactivas.md) | Aprobado | Slice 14 |
+| 035 | [Copias de Seguridad Configurables con Retención Local y Remota](ADR-035-backups-configurables-retencion.md) | Aprobado | Slice 14 |
+| 036 | [Reasignación de Docentes y Gestión de Cursos Huérfanos](ADR-036-reasignacion-docentes-cursos-huerfanos.md) | Aprobado | Slice 14 |
+| 037 | [Concentrador WebSocket para Evaluación del Juez Virtual](ADR-037-websocket-hub-evaluacion-juez-virtual.md) | Aprobado | Slice 12 |
+
