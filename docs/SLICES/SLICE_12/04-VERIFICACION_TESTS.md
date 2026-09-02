@@ -41,11 +41,11 @@ ok  	solv-backend/tests/integration	0.599s
    - Petición sin credenciales de estudiante -> `401 Unauthorized`.
    - Consulta con inscripciones reales -> `200 OK` con entregas filtradas por `due_date > NOW()` y ordenadas por fecha.
 
-3. **`TestLote1_PauseWorkspaceEndpoint`**:
+3. **`TestSlice12_PauseWorkspaceEndpoint`**:
    - Petición de usuario no dueño -> `403 Forbidden`.
    - Petición del estudiante propietario -> `200 OK`, contenedor detenido y estado `hibernated`.
 
-4. **`TestLote1_WebSocketHubAndEvaluation`**:
+4. **`TestSlice12_WebSocketHubAndEvaluation`**:
    - Handshake y autenticación -> Evento `CONNECTION_ESTABLISHED`.
    - Disparo de envío de solución vía HTTP -> Recepción en tiempo real del evento `EVALUATION_COMPLETED` por WebSocket.
 

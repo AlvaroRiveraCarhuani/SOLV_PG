@@ -88,6 +88,10 @@ func main() {
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
+	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
+	teacherService := services.NewTeacherService(teacherRepo)
+	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
+
 	evalHandler := httpdelivery.NewEvaluationHandler(evaluationService, v)
 	evalHandler.SetWebSocketHub(wsHub)
 
@@ -108,6 +112,7 @@ func main() {
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
 		AdminHandler:             adminHandler,
 		StudentHandler:           studentHandler,
+		TeacherHandler:           teacherHandler,
 		WebSocketHandler:         wsHandler,
 		TenantMiddleware:         tenantMiddleware,
 	}

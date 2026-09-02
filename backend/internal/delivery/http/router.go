@@ -18,6 +18,7 @@ type Handlers struct {
 	ClassroomHandler         *ClassroomHandler
 	AdminHandler             *AdminHandler
 	StudentHandler           *StudentHandler
+	TeacherHandler           *TeacherHandler
 	WebSocketHandler         *WebSocketHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
@@ -35,6 +36,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAcademicRoutes(mux, deps)
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
+	registerTeacherRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
 
@@ -194,4 +196,22 @@ func registerWebSocketRoutes(mux *http.ServeMux, h *WebSocketHandler) {
 		mux.HandleFunc("GET /ws/v1/evaluations", h.HandleEvaluationWS)
 		mux.HandleFunc("GET /api/v1/ws/evaluations", h.HandleEvaluationWS)
 	}
+}
+
+func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.TeacherHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/teacher/courses", tm(http.HandlerFunc(deps.TeacherHandler.GetCourses)))
+	mux.Handle("GET /api/v1/teacher/attention", tm(http.HandlerFunc(deps.TeacherHandler.GetAttention)))
+	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
 }

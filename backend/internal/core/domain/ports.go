@@ -141,4 +141,10 @@ type TeacherInvitationRepository interface {
 	AcceptInvitationTx(ctx context.Context, tenantID, token, userID, userEmail string) error
 }
 
+type TeacherRepository interface {
+	GetCoursesSummary(ctx context.Context, tenantID, teacherID string) ([]*TeacherCourseSummary, error)
+	GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*TeacherAttentionWidget, error)
+	GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*TeacherLabStats, error)
+}
+
 

@@ -57,4 +57,6 @@ func GetUserRole(ctx context.Context) string {
 }
 
 var ErrTenantIDMissing = errors.New("missing tenant_id in context")
+var ErrInvalidTenant = errors.New("invalid tenant")
+var ErrNotFound = errors.New("resource not found")
 

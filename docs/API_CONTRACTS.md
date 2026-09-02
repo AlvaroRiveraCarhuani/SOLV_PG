@@ -221,6 +221,127 @@ Realiza la transición de estado `draft` -> `published`. Requiere que el ejercic
 
 ---
 
+### 5. Materias y Resumen del Docente (`GET /api/v1/teacher/courses`)
+
+Retorna la lista de materias del docente autenticado con métricas agregadas (`students_count`, `active_now`, `pending_review`, `at_risk`).
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/courses`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Código de Respuesta:** `200 OK` (`403` si el rol es student)
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": [
+    {
+      "id": "9239032b-25e0-434d-8544-85768465552f",
+      "name": "Programación II",
+      "code": "PROG-201",
+      "students_count": 35,
+      "active_now": 18,
+      "pending_review": 4,
+      "at_risk": 2
+    }
+  ],
+  "error": "",
+  "message": "Cursos del docente obtenidos exitosamente"
+}
+```
+
+---
+
+### 6. Widget de Atención Prioritaria (`GET /api/v1/teacher/attention`)
+
+Provee alertas clasificadas por severidad (`critical`, `warning`, `standard`) siguiendo el patrón *Exception-Based Reporting*.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/attention`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Código de Respuesta:** `200 OK`
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "critical": [
+      {
+        "type": "oom_killed",
+        "student_id": "77777777-7777-4777-a777-777777777777",
+        "student_name": "Carlos Ruiz",
+        "workspace_id": "99999999-9999-4999-a999-999999999999",
+        "subject_id": "88888888-8888-4888-a888-888888888888",
+        "occurred_at": "2026-09-02T10:15:00Z"
+      }
+    ],
+    "warning": [
+      {
+        "type": "ast_blocked",
+        "student_id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
+        "student_name": "Ana Torres",
+        "exercise_id": "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
+        "rule_violated": "no_import_os",
+        "occurred_at": "2026-09-02T09:30:00Z"
+      }
+    ],
+    "standard": [
+      {
+        "type": "pending_review",
+        "submission_id": "cccccccc-cccc-4ccc-cccc-cccccccccccc",
+        "student_name": "María López",
+        "exercise_title": "Lab #01: Árboles AVL",
+        "submitted_at": "2026-09-02T08:45:00Z"
+      }
+    ]
+  },
+  "error": "",
+  "message": "Alertas de atencion obtenidas exitosamente"
+}
+```
+
+---
+
+### 7. Estadísticas por Laboratorio de un Curso (`GET /api/v1/teacher/courses/{id}/labs`)
+
+Retorna el desglose de métricas, entregas y veredictos para cada laboratorio del curso.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/courses/{id}/labs`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Lista de estadísticas por laboratorio.
+  - `404 Not Found`: Si la materia no existe o no pertenece al docente.
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": [
+    {
+      "id": "lab-uuid-1",
+      "title": "Lab #01: Árboles AVL",
+      "status": "published",
+      "due_date": "2026-09-10T23:59:59Z",
+      "submissions_count": 28,
+      "students_count": 35,
+      "auto_graded": 24,
+      "pending_review": 4,
+      "at_risk": 2,
+      "verdicts_summary": {
+        "AC": 20,
+        "WA": 5,
+        "TLE": 2,
+        "RE": 1,
+        "AST_BLOCKED": 0
+      }
+    }
+  ],
+  "error": "",
+  "message": "Estadisticas de laboratorios obtenidas exitosamente"
+}
+```
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional
