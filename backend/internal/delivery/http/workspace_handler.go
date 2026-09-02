@@ -129,3 +129,32 @@ func (h *WorkspaceHandler) RestartWorkspace(w http.ResponseWriter, r *http.Reque
 
 	SendJSON(w, http.StatusOK, instance, "Entorno reiniciado exitosamente")
 }
+
+func (h *WorkspaceHandler) PauseWorkspace(w http.ResponseWriter, r *http.Request) {
+	workspaceID := r.PathValue("id")
+	if workspaceID == "" {
+		SendError(w, http.StatusBadRequest, "Missing workspace ID", "Se requiere el ID del workspace")
+		return
+	}
+
+	ws, err := h.service.GetWorkspaceByID(r.Context(), workspaceID)
+	if err != nil {
+		SendError(w, http.StatusNotFound, "Workspace not found", "Workspace no encontrado")
+		return
+	}
+
+	userID := r.Header.Get("X-User-Id")
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "admin" && userRole != "teacher" && (userID != "" && ws.StudentID != userID) {
+		SendError(w, http.StatusForbidden, "Unauthorized to pause this workspace", "No tiene permisos para pausar este workspace")
+		return
+	}
+
+	instance, err := h.service.PauseWorkspace(r.Context(), workspaceID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al pausar el workspace")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, instance, "Workspace hibernado exitosamente")
+}

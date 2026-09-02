@@ -11,10 +11,15 @@ import (
 
 type SubmissionHandler struct {
 	service *services.SubmissionService
+	wsHub   *WebSocketHub
 }
 
 func NewSubmissionHandler(service *services.SubmissionService) *SubmissionHandler {
 	return &SubmissionHandler{service: service}
+}
+
+func (h *SubmissionHandler) SetWebSocketHub(hub *WebSocketHub) {
+	h.wsHub = hub
 }
 
 func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Request) {
@@ -36,6 +41,15 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
+	}
+
+	if h.wsHub != nil && dto.StudentID != "" {
+		h.wsHub.EmitToUser(dto.StudentID, WebSocketMessage{
+			Event:        "EVALUATION_COMPLETED",
+			SubmissionID: sub.ID,
+			Stage:        "COMPLETED",
+			Data:         sub,
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

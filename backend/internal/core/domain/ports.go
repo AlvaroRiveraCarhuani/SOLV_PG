@@ -46,6 +46,7 @@ type ExerciseRepository interface {
 	GetByID(ctx context.Context, id string) (*Exercise, error)
 	Create(ctx context.Context, exercise *Exercise) error
 	UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error
+	ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*DueAssignment, error)
 }
 
 type ASTAnalyzer interface {

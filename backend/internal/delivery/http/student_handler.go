@@ -12,17 +12,20 @@ type StudentHandler struct {
 	subjectRepo    domain.SubjectRepository
 	workspaceRepo  domain.WorkspaceRepository
 	submissionRepo domain.SubmissionRepository
+	exerciseRepo   domain.ExerciseRepository
 }
 
 func NewStudentHandler(
 	subjectRepo domain.SubjectRepository,
 	workspaceRepo domain.WorkspaceRepository,
 	submissionRepo domain.SubmissionRepository,
+	exerciseRepo domain.ExerciseRepository,
 ) *StudentHandler {
 	return &StudentHandler{
 		subjectRepo:    subjectRepo,
 		workspaceRepo:  workspaceRepo,
 		submissionRepo: submissionRepo,
+		exerciseRepo:   exerciseRepo,
 	}
 }
 
@@ -32,22 +35,22 @@ type StudentSubjectItem struct {
 }
 
 type StudentDashboardResponse struct {
-	StudentID         string                `json:"student_id"`
-	TenantID          string                `json:"tenant_id"`
-	Subjects          []StudentSubjectItem  `json:"subjects"`
-	RecentSubmissions []*domain.Submission  `json:"recent_submissions"`
+	StudentID         string               `json:"student_id"`
+	TenantID          string               `json:"tenant_id"`
+	Subjects          []StudentSubjectItem `json:"subjects"`
+	RecentSubmissions []*domain.Submission `json:"recent_submissions"`
 }
 
 func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
+		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
 		return
 	}
 
 	userID := r.Header.Get("X-User-Id")
 	if userID == "" {
-		http.Error(w, `{"error":"User ID missing in request"}`, http.StatusUnauthorized)
+		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
 		return
 	}
 
@@ -79,4 +82,30 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
+		return
+	}
+
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
+		return
+	}
+
+	var assignments []*domain.DueAssignment
+	if h.exerciseRepo != nil {
+		assignments, err = h.exerciseRepo.ListDueByStudent(r.Context(), tenantID, userID)
+		if err != nil {
+			assignments = []*domain.DueAssignment{}
+		}
+	} else {
+		assignments = []*domain.DueAssignment{}
+	}
+
+	SendJSON(w, http.StatusOK, assignments, "Entregas pendientes obtenidas exitosamente")
 }

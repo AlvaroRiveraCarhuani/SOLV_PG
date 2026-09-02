@@ -91,12 +91,25 @@ func (ec *ExerciseConfig) Scan(value interface{}) error {
 
 type Exercise struct {
 	ID          string         `json:"id" db:"id"`
+	SubjectID   *string        `json:"subject_id,omitempty" db:"subject_id"`
 	Title       string         `json:"title" db:"title"`
 	Description string         `json:"description" db:"description"`
 	Type        ExerciseType   `json:"type" db:"type"`
+	DueDate     *time.Time     `json:"due_date,omitempty" db:"due_date"`
 	Config      ExerciseConfig `json:"config" db:"config"`
 	TenantID    string         `json:"tenant_id" db:"tenant_id"`
 	CreatedAt   time.Time      `json:"created_at" db:"created_at"`
+}
+
+type DueAssignment struct {
+	ExerciseID  string     `json:"exercise_id" db:"exercise_id"`
+	Title       string     `json:"title" db:"title"`
+	Description string     `json:"description" db:"description"`
+	SubjectID   string     `json:"subject_id" db:"subject_id"`
+	SubjectName string     `json:"subject_name" db:"subject_name"`
+	SubjectCode string     `json:"subject_code" db:"subject_code"`
+	DueDate     *time.Time `json:"due_date" db:"due_date"`
+	Type        string     `json:"type" db:"type"`
 }
 
 type EvaluationResult struct {

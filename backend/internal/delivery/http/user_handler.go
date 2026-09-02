@@ -43,3 +43,34 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	SendJSON(w, http.StatusCreated, map[string]string{"id": id}, "Usuario creado exitosamente")
 }
+
+func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "Missing user ID in headers", "Usuario no autenticado")
+		return
+	}
+
+	user, err := h.repo.GetUserByID(r.Context(), userID)
+	if err != nil {
+		SendError(w, http.StatusNotFound, "User not found", "Usuario no encontrado")
+		return
+	}
+
+	fullName := strings.TrimSpace(user.FirstName + " " + user.LastName)
+	if fullName == "" {
+		fullName = user.FirstName
+	}
+
+	resp := map[string]interface{}{
+		"id":         user.ID,
+		"email":      user.Email,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
+		"full_name":  fullName,
+		"role":       user.Role,
+		"tenant_id":  user.TenantID,
+	}
+
+	SendJSON(w, http.StatusOK, resp, "Perfil de usuario obtenido exitosamente")
+}

@@ -31,6 +31,10 @@ func (m *mockExerciseRepo) UpdateExpectedJSON(ctx context.Context, id string, ex
 	return nil
 }
 
+func (m *mockExerciseRepo) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
+	return []*domain.DueAssignment{}, nil
+}
+
 type mockRunner struct{}
 
 func (m *mockRunner) RunTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {

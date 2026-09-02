@@ -80,23 +80,35 @@ func main() {
 
 	auditLogRepo := postgres.NewAuditLogRepository(db.GetDB())
 
+	wsHub := httpdelivery.NewWebSocketHub()
+	go wsHub.Run()
+
+	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
+
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
+
+	evalHandler := httpdelivery.NewEvaluationHandler(evaluationService, v)
+	evalHandler.SetWebSocketHub(wsHub)
+
+	subHandler := httpdelivery.NewSubmissionHandler(submissionService)
+	subHandler.SetWebSocketHub(wsHub)
 
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
 		AuthHandler:              httpdelivery.NewAuthHandler(authService),
-		EvaluationHandler:        httpdelivery.NewEvaluationHandler(evaluationService, v),
+		EvaluationHandler:        evalHandler,
 		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, v),
 		MetricsHandler:           httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
 		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),
 		SubjectHandler:           httpdelivery.NewSubjectHandler(subjectService),
-		SubmissionHandler:        httpdelivery.NewSubmissionHandler(submissionService),
+		SubmissionHandler:        subHandler,
 		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
 		AdminHandler:             adminHandler,
 		StudentHandler:           studentHandler,
+		WebSocketHandler:         wsHandler,
 		TenantMiddleware:         tenantMiddleware,
 	}
 

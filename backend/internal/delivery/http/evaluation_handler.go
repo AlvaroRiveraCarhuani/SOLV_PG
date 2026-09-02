@@ -13,6 +13,7 @@ import (
 type EvaluationHandler struct {
 	service  *services.EvaluationService
 	validate *validator.Validate
+	wsHub    *WebSocketHub
 }
 
 func NewEvaluationHandler(service *services.EvaluationService, validate *validator.Validate) *EvaluationHandler {
@@ -20,6 +21,10 @@ func NewEvaluationHandler(service *services.EvaluationService, validate *validat
 		service:  service,
 		validate: validate,
 	}
+}
+
+func (h *EvaluationHandler) SetWebSocketHub(hub *WebSocketHub) {
+	h.wsHub = hub
 }
 
 type EvaluationRequest struct {
@@ -40,10 +45,34 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	userID := r.Header.Get("X-User-Id")
+	if h.wsHub != nil && userID != "" {
+		h.wsHub.EmitToUser(userID, WebSocketMessage{
+			Event: "EVALUATION_PROGRESS",
+			Stage: "QUEUED",
+			Data:  map[string]string{"exercise_id": req.ExerciseID, "language": req.Language},
+		})
+	}
+
 	result, err := h.service.Evaluate(r.Context(), req.ExerciseID, req.Language, req.SourceCodeB64)
 	if err != nil {
+		if h.wsHub != nil && userID != "" {
+			h.wsHub.EmitToUser(userID, WebSocketMessage{
+				Event: "EVALUATION_PROGRESS",
+				Stage: "ERROR",
+				Data:  map[string]string{"error": err.Error()},
+			})
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al procesar la evaluación")
 		return
+	}
+
+	if h.wsHub != nil && userID != "" {
+		h.wsHub.EmitToUser(userID, WebSocketMessage{
+			Event: "EVALUATION_COMPLETED",
+			Stage: "COMPLETED",
+			Data:  result,
+		})
 	}
 
 	SendJSON(w, http.StatusOK, result, "Evaluación procesada exitosamente")

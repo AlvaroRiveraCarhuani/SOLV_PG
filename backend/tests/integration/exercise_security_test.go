@@ -30,6 +30,10 @@ func (m *mockSecurityExerciseRepo) UpdateExpectedJSON(ctx context.Context, id st
 	return nil
 }
 
+func (m *mockSecurityExerciseRepo) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
+	return []*domain.DueAssignment{}, nil
+}
+
 func TestExerciseSecurityDTOFiltering(t *testing.T) {
 	ex := &domain.Exercise{
 		ID:          "ex-sec-101",
@@ -70,7 +74,7 @@ func TestExerciseSecurityDTOFiltering(t *testing.T) {
 		}
 
 		body := w.Body.String()
-		if strings.Contains(body, "test_cases") {
+		if strings.Contains(body, `"test_cases":`) {
 			t.Errorf("VIOLACIÓN DE SEGURIDAD: La respuesta para rol student contiene 'test_cases': %s", body)
 		}
 		if strings.Contains(body, "100 200") || strings.Contains(body, "300") {

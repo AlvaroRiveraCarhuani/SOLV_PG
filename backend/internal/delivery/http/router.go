@@ -18,13 +18,14 @@ type Handlers struct {
 	ClassroomHandler         *ClassroomHandler
 	AdminHandler             *AdminHandler
 	StudentHandler           *StudentHandler
+	WebSocketHandler         *WebSocketHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
-	registerUserRoutes(mux, deps.UserHandler)
+	registerUserRoutes(mux, deps)
 	registerTemplateRoutes(mux, deps.TemplateHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
@@ -34,6 +35,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAcademicRoutes(mux, deps)
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
+	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
 
 func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -98,22 +100,36 @@ func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	mux.Handle("GET /api/v1/student/dashboard", tm(http.HandlerFunc(deps.StudentHandler.GetDashboard)))
+	mux.Handle("GET /api/v1/student/assignments/due", tm(http.HandlerFunc(deps.StudentHandler.GetDueAssignments)))
 }
 
-func registerUserRoutes(mux *http.ServeMux, h *UserHandler) {
-	mux.HandleFunc("POST /api/v1/users", h.Create)
+func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.UserHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	mux.HandleFunc("POST /api/v1/users", deps.UserHandler.Create)
+	mux.Handle("GET /api/v1/users/me", tm(http.HandlerFunc(deps.UserHandler.GetMe)))
 }
 
 func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
-	mux.HandleFunc("POST /api/v1/templates", h.Create)
-	mux.HandleFunc("GET /api/v1/templates", h.GetAll)
+	if h != nil {
+		mux.HandleFunc("POST /api/v1/templates", h.Create)
+		mux.HandleFunc("GET /api/v1/templates", h.GetAll)
+	}
 }
 
 func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
-	mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
-	mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
-	mux.HandleFunc("GET /api/v1/auth/verify", h.VerifyAuth)
-	mux.HandleFunc("POST /api/v1/auth/logout", h.HandleLogout)
+	if h != nil {
+		mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
+		mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
+		mux.HandleFunc("GET /api/v1/auth/verify", h.VerifyAuth)
+		mux.HandleFunc("POST /api/v1/auth/logout", h.HandleLogout)
+	}
 }
 
 func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMiddleware func(http.Handler) http.Handler, auditMiddleware func(http.Handler) http.Handler) {
@@ -135,17 +151,22 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 }
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {
+	if h == nil {
+		return
+	}
 	if rateLimitMiddleware == nil {
 		rateLimitMiddleware = func(next http.Handler) http.Handler { return next }
 	}
 	if tenantMiddleware != nil {
 		mux.Handle("POST /api/v1/workspaces/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
+		mux.Handle("POST /api/v1/workspaces/{id}/pause", tenantMiddleware(http.HandlerFunc(h.PauseWorkspace)))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", tenantMiddleware(http.HandlerFunc(h.TerminateWorkspace)))
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/workspaces/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartWorkspace)))
 	} else {
 		mux.Handle("POST /api/v1/workspaces/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
+		mux.Handle("POST /api/v1/workspaces/{id}/pause", WithAuth(http.HandlerFunc(h.PauseWorkspace)))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", WithAuth(http.HandlerFunc(h.TerminateWorkspace)))
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
@@ -162,5 +183,12 @@ func registerMetricsRoutes(mux *http.ServeMux, h *MetricsHandler) {
 func registerConfigRoutes(mux *http.ServeMux, h *ConfigHandler) {
 	if h != nil {
 		mux.HandleFunc("GET /api/v1/config/public", h.GetPublicConfig)
+	}
+}
+
+func registerWebSocketRoutes(mux *http.ServeMux, h *WebSocketHandler) {
+	if h != nil {
+		mux.HandleFunc("GET /ws/v1/evaluations", h.HandleEvaluationWS)
+		mux.HandleFunc("GET /api/v1/ws/evaluations", h.HandleEvaluationWS)
 	}
 }

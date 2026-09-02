@@ -296,6 +296,14 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 
+	-- Extensión de tabla exercises para materias y fechas límite
+	ALTER TABLE exercises 
+	ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
+	ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+
+	CREATE INDEX IF NOT EXISTS idx_exercises_subject_id ON exercises(subject_id);
+	CREATE INDEX IF NOT EXISTS idx_exercises_due_date ON exercises(due_date);
+
 	-- Tabla audit_logs (CRIT-11)
 	CREATE TABLE IF NOT EXISTS audit_logs (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -214,6 +214,30 @@ func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID s
 	return s.repo.UpdateStatus(ctx, workspaceID, "terminated")
 }
 
+func (s *WorkspaceService) GetWorkspaceByID(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
+	return s.repo.GetByID(ctx, workspaceID)
+}
+
+func (s *WorkspaceService) PauseWorkspace(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
+	ws, err := s.repo.GetByID(ctx, workspaceID)
+	if err != nil {
+		return nil, fmt.Errorf("workspace not found: %w", err)
+	}
+
+	if ws.ContainerID != nil && *ws.ContainerID != "" {
+		if err := s.docker.StopAndRemoveContainer(ctx, *ws.ContainerID); err != nil {
+			log.Printf("[WorkspaceService] Warning: error pausing/stopping container %s: %v", *ws.ContainerID, err)
+		}
+	}
+
+	if err := s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusHibernated); err != nil {
+		return nil, fmt.Errorf("failed to update workspace status to hibernated: %w", err)
+	}
+
+	ws.Status = domain.WorkspaceStatusHibernated
+	return ws, nil
+}
+
 func (s *WorkspaceService) GetSemgrepAudit(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
 	ws, err := s.repo.GetByID(ctx, workspaceID)
 	if err != nil {
