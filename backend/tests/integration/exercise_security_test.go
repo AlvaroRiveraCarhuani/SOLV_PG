@@ -22,7 +22,23 @@ func (m *mockSecurityExerciseRepo) GetByID(ctx context.Context, id string) (*dom
 	return m.exercise, nil
 }
 
+func (m *mockSecurityExerciseRepo) GetByIDAndTenant(ctx context.Context, id, tenantID string) (*domain.Exercise, error) {
+	return m.exercise, nil
+}
+
 func (m *mockSecurityExerciseRepo) Create(ctx context.Context, exercise *domain.Exercise) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) Update(ctx context.Context, exercise *domain.Exercise) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error {
 	return nil
 }
 
@@ -32,6 +48,10 @@ func (m *mockSecurityExerciseRepo) UpdateExpectedJSON(ctx context.Context, id st
 
 func (m *mockSecurityExerciseRepo) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
 	return []*domain.DueAssignment{}, nil
+}
+
+func (m *mockSecurityExerciseRepo) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
+	return []*domain.Exercise{}, nil
 }
 
 func TestExerciseSecurityDTOFiltering(t *testing.T) {

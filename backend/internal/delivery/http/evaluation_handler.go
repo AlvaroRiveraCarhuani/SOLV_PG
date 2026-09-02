@@ -1,8 +1,12 @@
 package httpdelivery
 
 import (
+	"encoding/csv"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/go-playground/validator/v10"
 	"solv-backend/internal/core/domain"
@@ -107,9 +111,15 @@ func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para crear ejercicios")
+		return
+	}
+
 	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
 	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
+		tenantID = domain.DefaultTenantID
 	}
 
 	var ex domain.Exercise
@@ -125,6 +135,9 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 	if ex.Type == "" {
 		ex.Type = domain.ExerciseTypeAlgorithm
 	}
+	if ex.Status == "" {
+		ex.Status = "draft"
+	}
 	ex.TenantID = tenantID
 
 	if err := h.service.CreateExercise(r.Context(), &ex); err != nil {
@@ -133,5 +146,170 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 	}
 
 	SendJSON(w, http.StatusCreated, ex, "Ejercicio creado exitosamente")
+}
+
+func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para modificar ejercicios")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Exercise ID is required", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
+	existing, err := h.service.GetExerciseByIDAndTenant(r.Context(), exerciseID, tenantID)
+	if err != nil || existing == nil {
+		SendError(w, http.StatusNotFound, "Exercise not found", "Ejercicio no encontrado en este tenant")
+		return
+	}
+
+	var ex domain.Exercise
+	if err := json.NewDecoder(r.Body).Decode(&ex); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
+		return
+	}
+
+	ex.ID = exerciseID
+	ex.TenantID = tenantID
+	if ex.Type == "" {
+		ex.Type = existing.Type
+	}
+
+	if err := h.service.UpdateExercise(r.Context(), &ex); err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al actualizar el ejercicio")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, ex, "Ejercicio actualizado exitosamente")
+}
+
+func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para gestionar casos de prueba")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Exercise ID is required", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
+	ex, err := h.service.GetExerciseByIDAndTenant(r.Context(), exerciseID, tenantID)
+	if err != nil || ex == nil {
+		SendError(w, http.StatusNotFound, "Exercise not found", "Ejercicio no encontrado en este tenant")
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	var testCases []domain.TestCase
+
+	if strings.Contains(contentType, "text/csv") || strings.Contains(contentType, "application/csv") {
+		reader := csv.NewReader(r.Body)
+		reader.FieldsPerRecord = -1
+		reader.LazyQuotes = true
+		reader.TrimLeadingSpace = true
+
+		records, err := reader.ReadAll()
+		if err != nil {
+			SendError(w, 422, fmt.Sprintf("CSV parse error: %v", err), "Error al procesar el archivo CSV")
+			return
+		}
+
+		for idx, row := range records {
+			lineNum := idx + 1
+			if len(row) == 0 || (len(row) == 1 && strings.TrimSpace(row[0]) == "") {
+				continue
+			}
+			// Saltar cabecera si existe
+			if idx == 0 && (strings.EqualFold(row[0], "input") || strings.EqualFold(row[0], "entrada")) {
+				continue
+			}
+			if len(row) < 2 {
+				SendError(w, 422, fmt.Sprintf("Malformed row at line %d: requires at least 2 columns (input, expected_output)", lineNum), fmt.Sprintf("Fila %d malformada en el archivo CSV", lineNum))
+				return
+			}
+
+			isHidden := false
+			if len(row) >= 3 {
+				val := strings.ToLower(strings.TrimSpace(row[2]))
+				if val == "true" || val == "1" || val == "yes" || val == "si" || val == "sí" {
+					isHidden = true
+				}
+			}
+
+			testCases = append(testCases, domain.TestCase{
+				Input:          row[0],
+				ExpectedOutput: row[1],
+				IsHidden:       isHidden,
+			})
+		}
+	} else {
+		// Formato JSON
+		if err := json.NewDecoder(r.Body).Decode(&testCases); err != nil {
+			SendError(w, 422, fmt.Sprintf("Invalid JSON test cases: %v", err), "Formato de casos de prueba inválido")
+			return
+		}
+	}
+
+	if err := h.service.BulkAddTestCases(r.Context(), exerciseID, tenantID, testCases); err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al guardar casos de prueba")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]interface{}{
+		"exercise_id": exerciseID,
+		"added_count": len(testCases),
+	}, "Casos de prueba agregados exitosamente")
+}
+
+func (h *EvaluationHandler) PublishExercise(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para publicar ejercicios")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Exercise ID is required", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
+	ex, err := h.service.PublishExercise(r.Context(), exerciseID, tenantID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, err.Error(), "Ejercicio no encontrado")
+			return
+		}
+		if errors.Is(err, services.ErrZeroPublicTestCases) || strings.Contains(err.Error(), "0 public test cases") {
+			SendError(w, 422, err.Error(), "No se puede publicar un ejercicio sin al menos un caso de prueba público")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al publicar el ejercicio")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, ex, "Ejercicio publicado exitosamente")
 }
 

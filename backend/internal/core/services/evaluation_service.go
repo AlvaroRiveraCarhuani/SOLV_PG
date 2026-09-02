@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"solv-backend/internal/core/domain"
 )
 
@@ -33,15 +34,65 @@ func NewEvaluationService(
 }
 
 
+var ErrZeroPublicTestCases = fmt.Errorf("cannot publish exercise with 0 public test cases")
+
 func (s *EvaluationService) GetExerciseByID(ctx context.Context, id string) (*domain.Exercise, error) {
 	return s.exerciseRepo.GetByID(ctx, id)
 }
 
+func (s *EvaluationService) GetExerciseByIDAndTenant(ctx context.Context, id, tenantID string) (*domain.Exercise, error) {
+	return s.exerciseRepo.GetByIDAndTenant(ctx, id, tenantID)
+}
+
 func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exercise) error {
 	if ex.ID == "" {
-		ex.ID = fmt.Sprintf("%s", time.Now().Format("20060102150405"))
+		ex.ID = uuid.NewString()
 	}
 	return s.exerciseRepo.Create(ctx, ex)
+}
+
+func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	return s.exerciseRepo.Update(ctx, ex)
+}
+
+func (s *EvaluationService) BulkAddTestCases(ctx context.Context, exerciseID, tenantID string, testCases []domain.TestCase) error {
+	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil {
+		return fmt.Errorf("exercise not found: %w", err)
+	}
+
+	if ex.Config.Algorithm == nil {
+		ex.Config.Algorithm = &domain.AlgorithmConfig{}
+	}
+	ex.Config.Algorithm.TestCases = append(ex.Config.Algorithm.TestCases, testCases...)
+	return s.exerciseRepo.UpdateConfig(ctx, exerciseID, tenantID, ex.Config)
+}
+
+func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, tenantID string) (*domain.Exercise, error) {
+	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("exercise not found: %w", err)
+	}
+
+	publicCount := 0
+	if ex.Config.Algorithm != nil {
+		for _, tc := range ex.Config.Algorithm.TestCases {
+			if !tc.IsHidden {
+				publicCount++
+			}
+		}
+	}
+
+	if publicCount == 0 {
+		return nil, ErrZeroPublicTestCases
+	}
+
+	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "published"); err != nil {
+		return nil, fmt.Errorf("failed to publish exercise: %w", err)
+	}
+
+	ex.Status = "published"
+	return ex, nil
 }
 
 func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {

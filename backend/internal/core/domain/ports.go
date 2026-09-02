@@ -44,9 +44,14 @@ type EWMAProfilerService interface {
 
 type ExerciseRepository interface {
 	GetByID(ctx context.Context, id string) (*Exercise, error)
+	GetByIDAndTenant(ctx context.Context, id, tenantID string) (*Exercise, error)
 	Create(ctx context.Context, exercise *Exercise) error
+	Update(ctx context.Context, exercise *Exercise) error
+	UpdateStatus(ctx context.Context, id, tenantID, status string) error
+	UpdateConfig(ctx context.Context, id, tenantID string, config ExerciseConfig) error
 	UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error
 	ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*DueAssignment, error)
+	ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*Exercise, error)
 }
 
 type ASTAnalyzer interface {

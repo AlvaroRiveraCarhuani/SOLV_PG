@@ -148,6 +148,9 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 	mux.Handle("POST /api/v1/evaluations", tm(http.HandlerFunc(h.Evaluate)))
 	mux.Handle("GET /api/v1/exercises/{id}", tm(http.HandlerFunc(h.GetExerciseByID)))
 	mux.Handle("POST /api/v1/exercises", am(tm(http.HandlerFunc(h.CreateExercise))))
+	mux.Handle("PUT /api/v1/exercises/{id}", am(tm(http.HandlerFunc(h.UpdateExercise))))
+	mux.Handle("POST /api/v1/exercises/{id}/test-cases/bulk", am(tm(http.HandlerFunc(h.BulkTestCases))))
+	mux.Handle("POST /api/v1/exercises/{id}/publish", am(tm(http.HandlerFunc(h.PublishExercise))))
 }
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {

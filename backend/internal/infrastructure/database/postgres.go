@@ -135,7 +135,6 @@ func (d *Database) RunInitialMigrations() error {
 		return fmt.Errorf("failed to create lab_template_profiles table: %w", err)
 	}
 
-	d.db.Exec("DROP TABLE IF EXISTS exercises CASCADE")
 	if _, err := d.db.Exec(exercisesTableQuery); err != nil {
 		return fmt.Errorf("failed to create exercises table: %w", err)
 	}
@@ -296,13 +295,25 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 
-	-- Extensión de tabla exercises para materias y fechas límite
+	-- Extensión de tabla exercises para Slice 13 (CREAR_LAB)
 	ALTER TABLE exercises 
 	ADD COLUMN IF NOT EXISTS subject_id UUID REFERENCES subjects(id) ON DELETE SET NULL,
-	ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ;
+	ADD COLUMN IF NOT EXISTS due_date TIMESTAMPTZ,
+	ADD COLUMN IF NOT EXISTS boilerplate TEXT NOT NULL DEFAULT '',
+	ADD COLUMN IF NOT EXISTS status VARCHAR(30) NOT NULL DEFAULT 'draft',
+	ADD COLUMN IF NOT EXISTS language VARCHAR(50) NOT NULL DEFAULT 'python',
+	ADD COLUMN IF NOT EXISTS time_limit_ms INT NOT NULL DEFAULT 1000,
+	ADD COLUMN IF NOT EXISTS memory_limit_mb INT NOT NULL DEFAULT 128,
+	ADD COLUMN IF NOT EXISTS db_config JSONB NOT NULL DEFAULT '{}'::jsonb;
 
 	CREATE INDEX IF NOT EXISTS idx_exercises_subject_id ON exercises(subject_id);
 	CREATE INDEX IF NOT EXISTS idx_exercises_due_date ON exercises(due_date);
+	CREATE INDEX IF NOT EXISTS idx_exercises_status ON exercises(status);
+	CREATE INDEX IF NOT EXISTS idx_exercises_subject_status ON exercises(subject_id, status);
+
+	-- Extensión de subjects para docente asignado
+	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS teacher_id UUID REFERENCES users(id) ON DELETE SET NULL;
+	CREATE INDEX IF NOT EXISTS idx_subjects_teacher ON subjects(teacher_id);
 
 	-- Tabla audit_logs (CRIT-11)
 	CREATE TABLE IF NOT EXISTS audit_logs (

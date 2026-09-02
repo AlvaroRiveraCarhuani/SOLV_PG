@@ -23,7 +23,23 @@ func (m *mockExerciseRepo) GetByID(ctx context.Context, id string) (*domain.Exer
 	return m.exercise, nil
 }
 
+func (m *mockExerciseRepo) GetByIDAndTenant(ctx context.Context, id, tenantID string) (*domain.Exercise, error) {
+	return m.exercise, nil
+}
+
 func (m *mockExerciseRepo) Create(ctx context.Context, exercise *domain.Exercise) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) Update(ctx context.Context, exercise *domain.Exercise) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error {
 	return nil
 }
 
@@ -33,6 +49,10 @@ func (m *mockExerciseRepo) UpdateExpectedJSON(ctx context.Context, id string, ex
 
 func (m *mockExerciseRepo) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
 	return []*domain.DueAssignment{}, nil
+}
+
+func (m *mockExerciseRepo) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
+	return []*domain.Exercise{}, nil
 }
 
 type mockRunner struct{}

@@ -142,6 +142,85 @@ websocat "ws://localhost:3000/ws/v1/evaluations?token=TU_JWT_AQUI"
 
 ---
 
+## SLICE_13 — Contratos Backend Implementados (Creación de Labs y Docencia)
+
+### 1. Creación de Laboratorios / Ejercicios (`POST /api/v1/exercises`)
+
+Permite a los docentes crear un nuevo laboratorio con configuración completa (límites de memoria/tiempo, boilerplate, reglas AST y casos de prueba).
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/exercises`
+- **Headers:** `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Código de Respuesta:** `201 Created` (`403` para student, `400` por payload inválido)
+
+#### Ejemplo de Petición
+```json
+{
+  "title": "Algoritmo Dijkstra de Caminos Mínimos",
+  "description": "Implemente Dijkstra utilizando cola de prioridad",
+  "type": "algorithm",
+  "boilerplate": "def dijkstra(graph, start):\n    pass\n",
+  "status": "draft",
+  "language": "python",
+  "time_limit_ms": 1500,
+  "memory_limit_mb": 256,
+  "config": {
+    "algorithm": {
+      "time_limit_ms": 1500,
+      "memory_limit_mb": 256,
+      "test_cases": [
+        {"input": "g1, start", "expected_output": "[0, 2, 5]", "is_hidden": false},
+        {"input": "g_priv1, start", "expected_output": "[0, 10, 25]", "is_hidden": true}
+      ],
+      "ast_rules": {
+        "forbidden_imports": ["networkx", "os"],
+        "forbidden_functions": ["eval", "exec"]
+      }
+    }
+  }
+}
+```
+
+---
+
+### 2. Actualización de Ejercicio (`PUT /api/v1/exercises/{id}`)
+
+Actualiza la información base, límites y configuración del ejercicio. Aislado por tenant (`404` si pertenece a otra institución).
+
+- **Método:** `PUT`
+- **Ruta:** `/api/v1/exercises/{id}`
+- **Headers:** `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Código de Respuesta:** `200 OK`
+
+---
+
+### 3. Importación Masiva de Casos de Prueba (`POST /api/v1/exercises/{id}/test-cases/bulk`)
+
+Permite anexar casos de prueba en bloque usando JSON o archivo CSV. Soporta campos con comas entre comillas, texto Unicode y formato CRLF.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/exercises/{id}/test-cases/bulk`
+- **Headers:** `Content-Type: text/csv` (o `application/json`), `X-User-Role: teacher | admin`
+- **Respuestas:**
+  - `200 OK`: Casos agregados exitosamente.
+  - `422 Unprocessable Entity`: Si una fila del CSV está malformada (retorna el número exacto de línea).
+
+---
+
+### 4. Publicación de Ejercicio (`POST /api/v1/exercises/{id}/publish`)
+
+Realiza la transición de estado `draft` -> `published`. Requiere que el ejercicio tenga al menos 1 caso de prueba público.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/exercises/{id}/publish`
+- **Headers:** `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Ejercicio publicado.
+  - `422 Unprocessable Entity`: Si el ejercicio cuenta con 0 casos de prueba públicos.
+  - `404 Not Found`: Si el ejercicio no existe en el tenant.
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional
