@@ -1,10 +1,10 @@
 # Verificación de Pruebas - SLICE 6
 
-## 1. Ejecución de la Suite de Integración (`ewma_autotuning_test.go`)
+## 1. Ejecución de la Suite de Integración (`slice06_ewma_autotuning_test.go`)
 
 ```bash
 cd backend
-go test -v ./tests/integration/ewma_autotuning_test.go
+go test -v ./tests/integration/slice06_ewma_autotuning_test.go
 ```
 
 ## 2. Salida de la Ejecución de Pruebas

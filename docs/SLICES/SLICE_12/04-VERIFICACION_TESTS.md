@@ -2,7 +2,7 @@
 
 ## 1. Pruebas de Integración Backend (Live PostgreSQL)
 
-Los tests de integración del incremento backend de este Slice se encuentran implementados en `backend/tests/integration/student_realtime_evaluation_test.go` y fueron ejecutados contra una instancia viva de PostgreSQL 18 en Docker.
+Los tests de integración del incremento backend de este Slice se encuentran implementados en `backend/tests/integration/slice12_student_realtime_test.go` y fueron ejecutados contra una instancia viva de PostgreSQL 18 en Docker.
 
 ### Comando de Ejecución
 ```bash

@@ -20,43 +20,43 @@ import (
 	"solv-backend/internal/infrastructure/storage/postgres"
 )
 
-type mockLote1Docker struct{}
+type mockSlice12Docker struct{}
 
-func (m *mockLote1Docker) EnsureVolumeExists(ctx context.Context, volumeName string) error {
+func (m *mockSlice12Docker) EnsureVolumeExists(ctx context.Context, volumeName string) error {
 	return nil
 }
-func (m *mockLote1Docker) EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error {
+func (m *mockSlice12Docker) EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error {
 	return nil
 }
-func (m *mockLote1Docker) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
+func (m *mockSlice12Docker) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
 	return "mock-container-lote1", nil
 }
-func (m *mockLote1Docker) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {
+func (m *mockSlice12Docker) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {
 	return nil
 }
-func (m *mockLote1Docker) GetContainerMetrics(ctx context.Context, containerID string) (*domain.ContainerMetrics, error) {
+func (m *mockSlice12Docker) GetContainerMetrics(ctx context.Context, containerID string) (*domain.ContainerMetrics, error) {
 	return &domain.ContainerMetrics{MemoryUsageBytes: 50 * 1024 * 1024}, nil
 }
-func (m *mockLote1Docker) StopAndRemoveContainer(ctx context.Context, containerID string) error {
+func (m *mockSlice12Docker) StopAndRemoveContainer(ctx context.Context, containerID string) error {
 	return nil
 }
-func (m *mockLote1Docker) ListAllManagedContainers(ctx context.Context) ([]string, error) {
+func (m *mockSlice12Docker) ListAllManagedContainers(ctx context.Context) ([]string, error) {
 	return []string{}, nil
 }
-func (m *mockLote1Docker) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {
+func (m *mockSlice12Docker) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {
 	return []byte("{}"), nil
 }
 
-type mockLote1HostMonitor struct{}
+type mockSlice12HostMonitor struct{}
 
-func (m *mockLote1HostMonitor) GetHostMemoryStats() (freePct float64, availableMB uint64, err error) {
+func (m *mockSlice12HostMonitor) GetHostMemoryStats() (freePct float64, availableMB uint64, err error) {
 	return 0.50, 8192, nil
 }
-func (m *mockLote1HostMonitor) CanAllocateMemory(requiredMB int64) bool {
+func (m *mockSlice12HostMonitor) CanAllocateMemory(requiredMB int64) bool {
 	return true
 }
 
-func setupLote1TestServer(t *testing.T) (*httptest.Server, *database.Database, *httpdelivery.WebSocketHub) {
+func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database, *httpdelivery.WebSocketHub) {
 	dbHost := os.Getenv("DB_HOST")
 	if dbHost == "" {
 		dbHost = "localhost"
@@ -100,8 +100,8 @@ func setupLote1TestServer(t *testing.T) (*httptest.Server, *database.Database, *
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 
-	dockerClient := &mockLote1Docker{}
-	hostMonitor := &mockLote1HostMonitor{}
+	dockerClient := &mockSlice12Docker{}
+	hostMonitor := &mockSlice12HostMonitor{}
 
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
 	subService := services.NewSubmissionService(submissionRepo)
@@ -156,7 +156,7 @@ func setupLote1TestServer(t *testing.T) (*httptest.Server, *database.Database, *
 }
 
 func TestSlice12_GetMeEndpoint(t *testing.T) {
-	server, db, _ := setupLote1TestServer(t)
+	server, db, _ := setupSlice12TestServer(t)
 	defer server.Close()
 
 	tenantID := "00000000-0000-0000-0000-000000000001"
@@ -209,7 +209,7 @@ func TestSlice12_GetMeEndpoint(t *testing.T) {
 }
 
 func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
-	server, db, _ := setupLote1TestServer(t)
+	server, db, _ := setupSlice12TestServer(t)
 	defer server.Close()
 
 	tenantID := "00000000-0000-0000-0000-000000000001"
@@ -271,7 +271,7 @@ func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 }
 
 func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
-	server, db, _ := setupLote1TestServer(t)
+	server, db, _ := setupSlice12TestServer(t)
 	defer server.Close()
 
 	tenantID := "00000000-0000-0000-0000-000000000001"
@@ -335,7 +335,7 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 }
 
 func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
-	server, db, _ := setupLote1TestServer(t)
+	server, db, _ := setupSlice12TestServer(t)
 	defer server.Close()
 
 	tenantID := "00000000-0000-0000-0000-000000000001"
