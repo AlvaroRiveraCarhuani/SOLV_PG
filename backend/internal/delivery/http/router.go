@@ -214,4 +214,8 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/courses", tm(http.HandlerFunc(deps.TeacherHandler.GetCourses)))
 	mux.Handle("GET /api/v1/teacher/attention", tm(http.HandlerFunc(deps.TeacherHandler.GetAttention)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
+	mux.Handle("GET /api/v1/teacher/courses/{id}/submissions", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseSubmissions)))
+	mux.Handle("GET /api/v1/teacher/submissions/{id}/review", tm(http.HandlerFunc(deps.TeacherHandler.GetSubmissionReview)))
+	mux.Handle("POST /api/v1/teacher/submissions/{id}/comments", am(tm(http.HandlerFunc(deps.TeacherHandler.AddSubmissionComment))))
+	mux.Handle("GET /api/v1/teacher/submissions/{id}/comments", tm(http.HandlerFunc(deps.TeacherHandler.GetSubmissionComments)))
 }

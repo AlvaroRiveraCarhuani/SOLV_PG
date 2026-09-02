@@ -274,6 +274,19 @@ func (d *Database) RunInitialMigrations() error {
 		created_at TIMESTAMPTZ DEFAULT NOW()
 	);
 
+	-- Tabla de comentarios pedagógicos in-line en código (Slice 13)
+	CREATE TABLE IF NOT EXISTS submission_comments (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE RESTRICT,
+		submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+		author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		line_number INT NOT NULL,
+		comment TEXT NOT NULL,
+		created_at TIMESTAMPTZ DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_submission_comments_sub ON submission_comments(submission_id);
+	CREATE INDEX IF NOT EXISTS idx_submission_comments_tenant ON submission_comments(tenant_id);
+
 	-- Foreign key FK_workspaces_subject con saneamiento de registros preexistentes
 	INSERT INTO subjects (id, tenant_id, name, code)
 	VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101')

@@ -2,8 +2,8 @@ package httpdelivery
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
+	"strings"
 
 	"solv-backend/internal/core/services"
 	"solv-backend/internal/delivery/http/middleware"
@@ -122,26 +122,39 @@ type OverrideSubmissionDTO struct {
 }
 
 func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden modificar calificaciones")
+		return
+	}
+
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
-		return
+		tenantID = r.Header.Get("X-Tenant-Id")
+	}
+	if tenantID == "" {
+		tenantID = "00000000-0000-0000-0000-000000000001"
 	}
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
-		http.Error(w, `{"error":"Submission ID missing"}`, http.StatusBadRequest)
+		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")
 		return
 	}
 
 	var dto OverrideSubmissionDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
-		http.Error(w, `{"error":"Invalid request body"}`, http.StatusBadRequest)
+		SendError(w, http.StatusBadRequest, "Invalid JSON", "Cuerpo de solicitud inválido")
 		return
 	}
 
 	if dto.Verdict == "" || dto.OverrideReason == "" {
-		http.Error(w, `{"error":"verdict and override_reason are required"}`, http.StatusBadRequest)
+		SendError(w, http.StatusBadRequest, "Validation Error", "verdict y override_reason son obligatorios")
+		return
+	}
+
+	if len(strings.TrimSpace(dto.OverrideReason)) < 10 {
+		SendError(w, http.StatusUnprocessableEntity, "Validation Error", "La justificación debe tener al menos 10 caracteres")
 		return
 	}
 
@@ -153,14 +166,13 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 
 	err = h.service.OverrideSubmission(r.Context(), tenantID, submissionID, dto.Verdict, dto.OverrideReason, dto.Score, gradedBy)
 	if err != nil {
-		http.Error(w, fmt.Sprintf(`{"error":"%s"}`, err.Error()), http.StatusInternalServerError)
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar override de calificacion")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	SendJSON(w, http.StatusOK, map[string]string{
 		"status":  "overridden",
-		"message": "Submission verdict updated successfully",
-	})
+		"verdict": dto.Verdict,
+	}, "Calificación actualizada exitosamente")
 }
 

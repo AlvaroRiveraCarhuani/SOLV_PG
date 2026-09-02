@@ -342,6 +342,147 @@ Retorna el desglose de métricas, entregas y veredictos para cada laboratorio de
 
 ---
 
+### 8. Cola de Entregas del Curso (`GET /api/v1/teacher/courses/{id}/submissions`)
+
+Permite al docente inspeccionar y filtrar todas las entregas de su materia.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/courses/{id}/submissions?exercise_id=<uuid>&verdict=<string>`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Código de Respuesta:** `200 OK` (`403` si es estudiante)
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": [
+    {
+      "id": "sub-uuid-1",
+      "exercise_id": "ex-uuid-1",
+      "exercise_title": "Lab #01: Árboles AVL",
+      "student_id": "stu-uuid-1",
+      "student_name": "Carlos Ruiz",
+      "student_email": "carlos@uab.edu.bo",
+      "verdict": "WA",
+      "score": null,
+      "manual_override": false,
+      "execution_time_ms": 14,
+      "memory_used_mb": 28,
+      "submitted_at": "2026-09-02T18:30:00Z",
+      "comments_count": 2
+    }
+  ],
+  "error": "",
+  "message": "Cola de entregas obtenida exitosamente"
+}
+```
+
+---
+
+### 9. Detalle SpeedGrader Desenmascarado (`GET /api/v1/teacher/submissions/{id}/review`)
+
+Vista de corrección para el docente con **casos de prueba privados desenmascarados**, análisis AST y punteros `next_submission_id` / `prev_submission_id`.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/submissions/{id}/review`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Detalle completo para revisión.
+  - `403 Forbidden`: Si un estudiante intenta consultar este endpoint.
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "id": "sub-uuid-1",
+    "exercise_id": "ex-uuid-1",
+    "exercise_title": "Lab #01: Árboles AVL",
+    "subject_id": "sub-uuid-1",
+    "subject_name": "Estructuras de Datos",
+    "student_id": "stu-uuid-1",
+    "student_name": "Carlos Ruiz",
+    "code": "def insert(root, key): ...",
+    "verdict": "WA",
+    "score": null,
+    "manual_override": false,
+    "ast_result": {},
+    "test_cases": [
+      {
+        "input": "10 20 30",
+        "expected_output": "20 10 30",
+        "is_hidden": false,
+        "passed": true
+      },
+      {
+        "input": "50 40 30 20 10",
+        "expected_output": "40 20 50 10 30",
+        "is_hidden": true,
+        "passed": false
+      }
+    ],
+    "comments": [
+      {
+        "id": "c-uuid-1",
+        "line_number": 15,
+        "comment": "Revisar rotación doble a la izquierda",
+        "author_name": "Profesor Revisor",
+        "created_at": "2026-09-02T18:40:00Z"
+      }
+    ],
+    "prev_submission_id": "sub-uuid-0",
+    "next_submission_id": "sub-uuid-2",
+    "submitted_at": "2026-09-02T18:30:00Z"
+  },
+  "error": "",
+  "message": "Detalle de revisión SpeedGrader obtenido exitosamente"
+}
+```
+
+---
+
+### 10. Override Manual de Calificación (`POST /api/v1/submissions/{id}/override`)
+
+Permite a un docente o administrador rectificar o convalidar el veredicto y nota de una entrega con justificación obligatoria ($\ge 10$ caracteres).
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/submissions/{id}/override`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Calificación actualizada.
+  - `422 Unprocessable Entity`: Si la justificación tiene menos de 10 caracteres.
+  - `403 Forbidden`: Si el rol es student.
+
+#### Ejemplo de Solicitud
+```json
+{
+  "verdict": "AC",
+  "override_reason": "El algoritmo implementó balanceo correcto, falla en formato de impresión.",
+  "score": 90
+}
+```
+
+---
+
+### 11. Comentarios In-line Anclados a Código (`POST & GET /api/v1/teacher/submissions/{id}/comments`)
+
+Permite registrar y consultar comentarios pedagógicos anclados a líneas específicas del código fuente.
+
+- **Método:** `POST` / `GET`
+- **Ruta:** `/api/v1/teacher/submissions/{id}/comments`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `POST`: `201 Created`
+  - `GET`: `200 OK` con lista de comentarios ordenados por `line_number`.
+
+#### Ejemplo de Solicitud POST
+```json
+{
+  "line_number": 42,
+  "comment": "Cuidado con la condición de corte en el caso base"
+}
+```
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional
