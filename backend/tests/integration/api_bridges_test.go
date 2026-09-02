@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -165,8 +166,9 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	// 4. Test Teacher Exercise Creation
 	var createdExerciseID string
 	t.Run("4. Teacher Exercise Creation (Wizard Endpoint)", func(t *testing.T) {
-		exercisePayload := []byte(`{
-			"id": "e9999999-9999-4999-a999-999999999999",
+		freshExID := uuid.New().String()
+		exercisePayload := []byte(fmt.Sprintf(`{
+			"id": "%s",
 			"title": "Búsqueda Binaria Recursiva",
 			"description": "Implemente búsqueda binaria recursiva.",
 			"type": "algorithm",
@@ -184,7 +186,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 					}
 				}
 			}
-		}`)
+		}`, freshExID))
 
 		req := httptest.NewRequest("POST", "/api/v1/exercises", bytes.NewReader(exercisePayload))
 		req.Header.Set("X-User-Role", "teacher")

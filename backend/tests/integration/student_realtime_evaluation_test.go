@@ -155,7 +155,7 @@ func setupLote1TestServer(t *testing.T) (*httptest.Server, *database.Database, *
 	return server, db, wsHub
 }
 
-func TestLote1_GetMeEndpoint(t *testing.T) {
+func TestSlice12_GetMeEndpoint(t *testing.T) {
 	server, db, _ := setupLote1TestServer(t)
 	defer server.Close()
 
@@ -208,7 +208,7 @@ func TestLote1_GetMeEndpoint(t *testing.T) {
 	}
 }
 
-func TestLote1_GetDueAssignmentsEndpoint(t *testing.T) {
+func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 	server, db, _ := setupLote1TestServer(t)
 	defer server.Close()
 
@@ -270,7 +270,7 @@ func TestLote1_GetDueAssignmentsEndpoint(t *testing.T) {
 	}
 }
 
-func TestLote1_PauseWorkspaceEndpoint(t *testing.T) {
+func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	server, db, _ := setupLote1TestServer(t)
 	defer server.Close()
 
@@ -334,7 +334,7 @@ func TestLote1_PauseWorkspaceEndpoint(t *testing.T) {
 	}
 }
 
-func TestLote1_WebSocketHubAndEvaluation(t *testing.T) {
+func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	server, db, _ := setupLote1TestServer(t)
 	defer server.Close()
 

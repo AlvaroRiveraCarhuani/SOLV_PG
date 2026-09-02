@@ -1,6 +1,6 @@
 # Registro de Verificación — Slice 11: Operabilidad B2B & Backups
 
-## 1. Verificación de Tests de Integración (`slice11_test.go`)
+## 1. Verificación de Tests de Integración (`b2b_operability_test.go`)
 
 - **Comando:** `cd backend && go test -v -count=1 ./tests/integration/ -run TestSlice11OperabilityB2B`
 - **Resultado:** `PASS` (100% en verde).
