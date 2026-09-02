@@ -90,6 +90,7 @@ func main() {
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
+	teacherService.SetEvaluationService(evaluationService)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
 
 	evalHandler := httpdelivery.NewEvaluationHandler(evaluationService, v)

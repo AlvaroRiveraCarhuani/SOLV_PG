@@ -715,3 +715,138 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 	}
 	return result, nil
 }
+
+func (r *PostgresTeacherRepository) GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*domain.CourseGradesMatrix, error) {
+	// 1. Obtener datos de la materia y validar aislamiento
+	type subRow struct {
+		ID   string `db:"id"`
+		Name string `db:"name"`
+		Code string `db:"code"`
+	}
+	var subject subRow
+	var err error
+	if teacherID != "" {
+		query := `SELECT id, name, code FROM subjects WHERE id = $1 AND tenant_id = $2 AND teacher_id = $3`
+		err = r.db.GetContext(ctx, &subject, query, subjectID, tenantID, teacherID)
+	} else {
+		query := `SELECT id, name, code FROM subjects WHERE id = $1 AND tenant_id = $2`
+		err = r.db.GetContext(ctx, &subject, query, subjectID, tenantID)
+	}
+	if err != nil {
+		return nil, domain.ErrNotFound
+	}
+
+	matrix := &domain.CourseGradesMatrix{
+		SubjectID:   subject.ID,
+		SubjectName: subject.Name,
+		SubjectCode: subject.Code,
+		Exercises:   make([]domain.CourseExerciseHeader, 0),
+		Students:    make([]domain.StudentGradesRow, 0),
+	}
+
+	// 2. Listar ejercicios de la materia
+	type exHeaderRow struct {
+		ID    string `db:"id"`
+		Title string `db:"title"`
+	}
+	var exercises []exHeaderRow
+	exQuery := `SELECT id, title FROM exercises WHERE subject_id = $1 AND tenant_id = $2 ORDER BY created_at ASC`
+	if err := r.db.SelectContext(ctx, &exercises, exQuery, subjectID, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to list exercises: %w", err)
+	}
+	for _, ex := range exercises {
+		matrix.Exercises = append(matrix.Exercises, domain.CourseExerciseHeader{
+			ID:    ex.ID,
+			Title: ex.Title,
+		})
+	}
+
+	// 3. Listar estudiantes inscritos
+	type stuRow struct {
+		StudentID    string `db:"student_id"`
+		StudentName  string `db:"student_name"`
+		StudentEmail string `db:"student_email"`
+	}
+	var students []stuRow
+	stuQuery := `
+		SELECT e.student_id,
+		       COALESCE(u.first_name || ' ' || u.last_name, 'Estudiante') AS student_name,
+		       COALESCE(u.email, '') AS student_email
+		FROM enrollments e
+		JOIN users u ON e.student_id = u.id
+		WHERE e.subject_id = $1 AND e.tenant_id = $2
+		ORDER BY student_name ASC
+	`
+	if err := r.db.SelectContext(ctx, &students, stuQuery, subjectID, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to list students: %w", err)
+	}
+
+	// 4. Obtener entregas
+	type gradeRecord struct {
+		StudentID      string        `db:"student_id"`
+		ExerciseID     string        `db:"exercise_id"`
+		Verdict        string        `db:"verdict"`
+		Score          sql.NullInt64 `db:"score"`
+		ManualOverride sql.NullBool  `db:"manual_override"`
+	}
+	var submissions []gradeRecord
+	subQuery := `
+		SELECT sub.student_id, sub.exercise_id, sub.verdict, sub.score, sub.manual_override
+		FROM submissions sub
+		JOIN exercises ex ON sub.exercise_id = ex.id
+		WHERE ex.subject_id = $1 AND sub.tenant_id = $2
+		ORDER BY sub.submitted_at ASC
+	`
+	_ = r.db.SelectContext(ctx, &submissions, subQuery, subjectID, tenantID)
+
+	// Mapear mejor nota por estudiante y ejercicio
+	gradesMap := make(map[string]map[string]int) // studentID -> exerciseID -> score
+	for _, sub := range submissions {
+		if _, ok := gradesMap[sub.StudentID]; !ok {
+			gradesMap[sub.StudentID] = make(map[string]int)
+		}
+		var finalScore int
+		if sub.Score.Valid {
+			finalScore = int(sub.Score.Int64)
+		} else if sub.Verdict == "AC" || (sub.ManualOverride.Valid && sub.ManualOverride.Bool) {
+			finalScore = 100
+		} else {
+			finalScore = 0
+		}
+
+		// Mantener la mejor nota obtenida
+		if curr, ok := gradesMap[sub.StudentID][sub.ExerciseID]; !ok || finalScore > curr {
+			gradesMap[sub.StudentID][sub.ExerciseID] = finalScore
+		}
+	}
+
+	// 5. Construir filas de estudiantes con cálculo de promedio
+	for _, stu := range students {
+		row := domain.StudentGradesRow{
+			StudentID:    stu.StudentID,
+			StudentName:  stu.StudentName,
+			StudentEmail: stu.StudentEmail,
+			Grades:       make(map[string]int),
+		}
+
+		var totalScore float64
+		for _, ex := range matrix.Exercises {
+			score := 0
+			if sGrades, ok := gradesMap[stu.StudentID]; ok {
+				if s, ok := sGrades[ex.ID]; ok {
+					score = s
+				}
+			}
+			row.Grades[ex.ID] = score
+			totalScore += float64(score)
+		}
+
+		if len(matrix.Exercises) > 0 {
+			row.Average = totalScore / float64(len(matrix.Exercises))
+		}
+
+		matrix.Students = append(matrix.Students, row)
+	}
+
+	return matrix, nil
+}

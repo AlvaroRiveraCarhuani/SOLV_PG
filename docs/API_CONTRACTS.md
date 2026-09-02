@@ -483,6 +483,68 @@ Permite registrar y consultar comentarios pedagógicos anclados a líneas espec�
 
 ---
 
+### 12. Runner Efímero Docente (`POST /api/v1/teacher/submissions/{id}/run-ephemeral`)
+
+Ejecuta código en el sandbox efímero sin persistir una nueva entrega en la base de datos (para pruebas en vivo durante la corrección).
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/teacher/submissions/{id}/run-ephemeral`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Veredicto y salida de ejecución en memoria.
+  - `403 Forbidden`: Si el rol es student.
+
+#### Ejemplo de Solicitud
+```json
+{
+  "code": "def insert(root, key):\n    # corrección en vivo\n    pass",
+  "language": "python"
+}
+```
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "submission_id": "sub-uuid-1",
+    "exercise_id": "ex-uuid-1",
+    "verdict": "AC",
+    "execution_time_ms": 12,
+    "memory_used_mb": 24,
+    "message": "Ejecución efímera completada con éxito"
+  },
+  "error": "",
+  "message": "Ejecución efímera completada exitosamente"
+}
+```
+
+---
+
+### 13. Exportación de Calificaciones en CSV (`GET /api/v1/teacher/courses/{id}/grades/export`)
+
+Genera y transmite una matriz consolidada de notas en formato CSV compatible con hojas de cálculo (UTF-8 BOM y header `Content-Disposition`).
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/teacher/courses/{id}/grades/export?format=csv`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Headers de Respuesta:**
+  - `Content-Type: text/csv; charset=utf-8`
+  - `Content-Disposition: attachment; filename="calificaciones_PROG-201_20260902.csv"`
+- **Respuestas:**
+  - `200 OK`: Archivo CSV binario con matriz de calificaciones.
+  - `403 Forbidden`: Si el rol es student.
+  - `404 Not Found`: Si la materia no existe o no pertenece al docente.
+
+#### Ejemplo de Contenido CSV
+```csv
+ID Estudiante,Nombre Completo,Email,Lab 1: Sockets TCP,Lab 2: RPC Concurrente,Promedio Final
+stu-uuid-1,Carlos Ruiz,carlos@uab.edu.bo,100,0,50.00
+stu-uuid-2,Ana Torres,ana@uab.edu.bo,100,90,95.00
+stu-uuid-3,María López,maria@uab.edu.bo,0,0,0.00
+```
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional

@@ -85,3 +85,44 @@ type AddCommentRequestDTO struct {
 }
 
 var ErrInvalidOverrideReason = errors.New("override reason must be at least 10 characters")
+
+// EphemeralRunRequestDTO payload para ejecutar código en sandbox efímero sin persistir.
+type EphemeralRunRequestDTO struct {
+	Code     string `json:"code"`
+	Language string `json:"language"`
+}
+
+// EphemeralRunResult resultado en memoria de la ejecución efímera.
+type EphemeralRunResult struct {
+	SubmissionID    string `json:"submission_id"`
+	ExerciseID      string `json:"exercise_id"`
+	Verdict         string `json:"verdict"`
+	ExecutionTimeMS int    `json:"execution_time_ms"`
+	MemoryUsedMB    int    `json:"memory_used_mb"`
+	Message         string `json:"message"`
+	ActualJSON      string `json:"actual_json,omitempty"`
+}
+
+// CourseExerciseHeader cabecera de laboratorio para la matriz de calificaciones.
+type CourseExerciseHeader struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+// StudentGradesRow fila de notas por estudiante en el curso.
+type StudentGradesRow struct {
+	StudentID    string         `json:"student_id"`
+	StudentName  string         `json:"student_name"`
+	StudentEmail string         `json:"student_email"`
+	Grades       map[string]int `json:"grades"`
+	Average      float64        `json:"average"`
+}
+
+// CourseGradesMatrix estructura consolidada para la exportación de notas del curso.
+type CourseGradesMatrix struct {
+	SubjectID   string                 `json:"subject_id"`
+	SubjectName string                 `json:"subject_name"`
+	SubjectCode string                 `json:"subject_code"`
+	Exercises   []CourseExerciseHeader `json:"exercises"`
+	Students    []StudentGradesRow     `json:"students"`
+}

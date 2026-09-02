@@ -149,6 +149,7 @@ type TeacherRepository interface {
 	GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*TeacherSubmissionReviewDTO, error)
 	AddComment(ctx context.Context, comment *SubmissionComment) error
 	GetCommentsBySubmission(ctx context.Context, tenantID, submissionID string) ([]*SubmissionComment, error)
+	GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseGradesMatrix, error)
 }
 
 
