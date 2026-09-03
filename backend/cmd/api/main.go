@@ -123,6 +123,12 @@ func main() {
 	subHandler := httpdelivery.NewSubmissionHandler(submissionService)
 	subHandler.SetWebSocketHub(wsHub)
 
+	// Slice 15: Notificaciones Proactivas (ADR-034)
+	notificationRepo := postgres.NewPostgresNotificationRepository(db.GetDB())
+	notificationService := services.NewNotificationService(notificationRepo, 256)
+	defer notificationService.Stop()
+	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
@@ -139,6 +145,7 @@ func main() {
 		AdminAcademicHandler:     adminAcademicHandler,
 		StudentHandler:           studentHandler,
 		TeacherHandler:           teacherHandler,
+		NotificationHandler:      notificationHandler,
 		WebSocketHandler:         wsHandler,
 		TenantMiddleware:         tenantMiddleware,
 		MaintenanceMiddleware:    maintenanceMiddleware,

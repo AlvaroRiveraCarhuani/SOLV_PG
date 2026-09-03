@@ -177,4 +177,11 @@ type TeacherRepository interface {
 	GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseGradesMatrix, error)
 }
 
-
+type NotificationRepository interface {
+	Create(ctx context.Context, n *Notification) error
+	CreateBatch(ctx context.Context, list []*Notification) error
+	ListByRecipient(ctx context.Context, tenantID, recipientUserID string, unreadOnly bool, limit, offset int) ([]*Notification, int64, error)
+	CountUnread(ctx context.Context, tenantID, recipientUserID string) (int64, error)
+	MarkAsRead(ctx context.Context, tenantID, recipientUserID, notificationID string) error
+	MarkAllAsRead(ctx context.Context, tenantID, recipientUserID string) (int64, error)
+}

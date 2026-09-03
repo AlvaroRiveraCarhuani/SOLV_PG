@@ -343,6 +343,29 @@ func (d *Database) RunInitialMigrations() error {
 	-- Índices académicos requeridos (CRIT-02)
 	CREATE INDEX IF NOT EXISTS idx_subjects_tenant ON subjects(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_submissions_tenant ON submissions(tenant_id);
+
+	-- Slice 15: Notificaciones Proactivas (ADR-034)
+	CREATE TABLE IF NOT EXISTS notifications (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+		recipient_user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		channel VARCHAR(20) NOT NULL DEFAULT 'in_app' CHECK (channel IN ('in_app', 'email', 'both')),
+		severity VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'error', 'critical')),
+		title VARCHAR(128) NOT NULL,
+		message TEXT NOT NULL,
+		event_type VARCHAR(64) NOT NULL,
+		metadata JSONB DEFAULT '{}'::jsonb,
+		is_read BOOLEAN NOT NULL DEFAULT FALSE,
+		read_at TIMESTAMPTZ,
+		email_sent_at TIMESTAMPTZ,
+		occurrence_count INT NOT NULL DEFAULT 1,
+		link VARCHAR(255) DEFAULT '',
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+	);
+	CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread 
+	ON notifications (tenant_id, recipient_user_id, created_at DESC) WHERE is_read = false;
+	CREATE INDEX IF NOT EXISTS idx_notifications_recipient_all 
+	ON notifications (tenant_id, recipient_user_id, created_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 

@@ -20,6 +20,7 @@ type Handlers struct {
 	AdminAcademicHandler     *AdminAcademicHandler
 	StudentHandler           *StudentHandler
 	TeacherHandler           *TeacherHandler
+	NotificationHandler      *NotificationHandler
 	WebSocketHandler         *WebSocketHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
@@ -39,6 +40,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
+	registerNotificationRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
 
@@ -237,4 +239,19 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/submissions/{id}/comments", tm(http.HandlerFunc(deps.TeacherHandler.GetSubmissionComments)))
 	mux.Handle("POST /api/v1/teacher/submissions/{id}/run-ephemeral", tm(http.HandlerFunc(deps.TeacherHandler.RunEphemeral)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/grades/export", tm(http.HandlerFunc(deps.TeacherHandler.ExportGrades)))
+}
+
+func registerNotificationRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.NotificationHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	mux.Handle("GET /api/v1/notifications", tm(http.HandlerFunc(deps.NotificationHandler.List)))
+	mux.Handle("GET /api/v1/notifications/unread-count", tm(http.HandlerFunc(deps.NotificationHandler.GetUnreadCount)))
+	mux.Handle("PATCH /api/v1/notifications/{id}/read", tm(http.HandlerFunc(deps.NotificationHandler.MarkRead)))
+	mux.Handle("POST /api/v1/notifications/mark-all-read", tm(http.HandlerFunc(deps.NotificationHandler.MarkAllRead)))
 }
