@@ -809,16 +809,114 @@ Permite al administrador ejecutar comandos de pánico para salvaguardar la estab
 
 ---
 
+---
+
+## SLICE_15: Sistema de Notificaciones Proactivas (ADR-034)
+
+### 1. Listado Paginado de Notificaciones (`GET /api/v1/notifications`)
+
+Consulta el historial de notificaciones del usuario autenticado ordenadas cronológicamente de forma descendente, con soporte de paginación y filtro de sólo no leídas.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/notifications?unread_only=false&page=1&limit=20`
+- **Headers:** `X-User-Id: <user_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Response Headers:** `X-Total-Count: <total_notificaciones>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": [
+    {
+      "id": "notif-uuid-1",
+      "tenant_id": "00000000-0000-0000-0000-000000000001",
+      "recipient_user_id": "user-uuid-1",
+      "channel": "in_app",
+      "severity": "critical",
+      "title": "Alerta de Consumo OOM",
+      "message": "Tu workspace fue suspendido por superar el límite de memoria",
+      "event_type": "oom_warning",
+      "metadata": {},
+      "is_read": false,
+      "read_at": null,
+      "email_sent_at": null,
+      "occurrence_count": 1,
+      "link": "/student/workspaces",
+      "created_at": "2026-09-03T06:00:00Z"
+    }
+  ],
+  "error": "",
+  "message": "Notificaciones obtenidas exitosamente"
+}
+```
+
+---
+
+### 2. Contador Ultraliviano para Campana UI (`GET /api/v1/notifications/unread-count`)
+
+Consulta de alta velocidad optimizada mediante índice parcial en PostgreSQL (`WHERE is_read = false`), diseñada para sondeo frecuente desde el frontend sin sobrecargar el servidor.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/notifications/unread-count`
+- **Headers:** `X-User-Id: <user_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "unread_count": 3
+  },
+  "error": "",
+  "message": "Contador de notificaciones no leídas obtenido exitosamente"
+}
+```
+
+---
+
+### 3. Marcar Notificación Individual como Leída (`PATCH /api/v1/notifications/{id}/read`)
+
+Marca una notificación específica como leída, asignando el timestamp de lectura actual (`read_at = NOW()`) y validando el aislamiento multi-tenant y pertenencia de usuario.
+
+- **Método:** `PATCH`
+- **Ruta:** `/api/v1/notifications/{id}/read`
+- **Headers:** `X-User-Id: <user_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "id": "notif-uuid-1",
+    "status": "marked_as_read"
+  },
+  "error": "",
+  "message": "Notificación marcada como leída"
+}
+```
+  - `404 Not Found`: Si la notificación no existe o pertenece a otro usuario.
+
+---
+
+### 4. Marcar Todas las Notificaciones como Leídas (`POST /api/v1/notifications/mark-all-read`)
+
+Actualiza en una sola operación atómica todas las notificaciones pendientes del usuario a estado leído.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/notifications/mark-all-read`
+- **Headers:** `X-User-Id: <user_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "marked_count": 3
+  },
+  "error": "",
+  "message": "Todas las notificaciones fueron marcadas como leídas"
+}
+```
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
-
-### SLICE_15: Notificaciones Proactivas
-
-| Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
-| :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/notifications` | `GET` | ADR-034 | Consulta paginada de notificaciones in-app del usuario | *Pendiente* |
-| `/api/v1/notifications/unread-count` | `GET` | ADR-034 | Contador de notificaciones no leídas para la campana UI | *Pendiente* |
-| `/api/v1/notifications/{id}/read` | `PATCH` | ADR-034 | Marcar notificación específica como leída | *Pendiente* |
-| `/api/v1/notifications/mark-all-read` | `POST` | ADR-034 | Marcar todas las notificaciones como leídas | *Pendiente* |
 
 ### SLICE_16: Backups y Retención Institucional
 

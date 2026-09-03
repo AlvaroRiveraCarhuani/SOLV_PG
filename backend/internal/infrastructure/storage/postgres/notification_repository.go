@@ -109,8 +109,8 @@ func (r *PostgresNotificationRepository) ListByRecipient(
 	selectQuery := fmt.Sprintf(`
 		SELECT 
 			id, tenant_id, recipient_user_id, channel, severity, 
-			title, message, event_type, metadata, is_read, 
-			read_at, email_sent_at, occurrence_count, link, created_at
+			title, message, event_type, COALESCE(metadata, '{}'::jsonb) AS metadata, is_read, 
+			read_at, email_sent_at, occurrence_count, COALESCE(link, '') AS link, created_at
 		FROM notifications
 		WHERE tenant_id = $1 AND recipient_user_id = $2 %s
 		ORDER BY created_at DESC

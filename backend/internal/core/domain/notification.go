@@ -26,14 +26,14 @@ type Notification struct {
 	Severity        string          `db:"severity" json:"severity"`
 	Title           string          `db:"title" json:"title"`
 	Message         string          `db:"message" json:"message"`
-	EventType       string          `db:"event_type" json:"event_type"`
-	Metadata        json.RawMessage `db:"metadata" json:"metadata,omitempty"`
-	IsRead          bool            `db:"is_read" json:"is_read"`
-	ReadAt          *time.Time      `db:"read_at" json:"read_at,omitempty"`
-	EmailSentAt     *time.Time      `db:"email_sent_at" json:"email_sent_at,omitempty"`
-	OccurrenceCount int             `db:"occurrence_count" json:"occurrence_count"`
-	Link            string          `db:"link" json:"link,omitempty"`
-	CreatedAt       time.Time       `db:"created_at" json:"created_at"`
+	EventType       string     `db:"event_type" json:"event_type"`
+	Metadata        []byte     `db:"metadata" json:"metadata,omitempty"`
+	IsRead          bool       `db:"is_read" json:"is_read"`
+	ReadAt          *time.Time `db:"read_at" json:"read_at,omitempty"`
+	EmailSentAt     *time.Time `db:"email_sent_at" json:"email_sent_at,omitempty"`
+	OccurrenceCount int        `db:"occurrence_count" json:"occurrence_count"`
+	Link            string     `db:"link" json:"link,omitempty"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 }
 
 // CreateNotificationDTO DTO para emitir una notificación

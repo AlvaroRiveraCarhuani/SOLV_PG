@@ -47,12 +47,12 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 - **Estado Actual:** Planificado.
 
 ### Slice 14: Panel Administrador Institucional & Gobernanza
-- **Alcance:** Consola administrativa multi-tenant, gestión de estudiantes (búsqueda, reset de sesiones, bloqueo), gestión de docentes y reasignación de cursos huérfanos, periodos académicos y archivado, aprobación de plantillas Docker, control de modo mantenimiento y 5 acciones de emergencia con confirmación tipada.
-- **Estado Actual:** Planificado.
+- **Alcance:** Consola administrativa multi-tenant, gestión de estudiantes (búsqueda, reset de sesiones, bloqueo), gestión de docentes y reasignación de cursos huérfanos, periodos académicos y archivado, aprobación de plantillas Docker, control de modo mantenimiento y acciones de emergencia con confirmación tipada.
+- **Estado Actual:** Completado (v0.14.0).
 
 ### Slice 15: Notificaciones Proactivas (In-App & Email)
 - **Alcance:** Centro de notificaciones in-app (campana, conteo no leídas, severidades), despachador asíncrono, canal de correo transaccional para eventos críticos y reglas anti-fatiga de alertas.
-- **Estado Actual:** Planificado.
+- **Estado Actual:** Completado (v0.15.0).
 
 ### Slice 16: Backups y Retención Institucional
 - **Alcance:** Programación de copias de seguridad de PostgreSQL, retención local por días, sincronización remota configurable (S3/B2), verificación de integridad y restauración controlada.

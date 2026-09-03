@@ -46,16 +46,8 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := map[string]interface{}{
-		"data": items,
-		"meta": map[string]interface{}{
-			"page":  page,
-			"limit": limit,
-			"total": total,
-		},
-	}
-
-	SendJSON(w, http.StatusOK, resp, "Notificaciones obtenidas exitosamente")
+	w.Header().Set("X-Total-Count", strconv.FormatInt(total, 10))
+	SendJSON(w, http.StatusOK, items, "Notificaciones obtenidas exitosamente")
 }
 
 func (h *NotificationHandler) GetUnreadCount(w http.ResponseWriter, r *http.Request) {
