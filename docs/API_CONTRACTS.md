@@ -916,12 +916,153 @@ Actualiza en una sola operación atómica todas las notificaciones pendientes de
 
 ---
 
-## Contratos Aprobados Pendientes de Implementar
+---
 
-### SLICE_16: Backups y Retención Institucional
+## SLICE_16: Backups Configurables y Retención Institucional (ADR-035)
 
-| Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
-| :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/admin/backups` | `GET` | ADR-035 | Historial de respaldos ejecutados con tamaño y estado | *Pendiente* |
-| `/api/v1/admin/backups/trigger` | `POST` | ADR-035 | Disparo manual de volcado `pg_dump` con checksum | *Pendiente* |
-| `/api/v1/admin/backups/config` | `GET` / `PUT` | ADR-035 | Consulta y modificación de política de retención local/remota | *Pendiente* |
+### 1. Consulta y Modificación de Configuración de Respaldos (`GET & PUT /api/v1/admin/backups/config`)
+
+Permite al administrador consultar y actualizar las frecuencias y políticas de retención de las copias de seguridad locales y remotas.
+
+- **Métodos:** `GET` / `PUT`
+- **Ruta:** `/api/v1/admin/backups/config`
+- **Headers:** `X-User-Id: <admin_uuid>`, `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload (`PUT`):**
+```json
+{
+  "local_frequency_hours": 12,
+  "local_retention_days": 14,
+  "remote_enabled": true,
+  "remote_provider": "backblaze_b2",
+  "remote_bucket_name": "solv-institutional-backups",
+  "remote_endpoint": "https://s3.us-west-002.backblazeb2.com"
+}
+```
+- **Respuestas (`GET` / `PUT`):**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "id": "config-uuid-1",
+    "tenant_id": "00000000-0000-0000-0000-000000000001",
+    "local_frequency_hours": 12,
+    "local_retention_days": 14,
+    "remote_enabled": true,
+    "remote_provider": "backblaze_b2",
+    "remote_bucket_name": "solv-institutional-backups",
+    "remote_endpoint": "https://s3.us-west-002.backblazeb2.com",
+    "remote_retention_days": 30,
+    "is_active": true,
+    "updated_at": "2026-09-03T07:00:00Z"
+  },
+  "error": "",
+  "message": "Configuración de respaldos obtenida exitosamente"
+}
+```
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 2. Historial de Respaldos (`GET /api/v1/admin/backups`)
+
+Consulta el historial paginado de todas las ejecuciones de respaldo realizadas, detallando tamaño, checksum SHA-256 inmutable y estado de ejecución.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/backups?page=1&limit=20`
+- **Headers:** `X-User-Id: <admin_uuid>`, `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Response Headers:** `X-Total-Count: <total_respaldos>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": [
+    {
+      "id": "backup-uuid-1",
+      "tenant_id": "00000000-0000-0000-0000-000000000001",
+      "file_name": "solv_backup_00000000_1788418800.dump.gz",
+      "file_size_bytes": 1048576,
+      "sha256_checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "storage_tier": "local",
+      "status": "success",
+      "error_message": "",
+      "started_at": "2026-09-03T07:00:00Z",
+      "completed_at": "2026-09-03T07:00:02Z"
+    }
+  ],
+  "error": "",
+  "message": "Historial de respaldos obtenido exitosamente"
+}
+```
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 3. Disparo Manual de Respaldo (`POST /api/v1/admin/backups/trigger`)
+
+Inicia la generación inmediata de un volcado comprimido (`.dump.gz`), calcula su hash SHA-256, aplica la política de rotación de retención y notifica al administrador institucional.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/backups/trigger`
+- **Headers:** `X-User-Id: <admin_uuid>`, `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `201 Created`:
+```json
+{
+  "data": {
+    "id": "backup-uuid-1",
+    "tenant_id": "00000000-0000-0000-0000-000000000001",
+    "file_name": "solv_backup_00000000_1788418800.dump.gz",
+    "file_size_bytes": 1048576,
+    "sha256_checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "storage_tier": "local",
+    "status": "success",
+    "started_at": "2026-09-03T07:00:00Z",
+    "completed_at": "2026-09-03T07:00:02Z"
+  },
+  "error": "",
+  "message": "Copia de seguridad ejecutada exitosamente"
+}
+```
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 4. Verificación Criptográfica de Integridad (`POST /api/v1/admin/backups/{id}/verify`)
+
+Lee el archivo físico almacenado en disco, computa su hash SHA-256 actual y lo compara con el registro original de la base de datos para certificar ausencia de corrupción.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/backups/{id}/verify`
+- **Headers:** `X-User-Id: <admin_uuid>`, `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "execution_id": "backup-uuid-1",
+    "file_name": "solv_backup_00000000_1788418800.dump.gz",
+    "database_checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "computed_checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "is_valid": true,
+    "message": "Integridad criptográfica verificada: el archivo no está corrupto ni alterado"
+  },
+  "error": "",
+  "message": "Verificación de integridad completada"
+}
+```
+  - `404 Not Found`: Si el respaldo no existe.
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 5. Descarga Directa de Respaldo (`GET /api/v1/admin/backups/{id}/download`)
+
+Transmite el flujo binario del archivo `.dump.gz` al cliente con cabeceras `Content-Disposition: attachment`.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/backups/{id}/download`
+- **Headers:** `X-User-Id: <admin_uuid>`, `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Flujo binario con `Content-Type: application/gzip` y `Content-Disposition: attachment; filename="..."`.
+  - `404 Not Found`: Si el archivo no se encuentra en el almacenamiento local.
+  - `403 Forbidden`: Si el rol no es `admin`.

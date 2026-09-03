@@ -44,7 +44,7 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 
 ### Slice 13: Experiencia Docente, Cursos y Creación de Laboratorios
 - **Alcance:** Dashboard docente, vista de curso, wizard de creación de ejercicios/laboratorios, cola de revisión de entregas, auditoría de código con Semgrep, solicitud de plantillas Docker personalizadas y filtro por periodo académico.
-- **Estado Actual:** Planificado.
+- **Estado Actual:** Completado (v0.13.0).
 
 ### Slice 14: Panel Administrador Institucional & Gobernanza
 - **Alcance:** Consola administrativa multi-tenant, gestión de estudiantes (búsqueda, reset de sesiones, bloqueo), gestión de docentes y reasignación de cursos huérfanos, periodos académicos y archivado, aprobación de plantillas Docker, control de modo mantenimiento y acciones de emergencia con confirmación tipada.
@@ -56,4 +56,4 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 
 ### Slice 16: Backups y Retención Institucional
 - **Alcance:** Programación de copias de seguridad de PostgreSQL, retención local por días, sincronización remota configurable (S3/B2), verificación de integridad y restauración controlada.
-- **Estado Actual:** Planificado.
+- **Estado Actual:** Completado (v0.16.0).
