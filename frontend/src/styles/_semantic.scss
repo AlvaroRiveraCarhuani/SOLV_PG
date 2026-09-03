@@ -1,0 +1,80 @@
+// =============================================================================
+// SOLV DESIGN SYSTEM - TIER 2: SEMANTIC TOKENS
+// Mapeo semántico de roles de interfaz, estados de contenedores y veredictos
+// =============================================================================
+
+:root {
+  // Superficies y Lienzos (Tema Claro Institucional por defecto)
+  --bg-canvas:        #F6F7F9;
+  --bg-surface:       #FFFFFF;
+  --bg-surface-subtle:#F8FAFC;
+  --bg-surface-active:#F1F5F9;
+
+  // Bordes Limpios (Separación visual mediante bordes, NO sombras pesadas)
+  --border-subtle:    #E2E8F0;
+  --border-strong:    #CBD5E1;
+  --border-focus:     var(--tenant-primary);
+
+  // Jerarquía de Textos
+  --text-primary:     #0F172A;
+  --text-secondary:   #475569;
+  --text-muted:       #64748B;
+  --text-inverse:     #FFFFFF;
+
+  // Semánticos Fijos Base
+  --color-success:    #16A34A;
+  --color-warning:    #D97706;
+  --color-error:      #DC2626;
+  --color-neutral:    #64748B;
+
+  // ---------------------------------------------------------------------------
+  // Semántica de Estados de Workspaces (Inamovible ADR / solv-design-system)
+  // ---------------------------------------------------------------------------
+  --status-running-color:      #16A34A;
+  --status-running-bg:         #DCFCE7;
+  --status-running-border:     #BBF7D0;
+
+  --status-pending-color:      #D97706;
+  --status-pending-bg:         #FEF3C7;
+  --status-pending-border:     #FDE68A;
+
+  --status-hibernated-color:   #64748B;
+  --status-hibernated-bg:      #F1F5F9;
+  --status-hibernated-border:  #E2E8F0;
+
+  --status-failed-color:       #DC2626;
+  --status-failed-bg:          #FEE2E2;
+  --status-failed-border:      #FECACA;
+
+  --status-oom-color:          #DC2626;
+  --status-oom-bg:             #FEE2E2;
+  --status-oom-border:         #FECACA;
+
+  // ---------------------------------------------------------------------------
+  // Veredictos del Juez Virtual (ADR-012 / ADR-037 / solv-design-system)
+  // ---------------------------------------------------------------------------
+  --verdict-ac-color:          #16A34A; // Accepted
+  --verdict-ac-bg:             #DCFCE7;
+  --verdict-ac-border:         #86EFAC;
+
+  --verdict-wa-color:          #DC2626; // Wrong Answer
+  --verdict-wa-bg:             #FEE2E2;
+  --verdict-wa-border:         #FCA5A5;
+
+  --verdict-tle-color:         #D97706; // Time Limit Exceeded
+  --verdict-tle-bg:            #FEF3C7;
+  --verdict-tle-border:        #FCD34D;
+
+  --verdict-re-color:          #EA580C; // Runtime Error
+  --verdict-re-bg:             #FFEDD5;
+  --verdict-re-border:         #FDBA74;
+
+  --verdict-ast-color:         #991B1B; // AST Blocked (Rojo Intenso)
+  --verdict-ast-bg:            #FEE2E2;
+  --verdict-ast-border:        #F87171;
+
+  // Sombras sutiles y profesionales (Prohibido sombras gigantes estilo SaaS)
+  --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-card:   0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  --shadow-dropdown: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -2px rgba(0, 0, 0, 0.04);
+}

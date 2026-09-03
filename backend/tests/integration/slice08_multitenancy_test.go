@@ -214,12 +214,25 @@ func TestMultiTenancyIsolation(t *testing.T) {
 			t.Errorf("Expected tenant_id and slug='uab', got id=%v, slug=%v", cfg["tenant_id"], cfg["slug"])
 		}
 
-		// Test por slug explícito
+		// Test por slug explícito UAB
 		reqSlug := httptest.NewRequest("GET", "/api/v1/config/public?slug=uab", nil)
 		recSlug := httptest.NewRecorder()
 		h.GetPublicConfig(recSlug, reqSlug)
 		if recSlug.Code != http.StatusOK {
 			t.Errorf("Expected 200 OK for ?slug=uab, got %d", recSlug.Code)
+		}
+
+		// Test por slug explícito de OTRA universidad (UMSA)
+		reqUMSA := httptest.NewRequest("GET", "/api/v1/config/public?slug=umsa", nil)
+		recUMSA := httptest.NewRecorder()
+		h.GetPublicConfig(recUMSA, reqUMSA)
+		if recUMSA.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK for ?slug=umsa, got %d", recUMSA.Code)
+		}
+		var cfgUMSA map[string]interface{}
+		json.Unmarshal(recUMSA.Body.Bytes(), &cfgUMSA)
+		if cfgUMSA["institution_name"] != "Universidad Mayor de San Andrés" {
+			t.Errorf("Expected UMSA configuration, got %v", cfgUMSA["institution_name"])
 		}
 
 		// Test por slug inexistente -> 404 Not Found

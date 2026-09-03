@@ -1,0 +1,129 @@
+// =============================================================================
+// SOLV DESIGN SYSTEM - MAIN ENTRYPOINT
+// Arquitectura de tokens por niveles (Primitives -> Semantics -> Tenant)
+// =============================================================================
+
+@use 'styles/primitives';
+@use 'styles/semantic';
+@use 'styles/tenant';
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+// Fuentes Monoespaciadas para Código, Hashes y Números Tabulares
+code, pre, kbd, samp, .font-mono {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1, "zero" 1; // Tabular numbers & slashed zero
+}
+
+// Enlaces
+a {
+  color: var(--tenant-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+
+  &:hover {
+    color: var(--tenant-primary-hover);
+    text-decoration: underline;
+  }
+}
+
+// Botones Base
+button {
+  font-family: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+// Utilidades Semánticas de Contenedor y Layout
+.solv-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-6);
+}
+
+.solv-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: var(--tenant-primary);
+  color: var(--tenant-primary-text);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: background-color 0.15s ease, transform 0.05s ease;
+
+  &:hover:not(:disabled) {
+    background-color: var(--tenant-primary-hover);
+  }
+
+  &:active:not(:disabled) {
+    background-color: var(--tenant-primary-active);
+    transform: translateY(1px);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.solv-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background-color: var(--bg-surface-active);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+}
+
+// Animación Pulse para Contenedores en Estado Running
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.92);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}

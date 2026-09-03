@@ -1,0 +1,21 @@
+// =============================================================================
+// SOLV DESIGN SYSTEM - TIER 3: TENANT & COMPONENT TOKENS
+// Tokens dinámicos de White-Labeling inyectados en runtime vía TenantService
+// =============================================================================
+
+:root {
+  // Valores por defecto (Azul UAB Institucional #2563EB)
+  --tenant-primary-h: 221;
+  --tenant-primary-s: 83%;
+  --tenant-primary-l: 53%;
+
+  // Color primario resuelto
+  --tenant-primary: hsl(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l));
+
+  // Derivados automáticos matemáticos en CSS puro (Sin Dirty JS)
+  --tenant-primary-hover:  hsl(var(--tenant-primary-h), var(--tenant-primary-s), 45%);
+  --tenant-primary-active: hsl(var(--tenant-primary-h), var(--tenant-primary-s), 38%);
+  --tenant-primary-subtle: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.08);
+  --tenant-primary-border: hsla(var(--tenant-primary-h), var(--tenant-primary-s), var(--tenant-primary-l), 0.25);
+  --tenant-primary-text:   #FFFFFF;
+}
