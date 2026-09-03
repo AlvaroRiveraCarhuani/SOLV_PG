@@ -13,15 +13,18 @@ import (
 type AdminAcademicHandler struct {
 	periodService      *services.AcademicPeriodService
 	maintenanceService *services.MaintenanceService
+	govService         *services.AdminGovernanceService
 }
 
 func NewAdminAcademicHandler(
 	periodService *services.AcademicPeriodService,
 	maintenanceService *services.MaintenanceService,
+	govService *services.AdminGovernanceService,
 ) *AdminAcademicHandler {
 	return &AdminAcademicHandler{
 		periodService:      periodService,
 		maintenanceService: maintenanceService,
+		govService:         govService,
 	}
 }
 
@@ -185,4 +188,136 @@ func (h *AdminAcademicHandler) DeletePeriod(w http.ResponseWriter, r *http.Reque
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// -----------------------------------------------------------------------------
+// Course Reassignment (ADR-036)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ReassignCourse(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden reasignar cursos")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	id := r.PathValue("id")
+	if id == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de materia requerido")
+		return
+	}
+
+	var dto domain.ReassignCourseDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if dto.NewTeacherID == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "new_teacher_id es obligatorio")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	subject, err := h.govService.ReassignCourse(r.Context(), tenantID, id, dto)
+	if err != nil {
+		if errors.Is(err, services.ErrTeacherNotFoundOrRole) {
+			SendError(w, http.StatusUnprocessableEntity, "invalid_teacher", "El usuario asignado no existe o no tiene rol de docente")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "not_found", "Materia no encontrada")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al reasignar docente a la materia")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, subject, "Docente titular reasignado exitosamente")
+}
+
+// -----------------------------------------------------------------------------
+// Student Directory & Reset OOM (ADR-033)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: rol student no autorizado")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	search := r.URL.Query().Get("search")
+	subjectID := r.URL.Query().Get("subject_id")
+	status := r.URL.Query().Get("status")
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	students, err := h.govService.ListStudents(r.Context(), tenantID, search, subjectID, status)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener directorio de estudiantes")
+		return
+	}
+
+	if students == nil {
+		students = []*domain.AdminStudentDirectoryItem{}
+	}
+
+	SendJSON(w, http.StatusOK, students, "Directorio de estudiantes obtenido exitosamente")
+}
+
+func (h *AdminAcademicHandler) ResetStudentOOM(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden resetear penalizaciones OOM")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	studentID := r.PathValue("id")
+	if studentID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de estudiante requerido")
+		return
+	}
+
+	var dto domain.ResetOOMDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if len(dto.Reason) < 10 {
+		SendError(w, http.StatusUnprocessableEntity, "reason_too_short", "El motivo de justificación debe contener al menos 10 caracteres")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	result, err := h.govService.ResetStudentOOM(r.Context(), tenantID, studentID, dto)
+	if err != nil {
+		if errors.Is(err, services.ErrReasonTooShort) {
+			SendError(w, http.StatusUnprocessableEntity, "reason_too_short", "El motivo de justificación debe contener al menos 10 caracteres")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "not_found", "Estudiante no encontrado en el tenant")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al resetear penalizaciones OOM")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, result, "Penalizaciones OOM reseteadas exitosamente")
 }

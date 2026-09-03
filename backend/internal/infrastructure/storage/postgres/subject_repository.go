@@ -30,7 +30,7 @@ func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.
 
 func (r *PostgresSubjectRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Subject, error) {
 	var s domain.Subject
-	query := `SELECT id, tenant_id, name, code, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 AND id = $2`
+	query := `SELECT id, tenant_id, name, code, teacher_id, academic_period_id, is_archived, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 AND id = $2`
 	err := r.db.GetContext(ctx, &s, query, tenantID, id)
 	if err != nil {
 		return nil, fmt.Errorf("subject not found: %w", err)
@@ -40,7 +40,7 @@ func (r *PostgresSubjectRepository) GetByID(ctx context.Context, tenantID, id st
 
 func (r *PostgresSubjectRepository) ListByTenant(ctx context.Context, tenantID string) ([]*domain.Subject, error) {
 	var list []*domain.Subject
-	query := `SELECT id, tenant_id, name, code, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 ORDER BY name ASC`
+	query := `SELECT id, tenant_id, name, code, teacher_id, academic_period_id, is_archived, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 ORDER BY name ASC`
 	err := r.db.SelectContext(ctx, &list, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list subjects: %w", err)
@@ -74,7 +74,7 @@ func (r *PostgresSubjectRepository) ListStudentsBySubject(ctx context.Context, t
 func (r *PostgresSubjectRepository) ListByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.Subject, error) {
 	var list []*domain.Subject
 	query := `
-		SELECT s.id, s.tenant_id, s.name, s.code, s.classroom_course_id, s.created_at, s.updated_at
+		SELECT s.id, s.tenant_id, s.name, s.code, s.teacher_id, s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at
 		FROM subjects s
 		INNER JOIN enrollments e ON s.id = e.subject_id AND s.tenant_id = e.tenant_id
 		WHERE s.tenant_id = $1 AND e.student_id = $2
@@ -85,5 +85,22 @@ func (r *PostgresSubjectRepository) ListByStudent(ctx context.Context, tenantID,
 		return nil, fmt.Errorf("failed to list student subjects: %w", err)
 	}
 	return list, nil
+}
+
+func (r *PostgresSubjectRepository) ReassignTeacher(ctx context.Context, tenantID, subjectID, newTeacherID string) error {
+	query := `
+		UPDATE subjects
+		SET teacher_id = $1
+		WHERE tenant_id = $2 AND id = $3
+	`
+	res, err := r.db.ExecContext(ctx, query, newTeacherID, tenantID, subjectID)
+	if err != nil {
+		return fmt.Errorf("failed to reassign subject teacher: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return fmt.Errorf("subject not found")
+	}
+	return nil
 }
 

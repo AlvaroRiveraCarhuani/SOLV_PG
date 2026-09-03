@@ -43,7 +43,7 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 
-	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService)
+	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, nil)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {

@@ -10,6 +10,9 @@ type Subject struct {
 	TenantID          string    `db:"tenant_id" json:"tenant_id"`
 	Name              string    `db:"name" json:"name"`
 	Code              string    `db:"code" json:"code"`
+	TeacherID         *string   `db:"teacher_id" json:"teacher_id,omitempty"`
+	AcademicPeriodID  *string   `db:"academic_period_id" json:"academic_period_id,omitempty"`
+	IsArchived        bool      `db:"is_archived" json:"is_archived"`
 	ClassroomCourseID *string   `db:"classroom_course_id" json:"classroom_course_id,omitempty"`
 	CreatedAt         time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt         time.Time `db:"updated_at" json:"updated_at"`

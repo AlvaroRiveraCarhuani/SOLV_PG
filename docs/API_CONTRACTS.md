@@ -626,15 +626,97 @@ Permite gestionar los semestres y periodos institucionales, asociar materias y a
 
 ---
 
+### 5. Reasignación de Docente Titular a Materia (`POST /api/v1/admin/courses/{id}/reassign`)
+
+Permite transferir la titularidad docente de una materia sin perder el historial académico ni las entregas de los estudiantes.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/courses/{id}/reassign`
+- **Headers:** `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload:**
+```json
+{
+  "new_teacher_id": "doc-uuid-2",
+  "reason": "Asignación de nuevo docente titular por licencia médica"
+}
+```
+- **Respuestas:**
+  - `200 OK`: Materia reasignada exitosamente.
+  - `422 Unprocessable Entity`: Si el usuario no tiene rol docente o no existe.
+  - `404 Not Found`: Si la materia no existe en el tenant.
+  - `403 Forbidden`: Si el rol es student.
+
+---
+
+### 6. Directorio Institucional de Estudiantes (`GET /api/v1/admin/students`)
+
+Provee al administrador un listado consolidado de estudiantes con métricas agregadas de cursos matriculados, workspaces activos y penalizaciones por consumo de memoria.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/students?search=Perez&subject_id=<uuid>&status=strikes`
+- **Headers:** `X-User-Role: admin | teacher`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": [
+    {
+      "id": "stu-uuid-1",
+      "first_name": "Juan",
+      "last_name": "Pérez",
+      "email": "juan@uab.edu.bo",
+      "role": "student",
+      "enrolled_courses_count": 3,
+      "active_workspaces_count": 1,
+      "oom_strike_count": 0,
+      "last_oom_killed_at": null
+    }
+  ],
+  "error": "",
+  "message": "Directorio de estudiantes obtenido exitosamente"
+}
+```
+
+---
+
+### 7. Reset Manual de Penalizaciones OOM-Killed (`POST /api/v1/admin/students/{id}/reset-oom`)
+
+Permite al administrador resetear a 0 los strikes de penalización por exceso de memoria de un estudiante tras una justificación pedagógica ($\ge 10$ caracteres).
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/students/{id}/reset-oom`
+- **Headers:** `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload:**
+```json
+{
+  "reason": "El estudiante corrigió la fuga de memoria en sus algoritmos concurrentes"
+}
+```
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "student_id": "stu-uuid-1",
+    "workspaces_reset_count": 1,
+    "message": "Penalizaciones OOM reseteadas exitosamente"
+  },
+  "error": "",
+  "message": "Penalizaciones OOM reseteadas exitosamente"
+}
+```
+  - `422 Unprocessable Entity`: Si la justificación tiene menos de 10 caracteres.
+  - `404 Not Found`: Si el estudiante no existe en el tenant.
+  - `403 Forbidden`: Si el rol es student.
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional (Restante)
 
 | Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
 | :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/admin/courses/{id}/reassign` | `POST` | ADR-036 | Reasignación de docentes a cursos huérfanos | *Pendiente* |
-| `/api/v1/admin/students` | `GET` | ADR-033 | Listado administrativo de estudiantes con búsqueda y filtros | *Pendiente* |
-| `/api/v1/admin/students/{id}/reset-oom` | `POST` | ADR-033 | Reset manual de penalizaciones OOMKilled de un estudiante | *Pendiente* |
 | `/api/v1/admin/templates/{id}/review` | `PUT` | ADR-030 | Aprobación o rechazo de plantillas Docker solicitadas | *Pendiente* |
 | `/api/v1/admin/emergency/{action}` | `POST` | ADR-032 | Ejecutar acción de emergencia con frase de confirmación tipada | *Pendiente* |
 

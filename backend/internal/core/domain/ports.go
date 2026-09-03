@@ -138,6 +138,13 @@ type SubjectRepository interface {
 	EnrollStudent(ctx context.Context, enrollment *Enrollment) error
 	ListStudentsBySubject(ctx context.Context, tenantID, subjectID string) ([]string, error)
 	ListByStudent(ctx context.Context, tenantID, studentID string) ([]*Subject, error)
+	ReassignTeacher(ctx context.Context, tenantID, subjectID, newTeacherID string) error
+}
+
+type AdminGovernanceRepository interface {
+	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status string) ([]*AdminStudentDirectoryItem, error)
+	ResetStudentOOM(ctx context.Context, tenantID, studentID string) (int64, error)
+	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
 }
 
 type SubmissionRepository interface {
