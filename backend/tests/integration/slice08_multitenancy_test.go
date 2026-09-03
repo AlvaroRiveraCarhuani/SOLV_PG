@@ -210,6 +210,25 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		if cfg["institution_name"] != "Universidad Adventista de Bolivia" {
 			t.Errorf("Expected UAB configuration, got %v", cfg["institution_name"])
 		}
+		if cfg["tenant_id"] == "" || cfg["slug"] != "uab" {
+			t.Errorf("Expected tenant_id and slug='uab', got id=%v, slug=%v", cfg["tenant_id"], cfg["slug"])
+		}
+
+		// Test por slug explícito
+		reqSlug := httptest.NewRequest("GET", "/api/v1/config/public?slug=uab", nil)
+		recSlug := httptest.NewRecorder()
+		h.GetPublicConfig(recSlug, reqSlug)
+		if recSlug.Code != http.StatusOK {
+			t.Errorf("Expected 200 OK for ?slug=uab, got %d", recSlug.Code)
+		}
+
+		// Test por slug inexistente -> 404 Not Found
+		reqInvalid := httptest.NewRequest("GET", "/api/v1/config/public?slug=inexistente", nil)
+		recInvalid := httptest.NewRecorder()
+		h.GetPublicConfig(recInvalid, reqInvalid)
+		if recInvalid.Code != http.StatusNotFound {
+			t.Errorf("Expected 404 Not Found for ?slug=inexistente, got %d", recInvalid.Code)
+		}
 	})
 
 	// 2. Test AuthService domain validation and JWT claims generation (Test 1 & 2)
