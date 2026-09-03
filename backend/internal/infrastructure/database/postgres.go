@@ -291,6 +291,28 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_submission_comments_sub ON submission_comments(submission_id);
 	CREATE INDEX IF NOT EXISTS idx_submission_comments_tenant ON submission_comments(tenant_id);
 
+	-- Slice 14: Modo Mantenimiento (ADR-031) y Periodos Académicos (ADR-029)
+	ALTER TABLE tenants ADD COLUMN IF NOT EXISTS maintenance_mode BOOLEAN DEFAULT FALSE;
+	ALTER TABLE tenants ADD COLUMN IF NOT EXISTS maintenance_until TIMESTAMPTZ;
+	ALTER TABLE tenants ADD COLUMN IF NOT EXISTS maintenance_reason TEXT DEFAULT '';
+
+	CREATE TABLE IF NOT EXISTS academic_periods (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+		name VARCHAR(100) NOT NULL,
+		code VARCHAR(50) NOT NULL,
+		start_date DATE NOT NULL,
+		end_date DATE NOT NULL,
+		is_active BOOLEAN NOT NULL DEFAULT true,
+		created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		CONSTRAINT uq_tenant_period_code UNIQUE(tenant_id, code)
+	);
+	CREATE INDEX IF NOT EXISTS idx_academic_periods_tenant ON academic_periods(tenant_id);
+
+	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS academic_period_id UUID REFERENCES academic_periods(id) ON DELETE SET NULL;
+	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
+	CREATE INDEX IF NOT EXISTS idx_subjects_period ON subjects(academic_period_id);
+
 	-- Foreign key FK_workspaces_subject con saneamiento de registros preexistentes
 	INSERT INTO subjects (id, tenant_id, name, code)
 	VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101')

@@ -545,19 +545,98 @@ stu-uuid-3,María López,maria@uab.edu.bo,0,0,0.00
 
 ---
 
+---
+
+## SLICE_14: Panel Administrador Institucional
+
+### 1. Activar Modo Mantenimiento (`POST /api/v1/admin/maintenance/enable`)
+
+Activa el modo mantenimiento para el tenant especificado, bloqueando el acceso a estudiantes y docentes con `503 Service Unavailable` y permitiendo el bypass de administradores.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/maintenance/enable`
+- **Headers:** `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload:**
+```json
+{
+  "until": "2026-09-10T00:00:00Z",
+  "reason": "Actualización programada de base de datos"
+}
+```
+- **Respuestas:**
+  - `200 OK`: Modo mantenimiento activado.
+  - `400 Bad Request`: Formato de fecha o payload inválido.
+
+---
+
+### 2. Desactivar Modo Mantenimiento (`POST /api/v1/admin/maintenance/disable`)
+
+Desactiva el modo mantenimiento y restablece el acceso regular a la plataforma.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/maintenance/disable`
+- **Headers:** `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`: Modo mantenimiento desactivado.
+
+---
+
+### 3. Consultar Estado de Mantenimiento (`GET /api/v1/admin/maintenance/status`)
+
+Consulta el estado actual de mantenimiento del tenant.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/maintenance/status`
+- **Headers:** `X-User-Role: admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "maintenance_mode": true,
+    "maintenance_until": "2026-09-10T00:00:00Z",
+    "maintenance_reason": "Actualización programada de base de datos"
+  },
+  "error": "",
+  "message": "Estado de mantenimiento obtenido exitosamente"
+}
+```
+
+---
+
+### 4. CRUD de Periodos Académicos (`/api/v1/admin/academic-periods`)
+
+Permite gestionar los semestres y periodos institucionales, asociar materias y archivar semestres vencidos.
+
+- **GET `/api/v1/admin/academic-periods`**: Listar periodos del tenant.
+- **POST `/api/v1/admin/academic-periods`**: Crear nuevo periodo académico.
+  - Payload:
+```json
+{
+  "name": "Primer Semestre 2026",
+  "code": "I-2026",
+  "start_date": "2026-02-01",
+  "end_date": "2026-06-30",
+  "is_active": true
+}
+```
+  - Respuestas: `201 Created`, `422 Unprocessable Entity` (si `end_date < start_date`), `409 Conflict` (código duplicado).
+- **PUT `/api/v1/admin/academic-periods/{id}`**: Actualizar periodo. Respuestas: `200 OK`, `422 Unprocessable Entity`.
+- **DELETE `/api/v1/admin/academic-periods/{id}`**: Eliminar periodo sin materias asociadas. Respuestas: `204 No Content`, `409 Conflict` (si tiene materias vinculadas).
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
-### SLICE_14: Panel Administrador Institucional
+### SLICE_14: Panel Administrador Institucional (Restante)
 
 | Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
 | :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/admin/maintenance` | `POST` | ADR-031 | Activar/desactivar modo mantenimiento global con bypass admin | *Pendiente* |
-| `/api/v1/admin/emergency/{action}` | `POST` | ADR-032 | Ejecutar acción de emergencia con frase de confirmación tipada | *Pendiente* |
+| `/api/v1/admin/courses/{id}/reassign` | `POST` | ADR-036 | Reasignación de docentes a cursos huérfanos | *Pendiente* |
 | `/api/v1/admin/students` | `GET` | ADR-033 | Listado administrativo de estudiantes con búsqueda y filtros | *Pendiente* |
 | `/api/v1/admin/students/{id}/reset-oom` | `POST` | ADR-033 | Reset manual de penalizaciones OOMKilled de un estudiante | *Pendiente* |
-| `/api/v1/admin/academic-periods` | `POST` / `GET` | ADR-029 | CRUD de periodos académicos institucionales | *Pendiente* |
 | `/api/v1/admin/templates/{id}/review` | `PUT` | ADR-030 | Aprobación o rechazo de plantillas Docker solicitadas | *Pendiente* |
-| `/api/v1/admin/courses/{id}/reassign` | `POST` | ADR-036 | Reasignación de docentes a cursos huérfanos | *Pendiente* |
+| `/api/v1/admin/emergency/{action}` | `POST` | ADR-032 | Ejecutar acción de emergencia con frase de confirmación tipada | *Pendiente* |
 
 ### SLICE_15: Notificaciones Proactivas
 

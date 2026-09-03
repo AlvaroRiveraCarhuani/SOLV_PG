@@ -1,6 +1,9 @@
 package domain
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type LabContainerConfig struct {
 	Image         string
@@ -115,6 +118,17 @@ type TenantRepository interface {
 	GetBySlug(ctx context.Context, slug string) (*Tenant, error)
 	GetAll(ctx context.Context) ([]*Tenant, error)
 	UpdateConfig(ctx context.Context, id string, config []byte) error
+	SetMaintenance(ctx context.Context, tenantID string, enabled bool, until *time.Time, reason string) error
+	GetMaintenance(ctx context.Context, tenantID string) (*MaintenanceStatus, error)
+}
+
+type AcademicPeriodRepository interface {
+	Create(ctx context.Context, period *AcademicPeriod) error
+	GetByID(ctx context.Context, tenantID, id string) (*AcademicPeriod, error)
+	ListByTenant(ctx context.Context, tenantID string) ([]*AcademicPeriod, error)
+	Update(ctx context.Context, period *AcademicPeriod) error
+	Delete(ctx context.Context, tenantID, id string) error
+	ArchiveExpiredPeriods(ctx context.Context) (int64, error)
 }
 
 type SubjectRepository interface {

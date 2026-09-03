@@ -93,6 +93,27 @@ func main() {
 	teacherService.SetEvaluationService(evaluationService)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
 
+	// Slice 14: Periodos Académicos y Modo Mantenimiento
+	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
+	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
+	maintenanceService := services.NewMaintenanceService(tenantRepo)
+	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService)
+	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
+
+	// Worker cron cada 24h para archivado automático de periodos expirados
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			count, err := academicPeriodService.ArchiveExpiredPeriods(context.Background())
+			if err != nil {
+				log.Printf("Error in automatic archiving of academic periods: %v", err)
+			} else if count > 0 {
+				log.Printf("Automatic archiving completed: %d expired periods archived", count)
+			}
+		}
+	}()
+
 	evalHandler := httpdelivery.NewEvaluationHandler(evaluationService, v)
 	evalHandler.SetWebSocketHub(wsHub)
 
@@ -112,16 +133,19 @@ func main() {
 		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
 		AdminHandler:             adminHandler,
+		AdminAcademicHandler:     adminAcademicHandler,
 		StudentHandler:           studentHandler,
 		TeacherHandler:           teacherHandler,
 		WebSocketHandler:         wsHandler,
 		TenantMiddleware:         tenantMiddleware,
+		MaintenanceMiddleware:    maintenanceMiddleware,
 	}
 
 	mux := http.NewServeMux()
 	httpdelivery.SetupRoutes(mux, &handlersStruct)
 
-	handler := httpdelivery.WithCORS(mux)
+	// Aplicar MaintenanceMiddleware y CORS
+	handler := httpdelivery.WithCORS(maintenanceMiddleware(mux))
 
 	port := os.Getenv("PORT")
 	if port == "" {

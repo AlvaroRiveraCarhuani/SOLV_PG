@@ -17,12 +17,14 @@ type Handlers struct {
 	TeacherInvitationHandler *TeacherInvitationHandler
 	ClassroomHandler         *ClassroomHandler
 	AdminHandler             *AdminHandler
+	AdminAcademicHandler     *AdminAcademicHandler
 	StudentHandler           *StudentHandler
 	TeacherHandler           *TeacherHandler
 	WebSocketHandler         *WebSocketHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
+	MaintenanceMiddleware    func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -75,9 +77,6 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 }
 
 func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
-	if deps.AdminHandler == nil {
-		return
-	}
 	tm := deps.TenantMiddleware
 	if tm == nil {
 		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
@@ -87,9 +86,21 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		am = func(next http.Handler) http.Handler { return next }
 	}
 
-	mux.Handle("GET /api/v1/admin/audit-logs", tm(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
-	mux.Handle("PUT /api/v1/admin/branding", am(tm(http.HandlerFunc(deps.AdminHandler.UpdateBranding))))
-	mux.Handle("GET /api/v1/admin/metrics/health", tm(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
+	if deps.AdminHandler != nil {
+		mux.Handle("GET /api/v1/admin/audit-logs", tm(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
+		mux.Handle("PUT /api/v1/admin/branding", am(tm(http.HandlerFunc(deps.AdminHandler.UpdateBranding))))
+		mux.Handle("GET /api/v1/admin/metrics/health", tm(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
+	}
+
+	if deps.AdminAcademicHandler != nil {
+		mux.Handle("POST /api/v1/admin/maintenance/enable", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.EnableMaintenance))))
+		mux.Handle("POST /api/v1/admin/maintenance/disable", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DisableMaintenance))))
+		mux.Handle("GET /api/v1/admin/maintenance/status", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetMaintenanceStatus)))
+		mux.Handle("GET /api/v1/admin/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
+		mux.Handle("POST /api/v1/admin/academic-periods", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreatePeriod))))
+		mux.Handle("PUT /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdatePeriod))))
+		mux.Handle("DELETE /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeletePeriod))))
+	}
 }
 
 func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {

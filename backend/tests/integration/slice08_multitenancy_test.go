@@ -54,6 +54,14 @@ func (m *MockTenantRepository) UpdateConfig(ctx context.Context, id string, conf
 	return errors.New("tenant not found")
 }
 
+func (m *MockTenantRepository) SetMaintenance(ctx context.Context, tenantID string, enabled bool, until *time.Time, reason string) error {
+	return nil
+}
+
+func (m *MockTenantRepository) GetMaintenance(ctx context.Context, tenantID string) (*coredomain.MaintenanceStatus, error) {
+	return &coredomain.MaintenanceStatus{MaintenanceMode: false}, nil
+}
+
 type MockUserRepoForMT struct {
 	users map[string]*domain.User
 }
