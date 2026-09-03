@@ -145,6 +145,8 @@ type AdminGovernanceRepository interface {
 	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status string) ([]*AdminStudentDirectoryItem, error)
 	ResetStudentOOM(ctx context.Context, tenantID, studentID string) (int64, error)
 	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
+	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)
+	ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*AdminTemplateReviewItem, error)
 }
 
 type SubmissionRepository interface {

@@ -166,3 +166,116 @@ func (r *PostgresAdminGovernanceRepository) ValidateTeacherRole(ctx context.Cont
 	}
 	return isValid, nil
 }
+
+func (r *PostgresAdminGovernanceRepository) ListTemplates(
+	ctx context.Context,
+	tenantID, status, search string,
+) ([]*domain.AdminTemplateReviewItem, error) {
+	baseQuery := `
+		SELECT 
+			id,
+			tenant_id,
+			name,
+			docker_image,
+			base_ram_mb,
+			COALESCE(status, 'approved') AS status,
+			COALESCE(rejection_reason, '') AS rejection_reason,
+			reviewed_by,
+			reviewed_at,
+			requested_by,
+			COALESCE(description, '') AS description,
+			created_at
+		FROM lab_templates
+		WHERE (tenant_id = $1 OR tenant_id IS NULL)
+	`
+	args := []interface{}{tenantID}
+	argIdx := 2
+
+	if status != "" {
+		baseQuery += fmt.Sprintf(` AND status = $%d`, argIdx)
+		args = append(args, status)
+		argIdx++
+	}
+
+	if search != "" {
+		searchPattern := "%" + strings.ToLower(search) + "%"
+		baseQuery += fmt.Sprintf(` AND (LOWER(name) LIKE $%d OR LOWER(docker_image) LIKE $%d)`, argIdx, argIdx)
+		args = append(args, searchPattern)
+		argIdx++
+	}
+
+	baseQuery += ` ORDER BY created_at DESC`
+
+	var list []*domain.AdminTemplateReviewItem
+	err := r.db.SelectContext(ctx, &list, baseQuery, args...)
+	if err != nil {
+		return nil, fmt.Errorf("error listing templates: %w", err)
+	}
+	if list == nil {
+		list = []*domain.AdminTemplateReviewItem{}
+	}
+	return list, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
+	ctx context.Context,
+	tenantID, templateID, adminID, status, rejectionReason string,
+	baseRamMB *int,
+) (*domain.AdminTemplateReviewItem, error) {
+	query := `
+		UPDATE lab_templates
+		SET 
+			status = $1,
+			rejection_reason = $2,
+			reviewed_by = $3,
+			reviewed_at = NOW(),
+			base_ram_mb = COALESCE($4, base_ram_mb)
+		WHERE id = $5 AND (tenant_id = $6 OR tenant_id IS NULL)
+		RETURNING 
+			id,
+			tenant_id,
+			name,
+			docker_image,
+			base_ram_mb,
+			status,
+			rejection_reason,
+			reviewed_by,
+			reviewed_at,
+			requested_by,
+			COALESCE(description, '') AS description,
+			created_at
+	`
+
+	var item domain.AdminTemplateReviewItem
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		status,
+		rejectionReason,
+		adminID,
+		baseRamMB,
+		templateID,
+		tenantID,
+	).Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.Name,
+		&item.DockerImage,
+		&item.BaseRamMB,
+		&item.Status,
+		&item.RejectionReason,
+		&item.ReviewedBy,
+		&item.ReviewedAt,
+		&item.RequestedBy,
+		&item.Description,
+		&item.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("template not found")
+		}
+		return nil, fmt.Errorf("error reviewing template: %w", err)
+	}
+
+	return &item, nil
+}

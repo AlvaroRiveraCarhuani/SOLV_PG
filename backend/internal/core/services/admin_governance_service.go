@@ -83,3 +83,31 @@ func (s *AdminGovernanceService) ResetStudentOOM(
 		Message:              "Penalizaciones OOM reseteadas exitosamente",
 	}, nil
 }
+
+var (
+	ErrInvalidReviewStatus      = errors.New("status must be either 'approved' or 'rejected'")
+	ErrRejectionReasonRequired = errors.New("rejection_reason is required when rejecting a template")
+)
+
+func (s *AdminGovernanceService) ListTemplates(
+	ctx context.Context,
+	tenantID, status, search string,
+) ([]*domain.AdminTemplateReviewItem, error) {
+	return s.govRepo.ListTemplates(ctx, tenantID, status, search)
+}
+
+func (s *AdminGovernanceService) ReviewTemplate(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+	dto domain.ReviewTemplateDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	if dto.Status != "approved" && dto.Status != "rejected" {
+		return nil, ErrInvalidReviewStatus
+	}
+
+	if dto.Status == "rejected" && dto.RejectionReason == "" {
+		return nil, ErrRejectionReasonRequired
+	}
+
+	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dto.Status, dto.RejectionReason, dto.BaseRamMB)
+}

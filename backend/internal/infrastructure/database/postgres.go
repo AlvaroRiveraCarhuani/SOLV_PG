@@ -313,6 +313,18 @@ func (d *Database) RunInitialMigrations() error {
 	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
 	CREATE INDEX IF NOT EXISTS idx_subjects_period ON subjects(academic_period_id);
 
+	-- Slice 14: Gobernanza de Plantillas Docker (ADR-030)
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'approved';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS rejection_reason TEXT DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS reviewed_at TIMESTAMPTZ;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES users(id) ON DELETE SET NULL;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_status ON lab_templates(status);
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_tenant ON lab_templates(tenant_id);
+
 	-- Foreign key FK_workspaces_subject con saneamiento de registros preexistentes
 	INSERT INTO subjects (id, tenant_id, name, code)
 	VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101')

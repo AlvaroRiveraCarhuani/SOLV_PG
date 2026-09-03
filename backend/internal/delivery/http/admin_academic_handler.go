@@ -321,3 +321,79 @@ func (h *AdminAcademicHandler) ResetStudentOOM(w http.ResponseWriter, r *http.Re
 
 	SendJSON(w, http.StatusOK, result, "Penalizaciones OOM reseteadas exitosamente")
 }
+
+// -----------------------------------------------------------------------------
+// Docker Templates Governance (ADR-030)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ListTemplates(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores y docentes pueden consultar plantillas")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	status := r.URL.Query().Get("status")
+	search := r.URL.Query().Get("search")
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	templates, err := h.govService.ListTemplates(r.Context(), tenantID, status, search)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener listado de plantillas")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, templates, "Listado de plantillas obtenido exitosamente")
+}
+
+func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden revisar plantillas")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	templateID := r.PathValue("id")
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de plantilla requerido")
+		return
+	}
+
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	var dto domain.ReviewTemplateDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	item, err := h.govService.ReviewTemplate(r.Context(), tenantID, templateID, adminID, dto)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidReviewStatus) || errors.Is(err, services.ErrRejectionReasonRequired) {
+			SendError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "not_found", "Plantilla no encontrada")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al revisar la plantilla")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, item, "Plantilla revisada exitosamente")
+}

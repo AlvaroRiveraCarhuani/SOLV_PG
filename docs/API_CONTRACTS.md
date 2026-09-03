@@ -711,13 +711,74 @@ Permite al administrador resetear a 0 los strikes de penalización por exceso de
 
 ---
 
+### 8. Listado Institucional de Plantillas Docker (`GET /api/v1/admin/templates`)
+
+Permite a los administradores y docentes inspeccionar el catálogo de plantillas base, su estado de aprobación y los parámetros de recursos asignados.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/templates?status=pending&search=rust`
+- **Headers:** `X-User-Role: admin | teacher`, `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": [
+    {
+      "id": "tpl-uuid-1",
+      "name": "Rust Async Lab",
+      "docker_image": "solv/rust:1.75",
+      "base_ram_mb": 512,
+      "status": "pending",
+      "rejection_reason": "",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "requested_by": "doc-uuid-1",
+      "description": "Plantilla para laboratorio concurrente",
+      "created_at": "2026-09-02T22:00:00Z"
+    }
+  ],
+  "error": "",
+  "message": "Listado de plantillas obtenido exitosamente"
+}
+```
+
+---
+
+### 9. Aprobación o Rechazo de Plantillas Docker (`PUT /api/v1/admin/templates/{id}/review`)
+
+Permite al administrador aprobar una plantilla solicitada (ajustando opcionalmente la memoria RAM base) o rechazarla con un motivo explícito.
+
+- **Método:** `PUT`
+- **Ruta:** `/api/v1/admin/templates/{id}/review`
+- **Headers:** `X-User-Role: admin`, `X-User-Id: <admin_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload Aprobación:**
+```json
+{
+  "status": "approved",
+  "base_ram_mb": 1024
+}
+```
+- **Payload Rechazo:**
+```json
+{
+  "status": "rejected",
+  "rejection_reason": "La imagen solicitada contiene paquetes no autorizados para el plan docente"
+}
+```
+- **Respuestas:**
+  - `200 OK`: Plantilla revisada y actualizada exitosamente.
+  - `422 Unprocessable Entity`: Si el estado no es `approved`/`rejected`, o si es `rejected` sin `rejection_reason`.
+  - `404 Not Found`: Si la plantilla no existe.
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
 
 ### SLICE_14: Panel Administrador Institucional (Restante)
 
 | Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
 | :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/admin/templates/{id}/review` | `PUT` | ADR-030 | Aprobación o rechazo de plantillas Docker solicitadas | *Pendiente* |
 | `/api/v1/admin/emergency/{action}` | `POST` | ADR-032 | Ejecutar acción de emergencia con frase de confirmación tipada | *Pendiente* |
 
 ### SLICE_15: Notificaciones Proactivas

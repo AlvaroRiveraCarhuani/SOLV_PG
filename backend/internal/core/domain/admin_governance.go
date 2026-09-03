@@ -32,3 +32,26 @@ type ResetOOMResult struct {
 	WorkspacesResetCount int64  `json:"workspaces_reset_count"`
 	Message              string `json:"message"`
 }
+
+// ReviewTemplateDTO DTO para aprobar o rechazar plantillas Docker (ADR-030)
+type ReviewTemplateDTO struct {
+	Status          string `json:"status" validate:"required"` // "approved" | "rejected"
+	RejectionReason string `json:"rejection_reason,omitempty"`
+	BaseRamMB       *int   `json:"base_ram_mb,omitempty"`
+}
+
+// AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
+type AdminTemplateReviewItem struct {
+	ID              string     `db:"id" json:"id"`
+	TenantID        *string    `db:"tenant_id" json:"tenant_id,omitempty"`
+	Name            string     `db:"name" json:"name"`
+	DockerImage     string     `db:"docker_image" json:"docker_image"`
+	BaseRamMB       int        `db:"base_ram_mb" json:"base_ram_mb"`
+	Status          string     `db:"status" json:"status"`
+	RejectionReason string     `db:"rejection_reason" json:"rejection_reason"`
+	ReviewedBy      *string    `db:"reviewed_by" json:"reviewed_by,omitempty"`
+	ReviewedAt      *time.Time `db:"reviewed_at" json:"reviewed_at,omitempty"`
+	RequestedBy     *string    `db:"requested_by" json:"requested_by,omitempty"`
+	Description     string     `db:"description" json:"description"`
+	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+}
