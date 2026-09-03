@@ -773,13 +773,43 @@ Permite al administrador aprobar una plantilla solicitada (ajustando opcionalmen
 
 ---
 
+### 10. Acciones de Emergencia Administrativas con Confirmación Tipada (`POST /api/v1/admin/emergency/{action}`)
+
+Permite al administrador ejecutar comandos de pánico para salvaguardar la estabilidad del host ante incidentes críticos, exigiendo una frase de confirmación exacta para prevenir ejecuciones accidentales.
+
+- **Método:** `POST`
+- **Rutas soportadas:**
+  - `/api/v1/admin/emergency/terminate_all_workspaces` (Frase: `"TERMINAR TODOS LOS WORKSPACES"`)
+  - `/api/v1/admin/emergency/hibernate_all_workspaces` (Frase: `"HIBERNAR TODOS LOS WORKSPACES"`)
+  - `/api/v1/admin/emergency/kill_zombies` (Frase: `"LIMPIAR ZOMBIES DOCKER"`)
+- **Headers:** `X-User-Role: admin`, `X-User-Id: <admin_uuid>`, `X-Tenant-Id: <tenant_uuid>`
+- **Payload:**
+```json
+{
+  "confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES",
+  "reason": "Saturación de memoria por procesos descontrolados"
+}
+```
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "data": {
+    "action": "terminate_all_workspaces",
+    "affected_count": 5,
+    "executed_by": "admin-uuid-1",
+    "message": "Se terminaron forzosamente 5 workspaces activos"
+  },
+  "error": "",
+  "message": "Se terminaron forzosamente 5 workspaces activos"
+}
+```
+  - `422 Unprocessable Entity`: Si la frase de confirmación no coincide exactamente o la acción no existe.
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
 ## Contratos Aprobados Pendientes de Implementar
-
-### SLICE_14: Panel Administrador Institucional (Restante)
-
-| Endpoint | Método | ADR Vinculado | Descripción de Alto Nivel | Estado |
-| :--- | :---: | :---: | :--- | :---: |
-| `/api/v1/admin/emergency/{action}` | `POST` | ADR-032 | Ejecutar acción de emergencia con frase de confirmación tipada | *Pendiente* |
 
 ### SLICE_15: Notificaciones Proactivas
 

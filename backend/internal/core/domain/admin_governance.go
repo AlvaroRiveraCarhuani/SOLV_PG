@@ -55,3 +55,17 @@ type AdminTemplateReviewItem struct {
 	Description     string     `db:"description" json:"description"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 }
+
+// EmergencyActionRequest DTO para solicitar una acción de emergencia administrativa (ADR-032)
+type EmergencyActionRequest struct {
+	ConfirmationPhrase string `json:"confirmation_phrase" validate:"required"`
+	Reason             string `json:"reason,omitempty"`
+}
+
+// EmergencyActionResult DTO con el resultado de la acción de emergencia
+type EmergencyActionResult struct {
+	Action        string `json:"action"`
+	AffectedCount int64  `json:"affected_count"`
+	ExecutedBy    string `json:"executed_by"`
+	Message       string `json:"message"`
+}

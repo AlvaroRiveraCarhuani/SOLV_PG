@@ -397,3 +397,54 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 
 	SendJSON(w, http.StatusOK, item, "Plantilla revisada exitosamente")
 }
+
+// -----------------------------------------------------------------------------
+// Emergency Actions (ADR-032)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden ejecutar acciones de emergencia")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	action := r.PathValue("action")
+	if action == "" {
+		SendError(w, http.StatusBadRequest, "missing_action", "Acción de emergencia requerida")
+		return
+	}
+
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	var req domain.EmergencyActionRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	result, err := h.govService.ExecuteEmergencyAction(r.Context(), tenantID, adminID, action, req)
+	if err != nil {
+		if errors.Is(err, services.ErrInvalidConfirmationPhrase) {
+			SendError(w, http.StatusUnprocessableEntity, "invalid_confirmation_phrase", "La frase de confirmación no coincide exactamente")
+			return
+		}
+		if errors.Is(err, services.ErrUnknownEmergencyAction) {
+			SendError(w, http.StatusUnprocessableEntity, "unknown_action", "Acción de emergencia no reconocida")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al ejecutar acción de emergencia")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, result, result.Message)
+}

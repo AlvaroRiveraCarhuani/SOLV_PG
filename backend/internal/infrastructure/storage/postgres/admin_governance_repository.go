@@ -279,3 +279,31 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 
 	return &item, nil
 }
+
+func (r *PostgresAdminGovernanceRepository) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+	query := `
+		UPDATE workspaces
+		SET status = 'failed', updated_at = NOW()
+		WHERE tenant_id = $1 AND (status = 'running' OR status = 'pending')
+	`
+	res, err := r.db.ExecContext(ctx, query, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("error terminating all workspaces: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	return rows, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+	query := `
+		UPDATE workspaces
+		SET status = 'hibernated', updated_at = NOW()
+		WHERE tenant_id = $1 AND status = 'running'
+	`
+	res, err := r.db.ExecContext(ctx, query, tenantID)
+	if err != nil {
+		return 0, fmt.Errorf("error hibernating all workspaces: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	return rows, nil
+}

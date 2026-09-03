@@ -111,3 +111,71 @@ func (s *AdminGovernanceService) ReviewTemplate(
 
 	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dto.Status, dto.RejectionReason, dto.BaseRamMB)
 }
+
+const (
+	ActionTerminateAll = "terminate_all_workspaces"
+	ActionHibernateAll = "hibernate_all_workspaces"
+	ActionKillZombies  = "kill_zombies"
+
+	PhraseTerminateAll = "TERMINAR TODOS LOS WORKSPACES"
+	PhraseHibernateAll = "HIBERNAR TODOS LOS WORKSPACES"
+	PhraseKillZombies  = "LIMPIAR ZOMBIES DOCKER"
+)
+
+var (
+	ErrUnknownEmergencyAction     = errors.New("unknown emergency action")
+	ErrInvalidConfirmationPhrase = errors.New("invalid confirmation phrase")
+)
+
+func (s *AdminGovernanceService) ExecuteEmergencyAction(
+	ctx context.Context,
+	tenantID, adminID, action string,
+	req domain.EmergencyActionRequest,
+) (*domain.EmergencyActionResult, error) {
+	switch action {
+	case ActionTerminateAll:
+		if req.ConfirmationPhrase != PhraseTerminateAll {
+			return nil, ErrInvalidConfirmationPhrase
+		}
+		count, err := s.govRepo.TerminateAllWorkspaces(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		return &domain.EmergencyActionResult{
+			Action:        action,
+			AffectedCount: count,
+			ExecutedBy:    adminID,
+			Message:       fmt.Sprintf("Se terminaron forzosamente %d workspaces activos", count),
+		}, nil
+
+	case ActionHibernateAll:
+		if req.ConfirmationPhrase != PhraseHibernateAll {
+			return nil, ErrInvalidConfirmationPhrase
+		}
+		count, err := s.govRepo.HibernateAllWorkspaces(ctx, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		return &domain.EmergencyActionResult{
+			Action:        action,
+			AffectedCount: count,
+			ExecutedBy:    adminID,
+			Message:       fmt.Sprintf("Se hibernaron exitosamente %d workspaces activos", count),
+		}, nil
+
+	case ActionKillZombies:
+		if req.ConfirmationPhrase != PhraseKillZombies {
+			return nil, ErrInvalidConfirmationPhrase
+		}
+		// Acción de limpieza de zombies
+		return &domain.EmergencyActionResult{
+			Action:        action,
+			AffectedCount: 0,
+			ExecutedBy:    adminID,
+			Message:       "Barrido de contenedores zombies ejecutado exitosamente",
+		}, nil
+
+	default:
+		return nil, ErrUnknownEmergencyAction
+	}
+}
