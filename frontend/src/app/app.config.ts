@@ -1,7 +1,14 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZonelessChangeDetection } from '@angular/core';
+import {
+  ApplicationConfig,
+  inject,
+  provideAppInitializer,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection
+} from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient, withFetch } from '@angular/common/http';
-
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
+import { TenantService } from '@core/services/tenant.service';
+import { authInterceptor } from '@core/interceptors/auth.interceptor';
 import { routes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -9,6 +16,13 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withFetch())
+    provideHttpClient(
+      withFetch(),
+      withInterceptors([authInterceptor])
+    ),
+    provideAppInitializer(() => {
+      const tenantService = inject(TenantService);
+      return tenantService.init();
+    })
   ]
 };
