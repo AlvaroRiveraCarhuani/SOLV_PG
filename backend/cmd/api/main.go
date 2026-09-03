@@ -129,6 +129,11 @@ func main() {
 	defer notificationService.Stop()
 	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)
 
+	// Slice 16: Backups Configurables y Retención (ADR-035)
+	backupRepo := postgres.NewPostgresBackupRepository(db.GetDB())
+	backupService := services.NewBackupService(backupRepo, notificationService, "")
+	backupHandler := httpdelivery.NewBackupHandler(backupService)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
@@ -146,6 +151,7 @@ func main() {
 		StudentHandler:           studentHandler,
 		TeacherHandler:           teacherHandler,
 		NotificationHandler:      notificationHandler,
+		BackupHandler:            backupHandler,
 		WebSocketHandler:         wsHandler,
 		TenantMiddleware:         tenantMiddleware,
 		MaintenanceMiddleware:    maintenanceMiddleware,

@@ -366,6 +366,39 @@ func (d *Database) RunInitialMigrations() error {
 	ON notifications (tenant_id, recipient_user_id, created_at DESC) WHERE is_read = false;
 	CREATE INDEX IF NOT EXISTS idx_notifications_recipient_all 
 	ON notifications (tenant_id, recipient_user_id, created_at DESC);
+
+	-- Slice 16: Backups Configurables y Retención Institucional (ADR-035)
+	CREATE TABLE IF NOT EXISTS backup_configs (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+		local_frequency_hours INT NOT NULL DEFAULT 6,
+		local_retention_days INT NOT NULL DEFAULT 7,
+		remote_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+		remote_provider VARCHAR(32) DEFAULT 'backblaze_b2',
+		remote_bucket_name VARCHAR(128) DEFAULT '',
+		remote_endpoint VARCHAR(256) DEFAULT '',
+		remote_access_key VARCHAR(128) DEFAULT '',
+		remote_secret_key_encrypted TEXT DEFAULT '',
+		remote_retention_days INT NOT NULL DEFAULT 30,
+		is_active BOOLEAN NOT NULL DEFAULT TRUE,
+		updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		CONSTRAINT uk_tenant_backup_config UNIQUE (tenant_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS backup_executions (
+		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+		tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+		file_name VARCHAR(256) NOT NULL,
+		file_size_bytes BIGINT NOT NULL,
+		sha256_checksum VARCHAR(64) NOT NULL,
+		storage_tier VARCHAR(20) NOT NULL DEFAULT 'local' CHECK (storage_tier IN ('local', 'remote', 'both')),
+		status VARCHAR(20) NOT NULL DEFAULT 'in_progress' CHECK (status IN ('in_progress', 'success', 'failed')),
+		error_message TEXT DEFAULT '',
+		started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+		completed_at TIMESTAMPTZ
+	);
+	CREATE INDEX IF NOT EXISTS idx_backup_executions_tenant ON backup_executions(tenant_id, started_at DESC);
+	CREATE INDEX IF NOT EXISTS idx_backup_executions_status ON backup_executions(status);
 	CREATE INDEX IF NOT EXISTS idx_submissions_exercise ON submissions(exercise_id);
 	CREATE INDEX IF NOT EXISTS idx_enrollments_student ON enrollments(student_id);
 

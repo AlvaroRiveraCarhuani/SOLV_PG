@@ -21,6 +21,7 @@ type Handlers struct {
 	StudentHandler           *StudentHandler
 	TeacherHandler           *TeacherHandler
 	NotificationHandler      *NotificationHandler
+	BackupHandler            *BackupHandler
 	WebSocketHandler         *WebSocketHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
@@ -41,6 +42,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
 	registerNotificationRoutes(mux, deps)
+	registerBackupRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
 
@@ -254,4 +256,21 @@ func registerNotificationRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/notifications/unread-count", tm(http.HandlerFunc(deps.NotificationHandler.GetUnreadCount)))
 	mux.Handle("PATCH /api/v1/notifications/{id}/read", tm(http.HandlerFunc(deps.NotificationHandler.MarkRead)))
 	mux.Handle("POST /api/v1/notifications/mark-all-read", tm(http.HandlerFunc(deps.NotificationHandler.MarkAllRead)))
+}
+
+func registerBackupRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.BackupHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	mux.Handle("GET /api/v1/admin/backups/config", tm(http.HandlerFunc(deps.BackupHandler.GetConfig)))
+	mux.Handle("PUT /api/v1/admin/backups/config", tm(http.HandlerFunc(deps.BackupHandler.UpdateConfig)))
+	mux.Handle("GET /api/v1/admin/backups", tm(http.HandlerFunc(deps.BackupHandler.List)))
+	mux.Handle("POST /api/v1/admin/backups/trigger", tm(http.HandlerFunc(deps.BackupHandler.Trigger)))
+	mux.Handle("POST /api/v1/admin/backups/{id}/verify", tm(http.HandlerFunc(deps.BackupHandler.Verify)))
+	mux.Handle("GET /api/v1/admin/backups/{id}/download", tm(http.HandlerFunc(deps.BackupHandler.Download)))
 }

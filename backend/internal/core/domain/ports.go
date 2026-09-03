@@ -185,3 +185,14 @@ type NotificationRepository interface {
 	MarkAsRead(ctx context.Context, tenantID, recipientUserID, notificationID string) error
 	MarkAllAsRead(ctx context.Context, tenantID, recipientUserID string) (int64, error)
 }
+
+type BackupRepository interface {
+	GetConfig(ctx context.Context, tenantID string) (*BackupConfig, error)
+	UpsertConfig(ctx context.Context, config *BackupConfig) error
+	CreateExecution(ctx context.Context, execution *BackupExecution) error
+	UpdateExecution(ctx context.Context, execution *BackupExecution) error
+	GetExecutionByID(ctx context.Context, tenantID, id string) (*BackupExecution, error)
+	ListExecutions(ctx context.Context, tenantID string, limit, offset int) ([]*BackupExecution, int64, error)
+	GetExpiredExecutions(ctx context.Context, tenantID string, retentionDays int) ([]*BackupExecution, error)
+	DeleteExecution(ctx context.Context, id string) error
+}
