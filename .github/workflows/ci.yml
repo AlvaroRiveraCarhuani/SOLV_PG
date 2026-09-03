@@ -14,7 +14,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Go 1.25
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -24,7 +24,16 @@ jobs:
           docker compose up -d postgres
           docker compose ps
 
+      - name: Wait for PostgreSQL to be ready
+        run: |
+          until docker compose exec -T postgres pg_isready -U solv_user -d solv_db; do
+            echo "Waiting for PostgreSQL to accept connections..."
+            sleep 2
+          done
+
       - name: Run Go Unit and Integration Tests
+        env:
+          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
         run: |
           cd backend
           go test -v ./... -count=1
@@ -44,7 +53,7 @@ jobs:
       - name: Install Dependencies
         run: |
           cd frontend
-          npm ci || npm install
+          npm install --legacy-peer-deps
 
       - name: Build Angular Application
         run: |
