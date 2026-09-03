@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -83,6 +84,9 @@ func getRulesDir() string {
 }
 
 func TestSemgrepPrecheckSuite(t *testing.T) {
+	if _, err := exec.LookPath("semgrep"); err != nil {
+		t.Skip("Skipping Semgrep CLI tests: semgrep executable not found in PATH")
+	}
 	rulesDir := getRulesDir()
 	worker := services.NewSemgrepWorker(nil, nil, rulesDir)
 	astAnalyzer := services.NewStaticASTAnalyzer()

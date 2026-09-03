@@ -44,7 +44,9 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE TABLE IF NOT EXISTS users (
 		id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 		email VARCHAR(255) UNIQUE NOT NULL,
-		name VARCHAR(255) NOT NULL,
+		name VARCHAR(255) DEFAULT '',
+		first_name VARCHAR(255) DEFAULT '',
+		last_name VARCHAR(255) DEFAULT '',
 		picture TEXT,
 		role VARCHAR(50) NOT NULL DEFAULT 'student',
 		created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -175,6 +177,8 @@ func (d *Database) RunInitialMigrations() error {
 
 	-- 2. Añadir tenant_id como NULLABLE
 	ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID;
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS first_name VARCHAR(255) DEFAULT '';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS last_name VARCHAR(255) DEFAULT '';
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS tenant_id UUID;
 	ALTER TABLE lab_template_profiles ADD COLUMN IF NOT EXISTS tenant_id UUID;
 	ALTER TABLE exercises ADD COLUMN IF NOT EXISTS tenant_id UUID;
