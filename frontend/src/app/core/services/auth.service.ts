@@ -42,9 +42,20 @@ export class AuthService {
    * El backend lee la cookie 'solv_session' o el header ForwardAuth.
    */
   resolveCurrentUser(): Observable<User | null> {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const urlToken = params.get('token');
+      if (urlToken) {
+        sessionStorage.setItem('solv_token', urlToken);
+        const cleanUrl = window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+    }
+
     this.isLoading.set(true);
-    return this.http.get<User>('/api/v1/users/me').pipe(
-      tap((user) => {
+    return this.http.get<any>('/api/v1/users/me', { withCredentials: true }).pipe(
+      tap((resp) => {
+        const user = resp?.data || resp;
         this.currentUser.set(user);
         this.isLoading.set(false);
       }),
@@ -60,6 +71,9 @@ export class AuthService {
    * Cierra la sesión activa revocando la cookie HttpOnly y redirigiendo a login.
    */
   logout(): void {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('solv_token');
+    }
     this.http.post('/api/v1/auth/logout', {}).pipe(
       catchError(() => of(null))
     ).subscribe(() => {

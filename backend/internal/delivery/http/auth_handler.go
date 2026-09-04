@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"strings"
@@ -21,9 +22,11 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 	}
 }
 
-func getCookieDomain() string {
-	domain := strings.TrimSpace(os.Getenv("COOKIE_DOMAIN"))
-	return domain
+func getCookieDomain(r *http.Request) string {
+	if strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1") {
+		return ""
+	}
+	return strings.TrimSpace(os.Getenv("COOKIE_DOMAIN"))
 }
 
 func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
@@ -40,7 +43,7 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 
 	token, err := h.authService.CallbackGoogle(r.Context(), code)
 	if err != nil {
-		if err.Error() == "unauthorized: email must end with @uab.edu.bo" {
+		if errors.Is(err, services.ErrUnauthorizedDomain) || strings.Contains(err.Error(), "unauthorized: email domain not allowed") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
@@ -48,25 +51,53 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Ajuste 2: Seteo aditivo de la cookie HttpOnly solv_session manteniendo el JSON intacto para Angular
-	cookieDomain := getCookieDomain()
+	// Seteo de la cookie HttpOnly solv_session adaptable a entorno local vs producción
+	cookieDomain := getCookieDomain(r)
+	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
+	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
+
 	cookie := &http.Cookie{
 		Name:     "solv_session",
 		Value:    token,
 		Path:     "/",
 		Domain:   cookieDomain,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   86400, // 24 horas
 	}
 	http.SetCookie(w, cookie)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"token": token,
-	})
+	// Si un cliente API o test solicita JSON explícitamente
+	if r.Header.Get("Accept") == "application/json" {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{
+			"token": token,
+		})
+		return
+	}
+
+	// Extraer el rol del usuario desde los claims del token
+	targetRole := "student"
+	if claims, err := h.authService.ValidateSessionToken(token); err == nil {
+		if rVal, ok := claims["role"].(string); ok && rVal != "" {
+			targetRole = rVal
+		}
+	}
+
+	// Redirección dinámica según el rol y entorno
+	frontendBase := strings.TrimSpace(os.Getenv("FRONTEND_URL"))
+	var redirectURL string
+	if frontendBase != "" {
+		redirectURL = strings.TrimSuffix(frontendBase, "/") + "/" + targetRole
+	} else if strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1") {
+		redirectURL = fmt.Sprintf("http://localhost:4200/%s?token=%s", targetRole, token)
+	} else {
+		redirectURL = "/" + targetRole
+	}
+
+	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) VerifyAuth(w http.ResponseWriter, r *http.Request) {
@@ -108,14 +139,16 @@ func (h *AuthHandler) VerifyAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	cookieDomain := getCookieDomain()
+	cookieDomain := getCookieDomain(r)
+	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
+	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
 	cookie := &http.Cookie{
 		Name:     "solv_session",
 		Value:    "",
 		Path:     "/",
 		Domain:   cookieDomain,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   isSecure,
 		SameSite: http.SameSiteLaxMode,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),

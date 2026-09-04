@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +31,14 @@ func NewWorkspaceService(repo domain.WorkspaceRepository, docker domain.Workspac
 		docker:      docker,
 		hostMonitor: hostMonitor,
 	}
+}
+
+func getBaseDomain() string {
+	d := strings.TrimSpace(os.Getenv("BASE_DOMAIN"))
+	if d != "" {
+		return d
+	}
+	return "solv.local"
 }
 
 func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
@@ -60,7 +70,12 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 
 	// 3. Generación de UUID opaco para el workspace_id y construcción de access_url
 	workspaceID := uuid.NewString()
-	accessURL := fmt.Sprintf("http://%s.solv.local", workspaceID)
+	baseDomain := getBaseDomain()
+	scheme := "http"
+	if strings.Contains(baseDomain, ".") && !strings.HasSuffix(baseDomain, ".local") {
+		scheme = "https"
+	}
+	accessURL := fmt.Sprintf("%s://%s.%s", scheme, workspaceID, baseDomain)
 	containerName := fmt.Sprintf("solv-workspace-%s", workspaceID)
 	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
 	networkName := "solv-traefik-net"
@@ -103,7 +118,7 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	// 7. Inyección de Dynamic Labels de Traefik v3 (Puerto 3000 para OpenVSCode Server)
 	labels := map[string]string{
 		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.routers.%s.rule", workspaceID):                      fmt.Sprintf("Host(`%s.solv.local`)", workspaceID),
+		fmt.Sprintf("traefik.http.routers.%s.rule", workspaceID):                      fmt.Sprintf("Host(`%s.%s`)", workspaceID, baseDomain),
 		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", workspaceID): "3000",
 	}
 
@@ -144,10 +159,11 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	containerName := fmt.Sprintf("solv-workspace-%s", instance.ID)
 	volumeName := fmt.Sprintf("solv_workspace_%s_%s", instance.StudentID, instance.SubjectID)
 	networkName := "solv-traefik-net"
+	baseDomain := getBaseDomain()
 
 	labels := map[string]string{
 		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID):                      fmt.Sprintf("Host(`%s.solv.local`)", instance.ID),
+		fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID):                      fmt.Sprintf("Host(`%s.%s`)", instance.ID, baseDomain),
 		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", instance.ID): "8443",
 	}
 

@@ -7,12 +7,18 @@ export const authGuard: CanActivateFn = async (route, state) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  // Si ya tenemos el usuario en memoria
+  // 1. Si viene el token en los queryParams al redirigir desde OAuth
+  const tokenFromQuery = route.queryParams['token'];
+  if (tokenFromQuery && typeof window !== 'undefined') {
+    sessionStorage.setItem('solv_token', tokenFromQuery);
+  }
+
+  // 2. Si ya tenemos el usuario en memoria
   if (authService.isAuthenticated()) {
     return true;
   }
 
-  // Si no está en memoria, intentar resolver vía cookie HttpOnly
+  // 3. Si no está en memoria, intentar resolver vía Bearer / cookie
   const user = await firstValueFrom(authService.resolveCurrentUser());
   if (user) {
     return true;

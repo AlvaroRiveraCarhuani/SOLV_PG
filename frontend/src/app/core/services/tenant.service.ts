@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TenantConfig, TenantBrandingHSL } from '@core/models/tenant.model';
@@ -13,6 +13,16 @@ export class TenantService {
   readonly config = signal<TenantConfig | null>(null);
   readonly loading = signal<boolean>(true);
   readonly error = signal<string | null>(null);
+
+  // Iniciales institucionales para el shield cuando no hay logo SVG/PNG
+  readonly tenantInitials = computed<string>(() => {
+    const name = this.config()?.institution_name || 'SL';
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase();
+  });
 
   // Clave para caché local instantánea (Stale-While-Revalidate)
   private readonly CACHE_KEY_PREFIX = 'solv_tenant_config_';
@@ -46,12 +56,12 @@ export class TenantService {
       // Si la red falla pero teníamos caché, se mantiene el branding existente
       if (!this.config()) {
         const fallbackConfig: TenantConfig = {
-          tenant_id: '00000000-0000-0000-0000-000000000001',
-          slug: 'uab',
-          institution_name: 'Universidad Adventista de Bolivia',
-          logo_url: '/assets/uab-logo.png',
+          tenant_id: '00000000-0000-0000-0000-000000000000',
+          slug: slug || 'default',
+          institution_name: 'Plataforma SOLV',
+          logo_url: '',
           tenant_primary_color: '#2563EB',
-          support_email: 'soporte.solv@uab.edu.bo'
+          support_email: 'soporte@solv.edu.bo'
         };
         this.config.set(fallbackConfig);
         this.applyBranding(fallbackConfig);
@@ -64,7 +74,7 @@ export class TenantService {
 
   /**
    * Resuelve el slug institucional a partir del subdominio del host.
-   * Soporta entonos locales de desarrollo mediante parámetro '?tenant=...' o '?slug=...'.
+   * Soporta entornos locales de desarrollo mediante parámetro '?tenant=...' o '?slug=...'.
    */
   resolveCurrentSlug(): string {
     // 1. Parámetro explícito de query en desarrollo local (ej. localhost:4200/?tenant=umsa)
@@ -75,7 +85,7 @@ export class TenantService {
         return queryTenant.trim().toLowerCase();
       }
 
-      // 2. Extracción de subdominio (ej. "uab" de "uab.solv.edu.bo" o "uab.localhost")
+      // 2. Extracción de subdominio (ej. "uab" de "uab.solv.uab.edu.bo" o "umsa.solv.umsa.edu.bo")
       const hostname = window.location.hostname;
       if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
         const parts = hostname.split('.');
@@ -85,7 +95,7 @@ export class TenantService {
       }
     }
 
-    return 'uab'; // Fallback por defecto institucional
+    return ''; // Sin slug forzado: consulta la configuración raíz del backend/host
   }
 
   /**

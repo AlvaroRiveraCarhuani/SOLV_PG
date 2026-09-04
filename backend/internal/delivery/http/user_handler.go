@@ -47,6 +47,11 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	userID := r.Header.Get("X-User-Id")
 	if userID == "" {
+		if ctxUserID, ok := r.Context().Value(UserIDKey).(string); ok && ctxUserID != "" {
+			userID = ctxUserID
+		}
+	}
+	if userID == "" {
 		SendError(w, http.StatusUnauthorized, "Missing user ID in headers", "Usuario no autenticado")
 		return
 	}

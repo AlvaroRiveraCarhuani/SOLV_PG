@@ -44,11 +44,24 @@ type StudentDashboardResponse struct {
 func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
+		tenantID = r.Header.Get("X-Tenant-Id")
+	}
+	if tenantID == "" {
+		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
+			tenantID = ctxTenantID
+		}
+	}
+	if tenantID == "" {
 		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
 		return
 	}
 
 	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
+			userID = ctxUserID
+		}
+	}
 	if userID == "" {
 		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
 		return
@@ -87,11 +100,24 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
+		tenantID = r.Header.Get("X-Tenant-Id")
+	}
+	if tenantID == "" {
+		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
+			tenantID = ctxTenantID
+		}
+	}
+	if tenantID == "" {
 		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
 		return
 	}
 
 	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
+			userID = ctxUserID
+		}
+	}
 	if userID == "" {
 		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
 		return

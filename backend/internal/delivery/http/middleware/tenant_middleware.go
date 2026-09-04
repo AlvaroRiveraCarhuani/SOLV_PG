@@ -14,13 +14,24 @@ type contextKey string
 func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			var tokenString string
 			authHeader := r.Header.Get("Authorization")
-			if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-				http.Error(w, "missing or invalid authorization header", http.StatusUnauthorized)
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+			} else if cookie, err := r.Cookie("solv_session"); err == nil && cookie.Value != "" {
+				tokenString = cookie.Value
+			}
+
+			if tokenString == "" {
+				// Si ya viene pre-autenticado por ForwardAuth
+				if r.Header.Get("X-User-Id") != "" {
+					next.ServeHTTP(w, r)
+					return
+				}
+				http.Error(w, "missing or invalid authorization header or session cookie", http.StatusUnauthorized)
 				return
 			}
 
-			tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 			token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 				if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 					return nil, jwt.ErrSignatureInvalid
@@ -60,8 +71,12 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 
 			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
 			ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+			r.Header.Set("X-User-Id", userID)
+			r.Header.Set("X-Tenant-Id", tenantID)
+
 			if userRole, _ := claims["role"].(string); userRole != "" {
 				ctx = context.WithValue(ctx, domain.UserRoleKey, userRole)
+				r.Header.Set("X-User-Role", userRole)
 			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

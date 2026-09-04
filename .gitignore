@@ -2,6 +2,8 @@
 .env.*
 !example.env
 /backend/bin/
+backend/api
+frontend/dist/
 letsencrypt/
 backups/
 .atl/

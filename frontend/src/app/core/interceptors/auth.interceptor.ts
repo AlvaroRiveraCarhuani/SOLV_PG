@@ -16,6 +16,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     headers = headers.set('X-Tenant-Id', tenantId);
   }
 
+  // Token de sesión para entorno local (Bearer fallback ante aislamiento de cookies cross-port)
+  const token = typeof window !== 'undefined' ? sessionStorage.getItem('solv_token') : null;
+  if (token && !headers.has('Authorization')) {
+    headers = headers.set('Authorization', `Bearer ${token}`);
+  }
+
   // Clonar request asegurando withCredentials: true para transportar la cookie HttpOnly solv_session
   const authReq = req.clone({
     withCredentials: true,

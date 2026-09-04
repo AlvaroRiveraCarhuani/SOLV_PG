@@ -33,13 +33,24 @@ const UserIDKey contextKey = "user_id"
 
 func WithAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var tokenString string
 		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
-			http.Error(w, "missing or invalid authorization header", http.StatusUnauthorized)
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
+		} else if cookie, err := r.Cookie("solv_session"); err == nil && cookie.Value != "" {
+			tokenString = cookie.Value
+		}
+
+		if tokenString == "" {
+			// Si el request ya viene autenticado aguas arriba por ForwardAuth
+			if r.Header.Get("X-User-Id") != "" {
+				next.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, "missing or invalid authorization header or session cookie", http.StatusUnauthorized)
 			return
 		}
 
-		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 		jwtSecret := os.Getenv("JWT_SECRET")
 
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
@@ -68,11 +79,15 @@ func WithAuth(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+		r.Header.Set("X-User-Id", userID)
+
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
 			ctx = context.WithValue(ctx, domain.TenantIDKey, tenantID)
+			r.Header.Set("X-Tenant-Id", tenantID)
 		}
 		if role, ok := claims["role"].(string); ok && role != "" {
 			ctx = context.WithValue(ctx, domain.UserRoleKey, role)
+			r.Header.Set("X-User-Role", role)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
