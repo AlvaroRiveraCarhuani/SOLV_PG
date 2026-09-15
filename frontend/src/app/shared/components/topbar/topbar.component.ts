@@ -39,17 +39,42 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
       </div>
 
       <div class="topbar-right">
-        <!-- Campana de Notificaciones Proactivas (Slice 15) -->
+        <!-- Campana de Notificaciones Proactivas -->
         <div class="notif-wrapper">
-          <button class="btn-icon" title="Notificaciones" aria-label="Notificaciones">
+          <button class="btn-icon" (click)="toggleNotifMenu()" title="Notificaciones" aria-label="Notificaciones">
             <svg lucideBell class="icon"></svg>
             @if (unreadCount() > 0) {
               <span class="notif-badge">{{ unreadCount() }}</span>
             }
           </button>
+
+          @if (notifMenuOpen()) {
+            <div class="notif-dropdown">
+              <div class="notif-header">
+                <span class="notif-heading">Avisos del Sistema</span>
+                @if (unreadCount() > 0) {
+                  <button class="btn-clear-notifs" (click)="clearNotifs()">Marcar leídas</button>
+                }
+              </div>
+              <div class="notif-list">
+                @if (unreadCount() > 0) {
+                  <div class="notif-item">
+                    <span class="notif-title">Clúster Docker conectado</span>
+                    <span class="notif-desc">Docker Engine y telemetría de host gopsutil operando correctamente.</span>
+                  </div>
+                  <div class="notif-item">
+                    <span class="notif-title">Seguridad y Políticas</span>
+                    <span class="notif-desc">Monitoreo activo de límites de memoria (OOM killer habilitado).</span>
+                  </div>
+                } @else {
+                  <div class="notif-empty">No hay avisos pendientes en el clúster.</div>
+                }
+              </div>
+            </div>
+          }
         </div>
 
-        <!-- Perfil del Estudiante -->
+        <!-- Perfil del Usuario -->
         <div class="profile-wrapper">
           <div class="profile-trigger" (click)="toggleProfileMenu()">
             <div class="profile-avatar">
@@ -61,9 +86,9 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
             </div>
             <div class="profile-details">
               <span class="profile-name">
-                {{ authService.currentUser()?.first_name || 'Estudiante' }}
+                {{ authService.currentUser()?.first_name || 'Usuario' }}
               </span>
-              <span class="profile-role">Estudiante</span>
+              <span class="profile-role">{{ roleLabel() }}</span>
             </div>
           </div>
 
@@ -199,6 +224,87 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
       border: 2px solid var(--bg-surface, #FFFFFF);
     }
 
+    .notif-dropdown {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 280px;
+      background-color: var(--bg-surface, #FFFFFF);
+      border: 1px solid var(--border-subtle, #E2E8F0);
+      border-radius: var(--radius-lg, 8px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      z-index: 100;
+      padding: var(--space-3, 12px);
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2, 8px);
+      animation: dropdownFadeIn 150ms ease;
+    }
+
+    .notif-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+      padding-bottom: var(--space-2, 8px);
+
+      .notif-heading {
+        font-size: var(--font-size-xs, 12px);
+        font-weight: 700;
+        color: var(--text-primary, #0F172A);
+      }
+
+      .btn-clear-notifs {
+        background: transparent;
+        border: none;
+        color: var(--tenant-primary, #2563EB);
+        font-size: 11px;
+        cursor: pointer;
+        padding: 0;
+
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+
+    .notif-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-2, 8px);
+      max-height: 240px;
+      overflow-y: auto;
+    }
+
+    .notif-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      padding: var(--space-2, 8px);
+      background-color: var(--bg-canvas, #F8FAFC);
+      border-radius: var(--radius-md, 6px);
+      border-left: 3px solid var(--tenant-primary, #2563EB);
+
+      .notif-title {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--text-primary, #0F172A);
+      }
+
+      .notif-desc {
+        font-size: 11px;
+        color: var(--text-secondary, #64748B);
+        line-height: 1.3;
+      }
+    }
+
+    .notif-empty {
+      font-size: 12px;
+      color: var(--text-muted, #94A3B8);
+      text-align: center;
+      padding: var(--space-4, 16px) 0;
+    }
+
     .profile-wrapper {
       position: relative;
     }
@@ -261,7 +367,6 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
       font-size: 10px;
       color: var(--text-muted, #94A3B8);
       font-weight: 500;
-      text-transform: capitalize;
     }
 
     .profile-dropdown {
@@ -275,6 +380,18 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
       padding: var(--space-2, 8px);
       z-index: 100;
+      animation: dropdownFadeIn 150ms ease;
+    }
+
+    @keyframes dropdownFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-4px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .dropdown-header {
@@ -344,10 +461,32 @@ export class TopbarComponent {
 
   logoFailed = signal<boolean>(false);
   profileMenuOpen = signal<boolean>(false);
-  unreadCount = signal<number>(2); // Notificaciones iniciales de bienvenida
+  notifMenuOpen = signal<boolean>(false);
+  unreadCount = signal<number>(2);
+
+  roleLabel = () => {
+    const role = this.authService.currentUser()?.role;
+    if (role === 'admin') return 'Administrador';
+    if (role === 'teacher') return 'Docente';
+    return 'Estudiante';
+  };
 
   toggleProfileMenu(): void {
     this.profileMenuOpen.update(v => !v);
+    if (this.profileMenuOpen()) {
+      this.notifMenuOpen.set(false);
+    }
+  }
+
+  toggleNotifMenu(): void {
+    this.notifMenuOpen.update(v => !v);
+    if (this.notifMenuOpen()) {
+      this.profileMenuOpen.set(false);
+    }
+  }
+
+  clearNotifs(): void {
+    this.unreadCount.set(0);
   }
 
   logout(): void {

@@ -116,8 +116,8 @@ export class AdminMetricsService {
     ).subscribe();
   }
 
-  hibernateAll(): void {
-    this.http.post('/api/v1/admin/emergency/hibernate_all', {})
+  hibernateAll() {
+    return this.http.post('/api/v1/admin/emergency/hibernate_all', {})
       .pipe(
         tap(() => this.fetchMetrics()),
         catchError(() => {
@@ -128,21 +128,20 @@ export class AdminMetricsService {
               metrics: {
                 ...current.metrics,
                 containers_active: 0,
-                containers_hibernated: current.metrics.containers_active + current.metrics.containers_hibernated,
-                ram_percent: 22
+                containers_hibernated: current.metrics.containers_active + current.metrics.containers_hibernated
               },
               containers: current.containers.map(c => ({ ...c, status: 'hibernated' as const })),
               courses_load: current.courses_load.map(c => ({
                 ...c,
                 active_students: 0,
-                hibernated_students: c.active_students + c.hibernated_students
+                hibernated_students: c.active_students + c.hibernated_students,
+                ram_used_mb: 0
               }))
             };
           });
           return of(null);
         })
-      )
-      .subscribe();
+      );
   }
 
   restartWorkspace(workspaceId: string): void {

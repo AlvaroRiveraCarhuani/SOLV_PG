@@ -10,24 +10,24 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
   template: `
     <div class="kpi-grid">
       <!-- 1. RAM KPI -->
-      <div class="kpi-card" [class.danger]="metrics().ram_percent > 85" [class.warning]="metrics().ram_percent >= 70 && metrics().ram_percent <= 85">
+      <div class="kpi-card" [class.danger]="ramPercentComputed() > 85" [class.warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85">
         <div class="kpi-header">
-          <span class="kpi-title">MEMORIA RAM</span>
+          <span class="kpi-title">MEMORIA RAM (HOST)</span>
           <svg lucideDatabase class="kpi-icon"></svg>
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
             <span class="kpi-mono-val">{{ ramUsedGB() }} / {{ ramTotalGB() }} GB</span>
-            <span class="kpi-badge" [class.badge-danger]="metrics().ram_percent > 85" [class.badge-warning]="metrics().ram_percent >= 70 && metrics().ram_percent <= 85">
-              {{ metrics().ram_percent }}%
+            <span class="kpi-badge" [class.badge-danger]="ramPercentComputed() > 85" [class.badge-warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85">
+              {{ ramPercentComputed() }}%
             </span>
           </div>
           <div class="meter-track">
-            <div class="meter-bar" [style.width.%]="metrics().ram_percent" [class.bar-danger]="metrics().ram_percent > 85" [class.bar-warning]="metrics().ram_percent >= 70 && metrics().ram_percent <= 85"></div>
+            <div class="meter-bar" [style.width.%]="ramPercentComputed()" [class.bar-danger]="ramPercentComputed() > 85" [class.bar-warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85"></div>
           </div>
         </div>
         <div class="kpi-footer">
-          <span>Umbral de seguridad: 85%</span>
+          <span>Umbral de seguridad: 85% &bull; Servidor Físico</span>
         </div>
       </div>
 
@@ -93,7 +93,11 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
           </div>
         </div>
         <div class="kpi-footer">
-          <span>{{ metrics().containers_hibernated }} contenedores hibernados</span>
+          @if (metrics().containers_active === 0) {
+            <span>0 labs en RAM &bull; {{ metrics().containers_hibernated }} hibernados</span>
+          } @else {
+            <span>{{ metrics().containers_hibernated }} contenedores hibernados</span>
+          }
         </div>
       </div>
     </div>
@@ -133,13 +137,13 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
     .kpi-title {
       font-size: 11px;
       font-weight: 700;
-      color: var(--text-muted, #64748B);
       letter-spacing: 0.05em;
+      color: var(--text-secondary, #64748B);
     }
 
     .kpi-icon {
-      width: 16px;
-      height: 16px;
+      width: 18px;
+      height: 18px;
       color: var(--text-muted, #94A3B8);
     }
 
@@ -156,24 +160,25 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
     }
 
     .kpi-mono-val {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 18px;
-      font-weight: 600;
+      font-family: var(--font-mono, monospace);
+      font-size: var(--font-size-xl, 20px);
+      font-weight: 700;
       color: var(--text-primary, #0F172A);
+      letter-spacing: -0.02em;
     }
 
     .kpi-badge {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px;
-      font-weight: 600;
+      font-family: var(--font-mono, monospace);
+      font-size: var(--font-size-xs, 12px);
+      font-weight: 700;
       padding: 2px 6px;
       border-radius: var(--radius-sm, 4px);
       background-color: var(--bg-canvas, #F1F5F9);
-      color: var(--text-secondary, #475569);
+      color: var(--text-secondary, #64748B);
 
       &.badge-warning {
         background-color: #FEF3C7;
-        color: #92400E;
+        color: #B45309;
       }
 
       &.badge-danger {
@@ -225,6 +230,12 @@ export class HardwareKpiComponent {
 
   ramUsedGB = computed(() => (this.metrics().ram_used_bytes / (1024 * 1024 * 1024)).toFixed(1));
   ramTotalGB = computed(() => (this.metrics().ram_total_bytes / (1024 * 1024 * 1024)).toFixed(1));
+  ramPercentComputed = computed(() => {
+    if (this.metrics().ram_total_bytes > 0) {
+      return Math.min(100, Math.round((this.metrics().ram_used_bytes / this.metrics().ram_total_bytes) * 100));
+    }
+    return this.metrics().ram_percent || 0;
+  });
   diskUsedGB = computed(() => (this.metrics().disk_used_bytes / (1024 * 1024 * 1024)).toFixed(0));
   diskTotalGB = computed(() => (this.metrics().disk_total_bytes / (1024 * 1024 * 1024)).toFixed(0));
   concurrencyPercent = computed(() => {

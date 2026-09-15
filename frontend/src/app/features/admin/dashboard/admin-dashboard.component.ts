@@ -7,7 +7,16 @@ import { IncidentsPanelComponent } from './components/incidents-panel/incidents-
 import { CourseWorkspacesModalComponent } from './components/course-modal/course-workspaces-modal.component';
 import { ContainerTableComponent } from './components/container-table/container-table.component';
 import { CourseLoadSummary } from '@core/models/admin.model';
-import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChevronUp } from '@lucide/angular';
+import { 
+  LucideRefreshCw, 
+  LucideMoon, 
+  LucideServer, 
+  LucideChevronDown, 
+  LucideChevronUp,
+  LucideInfo,
+  LucideCheckCircle,
+  LucideX
+} from '@lucide/angular';
 
 @Component({
   selector: 'solv-admin-dashboard',
@@ -23,7 +32,10 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
     LucideMoon, 
     LucideServer,
     LucideChevronDown,
-    LucideChevronUp
+    LucideChevronUp,
+    LucideInfo,
+    LucideCheckCircle,
+    LucideX
   ],
   template: `
     <div class="dashboard-page">
@@ -51,22 +63,39 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
           <button 
             class="btn-secondary" 
             (click)="refresh()" 
-            [disabled]="isLoading()"
+            [disabled]="isLoading() || refreshCooldown() > 0"
             title="Recargar Métricas">
             <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
-            <span>Actualizar</span>
+            <span>{{ refreshCooldown() > 0 ? 'Actualizar (' + refreshCooldown() + 's)' : 'Actualizar' }}</span>
           </button>
 
           <button 
             class="btn-action-hibernate" 
             (click)="hibernateAll()" 
-            [disabled]="isLoading()"
+            [disabled]="isHibernating() || hibernateCooldown() > 0"
             title="Hibernar contenedores inactivos">
             <svg lucideMoon class="btn-icon"></svg>
-            <span>Hibernar Todo</span>
+            <span>{{ isHibernating() ? 'Hibernando...' : (hibernateCooldown() > 0 ? 'Hibernar (' + hibernateCooldown() + 's)' : 'Hibernar Todo') }}</span>
           </button>
         </div>
       </header>
+
+      <!-- Feedback Alert Banner -->
+      @if (feedbackMessage()) {
+        <div class="feedback-banner" [class]="feedbackMessage()!.type">
+          <div class="feedback-content">
+            @if (feedbackMessage()!.type === 'info') {
+              <svg lucideInfo class="feedback-icon"></svg>
+            } @else if (feedbackMessage()!.type === 'success') {
+              <svg lucideCheckCircle class="feedback-icon"></svg>
+            }
+            <span>{{ feedbackMessage()!.text }}</span>
+          </div>
+          <button class="btn-close-feedback" (click)="feedbackMessage.set(null)" title="Cerrar aviso">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </div>
+      }
 
       <!-- 1. Grid KPI Hardware Real (Above the fold) -->
       @if (health()?.metrics) {
@@ -143,25 +172,24 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
-      gap: var(--space-4, 16px);
-      padding-bottom: var(--space-2, 8px);
-    }
+      margin-bottom: var(--space-2, 8px);
 
-    .header-left {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
+      @media (max-width: 768px) {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--space-3, 12px);
+      }
     }
 
     .title-row {
       display: flex;
       align-items: center;
       gap: var(--space-3, 12px);
+      margin-bottom: 4px;
     }
 
     .page-title {
-      font-size: 20px;
+      font-size: var(--font-size-xl, 20px);
       font-weight: 700;
       color: var(--text-primary, #0F172A);
       margin: 0;
@@ -172,7 +200,7 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 3px 10px;
+      padding: 3px 8px;
       border-radius: var(--radius-full, 9999px);
       font-size: 11px;
       font-weight: 600;
@@ -180,7 +208,6 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
       &.status-healthy {
         background-color: #DCFCE7;
         color: #15803D;
-        border: 1px solid #BBF7D0;
 
         .pill-dot {
           background-color: #16A34A;
@@ -198,21 +225,21 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
       display: flex;
       align-items: center;
       gap: var(--space-2, 8px);
-      font-size: 12px;
-      color: var(--text-muted, #64748B);
+      font-size: var(--font-size-xs, 12px);
+      color: var(--text-secondary, #64748B);
     }
 
     .host-info {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 5px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
+      gap: 4px;
+      font-family: var(--font-mono, monospace);
     }
 
     .meta-icon {
-      width: 13px;
-      height: 13px;
+      width: 14px;
+      height: 14px;
+      color: var(--text-muted, #94A3B8);
     }
 
     .meta-separator {
@@ -226,21 +253,21 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
     }
 
     .btn-secondary {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 7px 14px;
+      gap: var(--space-2, 8px);
+      padding: 8px 14px;
       background-color: var(--bg-surface, #FFFFFF);
       border: 1px solid var(--border-subtle, #CBD5E1);
       border-radius: var(--radius-md, 6px);
-      color: var(--text-primary, #1E293B);
-      font-size: 13px;
-      font-weight: 500;
+      font-size: var(--font-size-xs, 12px);
+      font-weight: 600;
+      color: var(--text-primary, #0F172A);
       cursor: pointer;
       transition: all 150ms ease;
 
       &:hover:not(:disabled) {
-        background-color: var(--bg-canvas, #F8FAFC);
+        background-color: var(--bg-canvas, #F1F5F9);
         border-color: #94A3B8;
       }
 
@@ -248,49 +275,120 @@ import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChe
         opacity: 0.6;
         cursor: not-allowed;
       }
+
+      .btn-icon {
+        width: 14px;
+        height: 14px;
+        color: var(--text-secondary, #64748B);
+
+        &.spin {
+          animation: spin 1s linear infinite;
+        }
+      }
     }
 
     .btn-action-hibernate {
-      display: inline-flex;
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 7px 14px;
-      background-color: #F1F5F9;
-      border: 1px solid #CBD5E1;
+      gap: var(--space-2, 8px);
+      padding: 8px 14px;
+      background-color: #F8FAFC;
+      border: 1px solid var(--border-subtle, #CBD5E1);
       border-radius: var(--radius-md, 6px);
-      color: #334155;
-      font-size: 13px;
+      font-size: var(--font-size-xs, 12px);
       font-weight: 600;
+      color: #1E293B;
       cursor: pointer;
       transition: all 150ms ease;
 
       &:hover:not(:disabled) {
-        background-color: #E2E8F0;
-        color: #0F172A;
+        background-color: #EDE9FE;
+        border-color: #C4B5FD;
+        color: #6D28D9;
       }
 
       &:disabled {
         opacity: 0.6;
         cursor: not-allowed;
       }
-    }
 
-    .btn-icon {
-      width: 14px;
-      height: 14px;
-
-      &.spin {
-        animation: spin 1s linear infinite;
+      .btn-icon {
+        width: 14px;
+        height: 14px;
       }
     }
 
     @keyframes spin {
-      100% {
-        transform: rotate(360deg);
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .feedback-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      border-radius: var(--radius-md, 6px);
+      font-size: 13px;
+      font-weight: 500;
+      animation: bannerSlideDown 200ms ease;
+
+      &.info {
+        background-color: #EFF6FF;
+        border: 1px solid #BFDBFE;
+        color: #1E40AF;
+      }
+
+      &.success {
+        background-color: #F0FDF4;
+        border: 1px solid #BBF7D0;
+        color: #166534;
+      }
+
+      &.warning {
+        background-color: #FEFCE8;
+        border: 1px solid #FEF08A;
+        color: #854D0E;
+      }
+
+      .feedback-content {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2, 8px);
+      }
+
+      .feedback-icon {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+      }
+
+      .btn-close-feedback {
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 2px;
+        display: flex;
+        align-items: center;
+        opacity: 0.7;
+        transition: opacity 150ms ease;
+
+        &:hover {
+          opacity: 1;
+        }
+
+        .close-icon {
+          width: 14px;
+          height: 14px;
+        }
       }
     }
 
-    /* Grilla Macro en 2 Columnas */
+    @keyframes bannerSlideDown {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
     .grid-split-macro {
       display: grid;
       grid-template-columns: 2fr 1fr;
@@ -353,12 +451,80 @@ export class AdminDashboardComponent {
   selectedCourse = signal<CourseLoadSummary | null>(null);
   showAllContainers = signal<boolean>(false);
 
+  // Cooldowns and Feedback Signals
+  refreshCooldown = signal<number>(0);
+  hibernateCooldown = signal<number>(0);
+  isHibernating = signal<boolean>(false);
+  feedbackMessage = signal<{ type: 'info' | 'success' | 'warning', text: string } | null>(null);
+
+  private refreshTimer?: any;
+  private hibernateTimer?: any;
+  private feedbackTimer?: any;
+
   refresh(): void {
+    if (this.isLoading() || this.refreshCooldown() > 0) return;
+
     this.metricsService.fetchMetrics();
+    this.refreshCooldown.set(5);
+
+    if (this.refreshTimer) clearInterval(this.refreshTimer);
+    this.refreshTimer = setInterval(() => {
+      const current = this.refreshCooldown();
+      if (current <= 1) {
+        this.refreshCooldown.set(0);
+        clearInterval(this.refreshTimer);
+      } else {
+        this.refreshCooldown.set(current - 1);
+      }
+    }, 1000);
   }
 
   hibernateAll(): void {
-    this.metricsService.hibernateAll();
+    if (this.isHibernating() || this.hibernateCooldown() > 0) return;
+
+    const active = this.health()?.metrics?.containers_active ?? 0;
+
+    if (active === 0) {
+      this.showFeedback('info', 'No hay laboratorios activos para hibernar en este momento. Todos los contenedores se encuentran detenidos o en reposo.');
+      this.startHibernateCooldown(3);
+      return;
+    }
+
+    this.isHibernating.set(true);
+    this.metricsService.hibernateAll().subscribe({
+      next: () => {
+        this.isHibernating.set(false);
+        this.showFeedback('success', `Se enviaron órdenes de hibernación al clúster. Se suspendieron ${active} contenedor(es) activo(s).`);
+        this.startHibernateCooldown(5);
+      },
+      error: () => {
+        this.isHibernating.set(false);
+        this.showFeedback('warning', 'Ocurrió un error al intentar hibernar los contenedores. Verifique los logs del clúster.');
+        this.startHibernateCooldown(5);
+      }
+    });
+  }
+
+  private startHibernateCooldown(seconds: number): void {
+    this.hibernateCooldown.set(seconds);
+    if (this.hibernateTimer) clearInterval(this.hibernateTimer);
+    this.hibernateTimer = setInterval(() => {
+      const current = this.hibernateCooldown();
+      if (current <= 1) {
+        this.hibernateCooldown.set(0);
+        clearInterval(this.hibernateTimer);
+      } else {
+        this.hibernateCooldown.set(current - 1);
+      }
+    }, 1000);
+  }
+
+  private showFeedback(type: 'info' | 'success' | 'warning', text: string): void {
+    this.feedbackMessage.set({ type, text });
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => {
+      this.feedbackMessage.set(null);
+    }, 6000);
   }
 
   stopContainer(id: string): void {
@@ -378,7 +544,6 @@ export class AdminDashboardComponent {
   }
 
   onViewLogs(workspaceId: string): void {
-    // Abre registro de auditoría o log del contenedor
     console.info('Consultar logs para workspace:', workspaceId);
   }
 }
