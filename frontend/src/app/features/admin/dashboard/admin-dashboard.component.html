@@ -1,0 +1,220 @@
+<div class="dashboard-page">
+  <!-- Header Superior de Operaciones -->
+  <header class="page-header">
+    <div class="header-left">
+      <div class="title-row">
+        <h1 class="page-title">Salud del Servidor y Recursos</h1>
+        <span class="status-pill status-healthy">
+          <span class="pill-dot"></span>
+          {{ health()?.status === 'degraded' ? 'Rendimiento Degradado' : 'Operativo y Estable' }}
+        </span>
+      </div>
+      <div class="meta-row">
+        <span class="host-info">
+          <svg lucideServer class="meta-icon"></svg>
+          {{ health()?.docker_version }}
+        </span>
+        <span class="meta-separator">&bull;</span>
+        <span class="uptime-text">{{ formatUptime(health()?.uptime_seconds) }}</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <!-- Botón Personalizar Vista (Drag & Drop) -->
+      <button 
+        class="btn-secondary"
+        [class.active-customizing]="isCustomizing()"
+        (click)="toggleCustomizing()"
+        title="Personalizar orden de los bloques del dashboard">
+        <svg lucideSliders class="btn-icon"></svg>
+        <span>{{ isCustomizing() ? 'Personalizando' : 'Personalizar' }}</span>
+      </button>
+
+      <button 
+        class="btn-toggle-autorefresh" 
+        [class.active]="autoRefresh()"
+        (click)="toggleAutoRefresh()"
+        title="Monitoreo en tiempo real cada 10 segundos">
+        <span class="live-dot-pulse" [class.on]="autoRefresh()"></span>
+        <span>{{ autoRefresh() ? 'Auto (10s)' : 'Auto-refresco' }}</span>
+      </button>
+
+      <button 
+        class="btn-secondary" 
+        (click)="refresh()" 
+        [disabled]="isLoading() || refreshCooldown() > 0"
+        title="Recargar Métricas">
+        <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
+        <span>{{ refreshCooldown() > 0 ? 'Actualizar (' + refreshCooldown() + 's)' : 'Actualizar' }}</span>
+      </button>
+
+      <button 
+        class="btn-action-hibernate" 
+        (click)="hibernateAll()" 
+        [disabled]="isHibernating() || hibernateCooldown() > 0"
+        title="Hibernar contenedores inactivos">
+        <svg lucideMoon class="btn-icon"></svg>
+        <span>{{ isHibernating() ? 'Hibernando...' : (hibernateCooldown() > 0 ? 'Hibernar (' + hibernateCooldown() + 's)' : 'Hibernar Todo') }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de Modo Personalización Activa -->
+  @if (isCustomizing()) {
+    <div class="customizing-bar">
+      <div class="customizing-info">
+        <svg lucideInfo class="customizing-icon"></svg>
+        <span>
+          <strong>Modo Personalización:</strong> Arrastrá los bloques con el cursor o usá las flechas para ordenar la vista según tus prioridades.
+        </span>
+      </div>
+      <div class="customizing-actions">
+        <button class="btn-custom-reset" (click)="resetLayout()" title="Restablecer disposición por defecto">
+          <svg lucideRotateCcw class="action-icon"></svg>
+          <span>Restablecer</span>
+        </button>
+        <button class="btn-custom-cancel" (click)="cancelCustomizing()">Cancelar</button>
+        <button class="btn-custom-save" (click)="saveLayout()">
+          <svg lucideCheckCircle class="action-icon"></svg>
+          <span>Guardar Orden</span>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Feedback Alert Banner -->
+  @if (feedbackMessage()) {
+    <div class="feedback-banner" [class]="feedbackMessage()!.type">
+      <div class="feedback-content">
+        @if (feedbackMessage()!.type === 'info') {
+          <svg lucideInfo class="feedback-icon"></svg>
+        } @else if (feedbackMessage()!.type === 'success') {
+          <svg lucideCheckCircle class="feedback-icon"></svg>
+        }
+        <span>{{ feedbackMessage()!.text }}</span>
+      </div>
+      <button class="btn-close-feedback" (click)="feedbackMessage.set(null)" title="Cerrar aviso">
+        <svg lucideX class="close-icon"></svg>
+      </button>
+    </div>
+  }
+
+  <!-- Contenedor Reordenable de Bloques con CDK Drag & Drop -->
+  <div 
+    cdkDropList 
+    (cdkDropListDropped)="onDropBlock($event)" 
+    class="dashboard-blocks-container"
+  >
+    @for (blockId of blockOrder(); track blockId) {
+      <div 
+        cdkDrag 
+        [cdkDragDisabled]="!isCustomizing()"
+        class="dashboard-block" 
+        [class.customizing]="isCustomizing()"
+      >
+        <!-- Header de Arrastre exclusivo de Modo Personalización -->
+        @if (isCustomizing()) {
+          <div class="block-drag-header" cdkDragHandle>
+            <div class="drag-info">
+              <svg lucideGripVertical class="grip-icon"></svg>
+              <span class="block-label">{{ getBlockLabel(blockId) }}</span>
+            </div>
+            <div class="drag-controls" (click)="$event.stopPropagation()">
+              <button 
+                class="btn-move" 
+                (click)="moveBlock(blockId, -1)" 
+                [disabled]="$first" 
+                title="Subir bloque">↑</button>
+              <button 
+                class="btn-move" 
+                (click)="moveBlock(blockId, 1)" 
+                [disabled]="$last" 
+                title="Bajar bloque">↓</button>
+            </div>
+          </div>
+        }
+
+        <!-- Renderizado dinámico del bloque -->
+        @switch (blockId) {
+          @case ('kpis') {
+            @if (health()?.metrics) {
+              <solv-hardware-kpi [metrics]="health()!.metrics" />
+            }
+          }
+
+          @case ('chart') {
+            @if (health()?.load_history) {
+              <solv-load-history-chart [history]="health()!.load_history!" />
+            }
+          }
+
+          @case ('split') {
+            <div class="grid-split-macro">
+              <!-- Columna Izquierda (2/3): Carga por Materia -->
+              <div class="col-course-load">
+                @if (health()?.courses_load) {
+                  <solv-course-load 
+                    [courses]="health()!.courses_load" 
+                    (viewDetails)="onViewCourseDetails($event)" 
+                  />
+                }
+              </div>
+
+              <!-- Columna Derecha (1/3): Incidencias Técnicas -->
+              <div class="col-incidents">
+                @if (health()?.incidents) {
+                  <solv-incidents-panel 
+                    [incidents]="health()!.incidents" 
+                    (resolveIncident)="onResolveIncident($event)"
+                    (restartWorkspace)="onRestartWorkspace($event)"
+                    (viewLogs)="onViewLogs($event)"
+                  />
+                }
+              </div>
+            </div>
+          }
+
+          @case ('containers') {
+            <div class="section-collapsible">
+              <button class="btn-toggle-section" (click)="showAllContainers.set(!showAllContainers())">
+                <span>Ver todas las instancias activas del clúster ({{ health()?.containers?.length || 0 }})</span>
+                @if (showAllContainers()) {
+                  <svg lucideChevronUp class="toggle-icon"></svg>
+                } @else {
+                  <svg lucideChevronDown class="toggle-icon"></svg>
+                }
+              </button>
+
+              @if (showAllContainers() && health()?.containers) {
+                <div class="collapsible-content">
+                  <solv-container-table 
+                    [containers]="health()!.containers" 
+                    (stopContainer)="stopContainer($event)" 
+                  />
+                </div>
+              }
+            </div>
+          }
+        }
+      </div>
+    }
+  </div>
+
+  <!-- Modales Contextuales -->
+  @if (selectedCourse()) {
+    <solv-course-workspaces-modal 
+      [course]="selectedCourse()!"
+      [workspacesInput]="health()?.containers || []"
+      (close)="selectedCourse.set(null)"
+      (restartWorkspace)="onRestartWorkspace($event)"
+      (pauseWorkspace)="onPauseWorkspace($event)"
+    />
+  }
+
+  @if (selectedIncidentForLogs()) {
+    <solv-log-viewer-modal 
+      [incident]="selectedIncidentForLogs()"
+      (close)="selectedIncidentForLogs.set(null)"
+    />
+  }
+</div>

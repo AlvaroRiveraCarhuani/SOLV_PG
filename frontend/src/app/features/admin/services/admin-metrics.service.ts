@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { 
   HostHardwareMetrics, 
   DockerContainerSummary, 
@@ -206,6 +206,15 @@ export class AdminMetricsService {
       {}
     ).pipe(
       tap(() => this.fetchMetrics())
+    );
+  }
+
+  getCourseWorkspaces(courseId: string, search = '', status = 'all'): Observable<DockerContainerSummary[]> {
+    let params = new HttpParams();
+    if (search) params = params.set('search', search);
+    if (status && status !== 'all') params = params.set('status', status);
+    return this.http.get<DockerContainerSummary[]>(`/api/v1/admin/courses/${courseId}/workspaces`, { params }).pipe(
+      catchError(() => of([]))
     );
   }
 

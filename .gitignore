@@ -9,4 +9,6 @@ backups/
 .atl/
 /scripts
 /proyecto-grado
-*.html
+/cover*.html
+/*_preview.html
+coverage/

@@ -1,5 +1,6 @@
 import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AdminMetricsService } from '../services/admin-metrics.service';
 import { HardwareKpiComponent } from './components/hardware-kpi/hardware-kpi.component';
 import { CourseLoadComponent } from './components/course-load/course-load.component';
@@ -17,16 +18,27 @@ import {
   LucideChevronUp,
   LucideInfo,
   LucideCheckCircle,
-  LucideX
+  LucideX,
+  LucideSliders,
+  LucideGripVertical,
+  LucideRotateCcw
 } from '@lucide/angular';
+
+export type DashboardSectionId = 'kpis' | 'chart' | 'split' | 'containers';
+
+const STORAGE_LAYOUT_KEY = 'solv_admin_dashboard_layout';
+const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'containers'];
 
 @Component({
   selector: 'solv-admin-dashboard',
   standalone: true,
   imports: [
     CommonModule, 
+    CdkDropList, 
+    CdkDrag, 
+    CdkDragHandle,
     HardwareKpiComponent, 
-    CourseLoadComponent,
+    CourseLoadComponent, 
     IncidentsPanelComponent,
     CourseWorkspacesModalComponent,
     ContainerTableComponent, 
@@ -39,480 +51,13 @@ import {
     LucideChevronUp,
     LucideInfo,
     LucideCheckCircle,
-    LucideX
+    LucideX,
+    LucideSliders,
+    LucideGripVertical,
+    LucideRotateCcw
   ],
-  template: `
-    <div class="dashboard-page">
-      <!-- Header Superior de Operaciones -->
-      <header class="page-header">
-        <div class="header-left">
-          <div class="title-row">
-            <h1 class="page-title">Salud del Servidor y Recursos</h1>
-            <span class="status-pill status-healthy">
-              <span class="pill-dot"></span>
-              {{ health()?.status === 'degraded' ? 'Rendimiento Degradado' : 'Operativo y Estable' }}
-            </span>
-          </div>
-          <div class="meta-row">
-            <span class="host-info">
-              <svg lucideServer class="meta-icon"></svg>
-              {{ health()?.docker_version }}
-            </span>
-            <span class="meta-separator">&bull;</span>
-            <span class="uptime-text">{{ formatUptime(health()?.uptime_seconds) }}</span>
-          </div>
-        </div>
-
-        <div class="header-actions">
-          <button 
-            class="btn-toggle-autorefresh" 
-            [class.active]="autoRefresh()"
-            (click)="toggleAutoRefresh()"
-            title="Monitoreo en tiempo real cada 10 segundos">
-            <span class="live-dot-pulse" [class.on]="autoRefresh()"></span>
-            <span>{{ autoRefresh() ? 'Auto (10s)' : 'Auto-refresco' }}</span>
-          </button>
-
-          <button 
-            class="btn-secondary" 
-            (click)="refresh()" 
-            [disabled]="isLoading() || refreshCooldown() > 0"
-            title="Recargar Métricas">
-            <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
-            <span>{{ refreshCooldown() > 0 ? 'Actualizar (' + refreshCooldown() + 's)' : 'Actualizar' }}</span>
-          </button>
-
-          <button 
-            class="btn-action-hibernate" 
-            (click)="hibernateAll()" 
-            [disabled]="isHibernating() || hibernateCooldown() > 0"
-            title="Hibernar contenedores inactivos">
-            <svg lucideMoon class="btn-icon"></svg>
-            <span>{{ isHibernating() ? 'Hibernando...' : (hibernateCooldown() > 0 ? 'Hibernar (' + hibernateCooldown() + 's)' : 'Hibernar Todo') }}</span>
-          </button>
-        </div>
-      </header>
-
-      <!-- Feedback Alert Banner -->
-      @if (feedbackMessage()) {
-        <div class="feedback-banner" [class]="feedbackMessage()!.type">
-          <div class="feedback-content">
-            @if (feedbackMessage()!.type === 'info') {
-              <svg lucideInfo class="feedback-icon"></svg>
-            } @else if (feedbackMessage()!.type === 'success') {
-              <svg lucideCheckCircle class="feedback-icon"></svg>
-            }
-            <span>{{ feedbackMessage()!.text }}</span>
-          </div>
-          <button class="btn-close-feedback" (click)="feedbackMessage.set(null)" title="Cerrar aviso">
-            <svg lucideX class="close-icon"></svg>
-          </button>
-        </div>
-      }
-
-      <!-- 1. Grid KPI Hardware Real (Above the fold) -->
-      @if (health()?.metrics) {
-        <solv-hardware-kpi [metrics]="health()!.metrics" />
-      }
-
-      <!-- 2. Gráfico Temporal de Carga (Últimos 60 minutos) -->
-      @if (health()?.load_history) {
-        <solv-load-history-chart [history]="health()!.load_history!" />
-      }
-
-      <!-- 2. Grilla Macro en 2 Columnas (2/3 y 1/3) -->
-      <div class="grid-split-macro">
-        <!-- Columna Izquierda (2/3): Carga por Materia -->
-        <div class="col-course-load">
-          @if (health()?.courses_load) {
-            <solv-course-load 
-              [courses]="health()!.courses_load" 
-              (viewDetails)="onViewCourseDetails($event)" 
-            />
-          }
-        </div>
-
-        <!-- Columna Derecha (1/3): Incidencias Técnicas -->
-        <div class="col-incidents">
-          @if (health()?.incidents) {
-            <solv-incidents-panel 
-              [incidents]="health()!.incidents" 
-              (resolveIncident)="onResolveIncident($event)"
-              (restartWorkspace)="onRestartWorkspace($event)"
-              (viewLogs)="onViewLogs($event)"
-            />
-          }
-        </div>
-      </div>
-
-      <!-- 3. Sección Desplegable: Auditoría Global de Contenedores -->
-      <div class="section-collapsible">
-        <button class="btn-toggle-section" (click)="showAllContainers.set(!showAllContainers())">
-          <span>Ver todas las instancias activas del clúster ({{ health()?.containers?.length || 0 }})</span>
-          @if (showAllContainers()) {
-            <svg lucideChevronUp class="toggle-icon"></svg>
-          } @else {
-            <svg lucideChevronDown class="toggle-icon"></svg>
-          }
-        </button>
-
-        @if (showAllContainers() && health()?.containers) {
-          <div class="collapsible-content">
-            <solv-container-table 
-              [containers]="health()!.containers" 
-              (stopContainer)="stopContainer($event)" 
-            />
-          </div>
-        }
-      </div>
-
-      <!-- 4. Modal Contextual: Detalle de Contenedores por Materia -->
-      @if (selectedCourse()) {
-        <solv-course-workspaces-modal 
-          [course]="selectedCourse()!"
-          [workspaces]="health()?.containers || []"
-          (close)="selectedCourse.set(null)"
-          (restartWorkspace)="onRestartWorkspace($event)"
-          (pauseWorkspace)="onPauseWorkspace($event)"
-        />
-      }
-
-      <!-- 5. Modal Contextual: Registro de Logs de Incidencia -->
-      @if (selectedIncidentForLogs()) {
-        <solv-log-viewer-modal 
-          [incident]="selectedIncidentForLogs()"
-          (close)="selectedIncidentForLogs.set(null)"
-        />
-      }
-    </div>
-  `,
-  styles: [`
-    .dashboard-page {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4, 16px);
-      max-width: 1440px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--space-2, 8px);
-
-      @media (max-width: 768px) {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: var(--space-3, 12px);
-      }
-    }
-
-    .title-row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-3, 12px);
-      margin-bottom: 4px;
-    }
-
-    .page-title {
-      font-size: var(--font-size-xl, 20px);
-      font-weight: 700;
-      color: var(--text-primary, #0F172A);
-      margin: 0;
-      letter-spacing: -0.01em;
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 8px;
-      border-radius: var(--radius-full, 9999px);
-      font-size: 11px;
-      font-weight: 600;
-
-      &.status-healthy {
-        background-color: #DCFCE7;
-        color: #15803D;
-
-        .pill-dot {
-          background-color: #16A34A;
-        }
-      }
-
-      .pill-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-      }
-    }
-
-    .meta-row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2, 8px);
-      font-size: var(--font-size-xs, 12px);
-      color: var(--text-secondary, #64748B);
-    }
-
-    .host-info {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-family: var(--font-mono, monospace);
-    }
-
-    .meta-icon {
-      width: 14px;
-      height: 14px;
-      color: var(--text-muted, #94A3B8);
-    }
-
-    .meta-separator {
-      color: var(--border-subtle, #CBD5E1);
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2-5, 10px);
-    }
-
-    .btn-toggle-autorefresh {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 0 var(--space-3, 12px);
-      height: 34px;
-      border-radius: var(--radius-md, 6px);
-      font-size: var(--font-size-xs, 12px);
-      font-weight: 600;
-      cursor: pointer;
-      border: 1px solid var(--border-subtle, #CBD5E1);
-      background-color: var(--bg-surface, #FFFFFF);
-      color: var(--text-secondary, #64748B);
-      transition: all 150ms ease;
-
-      &:hover {
-        background-color: var(--bg-canvas, #F1F5F9);
-        color: var(--text-primary, #0F172A);
-      }
-
-      &.active {
-        background-color: #EFF6FF;
-        border-color: #93C5FD;
-        color: #1D4ED8;
-      }
-    }
-
-    .live-dot-pulse {
-      width: 7px;
-      height: 7px;
-      border-radius: 50%;
-      background-color: var(--text-muted, #94A3B8);
-
-      &.on {
-        background-color: #10B981;
-        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
-        animation: pulseLiveDot 2s infinite ease-in-out;
-      }
-    }
-
-    @keyframes pulseLiveDot {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.3); opacity: 0.6; }
-    }
-
-    .btn-secondary {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2, 8px);
-      padding: 8px 14px;
-      background-color: var(--bg-surface, #FFFFFF);
-      border: 1px solid var(--border-subtle, #CBD5E1);
-      border-radius: var(--radius-md, 6px);
-      font-size: var(--font-size-xs, 12px);
-      font-weight: 600;
-      color: var(--text-primary, #0F172A);
-      cursor: pointer;
-      transition: all 150ms ease;
-
-      &:hover:not(:disabled) {
-        background-color: var(--bg-canvas, #F1F5F9);
-        border-color: #94A3B8;
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .btn-icon {
-        width: 14px;
-        height: 14px;
-        color: var(--text-secondary, #64748B);
-
-        &.spin {
-          animation: spin 1s linear infinite;
-        }
-      }
-    }
-
-    .btn-action-hibernate {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2, 8px);
-      padding: 8px 14px;
-      background-color: #F8FAFC;
-      border: 1px solid var(--border-subtle, #CBD5E1);
-      border-radius: var(--radius-md, 6px);
-      font-size: var(--font-size-xs, 12px);
-      font-weight: 600;
-      color: #1E293B;
-      cursor: pointer;
-      transition: all 150ms ease;
-
-      &:hover:not(:disabled) {
-        background-color: #EDE9FE;
-        border-color: #C4B5FD;
-        color: #6D28D9;
-      }
-
-      &:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-      }
-
-      .btn-icon {
-        width: 14px;
-        height: 14px;
-      }
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    .feedback-banner {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-weight: 500;
-      animation: bannerSlideDown 200ms ease;
-
-      &.info {
-        background-color: #EFF6FF;
-        border: 1px solid #BFDBFE;
-        color: #1E40AF;
-      }
-
-      &.success {
-        background-color: #F0FDF4;
-        border: 1px solid #BBF7D0;
-        color: #166534;
-      }
-
-      &.warning {
-        background-color: #FEFCE8;
-        border: 1px solid #FEF08A;
-        color: #854D0E;
-      }
-
-      .feedback-content {
-        display: flex;
-        align-items: center;
-        gap: var(--space-2, 8px);
-      }
-
-      .feedback-icon {
-        width: 16px;
-        height: 16px;
-        flex-shrink: 0;
-      }
-
-      .btn-close-feedback {
-        background: transparent;
-        border: none;
-        cursor: pointer;
-        padding: 2px;
-        display: flex;
-        align-items: center;
-        opacity: 0.7;
-        transition: opacity 150ms ease;
-
-        &:hover {
-          opacity: 1;
-        }
-
-        .close-icon {
-          width: 14px;
-          height: 14px;
-        }
-      }
-    }
-
-    @keyframes bannerSlideDown {
-      from { opacity: 0; transform: translateY(-6px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .grid-split-macro {
-      display: grid;
-      grid-template-columns: 2fr 1fr;
-      gap: var(--space-4, 16px);
-      align-items: stretch;
-
-      @media (max-width: 1024px) {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .section-collapsible {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      margin-top: var(--space-2, 8px);
-    }
-
-    .btn-toggle-section {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      background-color: #FFFFFF;
-      border: 1px solid var(--border-subtle, #E2E8F0);
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text-secondary, #475569);
-      cursor: pointer;
-      transition: all 150ms ease;
-
-      &:hover {
-        background-color: #F8FAFC;
-        color: var(--text-primary, #0F172A);
-      }
-
-      .toggle-icon {
-        width: 16px;
-        height: 16px;
-      }
-    }
-
-    .collapsible-content {
-      animation: fadeIn 200ms ease;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(-4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-  `]
+  templateUrl: './admin-dashboard.component.html',
+  styleUrl: './admin-dashboard.component.scss'
 })
 export class AdminDashboardComponent implements OnDestroy {
   private metricsService = inject(AdminMetricsService);
@@ -524,6 +69,10 @@ export class AdminDashboardComponent implements OnDestroy {
   selectedIncidentForLogs = signal<TechnicalIncident | null>(null);
   showAllContainers = signal<boolean>(false);
 
+  // Modo Personalización de la Vista (CDK Drag & Drop)
+  isCustomizing = signal<boolean>(false);
+  blockOrder = signal<DashboardSectionId[]>(DEFAULT_BLOCK_ORDER);
+
   // Cooldowns and Feedback Signals
   refreshCooldown = signal<number>(0);
   hibernateCooldown = signal<number>(0);
@@ -531,10 +80,88 @@ export class AdminDashboardComponent implements OnDestroy {
   autoRefresh = signal<boolean>(false);
   feedbackMessage = signal<{ type: 'info' | 'success' | 'warning', text: string } | null>(null);
 
-  private refreshTimer?: any;
-  private hibernateTimer?: any;
-  private feedbackTimer?: any;
-  private autoRefreshTimer?: any;
+  private refreshTimer?: ReturnType<typeof setInterval>;
+  private hibernateTimer?: ReturnType<typeof setInterval>;
+  private feedbackTimer?: ReturnType<typeof setTimeout>;
+  private autoRefreshTimer?: ReturnType<typeof setInterval>;
+
+  constructor() {
+    this.loadLayoutPreference();
+  }
+
+  private loadLayoutPreference(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = localStorage.getItem(STORAGE_LAYOUT_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length === DEFAULT_BLOCK_ORDER.length) {
+            this.blockOrder.set(parsed);
+          }
+        }
+      }
+    } catch {
+      // Ignorar restricciones en entornos privados
+    }
+  }
+
+  toggleCustomizing(): void {
+    this.isCustomizing.update(v => !v);
+  }
+
+  onDropBlock(event: CdkDragDrop<DashboardSectionId[]>): void {
+    const current = [...this.blockOrder()];
+    moveItemInArray(current, event.previousIndex, event.currentIndex);
+    this.blockOrder.set(current);
+  }
+
+  moveBlock(blockId: DashboardSectionId, delta: number): void {
+    const current = [...this.blockOrder()];
+    const idx = current.indexOf(blockId);
+    if (idx < 0) return;
+    const newIdx = idx + delta;
+    if (newIdx < 0 || newIdx >= current.length) return;
+    moveItemInArray(current, idx, newIdx);
+    this.blockOrder.set(current);
+  }
+
+  saveLayout(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(STORAGE_LAYOUT_KEY, JSON.stringify(this.blockOrder()));
+      }
+      this.isCustomizing.set(false);
+      this.showFeedback('success', 'Distribución personalizada del dashboard guardada en este navegador.');
+    } catch {
+      this.isCustomizing.set(false);
+    }
+  }
+
+  cancelCustomizing(): void {
+    this.loadLayoutPreference();
+    this.isCustomizing.set(false);
+  }
+
+  resetLayout(): void {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(STORAGE_LAYOUT_KEY);
+      }
+      this.blockOrder.set(DEFAULT_BLOCK_ORDER);
+      this.showFeedback('info', 'Se restauró el orden original del dashboard.');
+    } catch {
+      this.blockOrder.set(DEFAULT_BLOCK_ORDER);
+    }
+  }
+
+  getBlockLabel(blockId: DashboardSectionId): string {
+    switch (blockId) {
+      case 'kpis': return '1. Métricas de Hardware (RAM, vCPU, NVMe, Concurrencia)';
+      case 'chart': return '2. Telemetría de Carga Temporal (Últimos 60 minutos)';
+      case 'split': return '3. Distribución por Materia & Panel de Incidencias';
+      case 'containers': return '4. Auditoría Global de Instancias Activas';
+    }
+  }
 
   toggleAutoRefresh(): void {
     const nextState = !this.autoRefresh();
@@ -560,7 +187,7 @@ export class AdminDashboardComponent implements OnDestroy {
   private stopAutoRefresh(): void {
     if (this.autoRefreshTimer) {
       clearInterval(this.autoRefreshTimer);
-      this.autoRefreshTimer = null;
+      this.autoRefreshTimer = undefined;
     }
   }
 
@@ -591,6 +218,7 @@ export class AdminDashboardComponent implements OnDestroy {
       if (current <= 1) {
         this.refreshCooldown.set(0);
         clearInterval(this.refreshTimer);
+        this.refreshTimer = undefined;
       } else {
         this.refreshCooldown.set(current - 1);
       }
@@ -631,6 +259,7 @@ export class AdminDashboardComponent implements OnDestroy {
       if (current <= 1) {
         this.hibernateCooldown.set(0);
         clearInterval(this.hibernateTimer);
+        this.hibernateTimer = undefined;
       } else {
         this.hibernateCooldown.set(current - 1);
       }
@@ -642,6 +271,7 @@ export class AdminDashboardComponent implements OnDestroy {
     if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
     this.feedbackTimer = setTimeout(() => {
       this.feedbackMessage.set(null);
+      this.feedbackTimer = undefined;
     }, 6000);
   }
 

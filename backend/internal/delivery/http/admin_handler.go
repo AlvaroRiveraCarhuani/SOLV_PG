@@ -7,6 +7,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -539,6 +540,93 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 				MemoryLimitMB:       ws.MemoryLimitMB,
 				TTLRemainingSeconds: ttl,
 				Status:              status,
+				StartedAt:           ws.CreatedAt.Format(time.RFC3339),
+			})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(containers)
+}
+
+func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
+		return
+	}
+
+	courseID := r.PathValue("id")
+	if courseID == "" {
+		http.Error(w, `{"error":"Course ID is required"}`, http.StatusBadRequest)
+		return
+	}
+
+	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("search")))
+	status := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("status")))
+
+	allWorkspaces, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	if err != nil {
+		allWorkspaces = []*domain.WorkspaceInstance{}
+	}
+
+	sub, _ := h.subjectRepo.GetByID(r.Context(), tenantID, courseID)
+	courseName := "Materia"
+	if sub != nil {
+		courseName = sub.Name
+	}
+
+	containers := make([]DockerContainerDTO, 0)
+	for _, ws := range allWorkspaces {
+		if ws.TenantID == tenantID && ws.SubjectID == courseID {
+			wsStatus := ws.Status
+			if wsStatus != "running" && wsStatus != "hibernated" && wsStatus != "failed" && wsStatus != "oom_killed" {
+				wsStatus = "hibernated"
+			}
+
+			// Filtro por estado
+			if status != "" && status != "all" {
+				if status == "failed" {
+					if wsStatus != "failed" && wsStatus != "oom_killed" {
+						continue
+					}
+				} else if wsStatus != status {
+					continue
+				}
+			}
+
+			studentDisplay := "Estudiante ID: " + ws.StudentID
+			emailDisplay := ws.StudentID + "@uab.edu.bo"
+
+			// Filtro por término de búsqueda
+			if search != "" {
+				matchID := strings.Contains(strings.ToLower(ws.ID), search)
+				matchStudent := strings.Contains(strings.ToLower(studentDisplay), search)
+				matchEmail := strings.Contains(strings.ToLower(emailDisplay), search)
+				if !matchID && !matchStudent && !matchEmail {
+					continue
+				}
+			}
+
+			ttl := int64(0)
+			if ws.Status == "running" {
+				elapsed := time.Since(ws.LastHeartbeatAt).Seconds()
+				remaining := 3600 - elapsed
+				if remaining > 0 {
+					ttl = int64(remaining)
+				}
+			}
+
+			containers = append(containers, DockerContainerDTO{
+				ID:                  ws.ID,
+				StudentName:         studentDisplay,
+				StudentEmail:        emailDisplay,
+				CourseName:          courseName,
+				ImageTag:            "solv-lab/c-gcc:13.2",
+				MemoryUsedMB:        ws.MemoryLimitMB / 3,
+				MemoryLimitMB:       ws.MemoryLimitMB,
+				TTLRemainingSeconds: ttl,
+				Status:              wsStatus,
 				StartedAt:           ws.CreatedAt.Format(time.RFC3339),
 			})
 		}

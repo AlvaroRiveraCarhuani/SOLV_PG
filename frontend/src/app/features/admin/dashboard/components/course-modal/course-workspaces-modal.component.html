@@ -1,0 +1,159 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Cabecera del Modal -->
+    <div class="modal-header">
+      <div class="header-info">
+        <div class="title-row">
+          <h2 class="modal-title">Contenedores: {{ course().course_name }}</h2>
+          <span class="header-badge">{{ course().active_students }} en sesión</span>
+        </div>
+        <span class="modal-subtitle">
+          Docente: {{ course().teacher_name }} &bull; Materia ID: {{ course().id }}
+        </span>
+      </div>
+      <button class="btn-close" (click)="close.emit()" title="Cerrar ventana">
+        <svg lucideX class="icon"></svg>
+      </button>
+    </div>
+
+    <!-- Barra de Búsqueda y Filtros -->
+    <div class="modal-filter-bar">
+      <div class="search-box">
+        <svg lucideSearch class="search-icon"></svg>
+        <input 
+          type="text" 
+          placeholder="Buscar estudiante o ID (ej: Carlos, WS-089)..." 
+          [ngModel]="searchTerm()" 
+          (ngModelChange)="onSearchChange($event)"
+          class="search-input"
+        />
+        @if (searchTerm()) {
+          <button class="btn-clear-search" (click)="onSearchChange('')" title="Limpiar búsqueda">✕</button>
+        }
+      </div>
+
+      <div class="filter-group">
+        <label class="filter-label">Estado:</label>
+        <select 
+          [ngModel]="statusFilter()" 
+          (ngModelChange)="onStatusChange($event)"
+          class="filter-select">
+          <option value="all">Todos los estados</option>
+          <option value="running">En ejecución (Running)</option>
+          <option value="failed">Con fallos (OOM Killed)</option>
+          <option value="hibernated">En reposo (Hibernated)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Tabla de Workspaces de la Materia -->
+    <div class="modal-table-wrapper">
+      @if (isLoading()) {
+        <div class="loading-state">
+          <div class="tenant-spinner"></div>
+          <span>Consultando instancias activas del curso...</span>
+        </div>
+      } @else {
+        <table class="modal-table">
+          <thead>
+            <tr>
+              <th>ID WORKSPACE</th>
+              <th>ESTUDIANTE</th>
+              <th>MEMORIA CONSUMIDA</th>
+              <th>ESTADO</th>
+              <th class="text-right">ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (ws of workspaces(); track ws.id) {
+              <tr class="data-row">
+                <td>
+                  <span class="mono-id">{{ ws.id }}</span>
+                </td>
+                <td>
+                  <div class="student-cell">
+                    <div class="student-avatar">
+                      {{ getStudentInitials(ws.student_name) }}
+                    </div>
+                    <div class="student-meta">
+                      <span class="student-name">{{ ws.student_name }}</span>
+                      <span class="student-email">{{ ws.student_email }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <div class="mem-gauge">
+                    <div class="gauge-labels">
+                      <span class="mono-mem">{{ ws.memory_used_mb }} / {{ ws.memory_limit_mb }} MB</span>
+                      <span class="gauge-percent">{{ getMemoryPercent(ws) }}%</span>
+                    </div>
+                    <div class="gauge-track">
+                      <div 
+                        class="gauge-fill" 
+                        [style.width.%]="getMemoryPercent(ws)"
+                        [class.warning]="getMemoryPercent(ws) >= 75 && getMemoryPercent(ws) < 90"
+                        [class.danger]="getMemoryPercent(ws) >= 90"
+                      ></div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <solv-status-badge [status]="ws.status" />
+                </td>
+                <td class="text-right">
+                  <div class="actions-wrapper">
+                    @if (ws.status === 'failed') {
+                      <button 
+                        class="btn-action restart" 
+                        (click)="restartWorkspace.emit(ws.id)"
+                        title="Restablecer contenedor caído por OOM">
+                        <svg lucideRotateCcw class="btn-icon"></svg>
+                        <span>Reiniciar</span>
+                      </button>
+                    } @else if (ws.status === 'running') {
+                      <button 
+                        class="btn-action pause" 
+                        (click)="pauseWorkspace.emit(ws.id)"
+                        title="Pausar contenedor en ejecución">
+                        <svg lucidePause class="btn-icon"></svg>
+                        <span>Pausar</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-state-cell">
+                  <div class="empty-content">
+                    <div class="empty-icon-shield">
+                      <svg lucideTerminal class="empty-icon"></svg>
+                    </div>
+                    <span class="empty-title">Sin contenedores activos en esta materia</span>
+                    <span class="empty-desc">
+                      @if (searchTerm() || statusFilter() !== 'all') {
+                        No se encontraron resultados para los filtros seleccionados. Probá modificando el término o el estado.
+                      } @else {
+                        Los estudiantes aún no han iniciado sesiones de laboratorio en este curso o sus instancias se encuentran detenidas.
+                      }
+                    </span>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+
+    <!-- Pie del Modal -->
+    <div class="modal-footer">
+      <div class="footer-meta">
+        <span class="count-indicator">{{ workspaces().length }} {{ workspaces().length === 1 ? 'instancia encontrada' : 'instancias encontradas' }}</span>
+      </div>
+      <button class="btn-secondary" (click)="close.emit()">
+        <span>Cerrar</span>
+      </button>
+    </div>
+  </div>
+</div>
