@@ -48,7 +48,7 @@ sequenceDiagram
 
 ## 2. Anatomía Visual y Wireframe ASCII Técnico (Modo Auditoría :ro)
 
-Layout split-screen (35% Enunciado / 65% Monaco Native en solo lectura) con banner superior de advertencia de seguridad y drawer inferior expandible de evaluación y navegación fluida (*SpeedGrader*).
+Layout split-screen (35% Enunciado / 65% Monaco Native en solo lectura) con banner superior de advertencia de seguridad y drawer inferior colapsable de evaluación y navegación fluida (*SpeedGrader*).
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -85,14 +85,14 @@ Layout split-screen (35% Enunciado / 65% Monaco Native en solo lectura) con bann
 
 ## 3. Especificación Visual de Componentes e Iconografía Lucide
 
-- **Banner de Modo Auditoría:** Color de fondo `gray-100` con borde `gray-300` y badge `lucide:lock` en neutro para denotar inmutabilidad.
-- **Navegación SpeedGrader:** `lucide:chevron-left` y `lucide:chevron-right` en el Topbar para alternar entregas sin volver al listado.
-- **Icono de Comentario In-line:** `lucide:message-square` en el *gutter* de Monaco para indicar líneas con observaciones.
-- **Selector de Anulación:** Dropdown dinámico sobre la píldora del veredicto actual con las opciones:
+- **Banner de Modo Auditoría:** Fondo neutro tenue con borde sutil y badge `lucide:lock` para clarificar que el código es inmutable durante la revisión.
+- **Navegación SpeedGrader:** Controles `lucide:chevron-left` y `lucide:chevron-right` en la cabecera para pasar de un alumno al siguiente de forma inmediata.
+- **Icono de Comentario In-line:** `lucide:message-square` anclado al margen (*gutter*) de Monaco para comentarios puntuales sobre líneas de código.
+- **Selector de Anulación:** Desplegable sobre el veredicto del juez con opciones auditadas:
   - `Mantener Veredicto del Juez`
   - `Anular -> Marcar como AC (Accepted)`
   - `Anular -> Asignar Calificación Manual`
-- **Botón Principal de Guardado:** `lucide:check-circle` con estilo primario `var(--tenant-primary)`.
+- **Botón Principal de Guardado:** `lucide:check-circle` con estilo primario del tema institucional.
 
 ---
 
@@ -102,22 +102,21 @@ Layout split-screen (35% Enunciado / 65% Monaco Native en solo lectura) con bann
    - El volumen del estudiante se monta exclusivamente en modo **Solo Lectura (`:ro`)**.
    - Monaco Editor deshabilita la edición nativa mediante `readOnly: true` y `files.readonlyInclude`.
 2. **Desenmascaramiento de Casos Privados:**
-   - La API para el rol `teacher` retorna el DTO completo `Exercise` con la estructura de `test_cases` desglosada (incluyendo `input`, `expected_output` y `actual_output`), permitiendo al docente diagnosticar fallos en casos de prueba ocultos.
+   - La API para el rol `teacher` retorna el DTO completo `Exercise` con la estructura de `test_cases` desglosada (incluyendo `input`, `expected_output` y `actual_output`), permitiendo diagnosticar fallos en casos de prueba ocultos.
 3. **Trazabilidad de Override (Anulación de Veredictos):**
-   - No se permite cambiar un veredicto sin ingresar un texto en el campo `override_reason` (mínimo 10 caracteres).
+   - No se permite cambiar un veredicto sin ingresar una justificación en el campo `override_reason` (mínimo 10 caracteres).
    - El backend registra en PostgreSQL: `manual_override = true`, `original_verdict`, `new_verdict`, `override_reason` y `teacher_id`.
 4. **Ejecución Efímera Aislada:**
-   - El botón `[Probar en Consola Efímera]` ejecuta el código sobre un sandbox temporal en memoria. La salida se muestra en un cuadro de consola modal o colapsable sin escribir en la tabla `submissions`.
+   - El botón `[Probar en Consola Efímera]` ejecuta el código sobre un sandbox temporal en memoria sin alterar la entrega registrada ni mutar la tabla `submissions`.
 
 ---
 
-## 5. Inventario de Componentes Angular a Construir
+## 5. Contrato de Integración y Endpoints (v0.16.0)
 
-| Componente | Tipo / Rol | Ubicación en Código |
-|---|---|---|
-| `TeacherJudgeReview` | Contenedor Principal Split-Screen en Solo Lectura | `features/teacher/judge-review/` |
-| `SpeedGraderNav` | Control de Navegación entre Alumnos (`<` / `>`) | `features/teacher/judge-review/components/` |
-| `ReadOnlyMonacoWrapper` | Editor Encapsulado Bloqueado (`:ro`) con Marcadores | `shared/ui/editors/` |
-| `UnmaskedVerdictsTable` | Lista de Tests con Casos Privados Desglosados | `features/teacher/judge-review/components/` |
-| `VerdictOverrideForm` | Formulario de Anulación con Motivo Obligatorio y Nota | `features/teacher/judge-review/components/` |
-| `EphemeralRunnerConsole` | Consola Modal para Pruebas del Docente en Memoria | `features/teacher/judge-review/components/` |
+| Método | Endpoint | Parámetros / Payload | Propósito |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/submissions/{id}/audit` | — | Obtiene el DTO completo de la entrega: código, casos públicos y casos privados desenmascarados. |
+| `POST` | `/api/v1/submissions/{id}/override` | `{ "new_verdict": "AC", "reason": "...", "score": 85 }` | Anulación auditada del veredicto del juez con justificación obligatoria. |
+| `PUT` | `/api/v1/submissions/{id}/grade` | `{ "score": 85, "feedback": "...", "line_comments": [...] }` | Asignación de calificación manual y comentarios pedagógicos. |
+| `POST` | `/api/v1/submissions/{id}/test-run` | `{ "custom_input": "..." }` | Ejecución efímera en memoria sobre sandbox aislado sin registrar entrega. |
+| `GET` | `/api/v1/courses/{course_id}/labs/{lab_id}/queue` | `?current_submission_id={id}` | Obtiene referencias para navegación fluida hacia el estudiante anterior/siguiente. |

@@ -91,11 +91,13 @@ sequenceDiagram
 
 ---
 
-## 5. Inventario de Componentes Angular a Construir
+## 5. Contrato de Integración y Endpoints (v0.16.0)
 
-| Componente | Tipo / Rol | Ubicación en Código |
-|---|---|---|
-| `TeacherManagementGrid` | Tabla principal de gestión de profesores | `features/admin/teachers/` |
-| `TeacherInviteModal` | Modal de generación de tokens de invitación | `features/admin/teachers/components/` |
-| `UserStatusBadge` | Badge semántico con color fijo por estado (Activo/Pendiente/Expirado) | `shared/ui/badges/` |
-| `ClassroomOriginBadge` | Indicador visual de origen Google Classroom con icono lock | `shared/ui/badges/` |
+| Método | Endpoint | Parámetros / Payload | Propósito |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/teachers` | `?search={q}&status={status}` | Lista docentes de la facultad con origen de cuenta y estado. |
+| `POST` | `/api/v1/invitations/teachers` | `{ "email": "profesor@uab.edu.bo", "role": "teacher" }` | Emite token transaccional de un solo uso con TTL de 72 horas (ADR-025). |
+| `POST` | `/api/v1/invitations/teachers/{id}/resend` | — | Reenvía el correo de invitación a un docente en estado pendiente. |
+| `POST` | `/api/v1/invitations/teachers/{id}/renew` | — | Renueva una invitación expirada generando un nuevo token sin duplicar registros. |
+| `POST` | `/api/v1/teachers/sync-classroom` | — | Sincroniza la nómina de profesores desde Google Classroom API (ADR-022 / D6). |
+

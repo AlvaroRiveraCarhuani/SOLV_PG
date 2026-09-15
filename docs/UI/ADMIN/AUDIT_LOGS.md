@@ -80,10 +80,10 @@ sequenceDiagram
 
 ---
 
-## 5. Inventario de Componentes Angular a Construir
+## 5. Contrato de Integración y Endpoints (v0.16.0)
 
-| Componente | Tipo / Rol | Ubicación en Código |
-|---|---|---|
-| `AuditLogsGrid` | Tabla principal de eventos de auditoría | `features/admin/audit-logs/` |
-| `AuditTimelineDrawer` | Panel lateral flotante con la cronología del usuario | `features/admin/audit-logs/components/` |
-| `EnrichedEventBadge` | Badge con icono y traducción semántica de acción HTTP | `shared/ui/badges/` |
+| Método | Endpoint | Parámetros / Query | Propósito |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/audit-logs` | `?page={p}&limit=20&actor_id={id}&action={act}` | Lista cronológica paginada de eventos de auditoría con enriquecimiento semántico. |
+| `GET` | `/api/v1/admin/audit-logs/actors/{id}/timeline` | — | Cronología de eventos aislada por docente para el Drawer lateral. |
+

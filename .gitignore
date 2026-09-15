@@ -7,4 +7,6 @@ frontend/dist/
 letsencrypt/
 backups/
 .atl/
-
+/scripts
+/proyecto-grado
+*.html
