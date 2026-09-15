@@ -94,6 +94,8 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/admin/audit-logs", tm(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
 		mux.Handle("PUT /api/v1/admin/branding", am(tm(http.HandlerFunc(deps.AdminHandler.UpdateBranding))))
 		mux.Handle("GET /api/v1/admin/metrics/health", tm(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
+		mux.Handle("GET /api/v1/admin/dashboard/courses-load", tm(http.HandlerFunc(deps.AdminHandler.GetCoursesLoad)))
+		mux.Handle("GET /api/v1/admin/dashboard/incidents", tm(http.HandlerFunc(deps.AdminHandler.GetIncidents)))
 	}
 
 	if deps.AdminAcademicHandler != nil {

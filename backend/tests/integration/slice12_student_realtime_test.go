@@ -114,7 +114,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, nil)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo)
+	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
 	evalHandler := httpdelivery.NewEvaluationHandler(evalService, nil)

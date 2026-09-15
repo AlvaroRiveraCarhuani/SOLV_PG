@@ -85,7 +85,7 @@ func main() {
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo)
+	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())

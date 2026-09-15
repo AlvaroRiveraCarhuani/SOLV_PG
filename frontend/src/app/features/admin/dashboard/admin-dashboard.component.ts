@@ -1,9 +1,13 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminMetricsService } from '../services/admin-metrics.service';
 import { HardwareKpiComponent } from './components/hardware-kpi/hardware-kpi.component';
+import { CourseLoadComponent } from './components/course-load/course-load.component';
+import { IncidentsPanelComponent } from './components/incidents-panel/incidents-panel.component';
+import { CourseWorkspacesModalComponent } from './components/course-modal/course-workspaces-modal.component';
 import { ContainerTableComponent } from './components/container-table/container-table.component';
-import { LucideRefreshCw, LucideMoon, LucideServer } from '@lucide/angular';
+import { CourseLoadSummary } from '@core/models/admin.model';
+import { LucideRefreshCw, LucideMoon, LucideServer, LucideChevronDown, LucideChevronUp } from '@lucide/angular';
 
 @Component({
   selector: 'solv-admin-dashboard',
@@ -11,10 +15,15 @@ import { LucideRefreshCw, LucideMoon, LucideServer } from '@lucide/angular';
   imports: [
     CommonModule, 
     HardwareKpiComponent, 
+    CourseLoadComponent,
+    IncidentsPanelComponent,
+    CourseWorkspacesModalComponent,
     ContainerTableComponent, 
     LucideRefreshCw, 
     LucideMoon, 
-    LucideServer
+    LucideServer,
+    LucideChevronDown,
+    LucideChevronUp
   ],
   template: `
     <div class="dashboard-page">
@@ -59,16 +68,64 @@ import { LucideRefreshCw, LucideMoon, LucideServer } from '@lucide/angular';
         </div>
       </header>
 
-      <!-- Grid KPI Hardware -->
+      <!-- 1. Grid KPI Hardware Real (Above the fold) -->
       @if (health()?.metrics) {
         <solv-hardware-kpi [metrics]="health()!.metrics" />
       }
 
-      <!-- Tabla de Monitoreo de Contenedores -->
-      @if (health()?.containers) {
-        <solv-container-table 
-          [containers]="health()!.containers" 
-          (stopContainer)="stopContainer($event)" 
+      <!-- 2. Grilla Macro en 2 Columnas (2/3 y 1/3) -->
+      <div class="grid-split-macro">
+        <!-- Columna Izquierda (2/3): Carga por Materia -->
+        <div class="col-course-load">
+          @if (health()?.courses_load) {
+            <solv-course-load 
+              [courses]="health()!.courses_load" 
+              (viewDetails)="onViewCourseDetails($event)" 
+            />
+          }
+        </div>
+
+        <!-- Columna Derecha (1/3): Incidencias Técnicas -->
+        <div class="col-incidents">
+          @if (health()?.incidents) {
+            <solv-incidents-panel 
+              [incidents]="health()!.incidents" 
+              (restartWorkspace)="onRestartWorkspace($event)"
+              (viewLogs)="onViewLogs($event)"
+            />
+          }
+        </div>
+      </div>
+
+      <!-- 3. Sección Desplegable: Auditoría Global de Contenedores -->
+      <div class="section-collapsible">
+        <button class="btn-toggle-section" (click)="showAllContainers.set(!showAllContainers())">
+          <span>Ver todas las instancias activas del clúster ({{ health()?.containers?.length || 0 }})</span>
+          @if (showAllContainers()) {
+            <svg lucideChevronUp class="toggle-icon"></svg>
+          } @else {
+            <svg lucideChevronDown class="toggle-icon"></svg>
+          }
+        </button>
+
+        @if (showAllContainers() && health()?.containers) {
+          <div class="collapsible-content">
+            <solv-container-table 
+              [containers]="health()!.containers" 
+              (stopContainer)="stopContainer($event)" 
+            />
+          </div>
+        }
+      </div>
+
+      <!-- 4. Modal Contextual: Detalle de Contenedores por Materia -->
+      @if (selectedCourse()) {
+        <solv-course-workspaces-modal 
+          [course]="selectedCourse()!"
+          [workspaces]="health()?.containers || []"
+          (close)="selectedCourse.set(null)"
+          (restartWorkspace)="onRestartWorkspace($event)"
+          (pauseWorkspace)="onPauseWorkspace($event)"
         />
       }
     </div>
@@ -232,6 +289,59 @@ import { LucideRefreshCw, LucideMoon, LucideServer } from '@lucide/angular';
         transform: rotate(360deg);
       }
     }
+
+    /* Grilla Macro en 2 Columnas */
+    .grid-split-macro {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: var(--space-4, 16px);
+      align-items: stretch;
+
+      @media (max-width: 1024px) {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .section-collapsible {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: var(--space-2, 8px);
+    }
+
+    .btn-toggle-section {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background-color: #FFFFFF;
+      border: 1px solid var(--border-subtle, #E2E8F0);
+      border-radius: var(--radius-md, 6px);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary, #475569);
+      cursor: pointer;
+      transition: all 150ms ease;
+
+      &:hover {
+        background-color: #F8FAFC;
+        color: var(--text-primary, #0F172A);
+      }
+
+      .toggle-icon {
+        width: 16px;
+        height: 16px;
+      }
+    }
+
+    .collapsible-content {
+      animation: fadeIn 200ms ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
   `]
 })
 export class AdminDashboardComponent {
@@ -239,6 +349,9 @@ export class AdminDashboardComponent {
 
   health = this.metricsService.health;
   isLoading = this.metricsService.isLoading;
+
+  selectedCourse = signal<CourseLoadSummary | null>(null);
+  showAllContainers = signal<boolean>(false);
 
   refresh(): void {
     this.metricsService.fetchMetrics();
@@ -250,5 +363,22 @@ export class AdminDashboardComponent {
 
   stopContainer(id: string): void {
     this.metricsService.stopContainer(id);
+  }
+
+  onViewCourseDetails(course: CourseLoadSummary): void {
+    this.selectedCourse.set(course);
+  }
+
+  onRestartWorkspace(workspaceId: string): void {
+    this.metricsService.restartWorkspace(workspaceId);
+  }
+
+  onPauseWorkspace(workspaceId: string): void {
+    this.metricsService.pauseWorkspace(workspaceId);
+  }
+
+  onViewLogs(workspaceId: string): void {
+    // Abre registro de auditoría o log del contenedor
+    console.info('Consultar logs para workspace:', workspaceId);
   }
 }

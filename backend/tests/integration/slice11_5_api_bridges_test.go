@@ -45,7 +45,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
 	subService := services.NewSubmissionService(submissionRepo)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo)
+	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo, subjectRepo, nil)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 	evalHandler := httpdelivery.NewEvaluationHandler(evalService, nil)
 	subHandler := httpdelivery.NewSubmissionHandler(subService)

@@ -36,6 +36,11 @@ export const routes: Routes = [
         path: 'dashboard',
         loadComponent: () =>
           import('@features/admin/dashboard/admin-dashboard.component').then((m) => m.AdminDashboardComponent)
+      },
+      {
+        path: 'docentes',
+        loadComponent: () =>
+          import('@features/admin/teachers/admin-teachers.component').then((m) => m.AdminTeachersComponent)
       }
     ]
   },
