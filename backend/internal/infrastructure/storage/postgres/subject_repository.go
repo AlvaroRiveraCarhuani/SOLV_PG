@@ -30,7 +30,15 @@ func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.
 
 func (r *PostgresSubjectRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Subject, error) {
 	var s domain.Subject
-	query := `SELECT id, tenant_id, name, code, teacher_id, academic_period_id, is_archived, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 AND id = $2`
+	query := `
+		SELECT 
+			s.id, s.tenant_id, s.name, s.code, s.teacher_id, 
+			COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), '') as teacher_name,
+			s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at 
+		FROM subjects s
+		LEFT JOIN users u ON s.teacher_id = u.id
+		WHERE s.tenant_id = $1 AND s.id = $2
+	`
 	err := r.db.GetContext(ctx, &s, query, tenantID, id)
 	if err != nil {
 		return nil, fmt.Errorf("subject not found: %w", err)
@@ -40,7 +48,16 @@ func (r *PostgresSubjectRepository) GetByID(ctx context.Context, tenantID, id st
 
 func (r *PostgresSubjectRepository) ListByTenant(ctx context.Context, tenantID string) ([]*domain.Subject, error) {
 	var list []*domain.Subject
-	query := `SELECT id, tenant_id, name, code, teacher_id, academic_period_id, is_archived, classroom_course_id, created_at, updated_at FROM subjects WHERE tenant_id = $1 ORDER BY name ASC`
+	query := `
+		SELECT 
+			s.id, s.tenant_id, s.name, s.code, s.teacher_id, 
+			COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), '') as teacher_name,
+			s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at 
+		FROM subjects s
+		LEFT JOIN users u ON s.teacher_id = u.id
+		WHERE s.tenant_id = $1 
+		ORDER BY s.name ASC
+	`
 	err := r.db.SelectContext(ctx, &list, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list subjects: %w", err)

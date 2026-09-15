@@ -11,6 +11,7 @@ type Subject struct {
 	Name              string    `db:"name" json:"name"`
 	Code              string    `db:"code" json:"code"`
 	TeacherID         *string   `db:"teacher_id" json:"teacher_id,omitempty"`
+	TeacherName       *string   `db:"teacher_name" json:"teacher_name,omitempty"`
 	AcademicPeriodID  *string   `db:"academic_period_id" json:"academic_period_id,omitempty"`
 	IsArchived        bool      `db:"is_archived" json:"is_archived"`
 	ClassroomCourseID *string   `db:"classroom_course_id" json:"classroom_course_id,omitempty"`

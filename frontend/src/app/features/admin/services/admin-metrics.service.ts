@@ -5,9 +5,11 @@ import {
   DockerContainerSummary, 
   HostSystemHealth, 
   CourseLoadSummary, 
-  TechnicalIncident 
+  TechnicalIncident,
+  LoadSnapshot,
+  WorkspaceLogsResponse
 } from '@core/models/admin.model';
-import { catchError, forkJoin, of, tap } from 'rxjs';
+import { Observable, catchError, forkJoin, of, tap } from 'rxjs';
 
 interface BackendHostHardware {
   ram_used_bytes: number;
@@ -27,7 +29,9 @@ interface BackendHealthMetrics {
   oom_killed_labs: number;
   total_ram_alloc_mb: number;
   health_status: string;
+  uptime_seconds?: number;
   host_hardware?: BackendHostHardware;
+  load_history?: LoadSnapshot[];
 }
 
 @Injectable({
@@ -52,9 +56,10 @@ export class AdminMetricsService {
     forkJoin({
       health: this.http.get<BackendHealthMetrics>('/api/v1/admin/metrics/health').pipe(catchError(() => of(null))),
       coursesLoad: this.http.get<CourseLoadSummary[]>('/api/v1/admin/dashboard/courses-load').pipe(catchError(() => of([]))),
-      incidents: this.http.get<TechnicalIncident[]>('/api/v1/admin/dashboard/incidents').pipe(catchError(() => of([])))
+      incidents: this.http.get<TechnicalIncident[]>('/api/v1/admin/dashboard/incidents').pipe(catchError(() => of([]))),
+      containers: this.http.get<DockerContainerSummary[]>('/api/v1/admin/dashboard/containers').pipe(catchError(() => of([])))
     }).pipe(
-      tap(({ health, coursesLoad, incidents }) => {
+      tap(({ health, coursesLoad, incidents, containers }) => {
         let metrics: HostHardwareMetrics;
 
         if (health?.host_hardware) {
@@ -73,7 +78,6 @@ export class AdminMetricsService {
             containers_max: 40
           };
         } else {
-          // Fallback en caso de que gopsutil no reporte disco/cpu
           const running = health?.running_labs ?? 0;
           const hibernated = health?.hibernated_labs ?? 0;
           const totalRamMB = 32 * 1024;
@@ -93,18 +97,15 @@ export class AdminMetricsService {
           };
         }
 
-        // Si la base de datos ya tiene materias reales, usarlas; de lo contrario fallback didáctico
-        const finalCourses = coursesLoad && coursesLoad.length > 0 ? coursesLoad : this.buildDemoCoursesLoad();
-        const finalIncidents = incidents && incidents.length > 0 ? incidents : this.buildDemoIncidents();
-
         this.health.set({
           status: (health?.oom_killed_labs ?? 0) > 0 ? 'degraded' : 'healthy',
           docker_version: 'Docker Engine v27.1.1 (overlay2)',
-          uptime_seconds: 14 * 86400 + 3600 * 5,
+          uptime_seconds: health?.uptime_seconds ?? (14 * 86400 + 3600 * 5),
           metrics,
-          containers: this.buildDemoContainers(),
-          courses_load: finalCourses,
-          incidents: finalIncidents
+          containers: containers || [],
+          courses_load: coursesLoad || [],
+          incidents: incidents || [],
+          load_history: health?.load_history ?? this.buildLoadHistoryFallback(metrics)
         });
 
         this.isLoading.set(false);
@@ -195,112 +196,44 @@ export class AdminMetricsService {
       .subscribe();
   }
 
-  private buildDemoCoursesLoad(): CourseLoadSummary[] {
-    return [
-      {
-        id: 'crs-01',
-        course_name: 'Programación Avanzada',
-        teacher_name: 'Prof. C. García',
-        active_students: 18,
-        hibernated_students: 2,
-        ram_used_mb: 4300
-      },
-      {
-        id: 'crs-02',
-        course_name: 'Algoritmos Complejos',
-        teacher_name: 'Prof. A. Torres',
-        active_students: 10,
-        hibernated_students: 1,
-        ram_used_mb: 2560
-      },
-      {
-        id: 'crs-03',
-        course_name: 'Bases de Datos I',
-        teacher_name: 'Prof. M. López',
-        active_students: 0,
-        hibernated_students: 4,
-        ram_used_mb: 0
-      }
-    ];
+  getWorkspaceLogs(workspaceId: string): Observable<WorkspaceLogsResponse> {
+    return this.http.get<WorkspaceLogsResponse>(`/api/v1/admin/workspaces/${workspaceId}/logs`);
   }
 
-  private buildDemoIncidents(): TechnicalIncident[] {
-    return [
-      {
-        id: 'inc-01',
-        type: 'oom_killed',
-        workspace_id: 'WS-089',
-        student_name: 'Carlos Ruiz',
-        course_name: 'Programación Avanzada',
-        description: 'Excedió cuota de 512 MB por bucle de memoria no liberada (Exit code 137).',
-        memory_limit_mb: 512,
-        timestamp: 'Hace 4 min'
-      }
-    ];
+  resolveIncident(workspaceId: string): Observable<any> {
+    return this.http.post<{ status: string; workspace_id: string; message: string }>(
+      `/api/v1/admin/workspaces/${workspaceId}/resolve`, 
+      {}
+    ).pipe(
+      tap(() => this.fetchMetrics())
+    );
   }
 
-  private buildDemoContainers(): DockerContainerSummary[] {
-    return [
-      {
-        id: 'WS-089',
-        student_name: 'Carlos Ruiz',
-        student_email: 'carlos.ruiz@uab.edu.bo',
-        course_name: 'Programación Avanzada',
-        image_tag: 'solv-lab/c-gcc:13.2',
-        memory_used_mb: 512,
-        memory_limit_mb: 512,
-        ttl_remaining_seconds: 0,
-        status: 'failed',
-        started_at: '2026-09-15T08:10:00Z'
-      },
-      {
-        id: 'WS-090',
-        student_name: 'Alvaro Rivera',
-        student_email: 'alvaro.rivera@uab.edu.bo',
-        course_name: 'Programación Avanzada',
-        image_tag: 'solv-lab/c-gcc:13.2',
-        memory_used_mb: 210,
-        memory_limit_mb: 512,
-        ttl_remaining_seconds: 1200,
-        status: 'running',
-        started_at: '2026-09-15T08:30:00Z'
-      },
-      {
-        id: 'WS-091',
-        student_name: 'Elena Morales',
-        student_email: 'elena.morales@uab.edu.bo',
-        course_name: 'Programación Avanzada',
-        image_tag: 'solv-lab/c-gcc:13.2',
-        memory_used_mb: 195,
-        memory_limit_mb: 512,
-        ttl_remaining_seconds: 900,
-        status: 'running',
-        started_at: '2026-09-15T08:35:00Z'
-      },
-      {
-        id: 'WS-101',
-        student_name: 'Lucía Fernández',
-        student_email: 'lucia.fernandez@uab.edu.bo',
-        course_name: 'Algoritmos Complejos',
-        image_tag: 'solv-lab/python:3.12-slim',
-        memory_used_mb: 320,
-        memory_limit_mb: 512,
-        ttl_remaining_seconds: 480,
-        status: 'running',
-        started_at: '2026-09-15T08:45:00Z'
-      },
-      {
-        id: 'WS-102',
-        student_name: 'Mateo Quispe',
-        student_email: 'mateo.quispe@uab.edu.bo',
-        course_name: 'Bases de Datos I',
-        image_tag: 'solv-lab/postgres:16.3',
-        memory_used_mb: 180,
-        memory_limit_mb: 512,
-        ttl_remaining_seconds: 0,
-        status: 'hibernated',
-        started_at: '2026-09-15T07:15:00Z'
-      }
-    ];
+  private buildLoadHistoryFallback(metrics?: HostHardwareMetrics): LoadSnapshot[] {
+    const snapshots: LoadSnapshot[] = [];
+    const now = new Date();
+    const baseRam = metrics?.ram_percent ?? 24;
+    const baseCpu = metrics?.cpu_percent ?? 10;
+    const active = metrics?.containers_active ?? 0;
+    const totalRamGB = metrics ? Math.round((metrics.ram_total_bytes / (1024 * 1024 * 1024)) * 10) / 10 : 32;
+
+    for (let i = 59; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 60000);
+      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      // Variación sutil alrededor de las métricas reales del host
+      const variance = Math.sin(i / 5) * 1.5;
+      const ram = Math.max(1, Math.min(100, Math.round(baseRam + variance)));
+      const cpu = Math.max(1, Math.min(100, Math.round(baseCpu + variance * 0.8)));
+      const usedGB = Math.round(((ram / 100) * totalRamGB) * 10) / 10;
+
+      snapshots.push({
+        timestamp: timeStr,
+        ram_percent: ram,
+        ram_used_gb: usedGB,
+        cpu_percent: cpu,
+        active_containers: active
+      });
+    }
+    return snapshots;
   }
 }

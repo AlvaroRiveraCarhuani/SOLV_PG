@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminMetricsService } from '../services/admin-metrics.service';
 import { HardwareKpiComponent } from './components/hardware-kpi/hardware-kpi.component';
@@ -6,7 +6,9 @@ import { CourseLoadComponent } from './components/course-load/course-load.compon
 import { IncidentsPanelComponent } from './components/incidents-panel/incidents-panel.component';
 import { CourseWorkspacesModalComponent } from './components/course-modal/course-workspaces-modal.component';
 import { ContainerTableComponent } from './components/container-table/container-table.component';
-import { CourseLoadSummary } from '@core/models/admin.model';
+import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewer-modal.component';
+import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
+import { CourseLoadSummary, TechnicalIncident } from '@core/models/admin.model';
 import { 
   LucideRefreshCw, 
   LucideMoon, 
@@ -28,10 +30,12 @@ import {
     IncidentsPanelComponent,
     CourseWorkspacesModalComponent,
     ContainerTableComponent, 
+    LogViewerModalComponent,
+    LoadHistoryChartComponent,
     LucideRefreshCw, 
     LucideMoon, 
-    LucideServer,
-    LucideChevronDown,
+    LucideServer, 
+    LucideChevronDown, 
     LucideChevronUp,
     LucideInfo,
     LucideCheckCircle,
@@ -55,11 +59,20 @@ import {
               {{ health()?.docker_version }}
             </span>
             <span class="meta-separator">&bull;</span>
-            <span class="uptime-text">Uptime: 14 días 5 horas</span>
+            <span class="uptime-text">{{ formatUptime(health()?.uptime_seconds) }}</span>
           </div>
         </div>
 
         <div class="header-actions">
+          <button 
+            class="btn-toggle-autorefresh" 
+            [class.active]="autoRefresh()"
+            (click)="toggleAutoRefresh()"
+            title="Monitoreo en tiempo real cada 10 segundos">
+            <span class="live-dot-pulse" [class.on]="autoRefresh()"></span>
+            <span>{{ autoRefresh() ? 'Auto (10s)' : 'Auto-refresco' }}</span>
+          </button>
+
           <button 
             class="btn-secondary" 
             (click)="refresh()" 
@@ -102,6 +115,11 @@ import {
         <solv-hardware-kpi [metrics]="health()!.metrics" />
       }
 
+      <!-- 2. Gráfico Temporal de Carga (Últimos 60 minutos) -->
+      @if (health()?.load_history) {
+        <solv-load-history-chart [history]="health()!.load_history!" />
+      }
+
       <!-- 2. Grilla Macro en 2 Columnas (2/3 y 1/3) -->
       <div class="grid-split-macro">
         <!-- Columna Izquierda (2/3): Carga por Materia -->
@@ -119,6 +137,7 @@ import {
           @if (health()?.incidents) {
             <solv-incidents-panel 
               [incidents]="health()!.incidents" 
+              (resolveIncident)="onResolveIncident($event)"
               (restartWorkspace)="onRestartWorkspace($event)"
               (viewLogs)="onViewLogs($event)"
             />
@@ -155,6 +174,14 @@ import {
           (close)="selectedCourse.set(null)"
           (restartWorkspace)="onRestartWorkspace($event)"
           (pauseWorkspace)="onPauseWorkspace($event)"
+        />
+      }
+
+      <!-- 5. Modal Contextual: Registro de Logs de Incidencia -->
+      @if (selectedIncidentForLogs()) {
+        <solv-log-viewer-modal 
+          [incident]="selectedIncidentForLogs()"
+          (close)="selectedIncidentForLogs.set(null)"
         />
       }
     </div>
@@ -250,6 +277,51 @@ import {
       display: flex;
       align-items: center;
       gap: var(--space-2-5, 10px);
+    }
+
+    .btn-toggle-autorefresh {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 0 var(--space-3, 12px);
+      height: 34px;
+      border-radius: var(--radius-md, 6px);
+      font-size: var(--font-size-xs, 12px);
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid var(--border-subtle, #CBD5E1);
+      background-color: var(--bg-surface, #FFFFFF);
+      color: var(--text-secondary, #64748B);
+      transition: all 150ms ease;
+
+      &:hover {
+        background-color: var(--bg-canvas, #F1F5F9);
+        color: var(--text-primary, #0F172A);
+      }
+
+      &.active {
+        background-color: #EFF6FF;
+        border-color: #93C5FD;
+        color: #1D4ED8;
+      }
+    }
+
+    .live-dot-pulse {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background-color: var(--text-muted, #94A3B8);
+
+      &.on {
+        background-color: #10B981;
+        box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+        animation: pulseLiveDot 2s infinite ease-in-out;
+      }
+    }
+
+    @keyframes pulseLiveDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.6; }
     }
 
     .btn-secondary {
@@ -442,24 +514,70 @@ import {
     }
   `]
 })
-export class AdminDashboardComponent {
+export class AdminDashboardComponent implements OnDestroy {
   private metricsService = inject(AdminMetricsService);
 
   health = this.metricsService.health;
   isLoading = this.metricsService.isLoading;
 
   selectedCourse = signal<CourseLoadSummary | null>(null);
+  selectedIncidentForLogs = signal<TechnicalIncident | null>(null);
   showAllContainers = signal<boolean>(false);
 
   // Cooldowns and Feedback Signals
   refreshCooldown = signal<number>(0);
   hibernateCooldown = signal<number>(0);
   isHibernating = signal<boolean>(false);
+  autoRefresh = signal<boolean>(false);
   feedbackMessage = signal<{ type: 'info' | 'success' | 'warning', text: string } | null>(null);
 
   private refreshTimer?: any;
   private hibernateTimer?: any;
   private feedbackTimer?: any;
+  private autoRefreshTimer?: any;
+
+  toggleAutoRefresh(): void {
+    const nextState = !this.autoRefresh();
+    this.autoRefresh.set(nextState);
+    if (nextState) {
+      this.startAutoRefresh();
+      this.showFeedback('info', 'Actualización automática activada (intervalo de 10 segundos).');
+    } else {
+      this.stopAutoRefresh();
+      this.showFeedback('info', 'Actualización automática desactivada.');
+    }
+  }
+
+  private startAutoRefresh(): void {
+    this.stopAutoRefresh();
+    this.autoRefreshTimer = setInterval(() => {
+      if (!this.isLoading() && this.refreshCooldown() === 0) {
+        this.metricsService.fetchMetrics();
+      }
+    }, 10000);
+  }
+
+  private stopAutoRefresh(): void {
+    if (this.autoRefreshTimer) {
+      clearInterval(this.autoRefreshTimer);
+      this.autoRefreshTimer = null;
+    }
+  }
+
+  formatUptime(seconds?: number): string {
+    if (!seconds || seconds <= 0) return 'Uptime: Calculando...';
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+
+    if (days > 0) {
+      return `Uptime: ${days} ${days === 1 ? 'día' : 'días'} ${hours} h`;
+    }
+    if (hours > 0) {
+      return `Uptime: ${hours} h ${minutes} min`;
+    }
+    return `Uptime: ${minutes} min`;
+  }
 
   refresh(): void {
     if (this.isLoading() || this.refreshCooldown() > 0) return;
@@ -539,11 +657,39 @@ export class AdminDashboardComponent {
     this.metricsService.restartWorkspace(workspaceId);
   }
 
+  onResolveIncident(workspaceId: string): void {
+    this.metricsService.resolveIncident(workspaceId).subscribe({
+      next: () => {
+        this.showFeedback('success', `Incidencia de la instancia ${workspaceId} resuelta y contadores OOM normalizados.`);
+      },
+      error: () => {
+        this.showFeedback('warning', `No se pudo resolver la incidencia de la instancia ${workspaceId}.`);
+      }
+    });
+  }
+
   onPauseWorkspace(workspaceId: string): void {
     this.metricsService.pauseWorkspace(workspaceId);
   }
 
   onViewLogs(workspaceId: string): void {
-    console.info('Consultar logs para workspace:', workspaceId);
+    const inc = this.health()?.incidents.find(i => i.workspace_id === workspaceId) || {
+      id: 'inc-manual',
+      type: 'oom_killed' as const,
+      workspace_id: workspaceId,
+      student_name: 'Estudiante',
+      course_name: 'Laboratorio de Programación',
+      description: 'Excedió cuota de memoria configurada (Exit code 137)',
+      memory_limit_mb: 512,
+      timestamp: 'Reciente'
+    };
+    this.selectedIncidentForLogs.set(inc);
+  }
+
+  ngOnDestroy(): void {
+    this.stopAutoRefresh();
+    if (this.refreshTimer) clearInterval(this.refreshTimer);
+    if (this.hibernateTimer) clearInterval(this.hibernateTimer);
+    if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
   }
 }

@@ -111,6 +111,7 @@ type WorkspaceOrchestrator interface {
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
 	ListAllManagedContainers(ctx context.Context) ([]string, error)
 	RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error)
+	GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error)
 }
 
 type TenantRepository interface {

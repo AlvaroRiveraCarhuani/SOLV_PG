@@ -1,12 +1,12 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TechnicalIncident } from '@core/models/admin.model';
-import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from '@lucide/angular';
+import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } from '@lucide/angular';
 
 @Component({
   selector: 'solv-incidents-panel',
   standalone: true,
-  imports: [CommonModule, LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo],
+  imports: [CommonModule, LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo],
   template: `
     <div class="panel-container">
       <div class="panel-header">
@@ -14,7 +14,9 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
           <svg lucideAlertTriangle class="header-icon-danger"></svg>
           <h3 class="panel-title">Incidencias de Infraestructura</h3>
         </div>
-        <span class="incident-badge">{{ incidents().length }} alertas</span>
+        <span class="incident-badge" [class.zero]="incidents().length === 0">
+          {{ incidents().length }} {{ incidents().length === 1 ? 'alerta' : 'alertas' }}
+        </span>
       </div>
 
       <div class="panel-body">
@@ -45,18 +47,19 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
                   <span>Ver Logs</span>
                 </button>
                 <button 
-                  class="btn-restart" 
-                  (click)="restartWorkspace.emit(inc.workspace_id)"
-                  title="Restablecer contenedor del estudiante">
-                  <svg lucideRotateCcw class="btn-icon"></svg>
-                  <span>Reiniciar</span>
+                  class="btn-resolve" 
+                  (click)="resolveIncident.emit(inc.workspace_id)"
+                  title="Restablecer contadores OOM y liberar recursos del contenedor">
+                  <svg lucideCheckCircle class="btn-icon"></svg>
+                  <span>Resolver</span>
                 </button>
               </div>
             </div>
           } @empty {
             <div class="empty-incidents">
               <span class="empty-icon">✓</span>
-              <span class="empty-text">Sin incidencias técnicas en este momento. Todos los contenedores operan dentro de sus cuotas.</span>
+              <span class="empty-title">Sin incidencias técnicas</span>
+              <span class="empty-text">Todos los contenedores operan dentro de los límites de memoria y cuotas del sistema.</span>
             </div>
           }
         </div>
@@ -102,7 +105,7 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
     .header-icon-danger {
       width: 16px;
       height: 16px;
-      color: #DC2626;
+      color: var(--verdict-wa, #DC2626);
     }
 
     .panel-title {
@@ -119,6 +122,11 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       background-color: #FEE2E2;
       padding: 2px 8px;
       border-radius: var(--radius-full, 9999px);
+
+      &.zero {
+        color: #166534;
+        background-color: #DCFCE7;
+      }
     }
 
     .panel-body {
@@ -155,7 +163,7 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--font-mono, monospace);
       font-size: 11px;
       font-weight: 600;
       color: #B91C1C;
@@ -165,7 +173,7 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background-color: #DC2626;
+      background-color: var(--verdict-wa, #DC2626);
     }
 
     .incident-time {
@@ -204,20 +212,20 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       margin-top: 4px;
     }
 
-    .btn-log, .btn-restart {
+    .btn-log, .btn-resolve {
       display: inline-flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 4px;
       font-size: 11px;
-      font-weight: 500;
+      font-weight: 600;
       cursor: pointer;
       transition: all 150ms ease;
 
       .btn-icon {
-        width: 12px;
-        height: 12px;
+        width: 13px;
+        height: 13px;
       }
     }
 
@@ -232,14 +240,14 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       }
     }
 
-    .btn-restart {
-      background-color: #FEE2E2;
-      border: 1px solid #FCA5A5;
-      color: #991B1B;
+    .btn-resolve {
+      background-color: #DCFCE7;
+      border: 1px solid #BBF7D0;
+      color: #166534;
 
       &:hover {
-        background-color: #FCA5A5;
-        color: #7F1D1D;
+        background-color: #BBF7D0;
+        color: #14532D;
       }
     }
 
@@ -284,14 +292,17 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 24px 12px;
+      padding: 32px 16px;
       text-align: center;
-      gap: 8px;
+      gap: 6px;
+      background-color: #F8FAFC;
+      border: 1px dashed var(--border-subtle, #E2E8F0);
+      border-radius: var(--radius-md, 6px);
     }
 
     .empty-icon {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       background-color: #DCFCE7;
       color: #16A34A;
@@ -299,17 +310,27 @@ import { LucideAlertTriangle, LucideRotateCcw, LucideFileText, LucideInfo } from
       align-items: center;
       justify-content: center;
       font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .empty-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary, #0F172A);
     }
 
     .empty-text {
-      font-size: 12px;
-      color: var(--text-secondary, #475569);
+      font-size: 11.5px;
+      color: var(--text-secondary, #64748B);
       line-height: 1.4;
+      max-width: 280px;
     }
   `]
 })
 export class IncidentsPanelComponent {
   incidents = input.required<TechnicalIncident[]>();
+  resolveIncident = output<string>();
   restartWorkspace = output<string>();
   viewLogs = output<string>();
 }

@@ -1,4 +1,4 @@
-import { Component, inject, signal, output } from '@angular/core';
+import { Component, inject, signal, computed, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TenantService } from '@core/services/tenant.service';
@@ -52,21 +52,20 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
             <div class="notif-dropdown">
               <div class="notif-header">
                 <span class="notif-heading">Avisos del Sistema</span>
-                @if (unreadCount() > 0) {
-                  <button class="btn-clear-notifs" (click)="clearNotifs()">Marcar leídas</button>
+                @if (notifications().length > 0) {
+                  <button class="btn-clear-notifs" (click)="clearNotifs()">Limpiar historial</button>
                 }
               </div>
               <div class="notif-list">
-                @if (unreadCount() > 0) {
-                  <div class="notif-item">
-                    <span class="notif-title">Clúster Docker conectado</span>
-                    <span class="notif-desc">Docker Engine y telemetría de host gopsutil operando correctamente.</span>
+                @for (item of notifications(); track item.id) {
+                  <div class="notif-item" [class.read]="item.read">
+                    <div class="notif-title-row">
+                      <span class="notif-title">{{ item.title }}</span>
+                      <span class="notif-time">{{ item.time }}</span>
+                    </div>
+                    <span class="notif-desc">{{ item.desc }}</span>
                   </div>
-                  <div class="notif-item">
-                    <span class="notif-title">Seguridad y Políticas</span>
-                    <span class="notif-desc">Monitoreo activo de límites de memoria (OOM killer habilitado).</span>
-                  </div>
-                } @else {
+                } @empty {
                   <div class="notif-empty">No hay avisos pendientes en el clúster.</div>
                 }
               </div>
@@ -86,7 +85,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
             </div>
             <div class="profile-details">
               <span class="profile-name">
-                {{ authService.currentUser()?.first_name || 'Usuario' }}
+                {{ formatTitleCase(authService.currentUser()?.first_name) || 'Usuario' }}
               </span>
               <span class="profile-role">{{ roleLabel() }}</span>
             </div>
@@ -96,7 +95,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
             <div class="profile-dropdown">
               <div class="dropdown-header">
                 <span class="user-fullname">
-                  {{ authService.currentUser()?.first_name }} {{ authService.currentUser()?.last_name }}
+                  {{ formatTitleCase((authService.currentUser()?.first_name || '') + ' ' + (authService.currentUser()?.last_name || '')) }}
                 </span>
                 <span class="user-email">{{ authService.currentUser()?.email }}</span>
               </div>
@@ -109,9 +108,20 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
           }
         </div>
       </div>
+
+      @if (notifMenuOpen() || profileMenuOpen()) {
+        <div class="menu-backdrop" (click)="closeAllMenus()"></div>
+      }
     </header>
   `,
   styles: [`
+    .menu-backdrop {
+      position: fixed;
+      inset: 0;
+      background: transparent;
+      z-index: 90;
+    }
+
     .topbar {
       height: 60px;
       background-color: var(--bg-surface, #FFFFFF);
@@ -279,16 +289,37 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
     .notif-item {
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      padding: var(--space-2, 8px);
-      background-color: var(--bg-canvas, #F8FAFC);
+      gap: 3px;
+      padding: var(--space-2, 8px) 10px;
+      background-color: #F8FAFC;
       border-radius: var(--radius-md, 6px);
       border-left: 3px solid var(--tenant-primary, #2563EB);
+      transition: background-color 150ms ease;
+
+      &.read {
+        background-color: #FAFAFA;
+        border-left-color: var(--border-subtle, #E2E8F0);
+
+        .notif-title {
+          color: var(--text-secondary, #475569);
+        }
+      }
+
+      .notif-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
 
       .notif-title {
         font-size: 11px;
         font-weight: 600;
         color: var(--text-primary, #0F172A);
+      }
+
+      .notif-time {
+        font-size: 10px;
+        color: var(--text-muted, #94A3B8);
       }
 
       .notif-desc {
@@ -462,7 +493,32 @@ export class TopbarComponent {
   logoFailed = signal<boolean>(false);
   profileMenuOpen = signal<boolean>(false);
   notifMenuOpen = signal<boolean>(false);
-  unreadCount = signal<number>(2);
+  private loadInitialNotifs() {
+    if (typeof window !== 'undefined' && localStorage.getItem('solv_notifs_cleared') === 'true') {
+      return [];
+    }
+    const isRead1 = typeof window !== 'undefined' && localStorage.getItem('solv_notif_1_read') === 'true';
+    const isRead2 = typeof window !== 'undefined' && localStorage.getItem('solv_notif_2_read') === 'true';
+    return [
+      {
+        id: 'notif-1',
+        title: 'Clúster Docker conectado',
+        desc: 'Docker Engine y telemetría de host gopsutil operando correctamente.',
+        time: 'Hoy',
+        read: isRead1
+      },
+      {
+        id: 'notif-2',
+        title: 'Seguridad y Políticas',
+        desc: 'Monitoreo activo de límites de memoria (OOM killer habilitado).',
+        time: 'Hoy',
+        read: isRead2
+      }
+    ];
+  }
+
+  notifications = signal(this.loadInitialNotifs());
+  unreadCount = computed(() => this.notifications().filter(n => !n.read).length);
 
   roleLabel = () => {
     const role = this.authService.currentUser()?.role;
@@ -479,14 +535,44 @@ export class TopbarComponent {
   }
 
   toggleNotifMenu(): void {
-    this.notifMenuOpen.update(v => !v);
-    if (this.notifMenuOpen()) {
+    const nextState = !this.notifMenuOpen();
+    this.notifMenuOpen.set(nextState);
+    if (nextState) {
       this.profileMenuOpen.set(false);
+      this.markAllAsRead();
     }
   }
 
+  markAllAsRead(): void {
+    this.notifications.update(list => list.map(n => ({ ...n, read: true })));
+    try {
+      localStorage.setItem('solv_notif_1_read', 'true');
+      localStorage.setItem('solv_notif_2_read', 'true');
+    } catch (_) {}
+  }
+
+  closeAllMenus(): void {
+    this.notifMenuOpen.set(false);
+    this.profileMenuOpen.set(false);
+  }
+
   clearNotifs(): void {
-    this.unreadCount.set(0);
+    this.notifications.set([]);
+    try {
+      localStorage.setItem('solv_notifs_cleared', 'true');
+      localStorage.setItem('solv_notif_1_read', 'true');
+      localStorage.setItem('solv_notif_2_read', 'true');
+    } catch (_) {}
+  }
+
+  formatTitleCase(text?: string | null): string {
+    if (!text) return '';
+    return text
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   logout(): void {

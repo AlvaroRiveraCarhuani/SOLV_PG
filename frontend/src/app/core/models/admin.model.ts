@@ -45,6 +45,14 @@ export interface TechnicalIncident {
   timestamp: string;
 }
 
+export interface LoadSnapshot {
+  timestamp: string;
+  ram_percent: number;
+  ram_used_gb: number;
+  cpu_percent: number;
+  active_containers: number;
+}
+
 export interface HostSystemHealth {
   status: 'healthy' | 'degraded' | 'critical';
   docker_version: string;
@@ -53,6 +61,15 @@ export interface HostSystemHealth {
   containers: DockerContainerSummary[];
   courses_load: CourseLoadSummary[];
   incidents: TechnicalIncident[];
+  load_history?: LoadSnapshot[];
+}
+
+export interface WorkspaceLogsResponse {
+  workspace_id: string;
+  container_id: string;
+  student_id: string;
+  status: string;
+  logs: string;
 }
 
 export type TeacherOrigin = 'manual' | 'gclassroom';

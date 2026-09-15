@@ -452,3 +452,52 @@ func (c *Client) GetRawClient() *client.Client {
 	return c.cli
 }
 
+func (c *Client) GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error) {
+	if tailLines <= 0 {
+		tailLines = 100
+	}
+	opts := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       fmt.Sprintf("%d", tailLines),
+		Timestamps: true,
+	}
+
+	outStream, err := c.cli.ContainerLogs(ctx, containerID, opts)
+	if err != nil {
+		return "", fmt.Errorf("failed to retrieve docker container logs for %s: %w", containerID, err)
+	}
+	defer outStream.Close()
+
+	outputBytes, err := io.ReadAll(outStream)
+	if err != nil {
+		return "", fmt.Errorf("failed to read log stream: %w", err)
+	}
+
+	cleaned := cleanMuxLogHeaders(outputBytes)
+	return string(cleaned), nil
+}
+
+func cleanMuxLogHeaders(raw []byte) []byte {
+	var result []byte
+	for len(raw) > 0 {
+		if len(raw) < 8 {
+			result = append(result, raw...)
+			break
+		}
+		if raw[0] == 1 || raw[0] == 2 {
+			size := int(raw[4])<<24 | int(raw[5])<<16 | int(raw[6])<<8 | int(raw[7])
+			raw = raw[8:]
+			if size > len(raw) {
+				size = len(raw)
+			}
+			result = append(result, raw[:size]...)
+			raw = raw[size:]
+		} else {
+			result = append(result, raw[0])
+			raw = raw[1:]
+		}
+	}
+	return result
+}
+
