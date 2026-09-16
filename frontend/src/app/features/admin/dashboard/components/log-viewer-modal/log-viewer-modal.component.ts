@@ -1,4 +1,4 @@
-import { Component, input, output, signal, inject, effect } from '@angular/core';
+import { Component, input, output, signal, inject, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TechnicalIncident } from '@core/models/admin.model';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
@@ -305,6 +305,11 @@ export class LogViewerModalComponent {
 
   incident = input<TechnicalIncident | null>(null);
   close = output<void>();
+
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    this.close.emit();
+  }
 
   logsContent = signal<string>('');
   isLoading = signal<boolean>(false);

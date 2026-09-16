@@ -10,3 +10,8 @@ run:
 build:
 	@echo "=>  Compilando el binario de la API..."
 	@cd backend && go build -o bin/api ./cmd/api
+
+.PHONY: dev
+dev:
+	@./dev.sh
+

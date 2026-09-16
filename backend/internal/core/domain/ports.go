@@ -140,6 +140,8 @@ type SubjectRepository interface {
 	ListStudentsBySubject(ctx context.Context, tenantID, subjectID string) ([]string, error)
 	ListByStudent(ctx context.Context, tenantID, studentID string) ([]*Subject, error)
 	ReassignTeacher(ctx context.Context, tenantID, subjectID, newTeacherID string) error
+	ArchiveSubject(ctx context.Context, tenantID, subjectID string, isArchived bool) error
+	Update(ctx context.Context, tenantID, subjectID, name, code string) error
 }
 
 type AdminGovernanceRepository interface {
@@ -170,6 +172,7 @@ type TeacherInvitationRepository interface {
 	ListTeachers(ctx context.Context, tenantID, search, status, origin string) ([]*TeacherListItem, error)
 	GetTeacherCourses(ctx context.Context, tenantID, teacherID string) ([]*TeacherCourseItem, error)
 	DeleteInvitation(ctx context.Context, tenantID, id string) error
+	DeleteTeacher(ctx context.Context, tenantID, teacherID string) error
 }
 
 type TeacherRepository interface {

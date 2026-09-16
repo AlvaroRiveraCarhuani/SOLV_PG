@@ -1,4 +1,4 @@
-import { Component, input, output, signal, inject, effect, OnInit } from '@angular/core';
+import { Component, input, output, signal, inject, effect, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CourseLoadSummary, DockerContainerSummary } from '@core/models/admin.model';
@@ -31,6 +31,11 @@ export class CourseWorkspacesModalComponent implements OnInit {
   close = output<void>();
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
+
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    this.close.emit();
+  }
 
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');

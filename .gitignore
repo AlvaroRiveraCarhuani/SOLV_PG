@@ -12,3 +12,4 @@ backups/
 /cover*.html
 /*_preview.html
 coverage/
+.run/

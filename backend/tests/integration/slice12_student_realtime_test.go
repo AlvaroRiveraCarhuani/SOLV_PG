@@ -46,6 +46,9 @@ func (m *mockSlice12Docker) ListAllManagedContainers(ctx context.Context) ([]str
 func (m *mockSlice12Docker) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {
 	return []byte("{}"), nil
 }
+func (m *mockSlice12Docker) GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error) {
+	return "mock logs", nil
+}
 
 type mockSlice12HostMonitor struct{}
 
