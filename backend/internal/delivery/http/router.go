@@ -59,6 +59,8 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.SubjectHandler != nil {
 		mux.Handle("POST /api/v1/subjects", am(tm(http.HandlerFunc(deps.SubjectHandler.CreateSubject))))
 		mux.Handle("GET /api/v1/subjects", tm(http.HandlerFunc(deps.SubjectHandler.ListSubjects)))
+		mux.Handle("PUT /api/v1/subjects/{id}", am(tm(http.HandlerFunc(deps.SubjectHandler.UpdateSubject))))
+		mux.Handle("PUT /api/v1/subjects/{id}/archive", am(tm(http.HandlerFunc(deps.SubjectHandler.ArchiveSubject))))
 		mux.Handle("POST /api/v1/subjects/{id}/enroll", am(tm(http.HandlerFunc(deps.SubjectHandler.EnrollStudent))))
 		mux.Handle("GET /api/v1/subjects/{id}/students", tm(http.HandlerFunc(deps.SubjectHandler.ListStudents)))
 	}
@@ -73,6 +75,7 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.TeacherInvitationHandler != nil {
 		mux.Handle("GET /api/v1/teachers", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.ListTeachers))))
 		mux.Handle("GET /api/v1/teachers/{id}/courses", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.GetTeacherCourses))))
+		mux.Handle("DELETE /api/v1/teachers/{id}", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.DeleteTeacher))))
 		mux.Handle("POST /api/v1/invitations/teachers", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.CreateInvitation))))
 		mux.Handle("POST /api/v1/invitations/teachers/{id}/resend", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.ResendInvitation))))
 		mux.Handle("POST /api/v1/invitations/teachers/{id}/renew", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.RenewInvitation))))

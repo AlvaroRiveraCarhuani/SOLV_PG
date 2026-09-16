@@ -21,10 +21,46 @@
     <div class="header-actions">
       <button class="btn-primary" (click)="openInviteModal()">
         <svg lucideUserPlus class="btn-icon"></svg>
-        <span>+ Invitar Profesor</span>
+        <span>Invitar Docente</span>
       </button>
     </div>
   </header>
+
+  <!-- Tarjetas de Resumen KPI -->
+  <section class="kpis-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-box blue">
+        <svg lucideUsers class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Total Docentes</span>
+        <div class="kpi-value">{{ counts().all }}</div>
+        <span class="kpi-detail">Profesores registrados en el sistema</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box green">
+        <svg lucideBookOpen class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Con Materias Asignadas</span>
+        <div class="kpi-value">{{ counts().active - counts().noCourses }}</div>
+        <span class="kpi-detail">Docentes con materias asignadas</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box amber">
+        <svg lucideClock class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Sin Materias Asignadas</span>
+        <div class="kpi-value">{{ counts().noCourses }}</div>
+        <span class="kpi-detail">Docentes activos sin carga horaria</span>
+      </div>
+    </div>
+  </section>
 
   <!-- Pestañas de Estado con Contadores -->
   <div class="status-tabs">
@@ -224,6 +260,12 @@
                         <svg lucideCopy class="btn-icon"></svg>
                         <span>Copiar correo</span>
                       </button>
+                      <button 
+                        class="btn-row-action revoke" 
+                        (click)="requestDeleteTeacher(teacher)"
+                        title="Dar de baja docente y revocar materias asignadas">
+                        <svg lucideTrash2 class="btn-icon"></svg>
+                      </button>
                     }
                   </div>
                 </td>
@@ -339,7 +381,7 @@
     </div>
   }
 
-  <!-- Modal: Materias Asignadas y Gestión de Titularidad -->
+  <!-- Modal: Materias Asignadas y Reasignación de Docente -->
   @if (selectedTeacherForCourses(); as teacher) {
     <div class="modal-backdrop" (click)="closeTeacherCoursesModal()">
       <div class="courses-dialog" (click)="$event.stopPropagation()">
@@ -385,9 +427,9 @@
                         class="btn-reassign-trigger"
                         [class.active]="reassigningCourse()?.id === course.id"
                         (click)="reassigningCourse()?.id === course.id ? cancelReassign() : startReassign(course)"
-                        title="Reasignar la titularidad de esta materia a otro docente">
+                        title="Reasignar esta materia a otro docente">
                         <svg lucideArrowRightLeft class="btn-icon-sm"></svg>
-                        <span>Reasignar Titular</span>
+                        <span>Reasignar Docente</span>
                       </button>
                     </div>
                   </div>
@@ -396,16 +438,16 @@
                   @if (reassigningCourse()?.id === course.id) {
                     <div class="reassign-inline-panel">
                       <div class="reassign-panel-header">
-                        <span class="panel-tag">Reasignación de titularidad para {{ course.code }}</span>
+                        <span class="panel-tag">Reasignación de docente para {{ course.code }}</span>
                       </div>
                       <div class="reassign-form">
                         <div class="form-group">
-                          <label class="form-label">Nuevo docente titular:</label>
+                          <label class="form-label">Nuevo docente asignado:</label>
                           <select 
                             [ngModel]="selectedNewTeacherId()" 
                             (ngModelChange)="selectedNewTeacherId.set($event)"
                             class="form-select">
-                            <option value="">Seleccione el nuevo profesor titular...</option>
+                            <option value="">Seleccione el nuevo docente...</option>
                             @for (target of activeTeachersList(); track target.id) {
                               <option [value]="target.id">{{ target.full_name }} ({{ target.email }})</option>
                             }
@@ -522,5 +564,18 @@
         </footer>
       </div>
     </div>
+  }
+
+  <!-- Modal Institucional de Confirmación de Baja -->
+  @if (teacherToDelete(); as teacher) {
+    <solv-confirm-modal
+      [title]="'¿Dar de baja al docente?'"
+      [message]="'¿Confirma la baja de ' + teacher.full_name + ' (' + teacher.email + ')? Se desasignarán sus materias actuales y perderá los privilegios docentes en la plataforma.'"
+      [confirmText]="'Dar de baja'"
+      [cancelText]="'Cancelar'"
+      [type]="'danger'"
+      (confirm)="executeDeleteTeacher(teacher)"
+      (cancel)="cancelDeleteTeacher()">
+    </solv-confirm-modal>
   }
 </div>

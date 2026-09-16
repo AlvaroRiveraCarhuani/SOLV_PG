@@ -50,66 +50,6 @@ $mut: #64748B;
 .page-title { font-size: 20px; font-weight: 700; color: $txt; margin: 0; }
 .page-subtitle { font-size: 13px; color: $mut; margin: 2px 0 0; }
 
-.btn-primary {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: $p;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #FFF;
-  cursor: pointer;
-  transition: opacity 150ms;
-  &:hover { opacity: 0.92; }
-  .btn-icon { width: 15px; height: 15px; }
-}
-
-.status-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid $bdr;
-  padding-bottom: 2px;
-  overflow-x: auto;
-}
-
-.tab-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  font-size: 13px;
-  font-weight: 500;
-  color: $mut;
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover { color: $txt; }
-  &.active {
-    color: $p;
-    font-weight: 600;
-    border-bottom-color: $p;
-  }
-}
-
-.tab-badge {
-  font-size: 11px;
-  padding: 1px 7px;
-  border-radius: 9999px;
-  background: #F1F5F9;
-  color: #475569;
-  font-weight: 600;
-
-  &.active { background: #DCFCE7; color: #15803D; }
-  &.no-courses { background: #F1F5F9; color: #475569; }
-  &.pending { background: #FEF3C7; color: #B45309; }
-  &.expired { background: #FEE2E2; color: #B91C1C; }
-}
 
 .table-card {
   background: #FFF;
@@ -358,54 +298,6 @@ $mut: #64748B;
   .empty-desc { font-size: 12px; color: #94A3B8; margin: 0; }
 }
 
-.table-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 20px;
-  background: #F8FAFC;
-  border-top: 1px solid $bdr;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.pagination-info { font-size: 12px; color: $mut; }
-.pagination-controls { display: flex; align-items: center; gap: 6px; }
-
-.btn-page {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  background: #FFF;
-  border: 1px solid #CBD5E1;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #475569;
-  cursor: pointer;
-  &:hover:not(:disabled) { background: #F1F5F9; color: $txt; }
-  &:disabled { opacity: 0.45; cursor: not-allowed; }
-  .page-icon { width: 14px; height: 14px; }
-}
-
-.page-numbers { display: flex; gap: 4px; }
-
-.btn-page-number {
-  min-width: 28px;
-  height: 28px;
-  padding: 0 6px;
-  background: #FFF;
-  border: 1px solid #CBD5E1;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #475569;
-  cursor: pointer;
-  &:hover { background: #F1F5F9; }
-  &.active { background: $p; border-color: $p; color: #FFF; }
-}
-
 // Modales
 .modal-backdrop {
   position: fixed;
@@ -454,9 +346,9 @@ $mut: #64748B;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 9999px;
-  background: #EEF2FF;
-  color: #4338CA;
-  border: 1px solid #C7D2FE;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--tenant-primary, #2563EB);
+  border: 1px solid rgba(37, 99, 235, 0.2);
 }
 
 .teacher-avatar-lg, .feedback-icon-circle {

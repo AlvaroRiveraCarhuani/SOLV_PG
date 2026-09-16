@@ -156,7 +156,7 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 	}
 
 	// 6. Verificar Regla (a): Aceptación de Invitación Docente en Transacción Atómica
-	inv, err := teacherInvService.CreateInvitation(ctxA, tenantA.ID, "teacher@test-academic.edu.bo", 24)
+	inv, err := teacherInvService.CreateInvitation(ctxA, tenantA.ID, "teacher@test-academic.edu.bo", "manual", "titular", 24)
 	if err != nil {
 		t.Fatalf("Failed to create teacher invitation: %v", err)
 	}

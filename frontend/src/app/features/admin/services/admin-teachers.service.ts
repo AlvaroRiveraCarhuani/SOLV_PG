@@ -131,6 +131,18 @@ export class AdminTeachersService {
       );
   }
 
+  deleteTeacher(teacherId: string): Observable<boolean> {
+    return this.http.delete(`/api/v1/teachers/${teacherId}`)
+      .pipe(
+        map(() => {
+          this.teachers.update(current => current.filter(t => t.id !== teacherId));
+          this.total.update(t => Math.max(0, t - 1));
+          return true;
+        }),
+        catchError(() => of(false))
+      );
+  }
+
   getTeacherCourses(teacherId: string): Observable<TeacherCourse[]> {
     return this.http.get<{ data?: TeacherCourse[] }>(`/api/v1/teachers/${teacherId}/courses`)
       .pipe(
@@ -142,7 +154,7 @@ export class AdminTeachersService {
   reassignCourseTeacher(courseId: string, newTeacherId: string, reason?: string): Observable<any> {
     return this.http.post(`/api/v1/admin/courses/${courseId}/reassign`, {
       new_teacher_id: newTeacherId,
-      reason: reason || 'Reasignación de titularidad docente por administración'
+      reason: reason || 'Reasignación de docente por administración'
     });
   }
 

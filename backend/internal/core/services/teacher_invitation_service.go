@@ -114,3 +114,7 @@ func (s *TeacherInvitationService) GetTeacherCourses(ctx context.Context, tenant
 func (s *TeacherInvitationService) DeleteInvitation(ctx context.Context, tenantID, id string) error {
 	return s.repo.DeleteInvitation(ctx, tenantID, id)
 }
+
+func (s *TeacherInvitationService) DeleteTeacher(ctx context.Context, tenantID, id string) error {
+	return s.repo.DeleteTeacher(ctx, tenantID, id)
+}

@@ -267,3 +267,31 @@ func (h *TeacherInvitationHandler) DeleteInvitation(w http.ResponseWriter, r *ht
 		"message": "Invitación revocada exitosamente",
 	})
 }
+
+func (h *TeacherInvitationHandler) DeleteTeacher(w http.ResponseWriter, r *http.Request) {
+	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
+	if tenantID == "" {
+		tenantID = r.Header.Get("X-Tenant-Id")
+	}
+	if tenantID == "" {
+		tenantID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	teacherID := r.PathValue("id")
+	if teacherID == "" {
+		SendError(w, http.StatusBadRequest, "Missing teacher ID", "Identificador de docente requerido")
+		return
+	}
+
+	if err := h.service.DeleteTeacher(r.Context(), tenantID, teacherID); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), "No se pudo dar de baja al docente")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "deleted",
+		"message": "Docente dado de baja exitosamente",
+	})
+}
+

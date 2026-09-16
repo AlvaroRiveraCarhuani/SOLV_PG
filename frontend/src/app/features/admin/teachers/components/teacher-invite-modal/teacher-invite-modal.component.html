@@ -8,7 +8,7 @@
         </div>
         <div>
           <h2 class="modal-title">Invitar Nuevo Docente</h2>
-          <p class="modal-subtitle">Emisión de token transaccional de un solo uso con vigencia de 72h (ADR-025).</p>
+          <p class="modal-subtitle">Emisión de token transaccional de un solo uso con vigencia de 72 horas.</p>
         </div>
       </div>
       <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
@@ -25,7 +25,7 @@
           <input 
             id="teacher-email"
             type="email" 
-            placeholder="profesor@uab.edu.bo"
+            placeholder="profesor@institucion.edu"
             [ngModel]="email()" 
             (ngModelChange)="email.set($event)"
             class="form-input"
@@ -44,7 +44,7 @@
             (change)="sendEmail.set(!sendEmail())" 
           />
           <span class="checkbox-text">
-            Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas — ADR-025)
+            Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas)
           </span>
         </label>
       </div>

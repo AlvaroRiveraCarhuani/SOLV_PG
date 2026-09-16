@@ -1,4 +1,4 @@
-import { Component, output, signal } from '@angular/core';
+import { Component, output, signal, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TeacherInvitationPayload } from '@core/models/admin.model';
@@ -14,6 +14,11 @@ import { LucideX, LucideUserPlus, LucideMail, LucideShieldCheck } from '@lucide/
 export class TeacherInviteModalComponent {
   close = output<void>();
   submit = output<TeacherInvitationPayload>();
+
+  @HostListener('document:keydown.escape')
+  handleEscape(): void {
+    this.close.emit();
+  }
 
   email = signal<string>('');
   sendEmail = signal<boolean>(true);

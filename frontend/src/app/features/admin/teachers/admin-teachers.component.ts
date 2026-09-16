@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { TeacherItem, TeacherInvitationPayload } from '@core/models/admin.model';
 import { 
   LucideUserPlus, 
@@ -41,6 +42,7 @@ interface ToastData {
     CommonModule, 
     FormsModule, 
     TeacherInviteModalComponent,
+    ConfirmModalComponent,
     LucideUserPlus, 
     LucideSearch, 
     LucideLock, 
@@ -81,6 +83,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   tokenFeedback = signal<TokenFeedbackData | null>(null);
   copied = signal<boolean>(false);
   toastMessage = signal<ToastData | null>(null);
+  teacherToDelete = signal<TeacherItem | null>(null);
 
   // Modal de materias asignadas y reasignación
   selectedTeacherForCourses = signal<TeacherItem | null>(null);
@@ -196,6 +199,23 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.activeMenuId.set(null);
   }
 
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.showInviteModal()) {
+      this.showInviteModal.set(false);
+    }
+    if (this.tokenFeedback()) {
+      this.tokenFeedback.set(null);
+    }
+    if (this.selectedTeacherForCourses()) {
+      this.closeTeacherCoursesModal();
+    }
+    if (this.teacherToDelete()) {
+      this.cancelDeleteTeacher();
+    }
+    this.activeMenuId.set(null);
+  }
+
   loadTeachers(): void {
     const statusParam = this.statusFilter() === 'no_courses' ? 'active' : this.statusFilter();
     this.teachersService.fetchTeachers(
@@ -291,6 +311,25 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
         this.showToast('Invitación revocada correctamente');
       } else {
         this.showToast('No se pudo revocar la invitación', true);
+      }
+    });
+  }
+
+  requestDeleteTeacher(teacher: TeacherItem): void {
+    this.teacherToDelete.set(teacher);
+  }
+
+  cancelDeleteTeacher(): void {
+    this.teacherToDelete.set(null);
+  }
+
+  executeDeleteTeacher(teacher: TeacherItem): void {
+    this.teachersService.deleteTeacher(teacher.id).subscribe(success => {
+      this.cancelDeleteTeacher();
+      if (success) {
+        this.showToast(`Docente ${teacher.full_name} dado de baja exitosamente`);
+      } else {
+        this.showToast('No se pudo procesar la baja del docente', true);
       }
     });
   }

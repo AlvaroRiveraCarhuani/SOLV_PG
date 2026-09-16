@@ -329,3 +329,36 @@ func (r *PostgresTeacherInvitationRepository) DeleteInvitation(ctx context.Conte
 	return nil
 }
 
+func (r *PostgresTeacherInvitationRepository) DeleteTeacher(ctx context.Context, tenantID, teacherID string) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// 1. Desasignar materias donde el usuario era docente titular
+	unassignQuery := `UPDATE subjects SET teacher_id = NULL, updated_at = NOW() WHERE tenant_id = $1 AND teacher_id = $2`
+	if _, err := tx.ExecContext(ctx, unassignQuery, tenantID, teacherID); err != nil {
+		return fmt.Errorf("failed to unassign teacher courses: %w", err)
+	}
+
+	// 2. Si corresponde a una invitación pendiente o expirada, eliminarla
+	delInvQuery := `DELETE FROM teacher_invitations WHERE id = $1 AND tenant_id = $2`
+	resInv, _ := tx.ExecContext(ctx, delInvQuery, teacherID, tenantID)
+	if rows, _ := resInv.RowsAffected(); rows > 0 {
+		return tx.Commit()
+	}
+
+	// 3. Si corresponde a un docente registrado en users, cambiar rol a 'student' para retirarle privilegios docentes
+	updateRoleQuery := `UPDATE users SET role = 'student' WHERE id = $1 AND tenant_id = $2 AND role = 'teacher'`
+	resUser, err := tx.ExecContext(ctx, updateRoleQuery, teacherID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to revoke teacher role: %w", err)
+	}
+	rowsUser, _ := resUser.RowsAffected()
+	if rowsUser == 0 {
+		return errors.New("docente no encontrado")
+	}
+
+	return tx.Commit()
+}
