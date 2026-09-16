@@ -70,6 +70,10 @@ func (r *PostgresAcademicPeriodRepository) ListByTenant(ctx context.Context, ten
 }
 
 func (r *PostgresAcademicPeriodRepository) Update(ctx context.Context, period *domain.AcademicPeriod) error {
+	if period.IsActive {
+		_, _ = r.db.ExecContext(ctx, `UPDATE academic_periods SET is_active = false WHERE tenant_id = $1 AND id != $2`, period.TenantID, period.ID)
+	}
+
 	query := `
 		UPDATE academic_periods
 		SET name = $1, code = $2, start_date = $3, end_date = $4, is_active = $5

@@ -1,0 +1,91 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-info">
+        <div class="header-icon-box">
+          <svg lucideArrowRightLeft class="header-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Reasignar Docente a la Materia</h2>
+          <p class="modal-subtitle">Transferencia de materia con registro en auditoría institucional.</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
+        <svg lucideX class="close-icon"></svg>
+      </button>
+    </div>
+
+    <!-- Error Banner -->
+    @if (formError()) {
+      <div class="error-banner">
+        <svg lucideAlertCircle class="error-icon"></svg>
+        <span>{{ formError() }}</span>
+      </div>
+    }
+
+    <!-- Content -->
+    <div class="modal-body">
+      <!-- Curso Context Box -->
+      <div class="context-box">
+        <div class="context-item">
+          <span class="context-label">Materia:</span>
+          <span class="context-value highlight">{{ course.code }} — {{ course.name }}</span>
+        </div>
+        <div class="context-item">
+          <span class="context-label">Docente Actual:</span>
+          <span class="context-value">{{ course.teacher_name }}</span>
+        </div>
+      </div>
+
+      <!-- Nuevo Docente Selector -->
+      <div class="form-group">
+        <label for="newTeacher" class="form-label">Nuevo Docente Asignado *</label>
+        <div class="input-icon-wrapper">
+          <svg lucideUser class="input-icon"></svg>
+          <select 
+            id="newTeacher" 
+            [ngModel]="selectedTeacherId()" 
+            (ngModelChange)="selectedTeacherId.set($event)" 
+            class="form-select with-icon">
+            <option value="" disabled>Seleccione el nuevo docente...</option>
+            @for (t of teachers; track t.id) {
+              <option [value]="t.id" [disabled]="t.id === course.teacher_id">
+                {{ t.full_name }} ({{ t.email }}) {{ t.id === course.teacher_id ? '— (Actual)' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- Motivo obligatorio -->
+      <div class="form-group">
+        <label for="reassignReason" class="form-label">
+          Motivo del Cambio <span class="required">*</span>
+        </label>
+        <div class="input-icon-wrapper textarea-wrapper">
+          <svg lucideFileText class="input-icon textarea-icon"></svg>
+          <textarea 
+            id="reassignReason" 
+            rows="3" 
+            placeholder="Ingrese la justificación para el registro de auditoría (ej. Licencia médica, reorganización de departamentos)..." 
+            [ngModel]="reason()" 
+            (ngModelChange)="reason.set($event)" 
+            class="form-textarea with-icon">
+          </textarea>
+        </div>
+        <span class="field-hint">Este motivo quedará asentado en el historial de eventos institucionales.</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button class="btn-primary" (click)="submitReassign()" [disabled]="isSubmitting()">
+        <span>{{ isSubmitting() ? 'Reasignando...' : 'Confirmar Reasignación' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

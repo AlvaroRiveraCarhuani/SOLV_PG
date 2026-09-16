@@ -1,0 +1,402 @@
+<div class="courses-page">
+  <!-- Toast Flotante de Notificaciones (Verde semántico #15803D) -->
+  @if (toastMessage(); as toast) {
+    <div class="toast-notification" [class.toast-error]="toast.isError">
+      @if (!toast.isError) {
+        <svg lucideCheckCircle class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ toast.text }}</span>
+    </div>
+  }
+
+  <!-- Header Superior Limpio -->
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Cursos y Periodos Académicos</h1>
+      <p class="page-subtitle">Supervisión institucional de materias, cursos y periodos semestrales.</p>
+    </div>
+
+    <div class="header-actions">
+      <!-- Selector de Periodo Activo -->
+      <div class="period-selector-box">
+        <svg lucideCalendar class="period-icon"></svg>
+        <select 
+          class="period-select"
+          [ngModel]="coursesService.activePeriod()?.id || ''"
+          (ngModelChange)="onPeriodChange($event)">
+          <option value="">Todos los periodos</option>
+          @for (p of coursesService.periods(); track p.id) {
+            <option [value]="p.id">
+              {{ p.name }} ({{ p.code }}) {{ p.is_active ? '— Actual' : '' }}
+            </option>
+          }
+        </select>
+        <button class="btn-manage-periods" (click)="openPeriodsModal()" title="Gestionar Periodos">
+          <span>Gestionar</span>
+        </button>
+      </div>
+
+      <!-- Botón Alta Curso -->
+      <button class="btn-primary" (click)="openCreateCourseModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nuevo Curso</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Tarjetas de KPIs del Periodo (100% enfocadas en Cursos) -->
+  <section class="kpis-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-box blue">
+        <svg lucideBookOpen class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Cursos en el Ciclo</span>
+        <div class="kpi-value">{{ periodKpis().totalCourses }}</div>
+        <span class="kpi-detail">Cursos registrados en el periodo</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box" [class.amber]="periodKpis().unassignedCourses > 0" [class.green]="periodKpis().unassignedCourses === 0">
+        @if (periodKpis().unassignedCourses > 0) {
+          <svg lucideAlertTriangle class="kpi-icon"></svg>
+        } @else {
+          <svg lucideCheckCircle class="kpi-icon"></svg>
+        }
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Sin Docente</span>
+        <div class="kpi-value">{{ periodKpis().unassignedCourses }}</div>
+        <span class="kpi-detail">
+          {{ periodKpis().unassignedCourses === 0 ? 'Todos los cursos con docente asignado' : 'Requieren asignación de docente' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box gray">
+        <svg lucideArchive class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Cursos Archivados</span>
+        <div class="kpi-value">{{ periodKpis().archivedCourses }}</div>
+        <span class="kpi-detail">Materias inactivas en este ciclo</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pestañas de Estado con Contadores (Patrón unificado con Docentes) -->
+  <div class="status-tabs">
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'all'" 
+      (click)="onStatusFilterChange('all')">
+      Todos
+      <span class="tab-badge">{{ coursesCounts().all }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'active'" 
+      (click)="onStatusFilterChange('active')">
+      Activos
+      <span class="tab-badge active">{{ coursesCounts().active }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'unassigned'" 
+      (click)="onStatusFilterChange('unassigned')">
+      Sin Docente
+      <span class="tab-badge warning">{{ coursesCounts().unassigned }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'archived'" 
+      (click)="onStatusFilterChange('archived')">
+      Archivados
+      <span class="tab-badge archived">{{ coursesCounts().archived }}</span>
+    </button>
+  </div>
+
+  <!-- Contenedor Card de Tabla (Patrón unificado con Docentes) -->
+  <div class="table-card">
+    <div class="filter-toolbar">
+      <div class="search-box">
+        <svg lucideSearch class="search-icon"></svg>
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Buscar por código, materia o docente..." 
+          [ngModel]="searchQuery()" 
+          (ngModelChange)="onSearchChange($event)" 
+        />
+      </div>
+
+      <button class="btn-icon-reload" (click)="reload()" title="Recargar datos">
+        <svg lucideRefreshCw class="reload-icon" [class.spinning]="coursesService.isLoading()"></svg>
+      </button>
+    </div>
+    @if (coursesService.isLoading()) {
+      <div class="loading-box">
+        <div class="spinner"></div>
+        <span>Cargando catálogo de materias y periodos...</span>
+      </div>
+    } @else {
+      <table class="solv-table">
+        <thead>
+          <tr>
+            <th class="col-code">CÓDIGO & MATERIA</th>
+            <th class="col-teacher">DOCENTE TITULAR</th>
+            <th class="col-template">PLANTILLA BASE</th>
+            <th class="col-students">MATRICULADOS</th>
+            <th class="col-status">ESTADO</th>
+            <th class="col-actions">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (course of paginatedCourses(); track course.id) {
+            <tr [class.row-archived]="course.is_archived">
+              <!-- Código y Materia -->
+              <td class="col-code">
+                <div class="course-title-cell">
+                  <span class="course-code-badge">{{ course.code }}</span>
+                  <span class="course-name">{{ course.name }}</span>
+                </div>
+              </td>
+
+              <!-- Docente Titular -->
+              <td class="col-teacher">
+                @if (course.teacher_name && course.teacher_name !== 'Sin asignar') {
+                  <div class="teacher-info">
+                    <span class="teacher-name">{{ course.teacher_name }}</span>
+                  </div>
+                } @else {
+                  <span class="badge-unassigned">Sin asignar</span>
+                }
+              </td>
+
+              <!-- Plantilla Base -->
+              <td class="col-template">
+                <span class="template-badge">
+                  <svg lucideLayers class="template-icon"></svg>
+                  <span>{{ course.template_name || 'Linux Base' }}</span>
+                </span>
+              </td>
+
+              <!-- Estudiantes Matriculados -->
+              <td class="col-students">
+                <div class="students-count-cell">
+                  <span class="students-total">{{ course.active_students + course.hibernated_students }}</span>
+                </div>
+              </td>
+
+              <!-- Estado -->
+              <td class="col-status">
+                @if (course.is_archived) {
+                  <span class="status-badge archived">Archivado</span>
+                } @else {
+                  <span class="status-badge active">Activo</span>
+                }
+              </td>
+
+              <!-- Acciones -->
+              <td class="col-actions">
+                <div class="action-buttons">
+                  <button 
+                    class="btn-action" 
+                    (click)="openReassignModal(course)" 
+                    title="Reasignar docente a la materia">
+                    <svg lucideArrowRightLeft class="action-icon"></svg>
+                    <span>Reasignar</span>
+                  </button>
+
+                  <button 
+                    class="btn-action-icon" 
+                    (click)="openEditCourseModal(course)" 
+                    title="Editar datos de la materia">
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+
+                  <button 
+                    class="btn-action-icon" 
+                    [class.is-archived]="course.is_archived"
+                    (click)="requestToggleArchive(course)" 
+                    [title]="course.is_archived ? 'Desarchivar curso' : 'Archivar curso'">
+                    @if (course.is_archived) {
+                      <svg lucideArchiveRestore class="action-icon"></svg>
+                    } @else {
+                      <svg lucideArchive class="action-icon"></svg>
+                    }
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-cell">
+                <div class="empty-state">
+                  <svg lucideBookOpen class="empty-icon"></svg>
+                  <h3>No se encontraron cursos</h3>
+                  <p>No existen materias que coincidan con los filtros o el periodo seleccionado.</p>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Paginación de Tabla -->
+      <footer class="table-footer">
+        <div class="pagination-info">
+          Mostrando <strong>{{ paginationDisplay().from }}–{{ paginationDisplay().to }}</strong> de <strong>{{ filteredCourses().length }}</strong> cursos
+          
+          <div class="page-size-selector">
+            <span class="size-label">Mostrar:</span>
+            <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)" class="size-select">
+              @for (size of pageSizeOptions; track size) {
+                <option [value]="size">{{ size }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        @if (totalPages() > 1) {
+          <div class="pagination-controls">
+            <button 
+              class="btn-page" 
+              [disabled]="currentPage() === 1" 
+              (click)="goToPage(currentPage() - 1)">
+              <svg lucideChevronLeft class="page-icon"></svg>
+              <span>Anterior</span>
+            </button>
+
+            <div class="page-numbers">
+              @for (p of displayedPages(); track p) {
+                <button 
+                  class="btn-page-number" 
+                  [class.active]="p === currentPage()" 
+                  (click)="goToPage(p)">
+                  {{ p }}
+                </button>
+              }
+            </div>
+
+            <button 
+              class="btn-page" 
+              [disabled]="currentPage() === totalPages()" 
+              (click)="goToPage(currentPage() + 1)">
+              <span>Siguiente</span>
+              <svg lucideChevronRight class="page-icon"></svg>
+            </button>
+          </div>
+        }
+      </footer>
+    }
+  </div>
+
+  <!-- Modales -->
+  @if (showPeriodsModal()) {
+    <solv-period-manage-modal 
+      [periods]="coursesService.periods()" 
+      (close)="closePeriodsModal()"
+      (periodCreated)="reload()"
+      (periodActivated)="reload()">
+    </solv-period-manage-modal>
+  }
+
+  @if (showCreateCourseModal()) {
+    <solv-course-create-modal 
+      [periods]="coursesService.periods()"
+      [teachers]="coursesService.teachers()"
+      [templates]="coursesService.templates()"
+      [defaultPeriodId]="coursesService.activePeriod()?.id || null"
+      (close)="closeCreateCourseModal()"
+      (courseCreated)="onCourseCreated()">
+    </solv-course-create-modal>
+  }
+
+  @if (selectedCourseForReassign(); as course) {
+    <solv-course-reassign-modal 
+      [course]="course"
+      [teachers]="coursesService.teachers()"
+      (close)="closeReassignModal()"
+      (reassignCompleted)="onReassignCompleted()">
+    </solv-course-reassign-modal>
+  }
+
+  <!-- Modal de Edición de Curso -->
+  @if (editingCourse(); as course) {
+    <div class="modal-backdrop" (click)="closeEditCourseModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="header-info">
+            <div class="header-icon-box">
+              <svg lucideBookOpen class="header-icon"></svg>
+            </div>
+            <div>
+              <h2 class="modal-title">Editar Materia</h2>
+              <p class="modal-subtitle">Modificar nombre y código oficial de la materia.</p>
+            </div>
+          </div>
+          <button class="btn-close" (click)="closeEditCourseModal()" title="Cerrar modal">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </div>
+
+        @if (editCourseError()) {
+          <div class="error-banner">
+            <svg lucideAlertCircle class="error-icon"></svg>
+            <span>{{ editCourseError() }}</span>
+          </div>
+        }
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="editCourseName" class="form-label">Nombre de la Materia *</label>
+            <input 
+              id="editCourseName" 
+              type="text" 
+              [ngModel]="editCourseName()" 
+              (ngModelChange)="editCourseName.set($event)" 
+              class="form-input" 
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="editCourseCode" class="form-label">Código Oficial *</label>
+            <input 
+              id="editCourseCode" 
+              type="text" 
+              [ngModel]="editCourseCode()" 
+              (ngModelChange)="editCourseCode.set($event)" 
+              class="form-input uppercase" 
+            />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-outline" (click)="closeEditCourseModal()">Cancelar</button>
+          <button class="btn-primary-sm" [disabled]="isSubmittingEditCourse()" (click)="saveEditCourse(course)">
+            <span>{{ isSubmittingEditCourse() ? 'Guardando...' : 'Guardar Cambios' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Modal Institucional de Confirmación de Archivo/Activación de Curso -->
+  @if (courseToToggleArchive(); as course) {
+    <solv-confirm-modal
+      [title]="course.is_archived ? '¿Desarchivar materia?' : '¿Archivar materia?'"
+      [message]="course.is_archived ? 'La materia ' + course.code + ' — ' + course.name + ' volverá a estar disponible para docentes y alumnos.' : 'La materia ' + course.code + ' — ' + course.name + ' pasará a modo archivado de solo lectura.'"
+      [confirmText]="course.is_archived ? 'Desarchivar' : 'Archivar'"
+      [cancelText]="'Cancelar'"
+      [type]="course.is_archived ? 'primary' : 'danger'"
+      (confirm)="executeToggleArchive(course)"
+      (cancel)="cancelToggleArchive()">
+    </solv-confirm-modal>
+  }
+</div>
+

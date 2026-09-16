@@ -1,0 +1,203 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-info">
+        <div class="header-icon-box">
+          <svg lucideCalendar class="header-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Gestión de Periodos Académicos</h2>
+          <p class="modal-subtitle">Administración de semestres y ciclos lectivos institucionales.</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
+        <svg lucideX class="close-icon"></svg>
+      </button>
+    </div>
+
+    <!-- Error Banner -->
+    @if (formError()) {
+      <div class="error-banner">
+        <svg lucideAlertCircle class="error-icon"></svg>
+        <span>{{ formError() }}</span>
+      </div>
+    }
+
+    <!-- Content -->
+    <div class="modal-body">
+      <!-- Barra de acción para desplegar alta -->
+      <div class="action-bar">
+        <span class="section-label">Periodos Registrados ({{ periods.length }})</span>
+        <button class="btn-secondary-sm" (click)="toggleCreateForm()">
+          <svg lucidePlus class="btn-icon-sm"></svg>
+          <span>{{ showCreateForm() ? 'Cancelar' : 'Nuevo Periodo' }}</span>
+        </button>
+      </div>
+
+      <!-- Formulario de creación (colapsable) -->
+      @if (showCreateForm()) {
+        <div class="create-form-box">
+          <h3 class="form-title">Registrar Nuevo Semestre</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="periodName" class="form-label">Nombre del Periodo *</label>
+              <input 
+                id="periodName" 
+                type="text" 
+                placeholder="ej. Semestre 2026-II" 
+                [ngModel]="name()" 
+                (ngModelChange)="name.set($event)" 
+                class="form-input" 
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="periodCode" class="form-label">Código Oficial *</label>
+              <input 
+                id="periodCode" 
+                type="text" 
+                placeholder="ej. 2026-II" 
+                [ngModel]="code()" 
+                (ngModelChange)="code.set($event)" 
+                class="form-input uppercase" 
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="startDate" class="form-label">Fecha de Inicio *</label>
+              <input 
+                id="startDate" 
+                type="date" 
+                [ngModel]="startDate()" 
+                (ngModelChange)="startDate.set($event)" 
+                class="form-input" 
+              />
+            </div>
+
+            <div class="form-group">
+              <label for="endDate" class="form-label">Fecha de Conclusión *</label>
+              <input 
+                id="endDate" 
+                type="date" 
+                [ngModel]="endDate()" 
+                (ngModelChange)="endDate.set($event)" 
+                class="form-input" 
+              />
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button class="btn-primary-sm" [disabled]="isSubmitting()" (click)="submitNewPeriod()">
+              <span>{{ isSubmitting() ? 'Guardando...' : 'Guardar Periodo' }}</span>
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Lista de Periodos -->
+      <div class="periods-list">
+        @for (p of periods; track p.id) {
+          <div class="period-item" [class.active-item]="p.is_active">
+            @if (editingPeriodId() === p.id) {
+              <div class="inline-edit-box">
+                <div class="inline-edit-grid">
+                  <div class="edit-field">
+                    <label class="edit-label">Nombre</label>
+                    <input type="text" [ngModel]="editName()" (ngModelChange)="editName.set($event)" class="form-input-sm" />
+                  </div>
+                  <div class="edit-field">
+                    <label class="edit-label">Código</label>
+                    <input type="text" [ngModel]="editCode()" (ngModelChange)="editCode.set($event)" class="form-input-sm uppercase" />
+                  </div>
+                  <div class="edit-field">
+                    <label class="edit-label">Inicio</label>
+                    <input type="date" [ngModel]="editStartDate()" (ngModelChange)="editStartDate.set($event)" class="form-input-sm" />
+                  </div>
+                  <div class="edit-field">
+                    <label class="edit-label">Conclusión</label>
+                    <input type="date" [ngModel]="editEndDate()" (ngModelChange)="editEndDate.set($event)" class="form-input-sm" />
+                  </div>
+                </div>
+                <div class="inline-edit-actions">
+                  <button class="btn-cancel-sm" (click)="cancelEdit()">Cancelar</button>
+                  <button class="btn-save-sm" [disabled]="isSavingEdit()" (click)="saveEdit(p)">
+                    {{ isSavingEdit() ? 'Guardando...' : 'Guardar' }}
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="period-item-left">
+                <div class="period-code-badge" [class.badge-active]="p.is_active">
+                  {{ p.code }}
+                </div>
+                <div class="period-meta">
+                  <span class="period-name">{{ p.name }}</span>
+                  <span class="period-dates">{{ formatDate(p.start_date) }} al {{ formatDate(p.end_date) }}</span>
+                </div>
+              </div>
+
+              <div class="period-item-actions">
+                @if (p.is_active) {
+                  <span class="status-pill active">
+                    <svg lucideCheck class="pill-icon"></svg>
+                    Semestre Activo
+                  </span>
+                  <button class="btn-deactivate" (click)="deactivatePeriod(p)" title="Desactivar este periodo">
+                    Desactivar
+                  </button>
+                  <button class="btn-icon-action" (click)="startEdit(p)" title="Editar fechas o nombre del periodo">
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+                } @else if (isPeriodExpired(p)) {
+                  <span class="status-pill expired" title="Periodo con fecha de finalización pasada">
+                    Finalizado
+                  </span>
+                  <button class="btn-icon-action" (click)="startEdit(p)" title="Editar fechas o nombre del periodo">
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+                  <button class="btn-delete" (click)="requestDeletePeriod(p)" title="Eliminar periodo">
+                    <svg lucideTrash2 class="trash-icon"></svg>
+                  </button>
+                } @else {
+                  <button class="btn-activate" (click)="setActive(p)">
+                    Activar este ciclo
+                  </button>
+                  <button class="btn-icon-action" (click)="startEdit(p)" title="Editar fechas o nombre del periodo">
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+                  <button class="btn-delete" (click)="requestDeletePeriod(p)" title="Eliminar periodo">
+                    <svg lucideTrash2 class="trash-icon"></svg>
+                  </button>
+                }
+              </div>
+            }
+          </div>
+        } @empty {
+          <div class="empty-state">
+            <p>No existen periodos académicos registrados aún.</p>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="close.emit()">
+        Cerrar
+      </button>
+    </div>
+  </div>
+
+  @if (periodToDelete(); as period) {
+    <solv-confirm-modal
+      [title]="'¿Eliminar periodo académico?'"
+      [message]="'¿Confirma la eliminación del periodo ' + period.name + ' (' + period.code + ')? Esta acción no se puede deshacer y fallará si tiene materias asignadas.'"
+      [confirmText]="'Eliminar periodo'"
+      [cancelText]="'Cancelar'"
+      [type]="'danger'"
+      (confirm)="executeDeletePeriod(period)"
+      (cancel)="cancelDeletePeriod()">
+    </solv-confirm-modal>
+  }
+</div>

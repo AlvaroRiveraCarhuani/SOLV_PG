@@ -12,6 +12,7 @@ import (
 
 var (
 	ErrInvalidDateRange = errors.New("end_date must be equal to or after start_date")
+	ErrPeriodExpired    = errors.New("cannot activate an expired academic period")
 	ErrConflict         = errors.New("conflict: resource has dependencies")
 )
 
@@ -54,6 +55,10 @@ func (s *AcademicPeriodService) CreatePeriod(ctx context.Context, tenantID strin
 		isActive = *dto.IsActive
 	}
 
+	if isActive && endDate.Before(time.Now().Truncate(24*time.Hour)) {
+		return nil, ErrPeriodExpired
+	}
+
 	period := &domain.AcademicPeriod{
 		ID:        uuid.NewString(),
 		TenantID:  tenantID,
@@ -76,6 +81,7 @@ func (s *AcademicPeriodService) GetPeriod(ctx context.Context, tenantID, id stri
 }
 
 func (s *AcademicPeriodService) ListPeriods(ctx context.Context, tenantID string) ([]*domain.AcademicPeriod, error) {
+	_, _ = s.repo.ArchiveExpiredPeriods(ctx)
 	return s.repo.ListByTenant(ctx, tenantID)
 }
 
@@ -85,25 +91,41 @@ func (s *AcademicPeriodService) UpdatePeriod(ctx context.Context, tenantID, id s
 		return nil, err
 	}
 
-	startDate, err := parseDateFlexible(dto.StartDate)
-	if err != nil {
-		return nil, err
+	if dto.Name != "" {
+		period.Name = dto.Name
 	}
-	endDate, err := parseDateFlexible(dto.EndDate)
-	if err != nil {
-		return nil, err
+	if dto.Code != "" {
+		period.Code = dto.Code
 	}
 
-	if endDate.Before(startDate) {
+	if dto.StartDate != "" {
+		startDate, err := parseDateFlexible(dto.StartDate)
+		if err != nil {
+			return nil, err
+		}
+		period.StartDate = startDate
+	}
+
+	if dto.EndDate != "" {
+		endDate, err := parseDateFlexible(dto.EndDate)
+		if err != nil {
+			return nil, err
+		}
+		period.EndDate = endDate
+	}
+
+	if period.EndDate.Before(period.StartDate) {
 		return nil, ErrInvalidDateRange
 	}
 
-	period.Name = dto.Name
-	period.Code = dto.Code
-	period.StartDate = startDate
-	period.EndDate = endDate
-	if dto.IsActive != nil {
-		period.IsActive = *dto.IsActive
+	if dto.IsActive != nil && *dto.IsActive {
+		// No permitir activar un periodo académico cuya fecha de fin ya expiró
+		if period.EndDate.Before(time.Now().Truncate(24 * time.Hour)) {
+			return nil, ErrPeriodExpired
+		}
+		period.IsActive = true
+	} else if dto.IsActive != nil {
+		period.IsActive = false
 	}
 
 	if err := s.repo.Update(ctx, period); err != nil {

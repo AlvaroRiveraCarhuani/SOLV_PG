@@ -1,0 +1,122 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-info">
+        <div class="header-icon-box">
+          <svg lucideBookPlus class="header-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Nuevo Curso Institucional</h2>
+          <p class="modal-subtitle">Alta de materia oficial y asignación de titular docente.</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
+        <svg lucideX class="close-icon"></svg>
+      </button>
+    </div>
+
+    <!-- Error Banner -->
+    @if (formError()) {
+      <div class="error-banner">
+        <svg lucideAlertCircle class="error-icon"></svg>
+        <span>{{ formError() }}</span>
+      </div>
+    }
+
+    <!-- Form Body -->
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group flex-2">
+          <label for="courseName" class="form-label">Nombre de la Materia *</label>
+          <input 
+            id="courseName" 
+            type="text" 
+            placeholder="ej. Sistemas Operativos II" 
+            [ngModel]="name()" 
+            (ngModelChange)="name.set($event)" 
+            class="form-input" 
+          />
+        </div>
+
+        <div class="form-group flex-1">
+          <label for="courseCode" class="form-label">Código Oficial *</label>
+          <input 
+            id="courseCode" 
+            type="text" 
+            placeholder="ej. SIS-311" 
+            [ngModel]="code()" 
+            (ngModelChange)="code.set($event)" 
+            class="form-input uppercase" 
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="coursePeriod" class="form-label">Periodo Académico (Semestre)</label>
+        <div class="input-icon-wrapper">
+          <svg lucideCalendar class="input-icon"></svg>
+          <select 
+            id="coursePeriod" 
+            [ngModel]="selectedPeriodId()" 
+            (ngModelChange)="selectedPeriodId.set($event)" 
+            class="form-select with-icon">
+            <option value="">Sin periodo asignado</option>
+            @for (p of periods; track p.id) {
+              <option [value]="p.id">
+                {{ p.name }} ({{ p.code }}) {{ p.is_active ? '— Activo' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="courseTeacher" class="form-label">Docente Titular Asignado</label>
+        <div class="input-icon-wrapper">
+          <svg lucideUser class="input-icon"></svg>
+          <select 
+            id="courseTeacher" 
+            [ngModel]="selectedTeacherId()" 
+            (ngModelChange)="selectedTeacherId.set($event)" 
+            class="form-select with-icon">
+            <option value="">Dejar sin asignar temporalmente</option>
+            @for (t of teachers; track t.id) {
+              <option [value]="t.id">
+                {{ t.full_name }} ({{ t.email }})
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="courseTemplate" class="form-label">Plantilla Docker Base</label>
+        <div class="input-icon-wrapper">
+          <svg lucideLayers class="input-icon"></svg>
+          <select 
+            id="courseTemplate" 
+            [ngModel]="selectedTemplateId()" 
+            (ngModelChange)="selectedTemplateId.set($event)" 
+            class="form-select with-icon">
+            @for (tpl of templates; track tpl.id) {
+              <option [value]="tpl.id">
+                {{ tpl.display_name || tpl.name }} {{ tpl.base_ram_mb ? '(' + tpl.base_ram_mb + ' MB RAM)' : '' }}
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button class="btn-primary" (click)="submitCourse()" [disabled]="isSubmitting()">
+        <span>{{ isSubmitting() ? 'Creando curso...' : 'Crear Curso' }}</span>
+      </button>
+    </div>
+  </div>
+</div>

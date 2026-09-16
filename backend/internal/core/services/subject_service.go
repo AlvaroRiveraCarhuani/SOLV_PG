@@ -18,6 +18,10 @@ func NewSubjectService(repo domain.SubjectRepository) *SubjectService {
 }
 
 func (s *SubjectService) CreateSubject(ctx context.Context, tenantID, name, code string, classroomCourseID *string) (*domain.Subject, error) {
+	return s.CreateSubjectWithDetails(ctx, tenantID, name, code, nil, nil, classroomCourseID)
+}
+
+func (s *SubjectService) CreateSubjectWithDetails(ctx context.Context, tenantID, name, code string, teacherID, academicPeriodID, classroomCourseID *string) (*domain.Subject, error) {
 	if name == "" || code == "" {
 		return nil, errors.New("name and code are required")
 	}
@@ -26,12 +30,25 @@ func (s *SubjectService) CreateSubject(ctx context.Context, tenantID, name, code
 		TenantID:          tenantID,
 		Name:              name,
 		Code:              code,
+		TeacherID:         teacherID,
+		AcademicPeriodID:  academicPeriodID,
 		ClassroomCourseID: classroomCourseID,
 	}
 	if err := s.repo.Create(ctx, subject); err != nil {
 		return nil, fmt.Errorf("failed to create subject: %w", err)
 	}
 	return subject, nil
+}
+
+func (s *SubjectService) ArchiveSubject(ctx context.Context, tenantID, subjectID string, isArchived bool) error {
+	return s.repo.ArchiveSubject(ctx, tenantID, subjectID, isArchived)
+}
+
+func (s *SubjectService) UpdateSubject(ctx context.Context, tenantID, subjectID, name, code string) error {
+	if name == "" || code == "" {
+		return errors.New("name and code are required")
+	}
+	return s.repo.Update(ctx, tenantID, subjectID, name, code)
 }
 
 func (s *SubjectService) ListSubjects(ctx context.Context, tenantID string) ([]*domain.Subject, error) {

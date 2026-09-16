@@ -41,6 +41,11 @@ export const routes: Routes = [
         path: 'docentes',
         loadComponent: () =>
           import('@features/admin/teachers/admin-teachers.component').then((m) => m.AdminTeachersComponent)
+      },
+      {
+        path: 'cursos',
+        loadComponent: () =>
+          import('@features/admin/courses/admin-courses.component').then((m) => m.AdminCoursesComponent)
       }
     ]
   },

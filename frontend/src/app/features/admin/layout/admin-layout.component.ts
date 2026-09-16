@@ -16,6 +16,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
   {
     title: 'ACADÉMICO Y GESTIÓN',
     items: [
+      { label: 'Cursos', route: '/admin/cursos', iconName: 'book' },
       { label: 'Docentes', route: '/admin/docentes', iconName: 'users' },
       { label: 'Configuración', route: '/admin/configuracion', iconName: 'sliders' }
     ]

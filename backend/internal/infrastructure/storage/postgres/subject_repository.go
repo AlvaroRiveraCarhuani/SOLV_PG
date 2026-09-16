@@ -18,8 +18,8 @@ func NewPostgresSubjectRepository(db *sqlx.DB) *PostgresSubjectRepository {
 
 func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.Subject) error {
 	query := `
-		INSERT INTO subjects (id, tenant_id, name, code, classroom_course_id, created_at, updated_at)
-		VALUES (:id, :tenant_id, :name, :code, :classroom_course_id, NOW(), NOW())
+		INSERT INTO subjects (id, tenant_id, name, code, teacher_id, academic_period_id, classroom_course_id, created_at, updated_at)
+		VALUES (:id, :tenant_id, :name, :code, :teacher_id, :academic_period_id, :classroom_course_id, NOW(), NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, subject)
 	if err != nil {
@@ -121,3 +121,36 @@ func (r *PostgresSubjectRepository) ReassignTeacher(ctx context.Context, tenantI
 	return nil
 }
 
+func (r *PostgresSubjectRepository) ArchiveSubject(ctx context.Context, tenantID, subjectID string, isArchived bool) error {
+	query := `
+		UPDATE subjects
+		SET is_archived = $1, updated_at = NOW()
+		WHERE tenant_id = $2 AND id = $3
+	`
+	res, err := r.db.ExecContext(ctx, query, isArchived, tenantID, subjectID)
+	if err != nil {
+		return fmt.Errorf("failed to update subject archive status: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return fmt.Errorf("subject not found")
+	}
+	return nil
+}
+
+func (r *PostgresSubjectRepository) Update(ctx context.Context, tenantID, subjectID, name, code string) error {
+	query := `
+		UPDATE subjects
+		SET name = $1, code = $2, updated_at = NOW()
+		WHERE tenant_id = $3 AND id = $4
+	`
+	res, err := r.db.ExecContext(ctx, query, name, code, tenantID, subjectID)
+	if err != nil {
+		return fmt.Errorf("failed to update subject: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil || rows == 0 {
+		return fmt.Errorf("subject not found")
+	}
+	return nil
+}

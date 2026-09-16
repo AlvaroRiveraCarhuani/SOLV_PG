@@ -123,6 +123,10 @@ func (h *AdminAcademicHandler) CreatePeriod(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusUnprocessableEntity, "invalid_date_range", "end_date debe ser posterior o igual a start_date")
 			return
 		}
+		if errors.Is(err, services.ErrPeriodExpired) {
+			SendError(w, http.StatusUnprocessableEntity, "period_expired", "No se puede registrar como activo un periodo académico cuya fecha ya finalizó")
+			return
+		}
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "uq_tenant_period_code") {
 			SendError(w, http.StatusConflict, "duplicate_code", "ya existe un periodo académico con este código")
 			return
@@ -152,6 +156,10 @@ func (h *AdminAcademicHandler) UpdatePeriod(w http.ResponseWriter, r *http.Reque
 	if err != nil {
 		if errors.Is(err, services.ErrInvalidDateRange) {
 			SendError(w, http.StatusUnprocessableEntity, "invalid_date_range", "end_date debe ser posterior o igual a start_date")
+			return
+		}
+		if errors.Is(err, services.ErrPeriodExpired) {
+			SendError(w, http.StatusUnprocessableEntity, "period_expired", "No se puede activar un periodo académico cuya fecha ya finalizó")
 			return
 		}
 		if strings.Contains(err.Error(), "not found") {

@@ -27,10 +27,10 @@ type CreateAcademicPeriodDTO struct {
 
 // UpdateAcademicPeriodDTO DTO para actualizar periodos
 type UpdateAcademicPeriodDTO struct {
-	Name      string `json:"name" validate:"required"`
-	Code      string `json:"code" validate:"required"`
-	StartDate string `json:"start_date" validate:"required"`
-	EndDate   string `json:"end_date" validate:"required"`
+	Name      string `json:"name,omitempty"`
+	Code      string `json:"code,omitempty"`
+	StartDate string `json:"start_date,omitempty"`
+	EndDate   string `json:"end_date,omitempty"`
 	IsActive  *bool  `json:"is_active,omitempty"`
 }
 
