@@ -1,0 +1,72 @@
+<div class="modal-backdrop" (click)="close.emit()" role="dialog" aria-modal="true">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Encabezado del Modal -->
+    <header class="modal-header">
+      <div class="header-left">
+        <div class="icon-circle">
+          <svg lucideUserPlus class="icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Invitar Nuevo Docente</h2>
+          <p class="modal-subtitle">Emisión de token transaccional de un solo uso con vigencia de 72h (ADR-025).</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
+        <svg lucideX class="icon"></svg>
+      </button>
+    </header>
+
+    <!-- Cuerpo del Formulario -->
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label" for="teacher-email">Correo Institucional del Docente *</label>
+        <div class="input-with-icon">
+          <svg lucideMail class="field-icon"></svg>
+          <input 
+            id="teacher-email"
+            type="email" 
+            placeholder="profesor@uab.edu.bo"
+            [ngModel]="email()" 
+            (ngModelChange)="email.set($event)"
+            class="form-input"
+            autofocus
+            autocomplete="email"
+          />
+        </div>
+        <span class="field-hint">El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.</span>
+      </div>
+
+      <div class="form-group checkbox-group">
+        <label class="checkbox-label">
+          <input 
+            type="checkbox" 
+            [checked]="sendEmail()" 
+            (change)="sendEmail.set(!sendEmail())" 
+          />
+          <span class="checkbox-text">
+            Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas — ADR-025)
+          </span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Pie del Modal -->
+    <footer class="modal-footer">
+      <button class="btn-cancel" (click)="close.emit()">
+        <span>Cancelar</span>
+      </button>
+      <button 
+        class="btn-submit" 
+        [disabled]="!isValidEmail() || isSubmitting()" 
+        (click)="onSubmit()">
+        @if (isSubmitting()) {
+          <div class="tenant-spinner-sm"></div>
+          <span>Generando...</span>
+        } @else {
+          <svg lucideShieldCheck class="btn-icon"></svg>
+          <span>Generar Token e Invitar</span>
+        }
+      </button>
+    </footer>
+  </div>
+</div>

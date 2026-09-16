@@ -1,7 +1,7 @@
-import { Component, inject, signal, computed } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { AdminTeachersService } from '../services/admin-teachers.service';
+import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { TeacherItem, TeacherInvitationPayload } from '@core/models/admin.model';
 import { 
@@ -13,8 +13,26 @@ import {
   LucideAlertCircle, 
   LucideSend, 
   LucideRotateCcw,
-  LucideMoreVertical
+  LucideCopy,
+  LucideTrash2,
+  LucideBookOpen,
+  LucideUsers,
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucideArrowRightLeft,
+  LucidePlus
 } from '@lucide/angular';
+
+interface TokenFeedbackData {
+  title: string;
+  email: string;
+  inviteUrl: string;
+}
+
+interface ToastData {
+  text: string;
+  isError: boolean;
+}
 
 @Component({
   selector: 'solv-admin-teachers',
@@ -31,497 +49,19 @@ import {
     LucideAlertCircle, 
     LucideSend, 
     LucideRotateCcw,
-    LucideMoreVertical
+    LucideCopy,
+    LucideTrash2,
+    LucideBookOpen,
+    LucideUsers,
+    LucideChevronLeft,
+    LucideChevronRight,
+    LucideArrowRightLeft,
+    LucidePlus
   ],
-  template: `
-    <div class="teachers-page">
-      <!-- Header Superior -->
-      <header class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">Gestión y Alta de Docentes</h1>
-          <p class="page-subtitle">Ciclo de vida de identidades y emisión de tokens transaccionales (ADR-022 / ADR-025).</p>
-        </div>
-
-        <div class="header-actions">
-          <button class="btn-primary" (click)="showInviteModal.set(true)">
-            <svg lucideUserPlus class="btn-icon"></svg>
-            <span>+ Invitar Profesor</span>
-          </button>
-        </div>
-      </header>
-
-      <!-- Tabla y Barra de Filtros -->
-      <div class="table-card">
-        <div class="filter-toolbar">
-          <div class="search-box">
-            <svg lucideSearch class="search-icon"></svg>
-            <input 
-              type="text" 
-              placeholder="Buscar por nombre o email..." 
-              [ngModel]="searchTerm()" 
-              (ngModelChange)="searchTerm.set($event)"
-              class="search-input"
-            />
-          </div>
-
-          <div class="filters-group">
-            <div class="filter-item">
-              <label class="filter-label">Estado:</label>
-              <select 
-                [ngModel]="statusFilter()" 
-                (ngModelChange)="statusFilter.set($event)"
-                class="filter-select">
-                <option value="all">Todos los estados</option>
-                <option value="active">Activo</option>
-                <option value="pending">Pendiente (72h)</option>
-                <option value="expired">Expirado</option>
-              </select>
-            </div>
-
-            <div class="filter-item">
-              <label class="filter-label">Origen:</label>
-              <select 
-                [ngModel]="originFilter()" 
-                (ngModelChange)="originFilter.set($event)"
-                class="filter-select">
-                <option value="all">Todos los orígenes</option>
-                <option value="manual">Manual</option>
-                <option value="gclassroom">Google Classroom</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div class="table-wrapper">
-          <table class="teachers-table">
-            <thead>
-              <tr>
-                <th>NOMBRE Y CORREO</th>
-                <th>ORIGEN</th>
-                <th>ESTADO</th>
-                <th>INVITADO</th>
-                <th class="text-right">ACCIÓN</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (teacher of filteredTeachers(); track teacher.id) {
-                <tr>
-                  <td>
-                    <div class="teacher-cell">
-                      <div class="teacher-avatar">
-                        {{ getInitials(teacher.full_name) }}
-                      </div>
-                      <div class="teacher-meta">
-                        <span class="teacher-name">{{ teacher.full_name }}</span>
-                        <span class="teacher-email">{{ teacher.email }}</span>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    @if (teacher.origin === 'gclassroom') {
-                      <span class="origin-badge gclassroom" title="Sincronizado vía Google Classroom API (ADR-022)">
-                        <svg lucideLock class="origin-icon"></svg>
-                        <span>GClassroom</span>
-                      </span>
-                    } @else {
-                      <span class="origin-badge manual">Manual</span>
-                    }
-                  </td>
-                  <td>
-                    @switch (teacher.status) {
-                      @case ('active') {
-                        <span class="status-pill active">
-                          <svg lucideCheckCircle class="pill-icon"></svg>
-                          <span>Activo</span>
-                        </span>
-                      }
-                      @case ('pending') {
-                        <span class="status-pill pending" title="Enlace válido por 72 horas">
-                          <svg lucideClock class="pill-icon"></svg>
-                          <span>Pendiente</span>
-                        </span>
-                      }
-                      @case ('expired') {
-                        <span class="status-pill expired" title="Token vencido">
-                          <svg lucideAlertCircle class="pill-icon"></svg>
-                          <span>Expirado</span>
-                        </span>
-                      }
-                    }
-                  </td>
-                  <td>
-                    <span class="date-text">{{ teacher.invited_at }}</span>
-                  </td>
-                  <td class="text-right">
-                    @if (teacher.status === 'pending') {
-                      <button 
-                        class="btn-row-action resend" 
-                        (click)="resendInvitation(teacher.id)"
-                        title="Reenviar enlace por correo">
-                        <svg lucideSend class="btn-icon"></svg>
-                        <span>Reenviar</span>
-                      </button>
-                    } @else if (teacher.status === 'expired') {
-                      <button 
-                        class="btn-row-action renew" 
-                        (click)="renewInvitation(teacher.id)"
-                        title="Emitir nuevo token transaccional (ADR-025)">
-                        <svg lucideRotateCcw class="btn-icon"></svg>
-                        <span>Renovar</span>
-                      </button>
-                    } @else {
-                      <button class="btn-icon-more" title="Opciones del docente">
-                        <svg lucideMoreVertical class="icon"></svg>
-                      </button>
-                    }
-                  </td>
-                </tr>
-              } @empty {
-                <tr>
-                  <td colspan="5" class="empty-state">
-                    <span>No se encontraron docentes registrados o que coincidan con la búsqueda.</span>
-                  </td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Modal de Invitación -->
-      @if (showInviteModal()) {
-        <solv-teacher-invite-modal 
-          (close)="showInviteModal.set(false)"
-          (submit)="onInviteSubmitted($event)"
-        />
-      }
-    </div>
-  `,
-  styles: [`
-    .teachers-page {
-      display: flex;
-      flex-direction: column;
-      gap: var(--space-4, 16px);
-      max-width: 1440px;
-      margin: 0 auto;
-    }
-
-    .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .page-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--text-primary, #0F172A);
-      margin: 0;
-    }
-
-    .page-subtitle {
-      font-size: 13px;
-      color: var(--text-muted, #64748B);
-      margin: 2px 0 0 0;
-    }
-
-    .btn-primary {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 16px;
-      background-color: var(--tenant-primary, #2563EB);
-      border: 1px solid transparent;
-      border-radius: var(--radius-md, 6px);
-      font-size: 13px;
-      font-weight: 600;
-      color: #FFFFFF;
-      cursor: pointer;
-      transition: all 150ms ease;
-
-      &:hover {
-        opacity: 0.92;
-      }
-
-      .btn-icon {
-        width: 15px;
-        height: 15px;
-      }
-    }
-
-    .table-card {
-      background-color: var(--bg-surface, #FFFFFF);
-      border: 1px solid var(--border-subtle, #E2E8F0);
-      border-radius: var(--radius-lg, 8px);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .filter-toolbar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-      gap: 16px;
-      flex-wrap: wrap;
-    }
-
-    .search-box {
-      position: relative;
-      flex: 1;
-      min-width: 260px;
-    }
-
-    .search-icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 15px;
-      height: 15px;
-      color: var(--text-muted, #94A3B8);
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 7px 10px 7px 32px;
-      font-size: 13px;
-      border: 1px solid var(--border-subtle, #CBD5E1);
-      border-radius: var(--radius-md, 6px);
-      outline: none;
-
-      &:focus {
-        border-color: var(--tenant-primary, #2563EB);
-      }
-    }
-
-    .filters-group {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-    }
-
-    .filter-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .filter-label {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--text-secondary, #475569);
-    }
-
-    .filter-select {
-      font-size: 12px;
-      padding: 6px 10px;
-      border: 1px solid var(--border-subtle, #CBD5E1);
-      border-radius: var(--radius-md, 6px);
-      background-color: #FFFFFF;
-      outline: none;
-    }
-
-    .table-wrapper {
-      overflow-x: auto;
-    }
-
-    .teachers-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      text-align: left;
-
-      th {
-        background-color: #F8FAFC;
-        padding: 10px 16px;
-        font-size: 11px;
-        font-weight: 700;
-        color: var(--text-muted, #64748B);
-        letter-spacing: 0.05em;
-        border-bottom: 1px solid var(--border-subtle, #E2E8F0);
-        white-space: nowrap;
-      }
-
-      td {
-        padding: 12px 16px;
-        border-bottom: 1px solid var(--border-subtle, #F1F5F9);
-        vertical-align: middle;
-      }
-
-      tr:hover td {
-        background-color: #F8FAFC;
-      }
-    }
-
-    .teacher-cell {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .teacher-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background-color: var(--tenant-primary-subtle, rgba(37, 99, 235, 0.08));
-      color: var(--tenant-primary, #2563EB);
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .teacher-meta {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .teacher-name {
-      font-weight: 600;
-      color: var(--text-primary, #0F172A);
-    }
-
-    .teacher-email {
-      font-size: 11px;
-      color: var(--text-muted, #64748B);
-    }
-
-    .origin-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 500;
-
-      &.manual {
-        background-color: #F1F5F9;
-        color: #475569;
-      }
-
-      &.gclassroom {
-        background-color: #EFF6FF;
-        color: #1D4ED8;
-        border: 1px solid #BFDBFE;
-
-        .origin-icon {
-          width: 11px;
-          height: 11px;
-        }
-      }
-    }
-
-    .status-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      padding: 3px 9px;
-      border-radius: var(--radius-full, 9999px);
-      font-size: 11px;
-      font-weight: 600;
-
-      .pill-icon {
-        width: 12px;
-        height: 12px;
-      }
-
-      &.active {
-        background-color: #DCFCE7;
-        color: #15803D;
-      }
-
-      &.pending {
-        background-color: #FEF3C7;
-        color: #B45309;
-      }
-
-      &.expired {
-        background-color: #FEE2E2;
-        color: #B91C1C;
-      }
-    }
-
-    .date-text {
-      font-size: 12px;
-      color: var(--text-secondary, #64748B);
-    }
-
-    .text-right {
-      text-align: right;
-    }
-
-    .btn-row-action {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 150ms ease;
-
-      .btn-icon {
-        width: 12px;
-        height: 12px;
-      }
-
-      &.resend {
-        background-color: #F8FAFC;
-        border: 1px solid #CBD5E1;
-        color: #334155;
-
-        &:hover {
-          background-color: #E2E8F0;
-        }
-      }
-
-      &.renew {
-        background-color: #FEE2E2;
-        border: 1px solid #FCA5A5;
-        color: #991B1B;
-
-        &:hover {
-          background-color: #FCA5A5;
-        }
-      }
-    }
-
-    .btn-icon-more {
-      background: transparent;
-      border: none;
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 4px;
-      color: var(--text-muted, #94A3B8);
-
-      &:hover {
-        background-color: #F1F5F9;
-        color: #0F172A;
-      }
-
-      .icon {
-        width: 15px;
-        height: 15px;
-      }
-    }
-
-    .empty-state {
-      text-align: center;
-      padding: 32px 16px;
-      color: var(--text-muted, #94A3B8);
-    }
-  `]
+  templateUrl: './admin-teachers.component.html',
+  styleUrl: './admin-teachers.component.scss'
 })
-export class AdminTeachersComponent {
+export class AdminTeachersComponent implements OnInit, OnDestroy {
   private teachersService = inject(AdminTeachersService);
 
   teachers = this.teachersService.teachers;
@@ -532,42 +72,369 @@ export class AdminTeachersComponent {
   statusFilter = signal<string>('all');
   originFilter = signal<string>('all');
 
-  filteredTeachers = computed(() => {
+  // Paginación
+  currentPage = signal<number>(1);
+  pageSize = 10;
+
+  // Acciones y feedback
+  activeMenuId = signal<string | null>(null);
+  tokenFeedback = signal<TokenFeedbackData | null>(null);
+  copied = signal<boolean>(false);
+  toastMessage = signal<ToastData | null>(null);
+
+  // Modal de materias asignadas y reasignación
+  selectedTeacherForCourses = signal<TeacherItem | null>(null);
+  teacherCourses = signal<TeacherCourse[]>([]);
+  isLoadingCourses = signal<boolean>(false);
+
+  // Estados de reasignación activa
+  reassigningCourse = signal<TeacherCourse | null>(null);
+  selectedNewTeacherId = signal<string>('');
+  reassignReason = signal<string>('');
+  isSubmittingReassign = signal<boolean>(false);
+
+  // Estados para asignar materia a docente sin materias
+  isAssigningNewCourse = signal<boolean>(false);
+  selectedCourseToAssign = signal<string>('');
+  availableTenantCourses = signal<{ id: string; name: string; teacher_name: string }[]>([]);
+  isLoadingAvailableCourses = signal<boolean>(false);
+
+  private searchDebounceTimer?: ReturnType<typeof setTimeout>;
+  private toastDismissTimer?: ReturnType<typeof setTimeout>;
+  private copyResetTimer?: ReturnType<typeof setTimeout>;
+
+  // Carga académica total del docente seleccionado
+  totalStudentsForTeacher = computed(() => {
+    return this.teacherCourses().reduce((sum, c) => sum + (c.students_count || 0), 0);
+  });
+
+  // Lista de docentes activos elegibles como nuevo titular (excluyendo el docente actual)
+  activeTeachersList = computed(() => {
+    const currentId = this.selectedTeacherForCourses()?.id;
+    return this.teachers().filter(t => t.status === 'active' && t.id !== currentId);
+  });
+
+  // Contadores de estado calculados
+  counts = computed(() => {
+    const list = this.teachers();
+    return {
+      all: list.length,
+      active: list.filter(t => t.status === 'active').length,
+      noCourses: list.filter(t => t.status === 'active' && (t.active_courses ?? 0) === 0).length,
+      pending: list.filter(t => t.status === 'pending').length,
+      expired: list.filter(t => t.status === 'expired').length
+    };
+  });
+
+  // Lista filtrada en cliente por si la búsqueda/estado cambia en vista
+  filteredTeachersList = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const status = this.statusFilter();
     const origin = this.originFilter();
 
     return this.teachers().filter(t => {
-      if (status !== 'all' && t.status !== status) return false;
+      if (status === 'no_courses') {
+        if (t.status !== 'active' || (t.active_courses ?? 0) > 0) return false;
+      } else if (status !== 'all' && t.status !== status) {
+        return false;
+      }
       if (origin !== 'all' && t.origin !== origin) return false;
       if (term) {
-        const match = t.full_name.toLowerCase().includes(term) ||
-                      t.email.toLowerCase().includes(term);
-        if (!match) return false;
+        const matchName = t.full_name.toLowerCase().includes(term);
+        const matchEmail = t.email.toLowerCase().includes(term);
+        if (!matchName && !matchEmail) return false;
       }
       return true;
     });
   });
 
+  // Lista paginada
+  paginatedTeachers = computed(() => {
+    const list = this.filteredTeachersList();
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return list.slice(start, start + this.pageSize);
+  });
+
+  totalPages = computed(() => {
+    return Math.max(1, Math.ceil(this.filteredTeachersList().length / this.pageSize));
+  });
+
+  displayedPages = computed(() => {
+    const total = this.totalPages();
+    const current = this.currentPage();
+    const pages: number[] = [];
+
+    const start = Math.max(1, current - 2);
+    const end = Math.min(total, current + 2);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  });
+
+  paginationDisplay = computed(() => {
+    const total = this.filteredTeachersList().length;
+    if (total === 0) return { from: 0, to: 0 };
+    const from = (this.currentPage() - 1) * this.pageSize + 1;
+    const to = Math.min(this.currentPage() * this.pageSize, total);
+    return { from, to };
+  });
+
+  ngOnInit(): void {
+    this.loadTeachers();
+  }
+
+  ngOnDestroy(): void {
+    if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
+    if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
+    if (this.copyResetTimer) clearTimeout(this.copyResetTimer);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.activeMenuId.set(null);
+  }
+
+  loadTeachers(): void {
+    const statusParam = this.statusFilter() === 'no_courses' ? 'active' : this.statusFilter();
+    this.teachersService.fetchTeachers(
+      this.searchTerm(),
+      statusParam,
+      this.originFilter()
+    );
+  }
+
+  onSearchChange(value: string): void {
+    this.searchTerm.set(value);
+    this.currentPage.set(1);
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+    this.searchDebounceTimer = setTimeout(() => {
+      this.loadTeachers();
+    }, 300);
+  }
+
+  clearSearch(): void {
+    this.searchTerm.set('');
+    this.currentPage.set(1);
+    this.loadTeachers();
+  }
+
+  onStatusChange(value: string): void {
+    this.statusFilter.set(value);
+    this.currentPage.set(1);
+    this.loadTeachers();
+  }
+
+  onOriginChange(value: string): void {
+    this.originFilter.set(value);
+    this.currentPage.set(1);
+    this.loadTeachers();
+  }
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
+    }
+  }
+
+  openInviteModal(): void {
+    this.showInviteModal.set(true);
+  }
+
   getInitials(name: string): string {
+    if (!name) return 'PR';
     return name
       .split(' ')
       .slice(0, 2)
-      .map(w => w[0])
+      .map(w => w[0] || '')
       .join('')
       .toUpperCase();
   }
 
-  resendInvitation(id: string): void {
-    this.teachersService.resendInvitation(id);
+  toggleMenu(teacherId: string, event: Event): void {
+    event.stopPropagation();
+    this.activeMenuId.update(current => current === teacherId ? null : teacherId);
   }
 
-  renewInvitation(id: string): void {
-    this.teachersService.renewInvitation(id);
+  resendInvitation(teacher: TeacherItem): void {
+    this.teachersService.resendInvitation(teacher.id).subscribe(res => {
+      this.showToast(`Invitación reenviada a ${teacher.email}`);
+      if (res && res.invite_url) {
+        this.tokenFeedback.set({
+          title: 'Invitación Reenviada Exitosamente',
+          email: teacher.email,
+          inviteUrl: res.invite_url
+        });
+      }
+    });
+  }
+
+  renewInvitation(teacher: TeacherItem): void {
+    this.teachersService.renewInvitation(teacher.id).subscribe(res => {
+      this.showToast(`Invitación renovada por 72 horas para ${teacher.email}`);
+      if (res && res.invite_url) {
+        this.tokenFeedback.set({
+          title: 'Invitación Renovada por 72 Horas',
+          email: teacher.email,
+          inviteUrl: res.invite_url
+        });
+      }
+    });
+  }
+
+  revokeInvitation(teacher: TeacherItem): void {
+    this.teachersService.deleteInvitation(teacher.id).subscribe(success => {
+      if (success) {
+        this.showToast('Invitación revocada correctamente');
+      } else {
+        this.showToast('No se pudo revocar la invitación', true);
+      }
+    });
   }
 
   onInviteSubmitted(payload: TeacherInvitationPayload): void {
-    this.teachersService.inviteTeacher(payload);
-    this.showInviteModal.set(false);
+    this.teachersService.inviteTeacher(payload).subscribe(res => {
+      this.showInviteModal.set(false);
+      this.showToast(`Invitación enviada a ${payload.email}`);
+      if (res && res.invite_url) {
+        this.tokenFeedback.set({
+          title: 'Invitación Emitida Exitosamente',
+          email: res.email,
+          inviteUrl: res.invite_url
+        });
+      }
+    });
+  }
+
+  copyTeacherEmail(email: string): void {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(email);
+      this.showToast('Correo copiado al portapapeles');
+    }
+    this.activeMenuId.set(null);
+  }
+
+  openTeacherCoursesModal(teacher: TeacherItem): void {
+    this.activeMenuId.set(null);
+    this.cancelReassign();
+    this.cancelAssignCourseToTeacher();
+    this.selectedTeacherForCourses.set(teacher);
+    this.reloadTeacherCourses(teacher.id);
+  }
+
+  closeTeacherCoursesModal(): void {
+    this.selectedTeacherForCourses.set(null);
+    this.cancelReassign();
+    this.cancelAssignCourseToTeacher();
+  }
+
+  startReassign(course: TeacherCourse): void {
+    this.reassigningCourse.set(course);
+    this.selectedNewTeacherId.set('');
+    this.reassignReason.set('');
+  }
+
+  cancelReassign(): void {
+    this.reassigningCourse.set(null);
+    this.selectedNewTeacherId.set('');
+    this.reassignReason.set('');
+  }
+
+  confirmReassignCourse(): void {
+    const course = this.reassigningCourse();
+    const targetTeacherId = this.selectedNewTeacherId();
+    const reason = this.reassignReason();
+    const currentTeacher = this.selectedTeacherForCourses();
+
+    if (!course || !targetTeacherId) return;
+
+    this.isSubmittingReassign.set(true);
+    this.teachersService.reassignCourseTeacher(course.id, targetTeacherId, reason)
+      .subscribe({
+        next: () => {
+          this.isSubmittingReassign.set(false);
+          this.cancelReassign();
+          this.showToast('Materia reasignada exitosamente');
+          if (currentTeacher) {
+            this.reloadTeacherCourses(currentTeacher.id);
+          }
+          this.loadTeachers();
+        },
+        error: () => {
+          this.isSubmittingReassign.set(false);
+          this.showToast('No se pudo reasignar la materia', true);
+        }
+      });
+  }
+
+  startAssignCourseToTeacher(): void {
+    this.isAssigningNewCourse.set(true);
+    this.selectedCourseToAssign.set('');
+    this.reassignReason.set('');
+    this.isLoadingAvailableCourses.set(true);
+    this.teachersService.getAllAvailableCourses().subscribe(courses => {
+      this.availableTenantCourses.set(courses);
+      this.isLoadingAvailableCourses.set(false);
+    });
+  }
+
+  cancelAssignCourseToTeacher(): void {
+    this.isAssigningNewCourse.set(false);
+    this.selectedCourseToAssign.set('');
+    this.reassignReason.set('');
+  }
+
+  confirmAssignCourseToTeacher(): void {
+    const courseId = this.selectedCourseToAssign();
+    const teacher = this.selectedTeacherForCourses();
+    const reason = this.reassignReason();
+
+    if (!courseId || !teacher) return;
+
+    this.isSubmittingReassign.set(true);
+    this.teachersService.reassignCourseTeacher(courseId, teacher.id, reason)
+      .subscribe({
+        next: () => {
+          this.isSubmittingReassign.set(false);
+          this.cancelAssignCourseToTeacher();
+          this.showToast('Materia asignada al docente exitosamente');
+          this.reloadTeacherCourses(teacher.id);
+          this.loadTeachers();
+        },
+        error: () => {
+          this.isSubmittingReassign.set(false);
+          this.showToast('No se pudo asignar la materia', true);
+        }
+      });
+  }
+
+  private reloadTeacherCourses(teacherId: string): void {
+    this.isLoadingCourses.set(true);
+    this.teachersService.getTeacherCourses(teacherId).subscribe(courses => {
+      this.teacherCourses.set(courses);
+      this.isLoadingCourses.set(false);
+    });
+  }
+
+  copyTokenUrl(url: string): void {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(url);
+    }
+    this.copied.set(true);
+    if (this.copyResetTimer) clearTimeout(this.copyResetTimer);
+    this.copyResetTimer = setTimeout(() => {
+      this.copied.set(false);
+    }, 2500);
+  }
+
+  showToast(text: string, isError = false): void {
+    this.toastMessage.set({ text, isError });
+    if (this.toastDismissTimer) clearTimeout(this.toastDismissTimer);
+    this.toastDismissTimer = setTimeout(() => {
+      this.toastMessage.set(null);
+    }, 3500);
   }
 }

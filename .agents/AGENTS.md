@@ -34,6 +34,7 @@ Para cualquier sesión que modifique el frontend o arquitectura, deben consultar
 - Usar iptables normal para aislar el bridge (usar cadena DOCKER-USER o bind localhost)
 - Crear tablas/componentes que dupliquen existentes
 - Usar imágenes :latest (versiones fijadas)
+- Usar fondos oscuros, azules o slate (#0F172A, #2563EB) en toasts/alertas de éxito (siempre verde semántico #15803D)
 
 ## Semántica de estados (UI y API)
 

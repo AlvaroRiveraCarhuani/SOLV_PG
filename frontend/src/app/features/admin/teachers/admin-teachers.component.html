@@ -1,0 +1,526 @@
+<div class="teachers-page">
+  <!-- Toast Flotante de Notificaciones -->
+  @if (toastMessage(); as toast) {
+    <div class="toast-notification" [class.toast-error]="toast.isError">
+      @if (!toast.isError) {
+        <svg lucideCheckCircle class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ toast.text }}</span>
+    </div>
+  }
+
+  <!-- Header Superior Limpio -->
+  <header class="page-header">
+    <div class="header-left">
+      <h1 class="page-title">Gestión de Docentes</h1>
+      <p class="page-subtitle">Administración de profesores, invitaciones y asignación de materias.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-primary" (click)="openInviteModal()">
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>+ Invitar Profesor</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Pestañas de Estado con Contadores -->
+  <div class="status-tabs">
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'all'"
+      (click)="onStatusChange('all')">
+      Todos
+      <span class="tab-badge">{{ counts().all }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'active'"
+      (click)="onStatusChange('active')">
+      Activos
+      <span class="tab-badge active">{{ counts().active }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'no_courses'"
+      (click)="onStatusChange('no_courses')">
+      Sin materias
+      <span class="tab-badge no-courses">{{ counts().noCourses }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'pending'"
+      (click)="onStatusChange('pending')">
+      Pendientes (72h)
+      <span class="tab-badge pending">{{ counts().pending }}</span>
+    </button>
+    <button 
+      class="tab-btn" 
+      [class.active]="statusFilter() === 'expired'"
+      (click)="onStatusChange('expired')">
+      Expirados
+      <span class="tab-badge expired">{{ counts().expired }}</span>
+    </button>
+  </div>
+
+  <!-- Tabla y Barra de Filtros -->
+  <div class="table-card">
+    <div class="filter-toolbar">
+      <div class="search-box">
+        <svg lucideSearch class="search-icon"></svg>
+        <input 
+          type="text" 
+          placeholder="Buscar docente por nombre o correo institucional..." 
+          [ngModel]="searchTerm()" 
+          (ngModelChange)="onSearchChange($event)"
+          class="search-input"
+        />
+        @if (searchTerm()) {
+          <button class="btn-clear-search" (click)="clearSearch()" title="Limpiar búsqueda">✕</button>
+        }
+      </div>
+
+      <div class="filters-group">
+        <div class="filter-item">
+          <label class="filter-label" for="filter-origin">Origen:</label>
+          <select 
+            id="filter-origin"
+            [ngModel]="originFilter()" 
+            (ngModelChange)="onOriginChange($event)"
+            class="filter-select">
+            <option value="all">Todos los orígenes</option>
+            <option value="manual">Manual</option>
+            <option value="gclassroom">Google Classroom</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenedor de la Tabla -->
+    <div class="table-wrapper">
+      @if (isLoading()) {
+        <div class="loading-state">
+          <div class="tenant-spinner"></div>
+          <span>Consultando catálogo de docentes...</span>
+        </div>
+      } @else {
+        <table class="teachers-table">
+          <thead>
+            <tr>
+              <th>NOMBRE Y CORREO</th>
+              <th>ORIGEN</th>
+              <th>ESTADO</th>
+              <th>MATERIAS</th>
+              <th>FECHA DE REGISTRO</th>
+              <th class="text-right">ACCIÓN</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (teacher of paginatedTeachers(); track teacher.id) {
+              <tr [class.row-pending]="teacher.status === 'pending'" [class.row-expired]="teacher.status === 'expired'">
+                <!-- Nombre y Correo -->
+                <td>
+                  <div class="teacher-cell">
+                    <div class="teacher-avatar">
+                      {{ getInitials(teacher.full_name) }}
+                    </div>
+                    <div class="teacher-meta">
+                      <span class="teacher-name">{{ teacher.full_name }}</span>
+                      <span class="teacher-email">{{ teacher.email }}</span>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Origen -->
+                <td>
+                  @if (teacher.origin === 'gclassroom') {
+                    <span class="origin-badge gclassroom" title="Sincronizado vía Google Classroom">
+                      <svg lucideLock class="origin-icon"></svg>
+                      <span>GClassroom</span>
+                    </span>
+                  } @else {
+                    <span class="origin-badge manual">Manual</span>
+                  }
+                </td>
+
+                <!-- Estado del Usuario -->
+                <td>
+                  @switch (teacher.status) {
+                    @case ('active') {
+                      <span class="status-pill active">
+                        <svg lucideCheckCircle class="pill-icon"></svg>
+                        <span>Activo</span>
+                      </span>
+                    }
+                    @case ('pending') {
+                      <span class="status-pill pending" title="Invitación emitida. Vigencia de 72 horas.">
+                        <svg lucideClock class="pill-icon"></svg>
+                        <span>Pendiente</span>
+                      </span>
+                    }
+                    @case ('expired') {
+                      <span class="status-pill expired" title="Invitación expirada sin aceptar.">
+                        <svg lucideAlertCircle class="pill-icon"></svg>
+                        <span>Expirado</span>
+                      </span>
+                    }
+                  }
+                </td>
+
+                <!-- Materias Activas -->
+                <td>
+                  <button 
+                    class="btn-courses-link"
+                    [class.has-courses]="(teacher.active_courses ?? 0) > 0"
+                    (click)="openTeacherCoursesModal(teacher)">
+                    <svg lucideBookOpen class="courses-icon"></svg>
+                    <span>{{ teacher.active_courses ?? 0 }} {{ (teacher.active_courses ?? 0) === 1 ? 'materia' : 'materias' }}</span>
+                  </button>
+                </td>
+
+                <!-- Fecha Invitado / Registro -->
+                <td>
+                  <span class="date-text">{{ teacher.invited_at }}</span>
+                </td>
+
+                <!-- Acciones -->
+                <td class="text-right">
+                  <div class="actions-cell">
+                    @if (teacher.status === 'pending') {
+                      <button 
+                        class="btn-row-action resend" 
+                        (click)="resendInvitation(teacher)"
+                        title="Reenviar correo de invitación">
+                        <svg lucideSend class="btn-icon"></svg>
+                        <span>Reenviar</span>
+                      </button>
+                      <button 
+                        class="btn-row-action revoke" 
+                        (click)="revokeInvitation(teacher)"
+                        title="Cancelar invitación pendiente">
+                        <svg lucideTrash2 class="btn-icon"></svg>
+                      </button>
+                    } @else if (teacher.status === 'expired') {
+                      <button 
+                        class="btn-row-action renew" 
+                        (click)="renewInvitation(teacher)"
+                        title="Renovar invitación por 72 horas más">
+                        <svg lucideRotateCcw class="btn-icon"></svg>
+                        <span>Renovar</span>
+                      </button>
+                      <button 
+                        class="btn-row-action revoke" 
+                        (click)="revokeInvitation(teacher)"
+                        title="Eliminar registro de invitación expirada">
+                        <svg lucideTrash2 class="btn-icon"></svg>
+                      </button>
+                    } @else {
+                      <button 
+                        class="btn-row-action copy-email"
+                        (click)="copyTeacherEmail(teacher.email)"
+                        title="Copiar correo institucional al portapapeles">
+                        <svg lucideCopy class="btn-icon"></svg>
+                        <span>Copiar correo</span>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="empty-state">
+                  <div class="empty-content">
+                    <svg lucideUserPlus class="empty-icon"></svg>
+                    <p class="empty-title">No se encontraron docentes</p>
+                    <p class="empty-desc">No hay profesores que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+
+    <!-- Paginación de la Tabla -->
+    <footer class="table-footer">
+      <div class="pagination-info">
+        Mostrando <strong>{{ paginationDisplay().from }}–{{ paginationDisplay().to }}</strong> de <strong>{{ filteredTeachersList().length }}</strong> docentes
+      </div>
+
+      @if (totalPages() > 1) {
+        <div class="pagination-controls">
+          <button 
+            class="btn-page" 
+            [disabled]="currentPage() === 1" 
+            (click)="goToPage(currentPage() - 1)">
+            <svg lucideChevronLeft class="page-icon"></svg>
+            <span>Anterior</span>
+          </button>
+
+          <div class="page-numbers">
+            @for (p of displayedPages(); track p) {
+              <button 
+                class="btn-page-number" 
+                [class.active]="p === currentPage()" 
+                (click)="goToPage(p)">
+                {{ p }}
+              </button>
+            }
+          </div>
+
+          <button 
+            class="btn-page" 
+            [disabled]="currentPage() === totalPages()" 
+            (click)="goToPage(currentPage() + 1)">
+            <span>Siguiente</span>
+            <svg lucideChevronRight class="page-icon"></svg>
+          </button>
+        </div>
+      }
+    </footer>
+  </div>
+
+  <!-- Modal de Invitación -->
+  @if (showInviteModal()) {
+    <solv-teacher-invite-modal 
+      (close)="showInviteModal.set(false)"
+      (submit)="onInviteSubmitted($event)"
+    />
+  }
+
+  <!-- Modal de Feedback de Invitación (Neutral, profesional) -->
+  @if (tokenFeedback(); as feedback) {
+    <div class="modal-backdrop" (click)="tokenFeedback.set(null)">
+      <div class="feedback-card" (click)="$event.stopPropagation()">
+        <header class="feedback-header">
+          <div class="feedback-icon-circle">
+            <svg lucideCheckCircle class="feedback-icon"></svg>
+          </div>
+          <div>
+            <h3 class="feedback-title">{{ feedback.title }}</h3>
+            <p class="feedback-subtitle">Destinatario: <strong>{{ feedback.email }}</strong></p>
+          </div>
+          <button class="btn-close-card" (click)="tokenFeedback.set(null)" title="Cerrar">✕</button>
+        </header>
+
+        <div class="feedback-body">
+          <div class="info-alert">
+            <svg lucideSend class="alert-icon"></svg>
+            <p class="alert-text">
+              Se ha enviado la notificación por correo electrónico para que el docente active su cuenta institucional mediante Google Workspace SSO.
+            </p>
+          </div>
+
+          <div class="direct-link-section">
+            <label class="direct-link-label">Enlace de acceso directo (vigencia de 72 horas):</label>
+            <div class="token-box">
+              <input type="text" readonly [value]="feedback.inviteUrl" class="token-input" />
+              <button class="btn-copy" (click)="copyTokenUrl(feedback.inviteUrl)" [class.copied]="copied()">
+                @if (!copied()) {
+                  <svg lucideCopy class="btn-icon"></svg>
+                } @else {
+                  <svg lucideCheckCircle class="btn-icon"></svg>
+                }
+                <span>{{ copied() ? '¡Copiado!' : 'Copiar enlace' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <footer class="feedback-footer">
+          <button class="btn-primary" (click)="tokenFeedback.set(null)">
+            <span>Aceptar y Cerrar</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- Modal: Materias Asignadas y Gestión de Titularidad -->
+  @if (selectedTeacherForCourses(); as teacher) {
+    <div class="modal-backdrop" (click)="closeTeacherCoursesModal()">
+      <div class="courses-dialog" (click)="$event.stopPropagation()">
+        <header class="courses-header">
+          <div class="courses-header-info">
+            <div class="teacher-avatar-lg">
+              {{ getInitials(teacher.full_name) }}
+            </div>
+            <div class="courses-header-meta">
+              <div class="courses-title-row">
+                <h3 class="courses-title">Materias Asignadas</h3>
+                <span class="academic-load-badge">
+                  {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }} · {{ totalStudentsForTeacher() }} estudiantes a cargo
+                </span>
+              </div>
+              <p class="courses-subtitle">{{ teacher.full_name }} · <span class="teacher-email-sub">{{ teacher.email }}</span></p>
+            </div>
+          </div>
+          <button class="btn-close-card" (click)="closeTeacherCoursesModal()" title="Cerrar modal">✕</button>
+        </header>
+
+        <div class="courses-body">
+          @if (isLoadingCourses()) {
+            <div class="courses-loading">
+              <div class="tenant-spinner-sm"></div>
+              <span>Consultando materias asignadas...</span>
+            </div>
+          } @else if (teacherCourses().length > 0) {
+            <div class="courses-list">
+              @for (course of teacherCourses(); track course.id) {
+                <div class="course-card-wrapper">
+                  <div class="course-card">
+                    <div class="course-main">
+                      <span class="course-code-badge">{{ course.code }}</span>
+                      <h4 class="course-name">{{ course.name }}</h4>
+                    </div>
+                    <div class="course-actions-area">
+                      <div class="course-meta">
+                        <svg lucideUsers class="meta-icon"></svg>
+                        <span><strong>{{ course.students_count }}</strong> {{ course.students_count === 1 ? 'estudiante' : 'estudiantes' }}</span>
+                      </div>
+                      <button 
+                        class="btn-reassign-trigger"
+                        [class.active]="reassigningCourse()?.id === course.id"
+                        (click)="reassigningCourse()?.id === course.id ? cancelReassign() : startReassign(course)"
+                        title="Reasignar la titularidad de esta materia a otro docente">
+                        <svg lucideArrowRightLeft class="btn-icon-sm"></svg>
+                        <span>Reasignar Titular</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Formulario Inline de Reasignación -->
+                  @if (reassigningCourse()?.id === course.id) {
+                    <div class="reassign-inline-panel">
+                      <div class="reassign-panel-header">
+                        <span class="panel-tag">Reasignación de titularidad para {{ course.code }}</span>
+                      </div>
+                      <div class="reassign-form">
+                        <div class="form-group">
+                          <label class="form-label">Nuevo docente titular:</label>
+                          <select 
+                            [ngModel]="selectedNewTeacherId()" 
+                            (ngModelChange)="selectedNewTeacherId.set($event)"
+                            class="form-select">
+                            <option value="">Seleccione el nuevo profesor titular...</option>
+                            @for (target of activeTeachersList(); track target.id) {
+                              <option [value]="target.id">{{ target.full_name }} ({{ target.email }})</option>
+                            }
+                          </select>
+                        </div>
+                        <div class="form-group">
+                          <label class="form-label">Motivo del cambio (opcional):</label>
+                          <input 
+                            type="text" 
+                            placeholder="Ej. Rotación de materias, licencia temporal..."
+                            [ngModel]="reassignReason()" 
+                            (ngModelChange)="reassignReason.set($event)"
+                            class="form-input"
+                          />
+                        </div>
+                        <div class="reassign-actions">
+                          <button 
+                            class="btn-sm-primary" 
+                            [disabled]="!selectedNewTeacherId() || isSubmittingReassign()"
+                            (click)="confirmReassignCourse()">
+                            @if (isSubmittingReassign()) {
+                              <span>Procesando...</span>
+                            } @else {
+                              <span>Confirmar Reasignación</span>
+                            }
+                          </button>
+                          <button 
+                            class="btn-sm-secondary" 
+                            [disabled]="isSubmittingReassign()"
+                            (click)="cancelReassign()">
+                            <span>Cancelar</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="courses-empty">
+              <div class="empty-icon-circle">
+                <svg lucideBookOpen class="empty-course-icon"></svg>
+              </div>
+              <p class="empty-courses-title">Sin materias asignadas</p>
+              <p class="empty-courses-desc">Este docente no tiene materias asignadas en el periodo académico activo.</p>
+              
+              @if (!isAssigningNewCourse()) {
+                <button class="btn-assign-course" (click)="startAssignCourseToTeacher()">
+                  <svg lucidePlus class="btn-icon"></svg>
+                  <span>+ Asignar a una materia</span>
+                </button>
+              } @else {
+                <div class="assign-new-panel">
+                  @if (isLoadingAvailableCourses()) {
+                    <div class="courses-loading">
+                      <div class="tenant-spinner-sm"></div>
+                      <span>Consultando catálogo de materias...</span>
+                    </div>
+                  } @else {
+                    <div class="reassign-form">
+                      <div class="form-group">
+                        <label class="form-label">Materia a asignar:</label>
+                        <select 
+                          [ngModel]="selectedCourseToAssign()" 
+                          (ngModelChange)="selectedCourseToAssign.set($event)"
+                          class="form-select">
+                          <option value="">Seleccione una materia disponible...</option>
+                          @for (c of availableTenantCourses(); track c.id) {
+                            <option [value]="c.id">{{ c.name }} (Actual: {{ c.teacher_name }})</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="form-group">
+                        <label class="form-label">Motivo de asignación (opcional):</label>
+                        <input 
+                          type="text" 
+                          placeholder="Ej. Asignación inicial de carga docente"
+                          [ngModel]="reassignReason()" 
+                          (ngModelChange)="reassignReason.set($event)"
+                          class="form-input"
+                        />
+                      </div>
+                      <div class="reassign-actions">
+                        <button 
+                          class="btn-sm-primary" 
+                          [disabled]="!selectedCourseToAssign() || isSubmittingReassign()"
+                          (click)="confirmAssignCourseToTeacher()">
+                          @if (isSubmittingReassign()) {
+                            <span>Asignando...</span>
+                          } @else {
+                            <span>Asignar a este docente</span>
+                          }
+                        </button>
+                        <button 
+                          class="btn-sm-secondary" 
+                          [disabled]="isSubmittingReassign()"
+                          (click)="cancelAssignCourseToTeacher()">
+                          <span>Cancelar</span>
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <footer class="courses-footer">
+          <button class="btn-secondary" (click)="closeTeacherCoursesModal()">
+            <span>Cerrar</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+</div>

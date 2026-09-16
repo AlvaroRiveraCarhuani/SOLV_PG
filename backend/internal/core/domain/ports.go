@@ -164,7 +164,12 @@ type SubmissionRepository interface {
 type TeacherInvitationRepository interface {
 	Create(ctx context.Context, invitation *TeacherInvitation) error
 	GetByToken(ctx context.Context, tenantID, token string) (*TeacherInvitation, error)
+	GetByID(ctx context.Context, tenantID, id string) (*TeacherInvitation, error)
+	Update(ctx context.Context, invitation *TeacherInvitation) error
 	AcceptInvitationTx(ctx context.Context, tenantID, token, userID, userEmail string) error
+	ListTeachers(ctx context.Context, tenantID, search, status, origin string) ([]*TeacherListItem, error)
+	GetTeacherCourses(ctx context.Context, tenantID, teacherID string) ([]*TeacherCourseItem, error)
+	DeleteInvitation(ctx context.Context, tenantID, id string) error
 }
 
 type TeacherRepository interface {

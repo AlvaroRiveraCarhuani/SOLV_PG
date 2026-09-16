@@ -23,9 +23,18 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 			}
 
 			if tokenString == "" {
-				// Si ya viene pre-autenticado por ForwardAuth
-				if r.Header.Get("X-User-Id") != "" {
-					next.ServeHTTP(w, r)
+				// Si ya viene pre-autenticado por ForwardAuth o proxy interno
+				if userID := r.Header.Get("X-User-Id"); userID != "" {
+					tenantID := r.Header.Get("X-Tenant-Id")
+					if tenantID == "" {
+						tenantID = "00000000-0000-0000-0000-000000000001"
+					}
+					ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
+					ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+					if role := r.Header.Get("X-User-Role"); role != "" {
+						ctx = context.WithValue(ctx, domain.UserRoleKey, role)
+					}
+					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 				http.Error(w, "missing or invalid authorization header or session cookie", http.StatusUnauthorized)

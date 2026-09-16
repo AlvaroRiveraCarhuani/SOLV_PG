@@ -277,6 +277,11 @@ func (d *Database) RunInitialMigrations() error {
 		expires_at TIMESTAMPTZ NOT NULL,
 		created_at TIMESTAMPTZ DEFAULT NOW()
 	);
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS origin VARCHAR(50) DEFAULT 'manual';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ;
+	ALTER TABLE teacher_invitations ADD COLUMN IF NOT EXISTS origin VARCHAR(50) DEFAULT 'manual';
+	ALTER TABLE teacher_invitations ADD COLUMN IF NOT EXISTS role_type VARCHAR(50) DEFAULT 'titular';
 
 	-- Tabla de comentarios pedagógicos in-line en código (Slice 13)
 	CREATE TABLE IF NOT EXISTS submission_comments (

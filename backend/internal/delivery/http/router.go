@@ -71,7 +71,12 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.TeacherInvitationHandler != nil {
+		mux.Handle("GET /api/v1/teachers", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.ListTeachers))))
+		mux.Handle("GET /api/v1/teachers/{id}/courses", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.GetTeacherCourses))))
 		mux.Handle("POST /api/v1/invitations/teachers", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.CreateInvitation))))
+		mux.Handle("POST /api/v1/invitations/teachers/{id}/resend", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.ResendInvitation))))
+		mux.Handle("POST /api/v1/invitations/teachers/{id}/renew", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.RenewInvitation))))
+		mux.Handle("DELETE /api/v1/invitations/teachers/{id}", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.DeleteInvitation))))
 		mux.Handle("POST /api/v1/invitations/teachers/accept", am(tm(http.HandlerFunc(deps.TeacherInvitationHandler.AcceptInvitation))))
 	}
 

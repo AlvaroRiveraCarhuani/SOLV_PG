@@ -20,10 +20,15 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 - Separación visual mediante bordes limpios, no mediante sombras.
 - Primario White-Label: `var(--tenant-primary)` (Default `#2563EB`), provisto dinámicamente por `/api/v1/config/public`.
 - Semánticos Fijos:
-  - Success: `#16A34A`
+  - Success: `#16A34A` / `#15803D`
   - Warning: `#D97706`
   - Error: `#DC2626`
   - Neutral: `gray-500`
+
+- **REGLA ESTRICTA DE FEEDBACK Y TOASTS (PROHIBIDO AZUL O SLATE):**
+  - Los toasts/tooltips de éxito o confirmación NUNCA deben tener fondo azul, slate ni azul oscuro (`#0F172A`, `#1E293B`, `#2563EB`).
+  - Deben ser SIEMPRE color VERDE semántico (`#15803D` con texto blanco) para feedback positivo.
+  - Toasts de error: SIEMPRE color ROJO semántico (`#DC2626` con texto blanco).
 
 ## Semántica de Estados (Workspaces y Juez)
 - `running`: Success (Verde)

@@ -50,7 +50,29 @@ type TeacherInvitation struct {
 	TenantID  string    `db:"tenant_id" json:"tenant_id"`
 	Token     string    `db:"token" json:"token"`
 	Email     string    `db:"email" json:"email"`
+	Origin    string    `db:"origin" json:"origin"`
+	RoleType  string    `db:"role_type" json:"role_type"`
 	Used      bool      `db:"used" json:"used"`
 	ExpiresAt time.Time `db:"expires_at" json:"expires_at"`
 	CreatedAt time.Time `db:"created_at" json:"created_at"`
+}
+
+type TeacherListItem struct {
+	ID            string  `db:"id" json:"id"`
+	FullName      string  `db:"full_name" json:"full_name"`
+	Email         string  `db:"email" json:"email"`
+	Origin        string  `db:"origin" json:"origin"`
+	Status        string  `db:"status" json:"status"` // "active", "pending", "expired"
+	RoleType      string  `db:"role_type" json:"role_type"`
+	InvitedAt     string  `db:"invited_at" json:"invited_at"`
+	LastLogin     *string `db:"last_login" json:"last_login,omitempty"`
+	ActiveCourses int     `db:"active_courses" json:"active_courses"`
+	Token         string  `db:"token" json:"token,omitempty"`
+}
+
+type TeacherCourseItem struct {
+	ID            string `db:"id" json:"id"`
+	Name          string `db:"name" json:"name"`
+	Code          string `db:"code" json:"code"`
+	StudentsCount int    `db:"students_count" json:"students_count"`
 }
