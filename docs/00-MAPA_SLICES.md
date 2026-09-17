@@ -46,9 +46,9 @@ El backend cuenta con todos los endpoints de gobernanza registrados y verificado
 | :--- | :--- | :--- | :---: | :--- |
 | **14.1 Salud y Recursos** | `/admin/dashboard` | ADR-027 | **Implementado** | Métricas en vivo de RAM/CPU, monitor de contenedores Docker e incidentes con resolución manual. |
 | **14.2 Gestión de Docentes** | `/admin/docentes` | ADR-025, ADR-036 | **Implementado** | Alta e invitación (72h), roles titular/auxiliar, filtros de estado, atajo de copiado de correo y reasignación de materias asignadas. |
-| **14.3 Cursos y Periodos Académicos** | `/admin/cursos` | ADR-024, ADR-029, ADR-036 | **EN CURSO (Siguiente paso)** | Selector de periodos semestrales, alta y edición de cursos, asignación de docente titular y vinculación de plantilla Docker. |
-| **14.4 Directorio de Estudiantes** | `/admin/estudiantes` | ADR-033 | **Planificado** | Búsqueda institucional de alumnos, cursos inscritos, monitor de 3 strikes OOM-Killed y reseteo manual justificado. |
-| **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **Planificado** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes y fijación de límites de RAM base. |
+| **14.3 Cursos y Periodos Académicos** | `/admin/cursos` | ADR-024, ADR-029, ADR-036 | **Implementado** | Selector de periodos semestrales, alta y edición de cursos, asignación de docente titular y vinculación de plantilla Docker. |
+| **14.4 Directorio de Estudiantes** | `/admin/estudiantes` | ADR-033 | **Implementado** | Búsqueda institucional de alumnos, cursos inscritos, monitor de 3 strikes OOM-Killed y reseteo manual justificado. |
+| **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **EN CURSO (Siguiente paso)** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes y fijación de límites de RAM base. |
 | **14.6 Configuración y Mantenimiento** | `/admin/configuracion` | ADR-027, ADR-031 | **Planificado** | Personalización institucional (logo, branding, correo soporte) y switch de Modo Mantenimiento con bypass administrativo. |
 | **14.7 Auditoría y Emergencias** | `/admin/auditoria` | ADR-027, ADR-032 | **Planificado** | Tabla de audit logs de seguridad y 5 acciones de emergencia con confirmación tipada obligatoria. |
 

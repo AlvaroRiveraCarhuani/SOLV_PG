@@ -18,6 +18,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Cursos', route: '/admin/cursos', iconName: 'book' },
       { label: 'Docentes', route: '/admin/docentes', iconName: 'users' },
+      { label: 'Estudiantes', route: '/admin/estudiantes', iconName: 'graduation-cap' },
       { label: 'Configuración', route: '/admin/configuracion', iconName: 'sliders' }
     ]
   },

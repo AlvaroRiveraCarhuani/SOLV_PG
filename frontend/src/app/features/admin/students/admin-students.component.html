@@ -1,0 +1,372 @@
+<div class="students-page">
+  <!-- Toast de Notificación -->
+  @if (toastMessage()) {
+    <div class="toast-notification" [class.toast-error]="toastType() === 'error'">
+      <svg lucideCheckCircle2 class="toast-icon" *ngIf="toastType() === 'success'"></svg>
+      <svg lucideAlertTriangle class="toast-icon" *ngIf="toastType() === 'error'"></svg>
+      <span>{{ toastMessage() }}</span>
+    </div>
+  }
+
+  <!-- Header Institucional -->
+  <header class="page-header">
+    <div class="header-titles">
+      <h1 class="page-title">Directorio Institucional de Estudiantes</h1>
+      <p class="page-subtitle">
+        Supervisión de consumo de cómputo, entornos de laboratorio y desbloqueo de penalizaciones de memoria.
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="btn-primary" (click)="openCreateModal()" title="Registrar nuevo estudiante">
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>Registrar Estudiante</span>
+      </button>
+      <button class="btn-refresh" (click)="loadStudents()" [disabled]="isLoading()" title="Actualizar datos">
+        <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
+        <span>Actualizar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Métricas Operativas Rápidas (KPIs) -->
+  <section class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper total">
+        <svg lucideUsers class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Cursando en Periodo</span>
+        <div class="kpi-value-row">
+          <span class="kpi-value">{{ enrolledStudentsCount() }}</span>
+          <span class="kpi-total-badge">de {{ totalStudents() }} total</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper running">
+        <svg lucideCpu class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Entornos en Ejecución</span>
+        <span class="kpi-value">{{ activeWorkspacesTotal() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper warning">
+        <svg lucideAlertTriangle class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">En Riesgo (1–2 Strikes)</span>
+        <span class="kpi-value">{{ strikesStudentsCount() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrapper danger">
+        <svg lucideShieldAlert class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Bloqueados por OOM</span>
+        <span class="kpi-value">{{ blockedStudentsCount() }}</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Barra de Filtros y Búsqueda -->
+  <section class="filters-bar">
+    <div class="search-box">
+      <svg lucideSearch class="search-icon"></svg>
+      <input 
+        type="text" 
+        class="search-input" 
+        placeholder="Buscar por nombre, apellido o correo institucional..." 
+        [ngModel]="searchTerm()" 
+        (ngModelChange)="searchTerm.set($event); currentPage.set(1)" />
+    </div>
+
+    <div class="filters-controls">
+      <!-- Filtro por Periodo Académico -->
+      <div class="filter-group">
+        <label for="filter-period" class="filter-label">Periodo:</label>
+        <select 
+          id="filter-period" 
+          class="filter-select" 
+          [ngModel]="selectedPeriod()" 
+          (ngModelChange)="selectedPeriod.set($event); onFilterChange()">
+          <option value="all">Todos los periodos</option>
+          @for (period of academicPeriods(); track period.id) {
+            <option [value]="period.id">
+              {{ period.code }} {{ period.is_active ? '• Vigente' : '' }}
+            </option>
+          }
+        </select>
+      </div>
+
+      <!-- Filtro por Materia -->
+      <div class="filter-group">
+        <label for="filter-subject" class="filter-label">Materia:</label>
+        <select 
+          id="filter-subject" 
+          class="filter-select" 
+          [ngModel]="selectedSubject()" 
+          (ngModelChange)="selectedSubject.set($event); onFilterChange()">
+          <option value="all">Todas las materias</option>
+          @for (sub of subjects(); track sub.id) {
+            <option [value]="sub.id">{{ sub.code }} - {{ sub.name }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Filtro por Estado -->
+      <div class="filter-group">
+        <label for="filter-status" class="filter-label">Estado:</label>
+        <select 
+          id="filter-status" 
+          class="filter-select" 
+          [ngModel]="selectedStatus()" 
+          (ngModelChange)="selectedStatus.set($event); currentPage.set(1)">
+          <option value="all">Todos los estados</option>
+          <option value="enrolled">Cursando materias</option>
+          <option value="inactive">Sin materias en el periodo</option>
+          <option value="running">Con entornos activos</option>
+          <option value="strikes">Con penalizaciones OOM</option>
+          <option value="blocked">Bloqueados (3 Strikes)</option>
+          <option value="suspended">Cuentas suspendidas</option>
+        </select>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tabla de Estudiantes -->
+  <section class="table-container">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Cargando directorio de estudiantes...</span>
+      </div>
+    } @else if (filteredStudents().length === 0) {
+      <div class="empty-state">
+        <p>No se encontraron estudiantes que coincidan con los criterios seleccionados.</p>
+        <button class="btn-reset-filters" (click)="resetFilters()">
+          Restablecer filtros
+        </button>
+      </div>
+    } @else {
+      <table class="students-table">
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th>Condición Académica</th>
+            <th>Materias Inscritas</th>
+            <th>Entornos Activos</th>
+            <th>Penalizaciones OOM</th>
+            <th>Último Incidente</th>
+            <th class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (student of paginatedStudents(); track student.id) {
+            <tr>
+              <!-- Info del Estudiante -->
+              <td>
+                <div class="student-profile">
+                  <div class="student-avatar" [class.has-strikes]="student.oom_strike_count > 0">
+                    {{ getInitials(student.first_name, student.last_name) }}
+                  </div>
+                  <div class="student-meta">
+                    <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+                    <div class="student-email-row">
+                      <span class="student-email">{{ student.email }}</span>
+                      <button 
+                        class="btn-copy-email" 
+                        (click)="copyEmail(student.email)" 
+                        [title]="copiedEmail() === student.email ? '¡Copiado!' : 'Copiar correo'">
+                        <svg lucideCheck class="copy-icon text-success" *ngIf="copiedEmail() === student.email"></svg>
+                        <svg lucideCopy class="copy-icon" *ngIf="copiedEmail() !== student.email"></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Estado Académico y de Cuenta -->
+              <td>
+                @if (student.status === 'suspended') {
+                  <span class="account-status-pill suspended" [title]="student.suspension_reason || 'Acceso suspendido administrativamente'">
+                    <svg lucideUserX class="pill-icon"></svg>
+                    <span>Suspendido</span>
+                  </span>
+                } @else if (student.academic_status === 'enrolled') {
+                  <span class="account-status-pill enrolled" title="Con materias inscritas en el periodo seleccionado">
+                    <svg lucideUserCheck class="pill-icon"></svg>
+                    <span>Cursando</span>
+                  </span>
+                } @else {
+                  <span class="account-status-pill inactive" title="Sin materias registradas en el periodo seleccionado">
+                    <span class="neutral-dot"></span>
+                    <span>Sin materias</span>
+                  </span>
+                }
+              </td>
+
+              <!-- Materias Inscritas -->
+              <td>
+                <button 
+                  class="btn-courses-badge" 
+                  (click)="openCoursesModal(student)"
+                  [title]="'Ver materias asignadas a ' + student.first_name">
+                  <svg lucideBookOpen class="courses-icon"></svg>
+                  <span>{{ student.enrolled_courses_count }} {{ student.enrolled_courses_count === 1 ? 'materia' : 'materias' }}</span>
+                </button>
+              </td>
+
+              <!-- Entornos Activos -->
+              <td>
+                @if (student.active_workspaces_count > 0) {
+                  <span class="active-workspaces-badge">
+                    <span class="pulse-dot"></span>
+                    <span>{{ student.active_workspaces_count }} en ejecución</span>
+                  </span>
+                } @else {
+                  <span class="idle-workspaces-badge">En reposo</span>
+                }
+              </td>
+
+              <!-- Penalizaciones OOM (Semáforo 0, 1-2, 3) -->
+              <td>
+                @if (student.oom_strike_count === 0) {
+                  <span class="strike-pill normal">
+                    0 strikes
+                  </span>
+                } @else if (student.oom_strike_count < 3) {
+                  <span class="strike-pill warning">
+                    <svg lucideAlertTriangle class="pill-icon"></svg>
+                    <span>{{ student.oom_strike_count }} / 3 strikes</span>
+                  </span>
+                } @else {
+                  <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 strikes OOM">
+                    <svg lucideShieldAlert class="pill-icon"></svg>
+                    <span>3 / 3 (Bloqueado)</span>
+                  </span>
+                }
+              </td>
+
+              <!-- Último Incidente OOM -->
+              <td>
+                <span class="incident-date">{{ formatDate(student.last_oom_killed_at) }}</span>
+              </td>
+
+              <!-- Acciones -->
+              <td class="text-right">
+                <div class="actions-cell">
+                  @if (student.oom_strike_count > 0) {
+                    <button 
+                      class="btn-action reset" 
+                      (click)="openResetOOMModal(student)"
+                      title="Desbloquear y restablecer penalizaciones OOM">
+                      <svg lucideRotateCcw class="action-icon"></svg>
+                      <span>Desbloquear OOM</span>
+                    </button>
+                  }
+                  <button 
+                    class="btn-action view" 
+                    (click)="openCoursesModal(student)"
+                    title="Ver detalle de materias y espacios">
+                    <svg lucideBookOpen class="action-icon"></svg>
+                    <span>Materias</span>
+                  </button>
+                  @if (student.status === 'suspended') {
+                    <button 
+                      class="btn-action activate" 
+                      (click)="requestToggleStatus(student)"
+                      title="Restablecer acceso institucional a la plataforma">
+                      <svg lucideUserCheck class="action-icon"></svg>
+                      <span>Reactivar</span>
+                    </button>
+                  } @else {
+                    <button 
+                      class="btn-action suspend" 
+                      (click)="requestToggleStatus(student)"
+                      title="Suspender acceso institucional">
+                      <svg lucideUserX class="action-icon"></svg>
+                      <span>Suspender</span>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+
+      <!-- Paginación -->
+      <footer class="pagination-footer">
+        <div class="pagination-info">
+          Mostrando página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> 
+          ({{ filteredStudents().length }} estudiantes)
+        </div>
+        <div class="pagination-controls">
+          <button 
+            class="btn-page" 
+            [disabled]="currentPage() === 1" 
+            (click)="goToPage(currentPage() - 1)">
+            <svg lucideChevronLeft class="page-icon"></svg>
+            <span>Anterior</span>
+          </button>
+          <button 
+            class="btn-page" 
+            [disabled]="currentPage() === totalPages()" 
+            (click)="goToPage(currentPage() + 1)">
+            <span>Siguiente</span>
+            <svg lucideChevronRight class="page-icon"></svg>
+          </button>
+        </div>
+      </footer>
+    }
+  </section>
+
+  <!-- Modales -->
+  @if (showCreateModal()) {
+    <solv-student-create-modal
+      [isSubmitting]="isCreatingStudent()"
+      (studentCreated)="onStudentCreated($event)"
+      (close)="closeCreateModal()">
+    </solv-student-create-modal>
+  }
+
+  @if (studentToToggleStatus(); as st) {
+    <solv-confirm-modal
+      [title]="st.status === 'suspended' ? 'Reactivar cuenta institucional' : 'Suspender acceso institucional'"
+      [message]="st.status === 'suspended' 
+        ? '¿Confirmas el restablecimiento de acceso a la plataforma para el estudiante ' + st.first_name + ' ' + st.last_name + '?' 
+        : '¿Confirmas la suspensión de acceso para ' + st.first_name + ' ' + st.last_name + '? Se pausarán sus entornos de laboratorio y se denegará el acceso.'"
+      [confirmText]="st.status === 'suspended' ? 'Reactivar Acceso' : 'Suspender Acceso'"
+      [type]="st.status === 'suspended' ? 'primary' : 'danger'"
+      (confirm)="confirmToggleStatus(st)"
+      (cancel)="cancelToggleStatus()">
+    </solv-confirm-modal>
+  }
+
+  @if (studentForCourses(); as st) {
+    <solv-student-courses-modal
+      [student]="st"
+      [courses]="studentCourses()"
+      [isLoading]="isLoadingCourses()"
+      [actionInProgressId]="actionInProgressWorkspaceId()"
+      (restartWorkspace)="onRestartWorkspace($event)"
+      (pauseWorkspace)="onPauseWorkspace($event)"
+      (close)="closeCoursesModal()">
+    </solv-student-courses-modal>
+  }
+
+  @if (studentForReset(); as st) {
+    <solv-student-reset-oom-modal
+      [student]="st"
+      [isSubmitting]="isResetting()"
+      (confirmReset)="confirmResetOOM($event)"
+      (close)="closeResetOOMModal()">
+    </solv-student-reset-oom-modal>
+  }
+</div>

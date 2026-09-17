@@ -1,0 +1,81 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-left">
+        <div class="header-icon-wrapper">
+          <svg lucideUserPlus class="header-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Registrar Estudiante</h2>
+          <p class="modal-subtitle">Alta manual institucional para acceso a laboratorios virtuales</p>
+        </div>
+      </div>
+      <button class="btn-close" (click)="close.emit()" [disabled]="isSubmitting()">
+        <svg lucideX class="close-icon"></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      @if (error()) {
+        <div class="form-error-banner">
+          {{ error() }}
+        </div>
+      }
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="first-name">Nombres <span class="required">*</span></label>
+          <input
+            id="first-name"
+            type="text"
+            class="form-input"
+            placeholder="Ej: Ana Lucía"
+            [ngModel]="firstName()"
+            (ngModelChange)="firstName.set($event); error.set(null)"
+            [disabled]="isSubmitting()" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="last-name">Apellidos <span class="required">*</span></label>
+          <input
+            id="last-name"
+            type="text"
+            class="form-input"
+            placeholder="Ej: Flores Mamani"
+            [ngModel]="lastName()"
+            (ngModelChange)="lastName.set($event); error.set(null)"
+            [disabled]="isSubmitting()" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="student-email">Correo institucional <span class="required">*</span></label>
+        <input
+          id="student-email"
+          type="email"
+          class="form-input"
+          placeholder="ejemplo@uab.edu.bo"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event); error.set(null)"
+          [disabled]="isSubmitting()" />
+        <span class="input-hint">El estudiante podrá autenticarse mediante Google Workspace o acceder a sus materias asignadas.</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        class="btn-primary" 
+        (click)="onSubmit()" 
+        [disabled]="isSubmitting() || !firstName().trim() || !lastName().trim() || !email().trim()">
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>{{ isSubmitting() ? 'Registrando...' : 'Registrar Estudiante' }}</span>
+      </button>
+    </div>
+  </div>
+</div>
