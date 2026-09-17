@@ -318,6 +318,22 @@ func (d *Database) RunInitialMigrations() error {
 	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS is_archived BOOLEAN DEFAULT FALSE;
 	CREATE INDEX IF NOT EXISTS idx_subjects_period ON subjects(academic_period_id);
 
+	-- Seed de periodo activo por defecto para el tenant principal
+	INSERT INTO academic_periods (id, tenant_id, code, name, start_date, end_date, is_active, created_at)
+	VALUES (
+		'11111111-1111-1111-1111-111111111111',
+		'00000000-0000-0000-0000-000000000001',
+		'2026-I',
+		'Primer Semestre 2026',
+		'2026-02-01',
+		'2026-06-30',
+		true,
+		NOW()
+	) ON CONFLICT (tenant_id, code) DO NOTHING;
+
+	UPDATE subjects SET academic_period_id = '11111111-1111-1111-1111-111111111111'
+	WHERE tenant_id = '00000000-0000-0000-0000-000000000001' AND academic_period_id IS NULL;
+
 	-- Slice 14: Gobernanza de Plantillas Docker (ADR-030)
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ DEFAULT NOW();
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'approved';
@@ -445,6 +461,11 @@ func (d *Database) RunInitialMigrations() error {
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant ON audit_logs(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_id);
 	CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
+
+	-- Extensión users para gobernanza de estudiantes (status, suspension_reason)
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active';
+	ALTER TABLE users ADD COLUMN IF NOT EXISTS suspension_reason TEXT;
+	CREATE INDEX IF NOT EXISTS idx_users_tenant_role_status ON users (tenant_id, role, status);
 	`
 
 	if _, err := d.db.Exec(multitenancyMigrationQuery); err != nil {

@@ -145,7 +145,10 @@ type SubjectRepository interface {
 }
 
 type AdminGovernanceRepository interface {
-	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status string) ([]*AdminStudentDirectoryItem, error)
+	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*AdminStudentDirectoryItem, error)
+	GetStudentCourses(ctx context.Context, tenantID, studentID string) ([]*AdminStudentCourseItem, error)
+	CreateStudent(ctx context.Context, tenantID, email, firstName, lastName string) (*AdminStudentDirectoryItem, error)
+	UpdateStudentStatus(ctx context.Context, tenantID, studentID, status, reason string) error
 	ResetStudentOOM(ctx context.Context, tenantID, studentID string) (int64, error)
 	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
 	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)

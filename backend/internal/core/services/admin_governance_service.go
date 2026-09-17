@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 )
@@ -58,9 +59,38 @@ func (s *AdminGovernanceService) ReassignCourse(ctx context.Context, tenantID, s
 
 func (s *AdminGovernanceService) ListStudents(
 	ctx context.Context,
-	tenantID, search, subjectID, status string,
+	tenantID, search, subjectID, status, periodID string,
 ) ([]*domain.AdminStudentDirectoryItem, error) {
-	return s.govRepo.ListStudentsDirectory(ctx, tenantID, search, subjectID, status)
+	return s.govRepo.ListStudentsDirectory(ctx, tenantID, search, subjectID, status, periodID)
+}
+
+func (s *AdminGovernanceService) GetStudentCourses(
+	ctx context.Context,
+	tenantID, studentID string,
+) ([]*domain.AdminStudentCourseItem, error) {
+	return s.govRepo.GetStudentCourses(ctx, tenantID, studentID)
+}
+
+func (s *AdminGovernanceService) CreateStudent(
+	ctx context.Context,
+	tenantID string,
+	dto domain.CreateStudentDTO,
+) (*domain.AdminStudentDirectoryItem, error) {
+	if strings.TrimSpace(dto.Email) == "" || strings.TrimSpace(dto.FirstName) == "" || strings.TrimSpace(dto.LastName) == "" {
+		return nil, errors.New("todos los campos (email, nombre, apellido) son obligatorios")
+	}
+	return s.govRepo.CreateStudent(ctx, tenantID, strings.TrimSpace(dto.Email), strings.TrimSpace(dto.FirstName), strings.TrimSpace(dto.LastName))
+}
+
+func (s *AdminGovernanceService) UpdateStudentStatus(
+	ctx context.Context,
+	tenantID, studentID string,
+	dto domain.UpdateStudentStatusDTO,
+) error {
+	if dto.Status != "active" && dto.Status != "suspended" {
+		return errors.New("estado inválido: debe ser 'active' o 'suspended'")
+	}
+	return s.govRepo.UpdateStudentStatus(ctx, tenantID, studentID, dto.Status, dto.Reason)
 }
 
 func (s *AdminGovernanceService) ResetStudentOOM(
