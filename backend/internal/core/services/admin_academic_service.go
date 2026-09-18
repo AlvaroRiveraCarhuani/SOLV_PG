@@ -55,10 +55,6 @@ func (s *AcademicPeriodService) CreatePeriod(ctx context.Context, tenantID strin
 		isActive = *dto.IsActive
 	}
 
-	if isActive && endDate.Before(time.Now().Truncate(24*time.Hour)) {
-		return nil, ErrPeriodExpired
-	}
-
 	period := &domain.AcademicPeriod{
 		ID:        uuid.NewString(),
 		TenantID:  tenantID,
@@ -118,14 +114,8 @@ func (s *AcademicPeriodService) UpdatePeriod(ctx context.Context, tenantID, id s
 		return nil, ErrInvalidDateRange
 	}
 
-	if dto.IsActive != nil && *dto.IsActive {
-		// No permitir activar un periodo académico cuya fecha de fin ya expiró
-		if period.EndDate.Before(time.Now().Truncate(24 * time.Hour)) {
-			return nil, ErrPeriodExpired
-		}
-		period.IsActive = true
-	} else if dto.IsActive != nil {
-		period.IsActive = false
+	if dto.IsActive != nil {
+		period.IsActive = *dto.IsActive
 	}
 
 	if err := s.repo.Update(ctx, period); err != nil {

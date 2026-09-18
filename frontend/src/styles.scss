@@ -246,7 +246,8 @@ button {
     cursor: not-allowed;
   }
 
-  .btn-icon {
+  .btn-icon,
+  > svg {
     width: 15px;
     height: 15px;
     flex-shrink: 0;
@@ -349,6 +350,26 @@ button {
   display: flex;
   flex-direction: column;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+  &.table-responsive {
+    overflow-x: auto;
+  }
+}
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, #CBD5E1) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #CBD5E1;
+    border-radius: 3px;
+  }
 }
 
 .filter-toolbar {
@@ -642,7 +663,8 @@ button {
   padding: 1rem;
 }
 
-.modal-card {
+.modal-card,
+.modal-dialog {
   background-color: var(--bg-card, #ffffff);
   border-radius: var(--radius-xl, 12px);
   border: 1px solid var(--border-subtle, #e2e8f0);
@@ -663,13 +685,15 @@ button {
   border-bottom: 1px solid var(--border-subtle, #e2e8f0);
 }
 
-.header-info {
+.modal-header .header-info,
+.modal-title-group {
   display: flex;
   align-items: center;
   gap: 0.875rem;
 }
 
-.header-icon-box {
+.header-icon-box,
+.modal-icon-badge {
   width: 42px;
   height: 42px;
   border-radius: var(--radius-lg, 8px);
@@ -678,6 +702,12 @@ button {
   align-items: center;
   justify-content: center;
   color: var(--color-primary-600, #2563eb);
+  flex-shrink: 0;
+
+  &.danger {
+    background-color: #FEF2F2;
+    color: #DC2626;
+  }
 }
 
 .header-icon {
@@ -698,7 +728,8 @@ button {
   margin: 0.125rem 0 0;
 }
 
-.btn-close {
+.btn-close,
+.btn-icon-close {
   background: transparent;
   border: none;
   cursor: pointer;
@@ -775,7 +806,8 @@ button {
 
 .form-input,
 .form-select,
-.form-textarea {
+.form-textarea,
+.form-control {
   width: 100%;
   padding: 8px 12px;
   font-family: var(--font-sans);
@@ -873,4 +905,78 @@ button {
     border-color: #94A3B8;
   }
 }
+
+// Global Semantic Toasts
+.toast-notification {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  background-color: #15803D;
+  color: #FFFFFF;
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  font-weight: 500;
+  animation: slideInGlobalToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.toast-error {
+    background-color: #DC2626;
+  }
+
+  .toast-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+@keyframes slideInGlobalToast {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+// Global Empty State
+.loading-state, .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: 8px;
+  gap: 10px;
+
+  .empty-icon-box {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background-color: #F8FAFC;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .empty-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary, #0F172A);
+    margin: 0;
+  }
+
+  .empty-description {
+    font-size: 12.5px;
+    color: var(--text-secondary, #64748B);
+    margin: 0;
+    text-align: center;
+    max-width: 400px;
+  }
+}
+
+
 

@@ -23,21 +23,51 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 	ctx context.Context,
 	tenantID, search, subjectID, status, periodID string,
 ) ([]*domain.AdminStudentDirectoryItem, error) {
-	// Determinar el periodo objetivo
+	// Determinar el periodo objetivo sólo cuando se envía explícitamente y no es "all"
 	var targetPeriodID string
 	if periodID != "" && periodID != "all" {
 		targetPeriodID = periodID
-	} else if periodID == "" {
-		// Por defecto, buscar el periodo activo del tenant
-		_ = r.db.GetContext(ctx, &targetPeriodID, `SELECT id FROM academic_periods WHERE tenant_id = $1 AND is_active = true LIMIT 1`, tenantID)
 	}
 
 	args := []interface{}{tenantID}
 	argIdx := 2
 
-	periodJoinClause := ""
+	eCountQuery := `
+		SELECT e.student_id, COUNT(DISTINCT e.subject_id) AS total_enrolled
+		FROM enrollments e
+		WHERE e.tenant_id = $1
+		GROUP BY e.student_id
+	`
+	wStatsQuery := `
+		SELECT 
+			w.student_id,
+			COUNT(*) FILTER (WHERE w.status = 'running') AS active_count,
+			COALESCE(MAX(w.oom_strike_count), 0) AS total_strikes,
+			MAX(w.last_oom_killed_at) AS last_oom_killed
+		FROM workspaces w
+		WHERE w.tenant_id = $1
+		GROUP BY w.student_id
+	`
+
 	if targetPeriodID != "" {
-		periodJoinClause = fmt.Sprintf(" AND s.academic_period_id = $%d::uuid", argIdx)
+		eCountQuery = fmt.Sprintf(`
+			SELECT e.student_id, COUNT(DISTINCT e.subject_id) AS total_enrolled
+			FROM enrollments e
+			JOIN subjects s ON s.id = e.subject_id
+			WHERE e.tenant_id = $1 AND s.academic_period_id = $%d::uuid
+			GROUP BY e.student_id
+		`, argIdx)
+		wStatsQuery = fmt.Sprintf(`
+			SELECT 
+				w.student_id,
+				COUNT(*) FILTER (WHERE w.status = 'running') AS active_count,
+				COALESCE(MAX(w.oom_strike_count), 0) AS total_strikes,
+				MAX(w.last_oom_killed_at) AS last_oom_killed
+			FROM workspaces w
+			LEFT JOIN subjects s ON s.id = w.subject_id
+			WHERE w.tenant_id = $1 AND (s.academic_period_id = $%d::uuid OR w.subject_id IS NULL)
+			GROUP BY w.student_id
+		`, argIdx)
 		args = append(args, targetPeriodID)
 		argIdx++
 	}
@@ -56,26 +86,10 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 			COALESCE(w_stats.total_strikes, 0) AS oom_strike_count,
 			w_stats.last_oom_killed
 		FROM users u
-		LEFT JOIN (
-			SELECT e.student_id, COUNT(DISTINCT e.subject_id) AS total_enrolled
-			FROM enrollments e
-			JOIN subjects s ON s.id = e.subject_id
-			WHERE e.tenant_id = $1 %s
-			GROUP BY e.student_id
-		) e_count ON e_count.student_id = u.id
-		LEFT JOIN (
-			SELECT 
-				w.student_id,
-				COUNT(*) FILTER (WHERE w.status = 'running') AS active_count,
-				COALESCE(MAX(w.oom_strike_count), 0) AS total_strikes,
-				MAX(w.last_oom_killed_at) AS last_oom_killed
-			FROM workspaces w
-			JOIN subjects s ON s.id = w.subject_id
-			WHERE w.tenant_id = $1 %s
-			GROUP BY w.student_id
-		) w_stats ON w_stats.student_id = u.id
+		LEFT JOIN (%s) e_count ON e_count.student_id = u.id
+		LEFT JOIN (%s) w_stats ON w_stats.student_id = u.id
 		WHERE u.tenant_id = $1 AND u.role = 'student'
-	`, periodJoinClause, periodJoinClause)
+	`, eCountQuery, wStatsQuery)
 
 	if search != "" {
 		searchPattern := "%" + strings.ToLower(search) + "%"
@@ -363,38 +377,40 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 ) ([]*domain.AdminTemplateReviewItem, error) {
 	baseQuery := `
 		SELECT 
-			id,
-			tenant_id,
-			name,
-			docker_image,
-			base_ram_mb,
-			COALESCE(status, 'approved') AS status,
-			COALESCE(rejection_reason, '') AS rejection_reason,
-			reviewed_by,
-			reviewed_at,
-			requested_by,
-			COALESCE(description, '') AS description,
-			created_at
-		FROM lab_templates
-		WHERE (tenant_id = $1 OR tenant_id IS NULL)
+			lt.id,
+			lt.tenant_id,
+			lt.name,
+			lt.docker_image,
+			lt.base_ram_mb,
+			COALESCE(lt.status, 'approved') AS status,
+			COALESCE(lt.rejection_reason, '') AS rejection_reason,
+			lt.reviewed_by,
+			lt.reviewed_at,
+			lt.requested_by,
+			NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), '') AS requested_by_name,
+			COALESCE(lt.description, '') AS description,
+			lt.created_at
+		FROM lab_templates lt
+		LEFT JOIN users u ON u.id = lt.requested_by
+		WHERE (lt.tenant_id = $1 OR lt.tenant_id IS NULL)
 	`
 	args := []interface{}{tenantID}
 	argIdx := 2
 
 	if status != "" {
-		baseQuery += fmt.Sprintf(` AND status = $%d`, argIdx)
+		baseQuery += fmt.Sprintf(` AND lt.status = $%d`, argIdx)
 		args = append(args, status)
 		argIdx++
 	}
 
 	if search != "" {
 		searchPattern := "%" + strings.ToLower(search) + "%"
-		baseQuery += fmt.Sprintf(` AND (LOWER(name) LIKE $%d OR LOWER(docker_image) LIKE $%d)`, argIdx, argIdx)
+		baseQuery += fmt.Sprintf(` AND (LOWER(lt.name) LIKE $%d OR LOWER(lt.docker_image) LIKE $%d OR LOWER(u.first_name) LIKE $%d OR LOWER(u.last_name) LIKE $%d)`, argIdx, argIdx, argIdx, argIdx)
 		args = append(args, searchPattern)
 		argIdx++
 	}
 
-	baseQuery += ` ORDER BY created_at DESC`
+	baseQuery += ` ORDER BY lt.created_at DESC`
 
 	var list []*domain.AdminTemplateReviewItem
 	err := r.db.SelectContext(ctx, &list, baseQuery, args...)
@@ -465,6 +481,63 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			return nil, fmt.Errorf("template not found")
 		}
 		return nil, fmt.Errorf("error reviewing template: %w", err)
+	}
+
+	return &item, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
+	ctx context.Context,
+	tenantID, adminID string,
+	dto domain.CreateOfficialTemplateDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	query := `
+		INSERT INTO lab_templates (
+			id, tenant_id, name, docker_image, base_ram_mb, status, description, reviewed_by, reviewed_at
+		) VALUES (
+			gen_random_uuid(), $1, $2, $3, $4, 'approved', $5, $6, NOW()
+		)
+		RETURNING 
+			id,
+			tenant_id,
+			name,
+			docker_image,
+			base_ram_mb,
+			status,
+			rejection_reason,
+			reviewed_by,
+			reviewed_at,
+			requested_by,
+			COALESCE(description, '') AS description,
+			created_at
+	`
+
+	var item domain.AdminTemplateReviewItem
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		tenantID,
+		dto.Name,
+		dto.DockerImage,
+		dto.BaseRamMB,
+		dto.Description,
+		adminID,
+	).Scan(
+		&item.ID,
+		&item.TenantID,
+		&item.Name,
+		&item.DockerImage,
+		&item.BaseRamMB,
+		&item.Status,
+		&item.RejectionReason,
+		&item.ReviewedBy,
+		&item.ReviewedAt,
+		&item.RequestedBy,
+		&item.Description,
+		&item.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating official template: %w", err)
 	}
 
 	return &item, nil

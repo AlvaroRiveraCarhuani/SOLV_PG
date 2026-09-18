@@ -65,9 +65,17 @@ type ResetOOMResult struct {
 
 // ReviewTemplateDTO DTO para aprobar o rechazar plantillas Docker (ADR-030)
 type ReviewTemplateDTO struct {
-	Status          string `json:"status" validate:"required"` // "approved" | "rejected"
+	Status          string `json:"status" validate:"required"` // "approved" | "rejected" | "paused"
 	RejectionReason string `json:"rejection_reason,omitempty"`
 	BaseRamMB       *int   `json:"base_ram_mb,omitempty"`
+}
+
+// CreateOfficialTemplateDTO DTO para que el administrador registre directamente una plantilla oficial
+type CreateOfficialTemplateDTO struct {
+	Name        string `json:"name" validate:"required"`
+	DockerImage string `json:"docker_image" validate:"required"`
+	BaseRamMB   int    `json:"base_ram_mb" validate:"required,gt=0"`
+	Description string `json:"description"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
@@ -82,6 +90,7 @@ type AdminTemplateReviewItem struct {
 	ReviewedBy      *string    `db:"reviewed_by" json:"reviewed_by,omitempty"`
 	ReviewedAt      *time.Time `db:"reviewed_at" json:"reviewed_at,omitempty"`
 	RequestedBy     *string    `db:"requested_by" json:"requested_by,omitempty"`
+	RequestedByName *string    `db:"requested_by_name" json:"requested_by_name,omitempty"`
 	Description     string     `db:"description" json:"description"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 }

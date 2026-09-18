@@ -125,6 +125,7 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("PUT /api/v1/admin/students/{id}/status", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateStudentStatus))))
 		mux.Handle("POST /api/v1/admin/students/{id}/reset-oom", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ResetStudentOOM))))
 		mux.Handle("GET /api/v1/admin/templates", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplates)))
+		mux.Handle("POST /api/v1/admin/templates", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplate))))
 		mux.Handle("PUT /api/v1/admin/templates/{id}/review", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReviewTemplate))))
 		mux.Handle("POST /api/v1/admin/emergency/{action}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ExecuteEmergencyAction))))
 	}

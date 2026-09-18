@@ -21,10 +21,6 @@
         <svg lucideUserPlus class="btn-icon"></svg>
         <span>Registrar Estudiante</span>
       </button>
-      <button class="btn-refresh" (click)="loadStudents()" [disabled]="isLoading()" title="Actualizar datos">
-        <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
-        <span>Actualizar</span>
-      </button>
     </div>
   </header>
 
@@ -258,42 +254,60 @@
                 <span class="incident-date">{{ formatDate(student.last_oom_killed_at) }}</span>
               </td>
 
-              <!-- Acciones -->
+              <!-- Acciones de Gobernanza -->
               <td class="text-right">
                 <div class="actions-cell">
-                  @if (student.oom_strike_count > 0) {
+                  <div class="actions-menu-container">
                     <button 
-                      class="btn-action reset" 
-                      (click)="openResetOOMModal(student)"
-                      title="Desbloquear y restablecer penalizaciones OOM">
-                      <svg lucideRotateCcw class="action-icon"></svg>
-                      <span>Desbloquear OOM</span>
+                      type="button" 
+                      class="btn-action-icon more"
+                      (click)="toggleActionsMenu(student.id, $event)"
+                      title="Acciones de cuenta">
+                      <svg lucideMoreVertical class="action-icon"></svg>
                     </button>
-                  }
-                  <button 
-                    class="btn-action view" 
-                    (click)="openCoursesModal(student)"
-                    title="Ver detalle de materias y espacios">
-                    <svg lucideBookOpen class="action-icon"></svg>
-                    <span>Materias</span>
-                  </button>
-                  @if (student.status === 'suspended') {
-                    <button 
-                      class="btn-action activate" 
-                      (click)="requestToggleStatus(student)"
-                      title="Restablecer acceso institucional a la plataforma">
-                      <svg lucideUserCheck class="action-icon"></svg>
-                      <span>Reactivar</span>
-                    </button>
-                  } @else {
-                    <button 
-                      class="btn-action suspend" 
-                      (click)="requestToggleStatus(student)"
-                      title="Suspender acceso institucional">
-                      <svg lucideUserX class="action-icon"></svg>
-                      <span>Suspender</span>
-                    </button>
-                  }
+
+                    @if (activeMenuStudentId() === student.id) {
+                      <div class="actions-dropdown" (click)="$event.stopPropagation()">
+                        @if (student.oom_strike_count > 0) {
+                          <button 
+                            type="button" 
+                            class="dropdown-item warning" 
+                            (click)="openResetOOMModal(student); activeMenuStudentId.set(null)">
+                            <svg lucideRotateCcw class="dropdown-icon"></svg>
+                            <span>Restablecer strikes OOM ({{ student.oom_strike_count }})</span>
+                          </button>
+                        }
+
+                        <button 
+                          type="button" 
+                          class="dropdown-item" 
+                          (click)="copyEmail(student.email); activeMenuStudentId.set(null)">
+                          <svg lucideCopy class="dropdown-icon"></svg>
+                          <span>Copiar correo</span>
+                        </button>
+
+                        <div class="dropdown-divider"></div>
+
+                        @if (student.status === 'suspended') {
+                          <button 
+                            type="button" 
+                            class="dropdown-item success" 
+                            (click)="requestToggleStatus(student); activeMenuStudentId.set(null)">
+                            <svg lucideUserCheck class="dropdown-icon"></svg>
+                            <span>Reactivar acceso</span>
+                          </button>
+                        } @else {
+                          <button 
+                            type="button" 
+                            class="dropdown-item danger" 
+                            (click)="requestToggleStatus(student); activeMenuStudentId.set(null)">
+                            <svg lucideUserX class="dropdown-icon"></svg>
+                            <span>Suspender acceso</span>
+                          </button>
+                        }
+                      </div>
+                    }
+                  </div>
                 </div>
               </td>
             </tr>

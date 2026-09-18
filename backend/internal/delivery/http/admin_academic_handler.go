@@ -504,6 +504,44 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 	SendJSON(w, http.StatusOK, item, "Plantilla revisada exitosamente")
 }
 
+func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden registrar plantillas oficiales")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	var dto domain.CreateOfficialTemplateDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	if dto.Name == "" || dto.DockerImage == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "Nombre e imagen Docker son requeridos")
+		return
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	item, err := h.govService.CreateOfficialTemplate(r.Context(), tenantID, adminID, dto)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar la plantilla oficial")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, item, "Plantilla oficial registrada exitosamente")
+}
+
 // -----------------------------------------------------------------------------
 // Emergency Actions (ADR-032)
 // -----------------------------------------------------------------------------

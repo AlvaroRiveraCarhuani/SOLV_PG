@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
@@ -23,13 +23,13 @@ import {
   LucideBookOpen, 
   LucideChevronLeft, 
   LucideChevronRight, 
-  LucideRefreshCw,
   LucideCheckCircle2,
   LucideUserPlus,
   LucideUserX,
   LucideUserCheck,
   LucideCopy,
-  LucideCheck
+  LucideCheck,
+  LucideMoreVertical
 } from '@lucide/angular';
 
 @Component({
@@ -51,13 +51,13 @@ import {
     LucideBookOpen, 
     LucideChevronLeft, 
     LucideChevronRight, 
-    LucideRefreshCw,
     LucideCheckCircle2,
     LucideUserPlus,
     LucideUserX,
     LucideUserCheck,
     LucideCopy,
-    LucideCheck
+    LucideCheck,
+    LucideMoreVertical
   ],
   templateUrl: './admin-students.component.html',
   styleUrls: ['./admin-students.component.scss']
@@ -80,6 +80,32 @@ export class AdminStudentsComponent implements OnInit {
   // Paginación
   currentPage = signal<number>(1);
   readonly pageSize = 8;
+
+  // Menú contextual de acciones
+  activeMenuStudentId = signal<string | null>(null);
+
+  @HostListener('document:click')
+  onDocumentClick() {
+    this.activeMenuStudentId.set(null);
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape() {
+    this.activeMenuStudentId.set(null);
+    this.showCreateModal.set(false);
+    this.studentToToggleStatus.set(null);
+    this.studentForReset.set(null);
+    this.studentForCourses.set(null);
+  }
+
+  toggleActionsMenu(studentId: string, event: Event) {
+    event.stopPropagation();
+    if (this.activeMenuStudentId() === studentId) {
+      this.activeMenuStudentId.set(null);
+    } else {
+      this.activeMenuStudentId.set(studentId);
+    }
+  }
 
   // Modales
   showCreateModal = signal<boolean>(false);

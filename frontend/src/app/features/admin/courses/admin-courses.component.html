@@ -121,7 +121,7 @@
   </div>
 
   <!-- Contenedor Card de Tabla (Patrón unificado con Docentes) -->
-  <div class="table-card">
+  <div class="table-card table-responsive">
     <div class="filter-toolbar">
       <div class="search-box">
         <svg lucideSearch class="search-icon"></svg>
@@ -133,10 +133,6 @@
           (ngModelChange)="onSearchChange($event)" 
         />
       </div>
-
-      <button class="btn-icon-reload" (click)="reload()" title="Recargar datos">
-        <svg lucideRefreshCw class="reload-icon" [class.spinning]="coursesService.isLoading()"></svg>
-      </button>
     </div>
     @if (coursesService.isLoading()) {
       <div class="loading-box">

@@ -99,9 +99,9 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 	subjectID := uuid.NewString()
 	_, _ = db.GetDB().Exec(`
 		INSERT INTO subjects (id, tenant_id, name, code, teacher_id)
-		VALUES ($1, $2, 'Estructura de Datos', 'SIS-204', $3)
+		VALUES ($1, $2, 'Estructura de Datos', $3, $4)
 		ON CONFLICT (id) DO NOTHING;
-	`, subjectID, tenantID, teacherA_ID)
+	`, subjectID, tenantID, fmt.Sprintf("SIS-%s", subjectID[:6]), teacherA_ID)
 
 	// =========================================================================
 	// 1. TEST Reasignación de Docente Titular (ADR-036)
@@ -158,9 +158,9 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		sub2 := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
 			INSERT INTO subjects (id, tenant_id, name, code)
-			VALUES ($1, $2, 'Sistemas Operativos', 'SIS-301')
-			ON CONFLICT (id) DO NOTHING;
-		`, sub2, tenantID)
+			VALUES ($1, $2, 'Sistemas Operativos', $3)
+			ON CONFLICT DO NOTHING;
+		`, sub2, tenantID, fmt.Sprintf("SIS-%s", sub2[:6]))
 
 		// Crear Estudiante 1: Matriculado en 2 materias, 1 workspace 'running', 0 strikes
 		stu1ID := uuid.NewString()

@@ -131,7 +131,7 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	tenantID, templateID, adminID string,
 	dto domain.ReviewTemplateDTO,
 ) (*domain.AdminTemplateReviewItem, error) {
-	if dto.Status != "approved" && dto.Status != "rejected" {
+	if dto.Status != "approved" && dto.Status != "rejected" && dto.Status != "paused" {
 		return nil, ErrInvalidReviewStatus
 	}
 
@@ -140,6 +140,17 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	}
 
 	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dto.Status, dto.RejectionReason, dto.BaseRamMB)
+}
+
+func (s *AdminGovernanceService) CreateOfficialTemplate(
+	ctx context.Context,
+	tenantID, adminID string,
+	dto domain.CreateOfficialTemplateDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	if dto.BaseRamMB <= 0 {
+		dto.BaseRamMB = 512
+	}
+	return s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
 }
 
 const (

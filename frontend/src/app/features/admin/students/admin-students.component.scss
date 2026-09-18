@@ -233,14 +233,16 @@
 
 .filters-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
+  min-width: 0;
 }
 
 .filter-label {
@@ -259,6 +261,10 @@
   color: var(--text-primary, #0F172A);
   font-weight: 500;
   cursor: pointer;
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &:focus {
     outline: none;
@@ -272,12 +278,23 @@
   background-color: var(--color-white, #FFFFFF);
   border: 1px solid var(--border-subtle, #E2E8F0);
   border-radius: var(--radius-md, 8px);
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle, #CBD5E1) transparent;
+
+  &::-webkit-scrollbar {
+    height: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: #CBD5E1;
+    border-radius: 3px;
+  }
 }
 
 .students-table {
   width: 100%;
+  min-width: 820px;
   border-collapse: collapse;
   text-align: left;
   font-size: var(--text-sm, 0.875rem);
@@ -521,24 +538,31 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.5rem;
+  gap: 0.35rem;
 }
 
-.btn-action {
+.btn-action-icon {
+  width: 32px;
+  height: 32px;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.65rem;
+  justify-content: center;
   border-radius: var(--radius-sm, 6px);
-  font-size: var(--text-xs, 0.75rem);
-  font-weight: 600;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  background-color: var(--color-white, #FFFFFF);
+  color: var(--text-secondary, #475569);
   cursor: pointer;
   transition: all 0.15s ease;
-  border: 1px solid transparent;
 
   .action-icon {
-    width: 13px;
-    height: 13px;
+    width: 15px;
+    height: 15px;
+  }
+
+  &:hover {
+    background-color: var(--color-gray-100, #F1F5F9);
+    color: var(--text-primary, #0F172A);
+    border-color: var(--color-gray-300, #CBD5E1);
   }
 
   &.reset {
@@ -549,39 +573,104 @@
     &:hover {
       background-color: #B45309;
       color: #FFFFFF;
+      border-color: #B45309;
     }
   }
 
-  &.view {
-    background-color: var(--color-gray-100, #F1F5F9);
-    color: var(--text-secondary, #475569);
-    border-color: var(--border-subtle, #E2E8F0);
+  &.more {
+    &:hover {
+      background-color: var(--color-gray-100, #F1F5F9);
+      border-color: var(--color-gray-300, #CBD5E1);
+    }
+  }
+}
+
+.actions-menu-container {
+  position: relative;
+}
+
+.actions-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 50;
+  min-width: 220px;
+  background-color: #FFFFFF;
+  border: 1px solid var(--border-subtle, #E2E8F0);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .dropdown-divider {
+    height: 1px;
+    background-color: var(--border-subtle, #E2E8F0);
+    margin: 4px 0;
+  }
+}
+
+.dropdown-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  border: none;
+  background: transparent;
+  font-size: var(--text-xs, 0.75rem);
+  font-weight: 500;
+  color: var(--text-primary, #0F172A);
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.12s ease;
+
+  .dropdown-icon {
+    width: 14px;
+    height: 14px;
+    color: var(--text-secondary, #64748B);
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: var(--bg-canvas, #F1F5F9);
+  }
+
+  &.warning {
+    color: #B45309;
+
+    .dropdown-icon {
+      color: #D97706;
+    }
 
     &:hover {
-      background-color: var(--color-gray-200, #E2E8F0);
-      color: var(--text-primary, #0F172A);
+      background-color: #FFFBEB;
     }
   }
 
-  &.activate {
-    background-color: rgba(22, 163, 74, 0.1);
-    color: #15803D;
-    border-color: rgba(22, 163, 74, 0.25);
-
-    &:hover {
-      background-color: #15803D;
-      color: #FFFFFF;
-    }
-  }
-
-  &.suspend {
-    background-color: rgba(220, 38, 38, 0.08);
+  &.danger {
     color: #DC2626;
-    border-color: rgba(220, 38, 38, 0.2);
+
+    .dropdown-icon {
+      color: #DC2626;
+    }
 
     &:hover {
-      background-color: #DC2626;
-      color: #FFFFFF;
+      background-color: #FEF2F2;
+    }
+  }
+
+  &.success {
+    color: #15803D;
+
+    .dropdown-icon {
+      color: #15803D;
+    }
+
+    &:hover {
+      background-color: #F0FDF4;
     }
   }
 }

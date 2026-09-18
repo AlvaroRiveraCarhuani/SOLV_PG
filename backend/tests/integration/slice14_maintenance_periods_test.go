@@ -204,6 +204,10 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 	// 2. TEST Periodos Académicos (ADR-029)
 	// =========================================================================
 	t.Run("2. Periodos Académicos - CRUD, Validaciones de Fechas y Constraint de Materias", func(t *testing.T) {
+		// Limpieza preventiva para idempotencia en reejecución de tests
+		_, _ = db.GetDB().Exec(`DELETE FROM subjects WHERE academic_period_id IN (SELECT id FROM academic_periods WHERE tenant_id = $1 AND code IN ('I-2026', 'II-2026'))`, tenantID)
+		_, _ = db.GetDB().Exec(`DELETE FROM academic_periods WHERE tenant_id = $1 AND code IN ('I-2026', 'II-2026')`, tenantID)
+
 		// 2.1 Validación 422: end_date < start_date
 		invalidPayload := []byte(`{
 			"name": "Semestre Inválido",
@@ -221,7 +225,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			t.Fatalf("Expected 422 Unprocessable Entity for invalid date range, got %d", respInvalid.StatusCode)
 		}
 
-		// 2.2 Crear Periodo Válido -> 201 Created
+		// 2.2 Crear Periodo Válido -> 201 Created (incluso con fechas pasadas/históricas)
 		validPayload := []byte(`{
 			"name": "Primer Semestre 2026",
 			"code": "I-2026",

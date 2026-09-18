@@ -55,7 +55,6 @@ interface ToastState {
     LucideArrowRightLeft,
     LucideArchive,
     LucideArchiveRestore,
-    LucideRefreshCw,
     LucideChevronLeft,
     LucideChevronRight,
     LucideAlertTriangle,

@@ -153,6 +153,7 @@ type AdminGovernanceRepository interface {
 	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
 	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)
 	ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*AdminTemplateReviewItem, error)
+	CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto CreateOfficialTemplateDTO) (*AdminTemplateReviewItem, error)
 	TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
 	HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
 }
