@@ -1,5 +1,4 @@
 .students-page {
-  padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
@@ -11,27 +10,27 @@
 .page-header {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 1rem;
 }
 
 .header-titles {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 4px;
 }
 
 .page-title {
   margin: 0;
-  font-size: var(--text-2xl, 1.5rem);
+  font-size: 20px;
   font-weight: 700;
   color: var(--text-primary, #0F172A);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
 }
 
 .page-subtitle {
   margin: 0;
-  font-size: var(--text-sm, 0.875rem);
+  font-size: 13px;
   color: var(--text-secondary, #64748B);
 }
 
@@ -44,25 +43,24 @@
 .btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.875rem;
-  border-radius: var(--radius-md, 8px);
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 6px;
   background-color: var(--tenant-primary, #2563EB);
-  border: 1px solid var(--tenant-primary, #2563EB);
+  border: none;
   color: #FFFFFF;
-  font-size: var(--text-xs, 0.75rem);
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
     background-color: #1D4ED8;
-    border-color: #1D4ED8;
   }
 
   .btn-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
   }
 }
 
@@ -100,55 +98,63 @@
   }
 }
 
-// KPI Grid
+// KPI Grid (4 columnas para acomodar exactamente los 4 indicadores)
 .kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .kpi-card {
-  background-color: var(--color-white, #FFFFFF);
+  background-color: var(--bg-surface, #FFFFFF);
   border: 1px solid var(--border-subtle, #E2E8F0);
-  border-radius: var(--radius-md, 8px);
-  padding: 1.125rem;
+  border-radius: 8px;
+  padding: 16px 20px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
 .kpi-icon-wrapper {
   width: 44px;
   height: 44px;
-  border-radius: var(--radius-md, 8px);
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 
   .kpi-icon {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
   }
 
   &.total {
-    background-color: rgba(37, 99, 235, 0.08);
+    background-color: #EFF6FF;
     color: var(--tenant-primary, #2563EB);
   }
 
   &.running {
-    background-color: rgba(22, 163, 74, 0.1);
-    color: #16A34A;
+    background-color: #ECFDF5;
+    color: #059669;
   }
 
   &.warning {
-    background-color: rgba(217, 119, 6, 0.1);
+    background-color: #FFFBEB;
     color: #D97706;
   }
 
   &.danger {
-    background-color: rgba(220, 38, 38, 0.1);
+    background-color: #FEF2F2;
     color: #DC2626;
   }
 }
@@ -156,33 +162,35 @@
 .kpi-content {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
 }
 
 .kpi-label {
-  font-size: var(--text-xs, 0.75rem);
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-secondary, #64748B);
 }
 
 .kpi-value {
-  font-size: 1.5rem;
+  font-size: 24px;
   font-weight: 700;
   font-family: var(--font-mono);
   color: var(--text-primary, #0F172A);
+  line-height: 1.1;
   letter-spacing: -0.02em;
 }
 
 .kpi-value-row {
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 8px;
 }
 
 .kpi-total-badge {
-  font-size: var(--text-xs, 0.75rem);
-  font-weight: 500;
+  font-size: 12px;
   color: var(--text-muted, #94A3B8);
+  font-weight: 500;
 }
 
 // Filters Bar
@@ -725,33 +733,7 @@
   }
 }
 
-// Toast
-.toast-notification {
-  position: fixed;
-  bottom: 1.5rem;
-  right: 1.5rem;
-  z-index: 1000;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.125rem;
-  border-radius: var(--radius-md, 8px);
-  background-color: #15803D; // Verde semántico obligatorio
-  color: #FFFFFF;
-  font-size: var(--text-sm, 0.875rem);
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  animation: slideIn 0.2s ease-out;
 
-  &.toast-error {
-    background-color: #DC2626;
-  }
-
-  .toast-icon {
-    width: 18px;
-    height: 18px;
-  }
-}
 
 .loading-state,
 .empty-state {

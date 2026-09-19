@@ -133,8 +133,29 @@ button {
 }
 
 // =============================================================================
-// COMPONENTES COMPARTIDOS: KPIs Y STATUS TABS (Design System SOLV)
+// COMPONENTES COMPARTIDOS: HEADERS, KPIs Y STATUS TABS (Design System SOLV)
 // =============================================================================
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary, #0F172A);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary, #64748B);
+  margin: 4px 0 0;
+}
 
 .kpis-grid {
   display: grid;
@@ -206,11 +227,13 @@ button {
 }
 
 .kpi-value {
+  font-family: var(--font-mono);
   font-size: 22px;
   font-weight: 700;
   color: var(--text-primary, #0f172a);
   line-height: 1.2;
   margin: 2px 0;
+  letter-spacing: -0.02em;
 }
 
 .kpi-detail {
@@ -911,7 +934,7 @@ button {
   position: fixed;
   top: 24px;
   right: 24px;
-  z-index: 1000;
+  z-index: var(--z-toast, 1100);
   display: flex;
   align-items: center;
   gap: 10px;

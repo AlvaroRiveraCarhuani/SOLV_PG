@@ -2,8 +2,11 @@
   <!-- Toast de Notificación -->
   @if (toastMessage()) {
     <div class="toast-notification" [class.toast-error]="toastType() === 'error'">
-      <svg lucideCheckCircle2 class="toast-icon" *ngIf="toastType() === 'success'"></svg>
-      <svg lucideAlertTriangle class="toast-icon" *ngIf="toastType() === 'error'"></svg>
+      @if (toastType() === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertTriangle class="toast-icon"></svg>
+      }
       <span>{{ toastMessage() }}</span>
     </div>
   }
@@ -179,8 +182,11 @@
                         class="btn-copy-email" 
                         (click)="copyEmail(student.email)" 
                         [title]="copiedEmail() === student.email ? '¡Copiado!' : 'Copiar correo'">
-                        <svg lucideCheck class="copy-icon text-success" *ngIf="copiedEmail() === student.email"></svg>
-                        <svg lucideCopy class="copy-icon" *ngIf="copiedEmail() !== student.email"></svg>
+                        @if (copiedEmail() === student.email) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
                       </button>
                     </div>
                   </div>
@@ -276,17 +282,8 @@
                             <svg lucideRotateCcw class="dropdown-icon"></svg>
                             <span>Restablecer strikes OOM ({{ student.oom_strike_count }})</span>
                           </button>
+                          <div class="dropdown-divider"></div>
                         }
-
-                        <button 
-                          type="button" 
-                          class="dropdown-item" 
-                          (click)="copyEmail(student.email); activeMenuStudentId.set(null)">
-                          <svg lucideCopy class="dropdown-icon"></svg>
-                          <span>Copiar correo</span>
-                        </button>
-
-                        <div class="dropdown-divider"></div>
 
                         @if (student.status === 'suspended') {
                           <button 

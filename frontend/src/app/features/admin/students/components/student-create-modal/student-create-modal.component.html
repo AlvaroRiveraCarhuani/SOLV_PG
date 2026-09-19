@@ -56,11 +56,24 @@
           id="student-email"
           type="email"
           class="form-input"
-          placeholder="ejemplo@uab.edu.bo"
+          [placeholder]="institutionDomain() ? ('ejemplo@' + institutionDomain()) : 'estudiante@institucion.edu'"
           [ngModel]="email()"
           (ngModelChange)="email.set($event); error.set(null)"
           [disabled]="isSubmitting()" />
-        <span class="input-hint">El estudiante podrá autenticarse mediante Google Workspace o acceder a sus materias asignadas.</span>
+        
+        @if (isExternalDomain()) {
+          <div class="domain-warning-box">
+            <svg lucideAlertTriangle class="warning-icon"></svg>
+            <div class="warning-content">
+              <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
+              <p class="warning-text">
+                El correo no coincide con el dominio de la institución ({{ institutionDomain() }}). Si el inicio de sesión con Google Workspace está restringido a cuentas institucionales, el estudiante no podrá ingresar.
+              </p>
+            </div>
+          </div>
+        } @else {
+          <span class="input-hint">El estudiante podrá autenticarse mediante Google Workspace institucional o acceder a sus materias asignadas.</span>
+        }
       </div>
     </div>
 

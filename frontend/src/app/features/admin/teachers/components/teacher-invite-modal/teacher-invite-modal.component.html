@@ -25,7 +25,7 @@
           <input 
             id="teacher-email"
             type="email" 
-            placeholder="profesor@institucion.edu"
+            [placeholder]="institutionDomain() ? ('profesor@' + institutionDomain()) : 'profesor@institucion.edu'"
             [ngModel]="email()" 
             (ngModelChange)="email.set($event)"
             class="form-input"
@@ -33,7 +33,20 @@
             autocomplete="email"
           />
         </div>
-        <span class="field-hint">El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.</span>
+
+        @if (isExternalDomain()) {
+          <div class="domain-warning-box">
+            <svg lucideAlertTriangle class="warning-icon"></svg>
+            <div class="warning-content">
+              <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
+              <p class="warning-text">
+                El correo no coincide con el dominio oficial ({{ institutionDomain() }}). Si la institución restringe el acceso con Google Workspace institucional, el docente no podrá completar su registro.
+              </p>
+            </div>
+          </div>
+        } @else {
+          <span class="field-hint">El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.</span>
+        }
       </div>
 
       <div class="form-group checkbox-group">

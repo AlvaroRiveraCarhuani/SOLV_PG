@@ -13,32 +13,6 @@ $mut: #64748B;
   margin: 0 auto;
 }
 
-.toast-notification {
-  position: fixed;
-  top: 24px;
-  right: 24px;
-  z-index: 2000;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #15803D;
-  color: #FFFFFF;
-  padding: 12px 18px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 10px 25px -5px rgba(21, 128, 61, 0.35);
-  animation: slideIn 200ms ease-out;
-
-  .toast-icon { width: 16px; height: 16px; color: #FFFFFF; flex-shrink: 0; }
-  &.toast-error { background: #DC2626; box-shadow: 0 10px 25px -5px rgba(220, 38, 38, 0.35); .toast-icon { color: #FFFFFF; } }
-}
-
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(-10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
 .page-header {
   display: flex;
   justify-content: space-between;
