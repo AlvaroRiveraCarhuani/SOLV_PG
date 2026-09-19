@@ -3,12 +3,20 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DockerContainerSummary } from '@core/models/admin.model';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
-import { LucideSearch, LucidePower } from '@lucide/angular';
+import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 
 @Component({
   selector: 'solv-container-table',
   standalone: true,
-  imports: [CommonModule, FormsModule, StatusBadgeComponent, LucideSearch, LucidePower],
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    StatusBadgeComponent, 
+    LucideSearch, 
+    LucidePower, 
+    LucideChevronLeft, 
+    LucideChevronRight
+  ],
   template: `
     <div class="table-card">
       <div class="table-toolbar">
@@ -23,7 +31,7 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
               type="text" 
               placeholder="Filtrar por estudiante, curso o imagen..." 
               [ngModel]="searchTerm()" 
-              (ngModelChange)="searchTerm.set($event)"
+              (ngModelChange)="onSearchChange($event)"
               class="search-input"
             />
           </div>
@@ -44,7 +52,7 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
             </tr>
           </thead>
           <tbody>
-            @for (c of filteredContainers(); track c.id) {
+            @for (c of paginatedContainers(); track c.id) {
               <tr>
                 <td>
                   <div class="user-cell">
@@ -74,7 +82,7 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
                     <button 
                       class="btn-icon danger" 
                       title="Detener Contenedor" 
-                      (click)="stopContainer.emit(c.id)">
+                      (click)="stopContainer.emit(c)">
                       <svg lucidePower class="icon"></svg>
                     </button>
                   </div>
@@ -90,6 +98,32 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
           </tbody>
         </table>
       </div>
+
+      <!-- Paginación -->
+      @if (filteredContainers().length > pageSize()) {
+        <footer class="pagination-footer">
+          <div class="pagination-info">
+            Mostrando página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> 
+            ({{ filteredContainers().length }} instancias)
+          </div>
+          <div class="pagination-controls">
+            <button 
+              class="btn-page" 
+              [disabled]="currentPage() === 1" 
+              (click)="goToPage(currentPage() - 1)">
+              <svg lucideChevronLeft class="page-icon"></svg>
+              <span>Anterior</span>
+            </button>
+            <button 
+              class="btn-page" 
+              [disabled]="currentPage() === totalPages()" 
+              (click)="goToPage(currentPage() + 1)">
+              <span>Siguiente</span>
+              <svg lucideChevronRight class="page-icon"></svg>
+            </button>
+          </div>
+        </footer>
+      }
     </div>
   `,
   styles: [`
@@ -253,21 +287,21 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-secondary, #64748B);
       transition: all 150ms ease;
 
       .icon {
-        width: 14px;
-        height: 14px;
+        width: 16px;
+        height: 16px;
       }
 
-      &:hover {
-        background-color: #F1F5F9;
-      }
+      &.danger {
+        color: var(--text-muted, #94A3B8);
 
-      &.danger:hover {
-        background-color: #FEE2E2;
-        color: #DC2626;
+        &:hover {
+          background-color: #FEF2F2;
+          color: #DC2626;
+          border-color: #FCA5A5;
+        }
       }
     }
 
@@ -276,13 +310,64 @@ import { LucideSearch, LucidePower } from '@lucide/angular';
       padding: 32px 16px;
       color: var(--text-muted, #94A3B8);
     }
+
+    .pagination-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.125rem;
+      background-color: var(--bg-canvas, #F8FAFC);
+      border-top: 1px solid var(--border-subtle, #E2E8F0);
+      font-size: 0.75rem;
+    }
+
+    .pagination-info {
+      color: var(--text-secondary, #64748B);
+    }
+
+    .pagination-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-page {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.3rem 0.65rem;
+      border-radius: var(--radius-sm, 4px);
+      background-color: var(--color-white, #FFFFFF);
+      border: 1px solid var(--border-subtle, #E2E8F0);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--text-primary, #0F172A);
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        background-color: var(--color-gray-100, #F1F5F9);
+        border-color: var(--color-gray-300, #CBD5E1);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .page-icon {
+        width: 13px;
+        height: 13px;
+      }
+    }
   `]
 })
 export class ContainerTableComponent {
   containers = input.required<DockerContainerSummary[]>();
-  stopContainer = output<string>();
+  stopContainer = output<DockerContainerSummary>();
 
   searchTerm = signal<string>('');
+  pageSize = signal<number>(8);
+  currentPage = signal<number>(1);
 
   filteredContainers = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
@@ -294,6 +379,24 @@ export class ContainerTableComponent {
       c.image_tag.toLowerCase().includes(term)
     );
   });
+
+  totalPages = computed(() => Math.max(1, Math.ceil(this.filteredContainers().length / this.pageSize())));
+
+  paginatedContainers = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize();
+    return this.filteredContainers().slice(start, start + this.pageSize());
+  });
+
+  onSearchChange(term: string): void {
+    this.searchTerm.set(term);
+    this.currentPage.set(1);
+  }
+
+  goToPage(p: number): void {
+    if (p >= 1 && p <= this.totalPages()) {
+      this.currentPage.set(p);
+    }
+  }
 
   formatTTL(seconds: number): string {
     if (seconds <= 0) return 'Expirado';

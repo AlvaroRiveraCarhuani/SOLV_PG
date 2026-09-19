@@ -9,7 +9,8 @@ import { CourseWorkspacesModalComponent } from './components/course-modal/course
 import { ContainerTableComponent } from './components/container-table/container-table.component';
 import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewer-modal.component';
 import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
-import { CourseLoadSummary, TechnicalIncident } from '@core/models/admin.model';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { CourseLoadSummary, TechnicalIncident, DockerContainerSummary } from '@core/models/admin.model';
 import { 
   LucideRefreshCw, 
   LucideMoon, 
@@ -44,6 +45,7 @@ const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'co
     ContainerTableComponent, 
     LogViewerModalComponent,
     LoadHistoryChartComponent,
+    ConfirmModalComponent,
     LucideRefreshCw, 
     LucideMoon, 
     LucideServer, 
@@ -275,8 +277,20 @@ export class AdminDashboardComponent implements OnDestroy {
     }, 6000);
   }
 
-  stopContainer(id: string): void {
+  containerToStop = signal<DockerContainerSummary | null>(null);
+
+  requestStopContainer(container: DockerContainerSummary): void {
+    this.containerToStop.set(container);
+  }
+
+  cancelStopContainer(): void {
+    this.containerToStop.set(null);
+  }
+
+  confirmStopContainer(id: string): void {
     this.metricsService.stopContainer(id);
+    this.containerToStop.set(null);
+    this.showFeedback('success', `Contenedor ${id.substring(0, 12)} detenido.`);
   }
 
   onViewCourseDetails(course: CourseLoadSummary): void {

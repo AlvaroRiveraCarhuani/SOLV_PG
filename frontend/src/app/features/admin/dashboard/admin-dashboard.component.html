@@ -189,7 +189,7 @@
                 <div class="collapsible-content">
                   <solv-container-table 
                     [containers]="health()!.containers" 
-                    (stopContainer)="stopContainer($event)" 
+                    (stopContainer)="requestStopContainer($event)" 
                   />
                 </div>
               }
@@ -216,5 +216,16 @@
       [incident]="selectedIncidentForLogs()"
       (close)="selectedIncidentForLogs.set(null)"
     />
+  }
+
+  @if (containerToStop(); as c) {
+    <solv-confirm-modal
+      title="Detener Contenedor de Laboratorio"
+      [message]="'¿Confirmas la detención del contenedor de ' + c.student_name + ' (' + c.student_email + ') en la materia ' + c.course_name + '? Se cerrará la sesión activa del entorno en Docker.'"
+      confirmText="Detener Contenedor"
+      type="danger"
+      (confirm)="confirmStopContainer(c.id)"
+      (cancel)="cancelStopContainer()">
+    </solv-confirm-modal>
   }
 </div>
