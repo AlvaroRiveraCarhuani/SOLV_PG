@@ -24,10 +24,12 @@ type ContainerOrchestrator interface {
 }
 
 type Template struct {
-	ID          string `db:"id" json:"id"`
-	Name        string `db:"name" json:"name"`
-	DockerImage string `db:"docker_image" json:"docker_image"`
-	BaseRamMB   int    `db:"base_ram_mb" json:"base_ram_mb"`
+	ID             string         `db:"id" json:"id"`
+	Name           string         `db:"name" json:"name"`
+	DockerImage    string         `db:"docker_image" json:"docker_image"`
+	BaseRamMB      int            `db:"base_ram_mb" json:"base_ram_mb"`
+	ServicesConfig ServicesConfig `db:"services_config" json:"services_config"`
+	SetupScript    string         `db:"setup_script" json:"setup_script"`
 }
 
 type TemplateRepository interface {
@@ -109,9 +111,12 @@ type WorkspaceOrchestrator interface {
 	UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error
 	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
+	PauseContainer(ctx context.Context, containerID string) error
+	UnpauseContainer(ctx context.Context, containerID string) error
 	ListAllManagedContainers(ctx context.Context) ([]string, error)
 	RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error)
 	GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error)
+	ExecuteCommandInBackground(ctx context.Context, containerID string, workDir string, cmd []string) error
 }
 
 type TenantRepository interface {

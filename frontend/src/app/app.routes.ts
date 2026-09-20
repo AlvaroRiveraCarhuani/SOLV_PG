@@ -51,6 +51,11 @@ export const routes: Routes = [
         path: 'estudiantes',
         loadComponent: () =>
           import('@features/admin/students/admin-students.component').then((m) => m.AdminStudentsComponent)
+      },
+      {
+        path: 'plantillas',
+        loadComponent: () =>
+          import('@features/admin/templates/admin-templates.component').then((m) => m.AdminTemplatesComponent)
       }
     ]
   },

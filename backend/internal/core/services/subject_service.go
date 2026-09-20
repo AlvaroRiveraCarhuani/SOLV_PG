@@ -18,10 +18,10 @@ func NewSubjectService(repo domain.SubjectRepository) *SubjectService {
 }
 
 func (s *SubjectService) CreateSubject(ctx context.Context, tenantID, name, code string, classroomCourseID *string) (*domain.Subject, error) {
-	return s.CreateSubjectWithDetails(ctx, tenantID, name, code, nil, nil, classroomCourseID)
+	return s.CreateSubjectWithDetails(ctx, tenantID, name, code, nil, nil, classroomCourseID, nil)
 }
 
-func (s *SubjectService) CreateSubjectWithDetails(ctx context.Context, tenantID, name, code string, teacherID, academicPeriodID, classroomCourseID *string) (*domain.Subject, error) {
+func (s *SubjectService) CreateSubjectWithDetails(ctx context.Context, tenantID, name, code string, teacherID, academicPeriodID, classroomCourseID, templateID *string) (*domain.Subject, error) {
 	if name == "" || code == "" {
 		return nil, errors.New("name and code are required")
 	}
@@ -33,6 +33,7 @@ func (s *SubjectService) CreateSubjectWithDetails(ctx context.Context, tenantID,
 		TeacherID:         teacherID,
 		AcademicPeriodID:  academicPeriodID,
 		ClassroomCourseID: classroomCourseID,
+		TemplateID:        templateID,
 	}
 	if err := s.repo.Create(ctx, subject); err != nil {
 		return nil, fmt.Errorf("failed to create subject: %w", err)

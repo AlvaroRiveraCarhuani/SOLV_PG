@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"solv-backend/internal/core/domain"
@@ -142,14 +143,66 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dto.Status, dto.RejectionReason, dto.BaseRamMB)
 }
 
+var (
+	dockerImageRegex = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$`)
+	ErrInvalidDockerImage = errors.New("la imagen Docker debe tener formato válido repositorio:tag sin espacios (ej: python:3.12-slim)")
+	ErrLatestTagForbidden = errors.New("el tag :latest está prohibido en plantillas oficiales por reproducibilidad")
+)
+
 func (s *AdminGovernanceService) CreateOfficialTemplate(
 	ctx context.Context,
 	tenantID, adminID string,
 	dto domain.CreateOfficialTemplateDTO,
 ) (*domain.AdminTemplateReviewItem, error) {
+	dto.Name = strings.TrimSpace(dto.Name)
+	dto.DockerImage = strings.TrimSpace(dto.DockerImage)
+
+	if dto.Name == "" {
+		return nil, errors.New("el nombre de la plantilla es requerido")
+	}
+
+	if dto.DockerImage == "" {
+		return nil, errors.New("la imagen Docker es requerida")
+	}
+
+	if strings.HasSuffix(strings.ToLower(dto.DockerImage), ":latest") {
+		return nil, ErrLatestTagForbidden
+	}
+
+	if !dockerImageRegex.MatchString(dto.DockerImage) {
+		return nil, ErrInvalidDockerImage
+	}
+
+	if dto.TargetEnvironment == "" {
+		dto.TargetEnvironment = "IDE_PERSISTENTE"
+	}
+
 	if dto.BaseRamMB <= 0 {
 		dto.BaseRamMB = 512
+	} else if dto.BaseRamMB < 256 {
+		dto.BaseRamMB = 256
 	}
+
+	if dto.ServicesConfig == nil {
+		dto.ServicesConfig = &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{},
+		}
+	}
+
+	// Cálculo proporcional dinámico de calidad de servicio (sin números mágicos fijos)
+	if dto.ResourceProfile == nil {
+		minMB := dto.BaseRamMB / 2
+		if minMB < 128 {
+			minMB = 128
+		}
+		highMB := int(float64(dto.BaseRamMB) * 0.8)
+		dto.ResourceProfile = &domain.TemplateResourceProfile{
+			MinMB:  minMB,
+			HighMB: highMB,
+			MaxMB:  dto.BaseRamMB,
+		}
+	}
+
 	return s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
 }
 

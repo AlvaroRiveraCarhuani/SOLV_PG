@@ -1,0 +1,97 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge">
+          <svg lucideLayers class="w-5 h-5 text-primary"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Ajustar Cuota de Plantilla Oficial</h3>
+          <p class="modal-subtitle">Modificación de asignación de RAM y parámetros pedagógicos</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Resumen de Imagen -->
+      <div class="template-summary-card">
+        <div class="summary-row">
+          <span class="summary-label">Plantilla:</span>
+          <span class="summary-value font-semibold">{{ template.name }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Imagen Docker:</span>
+          <code class="docker-image-tag">{{ template.docker_image }}</code>
+        </div>
+      </div>
+
+      <!-- Cuota de Memoria RAM -->
+      <div class="quota-section">
+        <label class="quota-title">
+          <svg lucideHardDrive class="w-4 h-4 text-secondary"></svg>
+          <span>Asignación de Memoria RAM:</span>
+        </label>
+        <div class="chips-selector">
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 256"
+            (click)="setRam(256)">
+            256 MB <span class="chip-desc">Ligera</span>
+          </button>
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 512"
+            (click)="setRam(512)">
+            512 MB <span class="chip-desc chip-badge">Sugerido</span>
+          </button>
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 1024"
+            (click)="setRam(1024)">
+            1024 MB <span class="chip-desc">Intensiva</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Descripción -->
+      <div class="form-group">
+        <label class="form-label">
+          Descripción / Justificación Técnica:
+        </label>
+        <textarea 
+          class="form-control" 
+          rows="3" 
+          placeholder="Descripción actualizada para docentes y alumnos..."
+          [ngModel]="description()" 
+          (ngModelChange)="description.set($event)"></textarea>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn-primary" 
+        (click)="confirmSave()" 
+        [disabled]="isSubmitting()">
+        @if (isSubmitting()) {
+          <span>Guardando...</span>
+        } @else {
+          <svg lucideSave class="btn-icon"></svg>
+          <span>Guardar Cambios</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

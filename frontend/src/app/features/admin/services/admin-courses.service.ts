@@ -74,6 +74,7 @@ export interface CreateCoursePayload {
   teacher_id?: string;
   academic_period_id?: string;
   classroom_course_id?: string;
+  template_id?: string;
 }
 
 export interface ReassignCoursePayload {

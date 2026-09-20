@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -134,21 +135,40 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		memLimit = domain.DefaultBaseMemoryMB // 256MB base limit
 	}
 
+	memReservation := int64(float64(memLimit) * 0.75) // 75% memory.low para contención suave
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/home/workspace:rw", config.VolumeName),
 		},
 		Resources: container.Resources{
-			Memory: memLimit * 1024 * 1024,
+			Memory:            memLimit * 1024 * 1024,
+			MemoryReservation: memReservation * 1024 * 1024,
 		},
 		NetworkMode: container.NetworkMode(config.NetworkName),
 		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 
+	// Inyección de NODE_OPTIONS para controlar el heap de V8 en OpenVSCode Server (Memory Governance)
+	envList := config.Env
+	hasNodeOptions := false
+	for _, env := range envList {
+		if strings.HasPrefix(env, "NODE_OPTIONS=") {
+			hasNodeOptions = true
+			break
+		}
+	}
+	if !hasNodeOptions {
+		maxOldSpace := int(float64(memLimit) * 0.65)
+		if maxOldSpace < 128 {
+			maxOldSpace = 128
+		}
+		envList = append(envList, fmt.Sprintf("NODE_OPTIONS=--max-old-space-size=%d", maxOldSpace))
+	}
+
 	containerConfig := &container.Config{
 		Image:  config.Image,
 		Labels: config.Labels,
-		Env:    config.Env,
+		Env:    envList,
 		User:   "1000:1000",
 		Cmd:    []string{"--without-connection-token", "--host", "0.0.0.0"},
 	}
@@ -289,6 +309,24 @@ func (c *Client) StopAndRemoveContainer(ctx context.Context, containerID string)
 		return fmt.Errorf("failed to remove container %q: %w", containerID, err)
 	}
 
+	return nil
+}
+
+// PauseContainer congela atómicamente el contenedor a nivel de cgroups (cgroup.freeze), llevando CPU a 0%.
+func (c *Client) PauseContainer(ctx context.Context, containerID string) error {
+	err := c.cli.ContainerPause(ctx, containerID)
+	if err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to pause container %q: %w", containerID, err)
+	}
+	return nil
+}
+
+// UnpauseContainer reanuda de forma instantánea (<50ms) un contenedor previamente congelado.
+func (c *Client) UnpauseContainer(ctx context.Context, containerID string) error {
+	err := c.cli.ContainerUnpause(ctx, containerID)
+	if err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to unpause container %q: %w", containerID, err)
+	}
 	return nil
 }
 
@@ -499,5 +537,30 @@ func cleanMuxLogHeaders(raw []byte) []byte {
 		}
 	}
 	return result
+}
+
+// ExecuteCommandInBackground ejecuta un comando dentro de un contenedor en ejecución sin bloquear el hilo principal.
+func (c *Client) ExecuteCommandInBackground(ctx context.Context, containerID string, workDir string, cmd []string) error {
+	execConfig := container.ExecOptions{
+		AttachStdout: false,
+		AttachStderr: false,
+		WorkingDir:   workDir,
+		Cmd:          cmd,
+	}
+
+	execResp, err := c.cli.ContainerExecCreate(ctx, containerID, execConfig)
+	if err != nil {
+		return fmt.Errorf("failed to create exec instance in container %s: %w", containerID, err)
+	}
+
+	err = c.cli.ContainerExecStart(ctx, execResp.ID, container.ExecStartOptions{
+		Detach: true,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start background exec %s in container %s: %w", execResp.ID, containerID, err)
+	}
+
+	log.Printf("[Docker Exec] Background command started in container %s: %v", containerID, cmd)
+	return nil
 }
 

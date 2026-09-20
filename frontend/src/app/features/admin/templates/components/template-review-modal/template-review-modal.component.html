@@ -1,0 +1,111 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge">
+          <svg lucideLayers class="w-5 h-5 text-primary"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Aprobar Plantilla y Fijar Cuotas</h3>
+          <p class="modal-subtitle">Asignación de recursos de hardware y alcance institucional</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Target Template Box -->
+      <div class="template-summary-card">
+        <div class="summary-row">
+          <span class="summary-label">Plantilla:</span>
+          <span class="summary-value font-semibold">{{ template.name }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Imagen Docker:</span>
+          <code class="docker-image-tag">{{ template.docker_image }}</code>
+        </div>
+        @if (template.requested_by_name) {
+          <div class="summary-row">
+            <span class="summary-label">Docente solicitante:</span>
+            <span class="summary-value text-secondary">{{ template.requested_by_name }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- RAM Allocation -->
+      <div class="quota-section">
+        <label class="quota-title">
+          <svg lucideHardDrive class="w-4 h-4 text-secondary"></svg>
+          <span>Asignación de Memoria RAM por Contenedor:</span>
+        </label>
+        <div class="chips-selector">
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 256"
+            (click)="setRam(256)">
+            256 MB <span class="chip-desc">Ligera</span>
+          </button>
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 512"
+            (click)="setRam(512)">
+            512 MB <span class="chip-desc chip-badge">Sugerido</span>
+          </button>
+          <button 
+            type="button" 
+            class="chip-btn" 
+            [class.active]="selectedRam() === 1024"
+            (click)="setRam(1024)">
+            1024 MB <span class="chip-desc">Intensiva</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Advertencia de tag latest -->
+      @if (hasLatestTag()) {
+        <div class="field-error-alert">
+          <svg lucideAlertTriangle class="alert-icon"></svg>
+          <div>
+            <strong class="font-semibold">Advertencia de Gobernanza:</strong>
+            <p class="mt-1">
+              Esta imagen utiliza el tag <code>:latest</code> o no define versión inmutable. La política técnica de SOLV exige versiones fijadas para garantizar reproducibilidad en los laboratorios.
+            </p>
+          </div>
+        </div>
+      }
+
+      <!-- Notice -->
+      <div class="notice-box">
+        <svg lucideInfo class="w-4 h-4 text-blue shrink-0"></svg>
+        <span>
+          Al confirmar, el estado cambiará a <strong>Aprobada</strong> y la plantilla se publicará en el catálogo institucional para la creación de prácticas.
+        </span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn-primary" 
+        (click)="confirmApprove()" 
+        [disabled]="isSubmitting()">
+        @if (isSubmitting()) {
+          <span>Publicando...</span>
+        } @else {
+          <svg lucideCheckCircle2 class="w-4 h-4"></svg>
+          <span>Confirmar y Publicar en Catálogo</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

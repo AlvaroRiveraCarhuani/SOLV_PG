@@ -85,7 +85,8 @@ export class CourseCreateModalComponent implements OnInit {
       name: this.name().trim(),
       code: this.code().trim().toUpperCase(),
       teacher_id: this.selectedTeacherId() ? this.selectedTeacherId() : undefined,
-      academic_period_id: this.selectedPeriodId() ? this.selectedPeriodId() : undefined
+      academic_period_id: this.selectedPeriodId() ? this.selectedPeriodId() : undefined,
+      template_id: this.selectedTemplateId() ? this.selectedTemplateId() : undefined
     };
 
     this.coursesService.createCourse(payload).subscribe({

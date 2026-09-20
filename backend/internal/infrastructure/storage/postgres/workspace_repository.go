@@ -23,7 +23,7 @@ func (r *PostgresWorkspaceRepository) GetByStudentAndSubject(ctx context.Context
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
 		WHERE student_id = $1 AND subject_id = $2 AND tenant_id = $3
 	`
@@ -41,7 +41,7 @@ func (r *PostgresWorkspaceRepository) GetByID(ctx context.Context, id string) (*
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
 		WHERE id = $1 AND tenant_id = $2
 	`
@@ -74,8 +74,8 @@ func (r *PostgresWorkspaceRepository) Create(ctx context.Context, workspace *dom
 		workspace.LastHeartbeatAt = time.Now()
 	}
 	query := `
-		INSERT INTO workspaces (id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, created_at, updated_at)
-		VALUES (:id, :student_id, :subject_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :created_at, :updated_at)
+		INSERT INTO workspaces (id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, semgrep_audit, tenant_id, created_at, updated_at)
+		VALUES (:id, :student_id, :subject_id, :template_id, :type, :container_id, :status, :access_url, :memory_limit_mb, :last_heartbeat_at, :last_oom_killed_at, :oom_strike_count, :semgrep_audit, :tenant_id, :created_at, :updated_at)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, workspace)
 	if err != nil {
@@ -194,7 +194,7 @@ func (r *PostgresWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) (
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
 		WHERE status IN ('running', 'pending') AND tenant_id = $1
 	`
@@ -217,13 +217,13 @@ func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Contex
 	var args []interface{}
 	if tenantID == "" {
 		query = `
-			SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 			FROM workspaces
 			WHERE status = 'running'
 		`
 	} else {
 		query = `
-			SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+			SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 			FROM workspaces
 			WHERE status = 'running' AND tenant_id = $1
 		`
@@ -243,7 +243,7 @@ func (r *PostgresWorkspaceRepository) GetByType(ctx context.Context, workspaceTy
 		tenantID = domain.DefaultTenantID
 	}
 	query := `
-		SELECT id, student_id, subject_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
+		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
 		WHERE type = $1 AND tenant_id = $2
 	`

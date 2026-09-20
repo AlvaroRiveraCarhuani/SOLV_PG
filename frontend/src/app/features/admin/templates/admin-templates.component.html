@@ -1,0 +1,841 @@
+<div class="templates-view-container">
+  <!-- Toast Notificación Flotante -->
+  @if (toast(); as t) {
+    <div class="toast-notification" [class.toast-error]="t.type === 'error'">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  <!-- Header Superior -->
+  <header class="view-header">
+    <div class="header-info">
+      <div class="title-with-badge">
+        <h1 class="view-title">Plantillas de Entornos</h1>
+        <span class="role-badge">Gobernanza Docker</span>
+      </div>
+      <p class="view-subtitle">
+        Gestión y control de imágenes Docker institucionales y solicitudes de docentes
+      </p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="btn-primary" (click)="openCreateModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nueva Plantilla Oficial</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Grilla de KPIs de Gobernanza Docker -->
+  <section class="kpis-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-box blue">
+        <svg lucideLayers class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Total en Catálogo</span>
+        <div class="kpi-value">{{ catalogCount() }}</div>
+        <span class="kpi-detail">Plantillas institucionales</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box" [class.amber]="pendingCount() > 0" [class.green]="pendingCount() === 0">
+        @if (pendingCount() > 0) {
+          <svg lucideClock class="kpi-icon"></svg>
+        } @else {
+          <svg lucideCheckCircle2 class="kpi-icon"></svg>
+        }
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Pendientes</span>
+        <div class="kpi-value">{{ pendingCount() }}</div>
+        <span class="kpi-detail">
+          {{ pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión administrativa' }}
+        </span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box green">
+        <svg lucideCheckCircle2 class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Activas en Uso</span>
+        <div class="kpi-value">{{ activeCount() }}</div>
+        <span class="kpi-detail">Disponibles para laboratorios</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box gray">
+        <svg lucidePause class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">Pausadas</span>
+        <div class="kpi-value">{{ pausedCount() }}</div>
+        <span class="kpi-detail">En mantenimiento temporal</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-box purple">
+        <svg lucideHardDrive class="kpi-icon"></svg>
+      </div>
+      <div class="kpi-content">
+        <span class="kpi-label">RAM Promedio</span>
+        <div class="kpi-value">{{ averageRam() }} MB</div>
+        <span class="kpi-detail">Cuota media por entorno</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Barra de Pestañas y Alternador de Vista -->
+  <div class="nav-toolbar">
+    <!-- Pestañas Principales -->
+    <div class="tabs-group">
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeTab() === 'pending'"
+        (click)="setTab('pending')">
+        <svg lucideClock class="tab-icon"></svg>
+        <span>Solicitudes Pendientes</span>
+        <span class="tab-badge" [class.highlight]="pendingCount() > 0">
+          {{ pendingCount() }}
+        </span>
+      </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeTab() === 'catalog'"
+        (click)="setTab('catalog')">
+        <svg lucideLayers class="tab-icon"></svg>
+        <span>Catálogo Activo</span>
+        <span class="tab-badge neutral">
+          {{ catalogCount() }}
+        </span>
+      </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeTab() === 'rejected'"
+        (click)="setTab('rejected')">
+        <svg lucideXCircle class="tab-icon"></svg>
+        <span>Rechazadas</span>
+        <span class="tab-badge" [class.highlight]="rejectedCount() > 0">
+          {{ rejectedCount() }}
+        </span>
+      </button>
+    </div>
+
+    <!-- Alternador de Vista: Tarjetas vs Tabla (Unificado para todas las pestañas) -->
+    <div class="view-switcher" role="group" aria-label="Modo de visualización">
+      <button 
+        type="button" 
+        class="switcher-btn" 
+        [class.active]="viewMode() === 'cards'"
+        (click)="setViewMode('cards')"
+        title="Vista en Tarjetas">
+        <svg lucideLayoutGrid class="switcher-icon"></svg>
+        <span>Tarjetas</span>
+      </button>
+      <button 
+        type="button" 
+        class="switcher-btn" 
+        [class.active]="viewMode() === 'table'"
+        (click)="setViewMode('table')"
+        title="Vista en Tabla">
+        <svg lucideTable class="switcher-icon"></svg>
+        <span>Tabla</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Barra de Búsqueda y Filtros Dinámicos -->
+  <div class="search-and-filters-panel">
+    <div class="search-bar-row">
+      <div class="search-input-wrapper">
+        <svg lucideSearch class="search-icon"></svg>
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Buscar plantilla, imagen docker, docente o motivo..."
+          [ngModel]="searchTerm()" 
+          (ngModelChange)="searchTerm.set($event)" />
+        @if (searchTerm()) {
+          <button type="button" class="btn-clear-search" (click)="searchTerm.set('')">✕</button>
+        }
+      </div>
+    </div>
+
+    <!-- Chips Dinámicos por Tecnología (Calculados Reactivamente desde la BD) -->
+    @if (availableTechs().length > 0) {
+      <div class="tech-chips-bar" role="group" aria-label="Filtro por tecnología">
+        <button 
+          type="button" 
+          class="tech-chip" 
+          [class.active]="selectedTech() === 'all'"
+          (click)="setTechFilter('all')">
+          <span>Todas</span>
+          <span class="chip-count">{{ currentTabTemplates().length }}</span>
+        </button>
+
+        @for (tech of topTechs(); track tech.meta.id) {
+          <button 
+            type="button" 
+            class="tech-chip" 
+            [class.active]="selectedTech() === tech.meta.id"
+            (click)="setTechFilter(tech.meta.id)">
+            <solv-tech-logo [iconType]="tech.meta.iconType" [size]="16" />
+            <span>{{ tech.meta.name }}</span>
+            <span class="chip-count">{{ tech.count }}</span>
+          </button>
+        }
+
+        @if (extraTechs().length > 0) {
+          <div class="tech-chip-select-wrapper" [class.active]="isExtraSelected()">
+            <select 
+              class="tech-chip-select" 
+              [value]="isExtraSelected() ? selectedTech() : ''" 
+              (change)="onSelectExtraTech($event)"
+              aria-label="Más tecnologías">
+              <option value="" disabled [selected]="!isExtraSelected()">
+                +{{ extraTechs().length }} más...
+              </option>
+              @for (tech of extraTechs(); track tech.meta.id) {
+                <option [value]="tech.meta.id">
+                  {{ tech.meta.name }} ({{ tech.count }})
+                </option>
+              }
+            </select>
+            <svg lucideChevronDown class="select-chevron-icon"></svg>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <!-- CONTENIDO: Pestaña 1 - Solicitudes Pendientes -->
+  @if (activeTab() === 'pending') {
+    @if (isLoading()) {
+      <div class="loading-state">
+        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <span>Cargando solicitudes de plantillas...</span>
+      </div>
+    } @else if (pendingTemplates().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg lucideCheckCircle2 class="w-8 h-8 text-success"></svg>
+        </div>
+        <h3 class="empty-title">Bandeja al Día</h3>
+        <p class="empty-description">
+          No hay solicitudes pendientes que coincidan con los criterios seleccionados.
+        </p>
+      </div>
+    } @else {
+      @if (viewMode() === 'cards') {
+        <!-- Modo Tarjetas: Grilla Lado a Lado de 2 columnas -->
+        <div class="cards-grid">
+          @for (item of pendingTemplates(); track item.id) {
+            <div class="template-card">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <div>
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-badges">
+                      <span class="badge-status-pending">Pendiente</span>
+                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      @for (srv of item.services_config?.services; track srv.engine) {
+                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
+                          {{ srv.engine }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-meta">
+                <div class="meta-row">
+                  <span class="meta-text font-medium">
+                    {{ item.requested_by_name || 'Docente de la institución' }}
+                  </span>
+                </div>
+                <div class="meta-row">
+                  <svg lucideClock class="meta-icon"></svg>
+                  <span class="meta-text text-tertiary">
+                    {{ item.created_at | date:'dd/MM/yyyy HH:mm' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="docker-image-box">
+                <span class="docker-label">Imagen:</span>
+                <div class="docker-tag-wrapper">
+                  <code class="docker-tag">{{ item.docker_image }}</code>
+                  <button 
+                    type="button" 
+                    class="btn-copy-tag" 
+                    (click)="copyDockerTag(item.docker_image, $event)" 
+                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                    @if (copiedTag() === item.docker_image) {
+                      <svg lucideCheck class="copy-icon text-success"></svg>
+                    } @else {
+                      <svg lucideCopy class="copy-icon"></svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              <div class="pedagogical-justification-box">
+                <span class="justification-title">Justificación pedagógica:</span>
+                <p class="justification-text">
+                  {{ item.description || 'Sin justificación técnica especificada por el docente.' }}
+                </p>
+              </div>
+
+              <div class="card-actions">
+                <button type="button" class="btn-outline-danger" (click)="openRejectModal(item)">
+                  Rechazar
+                </button>
+                <button type="button" class="btn-primary" (click)="openReviewModal(item)">
+                  Revisar y Aprobar
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Tabla de Solicitudes Pendientes -->
+        <div class="table-card table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Plantilla / Imagen Docker</th>
+                <th>Docente Solicitante</th>
+                <th>RAM Solicitada</th>
+                <th>Fecha Solicitud</th>
+                <th>Justificación Pedagógica</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of pendingTemplates(); track item.id) {
+                <tr>
+                  <td>
+                    <div class="cell-entity-group">
+                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <div>
+                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        <div class="docker-copy-inline">
+                          <code class="cell-code">{{ item.docker_image }}</code>
+                          <button 
+                            type="button" 
+                            class="btn-copy-tag" 
+                            (click)="copyDockerTag(item.docker_image, $event)" 
+                            [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                            @if (copiedTag() === item.docker_image) {
+                              <svg lucideCheck class="copy-icon text-success"></svg>
+                            } @else {
+                              <svg lucideCopy class="copy-icon"></svg>
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
+                  </td>
+                  <td>
+                    <span class="ram-badge">{{ item.base_ram_mb }} MB</span>
+                  </td>
+                  <td>
+                    <span class="cell-text text-secondary">{{ item.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-desc-subtle" [title]="item.description || 'Sin justificación'">
+                      {{ item.description || 'Sin justificación técnica especificada' }}
+                    </span>
+                  </td>
+                  <td class="text-right">
+                    <div class="action-buttons-group">
+                      <button type="button" class="btn-action-reject" (click)="openRejectModal(item)" title="Rechazar solicitud">
+                        Rechazar
+                      </button>
+                      <button type="button" class="btn-action-approve" (click)="openReviewModal(item)" title="Revisar y fijar cuotas">
+                        Revisar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    }
+  }
+
+  <!-- CONTENIDO: Pestaña 2 - Catálogo Activo -->
+  @if (activeTab() === 'catalog') {
+    @if (isLoading()) {
+      <div class="loading-state">
+        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <span>Cargando catálogo oficial de plantillas...</span>
+      </div>
+    } @else if (catalogTemplates().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg lucideBox class="w-8 h-8 text-secondary"></svg>
+        </div>
+        <h3 class="empty-title">Sin Coincidencias en Catálogo</h3>
+        <p class="empty-description">
+          No se encontraron plantillas oficiales que coincidan con la tecnología o búsqueda seleccionada.
+        </p>
+      </div>
+    } @else {
+      @if (viewMode() === 'cards') {
+        <!-- Catálogo en Tarjetas (Paginado) -->
+        <div class="cards-grid">
+          @for (item of paginatedCatalogTemplates(); track item.id) {
+            <div class="template-card" [class.card-paused]="item.status === 'paused'">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <div>
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-badges">
+                      @if (item.status === 'approved') {
+                        <span class="badge-status-approved">
+                          <span class="status-dot green"></span>
+                          Activa
+                        </span>
+                      } @else {
+                        <span class="badge-status-paused">
+                          <span class="status-dot gray"></span>
+                          Pausada
+                        </span>
+                      }
+                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      @for (srv of item.services_config?.services; track srv.engine) {
+                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
+                          {{ srv.engine }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="docker-image-box">
+                <span class="docker-label">Imagen Base:</span>
+                <div class="docker-tag-wrapper">
+                  <code class="docker-tag">{{ item.docker_image }}</code>
+                  <button 
+                    type="button" 
+                    class="btn-copy-tag" 
+                    (click)="copyDockerTag(item.docker_image, $event)" 
+                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                    @if (copiedTag() === item.docker_image) {
+                      <svg lucideCheck class="copy-icon text-success"></svg>
+                    } @else {
+                      <svg lucideCopy class="copy-icon"></svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              @if (item.description) {
+                <div class="pedagogical-justification-box">
+                  <span class="justification-title">Descripción:</span>
+                  <p class="justification-text">{{ item.description }}</p>
+                </div>
+              }
+
+              <div class="card-meta">
+                <div class="meta-row">
+                  <svg lucideClock class="meta-icon"></svg>
+                  <span class="meta-text text-tertiary">
+                    Aprobada: {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="card-actions">
+                <button type="button" class="btn-outline-secondary" (click)="openEditModal(item)">
+                  <svg lucidePencil class="btn-icon-xs"></svg>
+                  <span>Ajustar Cuota</span>
+                </button>
+
+                @if (item.status === 'approved') {
+                  <button type="button" class="btn-pause-template" (click)="requestToggleStatus(item)" title="Pausar plantilla">
+                    <svg lucidePause class="btn-icon-xs"></svg>
+                    <span>Pausar</span>
+                  </button>
+                } @else {
+                  <button type="button" class="btn-resume-template" (click)="requestToggleStatus(item)" title="Reactivar plantilla">
+                    <svg lucidePlay class="btn-icon-xs"></svg>
+                    <span>Reactivar</span>
+                  </button>
+                }
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Catálogo en Tabla de Alta Densidad (Paginado) -->
+        <div class="table-card table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Entorno Oficial</th>
+                <th>Imagen Base</th>
+                <th>RAM Asignada</th>
+                <th>Fecha Aprobación</th>
+                <th>Estado</th>
+                <th class="text-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of paginatedCatalogTemplates(); track item.id) {
+                <tr [class.row-paused]="item.status === 'paused'">
+                  <td>
+                    <div class="cell-entity-group">
+                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <div>
+                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        @if (item.description) {
+                          <div class="cell-desc-subtle">{{ item.description }}</div>
+                        }
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="docker-copy-inline">
+                      <code class="cell-code">{{ item.docker_image }}</code>
+                      <button 
+                        type="button" 
+                        class="btn-copy-tag" 
+                        (click)="copyDockerTag(item.docker_image, $event)" 
+                        [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                        @if (copiedTag() === item.docker_image) {
+                          <svg lucideCheck class="copy-icon text-success"></svg>
+                        } @else {
+                          <svg lucideCopy class="copy-icon"></svg>
+                        }
+                      </button>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="ram-badge">{{ item.base_ram_mb }} MB</span>
+                  </td>
+                  <td>
+                    <span class="cell-text text-secondary">
+                      {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy' }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (item.status === 'approved') {
+                      <span class="badge-status-approved">
+                        <span class="status-dot green"></span>
+                        Activa
+                      </span>
+                    } @else if (item.status === 'paused') {
+                      <span class="badge-status-paused">
+                        <span class="status-dot gray"></span>
+                        Pausada
+                      </span>
+                    }
+                  </td>
+                  <td class="text-right">
+                    <div class="action-buttons-group">
+                      <button 
+                        type="button" 
+                        class="btn-edit-action" 
+                        (click)="openEditModal(item)" 
+                        title="Ajustar cuotas de la plantilla">
+                        <svg lucidePencil class="w-3.5 h-3.5"></svg>
+                        <span>Editar</span>
+                      </button>
+
+                      @if (item.status === 'approved') {
+                        <button 
+                          type="button" 
+                          class="btn-pause-template" 
+                          (click)="requestToggleStatus(item)" 
+                          title="Pausar plantilla">
+                          <svg lucidePause class="w-3.5 h-3.5"></svg>
+                          <span>Pausar</span>
+                        </button>
+                      } @else {
+                        <button 
+                          type="button" 
+                          class="btn-resume-template" 
+                          (click)="requestToggleStatus(item)" 
+                          title="Reactivar plantilla">
+                          <svg lucidePlay class="w-3.5 h-3.5"></svg>
+                          <span>Reactivar</span>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- Paginación del Catálogo -->
+      @if (totalCatalogPages() > 1) {
+        <footer class="pagination-footer">
+          <div class="pagination-info">
+            Mostrando página <strong>{{ catalogPage() }}</strong> de <strong>{{ totalCatalogPages() }}</strong> ({{ catalogTemplates().length }} plantillas)
+          </div>
+          <div class="pagination-controls">
+            <button 
+              type="button" 
+              class="btn-page" 
+              [disabled]="catalogPage() === 1" 
+              (click)="goToCatalogPage(catalogPage() - 1)">
+              <svg lucideChevronLeft class="page-icon"></svg>
+              <span>Anterior</span>
+            </button>
+            <button 
+              type="button" 
+              class="btn-page" 
+              [disabled]="catalogPage() === totalCatalogPages()" 
+              (click)="goToCatalogPage(catalogPage() + 1)">
+              <span>Siguiente</span>
+              <svg lucideChevronRight class="page-icon"></svg>
+            </button>
+          </div>
+        </footer>
+      }
+
+      <!-- Nota pedagógica institucional -->
+      <div class="catalog-footer-note">
+        <svg lucideAlertCircle class="w-4 h-4 text-secondary shrink-0"></svg>
+        <span>
+          <strong>Nota institucional:</strong> Al pausar una plantilla, ya no se listará para nuevos laboratorios, salvaguardando los entornos ya creados y las entregas de estudiantes pasadas.
+        </span>
+      </div>
+    }
+  }
+
+  <!-- CONTENIDO: Pestaña 3 - Historial de Rechazadas -->
+  @if (activeTab() === 'rejected') {
+    @if (isLoading()) {
+      <div class="loading-state">
+        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <span>Cargando historial de solicitudes rechazadas...</span>
+      </div>
+    } @else if (rejectedTemplates().length === 0) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg lucideCheckCircle2 class="w-8 h-8 text-success"></svg>
+        </div>
+        <h3 class="empty-title">Sin Solicitudes Rechazadas</h3>
+        <p class="empty-description">
+          No existen solicitudes de plantillas denegadas que coincidan con los filtros actuales.
+        </p>
+      </div>
+    } @else {
+      @if (viewMode() === 'cards') {
+        <!-- Rechazadas en Tarjetas -->
+        <div class="cards-grid">
+          @for (item of paginatedRejectedTemplates(); track item.id) {
+            <div class="template-card card-rejected">
+              <div class="card-header">
+                <div class="card-title-group">
+                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <div>
+                    <h3 class="card-title">{{ item.name }}</h3>
+                    <div class="card-badges">
+                      <span class="badge-status-rejected">Rechazada</span>
+                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      @for (srv of item.services_config?.services; track srv.engine) {
+                        <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
+                          {{ srv.engine }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-meta">
+                <div class="meta-row">
+                  <span class="meta-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
+                </div>
+                <div class="meta-row">
+                  <svg lucideClock class="meta-icon"></svg>
+                  <span class="meta-text text-tertiary">
+                    Revisada: {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy HH:mm' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="docker-image-box">
+                <span class="docker-label">Imagen Solicitada:</span>
+                <div class="docker-tag-wrapper">
+                  <code class="docker-tag">{{ item.docker_image }}</code>
+                  <button 
+                    type="button" 
+                    class="btn-copy-tag" 
+                    (click)="copyDockerTag(item.docker_image, $event)" 
+                    [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                    @if (copiedTag() === item.docker_image) {
+                      <svg lucideCheck class="copy-icon text-success"></svg>
+                    } @else {
+                      <svg lucideCopy class="copy-icon"></svg>
+                    }
+                  </button>
+                </div>
+              </div>
+
+              <div class="rejection-box">
+                <span class="rejection-label">Motivo Técnico de Rechazo:</span>
+                <p class="rejection-reason-text">
+                  {{ item.rejection_reason || 'Sin motivo especificado' }}
+                </p>
+              </div>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Rechazadas en Tabla de Alta Densidad -->
+        <div class="table-card table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Plantilla / Imagen Solicitada</th>
+                <th>Docente Solicitante</th>
+                <th>Fecha de Rechazo</th>
+                <th>Motivo Técnico de Rechazo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of paginatedRejectedTemplates(); track item.id) {
+                <tr>
+                  <td>
+                    <div class="cell-entity-group">
+                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <div>
+                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        <div class="docker-copy-inline">
+                          <code class="cell-code">{{ item.docker_image }}</code>
+                          <button 
+                            type="button" 
+                            class="btn-copy-tag" 
+                            (click)="copyDockerTag(item.docker_image, $event)" 
+                            [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
+                            @if (copiedTag() === item.docker_image) {
+                              <svg lucideCheck class="copy-icon text-success"></svg>
+                            } @else {
+                              <svg lucideCopy class="copy-icon"></svg>
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
+                  </td>
+                  <td>
+                    <span class="cell-text text-secondary">
+                      {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="rejection-cell-text">
+                      {{ item.rejection_reason || 'Sin motivo técnico especificado' }}
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+
+      <!-- Paginación de Rechazadas -->
+      @if (totalRejectedPages() > 1) {
+        <footer class="pagination-footer">
+          <div class="pagination-info">
+            Mostrando página <strong>{{ rejectedPage() }}</strong> de <strong>{{ totalRejectedPages() }}</strong> ({{ rejectedTemplates().length }} solicitudes rechazadas)
+          </div>
+          <div class="pagination-controls">
+            <button 
+              type="button" 
+              class="btn-page" 
+              [disabled]="rejectedPage() === 1" 
+              (click)="goToRejectedPage(rejectedPage() - 1)">
+              <svg lucideChevronLeft class="page-icon"></svg>
+              <span>Anterior</span>
+            </button>
+            <button 
+              type="button" 
+              class="btn-page" 
+              [disabled]="rejectedPage() === totalRejectedPages()" 
+              (click)="goToRejectedPage(rejectedPage() + 1)">
+              <span>Siguiente</span>
+              <svg lucideChevronRight class="page-icon"></svg>
+            </button>
+          </div>
+        </footer>
+      }
+    }
+  }
+
+  <!-- Modales -->
+  @if (selectedTemplateForReview(); as tpl) {
+    <solv-template-review-modal 
+      [template]="tpl" 
+      (approved)="handleApprove($event)" 
+      (closed)="closeReviewModal()" />
+  }
+
+  @if (selectedTemplateForReject(); as tpl) {
+    <solv-template-reject-modal 
+      [template]="tpl" 
+      (rejected)="handleReject($event)" 
+      (closed)="closeRejectModal()" />
+  }
+
+  @if (selectedTemplateForEdit(); as tpl) {
+    <solv-template-edit-modal 
+      [template]="tpl" 
+      (saved)="handleSaveEdit($event)" 
+      (closed)="closeEditModal()" />
+  }
+
+  @if (showCreateModal()) {
+    <solv-template-create-modal 
+      (created)="handleCreateOfficial($event)" 
+      (closed)="closeCreateModal()" />
+  }
+
+  @if (templateToToggleStatus(); as tpl) {
+    <solv-confirm-modal
+      [title]="tpl.status === 'approved' ? 'Pausar Plantilla Oficial' : 'Reactivar Plantilla Oficial'"
+      [message]="tpl.status === 'approved' 
+        ? '¿Confirmas pausar la plantilla ' + tpl.name + '? Ya no se listará para nuevos laboratorios, salvaguardando los entornos activos existentes.' 
+        : '¿Confirmas reactivar la plantilla ' + tpl.name + '? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.'"
+      [confirmText]="tpl.status === 'approved' ? 'Pausar Plantilla' : 'Reactivar Plantilla'"
+      [type]="tpl.status === 'approved' ? 'danger' : 'primary'"
+      (confirm)="confirmToggleStatus(tpl)"
+      (cancel)="cancelToggleStatus()">
+    </solv-confirm-modal>
+  }
+</div>

@@ -1,0 +1,71 @@
+import { Component, EventEmitter, Input, Output, signal, computed, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AdminTemplateItem } from '../../../services/admin-templates.service';
+import { 
+  LucideX, 
+  LucideHardDrive, 
+  LucideCheckCircle2, 
+  LucideLayers,
+  LucideInfo,
+  LucideAlertTriangle
+} from '@lucide/angular';
+
+@Component({
+  selector: 'solv-template-review-modal',
+  standalone: true,
+  imports: [
+    CommonModule, 
+    FormsModule, 
+    LucideX, 
+    LucideHardDrive, 
+    LucideCheckCircle2, 
+    LucideLayers,
+    LucideInfo,
+    LucideAlertTriangle
+  ],
+  templateUrl: './template-review-modal.component.html',
+  styleUrls: ['./template-review-modal.component.scss']
+})
+export class TemplateReviewModalComponent {
+  @Input({ required: true }) template!: AdminTemplateItem;
+  @Output() approved = new EventEmitter<{ id: string; base_ram_mb: number }>();
+  @Output() closed = new EventEmitter<void>();
+
+  selectedRam = signal<number>(512);
+  isSubmitting = signal<boolean>(false);
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.closeModal();
+  }
+
+  hasLatestTag = computed(() => {
+    const img = this.template?.docker_image?.toLowerCase().trim() || '';
+    return img.endsWith(':latest') || (!img.includes(':') && !img.includes('@'));
+  });
+
+  ngOnInit(): void {
+    if (this.template?.base_ram_mb && this.template.base_ram_mb > 0) {
+      this.selectedRam.set(this.template.base_ram_mb);
+    }
+  }
+
+  setRam(mb: number): void {
+    this.selectedRam.set(mb);
+  }
+
+  confirmApprove(): void {
+    if (this.isSubmitting()) return;
+    this.isSubmitting.set(true);
+    this.approved.emit({
+      id: this.template.id,
+      base_ram_mb: this.selectedRam()
+    });
+  }
+
+  closeModal(): void {
+    if (this.isSubmitting()) return;
+    this.closed.emit();
+  }
+}

@@ -1,0 +1,394 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card modal-lg" (click)="$event.stopPropagation()">
+    <!-- Header Fijo -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge">
+          <svg lucideLayers class="w-5 h-5 text-primary"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Registrar Nueva Plantilla Oficial</h3>
+          <p class="modal-subtitle">Configuración del entorno de desarrollo y asignación de recursos para los estudiantes</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <!-- Body con Scroll Contenido -->
+    <div class="modal-body">
+      <div class="modal-two-columns">
+        
+        <!-- Columna Izquierda: Identidad y Preparación de Código -->
+        <div class="column-section">
+          <div class="section-badge-title">
+            <span class="badge-number">1</span>
+            <h4>Identidad y Entorno de Desarrollo</h4>
+          </div>
+
+          <!-- Nombre -->
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Nombre de la Plantilla: <span class="text-danger">*</span>
+            </label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Ej: Programación Web con Node 20" 
+              [ngModel]="name()" 
+              (ngModelChange)="name.set($event)" />
+          </div>
+
+          <!-- Imagen Docker con Typeahead y Verificación en Vivo -->
+          <div class="form-group typeahead-container">
+            <div class="label-row-between">
+              <label class="form-label font-semibold">
+                Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
+              </label>
+              @if (verificationState() === 'checking') {
+                <span class="verification-badge-checking">
+                  <span class="spinner-dot"></span> Verificando...
+                </span>
+              } @else if (verificationState() === 'verified') {
+                <button type="button" class="btn-reverify" (click)="reverify()" title="Forzar re-verificación en Docker">
+                  <svg lucideRefreshCw class="w-3 h-3"></svg>
+                  <span>Re-verificar</span>
+                </button>
+              }
+            </div>
+
+            <div class="input-with-autocomplete">
+              <input 
+                type="text" 
+                class="form-control font-mono" 
+                [class.is-invalid]="isLatestImage() || isInvalidFormat() || isArchIncompatible() || isStorageBlocked()"
+                [class.is-verified]="verificationState() === 'verified' && verificationResult()?.exists && !isArchIncompatible() && !isStorageBlocked()"
+                placeholder="Ej: python:3.12-slim-bookworm o node:20-bookworm-slim" 
+                [ngModel]="dockerImage()" 
+                (focus)="isDropdownOpen.set(true)"
+                (ngModelChange)="onImageInputChange($event)" />
+
+              <!-- Dropdown de Sugerencias y Residente Local -->
+              @if (isDropdownOpen() && imageSuggestions().length > 0) {
+                <div class="autocomplete-dropdown shadow-lg">
+                  <div class="dropdown-header">
+                    <svg lucideSearch class="w-3 h-3 text-secondary"></svg>
+                    <span>Imágenes en servidor y recomendadas</span>
+                  </div>
+                  <div class="dropdown-list">
+                    @for (sug of imageSuggestions(); track sug.repoTag) {
+                      <div class="dropdown-item" (mousedown)="selectSuggestion(sug)">
+                        <div class="item-main">
+                          <span class="item-tag font-mono">{{ sug.repoTag }}</span>
+                          @if (sug.isLocal) {
+                            <span class="item-badge-local">
+                              ⚡ En el servidor @if (sug.sizeMB) { ({{ sug.sizeMB }} MB) }
+                            </span>
+                          } @else if (sug.isOfficial) {
+                            <span class="item-badge-official">Oficial OCI</span>
+                          }
+                        </div>
+                        @if (sug.description) {
+                          <span class="item-desc">{{ sug.description }}</span>
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Alertas de Formato y Seguridad -->
+            @if (isLatestImage()) {
+              <div class="field-error-alert">
+                <svg lucideAlertTriangle class="alert-icon"></svg>
+                <span>Por seguridad y reproducibilidad, no está permitido el tag :latest. Especifique una versión inmutable (ej: <code>node:20-bookworm-slim</code> o <code>python:3.12-slim-bookworm</code>).</span>
+              </div>
+            } @else if (isInvalidFormat()) {
+              <div class="field-error-alert">
+                <svg lucideAlertTriangle class="alert-icon"></svg>
+                <span>Formato de imagen inválido. Debe ser <code>repositorio:tag</code> sin espacios (ej: <code>python:3.12-slim-bookworm</code> o <code>node:20-bookworm-slim</code>).</span>
+              </div>
+            }
+
+            <!-- Panel de Verificación Real y Gobernanza -->
+            @if (verificationState() === 'error' && verificationError()) {
+              <div class="verification-error-card">
+                <svg lucideAlertCircle class="w-4 h-4 text-danger"></svg>
+                <div class="error-content">
+                  <span class="error-title">No se pudo verificar la imagen:</span>
+                  <span class="error-desc">{{ verificationError() }}</span>
+                </div>
+                <button type="button" class="btn-retry" (click)="reverify()">Reintentar</button>
+              </div>
+            }
+
+            @if (verificationState() === 'verified' && verificationResult(); as res) {
+              <div class="verification-result-card" [class.border-warning]="isStorageBlocked() || isArchIncompatible()">
+                
+                <!-- Status Row -->
+                <div class="result-status-row">
+                  @if (res.is_local) {
+                    <span class="badge-status-local">
+                      ⚡ Residente en el host (Despliegue instantáneo, 0s pull) — {{ res.size_formatted }}
+                    </span>
+                  } @else {
+                    <span class="badge-status-remote">
+                      🌐 Verificada en registro OCI (se descargará al iniciar) — ~{{ res.estimated_uncompressed_mb }} MB
+                    </span>
+                  }
+
+                  @if (res.cached) {
+                    <span class="badge-cached" title="Resultado recuperado del caché local">Caché 24h</span>
+                  }
+                </div>
+
+                <!-- Arquitectura CPU -->
+                <div class="result-detail-item">
+                  @if (res.architecture_compatible) {
+                    <div class="detail-line text-success">
+                      <svg lucideCheckCircle2 class="w-3.5 h-3.5"></svg>
+                      <span>Arquitectura compatible: <strong>linux/{{ res.host_arch }}</strong></span>
+                    </div>
+                  } @else {
+                    <div class="detail-line text-danger">
+                      <svg lucideAlertCircle class="w-3.5 h-3.5"></svg>
+                      <span>Incompatible con la CPU del host: imagen para [{{ res.supported_platforms.join(', ') }}], host es {{ res.host_arch }}</span>
+                    </div>
+                    @if (res.buildx_suggestion) {
+                      <div class="buildx-box">
+                        <span class="buildx-title">Comando para compilar compatible:</span>
+                        <div class="buildx-cmd-row">
+                          <code class="font-mono">{{ res.buildx_suggestion }}</code>
+                          <button type="button" class="btn-copy-cmd" (click)="copyBuildxCommand(res.buildx_suggestion)">
+                            @if (copiedCommand()) {
+                              <svg lucideCheck class="w-3.5 h-3.5 text-success"></svg>
+                            } @else {
+                              <svg lucideCopy class="w-3.5 h-3.5"></svg>
+                            }
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  }
+                </div>
+
+                <!-- Cuota de Almacenamiento Dinámica -->
+                <div class="result-detail-item">
+                  <div class="detail-line" [class.text-danger]="res.storage_status === 'CRITICAL_BLOCKED'" [class.text-warning]="res.storage_status === 'WARNING'" [class.text-muted]="res.storage_status === 'OK'">
+                    <svg lucideHardDrive class="w-3.5 h-3.5"></svg>
+                    <span>{{ res.storage_message }}</span>
+                  </div>
+                </div>
+
+                <!-- Smoke Test / Capabilities Probe -->
+                @if (res.capabilities_probe && res.capabilities_probe.success) {
+                  <div class="result-detail-item probe-success">
+                    <svg lucideTerminal class="w-3.5 h-3.5 text-secondary"></svg>
+                    <span>Probe en contenedor efímero: <strong>{{ res.capabilities_probe.output || 'POSIX Shell verificado' }}</strong></span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+
+          <!-- Script de Inicialización (Setup Script) -->
+          <div class="form-group">
+            <label class="form-label font-semibold flex-label">
+              <span class="label-with-icon">
+                <svg lucideTerminal class="w-3.5 h-3.5 text-secondary"></svg>
+                Script de Inicialización Inicial:
+              </span>
+              <span class="label-optional">Opcional</span>
+            </label>
+            <textarea 
+              class="form-control font-mono setup-textarea" 
+              rows="3" 
+              placeholder="# Comandos a ejecutar automáticamente al crear el workspace del alumno:&#10;npm install&#10;# o git clone https://github.com/docente/lab1.git ."
+              [ngModel]="setupScript()" 
+              (ngModelChange)="setupScript.set($event)"></textarea>
+            <p class="field-hint">
+              Comandos que se ejecutarán automáticamente en el espacio del alumno. Deben ser compatibles con las herramientas instaladas en la imagen Docker base.
+            </p>
+          </div>
+
+          <!-- Descripción Institucional -->
+          <div class="form-group mb-0">
+            <label class="form-label font-semibold">
+              Descripción para Docentes y Estudiantes:
+            </label>
+            <textarea 
+              class="form-control" 
+              rows="2" 
+              placeholder="Ej: Entorno preparado con Node.js, Express y cliente de base de datos para la materia Sistemas Distribuidos..."
+              [ngModel]="description()" 
+              (ngModelChange)="description.set($event)"></textarea>
+            <p class="field-hint">
+              Esta información guiará al docente al seleccionar la plantilla más adecuada para su materia.
+            </p>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Dimensionamiento y Servicios -->
+        <div class="column-section">
+          <div class="section-badge-title">
+            <span class="badge-number">2</span>
+            <h4>Capacidad de Memoria y Servicios de Base de Datos</h4>
+          </div>
+
+          <!-- RAM Base con Selector Híbrido -->
+          <div class="quota-section">
+            <div class="ram-header-row">
+              <label class="quota-title">
+                <svg lucideHardDrive class="w-4 h-4 text-secondary"></svg>
+                <span>Memoria RAM Asignada: <span class="text-danger">*</span></span>
+              </label>
+              <!-- Input numérico directo -->
+              <div class="custom-ram-input-wrap">
+                <input 
+                  type="number" 
+                  class="custom-ram-input font-mono" 
+                  min="256" 
+                  step="128" 
+                  [value]="baseRamMB()" 
+                  (input)="onRamInput($event)" />
+                <span class="ram-unit">MB</span>
+              </div>
+            </div>
+
+            <!-- Botones de presets rápidos -->
+            <div class="chips-selector">
+              <button 
+                type="button" 
+                class="chip-btn" 
+                [class.active]="baseRamMB() === 256"
+                (click)="setRam(256)">
+                256 MB <span class="chip-desc">Ligera (C / Go)</span>
+              </button>
+              <button 
+                type="button" 
+                class="chip-btn" 
+                [class.active]="baseRamMB() === 512"
+                (click)="setRam(512)">
+                512 MB <span class="chip-desc chip-badge">Sugerida (Node / Python)</span>
+              </button>
+              <button 
+                type="button" 
+                class="chip-btn" 
+                [class.active]="baseRamMB() === 1024"
+                (click)="setRam(1024)">
+                1024 MB <span class="chip-desc">Intensiva (Java / Análisis de Datos)</span>
+              </button>
+            </div>
+
+            @if (isRamTooLow()) {
+              <div class="field-error-alert">
+                <svg lucideAlertTriangle class="alert-icon"></svg>
+                <span>Límite mínimo requerido: El editor web consume ~210 MB en reposo. Se requieren mínimo 256 MB para arrancar sin fallos.</span>
+              </div>
+            }
+          </div>
+
+          <!-- Tarjeta de Desglose Matemático y Capacidad Real de Concurrencia -->
+          <div class="resource-breakdown-card">
+            <div class="breakdown-header">
+              <svg lucideCpu class="w-4 h-4 text-primary"></svg>
+              <span class="breakdown-title">Distribución Estimada de Memoria y Capacidad</span>
+            </div>
+            
+            <div class="breakdown-metrics">
+              <div class="metric-item">
+                <span class="metric-label">Consumo base del editor:</span>
+                <span class="metric-value font-mono">~{{ resourceProfilePreview().editorBase }} MB</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Margen para código del alumno:</span>
+                <span class="metric-value font-mono" [class.text-success]="resourceProfilePreview().usable >= 100" [class.text-warning]="resourceProfilePreview().usable < 100">
+                  +{{ resourceProfilePreview().usable }} MB
+                </span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Reserva garantizada (50%):</span>
+                <span class="metric-value font-mono">{{ resourceProfilePreview().minReservation }} MB</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Capacidad estimada en servidor:</span>
+                <span class="metric-value font-mono text-primary">~{{ resourceProfilePreview().estimatedCapacity }} alumnos simultáneos</span>
+              </div>
+            </div>
+
+            <div class="breakdown-footer-info">
+              <svg lucideInfo class="w-3 h-3 text-secondary"></svg>
+              <span>El servidor reserva inicialmente solo el 50% de RAM en reposo. Si el código del alumno demanda más memoria, el sistema expande recursos automáticamente hasta el límite asignado.</span>
+            </div>
+          </div>
+
+          <!-- Servicios y Bases de Datos Disponibles -->
+          <div class="services-section">
+            <label class="services-title">
+              <svg lucideServer class="w-4 h-4 text-secondary"></svg>
+              <span>Bases de Datos y Servicios Adicionales:</span>
+            </label>
+            <p class="field-hint">
+              Seleccione la base de datos para las prácticas. Las variables de conexión se inyectan automáticamente en el entorno del estudiante.
+            </p>
+            <div class="services-grid">
+              @for (srv of availableServices(); track srv.engine) {
+                <button 
+                  type="button" 
+                  class="service-card" 
+                  [class.active]="isServiceSelected(srv.engine)"
+                  (click)="toggleService(srv)">
+                  <div class="service-card-header">
+                    <div class="service-header-left">
+                      <svg lucideDatabase class="w-3.5 h-3.5 text-secondary"></svg>
+                      <span class="service-name">{{ srv.label }}</span>
+                    </div>
+                    @if (isServiceSelected(srv.engine)) {
+                      <span class="service-badge-active">
+                        <svg lucideCheck class="w-3 h-3"></svg> Activo
+                      </span>
+                    }
+                  </div>
+                  <p class="service-desc">{{ srv.description }}</p>
+                  <div class="service-footer">
+                    <code class="service-env">{{ srv.envVar }}</code>
+                  </div>
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Footer Fijo -->
+    <div class="modal-footer">
+      <div class="footer-summary">
+        <span class="summary-tag">RAM: <strong>{{ baseRamMB() }} MB</strong></span>
+        @if (selectedServices().length > 0) {
+          <span class="summary-tag">Servicios: <strong>{{ selectedServices().length }} seleccionado{{ selectedServices().length > 1 ? 's' : '' }}</strong></span>
+        }
+      </div>
+      <div class="footer-actions">
+        <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+          Cancelar
+        </button>
+        <button 
+          type="button" 
+          class="btn-primary" 
+          (click)="confirmCreate()" 
+          [disabled]="!isValid() || isSubmitting()">
+          @if (isSubmitting()) {
+            <span>Registrando...</span>
+          } @else {
+            <svg lucidePlusCircle class="w-4 h-4"></svg>
+            <span>Registrar Plantilla Oficial</span>
+          }
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

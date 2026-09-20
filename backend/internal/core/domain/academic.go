@@ -15,6 +15,7 @@ type Subject struct {
 	AcademicPeriodID  *string   `db:"academic_period_id" json:"academic_period_id,omitempty"`
 	IsArchived        bool      `db:"is_archived" json:"is_archived"`
 	ClassroomCourseID *string   `db:"classroom_course_id" json:"classroom_course_id,omitempty"`
+	TemplateID        *string   `db:"template_id" json:"template_id,omitempty"`
 	CreatedAt         time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt         time.Time `db:"updated_at" json:"updated_at"`
 }

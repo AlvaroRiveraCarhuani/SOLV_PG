@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -389,6 +390,10 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 			lt.requested_by,
 			NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), '') AS requested_by_name,
 			COALESCE(lt.description, '') AS description,
+			COALESCE(lt.target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			COALESCE(lt.services_config, '{"services": []}'::jsonb) AS services_config,
+			COALESCE(lt.resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
+			COALESCE(lt.setup_script, '') AS setup_script,
 			lt.created_at
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
@@ -449,6 +454,10 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			reviewed_at,
 			requested_by,
 			COALESCE(description, '') AS description,
+			COALESCE(target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
+			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
+			COALESCE(setup_script, '') AS setup_script,
 			created_at
 	`
 
@@ -474,6 +483,10 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		&item.ReviewedAt,
 		&item.RequestedBy,
 		&item.Description,
+		&item.TargetEnvironment,
+		&item.ServicesConfig,
+		&item.ResourceProfile,
+		&item.SetupScript,
 		&item.CreatedAt,
 	)
 	if err != nil {
@@ -491,11 +504,22 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 	tenantID, adminID string,
 	dto domain.CreateOfficialTemplateDTO,
 ) (*domain.AdminTemplateReviewItem, error) {
+	servicesConfigJSON, err := json.Marshal(dto.ServicesConfig)
+	if err != nil {
+		servicesConfigJSON = []byte(`{"services": []}`)
+	}
+	resourceProfileJSON, err := json.Marshal(dto.ResourceProfile)
+	if err != nil {
+		resourceProfileJSON = []byte(`{"min_mb": 256, "high_mb": 768, "max_mb": 1024}`)
+	}
+
 	query := `
 		INSERT INTO lab_templates (
-			id, tenant_id, name, docker_image, base_ram_mb, status, description, reviewed_by, reviewed_at
+			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
+			target_environment, services_config, resource_profile, setup_script, reviewed_by, reviewed_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, 'approved', $5, $6, NOW()
+			gen_random_uuid(), $1, $2, $3, $4, 'approved', $5,
+			$6, $7, $8, $9, $10, NOW()
 		)
 		RETURNING 
 			id,
@@ -509,11 +533,15 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			reviewed_at,
 			requested_by,
 			COALESCE(description, '') AS description,
+			COALESCE(target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
+			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
+			COALESCE(setup_script, '') AS setup_script,
 			created_at
 	`
 
 	var item domain.AdminTemplateReviewItem
-	err := r.db.QueryRowContext(
+	err = r.db.QueryRowContext(
 		ctx,
 		query,
 		tenantID,
@@ -521,6 +549,10 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		dto.DockerImage,
 		dto.BaseRamMB,
 		dto.Description,
+		dto.TargetEnvironment,
+		servicesConfigJSON,
+		resourceProfileJSON,
+		dto.SetupScript,
 		adminID,
 	).Scan(
 		&item.ID,
@@ -534,6 +566,10 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		&item.ReviewedAt,
 		&item.RequestedBy,
 		&item.Description,
+		&item.TargetEnvironment,
+		&item.ServicesConfig,
+		&item.ResourceProfile,
+		&item.SetupScript,
 		&item.CreatedAt,
 	)
 	if err != nil {

@@ -29,13 +29,14 @@ func (h *SubjectHandler) CreateSubject(w http.ResponseWriter, r *http.Request) {
 		TeacherID         *string `json:"teacher_id,omitempty"`
 		AcademicPeriodID  *string `json:"academic_period_id,omitempty"`
 		ClassroomCourseID *string `json:"classroom_course_id,omitempty"`
+		TemplateID        *string `json:"template_id,omitempty"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
 		return
 	}
 
-	subject, err := h.service.CreateSubjectWithDetails(r.Context(), tenantID, req.Name, req.Code, req.TeacherID, req.AcademicPeriodID, req.ClassroomCourseID)
+	subject, err := h.service.CreateSubjectWithDetails(r.Context(), tenantID, req.Name, req.Code, req.TeacherID, req.AcademicPeriodID, req.ClassroomCourseID, req.TemplateID)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)

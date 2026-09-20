@@ -1,6 +1,65 @@
 package domain
 
-import "time"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"time"
+)
+
+// ServiceRequirement requerimiento de un servicio satélite complementario (BD, cache, message broker, etc.)
+type ServiceRequirement struct {
+	Category string `json:"category"` // "database", "cache", "message_broker", "storage", etc.
+	Engine   string `json:"engine"`   // "postgres", "mysql", "mongodb", "redis", etc.
+	Version  string `json:"version,omitempty"`
+}
+
+// ServicesConfig configuración agnóstica y extensible de servicios satélite requeridos
+type ServicesConfig struct {
+	Services []ServiceRequirement `json:"services"`
+}
+
+func (sc ServicesConfig) Value() (driver.Value, error) {
+	if sc.Services == nil {
+		sc.Services = []ServiceRequirement{}
+	}
+	return json.Marshal(sc)
+}
+
+func (sc *ServicesConfig) Scan(value interface{}) error {
+	if value == nil {
+		*sc = ServicesConfig{Services: []ServiceRequirement{}}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to scan ServicesConfig: expected []byte, got %T", value)
+	}
+	return json.Unmarshal(b, sc)
+}
+
+// TemplateResourceProfile límites de memoria MQoS cgroups v2 para la plantilla
+type TemplateResourceProfile struct {
+	MinMB  int `json:"min_mb"`
+	HighMB int `json:"high_mb"`
+	MaxMB  int `json:"max_mb"`
+}
+
+func (rp TemplateResourceProfile) Value() (driver.Value, error) {
+	return json.Marshal(rp)
+}
+
+func (rp *TemplateResourceProfile) Scan(value interface{}) error {
+	if value == nil {
+		*rp = TemplateResourceProfile{MinMB: 256, HighMB: 768, MaxMB: 1024}
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("failed to scan TemplateResourceProfile: expected []byte, got %T", value)
+	}
+	return json.Unmarshal(b, rp)
+}
 
 // ReassignCourseDTO DTO para reasignar la titularidad de una materia (ADR-036)
 type ReassignCourseDTO struct {
@@ -72,27 +131,35 @@ type ReviewTemplateDTO struct {
 
 // CreateOfficialTemplateDTO DTO para que el administrador registre directamente una plantilla oficial
 type CreateOfficialTemplateDTO struct {
-	Name        string `json:"name" validate:"required"`
-	DockerImage string `json:"docker_image" validate:"required"`
-	BaseRamMB   int    `json:"base_ram_mb" validate:"required,gt=0"`
-	Description string `json:"description"`
+	Name              string                   `json:"name" validate:"required"`
+	DockerImage       string                   `json:"docker_image" validate:"required"`
+	BaseRamMB         int                      `json:"base_ram_mb" validate:"required,gt=0"`
+	Description       string                   `json:"description"`
+	TargetEnvironment string                   `json:"target_environment"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"
+	ServicesConfig    *ServicesConfig          `json:"services_config,omitempty"`
+	ResourceProfile   *TemplateResourceProfile `json:"resource_profile,omitempty"`
+	SetupScript       string                   `json:"setup_script,omitempty"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
 type AdminTemplateReviewItem struct {
-	ID              string     `db:"id" json:"id"`
-	TenantID        *string    `db:"tenant_id" json:"tenant_id,omitempty"`
-	Name            string     `db:"name" json:"name"`
-	DockerImage     string     `db:"docker_image" json:"docker_image"`
-	BaseRamMB       int        `db:"base_ram_mb" json:"base_ram_mb"`
-	Status          string     `db:"status" json:"status"`
-	RejectionReason string     `db:"rejection_reason" json:"rejection_reason"`
-	ReviewedBy      *string    `db:"reviewed_by" json:"reviewed_by,omitempty"`
-	ReviewedAt      *time.Time `db:"reviewed_at" json:"reviewed_at,omitempty"`
-	RequestedBy     *string    `db:"requested_by" json:"requested_by,omitempty"`
-	RequestedByName *string    `db:"requested_by_name" json:"requested_by_name,omitempty"`
-	Description     string     `db:"description" json:"description"`
-	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
+	ID                string                  `db:"id" json:"id"`
+	TenantID          *string                 `db:"tenant_id" json:"tenant_id,omitempty"`
+	Name              string                  `db:"name" json:"name"`
+	DockerImage       string                  `db:"docker_image" json:"docker_image"`
+	BaseRamMB         int                     `db:"base_ram_mb" json:"base_ram_mb"`
+	Status            string                  `db:"status" json:"status"`
+	RejectionReason   string                  `db:"rejection_reason" json:"rejection_reason"`
+	ReviewedBy        *string                 `db:"reviewed_by" json:"reviewed_by,omitempty"`
+	ReviewedAt        *time.Time              `db:"reviewed_at" json:"reviewed_at,omitempty"`
+	RequestedBy       *string                 `db:"requested_by" json:"requested_by,omitempty"`
+	RequestedByName   *string                 `db:"requested_by_name" json:"requested_by_name,omitempty"`
+	Description       string                  `db:"description" json:"description"`
+	TargetEnvironment string                  `db:"target_environment" json:"target_environment"`
+	ServicesConfig    ServicesConfig          `db:"services_config" json:"services_config"`
+	ResourceProfile   TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
+	SetupScript       string                  `db:"setup_script" json:"setup_script"`
+	CreatedAt         time.Time               `db:"created_at" json:"created_at"`
 }
 
 // EmergencyActionRequest DTO para solicitar una acción de emergencia administrativa (ADR-032)

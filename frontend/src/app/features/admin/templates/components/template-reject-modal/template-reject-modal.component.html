@@ -1,0 +1,86 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge danger">
+          <svg lucideAlertTriangle class="w-5 h-5 text-danger"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Rechazar Solicitud de Plantilla</h3>
+          <p class="modal-subtitle">Indique la retroalimentación técnica para el docente solicitante</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      <!-- Target Template Box -->
+      <div class="template-summary-card">
+        <div class="summary-row">
+          <span class="summary-label">Plantilla:</span>
+          <span class="summary-value font-semibold">{{ template.name }}</span>
+        </div>
+        <div class="summary-row">
+          <span class="summary-label">Imagen solicitada:</span>
+          <code class="docker-image-tag">{{ template.docker_image }}</code>
+        </div>
+        @if (template.requested_by_name) {
+          <div class="summary-row">
+            <span class="summary-label">Docente:</span>
+            <span class="summary-value text-secondary">{{ template.requested_by_name }}</span>
+          </div>
+        }
+      </div>
+
+      <!-- Rejection Reason Input -->
+      <div class="form-group">
+        <div class="label-row">
+          <label class="form-label font-semibold">
+            Motivo de Rechazo (Obligatorio, visible para el docente):
+          </label>
+          <span class="char-counter" [class.valid]="isValid()" [class.invalid]="!isValid() && charCount() > 0">
+            {{ charCount() }} / 15 caracteres mínimos
+          </span>
+        </div>
+        <textarea 
+          class="form-control rejection-textarea" 
+          rows="4" 
+          placeholder="Ejemplo: La imagen solicitada excede los límites de peso en disco o posee vulnerabilidades no mitigadas. Por favor solicitar una variante slim o alpine..."
+          [ngModel]="rejectionReason()" 
+          (ngModelChange)="rejectionReason.set($event)"></textarea>
+        @if (!isValid() && charCount() > 0) {
+          <p class="field-hint error">
+            Debe ingresar al menos 15 caracteres para fundamentar técnicamente el rechazo.
+          </p>
+        } @else {
+          <p class="field-hint">
+            Este mensaje será visible para el docente en su bandeja de solicitudes.
+          </p>
+        }
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn-danger" 
+        (click)="confirmReject()" 
+        [disabled]="!isValid() || isSubmitting()">
+        @if (isSubmitting()) {
+          <span>Rechazando...</span>
+        } @else {
+          <svg lucideXCircle class="w-4 h-4"></svg>
+          <span>Confirmar Rechazo</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

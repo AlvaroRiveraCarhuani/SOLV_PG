@@ -60,7 +60,9 @@ func main() {
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
-	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
+	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
+	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
+		WithProvisioning(subjectRepo, templateRepo, db.GetDB())
 	subjectService := services.NewSubjectService(subjectRepo)
 	submissionService := services.NewSubmissionService(submissionRepo)
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
@@ -101,7 +103,9 @@ func main() {
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
-	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService)
+	imageVerificationService := services.NewImageVerificationService(cli)
+	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService).
+		WithImageService(imageVerificationService)
 	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
 
 	// Worker cron cada 24h para archivado automático de periodos expirados

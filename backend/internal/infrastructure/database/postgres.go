@@ -343,8 +343,19 @@ func (d *Database) RunInitialMigrations() error {
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES users(id) ON DELETE SET NULL;
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS target_environment VARCHAR(50) NOT NULL DEFAULT 'IDE_PERSISTENTE';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS services_config JSONB NOT NULL DEFAULT '{"database": {"enabled": false}}'::jsonb;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS resource_profile JSONB NOT NULL DEFAULT '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS setup_script TEXT NOT NULL DEFAULT '';
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_status ON lab_templates(status);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_tenant ON lab_templates(tenant_id);
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_env ON lab_templates(target_environment);
+
+	-- Asociación de plantilla en materias y workspaces (ADR-030)
+	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES lab_templates(id) ON DELETE SET NULL;
+	ALTER TABLE workspaces ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES lab_templates(id) ON DELETE SET NULL;
+	CREATE INDEX IF NOT EXISTS idx_subjects_template_id ON subjects(template_id);
+	CREATE INDEX IF NOT EXISTS idx_workspaces_template_id ON workspaces(template_id);
 
 	-- Foreign key FK_workspaces_subject con saneamiento de registros preexistentes
 	INSERT INTO subjects (id, tenant_id, name, code)

@@ -14,6 +14,7 @@ type AdminAcademicHandler struct {
 	periodService      *services.AcademicPeriodService
 	maintenanceService *services.MaintenanceService
 	govService         *services.AdminGovernanceService
+	imageService       *services.ImageVerificationService
 }
 
 func NewAdminAcademicHandler(
@@ -26,6 +27,11 @@ func NewAdminAcademicHandler(
 		maintenanceService: maintenanceService,
 		govService:         govService,
 	}
+}
+
+func (h *AdminAcademicHandler) WithImageService(imageService *services.ImageVerificationService) *AdminAcademicHandler {
+	h.imageService = imageService
+	return h
 }
 
 func getTenantFromCtx(r *http.Request) string {
@@ -535,7 +541,11 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 
 	item, err := h.govService.CreateOfficialTemplate(r.Context(), tenantID, adminID, dto)
 	if err != nil {
-		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar la plantilla oficial")
+		status := http.StatusInternalServerError
+		if errors.Is(err, services.ErrInvalidDockerImage) || errors.Is(err, services.ErrLatestTagForbidden) || strings.Contains(err.Error(), "requerido") {
+			status = http.StatusUnprocessableEntity
+		}
+		SendError(w, status, err.Error(), err.Error())
 		return
 	}
 
@@ -591,4 +601,58 @@ func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *
 	}
 
 	SendJSON(w, http.StatusOK, result, result.Message)
+}
+
+// -----------------------------------------------------------------------------
+// Image Verification & Local Images (ADR-030)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ListLocalImages(w http.ResponseWriter, r *http.Request) {
+	if h.imageService == nil {
+		SendError(w, http.StatusServiceUnavailable, "service_unavailable", "Servicio de verificación de imágenes no disponible")
+		return
+	}
+
+	images, err := h.imageService.ListLocalImages(r.Context())
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "docker_error", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, images, "Imágenes locales recuperadas exitosamente")
+}
+
+func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Request) {
+	if h.imageService == nil {
+		SendError(w, http.StatusServiceUnavailable, "service_unavailable", "Servicio de verificación de imágenes no disponible")
+		return
+	}
+
+	var req domain.VerifyImageRequest
+	if r.Method == http.MethodGet {
+		req.Image = r.URL.Query().Get("image")
+		req.Force = r.URL.Query().Get("force") == "true"
+	} else {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+			return
+		}
+	}
+
+	if strings.TrimSpace(req.Image) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "El campo image es obligatorio")
+		return
+	}
+
+	result, err := h.imageService.VerifyImage(r.Context(), req.Image, req.Force)
+	if err != nil {
+		if errors.Is(err, services.ErrImageFormatInvalid) || errors.Is(err, services.ErrLatestTagForbiddenVerif) {
+			SendError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "verification_failed", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, result, "Verificación de imagen completada")
 }

@@ -37,6 +37,7 @@ type WorkspaceInstance struct {
 	OOMStrikeCount  int        `db:"oom_strike_count" json:"oom_strike_count"`
 	SemgrepAudit    []byte     `db:"semgrep_audit" json:"semgrep_audit,omitempty"`
 	TenantID        string     `db:"tenant_id" json:"tenant_id"`
+	TemplateID      *string    `db:"template_id" json:"template_id,omitempty"`
 	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
 }

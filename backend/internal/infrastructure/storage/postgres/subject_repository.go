@@ -18,8 +18,8 @@ func NewPostgresSubjectRepository(db *sqlx.DB) *PostgresSubjectRepository {
 
 func (r *PostgresSubjectRepository) Create(ctx context.Context, subject *domain.Subject) error {
 	query := `
-		INSERT INTO subjects (id, tenant_id, name, code, teacher_id, academic_period_id, classroom_course_id, created_at, updated_at)
-		VALUES (:id, :tenant_id, :name, :code, :teacher_id, :academic_period_id, :classroom_course_id, NOW(), NOW())
+		INSERT INTO subjects (id, tenant_id, name, code, teacher_id, academic_period_id, classroom_course_id, template_id, created_at, updated_at)
+		VALUES (:id, :tenant_id, :name, :code, :teacher_id, :academic_period_id, :classroom_course_id, :template_id, NOW(), NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, subject)
 	if err != nil {
@@ -34,7 +34,7 @@ func (r *PostgresSubjectRepository) GetByID(ctx context.Context, tenantID, id st
 		SELECT 
 			s.id, s.tenant_id, s.name, s.code, s.teacher_id, 
 			COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), '') as teacher_name,
-			s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at 
+			s.academic_period_id, s.is_archived, s.classroom_course_id, s.template_id, s.created_at, s.updated_at 
 		FROM subjects s
 		LEFT JOIN users u ON s.teacher_id = u.id
 		WHERE s.tenant_id = $1 AND s.id = $2
@@ -52,7 +52,7 @@ func (r *PostgresSubjectRepository) ListByTenant(ctx context.Context, tenantID s
 		SELECT 
 			s.id, s.tenant_id, s.name, s.code, s.teacher_id, 
 			COALESCE(NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), '') as teacher_name,
-			s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at 
+			s.academic_period_id, s.is_archived, s.classroom_course_id, s.template_id, s.created_at, s.updated_at 
 		FROM subjects s
 		LEFT JOIN users u ON s.teacher_id = u.id
 		WHERE s.tenant_id = $1 
@@ -91,7 +91,7 @@ func (r *PostgresSubjectRepository) ListStudentsBySubject(ctx context.Context, t
 func (r *PostgresSubjectRepository) ListByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.Subject, error) {
 	var list []*domain.Subject
 	query := `
-		SELECT s.id, s.tenant_id, s.name, s.code, s.teacher_id, s.academic_period_id, s.is_archived, s.classroom_course_id, s.created_at, s.updated_at
+		SELECT s.id, s.tenant_id, s.name, s.code, s.teacher_id, s.academic_period_id, s.is_archived, s.classroom_course_id, s.template_id, s.created_at, s.updated_at
 		FROM subjects s
 		INNER JOIN enrollments e ON s.id = e.subject_id AND s.tenant_id = e.tenant_id
 		WHERE s.tenant_id = $1 AND e.student_id = $2

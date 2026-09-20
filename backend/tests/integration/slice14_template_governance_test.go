@@ -275,4 +275,68 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 			t.Errorf("Rejection reason not persisted correctly: %s", reasonAfter)
 		}
 	})
+
+	// =========================================================================
+	// 4. TEST Registro Directo de Plantilla Oficial (POST /admin/templates)
+	// =========================================================================
+	t.Run("4. Registro de Plantilla Oficial - Creación Directa por Administrador", func(t *testing.T) {
+		createPayload := []byte(`{
+			"name": "Python 3.12 Data Science",
+			"docker_image": "solv/python:3.12-ds",
+			"base_ram_mb": 512,
+			"description": "Entorno oficial institucional para análisis de datos"
+		}`)
+
+		reqCreate, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewBuffer(createPayload))
+		reqCreate.Header.Set("Content-Type", "application/json")
+		reqCreate.Header.Set("X-User-Role", "admin")
+		reqCreate.Header.Set("X-User-Id", adminID)
+		reqCreate.Header.Set("X-Tenant-Id", tenantID)
+
+		respCreate, err := client.Do(reqCreate)
+		if err != nil {
+			t.Fatalf("Failed create official template request: %v", err)
+		}
+		if respCreate.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected 201 Created registering official template, got %d", respCreate.StatusCode)
+		}
+
+		var createBody map[string]interface{}
+		json.NewDecoder(respCreate.Body).Decode(&createBody)
+		createdData := createBody["data"].(map[string]interface{})
+		if createdData["status"] != "approved" {
+			t.Errorf("Expected created template status to be approved, got %v", createdData["status"])
+		}
+		if createdData["name"] != "Python 3.12 Data Science" {
+			t.Errorf("Expected name 'Python 3.12 Data Science', got %v", createdData["name"])
+		}
+	})
+
+	// =========================================================================
+	// 5. TEST Ciclo de Vida: Pausar y Reactivar Plantilla
+	// =========================================================================
+	t.Run("5. Ciclo de Vida - Pausar y Reactivar Plantilla en Catálogo", func(t *testing.T) {
+		// Pausar
+		pausePayload := []byte(`{"status": "paused"}`)
+		reqPause, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplApprovedID), bytes.NewBuffer(pausePayload))
+		reqPause.Header.Set("Content-Type", "application/json")
+		reqPause.Header.Set("X-User-Role", "admin")
+		reqPause.Header.Set("X-User-Id", adminID)
+		reqPause.Header.Set("X-Tenant-Id", tenantID)
+
+		respPause, err := client.Do(reqPause)
+		if err != nil {
+			t.Fatalf("Failed pause request: %v", err)
+		}
+		if respPause.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK pausing template, got %d", respPause.StatusCode)
+		}
+
+		var pauseBody map[string]interface{}
+		json.NewDecoder(respPause.Body).Decode(&pauseBody)
+		data := pauseBody["data"].(map[string]interface{})
+		if data["status"] != "paused" {
+			t.Errorf("Expected status = paused, got %v", data["status"])
+		}
+	})
 }

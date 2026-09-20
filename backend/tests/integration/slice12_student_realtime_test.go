@@ -40,6 +40,12 @@ func (m *mockSlice12Docker) GetContainerMetrics(ctx context.Context, containerID
 func (m *mockSlice12Docker) StopAndRemoveContainer(ctx context.Context, containerID string) error {
 	return nil
 }
+func (m *mockSlice12Docker) PauseContainer(ctx context.Context, containerID string) error {
+	return nil
+}
+func (m *mockSlice12Docker) UnpauseContainer(ctx context.Context, containerID string) error {
+	return nil
+}
 func (m *mockSlice12Docker) ListAllManagedContainers(ctx context.Context) ([]string, error) {
 	return []string{}, nil
 }
@@ -48,6 +54,9 @@ func (m *mockSlice12Docker) RunSemgrepScanOnVolume(ctx context.Context, volumeNa
 }
 func (m *mockSlice12Docker) GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error) {
 	return "mock logs", nil
+}
+func (m *mockSlice12Docker) ExecuteCommandInBackground(ctx context.Context, containerID string, workDir string, cmd []string) error {
+	return nil
 }
 
 type mockSlice12HostMonitor struct{}
