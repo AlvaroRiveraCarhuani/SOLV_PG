@@ -1,6 +1,7 @@
 <div class="modal-backdrop" (click)="closeModal()">
   <div class="modal-card modal-lg" (click)="$event.stopPropagation()">
-    <!-- Header Fijo -->
+    
+    <!-- Header Principal -->
     <div class="modal-header">
       <div class="modal-title-group">
         <div class="modal-icon-badge">
@@ -8,7 +9,7 @@
         </div>
         <div>
           <h3 class="modal-title">Registrar Nueva Plantilla Oficial</h3>
-          <p class="modal-subtitle">Configuración del entorno de desarrollo y asignación de recursos para los estudiantes</p>
+          <p class="modal-subtitle">Asistente modular para entornos de ejecución académica</p>
         </div>
       </div>
       <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
@@ -16,18 +17,139 @@
       </button>
     </div>
 
-    <!-- Body con Scroll Contenido -->
-    <div class="modal-body">
-      <div class="modal-two-columns">
-        
-        <!-- Columna Izquierda: Identidad y Preparación de Código -->
-        <div class="column-section">
-          <div class="section-badge-title">
-            <span class="badge-number">1</span>
-            <h4>Identidad y Entorno de Desarrollo</h4>
-          </div>
+    <!-- Menú de Entrada de 3 Puertas (ST-10, ST-11, ST-12, ST-13) -->
+    <div class="entry-doors-strip">
+      <div class="doors-label">
+        <svg lucideLayers class="w-3.5 h-3.5 text-primary"></svg>
+        <span class="doors-title" i18n="@@ST-10">Nueva plantilla</span>
+      </div>
+      <div class="doors-options">
+        <button 
+          type="button" 
+          class="door-chip" 
+          [class.active]="creationMode() === 'blank'"
+          (click)="selectCreationMode('blank')"
+        >
+          <span i18n="@@ST-11">En blanco</span>
+        </button>
+        <button 
+          type="button" 
+          class="door-chip" 
+          [class.active]="creationMode() === 'recipe'"
+          (click)="selectCreationMode('recipe')"
+        >
+          <span i18n="@@ST-12">Desde receta</span>
+        </button>
+        <button 
+          type="button" 
+          class="door-chip" 
+          [class.active]="creationMode() === 'duplicate'"
+          (click)="selectCreationMode('duplicate')"
+        >
+          <span i18n="@@ST-13">Duplicar existente</span>
+        </button>
+      </div>
+    </div>
 
-          <!-- Nombre -->
+    <!-- Barra de Recetas Rápidas (P-01, Quick Start) -->
+    <div class="recipes-strip">
+      <div class="recipes-label">
+        <svg lucideSparkles class="w-3.5 h-3.5 text-warning"></svg>
+        <span>Recetas de inicio rápido:</span>
+      </div>
+      <div class="recipes-carousel">
+        @for (recipe of recipes; track recipe.id) {
+          <button 
+            type="button" 
+            class="recipe-chip" 
+            (click)="applyRecipe(recipe)"
+            [title]="recipe.description"
+          >
+            <span class="recipe-name">{{ recipe.title }}</span>
+            <span class="recipe-ram">{{ recipe.baseRamMB }} MB</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    <!-- Navegación de 3 Secciones No-Lineales (P-04, ST-01 a ST-06) -->
+    <div class="wizard-nav-tabs">
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeSection() === 'identity'"
+        (click)="setSection('identity')"
+      >
+        <span class="tab-number">1</span>
+        <span class="tab-title" i18n="@@ST-01">Identidad</span>
+        <span class="status-chip" [class]="'chip-' + identityStatus()">
+          @if (identityStatus() === 'complete') {
+            <span i18n="@@ST-04">COMPLETO</span>
+          } @else {
+            <span i18n="@@ST-05">PENDIENTE</span>
+          }
+        </span>
+      </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeSection() === 'environment'"
+        (click)="setSection('environment')"
+      >
+        <span class="tab-number">2</span>
+        <span class="tab-title" i18n="@@ST-02">Entorno</span>
+        <span class="status-chip" [class]="'chip-' + environmentStatus()">
+          @switch (environmentStatus()) {
+            @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
+            @case ('warning') { <span i18n="@@ST-06">AVISO</span> }
+            @default { <span i18n="@@ST-05">PENDIENTE</span> }
+          }
+        </span>
+      </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeSection() === 'resources'"
+        (click)="setSection('resources')"
+      >
+        <span class="tab-number">3</span>
+        <span class="tab-title" i18n="@@ST-03">Recursos</span>
+        <span class="status-chip" [class]="'chip-' + resourcesStatus()">
+          @if (resourcesStatus() === 'complete') {
+            <span i18n="@@ST-04">COMPLETO</span>
+          } @else {
+            <span i18n="@@ST-05">PENDIENTE</span>
+          }
+        </span>
+      </button>
+    </div>
+
+    <!-- Body con Secciones -->
+    <div class="modal-body">
+
+      <!-- Banner de Reanudación de Borrador (UX-13, ST-09) -->
+      @if (hasDraftToResume()) {
+        <div class="draft-resume-banner animate-fade">
+          <div class="resume-info">
+            <svg lucideRotateCw class="w-4 h-4 text-primary"></svg>
+            <span i18n="@@ST-09">Continuar borrador anterior (guardado recientemente).</span>
+          </div>
+          <div class="resume-actions">
+            <button type="button" class="btn-resume-action btn-confirm-resume" (click)="resumeDraft()">
+              Reanudar borrador
+            </button>
+            <button type="button" class="btn-resume-action btn-discard-resume" (click)="discardDraft()">
+              Descartar
+            </button>
+          </div>
+        </div>
+      }
+      
+      <!-- SECCIÓN 1: IDENTIDAD -->
+      @if (activeSection() === 'identity') {
+        <div class="section-container animate-fade">
           <div class="form-group">
             <label class="form-label font-semibold">
               Nombre de la Plantilla: <span class="text-danger">*</span>
@@ -38,16 +160,50 @@
               placeholder="Ej: Programación Web con Node 20" 
               [ngModel]="name()" 
               (ngModelChange)="name.set($event)" />
+            <small class="form-hint">Nombre descriptivo que verán los docentes y estudiantes en el catálogo.</small>
           </div>
 
-          <!-- Imagen Docker con Typeahead y Verificación en Vivo -->
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Descripción Institucional (Opcional):
+            </label>
+            <textarea 
+              class="form-control text-area-sm" 
+              rows="3" 
+              placeholder="Ej: Plantilla configurada con bibliotecas para machine learning..."
+              [ngModel]="description()" 
+              (ngModelChange)="description.set($event)">
+            </textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Script de Inicialización al Despliegue (Opcional):
+            </label>
+            <textarea 
+              class="form-control font-mono text-area-sm" 
+              rows="4" 
+              placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
+              [ngModel]="setupScript()" 
+              (ngModelChange)="setupScript.set($event)">
+            </textarea>
+            <small class="form-hint">Comandos bash que se ejecutarán automáticamente al iniciar cada workspace.</small>
+          </div>
+        </div>
+      }
+
+      <!-- SECCIÓN 2: ENTORNO (IMAGEN + TOOLS + ENV TEST BUTTON) -->
+      @if (activeSection() === 'environment') {
+        <div class="section-container animate-fade">
+          
+          <!-- Imagen Docker con Typeahead -->
           <div class="form-group typeahead-container">
             <div class="label-row-between">
               <div class="label-group-help">
                 <label class="form-label font-semibold">
                   Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
                 </label>
-                <button type="button" class="btn-help-inline" (click)="isHelpDrawerOpen.set(true)" title="Ver guía y mejores prácticas">
+                <button type="button" class="btn-help-inline" (click)="isHelpDrawerOpen.set(true)" title="Ver guía institucional">
                   <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
                   <span>Guía institucional</span>
                 </button>
@@ -57,421 +213,233 @@
                   <span class="spinner-dot"></span> Verificando...
                 </span>
               } @else if (verificationState() === 'verified') {
-                <button type="button" class="btn-reverify" (click)="reverify()" title="Forzar re-verificación en Docker">
+                <button type="button" class="btn-reverify" (click)="reverify()" title="Forzar re-verificación">
                   <svg lucideRefreshCw class="w-3 h-3"></svg>
                   <span>Re-verificar</span>
                 </button>
               }
             </div>
 
-            <div class="input-with-autocomplete">
+            <div class="input-with-action">
               <input 
                 type="text" 
                 class="form-control font-mono" 
-                [class.is-invalid]="isLatestImage() || isInvalidFormat() || isArchIncompatible() || isStorageBlocked()"
-                [class.is-verified]="verificationState() === 'verified' && verificationResult()?.exists && !isArchIncompatible() && !isStorageBlocked()"
-                placeholder="Ej: python:3.12-slim-bookworm o node:20-bookworm-slim" 
+                [class.is-invalid]="isLatestImage() || isInvalidFormat() || isStorageBlocked() || isArchIncompatible()"
+                [class.is-valid]="verificationState() === 'verified' && !isStorageBlocked() && !isArchIncompatible()"
+                placeholder="Ej: python:3.12-slim-bookworm" 
                 [ngModel]="dockerImage()" 
-                (focus)="isDropdownOpen.set(true)"
-                (ngModelChange)="onImageInputChange($event)" />
-
-              <!-- Dropdown de Sugerencias y Residente Local -->
-              @if (isDropdownOpen() && imageSuggestions().length > 0) {
-                <div class="autocomplete-dropdown shadow-lg">
-                  <div class="dropdown-header">
-                    <svg lucideSearch class="w-3 h-3 text-secondary"></svg>
-                    <span>Imágenes en servidor y recomendadas</span>
-                  </div>
-                  <div class="dropdown-list">
-                    @for (sug of imageSuggestions(); track sug.repoTag) {
-                      <div class="dropdown-item" (mousedown)="selectSuggestion(sug)">
-                        <div class="item-main">
-                          <span class="item-tag font-mono">{{ sug.repoTag }}</span>
-                          @if (sug.isLocal) {
-                            <span class="item-badge-local">
-                              ⚡ En el servidor @if (sug.sizeMB) { ({{ sug.sizeMB }} MB) }
-                            </span>
-                          } @else if (sug.isOfficial) {
-                            <span class="item-badge-official">Oficial OCI</span>
-                          }
-                        </div>
-                        @if (sug.description) {
-                          <span class="item-desc">{{ sug.description }}</span>
-                        }
-                      </div>
-                    }
-                  </div>
-                </div>
-              }
+                (ngModelChange)="onImageInputChange($event)"
+                (focus)="isDropdownOpen.set(true)" />
             </div>
 
-            <!-- Alertas de Formato y Seguridad -->
+            <!-- Dropdown de Sugerencias -->
+            @if (isDropdownOpen() && imageSuggestions().length > 0) {
+              <div class="typeahead-dropdown">
+                <div class="dropdown-header">Imágenes disponibles en el servidor y recomendadas:</div>
+                @for (sug of imageSuggestions(); track sug.repoTag) {
+                  <div class="dropdown-item" (click)="selectSuggestion(sug)">
+                    <div class="item-primary-row">
+                      <span class="repo-tag font-mono">{{ sug.repoTag }}</span>
+                      @if (sug.isLocal) {
+                        <span class="badge-local-immediate">Local ({{ sug.sizeMB }} MB)</span>
+                      } @else if (sug.isOfficial) {
+                        <span class="badge-official-preset">Oficial</span>
+                      }
+                    </div>
+                    @if (sug.description) {
+                      <div class="item-desc">{{ sug.description }}</div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+
+            <!-- Validaciones tempranas -->
             @if (isLatestImage()) {
-              <div class="field-error-alert">
-                <svg lucideAlertTriangle class="alert-icon"></svg>
-                <span>Por seguridad y reproducibilidad, no está permitido el tag :latest. Especifique una versión inmutable (ej: <code>node:20-bookworm-slim</code> o <code>python:3.12-slim-bookworm</code>).</span>
-              </div>
-            } @else if (isInvalidFormat()) {
-              <div class="field-error-alert">
-                <svg lucideAlertTriangle class="alert-icon"></svg>
-                <span>Formato de imagen inválido. Debe ser <code>repositorio:tag</code> sin espacios (ej: <code>python:3.12-slim-bookworm</code> o <code>node:20-bookworm-slim</code>).</span>
+              <div class="validation-message-alert alert-danger">
+                <svg lucideAlertCircle class="w-4 h-4"></svg>
+                <span>Prohibido el tag <code>:latest</code> por reproducibilidad académica y gobernanza institucional.</span>
               </div>
             }
-
-            <!-- Panel de Verificación Real y Gobernanza -->
-            @if (verificationState() === 'error' && verificationError()) {
-              <div class="verification-error-card">
-                <svg lucideAlertCircle class="w-4 h-4 text-danger flex-shrink-0"></svg>
-                <div class="error-content">
-                  <span class="error-title">No se pudo verificar la imagen:</span>
-                  <span class="error-desc">{{ verificationError() }}</span>
-                  <div class="error-actions-row">
-                    <a [href]="dockerHubSearchUrl()" target="_blank" rel="noopener noreferrer" class="link-docker-hub">
-                      <svg lucideExternalLink class="w-3 h-3"></svg>
-                      <span>Inspeccionar en Docker Hub</span>
-                    </a>
-                  </div>
-                </div>
-                <button type="button" class="btn-retry" (click)="reverify()">Reintentar</button>
-              </div>
-            }
-
-            @if (verificationState() === 'verified' && verificationResult(); as res) {
-              <div class="verification-result-card" [class.border-warning]="isStorageBlocked() || isArchIncompatible() || res.origin_warning">
-                
-                <!-- Status Row -->
-                <div class="result-status-row">
-                  @if (res.is_local) {
-                    <span class="badge-status-local">
-                      ⚡ Residente en el host (Despliegue instantáneo, 0s pull) — {{ res.size_formatted }}
-                    </span>
-                  } @else {
-                    <span class="badge-status-remote">
-                      🌐 Verificada en registro OCI (se descargará al iniciar) — ~{{ res.estimated_uncompressed_mb }} MB
-                    </span>
-                  }
-
-                  <div class="result-status-actions">
-                    <a [href]="dockerHubSearchUrl()" target="_blank" rel="noopener noreferrer" class="link-docker-hub-sm" title="Inspeccionar repositorio en Docker Hub">
-                      <svg lucideExternalLink class="w-3 h-3"></svg>
-                      <span>Docker Hub</span>
-                    </a>
-                    @if (res.cached) {
-                      <span class="badge-cached" title="Resultado recuperado del caché local">Caché 24h</span>
-                    }
-                  </div>
-                </div>
-
-                <!-- Clasificación de Origen y Advertencia Comunitaria (A-08 / UX-03) -->
-                @if (res.origin_warning) {
-                  <div class="origin-warning-card">
-                    <svg lucideAlertTriangle class="w-3.5 h-3.5 text-warning flex-shrink-0"></svg>
-                    <span>{{ res.origin_warning }}</span>
-                  </div>
-                }
-
-                <!-- Arquitectura CPU -->
-                <div class="result-detail-item">
-                  @if (res.architecture_compatible) {
-                    <div class="detail-line text-success">
-                      <svg lucideCheckCircle2 class="w-3.5 h-3.5"></svg>
-                      <span>Arquitectura compatible: <strong>linux/{{ res.host_arch }}</strong></span>
-                    </div>
-                  } @else {
-                    <div class="detail-line text-danger">
-                      <svg lucideAlertCircle class="w-3.5 h-3.5"></svg>
-                      <span>Incompatible con la CPU del host: imagen para [{{ res.supported_platforms.join(', ') }}], host es {{ res.host_arch }}</span>
-                    </div>
-                    @if (res.buildx_suggestion) {
-                      <div class="buildx-box">
-                        <span class="buildx-title">Comando para compilar compatible:</span>
-                        <div class="buildx-cmd-row">
-                          <code class="font-mono">{{ res.buildx_suggestion }}</code>
-                          <button type="button" class="btn-copy-cmd" (click)="copyBuildxCommand(res.buildx_suggestion)">
-                            @if (copiedCommand()) {
-                              <svg lucideCheck class="w-3.5 h-3.5 text-success"></svg>
-                            } @else {
-                              <svg lucideCopy class="w-3.5 h-3.5"></svg>
-                            }
-                          </button>
-                        </div>
-                      </div>
-                    }
-                  }
-                </div>
-
-                <!-- Cuota de Almacenamiento Dinámica -->
-                <div class="result-detail-item">
-                  <div class="detail-line" [class.text-danger]="res.storage_status === 'CRITICAL_BLOCKED'" [class.text-warning]="res.storage_status === 'WARNING'" [class.text-muted]="res.storage_status === 'OK'">
-                    <svg lucideHardDrive class="w-3.5 h-3.5"></svg>
-                    <span>{{ res.storage_message }}</span>
-                  </div>
-                </div>
-
-                <!-- Smoke Test / Capabilities Probe -->
-                @if (res.capabilities_probe && res.capabilities_probe.success) {
-                  <div class="result-detail-item probe-success">
-                    <svg lucideTerminal class="w-3.5 h-3.5 text-secondary"></svg>
-                    <span>Probe en contenedor efímero: <strong>{{ res.capabilities_probe.output || 'POSIX Shell verificado' }}</strong></span>
-                  </div>
-                }
+            @if (isInvalidFormat()) {
+              <div class="validation-message-alert alert-warning">
+                <svg lucideInfo class="w-4 h-4"></svg>
+                <span>Formato OCI inválido: debe ser repositorio:tag (ej: <code>python:3.12-slim</code>).</span>
               </div>
             }
           </div>
 
-          <!-- Script de Inicialización (Setup Script) -->
+          <!-- Herramientas declaradas -->
           <div class="form-group">
-            <label class="form-label font-semibold flex-label">
-              <span class="label-with-icon">
-                <svg lucideTerminal class="w-3.5 h-3.5 text-secondary"></svg>
-                Script de Inicialización Inicial:
-              </span>
-              <span class="label-optional">Opcional</span>
-            </label>
-            <textarea 
-              class="form-control font-mono setup-textarea" 
-              rows="3" 
-              placeholder="# Comandos a ejecutar automáticamente al crear el workspace del alumno:&#10;npm install&#10;# o git clone https://github.com/docente/lab1.git ."
-              [ngModel]="setupScript()" 
-              (ngModelChange)="setupScript.set($event)"></textarea>
-            <p class="field-hint">
-              Comandos que se ejecutarán automáticamente en el espacio del alumno. Deben ser compatibles con las herramientas instaladas en la imagen Docker base.
-            </p>
-          </div>
-
-          <!-- Descripción Institucional -->
-          <div class="form-group mb-0">
             <label class="form-label font-semibold">
-              Descripción para Docentes y Estudiantes:
-            </label>
-            <textarea 
-              class="form-control" 
-              rows="2" 
-              placeholder="Ej: Entorno preparado con Node.js, Express y cliente de base de datos para la materia Sistemas Distribuidos..."
-              [ngModel]="description()" 
-              (ngModelChange)="description.set($event)"></textarea>
-            <p class="field-hint">
-              Esta información guiará al docente al seleccionar la plantilla más adecuada para su materia.
-            </p>
-          </div>
-
-          <!-- Herramientas Declaradas para Smoke Test -->
-          <div class="form-group mb-0">
-            <label class="form-label font-semibold">
-              Herramientas requeridas en la imagen (opcional):
+              Herramientas Requeridas en la Imagen (Separadas por coma):
             </label>
             <input 
               type="text" 
               class="form-control font-mono" 
-              placeholder="Ej: python3, pip, git, gcc"
+              placeholder="Ej: python3, pip, git, gcc" 
               [ngModel]="toolsDeclared()" 
               (ngModelChange)="toolsDeclared.set($event)" />
-            <p class="field-hint">
-              Separadas por comas. El worker de auditoría verificará en un contenedor efímero aislado que cada binario exista en el PATH antes de aprobar la plantilla.
-            </p>
+            <small class="form-hint">Binarios que el sistema comprobará dentro del contenedor antes de aprobar la plantilla.</small>
           </div>
+
+          <!-- BOTÓN DE PRUEBA DE ENTORNO (5 ESTADOS ASÍNCRONOS) -->
+          <div class="env-test-section">
+            <label class="form-label font-semibold">Prueba de Integridad del Entorno:</label>
+            <solv-env-test-button
+              [image]="dockerImage()"
+              [tools]="toolsList()"
+              [isLocal]="verificationResult()?.is_local || false"
+              [imageSizeMB]="verificationResult()?.estimated_uncompressed_mb || 0"
+              (testCompleted)="onEnvTestCompleted($event)"
+            ></solv-env-test-button>
+          </div>
+
         </div>
+      }
 
-        <!-- Columna Derecha: Dimensionamiento y Servicios -->
-        <div class="column-section">
-          <div class="section-badge-title">
-            <span class="badge-number">2</span>
-            <h4>Capacidad de Memoria y Servicios de Base de Datos</h4>
-          </div>
-
-          <!-- RAM Base con Selector Híbrido -->
-          <div class="quota-section">
-            <div class="ram-header-row">
-              <label class="quota-title">
-                <svg lucideHardDrive class="w-4 h-4 text-secondary"></svg>
-                <span>Memoria RAM Asignada: <span class="text-danger">*</span></span>
-              </label>
-              <!-- Input numérico directo -->
-              <div class="custom-ram-input-wrap">
-                <input 
-                  type="number" 
-                  class="custom-ram-input font-mono" 
-                  min="256" 
-                  step="128" 
-                  [value]="baseRamMB()" 
-                  (input)="onRamInput($event)" />
-                <span class="ram-unit">MB</span>
-              </div>
+      <!-- SECCIÓN 3: RECURSOS -->
+      @if (activeSection() === 'resources') {
+        <div class="section-container animate-fade">
+          
+          <!-- Asignación de RAM Base -->
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Memoria RAM por Alumno (MB): <span class="text-danger">*</span>
+            </label>
+            <div class="ram-presets-row">
+              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 512" (click)="setRam(512)">512 MB</button>
+              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 1024" (click)="setRam(1024)">1 GB</button>
+              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 2048" (click)="setRam(2048)">2 GB</button>
+              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 4096" (click)="setRam(4096)">4 GB</button>
+              <input 
+                type="number" 
+                class="form-control input-ram-custom font-mono" 
+                [value]="baseRamMB()" 
+                (input)="onRamInput($event)"
+                min="256" 
+                max="8192" 
+                step="128" />
             </div>
-
-            <!-- Botones de presets rápidos -->
-            <div class="chips-selector">
-              <button 
-                type="button" 
-                class="chip-btn" 
-                [class.active]="baseRamMB() === 256"
-                (click)="setRam(256)">
-                256 MB <span class="chip-desc">Ligera (C / Go)</span>
-              </button>
-              <button 
-                type="button" 
-                class="chip-btn" 
-                [class.active]="baseRamMB() === 512"
-                (click)="setRam(512)">
-                512 MB <span class="chip-desc chip-badge">Sugerida (Node / Python)</span>
-              </button>
-              <button 
-                type="button" 
-                class="chip-btn" 
-                [class.active]="baseRamMB() === 1024"
-                (click)="setRam(1024)">
-                1024 MB <span class="chip-desc">Intensiva (Java / Análisis de Datos)</span>
-              </button>
-            </div>
-
             @if (isRamTooLow()) {
-              <div class="field-error-alert">
-                <svg lucideAlertTriangle class="alert-icon"></svg>
-                <span>Límite mínimo requerido: El editor web consume ~210 MB en reposo. Se requieren mínimo 256 MB para arrancar sin fallos.</span>
+              <div class="validation-message-alert alert-danger">
+                <svg lucideAlertCircle class="w-4 h-4"></svg>
+                <span>El mínimo recomendado es 256 MB para alojar el editor web y el runtime.</span>
               </div>
             }
           </div>
 
-          <!-- Tarjeta de Desglose Matemático y Capacidad Real de Concurrencia -->
-          <div class="resource-breakdown-card">
-            <div class="breakdown-header">
-              <svg lucideCpu class="w-4 h-4 text-primary"></svg>
-              <span class="breakdown-title">Distribución Estimada de Memoria y Capacidad</span>
+          <!-- Perfil de Distribución de Recursos -->
+          <div class="resource-profile-card">
+            <div class="profile-header">
+              <span class="profile-title">Distribución de Recursos Estimada</span>
+              <span class="profile-badge">Capacidad host: ~{{ resourceProfilePreview().estimatedCapacity }} alumnos</span>
             </div>
-            
-            <div class="breakdown-metrics">
-              <div class="metric-item">
-                <span class="metric-label">Consumo base del editor:</span>
-                <span class="metric-value font-mono">~{{ resourceProfilePreview().editorBase }} MB</span>
+            <div class="memory-bar">
+              <div class="bar-segment bar-editor" [style.flex-grow]="resourceProfilePreview().editorBase" title="Editor Web: 210 MB">
+                <span>IDE (210 MB)</span>
               </div>
-              <div class="metric-item">
-                <span class="metric-label">Margen para código del alumno:</span>
-                <span class="metric-value font-mono" [class.text-success]="resourceProfilePreview().usable >= 100" [class.text-warning]="resourceProfilePreview().usable < 100">
-                  +{{ resourceProfilePreview().usable }} MB
-                </span>
+              <div class="bar-segment bar-usable" [style.flex-grow]="resourceProfilePreview().usable" title="Disponible para compilación">
+                <span>Libre ({{ resourceProfilePreview().usable }} MB)</span>
               </div>
-              <div class="metric-item">
-                <span class="metric-label">Reserva garantizada (50%):</span>
-                <span class="metric-value font-mono">{{ resourceProfilePreview().minReservation }} MB</span>
-              </div>
-              <div class="metric-item">
-                <span class="metric-label">Capacidad estimada en servidor:</span>
-                <span class="metric-value font-mono text-primary">~{{ resourceProfilePreview().estimatedCapacity }} alumnos simultáneos</span>
-              </div>
-            </div>
-
-            <div class="breakdown-footer-info">
-              <svg lucideInfo class="w-3 h-3 text-secondary"></svg>
-              <span>El servidor reserva inicialmente solo el 50% de RAM en reposo. Si el código del alumno demanda más memoria, el sistema expande recursos automáticamente hasta el límite asignado.</span>
             </div>
           </div>
 
-          <!-- Servicios y Bases de Datos Disponibles -->
-          <div class="services-section">
-            <label class="services-title">
-              <svg lucideServer class="w-4 h-4 text-secondary"></svg>
-              <span>Bases de Datos y Servicios Adicionales:</span>
+          <!-- Servicios Satélite Adicionales -->
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Servicios Satélite Opcionales (Bases de Datos Aisladas):
             </label>
-            <p class="field-hint">
-              Seleccione la base de datos para las prácticas. Las variables de conexión se inyectan automáticamente en el entorno del estudiante.
-            </p>
-            <div class="services-grid">
-              @for (srv of availableServices(); track srv.engine) {
-                <button 
-                  type="button" 
+            <div class="services-toggle-grid">
+              @for (svc of availableServices(); track svc.engine) {
+                <div 
                   class="service-card" 
-                  [class.active]="isServiceSelected(srv.engine)"
-                  (click)="toggleService(srv)">
-                  <div class="service-card-header">
-                    <div class="service-header-left">
-                      <svg lucideDatabase class="w-3.5 h-3.5 text-secondary"></svg>
-                      <span class="service-name">{{ srv.label }}</span>
-                    </div>
-                    @if (isServiceSelected(srv.engine)) {
-                      <span class="service-badge-active">
-                        <svg lucideCheck class="w-3 h-3"></svg> Activo
-                      </span>
-                    }
+                  [class.selected]="isServiceSelected(svc.engine)"
+                  (click)="toggleService(svc)"
+                >
+                  <div class="service-header">
+                    <svg lucideDatabase class="w-4 h-4 text-primary"></svg>
+                    <strong class="service-name">{{ svc.label }}</strong>
                   </div>
-                  <p class="service-desc">{{ srv.description }}</p>
+                  <p class="service-desc">{{ svc.description }}</p>
                   <div class="service-footer">
-                    <code class="service-env">{{ srv.envVar }}</code>
+                    <span class="badge-tag">v{{ svc.version || 'latest' }}</span>
+                    <span class="badge-ram">{{ svc.category }}</span>
                   </div>
-                </button>
+                </div>
               }
             </div>
           </div>
-        </div>
 
-      </div>
+        </div>
+      }
+
     </div>
 
-    <!-- Footer Fijo -->
+    <!-- Footer de Acciones -->
     <div class="modal-footer">
-      <div class="footer-summary">
-        <span class="summary-tag">RAM: <strong>{{ baseRamMB() }} MB</strong></span>
-        @if (selectedServices().length > 0) {
-          <span class="summary-tag">Servicios: <strong>{{ selectedServices().length }} seleccionado{{ selectedServices().length > 1 ? 's' : '' }}</strong></span>
-        }
-      </div>
-      <div class="footer-actions">
-        <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+      <div class="footer-left">
+        <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting()">
           Cancelar
         </button>
         <button 
           type="button" 
-          class="btn-primary" 
-          (click)="confirmCreate()" 
-          [disabled]="!isValid() || isSubmitting()">
-          @if (isSubmitting()) {
-            <span>Registrando...</span>
-          } @else {
-            <svg lucidePlusCircle class="w-4 h-4"></svg>
-            <span>Registrar Plantilla Oficial</span>
-          }
+          class="btn btn-ghost" 
+          (click)="saveAsInstitutionalRecipe()"
+          title="Guardar como receta institucional para que otros docentes puedan usarla"
+        >
+          <span i18n="@@ST-15">Guardar como receta institucional</span>
+        </button>
+      </div>
+
+      <div class="action-group">
+        <!-- Guardar Borrador (UX-13, ST-07) -->
+        <button 
+          type="button" 
+          class="btn btn-outline-primary" 
+          [disabled]="!canSaveDraft()"
+          (click)="saveDraftManually()"
+          title="Guarda la plantilla como borrador sin confirmación adicional"
+        >
+          <svg lucideSave class="w-4 h-4"></svg>
+          <span i18n="@@ST-07">Guardar borrador</span>
+        </button>
+
+        <!-- Publicar Plantilla (Abre diálogo de pre-flight) -->
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          [disabled]="!canSaveDraft()"
+          (click)="openPublishDialog()"
+        >
+          <svg lucideSend class="w-4 h-4"></svg>
+          <span>Publicar plantilla</span>
         </button>
       </div>
     </div>
-  </div>
 
-  <!-- Drawer Lateral de Ayuda Institucional (UX-05) -->
-  @if (isHelpDrawerOpen()) {
-    <div class="drawer-backdrop" (click)="isHelpDrawerOpen.set(false)">
-      <div class="drawer-panel shadow-2xl" (click)="$event.stopPropagation()">
-        <div class="drawer-header">
-          <div class="drawer-title-group">
-            <svg lucideBookOpen class="w-4 h-4 text-primary"></svg>
-            <h4 class="drawer-title">Guía Institucional: Imágenes Docker</h4>
-          </div>
-          <button type="button" class="btn-icon-close" (click)="isHelpDrawerOpen.set(false)" aria-label="Cerrar guía">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-        <div class="drawer-body">
-          <div class="help-item">
-            <h5 class="help-heading">1. ¿Qué es una imagen base en SOLV?</h5>
-            <p class="help-text">Es el entorno preconfigurado con el sistema operativo, herramientas y compiladores (Python, Node, GCC, OpenJDK, etc.) donde el estudiante programará sus ejercicios dentro del editor web.</p>
-          </div>
-
-          <div class="help-item">
-            <h5 class="help-heading">2. Regla de Reproducibilidad (Sin :latest)</h5>
-            <p class="help-text">Por seguridad institucional y acreditación académica, <strong>no está permitido el tag :latest</strong>. Las plantillas deben usar versiones fijas inmutables (ej: <code>node:20-bookworm-slim</code> o <code>python:3.12-slim-bookworm</code>) para garantizar que las prácticas evalúen exactamente igual hoy y en años futuros.</p>
-          </div>
-
-          <div class="help-item">
-            <h5 class="help-heading">3. Optimización de Almacenamiento</h5>
-            <p class="help-text">Prefiera siempre imágenes con sufijo <code>-slim</code> o <code>-alpine</code>. Evite imágenes que incluyan suites gráficas de escritorio innecesarias, ya que saturan la memoria y el almacenamiento del host físico.</p>
-          </div>
-
-          <div class="help-item">
-            <h5 class="help-heading">4. Imágenes Propias y Multi-Arquitectura</h5>
-            <p class="help-text">El servidor SOLV opera en procesadores <strong>x86_64 (amd64)</strong>. Si compila una imagen personalizada desde una Mac Apple Silicon (ARM64), use buildx para compilar la variante adecuada antes de subirla:</p>
-            <div class="help-code-wrap">
-              <code class="help-code font-mono">docker buildx build --platform linux/amd64 -t mi-organizacion/mi-lab:1.0 --push .</code>
-            </div>
-          </div>
-        </div>
+    <!-- Toast de Notificación Interno del Modal (ST-08, ST-14, ST-16) -->
+    @if (toastMessage(); as msg) {
+      <div class="modal-toast-float animate-fade">
+        <svg lucideSparkles class="w-4 h-4 text-warning"></svg>
+        <span>{{ msg }}</span>
       </div>
-    </div>
-  }
+    }
+
+    <!-- Diálogo de Pre-flight para Publicación (PB-01 a PB-41) -->
+    @if (showPublishDialog()) {
+      <solv-publish-dialog
+        [templateName]="name()"
+        [dockerImage]="dockerImage()"
+        [baseRamMB]="baseRamMB()"
+        [tools]="toolsList()"
+        [setupScript]="setupScript()"
+        [services]="selectedServiceEngines()"
+        [envTestJob]="activeEnvTestJob()"
+        (confirmed)="onPublishConfirmed()"
+        (closed)="closePublishDialog()"
+      ></solv-publish-dialog>
+    }
+
+  </div>
 </div>

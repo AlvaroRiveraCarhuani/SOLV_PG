@@ -57,6 +57,256 @@
   gap: 12px;
 }
 
+.entry-doors-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 24px;
+  background-color: #F1F5F9;
+  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+
+  .doors-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .doors-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-secondary, #475569);
+    }
+  }
+
+  .doors-options {
+    display: flex;
+    gap: 8px;
+
+    .door-chip {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: 1px solid #CBD5E1;
+      background: #FFFFFF;
+      color: var(--text-secondary, #475569);
+      cursor: pointer;
+      transition: all 120ms ease;
+
+      &:hover {
+        background: #F8FAFC;
+        border-color: #94A3B8;
+      }
+
+      &.active {
+        background: var(--color-primary, #3B82F6);
+        color: #FFFFFF;
+        border-color: var(--color-primary, #3B82F6);
+      }
+    }
+  }
+}
+
+.recipes-strip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 24px;
+  background-color: #F8FAFC;
+  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+  overflow-x: auto;
+
+  .recipes-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary, #64748B);
+    white-space: nowrap;
+  }
+
+  .recipes-carousel {
+    display: flex;
+    gap: 8px;
+
+    .recipe-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #FFFFFF;
+      border: 1px solid #CBD5E1;
+      border-radius: 16px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 120ms ease;
+
+      .recipe-name {
+        font-weight: 500;
+        color: var(--text-primary, #0F172A);
+      }
+
+      .recipe-ram {
+        font-size: 10px;
+        color: #64748B;
+        background: #F1F5F9;
+        padding: 1px 5px;
+        border-radius: 8px;
+      }
+
+      &:hover {
+        border-color: #2563EB;
+        background: #EFF6FF;
+      }
+    }
+  }
+}
+
+.wizard-nav-tabs {
+  display: flex;
+  background-color: #F1F5F9;
+  padding: 4px 24px;
+  border-bottom: 1px solid var(--border-subtle, #E2E8F0);
+  gap: 8px;
+
+  .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary, #64748B);
+    transition: all 150ms ease;
+
+    .tab-number {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: #475569;
+      font-size: 11px;
+    }
+
+    .status-chip {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+
+      &.chip-complete {
+        background: #DCFCE7;
+        color: #15803D;
+      }
+
+      &.chip-pending {
+        background: #F1F5F9;
+        color: #64748B;
+      }
+
+      &.chip-warning {
+        background: #FEF3C7;
+        color: #B45309;
+      }
+    }
+
+    &.active {
+      background: #FFFFFF;
+      color: #2563EB;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+      .tab-number {
+        background: #2563EB;
+        color: #FFFFFF;
+      }
+    }
+
+    &:hover:not(.active) {
+      background: #E2E8F0;
+    }
+  }
+}
+
+.section-container {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-width: 720px;
+  margin: 0 auto;
+
+  &.animate-fade {
+    animation: fadeIn 150ms ease-out;
+  }
+}
+
+.env-test-section {
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.draft-resume-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background-color: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 16px;
+  font-size: 13px;
+
+  .resume-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1E3A8A;
+    font-weight: 500;
+  }
+
+  .resume-actions {
+    display: flex;
+    gap: 8px;
+
+    .btn-resume-action {
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      border: none;
+
+      &.btn-confirm-resume {
+        background-color: #2563EB;
+        color: #FFFFFF;
+        &:hover { background-color: #1D4ED8; }
+      }
+
+      &.btn-discard-resume {
+        background-color: transparent;
+        color: #64748B;
+        &:hover { color: #0F172A; }
+      }
+    }
+  }
+}
+
 .modal-icon-badge {
   display: flex;
   align-items: center;
@@ -534,6 +784,48 @@
   border-top: 1px solid var(--border-subtle, #E2E8F0);
   background-color: #FAFAFA;
   flex-shrink: 0;
+
+  .footer-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+}
+
+.btn-ghost {
+  padding: 8px 12px;
+  background: transparent;
+  border: 1px dashed var(--border-subtle, #CBD5E1);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary, #2563EB);
+  cursor: pointer;
+  transition: all 120ms ease;
+
+  &:hover {
+    background-color: #EFF6FF;
+    border-color: var(--color-primary, #2563EB);
+  }
+}
+
+.modal-toast-float {
+  position: absolute;
+  bottom: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #0F172A;
+  color: #F8FAFC;
+  padding: 8px 16px;
+  border-radius: 9999px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  z-index: 1000;
+  pointer-events: none;
 }
 
 .footer-summary {

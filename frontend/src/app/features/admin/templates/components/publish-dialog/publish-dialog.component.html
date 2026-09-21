@@ -1,0 +1,202 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="dialog-card" (click)="$event.stopPropagation()">
+    <div class="dialog-header">
+      <div class="header-titles">
+        <h3 class="dialog-title" i18n="@@PB-01">Publicar plantilla oficial</h3>
+        <p class="dialog-subtitle" i18n="@@PB-02">Comprobación de preparación para uso institucional</p>
+      </div>
+      <button type="button" class="btn-close" (click)="onClose()" title="Cerrar">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <div class="dialog-body">
+      <!-- Sección RESUMEN (PB-04) con labels PB-33 a PB-41 y PB-03/PB-07 -->
+      <div class="summary-section">
+        <div class="summary-title-row">
+          <h4 class="summary-title" i18n="@@PB-04">Resumen</h4>
+          <span class="summary-badge" i18n="@@PB-07">Imagen verificada</span>
+        </div>
+        <div class="summary-grid">
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-33">Nombre</span>
+            <strong class="cell-value">{{ templateName() || 'Sin nombre' }}</strong>
+          </div>
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-34">Imagen</span>
+            <code class="cell-value-code">{{ dockerImage() }}</code>
+          </div>
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-35">Herramientas</span>
+            <span class="cell-value">
+              @if (tools().length > 0) {
+                {{ tools().join(', ') }}
+              } @else {
+                <span i18n="@@PB-09">Prueba de entorno (sin herramientas)</span>
+              }
+            </span>
+          </div>
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-36">Memoria</span>
+            <span class="cell-value">{{ baseRamMB() }} MB</span>
+          </div>
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-37">Servicios</span>
+            <span class="cell-value">
+              @if (services().length > 0) {
+                {{ services().join(', ') }}
+              } @else {
+                <span class="text-muted" i18n="@@PB-41">Sin servicios</span>
+              }
+            </span>
+          </div>
+          <div class="summary-cell">
+            <span class="cell-label" i18n="@@PB-38">Script de inicialización</span>
+            <span class="cell-value">
+              @if (setupScript().trim()) {
+                <button type="button" class="btn-link" (click)="toggleScriptModal()" i18n="@@PB-39">Ver</button>
+              } @else {
+                <span class="text-muted" i18n="@@PB-40">Sin script</span>
+              }
+            </span>
+          </div>
+        </div>
+
+        @if (showScriptModal()) {
+          <div class="script-preview-box">
+            <pre><code>{{ setupScript() }}</code></pre>
+          </div>
+        }
+      </div>
+
+      <!-- Sección de Controles Previos (PB-03) -->
+      <div class="checks-header-row">
+        <span class="checks-title" i18n="@@PB-03">Controles previos</span>
+      </div>
+
+      <div class="checks-list">
+        @for (item of checks(); track item.id) {
+          <div class="check-item" [class]="'check-' + item.type">
+            <div class="item-icon">
+              @switch (item.type) {
+                @case ('pass') {
+                  <svg lucideCheckCircle2 class="w-4 h-4"></svg>
+                }
+                @case ('warning') {
+                  <svg lucideAlertTriangle class="w-4 h-4"></svg>
+                }
+                @case ('error') {
+                  <svg lucideXCircle class="w-4 h-4"></svg>
+                }
+              }
+            </div>
+            <div class="item-content">
+              @switch (item.id) {
+                @case ('img-empty') {
+                  <span class="item-msg" i18n="@@PB-10">No se ha ingresado una imagen Docker</span>
+                }
+                @case ('img-latest') {
+                  <span class="item-msg" i18n="@@PB-11">El tag :latest está prohibido por reproducibilidad</span>
+                }
+                @case ('img-ok') {
+                  <span class="item-msg" i18n="@@PB-14">Formato de imagen OCI válido</span>
+                }
+                @case ('env-not-tested') {
+                  <span class="item-msg" i18n="@@PB-21">No se ha ejecutado la prueba de entorno</span>
+                }
+                @case ('env-digest-unverified') {
+                  <span class="item-msg" i18n="@@PB-22">Verificación local sin validación de digest remoto</span>
+                }
+                @case ('env-verified') {
+                  <span class="item-msg" i18n="@@PB-08">Entorno verificado correctamente</span>
+                }
+                @case ('env-failed') {
+                  <span class="item-msg" i18n="@@PB-12">Herramientas requeridas ausentes en la imagen</span>
+                }
+                @case ('ram-high') {
+                  <span class="item-msg" i18n="@@PB-23">Asignación de memoria alta (> 2048 MB)</span>
+                }
+                @case ('sec-services') {
+                  <span class="item-msg" i18n="@@PB-13">Revisión de dependencias y servicios</span>
+                }
+                @case ('sec-arch') {
+                  <span class="item-msg" i18n="@@PB-15">Compatibilidad de arquitectura verificada</span>
+                }
+                @case ('sec-storage') {
+                  <span class="item-msg" i18n="@@PB-16">Almacenamiento y cuota de disco disponible</span>
+                }
+                @case ('sec-ports') {
+                  <span class="item-msg" i18n="@@PB-17">Puertos y servicios satélite configurados</span>
+                }
+                @case ('sec-script') {
+                  <span class="item-msg" i18n="@@PB-18">Script de inicio sintácticamente verificado</span>
+                }
+                @case ('sec-runtime') {
+                  <span class="item-msg" i18n="@@PB-19">Entorno de ejecución validado en contenedor efímero</span>
+                }
+                @case ('warn-timeout') {
+                  <span class="item-msg" i18n="@@PB-24">Contenedor efímero requirió tiempo extendido</span>
+                }
+                @case ('warn-unofficial') {
+                  <span class="item-msg" i18n="@@PB-25">Imagen no oficial: confirme origen confiable</span>
+                }
+                @case ('warn-eol') {
+                  <span class="item-msg" i18n="@@PB-26">Versión base próxima a fin de soporte (EOL)</span>
+                }
+                @case ('warn-packages') {
+                  <span class="item-msg" i18n="@@PB-27">Se detectaron advertencias en los paquetes del sistema</span>
+                }
+                @case ('warn-ram-mass') {
+                  <span class="item-msg" i18n="@@PB-28">Cuota de RAM superior a la recomendada para aulas masivas</span>
+                }
+                @case ('warn-limits') {
+                  <span class="item-msg" i18n="@@PB-29">Verifique los límites antes del despliegue en producción</span>
+                }
+                @default {
+                  <span class="item-msg">{{ item.message }}</span>
+                }
+              }
+              @if (item.detail) {
+                <span class="item-detail">{{ item.detail }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      @if (hasBlockingErrors()) {
+        <div class="blocking-banner">
+          <svg lucideXCircle class="w-4 h-4"></svg>
+          <span i18n="@@PB-20">Existen elementos bloqueantes que impiden la publicación. Corrija los errores indicados.</span>
+        </div>
+      } @else {
+        <div class="info-note">
+          <small i18n="@@PB-32">La plantilla será visible y asignable para todos los docentes.</small>
+        </div>
+      }
+    </div>
+
+    <div class="dialog-footer">
+      <div class="footer-left">
+        <button type="button" class="btn-cancel" (click)="onClose()" i18n="@@PB-05">
+          Mantener como borrador
+        </button>
+        <button type="button" class="btn-secondary" (click)="onClose()" i18n="@@PB-30">
+          Volver a editar
+        </button>
+      </div>
+      <div class="footer-right">
+        <button 
+          type="button" 
+          class="btn-confirm" 
+          [disabled]="hasBlockingErrors()"
+          (click)="onConfirm()"
+        >
+          <svg lucideSend class="w-4 h-4"></svg>
+          <span i18n="@@PB-06">Publicar en el catálogo</span>
+          <span class="sr-only" i18n="@@PB-31">Confirmar y publicar</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

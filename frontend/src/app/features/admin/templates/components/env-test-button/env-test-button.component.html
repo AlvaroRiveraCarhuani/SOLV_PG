@@ -1,0 +1,202 @@
+<div class="env-test-container">
+  <!-- ESTADO IDLE -->
+  @if (visualState() === 'idle') {
+    <div class="btn-idle-wrapper">
+      <button 
+        type="button" 
+        class="btn-env-test btn-idle"
+        [disabled]="!canTrigger()"
+        (click)="startTest()"
+        title="Ingrese y verifique una imagen válida para habilitar la prueba del entorno."
+        i18n-title="@@TE-02"
+      >
+        <svg lucidePlay class="btn-icon w-4 h-4"></svg>
+        <span class="btn-text">
+          @if (!image().trim() || isLatestImage()) {
+            <span i18n="@@TE-01">Probar entorno</span>
+          } @else if (hasDigestMismatch()) {
+            <span i18n="@@TE-40">Actualizar imagen y probar</span>
+          } @else if (isLocal()) {
+            <span i18n="@@TE-10">Probar entorno (local, < 2s)</span>
+          } @else {
+            <span i18n="@@TE-20">Descargar y probar (~{{ imageSizeMB() || 350 }} MB)</span>
+          }
+        </span>
+      </button>
+
+      @if (hasDigestMismatch()) {
+        <div class="digest-fork-actions">
+          <button type="button" class="btn-fork" (click)="startTest()" i18n="@@TE-41">
+            Probar versión del registro remoto
+          </button>
+          <button type="button" class="btn-fork" (click)="startTest()" i18n="@@TE-42">
+            Probar copia local existente
+          </button>
+        </div>
+      }
+
+      @if (isLocal()) {
+        <span class="env-helper" i18n="@@TE-11">La imagen ya reside en el servidor: la prueba tarda menos de 5 segundos.</span>
+      } @else if (image().trim() && !isLatestImage()) {
+        <span class="env-helper" i18n="@@TE-21">La imagen se descargará y quedará en caché en el servidor.</span>
+      }
+    </div>
+  }
+
+  <!-- ESTADO RUNNING -->
+  @if (visualState() === 'running') {
+    <div class="test-running-card" aria-live="polite">
+      <div class="running-header">
+        <div class="running-info">
+          <svg lucideLoader2 class="spin-icon w-4 h-4"></svg>
+          <span class="running-title">
+            @if (activeJob()?.status === 'testing') {
+              <span i18n="@@TE-12">Ejecutando prueba en contenedor aislado...</span>
+              <span class="sr-only" i18n="@@TE-33">Ejecutando prueba en contenedor efímero...</span>
+            } @else {
+              <span i18n="@@TE-30">{{ activeJob()?.progress?.current_action || 'Preparando entorno' }}</span>
+            }
+          </span>
+        </div>
+        <button type="button" class="btn-cancel" (click)="cancelTest()" title="Cancelar prueba" i18n-title="@@TE-34">
+          <svg lucideX class="w-3.5 h-3.5"></svg>
+        </button>
+      </div>
+
+      <!-- Barra de progreso si está en pulling -->
+      @if (activeJob()?.status === 'pulling' && activeJob()?.progress?.bytes_total) {
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" [style.width.%]="activeJob()?.progress?.percent || 0"></div>
+        </div>
+        <div class="progress-meta">
+          <span i18n="@@TE-32">{{ activeJob()?.progress?.percent | number:'1.0-0' }}% completado</span>
+          <span i18n="@@TE-31">Capa {{ activeJob()?.progress?.layer_current }} de {{ activeJob()?.progress?.layers_total }}</span>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- ESTADO OK (ÉXITO COMPLETO) -->
+  @if (visualState() === 'ok') {
+    <div class="result-badge result-ok" aria-live="polite">
+      <div class="badge-main" (click)="toggleDetails()">
+        <svg lucideCheckCircle2 class="icon-ok w-4 h-4"></svg>
+        <span class="badge-text" i18n="@@TE-50">
+          Entorno verificado: {{ activeJob()?.result?.tools?.length || 0 }} herramientas verificadas
+          @if (activeJob()?.result?.duration_ms) {
+            ({{ activeJob()?.result?.duration_ms }} ms)
+          }
+        </span>
+        @if (activeJob()?.digest_unverified) {
+          <span class="chip-warning-inline" i18n="@@TE-43" title="Verificado con copia local. Registro público no accesible en este momento.">
+            offline
+          </span>
+        }
+        <button type="button" class="btn-expand" title="Ver detalle" i18n-title="@@TE-63">
+          @if (isExpanded()) {
+            <svg lucideChevronUp class="w-3.5 h-3.5"></svg>
+          } @else {
+            <svg lucideChevronDown class="w-3.5 h-3.5"></svg>
+          }
+        </button>
+      </div>
+
+      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-53">
+        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
+      </button>
+    </div>
+  }
+
+  <!-- ESTADO MISSING (HERRAMIENTAS FALTANTES) -->
+  @if (visualState() === 'missing') {
+    <div class="result-badge result-missing" aria-live="assertive">
+      <div class="badge-main" (click)="toggleDetails()">
+        <svg lucideAlertTriangle class="icon-warning w-4 h-4"></svg>
+        <span class="badge-text" i18n="@@TE-60">
+          Faltan herramientas requeridas en la imagen
+        </span>
+        <button type="button" class="btn-expand" title="Ver detalle" i18n-title="@@TE-63">
+          @if (isExpanded()) {
+            <svg lucideChevronUp class="w-3.5 h-3.5"></svg>
+          } @else {
+            <svg lucideChevronDown class="w-3.5 h-3.5"></svg>
+          }
+        </button>
+      </div>
+
+      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-74">
+        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
+      </button>
+    </div>
+  }
+
+  <!-- ESTADO ERROR (FALLO DE PULL / OOM / CRASH) -->
+  @if (visualState() === 'error') {
+    <div class="result-badge result-error" aria-live="assertive">
+      <div class="badge-main">
+        <svg lucideXCircle class="icon-error w-4 h-4"></svg>
+        <span class="badge-text">
+          @switch (errorCode()) {
+            @case ('test_oom') {
+              <span i18n="@@TE-71">Límite de memoria superado durante la prueba (OOM)</span>
+            }
+            @case ('test_crash') {
+              <span i18n="@@TE-72">Fallo al ejecutar el contenedor de prueba</span>
+            }
+            @case ('pull_stalled') {
+              <span i18n="@@TE-75">Descarga detenida: sin datos de red por más de 60 s</span>
+            }
+            @case ('registry_unreachable') {
+              <span i18n="@@TE-76">No se pudo conectar al registro OCI público</span>
+            }
+            @case ('pull_timeout') {
+              <span i18n="@@TE-77">Tiempo total de prueba excedido (15 min)</span>
+            }
+            @default {
+              <span i18n="@@TE-70">Error interno en la prueba de entorno</span>
+            }
+          }
+        </span>
+        <button type="button" class="btn-log-link" (click)="toggleDetails()">
+          <span i18n="@@TE-73">Ver log completo</span>
+        </button>
+      </div>
+
+      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-74">
+        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
+      </button>
+    </div>
+  }
+
+  <!-- DESPLEGABLE CON DETALLE DE HERRAMIENTAS Y CACHÉ -->
+  @if (isExpanded() && activeJob()?.result?.tools) {
+    <div class="tools-detail-panel">
+      <div class="panel-header-row">
+        <span class="panel-header" i18n="@@TE-61">Herramientas inspeccionadas:</span>
+        <span class="panel-intro" i18n="@@TE-51">Verificado en contenedor aislado</span>
+      </div>
+      <div class="tools-grid">
+        @for (tool of activeJob()?.result?.tools; track tool.name) {
+          <div class="tool-item" [class.present]="tool.present" [class.absent]="!tool.present">
+            @if (tool.present) {
+              <svg lucideCheckCircle2 class="w-3.5 h-3.5"></svg>
+            } @else {
+              <svg lucideXCircle class="w-3.5 h-3.5"></svg>
+            }
+            <span class="tool-name">{{ tool.name }}</span>
+            @if (tool.present) {
+              <span class="tool-version">{{ tool.version || tool.path }}</span>
+            } @else {
+              <span class="tool-status" i18n="@@TE-62">No encontrada</span>
+            }
+          </div>
+        }
+      </div>
+      @if (activeJob()?.status === 'success') {
+        <div class="panel-cache-note" i18n="@@TE-52">
+          Imagen cacheada en el servidor. Primer arranque instantáneo.
+        </div>
+      }
+    </div>
+  }
+</div>
