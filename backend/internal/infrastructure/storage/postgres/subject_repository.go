@@ -154,3 +154,13 @@ func (r *PostgresSubjectRepository) Update(ctx context.Context, tenantID, subjec
 	}
 	return nil
 }
+
+func (r *PostgresSubjectRepository) GetTemplateStatus(ctx context.Context, templateID string) (string, error) {
+	var status string
+	query := `SELECT COALESCE(status, 'pending') FROM lab_templates WHERE id = $1`
+	err := r.db.GetContext(ctx, &status, query, templateID)
+	if err != nil {
+		return "", fmt.Errorf("error querying template status: %w", err)
+	}
+	return status, nil
+}

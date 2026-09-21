@@ -372,6 +372,70 @@ func (r *PostgresAdminGovernanceRepository) ValidateTeacherRole(ctx context.Cont
 	return isValid, nil
 }
 
+type adminTemplateRow struct {
+	ID                  string         `db:"id"`
+	TenantID            *string        `db:"tenant_id"`
+	Name                string         `db:"name"`
+	DockerImage         string         `db:"docker_image"`
+	BaseRamMB           int            `db:"base_ram_mb"`
+	Status              string         `db:"status"`
+	RejectionReason     string         `db:"rejection_reason"`
+	ReviewedBy          *string        `db:"reviewed_by"`
+	ReviewedAt          *time.Time     `db:"reviewed_at"`
+	RequestedBy         *string        `db:"requested_by"`
+	RequestedByName     *string        `db:"requested_by_name"`
+	Description         string         `db:"description"`
+	TargetEnvironment   string         `db:"target_environment"`
+	ServicesConfig      []byte         `db:"services_config"`
+	ResourceProfile     []byte         `db:"resource_profile"`
+	SetupScript         string         `db:"setup_script"`
+	ToolsDeclared       []byte         `db:"tools_declared"`
+	SmokeTestStatus     string         `db:"smoke_test_status"`
+	SmokeTestOutput     string         `db:"smoke_test_output"`
+	SecurityAuditStatus string         `db:"security_audit_status"`
+	CVECriticalCount    int            `db:"cve_critical_count"`
+	CVEHighCount        int            `db:"cve_high_count"`
+	SecurityAuditedAt   *time.Time     `db:"security_audited_at"`
+	CreatedAt           time.Time      `db:"created_at"`
+}
+
+func (row *adminTemplateRow) toDomain() *domain.AdminTemplateReviewItem {
+	item := &domain.AdminTemplateReviewItem{
+		ID:                  row.ID,
+		TenantID:            row.TenantID,
+		Name:                row.Name,
+		DockerImage:         row.DockerImage,
+		BaseRamMB:           row.BaseRamMB,
+		Status:              row.Status,
+		RejectionReason:     row.RejectionReason,
+		ReviewedBy:          row.ReviewedBy,
+		ReviewedAt:          row.ReviewedAt,
+		RequestedBy:         row.RequestedBy,
+		RequestedByName:     row.RequestedByName,
+		Description:         row.Description,
+		TargetEnvironment:   row.TargetEnvironment,
+		SetupScript:         row.SetupScript,
+		SmokeTestStatus:     row.SmokeTestStatus,
+		SmokeTestOutput:     row.SmokeTestOutput,
+		SecurityAuditStatus: row.SecurityAuditStatus,
+		CVECriticalCount:    row.CVECriticalCount,
+		CVEHighCount:        row.CVEHighCount,
+		SecurityAuditedAt:   row.SecurityAuditedAt,
+		CreatedAt:           row.CreatedAt,
+		ToolsDeclared:       []string{},
+	}
+	if len(row.ServicesConfig) > 0 {
+		_ = json.Unmarshal(row.ServicesConfig, &item.ServicesConfig)
+	}
+	if len(row.ResourceProfile) > 0 {
+		_ = json.Unmarshal(row.ResourceProfile, &item.ResourceProfile)
+	}
+	if len(row.ToolsDeclared) > 0 {
+		_ = json.Unmarshal(row.ToolsDeclared, &item.ToolsDeclared)
+	}
+	return item
+}
+
 func (r *PostgresAdminGovernanceRepository) ListTemplates(
 	ctx context.Context,
 	tenantID, status, search string,
@@ -394,6 +458,13 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 			COALESCE(lt.services_config, '{"services": []}'::jsonb) AS services_config,
 			COALESCE(lt.resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(lt.setup_script, '') AS setup_script,
+			COALESCE(lt.tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
+			COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
+			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
+			COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
+			COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+			lt.security_audited_at,
 			lt.created_at
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
@@ -417,13 +488,15 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 
 	baseQuery += ` ORDER BY lt.created_at DESC`
 
-	var list []*domain.AdminTemplateReviewItem
-	err := r.db.SelectContext(ctx, &list, baseQuery, args...)
+	var rows []adminTemplateRow
+	err := r.db.SelectContext(ctx, &rows, baseQuery, args...)
 	if err != nil {
 		return nil, fmt.Errorf("error listing templates: %w", err)
 	}
-	if list == nil {
-		list = []*domain.AdminTemplateReviewItem{}
+
+	list := make([]*domain.AdminTemplateReviewItem, len(rows))
+	for i := range rows {
+		list[i] = rows[i].toDomain()
 	}
 	return list, nil
 }
@@ -458,10 +531,17 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
 			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(setup_script, '') AS setup_script,
+			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
+			COALESCE(smoke_test_output, '') AS smoke_test_output,
+			COALESCE(security_audit_status, 'pending') AS security_audit_status,
+			COALESCE(cve_critical_count, 0) AS cve_critical_count,
+			COALESCE(cve_high_count, 0) AS cve_high_count,
+			security_audited_at,
 			created_at
 	`
 
-	var item domain.AdminTemplateReviewItem
+	var row adminTemplateRow
 	err := r.db.QueryRowContext(
 		ctx,
 		query,
@@ -472,22 +552,29 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		templateID,
 		tenantID,
 	).Scan(
-		&item.ID,
-		&item.TenantID,
-		&item.Name,
-		&item.DockerImage,
-		&item.BaseRamMB,
-		&item.Status,
-		&item.RejectionReason,
-		&item.ReviewedBy,
-		&item.ReviewedAt,
-		&item.RequestedBy,
-		&item.Description,
-		&item.TargetEnvironment,
-		&item.ServicesConfig,
-		&item.ResourceProfile,
-		&item.SetupScript,
-		&item.CreatedAt,
+		&row.ID,
+		&row.TenantID,
+		&row.Name,
+		&row.DockerImage,
+		&row.BaseRamMB,
+		&row.Status,
+		&row.RejectionReason,
+		&row.ReviewedBy,
+		&row.ReviewedAt,
+		&row.RequestedBy,
+		&row.Description,
+		&row.TargetEnvironment,
+		&row.ServicesConfig,
+		&row.ResourceProfile,
+		&row.SetupScript,
+		&row.ToolsDeclared,
+		&row.SmokeTestStatus,
+		&row.SmokeTestOutput,
+		&row.SecurityAuditStatus,
+		&row.CVECriticalCount,
+		&row.CVEHighCount,
+		&row.SecurityAuditedAt,
+		&row.CreatedAt,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -496,7 +583,7 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		return nil, fmt.Errorf("error reviewing template: %w", err)
 	}
 
-	return &item, nil
+	return row.toDomain(), nil
 }
 
 func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
@@ -512,14 +599,22 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 	if err != nil {
 		resourceProfileJSON = []byte(`{"min_mb": 256, "high_mb": 768, "max_mb": 1024}`)
 	}
+	toolsDeclaredJSON, err := json.Marshal(dto.ToolsDeclared)
+	if err != nil || len(dto.ToolsDeclared) == 0 {
+		toolsDeclaredJSON = []byte(`[]`)
+	}
 
 	query := `
 		INSERT INTO lab_templates (
 			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
-			target_environment, services_config, resource_profile, setup_script, reviewed_by, reviewed_at
+			target_environment, services_config, resource_profile, setup_script,
+			tools_declared, smoke_test_status, smoke_test_output, security_audit_status,
+			cve_critical_count, cve_high_count, reviewed_by, reviewed_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, 'approved', $5,
-			$6, $7, $8, $9, $10, NOW()
+			gen_random_uuid(), $1, $2, $3, $4, 'PENDIENTE_AUDITORIA', $5,
+			$6, $7, $8, $9,
+			$10, 'pending', '', 'pending',
+			0, 0, $11, NOW()
 		)
 		RETURNING 
 			id,
@@ -537,10 +632,17 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
 			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(setup_script, '') AS setup_script,
+			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
+			COALESCE(smoke_test_output, '') AS smoke_test_output,
+			COALESCE(security_audit_status, 'pending') AS security_audit_status,
+			COALESCE(cve_critical_count, 0) AS cve_critical_count,
+			COALESCE(cve_high_count, 0) AS cve_high_count,
+			security_audited_at,
 			created_at
 	`
 
-	var item domain.AdminTemplateReviewItem
+	var row adminTemplateRow
 	err = r.db.QueryRowContext(
 		ctx,
 		query,
@@ -553,30 +655,115 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		servicesConfigJSON,
 		resourceProfileJSON,
 		dto.SetupScript,
+		toolsDeclaredJSON,
 		adminID,
 	).Scan(
-		&item.ID,
-		&item.TenantID,
-		&item.Name,
-		&item.DockerImage,
-		&item.BaseRamMB,
-		&item.Status,
-		&item.RejectionReason,
-		&item.ReviewedBy,
-		&item.ReviewedAt,
-		&item.RequestedBy,
-		&item.Description,
-		&item.TargetEnvironment,
-		&item.ServicesConfig,
-		&item.ResourceProfile,
-		&item.SetupScript,
-		&item.CreatedAt,
+		&row.ID,
+		&row.TenantID,
+		&row.Name,
+		&row.DockerImage,
+		&row.BaseRamMB,
+		&row.Status,
+		&row.RejectionReason,
+		&row.ReviewedBy,
+		&row.ReviewedAt,
+		&row.RequestedBy,
+		&row.Description,
+		&row.TargetEnvironment,
+		&row.ServicesConfig,
+		&row.ResourceProfile,
+		&row.SetupScript,
+		&row.ToolsDeclared,
+		&row.SmokeTestStatus,
+		&row.SmokeTestOutput,
+		&row.SecurityAuditStatus,
+		&row.CVECriticalCount,
+		&row.CVEHighCount,
+		&row.SecurityAuditedAt,
+		&row.CreatedAt,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error creating official template: %w", err)
 	}
 
-	return &item, nil
+	return row.toDomain(), nil
+}
+
+func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
+	query := `
+		SELECT 
+			lt.id,
+			lt.tenant_id,
+			lt.name,
+			lt.docker_image,
+			lt.base_ram_mb,
+			COALESCE(lt.status, 'PENDIENTE_AUDITORIA') AS status,
+			COALESCE(lt.rejection_reason, '') AS rejection_reason,
+			lt.reviewed_by,
+			lt.reviewed_at,
+			lt.requested_by,
+			NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), '') AS requested_by_name,
+			COALESCE(lt.description, '') AS description,
+			COALESCE(lt.target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			COALESCE(lt.services_config, '{"services": []}'::jsonb) AS services_config,
+			COALESCE(lt.resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
+			COALESCE(lt.setup_script, '') AS setup_script,
+			COALESCE(lt.tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
+			COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
+			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
+			COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
+			COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+			lt.security_audited_at,
+			lt.created_at
+		FROM lab_templates lt
+		LEFT JOIN users u ON u.id = lt.requested_by
+		WHERE lt.status = 'PENDIENTE_AUDITORIA' OR lt.security_audit_status = 'pending'
+		ORDER BY lt.created_at ASC
+	`
+	var rows []adminTemplateRow
+	err := r.db.SelectContext(ctx, &rows, query)
+	if err != nil {
+		return nil, fmt.Errorf("error listing pending audit templates: %w", err)
+	}
+
+	list := make([]*domain.AdminTemplateReviewItem, len(rows))
+	for i := range rows {
+		list[i] = rows[i].toDomain()
+	}
+	return list, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
+	ctx context.Context,
+	templateID string,
+	smokeStatus, smokeOutput, secStatus string,
+	cveCritical, cveHigh int,
+	secReportJSON []byte,
+	finalStatus string,
+) error {
+	if len(secReportJSON) == 0 {
+		secReportJSON = []byte(`{}`)
+	}
+	query := `
+		UPDATE lab_templates
+		SET 
+			smoke_test_status = $1,
+			smoke_test_output = $2,
+			security_audit_status = $3,
+			cve_critical_count = $4,
+			cve_high_count = $5,
+			security_audit_report = $6,
+			security_audited_at = NOW(),
+			status = $7,
+			updated_at = NOW()
+		WHERE id = $8
+	`
+	_, err := r.db.ExecContext(ctx, query, smokeStatus, smokeOutput, secStatus, cveCritical, cveHigh, secReportJSON, finalStatus, templateID)
+	if err != nil {
+		return fmt.Errorf("error updating audit results: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresAdminGovernanceRepository) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {

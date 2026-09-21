@@ -347,9 +347,19 @@ func (d *Database) RunInitialMigrations() error {
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS services_config JSONB NOT NULL DEFAULT '{"database": {"enabled": false}}'::jsonb;
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS resource_profile JSONB NOT NULL DEFAULT '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb;
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS setup_script TEXT NOT NULL DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS tools_declared JSONB NOT NULL DEFAULT '[]'::jsonb;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS smoke_test_status VARCHAR(50) DEFAULT 'pending';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS smoke_test_output TEXT DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS security_audit_status VARCHAR(50) DEFAULT 'pending';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS cve_critical_count INT DEFAULT 0;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS cve_high_count INT DEFAULT 0;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS security_audit_report JSONB DEFAULT '{}'::jsonb;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS security_audited_at TIMESTAMPTZ;
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_status ON lab_templates(status);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_tenant ON lab_templates(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_env ON lab_templates(target_environment);
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_audit ON lab_templates(security_audit_status);
 
 	-- Asociación de plantilla en materias y workspaces (ADR-030)
 	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES lab_templates(id) ON DELETE SET NULL;

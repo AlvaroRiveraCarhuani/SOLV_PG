@@ -108,6 +108,9 @@ func main() {
 		WithImageService(imageVerificationService)
 	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
 
+	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
+	templateAuditWorker.Start(ctx)
+
 	// Worker cron cada 24h para archivado automático de periodos expirados
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)

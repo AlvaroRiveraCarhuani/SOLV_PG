@@ -191,6 +191,10 @@ func (m *mockSubjectRepo) Update(ctx context.Context, tenantID, subjectID, name,
 	return nil
 }
 
+func (m *mockSubjectRepo) GetTemplateStatus(ctx context.Context, templateID string) (string, error) {
+	return "approved", nil
+}
+
 type mockTemplateRepo struct {
 	templates map[string]*domain.Template
 }

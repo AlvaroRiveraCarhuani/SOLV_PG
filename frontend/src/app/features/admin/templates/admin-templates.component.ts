@@ -151,12 +151,12 @@ export class AdminTemplatesComponent implements OnInit {
     const tab = this.activeTab();
     const all = this.allTemplates();
     if (tab === 'pending') {
-      return all.filter(t => t.status === 'pending');
+      return all.filter(t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA');
     }
     if (tab === 'catalog') {
-      return all.filter(t => t.status === 'approved' || t.status === 'paused');
+      return all.filter(t => t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused');
     }
-    return all.filter(t => t.status === 'rejected');
+    return all.filter(t => t.status === 'rejected' || t.status === 'RECHAZADA');
   });
 
   // Tecnologías disponibles dinámicas (calculadas reactivamente según la pestaña activa)
@@ -192,7 +192,7 @@ export class AdminTemplatesComponent implements OnInit {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
     return this.allTemplates().filter(t => {
-      const isPending = t.status === 'pending';
+      const isPending = t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA';
       if (!isPending) return false;
       if (tech !== 'all') {
         const itemTech = detectTech(t.name, t.docker_image);
@@ -212,7 +212,7 @@ export class AdminTemplatesComponent implements OnInit {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
     return this.allTemplates().filter(t => {
-      const isCatalog = t.status === 'approved' || t.status === 'paused';
+      const isCatalog = t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused';
       if (!isCatalog) return false;
       if (tech !== 'all') {
         const itemTech = detectTech(t.name, t.docker_image);
@@ -244,7 +244,7 @@ export class AdminTemplatesComponent implements OnInit {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
     return this.allTemplates().filter(t => {
-      const isRejected = t.status === 'rejected';
+      const isRejected = t.status === 'rejected' || t.status === 'RECHAZADA';
       if (!isRejected) return false;
       if (tech !== 'all') {
         const itemTech = detectTech(t.name, t.docker_image);
@@ -275,15 +275,15 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   pendingCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'pending').length;
+    return this.allTemplates().filter(t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA').length;
   });
 
   catalogCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'paused').length;
+    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused').length;
   });
 
   activeCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'approved').length;
+    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA').length;
   });
 
   pausedCount = computed(() => {
@@ -291,7 +291,7 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   rejectedCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'rejected').length;
+    return this.allTemplates().filter(t => t.status === 'rejected' || t.status === 'RECHAZADA').length;
   });
 
   averageRam = computed(() => {

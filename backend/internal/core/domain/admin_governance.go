@@ -139,27 +139,35 @@ type CreateOfficialTemplateDTO struct {
 	ServicesConfig    *ServicesConfig          `json:"services_config,omitempty"`
 	ResourceProfile   *TemplateResourceProfile `json:"resource_profile,omitempty"`
 	SetupScript       string                   `json:"setup_script,omitempty"`
+	ToolsDeclared     []string                 `json:"tools_declared,omitempty"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
 type AdminTemplateReviewItem struct {
-	ID                string                  `db:"id" json:"id"`
-	TenantID          *string                 `db:"tenant_id" json:"tenant_id,omitempty"`
-	Name              string                  `db:"name" json:"name"`
-	DockerImage       string                  `db:"docker_image" json:"docker_image"`
-	BaseRamMB         int                     `db:"base_ram_mb" json:"base_ram_mb"`
-	Status            string                  `db:"status" json:"status"`
-	RejectionReason   string                  `db:"rejection_reason" json:"rejection_reason"`
-	ReviewedBy        *string                 `db:"reviewed_by" json:"reviewed_by,omitempty"`
-	ReviewedAt        *time.Time              `db:"reviewed_at" json:"reviewed_at,omitempty"`
-	RequestedBy       *string                 `db:"requested_by" json:"requested_by,omitempty"`
-	RequestedByName   *string                 `db:"requested_by_name" json:"requested_by_name,omitempty"`
-	Description       string                  `db:"description" json:"description"`
-	TargetEnvironment string                  `db:"target_environment" json:"target_environment"`
-	ServicesConfig    ServicesConfig          `db:"services_config" json:"services_config"`
-	ResourceProfile   TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
-	SetupScript       string                  `db:"setup_script" json:"setup_script"`
-	CreatedAt         time.Time               `db:"created_at" json:"created_at"`
+	ID                  string                  `db:"id" json:"id"`
+	TenantID            *string                 `db:"tenant_id" json:"tenant_id,omitempty"`
+	Name                string                  `db:"name" json:"name"`
+	DockerImage         string                  `db:"docker_image" json:"docker_image"`
+	BaseRamMB           int                     `db:"base_ram_mb" json:"base_ram_mb"`
+	Status              string                  `db:"status" json:"status"`
+	RejectionReason     string                  `db:"rejection_reason" json:"rejection_reason"`
+	ReviewedBy          *string                 `db:"reviewed_by" json:"reviewed_by,omitempty"`
+	ReviewedAt          *time.Time              `db:"reviewed_at" json:"reviewed_at,omitempty"`
+	RequestedBy         *string                 `db:"requested_by" json:"requested_by,omitempty"`
+	RequestedByName     *string                 `db:"requested_by_name" json:"requested_by_name,omitempty"`
+	Description         string                  `db:"description" json:"description"`
+	TargetEnvironment   string                  `db:"target_environment" json:"target_environment"`
+	ServicesConfig      ServicesConfig          `db:"services_config" json:"services_config"`
+	ResourceProfile     TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
+	SetupScript         string                  `db:"setup_script" json:"setup_script"`
+	ToolsDeclared       []string                `db:"-" json:"tools_declared"`
+	SmokeTestStatus     string                  `db:"smoke_test_status" json:"smoke_test_status"`
+	SmokeTestOutput     string                  `db:"smoke_test_output" json:"smoke_test_output"`
+	SecurityAuditStatus string                  `db:"security_audit_status" json:"security_audit_status"`
+	CVECriticalCount    int                     `db:"cve_critical_count" json:"cve_critical_count"`
+	CVEHighCount        int                     `db:"cve_high_count" json:"cve_high_count"`
+	SecurityAuditedAt   *time.Time              `db:"security_audited_at" json:"security_audited_at,omitempty"`
+	CreatedAt           time.Time               `db:"created_at" json:"created_at"`
 }
 
 // EmergencyActionRequest DTO para solicitar una acción de emergencia administrativa (ADR-032)

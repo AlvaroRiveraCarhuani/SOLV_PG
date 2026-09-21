@@ -33,7 +33,7 @@ export interface AdminTemplateItem {
   name: string;
   docker_image: string;
   base_ram_mb: number;
-  status: 'pending' | 'approved' | 'rejected' | 'paused';
+  status: 'pending' | 'approved' | 'rejected' | 'paused' | 'PENDIENTE_AUDITORIA' | 'APROBADA' | 'RECHAZADA';
   rejection_reason?: string;
   reviewed_by?: string;
   reviewed_at?: string;
@@ -44,6 +44,13 @@ export interface AdminTemplateItem {
   services_config?: ServicesConfig;
   resource_profile?: TemplateResourceProfile;
   setup_script?: string;
+  tools_declared?: string[];
+  smoke_test_status?: string;
+  smoke_test_output?: string;
+  security_audit_status?: string;
+  cve_critical_count?: number;
+  cve_high_count?: number;
+  security_audited_at?: string;
   created_at: string;
 }
 
@@ -100,6 +107,7 @@ export interface CreateOfficialTemplateDTO {
   services_config?: ServicesConfig;
   resource_profile?: TemplateResourceProfile;
   setup_script?: string;
+  tools_declared?: string[];
 }
 
 interface ApiResponse<T> {

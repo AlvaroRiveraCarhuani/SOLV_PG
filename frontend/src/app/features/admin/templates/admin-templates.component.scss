@@ -665,7 +665,7 @@
   cursor: pointer;
 }
 
-.badge-status-approved, .badge-status-paused {
+.badge-status-approved, .badge-status-paused, .badge-status-audit-pending {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -676,6 +676,7 @@
 }
 .badge-status-approved { background: #DCFCE7; color: #15803D; }
 .badge-status-paused { background: #F1F5F9; color: #64748B; }
+.badge-status-audit-pending { background: #FEF3C7; color: #B45309; border: 1px solid #FDE68A; }
 
 .status-dot {
   width: 6px;
@@ -683,6 +684,8 @@
   border-radius: 50%;
   &.green { background: #15803D; }
   &.gray { background: #64748B; }
+  &.amber { background: #D97706; }
+  &.red { background: #DC2626; }
 }
 
 .btn-pause-template, .btn-resume-template {

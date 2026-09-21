@@ -91,6 +91,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   baseRamMB = signal<number>(512);
   setupScript = signal<string>('');
   description = signal<string>('');
+  toolsDeclared = signal<string>('');
   isSubmitting = signal<boolean>(false);
 
   // Verificación y Caché de Imagen
@@ -379,12 +380,19 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   confirmCreate(): void {
     if (!this.isValid() || this.isSubmitting()) return;
     this.isSubmitting.set(true);
+
+    const declaredTools = this.toolsDeclared()
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
     this.created.emit({
       name: this.name().trim(),
       docker_image: this.dockerImage().trim(),
       base_ram_mb: this.baseRamMB(),
       setup_script: this.setupScript().trim(),
       description: this.description().trim(),
+      tools_declared: declaredTools,
       services_config: {
         services: this.selectedServices()
       }

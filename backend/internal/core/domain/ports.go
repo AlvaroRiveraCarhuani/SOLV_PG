@@ -147,6 +147,7 @@ type SubjectRepository interface {
 	ReassignTeacher(ctx context.Context, tenantID, subjectID, newTeacherID string) error
 	ArchiveSubject(ctx context.Context, tenantID, subjectID string, isArchived bool) error
 	Update(ctx context.Context, tenantID, subjectID, name, code string) error
+	GetTemplateStatus(ctx context.Context, templateID string) (string, error)
 }
 
 type AdminGovernanceRepository interface {
@@ -159,6 +160,8 @@ type AdminGovernanceRepository interface {
 	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)
 	ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*AdminTemplateReviewItem, error)
 	CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto CreateOfficialTemplateDTO) (*AdminTemplateReviewItem, error)
+	ListPendingAuditTemplates(ctx context.Context) ([]*AdminTemplateReviewItem, error)
+	UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error
 	TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
 	HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
 }

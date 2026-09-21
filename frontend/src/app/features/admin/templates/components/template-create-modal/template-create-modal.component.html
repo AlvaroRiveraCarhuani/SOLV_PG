@@ -254,6 +254,22 @@
               Esta información guiará al docente al seleccionar la plantilla más adecuada para su materia.
             </p>
           </div>
+
+          <!-- Herramientas Declaradas para Smoke Test -->
+          <div class="form-group mb-0">
+            <label class="form-label font-semibold">
+              Herramientas requeridas en la imagen (opcional):
+            </label>
+            <input 
+              type="text" 
+              class="form-control font-mono" 
+              placeholder="Ej: python3, pip, git, gcc"
+              [ngModel]="toolsDeclared()" 
+              (ngModelChange)="toolsDeclared.set($event)" />
+            <p class="field-hint">
+              Separadas por comas. El worker de auditoría verificará en un contenedor efímero aislado que cada binario exista en el PATH antes de aprobar la plantilla.
+            </p>
+          </div>
         </div>
 
         <!-- Columna Derecha: Dimensionamiento y Servicios -->

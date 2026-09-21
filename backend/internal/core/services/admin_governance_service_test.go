@@ -55,6 +55,12 @@ func (m *mockAdminGovernanceRepo) TerminateAllWorkspaces(ctx context.Context, te
 func (m *mockAdminGovernanceRepo) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
+func (m *mockAdminGovernanceRepo) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error {
+	return nil
+}
 
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	mockRepo := &mockAdminGovernanceRepo{}

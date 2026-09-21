@@ -25,6 +25,15 @@ func (s *SubjectService) CreateSubjectWithDetails(ctx context.Context, tenantID,
 	if name == "" || code == "" {
 		return nil, errors.New("name and code are required")
 	}
+	if templateID != nil && *templateID != "" {
+		status, err := s.repo.GetTemplateStatus(ctx, *templateID)
+		if err != nil {
+			return nil, fmt.Errorf("la plantilla de laboratorio especificada no existe: %w", err)
+		}
+		if status != "approved" && status != "APROBADA" {
+			return nil, fmt.Errorf("la plantilla seleccionada no ha sido aprobada por la auditoría de seguridad (estado actual: %s)", status)
+		}
+	}
 	subject := &domain.Subject{
 		ID:                uuid.New().String(),
 		TenantID:          tenantID,

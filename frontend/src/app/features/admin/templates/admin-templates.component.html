@@ -251,7 +251,14 @@
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
-                      <span class="badge-status-pending">Pendiente</span>
+                      @if (item.status === 'PENDIENTE_AUDITORIA') {
+                        <span class="badge-status-audit-pending" title="Auditoría de seguridad y smoke test en curso">
+                          <span class="status-dot amber"></span>
+                          Auditoría (~3 min)
+                        </span>
+                      } @else {
+                        <span class="badge-status-pending">Pendiente</span>
+                      }
                       <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
                       @for (srv of item.services_config?.services; track srv.engine) {
                         <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
@@ -414,10 +421,20 @@
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
-                      @if (item.status === 'approved') {
-                        <span class="badge-status-approved">
+                      @if (item.status === 'PENDIENTE_AUDITORIA') {
+                        <span class="badge-status-audit-pending" title="Auditoría de seguridad y smoke test en curso">
+                          <span class="status-dot amber"></span>
+                          Auditoría (~3 min)
+                        </span>
+                      } @else if (item.status === 'approved' || item.status === 'APROBADA') {
+                        <span class="badge-status-approved" [title]="'0 CVEs críticos' + (item.smoke_test_status ? ' | Smoke: ' + item.smoke_test_status : '')">
                           <span class="status-dot green"></span>
                           Activa
+                        </span>
+                      } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
+                        <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
+                          <span class="status-dot red"></span>
+                          Rechazada
                         </span>
                       } @else {
                         <span class="badge-status-paused">
@@ -544,10 +561,20 @@
                     </span>
                   </td>
                   <td>
-                    @if (item.status === 'approved') {
-                      <span class="badge-status-approved">
+                    @if (item.status === 'PENDIENTE_AUDITORIA') {
+                      <span class="badge-status-audit-pending" title="Auditoría de seguridad y smoke test en curso">
+                        <span class="status-dot amber"></span>
+                        Auditoría (~3 min)
+                      </span>
+                    } @else if (item.status === 'approved' || item.status === 'APROBADA') {
+                      <span class="badge-status-approved" [title]="'0 CVEs críticos' + (item.smoke_test_status ? ' | Smoke: ' + item.smoke_test_status : '')">
                         <span class="status-dot green"></span>
                         Activa
+                      </span>
+                    } @else if (item.status === 'RECHAZADA' || item.status === 'rejected') {
+                      <span class="badge-status-rejected" [title]="item.rejection_reason || (item.cve_critical_count ? item.cve_critical_count + ' CVEs críticos detectados' : 'Rechazada')">
+                        <span class="status-dot red"></span>
+                        Rechazada
                       </span>
                     } @else if (item.status === 'paused') {
                       <span class="badge-status-paused">
