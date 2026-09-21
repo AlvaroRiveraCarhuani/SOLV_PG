@@ -61,6 +61,17 @@ func (m *mockAdminGovernanceRepo) ListPendingAuditTemplates(ctx context.Context)
 func (m *mockAdminGovernanceRepo) UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error {
 	return nil
 }
+func (m *mockAdminGovernanceRepo) DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*domain.AdminTemplateReviewItem, error) {
+	return &domain.AdminTemplateReviewItem{
+		ID:          "dup-tpl-id",
+		Name:        "(Copia) Plantilla",
+		DockerImage: "node:20-slim",
+		Status:      "PENDIENTE_AUDITORIA",
+	}, nil
+}
+func (m *mockAdminGovernanceRepo) UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error {
+	return nil
+}
 
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	mockRepo := &mockAdminGovernanceRepo{}
@@ -160,5 +171,51 @@ func TestCreateOfficialTemplate_DockerImageValidation(t *testing.T) {
 	_, err = svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoNoTag)
 	if err == nil || !errors.Is(err, services.ErrInvalidDockerImage) {
 		t.Errorf("esperado error ErrInvalidDockerImage por falta de tag, obtenido: %v", err)
+	}
+}
+
+func TestDuplicateTemplate_Success(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	item, err := svc.DuplicateTemplate(context.Background(), "tenant-1", "orig-tpl-1", "admin-1")
+	if err != nil {
+		t.Fatalf("error inesperado duplicando plantilla: %v", err)
+	}
+	if item.Name != "(Copia) Plantilla" {
+		t.Errorf("esperado nombre con prefijo (Copia), obtenido: %s", item.Name)
+	}
+	if item.Status != "PENDIENTE_AUDITORIA" {
+		t.Errorf("esperado estado PENDIENTE_AUDITORIA, obtenido: %s", item.Status)
+	}
+}
+
+func TestCreateOfficialTemplate_RegistryWhitelist(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	// Registry no permitido (ej. untrusted.evil.com)
+	dtoUntrusted := domain.CreateOfficialTemplateDTO{
+		Name:        "Imagen Maliciosa",
+		DockerImage: "untrusted.evil.com/malware:1.0",
+		BaseRamMB:   512,
+	}
+	_, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoUntrusted)
+	if err == nil {
+		t.Fatal("esperaba error por registro no permitido, se obtuvo nil")
+	}
+
+	// Registry permitido estándar (ghcr.io)
+	dtoAllowed := domain.CreateOfficialTemplateDTO{
+		Name:        "Imagen Confiable GHCR",
+		DockerImage: "ghcr.io/academic-org/lab-c:v1.0",
+		BaseRamMB:   512,
+	}
+	item, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoAllowed)
+	if err != nil {
+		t.Fatalf("error inesperado para imagen en registro permitido: %v", err)
+	}
+	if item == nil {
+		t.Fatal("esperaba plantilla creada, se obtuvo nil")
 	}
 }

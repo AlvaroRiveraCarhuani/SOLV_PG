@@ -396,6 +396,10 @@ type adminTemplateRow struct {
 	CVECriticalCount    int            `db:"cve_critical_count"`
 	CVEHighCount        int            `db:"cve_high_count"`
 	SecurityAuditedAt   *time.Time     `db:"security_audited_at"`
+	EOLStatus           string         `db:"eol_status"`
+	EOLDate             string         `db:"eol_date"`
+	EOLMessage          string         `db:"eol_message"`
+	EOLCheckedAt        *time.Time     `db:"eol_checked_at"`
 	CreatedAt           time.Time      `db:"created_at"`
 }
 
@@ -421,6 +425,10 @@ func (row *adminTemplateRow) toDomain() *domain.AdminTemplateReviewItem {
 		CVECriticalCount:    row.CVECriticalCount,
 		CVEHighCount:        row.CVEHighCount,
 		SecurityAuditedAt:   row.SecurityAuditedAt,
+		EOLStatus:           row.EOLStatus,
+		EOLDate:             row.EOLDate,
+		EOLMessage:          row.EOLMessage,
+		EOLCheckedAt:        row.EOLCheckedAt,
 		CreatedAt:           row.CreatedAt,
 		ToolsDeclared:       []string{},
 	}
@@ -464,6 +472,10 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
 			COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
 			COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+			COALESCE(lt.eol_status, 'supported') AS eol_status,
+			COALESCE(lt.eol_date, '') AS eol_date,
+			COALESCE(lt.eol_message, '') AS eol_message,
+			lt.eol_checked_at,
 			lt.security_audited_at,
 			lt.created_at
 		FROM lab_templates lt
@@ -537,6 +549,10 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			COALESCE(security_audit_status, 'pending') AS security_audit_status,
 			COALESCE(cve_critical_count, 0) AS cve_critical_count,
 			COALESCE(cve_high_count, 0) AS cve_high_count,
+			COALESCE(eol_status, 'supported') AS eol_status,
+			COALESCE(eol_date, '') AS eol_date,
+			COALESCE(eol_message, '') AS eol_message,
+			eol_checked_at,
 			security_audited_at,
 			created_at
 	`
@@ -573,6 +589,10 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		&row.SecurityAuditStatus,
 		&row.CVECriticalCount,
 		&row.CVEHighCount,
+		&row.EOLStatus,
+		&row.EOLDate,
+		&row.EOLMessage,
+		&row.EOLCheckedAt,
 		&row.SecurityAuditedAt,
 		&row.CreatedAt,
 	)
@@ -609,12 +629,12 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
 			target_environment, services_config, resource_profile, setup_script,
 			tools_declared, smoke_test_status, smoke_test_output, security_audit_status,
-			cve_critical_count, cve_high_count, reviewed_by, reviewed_at
+			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message, reviewed_by, reviewed_at
 		) VALUES (
 			gen_random_uuid(), $1, $2, $3, $4, 'PENDIENTE_AUDITORIA', $5,
 			$6, $7, $8, $9,
 			$10, 'pending', '', 'pending',
-			0, 0, $11, NOW()
+			0, 0, 'supported', '', '', $11, NOW()
 		)
 		RETURNING 
 			id,
@@ -638,6 +658,10 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			COALESCE(security_audit_status, 'pending') AS security_audit_status,
 			COALESCE(cve_critical_count, 0) AS cve_critical_count,
 			COALESCE(cve_high_count, 0) AS cve_high_count,
+			COALESCE(eol_status, 'supported') AS eol_status,
+			COALESCE(eol_date, '') AS eol_date,
+			COALESCE(eol_message, '') AS eol_message,
+			eol_checked_at,
 			security_audited_at,
 			created_at
 	`
@@ -679,6 +703,10 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		&row.SecurityAuditStatus,
 		&row.CVECriticalCount,
 		&row.CVEHighCount,
+		&row.EOLStatus,
+		&row.EOLDate,
+		&row.EOLMessage,
+		&row.EOLCheckedAt,
 		&row.SecurityAuditedAt,
 		&row.CreatedAt,
 	)
@@ -714,6 +742,10 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
 			COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
 			COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+			COALESCE(lt.eol_status, 'supported') AS eol_status,
+			COALESCE(lt.eol_date, '') AS eol_date,
+			COALESCE(lt.eol_message, '') AS eol_message,
+			lt.eol_checked_at,
 			lt.security_audited_at,
 			lt.created_at
 		FROM lab_templates lt
@@ -732,6 +764,118 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 		list[i] = rows[i].toDomain()
 	}
 	return list, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+) (*domain.AdminTemplateReviewItem, error) {
+	query := `
+		INSERT INTO lab_templates (
+			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
+			target_environment, services_config, resource_profile, setup_script,
+			tools_declared, smoke_test_status, smoke_test_output, security_audit_status,
+			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message,
+			reviewed_by, reviewed_at
+		)
+		SELECT 
+			gen_random_uuid(), tenant_id, '(Copia) ' || name, docker_image, base_ram_mb, 'PENDIENTE_AUDITORIA', description,
+			target_environment, services_config, resource_profile, setup_script,
+			tools_declared, 'pending', '', 'pending',
+			0, 0, 'supported', '', '',
+			$1, NOW()
+		FROM lab_templates
+		WHERE id = $2 AND (tenant_id = $3 OR tenant_id IS NULL)
+		RETURNING 
+			id,
+			tenant_id,
+			name,
+			docker_image,
+			base_ram_mb,
+			status,
+			rejection_reason,
+			reviewed_by,
+			reviewed_at,
+			requested_by,
+			COALESCE(description, '') AS description,
+			COALESCE(target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
+			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
+			COALESCE(setup_script, '') AS setup_script,
+			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
+			COALESCE(smoke_test_output, '') AS smoke_test_output,
+			COALESCE(security_audit_status, 'pending') AS security_audit_status,
+			COALESCE(cve_critical_count, 0) AS cve_critical_count,
+			COALESCE(cve_high_count, 0) AS cve_high_count,
+			COALESCE(eol_status, 'supported') AS eol_status,
+			COALESCE(eol_date, '') AS eol_date,
+			COALESCE(eol_message, '') AS eol_message,
+			eol_checked_at,
+			security_audited_at,
+			created_at
+	`
+
+	var row adminTemplateRow
+	err := r.db.QueryRowContext(ctx, query, adminID, templateID, tenantID).Scan(
+		&row.ID,
+		&row.TenantID,
+		&row.Name,
+		&row.DockerImage,
+		&row.BaseRamMB,
+		&row.Status,
+		&row.RejectionReason,
+		&row.ReviewedBy,
+		&row.ReviewedAt,
+		&row.RequestedBy,
+		&row.Description,
+		&row.TargetEnvironment,
+		&row.ServicesConfig,
+		&row.ResourceProfile,
+		&row.SetupScript,
+		&row.ToolsDeclared,
+		&row.SmokeTestStatus,
+		&row.SmokeTestOutput,
+		&row.SecurityAuditStatus,
+		&row.CVECriticalCount,
+		&row.CVEHighCount,
+		&row.EOLStatus,
+		&row.EOLDate,
+		&row.EOLMessage,
+		&row.EOLCheckedAt,
+		&row.SecurityAuditedAt,
+		&row.CreatedAt,
+	)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("plantilla original no encontrada")
+		}
+		return nil, fmt.Errorf("error duplicando plantilla: %w", err)
+	}
+
+	return row.toDomain(), nil
+}
+
+func (r *PostgresAdminGovernanceRepository) UpdateEOLStatus(
+	ctx context.Context,
+	templateID string,
+	status, eolDate, message string,
+) error {
+	query := `
+		UPDATE lab_templates
+		SET 
+			eol_status = $1,
+			eol_date = $2,
+			eol_message = $3,
+			eol_checked_at = NOW(),
+			updated_at = NOW()
+		WHERE id = $4
+	`
+	_, err := r.db.ExecContext(ctx, query, status, eolDate, message, templateID)
+	if err != nil {
+		return fmt.Errorf("error actualizando estado EOL: %w", err)
+	}
+	return nil
 }
 
 func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(

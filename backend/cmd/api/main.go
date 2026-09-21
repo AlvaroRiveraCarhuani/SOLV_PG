@@ -105,7 +105,8 @@ func main() {
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 	imageVerificationService := services.NewImageVerificationService(cli)
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService).
-		WithImageService(imageVerificationService)
+		WithImageService(imageVerificationService).
+		WithAuditLogRepo(auditLogRepo)
 	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
 
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)

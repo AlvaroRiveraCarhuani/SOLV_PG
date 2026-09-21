@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"regexp"
 	"runtime"
 	"strings"
@@ -24,7 +25,41 @@ var (
 	dockerImageVerificationRegex = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$`)
 	ErrImageFormatInvalid        = errors.New("formato de imagen inválido: debe ser repositorio:tag sin espacios (ej: python:3.12-slim-bookworm)")
 	ErrLatestTagForbiddenVerif   = errors.New("el tag :latest no está permitido por reproducibilidad y gobernanza")
+	ErrRegistryNotAllowed        = errors.New("el registro de la imagen no está permitido por política de seguridad")
 )
+
+// ExtractRegistry extrae el host del registro de una referencia OCI o asume docker.io
+func ExtractRegistry(imageRef string) string {
+	slashIdx := strings.Index(imageRef, "/")
+	if slashIdx == -1 {
+		return "docker.io"
+	}
+	firstPart := imageRef[:slashIdx]
+	if strings.Contains(firstPart, ".") || strings.Contains(firstPart, ":") || firstPart == "localhost" {
+		return strings.ToLower(firstPart)
+	}
+	return "docker.io"
+}
+
+// ValidateAllowedRegistry comprueba si el registro de la imagen está en la lista permitida por ALLOWED_DOCKER_REGISTRIES
+func ValidateAllowedRegistry(imageRef string) error {
+	allowedEnv := os.Getenv("ALLOWED_DOCKER_REGISTRIES")
+	if allowedEnv == "" {
+		allowedEnv = "docker.io,ghcr.io,quay.io,gcr.io"
+	}
+	allowedList := strings.Split(allowedEnv, ",")
+	for i := range allowedList {
+		allowedList[i] = strings.TrimSpace(strings.ToLower(allowedList[i]))
+	}
+
+	reg := ExtractRegistry(imageRef)
+	for _, allowed := range allowedList {
+		if reg == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("el registro '%s' no está permitido por política de seguridad institucional (registros admitidos: %s)", reg, allowedEnv)
+}
 
 type cacheEntry struct {
 	result    *domain.ImageVerificationResult
@@ -103,6 +138,10 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 
 	if strings.HasSuffix(strings.ToLower(imageRef), ":latest") {
 		return nil, ErrLatestTagForbiddenVerif
+	}
+
+	if err := ValidateAllowedRegistry(imageRef); err != nil {
+		return nil, err
 	}
 
 	// 1. Verificación de Caché asimétrico (24h acierto, 5min fallo)

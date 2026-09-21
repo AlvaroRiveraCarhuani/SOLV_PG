@@ -173,6 +173,10 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		return nil, ErrInvalidDockerImage
 	}
 
+	if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
+		return nil, err
+	}
+
 	if dto.TargetEnvironment == "" {
 		dto.TargetEnvironment = "IDE_PERSISTENTE"
 	}
@@ -204,6 +208,16 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 	}
 
 	return s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
+}
+
+func (s *AdminGovernanceService) DuplicateTemplate(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+) (*domain.AdminTemplateReviewItem, error) {
+	if templateID == "" {
+		return nil, errors.New("el ID de la plantilla es requerido")
+	}
+	return s.govRepo.DuplicateTemplate(ctx, tenantID, templateID, adminID)
 }
 
 const (

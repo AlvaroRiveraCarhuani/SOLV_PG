@@ -51,6 +51,10 @@ export interface AdminTemplateItem {
   cve_critical_count?: number;
   cve_high_count?: number;
   security_audited_at?: string;
+  eol_status?: 'supported' | 'warning' | 'eol';
+  eol_date?: string;
+  eol_message?: string;
+  eol_checked_at?: string;
   created_at: string;
 }
 
@@ -145,6 +149,12 @@ export class AdminTemplatesService {
 
   createOfficialTemplate(dto: CreateOfficialTemplateDTO): Observable<AdminTemplateItem> {
     return this.http.post<ApiResponse<AdminTemplateItem>>(this.apiUrl, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  duplicateTemplate(id: string): Observable<AdminTemplateItem> {
+    return this.http.post<ApiResponse<AdminTemplateItem>>(`${this.apiUrl}/${id}/duplicate`, {}).pipe(
       map(res => res.data)
     );
   }

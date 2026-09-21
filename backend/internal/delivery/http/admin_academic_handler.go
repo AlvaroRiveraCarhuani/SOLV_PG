@@ -15,6 +15,7 @@ type AdminAcademicHandler struct {
 	maintenanceService *services.MaintenanceService
 	govService         *services.AdminGovernanceService
 	imageService       *services.ImageVerificationService
+	auditLogRepo       domain.AuditLogRepository
 }
 
 func NewAdminAcademicHandler(
@@ -31,6 +32,11 @@ func NewAdminAcademicHandler(
 
 func (h *AdminAcademicHandler) WithImageService(imageService *services.ImageVerificationService) *AdminAcademicHandler {
 	h.imageService = imageService
+	return h
+}
+
+func (h *AdminAcademicHandler) WithAuditLogRepo(auditLogRepo domain.AuditLogRepository) *AdminAcademicHandler {
+	h.auditLogRepo = auditLogRepo
 	return h
 }
 
@@ -552,6 +558,43 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	SendJSON(w, http.StatusCreated, item, "Plantilla oficial registrada exitosamente")
 }
 
+func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role != "admin" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden duplicar plantillas")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	templateID := r.PathValue("id")
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de plantilla requerido")
+		return
+	}
+
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	item, err := h.govService.DuplicateTemplate(r.Context(), tenantID, templateID, adminID)
+	if err != nil {
+		if strings.Contains(err.Error(), "no encontrada") {
+			SendError(w, http.StatusNotFound, "not_found", err.Error())
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al duplicar la plantilla")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, item, "Plantilla duplicada exitosamente en cola de auditoría")
+}
+
 // -----------------------------------------------------------------------------
 // Emergency Actions (ADR-032)
 // -----------------------------------------------------------------------------
@@ -646,12 +689,35 @@ func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Reques
 
 	result, err := h.imageService.VerifyImage(r.Context(), req.Image, req.Force)
 	if err != nil {
-		if errors.Is(err, services.ErrImageFormatInvalid) || errors.Is(err, services.ErrLatestTagForbiddenVerif) {
+		if errors.Is(err, services.ErrImageFormatInvalid) || errors.Is(err, services.ErrLatestTagForbiddenVerif) || errors.Is(err, services.ErrRegistryNotAllowed) {
 			SendError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
 			return
 		}
 		SendError(w, http.StatusInternalServerError, "verification_failed", err.Error())
 		return
+	}
+
+	// Registro de auditoría si se utilizó bypass manual force=true (SEC-04)
+	if req.Force && h.auditLogRepo != nil {
+		meta, _ := json.Marshal(map[string]any{
+			"image_ref": req.Image,
+			"bypass":    "force_verification",
+			"reason":    "Bypass manual de verificación de imagen Docker",
+		})
+		adminID := r.Header.Get("X-User-Id")
+		if adminID == "" {
+			adminID = "00000000-0000-0000-0000-000000000001"
+		}
+		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+			TenantID:     getTenantFromCtx(r),
+			ActorID:      adminID,
+			Action:       "IMAGE_VERIFICATION_FORCE_BYPASS",
+			ResourceType: "docker_image",
+			StatusCode:   http.StatusOK,
+			Metadata:     meta,
+			IPAddress:    r.RemoteAddr,
+			UserAgent:    r.UserAgent(),
+		})
 	}
 
 	SendJSON(w, http.StatusOK, result, "Verificación de imagen completada")

@@ -356,10 +356,15 @@ func (d *Database) RunInitialMigrations() error {
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS security_audit_report JSONB DEFAULT '{}'::jsonb;
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS security_audited_at TIMESTAMPTZ;
 	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS eol_status VARCHAR(50) DEFAULT 'supported';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS eol_date VARCHAR(50) DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS eol_message TEXT DEFAULT '';
+	ALTER TABLE lab_templates ADD COLUMN IF NOT EXISTS eol_checked_at TIMESTAMPTZ;
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_status ON lab_templates(status);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_tenant ON lab_templates(tenant_id);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_env ON lab_templates(target_environment);
 	CREATE INDEX IF NOT EXISTS idx_lab_templates_audit ON lab_templates(security_audit_status);
+	CREATE INDEX IF NOT EXISTS idx_lab_templates_eol ON lab_templates(eol_status);
 
 	-- Asociación de plantilla en materias y workspaces (ADR-030)
 	ALTER TABLE subjects ADD COLUMN IF NOT EXISTS template_id UUID REFERENCES lab_templates(id) ON DELETE SET NULL;

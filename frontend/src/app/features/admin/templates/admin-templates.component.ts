@@ -442,6 +442,22 @@ export class AdminTemplatesComponent implements OnInit {
     });
   }
 
+  duplicateTemplate(template: AdminTemplateItem): void {
+    this.isLoading.set(true);
+    this.templatesService.duplicateTemplate(template.id).subscribe({
+      next: (duplicated) => {
+        this.allTemplates.update(list => [duplicated, ...list]);
+        this.isLoading.set(false);
+        this.showToast(`Plantilla duplicada como "${duplicated.name}" y encolada para auditoría.`, 'success');
+      },
+      error: (err) => {
+        this.isLoading.set(false);
+        const msg = err.error?.message || err.error?.error || 'No se pudo duplicar la plantilla.';
+        this.showToast(msg, 'error');
+      }
+    });
+  }
+
   openEditModal(template: AdminTemplateItem): void {
     this.selectedTemplateForEdit.set(template);
   }

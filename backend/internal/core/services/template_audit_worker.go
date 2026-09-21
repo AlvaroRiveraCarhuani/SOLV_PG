@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -110,6 +112,24 @@ func (w *TemplateAuditWorker) Start(ctx context.Context) {
 			}
 		}
 	}()
+
+	// 3. Tarea programada semanal (7 días) de ciclo de vida EOL (C-01)
+	go func() {
+		ticker := time.NewTicker(7 * 24 * time.Hour)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-w.stopCh:
+				return
+			case <-ticker.C:
+				log.Println("[TemplateAuditWorker] Ejecutando sincronización periódica de ciclo de vida EOL...")
+				w.recheckAllEOL(ctx)
+			}
+		}
+	}()
 }
 
 func (w *TemplateAuditWorker) Stop() {
@@ -177,6 +197,12 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 
 	log.Printf("[TemplateAuditWorker] Plantilla %s auditada: Estado=%s, Smoke=%s, CVE_Crit=%d, CVE_High=%d",
 		item.Name, finalStatus, smokeStatus, cveCritical, cveHigh)
+
+	// Paso 5: Chequeo de ciclo de vida EOL (C-01, C-02)
+	eolStatus, eolDate, eolMessage := checkEOL(item.DockerImage)
+	if err := w.govRepo.UpdateEOLStatus(ctx, item.ID, eolStatus, eolDate, eolMessage); err != nil {
+		log.Printf("[TemplateAuditWorker] Error actualizando estado EOL para plantilla %s: %v", item.ID, err)
+	}
 
 	return nil
 }
@@ -444,4 +470,175 @@ func (w *TemplateAuditWorker) UpdateTrivyDB(ctx context.Context) error {
 
 	log.Println("[TemplateAuditWorker] Base de datos CVE actualizada correctamente en cache")
 	return nil
+}
+
+func (w *TemplateAuditWorker) recheckAllEOL(ctx context.Context) {
+	templates, err := w.govRepo.ListTemplates(ctx, "", "", "")
+	if err != nil {
+		log.Printf("[TemplateAuditWorker] Error listando plantillas para chequeo EOL: %v", err)
+		return
+	}
+	for _, item := range templates {
+		status, date, msg := checkEOL(item.DockerImage)
+		if err := w.govRepo.UpdateEOLStatus(ctx, item.ID, status, date, msg); err != nil {
+			log.Printf("[TemplateAuditWorker] Error actualizando EOL de plantilla %s: %v", item.ID, err)
+		}
+	}
+}
+
+type EOLResult struct {
+	Status  string `json:"status"`
+	Date    string `json:"date"`
+	Message string `json:"message"`
+}
+
+var (
+	eolCycleRegex = regexp.MustCompile(`^v?(\d+\.\d+|\d+)`)
+	eolHTTPClient = &http.Client{Timeout: 5 * time.Second}
+	eolCacheMu    sync.RWMutex
+	eolCache      = make(map[string]EOLResult)
+)
+
+func parseProductAndCycle(imageRef string) (product string, cycle string, ok bool) {
+	parts := strings.Split(imageRef, ":")
+	if len(parts) != 2 {
+		return "", "", false
+	}
+	repo := parts[0]
+	tag := parts[1]
+
+	if slashIdx := strings.LastIndex(repo, "/"); slashIdx != -1 {
+		repo = repo[slashIdx+1:]
+	}
+
+	repo = strings.ToLower(repo)
+	switch repo {
+	case "python":
+		product = "python"
+	case "node", "nodejs":
+		product = "nodejs"
+	case "ubuntu":
+		product = "ubuntu"
+	case "debian":
+		product = "debian"
+	case "golang", "go":
+		product = "go"
+	case "postgres", "postgresql":
+		product = "postgresql"
+	case "mysql":
+		product = "mysql"
+	case "redis":
+		product = "redis"
+	case "alpine":
+		product = "alpine"
+	default:
+		return "", "", false
+	}
+
+	match := eolCycleRegex.FindStringSubmatch(tag)
+	if len(match) < 2 {
+		return "", "", false
+	}
+	cycle = match[1]
+	return product, cycle, true
+}
+
+func checkEOL(imageRef string) (string, string, string) {
+	eolCacheMu.RLock()
+	cached, found := eolCache[imageRef]
+	eolCacheMu.RUnlock()
+	if found {
+		return cached.Status, cached.Date, cached.Message
+	}
+
+	product, cycle, ok := parseProductAndCycle(imageRef)
+	if !ok {
+		res := EOLResult{
+			Status:  "supported",
+			Date:    "",
+			Message: "Ciclo de vida no indexado o gestionado por la comunidad",
+		}
+		eolCacheMu.Lock()
+		eolCache[imageRef] = res
+		eolCacheMu.Unlock()
+		return res.Status, res.Date, res.Message
+	}
+
+	url := fmt.Sprintf("https://endoflife.date/api/%s/%s.json", product, cycle)
+	resp, err := eolHTTPClient.Get(url)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
+		res := EOLResult{
+			Status:  "supported",
+			Date:    "",
+			Message: "Ciclo de vida activo o no indexado",
+		}
+		return res.Status, res.Date, res.Message
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Cycle string          `json:"cycle"`
+		EOL   json.RawMessage `json:"eol"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		res := EOLResult{Status: "supported", Date: "", Message: "Soporte activo"}
+		return res.Status, res.Date, res.Message
+	}
+
+	rawEOL := strings.Trim(string(payload.EOL), `"`)
+	now := time.Now()
+	var res EOLResult
+
+	if rawEOL == "true" {
+		res = EOLResult{
+			Status:  "eol",
+			Date:    "",
+			Message: fmt.Sprintf("Versión %s %s sin soporte oficial (fin de ciclo de vida)", product, cycle),
+		}
+	} else if rawEOL == "false" || rawEOL == "" {
+		res = EOLResult{
+			Status:  "supported",
+			Date:    "",
+			Message: fmt.Sprintf("Versión %s %s con soporte oficial activo", product, cycle),
+		}
+	} else {
+		parsedDate, parseErr := time.Parse("2006-01-02", rawEOL)
+		if parseErr != nil {
+			res = EOLResult{
+				Status:  "supported",
+				Date:    rawEOL,
+				Message: fmt.Sprintf("Soporte oficial hasta %s", rawEOL),
+			}
+		} else {
+			if parsedDate.Before(now) {
+				res = EOLResult{
+					Status:  "eol",
+					Date:    rawEOL,
+					Message: fmt.Sprintf("Versión sin soporte oficial (finalizó el %s)", rawEOL),
+				}
+			} else if parsedDate.Before(now.AddDate(0, 6, 0)) {
+				res = EOLResult{
+					Status:  "warning",
+					Date:    rawEOL,
+					Message: fmt.Sprintf("Próximo a fin de soporte oficial (finaliza el %s)", rawEOL),
+				}
+			} else {
+				res = EOLResult{
+					Status:  "supported",
+					Date:    rawEOL,
+					Message: fmt.Sprintf("Soporte oficial activo hasta %s", rawEOL),
+				}
+			}
+		}
+	}
+
+	eolCacheMu.Lock()
+	eolCache[imageRef] = res
+	eolCacheMu.Unlock()
+
+	return res.Status, res.Date, res.Message
 }

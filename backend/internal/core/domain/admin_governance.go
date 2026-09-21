@@ -167,6 +167,10 @@ type AdminTemplateReviewItem struct {
 	CVECriticalCount    int                     `db:"cve_critical_count" json:"cve_critical_count"`
 	CVEHighCount        int                     `db:"cve_high_count" json:"cve_high_count"`
 	SecurityAuditedAt   *time.Time              `db:"security_audited_at" json:"security_audited_at,omitempty"`
+	EOLStatus           string                  `db:"eol_status" json:"eol_status"`
+	EOLDate             string                  `db:"eol_date" json:"eol_date"`
+	EOLMessage          string                  `db:"eol_message" json:"eol_message"`
+	EOLCheckedAt        *time.Time              `db:"eol_checked_at" json:"eol_checked_at,omitempty"`
 	CreatedAt           time.Time               `db:"created_at" json:"created_at"`
 }
 

@@ -339,4 +339,33 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 			t.Errorf("Expected status = paused, got %v", data["status"])
 		}
 	})
+
+	// =========================================================================
+	// 6. TEST Duplicación de Plantilla
+	// =========================================================================
+	t.Run("6. Duplicación de Plantilla en Catálogo", func(t *testing.T) {
+		reqDup, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplApprovedID), nil)
+		reqDup.Header.Set("X-User-Role", "admin")
+		reqDup.Header.Set("X-User-Id", adminID)
+		reqDup.Header.Set("X-Tenant-Id", tenantID)
+
+		respDup, err := client.Do(reqDup)
+		if err != nil {
+			t.Fatalf("Failed duplicate request: %v", err)
+		}
+		if respDup.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected 201 Created duplicating template, got %d", respDup.StatusCode)
+		}
+
+		var dupBody map[string]interface{}
+		json.NewDecoder(respDup.Body).Decode(&dupBody)
+		data := dupBody["data"].(map[string]interface{})
+		if data["status"] != "PENDIENTE_AUDITORIA" {
+			t.Errorf("Expected duplicated status = PENDIENTE_AUDITORIA, got %v", data["status"])
+		}
+		expectedName := "(Copia) Ubuntu Base C++"
+		if data["name"] != expectedName {
+			t.Errorf("Expected duplicated name = '%s', got '%v'", expectedName, data["name"])
+		}
+	})
 }

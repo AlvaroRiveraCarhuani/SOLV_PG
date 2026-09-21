@@ -442,6 +442,17 @@
                           Pausada
                         </span>
                       }
+                      @if (item.eol_status === 'eol') {
+                        <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
+                          <span class="status-dot red"></span>
+                          EOL
+                        </span>
+                      } @else if (item.eol_status === 'warning') {
+                        <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
+                          <span class="status-dot amber"></span>
+                          Próximo a EOL
+                        </span>
+                      }
                       <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
                       @for (srv of item.services_config?.services; track srv.engine) {
                         <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
@@ -491,6 +502,11 @@
                 <button type="button" class="btn-outline-secondary" (click)="openEditModal(item)">
                   <svg lucidePencil class="btn-icon-xs"></svg>
                   <span>Ajustar Cuota</span>
+                </button>
+
+                <button type="button" class="btn-outline-secondary" (click)="duplicateTemplate(item)" title="Duplicar plantilla como copia editable">
+                  <svg lucideCopy class="btn-icon-xs"></svg>
+                  <span>Duplicar</span>
                 </button>
 
                 @if (item.status === 'approved') {
@@ -582,6 +598,17 @@
                         Pausada
                       </span>
                     }
+                    @if (item.eol_status === 'eol') {
+                      <span class="badge-status-eol" [title]="item.eol_message || 'Versión sin soporte oficial (EOL)'">
+                        <span class="status-dot red"></span>
+                        EOL
+                      </span>
+                    } @else if (item.eol_status === 'warning') {
+                      <span class="badge-status-eol-warning" [title]="item.eol_message || 'Próximo a fin de soporte'">
+                        <span class="status-dot amber"></span>
+                        Próximo a EOL
+                      </span>
+                    }
                   </td>
                   <td class="text-right">
                     <div class="action-buttons-group">
@@ -592,6 +619,15 @@
                         title="Ajustar cuotas de la plantilla">
                         <svg lucidePencil class="w-3.5 h-3.5"></svg>
                         <span>Editar</span>
+                      </button>
+
+                      <button 
+                        type="button" 
+                        class="btn-edit-action" 
+                        (click)="duplicateTemplate(item)" 
+                        title="Duplicar plantilla">
+                        <svg lucideCopy class="w-3.5 h-3.5"></svg>
+                        <span>Duplicar</span>
                       </button>
 
                       @if (item.status === 'approved') {
