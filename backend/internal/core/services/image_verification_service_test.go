@@ -143,3 +143,32 @@ func TestFormatBytes(t *testing.T) {
 		}
 	}
 }
+
+func TestClassifyImageOrigin(t *testing.T) {
+	tests := []struct {
+		imageRef       string
+		wantOfficial   bool
+		wantOriginType string
+	}{
+		{"python:3.12-slim", true, "official"},
+		{"library/node:20-alpine", true, "official"},
+		{"postgres:16-alpine", true, "official"},
+		{"ghcr.io/org/repo:1.0", false, "verified_registry"},
+		{"mcr.microsoft.com/dotnet/sdk:8.0", false, "verified_registry"},
+		{"pepito123/my-lab:v1", false, "community"},
+	}
+
+	for _, tt := range tests {
+		official, originType, warning := classifyImageOrigin(tt.imageRef)
+		if official != tt.wantOfficial {
+			t.Errorf("classifyImageOrigin(%q) official = %v, want %v", tt.imageRef, official, tt.wantOfficial)
+		}
+		if originType != tt.wantOriginType {
+			t.Errorf("classifyImageOrigin(%q) originType = %q, want %q", tt.imageRef, originType, tt.wantOriginType)
+		}
+		if !official && warning == "" {
+			t.Errorf("classifyImageOrigin(%q) expected warning for unofficial image", tt.imageRef)
+		}
+	}
+}
+

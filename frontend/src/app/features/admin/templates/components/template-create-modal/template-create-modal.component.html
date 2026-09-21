@@ -43,9 +43,15 @@
           <!-- Imagen Docker con Typeahead y Verificación en Vivo -->
           <div class="form-group typeahead-container">
             <div class="label-row-between">
-              <label class="form-label font-semibold">
-                Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
-              </label>
+              <div class="label-group-help">
+                <label class="form-label font-semibold">
+                  Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
+                </label>
+                <button type="button" class="btn-help-inline" (click)="isHelpDrawerOpen.set(true)" title="Ver guía y mejores prácticas">
+                  <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
+                  <span>Guía institucional</span>
+                </button>
+              </div>
               @if (verificationState() === 'checking') {
                 <span class="verification-badge-checking">
                   <span class="spinner-dot"></span> Verificando...
@@ -115,17 +121,23 @@
             <!-- Panel de Verificación Real y Gobernanza -->
             @if (verificationState() === 'error' && verificationError()) {
               <div class="verification-error-card">
-                <svg lucideAlertCircle class="w-4 h-4 text-danger"></svg>
+                <svg lucideAlertCircle class="w-4 h-4 text-danger flex-shrink-0"></svg>
                 <div class="error-content">
                   <span class="error-title">No se pudo verificar la imagen:</span>
                   <span class="error-desc">{{ verificationError() }}</span>
+                  <div class="error-actions-row">
+                    <a [href]="dockerHubSearchUrl()" target="_blank" rel="noopener noreferrer" class="link-docker-hub">
+                      <svg lucideExternalLink class="w-3 h-3"></svg>
+                      <span>Inspeccionar en Docker Hub</span>
+                    </a>
+                  </div>
                 </div>
                 <button type="button" class="btn-retry" (click)="reverify()">Reintentar</button>
               </div>
             }
 
             @if (verificationState() === 'verified' && verificationResult(); as res) {
-              <div class="verification-result-card" [class.border-warning]="isStorageBlocked() || isArchIncompatible()">
+              <div class="verification-result-card" [class.border-warning]="isStorageBlocked() || isArchIncompatible() || res.origin_warning">
                 
                 <!-- Status Row -->
                 <div class="result-status-row">
@@ -139,10 +151,24 @@
                     </span>
                   }
 
-                  @if (res.cached) {
-                    <span class="badge-cached" title="Resultado recuperado del caché local">Caché 24h</span>
-                  }
+                  <div class="result-status-actions">
+                    <a [href]="dockerHubSearchUrl()" target="_blank" rel="noopener noreferrer" class="link-docker-hub-sm" title="Inspeccionar repositorio en Docker Hub">
+                      <svg lucideExternalLink class="w-3 h-3"></svg>
+                      <span>Docker Hub</span>
+                    </a>
+                    @if (res.cached) {
+                      <span class="badge-cached" title="Resultado recuperado del caché local">Caché 24h</span>
+                    }
+                  </div>
                 </div>
+
+                <!-- Clasificación de Origen y Advertencia Comunitaria (A-08 / UX-03) -->
+                @if (res.origin_warning) {
+                  <div class="origin-warning-card">
+                    <svg lucideAlertTriangle class="w-3.5 h-3.5 text-warning flex-shrink-0"></svg>
+                    <span>{{ res.origin_warning }}</span>
+                  </div>
+                }
 
                 <!-- Arquitectura CPU -->
                 <div class="result-detail-item">
@@ -391,4 +417,45 @@
       </div>
     </div>
   </div>
+
+  <!-- Drawer Lateral de Ayuda Institucional (UX-05) -->
+  @if (isHelpDrawerOpen()) {
+    <div class="drawer-backdrop" (click)="isHelpDrawerOpen.set(false)">
+      <div class="drawer-panel shadow-2xl" (click)="$event.stopPropagation()">
+        <div class="drawer-header">
+          <div class="drawer-title-group">
+            <svg lucideBookOpen class="w-4 h-4 text-primary"></svg>
+            <h4 class="drawer-title">Guía Institucional: Imágenes Docker</h4>
+          </div>
+          <button type="button" class="btn-icon-close" (click)="isHelpDrawerOpen.set(false)" aria-label="Cerrar guía">
+            <svg lucideX class="w-4 h-4"></svg>
+          </button>
+        </div>
+        <div class="drawer-body">
+          <div class="help-item">
+            <h5 class="help-heading">1. ¿Qué es una imagen base en SOLV?</h5>
+            <p class="help-text">Es el entorno preconfigurado con el sistema operativo, herramientas y compiladores (Python, Node, GCC, OpenJDK, etc.) donde el estudiante programará sus ejercicios dentro del editor web.</p>
+          </div>
+
+          <div class="help-item">
+            <h5 class="help-heading">2. Regla de Reproducibilidad (Sin :latest)</h5>
+            <p class="help-text">Por seguridad institucional y acreditación académica, <strong>no está permitido el tag :latest</strong>. Las plantillas deben usar versiones fijas inmutables (ej: <code>node:20-bookworm-slim</code> o <code>python:3.12-slim-bookworm</code>) para garantizar que las prácticas evalúen exactamente igual hoy y en años futuros.</p>
+          </div>
+
+          <div class="help-item">
+            <h5 class="help-heading">3. Optimización de Almacenamiento</h5>
+            <p class="help-text">Prefiera siempre imágenes con sufijo <code>-slim</code> o <code>-alpine</code>. Evite imágenes que incluyan suites gráficas de escritorio innecesarias, ya que saturan la memoria y el almacenamiento del host físico.</p>
+          </div>
+
+          <div class="help-item">
+            <h5 class="help-heading">4. Imágenes Propias y Multi-Arquitectura</h5>
+            <p class="help-text">El servidor SOLV opera en procesadores <strong>x86_64 (amd64)</strong>. Si compila una imagen personalizada desde una Mac Apple Silicon (ARM64), use buildx para compilar la variante adecuada antes de subirla:</p>
+            <div class="help-code-wrap">
+              <code class="help-code font-mono">docker buildx build --platform linux/amd64 -t mi-organizacion/mi-lab:1.0 --push .</code>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  }
 </div>

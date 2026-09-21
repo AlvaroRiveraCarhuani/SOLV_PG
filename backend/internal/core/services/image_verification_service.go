@@ -134,6 +134,8 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 		Cached:          false,
 	}
 
+	result.IsOfficial, result.OriginType, result.OriginWarning = classifyImageOrigin(imageRef)
+
 	if s.dockerCli == nil {
 		result.Exists = true
 		result.ArchitectureCompatible = true
@@ -374,4 +376,18 @@ func formatBytes(b int64) string {
 
 func round2(val float64) float64 {
 	return float64(int(val*100)) / 100.0
+}
+
+func classifyImageOrigin(imageRef string) (isOfficial bool, originType string, warning string) {
+	slashIdx := strings.Index(imageRef, "/")
+	if slashIdx == -1 || strings.HasPrefix(imageRef, "library/") {
+		return true, "official", ""
+	}
+
+	prefix := imageRef[:slashIdx]
+	if strings.Contains(prefix, ".") {
+		return false, "verified_registry", fmt.Sprintf("Registro de terceros (%s). Asegúrese de que el servidor tenga permisos de red y acceso al registro.", prefix)
+	}
+
+	return false, "community", fmt.Sprintf("Mantenedor comunitario no oficial (%s). Verifique la procedencia y seguridad antes de usarla en cursos evaluados.", prefix)
 }

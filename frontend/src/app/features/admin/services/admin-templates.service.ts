@@ -63,6 +63,9 @@ export interface ImageVerificationResult {
   image_ref: string;
   is_local: boolean;
   exists: boolean;
+  is_official: boolean;
+  origin_type: 'official' | 'verified_registry' | 'community';
+  origin_warning?: string;
   architecture_compatible: boolean;
   host_arch: string;
   supported_platforms: string[];

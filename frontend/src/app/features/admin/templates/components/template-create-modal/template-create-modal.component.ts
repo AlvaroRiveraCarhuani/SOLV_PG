@@ -37,7 +37,10 @@ import {
   LucideCheckCircle2,
   LucideAlertCircle,
   LucideCopy,
-  LucideSearch
+  LucideSearch,
+  LucideExternalLink,
+  LucideHelpCircle,
+  LucideBookOpen
 } from '@lucide/angular';
 
 interface ImageSuggestion {
@@ -69,7 +72,10 @@ interface ImageSuggestion {
     LucideCheckCircle2,
     LucideAlertCircle,
     LucideCopy,
-    LucideSearch
+    LucideSearch,
+    LucideExternalLink,
+    LucideHelpCircle,
+    LucideBookOpen
   ],
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
@@ -95,7 +101,15 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   // Typeahead y Sugerencias de Imágenes
   localImages = signal<LocalImageItem[]>([]);
   isDropdownOpen = signal<boolean>(false);
+  isHelpDrawerOpen = signal<boolean>(false);
   copiedCommand = signal<boolean>(false);
+
+  dockerHubSearchUrl = computed(() => {
+    const raw = this.dockerImage().trim();
+    if (!raw) return 'https://hub.docker.com/search';
+    const repo = raw.split(':')[0];
+    return 'https://hub.docker.com/search?q=' + encodeURIComponent(repo);
+  });
 
   // Regex estricto de imagen Docker OCI (sin espacios, repo y tag obligatorio)
   private dockerRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$/;

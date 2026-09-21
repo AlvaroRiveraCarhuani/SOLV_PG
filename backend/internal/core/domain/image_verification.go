@@ -23,6 +23,9 @@ type ImageVerificationResult struct {
 	ImageRef                string                   `json:"image_ref"`
 	IsLocal                 bool                     `json:"is_local"`
 	Exists                  bool                     `json:"exists"`
+	IsOfficial              bool                     `json:"is_official"`
+	OriginType              string                   `json:"origin_type"` // "official" | "verified_registry" | "community"
+	OriginWarning           string                   `json:"origin_warning,omitempty"`
 	ArchitectureCompatible  bool                     `json:"architecture_compatible"`
 	HostArch                string                   `json:"host_arch"`
 	SupportedPlatforms      []string                 `json:"supported_platforms"`
