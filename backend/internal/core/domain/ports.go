@@ -219,3 +219,26 @@ type BackupRepository interface {
 	GetExpiredExecutions(ctx context.Context, tenantID string, retentionDays int) ([]*BackupExecution, error)
 	DeleteExecution(ctx context.Context, id string) error
 }
+
+// EnvTestJobRepository gestiona la persistencia y ciclo de vida de los jobs de prueba de entorno
+type EnvTestJobRepository interface {
+	Save(ctx context.Context, job *EnvTestJob) error
+	GetByID(ctx context.Context, id string) (*EnvTestJob, error)
+	UpdateProgress(ctx context.Context, id string, progress EnvTestProgress) error
+	Complete(ctx context.Context, id string, result *EnvTestResult) error
+	Fail(ctx context.Context, id string, errorCode, errorMessage string) error
+	Cancel(ctx context.Context, id string) error
+	ListActive(ctx context.Context) ([]*EnvTestJob, error)
+}
+
+// ImageRegistryPort abstrae las operaciones sobre registros OCI y almacenamiento local de imágenes
+type ImageRegistryPort interface {
+	InspectLocal(ctx context.Context, imageRef string) (isLocal bool, sizeBytes int64, localDigest string, err error)
+	InspectRemoteDigest(ctx context.Context, imageRef string) (remoteDigest string, err error)
+	PullImage(ctx context.Context, imageRef string, onProgress func(doneBytes, totalBytes int64, currentLayer, totalLayers int, action string)) error
+}
+
+// ContainerRunnerPort abstrae la ejecución efímera de contenedores para pruebas de entorno
+type ContainerRunnerPort interface {
+	RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) (results []ToolResult, exitCode int, err error)
+}

@@ -40,6 +40,12 @@ type ImageVerificationResult struct {
 	BuildxSuggestion        string                   `json:"buildx_suggestion,omitempty"`
 	ErrorMessage            string                   `json:"error_message,omitempty"`
 	Cached                  bool                     `json:"cached"`
+	FromCache               bool                     `json:"from_cache"`
+	SizeMB                  int64                    `json:"size_mb"`
+	Official                bool                     `json:"official"`
+	Maintainer              string                   `json:"maintainer,omitempty"`
+	DigestMismatch          bool                     `json:"digest_mismatch"`
+	Archs                   []string                 `json:"archs,omitempty"`
 	VerifiedAt              time.Time                `json:"verified_at"`
 }
 

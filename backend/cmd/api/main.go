@@ -16,6 +16,7 @@ import (
 	"solv-backend/internal/delivery/http/middleware"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/docker"
+	"solv-backend/internal/infrastructure/storage/memory"
 	"solv-backend/internal/infrastructure/storage/postgres"
 	"solv-backend/internal/infrastructure/system"
 )
@@ -143,6 +144,16 @@ func main() {
 	backupService := services.NewBackupService(backupRepo, notificationService, "")
 	backupHandler := httpdelivery.NewBackupHandler(backupService)
 
+	// Prueba asíncrona de entorno para plantillas (DA-01, DA-06)
+	envTestJobRepo := memory.NewEnvTestJobMemoryRepository(2 * time.Hour)
+	envTestAdapter := docker.NewEnvTestDockerAdapter(cli, 60*time.Second)
+	envTestService := services.NewEnvTestService(envTestJobRepo, envTestAdapter, envTestAdapter, services.EnvTestConfig{
+		MaxConcurrentJobs: 2,
+		TotalJobTimeout:   15 * time.Minute,
+		MemoryLimitMB:     256,
+	})
+	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
@@ -162,6 +173,7 @@ func main() {
 		NotificationHandler:      notificationHandler,
 		BackupHandler:            backupHandler,
 		WebSocketHandler:         wsHandler,
+		EnvTestHandler:           envTestHandler,
 		TenantMiddleware:         tenantMiddleware,
 		MaintenanceMiddleware:    maintenanceMiddleware,
 	}

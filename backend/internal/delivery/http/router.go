@@ -23,6 +23,7 @@ type Handlers struct {
 	NotificationHandler      *NotificationHandler
 	BackupHandler            *BackupHandler
 	WebSocketHandler         *WebSocketHandler
+	EnvTestHandler           *EnvTestHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
@@ -134,6 +135,12 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/templates/{id}/duplicate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate))))
 		mux.Handle("POST /api/v1/plantillas/{id}/duplicar", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate))))
 		mux.Handle("POST /api/v1/admin/emergency/{action}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ExecuteEmergencyAction))))
+	}
+
+	if deps.EnvTestHandler != nil {
+		mux.Handle("POST /api/v1/jobs/env-test", am(tm(http.HandlerFunc(deps.EnvTestHandler.StartEnvTest))))
+		mux.Handle("GET /api/v1/jobs/env-test/{id}", tm(http.HandlerFunc(deps.EnvTestHandler.GetEnvTest)))
+		mux.Handle("POST /api/v1/jobs/env-test/{id}/cancel", am(tm(http.HandlerFunc(deps.EnvTestHandler.CancelEnvTest))))
 	}
 }
 

@@ -196,3 +196,71 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
 | `POST` | `/api/v1/admin/docker-templates/requests/{id}/reject` | `{ "reason": "La imagen excede el límite de peso..." }` | Rechaza la solicitud con justificación obligatoria. |
 | `GET` | `/api/v1/admin/docker-templates` | `?include_paused=true` | Lista el catálogo institucional completo de plantillas. |
 | `PATCH` | `/api/v1/admin/docker-templates/{id}/status` | `{ "is_active": false }` | Pausa o reactiva una plantilla en el catálogo oficial. |
+
+---
+
+## 5. Asistente Modular de Registro y Prueba Asíncrona de Entorno (v1.1)
+
+### 5.1 Principios de Diseño
+- **P-01 (Input libre y universal):** El campo de imagen Docker es texto libre; ninguna asistencia lo restringe.
+- **P-02 (Bloqueos proporcionales):** Solo bloquean duro la seguridad y la reproducibilidad (tag `:latest`, binarios requeridos ausentes). Todo lo demás advierte o sugiere.
+- **P-03 (Sin bloqueos síncronos largos):** Ninguna operación larga bloquea la interfaz; las descargas y smoke tests se despachan como jobs asíncronos con progreso real.
+- **P-04 (Revelación progresiva):** Navegación no-lineal en 3 secciones (Identidad, Entorno, Recursos) con chips de validez por sección (`COMPLETO`, `PENDIENTE`, `AVISO`).
+- **P-05 (Recetas de inicio rápido):** Presets curados de 1-click para Python DS, Node LTS, GCC C++, Go SDK y Java.
+- **P-06 (Autosave y reanudación):** Persistencia automática de borrador en almacenamiento local y guardado directo sin confirmación obligatoria.
+- **P-07 (Pre-flight de publicación):** Diálogo con comprobaciones duras y advertencias informativas antes de impactar el catálogo docente.
+
+### 5.2 Máquina de Estados del Botón de Prueba (`solv-env-test-button`)
+1. **Idle (Inactivo):** 
+   - E0 (Sin imagen o :latest): Deshabilitado.
+   - E1 (Local): "Probar entorno (local, < 2s)".
+   - E2 (Remoto): "Descargar y probar (~X MB)".
+   - E3 (Stale / Digest mismatch): "Actualizar imagen y probar".
+2. **Running (En ejecución):** Barra de progreso con bytes descargados, capas completadas y botón de cancelación.
+3. **OK (Verificado):** Chip verde con recuento de herramientas detectadas y tiempo de ejecución.
+4. **Missing (Incompleto):** Chip advertencia con detalle de binarios faltantes.
+5. **Error:** Chip de error con código estructurado (`pull_stalled`, `pull_timeout`, `registry_unreachable`, `test_oom`, `test_crash`).
+
+### 5.3 Contratos de Integración de Jobs
+
+| Método | Endpoint | Payload / Respuesta | Propósito |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/jobs/env-test` | `{ "image": "...", "tools": ["python3", "pip"] }` | Inicia la prueba asíncrona (retorna `202 Accepted` con `EnvTestJob`). |
+| `GET` | `/api/v1/jobs/env-test/{id}` | `{ "data": EnvTestJob }` | Consulta estado, progreso de capas y resultado. |
+| `POST` | `/api/v1/jobs/env-test/{id}/cancel` | `{ "status": "canceled" }` | Cancela el job y libera el semáforo. |
+| `GET` | `/api/v1/registry/verify` | `exists, archs[], size_mb, official, maintainer, is_local, digest_mismatch, from_cache` | Verificación previa de imagen y metadata OCI. |
+
+### 5.4 Decisiones de Arquitectura
+- **DA-01 (Hexagonal puro):** Cero dependencias de Docker SDK o `net/http` en `internal/core/domain` ni en `internal/core/services/env_test_service.go`.
+- **DA-02 (Deadline de inactividad):** Timeout de inactividad de 60 s ante cortes de red en el streaming de capas Docker; timeout total de 15 min; liberación de semáforo en todos los caminos terminales.
+- **DA-03 (Degradación de digest en 3 niveles):** Si el registro remoto es inaccesible pero la imagen existe localmente, el sistema opera en modo offline (`digest_unverified = true`).
+- **DA-04 (Error codes de máquina):** Errores estructurados sin parseo de strings en el frontend.
+- **DA-05 (Angular 22 Zoneless):** Signals nativos, control flow nativo (`@if`, `@for`, `@switch`), `output<void>()` y marcadores i18n correspondientes al copy deck (`TE-*`, `PB-*`).
+- **DA-06 (Inyección en Composition Root):** Semáforo (2 slots), límites de memoria (256 MB) y timeouts configurados en `cmd/api/main.go`.
+
+### 5.5 Copy Deck v1.2 y Alcance de INV-10
+
+#### Alcance de INV-10
+La regla de exhaustividad INV-10 ("ningún string fuera del deck") aplica al **flujo completo de plantillas**: modal de creación/edición, stepper, botón de prueba, diálogo de pre-flight de publicación, toasts de acción y menú de entrada.
+*Nota de alcance:* El drawer de guía institucional se audita por contenido contra UX-12, no por ID unitario.
+
+#### Tabla Adendum v1.2 (90 IDs Consolidados)
+
+| Rango | Componente / Flujo | Descripción / Ejemplos |
+| :--- | :--- | :--- |
+| `TE-01` a `TE-77` | Botón de prueba asíncrona (`solv-env-test-button`) y toasts de ejecución | Estados E0-E3, progreso de descarga, capas, resultados de herramientas y fallos |
+| `PB-01` a `PB-32` | Diálogo de pre-flight de publicación (`solv-publish-dialog`) | Comprobaciones duras, advertencias ámbar, métricas de hardware |
+| `PB-33` a `PB-38` | Resumen de publicación (`solv-publish-dialog`) | Labels: Nombre, Imagen, Herramientas, Memoria, Servicios, Script de inicialización |
+| `PB-39` | Resumen de publicación | Link: "Ver" |
+| `PB-40` a `PB-41` | Resumen de publicación | Valores vacíos: "Sin script", "Sin servicios" |
+| `ST-01` a `ST-03` | Stepper y navegación | Secciones: "Identidad", "Entorno", "Recursos" |
+| `ST-04` a `ST-06` | Stepper chips de validez | "COMPLETO", "PENDIENTE", "AVISO" |
+| `ST-07` | Stepper acciones | Botón: "Guardar borrador" |
+| `ST-08` | Stepper toasts | Toast: "Borrador guardado." |
+| `ST-09` | Stepper reanudación | Banner: "Continuar borrador anterior (guardado {time})." |
+| `ST-10` | Menú de entrada | "Nueva plantilla" |
+| `ST-11` a `ST-13` | Puertas de creación | "En blanco", "Desde receta", "Duplicar existente" |
+| `ST-14` | Recetas rápidas | Toast: "Receta {name} aplicada. Edite lo que necesite." |
+| `ST-15` | Recetas institucionales | Acción: "Guardar como receta institucional" |
+| `ST-16` | Recetas institucionales | Toast: "Solicitud de receta enviada a aprobación." |
+

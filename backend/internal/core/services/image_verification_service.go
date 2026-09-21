@@ -153,6 +153,7 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 		if found && time.Now().Before(entry.expiresAt) {
 			resultCopy := *entry.result
 			resultCopy.Cached = true
+			resultCopy.FromCache = true
 			return &resultCopy, nil
 		}
 	}
@@ -206,6 +207,30 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 		// Evaluación de disco
 		s.evaluateStorageStatus(result, result.EstimatedUncompressedMB, freeGB, totalGB)
 
+		// Campos extendidos del contrato
+		result.SizeMB = result.EstimatedUncompressedMB
+		result.Official = result.IsOfficial
+		result.Archs = result.SupportedPlatforms
+		result.Maintainer = ExtractRegistry(imageRef)
+
+		// Chequeo de digest mismatch contra registro remoto con timeout corto no bloqueante
+		distCtx, distCancel := context.WithTimeout(ctx, 2*time.Second)
+		dist, distErr := s.dockerCli.DistributionInspect(distCtx, imageRef, "")
+		distCancel()
+		if distErr == nil && dist.Descriptor.Digest != "" {
+			remoteDig := string(dist.Descriptor.Digest)
+			localDig := inspect.ID
+			if len(inspect.RepoDigests) > 0 {
+				parts := strings.Split(inspect.RepoDigests[0], "@")
+				if len(parts) > 1 {
+					localDig = parts[1]
+				}
+			}
+			if localDig != "" && remoteDig != "" && localDig != remoteDig {
+				result.DigestMismatch = true
+			}
+		}
+
 		// 3. Smoke Test / Capability probe si la arquitectura es compatible
 		if result.ArchitectureCompatible {
 			probeCtx, probeCancel := context.WithTimeout(ctx, 4*time.Second)
@@ -255,6 +280,10 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 
 	result.SupportedPlatforms = platforms
 	result.ArchitectureCompatible = archMatch
+	result.SizeMB = result.EstimatedUncompressedMB
+	result.Official = result.IsOfficial
+	result.Archs = platforms
+	result.Maintainer = ExtractRegistry(imageRef)
 	if !archMatch && len(platforms) > 0 {
 		result.BuildxSuggestion = fmt.Sprintf("docker buildx build --platform linux/%s -t %s .", hostArch, imageRef)
 	}
