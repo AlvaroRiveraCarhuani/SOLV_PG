@@ -513,6 +513,25 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if h.auditLogRepo != nil {
+		meta, _ := json.Marshal(map[string]any{
+			"template_id":      item.ID,
+			"status":           dto.Status,
+			"rejection_reason": dto.RejectionReason,
+		})
+		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_REVIEWED",
+			ResourceType: "lab_template",
+			ResourceID:   &item.ID,
+			StatusCode:   http.StatusOK,
+			Metadata:     meta,
+			IPAddress:    r.RemoteAddr,
+			UserAgent:    r.UserAgent(),
+		})
+	}
+
 	SendJSON(w, http.StatusOK, item, "Plantilla revisada exitosamente")
 }
 
@@ -555,6 +574,25 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	if h.auditLogRepo != nil {
+		meta, _ := json.Marshal(map[string]any{
+			"template_id": item.ID,
+			"name":        item.Name,
+			"image":       item.DockerImage,
+		})
+		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_REGISTERED",
+			ResourceType: "lab_template",
+			ResourceID:   &item.ID,
+			StatusCode:   http.StatusCreated,
+			Metadata:     meta,
+			IPAddress:    r.RemoteAddr,
+			UserAgent:    r.UserAgent(),
+		})
+	}
+
 	SendJSON(w, http.StatusCreated, item, "Plantilla oficial registrada exitosamente")
 }
 
@@ -590,6 +628,25 @@ func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al duplicar la plantilla")
 		return
+	}
+
+	if h.auditLogRepo != nil {
+		meta, _ := json.Marshal(map[string]any{
+			"source_template_id": templateID,
+			"duplicated_id":      item.ID,
+			"name":               item.Name,
+		})
+		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_DUPLICATED",
+			ResourceType: "lab_template",
+			ResourceID:   &item.ID,
+			StatusCode:   http.StatusCreated,
+			Metadata:     meta,
+			IPAddress:    r.RemoteAddr,
+			UserAgent:    r.UserAgent(),
+		})
 	}
 
 	SendJSON(w, http.StatusCreated, item, "Plantilla duplicada exitosamente en cola de auditoría")
