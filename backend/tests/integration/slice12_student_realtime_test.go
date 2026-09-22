@@ -83,7 +83,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		dbName = "solv_db"
+		dbName = "solv_test"
 	}
 	dbPort := os.Getenv("DB_PORT")
 	if dbPort == "" {

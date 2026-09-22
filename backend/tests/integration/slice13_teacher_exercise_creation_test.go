@@ -39,7 +39,7 @@ func setupSlice13TestServer(t *testing.T) (*httptest.Server, *database.Database)
 	}
 	dbName := os.Getenv("DB_NAME")
 	if dbName == "" {
-		dbName = "solv_db"
+		dbName = "solv_test"
 	}
 
 	dsn := os.Getenv("DATABASE_URL")

@@ -21,7 +21,7 @@ import (
 )
 
 func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
-	dsn := "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
 		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
@@ -87,7 +87,7 @@ func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
 }
 
 func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
-	dsn := "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
 		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
@@ -151,7 +151,7 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 }
 
 func TestSlice6PrometheusMetricsEndpoint(t *testing.T) {
-	dsn := "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
 		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)

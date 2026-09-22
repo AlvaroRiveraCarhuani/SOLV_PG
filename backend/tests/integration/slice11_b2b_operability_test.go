@@ -187,7 +187,7 @@ func generateTestJWT(userID, tenantID, role string) string {
 func setupTestDB() (*database.Database, error) {
 	dbDSN := os.Getenv("DATABASE_URL")
 	if dbDSN == "" {
-		dbDSN = "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+		dbDSN = getTestDSN()
 	}
 	db, err := database.NewPostgresDB(dbDSN)
 	if err != nil {

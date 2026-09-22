@@ -21,7 +21,7 @@ import (
 func setupSlice14EmergencyServer(t *testing.T) (*httptest.Server, *database.Database) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+		dsn = getTestDSN()
 	}
 
 	db, err := database.NewPostgresDB(dsn)

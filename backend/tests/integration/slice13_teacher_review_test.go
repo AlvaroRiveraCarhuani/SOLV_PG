@@ -22,7 +22,7 @@ import (
 func setupTeacherReviewTestServer(t *testing.T) (*httptest.Server, *database.Database) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://solv_user:solv_secure_password@localhost:5432/solv_db?sslmode=disable"
+		dsn = getTestDSN()
 	}
 
 	db, err := database.NewPostgresDB(dsn)

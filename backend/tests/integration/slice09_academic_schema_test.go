@@ -21,7 +21,7 @@ import (
 func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 	dbDSN := os.Getenv("DATABASE_URL")
 	if dbDSN == "" {
-		dbDSN = "postgres://postgres:postgres@127.0.0.1:5432/solv_db?sslmode=disable"
+		dbDSN = getTestDSN()
 	}
 
 	db, err := database.NewPostgresDB(dbDSN)
@@ -203,7 +203,7 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 func TestAcademicHTTPAPIEndToEnd(t *testing.T) {
 	dbDSN := os.Getenv("DATABASE_URL")
 	if dbDSN == "" {
-		dbDSN = "postgres://postgres:postgres@127.0.0.1:5432/solv_db?sslmode=disable"
+		dbDSN = getTestDSN()
 	}
 
 	db, err := database.NewPostgresDB(dbDSN)

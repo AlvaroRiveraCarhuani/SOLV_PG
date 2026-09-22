@@ -183,7 +183,7 @@ func TestSemgrepPrecheckSuite(t *testing.T) {
 	t.Run("5. Persistencia de ast_result en PostgreSQL", func(t *testing.T) {
 		dbDSN := os.Getenv("DATABASE_URL")
 		if dbDSN == "" {
-			dbDSN = "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+			dbDSN = getTestDSN()
 		}
 
 		db, err := database.NewPostgresDB(dbDSN)

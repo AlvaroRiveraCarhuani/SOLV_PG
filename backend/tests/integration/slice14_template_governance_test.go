@@ -22,7 +22,7 @@ import (
 func setupSlice14TemplateGovServer(t *testing.T) (*httptest.Server, *database.Database) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
-		dsn = "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+		dsn = getTestDSN()
 	}
 
 	db, err := database.NewPostgresDB(dsn)
@@ -97,22 +97,33 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	tplToRejectID := uuid.NewString()
 
 	_, _ = db.GetDB().Exec(`
+		DELETE FROM lab_templates 
+		WHERE name IN ('Ubuntu Base C++', 'Rust Async Lab', 'Insecure Custom Lab', 'Python 3.12 Data Science', '(Copia) Ubuntu Base C++')
+	`)
+
+	if _, err := db.GetDB().Exec(`
 		INSERT INTO lab_templates (id, name, docker_image, base_ram_mb, status, tenant_id)
 		VALUES ($1, 'Ubuntu Base C++', 'solv/cpp:22.04', 512, 'approved', $2)
 		ON CONFLICT (id) DO NOTHING;
-	`, tplApprovedID, tenantID)
+	`, tplApprovedID, tenantID); err != nil {
+		t.Fatalf("Failed to seed approved template: %v", err)
+	}
 
-	_, _ = db.GetDB().Exec(`
+	if _, err := db.GetDB().Exec(`
 		INSERT INTO lab_templates (id, name, docker_image, base_ram_mb, status, requested_by, description, tenant_id)
 		VALUES ($1, 'Rust Async Lab', 'solv/rust:1.75', 512, 'pending', $2, 'Plantilla para laboratorio concurrente', $3)
 		ON CONFLICT (id) DO NOTHING;
-	`, tplPendingID, teacherID, tenantID)
+	`, tplPendingID, teacherID, tenantID); err != nil {
+		t.Fatalf("Failed to seed pending template: %v", err)
+	}
 
-	_, _ = db.GetDB().Exec(`
+	if _, err := db.GetDB().Exec(`
 		INSERT INTO lab_templates (id, name, docker_image, base_ram_mb, status, requested_by, description, tenant_id)
 		VALUES ($1, 'Insecure Custom Lab', 'custom/unsafe:latest', 256, 'pending', $2, 'Plantilla con root no saneada', $3)
 		ON CONFLICT (id) DO NOTHING;
-	`, tplToRejectID, teacherID, tenantID)
+	`, tplToRejectID, teacherID, tenantID); err != nil {
+		t.Fatalf("Failed to seed reject template: %v", err)
+	}
 
 	// =========================================================================
 	// 1. TEST Listado de Plantillas y Filtros (GET /admin/templates)
