@@ -7,6 +7,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+
 	"solv-backend/internal/core/domain"
 )
 
@@ -18,6 +21,7 @@ var (
 type AdminGovernanceService struct {
 	subjectRepo domain.SubjectRepository
 	govRepo     domain.AdminGovernanceRepository
+	auditRepo   domain.AuditLogRepository
 }
 
 func NewAdminGovernanceService(
@@ -28,6 +32,10 @@ func NewAdminGovernanceService(
 		subjectRepo: subjectRepo,
 		govRepo:     govRepo,
 	}
+}
+
+func (s *AdminGovernanceService) SetAuditRepo(repo domain.AuditLogRepository) {
+	s.auditRepo = repo
 }
 
 func (s *AdminGovernanceService) ReassignCourse(ctx context.Context, tenantID, subjectID string, dto domain.ReassignCourseDTO) (*domain.Subject, error) {
@@ -116,8 +124,8 @@ func (s *AdminGovernanceService) ResetStudentOOM(
 }
 
 var (
-	ErrInvalidReviewStatus      = errors.New("status must be either 'approved' or 'rejected'")
-	ErrRejectionReasonRequired = errors.New("rejection_reason is required when rejecting a template")
+	ErrInvalidReviewStatus      = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
+	ErrRejectionReasonRequired = errors.New("rejection_reason is required when rejecting or suspending a template")
 )
 
 func (s *AdminGovernanceService) ListTemplates(
@@ -132,15 +140,23 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	tenantID, templateID, adminID string,
 	dto domain.ReviewTemplateDTO,
 ) (*domain.AdminTemplateReviewItem, error) {
-	if dto.Status != "approved" && dto.Status != "rejected" && dto.Status != "paused" {
+	status := strings.ToLower(strings.TrimSpace(dto.Status))
+	if status != "approved" && status != "rejected" && status != "paused" && status != "suspended" && status != "pending_audit" {
 		return nil, ErrInvalidReviewStatus
 	}
 
-	if dto.Status == "rejected" && dto.RejectionReason == "" {
+	if (status == "rejected" || status == "suspended") && strings.TrimSpace(dto.RejectionReason) == "" {
 		return nil, ErrRejectionReasonRequired
 	}
 
-	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dto.Status, dto.RejectionReason, dto.BaseRamMB)
+	dbStatus := dto.Status
+	if status == "suspended" {
+		dbStatus = "SUSPENDIDA"
+	} else if status == "pending_audit" {
+		dbStatus = "PENDIENTE_AUDITORIA"
+	}
+
+	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dbStatus, dto.RejectionReason, dto.BaseRamMB)
 }
 
 var (
@@ -286,4 +302,195 @@ func (s *AdminGovernanceService) ExecuteEmergencyAction(
 	default:
 		return nil, ErrUnknownEmergencyAction
 	}
+}
+
+// GetRuntimeCapabilities obtiene métricas del host físico y catálogo de servicios satélite soportados
+func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*domain.RuntimeCapabilities, error) {
+	// 1. Métricas de memoria y procesador del host real
+	totalMB := int64(8192)
+	availableMB := int64(4096)
+	usedMB := int64(4096)
+	cpuCores := 4
+
+	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
+		totalMB = int64(v.Total / (1024 * 1024))
+		availableMB = int64(v.Available / (1024 * 1024))
+		usedMB = int64(v.Used / (1024 * 1024))
+	}
+	if c, err := cpu.CountsWithContext(ctx, true); err == nil && c > 0 {
+		cpuCores = c
+	}
+
+	hostMem := domain.HostCapacityInfo{
+		TotalRAMMB:     totalMB,
+		AvailableRAMMB: availableMB,
+		UsedRAMMB:      usedMB,
+		CPUCores:       cpuCores,
+	}
+
+	// 2. Presets adaptados dinámicamente a la memoria física
+	judgePresets := []domain.RamPresetSuggestion{
+		{MB: 128, Label: "128 MB", Desc: "Ultra-ligera (C/C++)"},
+		{MB: 256, Label: "256 MB", Desc: "Recomendada (Python/Go)"},
+		{MB: 512, Label: "512 MB", Desc: "Completa (Java/JVM)"},
+	}
+
+	idePresets := []domain.RamPresetSuggestion{
+		{MB: 512, Label: "512 MB", Desc: "Ligera (C/Go)"},
+		{MB: 1024, Label: "1 GB", Desc: "Estándar (Web/Python)"},
+	}
+	if totalMB >= 6000 {
+		idePresets = append(idePresets, domain.RamPresetSuggestion{
+			MB: 2048, Label: "2 GB", Desc: "Intensiva (Java/ML)",
+		})
+	}
+	if totalMB >= 12000 {
+		idePresets = append(idePresets, domain.RamPresetSuggestion{
+			MB: 4096, Label: "4 GB", Desc: "Datos & IA",
+		})
+	} else if totalMB >= 7000 {
+		idePresets = append(idePresets, domain.RamPresetSuggestion{
+			MB: 4096, Label: "4 GB", Desc: "Alta demanda (Intensivo)",
+		})
+	}
+	if totalMB >= 32000 {
+		idePresets = append(idePresets, domain.RamPresetSuggestion{
+			MB: 8192, Label: "8 GB", Desc: "Big Data & Deep Learning",
+		})
+	}
+
+	maxAllowedRAM := int(float64(totalMB) * 0.75)
+	if maxAllowedRAM < 512 {
+		maxAllowedRAM = 512
+	}
+
+	// 3. Catálogo real de servicios satélite soportados en la plataforma
+	satellites := []domain.SatelliteServiceCapability{
+		{
+			Category:    "database",
+			Engine:      "postgres",
+			Label:       "PostgreSQL",
+			Version:     "16",
+			Description: "Base de datos relacional aislada por estudiante y materia",
+			EnvVar:      "DATABASE_URL",
+			IsAvailable: true,
+		},
+		{
+			Category:    "database",
+			Engine:      "mysql",
+			Label:       "MySQL",
+			Version:     "8.4",
+			Description: "Base de datos relacional MySQL para ejercicios de SQL",
+			EnvVar:      "DATABASE_URL",
+			IsAvailable: true,
+		},
+		{
+			Category:    "database",
+			Engine:      "mongodb",
+			Label:       "MongoDB",
+			Version:     "7.0",
+			Description: "Base de datos de documentos NoSQL para proyectos web",
+			EnvVar:      "MONGODB_URI",
+			IsAvailable: false,
+		},
+		{
+			Category:    "cache",
+			Engine:      "redis",
+			Label:       "Redis",
+			Version:     "7.2",
+			Description: "Almacén en memoria y caché clave-valor",
+			EnvVar:      "REDIS_URL",
+			IsAvailable: false,
+		},
+	}
+
+// editorBaseMB es la RAM mínima que consume el proceso del editor (OpenVSCode Server).
+// Constante de dominio: si se necesita hacer configurable, agregar al struct de Config del servicio.
+const editorBaseMB = 210
+
+// runtimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox del contenedor efímero).
+const runtimeBaseMB = 32
+
+	return &domain.RuntimeCapabilities{
+		HostMemory:        hostMem,
+		SatelliteServices: satellites,
+		IDEPresets:        idePresets,
+		JudgePresets:      judgePresets,
+		MaxAllowedRamMB:   maxAllowedRAM,
+		EditorBaseMB:      editorBaseMB,
+		RuntimeBaseMB:     runtimeBaseMB,
+	}, nil
+}
+
+func (s *AdminGovernanceService) ListTemplateCategories(ctx context.Context, tenantID string) ([]*domain.TemplateCategory, error) {
+	return s.govRepo.ListTemplateCategories(ctx, tenantID)
+}
+
+func (s *AdminGovernanceService) CreateTemplateCategory(ctx context.Context, tenantID string, dto domain.CreateCategoryDTO) (*domain.TemplateCategory, error) {
+	dto.Name = strings.TrimSpace(dto.Name)
+	if dto.Name == "" {
+		return nil, errors.New("el nombre de la categoría es obligatorio")
+	}
+	return s.govRepo.CreateTemplateCategory(ctx, tenantID, dto)
+}
+
+func (s *AdminGovernanceService) UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto domain.UpdateCategoryDTO) (*domain.TemplateCategory, error) {
+	dto.Name = strings.TrimSpace(dto.Name)
+	if dto.Name == "" {
+		return nil, errors.New("el nombre de la categoría es obligatorio")
+	}
+	return s.govRepo.UpdateTemplateCategory(ctx, tenantID, categoryID, dto)
+}
+
+func (s *AdminGovernanceService) DeleteTemplateCategory(ctx context.Context, tenantID, actorID, categoryID string) error {
+	if err := s.govRepo.DeleteTemplateCategory(ctx, tenantID, categoryID); err != nil {
+		return err
+	}
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Create(ctx, &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      actorID,
+			Action:       "TEMPLATE_CATEGORY_DELETED",
+			ResourceType: "template_category",
+			ResourceID:   &categoryID,
+			StatusCode:   200,
+		})
+	}
+	return nil
+}
+
+func (s *AdminGovernanceService) ListTemplateModels(ctx context.Context, tenantID, targetEnv string) ([]*domain.TemplateModelItemDTO, error) {
+	return s.govRepo.ListTemplateModels(ctx, tenantID, targetEnv)
+}
+
+func (s *AdminGovernanceService) PromoteTemplateToModel(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+	dto domain.PromoteTemplateToModelDTO,
+) (*domain.TemplateModelItemDTO, error) {
+	dto.Title = strings.TrimSpace(dto.Title)
+	if dto.Title == "" {
+		return nil, errors.New("el título del modelo es obligatorio")
+	}
+	if dto.CategoryID == "" {
+		return nil, errors.New("la categoría es obligatoria para el modelo")
+	}
+
+	model, err := s.govRepo.PromoteTemplateToModel(ctx, tenantID, templateID, adminID, dto)
+	if err != nil {
+		return nil, err
+	}
+
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Create(ctx, &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_PROMOTED_TO_MODEL",
+			ResourceType: "template_model",
+			ResourceID:   &model.ID,
+			StatusCode:   201,
+		})
+	}
+
+	return model, nil
 }

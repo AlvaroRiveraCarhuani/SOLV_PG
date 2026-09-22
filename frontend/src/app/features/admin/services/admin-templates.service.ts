@@ -25,6 +25,42 @@ export interface AvailableSatelliteService {
   version?: string;
   description: string;
   envVar: string;
+  isAvailable?: boolean;
+}
+
+export interface HostCapacityInfo {
+  total_ram_mb: number;
+  available_ram_mb: number;
+  used_ram_mb: number;
+  cpu_cores: number;
+}
+
+export interface SatelliteServiceCapability {
+  category: string;
+  engine: string;
+  label: string;
+  version?: string;
+  description: string;
+  env_var: string;
+  is_available: boolean;
+}
+
+export interface RamPresetSuggestion {
+  mb: number;
+  label: string;
+  desc: string;
+}
+
+export interface RuntimeCapabilities {
+  host_memory: HostCapacityInfo;
+  satellite_services: SatelliteServiceCapability[];
+  ide_presets: RamPresetSuggestion[];
+  judge_presets: RamPresetSuggestion[];
+  max_allowed_ram_mb: number;
+  /** RAM mínima del editor (OpenVSCode Server). Viene del backend; fallback: 210 MB. */
+  editor_base_mb?: number;
+  /** RAM mínima reservada por el runtime del Juez. Viene del backend; fallback: 32 MB. */
+  runtime_base_mb?: number;
 }
 
 export interface AdminTemplateItem {
@@ -41,6 +77,8 @@ export interface AdminTemplateItem {
   requested_by_name?: string;
   description?: string;
   target_environment?: string;
+  entrypoint?: string;
+  timeout_ms?: number;
   services_config?: ServicesConfig;
   resource_profile?: TemplateResourceProfile;
   setup_script?: string;
@@ -55,11 +93,15 @@ export interface AdminTemplateItem {
   eol_date?: string;
   eol_message?: string;
   eol_checked_at?: string;
+  category_id?: string;
+  category_name?: string;
+  model_id?: string;
+  sample_input?: string;
   created_at: string;
 }
 
 export interface ReviewTemplateDTO {
-  status: 'approved' | 'rejected' | 'paused';
+  status: 'approved' | 'rejected' | 'paused' | 'suspended' | 'pending_audit';
   rejection_reason?: string;
   base_ram_mb?: number;
 }
@@ -108,10 +150,59 @@ export interface CreateOfficialTemplateDTO {
   base_ram_mb: number;
   description?: string;
   target_environment?: string;
+  entrypoint?: string;
+  timeout_ms?: number;
   services_config?: ServicesConfig;
   resource_profile?: TemplateResourceProfile;
   setup_script?: string;
   tools_declared?: string[];
+  category_id?: string;
+  category_name?: string;
+  model_id?: string;
+  sample_input?: string;
+}
+
+export interface TemplateCategory {
+  id: string;
+  tenant_id?: string;
+  name: string;
+  description?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateCategoryDTO {
+  name: string;
+  description?: string;
+}
+
+export interface UpdateCategoryDTO {
+  name: string;
+  description?: string;
+}
+
+export interface TemplateModelItem {
+  id: string;
+  tenant_id?: string;
+  category_id?: string | null;
+  category_name?: string | null;
+  name: string;
+  description?: string;
+  docker_image: string;
+  target_environment: string;
+  base_ram_mb: number;
+  entrypoint?: string;
+  timeout_ms?: number;
+  sample_input?: string;
+  usage_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PromoteTemplateToModelDTO {
+  name: string;
+  category_id?: string;
+  description?: string;
 }
 
 interface ApiResponse<T> {
@@ -126,6 +217,8 @@ interface ApiResponse<T> {
 export class AdminTemplatesService {
   private http = inject(HttpClient);
   private apiUrl = '/api/v1/admin/templates';
+  private categoriesUrl = '/api/v1/admin/template-categories';
+  private modelsUrl = '/api/v1/admin/template-models';
 
   getTemplates(status?: string, search?: string): Observable<AdminTemplateItem[]> {
     let params = new HttpParams();
@@ -174,6 +267,52 @@ export class AdminTemplatesService {
     );
   }
 
+  getRuntimeCapabilities(): Observable<RuntimeCapabilities> {
+    return this.http.get<ApiResponse<RuntimeCapabilities>>(`${this.apiUrl}/capabilities`).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getCategories(): Observable<TemplateCategory[]> {
+    return this.http.get<ApiResponse<TemplateCategory[]>>(this.categoriesUrl).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  createCategory(dto: CreateCategoryDTO): Observable<TemplateCategory> {
+    return this.http.post<ApiResponse<TemplateCategory>>(this.categoriesUrl, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  updateCategory(id: string, dto: UpdateCategoryDTO): Observable<TemplateCategory> {
+    return this.http.put<ApiResponse<TemplateCategory>>(`${this.categoriesUrl}/${id}`, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  deleteCategory(id: string): Observable<void> {
+    return this.http.delete<ApiResponse<void>>(`${this.categoriesUrl}/${id}`).pipe(
+      map(() => void 0)
+    );
+  }
+
+  getModels(targetEnv?: string): Observable<TemplateModelItem[]> {
+    let params = new HttpParams();
+    if (targetEnv) {
+      params = params.set('target_environment', targetEnv);
+    }
+    return this.http.get<ApiResponse<TemplateModelItem[]>>(this.modelsUrl, { params }).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  promoteToModel(templateId: string, dto: PromoteTemplateToModelDTO): Observable<TemplateModelItem> {
+    return this.http.post<ApiResponse<TemplateModelItem>>(`${this.apiUrl}/${templateId}/promote-to-model`, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
   getAvailableSatelliteServices(): AvailableSatelliteService[] {
     return [
       {
@@ -181,32 +320,36 @@ export class AdminTemplatesService {
         engine: 'postgres',
         label: 'PostgreSQL',
         version: '16',
-        description: 'Base de datos relacional multi-tenant',
-        envVar: 'DATABASE_URL'
+        description: 'Base de datos relacional PostgreSQL aislada por estudiante y materia',
+        envVar: 'DATABASE_URL',
+        isAvailable: true
       },
       {
         category: 'database',
         engine: 'mysql',
         label: 'MySQL',
-        version: '8.0',
-        description: 'Base de datos relacional estándar',
-        envVar: 'DATABASE_URL'
+        version: '8.4',
+        description: 'Base de datos relacional MySQL para ejercicios de SQL',
+        envVar: 'DATABASE_URL',
+        isAvailable: true
       },
       {
         category: 'database',
         engine: 'mongodb',
         label: 'MongoDB',
         version: '7.0',
-        description: 'Base de datos NoSQL documental',
-        envVar: 'MONGODB_URI'
+        description: 'Base de datos de documentos NoSQL para proyectos web',
+        envVar: 'MONGODB_URI',
+        isAvailable: false
       },
       {
         category: 'cache',
         engine: 'redis',
         label: 'Redis',
         version: '7.2',
-        description: 'Almacén en memoria y caché de alto rendimiento',
-        envVar: 'REDIS_URL'
+        description: 'Almacén en memoria y caché clave-valor',
+        envVar: 'REDIS_URL',
+        isAvailable: false
       }
     ];
   }

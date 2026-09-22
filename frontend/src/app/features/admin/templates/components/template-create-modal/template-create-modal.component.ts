@@ -19,7 +19,11 @@ import {
   AvailableSatelliteService, 
   ServiceRequirement,
   LocalImageItem,
-  ImageVerificationResult
+  ImageVerificationResult,
+  AdminTemplateItem,
+  RuntimeCapabilities,
+  TemplateModelItem,
+  TemplateCategory
 } from '../../../services/admin-templates.service';
 import { 
   EnvTestButtonComponent 
@@ -41,7 +45,18 @@ import {
   LucideSparkles,
   LucideSave,
   LucideSend,
-  LucideRotateCw
+  LucideRotateCw,
+  LucideCopy,
+  LucideSearch,
+  LucideCheck,
+  LucideCheckCircle2,
+  LucideTerminal,
+  LucideArrowLeft,
+  LucideArrowRight,
+  LucidePlus,
+  LucideEdit,
+  LucideTrash2,
+  LucideTag
 } from '@lucide/angular';
 
 export interface ImageSuggestion {
@@ -52,16 +67,26 @@ export interface ImageSuggestion {
   isOfficial: boolean;
 }
 
-export interface TemplateRecipe {
-  id: string;
-  title: string;
-  description: string;
-  image: string;
-  baseRamMB: number;
-  tools: string;
+export interface RamPreset {
+  mb: number;
+  label: string;
+  desc: string;
 }
 
-export type WizardSection = 'identity' | 'environment' | 'resources';
+export const RAM_PRESETS_IDE: RamPreset[] = [
+  { mb: 512, label: '512 MB', desc: 'Ligera (C/Go)' },
+  { mb: 1024, label: '1 GB', desc: 'Estándar (Web/Python)' },
+  { mb: 2048, label: '2 GB', desc: 'Intensiva (Java/ML)' },
+  { mb: 4096, label: '4 GB', desc: 'Datos & IA' }
+];
+
+export const RAM_PRESETS_JUDGE: RamPreset[] = [
+  { mb: 128, label: '128 MB', desc: 'Ultra-ligera (C/C++)' },
+  { mb: 256, label: '256 MB', desc: 'Recomendada (Python/Go)' },
+  { mb: 512, label: '512 MB', desc: 'Completa (Java/JVM)' }
+];
+
+export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 'resources' | 'verification';
 
 @Component({
   selector: 'solv-template-create-modal',
@@ -81,7 +106,18 @@ export type WizardSection = 'identity' | 'environment' | 'resources';
     LucideSparkles,
     LucideSave,
     LucideSend,
-    LucideRotateCw
+    LucideRotateCw,
+    LucideCopy,
+    LucideSearch,
+    LucideCheck,
+    LucideCheckCircle2,
+    LucideTerminal,
+    LucideArrowLeft,
+    LucideArrowRight,
+    LucidePlus,
+    LucideEdit,
+    LucideTrash2,
+    LucideTag
   ],
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
@@ -92,30 +128,51 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   @Output() created = new EventEmitter<CreateOfficialTemplateDTO>();
   @Output() closed = new EventEmitter<void>();
 
-  // Navegación en 3 secciones no-lineales (P-04, DA-05)
-  activeSection = signal<WizardSection>('identity');
+  // Navegación modular de 6 pasos
+  readonly WIZARD_SECTIONS: WizardSection[] = ['purpose', 'identity', 'image', 'execution', 'resources', 'verification'];
+  activeSection = signal<WizardSection>('purpose');
+
+  // Paso 1: Propósito del Entorno (IDE vs Juez)
+  targetEnvironment = signal<'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'>('IDE_PERSISTENTE');
+  pendingPurposeChange = signal<'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | null>(null);
+  showPurposeConfirmDialog = signal<boolean>(false);
 
   // Modo de creación de 3 puertas (ST-10, ST-11, ST-12, ST-13)
   creationMode = signal<'blank' | 'recipe' | 'duplicate'>('blank');
   toastMessage = signal<string | null>(null);
 
+  // Campos principales del formulario
   name = signal<string>('');
-  dockerImage = signal<string>('');
-  baseRamMB = signal<number>(512);
-  setupScript = signal<string>('');
   description = signal<string>('');
+  dockerImage = signal<string>('');
   toolsDeclared = signal<string>('');
+  setupScript = signal<string>('');
+  entrypoint = signal<string>('');
+  timeoutMS = signal<number>(5000);
+  sampleInput = signal<string>('');
+  baseRamMB = signal<number>(512);
+  selectedCategoryId = signal<string | null>(null);
+  selectedModelId = signal<string | null>(null);
   isSubmitting = signal<boolean>(false);
+
+  // Categorías de plantillas (dato vivo en BD)
+  categories = signal<TemplateCategory[]>([]);
+  showCategoryManagerModal = signal<boolean>(false);
+  categoryFormName = signal<string>('');
+  categoryFormDescription = signal<string>('');
+  editingCategoryId = signal<string | null>(null);
+  categoryErrorMsg = signal<string | null>(null);
+  isCategorySaving = signal<boolean>(false);
 
   // Job de prueba de entorno y diálogo de publicación
   activeEnvTestJob = signal<EnvTestJob | null>(null);
   showPublishDialog = signal<boolean>(false);
 
-  // Autosave y Telemetría (UX-13, UX-14)
+  // Autosave y Telemetría
   hasDraftToResume = signal<boolean>(false);
   private modalOpenTime = Date.now();
-  private stepPath = signal<string[]>(['identity']);
-  private recipeUsed = signal<string | null>(null);
+  private stepPath = signal<string[]>(['purpose']);
+  recipeUsed = signal<string | null>(null);
   private envTestRan = signal<boolean>(false);
 
   // Verificación y Caché de Imagen
@@ -129,55 +186,109 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   isHelpDrawerOpen = signal<boolean>(false);
   copiedCommand = signal<boolean>(false);
 
-  // Recetas predefinidas de inicio rápido
-  recipes: TemplateRecipe[] = [
-    {
-      id: 'python-ds',
-      title: 'Python 3.12 Data Science',
-      description: 'Entorno Debian con Python 3.12 y pip optimizado para ciencias.',
-      image: 'python:3.12-slim-bookworm',
-      baseRamMB: 1024,
-      tools: 'python3, pip'
-    },
-    {
-      id: 'node-lts',
-      title: 'Node.js 20 LTS',
-      description: 'JavaScript & TypeScript para desarrollo web moderno backend/fullstack.',
-      image: 'node:20-bookworm-slim',
-      baseRamMB: 768,
-      tools: 'node, npm'
-    },
-    {
-      id: 'gcc-cpp',
-      title: 'C/C++ GCC 13',
-      description: 'Herramientas de compilación para algoritmia y sistemas operativos.',
-      image: 'gcc:13.2-bookworm',
-      baseRamMB: 512,
-      tools: 'gcc, g++, make'
-    },
-    {
-      id: 'go-sdk',
-      title: 'Go 1.22 Standard',
-      description: 'Compilador oficial y herramientas para concurrencia y backend de alto rendimiento.',
-      image: 'golang:1.22-bookworm',
-      baseRamMB: 1024,
-      tools: 'go, git'
-    },
-    {
-      id: 'java-openjdk',
-      title: 'Java 21 LTS OpenJDK',
-      description: 'Base ultraligera Alpine con Eclipse Temurin para POO y estructuras.',
-      image: 'eclipse-temurin:21-alpine',
-      baseRamMB: 1024,
-      tools: 'java, javac'
-    }
-  ];
+  // Modelos dinámicos consumidos desde GET /api/v1/admin/template-models
+  models = signal<TemplateModelItem[]>([]);
+  modelsSearch = signal<string>('');
 
-  dockerHubSearchUrl = computed(() => {
-    const raw = this.dockerImage().trim();
-    if (!raw) return 'https://hub.docker.com/search';
-    const repo = raw.split(':')[0];
-    return 'https://hub.docker.com/search?q=' + encodeURIComponent(repo);
+  filteredModels = computed<TemplateModelItem[]>(() => {
+    const currentEnv = this.targetEnvironment();
+    const q = this.modelsSearch().trim().toLowerCase();
+    return this.models().filter(m => {
+      if (m.target_environment !== currentEnv) return false;
+      if (!q) return true;
+      return m.name.toLowerCase().includes(q) ||
+        (m.category_name && m.category_name.toLowerCase().includes(q)) ||
+        (m.description && m.description.toLowerCase().includes(q)) ||
+        m.docker_image.toLowerCase().includes(q);
+    });
+  });
+
+  availableCategories = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const m of this.filteredModels()) {
+      if (m.category_name) {
+        set.add(m.category_name);
+      }
+    }
+    return Array.from(set);
+  });
+
+  modelsByCategory(catName: string): TemplateModelItem[] {
+    return this.filteredModels().filter(m => m.category_name === catName);
+  }
+
+  modelsWithoutCategory = computed<TemplateModelItem[]>(() => {
+    return this.filteredModels().filter(m => !m.category_name);
+  });
+
+  // Catálogo existente para puerta "Duplicar" filtrado por propósito activo (Adenda 4)
+  existingCatalog = signal<AdminTemplateItem[]>([]);
+  duplicateSearch = signal<string>('');
+
+  filteredExistingCatalog = computed<AdminTemplateItem[]>(() => {
+    const currentEnv = this.targetEnvironment();
+    const q = this.duplicateSearch().trim().toLowerCase();
+    const list = this.existingCatalog().filter(t => {
+      const env = t.target_environment || 'IDE_PERSISTENTE';
+      return env === currentEnv && (t.status === 'approved' || t.status === 'APROBADA');
+    });
+
+    if (!q) return list;
+    return list.filter(t => 
+      t.name.toLowerCase().includes(q) || 
+      t.docker_image.toLowerCase().includes(q)
+    );
+  });
+
+  // Puertas con confirmación si el form está editado (D1)
+  pendingDoorChange = signal<'blank' | 'recipe' | 'duplicate' | null>(null);
+  showDoorConfirmDialog = signal<boolean>(false);
+
+  isFormDirty = computed<boolean>(() => {
+    return this.name().trim().length > 0 || 
+      this.dockerImage().trim().length > 0 || 
+      this.entrypoint().trim().length > 0 || 
+      this.setupScript().trim().length > 0 || 
+      this.selectedServices().length > 0;
+  });
+
+  // Estado de borrador guardado y footer contextual (D2)
+  isDraftSaved = signal<boolean>(false);
+
+  footerActionState = computed<'save_draft' | 'publish_disabled' | 'publish_ready'>(() => {
+    if (!this.isDraftSaved()) {
+      return 'save_draft';
+    }
+    const job = this.activeEnvTestJob();
+    const isVerified = job !== null && job.status === 'success';
+    if (!isVerified || this.isInvalidFormat() || this.isLatestImage()) {
+      return 'publish_disabled';
+    }
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
+      return 'publish_disabled';
+    }
+    return 'publish_ready';
+  });
+
+  publishDisabledReason = computed<string>(() => {
+    const reasons: string[] = [];
+    if (!this.dockerImage().trim()) {
+      reasons.push('Ingrese una imagen Docker');
+    } else if (this.isLatestImage()) {
+      reasons.push('Tag :latest prohibido');
+    }
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
+      reasons.push('Comando de ejecución requerido para juez');
+    }
+    const job = this.activeEnvTestJob();
+    if (!job) {
+      reasons.push('Prueba de entorno no ejecutada');
+    } else if (job.status === 'failed') {
+      reasons.push('La prueba de entorno falló');
+    } else if (job?.status === 'pulling' || job?.status === 'testing' || job?.status === 'pending') {
+      reasons.push('Prueba de entorno en curso');
+    }
+    return reasons.length > 0 ? `Falta: ${reasons.join(' · ')}` : 'Complete las comprobaciones antes de publicar';
   });
 
   private dockerRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$/;
@@ -185,6 +296,8 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   private imageDebounce$ = new Subject<string>();
   private sub = new Subscription();
 
+  // CONFIG: Semilla de sugerencias curadas para el typeahead de imágenes OCI.
+  // Es una allowlist semilla documentada, no representa modelos de plantilla ni catálogo vivo.
   private curatedOfficialImages: ImageSuggestion[] = [
     { repoTag: 'python:3.12-slim-bookworm', isLocal: false, isOfficial: true, description: 'Python 3.12 oficial ligero Debian' },
     { repoTag: 'python:3.11-slim', isLocal: false, isOfficial: true, description: 'Python 3.11 versión estable' },
@@ -195,6 +308,8 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     { repoTag: 'eclipse-temurin:21-alpine', isLocal: false, isOfficial: true, description: 'Java OpenJDK 21 LTS Alpine' },
     { repoTag: 'postgres:16-alpine', isLocal: false, isOfficial: true, description: 'PostgreSQL 16 base ligera' }
   ];
+
+  runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
 
   availableServices = signal<AvailableSatelliteService[]>(
     this.templatesService.getAvailableSatelliteServices()
@@ -213,32 +328,65 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return this.selectedServices().map(s => s.engine);
   });
 
-  // Chips de validez por sección
+  // Presets de RAM dinámicos según el hardware real del entorno y el propósito
+  activeRamPresets = computed<RamPreset[]>(() => {
+    const caps = this.runtimeCapabilities();
+    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
+    if (caps) {
+      const presets = isJudge ? caps.judge_presets : caps.ide_presets;
+      if (presets && presets.length > 0) {
+        return presets;
+      }
+    }
+    return isJudge ? RAM_PRESETS_JUDGE : RAM_PRESETS_IDE;
+  });
+
+  // Chips de validez por sección (6 pasos)
+  purposeStatus = computed<'complete'>(() => 'complete');
+
   identityStatus = computed<'complete' | 'pending'>(() => {
     return this.name().trim().length >= 3 ? 'complete' : 'pending';
   });
 
-  environmentStatus = computed<'complete' | 'pending' | 'warning'>(() => {
-    const raw = this.dockerImage().trim();
-    if (!raw || this.isInvalidFormat() || this.isLatestImage()) {
-      return 'pending';
-    }
-    const job = this.activeEnvTestJob();
-    if (job?.status === 'success') {
-      return 'complete';
-    }
-    if (job?.status === 'failed') {
+  imageStatus = computed<'complete' | 'warning' | 'pending'>(() => {
+    if (!this.dockerImage().trim()) return 'pending';
+    if (this.isLatestImage() || this.isInvalidFormat() || this.isStorageBlocked() || this.isArchIncompatible()) {
       return 'warning';
     }
-    return 'pending';
+    return 'complete';
+  });
+
+  executionStatus = computed<'complete' | 'pending'>(() => {
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') {
+      return this.entrypoint().trim().length > 0 ? 'complete' : 'pending';
+    }
+    return 'complete';
   });
 
   resourcesStatus = computed<'complete' | 'pending'>(() => {
-    return this.baseRamMB() >= 256 ? 'complete' : 'pending';
+    return this.baseRamMB() > 0 && !this.isRamTooLow() ? 'complete' : 'pending';
   });
+
+  verificationStatus = computed<'complete' | 'warning' | 'pending'>(() => {
+    const job = this.activeEnvTestJob();
+    if (!job) return 'pending';
+    if (job.status === 'success') return 'complete';
+    if (job.status === 'failed') return 'warning';
+    return 'pending';
+  });
+
+  // Índice actual en el wizard
+  currentSectionIndex = computed<number>(() => {
+    return this.WIZARD_SECTIONS.indexOf(this.activeSection());
+  });
+
+  canGoPrev = computed<boolean>(() => this.currentSectionIndex() > 0);
+  canGoNext = computed<boolean>(() => this.currentSectionIndex() < this.WIZARD_SECTIONS.length - 1);
 
   ngOnInit(): void {
     this.fetchLocalImages();
+    this.loadModels();
+    this.loadCategories();
 
     this.sub.add(
       this.imageDebounce$.pipe(
@@ -256,6 +404,152 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     );
 
     this.checkDraft();
+
+    // Consulta únicamente plantillas aprobadas para la puerta de duplicación
+    this.templatesService.getTemplates('approved').subscribe({
+      next: (list) => {
+        this.existingCatalog.set(list || []);
+      },
+      error: () => {}
+    });
+
+    // Consulta capacidades de hardware y servicios satélite reales del entorno
+    this.templatesService.getRuntimeCapabilities().subscribe({
+      next: (caps) => {
+        if (caps) {
+          this.runtimeCapabilities.set(caps);
+          if (caps.satellite_services && caps.satellite_services.length > 0) {
+            this.availableServices.set(
+              caps.satellite_services.map(s => ({
+                category: s.category,
+                engine: s.engine,
+                label: s.label,
+                version: s.version,
+                description: s.description,
+                envVar: s.env_var,
+                isAvailable: s.is_available
+              }))
+            );
+          }
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  loadModels(): void {
+    this.templatesService.getModels().subscribe({
+      next: (list) => this.models.set(list || []),
+      error: () => {}
+    });
+  }
+
+  loadCategories(): void {
+    this.templatesService.getCategories().subscribe({
+      next: (cats) => this.categories.set(cats || []),
+      error: () => {}
+    });
+  }
+
+  openCategoryManager(): void {
+    this.categoryFormName.set('');
+    this.categoryFormDescription.set('');
+    this.editingCategoryId.set(null);
+    this.categoryErrorMsg.set(null);
+    this.showCategoryManagerModal.set(true);
+  }
+
+  closeCategoryManager(): void {
+    this.showCategoryManagerModal.set(false);
+    this.categoryErrorMsg.set(null);
+    this.editingCategoryId.set(null);
+  }
+
+  startEditCategory(cat: TemplateCategory): void {
+    this.editingCategoryId.set(cat.id);
+    this.categoryFormName.set(cat.name);
+    this.categoryFormDescription.set(cat.description || '');
+    this.categoryErrorMsg.set(null);
+  }
+
+  cancelEditCategory(): void {
+    this.editingCategoryId.set(null);
+    this.categoryFormName.set('');
+    this.categoryFormDescription.set('');
+    this.categoryErrorMsg.set(null);
+  }
+
+  saveCategory(): void {
+    const name = this.categoryFormName().trim();
+    if (!name) return;
+    this.isCategorySaving.set(true);
+    this.categoryErrorMsg.set(null);
+
+    const editId = this.editingCategoryId();
+    if (editId) {
+      this.templatesService.updateCategory(editId, {
+        name,
+        description: this.categoryFormDescription().trim()
+      }).subscribe({
+        next: () => {
+          this.isCategorySaving.set(false);
+          this.cancelEditCategory();
+          this.loadCategories();
+          this.loadModels();
+        },
+        error: (err) => {
+          this.isCategorySaving.set(false);
+          if (err?.status === 409) {
+            this.categoryErrorMsg.set('Ya existe una categoría con este nombre.');
+          } else {
+            this.categoryErrorMsg.set('Error al actualizar la categoría.');
+          }
+        }
+      });
+    } else {
+      this.templatesService.createCategory({
+        name,
+        description: this.categoryFormDescription().trim()
+      }).subscribe({
+        next: (created) => {
+          this.isCategorySaving.set(false);
+          this.categoryFormName.set('');
+          this.categoryFormDescription.set('');
+          this.loadCategories();
+          if (!this.selectedCategoryId()) {
+            this.selectedCategoryId.set(created.id);
+          }
+        },
+        error: (err) => {
+          this.isCategorySaving.set(false);
+          if (err?.status === 409) {
+            this.categoryErrorMsg.set('Ya existe una categoría con este nombre.');
+          } else {
+            this.categoryErrorMsg.set('Error al crear la categoría.');
+          }
+        }
+      });
+    }
+  }
+
+  deleteCategory(cat: TemplateCategory): void {
+    this.categoryErrorMsg.set(null);
+    this.templatesService.deleteCategory(cat.id).subscribe({
+      next: () => {
+        if (this.selectedCategoryId() === cat.id) {
+          this.selectedCategoryId.set(null);
+        }
+        this.loadCategories();
+        this.loadModels();
+      },
+      error: (err) => {
+        if (err?.status === 409) {
+          this.categoryErrorMsg.set(`No se puede eliminar "${cat.name}" porque está en uso.`);
+        } else {
+          this.categoryErrorMsg.set('Error al eliminar la categoría.');
+        }
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -267,13 +561,13 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     const payload = {
       event,
       timestamp: new Date().toISOString(),
+      target_environment: this.targetEnvironment(),
       step_path: this.stepPath(),
       recipe_used: this.recipeUsed(),
       test_env_run: this.envTestRan(),
       tiempo_hasta_publicar: Math.round((Date.now() - this.modalOpenTime) / 1000),
       ...meta
     };
-    // Registro estructurado en consola y almacenamiento local de telemetría para auditoría
     console.debug('[SOLV Telemetry]', payload);
   }
 
@@ -295,10 +589,14 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       const saved = localStorage.getItem('solv_template_draft');
       if (saved) {
         const d = JSON.parse(saved);
+        if (d.targetEnvironment) this.targetEnvironment.set(d.targetEnvironment);
         if (d.name) this.name.set(d.name);
         if (d.dockerImage) this.dockerImage.set(d.dockerImage);
         if (d.baseRamMB) this.baseRamMB.set(d.baseRamMB);
         if (d.setupScript) this.setupScript.set(d.setupScript);
+        if (d.entrypoint) this.entrypoint.set(d.entrypoint);
+        if (d.timeoutMS) this.timeoutMS.set(d.timeoutMS);
+        if (d.sampleInput) this.sampleInput.set(d.sampleInput);
         if (d.description) this.description.set(d.description);
         if (d.toolsDeclared) this.toolsDeclared.set(d.toolsDeclared);
         if (d.selectedServices) this.selectedServices.set(d.selectedServices);
@@ -318,10 +616,14 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   private saveDraftToStorage(): void {
     try {
       const draft = {
+        targetEnvironment: this.targetEnvironment(),
         name: this.name(),
         dockerImage: this.dockerImage(),
         baseRamMB: this.baseRamMB(),
         setupScript: this.setupScript(),
+        entrypoint: this.entrypoint(),
+        timeoutMS: this.timeoutMS(),
+        sampleInput: this.sampleInput(),
         description: this.description(),
         toolsDeclared: this.toolsDeclared(),
         selectedServices: this.selectedServices(),
@@ -331,9 +633,66 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     } catch (_) {}
   }
 
+  // Navegación modular por pasos
   setSection(section: WizardSection): void {
     this.activeSection.set(section);
     this.stepPath.update((path: string[]) => [...path, section]);
+    this.saveDraftToStorage();
+  }
+
+  nextSection(): void {
+    const idx = this.currentSectionIndex();
+    if (idx < this.WIZARD_SECTIONS.length - 1) {
+      this.setSection(this.WIZARD_SECTIONS[idx + 1]);
+    }
+  }
+
+  prevSection(): void {
+    const idx = this.currentSectionIndex();
+    if (idx > 0) {
+      this.setSection(this.WIZARD_SECTIONS[idx - 1]);
+    }
+  }
+
+  // Cambio de Propósito con Diálogo de Confirmación (Adenda 3)
+  selectTargetEnvironment(env: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
+    if (this.targetEnvironment() === env) return;
+    if (this.isFormDirty()) {
+      this.pendingPurposeChange.set(env);
+      this.showPurposeConfirmDialog.set(true);
+      return;
+    }
+    this.executePurposeChange(env);
+  }
+
+  confirmPurposeChange(): void {
+    const nextEnv = this.pendingPurposeChange();
+    if (nextEnv) {
+      this.executePurposeChange(nextEnv);
+    }
+    this.showPurposeConfirmDialog.set(false);
+    this.pendingPurposeChange.set(null);
+  }
+
+  cancelPurposeChange(): void {
+    this.pendingPurposeChange.set(null);
+    this.showPurposeConfirmDialog.set(false);
+  }
+
+  private executePurposeChange(newEnv: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
+    this.targetEnvironment.set(newEnv);
+    // Matriz de reseteo estricta:
+    // Identidad e imagen se conservan.
+    this.recipeUsed.set(null);
+    this.baseRamMB.set(newEnv === 'JUEZ_EFIMERO' ? 256 : 512);
+    this.selectedServices.set([]);
+    this.setupScript.set('');
+    this.entrypoint.set('');
+    this.sampleInput.set('');
+    this.timeoutMS.set(newEnv === 'JUEZ_EFIMERO' ? 3000 : 5000);
+    this.activeEnvTestJob.set(null);
+    this.isDraftSaved.set(false);
+    this.stepPath.update(path => [...path, 'target_env:' + newEnv]);
     this.saveDraftToStorage();
   }
 
@@ -346,51 +705,92 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     }, 3500);
   }
 
+  // Puertas con confirmación si el form está editado (D1)
   selectCreationMode(mode: 'blank' | 'recipe' | 'duplicate'): void {
-    this.creationMode.set(mode);
-    if (mode === 'recipe') {
-      if (this.recipes.length > 0) {
-        this.applyRecipe(this.recipes[0]);
-      }
-    } else if (mode === 'blank') {
-      this.name.set('');
-      this.dockerImage.set('');
-      this.toolsDeclared.set('');
-      this.description.set('');
-      this.activeSection.set('identity');
+    if (this.creationMode() === mode) return;
+    if (this.isFormDirty()) {
+      this.pendingDoorChange.set(mode);
+      this.showDoorConfirmDialog.set(true);
+      return;
     }
+    this.executeDoorChange(mode);
   }
 
-  saveAsInstitutionalRecipe(): void {
-    const msg = $localize`:@@ST-16:Solicitud de receta enviada a aprobación.`;
-    this.showToast(msg);
-    this.emitTelemetry('save_recipe_request', { name: this.name() });
+  confirmDoorChange(): void {
+    const nextMode = this.pendingDoorChange();
+    if (nextMode) {
+      this.name.set('');
+      this.dockerImage.set('');
+      this.description.set('');
+      this.toolsDeclared.set('');
+      this.baseRamMB.set(this.targetEnvironment() === 'JUEZ_EFIMERO' ? 256 : 512);
+      this.selectedServices.set([]);
+      this.setupScript.set('');
+      this.entrypoint.set('');
+      this.sampleInput.set('');
+      this.activeEnvTestJob.set(null);
+      this.isDraftSaved.set(false);
+      this.executeDoorChange(nextMode);
+    }
+    this.showDoorConfirmDialog.set(false);
+    this.pendingDoorChange.set(null);
+  }
+
+  cancelDoorChange(): void {
+    this.pendingDoorChange.set(null);
+    this.showDoorConfirmDialog.set(false);
+  }
+
+  private executeDoorChange(mode: 'blank' | 'recipe' | 'duplicate'): void {
+    this.creationMode.set(mode);
+    this.stepPath.update(path => [...path, 'mode:' + mode]);
   }
 
   saveDraftManually(): void {
     this.saveDraftToStorage();
+    this.isDraftSaved.set(true);
     const msg = $localize`:@@ST-08:Borrador guardado.`;
     this.showToast(msg);
   }
 
-  applyRecipe(recipe: TemplateRecipe): void {
-    this.recipeUsed.set(recipe.id);
-    if (!this.name().trim()) {
-      this.name.set(recipe.title);
+  applyModel(model: TemplateModelItem): void {
+    this.recipeUsed.set(model.id);
+    this.selectedModelId.set(model.id);
+    if (model.category_id) {
+      this.selectedCategoryId.set(model.category_id);
     }
-    this.dockerImage.set(recipe.image);
-    this.baseRamMB.set(recipe.baseRamMB);
-    this.toolsDeclared.set(recipe.tools);
-    if (!this.description().trim()) {
-      this.description.set(recipe.description);
-    }
-    this.triggerVerification(recipe.image, false);
-    this.activeSection.set('environment');
-    this.stepPath.update((path: string[]) => [...path, 'recipe:' + recipe.id, 'environment']);
+    this.name.set(model.name);
+    this.dockerImage.set(model.docker_image);
+    this.baseRamMB.set(model.base_ram_mb);
+    this.description.set(model.description || '');
+    if (model.entrypoint) this.entrypoint.set(model.entrypoint);
+    if (model.timeout_ms) this.timeoutMS.set(model.timeout_ms);
+    if (model.sample_input) this.sampleInput.set(model.sample_input);
+    this.triggerVerification(model.docker_image, false);
+    this.setSection('image');
     this.saveDraftToStorage();
+    this.isDraftSaved.set(true);
 
-    const msg = $localize`:@@ST-14:Receta ${recipe.title}:name: aplicada. Edite lo que necesite.`;
+    const msg = $localize`:@@ST-14:Modelo ${model.name}:name: aplicado. Edite lo que necesite.`;
     this.showToast(msg);
+  }
+
+  duplicateFromCatalog(template: AdminTemplateItem): void {
+    this.name.set(`(Copia) ${template.name}`);
+    this.dockerImage.set(template.docker_image);
+    this.baseRamMB.set(template.base_ram_mb || (this.targetEnvironment() === 'JUEZ_EFIMERO' ? 256 : 512));
+    this.description.set(template.description || '');
+    this.toolsDeclared.set((template.tools_declared || []).join(', '));
+    this.setupScript.set(template.setup_script || '');
+    if (template.category_id) this.selectedCategoryId.set(template.category_id);
+    if (template.entrypoint) this.entrypoint.set(template.entrypoint);
+    if (template.timeout_ms) this.timeoutMS.set(template.timeout_ms);
+    if (template.sample_input) this.sampleInput.set(template.sample_input);
+    this.triggerVerification(template.docker_image, false);
+    this.setSection('image');
+    this.saveDraftToStorage();
+    this.isDraftSaved.set(true);
+    this.showToast(`Plantilla "${template.name}" duplicada. Ajuste la configuración.`);
   }
 
   onEnvTestCompleted(job: EnvTestJob): void {
@@ -400,7 +800,11 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   }
 
   openPublishDialog(): void {
-    if (!this.canSaveDraft()) return;
+    if (this.footerActionState() === 'publish_disabled') return;
+    if (this.isFormDirty()) {
+      this.saveDraftToStorage();
+      this.isDraftSaved.set(true);
+    }
     this.showPublishDialog.set(true);
   }
 
@@ -505,7 +909,8 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   });
 
   isRamTooLow = computed(() => {
-    return this.baseRamMB() < 256;
+    const min = this.targetEnvironment() === 'JUEZ_EFIMERO' ? 64 : 256;
+    return this.baseRamMB() < min;
   });
 
   private canVerify(image: string): boolean {
@@ -551,21 +956,40 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   }
 
   resourceProfilePreview = computed(() => {
-    const ram = this.baseRamMB() || 256;
-    const editorBase = 210;
+    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
+    const ram = this.baseRamMB() || (isJudge ? 256 : 512);
+    
+    // Obtener la memoria libre/disponible del host reportada dinámicamente por la API del backend
+    const caps = this.runtimeCapabilities();
+    const hostFreeRamMB = caps?.host_memory?.available_ram_mb ?? (caps?.host_memory?.total_ram_mb ? caps.host_memory.total_ram_mb * 0.20 : 1024);
+    
+    if (isJudge) {
+      // RAM mínima reservada por el kernel + sandbox del Juez (viene del backend; fallback: 32 MB)
+      const runtimeBase = caps?.runtime_base_mb ?? 32;
+      const usable = Math.max(0, ram - runtimeBase);
+      const estimatedConcurrentEvaluations = Math.max(1, Math.floor(hostFreeRamMB / ram));
+      return {
+        ram,
+        editorBase: runtimeBase,
+        usable,
+        estimatedCapacity: estimatedConcurrentEvaluations,
+        isJudge: true
+      };
+    }
+
+    // RAM mínima consumida por el editor OpenVSCode Server (viene del backend; fallback: 210 MB)
+    const editorBase = caps?.editor_base_mb ?? 210;
     const usable = Math.max(0, ram - editorBase);
-    const minReservation = Math.max(128, Math.floor(ram * 0.5));
-    const highWarning = Math.floor(ram * 0.8);
-    const estimatedCapacity = Math.floor((32 * 1024 * 0.85) / ram);
+    const estimatedStudents = Math.max(1, Math.floor(hostFreeRamMB / ram));
     return {
       ram,
       editorBase,
       usable,
-      minReservation,
-      highWarning,
-      estimatedCapacity
+      estimatedCapacity: estimatedStudents,
+      isJudge: false
     };
   });
+
 
   isStorageBlocked = computed(() => {
     const res = this.verificationResult();
@@ -577,20 +1001,26 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return res !== null && res.exists && !res.architecture_compatible;
   });
 
-  // Habilitado para guardar borrador (UX-13): nombre e imagen sintácticamente válidos sin :latest
   canSaveDraft = computed(() => {
-    const hasName = this.name().trim().length > 0;
+    const hasName = this.name().trim().length >= 3;
     const hasImage = this.dockerImage().trim().length > 0;
     const formatValid = !this.isInvalidFormat() && !this.isLatestImage();
     const ramValid = !this.isRamTooLow();
-    return hasName && hasImage && formatValid && ramValid && !this.isSubmitting();
+    const judgeValid = this.targetEnvironment() !== 'JUEZ_EFIMERO' || this.entrypoint().trim().length > 0;
+    return hasName && hasImage && formatValid && ramValid && judgeValid && !this.isSubmitting();
   });
 
-  isValid = computed(() => {
-    const draftOk = this.canSaveDraft();
-    const notBlocked = !this.isStorageBlocked() && !this.isArchIncompatible();
-    const notChecking = this.verificationState() !== 'checking';
-    return draftOk && notBlocked && notChecking;
+  saveDraftDisabledTooltip = computed(() => {
+    if (this.canSaveDraft()) return '';
+    if (this.name().trim().length < 3) return 'Completá el nombre de la plantilla (mínimo 3 caracteres)';
+    if (!this.dockerImage().trim()) return 'Ingresá la imagen Docker requerida';
+    if (this.isLatestImage()) return 'El tag :latest está prohibido';
+    if (this.isInvalidFormat()) return 'Formato OCI inválido (ej: python:3.12-slim)';
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
+      return $localize`:@@PU-13:Completá el nombre y comando de ejecución para habilitar el guardado`;
+    }
+    if (this.isRamTooLow()) return 'La memoria RAM asignada está por debajo del mínimo permitido';
+    return 'Completá los campos requeridos para habilitar el guardado';
   });
 
   setRam(mb: number): void {
@@ -606,6 +1036,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   }
 
   toggleService(service: AvailableSatelliteService): void {
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || service.isAvailable === false) return;
     const current = this.selectedServices();
     const exists = current.some(s => s.engine === service.engine);
 
@@ -647,11 +1078,17 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       name: this.name().trim(),
       docker_image: this.dockerImage().trim(),
       base_ram_mb: this.baseRamMB(),
-      setup_script: this.setupScript().trim(),
       description: this.description().trim(),
+      target_environment: this.targetEnvironment(),
+      entrypoint: this.entrypoint().trim(),
+      timeout_ms: this.timeoutMS(),
+      sample_input: this.sampleInput().trim(),
+      category_id: this.selectedCategoryId() || undefined,
+      model_id: this.selectedModelId() || undefined,
+      setup_script: this.setupScript().trim(),
       tools_declared: this.toolsList(),
       services_config: {
-        services: this.selectedServices()
+        services: this.targetEnvironment() === 'JUEZ_EFIMERO' ? [] : this.selectedServices()
       }
     });
   }

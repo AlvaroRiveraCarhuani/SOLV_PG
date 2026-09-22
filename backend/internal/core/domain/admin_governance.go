@@ -3,8 +3,16 @@ package domain
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
+)
+
+var (
+	ErrTemplateNameConflict = errors.New("template with this name already exists")
+	ErrCategoryInUse        = errors.New("category is in use and cannot be deleted")
+	ErrCategoryNotFound     = errors.New("category not found")
+	ErrTemplateNotApproved  = errors.New("only approved templates can be promoted to models")
 )
 
 // ServiceRequirement requerimiento de un servicio satélite complementario (BD, cache, message broker, etc.)
@@ -136,6 +144,11 @@ type CreateOfficialTemplateDTO struct {
 	BaseRamMB         int                      `json:"base_ram_mb" validate:"required,gt=0"`
 	Description       string                   `json:"description"`
 	TargetEnvironment string                   `json:"target_environment"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"
+	CategoryID        *string                  `json:"category_id,omitempty"`
+	ModelID           *string                  `json:"model_id,omitempty"`
+	Entrypoint        string                   `json:"entrypoint,omitempty"`
+	TimeoutMS         int                      `json:"timeout_ms,omitempty"`
+	SampleInput       string                   `json:"sample_input,omitempty"`
 	ServicesConfig    *ServicesConfig          `json:"services_config,omitempty"`
 	ResourceProfile   *TemplateResourceProfile `json:"resource_profile,omitempty"`
 	SetupScript       string                   `json:"setup_script,omitempty"`
@@ -157,6 +170,12 @@ type AdminTemplateReviewItem struct {
 	RequestedByName     *string                 `db:"requested_by_name" json:"requested_by_name,omitempty"`
 	Description         string                  `db:"description" json:"description"`
 	TargetEnvironment   string                  `db:"target_environment" json:"target_environment"`
+	Entrypoint          string                  `db:"entrypoint" json:"entrypoint"`
+	TimeoutMS           int                     `db:"timeout_ms" json:"timeout_ms"`
+	SampleInput         string                  `db:"sample_input" json:"sample_input"`
+	CategoryID          *string                 `db:"category_id" json:"category_id,omitempty"`
+	CategoryName        *string                 `db:"category_name" json:"category_name,omitempty"`
+	ModelID             *string                 `db:"model_id" json:"model_id,omitempty"`
 	ServicesConfig      ServicesConfig          `db:"services_config" json:"services_config"`
 	ResourceProfile     TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
 	SetupScript         string                  `db:"setup_script" json:"setup_script"`
@@ -174,6 +193,52 @@ type AdminTemplateReviewItem struct {
 	CreatedAt           time.Time               `db:"created_at" json:"created_at"`
 }
 
+// TemplateCategory categoría institucional de entornos
+type TemplateCategory struct {
+	ID          string    `db:"id" json:"id"`
+	TenantID    string    `db:"tenant_id" json:"tenant_id"`
+	Name        string    `db:"name" json:"name"`
+	Description string    `db:"description" json:"description"`
+	CreatedAt   time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
+}
+
+type CreateCategoryDTO struct {
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Description string `json:"description"`
+}
+
+type UpdateCategoryDTO struct {
+	Name        string `json:"name" validate:"required,min=2,max=100"`
+	Description string `json:"description"`
+}
+
+// TemplateModelItemDTO modelo oficial preconfigurado para creación rápida
+type TemplateModelItemDTO struct {
+	ID                string    `db:"id" json:"id"`
+	TenantID          string    `db:"tenant_id" json:"tenant_id"`
+	CategoryID        string    `db:"category_id" json:"category_id"`
+	CategoryName      string    `db:"category_name" json:"category_name"`
+	SourceTemplateID  *string   `db:"source_template_id" json:"source_template_id,omitempty"`
+	Title             string    `db:"title" json:"title"`
+	Description       string    `db:"description" json:"description"`
+	DockerImage       string    `db:"docker_image" json:"docker_image"`
+	BaseRamMB         int       `db:"base_ram_mb" json:"base_ram_mb"`
+	Tools             []string  `db:"-" json:"tools"`
+	TargetEnvironment string    `db:"target_environment" json:"target_environment"`
+	Entrypoint        string    `db:"entrypoint" json:"entrypoint"`
+	TimeoutMS         int       `db:"timeout_ms" json:"timeout_ms"`
+	SampleInput       string    `db:"sample_input" json:"sample_input"`
+	UsageCount        int       `db:"usage_count" json:"usage_count"`
+	CreatedAt         time.Time `db:"created_at" json:"created_at"`
+}
+
+type PromoteTemplateToModelDTO struct {
+	CategoryID  string `json:"category_id" validate:"required"`
+	Title       string `json:"title" validate:"required,min=3,max=150"`
+	Description string `json:"description"`
+}
+
 // EmergencyActionRequest DTO para solicitar una acción de emergencia administrativa (ADR-032)
 type EmergencyActionRequest struct {
 	ConfirmationPhrase string `json:"confirmation_phrase" validate:"required"`
@@ -186,4 +251,44 @@ type EmergencyActionResult struct {
 	AffectedCount int64  `json:"affected_count"`
 	ExecutedBy    string `json:"executed_by"`
 	Message       string `json:"message"`
+}
+
+// HostCapacityInfo métricas físicas reales del host de ejecución
+type HostCapacityInfo struct {
+	TotalRAMMB     int64 `json:"total_ram_mb"`
+	AvailableRAMMB int64 `json:"available_ram_mb"`
+	UsedRAMMB      int64 `json:"used_ram_mb"`
+	CPUCores       int   `json:"cpu_cores"`
+}
+
+// SatelliteServiceCapability especificación de un servicio satélite soportado por la plataforma
+type SatelliteServiceCapability struct {
+	Category    string `json:"category"`
+	Engine      string `json:"engine"`
+	Label       string `json:"label"`
+	Version     string `json:"version"`
+	Description string `json:"description"`
+	EnvVar      string `json:"env_var"`
+	IsAvailable bool   `json:"is_available"`
+}
+
+// RamPresetSuggestion preset de memoria contextual sugerido según capacidades del nodo
+type RamPresetSuggestion struct {
+	MB    int    `json:"mb"`
+	Label string `json:"label"`
+	Desc  string `json:"desc"`
+}
+
+// RuntimeCapabilities capacidades de ejecución dinámicas del entorno activo (hardware y servicios)
+type RuntimeCapabilities struct {
+	HostMemory        HostCapacityInfo             `json:"host_memory"`
+	SatelliteServices []SatelliteServiceCapability `json:"satellite_services"`
+	IDEPresets        []RamPresetSuggestion        `json:"ide_presets"`
+	JudgePresets      []RamPresetSuggestion        `json:"judge_presets"`
+	MaxAllowedRamMB   int                          `json:"max_allowed_ram_mb"`
+	// EditorBaseMB es la RAM mínima que consume el proceso del editor (OpenVSCode Server).
+	// El frontend lo usa para calcular la RAM disponible para el programa del alumno.
+	EditorBaseMB  int `json:"editor_base_mb"`
+	// RuntimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox).
+	RuntimeBaseMB int `json:"runtime_base_mb"`
 }
