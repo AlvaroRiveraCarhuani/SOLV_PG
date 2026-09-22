@@ -5,6 +5,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -40,6 +42,14 @@ func main() {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Fatalf("Fatal: failed to initialize raw docker SDK client: %v", err)
+	}
+
+	// Determinar directorio de migraciones relativo al ejecutable.
+	// En dev (go run) __file__ apunta al source; en prod el binario
+	// se compila en /app y las migraciones se copian a /app/migrations.
+	migrationsDir := resolveMigrationsDir()
+	if err := database.RunMigrations(db.GetDB().DB, migrationsDir); err != nil {
+		log.Fatalf("Fatal: failed to run database migrations: %v", err)
 	}
 
 	if err := db.RunInitialMigrations(); err != nil {
@@ -100,6 +110,7 @@ func main() {
 	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
+	govService.SetAuditRepo(auditLogRepo)
 
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
@@ -193,4 +204,32 @@ func main() {
 	if err := http.ListenAndServe(":"+port, handler); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+// resolveMigrationsDir devuelve la ruta al directorio de migraciones.
+// Estrategia: primero busca ./migrations (relativo al CWD, funciona con
+// "go run" y en el contenedor Docker donde el CWD es /app).
+// Si no existe, busca relativo al archivo fuente actual (útil en algunos
+// entornos de CI donde el CWD difiere del módulo).
+func resolveMigrationsDir() string {
+	// Opción de override vía variable de entorno (útil en CI / tests).
+	if v := os.Getenv("MIGRATIONS_DIR"); v != "" {
+		return v
+	}
+	// Ruta relativa al CWD: funciona en Docker (/app) y en `go run ./cmd/api`.
+	if _, err := os.Stat("migrations"); err == nil {
+		return "migrations"
+	}
+	// Fallback: relativo a este archivo fuente (útil en desarrollo local cuando
+	// el CWD no es la raíz del módulo).
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		// backend/cmd/api/main.go → backend/migrations
+		candidate := filepath.Join(filepath.Dir(filename), "..", "..", "migrations")
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	// Último recurso: devolver el path relativo y dejar que goose falle con mensaje claro.
+	return "migrations"
 }
