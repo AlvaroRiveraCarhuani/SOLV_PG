@@ -573,64 +573,98 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   // Gestión de Autosave y Reanudación (UX-13)
   private checkDraft(): void {
-    try {
-      const saved = localStorage.getItem('solv_template_draft');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (parsed.name || parsed.dockerImage) {
-          this.hasDraftToResume.set(true);
+    this.templatesService.getDraft().subscribe({
+      next: (draft) => {
+        if (draft && draft.form_data) {
+          this.applyDraftData(draft.form_data);
+          if (draft.form_data.name || draft.form_data.dockerImage) {
+            this.hasDraftToResume.set(true);
+          }
         }
+      },
+      error: (err) => {
+        console.debug('[Draft] No active draft or error fetching draft', err);
       }
-    } catch (_) {}
+    });
+  }
+
+  private applyDraftData(d: any): void {
+    if (!d) return;
+    if (d.targetEnvironment) this.targetEnvironment.set(d.targetEnvironment);
+    if (d.name) this.name.set(d.name);
+    if (d.dockerImage) this.dockerImage.set(d.dockerImage);
+    if (d.baseRamMB) this.baseRamMB.set(d.baseRamMB);
+    if (d.setupScript) this.setupScript.set(d.setupScript);
+    if (d.entrypoint) this.entrypoint.set(d.entrypoint);
+    if (d.timeoutMS) this.timeoutMS.set(d.timeoutMS);
+    if (d.sampleInput) this.sampleInput.set(d.sampleInput);
+    if (d.description) this.description.set(d.description);
+    if (d.toolsDeclared) this.toolsDeclared.set(d.toolsDeclared);
+    if (d.selectedServices) this.selectedServices.set(d.selectedServices);
+    if (d.selectedCategoryId) this.selectedCategoryId.set(d.selectedCategoryId);
+    if (d.selectedModelId) this.selectedModelId.set(d.selectedModelId);
+    if (d.dockerImage) this.triggerVerification(d.dockerImage, false);
   }
 
   resumeDraft(): void {
-    try {
-      const saved = localStorage.getItem('solv_template_draft');
-      if (saved) {
-        const d = JSON.parse(saved);
-        if (d.targetEnvironment) this.targetEnvironment.set(d.targetEnvironment);
-        if (d.name) this.name.set(d.name);
-        if (d.dockerImage) this.dockerImage.set(d.dockerImage);
-        if (d.baseRamMB) this.baseRamMB.set(d.baseRamMB);
-        if (d.setupScript) this.setupScript.set(d.setupScript);
-        if (d.entrypoint) this.entrypoint.set(d.entrypoint);
-        if (d.timeoutMS) this.timeoutMS.set(d.timeoutMS);
-        if (d.sampleInput) this.sampleInput.set(d.sampleInput);
-        if (d.description) this.description.set(d.description);
-        if (d.toolsDeclared) this.toolsDeclared.set(d.toolsDeclared);
-        if (d.selectedServices) this.selectedServices.set(d.selectedServices);
-        if (d.dockerImage) this.triggerVerification(d.dockerImage, false);
-      }
-    } catch (_) {}
     this.hasDraftToResume.set(false);
   }
 
   discardDraft(): void {
-    try {
-      localStorage.removeItem('solv_template_draft');
-    } catch (_) {}
-    this.hasDraftToResume.set(false);
+    this.templatesService.deleteDraft().subscribe({
+      next: () => {
+        this.resetDraftForm();
+        this.hasDraftToResume.set(false);
+      },
+      error: () => {
+        this.resetDraftForm();
+        this.hasDraftToResume.set(false);
+      }
+    });
+  }
+
+  private resetDraftForm(): void {
+    this.name.set('');
+    this.dockerImage.set('');
+    this.description.set('');
+    this.setupScript.set('');
+    this.entrypoint.set('');
+    this.sampleInput.set('');
+    this.timeoutMS.set(3000);
+    this.selectedServices.set([]);
+    this.toolsDeclared.set('');
+    this.selectedCategoryId.set(null);
+    this.selectedModelId.set(null);
+    this.verificationState.set('idle');
+    this.verificationResult.set(null);
+    this.verificationError.set(null);
+  }
+
+  saveDraft(): void {
+    this.saveDraftToStorage();
   }
 
   private saveDraftToStorage(): void {
-    try {
-      const draft = {
-        targetEnvironment: this.targetEnvironment(),
-        name: this.name(),
-        dockerImage: this.dockerImage(),
-        baseRamMB: this.baseRamMB(),
-        setupScript: this.setupScript(),
-        entrypoint: this.entrypoint(),
-        timeoutMS: this.timeoutMS(),
-        sampleInput: this.sampleInput(),
-        description: this.description(),
-        toolsDeclared: this.toolsDeclared(),
-        selectedServices: this.selectedServices(),
-        updatedAt: new Date().toISOString()
-      };
-      localStorage.setItem('solv_template_draft', JSON.stringify(draft));
-    } catch (_) {}
+    const draft = {
+      targetEnvironment: this.targetEnvironment(),
+      name: this.name(),
+      dockerImage: this.dockerImage(),
+      baseRamMB: this.baseRamMB(),
+      setupScript: this.setupScript(),
+      entrypoint: this.entrypoint(),
+      timeoutMS: this.timeoutMS(),
+      sampleInput: this.sampleInput(),
+      description: this.description(),
+      toolsDeclared: this.toolsDeclared(),
+      selectedServices: this.selectedServices(),
+      selectedCategoryId: this.selectedCategoryId(),
+      selectedModelId: this.selectedModelId(),
+      updatedAt: new Date().toISOString()
+    };
+    this.templatesService.saveDraft(draft).subscribe({
+      next: () => {},
+      error: (err) => console.error('Error saving draft to backend:', err)
+    });
   }
 
   // Navegación modular por pasos
@@ -1069,9 +1103,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     if (!this.canSaveDraft() || this.isSubmitting()) return;
     this.isSubmitting.set(true);
 
-    try {
-      localStorage.removeItem('solv_template_draft');
-    } catch (_) {}
+    this.templatesService.deleteDraft().subscribe({ error: () => {} });
     this.emitTelemetry('template_saved', { name: this.name(), image: this.dockerImage() });
 
     this.created.emit({

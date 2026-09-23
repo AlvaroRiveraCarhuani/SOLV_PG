@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -493,4 +494,28 @@ func (s *AdminGovernanceService) PromoteTemplateToModel(
 	}
 
 	return model, nil
+}
+
+func (s *AdminGovernanceService) SaveTemplateDraft(ctx context.Context, tenantID, userID string, formData json.RawMessage, templateID *string) (*domain.TemplateDraft, error) {
+	if tenantID == "" || userID == "" {
+		return nil, errors.New("tenant_id y user_id son requeridos")
+	}
+	if len(formData) == 0 {
+		formData = json.RawMessage("{}")
+	}
+	return s.govRepo.SaveDraft(ctx, tenantID, userID, formData, templateID)
+}
+
+func (s *AdminGovernanceService) GetTemplateDraft(ctx context.Context, tenantID, userID string) (*domain.TemplateDraft, error) {
+	if tenantID == "" || userID == "" {
+		return nil, errors.New("tenant_id y user_id son requeridos")
+	}
+	return s.govRepo.GetDraftByUser(ctx, tenantID, userID)
+}
+
+func (s *AdminGovernanceService) DeleteTemplateDraft(ctx context.Context, tenantID, userID string) error {
+	if tenantID == "" || userID == "" {
+		return errors.New("tenant_id y user_id son requeridos")
+	}
+	return s.govRepo.DeleteDraft(ctx, tenantID, userID)
 }

@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"net/http"
 	"strings"
 
@@ -444,6 +445,21 @@ func (h *AdminAcademicHandler) ResetStudentOOM(w http.ResponseWriter, r *http.Re
 // Docker Templates Governance (ADR-030)
 // -----------------------------------------------------------------------------
 
+func (h *AdminAcademicHandler) GetRuntimeCapabilities(w http.ResponseWriter, r *http.Request) {
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	caps, err := h.govService.GetRuntimeCapabilities(r.Context())
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener capacidades de ejecución")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, caps, "Capacidades de ejecución obtenidas exitosamente")
+}
+
 func (h *AdminAcademicHandler) ListTemplates(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {
@@ -519,6 +535,10 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 			"status":           dto.Status,
 			"rejection_reason": dto.RejectionReason,
 		})
+		ipAddr := r.RemoteAddr
+		if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+			ipAddr = host
+		}
 		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
 			TenantID:     tenantID,
 			ActorID:      adminID,
@@ -527,7 +547,7 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 			ResourceID:   &item.ID,
 			StatusCode:   http.StatusOK,
 			Metadata:     meta,
-			IPAddress:    r.RemoteAddr,
+			IPAddress:    ipAddr,
 			UserAgent:    r.UserAgent(),
 		})
 	}
@@ -566,6 +586,10 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 
 	item, err := h.govService.CreateOfficialTemplate(r.Context(), tenantID, adminID, dto)
 	if err != nil {
+		if errors.Is(err, domain.ErrTemplateNameConflict) {
+			SendError(w, http.StatusConflict, "template_exists", "Ya existe una plantilla con este nombre")
+			return
+		}
 		status := http.StatusInternalServerError
 		if errors.Is(err, services.ErrInvalidDockerImage) || errors.Is(err, services.ErrLatestTagForbidden) || strings.Contains(err.Error(), "requerido") {
 			status = http.StatusUnprocessableEntity
@@ -778,4 +802,266 @@ func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Reques
 	}
 
 	SendJSON(w, http.StatusOK, result, "Verificación de imagen completada")
+}
+
+// -----------------------------------------------------------------------------
+// Categorías y Modelos de Plantillas (ADR-030)
+// -----------------------------------------------------------------------------
+
+func (h *AdminAcademicHandler) ListTemplateCategories(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio no configurado")
+		return
+	}
+	categories, err := h.govService.ListTemplateCategories(r.Context(), tenantID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "fetch_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, categories, "Categorías obtenidas")
+}
+
+func (h *AdminAcademicHandler) CreateTemplateCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	var dto domain.CreateCategoryDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "JSON inválido")
+		return
+	}
+	if strings.TrimSpace(dto.Name) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "El nombre es obligatorio")
+		return
+	}
+	cat, err := h.govService.CreateTemplateCategory(r.Context(), tenantID, dto)
+	if err != nil {
+		if errors.Is(err, domain.ErrTemplateNameConflict) {
+			SendError(w, http.StatusConflict, "category_exists", "Ya existe una categoría con este nombre")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "create_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusCreated, cat, "Categoría creada")
+}
+
+func (h *AdminAcademicHandler) UpdateTemplateCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	categoryID := r.PathValue("id")
+	if categoryID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de categoría requerido")
+		return
+	}
+	var dto domain.UpdateCategoryDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "JSON inválido")
+		return
+	}
+	if strings.TrimSpace(dto.Name) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "El nombre es obligatorio")
+		return
+	}
+	cat, err := h.govService.UpdateTemplateCategory(r.Context(), tenantID, categoryID, dto)
+	if err != nil {
+		if errors.Is(err, domain.ErrCategoryNotFound) {
+			SendError(w, http.StatusNotFound, "category_not_found", "Categoría no encontrada")
+			return
+		}
+		if errors.Is(err, domain.ErrTemplateNameConflict) {
+			SendError(w, http.StatusConflict, "category_exists", "Ya existe una categoría con este nombre")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "update_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, cat, "Categoría actualizada")
+}
+
+func (h *AdminAcademicHandler) DeleteTemplateCategory(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	categoryID := r.PathValue("id")
+	if categoryID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de categoría requerido")
+		return
+	}
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+	err := h.govService.DeleteTemplateCategory(r.Context(), tenantID, adminID, categoryID)
+	if err != nil {
+		if errors.Is(err, domain.ErrCategoryInUse) {
+			SendError(w, http.StatusConflict, "category_in_use", "No se puede eliminar la categoría porque tiene plantillas o modelos asociados")
+			return
+		}
+		if errors.Is(err, domain.ErrCategoryNotFound) {
+			SendError(w, http.StatusNotFound, "category_not_found", "Categoría no encontrada")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, map[string]string{"deleted": categoryID}, "Categoría eliminada")
+}
+
+func (h *AdminAcademicHandler) ListTemplateModels(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	targetEnv := r.URL.Query().Get("target_environment")
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio no configurado")
+		return
+	}
+	models, err := h.govService.ListTemplateModels(r.Context(), tenantID, targetEnv)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "fetch_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, models, "Modelos de plantilla obtenidos")
+}
+
+func (h *AdminAcademicHandler) PromoteTemplateToModel(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	templateID := r.PathValue("id")
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de plantilla requerido")
+		return
+	}
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		adminID = "00000000-0000-0000-0000-000000000001"
+	}
+
+	var dto domain.PromoteTemplateToModelDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "JSON inválido")
+		return
+	}
+	if strings.TrimSpace(dto.CategoryID) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "La categoría es obligatoria")
+		return
+	}
+
+	model, err := h.govService.PromoteTemplateToModel(r.Context(), tenantID, templateID, adminID, dto)
+	if err != nil {
+		if errors.Is(err, domain.ErrTemplateNotApproved) {
+			SendError(w, http.StatusUnprocessableEntity, "template_not_approved", "Solo plantillas con estado APROBADA pueden ser promovidas a modelo oficial")
+			return
+		}
+		if errors.Is(err, domain.ErrCategoryNotFound) {
+			SendError(w, http.StatusNotFound, "category_not_found", "Categoría no encontrada")
+			return
+		}
+		if errors.Is(err, domain.ErrTemplateNameConflict) {
+			SendError(w, http.StatusConflict, "model_exists", "Ya existe un modelo oficial con este título")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "promote_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusCreated, model, "Plantilla promovida a modelo oficial")
+}
+
+func (h *AdminAcademicHandler) SaveDraft(w http.ResponseWriter, r *http.Request) {
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
+			userID = uid
+		}
+	}
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "unauthorized", "Usuario no identificado")
+		return
+	}
+
+	var dto domain.CreateDraftDTO
+	_ = json.NewDecoder(r.Body).Decode(&dto)
+
+	if len(dto.FormData) == 0 || string(dto.FormData) == "null" {
+		dto.FormData = json.RawMessage("{}")
+	}
+
+	draft, err := h.govService.SaveTemplateDraft(r.Context(), tenantID, userID, dto.FormData, dto.TemplateID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "save_draft_failed", err.Error())
+		return
+	}
+
+	resp := domain.DraftResponse{
+		ID:        draft.ID,
+		UserID:    draft.UserID,
+		FormData:  draft.FormData,
+		UpdatedAt: draft.UpdatedAt,
+	}
+
+	SendJSON(w, http.StatusOK, resp, "Borrador guardado exitosamente")
+}
+
+func (h *AdminAcademicHandler) GetDraftByUser(w http.ResponseWriter, r *http.Request) {
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
+			userID = uid
+		}
+	}
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "unauthorized", "Usuario no identificado")
+		return
+	}
+
+	draft, err := h.govService.GetTemplateDraft(r.Context(), tenantID, userID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "get_draft_failed", err.Error())
+		return
+	}
+	if draft == nil {
+		SendError(w, http.StatusNotFound, "draft_not_found", "No existe borrador para este usuario")
+		return
+	}
+
+	resp := domain.DraftResponse{
+		ID:        draft.ID,
+		UserID:    draft.UserID,
+		FormData:  draft.FormData,
+		UpdatedAt: draft.UpdatedAt,
+	}
+
+	SendJSON(w, http.StatusOK, resp, "Borrador obtenido exitosamente")
+}
+
+func (h *AdminAcademicHandler) DeleteDraft(w http.ResponseWriter, r *http.Request) {
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio de gobernanza no configurado")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
+			userID = uid
+		}
+	}
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "unauthorized", "Usuario no identificado")
+		return
+	}
+
+	if err := h.govService.DeleteTemplateDraft(r.Context(), tenantID, userID); err != nil {
+		SendError(w, http.StatusInternalServerError, "delete_draft_failed", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]string{"message": "Borrador eliminado exitosamente"}, "Borrador eliminado exitosamente")
 }

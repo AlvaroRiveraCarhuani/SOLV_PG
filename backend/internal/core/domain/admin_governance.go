@@ -292,3 +292,31 @@ type RuntimeCapabilities struct {
 	// RuntimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox).
 	RuntimeBaseMB int `json:"runtime_base_mb"`
 }
+
+var (
+	ErrDraftNotFound = errors.New("template draft not found")
+)
+
+// TemplateDraft borrador de configuración de plantilla persistido en BD
+type TemplateDraft struct {
+	ID         string          `json:"id" db:"id"`
+	TenantID   string          `json:"tenant_id" db:"tenant_id"`
+	UserID     string          `json:"user_id" db:"user_id"`
+	FormData   json.RawMessage `json:"form_data" db:"form_data"`
+	TemplateID *string         `json:"template_id,omitempty" db:"template_id"`
+	UpdatedAt  time.Time       `json:"updated_at" db:"updated_at"`
+}
+
+// CreateDraftDTO DTO de creación o actualización de borrador
+type CreateDraftDTO struct {
+	FormData   json.RawMessage `json:"form_data"`
+	TemplateID *string         `json:"template_id,omitempty"`
+}
+
+// DraftResponse respuesta pública de borrador
+type DraftResponse struct {
+	ID        string          `json:"id"`
+	UserID    string          `json:"user_id"`
+	FormData  json.RawMessage `json:"form_data"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}

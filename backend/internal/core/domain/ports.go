@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 )
 
@@ -166,6 +167,15 @@ type AdminGovernanceRepository interface {
 	UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error
 	TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
 	HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
+	ListTemplateCategories(ctx context.Context, tenantID string) ([]*TemplateCategory, error)
+	CreateTemplateCategory(ctx context.Context, tenantID string, dto CreateCategoryDTO) (*TemplateCategory, error)
+	UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto UpdateCategoryDTO) (*TemplateCategory, error)
+	DeleteTemplateCategory(ctx context.Context, tenantID, categoryID string) error
+	ListTemplateModels(ctx context.Context, tenantID, targetEnv string) ([]*TemplateModelItemDTO, error)
+	PromoteTemplateToModel(ctx context.Context, tenantID, templateID, adminID string, dto PromoteTemplateToModelDTO) (*TemplateModelItemDTO, error)
+	SaveDraft(ctx context.Context, tenantID, userID string, formData json.RawMessage, templateID *string) (*TemplateDraft, error)
+	GetDraftByUser(ctx context.Context, tenantID, userID string) (*TemplateDraft, error)
+	DeleteDraft(ctx context.Context, tenantID, userID string) error
 }
 
 type SubmissionRepository interface {
@@ -241,4 +251,5 @@ type ImageRegistryPort interface {
 // ContainerRunnerPort abstrae la ejecución efímera de contenedores para pruebas de entorno
 type ContainerRunnerPort interface {
 	RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) (results []ToolResult, exitCode int, err error)
+	RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (output string, durationMs int64, exitCode int, err error)
 }

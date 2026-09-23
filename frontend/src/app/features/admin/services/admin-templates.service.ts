@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable, map } from 'rxjs';
+import { Observable, map, catchError, of } from 'rxjs';
 
 export interface ServiceRequirement {
   category: string; // "database", "cache", "message_broker", "storage", etc.
@@ -16,6 +16,19 @@ export interface TemplateResourceProfile {
   min_mb: number;
   high_mb: number;
   max_mb: number;
+}
+
+export interface TemplateDraft {
+  id: string;
+  user_id: string;
+  form_data: any;
+  template_id?: string;
+  updated_at: string;
+}
+
+export interface SaveDraftDTO {
+  form_data: any;
+  template_id?: string;
 }
 
 export interface AvailableSatelliteService {
@@ -310,6 +323,31 @@ export class AdminTemplatesService {
   promoteToModel(templateId: string, dto: PromoteTemplateToModelDTO): Observable<TemplateModelItem> {
     return this.http.post<ApiResponse<TemplateModelItem>>(`${this.apiUrl}/${templateId}/promote-to-model`, dto).pipe(
       map(res => res.data)
+    );
+  }
+
+  saveDraft(formData: any, templateId?: string): Observable<TemplateDraft> {
+    const payload: SaveDraftDTO = { form_data: formData, template_id: templateId };
+    return this.http.post<ApiResponse<TemplateDraft>>(`${this.apiUrl}/drafts`, payload).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getDraft(): Observable<TemplateDraft | null> {
+    return this.http.get<ApiResponse<TemplateDraft>>(`${this.apiUrl}/drafts`).pipe(
+      map(res => res.data),
+      catchError(err => {
+        if (err.status === 404) {
+          return of(null);
+        }
+        throw err;
+      })
+    );
+  }
+
+  deleteDraft(): Observable<void> {
+    return this.http.delete<ApiResponse<any>>(`${this.apiUrl}/drafts`).pipe(
+      map(() => void 0)
     );
   }
 
