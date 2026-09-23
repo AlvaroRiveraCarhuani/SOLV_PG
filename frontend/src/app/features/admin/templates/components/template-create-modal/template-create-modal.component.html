@@ -139,20 +139,38 @@
         </div>
       }
       
-      <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05) -->
-      @if (activeSection() === 'purpose') {
+      <div class="modal-form-content">
+        <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05, AY-01, AY-02) -->
+        @if (activeSection() === 'purpose') {
         <div class="section-container animate-fade">
           <div class="purpose-intro-block">
-            <h4 class="purpose-section-title" i18n="@@PU-01">Propósito del entorno</h4>
+            <div class="step-header-with-help">
+              <h4 class="purpose-section-title" id="step-title-purpose" tabindex="-1" i18n="@@PU-01">Propósito del entorno</h4>
+              <button 
+                type="button" 
+                class="btn-step-help" 
+                (click)="toggleHelpDrawer('purpose')" 
+                title="Ayuda contextual del paso" 
+                aria-label="Ayuda contextual del paso"
+                i18n-aria-label="@@AY-02"
+              >
+                <svg lucideHelpCircle class="w-4 h-4"></svg>
+              </button>
+            </div>
             <p class="purpose-section-desc">Seleccione el modo de ejecución que define el ciclo de vida, recursos y herramientas de la plantilla.</p>
           </div>
 
-          <div class="purpose-cards-grid">
+          <div class="purpose-cards-grid" role="radiogroup" aria-labelledby="step-title-purpose">
             <!-- Tarjeta: Laboratorio Interactivo -->
             <div 
+              id="purpose-card-ide"
               class="purpose-card" 
+              role="radio"
+              [attr.aria-checked]="targetEnvironment() === 'IDE_PERSISTENTE'"
+              [tabindex]="targetEnvironment() === 'IDE_PERSISTENTE' ? 0 : -1"
               [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
               (click)="selectTargetEnvironment('IDE_PERSISTENTE')"
+              (keydown)="onPurposeKeydown($event, 'IDE_PERSISTENTE')"
             >
               <div class="purpose-card-badge-row">
                 <div class="purpose-icon-wrap icon-ide">
@@ -178,9 +196,14 @@
 
             <!-- Tarjeta: Juez Virtual -->
             <div 
+              id="purpose-card-judge"
               class="purpose-card" 
+              role="radio"
+              [attr.aria-checked]="targetEnvironment() === 'JUEZ_EFIMERO'"
+              [tabindex]="targetEnvironment() === 'JUEZ_EFIMERO' ? 0 : -1"
               [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
               (click)="selectTargetEnvironment('JUEZ_EFIMERO')"
+              (keydown)="onPurposeKeydown($event, 'JUEZ_EFIMERO')"
             >
               <div class="purpose-card-badge-row">
                 <div class="purpose-icon-wrap icon-judge">
@@ -204,12 +227,30 @@
               </div>
             </div>
           </div>
+
+          <div class="purpose-keyboard-hint">
+            <span class="hint-text" i18n="@@AY-01">← → eligen propósito · Enter continúa</span>
+          </div>
         </div>
       }
 
       <!-- PASO 2: IDENTIDAD Y PUERTAS DE ENTRADA -->
       @if (activeSection() === 'identity') {
         <div class="section-container animate-fade">
+          <div class="step-header-with-help mb-3">
+            <h4 class="step-section-title" id="step-title-identity" tabindex="-1" i18n="@@ST-01">Identidad de la plantilla</h4>
+            <button 
+              type="button" 
+              class="btn-step-help" 
+              (click)="toggleHelpDrawer('identity')" 
+              title="Ayuda contextual del paso" 
+              aria-label="Ayuda contextual del paso"
+              i18n-aria-label="@@AY-02"
+            >
+              <svg lucideHelpCircle class="w-4 h-4"></svg>
+            </button>
+          </div>
+
           <!-- Menú de Entrada de 3 Puertas -->
           <div class="entry-doors-strip">
             <div class="doors-label">
@@ -427,31 +468,47 @@
             <select 
               class="form-control form-select" 
               [ngModel]="selectedCategoryId()" 
-              (ngModelChange)="selectedCategoryId.set($event)">
+              (ngModelChange)="onCategorySelect($event)">
               <option [ngValue]="null">-- Sin categoría asignada --</option>
               @for (cat of categories(); track cat.id) {
                 <option [value]="cat.id">{{ cat.name }}</option>
               }
+              <option value="__new__" i18n="@@AY-04">＋ Nueva categoría…</option>
             </select>
-            <div class="quick-create-cat-box">
-              <input 
-                type="text" 
-                class="form-control quick-cat-input" 
-                placeholder="+ Categoría rápida..." 
-                [ngModel]="quickCategoryName()" 
-                (ngModelChange)="quickCategoryName.set($event)"
-                (keyup.enter)="quickCreateCategory()"
-              />
-              <button 
-                type="button" 
-                class="btn btn-secondary quick-cat-btn" 
-                [disabled]="!quickCategoryName().trim() || isQuickCategorySaving()" 
-                (click)="quickCreateCategory()">
-                <svg lucidePlus class="w-3.5 h-3.5"></svg>
-                <span>{{ isQuickCategorySaving() ? 'Guardando...' : 'Agregar' }}</span>
-              </button>
-            </div>
-            <small class="form-hint">Organiza las plantillas en el catálogo para facilitar la búsqueda a los docentes.</small>
+
+            @if (isCreatingCategoryInline()) {
+              <div class="inline-category-row mt-2">
+                <input 
+                  type="text" 
+                  #newCatInput
+                  autofocus
+                  class="form-control inline-cat-input" 
+                  [placeholder]="'Nombre de la nueva categoría:'" 
+                  [attr.aria-label]="'Nombre de la nueva categoría:'"
+                  i18n-placeholder="@@AY-05"
+                  [ngModel]="inlineCategoryName()" 
+                  (ngModelChange)="inlineCategoryName.set($event)"
+                  (keyup.enter)="createCategoryInline()"
+                  (keyup.escape)="cancelInlineCategory()"
+                />
+                <button 
+                  type="button" 
+                  class="btn btn-primary inline-cat-btn" 
+                  [disabled]="!inlineCategoryName().trim() || isQuickCategorySaving()" 
+                  (click)="createCategoryInline()"
+                  i18n="@@AY-06">
+                  {{ isQuickCategorySaving() ? 'Guardando...' : 'Agregar categoría' }}
+                </button>
+                <button 
+                  type="button" 
+                  class="btn btn-secondary inline-cat-cancel-btn" 
+                  (click)="cancelInlineCategory()"
+                  i18n="@@AY-07">
+                  Cancelar
+                </button>
+              </div>
+            }
+            <small class="form-hint" i18n="@@AY-08">La categoría agrupa plantillas para el filtro docente.</small>
           </div>
 
           <div class="form-group">
@@ -469,18 +526,37 @@
         </div>
       }
 
-      <!-- PASO 3: IMAGEN Y HERRAMIENTAS -->
+      <!-- PASO 3: IMAGEN Y HERRAMIENTAS (AY-09 a AY-15) -->
       @if (activeSection() === 'image') {
         <div class="section-container animate-fade">
+          <div class="step-header-with-help mb-3">
+            <h4 class="step-section-title" id="step-title-image" tabindex="-1" i18n="@@PU-19">Imagen del entorno</h4>
+            <button 
+              type="button" 
+              class="btn-step-help" 
+              (click)="toggleHelpDrawer('image')" 
+              title="Ayuda contextual del paso" 
+              aria-label="Ayuda contextual del paso"
+              i18n-aria-label="@@AY-02"
+            >
+              <svg lucideHelpCircle class="w-4 h-4"></svg>
+            </button>
+          </div>
+
           <div class="form-group typeahead-container">
             <div class="label-row-between">
-              <div class="label-group-help">
+              <div class="label-with-help">
                 <label class="form-label font-semibold">
                   Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
                 </label>
-                <button type="button" class="btn-help-inline" (click)="isHelpDrawerOpen.set(true)" title="Ver guía institucional">
+                <button 
+                  type="button" 
+                  class="btn-help-inline" 
+                  (click)="toggleImagePopover()" 
+                  title="Anatomía de una referencia de imagen"
+                  aria-label="Anatomía de una referencia de imagen"
+                >
                   <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
-                  <span>Guía institucional</span>
                 </button>
               </div>
               @if (verificationState() === 'checking') {
@@ -495,39 +571,108 @@
               }
             </div>
 
-            <div class="input-with-action">
-              <input 
-                type="text" 
-                class="form-control font-mono" 
-                [class.is-invalid]="isLatestImage() || isInvalidFormat() || isStorageBlocked() || isArchIncompatible()"
-                [class.is-valid]="verificationState() === 'verified' && !isStorageBlocked() && !isArchIncompatible()"
-                placeholder="Ej: python:3.12-slim-bookworm" 
-                [ngModel]="dockerImage()" 
-                (ngModelChange)="onImageInputChange($event)"
-                (focus)="isDropdownOpen.set(true)" />
-            </div>
-
-            <!-- Dropdown de Sugerencias -->
-            @if (isDropdownOpen() && imageSuggestions().length > 0) {
-              <div class="typeahead-dropdown">
-                <div class="dropdown-header">Imágenes disponibles en el servidor y recomendadas:</div>
-                @for (sug of imageSuggestions(); track sug.repoTag) {
-                  <div class="dropdown-item" (click)="selectSuggestion(sug)">
-                    <div class="item-primary-row">
-                      <span class="repo-tag font-mono">{{ sug.repoTag }}</span>
-                      @if (sug.isLocal) {
-                        <span class="badge-local-immediate">Local ({{ sug.sizeMB }} MB)</span>
-                      } @else if (sug.isOfficial) {
-                        <span class="badge-official-preset">Oficial</span>
-                      }
-                    </div>
-                    @if (sug.description) {
-                      <div class="item-desc">{{ sug.description }}</div>
-                    }
+            @if (showImagePopover()) {
+              <div class="image-popover-box animate-fade">
+                <div class="popover-header">
+                  <h6 class="popover-title" i18n="@@AY-13">Anatomía de una referencia de imagen Docker</h6>
+                  <button type="button" class="btn-close-popover" (click)="showImagePopover.set(false)" aria-label="Cerrar">×</button>
+                </div>
+                <div class="popover-content">
+                  <div class="image-anatomy-breakdown">
+                    <div class="anatomy-part"><span class="part-label">Registro:</span> <code class="part-code">docker.io/</code></div>
+                    <div class="anatomy-part"><span class="part-label">Namespace:</span> <code class="part-code">library/</code></div>
+                    <div class="anatomy-part"><span class="part-label">Repositorio:</span> <code class="part-code font-bold">python</code></div>
+                    <div class="anatomy-part"><span class="part-label">Tag fijado:</span> <code class="part-code tag-code">:3.12-slim-bookworm</code></div>
                   </div>
-                }
+                  <p class="popover-warning" i18n="@@AY-14">El tag :latest está prohibido por reproducibilidad y gobernanza.</p>
+                </div>
               </div>
             }
+
+            <div class="image-combobox-wrapper" style="position: relative;">
+              <div class="input-with-action">
+                <input 
+                  type="text" 
+                  class="form-control font-mono" 
+                  [class.is-invalid]="isLatestImage() || isInvalidFormat() || isStorageBlocked() || isArchIncompatible()"
+                  [class.is-valid]="verificationState() === 'verified' && !isStorageBlocked() && !isArchIncompatible()"
+                  placeholder="Ej: python:3.12-slim-bookworm" 
+                  [ngModel]="dockerImage()" 
+                  (ngModelChange)="onImageInputChange($event)"
+                  (keydown)="onComboboxKeydown($event)"
+                  (focus)="openCombobox()" 
+                  role="combobox"
+                  aria-autocomplete="list"
+                  [attr.aria-expanded]="isDropdownOpen()"
+                  aria-controls="image-listbox-overlay" />
+              </div>
+
+              <!-- Listbox Overlay sin reflow -->
+              @if (isDropdownOpen()) {
+                <div id="image-listbox-overlay" class="combobox-overlay-listbox" role="listbox">
+                  <!-- Grupo 1: En este servidor -->
+                  @if (groupLocalImages().length > 0) {
+                    <div class="combobox-group-header sticky-header" i18n="@@AY-09">En este servidor — despliegue inmediato</div>
+                    @for (item of groupLocalImages(); track item.repoTag; let idx = $index) {
+                      <div 
+                        class="combobox-item" 
+                        role="option"
+                        [class.active]="activeComboboxIndex() === idx"
+                        [attr.aria-selected]="activeComboboxIndex() === idx"
+                        (mousedown)="selectSuggestion(item)"
+                      >
+                        <div class="combobox-item-main">
+                          <span class="combobox-repo font-mono">{{ item.repoTag }}</span>
+                          <div class="combobox-badges-row">
+                            <span class="badge-tag badge-local">Local</span>
+                            @if (item.sizeMB) {
+                              <span class="badge-size">{{ item.sizeMB }} MB</span>
+                            }
+                            @if (item.usageCount && item.usageCount > 0) {
+                              <span class="badge-usage" i18n="@@AY-12">{item.usageCount, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}</span>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    }
+                  }
+
+                  <!-- Grupo 2: Catálogo oficial curado -->
+                  @if (groupCuratedImages().length > 0) {
+                    <div class="combobox-group-header sticky-header" i18n="@@AY-10">Catálogo oficial curado — se descargará una vez</div>
+                    @for (item of groupCuratedImages(); track item.repoTag; let idx = $index) {
+                      <div 
+                        class="combobox-item" 
+                        role="option"
+                        [class.active]="activeComboboxIndex() === (groupLocalImages().length + idx)"
+                        [attr.aria-selected]="activeComboboxIndex() === (groupLocalImages().length + idx)"
+                        (mousedown)="selectSuggestion(item)"
+                      >
+                        <div class="combobox-item-main">
+                          <span class="combobox-repo font-mono">{{ item.repoTag }}</span>
+                          <div class="combobox-badges-row">
+                            <span class="badge-tag badge-official">Oficial</span>
+                            @if (item.usageCount && item.usageCount > 0) {
+                              <span class="badge-usage" i18n="@@AY-12">{item.usageCount, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}</span>
+                            }
+                          </div>
+                        </div>
+                        @if (item.description) {
+                          <div class="combobox-item-desc">{{ item.description }}</div>
+                        }
+                      </div>
+                    }
+                  }
+
+                  <!-- Estado Vacío -->
+                  @if (groupLocalImages().length === 0 && groupCuratedImages().length === 0) {
+                    <div class="combobox-empty-state" i18n="@@AY-11">
+                      Sin coincidencias locales; verificaremos en el registro al continuar
+                    </div>
+                  }
+                </div>
+              }
+            </div>
 
             <!-- Validaciones tempranas -->
             @if (isLatestImage()) {
@@ -544,7 +689,7 @@
             }
           </div>
 
-          <!-- Herramientas declaradas -->
+          <!-- Herramientas declaradas con Chips Sugeridos -->
           <div class="form-group">
             <label class="form-label font-semibold">
               Herramientas Requeridas en la Imagen (Separadas por coma):
@@ -552,9 +697,25 @@
             <input 
               type="text" 
               class="form-control font-mono" 
-              placeholder="Ej: python3, pip, git, gcc" 
+              [placeholder]="suggestedToolsPlaceholder()" 
               [ngModel]="toolsDeclared()" 
               (ngModelChange)="toolsDeclared.set($event)" />
+            
+            <div class="tools-suggested-chips mt-2">
+              <span class="chips-label" i18n="@@AY-15">Ejemplos sugeridos para este propósito:</span>
+              <div class="chips-row">
+                @for (tool of suggestedToolChips(); track tool) {
+                  <button 
+                    type="button" 
+                    class="tool-chip" 
+                    [class.added]="isToolDeclared(tool)"
+                    (click)="addToolDeclared(tool)"
+                  >
+                    + {{ tool }}
+                  </button>
+                }
+              </div>
+            </div>
             <small class="form-hint">Binarios que el sistema comprobará dentro del contenedor antes de aprobar la plantilla.</small>
           </div>
         </div>
@@ -803,7 +964,114 @@
           </div>
         </div>
       }
+      </div>
 
+      <!-- Drawer Lateral de Ayuda Contextual (AY-02, AY-03, AY-16, AY-17) -->
+      @if (isHelpDrawerOpen()) {
+        <aside class="modal-help-drawer animate-fade" role="complementary" aria-label="Panel de ayuda contextual">
+          <div class="drawer-header">
+            <div class="drawer-title-wrap">
+              <svg lucideHelpCircle class="w-4 h-4 text-primary"></svg>
+              <h5 class="drawer-title">
+                @switch (activeDrawerStep()) {
+                  @case ('purpose') { Propósito del Entorno }
+                  @case ('identity') { Identidad y Categorías }
+                  @case ('image') { Imágenes OCI y Seguridad }
+                  @default { Ayuda del Asistente }
+                }
+              </h5>
+            </div>
+            <button 
+              type="button" 
+              class="btn-close-drawer" 
+              (click)="closeHelpDrawer()" 
+              aria-label="Cerrar panel de ayuda"
+              i18n-aria-label="@@AY-17"
+            >
+              <svg lucideX class="w-4 h-4"></svg>
+            </button>
+          </div>
+
+          <div class="drawer-body">
+            @switch (activeDrawerStep()) {
+              @case ('purpose') {
+                <h6 class="drawer-section-heading" i18n="@@AY-16">Comparativa de Entornos: IDE Persistente vs Juez Virtual</h6>
+                <div class="drawer-table-wrap">
+                  <table class="drawer-table">
+                    <thead>
+                      <tr>
+                        <th>Característica</th>
+                        <th>IDE Persistente</th>
+                        <th>Juez Virtual</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td><strong>Interfaz</strong></td>
+                        <td>OpenVSCode Server</td>
+                        <td>Sin interfaz web (CLI)</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Ciclo de vida</strong></td>
+                        <td>Sesión interactiva</td>
+                        <td>Efímero y desechable</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Persistencia</strong></td>
+                        <td>Volumen persistente</td>
+                        <td>Tmpfs descartable</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Servicios</strong></td>
+                        <td>Admite satélites (BDs)</td>
+                        <td>Aislado estrictamente</td>
+                      </tr>
+                      <tr>
+                        <td><strong>Límites RAM</strong></td>
+                        <td>512 MB – 4 GB</td>
+                        <td>128 MB – 512 MB</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <p class="drawer-note">
+                  Elegí <strong>IDE Persistente</strong> para clases prácticas donde el alumno programa con editor y terminal. Elegí <strong>Juez Virtual</strong> para exámenes automatizados donde el código se compila, corre contra casos de prueba y se destruye en segundos.
+                </p>
+              }
+              @case ('identity') {
+                <h6 class="drawer-section-heading">Identidad y Categorización</h6>
+                <p class="drawer-text">
+                  <strong>Nombre:</strong> Utilizá una convención clara y descriptiva que incluya la materia y el runtime principal (ej. <em>Programación II — Go 1.24</em>).
+                </p>
+                <p class="drawer-text">
+                  <strong>Categoría Académica:</strong> Agrupa plantillas afines en el catálogo docente. Podés seleccionar una existente o registrar una nueva escribiendo su nombre directamente.
+                </p>
+                <p class="drawer-text">
+                  <strong>Descripción:</strong> Informa a los docentes qué librerías, dependencias o herramientas especiales incluye la imagen para evitar configuraciones duplicadas.
+                </p>
+              }
+              @case ('image') {
+                <h6 class="drawer-section-heading">Imágenes Docker y Gobernanza</h6>
+                <p class="drawer-text">
+                  <strong>Prohibición de <code>:latest</code>:</strong> Todas las imágenes deben tener un tag inmutable (ej: <code>python:3.12-slim-bookworm</code>) para garantizar la reproducibilidad académica histórica.
+                </p>
+                <p class="drawer-text">
+                  <strong>Imágenes Locales vs Curadas:</strong> Las imágenes locales ya residen en este servidor y arrancan inmediatamente. El catálogo curado contiene imágenes oficiales verificadas que se descargarán la primera vez.
+                </p>
+                <p class="drawer-text">
+                  <strong>Herramientas Requeridas:</strong> Especificá los comandos binarios (ej. <code>gcc, python3, node</code>) que el worker comprobará en el smoke test previo a la aprobación.
+                </p>
+              }
+            }
+          </div>
+
+          <div class="drawer-footer">
+            <a routerLink="/admin/manual" (click)="closeModal()" class="drawer-manual-link" i18n="@@AY-03">
+              Ver manual completo &rarr;
+            </a>
+          </div>
+        </aside>
+      }
     </div>
 
     <!-- Footer de Acciones Estructurado con 5 Botones -->

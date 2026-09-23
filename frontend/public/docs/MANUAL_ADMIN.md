@@ -1,0 +1,1 @@
+../../../docs/UI/ADMIN/MANUAL_ADMIN.md

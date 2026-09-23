@@ -56,6 +56,13 @@ type LocalImageItem struct {
 	CreatedAt    time.Time `json:"created_at"`
 	IsOfficial   bool      `json:"is_official"`
 	HasLatestTag bool      `json:"has_latest_tag"`
+	UsageCount   int       `json:"usage_count"`
+}
+
+// LocalImagesResult contiene el listado enriquecido de imágenes locales y el mapa de uso institucional
+type LocalImagesResult struct {
+	Images   []LocalImageItem `json:"images"`
+	UsageMap map[string]int   `json:"usage_map"`
 }
 
 // VerifyImageRequest DTO para solicitar la verificación de una imagen Docker

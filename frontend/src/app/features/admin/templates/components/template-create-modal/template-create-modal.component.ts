@@ -66,6 +66,7 @@ export interface ImageSuggestion {
   sizeMB?: number;
   description?: string;
   isOfficial: boolean;
+  usageCount?: number;
 }
 
 export interface RamPreset {
@@ -95,6 +96,7 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
   imports: [
     CommonModule, 
     FormsModule, 
+    RouterModule,
     EnvTestButtonComponent,
     PublishDialogComponent,
     LucideX, 
@@ -187,9 +189,18 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   // Typeahead y Sugerencias de Imágenes
   localImages = signal<LocalImageItem[]>([]);
+  usageMap = signal<Record<string, number>>({});
   isDropdownOpen = signal<boolean>(false);
+  activeComboboxIndex = signal<number>(-1);
+  showImagePopover = signal<boolean>(false);
   isHelpDrawerOpen = signal<boolean>(false);
+  activeDrawerStep = signal<WizardSection>('purpose');
   copiedCommand = signal<boolean>(false);
+
+  // Progressive Disclosure de Categorías
+  isCreatingCategoryInline = signal<boolean>(false);
+  inlineCategoryName = signal<string>('');
+  previousCategoryId = signal<string | null>(null);
 
   // Modelos dinámicos consumidos desde GET /api/v1/admin/template-models
   models = signal<TemplateModelItem[]>([]);
@@ -562,6 +573,41 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.closed.emit();
   }
 
+  onCategorySelect(val: string | null): void {
+    if (val === '__new__') {
+      this.previousCategoryId.set(this.selectedCategoryId());
+      this.isCreatingCategoryInline.set(true);
+      this.inlineCategoryName.set('');
+    } else {
+      this.isCreatingCategoryInline.set(false);
+      this.selectedCategoryId.set(val);
+    }
+  }
+
+  cancelInlineCategory(): void {
+    this.isCreatingCategoryInline.set(false);
+    this.selectedCategoryId.set(this.previousCategoryId());
+    this.inlineCategoryName.set('');
+  }
+
+  createCategoryInline(): void {
+    const name = this.inlineCategoryName().trim();
+    if (!name) return;
+    this.isQuickCategorySaving.set(true);
+    this.templatesService.createCategory({ name }).subscribe({
+      next: (cat) => {
+        this.isQuickCategorySaving.set(false);
+        this.categories.update(list => [...list, cat]);
+        this.selectedCategoryId.set(cat.id);
+        this.isCreatingCategoryInline.set(false);
+        this.inlineCategoryName.set('');
+      },
+      error: () => {
+        this.isQuickCategorySaving.set(false);
+      }
+    });
+  }
+
   quickCreateCategory(): void {
     const name = this.quickCategoryName().trim();
     if (!name) return;
@@ -699,6 +745,41 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.activeSection.set(section);
     this.stepPath.update((path: string[]) => [...path, section]);
     this.saveDraftToStorage();
+    setTimeout(() => {
+      document.getElementById(`step-title-${section}`)?.focus();
+    }, 50);
+  }
+
+  toggleHelpDrawer(step?: WizardSection): void {
+    const targetStep = step || this.activeSection();
+    if (this.isHelpDrawerOpen() && this.activeDrawerStep() === targetStep) {
+      this.isHelpDrawerOpen.set(false);
+    } else {
+      this.activeDrawerStep.set(targetStep);
+      this.isHelpDrawerOpen.set(true);
+    }
+  }
+
+  closeHelpDrawer(): void {
+    this.isHelpDrawerOpen.set(false);
+  }
+
+  onPurposeKeydown(event: KeyboardEvent, current: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
+    const isHorizontalNext = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+    const isHorizontalPrev = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+
+    if (isHorizontalNext || isHorizontalPrev) {
+      event.preventDefault();
+      const nextEnv = current === 'IDE_PERSISTENTE' ? 'JUEZ_EFIMERO' : 'IDE_PERSISTENTE';
+      this.selectTargetEnvironment(nextEnv);
+      const targetId = nextEnv === 'IDE_PERSISTENTE' ? 'purpose-card-ide' : 'purpose-card-judge';
+      setTimeout(() => {
+        document.getElementById(targetId)?.focus();
+      }, 0);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      this.nextSection();
+    }
   }
 
   nextSection(): void {
@@ -884,8 +965,21 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       this.showPublishDialog.set(false);
       return;
     }
+    if (this.isHelpDrawerOpen()) {
+      this.isHelpDrawerOpen.set(false);
+      return;
+    }
+    if (this.showImagePopover()) {
+      this.showImagePopover.set(false);
+      return;
+    }
     if (this.isDropdownOpen()) {
       this.isDropdownOpen.set(false);
+      this.activeComboboxIndex.set(-1);
+      return;
+    }
+    if (this.isCreatingCategoryInline()) {
+      this.cancelInlineCategory();
       return;
     }
     this.closeModal();
@@ -894,15 +988,20 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as HTMLElement;
-    if (!target.closest('.typeahead-container')) {
+    if (!target.closest('.image-combobox-wrapper') && !target.closest('.typeahead-container')) {
       this.isDropdownOpen.set(false);
+      this.activeComboboxIndex.set(-1);
+    }
+    if (!target.closest('.label-with-help') && !target.closest('.image-popover-box')) {
+      this.showImagePopover.set(false);
     }
   }
 
   fetchLocalImages(): void {
     this.templatesService.getLocalImages().subscribe({
-      next: (images) => {
-        this.localImages.set(images);
+      next: (res) => {
+        this.localImages.set(res.images || []);
+        this.usageMap.set(res.usage_map || {});
       },
       error: () => {}
     });
@@ -910,51 +1009,154 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   onImageInputChange(value: string): void {
     this.dockerImage.set(value);
-    this.isDropdownOpen.set(true);
+    this.openCombobox();
     this.imageDebounce$.next(value.trim());
   }
 
-  imageSuggestions = computed<ImageSuggestion[]>(() => {
+  openCombobox(): void {
+    this.isDropdownOpen.set(true);
+    this.activeComboboxIndex.set(-1);
+  }
+
+  onComboboxBlur(): void {
+    setTimeout(() => {
+      this.isDropdownOpen.set(false);
+      this.activeComboboxIndex.set(-1);
+    }, 200);
+  }
+
+  toggleImagePopover(): void {
+    this.showImagePopover.update(v => !v);
+  }
+
+  groupLocalImages = computed<ImageSuggestion[]>(() => {
     const query = this.dockerImage().trim().toLowerCase();
     const local = this.localImages();
-    const suggestions: ImageSuggestion[] = [];
-    const seen = new Set<string>();
+    const usages = this.usageMap();
 
+    const items: ImageSuggestion[] = [];
     for (const img of local) {
-      if (!img.has_latest_tag && !seen.has(img.repo_tag)) {
-        if (!query || img.repo_tag.toLowerCase().includes(query)) {
-          suggestions.push({
-            repoTag: img.repo_tag,
-            isLocal: true,
-            sizeMB: img.size_mb,
-            isOfficial: img.is_official,
-            description: 'En el servidor (despliegue inmediato)'
-          });
-          seen.add(img.repo_tag);
-        }
+      if (img.has_latest_tag || img.repo_tag.toLowerCase().endsWith(':latest')) {
+        continue;
+      }
+      if (!query || img.repo_tag.toLowerCase().includes(query)) {
+        const count = img.usage_count ?? usages[img.repo_tag] ?? 0;
+        items.push({
+          repoTag: img.repo_tag,
+          isLocal: true,
+          sizeMB: img.size_mb,
+          isOfficial: img.is_official,
+          usageCount: count,
+          description: 'En este servidor'
+        });
       }
     }
 
-    for (const cur of this.curatedOfficialImages) {
-      if (!seen.has(cur.repoTag)) {
-        if (!query || cur.repoTag.toLowerCase().includes(query)) {
-          const isActuallyLocal = local.some(l => l.repo_tag === cur.repoTag);
-          suggestions.push({
-            ...cur,
-            isLocal: isActuallyLocal
-          });
-          seen.add(cur.repoTag);
-        }
-      }
-    }
-
-    return suggestions.slice(0, 8);
+    return items.sort((a, b) => {
+      const diff = (b.usageCount || 0) - (a.usageCount || 0);
+      if (diff !== 0) return diff;
+      return (a.sizeMB || 0) - (b.sizeMB || 0);
+    });
   });
+
+  groupCuratedImages = computed<ImageSuggestion[]>(() => {
+    const query = this.dockerImage().trim().toLowerCase();
+    const local = this.localImages();
+    const usages = this.usageMap();
+    const localTags = new Set(local.map(l => l.repo_tag));
+
+    const items: ImageSuggestion[] = [];
+    for (const cur of this.curatedOfficialImages) {
+      if (localTags.has(cur.repoTag)) {
+        continue;
+      }
+      if (!query || cur.repoTag.toLowerCase().includes(query)) {
+        const count = usages[cur.repoTag] ?? 0;
+        items.push({
+          ...cur,
+          usageCount: count,
+          isLocal: false
+        });
+      }
+    }
+
+    return items.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+  });
+
+  allVisibleComboboxItems = computed<ImageSuggestion[]>(() => {
+    return [...this.groupLocalImages(), ...this.groupCuratedImages()];
+  });
+
+  imageSuggestions = computed<ImageSuggestion[]>(() => {
+    return this.allVisibleComboboxItems();
+  });
+
+  onComboboxKeydown(event: KeyboardEvent): void {
+    if (!this.isDropdownOpen()) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.openCombobox();
+        this.activeComboboxIndex.set(0);
+      }
+      return;
+    }
+
+    const items = this.allVisibleComboboxItems();
+    const total = items.length;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (total > 0) {
+        this.activeComboboxIndex.update(idx => (idx + 1) % total);
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (total > 0) {
+        this.activeComboboxIndex.update(idx => (idx <= 0 ? total - 1 : idx - 1));
+      }
+    } else if (event.key === 'Enter') {
+      const idx = this.activeComboboxIndex();
+      if (idx >= 0 && idx < total) {
+        event.preventDefault();
+        this.selectSuggestion(items[idx]);
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.isDropdownOpen.set(false);
+      this.activeComboboxIndex.set(-1);
+    }
+  }
 
   selectSuggestion(suggestion: ImageSuggestion): void {
     this.dockerImage.set(suggestion.repoTag);
     this.isDropdownOpen.set(false);
+    this.activeComboboxIndex.set(-1);
     this.triggerVerification(suggestion.repoTag, false);
+  }
+
+  suggestedToolChips = computed<string[]>(() => {
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') {
+      return ['gcc', 'python3', 'javac'];
+    }
+    return ['python3', 'node', 'gcc'];
+  });
+
+  suggestedToolsPlaceholder = computed<string>(() => {
+    return this.targetEnvironment() === 'JUEZ_EFIMERO'
+      ? 'Ej: gcc, python3, javac'
+      : 'Ej: python3, node, gcc, git';
+  });
+
+  isToolDeclared(tool: string): boolean {
+    return this.toolsList().includes(tool);
+  }
+
+  addToolDeclared(tool: string): void {
+    const current = this.toolsList();
+    if (!current.includes(tool)) {
+      const updated = [...current, tool].join(', ');
+      this.toolsDeclared.set(updated);
+    }
   }
 
   isLatestImage = computed(() => {

@@ -362,6 +362,14 @@
   padding: 20px 24px;
   overflow-y: auto;
   flex: 1;
+  display: flex;
+  position: relative;
+  gap: 24px;
+
+  .modal-form-content {
+    flex: 1;
+    min-width: 0;
+  }
 }
 
 .modal-two-columns {
@@ -2342,20 +2350,20 @@
   }
 }
 
-.quick-create-cat-box {
+.inline-category-row {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 6px;
+  margin-top: 8px;
 
-  .quick-cat-input {
+  .inline-cat-input {
     flex: 1;
-    font-size: 12px;
-    padding: 5px 8px;
+    font-size: 13px;
+    padding: 6px 10px;
   }
 
-  .quick-cat-btn {
-    padding: 5px 10px;
+  .inline-cat-btn, .inline-cat-cancel-btn {
+    padding: 6px 12px;
     font-size: 12px;
     display: inline-flex;
     align-items: center;
@@ -2511,3 +2519,413 @@
     border-top: 1px solid #E2E8F0;
   }
 }
+
+// -----------------------------------------------------------------------------
+// Drawer Lateral de Ayuda Contextual (AY-02, AY-03, AY-16, AY-17)
+// -----------------------------------------------------------------------------
+.modal-help-drawer {
+  width: 380px;
+  min-width: 380px;
+  background-color: var(--bg-card, #FFFFFF);
+  border-left: 1px solid var(--border-color, #E2E8F0);
+  margin: -20px -24px -20px 0;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.04);
+  z-index: 10;
+  overflow-y: auto;
+
+  @media (max-width: 768px) {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    min-width: 100%;
+    margin: 0;
+    border-left: none;
+    z-index: 50;
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-color, #E2E8F0);
+    margin-bottom: 16px;
+
+    .drawer-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .drawer-title {
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-heading, #0F172A);
+        margin: 0;
+      }
+    }
+
+    .btn-close-drawer {
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--text-muted, #64748B);
+      padding: 4px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        background-color: var(--bg-hover, #F1F5F9);
+        color: var(--text-color, #0F172A);
+      }
+    }
+  }
+
+  .drawer-body {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--text-secondary, #334155);
+    line-height: 1.6;
+
+    .drawer-section-heading {
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text-heading, #0F172A);
+      margin: 0 0 12px;
+    }
+
+    .drawer-text {
+      margin-bottom: 12px;
+    }
+
+    .drawer-note {
+      background: var(--bg-subtle, #F8FAFC);
+      padding: 10px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color, #E2E8F0);
+      margin-top: 12px;
+      font-size: 0.8125rem;
+    }
+
+    .drawer-table-wrap {
+      overflow-x: auto;
+      margin: 12px 0;
+      border: 1px solid var(--border-color, #E2E8F0);
+      border-radius: 6px;
+    }
+
+    .drawer-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+
+      th, td {
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border-color, #E2E8F0);
+        text-align: left;
+      }
+
+      th {
+        background: var(--bg-subtle, #F8FAFC);
+        font-weight: 600;
+        color: var(--text-heading, #0F172A);
+      }
+
+      tr:last-child td {
+        border-bottom: none;
+      }
+    }
+  }
+
+  .drawer-footer {
+    padding-top: 14px;
+    border-top: 1px solid var(--border-color, #E2E8F0);
+    margin-top: 16px;
+
+    .drawer-manual-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      font-size: 0.875rem;
+      color: var(--primary-600, #2563EB);
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+// Cabeceras con botón de ayuda contextual
+.step-header-with-help {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  .purpose-section-title, .step-section-title {
+    margin: 0;
+    &:focus {
+      outline: none;
+    }
+  }
+
+  .btn-step-help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 1px solid var(--border-color, #E2E8F0);
+    background: var(--bg-subtle, #F8FAFC);
+    color: var(--primary-600, #2563EB);
+    cursor: pointer;
+    transition: all 120ms ease;
+
+    &:hover {
+      background: var(--primary-50, #EFF6FF);
+      border-color: var(--primary-300, #93C5FD);
+    }
+  }
+}
+
+// Pista de teclado para radiogroup de propósito
+.purpose-keyboard-hint {
+  margin-top: 12px;
+  text-align: right;
+
+  .hint-text {
+    font-size: 0.75rem;
+    color: var(--text-muted, #64748B);
+    background: var(--bg-subtle, #F8FAFC);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light, #F1F5F9);
+  }
+}
+
+// Popover visual de anatomía de imagen OCI
+.image-popover-box {
+  background: var(--bg-subtle, #F8FAFC);
+  border: 1px solid var(--border-color, #CBD5E1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin: 8px 0 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+
+  .popover-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .popover-title {
+      font-size: 0.8125rem;
+      font-weight: 700;
+      color: #0F172A;
+      margin: 0;
+    }
+
+    .btn-close-popover {
+      border: none;
+      background: transparent;
+      font-size: 1.1rem;
+      line-height: 1;
+      cursor: pointer;
+      color: #64748B;
+    }
+  }
+
+  .image-anatomy-breakdown {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+
+    .anatomy-part {
+      font-size: 0.75rem;
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      padding: 3px 6px;
+      border-radius: 4px;
+
+      .part-label {
+        color: #64748B;
+        margin-right: 4px;
+      }
+      .part-code {
+        font-family: var(--font-mono, monospace);
+        color: #0F172A;
+      }
+      .tag-code {
+        color: #2563EB;
+        font-weight: 600;
+      }
+    }
+  }
+
+  .popover-warning {
+    font-size: 0.75rem;
+    color: #B91C1C;
+    margin: 0;
+    font-weight: 500;
+  }
+}
+
+// Combobox listbox overlay
+.combobox-overlay-listbox {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #FFFFFF;
+  border: 1px solid var(--border-color, #CBD5E1);
+  border-radius: 8px;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  .combobox-group-header {
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    background: #F1F5F9;
+    color: #475569;
+    border-bottom: 1px solid #E2E8F0;
+
+    &.sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+  }
+
+  .combobox-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #F1F5F9;
+    transition: background-color 100ms ease;
+
+    &:hover, &.active {
+      background-color: #F8FAFC;
+    }
+
+    .combobox-item-main {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+
+      .combobox-repo {
+        font-family: var(--font-mono, monospace);
+        font-size: 0.8125rem;
+        font-weight: 600;
+        color: #0F172A;
+      }
+
+      .combobox-badges-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .badge-tag {
+          font-size: 0.7rem;
+          font-weight: 600;
+          padding: 2px 6px;
+          border-radius: 4px;
+
+          &.badge-local {
+            background: #DCFCE7;
+            color: #15803D;
+          }
+          &.badge-official {
+            background: #E0F2FE;
+            color: #0369A1;
+          }
+        }
+
+        .badge-size {
+          font-size: 0.75rem;
+          color: #64748B;
+        }
+
+        .badge-usage {
+          font-size: 0.7rem;
+          padding: 2px 6px;
+          border-radius: 4px;
+          background: #FEF3C7;
+          color: #92400E;
+          font-weight: 500;
+        }
+      }
+    }
+
+    .combobox-item-desc {
+      font-size: 0.75rem;
+      color: #64748B;
+      margin-top: 4px;
+    }
+  }
+
+  .combobox-empty-state {
+    padding: 16px;
+    font-size: 0.8125rem;
+    color: #64748B;
+    text-align: center;
+    font-style: italic;
+  }
+}
+
+// Chips de herramientas sugeridas
+.tools-suggested-chips {
+  margin-top: 8px;
+
+  .chips-label {
+    font-size: 0.75rem;
+    color: #64748B;
+    margin-bottom: 4px;
+    display: block;
+    font-weight: 500;
+  }
+
+  .chips-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    .tool-chip {
+      font-family: var(--font-mono, monospace);
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid #CBD5E1;
+      background: #F8FAFC;
+      color: #334155;
+      cursor: pointer;
+      transition: all 120ms ease;
+
+      &:hover {
+        background: #F1F5F9;
+        border-color: #2563EB;
+        color: #2563EB;
+      }
+
+      &.added {
+        background: #DCFCE7;
+        border-color: #86EFAC;
+        color: #15803D;
+      }
+    }
+  }
+}
+

@@ -743,7 +743,25 @@ func (h *AdminAcademicHandler) ListLocalImages(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	SendJSON(w, http.StatusOK, images, "Imágenes locales recuperadas exitosamente")
+	tenantID := getTenantFromCtx(r)
+	var usageMap map[string]int
+	if h.govService != nil {
+		usageMap, _ = h.govService.GetImageUsageCounts(r.Context(), tenantID)
+	}
+	if usageMap == nil {
+		usageMap = make(map[string]int)
+	}
+
+	for i := range images {
+		images[i].UsageCount = usageMap[images[i].RepoTag]
+	}
+
+	result := domain.LocalImagesResult{
+		Images:   images,
+		UsageMap: usageMap,
+	}
+
+	SendJSON(w, http.StatusOK, result, "Imágenes locales recuperadas exitosamente")
 }
 
 func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Request) {

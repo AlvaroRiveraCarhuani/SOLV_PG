@@ -203,6 +203,10 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
      - Requiere justificación técnica obligatoria de al menos 10 caracteres, visible para el docente.
    - Transición `SUSPENDIDA` -> `APROBADA` (Reactivación):
      - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (smoke test) y auditoría CVE sin vulnerabilidades críticas.
+6. **Cómputo de Uso Institucional de Imágenes OCI:**
+   - Para evitar métricas distorsionadas, el conteo de uso de una imagen (`usage_count` y `usage_map`) considera únicamente plantillas que fueron efectivamente válidas u operativas.
+   - **Exclusión explícita:** Las plantillas con estado `RECHAZADA` nunca llegaron a desplegar un laboratorio ni workspace docente, por lo que quedan estrictamente excluidas del conteo (`WHERE status != 'RECHAZADA'`).
+   - **Inclusión de suspendidas:** Las plantillas en estado `SUSPENDIDA` (o `paused`) sí se contabilizan, puesto que existieron, fueron aprobadas y operaron activamente en el entorno institucional antes de su deprecación preventiva.
 
 ---
 
@@ -380,5 +384,27 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-19` | "Imagen" | Título corto en tab 3 del stepper |
 | `PU-20` | "Ejecución" | Título corto en tab 4 del stepper |
 | `PU-21` | "Verificación" | Título corto en tab 6 del stepper |
+
+#### Familia AY-* (Ayuda Contextual, Accesibilidad por Teclado y Combobox)
+
+| ID | Texto / Descripción | Contexto |
+| :--- | :--- | :--- |
+| `AY-01` | "← → eligen propósito · Enter continúa" | Hint visible de atajos de teclado en footer del Paso 1 |
+| `AY-02` | "Ayuda contextual del paso" | Tooltip y aria-label del botón '?' en cabeceras de paso |
+| `AY-03` | "Ver manual completo" | Enlace al manual administrativo al pie del drawer de ayuda |
+| `AY-04` | "＋ Nueva categoría…" | Opción de disclosure progresivo en select de categorías |
+| `AY-05` | "Nombre de la nueva categoría:" | Label / placeholder para creación inline de categoría |
+| `AY-06` | "Agregar categoría" | Botón para confirmar creación de categoría inline |
+| `AY-07` | "Cancelar creación de categoría" | Botón para cancelar creación de categoría inline |
+| `AY-08` | "La categoría agrupa plantillas para el filtro docente." | Helper informativo debajo del selector de categorías |
+| `AY-09` | "En este servidor — despliegue inmediato" | Header sticky del Grupo 1 en combobox de imágenes |
+| `AY-10` | "Catálogo oficial curado — se descargará una vez" | Header sticky del Grupo 2 en combobox de imágenes |
+| `AY-11` | "Sin coincidencias locales; verificaremos en el registro al continuar" | Mensaje de estado vacío en combobox de imágenes |
+| `AY-12` | "{count, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}" | Chip de uso institucional real en opciones del combobox |
+| `AY-13` | "Anatomía de una referencia de imagen Docker" | Título del popover de descomposición visual de imagen |
+| `AY-14` | "El tag :latest está prohibido por reproducibilidad y gobernanza." | Texto explicativo en popover de imagen |
+| `AY-15` | "Ejemplos sugeridos para este propósito:" | Label para chips clickeables de herramientas requeridas |
+| `AY-16` | "Comparativa de Entornos: IDE Persistente vs Juez Virtual" | Título de tabla comparativa en drawer de ayuda (Paso 1) |
+| `AY-17` | "Cerrar panel de ayuda" | Aria-label del botón cerrar del drawer lateral de ayuda |
 
 

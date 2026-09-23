@@ -1551,3 +1551,29 @@ func (r *PostgresAdminGovernanceRepository) DeleteDraft(ctx context.Context, ten
 
 	return tx.Commit()
 }
+
+func (r *PostgresAdminGovernanceRepository) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
+	query := `
+		SELECT docker_image, COUNT(*) AS count
+		FROM lab_templates
+		WHERE (tenant_id = $1 OR tenant_id IS NULL)
+		  AND status != 'RECHAZADA'
+		GROUP BY docker_image
+	`
+	rows, err := r.db.QueryContext(ctx, query, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("error querying image usage counts: %w", err)
+	}
+	defer rows.Close()
+
+	usageMap := make(map[string]int)
+	for rows.Next() {
+		var img string
+		var count int
+		if err := rows.Scan(&img, &count); err != nil {
+			return nil, fmt.Errorf("error scanning image usage row: %w", err)
+		}
+		usageMap[img] = count
+	}
+	return usageMap, rows.Err()
+}

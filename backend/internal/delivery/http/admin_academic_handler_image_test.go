@@ -79,4 +79,18 @@ func TestAdminAcademicHandler_ListLocalImages(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("expected status 200, got %d. Body: %s", w.Code, w.Body.String())
 	}
+
+	var resp struct {
+		Code    int                      `json:"code"`
+		Message string                   `json:"message"`
+		Data    domain.LocalImagesResult `json:"data"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Data.UsageMap == nil {
+		t.Errorf("expected UsageMap to not be nil")
+	}
 }
+

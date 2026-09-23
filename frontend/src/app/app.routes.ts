@@ -61,6 +61,11 @@ export const routes: Routes = [
         path: 'modelos-categorias',
         loadComponent: () =>
           import('@features/admin/templates/components/model-library/model-library.component').then((m) => m.ModelLibraryComponent)
+      },
+      {
+        path: 'manual',
+        loadComponent: () =>
+          import('@features/admin/manual/admin-manual.component').then((m) => m.AdminManualComponent)
       }
     ]
   },

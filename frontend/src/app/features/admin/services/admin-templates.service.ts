@@ -155,6 +155,12 @@ export interface LocalImageItem {
   created_at: string;
   is_official: boolean;
   has_latest_tag: boolean;
+  usage_count?: number;
+}
+
+export interface LocalImagesResult {
+  images: LocalImageItem[];
+  usage_map: Record<string, number>;
 }
 
 export interface CreateOfficialTemplateDTO {
@@ -283,9 +289,9 @@ export class AdminTemplatesService {
     );
   }
 
-  getLocalImages(): Observable<LocalImageItem[]> {
-    return this.http.get<ApiResponse<LocalImageItem[]>>(`${this.apiUrl}/local-images`).pipe(
-      map(res => res.data || [])
+  getLocalImages(): Observable<LocalImagesResult> {
+    return this.http.get<ApiResponse<LocalImagesResult>>(`${this.apiUrl}/local-images`).pipe(
+      map(res => res.data || { images: [], usage_map: {} })
     );
   }
 

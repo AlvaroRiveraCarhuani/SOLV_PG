@@ -128,6 +128,12 @@ func (m *mockAdminGovernanceRepo) GetDraftByUser(ctx context.Context, tenantID, 
 func (m *mockAdminGovernanceRepo) DeleteDraft(ctx context.Context, tenantID, userID string) error {
 	return nil
 }
+func (m *mockAdminGovernanceRepo) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
+	return map[string]int{
+		"python:3.12-slim-bookworm": 4,
+		"node:20-bookworm-slim":     2,
+	}, nil
+}
 
 
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
@@ -459,4 +465,22 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 		t.Errorf("max_allowed_ram_mb debe ser positivo, obtenido: %d", caps.MaxAllowedRamMB)
 	}
 }
+
+func TestAdminGovernanceService_GetImageUsageCounts(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	usageMap, err := svc.GetImageUsageCounts(context.Background(), "tenant-1")
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if usageMap["python:3.12-slim-bookworm"] != 4 {
+		t.Errorf("esperado 4 usos para python, obtenido: %d", usageMap["python:3.12-slim-bookworm"])
+	}
+	if usageMap["node:20-bookworm-slim"] != 2 {
+		t.Errorf("esperado 2 usos para node, obtenido: %d", usageMap["node:20-bookworm-slim"])
+	}
+}
+
 

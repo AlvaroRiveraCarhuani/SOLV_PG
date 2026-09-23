@@ -30,8 +30,9 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
   const mockTemplatesService = {
     getModels: () => of([]),
     getCategories: () => of([]),
+    createCategory: (dto: { name: string }) => of({ id: 'cat-new-1', name: dto.name, description: '', sort_order: 1, is_active: true, created_at: '', updated_at: '' }),
     getTemplates: () => of([]),
-    getLocalImages: () => of([]),
+    getLocalImages: () => of({ images: [], usage_map: {} }),
     getRuntimeCapabilities: () => of(null),
     getAvailableSatelliteServices: () => [],
     getDraft: () => of(null),
@@ -220,5 +221,213 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
     expect(comp.baseRamMB()).toBe(1024);
     expect(comp.hasDraftToResume()).toBe(true);
   });
+
+  describe('Accesibilidad y Navegación por Teclado (ARIA APG)', () => {
+    it('debe soportar roving tabindex en las tarjetas de propósito', () => {
+      expect(component.targetEnvironment()).toBe('IDE_PERSISTENTE');
+      component.selectTargetEnvironment('JUEZ_EFIMERO');
+      expect(component.targetEnvironment()).toBe('JUEZ_EFIMERO');
+    });
+
+    it('las flechas deben alternar el propósito seleccionado (ambos pares horizontal y vertical)', () => {
+      // 1. Horizontal: ArrowRight / ArrowLeft
+      const eventRight = new KeyboardEvent('keydown', { key: 'ArrowRight' });
+      component.onPurposeKeydown(eventRight, 'IDE_PERSISTENTE');
+      expect(component.targetEnvironment()).toBe('JUEZ_EFIMERO');
+
+      const eventLeft = new KeyboardEvent('keydown', { key: 'ArrowLeft' });
+      component.onPurposeKeydown(eventLeft, 'JUEZ_EFIMERO');
+      expect(component.targetEnvironment()).toBe('IDE_PERSISTENTE');
+
+      // 2. Vertical: ArrowDown / ArrowUp
+      const eventDown = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      component.onPurposeKeydown(eventDown, 'IDE_PERSISTENTE');
+      expect(component.targetEnvironment()).toBe('JUEZ_EFIMERO');
+
+      const eventUp = new KeyboardEvent('keydown', { key: 'ArrowUp' });
+      component.onPurposeKeydown(eventUp, 'JUEZ_EFIMERO');
+      expect(component.targetEnvironment()).toBe('IDE_PERSISTENTE');
+    });
+
+    it('la tecla Enter en propósito debe avanzar a la siguiente sección (identity)', () => {
+      expect(component.activeSection()).toBe('purpose');
+      const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
+      component.onPurposeKeydown(enterEvent, 'IDE_PERSISTENTE');
+      expect(component.activeSection()).toBe('identity');
+    });
+
+    it('la tecla Escape debe cerrar drawer, popover o combobox antes de cerrar el modal', () => {
+      let closedEmitted = false;
+      component.closed.subscribe(() => { closedEmitted = true; });
+
+      // 1. Con drawer abierto, Escape cierra el drawer
+      component.isHelpDrawerOpen.set(true);
+      component.onEscape();
+      expect(component.isHelpDrawerOpen()).toBe(false);
+      expect(closedEmitted).toBe(false);
+
+      // 2. Con popover abierto, Escape cierra el popover
+      component.showImagePopover.set(true);
+      component.onEscape();
+      expect(component.showImagePopover()).toBe(false);
+      expect(closedEmitted).toBe(false);
+
+      // 3. Con combobox abierto, Escape cierra el combobox
+      component.isDropdownOpen.set(true);
+      component.onEscape();
+      expect(component.isDropdownOpen()).toBe(false);
+      expect(closedEmitted).toBe(false);
+
+      // 4. Con creación inline de categoría abierta, Escape cancela
+      component.isCreatingCategoryInline.set(true);
+      component.onEscape();
+      expect(component.isCreatingCategoryInline()).toBe(false);
+      expect(closedEmitted).toBe(false);
+
+      // 5. Sin elementos secundarios abiertos, Escape cierra el modal
+      component.onEscape();
+      expect(closedEmitted).toBe(true);
+    });
+  });
+
+  describe('Combobox de Imágenes con Grupos, Badges Separados y Conteo Real de Uso', () => {
+    it('debe ordenar el grupo local por usage_count descendente y luego size_mb ascendente', () => {
+      component.localImages.set([
+        { repo_tag: 'nginx:alpine', size_mb: 90, is_official: true, has_latest_tag: false, created_at: '', usage_count: 1 },
+        { repo_tag: 'python:3.12-custom', size_mb: 250, is_official: false, has_latest_tag: false, created_at: '', usage_count: 5 },
+        { repo_tag: 'node:20-alpine', size_mb: 180, is_official: true, has_latest_tag: false, created_at: '', usage_count: 5 }
+      ]);
+      component.dockerImage.set('');
+
+      const localGroup = component.groupLocalImages();
+      expect(localGroup.length).toBe(3);
+      expect(localGroup[0].repoTag).toBe('node:20-alpine');
+      expect(localGroup[0].usageCount).toBe(5);
+      expect(localGroup[1].repoTag).toBe('python:3.12-custom');
+      expect(localGroup[1].usageCount).toBe(5);
+      expect(localGroup[2].repoTag).toBe('nginx:alpine');
+      expect(localGroup[2].usageCount).toBe(1);
+    });
+
+    it('debe enriquecer el grupo curado con usage_map y ordenarlo por uso descendente', () => {
+      component.usageMap.set({
+        'python:3.12-slim-bookworm': 10,
+        'golang:1.22-bookworm': 3
+      });
+      component.dockerImage.set('');
+
+      const curatedGroup = component.groupCuratedImages();
+      expect(curatedGroup.length).toBeGreaterThan(0);
+      expect(curatedGroup[0].repoTag).toBe('python:3.12-slim-bookworm');
+      expect(curatedGroup[0].usageCount).toBe(10);
+    });
+
+    it('la búsqueda en el combobox debe filtrar por subcadena en ambos grupos', () => {
+      component.localImages.set([
+        { repo_tag: 'gcc:13.2-custom', size_mb: 150, is_official: false, has_latest_tag: false, created_at: '', usage_count: 0 }
+      ]);
+      component.dockerImage.set('gcc');
+
+      const local = component.groupLocalImages();
+      const curated = component.groupCuratedImages();
+
+      expect(local.every(i => i.repoTag.toLowerCase().includes('gcc'))).toBe(true);
+      expect(curated.every(i => i.repoTag.toLowerCase().includes('gcc'))).toBe(true);
+    });
+
+    it('onComboboxKeydown debe navegar cíclicamente y seleccionar con Enter', () => {
+      component.localImages.set([
+        { repo_tag: 'python:3.12-local', size_mb: 100, is_official: true, has_latest_tag: false, created_at: '' }
+      ]);
+      component.openCombobox();
+      expect(component.isDropdownOpen()).toBe(true);
+
+      const downEvent = new KeyboardEvent('keydown', { key: 'ArrowDown' });
+      component.onComboboxKeydown(downEvent);
+      expect(component.activeComboboxIndex()).toBe(0);
+
+      const enterEvent = new KeyboardEvent('keydown', { key: 'Enter' });
+      component.onComboboxKeydown(enterEvent);
+      expect(component.dockerImage()).toBe('python:3.12-local');
+      expect(component.isDropdownOpen()).toBe(false);
+    });
+
+    it('chips sugeridos de herramientas deben variar según el propósito', () => {
+      component.targetEnvironment.set('IDE_PERSISTENTE');
+      expect(component.suggestedToolChips()).toEqual(['python3', 'node', 'gcc']);
+
+      component.targetEnvironment.set('JUEZ_EFIMERO');
+      expect(component.suggestedToolChips()).toEqual(['gcc', 'python3', 'javac']);
+
+      component.toolsDeclared.set('');
+      component.addToolDeclared('gcc');
+      expect(component.toolsDeclared()).toBe('gcc');
+
+      component.addToolDeclared('gcc');
+      expect(component.toolsDeclared()).toBe('gcc');
+    });
+  });
+
+  describe('Disclosure Progresivo de Categoría', () => {
+    it('isCreatingCategoryInline debe estar en false por defecto', () => {
+      expect(component.isCreatingCategoryInline()).toBe(false);
+    });
+
+    it('seleccionar __new__ debe abrir la fila inline y guardar la categoría previa', () => {
+      component.selectedCategoryId.set('cat-existente');
+      component.onCategorySelect('__new__');
+
+      expect(component.isCreatingCategoryInline()).toBe(true);
+      expect(component.previousCategoryId()).toBe('cat-existente');
+      expect(component.inlineCategoryName()).toBe('');
+    });
+
+    it('cancelInlineCategory debe restaurar la categoría previa y ocultar la fila inline', () => {
+      component.selectedCategoryId.set('cat-existente');
+      component.onCategorySelect('__new__');
+      component.inlineCategoryName.set('Nombre Descartado');
+
+      component.cancelInlineCategory();
+
+      expect(component.isCreatingCategoryInline()).toBe(false);
+      expect(component.selectedCategoryId()).toBe('cat-existente');
+      expect(component.inlineCategoryName()).toBe('');
+    });
+
+    it('createCategoryInline debe crear la categoría, seleccionarla y colapsar la fila inline', () => {
+      component.onCategorySelect('__new__');
+      component.inlineCategoryName.set('Inteligencia Artificial');
+
+      component.createCategoryInline();
+
+      expect(component.isCreatingCategoryInline()).toBe(false);
+      expect(component.selectedCategoryId()).toBe('cat-new-1');
+      expect(component.categories().some(c => c.name === 'Inteligencia Artificial')).toBe(true);
+    });
+  });
+
+  describe('Drawer Contextual por Paso y Enlace al Manual', () => {
+    it('toggleHelpDrawer debe alternar la visibilidad y establecer el paso activo', () => {
+      expect(component.isHelpDrawerOpen()).toBe(false);
+
+      component.toggleHelpDrawer('purpose');
+      expect(component.isHelpDrawerOpen()).toBe(true);
+      expect(component.activeDrawerStep()).toBe('purpose');
+
+      component.toggleHelpDrawer('purpose');
+      expect(component.isHelpDrawerOpen()).toBe(false);
+
+      component.toggleHelpDrawer('image');
+      expect(component.isHelpDrawerOpen()).toBe(true);
+      expect(component.activeDrawerStep()).toBe('image');
+    });
+
+    it('closeHelpDrawer debe cerrar el drawer', () => {
+      component.isHelpDrawerOpen.set(true);
+      component.closeHelpDrawer();
+      expect(component.isHelpDrawerOpen()).toBe(false);
+    });
+  });
 });
+
 

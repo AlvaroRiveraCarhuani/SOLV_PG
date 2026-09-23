@@ -564,3 +564,8 @@ func (s *AdminGovernanceService) DeleteTemplateDraft(ctx context.Context, tenant
 	}
 	return s.govRepo.DeleteDraft(ctx, tenantID, userID)
 }
+
+func (s *AdminGovernanceService) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
+	return s.govRepo.GetImageUsageCounts(ctx, tenantID)
+}
+

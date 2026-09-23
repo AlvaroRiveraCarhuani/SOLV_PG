@@ -1,0 +1,26 @@
+<div class="manual-page-container">
+  <header class="manual-header">
+    <div class="header-left">
+      <a routerLink="/admin/plantillas" class="back-link" aria-label="Volver al catálogo de plantillas">
+        <span class="back-arrow">&larr;</span> Volver a Plantillas
+      </a>
+      <span class="manual-badge">Documentación Oficial</span>
+    </div>
+  </header>
+
+  <main class="manual-content-card">
+    @if (loading()) {
+      <div class="manual-loading">
+        <div class="spinner"></div>
+        <p>Cargando manual administrativo...</p>
+      </div>
+    } @else if (error()) {
+      <div class="manual-error">
+        <p>{{ error() }}</p>
+        <button class="retry-btn" (click)="loadManual()">Reintentar</button>
+      </div>
+    } @else {
+      <article class="markdown-body" [innerHTML]="renderedContent()"></article>
+    }
+  </main>
+</div>

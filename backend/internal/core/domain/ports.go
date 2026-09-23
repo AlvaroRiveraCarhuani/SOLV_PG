@@ -179,6 +179,7 @@ type AdminGovernanceRepository interface {
 	SaveDraft(ctx context.Context, tenantID, userID string, formData json.RawMessage, templateID *string) (*TemplateDraft, error)
 	GetDraftByUser(ctx context.Context, tenantID, userID string) (*TemplateDraft, error)
 	DeleteDraft(ctx context.Context, tenantID, userID string) error
+	GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error)
 }
 
 type SubmissionRepository interface {
