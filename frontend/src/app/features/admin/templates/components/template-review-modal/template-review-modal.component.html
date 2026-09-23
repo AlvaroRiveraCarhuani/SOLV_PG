@@ -43,27 +43,15 @@
           <span>Asignación de Memoria RAM por Contenedor:</span>
         </label>
         <div class="chips-selector">
-          <button 
-            type="button" 
-            class="chip-btn" 
-            [class.active]="selectedRam() === 256"
-            (click)="setRam(256)">
-            256 MB <span class="chip-desc">Ligera</span>
-          </button>
-          <button 
-            type="button" 
-            class="chip-btn" 
-            [class.active]="selectedRam() === 512"
-            (click)="setRam(512)">
-            512 MB <span class="chip-desc chip-badge">Sugerido</span>
-          </button>
-          <button 
-            type="button" 
-            class="chip-btn" 
-            [class.active]="selectedRam() === 1024"
-            (click)="setRam(1024)">
-            1024 MB <span class="chip-desc">Intensiva</span>
-          </button>
+          @for (preset of ramPresets(); track preset.mb) {
+            <button 
+              type="button" 
+              class="chip-btn" 
+              [class.active]="selectedRam() === preset.mb"
+              (click)="setRam(preset.mb)">
+              {{ preset.label }} <span class="chip-desc">{{ preset.desc }}</span>
+            </button>
+          }
         </div>
       </div>
 

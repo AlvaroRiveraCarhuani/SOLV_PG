@@ -65,7 +65,7 @@
         <svg lucideCheckCircle2 class="kpi-icon"></svg>
       </div>
       <div class="kpi-content">
-        <span class="kpi-label">Activas en Uso</span>
+        <span class="kpi-label">Activas en catálogo</span>
         <div class="kpi-value">{{ activeCount() }}</div>
         <span class="kpi-detail">Disponibles para laboratorios</span>
       </div>
@@ -509,7 +509,7 @@
                   <span>Duplicar</span>
                 </button>
 
-                @if (item.status === 'approved') {
+                @if (item.status === 'approved' || item.status === 'APROBADA') {
                   <button type="button" class="btn-pause-template" (click)="requestToggleStatus(item)" title="Pausar plantilla">
                     <svg lucidePause class="btn-icon-xs"></svg>
                     <span>Pausar</span>
@@ -630,7 +630,18 @@
                         <span>Duplicar</span>
                       </button>
 
-                      @if (item.status === 'approved') {
+                      @if (item.status === 'approved' || item.status === 'APROBADA') {
+                        <button 
+                          type="button" 
+                          class="btn-edit-action" 
+                          (click)="promoteToModel(item)" 
+                          title="Promover plantilla a modelo institucional">
+                          <svg lucideSparkles class="w-3.5 h-3.5"></svg>
+                          <span i18n="@@ST-15">Promover a modelo de plantilla</span>
+                        </button>
+                      }
+
+                      @if (item.status === 'approved' || item.status === 'APROBADA') {
                         <button 
                           type="button" 
                           class="btn-pause-template" 
@@ -889,16 +900,168 @@
       (closed)="closeCreateModal()" />
   }
 
+  <!-- Modal de Suspensión / Reactivación con motivo obligatorio (>= 10 caracteres) -->
   @if (templateToToggleStatus(); as tpl) {
-    <solv-confirm-modal
-      [title]="tpl.status === 'approved' ? 'Pausar Plantilla Oficial' : 'Reactivar Plantilla Oficial'"
-      [message]="tpl.status === 'approved' 
-        ? '¿Confirmas pausar la plantilla ' + tpl.name + '? Ya no se listará para nuevos laboratorios, salvaguardando los entornos activos existentes.' 
-        : '¿Confirmas reactivar la plantilla ' + tpl.name + '? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.'"
-      [confirmText]="tpl.status === 'approved' ? 'Pausar Plantilla' : 'Reactivar Plantilla'"
-      [type]="tpl.status === 'approved' ? 'danger' : 'primary'"
-      (confirm)="confirmToggleStatus(tpl)"
-      (cancel)="cancelToggleStatus()">
-    </solv-confirm-modal>
+    <div class="modal-backdrop" (click)="cancelToggleStatus()">
+      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-icon-badge" [class.danger]="tpl.status === 'approved' || tpl.status === 'APROBADA'">
+              @if (tpl.status === 'approved' || tpl.status === 'APROBADA') {
+                <svg lucideAlertCircle class="w-5 h-5 text-danger"></svg>
+              } @else {
+                <svg lucidePlay class="w-5 h-5 text-primary"></svg>
+              }
+            </div>
+            <div>
+              <h3 class="modal-title">
+                {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial' }}
+              </h3>
+              <p class="modal-subtitle">
+                {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios' }}
+              </p>
+            </div>
+          </div>
+          <button type="button" class="btn-icon-close" (click)="cancelToggleStatus()" aria-label="Cerrar modal">
+            <svg lucideX class="w-4 h-4"></svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div class="template-summary-card mb-3">
+            <div class="summary-row">
+              <span class="summary-label">Plantilla:</span>
+              <span class="summary-value font-semibold">{{ tpl.name }}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Imagen Docker:</span>
+              <code class="docker-image-tag">{{ tpl.docker_image }}</code>
+            </div>
+          </div>
+
+          @if (tpl.status === 'approved' || tpl.status === 'APROBADA') {
+            <div class="form-group">
+              <div class="label-row flex justify-between items-center mb-1">
+                <label class="form-label font-semibold text-sm">
+                  Motivo de Suspensión (Obligatorio, mínimo 10 caracteres):
+                </label>
+                <span class="char-counter text-xs" [class.text-success]="toggleStatusReason().trim().length >= 10" [class.text-danger]="toggleStatusReason().trim().length > 0 && toggleStatusReason().trim().length < 10">
+                  {{ toggleStatusReason().trim().length }} / 10 caracteres
+                </span>
+              </div>
+              <textarea
+                class="form-control"
+                rows="3"
+                placeholder="Indique la justificación técnica o de gobernanza (ej: Mantenimiento programado de dependencias...)"
+                [ngModel]="toggleStatusReason()"
+                (ngModelChange)="toggleStatusReason.set($event)">
+              </textarea>
+              @if (toggleStatusReason().trim().length > 0 && toggleStatusReason().trim().length < 10) {
+                <p class="field-hint text-xs text-danger mt-1">
+                  El motivo debe tener al menos 10 caracteres.
+                </p>
+              }
+            </div>
+          } @else {
+            <p class="text-sm text-secondary">
+              ¿Confirmas reactivar la plantilla <strong>{{ tpl.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
+            </p>
+          }
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" (click)="cancelToggleStatus()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            [class.btn-danger]="tpl.status === 'approved' || tpl.status === 'APROBADA'"
+            [disabled]="(tpl.status === 'approved' || tpl.status === 'APROBADA') && toggleStatusReason().trim().length < 10"
+            (click)="confirmToggleStatus(tpl)">
+            {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Confirmar Suspensión' : 'Reactivar Plantilla' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Diálogo Modal de Promoción a Modelo (ST-15) -->
+  @if (templateToPromote(); as tpl) {
+    <div class="modal-backdrop" (click)="closePromoteModal()">
+      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+        <div class="modal-header">
+          <div class="modal-title-group">
+            <div class="modal-icon-badge">
+              <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
+            </div>
+            <div>
+              <h3 class="modal-title" i18n="@@ST-15">Promover a modelo de plantilla</h3>
+              <p class="modal-subtitle">Convierte esta plantilla aprobada en una receta base para nuevos entornos</p>
+            </div>
+          </div>
+          <button type="button" class="btn-icon-close" (click)="closePromoteModal()" aria-label="Cerrar modal">
+            <svg lucideX class="w-4 h-4"></svg>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          @if (promoteErrorMsg()) {
+            <div class="field-error-alert mb-3">
+              <svg lucideAlertCircle class="w-4 h-4"></svg>
+              <span>{{ promoteErrorMsg() }}</span>
+            </div>
+          }
+
+          <div class="form-group mb-3">
+            <label class="form-label font-semibold">Nombre del Modelo:</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              [ngModel]="promoteModelName()" 
+              (ngModelChange)="promoteModelName.set($event)"
+            />
+          </div>
+
+          <div class="form-group mb-3">
+            <label class="form-label font-semibold">Categoría Académica:</label>
+            <select 
+              class="form-control form-select" 
+              [ngModel]="promoteCategoryId()" 
+              (ngModelChange)="promoteCategoryId.set($event)"
+            >
+              <option [ngValue]="null">-- Sin categoría asignada --</option>
+              @for (cat of promoteCategories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label font-semibold">Descripción del Modelo (Opcional):</label>
+            <textarea 
+              class="form-control text-area-sm" 
+              rows="3" 
+              [ngModel]="promoteDescription()" 
+              (ngModelChange)="promoteDescription.set($event)"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-outline" (click)="closePromoteModal()" [disabled]="isPromoting()">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn-primary" 
+            [disabled]="!promoteModelName().trim() || isPromoting()"
+            (click)="confirmPromote()"
+          >
+            <span>Promover a Modelo</span>
+          </button>
+        </div>
+      </div>
+    </div>
   }
 </div>

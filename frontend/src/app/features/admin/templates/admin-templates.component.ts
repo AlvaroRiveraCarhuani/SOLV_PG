@@ -5,13 +5,13 @@ import {
   AdminTemplatesService, 
   AdminTemplateItem, 
   ReviewTemplateDTO, 
-  CreateOfficialTemplateDTO 
+  CreateOfficialTemplateDTO,
+  TemplateCategory
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
 import { TemplateRejectModalComponent } from './components/template-reject-modal/template-reject-modal.component';
 import { TemplateCreateModalComponent } from './components/template-create-modal/template-create-modal.component';
 import { TemplateEditModalComponent } from './components/template-edit-modal/template-edit-modal.component';
-import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { 
   LucideLayers, 
   LucideBox, 
@@ -32,7 +32,9 @@ import {
   LucideCheck,
   LucideChevronLeft,
   LucideChevronRight,
-  LucideChevronDown
+  LucideChevronDown,
+  LucideSparkles,
+  LucideX
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 
@@ -88,7 +90,6 @@ export interface ToastNotification {
     TemplateRejectModalComponent,
     TemplateCreateModalComponent,
     TemplateEditModalComponent,
-    ConfirmModalComponent,
     TechLogoComponent,
     LucideLayers,
     LucideBox,
@@ -109,7 +110,9 @@ export interface ToastNotification {
     LucideCheck,
     LucideChevronLeft,
     LucideChevronRight,
-    LucideChevronDown
+    LucideChevronDown,
+    LucideSparkles,
+    LucideX
   ],
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
@@ -295,10 +298,10 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   averageRam = computed(() => {
-    const approved = this.allTemplates().filter(t => t.status === 'approved' || t.status === 'paused');
-    if (approved.length === 0) return 512;
-    const total = approved.reduce((acc, t) => acc + (t.base_ram_mb || 512), 0);
-    return Math.round(total / approved.length);
+    const activeCatalog = this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA');
+    if (activeCatalog.length === 0) return 512;
+    const total = activeCatalog.reduce((acc, t) => acc + (t.base_ram_mb || 512), 0);
+    return Math.round(total / activeCatalog.length);
   });
 
   ngOnInit(): void {
@@ -356,7 +359,7 @@ export class AdminTemplatesComponent implements OnInit {
 
   handleApprove(event: { id: string; base_ram_mb: number }): void {
     const dto: ReviewTemplateDTO = {
-      status: 'approved',
+      status: 'pending_audit',
       base_ram_mb: event.base_ram_mb
     };
 
@@ -366,7 +369,7 @@ export class AdminTemplatesComponent implements OnInit {
           list.map(t => t.id === updated.id ? updated : t)
         );
         this.closeReviewModal();
-        this.showToast(`Plantilla "${updated.name}" aprobada y publicada en el catálogo.`, 'success');
+        this.showToast(`Solicitud de plantilla "${updated.name}" aprobada y derivada a borrador en auditoría técnica.`, 'success');
       },
       error: (err) => {
         const msg = err.error?.message || 'No se pudo aprobar la plantilla.';
@@ -374,6 +377,65 @@ export class AdminTemplatesComponent implements OnInit {
         this.closeReviewModal();
       }
     });
+  }
+
+  templateToPromote = signal<AdminTemplateItem | null>(null);
+  promoteModelName = signal<string>('');
+  promoteCategoryId = signal<string | null>(null);
+  promoteDescription = signal<string>('');
+  isPromoting = signal<boolean>(false);
+  promoteCategories = signal<TemplateCategory[]>([]);
+  promoteErrorMsg = signal<string | null>(null);
+
+  openPromoteModal(template: AdminTemplateItem): void {
+    if (template.status !== 'approved' && template.status !== 'APROBADA') {
+      this.showToast('Solo plantillas aprobadas pueden promoverse a modelo institucional.', 'error');
+      return;
+    }
+    this.templateToPromote.set(template);
+    this.promoteModelName.set(template.name);
+    this.promoteCategoryId.set(template.category_id || null);
+    this.promoteDescription.set(template.description || '');
+    this.promoteErrorMsg.set(null);
+    this.templatesService.getCategories().subscribe({
+      next: (cats) => this.promoteCategories.set(cats || []),
+      error: () => {}
+    });
+  }
+
+  closePromoteModal(): void {
+    this.templateToPromote.set(null);
+    this.promoteErrorMsg.set(null);
+  }
+
+  confirmPromote(): void {
+    const tpl = this.templateToPromote();
+    if (!tpl || !this.promoteModelName().trim()) return;
+
+    this.isPromoting.set(true);
+    this.promoteErrorMsg.set(null);
+
+    this.templatesService.promoteToModel(tpl.id, {
+      name: this.promoteModelName().trim(),
+      category_id: this.promoteCategoryId() || undefined,
+      description: this.promoteDescription().trim()
+    }).subscribe({
+      next: () => {
+        this.isPromoting.set(false);
+        this.closePromoteModal();
+        const msg = $localize`:@@ST-16:Plantilla promovida a modelo institucional.`;
+        this.showToast(msg, 'success');
+      },
+      error: (err) => {
+        this.isPromoting.set(false);
+        const msg = err.error?.message || err.error?.error || 'No se pudo promover la plantilla a modelo.';
+        this.promoteErrorMsg.set(msg);
+      }
+    });
+  }
+
+  promoteToModel(template: AdminTemplateItem): void {
+    this.openPromoteModal(template);
   }
 
   handleReject(event: { id: string; reason: string }): void {
@@ -412,18 +474,29 @@ export class AdminTemplatesComponent implements OnInit {
     });
   }
 
+  toggleStatusReason = signal<string>('');
+
   requestToggleStatus(template: AdminTemplateItem): void {
+    this.toggleStatusReason.set('');
     this.templateToToggleStatus.set(template);
   }
 
   cancelToggleStatus(): void {
     this.templateToToggleStatus.set(null);
+    this.toggleStatusReason.set('');
   }
 
   confirmToggleStatus(template: AdminTemplateItem): void {
-    const nextStatus = template.status === 'approved' ? 'paused' : 'approved';
+    const isPausing = template.status === 'approved' || template.status === 'APROBADA';
+    const reason = this.toggleStatusReason().trim();
+    if (isPausing && reason.length < 10) {
+      return;
+    }
+
+    const nextStatus = isPausing ? 'paused' : 'approved';
     const dto: ReviewTemplateDTO = {
-      status: nextStatus
+      status: nextStatus,
+      rejection_reason: isPausing ? reason : undefined
     };
 
     this.templatesService.reviewTemplate(template.id, dto).subscribe({
@@ -432,11 +505,13 @@ export class AdminTemplatesComponent implements OnInit {
           list.map(t => t.id === updated.id ? updated : t)
         );
         this.templateToToggleStatus.set(null);
-        const actionText = nextStatus === 'paused' ? 'pausada' : 'reactivada';
+        this.toggleStatusReason.set('');
+        const actionText = nextStatus === 'paused' ? 'suspendida/pausada' : 'reactivada';
         this.showToast(`Plantilla "${template.name}" ${actionText} en el catálogo.`, 'success');
       },
       error: () => {
         this.templateToToggleStatus.set(null);
+        this.toggleStatusReason.set('');
         this.showToast('No se pudo modificar el estado de la plantilla.', 'error');
       }
     });

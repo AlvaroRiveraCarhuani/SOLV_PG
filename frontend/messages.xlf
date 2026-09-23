@@ -1,0 +1,942 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" datatype="plaintext" original="ng2.template">
+    <body>
+      <trans-unit id="ST-15" datatype="html">
+        <source>Promover a modelo de plantilla</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/admin-templates.component.html</context>
+          <context context-type="linenumber">639,640</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/admin-templates.component.html</context>
+          <context context-type="linenumber">924,925</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-16" datatype="html">
+        <source>Plantilla promovida a modelo institucional.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/admin-templates.component.ts</context>
+          <context context-type="linenumber">428</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-02" datatype="html">
+        <source>Ingrese y verifique una imagen válida para habilitar la prueba del entorno.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">10,11</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-01" datatype="html">
+        <source>Probar entorno</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">16,17</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-40" datatype="html">
+        <source>Actualizar imagen y probar</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">18,19</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-10" datatype="html">
+        <source>Probar entorno (local, &lt; 2s)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">20,21</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-20" datatype="html">
+        <source>Descargar y probar (~<x id="INTERPOLATION" equiv-text="{{ imageSizeMB() || 350 }}"/> MB)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">22,23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-41" datatype="html">
+        <source> Probar versión del registro remoto </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">30,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-42" datatype="html">
+        <source> Probar copia local existente </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">33,34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-11" datatype="html">
+        <source>La imagen ya reside en el servidor: la prueba tarda menos de 5 segundos.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">39,40</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-21" datatype="html">
+        <source>La imagen se descargará y quedará en caché en el servidor.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">41,43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-12" datatype="html">
+        <source>Ejecutando prueba en contenedor aislado...</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">54,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-33" datatype="html">
+        <source>Ejecutando prueba en contenedor efímero...</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">55,56</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-30" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ activeJob()?.progress?.current_action || &apos;Preparando entorno&apos; }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">57,58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-34" datatype="html">
+        <source>Cancelar prueba</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">61</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-32" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ activeJob()?.progress?.percent | number:&apos;1.0-0&apos; }}"/>% completado</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">72,73</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-31" datatype="html">
+        <source>Capa <x id="INTERPOLATION" equiv-text="{{ activeJob()?.progress?.layer_current }}"/> de <x id="INTERPOLATION_1" equiv-text="{{ activeJob()?.progress?.layers_total }}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">73,74</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-50" datatype="html">
+        <source> Entorno verificado: <x id="INTERPOLATION" equiv-text="{{ activeJob()?.result?.tools?.length || 0 }}"/> herramientas verificadas <x id="START_BLOCK_IF" equiv-text="@if (activeJob()?.result?.duration_ms) {"/> (<x id="INTERPOLATION_1" equiv-text="{{ activeJob()?.result?.duration_ms }}"/> ms) <x id="CLOSE_BLOCK_IF" equiv-text="}"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">85,90</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-43" datatype="html">
+        <source> offline </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">92,93</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-63" datatype="html">
+        <source>Ver detalle</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">95</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">118</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-53" datatype="html">
+        <source>Reintentar prueba</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">104</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-60" datatype="html">
+        <source> Faltan herramientas requeridas en la imagen </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">116,117</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-74" datatype="html">
+        <source>Reintentar prueba</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">127</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">165</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-71" datatype="html">
+        <source>Límite de memoria superado durante la prueba (OOM)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">141,142</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-72" datatype="html">
+        <source>Fallo al ejecutar el contenedor de prueba</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">144,145</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">37</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-75" datatype="html">
+        <source>Descarga detenida: sin datos de red por más de 60 s</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">147,148</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">33</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-76" datatype="html">
+        <source>No se pudo conectar al registro OCI público</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">150,151</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">35</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-77" datatype="html">
+        <source>Tiempo total de prueba excedido (15 min)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">153,154</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">34</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-70" datatype="html">
+        <source>Error interno en la prueba de entorno</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">156,157</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">38</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-73" datatype="html">
+        <source>Ver log completo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">161,162</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-61" datatype="html">
+        <source>Herramientas inspeccionadas:</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">175,176</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-51" datatype="html">
+        <source>Verificado en contenedor aislado</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">176,177</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-62" datatype="html">
+        <source>No encontrada</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">190,191</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-52" datatype="html">
+        <source> Imagen cacheada en el servidor. Primer arranque instantáneo. </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.html</context>
+          <context context-type="linenumber">197,198</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="TE-35" datatype="html">
+        <source>Prueba cancelada. Las capas ya descargadas quedan en caché.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts</context>
+          <context context-type="linenumber">177</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-01" datatype="html">
+        <source>Publicar plantilla oficial</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">5,6</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-02" datatype="html">
+        <source>Comprobación de preparación para uso institucional</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">6,8</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-04" datatype="html">
+        <source>Resumen</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">17,18</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-07" datatype="html">
+        <source>Imagen verificada</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">18,19</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-33" datatype="html">
+        <source>Nombre</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">22,23</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-34" datatype="html">
+        <source>Imagen</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">26,27</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-35" datatype="html">
+        <source>Herramientas</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">30,31</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-09" datatype="html">
+        <source>Prueba de entorno (sin herramientas)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">35,36</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-36" datatype="html">
+        <source>Memoria</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">40,41</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-37" datatype="html">
+        <source>Servicios</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">44,45</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-41" datatype="html">
+        <source>Sin servicios</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">49,50</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-38" datatype="html">
+        <source>Script de inicialización</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">54,55</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-39" datatype="html">
+        <source>Ver</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">57,58</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-40" datatype="html">
+        <source>Sin script</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">59,60</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-03" datatype="html">
+        <source>Controles previos</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">74,75</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-10" datatype="html">
+        <source>No se ha ingresado una imagen Docker</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">96,97</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-11" datatype="html">
+        <source>El tag :latest está prohibido por reproducibilidad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">99,100</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-14" datatype="html">
+        <source>Formato de imagen OCI válido</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">102,103</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-21" datatype="html">
+        <source>No se ha ejecutado la prueba de entorno</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">105,106</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-22" datatype="html">
+        <source>Verificación local sin validación de digest remoto</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">108,109</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-08" datatype="html">
+        <source>Entorno verificado correctamente</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">111,112</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-12" datatype="html">
+        <source>Herramientas requeridas ausentes en la imagen</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">114,115</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-23" datatype="html">
+        <source>Asignación de memoria alta (&gt; 2048 MB)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">117,118</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-13" datatype="html">
+        <source>Revisión de dependencias y servicios</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">120,121</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-15" datatype="html">
+        <source>Compatibilidad de arquitectura verificada</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">123,124</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-16" datatype="html">
+        <source>Almacenamiento y cuota de disco disponible</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">126,127</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-17" datatype="html">
+        <source>Puertos y servicios satélite configurados</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">129,130</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-18" datatype="html">
+        <source>Script de inicio sintácticamente verificado</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">132,133</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-19" datatype="html">
+        <source>Entorno de ejecución validado en contenedor efímero</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">135,136</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-24" datatype="html">
+        <source>Contenedor efímero requirió tiempo extendido</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">138,139</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-25" datatype="html">
+        <source>Imagen no oficial: confirme origen confiable</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">141,142</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-26" datatype="html">
+        <source>Versión base próxima a fin de soporte (EOL)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">144,145</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-27" datatype="html">
+        <source>Se detectaron advertencias en los paquetes del sistema</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">147,148</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-28" datatype="html">
+        <source>Cuota de RAM superior a la recomendada para aulas masivas</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">150,151</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-29" datatype="html">
+        <source>Verifique los límites antes del despliegue en producción</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">153,154</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-20" datatype="html">
+        <source>Existen elementos bloqueantes que impiden la publicación. Corrija los errores indicados.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">170,171</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-32" datatype="html">
+        <source>La plantilla será visible y asignable para todos los docentes.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">174,175</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-05" datatype="html">
+        <source> Mantener como borrador </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">182,183</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-30" datatype="html">
+        <source> Volver a editar </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">185,186</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-06" datatype="html">
+        <source>Publicar en el catálogo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">196,197</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PB-31" datatype="html">
+        <source>Confirmar y publicar</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.html</context>
+          <context context-type="linenumber">197,198</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-18" datatype="html">
+        <source>Propósito</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">29,30</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-04" datatype="html">
+        <source>COMPLETO</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">31,32</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">45,46</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">62,63</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">79,80</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">96,97</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">113,114</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-01" datatype="html">
+        <source>Identidad</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">42,43</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-05" datatype="html">
+        <source>PENDIENTE</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">47,49</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">64,65</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">81,83</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">98,100</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">115,116</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-19" datatype="html">
+        <source>Imagen</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">59,60</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-06" datatype="html">
+        <source>AVISO</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">63,64</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">114,115</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-20" datatype="html">
+        <source>Ejecución</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">76,77</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-03" datatype="html">
+        <source>Recursos</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">93,94</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-21" datatype="html">
+        <source>Verificación</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">110,111</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-09" datatype="html">
+        <source>Continuar borrador anterior (guardado recientemente).</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">129,130</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-01" datatype="html">
+        <source>Propósito del entorno</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">146,147</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-02" datatype="html">
+        <source>Laboratorio Interactivo (IDE Persistente)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">167,168</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-03" datatype="html">
+        <source> Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite. </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">169,170</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-04" datatype="html">
+        <source>Juez Virtual (Sandbox Algorítmico)</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">195,196</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-05" datatype="html">
+        <source> Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos. </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">197,198</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-10" datatype="html">
+        <source>Nueva plantilla</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">216,217</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-11" datatype="html">
+        <source>En blanco</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">225,226</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-12" datatype="html">
+        <source>Desde modelo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">233,234</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-13" datatype="html">
+        <source>Duplicar existente</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">241,242</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-01" datatype="html">
+        <source>Modelos de plantilla</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">252,253</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-02" datatype="html">
+        <source>Entornos preconfigurados listos para usar o personalizar</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">253,254</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-03" datatype="html">
+        <source>Buscar modelos...</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">263,264</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-12" datatype="html">
+        <source>No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">273,274</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-07" datatype="html">
+        <source>No se encontraron modelos para la búsqueda</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">275,276</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-05" datatype="html">
+        <source><x id="INTERPOLATION" equiv-text="{{ model.usage_count }}"/> plantillas basadas en este modelo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">293,294</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">324,325</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-06" datatype="html">
+        <source>Usar este modelo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">306,307</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">337,338</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-14" datatype="html">
+        <source>Buscar plantillas del catálogo para duplicar...</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">365,366</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-15" datatype="html">
+        <source>Duplicar esta plantilla</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">389,390</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="CA-01" datatype="html">
+        <source>Gestionar categorías</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">424,425</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-08" datatype="html">
+        <source> Comando de compilación o ejecución: <x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span class=&quot;text-danger&quot;&gt;"/>*<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">552,553</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-15" datatype="html">
+        <source>Comando de ejecución obligatorio para plantillas de juez virtual.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">560,561</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-09" datatype="html">
+        <source> Tiempo límite de ejecución (ms): </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">566,567</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-10" datatype="html">
+        <source> Entrada estándar de prueba (stdin opcional): </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">581,582</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-14" datatype="html">
+        <source><x id="START_TAG__SVG_SVG" ctype="x-_svg_svg" equiv-text="&lt;svg lucideInfo class=&quot;w-4 h-4 text-muted mr-2&quot;&gt;"/><x id="CLOSE_TAG__SVG_SVG" ctype="x-_svg_svg" equiv-text="&lt;/svg&gt;"/><x id="START_TAG_SPAN" ctype="x-span" equiv-text="&lt;span&gt;"/>Los entornos de juez virtual no utilizan servicios satélite desacoplados.<x id="CLOSE_TAG_SPAN" ctype="x-span" equiv-text="&lt;/span&gt;"/></source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">714,716</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-16" datatype="html">
+        <source>Anterior</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">807,808</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-17" datatype="html">
+        <source>Siguiente</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">815,816</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-07" datatype="html">
+        <source>Guardar borrador</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">831,832</context>
+        </context-group>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">843,844</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-06" datatype="html">
+        <source>Confirmar cambio de propósito</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">877,878</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-07" datatype="html">
+        <source> Cambiar de propósito descarta las configuraciones específicas del entorno. ¿Desea continuar? </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">880,881</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-08" datatype="html">
+        <source>Confirmar cambio de modo</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">900,901</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="MO-09" datatype="html">
+        <source> Tiene cambios en el formulario. Cambiar de modo sobrescribirá los datos actuales. ¿Desea continuar? </source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">903,904</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="CA-02" datatype="html">
+        <source>Gestión de Categorías Académicas</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.html</context>
+          <context context-type="linenumber">932,933</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-08" datatype="html">
+        <source>Borrador guardado.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts</context>
+          <context context-type="linenumber">752</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="ST-14" datatype="html">
+        <source>Modelo <x id="name" equiv-text="model.name"/> aplicado. Edite lo que necesite.</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts</context>
+          <context context-type="linenumber">774</context>
+        </context-group>
+      </trans-unit>
+      <trans-unit id="PU-13" datatype="html">
+        <source>Completá el nombre y comando de ejecución para habilitar el guardado</source>
+        <context-group purpose="location">
+          <context context-type="sourcefile">src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts</context>
+          <context context-type="linenumber">1019</context>
+        </context-group>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>

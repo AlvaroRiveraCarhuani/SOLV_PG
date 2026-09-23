@@ -69,6 +69,10 @@ export class EnvTestButtonComponent implements OnDestroy {
   isLocal = input<boolean>(false);
   imageSizeMB = input<number>(0);
   hasDigestMismatch = input<boolean>(false);
+  targetEnvironment = input<string>('IDE_PERSISTENTE');
+  entrypoint = input<string>('');
+  timeoutMS = input<number>(5000);
+  sampleInput = input<string>('');
 
   // Outputs con signals nativos de Angular 22
   testCompleted = output<EnvTestJob>();
@@ -88,6 +92,8 @@ export class EnvTestButtonComponent implements OnDestroy {
     effect(() => {
       const _img = this.image();
       const _tools = this.tools();
+      const _env = this.targetEnvironment();
+      const _ep = this.entrypoint();
       if (this.visualState() !== 'running') {
         this.visualState.set('idle');
         this.activeJob.set(null);
@@ -101,6 +107,9 @@ export class EnvTestButtonComponent implements OnDestroy {
     const rawImage = this.image().trim();
     if (!rawImage || rawImage.endsWith(':latest')) {
       return 'Probar entorno';
+    }
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') {
+      return 'Probar ejecución de juez (sandbox CLI)';
     }
     if (this.hasDigestMismatch()) {
       return 'Actualizar imagen y probar';
@@ -121,8 +130,10 @@ export class EnvTestButtonComponent implements OnDestroy {
   });
 
   canTrigger = computed(() => {
-    const raw = this.image().trim();
-    return raw.length > 0 && !this.isLatestImage() && this.visualState() !== 'running';
+    const img = this.image().trim();
+    if (!img || this.isLatestImage()) return false;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) return false;
+    return this.visualState() === 'idle';
   });
 
   startTest(): void {
@@ -136,7 +147,11 @@ export class EnvTestButtonComponent implements OnDestroy {
 
     const req = {
       image: this.image().trim(),
-      tools: this.tools()
+      tools: this.tools(),
+      target_environment: this.targetEnvironment(),
+      entrypoint: this.entrypoint(),
+      timeout_ms: this.timeoutMS(),
+      sample_input: this.sampleInput()
     };
 
     this.envTestService.startJob(req).subscribe({

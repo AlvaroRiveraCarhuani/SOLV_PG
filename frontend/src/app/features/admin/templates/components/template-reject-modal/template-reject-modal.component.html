@@ -43,7 +43,7 @@
             Motivo de Rechazo (Obligatorio, visible para el docente):
           </label>
           <span class="char-counter" [class.valid]="isValid()" [class.invalid]="!isValid() && charCount() > 0">
-            {{ charCount() }} / 15 caracteres mínimos
+            {{ charCount() }} / 10 caracteres mínimos
           </span>
         </div>
         <textarea 
@@ -54,7 +54,7 @@
           (ngModelChange)="rejectionReason.set($event)"></textarea>
         @if (!isValid() && charCount() > 0) {
           <p class="field-hint error">
-            Debe ingresar al menos 15 caracteres para fundamentar técnicamente el rechazo.
+            Debe ingresar al menos 10 caracteres para fundamentar técnicamente el rechazo.
           </p>
         } @else {
           <p class="field-hint">

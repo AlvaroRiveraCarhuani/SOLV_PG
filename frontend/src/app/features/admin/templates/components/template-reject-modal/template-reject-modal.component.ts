@@ -20,7 +20,7 @@ export class TemplateRejectModalComponent {
   isSubmitting = signal<boolean>(false);
 
   charCount = computed(() => this.rejectionReason().trim().length);
-  isValid = computed(() => this.charCount() >= 15);
+  isValid = computed(() => this.charCount() >= 10);
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
