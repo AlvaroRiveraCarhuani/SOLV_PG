@@ -15,6 +15,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
+	"github.com/docker/docker/pkg/stdcopy"
 
 	"solv-backend/internal/core/domain"
 )
@@ -276,9 +277,9 @@ func (a *EnvTestDockerAdapter) RunSmokeTest(ctx context.Context, imageRef string
 	}
 	defer logsReader.Close()
 
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, logsReader)
-	rawOutput := buf.String()
+	var stdoutBuf, stderrBuf bytes.Buffer
+	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
+	rawOutput := stdoutBuf.String()
 
 	toolResultsMap := make(map[string]domain.ToolResult)
 	for _, line := range strings.Split(rawOutput, "\n") {
@@ -411,9 +412,15 @@ func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef s
 	output := ""
 	if err == nil {
 		defer logsReader.Close()
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, logsReader)
-		output = strings.TrimSpace(buf.String())
+		var stdoutBuf, stderrBuf bytes.Buffer
+		_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
+		output = strings.TrimSpace(stdoutBuf.String())
+		if stderrBuf.Len() > 0 {
+			if output != "" {
+				output += "\n"
+			}
+			output += strings.TrimSpace(stderrBuf.String())
+		}
 	}
 
 	return output, durationMs, exitCode, nil
