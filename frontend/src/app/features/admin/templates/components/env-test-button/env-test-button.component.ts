@@ -6,7 +6,8 @@ import {
   computed, 
   inject, 
   OnDestroy,
-  effect 
+  effect,
+  untracked 
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
@@ -90,15 +91,18 @@ export class EnvTestButtonComponent implements OnDestroy {
   constructor() {
     // Si cambia la imagen o las tools, reiniciamos el estado a idle si no está corriendo
     effect(() => {
-      const _img = this.image();
-      const _tools = this.tools();
-      const _env = this.targetEnvironment();
-      const _ep = this.entrypoint();
-      if (this.visualState() !== 'running') {
-        this.visualState.set('idle');
-        this.activeJob.set(null);
-        this.isExpanded.set(false);
-      }
+      this.image();
+      this.tools();
+      this.targetEnvironment();
+      this.entrypoint();
+
+      untracked(() => {
+        if (this.visualState() !== 'running') {
+          this.visualState.set('idle');
+          this.activeJob.set(null);
+          this.isExpanded.set(false);
+        }
+      });
     });
   }
 
@@ -133,7 +137,7 @@ export class EnvTestButtonComponent implements OnDestroy {
     const img = this.image().trim();
     if (!img || this.isLatestImage()) return false;
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) return false;
-    return this.visualState() === 'idle';
+    return this.visualState() !== 'running';
   });
 
   startTest(): void {

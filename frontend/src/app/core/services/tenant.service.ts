@@ -87,7 +87,8 @@ export class TenantService {
 
       // 2. Extracción de subdominio (ej. "uab" de "uab.solv.uab.edu.bo" o "umsa.solv.umsa.edu.bo")
       const hostname = window.location.hostname;
-      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1') {
+      const isIP = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(hostname);
+      if (hostname && hostname !== 'localhost' && hostname !== '127.0.0.1' && !isIP) {
         const parts = hostname.split('.');
         if (parts.length >= 2) {
           return parts[0].toLowerCase();

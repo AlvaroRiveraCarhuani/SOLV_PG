@@ -168,33 +168,47 @@
     </div>
   }
 
-  <!-- DESPLEGABLE CON DETALLE DE HERRAMIENTAS Y CACHÉ -->
-  @if (isExpanded() && activeJob()?.result?.tools) {
+  <!-- DESPLEGABLE CON DETALLE DE HERRAMIENTAS Y CACHÉ / LOGS -->
+  @if (isExpanded()) {
     <div class="tools-detail-panel">
-      <div class="panel-header-row">
-        <span class="panel-header" i18n="@@TE-61">Herramientas inspeccionadas:</span>
-        <span class="panel-intro" i18n="@@TE-51">Verificado en contenedor aislado</span>
-      </div>
-      <div class="tools-grid">
-        @for (tool of activeJob()?.result?.tools; track tool.name) {
-          <div class="tool-item" [class.present]="tool.present" [class.absent]="!tool.present">
-            @if (tool.present) {
-              <svg lucideCheckCircle2 class="w-3.5 h-3.5"></svg>
-            } @else {
-              <svg lucideXCircle class="w-3.5 h-3.5"></svg>
-            }
-            <span class="tool-name">{{ tool.name }}</span>
-            @if (tool.present) {
-              <span class="tool-version">{{ tool.version || tool.path }}</span>
-            } @else {
-              <span class="tool-status" i18n="@@TE-62">No encontrada</span>
-            }
+      @if (activeJob()?.result?.tools) {
+        <div class="panel-header-row">
+          <span class="panel-header" i18n="@@TE-61">Herramientas inspeccionadas:</span>
+          <span class="panel-intro" i18n="@@TE-51">Verificado en contenedor aislado</span>
+        </div>
+        <div class="tools-grid">
+          @for (tool of activeJob()?.result?.tools; track tool.name) {
+            <div class="tool-item" [class.present]="tool.present" [class.absent]="!tool.present">
+              @if (tool.present) {
+                <svg lucideCheckCircle2 class="w-3.5 h-3.5"></svg>
+              } @else {
+                <svg lucideXCircle class="w-3.5 h-3.5"></svg>
+              }
+              <span class="tool-name">{{ tool.name }}</span>
+              @if (tool.present) {
+                <span class="tool-version">{{ tool.version || tool.path }}</span>
+              } @else {
+                <span class="tool-status" i18n="@@TE-62">No encontrada</span>
+              }
+            </div>
+          }
+        </div>
+        @if (activeJob()?.status === 'success') {
+          <div class="panel-cache-note" i18n="@@TE-52">
+            Imagen cacheada en el servidor. Primer arranque instantáneo.
           </div>
         }
-      </div>
-      @if (activeJob()?.status === 'success') {
-        <div class="panel-cache-note" i18n="@@TE-52">
-          Imagen cacheada en el servidor. Primer arranque instantáneo.
+      } @else {
+        <div class="panel-header-row">
+          <span class="panel-header" i18n="@@TE-78">Registro del evento:</span>
+          <span class="panel-intro text-danger">{{ errorCode() }}</span>
+        </div>
+        <div class="p-3 text-xs bg-slate-900 text-slate-100 rounded font-mono break-words mt-2">
+          <div><strong>Estado:</strong> {{ activeJob()?.status || visualState() }}</div>
+          <div><strong>Detalle:</strong> {{ activeJob()?.error_message || errorMessage() || 'Sin detalles adicionales' }}</div>
+          @if (activeJob()?.progress?.current_action) {
+            <div class="mt-1 text-slate-400"><strong>Última acción:</strong> {{ activeJob()?.progress?.current_action }}</div>
+          }
         </div>
       }
     </div>
