@@ -35,6 +35,7 @@ Para cualquier sesión que modifique el frontend o arquitectura, deben consultar
 - Crear tablas/componentes que dupliquen existentes
 - Usar imágenes :latest (versiones fijadas)
 - Usar fondos oscuros, azules o slate (#0F172A, #2563EB) en toasts/alertas de éxito (siempre verde semántico #15803D)
+- Escribir literales de font-size, font-family o colores en SCSS de componentes: tipografía y familias únicamente con tokens var(--text-*), var(--font-sans|mono); colores de marca únicamente vía tokens de tenant (--tenant-primary, etc.). Ejecutar `npm run lint:styles` antes de commitear.
 
 ## Semántica de estados (UI y API)
 
