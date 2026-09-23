@@ -37,6 +37,10 @@ func (d *dummyRunner) RunSmokeTest(ctx context.Context, imageRef string, tools [
 	return res, 0, nil
 }
 
+func (d *dummyRunner) RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (string, int64, int, error) {
+	return "OK: judge passed", 12, 0, nil
+}
+
 func TestEnvTestHandler_Endpoints(t *testing.T) {
 	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
 	reg := &dummyRegistry{}

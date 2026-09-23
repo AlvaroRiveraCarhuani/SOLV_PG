@@ -31,6 +31,10 @@ export interface EnvTestJob {
   id: string;
   image: string;
   tools: string[];
+  target_environment?: string;
+  entrypoint?: string;
+  timeout_ms?: number;
+  sample_input?: string;
   status: EnvTestStatus;
   progress: EnvTestProgress;
   result?: EnvTestResult;
@@ -45,6 +49,10 @@ export interface EnvTestJob {
 export interface StartEnvTestRequest {
   image: string;
   tools: string[];
+  target_environment?: string;
+  entrypoint?: string;
+  timeout_ms?: number;
+  sample_input?: string;
 }
 
 interface ApiResponse<T> {

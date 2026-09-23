@@ -69,6 +69,19 @@ func (rp *TemplateResourceProfile) Scan(value interface{}) error {
 	return json.Unmarshal(b, rp)
 }
 
+// DeriveResourceProfile calcula los límites de memoria cgroups v2 a partir de base_ram_mb:
+// min_mb = base / 2, high_mb = base * 1.5, max_mb = base * 2
+func DeriveResourceProfile(baseRamMB int) TemplateResourceProfile {
+	if baseRamMB <= 0 {
+		baseRamMB = 512
+	}
+	return TemplateResourceProfile{
+		MinMB:  baseRamMB / 2,
+		HighMB: (baseRamMB * 3) / 2,
+		MaxMB:  baseRamMB * 2,
+	}
+}
+
 // ReassignCourseDTO DTO para reasignar la titularidad de una materia (ADR-036)
 type ReassignCourseDTO struct {
 	NewTeacherID string `json:"new_teacher_id" validate:"required"`

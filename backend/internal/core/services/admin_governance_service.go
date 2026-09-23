@@ -210,19 +210,9 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		}
 	}
 
-	// Cálculo proporcional dinámico de calidad de servicio (sin números mágicos fijos)
-	if dto.ResourceProfile == nil {
-		minMB := dto.BaseRamMB / 2
-		if minMB < 128 {
-			minMB = 128
-		}
-		highMB := int(float64(dto.BaseRamMB) * 0.8)
-		dto.ResourceProfile = &domain.TemplateResourceProfile{
-			MinMB:  minMB,
-			HighMB: highMB,
-			MaxMB:  dto.BaseRamMB,
-		}
-	}
+	// Derivación obligatoria del perfil cgroups v2: min = base/2, high = base*1.5, max = base*2
+	derived := domain.DeriveResourceProfile(dto.BaseRamMB)
+	dto.ResourceProfile = &derived
 
 	return s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
 }

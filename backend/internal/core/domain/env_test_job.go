@@ -77,16 +77,20 @@ type EnvTestResult struct {
 type EnvTestJob struct {
 	ID               string          `json:"id"`
 	Image            string          `json:"image"`
-	Tools            []string        `json:"tools"`
-	Status           EnvTestStatus   `json:"status"`
-	Progress         EnvTestProgress `json:"progress"`
-	Result           *EnvTestResult  `json:"result,omitempty"`
-	ErrorCode        string          `json:"error_code,omitempty"`
-	ErrorMessage     string          `json:"error_message,omitempty"`
-	DigestUnverified bool            `json:"digest_unverified"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
-	FinishedAt       *time.Time      `json:"finished_at,omitempty"`
+	Tools             []string        `json:"tools"`
+	TargetEnvironment string          `json:"target_environment,omitempty"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"
+	Entrypoint        string          `json:"entrypoint,omitempty"`
+	TimeoutMS         int             `json:"timeout_ms,omitempty"`
+	SampleInput       string          `json:"sample_input,omitempty"`
+	Status            EnvTestStatus   `json:"status"`
+	Progress          EnvTestProgress `json:"progress"`
+	Result            *EnvTestResult  `json:"result,omitempty"`
+	ErrorCode         string          `json:"error_code,omitempty"`
+	ErrorMessage      string          `json:"error_message,omitempty"`
+	DigestUnverified  bool            `json:"digest_unverified"`
+	CreatedAt         time.Time       `json:"created_at"`
+	UpdatedAt         time.Time       `json:"updated_at"`
+	FinishedAt        *time.Time      `json:"finished_at,omitempty"`
 }
 
 // IsTerminal indica si el job se encuentra en un estado definitivo
@@ -98,6 +102,11 @@ func (j *EnvTestJob) IsTerminal() bool {
 
 // StartEnvTestRequest payload para iniciar la prueba asíncrona
 type StartEnvTestRequest struct {
-	Image string   `json:"image"`
-	Tools []string `json:"tools"`
+	Image             string   `json:"image"`
+	Tools             []string `json:"tools"`
+	TargetEnvironment string   `json:"target_environment,omitempty"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"
+	Entrypoint        string   `json:"entrypoint,omitempty"`
+	TimeoutMS         int      `json:"timeout_ms,omitempty"`
+	SampleInput       string   `json:"sample_input,omitempty"`
+	BaseRamMB         int      `json:"base_ram_mb,omitempty"`
 }

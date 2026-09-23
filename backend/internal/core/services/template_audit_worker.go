@@ -241,12 +241,17 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 	testCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
+	ramMB := item.BaseRamMB
+	if ramMB <= 0 {
+		ramMB = 256
+	}
+
 	hostConfig := &container.HostConfig{
 		NetworkMode:    "none",
 		ReadonlyRootfs: true,
 		Resources: container.Resources{
-			Memory:   256 * 1024 * 1024, // 256 MB
-			NanoCPUs: 500000000,          // 0.5 CPU
+			Memory:   int64(ramMB) * 1024 * 1024,
+			NanoCPUs: 500000000, // 0.5 CPU
 		},
 		AutoRemove: false,
 	}

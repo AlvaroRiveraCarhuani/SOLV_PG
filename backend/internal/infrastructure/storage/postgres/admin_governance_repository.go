@@ -562,7 +562,15 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			rejection_reason = $2,
 			reviewed_by = $3,
 			reviewed_at = NOW(),
-			base_ram_mb = COALESCE($4, base_ram_mb)
+			base_ram_mb = COALESCE($4, base_ram_mb),
+			resource_profile = CASE 
+				WHEN $4::int IS NOT NULL AND $4::int > 0 THEN jsonb_build_object(
+					'min_mb', ($4::int / 2),
+					'high_mb', (($4::int * 3) / 2),
+					'max_mb', ($4::int * 2)
+				)
+				ELSE resource_profile
+			END
 		WHERE id = $5 AND (tenant_id = $6 OR tenant_id IS NULL)
 		RETURNING 
 			id,
@@ -662,8 +670,9 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 	if err != nil {
 		servicesConfigJSON = []byte(`{"services": []}`)
 	}
-	resourceProfileJSON, err := json.Marshal(dto.ResourceProfile)
-	if err != nil || dto.ResourceProfile == nil {
+	derivedProfile := domain.DeriveResourceProfile(dto.BaseRamMB)
+	resourceProfileJSON, err := json.Marshal(derivedProfile)
+	if err != nil {
 		resourceProfileJSON = []byte(`{"min_mb": 256, "high_mb": 768, "max_mb": 1024}`)
 	}
 	toolsDeclaredJSON, err := json.Marshal(dto.ToolsDeclared)
@@ -881,6 +890,12 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 			return nil, fmt.Errorf("plantilla original no encontrada")
 		}
 		return nil, fmt.Errorf("error leyendo plantilla original: %w", err)
+	}
+
+	copyProfile := domain.DeriveResourceProfile(baseRam)
+	copyProfileJSON, errMarshal := json.Marshal(copyProfile)
+	if errMarshal == nil {
+		profileJSON = copyProfileJSON
 	}
 
 	// 2. Determinar un nombre de copia único para evitar colisión 500 y no violar VARCHAR(100)

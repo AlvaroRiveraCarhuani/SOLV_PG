@@ -40,10 +40,17 @@ func (m *mockAdminGovernanceRepo) ListTemplates(ctx context.Context, tenantID, s
 func (m *mockAdminGovernanceRepo) ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*domain.AdminTemplateReviewItem, error) {
 	m.lastReviewedStatus = status
 	m.lastRejectionReason = rejectionReason
+	ram := 512
+	if baseRamMB != nil && *baseRamMB > 0 {
+		ram = *baseRamMB
+	}
+	profile := domain.DeriveResourceProfile(ram)
 	return &domain.AdminTemplateReviewItem{
 		ID:              templateID,
 		Status:          status,
 		RejectionReason: rejectionReason,
+		BaseRamMB:       ram,
+		ResourceProfile: profile,
 	}, nil
 }
 func (m *mockAdminGovernanceRepo) CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto domain.CreateOfficialTemplateDTO) (*domain.AdminTemplateReviewItem, error) {
@@ -71,11 +78,15 @@ func (m *mockAdminGovernanceRepo) UpdateAuditResults(ctx context.Context, templa
 	return nil
 }
 func (m *mockAdminGovernanceRepo) DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*domain.AdminTemplateReviewItem, error) {
+	baseRam := 768
+	profile := domain.DeriveResourceProfile(baseRam)
 	return &domain.AdminTemplateReviewItem{
-		ID:          "dup-tpl-id",
-		Name:        "(Copia) Plantilla",
-		DockerImage: "node:20-slim",
-		Status:      "PENDIENTE_AUDITORIA",
+		ID:              "dup-tpl-id",
+		Name:            "(Copia) Plantilla",
+		DockerImage:     "node:20-slim",
+		Status:          "PENDIENTE_AUDITORIA",
+		BaseRamMB:       baseRam,
+		ResourceProfile: profile,
 	}, nil
 }
 func (m *mockAdminGovernanceRepo) UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error {
@@ -143,15 +154,15 @@ func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	if item.BaseRamMB != 512 {
 		t.Errorf("esperado BaseRamMB = 512, obtenido: %d", item.BaseRamMB)
 	}
-	// HighMB debe ser el 80% proporcional (512 * 0.8 = 409)
-	if item.ResourceProfile.HighMB != 409 {
-		t.Errorf("esperado HighMB = 409 (80%%), obtenido: %d", item.ResourceProfile.HighMB)
+	// Formula: min = base/2 (256), high = base*1.5 (768), max = base*2 (1024)
+	if item.ResourceProfile.HighMB != 768 {
+		t.Errorf("esperado HighMB = 768, obtenido: %d", item.ResourceProfile.HighMB)
 	}
-	if item.ResourceProfile.MaxMB != 512 {
-		t.Errorf("esperado MaxMB = 512 (100%%), obtenido: %d", item.ResourceProfile.MaxMB)
+	if item.ResourceProfile.MaxMB != 1024 {
+		t.Errorf("esperado MaxMB = 1024, obtenido: %d", item.ResourceProfile.MaxMB)
 	}
 	if item.ResourceProfile.MinMB != 256 {
-		t.Errorf("esperado MinMB = 256 (50%%), obtenido: %d", item.ResourceProfile.MinMB)
+		t.Errorf("esperado MinMB = 256, obtenido: %d", item.ResourceProfile.MinMB)
 	}
 	if len(item.ServicesConfig.Services) != 1 || item.ServicesConfig.Services[0].Engine != "postgres" {
 		t.Errorf("esperado que el servicio postgres esté presente en la lista de servicios")
@@ -177,8 +188,88 @@ func TestCreateOfficialTemplate_DefaultRAMFallback(t *testing.T) {
 	if item.BaseRamMB != 512 {
 		t.Errorf("esperado fallback BaseRamMB = 512, obtenido: %d", item.BaseRamMB)
 	}
-	if item.ResourceProfile.MaxMB != 512 {
-		t.Errorf("esperado MaxMB = 512, obtenido: %d", item.ResourceProfile.MaxMB)
+	if item.ResourceProfile.MaxMB != 1024 {
+		t.Errorf("esperado MaxMB = 1024, obtenido: %d", item.ResourceProfile.MaxMB)
+	}
+	if item.ResourceProfile.HighMB != 768 {
+		t.Errorf("esperado HighMB = 768, obtenido: %d", item.ResourceProfile.HighMB)
+	}
+	if item.ResourceProfile.MinMB != 256 {
+		t.Errorf("esperado MinMB = 256, obtenido: %d", item.ResourceProfile.MinMB)
+	}
+}
+
+func TestCreateOfficialTemplate_CgroupsProfileDerivation1024(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.CreateOfficialTemplateDTO{
+		Name:              "Go Backend Lab",
+		DockerImage:       "golang:1.24-alpine",
+		BaseRamMB:         1024,
+		TargetEnvironment: "IDE_PERSISTENTE",
+	}
+
+	item, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dto)
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if item.BaseRamMB != 1024 {
+		t.Errorf("esperado BaseRamMB = 1024, obtenido: %d", item.BaseRamMB)
+	}
+	if item.ResourceProfile.MinMB != 512 {
+		t.Errorf("esperado MinMB = 512, obtenido: %d", item.ResourceProfile.MinMB)
+	}
+	if item.ResourceProfile.HighMB != 1536 {
+		t.Errorf("esperado HighMB = 1536, obtenido: %d", item.ResourceProfile.HighMB)
+	}
+	if item.ResourceProfile.MaxMB != 2048 {
+		t.Errorf("esperado MaxMB = 2048, obtenido: %d", item.ResourceProfile.MaxMB)
+	}
+}
+
+func TestReviewTemplate_CgroupsProfileRegeneration2048(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	newRam := 2048
+	dto := domain.ReviewTemplateDTO{
+		Status:    "approved",
+		BaseRamMB: &newRam,
+	}
+
+	item, err := svc.ReviewTemplate(context.Background(), "tenant-1", "tpl-1", "admin-1", dto)
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	if item.BaseRamMB != 2048 {
+		t.Errorf("esperado BaseRamMB = 2048, obtenido: %d", item.BaseRamMB)
+	}
+	if item.ResourceProfile.MinMB != 1024 {
+		t.Errorf("esperado MinMB = 1024, obtenido: %d", item.ResourceProfile.MinMB)
+	}
+	if item.ResourceProfile.HighMB != 3072 {
+		t.Errorf("esperado HighMB = 3072, obtenido: %d", item.ResourceProfile.HighMB)
+	}
+	if item.ResourceProfile.MaxMB != 4096 {
+		t.Errorf("esperado MaxMB = 4096, obtenido: %d", item.ResourceProfile.MaxMB)
+	}
+}
+
+func TestDuplicateTemplate_CgroupsProfileDerivedFromCopy(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	item, err := svc.DuplicateTemplate(context.Background(), "tenant-1", "tpl-1", "admin-1")
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+
+	expectedProfile := domain.DeriveResourceProfile(item.BaseRamMB)
+	if item.ResourceProfile != expectedProfile {
+		t.Errorf("esperado ResourceProfile %+v, obtenido: %+v", expectedProfile, item.ResourceProfile)
 	}
 }
 

@@ -31,8 +31,6 @@ func setupSlice14TemplateGovServer(t *testing.T) (*httptest.Server, *database.Da
 		return nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
@@ -377,6 +375,87 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		expectedName := "(Copia) Ubuntu Base C++"
 		if data["name"] != expectedName {
 			t.Errorf("Expected duplicated name = '%s', got '%v'", expectedName, data["name"])
+		}
+
+		// Validar que la copia derivó su resource_profile del base de la copia
+		resProf, ok := data["resource_profile"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected resource_profile in duplicate response")
+		}
+		if resProf["max_mb"].(float64) != 1024 || resProf["min_mb"].(float64) != 256 || resProf["high_mb"].(float64) != 768 {
+			t.Errorf("Expected derived profile {256, 768, 1024}, got %v", resProf)
+		}
+	})
+
+	// =========================================================================
+	// 7. TEST Coherencia cgroups v2 en Creación y Revisión con cambio de RAM
+	// =========================================================================
+	t.Run("7. Coherencia cgroups v2 (min=base/2, high=base*1.5, max=base*2)", func(t *testing.T) {
+		// 7a. Crear plantilla con base 1024
+		createPayload := map[string]interface{}{
+			"name":               fmt.Sprintf("Cgroups Test %s", uuid.New().String()[:8]),
+			"docker_image":       "debian:12-slim",
+			"base_ram_mb":        1024,
+			"target_environment": "IDE_PERSISTENTE",
+		}
+		bodyBytes, _ := json.Marshal(createPayload)
+		reqCreate, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates", server.URL), bytes.NewBuffer(bodyBytes))
+		reqCreate.Header.Set("Content-Type", "application/json")
+		reqCreate.Header.Set("X-User-Role", "admin")
+		reqCreate.Header.Set("X-User-Id", adminID)
+		reqCreate.Header.Set("X-Tenant-Id", tenantID)
+
+		respCreate, err := client.Do(reqCreate)
+		if err != nil {
+			t.Fatalf("Failed create template: %v", err)
+		}
+		if respCreate.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected 201 Created, got %d", respCreate.StatusCode)
+		}
+
+		var createResp map[string]interface{}
+		json.NewDecoder(respCreate.Body).Decode(&createResp)
+		createdData := createResp["data"].(map[string]interface{})
+		createdID := createdData["id"].(string)
+
+		profCreated, ok := createdData["resource_profile"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected resource_profile in created response")
+		}
+		if profCreated["min_mb"].(float64) != 512 || profCreated["high_mb"].(float64) != 1536 || profCreated["max_mb"].(float64) != 2048 {
+			t.Errorf("Expected {512, 1536, 2048} on create with 1024, got %v", profCreated)
+		}
+
+		// 7b. Review cambiando RAM a 2048
+		reviewPayload := map[string]interface{}{
+			"status":      "approved",
+			"base_ram_mb": 2048,
+		}
+		reviewBytes, _ := json.Marshal(reviewPayload)
+		reqReview, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, createdID), bytes.NewBuffer(reviewBytes))
+		reqReview.Header.Set("Content-Type", "application/json")
+		reqReview.Header.Set("X-User-Role", "admin")
+		reqReview.Header.Set("X-User-Id", adminID)
+		reqReview.Header.Set("X-Tenant-Id", tenantID)
+
+		respReview, err := client.Do(reqReview)
+		if err != nil {
+			t.Fatalf("Failed review template: %v", err)
+		}
+		if respReview.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK on review, got %d", respReview.StatusCode)
+		}
+
+		var reviewResp map[string]interface{}
+		json.NewDecoder(respReview.Body).Decode(&reviewResp)
+		reviewedData := reviewResp["data"].(map[string]interface{})
+
+		profReviewed, ok := reviewedData["resource_profile"].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected resource_profile in reviewed response")
+		}
+		if profReviewed["min_mb"].(float64) != 1024 || profReviewed["high_mb"].(float64) != 3072 || profReviewed["max_mb"].(float64) != 4096 {
+			t.Errorf("Expected {1024, 3072, 4096} on review with 2048, got %v", profReviewed)
 		}
 	})
 }

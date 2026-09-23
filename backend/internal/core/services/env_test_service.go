@@ -89,12 +89,25 @@ func (s *EnvTestService) StartJob(ctx context.Context, req domain.StartEnvTestRe
 		cleanTools = append(cleanTools, trimmed)
 	}
 
+	targetEnv := strings.TrimSpace(req.TargetEnvironment)
+	if targetEnv == "" {
+		targetEnv = "IDE_PERSISTENTE"
+	}
+	timeoutMS := req.TimeoutMS
+	if timeoutMS <= 0 {
+		timeoutMS = 5000
+	}
+
 	jobID := uuid.New().String()
 	job := &domain.EnvTestJob{
-		ID:     jobID,
-		Image:  imageRef,
-		Tools:  cleanTools,
-		Status: domain.EnvTestStatusPending,
+		ID:                jobID,
+		Image:             imageRef,
+		Tools:             cleanTools,
+		TargetEnvironment: targetEnv,
+		Entrypoint:        strings.TrimSpace(req.Entrypoint),
+		TimeoutMS:         timeoutMS,
+		SampleInput:       req.SampleInput,
+		Status:            domain.EnvTestStatusPending,
 		Progress: domain.EnvTestProgress{
 			CurrentAction: "Encolado, esperando slot de ejecución...",
 		},
@@ -112,7 +125,7 @@ func (s *EnvTestService) StartJob(ctx context.Context, req domain.StartEnvTestRe
 	s.cancelMu.Unlock()
 
 	// Lanzar ejecución asíncrona
-	go s.executeJob(jobCtx, jobID, imageRef, cleanTools)
+	go s.executeJob(jobCtx, jobID, imageRef, cleanTools, targetEnv, strings.TrimSpace(req.Entrypoint), req.SampleInput, timeoutMS, req.BaseRamMB)
 
 	return job, nil
 }
@@ -136,7 +149,7 @@ func (s *EnvTestService) CancelJob(ctx context.Context, jobID string) error {
 }
 
 // executeJob maneja el ciclo de vida, semáforo y lógica de degradación de la prueba
-func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string, tools []string) {
+func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string, tools []string, targetEnv, entrypoint, sampleInput string, timeoutMS int, baseRamMB int) {
 	// Limpieza de función cancel al terminar
 	defer func() {
 		s.cancelMu.Lock()
@@ -230,8 +243,57 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string,
 		CurrentAction: "Ejecutando smoke test en contenedor efímero...",
 	})
 
+	memLimitMB := s.config.MemoryLimitMB
+	if baseRamMB > 0 {
+		memLimitMB = int64(baseRamMB)
+	}
+
+	if targetEnv == "JUEZ_EFIMERO" {
+		output, durationMs, exitCode, runnerErr := s.runner.RunJudgeSmokeTest(ctx, imageRef, entrypoint, sampleInput, timeoutMS, memLimitMB)
+		if runnerErr != nil {
+			if errors.Is(runnerErr, context.Canceled) {
+				_ = s.repo.Cancel(context.Background(), jobID)
+				return
+			}
+			if strings.Contains(runnerErr.Error(), "timeout") || exitCode == 124 {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Tiempo límite de ejecución excedido (%d ms)", timeoutMS))
+				return
+			}
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Fallo en ejecución de juez: %v", runnerErr))
+			return
+		}
+
+		testResult := &domain.EnvTestResult{
+			Tools:      []domain.ToolResult{{Name: "entrypoint", Present: exitCode == 0, Path: entrypoint, Version: output}},
+			ExitCode:   exitCode,
+			DurationMs: durationMs,
+		}
+
+		if exitCode != 0 {
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("El comando de juez finalizó con código de salida %d: %s", exitCode, output))
+			job, _ := s.repo.GetByID(context.Background(), jobID)
+			if job != nil {
+				job.Result = testResult
+				job.DigestUnverified = digestUnverified
+				_ = s.repo.Save(context.Background(), job)
+			}
+			return
+		}
+
+		_ = s.repo.Complete(context.Background(), jobID, testResult)
+		if digestUnverified {
+			job, _ := s.repo.GetByID(context.Background(), jobID)
+			if job != nil {
+				job.Result = testResult
+				job.DigestUnverified = true
+				_ = s.repo.Save(context.Background(), job)
+			}
+		}
+		return
+	}
+
 	startTime := time.Now()
-	results, exitCode, runnerErr := s.runner.RunSmokeTest(ctx, imageRef, tools, s.config.MemoryLimitMB)
+	results, exitCode, runnerErr := s.runner.RunSmokeTest(ctx, imageRef, tools, memLimitMB)
 	durationMs := time.Since(startTime).Milliseconds()
 
 	if runnerErr != nil {

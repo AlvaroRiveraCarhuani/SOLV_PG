@@ -335,3 +335,86 @@ func (a *EnvTestDockerAdapter) RunSmokeTest(ctx context.Context, imageRef string
 
 	return results, exitCode, nil
 }
+
+// RunJudgeSmokeTest ejecuta un contenedor efímero aislado sin red para probar el entrypoint de un juez virtual con sample input y timeout
+func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (string, int64, int, error) {
+	if memoryLimitMB <= 0 {
+		memoryLimitMB = 256
+	}
+	if timeoutMS <= 0 {
+		timeoutMS = 5000
+	}
+
+	cleanCmd := strings.TrimSpace(entrypoint)
+	if cleanCmd == "" {
+		cleanCmd = "echo 'SOLV_JUDGE_OK'"
+	}
+
+	var runScript string
+	if sampleInput != "" {
+		runScript = fmt.Sprintf("printf '%%s' %q | (%s)", sampleInput, cleanCmd)
+	} else {
+		runScript = cleanCmd
+	}
+
+	cmd := []string{"sh", "-c", runScript}
+
+	hostConfig := &container.HostConfig{
+		NetworkMode: "none",
+		Resources: container.Resources{
+			Memory: memoryLimitMB * 1024 * 1024,
+		},
+		ReadonlyRootfs: true,
+		SecurityOpt:    []string{"no-new-privileges:true"},
+		AutoRemove:     false,
+	}
+
+	containerConfig := &container.Config{
+		Image: imageRef,
+		Cmd:   cmd,
+	}
+
+	execCtx, cancel := context.WithTimeout(ctx, time.Duration(timeoutMS)*time.Millisecond)
+	defer cancel()
+
+	resp, err := a.cli.ContainerCreate(execCtx, containerConfig, hostConfig, nil, nil, "")
+	if err != nil {
+		return "", 0, 1, fmt.Errorf("error al crear contenedor efímero de juez: %w", err)
+	}
+	containerID := resp.ID
+
+	defer func() {
+		_ = a.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
+	}()
+
+	startTime := time.Now()
+	if err := a.cli.ContainerStart(execCtx, containerID, container.StartOptions{}); err != nil {
+		return "", 0, 1, fmt.Errorf("error al iniciar contenedor efímero de juez: %w", err)
+	}
+
+	statusCh, errCh := a.cli.ContainerWait(execCtx, containerID, container.WaitConditionNotRunning)
+	var exitCode int
+	select {
+	case err := <-errCh:
+		if err != nil {
+			if errors.Is(execCtx.Err(), context.DeadlineExceeded) {
+				return "TLE: Tiempo límite de ejecución excedido", time.Since(startTime).Milliseconds(), 124, errors.New("timeout de ejecución excedido")
+			}
+			return "", time.Since(startTime).Milliseconds(), 1, err
+		}
+	case waitResp := <-statusCh:
+		exitCode = int(waitResp.StatusCode)
+	}
+	durationMs := time.Since(startTime).Milliseconds()
+
+	logsReader, err := a.cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	output := ""
+	if err == nil {
+		defer logsReader.Close()
+		var buf bytes.Buffer
+		_, _ = io.Copy(&buf, logsReader)
+		output = strings.TrimSpace(buf.String())
+	}
+
+	return output, durationMs, exitCode, nil
+}

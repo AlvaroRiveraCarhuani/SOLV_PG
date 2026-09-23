@@ -82,6 +82,28 @@ func (m *mockRunner) RunSmokeTest(ctx context.Context, imageRef string, tools []
 	return res, code, err
 }
 
+func (m *mockRunner) RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (string, int64, int, error) {
+	m.mu.Lock()
+	m.runCalled = true
+	code := m.exitCode
+	err := m.err
+	delay := m.delay
+	m.mu.Unlock()
+
+	if delay > 0 {
+		select {
+		case <-time.After(delay):
+		case <-ctx.Done():
+			return "TLE", 124, 124, ctx.Err()
+		}
+	}
+
+	if code != 0 {
+		return "execution failed", 50, code, err
+	}
+	return "PASS: output matches", 25, 0, nil
+}
+
 func TestEnvTestService_Validation(t *testing.T) {
 	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
 	reg := &mockRegistry{}
@@ -276,5 +298,32 @@ func TestEnvTestService_Cancellation(t *testing.T) {
 	got, _ := svc.GetJob(context.Background(), job.ID)
 	if got.Status != domain.EnvTestStatusCanceled {
 		t.Errorf("expected status canceled, got: %v", got.Status)
+	}
+}
+
+func TestEnvTestService_JudgeExecutionSuccess(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	run := &mockRunner{exitCode: 0}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:             "gcc:13.2",
+		TargetEnvironment: "JUEZ_EFIMERO",
+		Entrypoint:        "gcc solution.c -o solution && ./solution",
+		TimeoutMS:         2000,
+		SampleInput:       "42\n",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error starting judge job: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	got, _ := svc.GetJob(context.Background(), job.ID)
+	if got.Status != domain.EnvTestStatusSuccess {
+		t.Fatalf("expected judge test status success, got: %v (%s)", got.Status, got.ErrorMessage)
+	}
+	if got.Result == nil || got.Result.ExitCode != 0 {
+		t.Errorf("expected exit code 0 in result, got: %+v", got.Result)
 	}
 }
