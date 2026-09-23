@@ -70,5 +70,14 @@ Veredictos juez: AC=verde · WA=rojo · TLE=ámbar · RE=naranja · AST_BLOCKED=
 - Números concretos mejor que adjetivos (ej. "5 tests pasan").
 - Sin superlativos ni marketing ("excelente", "óptimo", "poderoso", "elegante").
 - Cuerpo obligatorio (1-2 líneas): Qué / Por qué / Cómo / Impacto.
-- Footer: `Slice: N` y `ADR-XXX` si aplica.
-- PROHIBIDO en commits: "CRIT-XX" y cualquier vocabulario de orquestación.
+- PROHIBIDO en commits: menciones a slices o cajones (ej. "Slice F1", "Cajón C"), "CRIT-XX" y cualquier vocabulario de coordinación interna o de orquestación.
+
+## Etiquetas de Coordinación (Vocabulario Interno)
+
+Las siguientes etiquetas son de planificación interna y NUNCA deben aparecer en commits, PRs, código fuente o documentación versionada:
+- Cajón A, B, C, D
+- Slice F1, F2, A1-A4
+- Adendas 1-6
+- D1-D5, INV-*, PU-*, MO-*, ST-*, PB-*, TE-*
+
+Estas etiquetas solo existen en conversaciones de coordinación entre humanos. El código y los commits usan lenguaje de dominio (plantillas, categorías, cgroups, borradores) sin referencias a la planificación.
