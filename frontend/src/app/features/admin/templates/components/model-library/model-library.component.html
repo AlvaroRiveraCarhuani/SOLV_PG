@@ -1,0 +1,502 @@
+<div class="model-library-container">
+  <!-- Encabezado de la Vista -->
+  <header class="view-header">
+    <div class="header-left">
+      <div class="title-with-icon">
+        <svg lucideBoxes class="header-icon"></svg>
+        <div>
+          <h1 class="view-title">Biblioteca de Modelos y Categorías</h1>
+          <p class="view-subtitle">Gestión centralizada de modelos oficiales institucionales y categorías académicas</p>
+        </div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/admin/plantillas" class="btn btn-secondary">
+        <svg lucideLayers class="btn-icon"></svg>
+        <span>Volver a Plantillas</span>
+      </a>
+      <button 
+        type="button" 
+        class="btn btn-primary" 
+        *ngIf="activeTab() === 'categories'" 
+        (click)="openCreateCategory()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nueva Categoría</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Pestañas de Navegación -->
+  <nav class="library-tabs">
+    <button 
+      type="button" 
+      class="tab-btn" 
+      [class.active]="activeTab() === 'models'" 
+      (click)="activeTab.set('models')">
+      <svg lucideBoxes class="tab-icon"></svg>
+      <span>Modelos Oficiales</span>
+      <span class="tab-badge">{{ models().length }}</span>
+    </button>
+    <button 
+      type="button" 
+      class="tab-btn" 
+      [class.active]="activeTab() === 'categories'" 
+      (click)="activeTab.set('categories')">
+      <svg lucideTag class="tab-icon"></svg>
+      <span>Categorías Académicas</span>
+      <span class="tab-badge">{{ categories().length }}</span>
+    </button>
+  </nav>
+
+  <!-- Contenido TAB 1: MODELOS OFICIALES -->
+  @if (activeTab() === 'models') {
+    <section class="tab-content">
+      <!-- Barra de Filtros -->
+      <div class="filters-bar">
+        <div class="search-box">
+          <svg lucideSearch class="search-icon"></svg>
+          <input 
+            type="text" 
+            class="search-input" 
+            placeholder="Buscar por nombre, descripción o imagen Docker..." 
+            [ngModel]="searchQuery()" 
+            (ngModelChange)="searchQuery.set($event)"
+          />
+        </div>
+
+        <div class="filter-controls">
+          <div class="select-wrap">
+            <label class="filter-label">Propósito:</label>
+            <select 
+              class="form-select" 
+              [ngModel]="filterPurpose()" 
+              (ngModelChange)="filterPurpose.set($event)">
+              <option value="ALL">Todos los propósitos</option>
+              <option value="IDE_PERSISTENTE">IDE Persistente</option>
+              <option value="JUEZ_VIRTUAL">Juez Virtual</option>
+            </select>
+          </div>
+
+          <div class="select-wrap">
+            <label class="filter-label">Categoría:</label>
+            <select 
+              class="form-select" 
+              [ngModel]="filterCategory()" 
+              (ngModelChange)="filterCategory.set($event)">
+              <option value="ALL">Todas las categorías</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="select-wrap">
+            <label class="filter-label">Estado:</label>
+            <select 
+              class="form-select" 
+              [ngModel]="filterStatus()" 
+              (ngModelChange)="filterStatus.set($event)">
+              <option value="ALL">Todos</option>
+              <option value="ACTIVE">Solo Activos</option>
+              <option value="INACTIVE">Solo Inactivos</option>
+            </select>
+          </div>
+
+          <button type="button" class="btn btn-icon" (click)="loadData()" title="Refrescar catálogo">
+            <svg lucideRefreshCw class="btn-icon" [class.animate-spin]="isLoading()"></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Tabla de Modelos -->
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Modelo & Tecnología</th>
+              <th>Categoría</th>
+              <th>Propósito</th>
+              <th>RAM Base</th>
+              <th>Uso en Plantillas</th>
+              <th>Procedencia</th>
+              <th>Estado</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (m of filteredModels(); track m.id) {
+              <tr [class.row-inactive]="m.is_active === false">
+                <td class="col-main">
+                  <div class="model-info">
+                    <span class="model-title">{{ m.name || m.title }}</span>
+                    <span class="model-desc" *ngIf="m.description">{{ m.description }}</span>
+                    <code class="docker-badge">{{ m.docker_image }}</code>
+                  </div>
+                </td>
+                <td>
+                  <span class="category-badge">
+                    <svg lucideTag class="badge-icon"></svg>
+                    {{ getCategoryName(m.category_id) }}
+                  </span>
+                </td>
+                <td>
+                  <span 
+                    class="purpose-badge" 
+                    [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
+                    [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL'">
+                    {{ m.target_environment === 'IDE_PERSISTENTE' ? 'IDE Persistente' : 'Juez Virtual' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="ram-badge">{{ m.base_ram_mb }} MB</span>
+                </td>
+                <td>
+                  <span class="usage-badge" [class.has-usage]="m.usage_count > 0">
+                    <strong>{{ m.usage_count }}</strong> plantillas
+                  </span>
+                </td>
+                <td>
+                  @if (m.source_template_id) {
+                    <span class="provenance-tag" title="Origen: {{ m.source_template_id }}">
+                      Plantilla {{ m.source_template_id | slice:0:8 }}
+                    </span>
+                  } @else {
+                    <span class="text-muted text-xs">Semilla base</span>
+                  }
+                </td>
+                <td>
+                  @if (m.is_active !== false) {
+                    <span class="status-badge status-active">Activo</span>
+                  } @else {
+                    <span class="status-badge status-inactive">Inactivo</span>
+                  }
+                </td>
+                <td class="text-right">
+                  <div class="actions-group">
+                    <button 
+                      type="button" 
+                      class="btn-action" 
+                      (click)="openEditModel(m)" 
+                      title="Editar metadatos">
+                      <svg lucidePencil class="action-icon"></svg>
+                    </button>
+                    @if (m.is_active !== false) {
+                      <button 
+                        type="button" 
+                        class="btn-action action-deactivate" 
+                        (click)="toggleModelActive(m)" 
+                        title="Desactivar del catálogo">
+                        <svg lucidePower class="action-icon"></svg>
+                      </button>
+                    } @else {
+                      <button 
+                        type="button" 
+                        class="btn-action action-reactivate" 
+                        (click)="toggleModelActive(m)" 
+                        title="Reactivar en el catálogo">
+                        <svg lucideCheck class="action-icon"></svg>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="empty-cell">
+                  <div class="empty-state">
+                    <svg lucideBoxes class="empty-icon"></svg>
+                    <p class="empty-text">No se encontraron modelos oficiales con los filtros seleccionados.</p>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- Contenido TAB 2: CATEGORÍAS ACADÉMICAS -->
+  @if (activeTab() === 'categories') {
+    <section class="tab-content">
+      <div class="categories-toolbar">
+        <div class="toolbar-info">
+          <p class="info-text">
+            Arrastra las categorías o utiliza las flechas para reorganizar el orden en el que se muestran en el catálogo y formularios docentes.
+          </p>
+        </div>
+        <button type="button" class="btn btn-primary" (click)="openCreateCategory()">
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Nueva Categoría</span>
+        </button>
+      </div>
+
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th class="w-12">Orden</th>
+              <th>Nombre de Categoría</th>
+              <th>Descripción</th>
+              <th>Modelos Asociados</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (cat of categories(); track cat.id; let i = $index) {
+              <tr 
+                draggable="true" 
+                (dragstart)="onDragStart(i)" 
+                (dragover)="onDragOver($event, i)" 
+                (drop)="onDrop(i)"
+                class="draggable-row">
+                <td class="col-drag">
+                  <div class="order-controls">
+                    <svg lucideGripVertical class="grip-icon" title="Arrastrar para reordenar"></svg>
+                    <div class="arrows-wrap">
+                      <button 
+                        type="button" 
+                        class="btn-arrow" 
+                        [disabled]="i === 0" 
+                        (click)="moveCategoryUp(i)"
+                        title="Mover arriba">
+                        <svg lucideChevronUp class="arrow-icon"></svg>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="btn-arrow" 
+                        [disabled]="i === categories().length - 1" 
+                        (click)="moveCategoryDown(i)"
+                        title="Mover abajo">
+                        <svg lucideChevronDown class="arrow-icon"></svg>
+                      </button>
+                    </div>
+                    <span class="order-number">#{{ i + 1 }}</span>
+                  </div>
+                </td>
+                <td class="font-medium">
+                  <div class="category-name-cell">
+                    <svg lucideTag class="cell-tag-icon"></svg>
+                    <span>{{ cat.name }}</span>
+                  </div>
+                </td>
+                <td class="text-muted">
+                  {{ cat.description || 'Sin descripción adicional' }}
+                </td>
+                <td>
+                  <span class="badge-count" [class.badge-count-active]="getCategoryModelCount(cat.id) > 0">
+                    {{ getCategoryModelCount(cat.id) }} modelos
+                  </span>
+                </td>
+                <td class="text-right">
+                  <div class="actions-group">
+                    <button 
+                      type="button" 
+                      class="btn-action" 
+                      (click)="openEditCategory(cat)" 
+                      title="Editar categoría">
+                      <svg lucidePencil class="action-icon"></svg>
+                    </button>
+                    <button 
+                      type="button" 
+                      class="btn-action action-delete" 
+                      (click)="confirmDeleteCategory(cat)" 
+                      title="Eliminar categoría">
+                      <svg lucideTrash2 class="action-icon"></svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-cell">
+                  <div class="empty-state">
+                    <svg lucideTag class="empty-icon"></svg>
+                    <p class="empty-text">No existen categorías registradas.</p>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </section>
+  }
+
+  <!-- MODAL: EDITAR MODELO -->
+  @if (showModelModal()) {
+    <div class="modal-overlay" (click)="closeModelModal()">
+      <div class="modal-card" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div class="modal-title-wrap">
+            <svg lucideBoxes class="modal-icon"></svg>
+            <h3 class="modal-title">Editar Modelo Oficial</h3>
+          </div>
+          <button type="button" class="btn-close" (click)="closeModelModal()">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label font-semibold">Título del Modelo *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Ej. Node.js 20 LTS Fullstack" 
+              [ngModel]="modelTitle()" 
+              (ngModelChange)="modelTitle.set($event)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label font-semibold">Categoría Académica *</label>
+            <select 
+              class="form-control form-select" 
+              [ngModel]="modelCategoryId()" 
+              (ngModelChange)="modelCategoryId.set($event)">
+              <option value="" disabled>Seleccione una categoría</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label font-semibold">Descripción del Modelo</label>
+            <textarea 
+              class="form-control form-textarea" 
+              rows="3" 
+              placeholder="Describe las herramientas, casos de uso o asignaturas recomendadas..." 
+              [ngModel]="modelDescription()" 
+              (ngModelChange)="modelDescription.set($event)">
+            </textarea>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeModelModal()">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            [disabled]="!modelTitle().trim() || !modelCategoryId() || isModelSaving()" 
+            (click)="saveModel()">
+            <span>{{ isModelSaving() ? 'Guardando...' : 'Guardar Cambios' }}</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL: CREAR / EDITAR CATEGORÍA -->
+  @if (showCategoryModal()) {
+    <div class="modal-overlay" (click)="closeCategoryModal()">
+      <div class="modal-card modal-card-sm" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div class="modal-title-wrap">
+            <svg lucideTag class="modal-icon"></svg>
+            <h3 class="modal-title">{{ editingCategory() ? 'Editar Categoría' : 'Nueva Categoría' }}</h3>
+          </div>
+          <button type="button" class="btn-close" (click)="closeCategoryModal()">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <div class="form-group">
+            <label class="form-label font-semibold">Nombre de la Categoría *</label>
+            <input 
+              type="text" 
+              class="form-control" 
+              placeholder="Ej. Inteligencia Artificial & Big Data" 
+              [ngModel]="categoryName()" 
+              (ngModelChange)="categoryName.set($event)"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label font-semibold">Descripción</label>
+            <textarea 
+              class="form-control form-textarea" 
+              rows="3" 
+              placeholder="Breve reseña del área académica..." 
+              [ngModel]="categoryDescription()" 
+              (ngModelChange)="categoryDescription.set($event)">
+            </textarea>
+          </div>
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="closeCategoryModal()">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            [disabled]="!categoryName().trim() || isCategorySaving()" 
+            (click)="saveCategory()">
+            <span>{{ isCategorySaving() ? 'Guardando...' : (editingCategory() ? 'Guardar Cambios' : 'Crear Categoría') }}</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- MODAL: CONFIRMAR ELIMINACIÓN DE CATEGORÍA -->
+  @if (categoryToDelete()) {
+    <div class="modal-overlay" (click)="cancelDeleteCategory()">
+      <div class="modal-card modal-card-sm modal-danger" (click)="$event.stopPropagation()">
+        <header class="modal-header">
+          <div class="modal-title-wrap">
+            <svg lucideAlertTriangle class="modal-icon text-error"></svg>
+            <h3 class="modal-title">Eliminar Categoría</h3>
+          </div>
+          <button type="button" class="btn-close" (click)="cancelDeleteCategory()">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </header>
+
+        <div class="modal-body">
+          <p>
+            ¿Confirmas la eliminación de la categoría <strong>"{{ categoryToDelete()?.name }}"</strong>?
+          </p>
+          @if (getCategoryModelCount(categoryToDelete()!.id) > 0) {
+            <div class="alert-warning-box">
+              <svg lucideAlertTriangle class="warning-icon"></svg>
+              <span>
+                Esta categoría tiene <strong>{{ getCategoryModelCount(categoryToDelete()!.id) }} modelos</strong> asociados. La eliminación será rechazada por el servidor con código 409 hasta reasignarlos.
+              </span>
+            </div>
+          }
+        </div>
+
+        <footer class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="cancelDeleteCategory()">
+            Cancelar
+          </button>
+          <button 
+            type="button" 
+            class="btn btn-danger" 
+            [disabled]="isCategoryDeleting()" 
+            (click)="executeDeleteCategory()">
+            <span>{{ isCategoryDeleting() ? 'Eliminando...' : 'Eliminar' }}</span>
+          </button>
+        </footer>
+      </div>
+    </div>
+  }
+
+  <!-- TOAST NOTIFICATION (Estricto Verde Semántico #15803D / Rojo Semántico #DC2626) -->
+  @if (toastMessage()) {
+    <div class="toast-toast" [class.toast-success]="toastType() === 'success'" [class.toast-error]="toastType() === 'error'">
+      <svg *ngIf="toastType() === 'success'" lucideCheck class="toast-icon"></svg>
+      <svg *ngIf="toastType() === 'error'" lucideAlertTriangle class="toast-icon"></svg>
+      <span class="toast-text">{{ toastMessage() }}</span>
+      <button type="button" class="toast-close" (click)="toastMessage.set(null)">
+        <svg lucideX class="w-3.5 h-3.5"></svg>
+      </button>
+    </div>
+  }
+</div>

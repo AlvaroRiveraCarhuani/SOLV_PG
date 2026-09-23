@@ -17,70 +17,28 @@
       </button>
     </div>
 
-    <!-- Menú de Entrada de 3 Puertas (ST-10, ST-11, ST-12, ST-13) -->
-    <div class="entry-doors-strip">
-      <div class="doors-label">
-        <svg lucideLayers class="w-3.5 h-3.5 text-primary"></svg>
-        <span class="doors-title" i18n="@@ST-10">Nueva plantilla</span>
-      </div>
-      <div class="doors-options">
-        <button 
-          type="button" 
-          class="door-chip" 
-          [class.active]="creationMode() === 'blank'"
-          (click)="selectCreationMode('blank')"
-        >
-          <span i18n="@@ST-11">En blanco</span>
-        </button>
-        <button 
-          type="button" 
-          class="door-chip" 
-          [class.active]="creationMode() === 'recipe'"
-          (click)="selectCreationMode('recipe')"
-        >
-          <span i18n="@@ST-12">Desde receta</span>
-        </button>
-        <button 
-          type="button" 
-          class="door-chip" 
-          [class.active]="creationMode() === 'duplicate'"
-          (click)="selectCreationMode('duplicate')"
-        >
-          <span i18n="@@ST-13">Duplicar existente</span>
-        </button>
-      </div>
-    </div>
-
-    <!-- Barra de Recetas Rápidas (P-01, Quick Start) -->
-    <div class="recipes-strip">
-      <div class="recipes-label">
-        <svg lucideSparkles class="w-3.5 h-3.5 text-warning"></svg>
-        <span>Recetas de inicio rápido:</span>
-      </div>
-      <div class="recipes-carousel">
-        @for (recipe of recipes; track recipe.id) {
-          <button 
-            type="button" 
-            class="recipe-chip" 
-            (click)="applyRecipe(recipe)"
-            [title]="recipe.description"
-          >
-            <span class="recipe-name">{{ recipe.title }}</span>
-            <span class="recipe-ram">{{ recipe.baseRamMB }} MB</span>
-          </button>
-        }
-      </div>
-    </div>
-
-    <!-- Navegación de 3 Secciones No-Lineales (P-04, ST-01 a ST-06) -->
+    <!-- Navegación de 6 Secciones del Asistente (PU-01, PU-18 a PU-21) -->
     <div class="wizard-nav-tabs">
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeSection() === 'purpose'"
+        (click)="setSection('purpose')"
+      >
+        <span class="tab-number">1</span>
+        <span class="tab-title" i18n="@@PU-18">Propósito</span>
+        <span class="status-chip chip-complete">
+          <span i18n="@@ST-04">COMPLETO</span>
+        </span>
+      </button>
+
       <button 
         type="button" 
         class="tab-btn" 
         [class.active]="activeSection() === 'identity'"
         (click)="setSection('identity')"
       >
-        <span class="tab-number">1</span>
+        <span class="tab-number">2</span>
         <span class="tab-title" i18n="@@ST-01">Identidad</span>
         <span class="status-chip" [class]="'chip-' + identityStatus()">
           @if (identityStatus() === 'complete') {
@@ -94,13 +52,13 @@
       <button 
         type="button" 
         class="tab-btn" 
-        [class.active]="activeSection() === 'environment'"
-        (click)="setSection('environment')"
+        [class.active]="activeSection() === 'image'"
+        (click)="setSection('image')"
       >
-        <span class="tab-number">2</span>
-        <span class="tab-title" i18n="@@ST-02">Entorno</span>
-        <span class="status-chip" [class]="'chip-' + environmentStatus()">
-          @switch (environmentStatus()) {
+        <span class="tab-number">3</span>
+        <span class="tab-title" i18n="@@PU-19">Imagen</span>
+        <span class="status-chip" [class]="'chip-' + imageStatus()">
+          @switch (imageStatus()) {
             @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
             @case ('warning') { <span i18n="@@ST-06">AVISO</span> }
             @default { <span i18n="@@ST-05">PENDIENTE</span> }
@@ -111,10 +69,27 @@
       <button 
         type="button" 
         class="tab-btn" 
+        [class.active]="activeSection() === 'execution'"
+        (click)="setSection('execution')"
+      >
+        <span class="tab-number">4</span>
+        <span class="tab-title" i18n="@@PU-20">Ejecución</span>
+        <span class="status-chip" [class]="'chip-' + executionStatus()">
+          @if (executionStatus() === 'complete') {
+            <span i18n="@@ST-04">COMPLETO</span>
+          } @else {
+            <span i18n="@@ST-05">PENDIENTE</span>
+          }
+        </span>
+      </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
         [class.active]="activeSection() === 'resources'"
         (click)="setSection('resources')"
       >
-        <span class="tab-number">3</span>
+        <span class="tab-number">5</span>
         <span class="tab-title" i18n="@@ST-03">Recursos</span>
         <span class="status-chip" [class]="'chip-' + resourcesStatus()">
           @if (resourcesStatus() === 'complete') {
@@ -124,9 +99,26 @@
           }
         </span>
       </button>
+
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeSection() === 'verification'"
+        (click)="setSection('verification')"
+      >
+        <span class="tab-number">6</span>
+        <span class="tab-title" i18n="@@PU-21">Verificación</span>
+        <span class="status-chip" [class]="'chip-' + verificationStatus()">
+          @switch (verificationStatus()) {
+            @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
+            @case ('warning') { <span i18n="@@ST-06">AVISO</span> }
+            @default { <span i18n="@@ST-05">PENDIENTE</span> }
+          }
+        </span>
+      </button>
     </div>
 
-    <!-- Body con Secciones -->
+    <!-- Body con Pasos -->
     <div class="modal-body">
 
       <!-- Banner de Reanudación de Borrador (UX-13, ST-09) -->
@@ -147,10 +139,264 @@
         </div>
       }
       
-      <!-- SECCIÓN 1: IDENTIDAD -->
+      <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05) -->
+      @if (activeSection() === 'purpose') {
+        <div class="section-container animate-fade">
+          <div class="purpose-intro-block">
+            <h4 class="purpose-section-title" i18n="@@PU-01">Propósito del entorno</h4>
+            <p class="purpose-section-desc">Seleccione el modo de ejecución que define el ciclo de vida, recursos y herramientas de la plantilla.</p>
+          </div>
+
+          <div class="purpose-cards-grid">
+            <!-- Tarjeta: Laboratorio Interactivo -->
+            <div 
+              class="purpose-card" 
+              [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
+              (click)="selectTargetEnvironment('IDE_PERSISTENTE')"
+            >
+              <div class="purpose-card-badge-row">
+                <div class="purpose-icon-wrap icon-ide">
+                  <svg lucideLayers class="w-5 h-5"></svg>
+                </div>
+                <div class="purpose-status-indicator">
+                  @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                    <svg lucideCheckCircle2 class="w-5 h-5 text-success"></svg>
+                  }
+                </div>
+              </div>
+              <h5 class="purpose-card-title" i18n="@@PU-02">Laboratorio Interactivo (IDE Persistente)</h5>
+              <p class="purpose-card-desc" i18n="@@PU-03">
+                Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite.
+              </p>
+              <div class="purpose-tags-list">
+                <span class="purpose-tag">OpenVSCode</span>
+                <span class="purpose-tag">Bases de Datos</span>
+                <span class="purpose-tag">Sesión Larga</span>
+                <span class="purpose-tag">512 MB - 4 GB</span>
+              </div>
+            </div>
+
+            <!-- Tarjeta: Juez Virtual -->
+            <div 
+              class="purpose-card" 
+              [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
+              (click)="selectTargetEnvironment('JUEZ_EFIMERO')"
+            >
+              <div class="purpose-card-badge-row">
+                <div class="purpose-icon-wrap icon-judge">
+                  <svg lucideTerminal class="w-5 h-5"></svg>
+                </div>
+                <div class="purpose-status-indicator">
+                  @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+                    <svg lucideCheckCircle2 class="w-5 h-5 text-success"></svg>
+                  }
+                </div>
+              </div>
+              <h5 class="purpose-card-title" i18n="@@PU-04">Juez Virtual (Sandbox Algorítmico)</h5>
+              <p class="purpose-card-desc" i18n="@@PU-05">
+                Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos.
+              </p>
+              <div class="purpose-tags-list">
+                <span class="purpose-tag">CLI Sandbox</span>
+                <span class="purpose-tag">1-5s Timeout</span>
+                <span class="purpose-tag">Ultra-ligero</span>
+                <span class="purpose-tag">128 MB - 512 MB</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- PASO 2: IDENTIDAD Y PUERTAS DE ENTRADA -->
       @if (activeSection() === 'identity') {
         <div class="section-container animate-fade">
-          <div class="form-group">
+          <!-- Menú de Entrada de 3 Puertas -->
+          <div class="entry-doors-strip">
+            <div class="doors-label">
+              <span class="doors-title" i18n="@@ST-10">Nueva plantilla</span>
+            </div>
+            <div class="doors-options">
+              <button 
+                type="button" 
+                class="door-chip" 
+                [class.active]="creationMode() === 'blank'"
+                (click)="selectCreationMode('blank')"
+              >
+                <span i18n="@@ST-11">En blanco</span>
+              </button>
+              <button 
+                type="button" 
+                class="door-chip" 
+                [class.active]="creationMode() === 'recipe'"
+                (click)="selectCreationMode('recipe')"
+              >
+                <span i18n="@@ST-12">Desde modelo</span>
+              </button>
+              <button 
+                type="button" 
+                class="door-chip" 
+                [class.active]="creationMode() === 'duplicate'"
+                (click)="selectCreationMode('duplicate')"
+              >
+                <span i18n="@@ST-13">Duplicar existente</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Puerta: Desde modelo de plantilla -->
+          @if (creationMode() === 'recipe') {
+            <div class="models-shelf-section">
+              <div class="models-shelf-header">
+                <div class="models-title-wrap">
+                  <svg lucideSparkles class="w-4 h-4 text-warning mr-1.5"></svg>
+                  <span class="models-shelf-title" i18n="@@MO-01">Modelos de plantilla</span>
+                  <span class="models-shelf-sub" i18n="@@MO-02">Entornos preconfigurados listos para usar o personalizar</span>
+                </div>
+                @if (filteredModels().length > 4) {
+                  <div class="models-search-bar">
+                    <svg lucideSearch class="w-3.5 h-3.5 text-muted mr-1.5"></svg>
+                    <input 
+                      type="text" 
+                      class="models-search-input" 
+                      [ngModel]="modelsSearch()"
+                      (ngModelChange)="modelsSearch.set($event)"
+                      placeholder="Buscar modelos..."
+                      i18n-placeholder="@@MO-03"
+                    />
+                  </div>
+                }
+              </div>
+
+              @if (filteredModels().length === 0) {
+                <div class="models-empty-state">
+                  @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+                    <p i18n="@@PU-12">No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco.</p>
+                  } @else {
+                    <span i18n="@@MO-07">No se encontraron modelos para la búsqueda</span>
+                  }
+                  <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="selectCreationMode('blank')">
+                    Comenzar en blanco
+                  </button>
+                </div>
+              } @else {
+                <div class="disciplines-container">
+                  @for (catName of availableCategories(); track catName) {
+                    <div class="discipline-group">
+                      <div class="discipline-badge">{{ catName }}</div>
+                      <div class="models-grid">
+                        @for (model of modelsByCategory(catName); track model.id) {
+                          <div class="model-card" [class.selected]="recipeUsed() === model.id">
+                            <div class="model-card-header">
+                              <span class="model-card-title">{{ model.name }}</span>
+                              <span class="model-usage-badge" [title]="'Usado ' + model.usage_count + ' veces'">
+                                <svg lucideRotateCw class="w-3 h-3 mr-1"></svg>
+                                <span i18n="@@MO-05">{{ model.usage_count }} plantillas basadas en este modelo</span>
+                              </span>
+                            </div>
+                            <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
+                            <div class="model-card-tools">
+                              <span class="tools-label">Imagen:</span>
+                              <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
+                            </div>
+                            <button 
+                              type="button" 
+                              class="btn btn-sm btn-outline-primary mt-2 w-full"
+                              (click)="applyModel(model)"
+                            >
+                              <span i18n="@@MO-06">Usar este modelo</span>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  @if (modelsWithoutCategory().length > 0) {
+                    <div class="discipline-group">
+                      <div class="discipline-badge">General / Sin Categoría</div>
+                      <div class="models-grid">
+                        @for (model of modelsWithoutCategory(); track model.id) {
+                          <div class="model-card" [class.selected]="recipeUsed() === model.id">
+                            <div class="model-card-header">
+                              <span class="model-card-title">{{ model.name }}</span>
+                              <span class="model-usage-badge" [title]="'Usado ' + model.usage_count + ' veces'">
+                                <svg lucideRotateCw class="w-3 h-3 mr-1"></svg>
+                                <span i18n="@@MO-05">{{ model.usage_count }} plantillas basadas en este modelo</span>
+                              </span>
+                            </div>
+                            <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
+                            <div class="model-card-tools">
+                              <span class="tools-label">Imagen:</span>
+                              <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
+                            </div>
+                            <button 
+                              type="button" 
+                              class="btn btn-sm btn-outline-primary mt-2 w-full"
+                              (click)="applyModel(model)"
+                            >
+                              <span i18n="@@MO-06">Usar este modelo</span>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Puerta: Duplicar existente -->
+          @if (creationMode() === 'duplicate') {
+            <div class="models-shelf-section">
+              <div class="models-shelf-header">
+                <div class="models-title-wrap">
+                  <svg lucideCopy class="w-4 h-4 text-primary mr-1.5"></svg>
+                  <span class="models-shelf-title">Catálogo activo para duplicar</span>
+                  <span class="models-shelf-sub">Cree una nueva plantilla a partir de una existente aprobada</span>
+                </div>
+                <div class="models-search-bar">
+                  <svg lucideSearch class="w-3.5 h-3.5 text-muted mr-1.5"></svg>
+                  <input 
+                    type="text" 
+                    class="duplicate-search-input" 
+                    [ngModel]="duplicateSearch()"
+                    (ngModelChange)="duplicateSearch.set($event)"
+                    placeholder="Buscar plantillas del catálogo para duplicar..."
+                    i18n-placeholder="@@MO-14"
+                  />
+                </div>
+              </div>
+
+              @if (filteredExistingCatalog().length === 0) {
+                <div class="duplicate-empty-state">
+                  <p class="text-sm text-muted">No hay plantillas aprobadas disponibles en el catálogo para este propósito.</p>
+                </div>
+              } @else {
+                <div class="duplicate-grid">
+                  @for (item of filteredExistingCatalog(); track item.id) {
+                    <div class="duplicate-card">
+                      <div class="duplicate-card-info">
+                        <span class="duplicate-card-title">{{ item.name }}</span>
+                        <span class="duplicate-card-image font-mono">{{ item.docker_image }}</span>
+                      </div>
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-outline-primary"
+                        (click)="duplicateFromCatalog(item)"
+                      >
+                        <svg lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
+                        <span i18n="@@MO-15">Duplicar esta plantilla</span>
+                      </button>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <!-- Formulario de Identidad -->
+          <div class="form-group mt-4">
             <label class="form-label font-semibold">
               Nombre de la Plantilla: <span class="text-danger">*</span>
             </label>
@@ -161,6 +407,51 @@
               [ngModel]="name()" 
               (ngModelChange)="name.set($event)" />
             <small class="form-hint">Nombre descriptivo que verán los docentes y estudiantes en el catálogo.</small>
+          </div>
+
+          <div class="form-group">
+            <div class="label-row-between">
+              <label class="form-label font-semibold">
+                Categoría Académica:
+              </label>
+              <button 
+                type="button" 
+                class="btn-text-action" 
+                (click)="navigateToCategoryManager()"
+                title="Gestionar categorías en la biblioteca"
+              >
+                <svg lucideTag class="w-3.5 h-3.5 mr-1"></svg>
+                <span i18n="@@CA-01">Gestionar categorías</span>
+              </button>
+            </div>
+            <select 
+              class="form-control form-select" 
+              [ngModel]="selectedCategoryId()" 
+              (ngModelChange)="selectedCategoryId.set($event)">
+              <option [ngValue]="null">-- Sin categoría asignada --</option>
+              @for (cat of categories(); track cat.id) {
+                <option [value]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+            <div class="quick-create-cat-box">
+              <input 
+                type="text" 
+                class="form-control quick-cat-input" 
+                placeholder="+ Categoría rápida..." 
+                [ngModel]="quickCategoryName()" 
+                (ngModelChange)="quickCategoryName.set($event)"
+                (keyup.enter)="quickCreateCategory()"
+              />
+              <button 
+                type="button" 
+                class="btn btn-secondary quick-cat-btn" 
+                [disabled]="!quickCategoryName().trim() || isQuickCategorySaving()" 
+                (click)="quickCreateCategory()">
+                <svg lucidePlus class="w-3.5 h-3.5"></svg>
+                <span>{{ isQuickCategorySaving() ? 'Guardando...' : 'Agregar' }}</span>
+              </button>
+            </div>
+            <small class="form-hint">Organiza las plantillas en el catálogo para facilitar la búsqueda a los docentes.</small>
           </div>
 
           <div class="form-group">
@@ -175,28 +466,12 @@
               (ngModelChange)="description.set($event)">
             </textarea>
           </div>
-
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Script de Inicialización al Despliegue (Opcional):
-            </label>
-            <textarea 
-              class="form-control font-mono text-area-sm" 
-              rows="4" 
-              placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
-              [ngModel]="setupScript()" 
-              (ngModelChange)="setupScript.set($event)">
-            </textarea>
-            <small class="form-hint">Comandos bash que se ejecutarán automáticamente al iniciar cada workspace.</small>
-          </div>
         </div>
       }
 
-      <!-- SECCIÓN 2: ENTORNO (IMAGEN + TOOLS + ENV TEST BUTTON) -->
-      @if (activeSection() === 'environment') {
+      <!-- PASO 3: IMAGEN Y HERRAMIENTAS -->
+      @if (activeSection() === 'image') {
         <div class="section-container animate-fade">
-          
-          <!-- Imagen Docker con Typeahead -->
           <div class="form-group typeahead-container">
             <div class="label-row-between">
               <div class="label-group-help">
@@ -282,147 +557,487 @@
               (ngModelChange)="toolsDeclared.set($event)" />
             <small class="form-hint">Binarios que el sistema comprobará dentro del contenedor antes de aprobar la plantilla.</small>
           </div>
+        </div>
+      }
 
-          <!-- BOTÓN DE PRUEBA DE ENTORNO (5 ESTADOS ASÍNCRONOS) -->
+      <!-- PASO 4: EJECUCIÓN (PU-08 a PU-10, PU-15) -->
+      @if (activeSection() === 'execution') {
+        <div class="section-container animate-fade">
+          @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+            <!-- Configuración de Juez Virtual -->
+            <div class="form-group">
+              <label class="form-label font-semibold" i18n="@@PU-08">
+                Comando de compilación o ejecución: <span class="text-danger">*</span>
+              </label>
+              <input 
+                type="text" 
+                class="form-control font-mono" 
+                placeholder="Ej: gcc -O2 solution.c -o solution && ./solution"
+                [ngModel]="entrypoint()" 
+                (ngModelChange)="entrypoint.set($event)" />
+              <small class="form-hint" i18n="@@PU-15">Comando de ejecución obligatorio para plantillas de juez virtual.</small>
+            </div>
+
+            <div class="grid-2-cols">
+              <div class="form-group">
+                <label class="form-label font-semibold" i18n="@@PU-09">
+                  Tiempo límite de ejecución (ms):
+                </label>
+                <input 
+                  type="number" 
+                  class="form-control font-mono" 
+                  min="500" 
+                  max="15000" 
+                  step="500"
+                  [ngModel]="timeoutMS()" 
+                  (ngModelChange)="timeoutMS.set($event)" />
+                <small class="form-hint">Tiempo máximo antes de veredicto TLE (Time Limit Exceeded).</small>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label font-semibold" i18n="@@PU-10">
+                  Entrada estándar de prueba (stdin opcional):
+                </label>
+                <input 
+                  type="text" 
+                  class="form-control font-mono" 
+                  placeholder="Ej: 5 10"
+                  [ngModel]="sampleInput()" 
+                  (ngModelChange)="sampleInput.set($event)" />
+                <small class="form-hint">Entrada que se inyectará durante la prueba del smoke test.</small>
+              </div>
+            </div>
+          } @else {
+            <!-- Configuración de Laboratorio Interactivo -->
+            <div class="form-group">
+              <label class="form-label font-semibold">
+                Script de Inicialización al Despliegue (Opcional):
+              </label>
+              <textarea 
+                class="form-control font-mono text-area-sm" 
+                rows="5" 
+                placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
+                [ngModel]="setupScript()" 
+                (ngModelChange)="setupScript.set($event)">
+              </textarea>
+              <small class="form-hint">Comandos bash que se ejecutarán automáticamente al iniciar cada workspace.</small>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- PASO 5: RECURSOS Y SERVICIOS (PU-11, PU-14) -->
+      @if (activeSection() === 'resources') {
+        <div class="section-container animate-fade">
+          <!-- Asignación de RAM Base -->
+          <div class="form-group">
+            <label class="form-label font-semibold">
+              Memoria RAM por Instancia (MB): <span class="text-danger">*</span>
+            </label>
+            <div class="ram-presets-row">
+              @for (preset of activeRamPresets(); track preset.mb) {
+                <button 
+                  type="button" 
+                  class="btn-ram-preset" 
+                  [class.active]="baseRamMB() === preset.mb" 
+                  (click)="setRam(preset.mb)"
+                >
+                  <span class="preset-label">{{ preset.label }}</span>
+                  <span class="preset-desc">{{ preset.desc }}</span>
+                </button>
+              }
+              <div class="custom-ram-wrapper">
+                <input 
+                  type="number" 
+                  class="form-control input-ram-custom font-mono" 
+                  [value]="baseRamMB()" 
+                  (input)="onRamInput($event)"
+                  [min]="targetEnvironment() === 'JUEZ_EFIMERO' ? 64 : 256" 
+                  max="8192" 
+                  step="64" />
+                <span class="unit-tag">MB</span>
+              </div>
+            </div>
+
+            @if (isRamTooLow()) {
+              <div class="validation-message-alert alert-danger mt-2">
+                <svg lucideAlertCircle class="w-4 h-4"></svg>
+                <span>
+                  {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'El mínimo recomendado es 64 MB para el sandbox de juez.' : 'El mínimo recomendado es 256 MB para alojar el editor web y el runtime.' }}
+                </span>
+              </div>
+            }
+          </div>
+
+          <!-- Perfil de Distribución de Recursos y Métrica Viva -->
+          <div class="resource-profile-card">
+            <div class="profile-header">
+              <span class="profile-title">Distribución de Recursos Estimada</span>
+              <span class="profile-badge">
+                @if (resourceProfilePreview().isJudge) {
+                  <span>≈ {{ resourceProfilePreview().estimatedCapacity }} evaluaciones concurrentes estimadas en este host</span>
+                } @else {
+                  <span>Capacidad host: ~{{ resourceProfilePreview().estimatedCapacity }} alumnos simultáneos</span>
+                }
+              </span>
+            </div>
+            <div class="memory-bar">
+              <div class="bar-segment bar-editor" [style.flex-grow]="resourceProfilePreview().editorBase" [title]="(resourceProfilePreview().isJudge ? 'Runtime Sandbox: ' : 'Editor Web: ') + resourceProfilePreview().editorBase + ' MB'">
+                <span>{{ resourceProfilePreview().isJudge ? 'Sandbox (32 MB)' : 'IDE (210 MB)' }}</span>
+              </div>
+              <div class="bar-segment bar-usable" [style.flex-grow]="resourceProfilePreview().usable" title="Disponible para compilación / ejecución">
+                <span>Libre ({{ resourceProfilePreview().usable }} MB)</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Servicios Satélite Adicionales (Solo en IDE) -->
+          @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+            <div class="form-group mt-4">
+              <label class="form-label font-semibold">
+                Servicios Satélite Opcionales (Bases de Datos Aisladas):
+              </label>
+              <div class="services-toggle-grid">
+                @for (svc of availableServices(); track svc.engine) {
+                  <div 
+                    class="service-card" 
+                    [class.selected]="isServiceSelected(svc.engine)"
+                    [class.disabled]="svc.isAvailable === false"
+                    [title]="svc.isAvailable === false ? 'Servicio no configurado en este entorno' : ''"
+                    (click)="toggleService(svc)"
+                  >
+                    <div class="service-header">
+                      <div class="service-title-wrap">
+                        <svg lucideDatabase class="w-4 h-4 text-primary"></svg>
+                        <strong class="service-name">{{ svc.label }}</strong>
+                      </div>
+                      @if (isServiceSelected(svc.engine)) {
+                        <svg lucideCheck class="w-4 h-4 text-success"></svg>
+                      }
+                      @if (svc.isAvailable === false) {
+                        <span class="badge-disabled">Opcional</span>
+                      }
+                    </div>
+                    <p class="service-desc">{{ svc.description }}</p>
+                    <div class="service-footer">
+                      <span class="badge-tag">v{{ svc.version || '16' }}</span>
+                      <span class="badge-ram">{{ svc.category }}</span>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="judge-services-disabled-banner mt-3" i18n="@@PU-14">
+              <svg lucideInfo class="w-4 h-4 text-muted mr-2"></svg>
+              <span>Los entornos de juez virtual no utilizan servicios satélite desacoplados.</span>
+            </div>
+          }
+        </div>
+      }
+
+      <!-- PASO 6: VERIFICACIÓN Y PRUEBA -->
+      @if (activeSection() === 'verification') {
+        <div class="section-container animate-fade">
           <div class="env-test-section">
-            <label class="form-label font-semibold">Prueba de Integridad del Entorno:</label>
+            <div class="section-header-row mb-3">
+              <div>
+                <h5 class="text-base font-semibold">Prueba de Integridad del Entorno</h5>
+                <p class="text-xs text-muted">
+                  {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de binarios requeridos.' }}
+                </p>
+              </div>
+            </div>
+
             <solv-env-test-button
               [image]="dockerImage()"
               [tools]="toolsList()"
+              [targetEnvironment]="targetEnvironment()"
+              [entrypoint]="entrypoint()"
+              [timeoutMS]="timeoutMS()"
+              [sampleInput]="sampleInput()"
               [isLocal]="verificationResult()?.is_local || false"
               [imageSizeMB]="verificationResult()?.estimated_uncompressed_mb || 0"
               (testCompleted)="onEnvTestCompleted($event)"
             ></solv-env-test-button>
           </div>
 
-        </div>
-      }
-
-      <!-- SECCIÓN 3: RECURSOS -->
-      @if (activeSection() === 'resources') {
-        <div class="section-container animate-fade">
-          
-          <!-- Asignación de RAM Base -->
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Memoria RAM por Alumno (MB): <span class="text-danger">*</span>
-            </label>
-            <div class="ram-presets-row">
-              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 512" (click)="setRam(512)">512 MB</button>
-              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 1024" (click)="setRam(1024)">1 GB</button>
-              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 2048" (click)="setRam(2048)">2 GB</button>
-              <button type="button" class="btn-ram-preset" [class.active]="baseRamMB() === 4096" (click)="setRam(4096)">4 GB</button>
-              <input 
-                type="number" 
-                class="form-control input-ram-custom font-mono" 
-                [value]="baseRamMB()" 
-                (input)="onRamInput($event)"
-                min="256" 
-                max="8192" 
-                step="128" />
+          <!-- Resumen de Configuración -->
+          <div class="verification-summary-card mt-4">
+            <div class="summary-header">
+              <span class="font-semibold text-sm">Resumen Técnico de la Plantilla</span>
             </div>
-            @if (isRamTooLow()) {
-              <div class="validation-message-alert alert-danger">
-                <svg lucideAlertCircle class="w-4 h-4"></svg>
-                <span>El mínimo recomendado es 256 MB para alojar el editor web y el runtime.</span>
+            <div class="summary-grid">
+              <div class="summary-item">
+                <span class="summary-label">Propósito:</span>
+                <span class="summary-val font-semibold">{{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Juez Virtual (CLI Sandbox)' : 'Laboratorio Interactivo (IDE)' }}</span>
               </div>
-            }
-          </div>
-
-          <!-- Perfil de Distribución de Recursos -->
-          <div class="resource-profile-card">
-            <div class="profile-header">
-              <span class="profile-title">Distribución de Recursos Estimada</span>
-              <span class="profile-badge">Capacidad host: ~{{ resourceProfilePreview().estimatedCapacity }} alumnos</span>
-            </div>
-            <div class="memory-bar">
-              <div class="bar-segment bar-editor" [style.flex-grow]="resourceProfilePreview().editorBase" title="Editor Web: 210 MB">
-                <span>IDE (210 MB)</span>
+              <div class="summary-item">
+                <span class="summary-label">Nombre:</span>
+                <span class="summary-val">{{ name() || 'Sin definir' }}</span>
               </div>
-              <div class="bar-segment bar-usable" [style.flex-grow]="resourceProfilePreview().usable" title="Disponible para compilación">
-                <span>Libre ({{ resourceProfilePreview().usable }} MB)</span>
+              <div class="summary-item">
+                <span class="summary-label">Imagen:</span>
+                <span class="summary-val font-mono">{{ dockerImage() || 'Sin definir' }}</span>
               </div>
-            </div>
-          </div>
-
-          <!-- Servicios Satélite Adicionales -->
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Servicios Satélite Opcionales (Bases de Datos Aisladas):
-            </label>
-            <div class="services-toggle-grid">
-              @for (svc of availableServices(); track svc.engine) {
-                <div 
-                  class="service-card" 
-                  [class.selected]="isServiceSelected(svc.engine)"
-                  (click)="toggleService(svc)"
-                >
-                  <div class="service-header">
-                    <svg lucideDatabase class="w-4 h-4 text-primary"></svg>
-                    <strong class="service-name">{{ svc.label }}</strong>
-                  </div>
-                  <p class="service-desc">{{ svc.description }}</p>
-                  <div class="service-footer">
-                    <span class="badge-tag">v{{ svc.version || 'latest' }}</span>
-                    <span class="badge-ram">{{ svc.category }}</span>
-                  </div>
+              <div class="summary-item">
+                <span class="summary-label">Memoria:</span>
+                <span class="summary-val font-mono">{{ baseRamMB() }} MB</span>
+              </div>
+              @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+                <div class="summary-item">
+                  <span class="summary-label">Comando:</span>
+                  <span class="summary-val font-mono">{{ entrypoint() || 'Pendiente' }}</span>
+                </div>
+                <div class="summary-item">
+                  <span class="summary-label">Timeout:</span>
+                  <span class="summary-val font-mono">{{ timeoutMS() }} ms</span>
+                </div>
+              } @else {
+                <div class="summary-item">
+                  <span class="summary-label">Servicios:</span>
+                  <span class="summary-val">{{ selectedServices().length > 0 ? selectedServiceEngines().join(', ') : 'Ninguno' }}</span>
                 </div>
               }
             </div>
           </div>
-
         </div>
       }
 
     </div>
 
-    <!-- Footer de Acciones -->
+    <!-- Footer de Acciones Estructurado con 5 Botones -->
     <div class="modal-footer">
       <div class="footer-left">
         <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting()">
           Cancelar
         </button>
+      </div>
+
+      <div class="footer-center-nav">
         <button 
           type="button" 
-          class="btn btn-ghost" 
-          (click)="saveAsInstitutionalRecipe()"
-          title="Guardar como receta institucional para que otros docentes puedan usarla"
+          class="btn btn-outline-secondary btn-sm" 
+          [disabled]="!canGoPrev()"
+          (click)="prevSection()"
         >
-          <span i18n="@@ST-15">Guardar como receta institucional</span>
+          <svg lucideArrowLeft class="w-3.5 h-3.5 mr-1"></svg>
+          <span i18n="@@PU-16">Anterior</span>
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-outline-secondary btn-sm" 
+          [disabled]="!canGoNext()"
+          (click)="nextSection()"
+        >
+          <span i18n="@@PU-17">Siguiente</span>
+          <svg lucideArrowRight class="w-3.5 h-3.5 ml-1"></svg>
         </button>
       </div>
 
-      <div class="action-group">
-        <!-- Guardar Borrador (UX-13, ST-07) -->
-        <button 
-          type="button" 
-          class="btn btn-outline-primary" 
-          [disabled]="!canSaveDraft()"
-          (click)="saveDraftManually()"
-          title="Guarda la plantilla como borrador sin confirmación adicional"
-        >
-          <svg lucideSave class="w-4 h-4"></svg>
-          <span i18n="@@ST-07">Guardar borrador</span>
-        </button>
+      <div class="footer-right-actions">
+        <!-- Estado 1: Sin borrador guardado -> Primario es Guardar borrador -->
+        @if (footerActionState() === 'save_draft') {
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            [disabled]="!canSaveDraft()"
+            [title]="saveDraftDisabledTooltip()"
+            (click)="saveDraftManually()"
+          >
+            <svg lucideSave class="w-4 h-4 mr-2"></svg>
+            <span i18n="@@ST-07">Guardar borrador</span>
+          </button>
+        } @else {
+          <!-- Estado 2 o 3: Borrador guardado -> Secundario Guardar borrador + Primario Publicar -->
+          <button 
+            type="button" 
+            class="btn btn-outline-primary" 
+            [disabled]="!canSaveDraft()"
+            [title]="saveDraftDisabledTooltip()"
+            (click)="saveDraftManually()"
+          >
+            <svg lucideSave class="w-4 h-4 mr-2"></svg>
+            <span i18n="@@ST-07">Guardar borrador</span>
+          </button>
 
-        <!-- Publicar Plantilla (Abre diálogo de pre-flight) -->
-        <button 
-          type="button" 
-          class="btn btn-primary" 
-          [disabled]="!canSaveDraft()"
-          (click)="openPublishDialog()"
-        >
-          <svg lucideSend class="w-4 h-4"></svg>
-          <span>Publicar plantilla</span>
-        </button>
+          @if (footerActionState() === 'publish_disabled') {
+            <button 
+              type="button" 
+              class="btn btn-secondary btn-disabled" 
+              disabled
+              [title]="publishDisabledReason()"
+            >
+              <svg lucideSend class="w-4 h-4 mr-2"></svg>
+              <span>Publicar plantilla</span>
+            </button>
+          } @else {
+            <button 
+              type="button" 
+              class="btn btn-primary" 
+              (click)="openPublishDialog()"
+              title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
+            >
+              <svg lucideSend class="w-4 h-4 mr-2"></svg>
+              <span>Publicar plantilla</span>
+            </button>
+          }
+        }
       </div>
     </div>
+
+    <!-- Diálogo de Confirmación al Cambiar de Propósito (PU-06, PU-07) -->
+    @if (showPurposeConfirmDialog()) {
+      <div class="door-confirm-overlay" (click)="cancelPurposeChange()">
+        <div class="door-confirm-modal" (click)="$event.stopPropagation()">
+          <div class="door-confirm-header">
+            <svg lucideAlertCircle class="w-5 h-5 text-warning mr-2"></svg>
+            <h4 class="door-confirm-title" i18n="@@PU-06">Confirmar cambio de propósito</h4>
+          </div>
+          <p class="door-confirm-body" i18n="@@PU-07">
+            Cambiar de propósito descarta las configuraciones específicas del entorno. ¿Desea continuar?
+          </p>
+          <div class="door-confirm-actions">
+            <button type="button" class="btn btn-secondary btn-sm" (click)="cancelPurposeChange()">
+              Cancelar
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" (click)="confirmPurposeChange()">
+              Continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Diálogo de Confirmación al Cambiar de Puerta (D1, MO-08, MO-09) -->
+    @if (showDoorConfirmDialog()) {
+      <div class="door-confirm-overlay" (click)="cancelDoorChange()">
+        <div class="door-confirm-modal" (click)="$event.stopPropagation()">
+          <div class="door-confirm-header">
+            <svg lucideAlertCircle class="w-5 h-5 text-warning mr-2"></svg>
+            <h4 class="door-confirm-title" i18n="@@MO-08">Confirmar cambio de modo</h4>
+          </div>
+          <p class="door-confirm-body" i18n="@@MO-09">
+            Tiene cambios en el formulario. Cambiar de modo sobrescribirá los datos actuales. ¿Desea continuar?
+          </p>
+          <div class="door-confirm-actions">
+            <button type="button" class="btn btn-secondary btn-sm" (click)="cancelDoorChange()">
+              Cancelar
+            </button>
+            <button type="button" class="btn btn-danger btn-sm" (click)="confirmDoorChange()">
+              Continuar
+            </button>
+          </div>
+        </div>
+      </div>
+    }
 
     <!-- Toast de Notificación Interno del Modal (ST-08, ST-14, ST-16) -->
     @if (toastMessage(); as msg) {
       <div class="modal-toast-float animate-fade">
         <svg lucideSparkles class="w-4 h-4 text-warning"></svg>
         <span>{{ msg }}</span>
+      </div>
+    }
+
+    <!-- Diálogo de Gestión de Categorías (CA-01 a CA-10) -->
+    @if (showCategoryManagerModal()) {
+      <div class="door-confirm-overlay" (click)="closeCategoryManager()">
+        <div class="category-manager-modal" (click)="$event.stopPropagation()">
+          <div class="category-modal-header">
+            <div class="category-modal-title-wrap">
+              <svg lucideTag class="w-4 h-4 text-primary mr-1.5"></svg>
+              <h4 class="category-modal-title" i18n="@@CA-02">Gestión de Categorías Académicas</h4>
+            </div>
+            <button type="button" class="btn-icon-close" (click)="closeCategoryManager()" aria-label="Cerrar">
+              <svg lucideX class="w-4 h-4"></svg>
+            </button>
+          </div>
+
+          <div class="category-modal-body">
+            @if (categoryErrorMsg()) {
+              <div class="validation-message-alert alert-danger mb-3">
+                <svg lucideAlertCircle class="w-4 h-4"></svg>
+                <span>{{ categoryErrorMsg() }}</span>
+              </div>
+            }
+
+            <!-- Formulario crear / editar categoría -->
+            <div class="category-form-box">
+              <div class="category-form-row">
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm" 
+                  placeholder="Nombre de categoría (ej: Ciencia de Datos & IA)"
+                  [ngModel]="categoryFormName()" 
+                  (ngModelChange)="categoryFormName.set($event)"
+                />
+                <button 
+                  type="button" 
+                  class="btn btn-primary btn-sm shrink-0" 
+                  [disabled]="!categoryFormName().trim() || isCategorySaving()"
+                  (click)="saveCategory()"
+                >
+                  <svg lucidePlus class="w-3.5 h-3.5 mr-1" *ngIf="!editingCategoryId()"></svg>
+                  <span>{{ editingCategoryId() ? 'Actualizar' : 'Agregar' }}</span>
+                </button>
+                @if (editingCategoryId()) {
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditCategory()">
+                    Cancelar
+                  </button>
+                }
+              </div>
+              <input 
+                type="text" 
+                class="form-control form-control-sm mt-2" 
+                placeholder="Descripción opcional"
+                [ngModel]="categoryFormDescription()" 
+                (ngModelChange)="categoryFormDescription.set($event)"
+              />
+            </div>
+
+            <!-- Lista de categorías existentes -->
+            <div class="categories-list-box mt-3">
+              <span class="categories-list-title">Categorías registradas ({{ categories().length }}):</span>
+              <div class="categories-scroll-list">
+                @for (cat of categories(); track cat.id) {
+                  <div class="category-item-row">
+                    <div class="category-item-info">
+                      <span class="category-item-name">{{ cat.name }}</span>
+                      @if (cat.description) {
+                        <span class="category-item-desc">{{ cat.description }}</span>
+                      }
+                    </div>
+                    <div class="category-item-actions">
+                      <button 
+                        type="button" 
+                        class="btn-icon-action" 
+                        (click)="startEditCategory(cat)"
+                        title="Editar categoría"
+                      >
+                        <svg lucideEdit class="w-3.5 h-3.5"></svg>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="btn-icon-action text-danger" 
+                        (click)="deleteCategory(cat)"
+                        title="Eliminar categoría"
+                      >
+                        <svg lucideTrash2 class="w-3.5 h-3.5"></svg>
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="category-modal-footer">
+            <button type="button" class="btn btn-secondary btn-sm" (click)="closeCategoryManager()">
+              Cerrar
+            </button>
+          </div>
+        </div>
       </div>
     }
 

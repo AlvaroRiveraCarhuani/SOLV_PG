@@ -8,6 +8,7 @@ export type SidebarIconName =
   | 'activity'
   | 'users'
   | 'layers'
+  | 'boxes'
   | 'sliders'
   | 'shield-alert'
   | 'file-text'

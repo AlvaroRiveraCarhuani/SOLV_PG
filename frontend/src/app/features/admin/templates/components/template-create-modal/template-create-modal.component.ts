@@ -11,6 +11,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterModule } from '@angular/router';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { 
@@ -117,13 +118,15 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     LucidePlus,
     LucideEdit,
     LucideTrash2,
-    LucideTag
+    LucideTag,
+    RouterModule
   ],
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
 })
 export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   private templatesService = inject(AdminTemplatesService);
+  private router = inject(Router);
 
   @Output() created = new EventEmitter<CreateOfficialTemplateDTO>();
   @Output() closed = new EventEmitter<void>();
@@ -163,6 +166,8 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   editingCategoryId = signal<string | null>(null);
   categoryErrorMsg = signal<string | null>(null);
   isCategorySaving = signal<boolean>(false);
+  quickCategoryName = signal<string>('');
+  isQuickCategorySaving = signal<boolean>(false);
 
   // Job de prueba de entorno y diálogo de publicación
   activeEnvTestJob = signal<EnvTestJob | null>(null);
@@ -548,6 +553,28 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
         } else {
           this.categoryErrorMsg.set('Error al eliminar la categoría.');
         }
+      }
+    });
+  }
+
+  navigateToCategoryManager(): void {
+    this.router.navigate(['/admin/modelos-categorias']);
+    this.closed.emit();
+  }
+
+  quickCreateCategory(): void {
+    const name = this.quickCategoryName().trim();
+    if (!name) return;
+    this.isQuickCategorySaving.set(true);
+    this.templatesService.createCategory({ name }).subscribe({
+      next: (cat) => {
+        this.isQuickCategorySaving.set(false);
+        this.categories.update(list => [...list, cat]);
+        this.selectedCategoryId.set(cat.id);
+        this.quickCategoryName.set('');
+      },
+      error: () => {
+        this.isQuickCategorySaving.set(false);
       }
     });
   }

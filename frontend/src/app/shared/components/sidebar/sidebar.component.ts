@@ -14,7 +14,8 @@ import {
   LucideSliders, 
   LucideShieldAlert, 
   LucideFileText,
-  LucideGraduationCap
+  LucideGraduationCap,
+  LucideBoxes
 } from '@lucide/angular';
 import { NavSection } from './sidebar.model';
 
@@ -60,7 +61,8 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     LucideSliders,
     LucideShieldAlert,
     LucideFileText,
-    LucideGraduationCap
+    LucideGraduationCap,
+    LucideBoxes
   ],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed()">
@@ -91,6 +93,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
                   @case ('users') { <svg lucideUsers class="nav-icon"></svg> }
                   @case ('graduation-cap') { <svg lucideGraduationCap class="nav-icon"></svg> }
                   @case ('layers') { <svg lucideLayers class="nav-icon"></svg> }
+                  @case ('boxes') { <svg lucideBoxes class="nav-icon"></svg> }
                   @case ('sliders') { <svg lucideSliders class="nav-icon"></svg> }
                   @case ('shield-alert') { <svg lucideShieldAlert class="nav-icon"></svg> }
                   @case ('file-text') { <svg lucideFileText class="nav-icon"></svg> }

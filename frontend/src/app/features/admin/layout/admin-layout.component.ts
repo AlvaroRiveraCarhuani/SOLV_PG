@@ -10,7 +10,8 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     title: 'INFRAESTRUCTURA',
     items: [
       { label: 'Salud y Recursos', route: '/admin/dashboard', iconName: 'activity', exact: true },
-      { label: 'Plantillas Docker', route: '/admin/plantillas', iconName: 'layers' }
+      { label: 'Plantillas Docker', route: '/admin/plantillas', iconName: 'layers' },
+      { label: 'Modelos y Categorías', route: '/admin/modelos-categorias', iconName: 'boxes' }
     ]
   },
   {

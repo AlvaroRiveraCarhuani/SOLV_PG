@@ -180,6 +180,9 @@ export interface TemplateCategory {
   tenant_id?: string;
   name: string;
   description?: string;
+  is_active?: boolean;
+  sort_order?: number;
+  model_count?: number;
   created_at: string;
   updated_at: string;
 }
@@ -194,12 +197,18 @@ export interface UpdateCategoryDTO {
   description?: string;
 }
 
+export interface ReorderCategoryItem {
+  id: string;
+  sort_order: number;
+}
+
 export interface TemplateModelItem {
   id: string;
   tenant_id?: string;
   category_id?: string | null;
   category_name?: string | null;
   name: string;
+  title?: string;
   description?: string;
   docker_image: string;
   target_environment: string;
@@ -208,8 +217,17 @@ export interface TemplateModelItem {
   timeout_ms?: number;
   sample_input?: string;
   usage_count: number;
+  is_active?: boolean;
+  sort_order?: number;
+  source_template_id?: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface UpdateTemplateModelDTO {
+  title: string;
+  description?: string;
+  category_id: string;
 }
 
 export interface PromoteTemplateToModelDTO {
@@ -310,13 +328,49 @@ export class AdminTemplatesService {
     );
   }
 
-  getModels(targetEnv?: string): Observable<TemplateModelItem[]> {
+  reorderCategories(items: ReorderCategoryItem[]): Observable<void> {
+    return this.http.put<ApiResponse<any>>(`${this.categoriesUrl}/reorder`, items).pipe(
+      map(() => void 0)
+    );
+  }
+
+  getModels(targetEnv?: string, categoryId?: string, includeInactive: boolean = false): Observable<TemplateModelItem[]> {
     let params = new HttpParams();
     if (targetEnv) {
       params = params.set('target_environment', targetEnv);
     }
+    if (categoryId) {
+      params = params.set('category_id', categoryId);
+    }
+    if (includeInactive) {
+      params = params.set('include_inactive', 'true');
+    }
     return this.http.get<ApiResponse<TemplateModelItem[]>>(this.modelsUrl, { params }).pipe(
-      map(res => res.data || [])
+      map(res => (res.data || []).map(m => ({
+        ...m,
+        name: m.name || m.title || ''
+      })))
+    );
+  }
+
+  updateModel(id: string, dto: UpdateTemplateModelDTO): Observable<TemplateModelItem> {
+    return this.http.put<ApiResponse<TemplateModelItem>>(`${this.modelsUrl}/${id}`, dto).pipe(
+      map(res => ({
+        ...res.data,
+        name: res.data.name || res.data.title || ''
+      }))
+    );
+  }
+
+  deactivateModel(id: string): Observable<void> {
+    return this.http.post<ApiResponse<any>>(`${this.modelsUrl}/${id}/deactivate`, {}).pipe(
+      map(() => void 0)
+    );
+  }
+
+  reactivateModel(id: string): Observable<void> {
+    return this.http.post<ApiResponse<any>>(`${this.modelsUrl}/${id}/reactivate`, {}).pipe(
+      map(() => void 0)
     );
   }
 
