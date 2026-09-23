@@ -1,0 +1,42 @@
+{
+  "extends": "stylelint-config-standard-scss",
+  "rules": {
+    "no-empty-source": null,
+    "color-hex-length": null,
+    "alpha-value-notation": null,
+    "color-function-alias-notation": null,
+    "color-function-notation": null,
+    "media-feature-range-notation": null,
+    "rule-empty-line-before": null,
+    "shorthand-property-no-redundant-values": null,
+    "declaration-block-single-line-max-declarations": null,
+    "keyframes-name-pattern": null,
+    "property-no-vendor-prefix": null,
+    "font-family-name-quotes": null,
+    "property-no-deprecated": null,
+    "declaration-property-value-keyword-no-deprecated": null,
+    "selector-pseudo-element-no-unknown": [
+      true,
+      {
+        "ignorePseudoElements": ["ng-deep"]
+      }
+    ],
+    "declaration-property-value-allowed-list": {
+      "font-size": [
+        "/^var\\(--text-(xs|sm|base|lg|xl|2xl)\\)$/",
+        "inherit"
+      ],
+      "font-family": [
+        "/^var\\(--font-(sans|mono)(,\\s*[^)]+)?\\)$/",
+        "inherit"
+      ]
+    }
+  },
+  "ignoreFiles": [
+    "**/features/admin/courses/**",
+    "**/features/admin/dashboard/**",
+    "**/features/admin/students/**",
+    "**/features/admin/teachers/**",
+    "**/features/auth/**"
+  ]
+}

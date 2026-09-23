@@ -59,6 +59,11 @@ jobs:
           cd frontend
           npm install --legacy-peer-deps
 
+      - name: Run Stylelint Typography Gate
+        run: |
+          cd frontend
+          npm run lint:styles
+
       - name: Build Angular Application
         run: |
           cd frontend
