@@ -52,10 +52,6 @@ func setupSlice13TestServer(t *testing.T) (*httptest.Server, *database.Database)
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	if err := db.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run migrations: %v", err)
-	}
-
 	validate := validator.New()
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)

@@ -31,10 +31,6 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		t.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	if err := db.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run initial migrations: %v", err)
-	}
-
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())

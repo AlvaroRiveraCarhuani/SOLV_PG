@@ -81,9 +81,6 @@ func TestCRIT06WorkspaceMigrationAndTypeDiscriminator(t *testing.T) {
 	}
 
 	// 1. Ejecutar migraciones iniciales
-	if err := db.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run initial migrations: %v", err)
-	}
 
 	// 2. Verificar que la tabla lab_instances ya NO existe en PostgreSQL
 	var labInstancesExists bool

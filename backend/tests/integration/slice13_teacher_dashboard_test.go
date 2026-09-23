@@ -30,8 +30,6 @@ func setupTeacherDashboardTestServer(t *testing.T) (*httptest.Server, *database.
 		return nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)

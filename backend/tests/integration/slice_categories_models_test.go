@@ -30,10 +30,6 @@ func setupSliceCategoriesModelsServer(t *testing.T) (*httptest.Server, *database
 		return nil, nil, nil
 	}
 
-	if err := db.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run initial migrations: %v", err)
-	}
-
 	_, _ = db.GetDB().Exec(`
 		INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
 		VALUES ('00000000-0000-0000-0000-000000000001', 'Admin', 'Root', 'admin_slice@uab.edu.bo', 'admin', '00000000-0000-0000-0000-000000000001')

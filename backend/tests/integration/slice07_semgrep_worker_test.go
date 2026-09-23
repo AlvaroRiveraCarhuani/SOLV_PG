@@ -25,10 +25,6 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
 	}
 
-	if err := dbInstance.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run migrations: %v", err)
-	}
-
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
 	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 

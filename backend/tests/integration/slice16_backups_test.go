@@ -32,8 +32,6 @@ func setupSlice16BackupsServer(t *testing.T) (*httptest.Server, *database.Databa
 		return nil, nil, nil, nil, ""
 	}
 
-	_ = db.RunInitialMigrations()
-
 	tmpBackupDir := fmt.Sprintf("/tmp/solv_test_backups_%d", time.Now().UnixNano())
 	_ = os.MkdirAll(tmpBackupDir, 0750)
 

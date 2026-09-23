@@ -51,11 +51,3 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	return nil
 }
 
-// RunInitialMigrations es un no-op: las migraciones ahora las maneja RunMigrations.
-// Se mantiene para no romper la firma en main.go hasta el próximo PR.
-//
-// Deprecated: usar RunMigrations con el directorio ./migrations.
-func (d *Database) RunInitialMigrations() error {
-	log.Println("RunInitialMigrations: no-op (goose maneja las migraciones desde ./migrations).")
-	return nil
-}

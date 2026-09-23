@@ -25,10 +25,6 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
 	}
 
-	if err := dbInstance.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run migrations: %v", err)
-	}
-
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
 	hostMonitor := systeminfra.NewGopsutilHostMonitor(-1.0)
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)

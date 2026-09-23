@@ -102,8 +102,6 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 		return nil, nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())

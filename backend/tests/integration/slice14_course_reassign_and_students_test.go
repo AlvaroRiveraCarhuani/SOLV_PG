@@ -31,8 +31,6 @@ func setupSlice14ReassignAndStudentsServer(t *testing.T) (*httptest.Server, *dat
 		return nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())

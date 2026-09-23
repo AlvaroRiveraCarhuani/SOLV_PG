@@ -27,10 +27,6 @@ func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
 		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
 	}
 
-	if err := dbInstance.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run migrations: %v", err)
-	}
-
 	repo := postgres.NewPostgresLabTemplateRepository(dbInstance.GetDB())
 	profilerService := services.NewEWMAProfilerService(repo)
 

@@ -30,8 +30,6 @@ func setupSlice15NotificationsServer(t *testing.T) (*httptest.Server, *database.
 		return nil, nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	notificationRepo := postgres.NewPostgresNotificationRepository(db.GetDB())
 	notificationService := services.NewNotificationService(notificationRepo, 256)
 	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)

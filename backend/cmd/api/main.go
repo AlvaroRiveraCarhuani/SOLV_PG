@@ -52,10 +52,6 @@ func main() {
 		log.Fatalf("Fatal: failed to run database migrations: %v", err)
 	}
 
-	if err := db.RunInitialMigrations(); err != nil {
-		log.Fatalf("Fatal: failed to run database migrations: %v", err)
-	}
-
 	hostMonitor := system.NewGopsutilHostMonitor(15.0)
 
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())

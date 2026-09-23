@@ -31,8 +31,6 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 		return nil, nil, nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())

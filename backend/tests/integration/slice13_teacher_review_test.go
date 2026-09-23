@@ -31,8 +31,6 @@ func setupTeacherReviewTestServer(t *testing.T) (*httptest.Server, *database.Dat
 		return nil, nil
 	}
 
-	_ = db.RunInitialMigrations()
-
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)

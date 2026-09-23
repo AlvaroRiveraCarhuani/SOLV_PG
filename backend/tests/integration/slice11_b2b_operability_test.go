@@ -150,12 +150,12 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 		var wg sync.WaitGroup
 		errChan := make(chan error, 2)
 
-		// Lanzar 2 goroutines simultáneas ejecutando RunInitialMigrations()
+		// Lanzar 2 goroutines simultáneas ejecutando RunMigrations()
 		for i := 0; i < 2; i++ {
 			wg.Add(1)
 			go func(id int) {
 				defer wg.Done()
-				if err := db.RunInitialMigrations(); err != nil {
+				if err := database.RunMigrations(db.GetDB().DB, "../../migrations"); err != nil {
 					errChan <- err
 				}
 			}(i)
@@ -168,7 +168,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 			t.Fatalf("Concurrent migration failed with error: %v", mErr)
 		}
 
-		t.Logf("PASS: Concurrent RunInitialMigrations executed cleanly with pg_advisory_lock(1337)!")
+		t.Logf("PASS: Concurrent RunMigrations executed cleanly with pg_advisory_lock(1337)!")
 	})
 }
 
@@ -191,9 +191,6 @@ func setupTestDB() (*database.Database, error) {
 	}
 	db, err := database.NewPostgresDB(dbDSN)
 	if err != nil {
-		return nil, err
-	}
-	if err := db.RunInitialMigrations(); err != nil {
 		return nil, err
 	}
 	return db, nil

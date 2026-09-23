@@ -29,10 +29,6 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 		t.Skipf("Skipping integration test: database not available: %v", err)
 	}
 
-	if err := db.RunInitialMigrations(); err != nil {
-		t.Fatalf("Failed to run initial migrations: %v", err)
-	}
-
 	sqlDB := db.GetDB()
 
 	// 1. Limpieza de datos de prueba previos
