@@ -460,8 +460,63 @@ func (s *AdminGovernanceService) DeleteTemplateCategory(ctx context.Context, ten
 	return nil
 }
 
-func (s *AdminGovernanceService) ListTemplateModels(ctx context.Context, tenantID, targetEnv string) ([]*domain.TemplateModelItemDTO, error) {
-	return s.govRepo.ListTemplateModels(ctx, tenantID, targetEnv)
+func (s *AdminGovernanceService) ReorderTemplateCategories(ctx context.Context, tenantID string, items []domain.ReorderCategoryItemDTO) error {
+	return s.govRepo.ReorderTemplateCategories(ctx, tenantID, items)
+}
+
+func (s *AdminGovernanceService) ListTemplateModels(ctx context.Context, tenantID, targetEnv, categoryID string, includeInactive bool) ([]*domain.TemplateModelItemDTO, error) {
+	return s.govRepo.ListTemplateModels(ctx, tenantID, targetEnv, categoryID, includeInactive)
+}
+
+func (s *AdminGovernanceService) UpdateTemplateModel(ctx context.Context, tenantID, modelID string, dto domain.UpdateTemplateModelDTO) (*domain.TemplateModelItemDTO, error) {
+	dto.Title = strings.TrimSpace(dto.Title)
+	if dto.Title == "" {
+		return nil, errors.New("el título del modelo es obligatorio")
+	}
+	if dto.CategoryID == "" {
+		return nil, errors.New("la categoría es obligatoria para el modelo")
+	}
+	return s.govRepo.UpdateTemplateModel(ctx, tenantID, modelID, dto)
+}
+
+func (s *AdminGovernanceService) DeactivateTemplateModel(ctx context.Context, tenantID, actorID, modelID string) error {
+	if actorID == "" {
+		actorID = "00000000-0000-0000-0000-000000000001"
+	}
+	if err := s.govRepo.SetTemplateModelActive(ctx, tenantID, modelID, false); err != nil {
+		return err
+	}
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Create(ctx, &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      actorID,
+			Action:       "TEMPLATE_MODEL_DEACTIVATED",
+			ResourceType: "template_model",
+			ResourceID:   &modelID,
+			StatusCode:   200,
+		})
+	}
+	return nil
+}
+
+func (s *AdminGovernanceService) ReactivateTemplateModel(ctx context.Context, tenantID, actorID, modelID string) error {
+	if actorID == "" {
+		actorID = "00000000-0000-0000-0000-000000000001"
+	}
+	if err := s.govRepo.SetTemplateModelActive(ctx, tenantID, modelID, true); err != nil {
+		return err
+	}
+	if s.auditRepo != nil {
+		_ = s.auditRepo.Create(ctx, &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      actorID,
+			Action:       "TEMPLATE_MODEL_REACTIVATED",
+			ResourceType: "template_model",
+			ResourceID:   &modelID,
+			StatusCode:   200,
+		})
+	}
+	return nil
 }
 
 func (s *AdminGovernanceService) PromoteTemplateToModel(

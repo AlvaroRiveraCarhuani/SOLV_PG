@@ -171,7 +171,10 @@ type AdminGovernanceRepository interface {
 	CreateTemplateCategory(ctx context.Context, tenantID string, dto CreateCategoryDTO) (*TemplateCategory, error)
 	UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto UpdateCategoryDTO) (*TemplateCategory, error)
 	DeleteTemplateCategory(ctx context.Context, tenantID, categoryID string) error
-	ListTemplateModels(ctx context.Context, tenantID, targetEnv string) ([]*TemplateModelItemDTO, error)
+	ReorderTemplateCategories(ctx context.Context, tenantID string, items []ReorderCategoryItemDTO) error
+	ListTemplateModels(ctx context.Context, tenantID, targetEnv, categoryID string, includeInactive bool) ([]*TemplateModelItemDTO, error)
+	UpdateTemplateModel(ctx context.Context, tenantID, modelID string, dto UpdateTemplateModelDTO) (*TemplateModelItemDTO, error)
+	SetTemplateModelActive(ctx context.Context, tenantID, modelID string, isActive bool) error
 	PromoteTemplateToModel(ctx context.Context, tenantID, templateID, adminID string, dto PromoteTemplateToModelDTO) (*TemplateModelItemDTO, error)
 	SaveDraft(ctx context.Context, tenantID, userID string, formData json.RawMessage, templateID *string) (*TemplateDraft, error)
 	GetDraftByUser(ctx context.Context, tenantID, userID string) (*TemplateDraft, error)

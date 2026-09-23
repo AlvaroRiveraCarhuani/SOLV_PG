@@ -141,9 +141,13 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/templates/{id}/promote-to-model", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.PromoteTemplateToModel))))
 		mux.Handle("GET /api/v1/admin/template-categories", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateCategories)))
 		mux.Handle("POST /api/v1/admin/template-categories", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateCategory))))
+		mux.Handle("PUT /api/v1/admin/template-categories/reorder", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReorderTemplateCategories))))
 		mux.Handle("PUT /api/v1/admin/template-categories/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateCategory))))
 		mux.Handle("DELETE /api/v1/admin/template-categories/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateCategory))))
 		mux.Handle("GET /api/v1/admin/template-models", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateModels)))
+		mux.Handle("PUT /api/v1/admin/template-models/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateModel))))
+		mux.Handle("POST /api/v1/admin/template-models/{id}/deactivate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeactivateTemplateModel))))
+		mux.Handle("POST /api/v1/admin/template-models/{id}/reactivate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReactivateTemplateModel))))
 		mux.Handle("POST /api/v1/admin/emergency/{action}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ExecuteEmergencyAction))))
 	}
 

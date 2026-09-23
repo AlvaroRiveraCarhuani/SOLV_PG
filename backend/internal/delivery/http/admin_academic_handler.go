@@ -904,19 +904,126 @@ func (h *AdminAcademicHandler) DeleteTemplateCategory(w http.ResponseWriter, r *
 	SendJSON(w, http.StatusOK, map[string]string{"deleted": categoryID}, "Categoría eliminada")
 }
 
-func (h *AdminAcademicHandler) ListTemplateModels(w http.ResponseWriter, r *http.Request) {
+func (h *AdminAcademicHandler) ReorderTemplateCategories(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
-	targetEnv := r.URL.Query().Get("target_environment")
 	if h.govService == nil {
 		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio no configurado")
 		return
 	}
-	models, err := h.govService.ListTemplateModels(r.Context(), tenantID, targetEnv)
+	var items []domain.ReorderCategoryItemDTO
+	if err := json.NewDecoder(r.Body).Decode(&items); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "JSON inválido")
+		return
+	}
+	if err := h.govService.ReorderTemplateCategories(r.Context(), tenantID, items); err != nil {
+		SendError(w, http.StatusInternalServerError, "reorder_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, map[string]string{"message": "Categorías reordenadas"}, "Categorías reordenadas exitosamente")
+}
+
+func (h *AdminAcademicHandler) ListTemplateModels(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	targetEnv := r.URL.Query().Get("target_environment")
+	if targetEnv == "" {
+		targetEnv = r.URL.Query().Get("purpose")
+	}
+	categoryID := r.URL.Query().Get("category")
+	if categoryID == "" {
+		categoryID = r.URL.Query().Get("category_id")
+	}
+	includeInactive := r.URL.Query().Get("include_inactive") == "true"
+
+	if h.govService == nil {
+		SendError(w, http.StatusInternalServerError, "service_unavailable", "Servicio no configurado")
+		return
+	}
+	models, err := h.govService.ListTemplateModels(r.Context(), tenantID, targetEnv, categoryID, includeInactive)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, "fetch_failed", err.Error())
 		return
 	}
 	SendJSON(w, http.StatusOK, models, "Modelos de plantilla obtenidos")
+}
+
+func (h *AdminAcademicHandler) UpdateTemplateModel(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	modelID := r.PathValue("id")
+	if modelID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de modelo requerido")
+		return
+	}
+	var dto domain.UpdateTemplateModelDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "JSON inválido")
+		return
+	}
+	if strings.TrimSpace(dto.Title) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "El título es obligatorio")
+		return
+	}
+	if strings.TrimSpace(dto.CategoryID) == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "La categoría es obligatoria")
+		return
+	}
+	model, err := h.govService.UpdateTemplateModel(r.Context(), tenantID, modelID, dto)
+	if err != nil {
+		if errors.Is(err, domain.ErrCategoryNotFound) {
+			SendError(w, http.StatusNotFound, "category_not_found", "Categoría no encontrada")
+			return
+		}
+		if errors.Is(err, domain.ErrTemplateNameConflict) {
+			SendError(w, http.StatusConflict, "model_exists", "Ya existe un modelo con este título")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "update_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, model, "Modelo actualizado")
+}
+
+func (h *AdminAcademicHandler) DeactivateTemplateModel(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	modelID := r.PathValue("id")
+	if modelID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de modelo requerido")
+		return
+	}
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
+			adminID = uid
+		} else {
+			adminID = "00000000-0000-0000-0000-000000000001"
+		}
+	}
+	if err := h.govService.DeactivateTemplateModel(r.Context(), tenantID, adminID, modelID); err != nil {
+		SendError(w, http.StatusInternalServerError, "deactivate_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, map[string]string{"id": modelID, "status": "deactivated"}, "Modelo desactivado")
+}
+
+func (h *AdminAcademicHandler) ReactivateTemplateModel(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	modelID := r.PathValue("id")
+	if modelID == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "ID de modelo requerido")
+		return
+	}
+	adminID := r.Header.Get("X-User-Id")
+	if adminID == "" {
+		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
+			adminID = uid
+		} else {
+			adminID = "00000000-0000-0000-0000-000000000001"
+		}
+	}
+	if err := h.govService.ReactivateTemplateModel(r.Context(), tenantID, adminID, modelID); err != nil {
+		SendError(w, http.StatusInternalServerError, "reactivate_failed", err.Error())
+		return
+	}
+	SendJSON(w, http.StatusOK, map[string]string{"id": modelID, "status": "active"}, "Modelo reactivado")
 }
 
 func (h *AdminAcademicHandler) PromoteTemplateToModel(w http.ResponseWriter, r *http.Request) {

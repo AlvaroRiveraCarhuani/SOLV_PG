@@ -1088,10 +1088,10 @@ func (r *PostgresAdminGovernanceRepository) HibernateAllWorkspaces(ctx context.C
 
 func (r *PostgresAdminGovernanceRepository) ListTemplateCategories(ctx context.Context, tenantID string) ([]*domain.TemplateCategory, error) {
 	query := `
-		SELECT id, tenant_id, name, COALESCE(description, '') AS description, created_at, updated_at
+		SELECT id, tenant_id, name, COALESCE(description, '') AS description, COALESCE(is_active, true) AS is_active, COALESCE(sort_order, 0) AS sort_order, created_at, updated_at
 		FROM template_categories
 		WHERE tenant_id = $1 OR tenant_id IS NULL
-		ORDER BY name ASC
+		ORDER BY sort_order ASC, name ASC
 	`
 	var list []*domain.TemplateCategory
 	err := r.db.SelectContext(ctx, &list, query, tenantID)
@@ -1103,14 +1103,14 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateCategories(ctx context.C
 
 func (r *PostgresAdminGovernanceRepository) CreateTemplateCategory(ctx context.Context, tenantID string, dto domain.CreateCategoryDTO) (*domain.TemplateCategory, error) {
 	query := `
-		INSERT INTO template_categories (id, tenant_id, name, description)
-		VALUES (gen_random_uuid(), $1, $2, $3)
+		INSERT INTO template_categories (id, tenant_id, name, description, is_active, sort_order)
+		VALUES (gen_random_uuid(), $1, $2, $3, true, $4)
 		ON CONFLICT (tenant_id, name) DO NOTHING
-		RETURNING id, tenant_id, name, COALESCE(description, '') AS description, created_at, updated_at
+		RETURNING id, tenant_id, name, COALESCE(description, '') AS description, COALESCE(is_active, true) AS is_active, COALESCE(sort_order, 0) AS sort_order, created_at, updated_at
 	`
 	var cat domain.TemplateCategory
-	err := r.db.QueryRowContext(ctx, query, tenantID, strings.TrimSpace(dto.Name), strings.TrimSpace(dto.Description)).Scan(
-		&cat.ID, &cat.TenantID, &cat.Name, &cat.Description, &cat.CreatedAt, &cat.UpdatedAt,
+	err := r.db.QueryRowContext(ctx, query, tenantID, strings.TrimSpace(dto.Name), strings.TrimSpace(dto.Description), dto.SortOrder).Scan(
+		&cat.ID, &cat.TenantID, &cat.Name, &cat.Description, &cat.IsActive, &cat.SortOrder, &cat.CreatedAt, &cat.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1124,13 +1124,16 @@ func (r *PostgresAdminGovernanceRepository) CreateTemplateCategory(ctx context.C
 func (r *PostgresAdminGovernanceRepository) UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto domain.UpdateCategoryDTO) (*domain.TemplateCategory, error) {
 	query := `
 		UPDATE template_categories
-		SET name = $1, description = $2, updated_at = NOW()
-		WHERE id = $3 AND (tenant_id = $4 OR tenant_id IS NULL)
-		RETURNING id, tenant_id, name, COALESCE(description, '') AS description, created_at, updated_at
+		SET name = $1, description = $2,
+		    is_active = COALESCE($3, is_active),
+		    sort_order = COALESCE($4, sort_order),
+		    updated_at = NOW()
+		WHERE id = $5 AND (tenant_id = $6 OR tenant_id IS NULL)
+		RETURNING id, tenant_id, name, COALESCE(description, '') AS description, COALESCE(is_active, true) AS is_active, COALESCE(sort_order, 0) AS sort_order, created_at, updated_at
 	`
 	var cat domain.TemplateCategory
-	err := r.db.QueryRowContext(ctx, query, strings.TrimSpace(dto.Name), strings.TrimSpace(dto.Description), categoryID, tenantID).Scan(
-		&cat.ID, &cat.TenantID, &cat.Name, &cat.Description, &cat.CreatedAt, &cat.UpdatedAt,
+	err := r.db.QueryRowContext(ctx, query, strings.TrimSpace(dto.Name), strings.TrimSpace(dto.Description), dto.IsActive, dto.SortOrder, categoryID, tenantID).Scan(
+		&cat.ID, &cat.TenantID, &cat.Name, &cat.Description, &cat.IsActive, &cat.SortOrder, &cat.CreatedAt, &cat.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1139,6 +1142,22 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateCategory(ctx context.C
 		return nil, fmt.Errorf("error updating template category: %w", err)
 	}
 	return &cat, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) ReorderTemplateCategories(ctx context.Context, tenantID string, items []domain.ReorderCategoryItemDTO) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	query := `UPDATE template_categories SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND (tenant_id = $3 OR tenant_id IS NULL)`
+	for _, item := range items {
+		if _, err := tx.ExecContext(ctx, query, item.SortOrder, item.ID, tenantID); err != nil {
+			return fmt.Errorf("reorder category %s: %w", item.ID, err)
+		}
+	}
+	return tx.Commit()
 }
 
 func (r *PostgresAdminGovernanceRepository) DeleteTemplateCategory(ctx context.Context, tenantID, categoryID string) error {
@@ -1183,10 +1202,12 @@ type templateModelRow struct {
 	TimeoutMS         int       `db:"timeout_ms"`
 	SampleInput       string    `db:"sample_input"`
 	UsageCount        int       `db:"usage_count"`
+	IsActive          bool      `db:"is_active"`
+	SortOrder         int       `db:"sort_order"`
 	CreatedAt         time.Time `db:"created_at"`
 }
 
-func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Context, tenantID, targetEnv string) ([]*domain.TemplateModelItemDTO, error) {
+func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Context, tenantID, targetEnv, categoryID string, includeInactive bool) ([]*domain.TemplateModelItemDTO, error) {
 	query := `
 		SELECT 
 			tm.id,
@@ -1203,6 +1224,8 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Conte
 			COALESCE(tm.entrypoint, '') AS entrypoint,
 			COALESCE(tm.timeout_ms, 5000) AS timeout_ms,
 			COALESCE(tm.sample_input, '') AS sample_input,
+			COALESCE(tm.is_active, true) AS is_active,
+			COALESCE(tm.sort_order, 0) AS sort_order,
 			(
 				SELECT COUNT(*)
 				FROM lab_templates lt
@@ -1215,10 +1238,12 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Conte
 		LEFT JOIN template_categories tc ON tc.id = tm.category_id
 		WHERE (tm.tenant_id = $1 OR tm.tenant_id IS NULL)
 		  AND ($2 = '' OR tm.target_environment = $2)
-		ORDER BY tc.name ASC, tm.title ASC
+		  AND ($3 = '' OR tm.category_id::text = $3)
+		  AND ($4 = true OR COALESCE(tm.is_active, true) = true)
+		ORDER BY COALESCE(tc.sort_order, 0) ASC, tc.name ASC, COALESCE(tm.sort_order, 0) ASC, tm.title ASC
 	`
 	var rows []templateModelRow
-	err := r.db.SelectContext(ctx, &rows, query, tenantID, targetEnv)
+	err := r.db.SelectContext(ctx, &rows, query, tenantID, targetEnv, categoryID, includeInactive)
 	if err != nil {
 		return nil, fmt.Errorf("error listing template models: %w", err)
 	}
@@ -1245,10 +1270,68 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Conte
 			TimeoutMS:         row.TimeoutMS,
 			SampleInput:       row.SampleInput,
 			UsageCount:        row.UsageCount,
+			IsActive:          row.IsActive,
+			SortOrder:         row.SortOrder,
 			CreatedAt:         row.CreatedAt,
 		}
 	}
 	return result, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) UpdateTemplateModel(ctx context.Context, tenantID, modelID string, dto domain.UpdateTemplateModelDTO) (*domain.TemplateModelItemDTO, error) {
+	var catName string
+	catCheckQuery := `SELECT name FROM template_categories WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)`
+	if err := r.db.QueryRowContext(ctx, catCheckQuery, dto.CategoryID, tenantID).Scan(&catName); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrCategoryNotFound
+		}
+		return nil, fmt.Errorf("check category: %w", err)
+	}
+
+	query := `
+		UPDATE template_models
+		SET title = $1, description = $2, category_id = $3, updated_at = NOW()
+		WHERE id = $4 AND (tenant_id = $5 OR tenant_id IS NULL)
+	`
+	res, err := r.db.ExecContext(ctx, query, strings.TrimSpace(dto.Title), strings.TrimSpace(dto.Description), dto.CategoryID, modelID, tenantID)
+	if err != nil {
+		if strings.Contains(err.Error(), "uk_template_models_tenant_title") || strings.Contains(err.Error(), "duplicate key") {
+			return nil, domain.ErrTemplateNameConflict
+		}
+		return nil, fmt.Errorf("update template model: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return nil, errors.New("template model not found")
+	}
+
+	models, err := r.ListTemplateModels(ctx, tenantID, "", "", true)
+	if err != nil {
+		return nil, err
+	}
+	for _, m := range models {
+		if m.ID == modelID {
+			return m, nil
+		}
+	}
+	return nil, errors.New("template model not found after update")
+}
+
+func (r *PostgresAdminGovernanceRepository) SetTemplateModelActive(ctx context.Context, tenantID, modelID string, isActive bool) error {
+	query := `
+		UPDATE template_models
+		SET is_active = $1, updated_at = NOW()
+		WHERE id = $2 AND (tenant_id = $3 OR tenant_id IS NULL)
+	`
+	res, err := r.db.ExecContext(ctx, query, isActive, modelID, tenantID)
+	if err != nil {
+		return fmt.Errorf("set template model active: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	if rows == 0 {
+		return errors.New("template model not found")
+	}
+	return nil
 }
 
 func (r *PostgresAdminGovernanceRepository) PromoteTemplateToModel(

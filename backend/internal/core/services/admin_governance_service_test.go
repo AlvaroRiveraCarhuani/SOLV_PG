@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 
@@ -10,7 +11,9 @@ import (
 )
 
 type mockAdminGovernanceRepo struct {
-	lastCreatedDTO *domain.CreateOfficialTemplateDTO
+	lastCreatedDTO      *domain.CreateOfficialTemplateDTO
+	lastReviewedStatus  string
+	lastRejectionReason string
 }
 
 func (m *mockAdminGovernanceRepo) ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*domain.AdminStudentDirectoryItem, error) {
@@ -35,7 +38,13 @@ func (m *mockAdminGovernanceRepo) ListTemplates(ctx context.Context, tenantID, s
 	return nil, nil
 }
 func (m *mockAdminGovernanceRepo) ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*domain.AdminTemplateReviewItem, error) {
-	return nil, nil
+	m.lastReviewedStatus = status
+	m.lastRejectionReason = rejectionReason
+	return &domain.AdminTemplateReviewItem{
+		ID:              templateID,
+		Status:          status,
+		RejectionReason: rejectionReason,
+	}, nil
 }
 func (m *mockAdminGovernanceRepo) CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto domain.CreateOfficialTemplateDTO) (*domain.AdminTemplateReviewItem, error) {
 	m.lastCreatedDTO = &dto
@@ -72,6 +81,43 @@ func (m *mockAdminGovernanceRepo) DuplicateTemplate(ctx context.Context, tenantI
 func (m *mockAdminGovernanceRepo) UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error {
 	return nil
 }
+func (m *mockAdminGovernanceRepo) ListTemplateCategories(ctx context.Context, tenantID string) ([]*domain.TemplateCategory, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) CreateTemplateCategory(ctx context.Context, tenantID string, dto domain.CreateCategoryDTO) (*domain.TemplateCategory, error) {
+	return &domain.TemplateCategory{ID: "cat-1", Name: dto.Name, Description: dto.Description}, nil
+}
+func (m *mockAdminGovernanceRepo) UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto domain.UpdateCategoryDTO) (*domain.TemplateCategory, error) {
+	return &domain.TemplateCategory{ID: categoryID, Name: dto.Name, Description: dto.Description}, nil
+}
+func (m *mockAdminGovernanceRepo) DeleteTemplateCategory(ctx context.Context, tenantID, categoryID string) error {
+	return nil
+}
+func (m *mockAdminGovernanceRepo) ReorderTemplateCategories(ctx context.Context, tenantID string, items []domain.ReorderCategoryItemDTO) error {
+	return nil
+}
+func (m *mockAdminGovernanceRepo) ListTemplateModels(ctx context.Context, tenantID, targetEnv, categoryID string, includeInactive bool) ([]*domain.TemplateModelItemDTO, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) UpdateTemplateModel(ctx context.Context, tenantID, modelID string, dto domain.UpdateTemplateModelDTO) (*domain.TemplateModelItemDTO, error) {
+	return &domain.TemplateModelItemDTO{ID: modelID, Title: dto.Title, CategoryID: dto.CategoryID}, nil
+}
+func (m *mockAdminGovernanceRepo) SetTemplateModelActive(ctx context.Context, tenantID, modelID string, isActive bool) error {
+	return nil
+}
+func (m *mockAdminGovernanceRepo) PromoteTemplateToModel(ctx context.Context, tenantID, templateID, adminID string, dto domain.PromoteTemplateToModelDTO) (*domain.TemplateModelItemDTO, error) {
+	return &domain.TemplateModelItemDTO{ID: "model-1", Title: dto.Title, CategoryID: dto.CategoryID}, nil
+}
+func (m *mockAdminGovernanceRepo) SaveDraft(ctx context.Context, tenantID, userID string, formData json.RawMessage, templateID *string) (*domain.TemplateDraft, error) {
+	return &domain.TemplateDraft{ID: "draft-1", TenantID: tenantID, UserID: userID, FormData: formData}, nil
+}
+func (m *mockAdminGovernanceRepo) GetDraftByUser(ctx context.Context, tenantID, userID string) (*domain.TemplateDraft, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) DeleteDraft(ctx context.Context, tenantID, userID string) error {
+	return nil
+}
+
 
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	mockRepo := &mockAdminGovernanceRepo{}
@@ -219,3 +265,107 @@ func TestCreateOfficialTemplate_RegistryWhitelist(t *testing.T) {
 		t.Fatal("esperaba plantilla creada, se obtuvo nil")
 	}
 }
+
+func TestReviewTemplate_ApproveTransitionsToPendingAudit(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.ReviewTemplateDTO{
+		Status: "pending_audit",
+	}
+
+	item, err := svc.ReviewTemplate(context.Background(), "tenant-1", "tpl-123", "admin-1", dto)
+	if err != nil {
+		t.Fatalf("error inesperado al revisar plantilla: %v", err)
+	}
+
+	if mockRepo.lastReviewedStatus != "PENDIENTE_AUDITORIA" {
+		t.Errorf("esperado estado PENDIENTE_AUDITORIA, obtenido: %s", mockRepo.lastReviewedStatus)
+	}
+	if item.Status != "PENDIENTE_AUDITORIA" {
+		t.Errorf("esperado item con status PENDIENTE_AUDITORIA, obtenido: %s", item.Status)
+	}
+}
+
+func TestReviewTemplate_SuspendedRequiresReason(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dtoWithoutReason := domain.ReviewTemplateDTO{
+		Status:          "suspended",
+		RejectionReason: "   ",
+	}
+
+	_, err := svc.ReviewTemplate(context.Background(), "tenant-1", "tpl-123", "admin-1", dtoWithoutReason)
+	if err == nil || !errors.Is(err, services.ErrRejectionReasonRequired) {
+		t.Fatalf("esperado ErrRejectionReasonRequired al suspender sin motivo, obtenido: %v", err)
+	}
+}
+
+func TestReviewTemplate_SuspendedSuccess(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.ReviewTemplateDTO{
+		Status:          "suspended",
+		RejectionReason: "Tag :latest prohibido por reproducibilidad",
+	}
+
+	item, err := svc.ReviewTemplate(context.Background(), "tenant-1", "tpl-123", "admin-1", dto)
+	if err != nil {
+		t.Fatalf("error inesperado al suspender plantilla: %v", err)
+	}
+
+	if mockRepo.lastReviewedStatus != "SUSPENDIDA" {
+		t.Errorf("esperado estado SUSPENDIDA en el repositorio, obtenido: %s", mockRepo.lastReviewedStatus)
+	}
+	if item.Status != "SUSPENDIDA" {
+		t.Errorf("esperado status SUSPENDIDA en el resultado, obtenido: %s", item.Status)
+	}
+	if mockRepo.lastRejectionReason != "Tag :latest prohibido por reproducibilidad" {
+		t.Errorf("motivo no coincide: %s", mockRepo.lastRejectionReason)
+	}
+}
+
+func TestGetRuntimeCapabilities(t *testing.T) {
+	svc := services.NewAdminGovernanceService(nil, nil)
+
+	caps, err := svc.GetRuntimeCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("error inesperado al obtener capacidades de ejecución: %v", err)
+	}
+
+	if caps == nil {
+		t.Fatal("las capacidades no deben ser nulas")
+	}
+
+	if caps.HostMemory.TotalRAMMB <= 0 {
+		t.Errorf("total_ram_mb debe ser mayor a 0, obtenido: %d", caps.HostMemory.TotalRAMMB)
+	}
+
+	if len(caps.SatelliteServices) == 0 {
+		t.Error("debe reportar catálogo de servicios satélite")
+	}
+
+	foundPostgres := false
+	for _, s := range caps.SatelliteServices {
+		if s.Engine == "postgres" && s.IsAvailable {
+			foundPostgres = true
+			if s.Description == "" {
+				t.Error("descripción de postgres no debe estar vacía")
+			}
+		}
+	}
+	if !foundPostgres {
+		t.Error("PostgreSQL debe estar disponible en las capacidades")
+	}
+
+	if len(caps.IDEPresets) == 0 || len(caps.JudgePresets) == 0 {
+		t.Error("deben existir presets tanto para IDE como para Juez")
+	}
+
+	if caps.MaxAllowedRamMB <= 0 {
+		t.Errorf("max_allowed_ram_mb debe ser positivo, obtenido: %d", caps.MaxAllowedRamMB)
+	}
+}
+

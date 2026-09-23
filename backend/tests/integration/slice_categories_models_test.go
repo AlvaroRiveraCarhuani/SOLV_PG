@@ -427,3 +427,257 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 		}
 	}
 }
+
+func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
+	server, db, _ := setupSliceCategoriesModelsServer(t)
+	if server == nil {
+		return
+	}
+	defer server.Close()
+	defer func() {
+		_, _ = db.GetDB().Exec("DELETE FROM template_models WHERE title LIKE 'Model For Cat Guard %'")
+		_, _ = db.GetDB().Exec("DELETE FROM template_categories WHERE name LIKE 'Reorder Cat %'")
+	}()
+
+	// 1. Crear 2 categorías
+	catName1 := fmt.Sprintf("Reorder Cat A %s", uuid.New().String()[:8])
+	catName2 := fmt.Sprintf("Reorder Cat B %s", uuid.New().String()[:8])
+
+	c1Payload := domain.CreateCategoryDTO{Name: catName1, Description: "Cat A"}
+	b1, _ := json.Marshal(c1Payload)
+	req1, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b1))
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("X-User-Role", "admin")
+	resp1, err := http.DefaultClient.Do(req1)
+	if err != nil || resp1.StatusCode != http.StatusCreated {
+		t.Fatalf("Failed to create cat A: %v", err)
+	}
+	var res1 struct{ Data domain.TemplateCategory }
+	_ = json.NewDecoder(resp1.Body).Decode(&res1)
+
+	c2Payload := domain.CreateCategoryDTO{Name: catName2, Description: "Cat B"}
+	b2, _ := json.Marshal(c2Payload)
+	req2, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b2))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("X-User-Role", "admin")
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil || resp2.StatusCode != http.StatusCreated {
+		t.Fatalf("Failed to create cat B: %v", err)
+	}
+	var res2 struct{ Data domain.TemplateCategory }
+	_ = json.NewDecoder(resp2.Body).Decode(&res2)
+
+	// 2. Reordenar asignando sort_order explícito: B -> 1, A -> 5
+	reorderItems := []domain.ReorderCategoryItemDTO{
+		{ID: res2.Data.ID, SortOrder: 1},
+		{ID: res1.Data.ID, SortOrder: 5},
+	}
+	reorderBody, _ := json.Marshal(reorderItems)
+	rReq, _ := http.NewRequest("PUT", server.URL+"/api/v1/admin/template-categories/reorder", bytes.NewReader(reorderBody))
+	rReq.Header.Set("Content-Type", "application/json")
+	rReq.Header.Set("X-User-Role", "admin")
+	rResp, err := http.DefaultClient.Do(rReq)
+	if err != nil || rResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to reorder categories: status %d, err %v", rResp.StatusCode, err)
+	}
+
+	// 3. Listar categorías y verificar persistencia del sort_order
+	listReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-categories", nil)
+	listResp, err := http.DefaultClient.Do(listReq)
+	if err != nil || listResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to list categories: %v", err)
+	}
+	var catListRes struct {
+		Data []*domain.TemplateCategory `json:"data"`
+	}
+	_ = json.NewDecoder(listResp.Body).Decode(&catListRes)
+
+	var foundCat1, foundCat2 *domain.TemplateCategory
+	for _, c := range catListRes.Data {
+		if c.ID == res1.Data.ID {
+			foundCat1 = c
+		}
+		if c.ID == res2.Data.ID {
+			foundCat2 = c
+		}
+	}
+	if foundCat1 == nil || foundCat1.SortOrder != 5 {
+		t.Fatalf("Expected cat A sort_order 5, got %+v", foundCat1)
+	}
+	if foundCat2 == nil || foundCat2.SortOrder != 1 {
+		t.Fatalf("Expected cat B sort_order 1, got %+v", foundCat2)
+	}
+
+	// 4. Asociar un modelo a cat B y verificar que DELETE retorna 409
+	modelTitle := fmt.Sprintf("Model For Cat Guard %s", uuid.New().String()[:8])
+	_, err = db.GetDB().Exec(`
+		INSERT INTO template_models (id, tenant_id, category_id, title, description, target_environment, docker_image, base_ram_mb, tools, created_at, updated_at)
+		VALUES (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', $1, $2, 'Test Guard Desc', 'IDE_PERSISTENTE', 'python:3.12-slim', 512, '[]'::jsonb, NOW(), NOW())
+	`, res2.Data.ID, modelTitle)
+	if err != nil {
+		t.Fatalf("Failed to insert template model: %v", err)
+	}
+
+	delReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, res2.Data.ID), nil)
+	delReq.Header.Set("X-User-Role", "admin")
+	delResp, err := http.DefaultClient.Do(delReq)
+	if err != nil || delResp.StatusCode != http.StatusConflict {
+		t.Fatalf("Expected 409 Conflict when deleting category with models, got status: %d", delResp.StatusCode)
+	}
+}
+
+func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
+	server, db, auditRepo := setupSliceCategoriesModelsServer(t)
+	if server == nil {
+		return
+	}
+	defer server.Close()
+
+	modelTitle := fmt.Sprintf("Model Lifecycle Test %s", uuid.New().String()[:8])
+	defer func() {
+		_, _ = db.GetDB().Exec("DELETE FROM lab_templates WHERE name LIKE 'Child Template For Model %'")
+		_, _ = db.GetDB().Exec("DELETE FROM template_models WHERE title LIKE 'Model Lifecycle Test %'")
+	}()
+
+	// 1. Insertar modelo inicial
+	var modelID string
+	err := db.GetDB().QueryRow(`
+		INSERT INTO template_models (id, tenant_id, category_id, title, description, target_environment, docker_image, base_ram_mb, tools, is_active, sort_order, created_at, updated_at)
+		VALUES (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-000000000001', $1, 'Initial Desc', 'IDE_PERSISTENTE', 'node:20-bookworm-slim', 512, '[]'::jsonb, true, 0, NOW(), NOW())
+		RETURNING id
+	`, modelTitle).Scan(&modelID)
+	if err != nil {
+		t.Fatalf("Failed to insert template model: %v", err)
+	}
+
+	// 2. Crear plantilla hija asociada a este modelo
+	childTplName := fmt.Sprintf("Child Template For Model %s", uuid.New().String()[:8])
+	var childTplID string
+	err = db.GetDB().QueryRow(`
+		INSERT INTO lab_templates (id, tenant_id, name, docker_image, base_ram_mb, target_environment, model_id, status, created_at, updated_at)
+		VALUES (gen_random_uuid(), '00000000-0000-0000-0000-000000000001', $1, 'node:20-bookworm-slim', 512, 'IDE_PERSISTENTE', $2, 'APROBADA', NOW(), NOW())
+		RETURNING id
+	`, childTplName, modelID).Scan(&childTplID)
+	if err != nil {
+		t.Fatalf("Failed to insert child template: %v", err)
+	}
+
+	// 3. PUT /api/v1/admin/template-models/{id} - actualizar metadatos
+	updatedTitle := modelTitle + " (Actualizado)"
+	updatedDesc := "Descripción actualizada del modelo"
+	upPayload := domain.UpdateTemplateModelDTO{
+		Title:       updatedTitle,
+		Description: updatedDesc,
+		CategoryID:  "c0000000-0000-0000-0000-000000000002",
+	}
+	upBody, _ := json.Marshal(upPayload)
+	upReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/template-models/%s", server.URL, modelID), bytes.NewReader(upBody))
+	upReq.Header.Set("Content-Type", "application/json")
+	upReq.Header.Set("X-User-Role", "admin")
+	upResp, err := http.DefaultClient.Do(upReq)
+	if err != nil || upResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to update template model: status %d, err %v", upResp.StatusCode, err)
+	}
+
+	// 4. POST /api/v1/admin/template-models/{id}/deactivate
+	deactReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/deactivate", server.URL, modelID), nil)
+	deactReq.Header.Set("X-User-Role", "admin")
+	deactResp, err := http.DefaultClient.Do(deactReq)
+	if err != nil || deactResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to deactivate template model: status %d, err %v", deactResp.StatusCode, err)
+	}
+
+	// 5. GET /api/v1/admin/template-models (default: include_inactive=false) -> no debe incluir el modelo desactivado
+	listActiveReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models", nil)
+	listActiveResp, err := http.DefaultClient.Do(listActiveReq)
+	if err != nil || listActiveResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to list active models: %v", err)
+	}
+	var activeListRes struct {
+		Data []*domain.TemplateModelItemDTO `json:"data"`
+	}
+	_ = json.NewDecoder(listActiveResp.Body).Decode(&activeListRes)
+	for _, m := range activeListRes.Data {
+		if m.ID == modelID {
+			t.Fatalf("Model %s was found in active list, but it should be excluded when inactive", modelID)
+		}
+	}
+
+	// 6. GET /api/v1/admin/template-models?include_inactive=true -> debe incluir el modelo con is_active = false
+	listAllReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models?include_inactive=true", nil)
+	listAllResp, err := http.DefaultClient.Do(listAllReq)
+	if err != nil || listAllResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to list all models: %v", err)
+	}
+	var allListRes struct {
+		Data []*domain.TemplateModelItemDTO `json:"data"`
+	}
+	_ = json.NewDecoder(listAllResp.Body).Decode(&allListRes)
+	foundModel := false
+	for _, m := range allListRes.Data {
+		if m.ID == modelID {
+			foundModel = true
+			if m.IsActive {
+				t.Fatalf("Expected model is_active = false, got true")
+			}
+			if m.Title != updatedTitle {
+				t.Fatalf("Expected updated title %s, got %s", updatedTitle, m.Title)
+			}
+			if m.UsageCount < 1 {
+				t.Fatalf("Expected usage count >= 1 from child template, got %d", m.UsageCount)
+			}
+			break
+		}
+	}
+	if !foundModel {
+		t.Fatalf("Model %s was not found in all models list (with include_inactive=true)", modelID)
+	}
+
+	// 7. Verificar que la plantilla hija SIGUE existiendo y referenciando a model_id (no se rompió)
+	var existingChildModelID *string
+	err = db.GetDB().QueryRow(`SELECT model_id FROM lab_templates WHERE id = $1`, childTplID).Scan(&existingChildModelID)
+	if err != nil || existingChildModelID == nil || *existingChildModelID != modelID {
+		t.Fatalf("Child template link broken or missing: err %v, model_id: %v", err, existingChildModelID)
+	}
+
+	// 8. POST /api/v1/admin/template-models/{id}/reactivate
+	reactReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/reactivate", server.URL, modelID), nil)
+	reactReq.Header.Set("X-User-Role", "admin")
+	reactResp, err := http.DefaultClient.Do(reactReq)
+	if err != nil || reactResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to reactivate template model: status %d, err %v", reactResp.StatusCode, err)
+	}
+
+	// 9. Verificar que vuelve a aparecer en la lista activa
+	listAgainReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models", nil)
+	listAgainResp, err := http.DefaultClient.Do(listAgainReq)
+	if err != nil || listAgainResp.StatusCode != http.StatusOK {
+		t.Fatalf("Failed to list active models after reactivation: %v", err)
+	}
+	var activeListAgainRes struct {
+		Data []*domain.TemplateModelItemDTO `json:"data"`
+	}
+	_ = json.NewDecoder(listAgainResp.Body).Decode(&activeListAgainRes)
+	foundActiveAgain := false
+	for _, m := range activeListAgainRes.Data {
+		if m.ID == modelID {
+			foundActiveAgain = true
+			if !m.IsActive {
+				t.Errorf("Expected model is_active = true after reactivation")
+			}
+			break
+		}
+	}
+	if !foundActiveAgain {
+		t.Fatalf("Model %s was not found in active list after reactivation", modelID)
+	}
+
+	// 10. Verificar logs de auditoría
+	if auditRepo != nil {
+		logs, err := auditRepo.ListFiltered(context.Background(), "00000000-0000-0000-0000-000000000001", "", "TEMPLATE_MODEL_DEACTIVATED", 10, 0)
+		if err != nil || len(logs) == 0 {
+			t.Errorf("Expected audit log TEMPLATE_MODEL_DEACTIVATED, got err: %v", err)
+		}
+	}
+}
+

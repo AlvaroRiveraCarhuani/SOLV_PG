@@ -199,6 +199,8 @@ type TemplateCategory struct {
 	TenantID    string    `db:"tenant_id" json:"tenant_id"`
 	Name        string    `db:"name" json:"name"`
 	Description string    `db:"description" json:"description"`
+	IsActive    bool      `db:"is_active" json:"is_active"`
+	SortOrder   int       `db:"sort_order" json:"sort_order"`
 	CreatedAt   time.Time `db:"created_at" json:"created_at"`
 	UpdatedAt   time.Time `db:"updated_at" json:"updated_at"`
 }
@@ -206,11 +208,19 @@ type TemplateCategory struct {
 type CreateCategoryDTO struct {
 	Name        string `json:"name" validate:"required,min=2,max=100"`
 	Description string `json:"description"`
+	SortOrder   int    `json:"sort_order"`
 }
 
 type UpdateCategoryDTO struct {
 	Name        string `json:"name" validate:"required,min=2,max=100"`
 	Description string `json:"description"`
+	IsActive    *bool  `json:"is_active,omitempty"`
+	SortOrder   *int   `json:"sort_order,omitempty"`
+}
+
+type ReorderCategoryItemDTO struct {
+	ID        string `json:"id" validate:"required"`
+	SortOrder int    `json:"sort_order"`
 }
 
 // TemplateModelItemDTO modelo oficial preconfigurado para creación rápida
@@ -230,7 +240,15 @@ type TemplateModelItemDTO struct {
 	TimeoutMS         int       `db:"timeout_ms" json:"timeout_ms"`
 	SampleInput       string    `db:"sample_input" json:"sample_input"`
 	UsageCount        int       `db:"usage_count" json:"usage_count"`
+	IsActive          bool      `db:"is_active" json:"is_active"`
+	SortOrder         int       `db:"sort_order" json:"sort_order"`
 	CreatedAt         time.Time `db:"created_at" json:"created_at"`
+}
+
+type UpdateTemplateModelDTO struct {
+	Title       string `json:"title" validate:"required,min=2,max=150"`
+	Description string `json:"description"`
+	CategoryID  string `json:"category_id" validate:"required"`
 }
 
 type PromoteTemplateToModelDTO struct {
