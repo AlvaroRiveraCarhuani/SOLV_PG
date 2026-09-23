@@ -14,27 +14,30 @@ sequenceDiagram
     participant D as Docente / Wizard
     participant B as Backend API (Go)
     participant A as Administrador / UI
-    participant R as Registro Docker Hub
+    participant R as Registro Docker / Local Engine
 
-    D->>B: POST /api/v1/docker-templates/requests (Perfil, imagen, justificación)
-    B->>B: Registra solicitud en estado [pending] y emite evento
-    B-->>A: Notificación en bandeja de administración (Badge numérico)
+    D->>B: POST /api/v1/templates (Nombre, imagen, base_ram_mb, justificación)
+    B->>B: Inserta en lab_templates con status = PENDIENTE_AUDITORIA y deriva cgroups
+    B-->>A: Notificación en bandeja de administración (Badge reactivo)
 
     alt Administrador Aprueba Solicitud
         A->>A: Abre modal [Revisar y Aprobar]
-        A->>A: Asigna cuota real de RAM (256/512/1024 MB) y CPU
-        A->>A: Configura visibilidad (Global / Materia solicitante / Específica)
-        A->>B: POST /api/v1/admin/docker-templates/requests/{id}/approve
-        B->>R: Verifica existencia de imagen y tag en Docker Hub
-        B->>B: Inserta en tabla docker_templates (status = active)
-        B-->>A: Publicada en Catálogo Oficial
+        A->>A: Asigna o ajusta cuota de RAM (presets de /capabilities o custom)
+        A->>B: PUT /api/v1/admin/templates/{id}/review (status: APROBADA, base_ram_mb)
+        B->>B: Actualiza lab_templates (status = APROBADA) y deriva resource_profile cgroups v2
+        B-->>A: Publicada en Catálogo Activo
         B-->>D: Notifica al docente que su plantilla ya está disponible
     else Administrador Rechaza Solicitud
         A->>A: Abre modal [Rechazar Solicitud]
-        A->>A: Ingresa motivo obligatorio (mínimo 15 caracteres)
-        A->>B: POST /api/v1/admin/docker-templates/requests/{id}/reject (reason)
-        B->>B: Actualiza estado a [rejected] con feedback
+        A->>A: Ingresa motivo obligatorio (mínimo 10 caracteres)
+        A->>B: PUT /api/v1/admin/templates/{id}/review (status: RECHAZADA, rejection_reason)
+        B->>B: Actualiza estado a RECHAZADA con auditoría
         B-->>D: Muestra motivo del rechazo en el panel del docente
+    else Administrador Suspende Plantilla
+        A->>A: Abre modal de suspensión en catálogo
+        A->>A: Ingresa motivo obligatorio (mínimo 10 caracteres)
+        A->>B: PUT /api/v1/admin/templates/{id}/review (status: SUSPENDIDA, rejection_reason)
+        B->>B: Actualiza estado a SUSPENDIDA e inhabilita nuevos workspaces
     end
 ```
 
@@ -176,26 +179,78 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
 
 ## 3. Reglas de Negocio, Gobernanza y Seguridad
 
-1. **Gobernanza Institucional de Recursos (Decisión D4):**
+1. **Gobernanza Institucional de Recursos (Decisión D4) y Derivación cgroups v2:**
    - El docente solo sugiere la intensidad pedagógica (Ligera / Estándar / Intensiva). La potestad de asignar megabytes de RAM y vCPUs recae 100% en el Administrador para salvaguardar la capacidad del hardware.
+   - **Fórmula determinística de derivación cgroups v2:** Todo alta (`POST /api/v1/templates`), duplicación (`POST /api/v1/admin/templates/{id}/duplicate`) o cambio de memoria en revisión (`PUT /api/v1/admin/templates/{id}/review`) deriva y persiste obligatoriamente el perfil de recursos (`resource_profile`) a partir de `base_ram_mb`:
+     - `min_mb = base_ram_mb / 2` (memoria garantizada de cgroups v2 `memory.min`)
+     - `high_mb = base_ram_mb * 1.5` (umbral de throttling de cgroups v2 `memory.high`)
+     - `max_mb = base_ram_mb * 2` (límite duro de cgroups v2 `memory.max`)
+   - Las pruebas de entorno (smoke test) en el worker de auditoría se configuran utilizando `base_ram_mb` (con piso de 256 MB) para respetar exactamente la cuota definida.
 2. **Validación de Imagen en Registro:**
-   - Antes de completar la aprobación, el backend efectúa un sondeo al registro oficial para certificar que el repositorio y tag especificados existen y son públicamente descargables.
+   - Antes de completar la aprobación, el backend efectúa un sondeo al registro o daemon local para certificar que el repositorio y tag especificados existen y son públicamente descargables o locales.
 3. **Inmutabilidad y Deprecación Suave:**
-   - Las plantillas en uso nunca se eliminan físicamente (`hard delete`) para preservar la reproducibilidad histórica de entregas y auditorías. Se marcan como `paused` para ocultarlas del asistente de creación de nuevos laboratorios.
+   - Las plantillas en uso nunca se eliminan físicamente (`hard delete`) para preservar la reproducibilidad histórica de entregas y auditorías. Se marcan como `paused` o `SUSPENDIDA` para ocultarlas del asistente de creación de nuevos laboratorios.
 4. **Visibilidad Granular:**
    - Por defecto, las plantillas aprobadas se publican en el Catálogo Global. No obstante, si se restringe a una materia, solo los docentes asignados a esa materia la verán en su lista de opciones.
+5. **Máquina de Estados de Ciclo de Vida v2 y Gobernanza:**
+   - Estados canónicos: `BORRADOR` -> `PENDIENTE_AUDITORIA` -> `APROBADA` <-> `SUSPENDIDA` / `RECHAZADA` (con soporte para `paused`).
+   - Transición `APROBADA` -> `SUSPENDIDA` o `paused`:
+     - Disparada únicamente por el Administrador con **motivo obligatorio de al menos 10 caracteres**.
+     - Registra evento en el log de auditoría (`TEMPLATE_REVIEWED` con status `SUSPENDIDA` y justificación SEC-04).
+     - **Efecto operativo:** Bloquea inmediatamente nuevas asignaciones a materias y la creación de nuevos workspaces con esa plantilla.
+     - **Grandfathering:** No destruye ni altera workspaces existentes que estuvieran utilizándola. Es invisible para docentes en el selector de nuevos labs.
+   - Transición `PENDIENTE_AUDITORIA` -> `RECHAZADA`:
+     - Requiere justificación técnica obligatoria de al menos 10 caracteres, visible para el docente.
+   - Transición `SUSPENDIDA` -> `APROBADA` (Reactivación):
+     - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (smoke test) y auditoría CVE sin vulnerabilidades críticas.
 
 ---
 
-## 4. Contrato de Integración y Endpoints (v0.16.0)
+## 4. Contrato de Integración y Endpoints Reales
+
+### 4.1 Plantillas y Gobernanza (`/api/v1/admin/templates`)
 
 | Método | Endpoint | Parámetros / Payload | Propósito |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/admin/docker-templates/requests` | `?status=pending` | Lista solicitudes docentes pendientes de revisión. |
-| `POST` | `/api/v1/admin/docker-templates/requests/{id}/approve` | `{ "ram_limit_mb": 512, "cpu_limit": 1.0, "scope": "global", "course_id": null }` | Aprueba la solicitud, fija límites y publica la plantilla. |
-| `POST` | `/api/v1/admin/docker-templates/requests/{id}/reject` | `{ "reason": "La imagen excede el límite de peso..." }` | Rechaza la solicitud con justificación obligatoria. |
-| `GET` | `/api/v1/admin/docker-templates` | `?include_paused=true` | Lista el catálogo institucional completo de plantillas. |
-| `PATCH` | `/api/v1/admin/docker-templates/{id}/status` | `{ "is_active": false }` | Pausa o reactiva una plantilla en el catálogo oficial. |
+| `GET` | `/api/v1/admin/templates` | `?status=...&search=...` | Lista plantillas con filtro por estado v2 y búsqueda de texto. |
+| `GET` | `/api/v1/admin/templates/capabilities` | — | Retorna presets dinámicos de RAM y CPU según hardware del host. |
+| `POST` | `/api/v1/admin/templates` | `CreateTemplateDTO` | Registra plantilla oficial derivando perfil cgroups v2. |
+| `PUT` | `/api/v1/admin/templates/{id}/review` | `{ "status": "APROBADA"\|"RECHAZADA"\|"SUSPENDIDA", "rejection_reason": "...", "base_ram_mb": 1024 }` | Dictamen de revisión. Si se actualiza RAM, regenera `resource_profile`. Rechazo y suspensión exigen motivo >= 10 caracteres. |
+| `POST` | `/api/v1/admin/templates/{id}/duplicate` | `{ "name": "..." }` | Clona plantilla institucional derivando perfil cgroups v2 del nuevo registro. |
+| `POST` | `/api/v1/admin/templates/{id}/promote-to-model` | `{ "name": "...", "category_id": "...", "description": "..." }` | Promueve plantilla aprobada a modelo institucional reusable. |
+| `GET` | `/api/v1/admin/templates/local-images` | — | Lista imágenes OCI presentes localmente en el Docker Engine. |
+| `POST` | `/api/v1/admin/templates/verify-image` | `{ "image": "..." }` | Valida existencia de imagen OCI remota o local. |
+| `GET` | `/api/v1/registry/verify` | `?image=...` | Consulta metadata OCI y verificación previa. |
+
+### 4.2 Borradores Persistidos (`/api/v1/admin/templates/drafts`)
+
+| Método | Endpoint | Parámetros / Payload | Propósito |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/admin/templates/drafts` | `{ "form_data": {...}, "template_id": null }` | Guarda o actualiza borrador en PostgreSQL (`template_drafts`). |
+| `GET` | `/api/v1/admin/templates/drafts` | — | Obtiene el borrador activo del usuario y tenant actual. |
+| `DELETE` | `/api/v1/admin/templates/drafts` | — | Elimina el borrador activo al publicar o descartar. |
+
+### 4.3 Modelos y Categorías Institucionales
+
+| Método | Endpoint | Parámetros / Payload | Propósito |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/v1/admin/template-categories` | — | Lista categorías ordenadas por `sort_order`. |
+| `POST` | `/api/v1/admin/template-categories` | `{ "name": "...", "description": "..." }` | Crea categoría institucional. |
+| `PUT` | `/api/v1/admin/template-categories/reorder` | `{ "order": ["id1", "id2", ...] }` | Reordena prioridades de visualización. |
+| `PUT` | `/api/v1/admin/template-categories/{id}` | `{ "name": "...", "description": "...", "is_active": true }` | Actualiza atributos de categoría. |
+| `DELETE` | `/api/v1/admin/template-categories/{id}` | — | Elimina categoría si no tiene modelos ni plantillas asociadas (409 si tiene dependencias). |
+| `GET` | `/api/v1/admin/template-models` | — | Lista modelos disponibles con conteo real de uso y categoría. |
+| `PUT` | `/api/v1/admin/template-models/{id}` | `{ "name": "...", "description": "...", "category_id": "...", "is_active": true }` | Modifica configuración del modelo institucional. |
+| `POST` | `/api/v1/admin/template-models/{id}/deactivate` | — | Desactiva modelo institucional. |
+| `POST` | `/api/v1/admin/template-models/{id}/reactivate` | — | Reactiva modelo institucional. |
+
+### 4.4 Pruebas Asíncronas de Entorno (`/api/v1/jobs/env-test`)
+
+| Método | Endpoint | Parámetros / Payload | Propósito |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/v1/jobs/env-test` | `{ "image": "...", "tools": ["python3"] }` | Despacha trabajo de prueba asíncrono con semáforo. |
+| `GET` | `/api/v1/jobs/env-test/{id}` | — | Consulta avance de capas OCI y resultado de herramientas. |
+| `POST` | `/api/v1/jobs/env-test/{id}/cancel` | — | Cancela job y libera ranura de semáforo inmediatamente. |
 
 ---
 
@@ -207,7 +262,7 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
 - **P-03 (Sin bloqueos síncronos largos):** Ninguna operación larga bloquea la interfaz; las descargas y smoke tests se despachan como jobs asíncronos con progreso real.
 - **P-04 (Revelación progresiva):** Navegación no-lineal en 3 secciones (Identidad, Entorno, Recursos) con chips de validez por sección (`COMPLETO`, `PENDIENTE`, `AVISO`).
 - **P-05 (Recetas de inicio rápido):** Presets curados de 1-click para Python DS, Node LTS, GCC C++, Go SDK y Java.
-- **P-06 (Autosave y reanudación):** Persistencia automática de borrador en almacenamiento local y guardado directo sin confirmación obligatoria.
+- **P-06 (Autosave y reanudación en PostgreSQL):** Persistencia en BD (`template_drafts`) por usuario y tenant (`UNIQUE(tenant_id, user_id)`), reanudación automática entre sesiones o dispositivos, y guardado directo sin confirmación obligatoria.
 - **P-07 (Pre-flight de publicación):** Diálogo con comprobaciones duras y advertencias informativas antes de impactar el catálogo docente.
 
 ### 5.2 Máquina de Estados del Botón de Prueba (`solv-env-test-button`)
@@ -258,9 +313,72 @@ La regla de exhaustividad INV-10 ("ningún string fuera del deck") aplica al **f
 | `ST-07` | Stepper acciones | Botón: "Guardar borrador" |
 | `ST-08` | Stepper toasts | Toast: "Borrador guardado." |
 | `ST-09` | Stepper reanudación | Banner: "Continuar borrador anterior (guardado {time})." |
-| `ST-10` | Menú de entrada | "Nueva plantilla" |
-| `ST-11` a `ST-13` | Puertas de creación | "En blanco", "Desde receta", "Duplicar existente" |
-| `ST-14` | Recetas rápidas | Toast: "Receta {name} aplicada. Edite lo que necesite." |
-| `ST-15` | Recetas institucionales | Acción: "Guardar como receta institucional" |
-| `ST-16` | Recetas institucionales | Toast: "Solicitud de receta enviada a aprobación." |
+| `ST-10` | Menú de entrada | "Nuevo entorno" / "Nueva plantilla" |
+| `ST-11` a `ST-13` | Puertas de creación | "En blanco", "Desde modelo", "Duplicar existente" |
+| `ST-14` | Modelos de plantilla | Toast: "Modelo {name} aplicado. Edite lo que necesite." |
+| `ST-15` | Acción catálogo | "Promover a modelo de plantilla" (acción en listado de plantillas aprobadas) |
+| `ST-16` | Toast catálogo | "Plantilla promovida a modelo institucional." |
+
+#### Familia MO-* (Modelos de Plantilla, Puertas y Suspensión)
+
+| ID | Texto / Descripción | Contexto |
+| :--- | :--- | :--- |
+| `MO-01` | "Modelos de plantilla" | Título de sección de modelos |
+| `MO-02` | "Entornos preconfigurados listos para usar o personalizar" | Subtítulo de sección de modelos |
+| `MO-03` | "Buscar modelos (ej: Python, Web, C++)..." | Placeholder de búsqueda de modelos |
+| `MO-04` | "Herramientas:" | Label de herramientas de la tarjeta |
+| `MO-05` | "{count, plural, =1 {1 plantilla basada en este modelo} other {# plantillas basadas en este modelo}}" | Contador real de plantillas derivadas |
+| `MO-06` | "Usar este modelo" | Botón de selección de tarjeta |
+| `MO-07` | "No se encontraron modelos para la búsqueda" | Estado vacío de búsqueda de modelos |
+| `MO-08` | "Confirmar cambio de modo" | Título diálogo de confirmación de puerta |
+| `MO-09` | "Tiene cambios en el formulario. Cambiar de modo sobrescribirá los datos actuales. ¿Desea continuar?" | Mensaje diálogo de confirmación de puerta |
+| `MO-10` | "Suspender plantilla" | Título modal de suspensión |
+| `MO-11` | "Motivo de suspensión (obligatorio, visible en auditoría):" | Label de motivo de suspensión |
+| `MO-12` | "Confirmar suspensión" | Botón confirmar suspensión |
+| `MO-13` | "Plantilla suspendida exitosamente." | Toast de confirmación de suspensión |
+| `MO-14` | "Buscar plantillas del catálogo para duplicar..." | Placeholder de búsqueda en clonación |
+| `MO-15` | "Duplicar esta plantilla" | Botón de acción para duplicar plantilla |
+
+#### Familia CA-* (Gestión Institucional de Categorías)
+
+| ID | Texto / Descripción | Contexto |
+| :--- | :--- | :--- |
+| `CA-01` | "Categoría institucional:" | Label selector de categoría en Paso 2 (Identidad) |
+| `CA-02` | "Administrar categorías" | Botón para abrir modal de gestión mínima |
+| `CA-03` | "Gestión de Categorías de Entornos" | Título modal de categorías |
+| `CA-04` | "Nombre de categoría (ej: Ciberseguridad)" | Placeholder para nueva categoría |
+| `CA-05` | "Guardar categoría" | Botón guardar categoría |
+| `CA-06` | "Eliminar categoría" | Botón eliminar categoría |
+| `CA-07` | "No es posible eliminar la categoría porque tiene plantillas o modelos asociados." | Mensaje de error 409 Conflict |
+| `CA-08` | "Sin categoría asignada" | Opción nula por defecto |
+
+#### Configuración de Sugerencias OCI (curatedOfficialImages)
+La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim-bookworm`, `node:20-bookworm-slim`, etc.) constituye una **configuración estática semilla en cliente (allowlist)** para asistir al administrador al tipear imágenes reconocidas en el asistente de creación. No es telemetría viva ni reemplaza los modelos ni categorías dinámicos alojados en la base de datos PostgreSQL.
+
+#### Familia PU-* (Propósito del Entorno: IDE Persistente vs Juez Virtual)
+
+| ID | Texto / Descripción | Contexto |
+| :--- | :--- | :--- |
+| `PU-01` | "Propósito del entorno" | Título del Paso 1 del stepper |
+| `PU-02` | "Laboratorio Interactivo (IDE Persistente)" | Título tarjeta de propósito IDE |
+| `PU-03` | "Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite." | Descripción tarjeta IDE |
+| `PU-04` | "Juez Virtual (Sandbox Algorítmico)" | Título tarjeta de propósito Juez |
+| `PU-05` | "Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos." | Descripción tarjeta Juez |
+| `PU-06` | "Confirmar cambio de propósito" | Título diálogo de confirmación de propósito |
+| `PU-07` | "Cambiar de propósito descarta las configuraciones específicas del entorno. ¿Desea continuar?" | Mensaje advertencia al cambiar de propósito con datos sucios |
+| `PU-08` | "Comando de compilación o ejecución:" | Label de comando en Paso 4 para Juez |
+| `PU-09` | "Tiempo límite de ejecución (ms):" | Label de timeout en Paso 4 para Juez |
+| `PU-10` | "Entrada estándar de prueba (stdin opcional):" | Label de muestra stdin en Paso 4 para Juez |
+| `PU-11` | "≈ {$INTERPOLATION} evaluaciones concurrentes estimadas en este host" | Métrica viva de capacidad para Juez Virtual |
+| `PU-12` | "No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco." | Estado vacío de modelos para Juez |
+| `PU-13` | "Completá el nombre y comando de ejecución para habilitar el guardado" | Tooltip en botón guardar borrador deshabilitado en Juez |
+| `PU-14` | "Los entornos de juez virtual no utilizan servicios satélite desacoplados." | Mensaje informativo en Paso 5 para Juez |
+| `PU-15` | "Comando de ejecución obligatorio para plantillas de juez virtual." | Validación de entrypoint en Juez |
+| `PU-16` | "Anterior" | Botón de navegación anterior en stepper |
+| `PU-17` | "Siguiente" | Botón de navegación siguiente en stepper |
+| `PU-18` | "Propósito" | Título corto en tab 1 del stepper |
+| `PU-19` | "Imagen" | Título corto en tab 3 del stepper |
+| `PU-20` | "Ejecución" | Título corto en tab 4 del stepper |
+| `PU-21` | "Verificación" | Título corto en tab 6 del stepper |
+
 
