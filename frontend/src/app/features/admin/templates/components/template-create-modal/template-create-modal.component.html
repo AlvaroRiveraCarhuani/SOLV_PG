@@ -92,10 +92,10 @@
         <span class="tab-number">5</span>
         <span class="tab-title" i18n="@@ST-03">Recursos</span>
         <span class="status-chip" [class]="'chip-' + resourcesStatus()">
-          @if (resourcesStatus() === 'complete') {
-            <span i18n="@@ST-04">COMPLETO</span>
-          } @else {
-            <span i18n="@@ST-05">PENDIENTE</span>
+          @switch (resourcesStatus()) {
+            @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
+            @case ('warning') { <span i18n="@@ST-06">AVISO</span> }
+            @default { <span i18n="@@ST-05">PENDIENTE</span> }
           }
         </span>
       </button>
@@ -269,6 +269,8 @@
               [activeEnvTestJob]="activeEnvTestJob()"
               [isEnvTestStale]="isEnvTestStale()"
               [smokeTestOutput]="smokeTestOutput()"
+              [isRamExceedingHost]="isRamExceedingHost()"
+              [maxAllowedRamMB]="maxAllowedRamMB()"
               (testCompleted)="onEnvTestCompleted($event)"
               (retryTest)="triggerEnvTest()"
               (helpRequested)="toggleHelpDrawer('verification')"
@@ -443,28 +445,26 @@
             <span i18n="@@PU-17">Siguiente</span>
             <svg lucideArrowRight class="w-4 h-4 ml-1"></svg>
           </button>
+        } @else if (footerActionState() === 'publish_disabled') {
+          <button 
+            type="button" 
+            class="btn btn-secondary btn-disabled" 
+            disabled
+            [title]="publishDisabledReason()"
+          >
+            <svg lucideSend class="w-4 h-4 mr-1"></svg>
+            <span>Publicar Plantilla</span>
+          </button>
         } @else {
-          @if (footerActionState() === 'publish_disabled') {
-            <button 
-              type="button" 
-              class="btn btn-secondary btn-disabled" 
-              disabled
-              [title]="publishDisabledReason()"
-            >
-              <svg lucideSend class="w-4 h-4 mr-1"></svg>
-              <span>Publicar Plantilla</span>
-            </button>
-          } @else {
-            <button 
-              type="button" 
-              class="btn btn-primary" 
-              (click)="openPublishDialog()"
-              title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
-            >
-              <svg lucideSend class="w-4 h-4 mr-1"></svg>
-              <span>Publicar Plantilla</span>
-            </button>
-          }
+          <button 
+            type="button" 
+            class="btn btn-primary" 
+            (click)="openPublishDialog()"
+            title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
+          >
+            <svg lucideSend class="w-4 h-4 mr-1"></svg>
+            <span>Publicar Plantilla</span>
+          </button>
         }
       </div>
     </div>

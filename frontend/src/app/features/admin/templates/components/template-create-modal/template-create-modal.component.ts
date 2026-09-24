@@ -311,13 +311,13 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return false;
   });
 
-  footerActionState = computed<'save_draft' | 'publish_disabled' | 'publish_ready'>(() => {
-    if (!this.isDraftSaved()) {
-      return 'save_draft';
-    }
+  footerActionState = computed<'publish_disabled' | 'publish_ready'>(() => {
     const job = this.activeEnvTestJob();
     const isVerified = job !== null && job.status === 'success';
-    if (!isVerified || this.isInvalidFormat() || this.isLatestImage() || this.isEnvTestStale()) {
+    if (!isVerified || this.isInvalidFormat() || this.isLatestImage() || this.isEnvTestStale() || this.isRamExceedingHost() || this.isRamTooLow()) {
+      return 'publish_disabled';
+    }
+    if (this.name().trim().length < 3) {
       return 'publish_disabled';
     }
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
@@ -328,10 +328,20 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   publishDisabledReason = computed<string>(() => {
     const reasons: string[] = [];
+    if (this.name().trim().length < 3) {
+      reasons.push('Nombre de plantilla requerido (mínimo 3 caracteres)');
+    }
     if (!this.dockerImage().trim()) {
       reasons.push('Ingrese una imagen Docker');
     } else if (this.isLatestImage()) {
       reasons.push('Tag :latest prohibido');
+    } else if (this.isInvalidFormat()) {
+      reasons.push('Formato de imagen inválido');
+    }
+    if (this.isRamExceedingHost()) {
+      reasons.push(`RAM asignada supera la capacidad del host (${this.maxAllowedRamMB()} MB)`);
+    } else if (this.isRamTooLow()) {
+      reasons.push('RAM asignada inferior al mínimo permitido');
     }
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
       reasons.push('Comando de ejecución requerido para juez');
@@ -341,13 +351,13 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       reasons.push('Prueba de entorno no ejecutada');
     } else if (job.status === 'failed') {
       reasons.push('La prueba de entorno falló');
-    } else if (job?.status === 'pulling' || job?.status === 'testing' || job?.status === 'pending') {
+    } else if (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending') {
       reasons.push('Prueba de entorno en curso');
     }
     if (this.isEnvTestStale()) {
-      reasons.push('Prueba obsoleta: la imagen o memoria cambiaron tras la prueba');
+      reasons.push('Prueba obsoleta: la configuración cambió');
     }
-    return reasons.length > 0 ? `Falta: ${reasons.join(' · ')}` : 'Complete las comprobaciones antes de publicar';
+    return reasons.length > 0 ? reasons.join(' · ') : '';
   });
 
   private dockerRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$/;
@@ -476,7 +486,24 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return 'complete';
   });
 
-  resourcesStatus = computed<'complete' | 'pending'>(() => {
+  maxAllowedRamMB = computed<number>(() => {
+    const caps = this.runtimeCapabilities();
+    if (caps?.max_allowed_ram_mb && caps.max_allowed_ram_mb > 0) {
+      return caps.max_allowed_ram_mb;
+    }
+    const total = caps?.host_memory?.total_ram_mb ?? 8192;
+    const derived = Math.floor(total * 0.75);
+    return derived < 512 ? 512 : derived;
+  });
+
+  isRamExceedingHost = computed<boolean>(() => {
+    return this.baseRamMB() > this.maxAllowedRamMB();
+  });
+
+  resourcesStatus = computed<'complete' | 'warning' | 'pending'>(() => {
+    if (this.isRamExceedingHost()) {
+      return 'warning';
+    }
     return this.baseRamMB() > 0 && !this.isRamTooLow() ? 'complete' : 'pending';
   });
 
@@ -494,7 +521,15 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   });
 
   canGoPrev = computed<boolean>(() => this.currentSectionIndex() > 0);
-  canGoNext = computed<boolean>(() => this.currentSectionIndex() < this.WIZARD_SECTIONS.length - 1);
+  canGoNext = computed<boolean>(() => {
+    if (this.currentSectionIndex() >= this.WIZARD_SECTIONS.length - 1) {
+      return false;
+    }
+    if (this.activeSection() === 'resources' && this.isRamExceedingHost()) {
+      return false;
+    }
+    return true;
+  });
 
   ngOnInit(): void {
     this.fetchLocalImages();

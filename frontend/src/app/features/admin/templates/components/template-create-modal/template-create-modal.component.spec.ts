@@ -504,6 +504,8 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
         originalSave();
       };
 
+      component.activeSection.set('verification');
+      component.name.set('Plantilla Test');
       component.isDraftSaved.set(true);
       component.activeEnvTestJob.set({ id: 'j1', status: 'success' } as any);
       component.dockerImage.set('python:3.12-slim-bookworm');
@@ -513,6 +515,65 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       component.openPublishDialog();
       expect(saved).toBe(true);
       expect(component.showPublishDialog()).toBe(true);
+    });
+
+    it('bloquea avanzar si la RAM supera la capacidad del host y marca estado warning', () => {
+      component.runtimeCapabilities.set({ max_allowed_ram_mb: 4096 } as any);
+      component.baseRamMB.set(8192);
+
+      expect(component.isRamExceedingHost()).toBe(true);
+      expect(component.resourcesStatus()).toBe('warning');
+
+      component.activeSection.set('resources');
+      expect(component.canGoNext()).toBe(false);
+
+      // Si la RAM está dentro del límite, canGoNext es true
+      component.baseRamMB.set(2048);
+      expect(component.isRamExceedingHost()).toBe(false);
+      expect(component.resourcesStatus()).toBe('complete');
+      expect(component.canGoNext()).toBe(true);
+    });
+
+    it('primario contextual: muestra Siguiente en pasos 1-5 y Publicar en paso 6 con gate y tooltip', () => {
+      // Pasos 1 a 5: activeSection !== 'verification'
+      component.activeSection.set('purpose');
+      expect(component.activeSection()).not.toBe('verification');
+
+      component.activeSection.set('identity');
+      expect(component.activeSection()).not.toBe('verification');
+
+      component.activeSection.set('resources');
+      expect(component.activeSection()).not.toBe('verification');
+
+      // Paso 6: Verificación
+      component.activeSection.set('verification');
+      expect(component.activeSection()).toBe('verification');
+
+      // Sin imagen ni nombre, estado publish_disabled
+      expect(component.footerActionState()).toBe('publish_disabled');
+      expect(component.publishDisabledReason().length).toBeGreaterThan(0);
+
+      // Cumpliendo requisitos
+      component.name.set('Plantilla Lista');
+      component.dockerImage.set('python:3.12-slim');
+      component.activeEnvTestJob.set({ id: 'j-ok', status: 'success' } as any);
+      component.lastTestedImage.set('python:3.12-slim');
+      component.lastTestedRam.set(component.baseRamMB());
+
+      expect(component.footerActionState()).toBe('publish_ready');
+      expect(component.publishDisabledReason()).toBe('');
+    });
+
+    it('descartar borrador limpia el formulario y desactiva el estado de reanudar borrador', () => {
+      component.name.set('Borrador previo');
+      component.dockerImage.set('node:20');
+      component.hasDraftToResume.set(true);
+
+      component.discardDraft();
+
+      expect(component.name()).toBe('');
+      expect(component.dockerImage()).toBe('');
+      expect(component.hasDraftToResume()).toBe(false);
     });
   });
 });
