@@ -110,7 +110,28 @@ describe('SolvStepVerificationComponent', () => {
     const helpBtn = fixture.nativeElement.querySelector('.btn-step-help');
     expect(helpBtn).toBeTruthy();
     helpBtn.click();
-
     expect(emitted).toBe(true);
+  });
+
+  it('debe mostrar la caja de diagnóstico estructurado Hecho-Causa-SiguienteAcción si la prueba falla', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-err',
+      image: 'python:3.12-slim-bookworm',
+      tools: ['pytest'],
+      status: 'failed',
+      error_message: 'MISSING:pytest',
+      progress: { percent: 100 },
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    } as any);
+    fixture.detectChanges();
+
+    const diagBox = fixture.nativeElement.querySelector('.diagnostic-failure-box');
+    expect(diagBox).toBeTruthy();
+    expect(diagBox.textContent).toContain('Diagnóstico de la Verificación');
+    expect(diagBox.textContent).toContain('Hecho:');
+    expect(diagBox.textContent).toContain('Causa:');
+    expect(diagBox.textContent).toContain('MISSING:pytest');
+    expect(diagBox.textContent).toContain('Siguiente acción:');
   });
 });

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { 
   LucideHelpCircle, 
   LucideAlertTriangle, 
+  LucideAlertCircle,
   LucideRotateCw, 
   LucideTerminal,
   LucideChevronDown,
@@ -31,6 +32,7 @@ export interface SuboptimalWarning {
     CommonModule, 
     LucideHelpCircle, 
     LucideAlertTriangle, 
+    LucideAlertCircle,
     LucideRotateCw, 
     LucideTerminal,
     LucideChevronDown,
@@ -138,6 +140,30 @@ export interface SuboptimalWarning {
                 </span>
               </div>
               <pre class="logs-terminal font-mono"><code>{{ formattedSmokeTestOutput() }}</code></pre>
+            </div>
+          }
+
+          <!-- Diagnóstico de Fallo Estructurado (Hecho - Causa - Siguiente Acción) -->
+          @if (activeEnvTestJob()?.status === 'failed') {
+            <div class="diagnostic-failure-box mt-3 animate-fade" role="alert">
+              <div class="diagnostic-header">
+                <svg lucideAlertCircle class="w-4 h-4 text-danger mr-1"></svg>
+                <strong class="diagnostic-title">Diagnóstico de la Verificación</strong>
+              </div>
+              <div class="diagnostic-body">
+                <div class="diagnostic-row">
+                  <span class="diagnostic-label">Hecho:</span>
+                  <span class="diagnostic-val">La prueba de integridad del entorno falló durante la ejecución.</span>
+                </div>
+                <div class="diagnostic-row">
+                  <span class="diagnostic-label">Causa:</span>
+                  <span class="diagnostic-val">{{ activeEnvTestJob()?.error_message || 'Uno o más binarios requeridos no fueron detectados o el contenedor terminó con código de error.' }}</span>
+                </div>
+                <div class="diagnostic-row">
+                  <span class="diagnostic-label">Siguiente acción:</span>
+                  <span class="diagnostic-val">Revise las herramientas declaradas en el Paso 3 o corrija los parámetros en el Paso 4 antes de reintentar.</span>
+                </div>
+              </div>
             </div>
           }
         }

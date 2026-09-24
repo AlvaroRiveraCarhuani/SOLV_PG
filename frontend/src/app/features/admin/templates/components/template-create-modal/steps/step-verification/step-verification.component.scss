@@ -293,3 +293,48 @@
     }
   }
 }
+
+.diagnostic-failure-box {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-left: 3px solid #DC2626;
+  border-radius: 6px;
+
+  .diagnostic-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0.5rem;
+
+    .diagnostic-title {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: #991B1B;
+    }
+  }
+
+  .diagnostic-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+
+    .diagnostic-row {
+      display: flex;
+      gap: 0.5rem;
+      font-size: var(--text-xs);
+      line-height: 1.4;
+
+      .diagnostic-label {
+        font-weight: 600;
+        color: #7F1D1D;
+        min-width: 90px;
+        flex-shrink: 0;
+      }
+
+      .diagnostic-val {
+        color: #374151;
+      }
+    }
+  }
+}
