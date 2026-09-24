@@ -12,8 +12,7 @@ import {
   TargetEnvironment, 
   AvailableSatelliteService, 
   ServiceRequirement,
-  RuntimeCapabilities,
-  HostCapacityInfo
+  RuntimeCapabilities
 } from '../../../../../services/admin-templates.service';
 
 export interface RamPreset {
@@ -68,7 +67,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
       <!-- Asignación de RAM Base -->
       <div class="form-group">
         <label class="form-label font-semibold">
-          Memoria RAM por Instancia (MB): <span class="text-danger">*</span>
+          Memoria RAM por Instancia: <span class="text-danger">*</span>
         </label>
         <div class="ram-presets-row">
           @for (preset of activeRamPresets(); track preset.mb) {
@@ -85,11 +84,12 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
           <div class="custom-ram-wrapper">
             <input 
               type="number" 
+              inputmode="numeric"
               class="form-control input-ram-custom font-mono" 
               [value]="baseRamMB()" 
               (input)="onRamInput($event)"
-              [min]="targetEnvironment() === 'JUEZ_EFIMERO' ? 64 : 256" 
-              max="8192" 
+              min="1" 
+              [max]="maxAllowedRamMB()" 
               step="64" 
             />
             <span class="unit-tag">MB</span>
@@ -104,6 +104,15 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
             </span>
           </div>
         }
+
+        @if (isRamExceedingHost()) {
+          <div class="validation-message-alert alert-danger mt-2">
+            <svg lucideAlertCircle class="w-4 h-4"></svg>
+            <span>
+              Excede la capacidad del host en {{ ramExcessMB() | number }} MB (máximo permitido: {{ maxAllowedRamMB() | number }} MB).
+            </span>
+          </div>
+        }
       </div>
 
       <!-- Perfil de Distribución de Recursos y Métrica Viva -->
@@ -111,28 +120,30 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
         <div class="profile-header">
           <span class="profile-title">Distribución de Recursos Estimada</span>
           <span class="profile-badge">
-            @if (resourceProfilePreview().isJudge) {
-              <span>≈ {{ resourceProfilePreview().estimatedCapacity }} evaluaciones concurrentes estimadas en este host</span>
-            } @else {
-              <span>Capacidad host: ~{{ resourceProfilePreview().estimatedCapacity }} alumnos simultáneos</span>
-            }
+            {{ capacityPluralLabel() }}
           </span>
         </div>
-        <div class="memory-bar">
-          <div 
-            class="bar-segment bar-editor" 
-            [style.flex-grow]="resourceProfilePreview().editorBase" 
-            [title]="(resourceProfilePreview().isJudge ? 'Runtime Sandbox: ' : 'Editor Web: ') + resourceProfilePreview().editorBase + ' MB'"
-          >
-            <span>{{ resourceProfilePreview().isJudge ? 'Sandbox (32 MB)' : 'IDE (210 MB)' }}</span>
-          </div>
-          <div 
-            class="bar-segment bar-usable" 
-            [style.flex-grow]="resourceProfilePreview().usable" 
-            title="Disponible para compilación / ejecución"
-          >
-            <span>Libre ({{ resourceProfilePreview().usable }} MB)</span>
-          </div>
+        <div class="memory-bar" [class.bar-overflow]="isRamExceedingHost()">
+          @if (isRamExceedingHost()) {
+            <div class="bar-segment bar-segment-overflow">
+              <span>Excede capacidad del host (+{{ ramExcessMB() | number }} MB)</span>
+            </div>
+          } @else {
+            <div 
+              class="bar-segment bar-editor" 
+              [style.flex-grow]="resourceProfilePreview().editorBase" 
+              [title]="(resourceProfilePreview().isJudge ? 'Runtime Sandbox: ' : 'Editor Web: ') + resourceProfilePreview().editorBase + ' MB'"
+            >
+              <span>{{ resourceProfilePreview().isJudge ? 'Sandbox (' + resourceProfilePreview().editorBase + ' MB)' : 'IDE (' + resourceProfilePreview().editorBase + ' MB)' }}</span>
+            </div>
+            <div 
+              class="bar-segment bar-usable" 
+              [style.flex-grow]="resourceProfilePreview().usable" 
+              title="Disponible para compilación / ejecución"
+            >
+              <span>Libre ({{ resourceProfilePreview().usable | number }} MB)</span>
+            </div>
+          }
         </div>
       </div>
 
@@ -163,11 +174,11 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                     }
                     @if (svc.isAvailable === false) {
                       <span class="badge-satellite badge-unavailable" title="Servicio no disponible en este host">
-                        No disponible
+                        [No disponible en este host]
                       </span>
                     } @else {
-                      <span class="badge-satellite badge-optional">
-                        Opcional
+                      <span class="badge-satellite badge-optional" title="Servicio opcional que se aprovisionará de forma aislada">
+                        [Opcional]
                       </span>
                     }
                   </div>
@@ -207,6 +218,24 @@ export class SolvStepResourcesComponent {
     return this.targetEnvironment() === 'JUEZ_EFIMERO' ? RAM_PRESETS_JUDGE : RAM_PRESETS_IDE;
   });
 
+  maxAllowedRamMB = computed<number>(() => {
+    const caps = this.runtimeCapabilities();
+    if (caps?.max_allowed_ram_mb && caps.max_allowed_ram_mb > 0) {
+      return caps.max_allowed_ram_mb;
+    }
+    const total = caps?.host_memory?.total_ram_mb ?? 8192;
+    const derived = Math.floor(total * 0.75);
+    return derived < 512 ? 512 : derived;
+  });
+
+  isRamExceedingHost = computed<boolean>(() => {
+    return this.baseRamMB() > this.maxAllowedRamMB();
+  });
+
+  ramExcessMB = computed<number>(() => {
+    return Math.max(0, this.baseRamMB() - this.maxAllowedRamMB());
+  });
+
   isRamTooLow = computed<boolean>(() => {
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
     const minRam = isJudge ? 64 : 256;
@@ -244,13 +273,27 @@ export class SolvStepResourcesComponent {
     };
   });
 
+  capacityPluralLabel = computed<string>(() => {
+    const p = this.resourceProfilePreview();
+    const count = p.estimatedCapacity;
+    if (p.isJudge) {
+      return count === 1 
+        ? '≈ 1 evaluación concurrente estimada en este host' 
+        : `≈ ${count.toLocaleString()} evaluaciones concurrentes estimadas en este host`;
+    }
+    return count === 1 
+      ? 'Capacidad host: ~1 alumno simultáneo' 
+      : `Capacidad host: ~${count.toLocaleString()} alumnos simultáneos`;
+  });
+
   setRam(mb: number): void {
     this.baseRamMBChange.emit(mb);
   }
 
   onRamInput(event: Event): void {
-    const val = parseInt((event.target as HTMLInputElement).value, 10);
-    if (!isNaN(val)) {
+    const raw = (event.target as HTMLInputElement).value;
+    const val = parseInt(raw, 10);
+    if (!isNaN(val) && val >= 1) {
       this.baseRamMBChange.emit(val);
     }
   }
@@ -260,7 +303,6 @@ export class SolvStepResourcesComponent {
   }
 
   toggleService(service: AvailableSatelliteService): void {
-    // Si el servicio no está disponible en este host, no se permite su selección
     if (service.isAvailable === false) {
       return;
     }

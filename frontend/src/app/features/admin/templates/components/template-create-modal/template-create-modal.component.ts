@@ -46,7 +46,6 @@ import {
   LucideAlertCircle,
   LucideHelpCircle,
   LucideSparkles,
-  LucideSave,
   LucideSend,
   LucideRotateCw,
   LucideArrowLeft,
@@ -100,7 +99,6 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     LucideAlertCircle,
     LucideHelpCircle,
     LucideSparkles,
-    LucideSave,
     LucideSend,
     LucideRotateCw,
     LucideArrowLeft,
@@ -273,7 +271,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     }
     const t = this.lastSavedTime();
     if (t) {
-      return `Borrador guardado · ${t}`;
+      return `Borrador guardado automáticamente · ${t}`;
     }
     return 'Borrador sin guardar';
   });

@@ -409,6 +409,16 @@
         <span class="autosave-status-badge font-mono" [class.saving]="autosaveStatus() === 'saving'">
           {{ autosaveIndicator() }}
         </span>
+        @if (isDraftSaved() || lastSavedTime()) {
+          <button 
+            type="button" 
+            class="btn-link-discard" 
+            (click)="discardDraft()" 
+            title="Descartar borrador y reiniciar formulario"
+          >
+            Descartar borrador
+          </button>
+        }
       </div>
 
       <div class="footer-right-actions">
@@ -422,18 +432,7 @@
           <span i18n="@@PU-16">Anterior</span>
         </button>
 
-        <button 
-          type="button" 
-          class="btn btn-outline-primary btn-sm" 
-          [disabled]="!canSaveDraft()"
-          [title]="saveDraftDisabledTooltip()"
-          (click)="saveDraftManually()"
-        >
-          <svg lucideSave class="w-3.5 h-3.5 mr-1"></svg>
-          <span i18n="@@ST-07">Guardar borrador</span>
-        </button>
-
-        <!-- Botón primario contextual: Siguiente en pasos 1-5, Publicar en paso 6 -->
+        <!-- Botón primario contextual: Siguiente en pasos 1-5, Publicar Plantilla en paso 6 -->
         @if (activeSection() !== 'verification') {
           <button 
             type="button" 
@@ -453,7 +452,7 @@
               [title]="publishDisabledReason()"
             >
               <svg lucideSend class="w-4 h-4 mr-1"></svg>
-              <span>Publicar</span>
+              <span>Publicar Plantilla</span>
             </button>
           } @else {
             <button 
@@ -463,7 +462,7 @@
               title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
             >
               <svg lucideSend class="w-4 h-4 mr-1"></svg>
-              <span>Publicar</span>
+              <span>Publicar Plantilla</span>
             </button>
           }
         }

@@ -217,6 +217,23 @@
         color: #0C4A6E;
       }
     }
+
+    &.bar-overflow {
+      background-color: #FEE2E2;
+      border: 1px solid #FCA5A5;
+
+      .bar-segment-overflow {
+        background-color: #DC2626;
+        color: #FFFFFF;
+        font-weight: 600;
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--text-xs);
+        padding: 0 0.5rem;
+      }
+    }
   }
 }
 

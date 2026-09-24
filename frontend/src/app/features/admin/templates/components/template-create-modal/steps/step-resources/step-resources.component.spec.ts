@@ -102,4 +102,37 @@ describe('SolvStepResourcesComponent', () => {
 
     expect(emitted).toBe(true);
   });
+
+  it('debe detectar cuando la RAM excede el techo del host y activar bar-overflow', () => {
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      max_allowed_ram_mb: 2048,
+      host_memory: { total_ram_mb: 4096, available_ram_mb: 2048 }
+    } as any);
+    fixture.componentRef.setInput('baseRamMB', 4096);
+    fixture.detectChanges();
+
+    expect(component.isRamExceedingHost()).toBe(true);
+    expect(component.ramExcessMB()).toBe(2048);
+
+    const overflowBar = fixture.nativeElement.querySelector('.memory-bar.bar-overflow');
+    expect(overflowBar).toBeTruthy();
+    expect(overflowBar.textContent).toContain('Excede capacidad del host');
+  });
+
+  it('debe usar pluralización correcta para 1 alumno y múltiples alumnos', () => {
+    // 1 alumno
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      host_memory: { available_ram_mb: 1024 }
+    } as any);
+    fixture.componentRef.setInput('baseRamMB', 1024);
+    fixture.detectChanges();
+    expect(component.capacityPluralLabel()).toContain('~1 alumno simultáneo');
+
+    // Múltiples alumnos
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      host_memory: { available_ram_mb: 4096 }
+    } as any);
+    fixture.detectChanges();
+    expect(component.capacityPluralLabel()).toContain('alumnos simultáneos');
+  });
 });
