@@ -439,27 +439,48 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       result: { tools: [{ name: 'python3', present: true }], duration_ms: 100 }
     };
 
-    it('debe marcar isEnvTestStale como true si cambia la imagen o la RAM tras la prueba', () => {
+    it('debe marcar isEnvTestStale como true si cambia la imagen, RAM, herramientas, script o entrypoint tras la prueba', () => {
       component.dockerImage.set('python:3.12-slim-bookworm');
       component.baseRamMB.set(1024);
+      component.toolsDeclared.set('python3, pip');
+      component.setupScript.set('echo "ready"');
+      component.entrypoint.set('python3 main.py');
       component.onEnvTestCompleted(mockSuccessJob);
 
       expect(component.isEnvTestStale()).toBe(false);
 
-      // Cambiar imagen invalida la prueba
+      // 1. Cambiar imagen invalida la prueba
       component.dockerImage.set('golang:1.22-alpine');
       expect(component.isEnvTestStale()).toBe(true);
       expect(component.footerActionState()).toBe('publish_disabled');
       expect(component.publishDisabledReason()).toContain('Prueba obsoleta');
 
-      // Restaurar imagen pero cambiar RAM también invalida
+      // Restaurar imagen
       component.dockerImage.set('python:3.12-slim-bookworm');
+      expect(component.isEnvTestStale()).toBe(false);
+
+      // 2. Cambiar RAM invalida
       component.baseRamMB.set(2048);
       expect(component.isEnvTestStale()).toBe(true);
-      expect(component.footerActionState()).toBe('publish_disabled');
-
-      // Restaurar valores probados recupera estado no stale
       component.baseRamMB.set(1024);
+      expect(component.isEnvTestStale()).toBe(false);
+
+      // 3. Cambiar herramientas invalida
+      component.toolsDeclared.set('python3, pip, pytest');
+      expect(component.isEnvTestStale()).toBe(true);
+      component.toolsDeclared.set('python3, pip');
+      expect(component.isEnvTestStale()).toBe(false);
+
+      // 4. Cambiar script de preparación invalida
+      component.setupScript.set('pip install -r req.txt');
+      expect(component.isEnvTestStale()).toBe(true);
+      component.setupScript.set('echo "ready"');
+      expect(component.isEnvTestStale()).toBe(false);
+
+      // 5. Cambiar entrypoint invalida
+      component.entrypoint.set('python3 test.py');
+      expect(component.isEnvTestStale()).toBe(true);
+      component.entrypoint.set('python3 main.py');
       expect(component.isEnvTestStale()).toBe(false);
     });
   });

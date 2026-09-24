@@ -278,9 +278,12 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return 'Borrador sin guardar';
   });
 
-  // Rastreo de regla stale para smoke test (Objetivo 6)
+  // Rastreo de regla stale para smoke test (Imagen, RAM, Herramientas, Script de inicio y Entrypoint)
   lastTestedImage = signal<string>('');
   lastTestedRam = signal<number>(0);
+  lastTestedTools = signal<string[]>([]);
+  lastTestedSetupScript = signal<string>('');
+  lastTestedEntrypoint = signal<string>('');
   smokeTestOutput = signal<string>('');
 
   isEnvTestStale = computed<boolean>(() => {
@@ -290,7 +293,24 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     const testedImg = this.lastTestedImage().trim();
     const testedRam = this.lastTestedRam();
     if (!testedImg) return false;
-    return currentImg !== testedImg || currentRam !== testedRam;
+    if (currentImg !== testedImg || currentRam !== testedRam) return true;
+
+    // Herramientas declaradas
+    const currentTools = [...this.toolsList()].sort();
+    const testedTools = [...this.lastTestedTools()].sort();
+    if (currentTools.length !== testedTools.length || currentTools.some((t, i) => t !== testedTools[i])) {
+      return true;
+    }
+
+    // Script de preparación y entrypoint
+    if (this.setupScript().trim() !== this.lastTestedSetupScript().trim()) {
+      return true;
+    }
+    if (this.entrypoint().trim() !== this.lastTestedEntrypoint().trim()) {
+      return true;
+    }
+
+    return false;
   });
 
   footerActionState = computed<'save_draft' | 'publish_disabled' | 'publish_ready'>(() => {
@@ -1042,6 +1062,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     if (job.status === 'success') {
       this.lastTestedImage.set(this.dockerImage().trim());
       this.lastTestedRam.set(this.baseRamMB());
+      this.lastTestedTools.set([...this.toolsList()].sort());
+      this.lastTestedSetupScript.set(this.setupScript().trim());
+      this.lastTestedEntrypoint.set(this.entrypoint().trim());
       const toolsSummary = job.result?.tools?.map(t => `${t.name}: ${t.version || (t.present ? 'OK' : 'MISSING')}`).join('\n') || '';
       this.smokeTestOutput.set(toolsSummary);
     }

@@ -82,6 +82,27 @@ func DeriveResourceProfile(baseRamMB int) TemplateResourceProfile {
 	}
 }
 
+var (
+	ErrRamExceedsHostCapacity = errors.New("la memoria asignada supera el techo permitido por el host")
+)
+
+// CalculateHostMaxAllowedRAM deriva el techo estructural de RAM asignable (75% de la RAM física total, mín 512 MB).
+func CalculateHostMaxAllowedRAM(totalHostMB int) int {
+	maxAllowed := int(float64(totalHostMB) * 0.75)
+	if maxAllowed < 512 {
+		return 512
+	}
+	return maxAllowed
+}
+
+// ValidateRamAgainstHost valida que la memoria solicitada no supere el techo máximo del host.
+func ValidateRamAgainstHost(baseRamMB, maxAllowedMB int) error {
+	if maxAllowedMB > 0 && baseRamMB > maxAllowedMB {
+		return fmt.Errorf("%w: base_ram_mb=%d supera max_allowed_ram_mb=%d", ErrRamExceedsHostCapacity, baseRamMB, maxAllowedMB)
+	}
+	return nil
+}
+
 // ReassignCourseDTO DTO para reasignar la titularidad de una materia (ADR-036)
 type ReassignCourseDTO struct {
 	NewTeacherID string `json:"new_teacher_id" validate:"required"`

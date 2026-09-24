@@ -518,6 +518,10 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 
 	item, err := h.govService.ReviewTemplate(r.Context(), tenantID, templateID, adminID, dto)
 	if err != nil {
+		if errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+			SendError(w, http.StatusBadRequest, "ram_exceeds_host", err.Error())
+			return
+		}
 		if errors.Is(err, services.ErrInvalidReviewStatus) || errors.Is(err, services.ErrRejectionReasonRequired) {
 			SendError(w, http.StatusUnprocessableEntity, "validation_failed", err.Error())
 			return
@@ -589,6 +593,10 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		if errors.Is(err, domain.ErrTemplateNameConflict) {
 			SendError(w, http.StatusConflict, "template_exists", "Ya existe una plantilla con este nombre")
+			return
+		}
+		if errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+			SendError(w, http.StatusBadRequest, "ram_exceeds_host", err.Error())
 			return
 		}
 		status := http.StatusInternalServerError

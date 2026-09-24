@@ -483,4 +483,67 @@ func TestAdminGovernanceService_GetImageUsageCounts(t *testing.T) {
 	}
 }
 
+func TestValidateRamAgainstHost(t *testing.T) {
+	// Techo mínimo 512 MB incluso si host es muy chico
+	ceilingLow := domain.CalculateHostMaxAllowedRAM(400)
+	if ceilingLow != 512 {
+		t.Errorf("esperado 512 MB de techo mínimo, obtenido: %d", ceilingLow)
+	}
+
+	// Host 16 GB (16384 MB) -> 75% = 12288 MB
+	ceilingNormal := domain.CalculateHostMaxAllowedRAM(16384)
+	if ceilingNormal != 12288 {
+		t.Errorf("esperado 12288 MB para host de 16 GB, obtenido: %d", ceilingNormal)
+	}
+
+	// Dentro del límite
+	if err := domain.ValidateRamAgainstHost(2048, ceilingNormal); err != nil {
+		t.Errorf("error inesperado validando RAM válida: %v", err)
+	}
+
+	// Supera el límite
+	if err := domain.ValidateRamAgainstHost(15000, ceilingNormal); !errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+		t.Errorf("esperado ErrRamExceedsHostCapacity, obtenido: %v", err)
+	}
+}
+
+func TestCreateOfficialTemplate_RamExceedsHost(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.CreateOfficialTemplateDTO{
+		Name:        "Template Con Mucha RAM",
+		DockerImage: "python:3.12-slim",
+		BaseRamMB:   9999999, // Supera cualquier host físico razonable
+	}
+
+	_, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dto)
+	if err == nil {
+		t.Fatal("esperaba error por RAM que excede el host, pero no falló")
+	}
+	if !errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+		t.Fatalf("esperado ErrRamExceedsHostCapacity, obtenido: %v", err)
+	}
+}
+
+func TestReviewTemplate_RamExceedsHost(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	excessiveRam := 9999999
+	dto := domain.ReviewTemplateDTO{
+		Status:    "approved",
+		BaseRamMB: &excessiveRam,
+	}
+
+	_, err := svc.ReviewTemplate(context.Background(), "tenant-1", "tpl-123", "admin-1", dto)
+	if err == nil {
+		t.Fatal("esperaba error por RAM que excede el host, pero no falló")
+	}
+	if !errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+		t.Fatalf("esperado ErrRamExceedsHostCapacity, obtenido: %v", err)
+	}
+}
+
+
 

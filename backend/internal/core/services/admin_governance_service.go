@@ -157,7 +157,23 @@ func (s *AdminGovernanceService) ReviewTemplate(
 		dbStatus = "PENDIENTE_AUDITORIA"
 	}
 
+	if dto.BaseRamMB != nil && *dto.BaseRamMB > 0 {
+		totalHostMB := s.getHostTotalRAM(ctx)
+		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+		if err := domain.ValidateRamAgainstHost(*dto.BaseRamMB, maxAllowedRAM); err != nil {
+			return nil, err
+		}
+	}
+
 	return s.govRepo.ReviewTemplate(ctx, tenantID, templateID, adminID, dbStatus, dto.RejectionReason, dto.BaseRamMB)
+}
+
+func (s *AdminGovernanceService) getHostTotalRAM(ctx context.Context) int {
+	totalMB := 8192
+	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
+		totalMB = int(v.Total / (1024 * 1024))
+	}
+	return totalMB
 }
 
 var (
@@ -202,6 +218,12 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		dto.BaseRamMB = 512
 	} else if dto.BaseRamMB < 256 {
 		dto.BaseRamMB = 256
+	}
+
+	totalHostMB := s.getHostTotalRAM(ctx)
+	maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+	if err := domain.ValidateRamAgainstHost(dto.BaseRamMB, maxAllowedRAM); err != nil {
+		return nil, err
 	}
 
 	if dto.ServicesConfig == nil {

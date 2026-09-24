@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"solv-backend/internal/core/domain"
 )
@@ -163,6 +164,34 @@ func (w *TemplateAuditWorker) reconcilePending(ctx context.Context) {
 
 // AuditTemplate ejecuta el smoke test de herramientas y el escaneo de vulnerabilidades Trivy
 func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.AdminTemplateReviewItem) error {
+	// Pre-chequeo: Techo estructural de RAM contra el host (falla rápido antes del contenedor efímero)
+	if item.BaseRamMB > 0 {
+		totalHostMB := 8192
+		if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
+			totalHostMB = int(v.Total / (1024 * 1024))
+		}
+		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+		if err := domain.ValidateRamAgainstHost(item.BaseRamMB, maxAllowedRAM); err != nil {
+			smokeStatus := "failed"
+			smokeOutput := fmt.Sprintf("ram_exceeds_host: memoria declarada (%d MB) supera el techo permitido por el host (%d MB)", item.BaseRamMB, maxAllowedRAM)
+			secStatus := "skipped"
+			reportJSON := json.RawMessage(`{"error": "ram_exceeds_host"}`)
+			finalStatus := "RECHAZADA"
+			_ = w.govRepo.UpdateAuditResults(
+				ctx,
+				item.ID,
+				smokeStatus,
+				smokeOutput,
+				secStatus,
+				0,
+				0,
+				reportJSON,
+				finalStatus,
+			)
+			return err
+		}
+	}
+
 	// Paso 1: Smoke Test efímero de herramientas declaradas (B-02)
 	smokeStatus, smokeOutput := w.runSmokeTest(ctx, item)
 
