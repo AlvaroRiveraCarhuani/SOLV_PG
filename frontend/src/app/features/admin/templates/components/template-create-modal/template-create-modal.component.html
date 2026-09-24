@@ -317,7 +317,7 @@
                   </tr>
                   <tr>
                     <td><strong>Servicios</strong></td>
-                    <td>Admite satélites (BDs)</td>
+                    <td>Admite bases de datos adicionales</td>
                     <td>Aislado estrictamente</td>
                   </tr>
                   <tr>
@@ -373,7 +373,7 @@
                 <strong>Tiempo límite (<code>timeout_ms</code>):</strong> Control estricto del cgroup de CPU. Si el proceso excede este límite, el sandbox lo termina con señal <code>SIGKILL</code> y emite veredicto TLE (*Time Limit Exceeded*).
               </p>
               <p class="drawer-text">
-                <strong>Entrada estándar (<code>sample_input</code>):</strong> Flujo de entrada stdin opcional inyectado automáticamente en la prueba preliminar de sanidad (*smoke test*).
+                <strong>Entrada estándar (<code>sample_input</code>):</strong> Flujo de entrada stdin opcional inyectado automáticamente en la prueba preliminar de arranque (*prueba de arranque*).
               </p>
             }
           }
@@ -386,11 +386,11 @@
               <strong>Consumo Base del Editor:</strong> En entornos IDE persistentes, el motor OpenVSCode Server y servicios auxiliares consumen aproximadamente 210 MB de base. El resto queda disponible para compiladores y terminal.
             </p>
             <p class="drawer-text">
-              <strong>Aislamiento de Servicios Satélite:</strong> Las bases de datos satélite (PostgreSQL, MySQL) se ejecutan en contenedores independientes acoplados con límites propios, sin restar cuota de RAM al contenedor principal.
+              <strong>Aislamiento de bases de datos adicionales:</strong> Las bases de datos adicionales (PostgreSQL, MySQL) se ejecutan en contenedores independientes acoplados con límites propios, sin restar cuota de RAM al contenedor principal.
             </p>
           }
           @case ('verification') {
-            <h6 class="drawer-section-heading">Smoke Test y Criterios de Aprobación</h6>
+            <h6 class="drawer-section-heading">Prueba de Arranque y Criterios de Aprobación</h6>
             <p class="drawer-text">
               <strong>Comprobación de Integridad:</strong> El sistema descarga la imagen (si no es local) y levanta un contenedor efímero aislado para confirmar la presencia y versión de todas las herramientas declaradas.
             </p>

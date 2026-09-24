@@ -429,7 +429,7 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
     });
   });
 
-  describe('Regla stale de Smoke Test e Invalidación', () => {
+  describe('Regla stale de Prueba de Arranque e Invalidación', () => {
     const mockSuccessJob: any = {
       id: 'job-ok-1',
       image: 'python:3.12-slim-bookworm',

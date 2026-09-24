@@ -276,7 +276,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     return 'Borrador sin guardar';
   });
 
-  // Rastreo de regla stale para smoke test (Imagen, RAM, Herramientas, Script de inicio y Entrypoint)
+  // Rastreo de regla stale para prueba de arranque (Imagen, RAM, Herramientas, Script de inicio y Entrypoint)
   lastTestedImage = signal<string>('');
   lastTestedRam = signal<number>(0);
   lastTestedTools = signal<string[]>([]);
@@ -422,7 +422,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       case 'image': return 'Imágenes OCI y Seguridad';
       case 'execution': return 'Parámetros de Ejecución';
       case 'resources': return 'Recursos de Hardware';
-      case 'verification': return 'Verificación y Smoke Test';
+      case 'verification': return 'Verificación y prueba de arranque';
       default: return 'Ayuda del Asistente';
     }
   });

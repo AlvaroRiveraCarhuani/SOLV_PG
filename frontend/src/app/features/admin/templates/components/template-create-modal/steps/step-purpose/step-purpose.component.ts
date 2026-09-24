@@ -54,7 +54,7 @@ import { TargetEnvironment } from '../../../../../services/admin-templates.servi
         </div>
         <h5 class="purpose-card-title" i18n="@@PU-02">Laboratorio Interactivo (IDE Persistente)</h5>
         <p class="purpose-card-desc" i18n="@@PU-03">
-          Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite.
+          Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos adicionales.
         </p>
         <div class="purpose-tags-list">
           <span class="purpose-tag">OpenVSCode</span>

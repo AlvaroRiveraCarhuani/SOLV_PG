@@ -49,7 +49,7 @@ export interface SuboptimalWarning {
     <div class="verification-step-container">
       <div class="step-header-with-help mb-3">
         <h4 class="step-section-title" id="step-title-verification" tabindex="-1" i18n="@@PU-21-HEADING">
-          Verificación y smoke test
+          Verificación y prueba de arranque
         </h4>
         <button 
           type="button" 
@@ -112,7 +112,7 @@ export interface SuboptimalWarning {
           </p>
         </div>
 
-        <!-- Panel expandible de logs del smoke test -->
+        <!-- Panel expandible de logs de prueba de arranque -->
         @if (activeEnvTestJob()) {
           <div class="logs-toggle-row mt-3">
             <button 
@@ -144,7 +144,7 @@ export interface SuboptimalWarning {
           @if (showLogs()) {
             <div class="logs-panel-box animate-fade mt-2">
               <div class="logs-panel-header">
-                <span class="logs-panel-title">Salida del Smoke Test (Vista previa)</span>
+                <span class="logs-panel-title">Salida de la prueba de arranque (vista previa)</span>
                 <button 
                   type="button" 
                   class="btn-link-action" 
@@ -262,7 +262,7 @@ export interface SuboptimalWarning {
             <div class="logs-modal-header">
               <div class="logs-modal-title-wrap">
                 <svg lucideTerminal class="w-4 h-4 text-primary mr-2"></svg>
-                <h5 class="logs-modal-title">Registro Completo de Ejecución (Smoke Test)</h5>
+                <h5 class="logs-modal-title" i18n="@@PU-22">Registro Completo de Ejecución (Prueba de Arranque)</h5>
               </div>
               <button type="button" class="btn-icon-close" (click)="closeFullLogsModal()" aria-label="Cerrar visor de logs">
                 <svg lucideX class="w-4 h-4"></svg>
@@ -375,7 +375,7 @@ export class SolvStepVerificationComponent {
     }
 
     const lines: string[] = [];
-    lines.push(`=== SOLV SMOKE TEST RUNNER ===`);
+    lines.push(`=== SOLV PRUEBA DE ARRANQUE ===`);
     lines.push(`ID: ${job.id}`);
     lines.push(`Imagen: ${job.image}`);
     lines.push(`Entorno: ${job.target_environment || this.targetEnvironment()}`);

@@ -106,7 +106,7 @@ describe('SolvStepVerificationComponent', () => {
     expect(component.isFullLogsModalOpen()).toBe(true);
     const modal = fixture.nativeElement.querySelector('.full-logs-modal-card');
     expect(modal).toBeTruthy();
-    expect(modal.textContent).toContain('SOLV SMOKE TEST RUNNER');
+    expect(modal.textContent).toContain('SOLV PRUEBA DE ARRANQUE');
     expect(modal.textContent).toContain('Python 3.12.2');
 
     // Botones de copiar y descargar presentes

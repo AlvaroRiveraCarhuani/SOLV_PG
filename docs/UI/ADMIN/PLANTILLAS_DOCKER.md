@@ -185,7 +185,7 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
      - `min_mb = base_ram_mb / 2` (memoria garantizada de cgroups v2 `memory.min`)
      - `high_mb = base_ram_mb * 1.5` (umbral de throttling de cgroups v2 `memory.high`)
      - `max_mb = base_ram_mb * 2` (límite duro de cgroups v2 `memory.max`)
-   - Las pruebas de entorno (smoke test) en el worker de auditoría se configuran utilizando `base_ram_mb` (con piso de 256 MB) para respetar exactamente la cuota definida.
+   - Las pruebas de entorno (prueba de arranque) en el worker de auditoría se configuran utilizando `base_ram_mb` (con piso de 256 MB) para respetar exactamente la cuota definida.
 2. **Validación de Imagen en Registro:**
    - Antes de completar la aprobación, el backend efectúa un sondeo al registro o daemon local para certificar que el repositorio y tag especificados existen y son públicamente descargables o locales.
 3. **Inmutabilidad y Deprecación Suave:**
@@ -202,7 +202,7 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
    - Transición `PENDIENTE_AUDITORIA` -> `RECHAZADA`:
      - Requiere justificación técnica obligatoria de al menos 10 caracteres, visible para el docente.
    - Transición `SUSPENDIDA` -> `APROBADA` (Reactivación):
-     - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (smoke test) y auditoría CVE sin vulnerabilidades críticas.
+     - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (prueba de arranque) y auditoría CVE sin vulnerabilidades críticas.
 6. **Cómputo de Uso Institucional de Imágenes OCI:**
    - Para evitar métricas distorsionadas, el conteo de uso de una imagen (`usage_count` y `usage_map`) considera únicamente plantillas que fueron efectivamente válidas u operativas.
    - **Exclusión explícita:** Las plantillas con estado `RECHAZADA` nunca llegaron a desplegar un laboratorio ni workspace docente, por lo que quedan estrictamente excluidas del conteo (`WHERE status != 'RECHAZADA'`).
@@ -365,7 +365,7 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | :--- | :--- | :--- |
 | `PU-01` | "Propósito del entorno" | Título del Paso 1 del stepper |
 | `PU-02` | "Laboratorio Interactivo (IDE Persistente)" | Título tarjeta de propósito IDE |
-| `PU-03` | "Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite." | Descripción tarjeta IDE |
+| `PU-03` | "Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos adicionales." | Descripción tarjeta IDE |
 | `PU-04` | "Juez Virtual (Sandbox Algorítmico)" | Título tarjeta de propósito Juez |
 | `PU-05` | "Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos." | Descripción tarjeta Juez |
 | `PU-06` | "Confirmar cambio de propósito" | Título diálogo de confirmación de propósito |
@@ -376,7 +376,7 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-11` | "≈ {$INTERPOLATION} evaluaciones concurrentes estimadas en este host" | Métrica viva de capacidad para Juez Virtual |
 | `PU-12` | "No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco." | Estado vacío de modelos para Juez |
 | `PU-13` | "Completá el nombre y comando de ejecución para habilitar el guardado" | Tooltip en botón guardar borrador deshabilitado en Juez |
-| `PU-14` | "Los entornos de juez virtual no utilizan servicios satélite desacoplados." | Mensaje informativo en Paso 5 para Juez |
+| `PU-14` | "Los entornos de juez virtual no utilizan bases de datos adicionales." | Mensaje informativo en Paso 5 para Juez |
 | `PU-15` | "Comando de ejecución obligatorio para plantillas de juez virtual." | Validación de entrypoint en Juez |
 | `PU-16` | "Anterior" | Botón de navegación anterior en stepper |
 | `PU-17` | "Siguiente" | Botón de navegación siguiente en stepper |
@@ -384,7 +384,8 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-19` | "Imagen" | Título corto en tab 3 del stepper |
 | `PU-20` | "Ejecución" | Título corto en tab 4 del stepper |
 | `PU-21` | "Verificación" | Título corto en tab 6 del stepper |
-| `PU-22` | "Registro Completo de Ejecución (Smoke Test)" | Título del modal de logs completos |
+| `PU-21-HEADING` | "Verificación y prueba de arranque" | Título del Paso 6 del stepper |
+| `PU-22` | "Registro Completo de Ejecución (Prueba de Arranque)" | Título del modal de logs completos |
 | `PU-23` | "Copiar log" | Acción para copiar salida de prueba al portapapeles |
 | `PU-24` | "Descargar log (.txt)" | Acción para descargar archivo de log |
 | `PU-25` | "Ver log completo" | Botón para abrir modal de registro de ejecución |
@@ -392,8 +393,9 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-27` | "Descartar borrador" | Botón de descarte explícito de borrador |
 | `PU-28` | "Prueba obsoleta: la configuración cambió" | Mensaje de advertencia por regla stale |
 | `PU-29` | "Excede la capacidad del host en {$EXCESS} MB (máximo permitido: {$MAX} MB)." | Error inline de techo estructural de RAM |
-| `PU-30` | "No disponible en este host" | Badge en servicio satélite no provisto por el host |
-| `PU-31` | "Opcional" | Badge en servicio satélite disponible no obligatorio |
+| `PU-30` | "No disponible en este host" | Badge en base de datos adicional no provista por el host |
+| `PU-31` | "Opcional" | Badge en base de datos adicional disponible no obligatoria |
+| `PU-32` | "Bases de datos adicionales (opcional):" | Label de sección de bases de datos en Paso 5 |
 
 #### Familia AY-* (Ayuda Contextual, Accesibilidad por Teclado y Combobox)
 
