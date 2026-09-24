@@ -150,7 +150,7 @@ import {
       
       <div class="tools-suggested-chips mt-2">
         <span class="chips-label" i18n="@@AY-15">
-          {{ hasImageFamilyMatch() ? 'Herramientas sugeridas para esta imagen:' : 'Herramientas sugeridas para este propósito:' }}
+          {{ hasImageFamilyMatch() ? 'Sugerencias según la imagen elegida:' : 'Sugerencias según el propósito:' }}
         </span>
         <div class="chips-row">
           @for (tool of reactiveSuggestedTools(); track tool) {
@@ -261,6 +261,7 @@ export class SolvStepImageComponent {
     'python': ['python3', 'pip', 'pytest'],
     'node': ['node', 'npm', 'npx'],
     'golang': ['go', 'gofmt'],
+    'go:': ['go', 'gofmt'],
     'gcc': ['gcc', 'g++', 'make'],
     'eclipse-temurin': ['javac', 'java', 'jar'],
     'openjdk': ['javac', 'java', 'jar'],

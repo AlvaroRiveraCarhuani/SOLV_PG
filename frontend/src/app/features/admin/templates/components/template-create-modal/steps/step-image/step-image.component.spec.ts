@@ -79,4 +79,27 @@ describe('SolvStepImageComponent', () => {
     component.addTool('pip');
     expect(updatedTools).toBe('python3, pip');
   });
+
+  it('debe mostrar la etiqueta reactiva y chips de familia Go con imagen golang:1.23-alpine', () => {
+    fixture.componentRef.setInput('dockerImage', 'golang:1.23-alpine');
+    fixture.detectChanges();
+
+    expect(component.hasImageFamilyMatch()).toBe(true);
+    expect(component.reactiveSuggestedTools()).toEqual(['go', 'gofmt']);
+
+    const label = fixture.nativeElement.querySelector('.chips-label');
+    expect(label.textContent).toContain('Sugerencias según la imagen elegida:');
+  });
+
+  it('debe mostrar la etiqueta de fallback por propósito cuando la imagen no tiene familia conocida', () => {
+    fixture.componentRef.setInput('dockerImage', '');
+    fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
+    fixture.detectChanges();
+
+    expect(component.hasImageFamilyMatch()).toBe(false);
+    expect(component.reactiveSuggestedTools()).toEqual(['python3', 'node', 'gcc']);
+
+    const label = fixture.nativeElement.querySelector('.chips-label');
+    expect(label.textContent).toContain('Sugerencias según el propósito:');
+  });
 });

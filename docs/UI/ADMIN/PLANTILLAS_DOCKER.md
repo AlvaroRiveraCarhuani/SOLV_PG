@@ -403,8 +403,11 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `AY-12` | "{count, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}" | Chip de uso institucional real en opciones del combobox |
 | `AY-13` | "Anatomía de una referencia de imagen Docker" | Título del popover de descomposición visual de imagen |
 | `AY-14` | "El tag :latest está prohibido por reproducibilidad y gobernanza." | Texto explicativo en popover de imagen |
-| `AY-15` | "Ejemplos sugeridos para este propósito:" | Label para chips clickeables de herramientas requeridas |
+| `AY-15` | "Sugerencias según el propósito:" | Label para chips clickeables de herramientas cuando no hay familia detectada |
 | `AY-16` | "Comparativa de Entornos: IDE Persistente vs Juez Virtual" | Título de tabla comparativa en drawer de ayuda (Paso 1) |
 | `AY-17` | "Cerrar panel de ayuda" | Aria-label del botón cerrar del drawer lateral de ayuda |
+| `AY-18` | "Sugerencias según la imagen elegida:" | Label reactivo para chips clickeables cuando se detecta familia de imagen |
+| `AY-19` | "Los modelos se originan a partir de plantillas aprobadas promovidas desde el catálogo institucional o de entornos base predeterminados." | Línea informativa en la puerta Desde modelo |
+| `AY-20` | "Ver detalles de promoción en el manual" | Enlace al manual para promoción de plantillas a modelos |
 
 
