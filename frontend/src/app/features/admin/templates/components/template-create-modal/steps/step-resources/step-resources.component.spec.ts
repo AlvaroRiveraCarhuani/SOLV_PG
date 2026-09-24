@@ -19,12 +19,30 @@ describe('SolvStepResourcesComponent', () => {
     },
     {
       category: 'database',
+      engine: 'mysql',
+      label: 'MySQL',
+      version: '8.4',
+      description: 'MySQL aislada',
+      envVar: 'DATABASE_URL',
+      isAvailable: true
+    },
+    {
+      category: 'database',
       engine: 'mongodb',
       label: 'MongoDB',
       version: '7.0',
       description: 'MongoDB NoSQL',
       envVar: 'MONGODB_URI',
       isAvailable: false
+    },
+    {
+      category: 'cache',
+      engine: 'redis',
+      label: 'Redis',
+      version: '7.2',
+      description: 'Redis en memoria',
+      envVar: 'REDIS_URL',
+      isAvailable: true
     }
   ];
 
@@ -58,7 +76,7 @@ describe('SolvStepResourcesComponent', () => {
 
   it('debe mostrar servicios satélite diferenciando disponibles de no disponibles', () => {
     const cards = fixture.nativeElement.querySelectorAll('.service-card');
-    expect(cards.length).toBe(2);
+    expect(cards.length).toBe(4);
 
     // Postgres disponible
     const postgresCard = cards[0];
@@ -66,7 +84,7 @@ describe('SolvStepResourcesComponent', () => {
     expect(postgresCard.querySelector('.badge-optional')).toBeTruthy();
 
     // MongoDB no disponible
-    const mongoCard = cards[1];
+    const mongoCard = cards[2];
     expect(mongoCard.classList.contains('disabled')).toBe(true);
     const unavailableBadge = mongoCard.querySelector('.badge-unavailable');
     expect(unavailableBadge).toBeTruthy();
@@ -78,7 +96,7 @@ describe('SolvStepResourcesComponent', () => {
     let emittedServices: any[] | null = null;
     component.selectedServicesChange.subscribe(s => emittedServices = s);
 
-    component.toggleService(mockServices[1]); // MongoDB isAvailable: false
+    component.toggleService(mockServices[2]); // MongoDB isAvailable: false
     expect(emittedServices).toBeNull();
   });
 
@@ -90,6 +108,27 @@ describe('SolvStepResourcesComponent', () => {
     expect(emittedServices).toBeTruthy();
     expect(emittedServices!.length).toBe(1);
     expect(emittedServices![0].engine).toBe('postgres');
+  });
+
+  it('selección única relacional: elegir MySQL deselecciona PostgreSQL manteniendo servicios no relacionales', () => {
+    // Estado inicial: PostgreSQL y Redis seleccionados
+    fixture.componentRef.setInput('selectedServices', [
+      { category: 'database', engine: 'postgres', version: '16' },
+      { category: 'cache', engine: 'redis', version: '7.2' }
+    ]);
+    fixture.detectChanges();
+
+    let emittedServices: any[] = [];
+    component.selectedServicesChange.subscribe(s => emittedServices = s);
+
+    // Usuario hace clic en MySQL (mockServices[1])
+    component.toggleService(mockServices[1]);
+
+    expect(emittedServices.length).toBe(2);
+    const engines = emittedServices.map(s => s.engine);
+    expect(engines).toContain('mysql');
+    expect(engines).toContain('redis');
+    expect(engines).not.toContain('postgres');
   });
 
   it('debe emitir helpRequested al presionar el botón de ayuda contextual', () => {

@@ -324,16 +324,23 @@ export class SolvStepResourcesComponent {
     return this.selectedServices().some(s => s.engine === engine);
   }
 
+  readonly RELATIONAL_ENGINES = ['postgres', 'mysql'];
+
   toggleService(service: AvailableSatelliteService): void {
     if (service.isAvailable === false) {
       return;
     }
 
-    const current = [...this.selectedServices()];
-    const idx = current.findIndex(s => s.engine === service.engine);
-    if (idx >= 0) {
-      current.splice(idx, 1);
+    const isRelational = this.RELATIONAL_ENGINES.includes(service.engine);
+    let current = [...this.selectedServices()];
+    const isAlreadySelected = current.some(s => s.engine === service.engine);
+
+    if (isAlreadySelected) {
+      current = current.filter(s => s.engine !== service.engine);
     } else {
+      if (isRelational) {
+        current = current.filter(s => !this.RELATIONAL_ENGINES.includes(s.engine));
+      }
       current.push({
         category: service.category,
         engine: service.engine,
