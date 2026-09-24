@@ -463,6 +463,37 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(component.isEnvTestStale()).toBe(false);
     });
   });
+
+  describe('Autoguardado silencioso y Footer contextual', () => {
+    it('debe actualizar autosaveStatus y lastSavedTime tras guardar borrador', () => {
+      component.name.set('Plantilla Test');
+      component.dockerImage.set('python:3.12-slim-bookworm');
+      component.saveDraft();
+
+      expect(component.autosaveStatus()).toBe('saved');
+      expect(component.lastSavedTime()).toBeTruthy();
+      expect(component.autosaveIndicator()).toContain('Borrador guardado');
+    });
+
+    it('openPublishDialog debe guardar borrador implícitamente antes de abrir diálogo', () => {
+      let saved = false;
+      const originalSave = (component as any).saveDraftToStorage.bind(component);
+      (component as any).saveDraftToStorage = () => {
+        saved = true;
+        originalSave();
+      };
+
+      component.isDraftSaved.set(true);
+      component.activeEnvTestJob.set({ id: 'j1', status: 'success' } as any);
+      component.dockerImage.set('python:3.12-slim-bookworm');
+      component.lastTestedImage.set('python:3.12-slim-bookworm');
+      component.lastTestedRam.set(component.baseRamMB());
+
+      component.openPublishDialog();
+      expect(saved).toBe(true);
+      expect(component.showPublishDialog()).toBe(true);
+    });
+  });
 });
 
 

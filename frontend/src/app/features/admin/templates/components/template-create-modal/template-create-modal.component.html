@@ -400,16 +400,18 @@
       </solv-help-drawer>
     </div>
 
-    <!-- Footer de Acciones Estructurado con 5 Botones -->
+    <!-- Footer y Navegación Inferior -->
     <div class="modal-footer">
       <div class="footer-left">
         <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting()">
           Cancelar
         </button>
-        <span class="footer-keyboard-hint">Tab para navegar · Enter para continuar · Esc para cerrar paneles</span>
+        <span class="autosave-status-badge font-mono" [class.saving]="autosaveStatus() === 'saving'">
+          {{ autosaveIndicator() }}
+        </span>
       </div>
 
-      <div class="footer-center-nav">
+      <div class="footer-right-actions">
         <button 
           type="button" 
           class="btn btn-outline-secondary btn-sm" 
@@ -419,43 +421,30 @@
           <svg lucideArrowLeft class="w-3.5 h-3.5 mr-1"></svg>
           <span i18n="@@PU-16">Anterior</span>
         </button>
+
         <button 
           type="button" 
-          class="btn btn-outline-secondary btn-sm" 
-          [disabled]="!canGoNext()"
-          (click)="nextSection()"
+          class="btn btn-outline-primary btn-sm" 
+          [disabled]="!canSaveDraft()"
+          [title]="saveDraftDisabledTooltip()"
+          (click)="saveDraftManually()"
         >
-          <span i18n="@@PU-17">Siguiente</span>
-          <svg lucideArrowRight class="w-3.5 h-3.5 ml-1"></svg>
+          <svg lucideSave class="w-3.5 h-3.5 mr-1"></svg>
+          <span i18n="@@ST-07">Guardar borrador</span>
         </button>
-      </div>
 
-      <div class="footer-right-actions">
-        <!-- Estado 1: Sin borrador guardado -> Primario es Guardar borrador -->
-        @if (footerActionState() === 'save_draft') {
+        <!-- Botón primario contextual: Siguiente en pasos 1-5, Publicar en paso 6 -->
+        @if (activeSection() !== 'verification') {
           <button 
             type="button" 
             class="btn btn-primary" 
-            [disabled]="!canSaveDraft()"
-            [title]="saveDraftDisabledTooltip()"
-            (click)="saveDraftManually()"
+            [disabled]="!canGoNext()"
+            (click)="nextSection()"
           >
-            <svg lucideSave class="w-4 h-4 mr-2"></svg>
-            <span i18n="@@ST-07">Guardar borrador</span>
+            <span i18n="@@PU-17">Siguiente</span>
+            <svg lucideArrowRight class="w-4 h-4 ml-1"></svg>
           </button>
         } @else {
-          <!-- Estado 2 o 3: Borrador guardado -> Secundario Guardar borrador + Primario Publicar -->
-          <button 
-            type="button" 
-            class="btn btn-outline-primary" 
-            [disabled]="!canSaveDraft()"
-            [title]="saveDraftDisabledTooltip()"
-            (click)="saveDraftManually()"
-          >
-            <svg lucideSave class="w-4 h-4 mr-2"></svg>
-            <span i18n="@@ST-07">Guardar borrador</span>
-          </button>
-
           @if (footerActionState() === 'publish_disabled') {
             <button 
               type="button" 
@@ -463,8 +452,8 @@
               disabled
               [title]="publishDisabledReason()"
             >
-              <svg lucideSend class="w-4 h-4 mr-2"></svg>
-              <span>Publicar plantilla</span>
+              <svg lucideSend class="w-4 h-4 mr-1"></svg>
+              <span>Publicar</span>
             </button>
           } @else {
             <button 
@@ -473,8 +462,8 @@
               (click)="openPublishDialog()"
               title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
             >
-              <svg lucideSend class="w-4 h-4 mr-2"></svg>
-              <span>Publicar plantilla</span>
+              <svg lucideSend class="w-4 h-4 mr-1"></svg>
+              <span>Publicar</span>
             </button>
           }
         }

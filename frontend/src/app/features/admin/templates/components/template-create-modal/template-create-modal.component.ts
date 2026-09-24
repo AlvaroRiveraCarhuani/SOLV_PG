@@ -262,8 +262,21 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       this.selectedServices().length > 0;
   });
 
-  // Estado de borrador guardado
+  // Estado de borrador guardado y autoguardado silencioso (Objetivo 5)
   isDraftSaved = signal<boolean>(false);
+  autosaveStatus = signal<'idle' | 'saving' | 'saved'>('idle');
+  lastSavedTime = signal<string | null>(null);
+
+  autosaveIndicator = computed<string>(() => {
+    if (this.autosaveStatus() === 'saving') {
+      return 'Guardando borrador...';
+    }
+    const t = this.lastSavedTime();
+    if (t) {
+      return `Borrador guardado · ${t}`;
+    }
+    return 'Borrador sin guardar';
+  });
 
   // Rastreo de regla stale para smoke test (Objetivo 6)
   lastTestedImage = signal<string>('');
@@ -322,6 +335,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   private dockerRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$/;
 
   private imageDebounce$ = new Subject<string>();
+  private formAutoSave$ = new Subject<void>();
   private sub = new Subscription();
 
   constructor() {
@@ -480,6 +494,16 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
           this.verificationState.set('idle');
           this.verificationResult.set(null);
           this.verificationError.set(null);
+        }
+      })
+    );
+
+    this.sub.add(
+      this.formAutoSave$.pipe(
+        debounceTime(1500)
+      ).subscribe(() => {
+        if (this.isFormDirty()) {
+          this.saveDraftToStorage();
         }
       })
     );
@@ -800,11 +824,18 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       smokeTestOutput: this.smokeTestOutput(),
       updatedAt: new Date().toISOString()
     };
+    this.autosaveStatus.set('saving');
     this.templatesService.saveDraft(draft).subscribe({
       next: () => {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        this.lastSavedTime.set(`${hh}:${mm}`);
+        this.autosaveStatus.set('saved');
         this.isDraftSaved.set(true);
       },
       error: (err) => {
+        this.autosaveStatus.set('idle');
         console.error('Error saving draft to backend:', err);
       }
     });
@@ -1020,26 +1051,32 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   onSetupScriptChange(script: string): void {
     this.setupScript.set(script);
+    this.formAutoSave$.next();
   }
 
   onEntrypointChange(ep: string): void {
     this.entrypoint.set(ep);
+    this.formAutoSave$.next();
   }
 
   onTimeoutMSChange(ms: number): void {
     this.timeoutMS.set(ms);
+    this.formAutoSave$.next();
   }
 
   onSampleInputChange(sample: string): void {
     this.sampleInput.set(sample);
+    this.formAutoSave$.next();
   }
 
   onBaseRamChange(ram: number): void {
     this.baseRamMB.set(ram);
+    this.formAutoSave$.next();
   }
 
   onSelectedServicesChange(services: ServiceRequirement[]): void {
     this.selectedServices.set(services);
+    this.formAutoSave$.next();
   }
 
   triggerEnvTest(): void {
