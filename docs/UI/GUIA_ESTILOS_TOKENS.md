@@ -56,15 +56,15 @@ Las propiedades `font-size` y `font-family` deben usar exclusivamente tokens CSS
    - Error / WA / RE: Rojo semántico (`#DC2626`, `--color-error`).
    - Neutro / Hibernated: Gris semántico (`#64748B`, `--color-neutral`).
 
+3. **Gate de Colores en Stylelint (`color-no-hex: true`):**
+   - Regla activa en `.stylelintrc.json` que prohíbe el uso de códigos hexadecimales literales en el SCSS de componentes.
+   - Valores permitidos para color: `var(--tenant-*)`, `var(--color-*)`, `var(--border-color)`, `transparent` y `currentColor`.
+
 ---
 
 ## 4. Política de Archivos Legacy e Ignore-List
 
-Los componentes históricos de administración que aún no han sido abordados por refactorización modular se encuentran aislados temporalmente en el archivo `.stylelintrc.json`:
-- `src/app/features/admin/courses/**`
-- `src/app/features/admin/dashboard/**`
-- `src/app/features/admin/students/**`
-- `src/app/features/admin/teachers/**`
-- `src/app/features/auth/**`
+Los componentes históricos de administración que aún poseen colores hex pendientes de migración se encuentran aislados temporalmente en el archivo `.stylelintignore`, cada uno con su respectivo comentario `// TODO: salir de la lista exige limpiar el archivo en el mismo PR`.
 
-**Regla de salida:** Cuando un módulo entre en su respectivo ciclo de refactorización, debe sanearse y eliminarse de la lista de ignorados en el mismo PR. Ningún archivo nuevo puede sumarse a la ignore-list.
+**Regla de salida:** Cuando un componente o módulo sea modificado o refactorizado, debe sanearse y eliminarse de `.stylelintignore` en el mismo PR. Todo archivo nuevo nace cumpliendo estrictamente sin poder ser añadido a la ignore-list.
+

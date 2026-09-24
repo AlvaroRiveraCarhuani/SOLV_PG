@@ -1,6 +1,7 @@
 {
   "extends": "stylelint-config-standard-scss",
   "rules": {
+    "color-no-hex": true,
     "no-empty-source": null,
     "color-hex-length": null,
     "alpha-value-notation": null,

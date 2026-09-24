@@ -1,0 +1,64 @@
+# Ignore-list inicial generada desde censo fresca de colores hex
+# REGLA: Cada entrada requiere salir de la lista al limpiar el archivo en el mismo PR.
+# Los archivos nuevos deben nacer cumpliendo sin entrar a esta lista.
+
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/courses/components/course-create-modal/course-create-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/courses/components/course-reassign-modal/course-reassign-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/courses/components/period-manage-modal/period-manage-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/courses/admin-courses.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/dashboard/components/course-modal/course-workspaces-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/dashboard/admin-dashboard.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/students/components/student-courses-modal/student-courses-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/students/components/student-create-modal/student-create-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/students/components/student-reset-oom-modal/student-reset-oom-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/students/admin-students.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/teachers/components/teacher-invite-modal/teacher-invite-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/teachers/admin-teachers.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/manual/admin-manual.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/env-test-button/env-test-button.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/model-library/model-library.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-execution/step-execution.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-identity/step-identity.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-image/step-image.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-purpose/step-purpose.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-resources/step-resources.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/steps/step-verification/step-verification.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-edit-modal/template-edit-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-reject-modal/template-reject-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/components/template-review-modal/template-review-modal.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/features/admin/templates/admin-templates.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/shared/components/combobox/combobox.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/shared/components/field-message/field-message.component.scss
+# TODO: salir de la lista exige limpiar el archivo en el mismo PR
+src/app/shared/components/help-drawer/help-drawer.component.scss

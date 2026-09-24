@@ -73,7 +73,7 @@ jobs:
           cd frontend
           npm install --legacy-peer-deps
 
-      - name: Run Stylelint Typography Gate
+      - name: Run Stylelint Typography & Color Gate
         run: |
           cd frontend
           npm run lint:styles
