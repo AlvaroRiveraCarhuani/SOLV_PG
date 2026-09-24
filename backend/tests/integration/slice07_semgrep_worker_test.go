@@ -30,6 +30,12 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 
 	ctx := context.Background()
 
+	// Asegurar existencia de tenant y materia base para evitar fallos de clave foránea
+	_, _ = dbInstance.GetDB().Exec(`
+		INSERT INTO tenants (id, name, slug) VALUES ('00000000-0000-0000-0000-000000000001', 'Default', 'default') ON CONFLICT (id) DO NOTHING;
+		INSERT INTO subjects (id, tenant_id, name, code) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101') ON CONFLICT (id) DO NOTHING;
+	`)
+
 	// 1. Crear un registro de workspace simulado en DB
 	wsID := uuid.NewString()
 	studentID := uuid.NewString()

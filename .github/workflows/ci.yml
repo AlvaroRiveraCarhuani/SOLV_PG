@@ -35,9 +35,23 @@ jobs:
             sleep 2
           done
 
+      - name: Create Test Database
+        run: |
+          docker compose exec -T postgres psql -U solv_user -d solv_db -tc "SELECT 1 FROM pg_database WHERE datname = 'solv_test'" | grep -q 1 || \
+          docker compose exec -T postgres psql -U solv_user -d solv_db -c "CREATE DATABASE solv_test;"
+
+      - name: Run Database Migrations
+        env:
+          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations
+
       - name: Run Go Unit and Integration Tests
         env:
-          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_db?sslmode=disable"
+          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
+          TEST_DB_DSN: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
+          TEST_DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
         run: |
           cd backend
           go test -v ./... -count=1

@@ -17,6 +17,9 @@ func getTestDSN() string {
 	if v := os.Getenv("TEST_DB_DSN"); v != "" {
 		return v
 	}
+	if v := os.Getenv("TEST_DATABASE_URL"); v != "" {
+		return v
+	}
 	// Si hay DATABASE_URL, reemplazar el nombre de BD para apuntar a solv_test.
 	// Esto funciona con DSNs del tipo postgres://user:pass@host:port/solv_db?...
 	if v := os.Getenv("DATABASE_URL"); v != "" {

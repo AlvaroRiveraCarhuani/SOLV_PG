@@ -32,6 +32,12 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	studentID := uuid.NewString()
 	subjectID := "00000000-0000-0000-0000-000000000001"
 
+	// Asegurar existencia de tenant y materia base para evitar fallos de clave foránea
+	_, _ = dbInstance.GetDB().Exec(`
+		INSERT INTO tenants (id, name, slug) VALUES ('00000000-0000-0000-0000-000000000001', 'Default', 'default') ON CONFLICT (id) DO NOTHING;
+		INSERT INTO subjects (id, tenant_id, name, code) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101') ON CONFLICT (id) DO NOTHING;
+	`)
+
 	ctx := context.Background()
 
 	// 1. Iniciar nuevo entorno con OpenVSCode Server
