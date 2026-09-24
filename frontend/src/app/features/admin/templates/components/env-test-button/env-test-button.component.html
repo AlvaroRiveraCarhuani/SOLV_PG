@@ -1,13 +1,13 @@
 <div class="env-test-container">
   <!-- ESTADO IDLE -->
   @if (visualState() === 'idle') {
-    <div class="btn-idle-wrapper">
+    <div class="btn-idle-wrapper" [title]="!canTrigger() ? disabledReason() : ''">
       <button 
         type="button" 
         class="btn-env-test btn-idle"
         [disabled]="!canTrigger()"
         (click)="startTest()"
-        title="Ingrese y verifique una imagen válida para habilitar la prueba del entorno."
+        [title]="!canTrigger() ? disabledReason() : ''"
         i18n-title="@@TE-02"
       >
         <svg lucidePlay class="btn-icon w-4 h-4"></svg>
@@ -24,7 +24,11 @@
         </span>
       </button>
 
-      @if (hasDigestMismatch()) {
+      @if (!canTrigger()) {
+        <span class="env-helper text-muted">
+          {{ disabledReason() }}
+        </span>
+      } @else if (hasDigestMismatch()) {
         <div class="digest-fork-actions">
           <button type="button" class="btn-fork" (click)="startTest()" i18n="@@TE-41">
             Probar versión del registro remoto
@@ -33,9 +37,7 @@
             Probar copia local existente
           </button>
         </div>
-      }
-
-      @if (isLocal()) {
+      } @else if (isLocal()) {
         <span class="env-helper" i18n="@@TE-11">La imagen ya reside en el servidor: la prueba tarda menos de 5 segundos.</span>
       } @else if (image().trim() && !isLatestImage()) {
         <span class="env-helper" i18n="@@TE-21">La imagen se descargará y quedará en caché en el servidor.</span>

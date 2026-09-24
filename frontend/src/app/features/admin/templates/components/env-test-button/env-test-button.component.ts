@@ -140,6 +140,23 @@ export class EnvTestButtonComponent implements OnDestroy {
     return this.visualState() !== 'running';
   });
 
+  disabledReason = computed(() => {
+    const missing: string[] = [];
+    const rawImage = this.image().trim();
+    if (!rawImage) {
+      missing.push('imagen');
+    } else if (this.isLatestImage()) {
+      missing.push('etiqueta de imagen válida (no :latest)');
+    }
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
+      missing.push('comando de ejecución');
+    }
+    if (missing.length > 0) {
+      return `Falta configurar para habilitar la prueba: ${missing.join(', ')}.`;
+    }
+    return $localize`:@@TE-02:Ingrese y verifique una imagen válida para habilitar la prueba del entorno.`;
+  });
+
   startTest(): void {
     if (!this.canTrigger()) return;
 

@@ -4,7 +4,6 @@ import { FormsModule } from '@angular/forms';
 import { 
   LucideHelpCircle, 
   LucideInfo, 
-  LucideCopy, 
   LucideX, 
   LucideCode 
 } from '@lucide/angular';
@@ -30,7 +29,6 @@ export interface EntrypointExample {
     FormsModule, 
     LucideHelpCircle, 
     LucideInfo, 
-    LucideCopy, 
     LucideX, 
     LucideCode
   ],
@@ -115,7 +113,6 @@ export interface EntrypointExample {
                   [title]="ex.desc + ' · Clic para insertar'"
                 >
                   <span class="chip-label">{{ ex.label }}</span>
-                  <svg lucideCopy class="w-3 h-3 ml-1 chip-icon"></svg>
                 </button>
               }
             </div>
@@ -150,7 +147,7 @@ export interface EntrypointExample {
               [ngModel]="sampleInput()" 
               (ngModelChange)="sampleInputChange.emit($event)" 
             />
-            <small class="form-hint">Entrada recomendada para alimentar el proceso durante el smoke test.</small>
+            <small class="form-hint">Entrada recomendada para alimentar el proceso durante la prueba de arranque.</small>
           </div>
         </div>
       } @else {
@@ -213,10 +210,9 @@ export interface EntrypointExample {
                   type="button" 
                   class="chip-example-btn" 
                   (click)="applyScriptExample(ex.code)"
-                  [title]="ex.desc + ' · Clic para insertar en el editor'"
+                  [title]="ex.desc + ' · Clic para insertar al final'"
                 >
                   <span class="chip-label">{{ ex.label }}</span>
-                  <svg lucideCopy class="w-3 h-3 ml-1 chip-icon"></svg>
                 </button>
               }
             </div>
