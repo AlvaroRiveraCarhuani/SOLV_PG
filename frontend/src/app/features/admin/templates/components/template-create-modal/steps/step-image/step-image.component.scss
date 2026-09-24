@@ -1,6 +1,18 @@
 :host {
   display: block;
   font-family: var(--font-sans);
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
+
+  input.font-mono,
+  textarea.font-mono {
+    font-family: var(--font-mono);
+  }
 }
 
 .form-group {

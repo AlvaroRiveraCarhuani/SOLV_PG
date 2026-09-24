@@ -19,6 +19,14 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  font-family: var(--font-sans);
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
 }
 
 .dialog-header {

@@ -1,6 +1,13 @@
 :host {
   display: block;
   font-family: var(--font-sans);
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
 }
 
 .purpose-intro-block {

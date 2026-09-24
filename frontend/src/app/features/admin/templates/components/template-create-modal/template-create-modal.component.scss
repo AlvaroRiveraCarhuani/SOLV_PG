@@ -28,6 +28,19 @@
   overflow: hidden;
   border: 1px solid var(--border-subtle, #E2E8F0);
   animation: slideUp 200ms cubic-bezier(0.16, 1, 0.3, 1);
+  font-family: var(--font-sans);
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
+
+  input.font-mono,
+  textarea.font-mono {
+    font-family: var(--font-mono);
+  }
 }
 
 @keyframes slideUp {

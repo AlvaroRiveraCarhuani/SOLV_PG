@@ -1,3 +1,15 @@
+:host {
+  display: block;
+  font-family: var(--font-sans);
+
+  input,
+  select,
+  textarea {
+    font-family: inherit;
+    font-size: var(--text-sm);
+  }
+}
+
 .template-summary-card {
   background-color: var(--bg-canvas, #F8FAFC);
   border: 1px solid var(--border-subtle, #E2E8F0);
