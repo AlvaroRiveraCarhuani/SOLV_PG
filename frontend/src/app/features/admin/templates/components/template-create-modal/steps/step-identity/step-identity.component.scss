@@ -132,6 +132,74 @@
     }
   }
 
+  .models-promotion-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background-color: #F0F9FF;
+    border: 1px solid #BAE6FD;
+    border-radius: 6px;
+    margin-bottom: 0.875rem;
+    font-size: var(--text-xs);
+
+    .banner-content {
+      display: flex;
+      align-items: center;
+      color: #0369A1;
+
+      .banner-text {
+        line-height: 1.4;
+      }
+    }
+
+    .banner-link {
+      white-space: nowrap;
+      color: var(--tenant-primary, #0284C7);
+      font-weight: 600;
+      text-decoration: underline;
+      font-size: var(--text-xs);
+
+      &:hover {
+        color: #0369A1;
+      }
+    }
+  }
+
+  .models-category-chips-row {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.875rem;
+
+    .cat-filter-chip {
+      padding: 0.25rem 0.625rem;
+      border-radius: 9999px;
+      border: 1px solid #CBD5E1;
+      background-color: #FFFFFF;
+      color: #475569;
+      font-family: var(--font-sans);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+
+      &:hover {
+        border-color: #94A3B8;
+        background-color: #F8FAFC;
+      }
+
+      &.active {
+        background-color: var(--tenant-primary, #0284C7);
+        border-color: var(--tenant-primary, #0284C7);
+        color: #FFFFFF;
+        font-weight: 600;
+      }
+    }
+  }
+
   .models-empty-state {
     text-align: center;
     padding: 1.5rem;
@@ -208,12 +276,28 @@
             color: #475569;
             margin-bottom: 0.5rem;
 
+            .tools-label {
+              margin-right: 0.375rem;
+              font-weight: 500;
+            }
+
             .tools-val {
               font-family: var(--font-mono);
             }
           }
         }
       }
+    }
+  }
+
+  .models-show-more-row {
+    display: flex;
+    justify-content: center;
+    margin-top: 1rem;
+
+    .btn-show-more {
+      padding: 0.375rem 1rem;
+      font-size: var(--text-xs);
     }
   }
 

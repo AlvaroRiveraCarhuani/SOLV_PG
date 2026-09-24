@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { 
   LucideSparkles, 
   LucideSearch, 
@@ -16,7 +17,8 @@ import {
   LucideCopy, 
   LucideHelpCircle,
   LucideCheck,
-  LucideX
+  LucideX,
+  LucideInfo
 } from '@lucide/angular';
 import { 
   SolvComboboxComponent, 
@@ -37,6 +39,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
   imports: [
     CommonModule, 
     FormsModule, 
+    RouterModule,
     LucideSparkles, 
     LucideSearch, 
     LucideRotateCw, 
@@ -44,6 +47,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     LucideHelpCircle,
     LucideCheck,
     LucideX,
+    LucideInfo,
     SolvComboboxComponent
   ],
   template: `
@@ -105,20 +109,49 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
             <span class="models-shelf-title" i18n="@@MO-01">Modelos de plantilla</span>
             <span class="models-shelf-sub" i18n="@@MO-02">Entornos preconfigurados listos para usar o personalizar</span>
           </div>
-          @if (filteredModels().length > 4) {
+          @if (templateModels().length > 4 || modelsSearch()) {
             <div class="models-search-bar">
               <svg lucideSearch class="w-3.5 h-3.5 text-muted mr-1.5"></svg>
               <input 
                 type="text" 
                 class="models-search-input" 
                 [ngModel]="modelsSearch()"
-                (ngModelChange)="modelsSearch.set($event)"
+                (ngModelChange)="onSearchChange($event)"
                 placeholder="Buscar modelos..."
                 i18n-placeholder="@@MO-03"
               />
             </div>
           }
         </div>
+
+        <!-- Línea informativa de descubribilidad de promoción -->
+        <div class="models-promotion-banner">
+          <div class="banner-content">
+            <svg lucideInfo class="w-4 h-4 text-info mr-2 flex-shrink-0"></svg>
+            <span class="banner-text" i18n="@@AY-19">
+              Los modelos se originan a partir de plantillas aprobadas promovidas desde el catálogo o de configuraciones base institucionales.
+            </span>
+          </div>
+          <a routerLink="/admin/manual" class="banner-link" target="_blank" rel="noopener noreferrer" i18n="@@AY-20">
+            Ver manual de promoción
+          </a>
+        </div>
+
+        <!-- Fila de chips de filtro por categoría (dato real de BD) -->
+        @if (categoryFilterChips().length > 1) {
+          <div class="models-category-chips-row">
+            @for (chip of categoryFilterChips(); track chip.id) {
+              <button 
+                type="button" 
+                class="cat-filter-chip" 
+                [class.active]="selectedCategoryFilter() === chip.id"
+                (click)="selectCategoryFilter(chip.id)"
+              >
+                {{ chip.label }}
+              </button>
+            }
+          </div>
+        }
 
         @if (filteredModels().length === 0) {
           <div class="models-empty-state">
@@ -133,11 +166,11 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
           </div>
         } @else {
           <div class="disciplines-container">
-            @for (catName of availableModelCategories(); track catName) {
+            @for (group of visibleGroups(); track group.categoryName) {
               <div class="discipline-group">
-                <div class="discipline-badge">{{ catName }}</div>
+                <div class="discipline-badge">{{ group.categoryName }}</div>
                 <div class="models-grid">
-                  @for (model of modelsByCategory(catName); track model.id) {
+                  @for (model of group.models; track model.id) {
                     <div class="model-card" [class.selected]="recipeUsed() === model.id">
                       <div class="model-card-header">
                         <span class="model-card-title">{{ model.name }}</span>
@@ -148,7 +181,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
                       </div>
                       <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
                       <div class="model-card-tools">
-                        <span class="tools-label">Imagen:</span>
+                        <span class="tools-label">Imagen: </span>
                         <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
                       </div>
                       <button 
@@ -164,6 +197,18 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
               </div>
             }
           </div>
+
+          @if (hasMoreModels()) {
+            <div class="models-show-more-row">
+              <button 
+                type="button" 
+                class="btn btn-sm btn-outline-primary btn-show-more"
+                (click)="showMoreModels()"
+              >
+                Mostrar más
+              </button>
+            </div>
+          }
         }
       </div>
     }
@@ -321,27 +366,90 @@ export class SolvStepIdentityComponent {
   advance = output<void>();
 
   modelsSearch = signal<string>('');
+  selectedCategoryFilter = signal<string | null>(null);
+  modelsLimit = signal<number>(6);
   isCreatingCategoryInline = signal<boolean>(false);
   inlineCategoryName = signal<string>('');
+
+  getCategoryName(m: TemplateModelItem): string {
+    if (m.category_id) {
+      const cat = this.categories().find(c => c.id === m.category_id);
+      if (cat?.name) return cat.name;
+    }
+    if (m.category_name) return m.category_name;
+    return 'Sin categoría';
+  }
+
+  categoryFilterChips = computed<{ id: string | null; label: string }[]>(() => {
+    const cats = this.categories();
+    const chips: { id: string | null; label: string }[] = [
+      { id: null, label: 'Todas' }
+    ];
+    for (const c of cats) {
+      chips.push({ id: c.id, label: c.name });
+    }
+    return chips;
+  });
 
   filteredModels = computed<TemplateModelItem[]>(() => {
     const list = this.templateModels();
     const query = this.modelsSearch().trim().toLowerCase();
-    if (!query) return list;
-    return list.filter(m => 
-      m.name.toLowerCase().includes(query) || 
-      (m.description && m.description.toLowerCase().includes(query)) ||
-      m.docker_image.toLowerCase().includes(query)
-    );
+    const catFilter = this.selectedCategoryFilter();
+
+    return list.filter(m => {
+      if (catFilter !== null && m.category_id !== catFilter) {
+        return false;
+      }
+      if (query) {
+        const matchesName = m.name.toLowerCase().includes(query);
+        const matchesDesc = !!m.description && m.description.toLowerCase().includes(query);
+        const matchesImage = m.docker_image.toLowerCase().includes(query);
+        const catName = this.getCategoryName(m).toLowerCase();
+        const matchesCat = catName.includes(query);
+        if (!matchesName && !matchesDesc && !matchesImage && !matchesCat) {
+          return false;
+        }
+      }
+      return true;
+    });
   });
 
-  availableModelCategories = computed<string[]>(() => {
-    const categoriesSet = new Set<string>();
-    for (const m of this.filteredModels()) {
-      categoriesSet.add(m.category_id || 'Sin Categoría');
-    }
-    return Array.from(categoriesSet);
+  visibleModels = computed<TemplateModelItem[]>(() => {
+    return this.filteredModels().slice(0, this.modelsLimit());
   });
+
+  hasMoreModels = computed<boolean>(() => {
+    return this.filteredModels().length > this.modelsLimit();
+  });
+
+  visibleGroups = computed<{ categoryName: string; models: TemplateModelItem[] }[]>(() => {
+    const map = new Map<string, TemplateModelItem[]>();
+    for (const m of this.visibleModels()) {
+      const name = this.getCategoryName(m);
+      if (!map.has(name)) {
+        map.set(name, []);
+      }
+      map.get(name)!.push(m);
+    }
+    return Array.from(map.entries()).map(([categoryName, models]) => ({
+      categoryName,
+      models
+    }));
+  });
+
+  selectCategoryFilter(catId: string | null): void {
+    this.selectedCategoryFilter.set(catId);
+    this.modelsLimit.set(6);
+  }
+
+  onSearchChange(query: string): void {
+    this.modelsSearch.set(query);
+    this.modelsLimit.set(6);
+  }
+
+  showMoreModels(): void {
+    this.modelsLimit.update(lim => lim + 6);
+  }
 
   categoryComboboxOptions = computed<ComboboxOption[]>(() => {
     const cats = this.categories();
@@ -367,10 +475,6 @@ export class SolvStepIdentityComponent {
     const found = this.categories().find(c => c.id === id);
     return found ? found.name : '';
   });
-
-  modelsByCategory(catName: string): TemplateModelItem[] {
-    return this.filteredModels().filter(m => (m.category_id || 'Sin Categoría') === catName);
-  }
 
   setCreationMode(mode: CreationMode): void {
     this.creationModeChange.emit(mode);
