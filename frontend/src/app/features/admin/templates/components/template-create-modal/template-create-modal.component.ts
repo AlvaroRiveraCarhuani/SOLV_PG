@@ -265,13 +265,28 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   // Estado de borrador guardado
   isDraftSaved = signal<boolean>(false);
 
+  // Rastreo de regla stale para smoke test (Objetivo 6)
+  lastTestedImage = signal<string>('');
+  lastTestedRam = signal<number>(0);
+  smokeTestOutput = signal<string>('');
+
+  isEnvTestStale = computed<boolean>(() => {
+    if (!this.activeEnvTestJob()) return false;
+    const currentImg = this.dockerImage().trim();
+    const currentRam = this.baseRamMB();
+    const testedImg = this.lastTestedImage().trim();
+    const testedRam = this.lastTestedRam();
+    if (!testedImg) return false;
+    return currentImg !== testedImg || currentRam !== testedRam;
+  });
+
   footerActionState = computed<'save_draft' | 'publish_disabled' | 'publish_ready'>(() => {
     if (!this.isDraftSaved()) {
       return 'save_draft';
     }
     const job = this.activeEnvTestJob();
     const isVerified = job !== null && job.status === 'success';
-    if (!isVerified || this.isInvalidFormat() || this.isLatestImage()) {
+    if (!isVerified || this.isInvalidFormat() || this.isLatestImage() || this.isEnvTestStale()) {
       return 'publish_disabled';
     }
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
@@ -297,6 +312,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       reasons.push('La prueba de entorno falló');
     } else if (job?.status === 'pulling' || job?.status === 'testing' || job?.status === 'pending') {
       reasons.push('Prueba de entorno en curso');
+    }
+    if (this.isEnvTestStale()) {
+      reasons.push('Prueba obsoleta: la imagen o memoria cambiaron tras la prueba');
     }
     return reasons.length > 0 ? `Falta: ${reasons.join(' · ')}` : 'Complete las comprobaciones antes de publicar';
   });
@@ -779,6 +797,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       selectedServices: this.selectedServices(),
       selectedCategoryId: this.selectedCategoryId(),
       selectedModelId: this.selectedModelId(),
+      smokeTestOutput: this.smokeTestOutput(),
       updatedAt: new Date().toISOString()
     };
     this.templatesService.saveDraft(draft).subscribe({
@@ -989,6 +1008,12 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   onEnvTestCompleted(job: EnvTestJob): void {
     this.activeEnvTestJob.set(job);
     this.envTestRan.set(true);
+    if (job.status === 'success') {
+      this.lastTestedImage.set(this.dockerImage().trim());
+      this.lastTestedRam.set(this.baseRamMB());
+      const toolsSummary = job.result?.tools?.map(t => `${t.name}: ${t.version || (t.present ? 'OK' : 'MISSING')}`).join('\n') || '';
+      this.smokeTestOutput.set(toolsSummary);
+    }
     this.saveDraftToStorage();
     this.emitTelemetry('test_env_run', { status: job.status, duration_ms: job.result?.duration_ms });
   }

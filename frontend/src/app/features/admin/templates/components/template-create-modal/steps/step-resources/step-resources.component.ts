@@ -147,6 +147,9 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
               <div 
                 class="service-card" 
                 [class.selected]="isServiceSelected(svc.engine)"
+                [class.disabled]="svc.isAvailable === false"
+                [attr.aria-disabled]="svc.isAvailable === false"
+                [title]="svc.isAvailable === false ? 'No disponible: este servicio no está configurado en este servidor' : 'Haga clic para activar o desactivar este servicio'"
                 (click)="toggleService(svc)"
               >
                 <div class="service-header">
@@ -158,9 +161,15 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                     @if (isServiceSelected(svc.engine)) {
                       <svg lucideCheck class="w-4 h-4 text-success mr-1"></svg>
                     }
-                    <span class="badge-satellite badge-optional">
-                      Opcional
-                    </span>
+                    @if (svc.isAvailable === false) {
+                      <span class="badge-satellite badge-unavailable" title="Servicio no disponible en este host">
+                        No disponible
+                      </span>
+                    } @else {
+                      <span class="badge-satellite badge-optional">
+                        Opcional
+                      </span>
+                    }
                   </div>
                 </div>
                 <p class="service-desc">{{ svc.description }}</p>
@@ -251,6 +260,11 @@ export class SolvStepResourcesComponent {
   }
 
   toggleService(service: AvailableSatelliteService): void {
+    // Si el servicio no está disponible en este host, no se permite su selección
+    if (service.isAvailable === false) {
+      return;
+    }
+
     const current = [...this.selectedServices()];
     const idx = current.findIndex(s => s.engine === service.engine);
     if (idx >= 0) {

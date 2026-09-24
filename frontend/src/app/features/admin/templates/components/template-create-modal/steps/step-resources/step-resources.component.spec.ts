@@ -56,12 +56,30 @@ describe('SolvStepResourcesComponent', () => {
     expect(emitted).toBe(2048);
   });
 
-  it('debe renderizar la lista de servicios satélite', () => {
+  it('debe mostrar servicios satélite diferenciando disponibles de no disponibles', () => {
     const cards = fixture.nativeElement.querySelectorAll('.service-card');
     expect(cards.length).toBe(2);
 
+    // Postgres disponible
     const postgresCard = cards[0];
+    expect(postgresCard.classList.contains('disabled')).toBe(false);
     expect(postgresCard.querySelector('.badge-optional')).toBeTruthy();
+
+    // MongoDB no disponible
+    const mongoCard = cards[1];
+    expect(mongoCard.classList.contains('disabled')).toBe(true);
+    const unavailableBadge = mongoCard.querySelector('.badge-unavailable');
+    expect(unavailableBadge).toBeTruthy();
+    expect(unavailableBadge.textContent).toContain('No disponible');
+    expect(mongoCard.getAttribute('title')).toContain('No disponible');
+  });
+
+  it('no debe permitir seleccionar un servicio no disponible al hacer clic', () => {
+    let emittedServices: any[] | null = null;
+    component.selectedServicesChange.subscribe(s => emittedServices = s);
+
+    component.toggleService(mockServices[1]); // MongoDB isAvailable: false
+    expect(emittedServices).toBeNull();
   });
 
   it('debe permitir alternar la selección de un servicio disponible', () => {

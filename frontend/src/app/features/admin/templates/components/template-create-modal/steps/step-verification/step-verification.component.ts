@@ -1,7 +1,12 @@
 import { Component, input, output, signal, computed, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { 
-  LucideHelpCircle
+  LucideHelpCircle, 
+  LucideAlertTriangle, 
+  LucideRotateCw, 
+  LucideTerminal,
+  LucideChevronDown,
+  LucideChevronUp
 } from '@lucide/angular';
 import { 
   TargetEnvironment, 
@@ -25,6 +30,11 @@ export interface SuboptimalWarning {
   imports: [
     CommonModule, 
     LucideHelpCircle, 
+    LucideAlertTriangle, 
+    LucideRotateCw, 
+    LucideTerminal,
+    LucideChevronDown,
+    LucideChevronUp,
     EnvTestButtonComponent
   ],
   template: `
@@ -89,6 +99,48 @@ export interface SuboptimalWarning {
           [imageSizeMB]="imageSizeMB()"
           (testCompleted)="onTestCompleted($event)"
         ></solv-env-test-button>
+
+        <!-- Panel expandible de logs reales del smoke test -->
+        @if (activeEnvTestJob()) {
+          <div class="logs-toggle-row mt-3">
+            <button 
+              type="button" 
+              class="btn-toggle-logs"
+              (click)="showLogs.set(!showLogs())"
+              [attr.aria-expanded]="showLogs()"
+            >
+              <svg lucideTerminal class="w-3.5 h-3.5 mr-1 text-primary"></svg>
+              <span>{{ showLogs() ? 'Ocultar logs de ejecución' : 'Ver logs de ejecución' }}</span>
+              @if (showLogs()) {
+                <svg lucideChevronUp class="w-3.5 h-3.5 ml-1"></svg>
+              } @else {
+                <svg lucideChevronDown class="w-3.5 h-3.5 ml-1"></svg>
+              }
+            </button>
+
+            <button 
+              type="button" 
+              class="btn-retry-action"
+              (click)="handleRetry()"
+              title="Disparar nueva ejecución de prueba"
+            >
+              <svg lucideRotateCw class="w-3.5 h-3.5 mr-1"></svg>
+              <span>Reintentar</span>
+            </button>
+          </div>
+
+          @if (showLogs()) {
+            <div class="logs-panel-box animate-fade mt-2">
+              <div class="logs-panel-header">
+                <span class="logs-panel-title">Salida del Smoke Test (stdout / stderr)</span>
+                <span class="logs-status-tag" [class.success]="activeEnvTestJob()?.status === 'success'">
+                  {{ activeEnvTestJob()?.status }}
+                </span>
+              </div>
+              <pre class="logs-terminal font-mono"><code>{{ formattedSmokeTestOutput() }}</code></pre>
+            </div>
+          }
+        }
       </div>
 
       <!-- Resumen Técnico de la Plantilla con Advertencias Subóptimas -->
@@ -133,6 +185,23 @@ export interface SuboptimalWarning {
             </div>
           }
         </div>
+
+        <!-- Advertencias de Configuración Subóptima -->
+        @if (suboptimalWarnings().length > 0) {
+          <div class="suboptimal-warnings-box mt-3">
+            <div class="warnings-header">
+              <svg lucideAlertTriangle class="w-4 h-4 text-warning mr-1"></svg>
+              <span class="warnings-title">Observaciones de configuración:</span>
+            </div>
+            <ul class="warnings-list">
+              @for (warn of suboptimalWarnings(); track warn.message) {
+                <li class="warning-item" [class.item-warning]="warn.type === 'warning'" [class.item-info]="warn.type === 'info'">
+                  {{ warn.message }}
+                </li>
+              }
+            </ul>
+          </div>
+        }
       </div>
     </div>
   `,

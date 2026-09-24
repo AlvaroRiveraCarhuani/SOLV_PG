@@ -267,6 +267,8 @@
               [isLocalImage]="verificationResult()?.is_local || false"
               [imageSizeMB]="verificationResult()?.estimated_uncompressed_mb || 0"
               [activeEnvTestJob]="activeEnvTestJob()"
+              [isEnvTestStale]="isEnvTestStale()"
+              [smokeTestOutput]="smokeTestOutput()"
               (testCompleted)="onEnvTestCompleted($event)"
               (retryTest)="triggerEnvTest()"
               (helpRequested)="toggleHelpDrawer('verification')"

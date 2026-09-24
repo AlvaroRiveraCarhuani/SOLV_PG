@@ -428,6 +428,41 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(component.isHelpDrawerOpen()).toBe(false);
     });
   });
+
+  describe('Regla stale de Smoke Test e Invalidación', () => {
+    const mockSuccessJob: any = {
+      id: 'job-ok-1',
+      image: 'python:3.12-slim-bookworm',
+      tools: ['python3'],
+      status: 'success',
+      progress: { percent: 100 },
+      result: { tools: [{ name: 'python3', present: true }], duration_ms: 100 }
+    };
+
+    it('debe marcar isEnvTestStale como true si cambia la imagen o la RAM tras la prueba', () => {
+      component.dockerImage.set('python:3.12-slim-bookworm');
+      component.baseRamMB.set(1024);
+      component.onEnvTestCompleted(mockSuccessJob);
+
+      expect(component.isEnvTestStale()).toBe(false);
+
+      // Cambiar imagen invalida la prueba
+      component.dockerImage.set('golang:1.22-alpine');
+      expect(component.isEnvTestStale()).toBe(true);
+      expect(component.footerActionState()).toBe('publish_disabled');
+      expect(component.publishDisabledReason()).toContain('Prueba obsoleta');
+
+      // Restaurar imagen pero cambiar RAM también invalida
+      component.dockerImage.set('python:3.12-slim-bookworm');
+      component.baseRamMB.set(2048);
+      expect(component.isEnvTestStale()).toBe(true);
+      expect(component.footerActionState()).toBe('publish_disabled');
+
+      // Restaurar valores probados recupera estado no stale
+      component.baseRamMB.set(1024);
+      expect(component.isEnvTestStale()).toBe(false);
+    });
+  });
 });
 
 
