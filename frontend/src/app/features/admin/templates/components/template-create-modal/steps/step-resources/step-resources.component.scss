@@ -160,6 +160,12 @@
     border: 1px solid #FCA5A5;
     color: #991B1B;
   }
+
+  &.alert-warning {
+    background-color: #FFFBEB;
+    border: 1px solid #FCD34D;
+    color: #92400E;
+  }
 }
 
 .resource-profile-card {

@@ -302,3 +302,43 @@ func TestWorkspaceService_DefaultFallbackWithoutTemplate(t *testing.T) {
 		t.Errorf("esperado imagen default %s, obtenido: %s", domain.OpenVSCodeImage, orch.lastConfig.Image)
 	}
 }
+
+func TestWorkspaceService_StartWorkspace_RamExceedsHost(t *testing.T) {
+	wsRepo := newMockWorkspaceRepo()
+	orch := &mockOrchestrator{}
+	monitor := &mockHostMonitor{}
+
+	targetSubjectID := "subj-too-much-ram"
+	targetTemplateID := "tpl-too-much-ram"
+
+	subjRepo := &mockSubjectRepo{
+		subjects: map[string]*domain.Subject{
+			targetSubjectID: {
+				ID:         targetSubjectID,
+				TemplateID: &targetTemplateID,
+			},
+		},
+	}
+
+	tplRepo := &mockTemplateRepo{
+		templates: map[string]*domain.Template{
+			targetTemplateID: {
+				ID:          targetTemplateID,
+				DockerImage: "solv/big-data:latest",
+				BaseRamMB:   1000000, // 1 TB de RAM, excede cualquier host
+			},
+		},
+	}
+
+	svc := services.NewWorkspaceService(wsRepo, orch, monitor).
+		WithProvisioning(subjRepo, tplRepo, nil)
+
+	_, err := svc.StartWorkspace(context.Background(), "student-excess-ram", targetSubjectID)
+	if err == nil {
+		t.Fatalf("esperado error por exceder capacidad estructural del host, pero la creación tuvo éxito")
+	}
+	if !strings.Contains(err.Error(), "excede la capacidad estructural del host") {
+		t.Errorf("mensaje de error esperado con explicación clara, obtenido: %v", err)
+	}
+}
+

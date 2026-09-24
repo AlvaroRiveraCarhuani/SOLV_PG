@@ -372,7 +372,7 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-07` | "Cambiar de propósito descarta las configuraciones específicas del entorno. ¿Desea continuar?" | Mensaje advertencia al cambiar de propósito con datos sucios |
 | `PU-08` | "Comando de compilación o ejecución:" | Label de comando en Paso 4 para Juez |
 | `PU-09` | "Tiempo límite de ejecución (ms):" | Label de timeout en Paso 4 para Juez |
-| `PU-10` | "Entrada estándar de prueba (stdin opcional):" | Label de muestra stdin en Paso 4 para Juez |
+| `PU-10` | "Entrada estándar de prueba (stdin - recomendada):" | Label de muestra stdin en Paso 4 para Juez |
 | `PU-11` | "≈ {$INTERPOLATION} evaluaciones concurrentes estimadas en este host" | Métrica viva de capacidad para Juez Virtual |
 | `PU-12` | "No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco." | Estado vacío de modelos para Juez |
 | `PU-13` | "Completá el nombre y comando de ejecución para habilitar el guardado" | Tooltip en botón guardar borrador deshabilitado en Juez |
@@ -384,6 +384,16 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `PU-19` | "Imagen" | Título corto en tab 3 del stepper |
 | `PU-20` | "Ejecución" | Título corto en tab 4 del stepper |
 | `PU-21` | "Verificación" | Título corto en tab 6 del stepper |
+| `PU-22` | "Registro Completo de Ejecución (Smoke Test)" | Título del modal de logs completos |
+| `PU-23` | "Copiar log" | Acción para copiar salida de prueba al portapapeles |
+| `PU-24` | "Descargar log (.txt)" | Acción para descargar archivo de log |
+| `PU-25` | "Ver log completo" | Botón para abrir modal de registro de ejecución |
+| `PU-26` | "Borrador guardado automáticamente · {$TIME}" | Indicador de autoguardado en footer del asistente |
+| `PU-27` | "Descartar borrador" | Botón de descarte explícito de borrador |
+| `PU-28` | "Prueba obsoleta: la configuración cambió" | Mensaje de advertencia por regla stale |
+| `PU-29` | "Excede la capacidad del host en {$EXCESS} MB (máximo permitido: {$MAX} MB)." | Error inline de techo estructural de RAM |
+| `PU-30` | "No disponible en este host" | Badge en servicio satélite no provisto por el host |
+| `PU-31` | "Opcional" | Badge en servicio satélite disponible no obligatorio |
 
 #### Familia AY-* (Ayuda Contextual, Accesibilidad por Teclado y Combobox)
 

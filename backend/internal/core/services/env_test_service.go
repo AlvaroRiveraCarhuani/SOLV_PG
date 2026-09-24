@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"solv-backend/internal/core/domain"
 )
@@ -156,6 +157,19 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string,
 		delete(s.cancelFuncs, jobID)
 		s.cancelMu.Unlock()
 	}()
+
+	// Pre-chequeo: Techo estructural de RAM contra el host (negativa al inicio del job, antes de reservar recursos)
+	if baseRamMB > 0 {
+		totalHostMB := 8192
+		if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
+			totalHostMB = int(v.Total / (1024 * 1024))
+		}
+		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+		if err := domain.ValidateRamAgainstHost(baseRamMB, maxAllowedRAM); err != nil {
+			_ = s.repo.Fail(context.Background(), jobID, "ram_exceeds_host", fmt.Sprintf("memoria declarada (%d MB) supera el techo permitido por el host (%d MB)", baseRamMB, maxAllowedRAM))
+			return
+		}
+	}
 
 	// Adquisición de semáforo de concurrencia
 	select {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shirou/gopsutil/v3/mem"
 
 	"solv-backend/internal/core/domain"
 )
@@ -125,6 +126,14 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 		templateIDStr = &template.ID
 		if template.BaseRamMB >= 256 {
 			ramLimitMB = int64(template.BaseRamMB)
+		}
+		totalHostMB := 8192
+		if vm, err := mem.VirtualMemory(); err == nil && vm.Total > 0 {
+			totalHostMB = int(vm.Total / (1024 * 1024))
+		}
+		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+		if err := domain.ValidateRamAgainstHost(int(ramLimitMB), maxAllowedRAM); err != nil {
+			return nil, fmt.Errorf("solicitud rechazada: la memoria de la plantilla (%d MB) excede la capacidad estructural del host (%d MB)", ramLimitMB, maxAllowedRAM)
 		}
 		if strings.TrimSpace(template.DockerImage) != "" {
 			imageName = strings.TrimSpace(template.DockerImage)

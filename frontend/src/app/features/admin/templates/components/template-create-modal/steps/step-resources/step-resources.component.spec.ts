@@ -116,7 +116,7 @@ describe('SolvStepResourcesComponent', () => {
 
     const overflowBar = fixture.nativeElement.querySelector('.memory-bar.bar-overflow');
     expect(overflowBar).toBeTruthy();
-    expect(overflowBar.textContent).toContain('Excede capacidad del host');
+    expect(overflowBar.textContent).toContain('Excede la capacidad del host');
   });
 
   it('debe usar pluralización correcta para 1 alumno y múltiples alumnos', () => {

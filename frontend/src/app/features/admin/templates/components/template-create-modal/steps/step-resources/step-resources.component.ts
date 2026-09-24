@@ -83,14 +83,13 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
           }
           <div class="custom-ram-wrapper">
             <input 
-              type="number" 
+              type="text" 
               inputmode="numeric"
               class="form-control input-ram-custom font-mono" 
-              [value]="baseRamMB()" 
+              [value]="formattedRamValue()" 
               (input)="onRamInput($event)"
+              placeholder="1024"
               min="1" 
-              [max]="maxAllowedRamMB()" 
-              step="64" 
             />
             <span class="unit-tag">MB</span>
           </div>
@@ -112,6 +111,13 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
               Excede la capacidad del host en {{ ramExcessMB() | number }} MB (máximo permitido: {{ maxAllowedRamMB() | number }} MB).
             </span>
           </div>
+        } @else if (isRamExceedingCurrentFree()) {
+          <div class="validation-message-alert alert-warning mt-2">
+            <svg lucideAlertCircle class="w-4 h-4"></svg>
+            <span>
+              Aviso: La asignación supera la RAM libre actual ({{ hostFreeRamMB() | number }} MB). La plantilla será admitida pero la concurrencia dependerá de la carga del servidor.
+            </span>
+          </div>
         }
       </div>
 
@@ -126,7 +132,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
         <div class="memory-bar" [class.bar-overflow]="isRamExceedingHost()">
           @if (isRamExceedingHost()) {
             <div class="bar-segment bar-segment-overflow">
-              <span>Excede capacidad del host (+{{ ramExcessMB() | number }} MB)</span>
+              <span>Excede la capacidad del host en {{ ramExcessMB() | number }} MB</span>
             </div>
           } @else {
             <div 
@@ -160,7 +166,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                 [class.selected]="isServiceSelected(svc.engine)"
                 [class.disabled]="svc.isAvailable === false"
                 [attr.aria-disabled]="svc.isAvailable === false"
-                [title]="svc.isAvailable === false ? 'No disponible: este servicio no está configurado en este servidor' : 'Haga clic para activar o desactivar este servicio'"
+                [title]="svc.isAvailable === false ? ('No disponible en este host: ' + (svc.description || 'motor no habilitado en el servidor')) : 'Haga clic para activar o desactivar este servicio'"
                 (click)="toggleService(svc)"
               >
                 <div class="service-header">
@@ -173,12 +179,12 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                       <svg lucideCheck class="w-4 h-4 text-success mr-1"></svg>
                     }
                     @if (svc.isAvailable === false) {
-                      <span class="badge-satellite badge-unavailable" title="Servicio no disponible en este host">
-                        [No disponible en este host]
+                      <span class="badge-satellite badge-unavailable" [title]="svc.description || 'No disponible en este host'">
+                        No disponible en este host
                       </span>
                     } @else {
                       <span class="badge-satellite badge-optional" title="Servicio opcional que se aprovisionará de forma aislada">
-                        [Opcional]
+                        Opcional
                       </span>
                     }
                   </div>
@@ -286,13 +292,29 @@ export class SolvStepResourcesComponent {
       : `Capacidad host: ~${count.toLocaleString()} alumnos simultáneos`;
   });
 
+  hostFreeRamMB = computed<number>(() => {
+    const caps = this.runtimeCapabilities();
+    return caps?.host_memory?.available_ram_mb ?? 2048;
+  });
+
+  isRamExceedingCurrentFree = computed<boolean>(() => {
+    if (this.isRamExceedingHost()) return false;
+    return this.baseRamMB() > this.hostFreeRamMB();
+  });
+
+  formattedRamValue = computed<string>(() => {
+    const ram = this.baseRamMB();
+    return ram ? ram.toLocaleString('es-ES') : '';
+  });
+
   setRam(mb: number): void {
     this.baseRamMBChange.emit(mb);
   }
 
   onRamInput(event: Event): void {
-    const raw = (event.target as HTMLInputElement).value;
-    const val = parseInt(raw, 10);
+    const inputEl = event.target as HTMLInputElement;
+    const digits = inputEl.value.replace(/\D/g, '');
+    const val = parseInt(digits, 10);
     if (!isNaN(val) && val >= 1) {
       this.baseRamMBChange.emit(val);
     }

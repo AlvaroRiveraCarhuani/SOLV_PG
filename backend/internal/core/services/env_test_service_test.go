@@ -327,3 +327,29 @@ func TestEnvTestService_JudgeExecutionSuccess(t *testing.T) {
 		t.Errorf("expected exit code 0 in result, got: %+v", got.Result)
 	}
 }
+
+func TestEnvTestService_StartJob_RamExceedsHost(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	run := &mockRunner{exitCode: 0}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:     "python:3.12-slim",
+		Tools:     []string{"python3"},
+		BaseRamMB: 9999999, // Supera con creces el total del host
+	})
+	if err != nil {
+		t.Fatalf("unexpected error starting job: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	got, _ := svc.GetJob(context.Background(), job.ID)
+	if got.Status != domain.EnvTestStatusFailed {
+		t.Fatalf("expected job status failed due to ram_exceeds_host, got: %v", got.Status)
+	}
+	if got.ErrorCode != "ram_exceeds_host" {
+		t.Errorf("expected error code ram_exceeds_host, got: %s", got.ErrorCode)
+	}
+}
+
