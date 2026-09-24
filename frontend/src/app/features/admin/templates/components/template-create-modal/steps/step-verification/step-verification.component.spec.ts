@@ -87,8 +87,51 @@ describe('SolvStepVerificationComponent', () => {
 
     const terminal = fixture.nativeElement.querySelector('.logs-terminal');
     expect(terminal).toBeTruthy();
-    expect(terminal.textContent).toContain('SOLV SMOKE TEST RUNNER');
     expect(terminal.textContent).toContain('Python 3.12.2');
+  });
+
+  it('debe abrir modal con el log completo y permitir copiar y descargar al presionar Ver log completo', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', mockJob);
+    fixture.detectChanges();
+
+    component.showLogs.set(true);
+    fixture.detectChanges();
+
+    const openFullLogBtn = fixture.nativeElement.querySelector('.btn-link-action');
+    expect(openFullLogBtn).toBeTruthy();
+
+    openFullLogBtn.click();
+    fixture.detectChanges();
+
+    expect(component.isFullLogsModalOpen()).toBe(true);
+    const modal = fixture.nativeElement.querySelector('.full-logs-modal-card');
+    expect(modal).toBeTruthy();
+    expect(modal.textContent).toContain('SOLV SMOKE TEST RUNNER');
+    expect(modal.textContent).toContain('Python 3.12.2');
+
+    // Botones de copiar y descargar presentes
+    const copyBtn = modal.querySelector('button:has(svg)');
+    expect(copyBtn).toBeTruthy();
+
+    component.closeFullLogsModal();
+    fixture.detectChanges();
+    expect(component.isFullLogsModalOpen()).toBe(false);
+  });
+
+  it('debe mostrar badges de advertencia en el resumen técnico cuando apliquen', () => {
+    fixture.componentRef.setInput('isRamExceedingHost', true);
+    fixture.componentRef.setInput('isEnvTestStale', true);
+    fixture.componentRef.setInput('toolsList', []);
+    fixture.componentRef.setInput('dockerImage', 'community/custom-node:14');
+    fixture.detectChanges();
+
+    const badges = fixture.nativeElement.querySelectorAll('.badge-tag-warning');
+    expect(badges.length).toBeGreaterThanOrEqual(3);
+
+    const badgeTexts = Array.from(badges).map((b: any) => b.textContent);
+    expect(badgeTexts).toContain('RAM sobre capacidad');
+    expect(badgeTexts).toContain('Prueba obsoleta');
+    expect(badgeTexts).toContain('Mantenedor no oficial');
   });
 
   it('debe surfacear advertencias si la configuración es subóptima', () => {
@@ -110,10 +153,11 @@ describe('SolvStepVerificationComponent', () => {
     const helpBtn = fixture.nativeElement.querySelector('.btn-step-help');
     expect(helpBtn).toBeTruthy();
     helpBtn.click();
+
     expect(emitted).toBe(true);
   });
 
-  it('debe mostrar la caja de diagnóstico estructurado Hecho-Causa-SiguienteAcción si la prueba falla', () => {
+  it('debe mostrar la caja de diagnóstico estructurado Hecho-Causa-PróximaAcción si la prueba falla', () => {
     fixture.componentRef.setInput('activeEnvTestJob', {
       id: 'job-err',
       image: 'python:3.12-slim-bookworm',
@@ -132,6 +176,6 @@ describe('SolvStepVerificationComponent', () => {
     expect(diagBox.textContent).toContain('Hecho:');
     expect(diagBox.textContent).toContain('Causa:');
     expect(diagBox.textContent).toContain('MISSING:pytest');
-    expect(diagBox.textContent).toContain('Siguiente acción:');
+    expect(diagBox.textContent).toContain('Próxima acción:');
   });
 });

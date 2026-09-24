@@ -7,7 +7,10 @@ import {
   LucideRotateCw, 
   LucideTerminal,
   LucideChevronDown,
-  LucideChevronUp
+  LucideChevronUp,
+  LucideCopy,
+  LucideDownload,
+  LucideX
 } from '@lucide/angular';
 import { 
   TargetEnvironment, 
@@ -37,6 +40,9 @@ export interface SuboptimalWarning {
     LucideTerminal,
     LucideChevronDown,
     LucideChevronUp,
+    LucideCopy,
+    LucideDownload,
+    LucideX,
     EnvTestButtonComponent
   ],
   template: `
@@ -65,7 +71,7 @@ export interface SuboptimalWarning {
             <div class="stale-alert-text">
               <strong class="stale-title">Prueba obsoleta</strong>
               <p class="stale-desc">
-                La imagen Docker o la asignación de memoria cambiaron tras la última ejecución. Vuelva a probar el entorno para asegurar la validez de la plantilla antes de publicar.
+                Prueba obsoleta: la configuración cambió tras la última verificación. Vuelva a ejecutar la prueba para validar la plantilla antes de publicar.
               </p>
             </div>
           </div>
@@ -84,9 +90,6 @@ export interface SuboptimalWarning {
       <div class="env-test-card">
         <div class="test-card-header">
           <h5 class="test-card-title">Prueba de Integridad del Entorno</h5>
-          <p class="test-card-desc">
-            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de binarios requeridos.' }}
-          </p>
         </div>
 
         <solv-env-test-button
@@ -102,7 +105,14 @@ export interface SuboptimalWarning {
           (testCompleted)="onTestCompleted($event)"
         ></solv-env-test-button>
 
-        <!-- Panel expandible de logs reales del smoke test -->
+        <!-- Bloque de ayuda contextual debajo del botón de prueba -->
+        <div class="test-help-block mt-3">
+          <p class="test-card-desc">
+            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de binarios requeridos.' }}
+          </p>
+        </div>
+
+        <!-- Panel expandible de logs del smoke test -->
         @if (activeEnvTestJob()) {
           <div class="logs-toggle-row mt-3">
             <button 
@@ -134,16 +144,22 @@ export interface SuboptimalWarning {
           @if (showLogs()) {
             <div class="logs-panel-box animate-fade mt-2">
               <div class="logs-panel-header">
-                <span class="logs-panel-title">Salida del Smoke Test (stdout / stderr)</span>
-                <span class="logs-status-tag" [class.success]="activeEnvTestJob()?.status === 'success'">
-                  {{ activeEnvTestJob()?.status }}
-                </span>
+                <span class="logs-panel-title">Salida del Smoke Test (Vista previa)</span>
+                <button 
+                  type="button" 
+                  class="btn-link-action" 
+                  (click)="openFullLogsModal()"
+                  title="Abrir modal con registro completo"
+                >
+                  <svg lucideTerminal class="w-3.5 h-3.5 mr-1"></svg>
+                  <span>Ver log completo</span>
+                </button>
               </div>
-              <pre class="logs-terminal font-mono"><code>{{ formattedSmokeTestOutput() }}</code></pre>
+              <pre class="logs-terminal font-mono"><code>{{ previewOutput() }}</code></pre>
             </div>
           }
 
-          <!-- Diagnóstico de Fallo Estructurado (Hecho - Causa - Siguiente Acción) -->
+          <!-- Diagnóstico de Fallo Estructurado (Hecho - Causa - Próxima Acción) -->
           @if (activeEnvTestJob()?.status === 'failed') {
             <div class="diagnostic-failure-box mt-3 animate-fade" role="alert">
               <div class="diagnostic-header">
@@ -160,7 +176,7 @@ export interface SuboptimalWarning {
                   <span class="diagnostic-val">{{ activeEnvTestJob()?.error_message || 'Uno o más binarios requeridos no fueron detectados o el contenedor terminó con código de error.' }}</span>
                 </div>
                 <div class="diagnostic-row">
-                  <span class="diagnostic-label">Siguiente acción:</span>
+                  <span class="diagnostic-label">Próxima acción:</span>
                   <span class="diagnostic-val">Revise las herramientas declaradas en el Paso 3 o corrija los parámetros en el Paso 4 antes de reintentar.</span>
                 </div>
               </div>
@@ -169,7 +185,7 @@ export interface SuboptimalWarning {
         }
       </div>
 
-      <!-- Resumen Técnico de la Plantilla con Advertencias Subóptimas -->
+      <!-- Resumen Técnico de la Plantilla con Advertencias Subóptimas y Badges -->
       <div class="verification-summary-card mt-4">
         <div class="summary-header">
           <span class="font-semibold text-sm">Resumen Técnico de la Plantilla</span>
@@ -212,6 +228,15 @@ export interface SuboptimalWarning {
           }
         </div>
 
+        <!-- Badges de advertencia en el resumen técnico -->
+        @if (summaryWarningBadges().length > 0) {
+          <div class="summary-badges-row">
+            @for (badge of summaryWarningBadges(); track badge) {
+              <span class="badge-tag-warning">{{ badge }}</span>
+            }
+          </div>
+        }
+
         <!-- Advertencias de Configuración Subóptima -->
         @if (suboptimalWarnings().length > 0) {
           <div class="suboptimal-warnings-box mt-3">
@@ -229,6 +254,41 @@ export interface SuboptimalWarning {
           </div>
         }
       </div>
+
+      <!-- Modal Visor de Logs Completo con Copiar y Descargar -->
+      @if (isFullLogsModalOpen()) {
+        <div class="full-logs-modal-backdrop" (click)="closeFullLogsModal()">
+          <div class="full-logs-modal-card" (click)="$event.stopPropagation()">
+            <div class="logs-modal-header">
+              <div class="logs-modal-title-wrap">
+                <svg lucideTerminal class="w-4 h-4 text-primary mr-2"></svg>
+                <h5 class="logs-modal-title">Registro Completo de Ejecución (Smoke Test)</h5>
+              </div>
+              <button type="button" class="btn-icon-close" (click)="closeFullLogsModal()" aria-label="Cerrar visor de logs">
+                <svg lucideX class="w-4 h-4"></svg>
+              </button>
+            </div>
+            <div class="logs-modal-body">
+              <pre class="full-logs-content font-mono"><code>{{ formattedSmokeTestOutput() }}</code></pre>
+            </div>
+            <div class="logs-modal-footer">
+              <div class="footer-left-actions">
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copyLogs()">
+                  <svg lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
+                  <span>{{ copySuccess() ? '¡Copiado!' : 'Copiar log' }}</span>
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="downloadLogs()">
+                  <svg lucideDownload class="w-3.5 h-3.5 mr-1"></svg>
+                  <span>Descargar log (.txt)</span>
+                </button>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" (click)="closeFullLogsModal()">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      }
     </div>
   `,
   styleUrls: ['./step-verification.component.scss']
@@ -250,6 +310,8 @@ export class SolvStepVerificationComponent {
   activeEnvTestJob = input<EnvTestJob | null>(null);
   isEnvTestStale = input<boolean>(false);
   smokeTestOutput = input<string>('');
+  isRamExceedingHost = input<boolean>(false);
+  maxAllowedRamMB = input<number>(0);
 
   testCompleted = output<EnvTestJob>();
   retryTest = output<void>();
@@ -257,12 +319,44 @@ export class SolvStepVerificationComponent {
   advance = output<void>();
 
   showLogs = signal<boolean>(false);
+  isFullLogsModalOpen = signal<boolean>(false);
+  copySuccess = signal<boolean>(false);
 
   handleRetry(): void {
     if (this.envTestButton) {
       this.envTestButton.startTest();
     }
     this.retryTest.emit();
+  }
+
+  openFullLogsModal(): void {
+    this.isFullLogsModalOpen.set(true);
+  }
+
+  closeFullLogsModal(): void {
+    this.isFullLogsModalOpen.set(false);
+    this.copySuccess.set(false);
+  }
+
+  copyLogs(): void {
+    navigator.clipboard.writeText(this.formattedSmokeTestOutput()).then(() => {
+      this.copySuccess.set(true);
+      setTimeout(() => this.copySuccess.set(false), 2000);
+    });
+  }
+
+  downloadLogs(): void {
+    const text = this.formattedSmokeTestOutput();
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const jobId = this.activeEnvTestJob()?.id || 'smoke-test';
+    a.download = `smoke-test-${jobId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   serviceNames = computed<string[]>(() => {
@@ -302,6 +396,34 @@ export class SolvStepVerificationComponent {
     }
 
     return lines.join('\n');
+  });
+
+  previewOutput = computed<string>(() => {
+    const text = this.formattedSmokeTestOutput();
+    const lines = text.split('\n');
+    if (lines.length <= 5) return text;
+    return '...\n' + lines.slice(-5).join('\n');
+  });
+
+  summaryWarningBadges = computed<string[]>(() => {
+    const badges: string[] = [];
+    if (this.isRamExceedingHost()) {
+      badges.push('RAM sobre capacidad');
+    }
+    if (this.targetEnvironment() === 'IDE_PERSISTENTE' && this.toolsList().length === 0) {
+      badges.push('Bajo piso de toolchain');
+    }
+    if (this.isEnvTestStale()) {
+      badges.push('Prueba obsoleta');
+    }
+    const img = this.dockerImage().toLowerCase().trim();
+    if (img && img.includes('/') && !img.startsWith('solv/') && !img.startsWith('library/')) {
+      badges.push('Mantenedor no oficial');
+    }
+    if (/python:(?:2\.|3\.[0-7]\b)|node:(?:1[0-4]\b)|ubuntu:(?:1[46]\.04)/.test(img)) {
+      badges.push('Versión en fin de vida');
+    }
+    return badges;
   });
 
   suboptimalWarnings = computed<SuboptimalWarning[]>(() => {

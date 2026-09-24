@@ -130,18 +130,18 @@ export interface EntrypointExample {
             <input 
               type="number" 
               class="form-control font-mono" 
-              min="500" 
-              max="15000" 
+              min="1000" 
+              max="30000" 
               step="500"
               [ngModel]="timeoutMS()" 
               (ngModelChange)="timeoutMSChange.emit($event)" 
             />
-            <small class="form-hint">Tiempo máximo antes de veredicto TLE (Time Limit Exceeded).</small>
+            <small class="form-hint">Rango de 1 a 30 segundos (default: 5.000 ms). Veredicto TLE al sobrepasarlo.</small>
           </div>
 
           <div class="form-group">
             <label class="form-label font-semibold" i18n="@@PU-10">
-              Entrada estándar de prueba (stdin opcional):
+              Entrada estándar de prueba (stdin - recomendada):
             </label>
             <input 
               type="text" 
@@ -150,7 +150,7 @@ export interface EntrypointExample {
               [ngModel]="sampleInput()" 
               (ngModelChange)="sampleInputChange.emit($event)" 
             />
-            <small class="form-hint">Entrada que se inyectará durante la prueba del smoke test.</small>
+            <small class="form-hint">Entrada recomendada para alimentar el proceso durante el smoke test.</small>
           </div>
         </div>
       } @else {
@@ -165,10 +165,10 @@ export interface EntrypointExample {
               class="btn-contract-info" 
               (click)="toggleContractPopover()"
               [attr.aria-expanded]="showContractPopover()"
-              title="Ver contrato formal del script de inicio"
+              title="Ver contrato formal del script de inicio (?)"
             >
-              <svg lucideInfo class="w-3.5 h-3.5 mr-1"></svg>
-              <span>Contrato del script</span>
+              <svg lucideHelpCircle class="w-3.5 h-3.5 mr-1"></svg>
+              <span>Contrato del script (?)</span>
             </button>
           </div>
 
@@ -182,10 +182,10 @@ export interface EntrypointExample {
                 </button>
               </div>
               <ul class="contract-list">
-                <li><strong>Intérprete:</strong> Ejecutado con <code>/bin/sh -c</code> o <code>/bin/bash</code> dentro del contenedor activo.</li>
-                <li><strong>Ciclo de vida:</strong> Se ejecuta antes de que el editor web comience a recibir conexiones en el puerto 3000.</li>
-                <li><strong>Tolerancia a fallos:</strong> Aplica <code>set -e</code>; cualquier fallo con código de salida distinto de 0 aborta el arranque.</li>
-                <li><strong>Idempotencia:</strong> Diseñe comandos seguros frente a reejecuciones al reiniciar o reanudar el laboratorio.</li>
+                <li><strong>Intérprete:</strong> Ejecutado con <code>/bin/sh -c</code> dentro de <code>/home/workspace</code>.</li>
+                <li><strong>Momento del ciclo de vida:</strong> Se ejecuta en segundo plano 1 segundo después de arrancar el contenedor en estado activo.</li>
+                <li><strong>Comportamiento ante fallo:</strong> Timeout máximo de 5 minutos. Errores y salida se redirigen a <code>/home/workspace/.solv_setup.log</code>. El fallo no interrumpe ni reinicia el contenedor.</li>
+                <li><strong>Regla de idempotencia:</strong> Debe ser idempotente frente a reinicios (verificar si las rutas o paquetes ya existen antes de crearlos).</li>
               </ul>
             </div>
           }
@@ -245,19 +245,19 @@ export class SolvStepExecutionComponent {
 
   ideExamples: ScriptExample[] = [
     {
-      label: 'Clonar repositorio',
-      desc: 'Clona el repositorio base del curso',
-      code: 'if [ ! -d "/workspace/proyecto" ]; then\n  git clone --depth 1 https://github.com/ejemplo/laboratorio-base.git /workspace/proyecto\nfi'
+      label: 'Instalar dependencias',
+      desc: 'Comprueba package.json o requirements.txt e instala dependencias',
+      code: '# Instalar dependencias si existen manifiestos\nif [ -f "package.json" ]; then\n  npm install --prefer-offline\nelif [ -f "requirements.txt" ]; then\n  pip install --no-cache-dir -r requirements.txt\nfi'
     },
     {
-      label: 'Instalar paquetes',
-      desc: 'Instala dependencias requeridas',
-      code: 'if [ -f "/workspace/requirements.txt" ]; then\n  pip install --no-cache-dir -r /workspace/requirements.txt\nfi'
+      label: 'Crear directorios',
+      desc: 'Crea estructura de directorios de trabajo de forma idempotente',
+      code: '# Crear estructura de directorios de trabajo\nmkdir -p /home/workspace/src /home/workspace/build /home/workspace/data /home/workspace/logs'
     },
     {
-      label: 'Variables de entorno',
-      desc: 'Exporta configuración de entorno',
-      code: 'export APP_ENV=development\nexport PORT=3000'
+      label: 'Cargar datos',
+      desc: 'Descarga archivos iniciales de prueba solo si no existen previamente',
+      code: '# Cargar datos de prueba iniciales de forma idempotente\nif [ ! -f "data/dataset.csv" ]; then\n  mkdir -p data\n  curl -sSL "https://raw.githubusercontent.com/datasets/sample.csv" -o data/dataset.csv\nfi'
     }
   ];
 
