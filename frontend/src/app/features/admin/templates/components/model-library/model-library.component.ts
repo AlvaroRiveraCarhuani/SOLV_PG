@@ -1,11 +1,12 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import {
   AdminTemplatesService,
   TemplateModelItem,
   TemplateCategory,
+  AdminTemplateItem,
   UpdateTemplateModelDTO,
   CreateCategoryDTO,
   UpdateCategoryDTO,
@@ -13,7 +14,6 @@ import {
 } from '../../../services/admin-templates.service';
 import {
   LucideBoxes,
-  LucideLayers,
   LucideTag,
   LucideSearch,
   LucidePlus,
@@ -23,10 +23,15 @@ import {
   LucideCheck,
   LucidePower,
   LucideAlertTriangle,
-  LucideRefreshCw,
   LucideGripVertical,
   LucideChevronUp,
-  LucideChevronDown
+  LucideChevronDown,
+  LucideLayoutGrid,
+  LucideTable,
+  LucideCheckCircle2,
+  LucideCode,
+  LucideTerminal,
+  LucideSparkles
 } from '@lucide/angular';
 
 @Component({
@@ -37,7 +42,6 @@ import {
     FormsModule,
     RouterModule,
     LucideBoxes,
-    LucideLayers,
     LucideTag,
     LucideSearch,
     LucidePlus,
@@ -47,24 +51,38 @@ import {
     LucideCheck,
     LucidePower,
     LucideAlertTriangle,
-    LucideRefreshCw,
     LucideGripVertical,
     LucideChevronUp,
-    LucideChevronDown
+    LucideChevronDown,
+    LucideLayoutGrid,
+    LucideTable,
+    LucideCheckCircle2,
+    LucideCode,
+    LucideTerminal,
+    LucideSparkles
   ],
   templateUrl: './model-library.component.html',
   styleUrls: ['./model-library.component.scss']
 })
 export class ModelLibraryComponent implements OnInit {
   private readonly templatesService = inject(AdminTemplatesService);
+  private readonly router = inject(Router);
 
-  // Tabs
+  // Tabs y Vista
   readonly activeTab = signal<'models' | 'categories'>('models');
+  readonly viewMode = signal<'cards' | 'table'>('table');
   readonly isLoading = signal<boolean>(false);
 
   // Data
   readonly models = signal<TemplateModelItem[]>([]);
   readonly categories = signal<TemplateCategory[]>([]);
+
+  // KPIs
+  readonly totalModelsCount = computed(() => this.models().length);
+  readonly activeModelsCount = computed(() => this.models().filter(m => m.is_active !== false).length);
+  readonly ideModelsCount = computed(() => this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE').length);
+  readonly judgeModelsCount = computed(() => this.models().filter(m => m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO').length);
+  readonly categoriesCount = computed(() => this.categories().length);
 
   // Filtros Modelos
   readonly searchQuery = signal<string>('');
@@ -72,13 +90,23 @@ export class ModelLibraryComponent implements OnInit {
   readonly filterCategory = signal<string>('ALL');
   readonly filterStatus = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  // Modales Modelos
+  // Modales Modelos (Edición)
   readonly showModelModal = signal<boolean>(false);
   readonly editingModel = signal<TemplateModelItem | null>(null);
   readonly modelTitle = signal<string>('');
   readonly modelDescription = signal<string>('');
   readonly modelCategoryId = signal<string>('');
   readonly isModelSaving = signal<boolean>(false);
+
+  // Modal Nuevo Modelo Oficial (Promoción / Creación)
+  readonly showNewModelModal = signal<boolean>(false);
+  readonly approvedTemplates = signal<AdminTemplateItem[]>([]);
+  readonly selectedTemplateId = signal<string>('');
+  readonly newModelTitle = signal<string>('');
+  readonly newModelCategoryId = signal<string>('');
+  readonly newModelDescription = signal<string>('');
+  readonly isNewModelPromoting = signal<boolean>(false);
+  readonly newModelError = signal<string | null>(null);
 
   // Modales Categorías
   readonly showCategoryModal = signal<boolean>(false);
@@ -108,7 +136,7 @@ export class ModelLibraryComponent implements OnInit {
     const status = this.filterStatus();
 
     return list.filter(m => {
-      // Búsqueda por nombre o descripción
+      // Búsqueda por nombre o descripción o imagen
       if (query) {
         const matchesName = (m.name || m.title || '').toLowerCase().includes(query);
         const matchesDesc = (m.description || '').toLowerCase().includes(query);
@@ -117,8 +145,14 @@ export class ModelLibraryComponent implements OnInit {
       }
 
       // Propósito
-      if (purpose !== 'ALL' && m.target_environment !== purpose) {
-        return false;
+      if (purpose !== 'ALL') {
+        if (purpose === 'JUEZ_VIRTUAL') {
+          if (m.target_environment !== 'JUEZ_VIRTUAL' && m.target_environment !== 'JUEZ_EFIMERO') {
+            return false;
+          }
+        } else if (m.target_environment !== purpose) {
+          return false;
+        }
       }
 
       // Categoría
@@ -182,6 +216,73 @@ export class ModelLibraryComponent implements OnInit {
 
   // --- GESTIÓN DE MODELOS ---
 
+  openNewModelModal(): void {
+    this.showNewModelModal.set(true);
+    this.selectedTemplateId.set('');
+    this.newModelTitle.set('');
+    this.newModelCategoryId.set('');
+    this.newModelDescription.set('');
+    this.newModelError.set(null);
+    this.templatesService.getTemplates('approved').subscribe({
+      next: (tpls) => this.approvedTemplates.set(tpls || []),
+      error: () => this.approvedTemplates.set([])
+    });
+  }
+
+  closeNewModelModal(): void {
+    this.showNewModelModal.set(false);
+    this.newModelError.set(null);
+  }
+
+  onSelectTemplateToPromote(tplId: string): void {
+    this.selectedTemplateId.set(tplId);
+    const tpl = this.approvedTemplates().find(t => t.id === tplId);
+    if (tpl) {
+      this.newModelTitle.set(tpl.name);
+      this.newModelCategoryId.set(tpl.category_id || '');
+      this.newModelDescription.set(tpl.description || '');
+    }
+  }
+
+  confirmPromoteToModel(): void {
+    const tplId = this.selectedTemplateId();
+    const title = this.newModelTitle().trim();
+    if (!tplId) {
+      this.newModelError.set('Debe seleccionar una plantilla aprobada como base.');
+      return;
+    }
+    if (!title) {
+      this.newModelError.set('El título del modelo es obligatorio.');
+      return;
+    }
+
+    this.isNewModelPromoting.set(true);
+    this.newModelError.set(null);
+
+    this.templatesService.promoteToModel(tplId, {
+      name: title,
+      category_id: this.newModelCategoryId() || undefined,
+      description: this.newModelDescription().trim()
+    }).subscribe({
+      next: () => {
+        this.isNewModelPromoting.set(false);
+        this.closeNewModelModal();
+        this.showToast('Plantilla promovida a modelo oficial exitosamente.', 'success');
+        this.loadData();
+      },
+      error: (err) => {
+        this.isNewModelPromoting.set(false);
+        const msg = err.error?.message || err.error?.error || 'No se pudo promover la plantilla a modelo.';
+        this.newModelError.set(msg);
+      }
+    });
+  }
+
+  navigateToTemplatesWizard(): void {
+    this.closeNewModelModal();
+    this.router.navigate(['/admin/plantillas']);
+  }
+
   openEditModel(model: TemplateModelItem): void {
     this.editingModel.set(model);
     this.modelTitle.set(model.title || model.name || '');
@@ -219,7 +320,7 @@ export class ModelLibraryComponent implements OnInit {
     };
 
     this.templatesService.updateModel(model.id, dto).subscribe({
-      next: (updated) => {
+      next: () => {
         this.isModelSaving.set(false);
         this.closeModelModal();
         this.showToast('Modelo actualizado exitosamente.', 'success');
@@ -419,7 +520,7 @@ export class ModelLibraryComponent implements OnInit {
       next: () => {
         this.showToast('Orden de categorías actualizado.', 'success');
       },
-      error: (err) => {
+      error: () => {
         this.showToast('Error al persistir el nuevo orden.', 'error');
         this.loadCategories();
       }

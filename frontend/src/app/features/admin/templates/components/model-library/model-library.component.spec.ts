@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { provideRouter } from '@angular/router';
 import { ModelLibraryComponent } from './model-library.component';
-import { AdminTemplatesService, TemplateModelItem, TemplateCategory } from '../../../services/admin-templates.service';
+import { AdminTemplatesService, TemplateModelItem, TemplateCategory, AdminTemplateItem } from '../../../services/admin-templates.service';
 
 describe('ModelLibraryComponent Spec', () => {
   let component: ModelLibraryComponent;
@@ -67,11 +67,24 @@ describe('ModelLibraryComponent Spec', () => {
     }
   ];
 
+  const mockApprovedTemplates: Partial<AdminTemplateItem>[] = [
+    {
+      id: 't-1',
+      name: 'Plantilla Python Base',
+      description: 'Plantilla aprobada de Python para entornos',
+      docker_image: 'python:3.12-slim-bookworm',
+      target_environment: 'IDE_PERSISTENTE',
+      category_id: 'c-1',
+      status: 'approved'
+    }
+  ];
+
   let getModelsSpy: any;
   let getCategoriesSpy: any;
   let deactivateModelSpy: any;
   let reorderCategoriesSpy: any;
   let deleteCategorySpy: any;
+  let promoteToModelSpy: any;
 
   beforeEach(() => {
     getModelsSpy = vi.fn().mockReturnValue(of(mockModels));
@@ -79,6 +92,7 @@ describe('ModelLibraryComponent Spec', () => {
     deactivateModelSpy = vi.fn().mockReturnValue(of(void 0));
     reorderCategoriesSpy = vi.fn().mockReturnValue(of(void 0));
     deleteCategorySpy = vi.fn().mockReturnValue(of(void 0));
+    promoteToModelSpy = vi.fn().mockReturnValue(of(mockModels[0]));
 
     const mockService = {
       getModels: getModelsSpy,
@@ -89,7 +103,9 @@ describe('ModelLibraryComponent Spec', () => {
       createCategory: vi.fn().mockReturnValue(of(mockCategories[0])),
       updateCategory: vi.fn().mockReturnValue(of(mockCategories[0])),
       deleteCategory: deleteCategorySpy,
-      reorderCategories: reorderCategoriesSpy
+      reorderCategories: reorderCategoriesSpy,
+      getTemplates: vi.fn().mockReturnValue(of(mockApprovedTemplates)),
+      promoteToModel: promoteToModelSpy
     };
 
     TestBed.configureTestingModule({
@@ -109,6 +125,20 @@ describe('ModelLibraryComponent Spec', () => {
     expect(component).toBeTruthy();
     expect(getModelsSpy).toHaveBeenCalledWith(undefined, undefined, true);
     expect(component.models().length).toBe(2);
+  });
+
+  it('debe calcular correctamente los KPIs del catálogo institucional', () => {
+    expect(component.totalModelsCount()).toBe(2);
+    expect(component.activeModelsCount()).toBe(1);
+    expect(component.ideModelsCount()).toBe(2);
+    expect(component.judgeModelsCount()).toBe(0);
+    expect(component.categoriesCount()).toBe(2);
+  });
+
+  it('debe permitir alternar entre modo tabla y modo tarjetas', () => {
+    expect(component.viewMode()).toBe('table');
+    component.viewMode.set('cards');
+    expect(component.viewMode()).toBe('cards');
   });
 
   it('debe mostrar el usage_count real en la grilla de modelos', () => {
@@ -146,5 +176,22 @@ describe('ModelLibraryComponent Spec', () => {
   it('debe reordenar categorías y llamar a reorderCategories', () => {
     component.moveCategoryDown(0);
     expect(reorderCategoriesSpy).toHaveBeenCalled();
+  });
+
+  it('debe abrir el modal de nuevo modelo y promover plantilla seleccionada', () => {
+    component.openNewModelModal();
+    expect(component.showNewModelModal()).toBe(true);
+
+    component.onSelectTemplateToPromote('t-1');
+    expect(component.newModelTitle()).toBe('Plantilla Python Base');
+    expect(component.newModelCategoryId()).toBe('c-1');
+
+    component.confirmPromoteToModel();
+    expect(promoteToModelSpy).toHaveBeenCalledWith('t-1', {
+      name: 'Plantilla Python Base',
+      category_id: 'c-1',
+      description: 'Plantilla aprobada de Python para entornos'
+    });
+    expect(component.showNewModelModal()).toBe(false);
   });
 });
