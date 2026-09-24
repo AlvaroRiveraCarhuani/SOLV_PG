@@ -27,15 +27,25 @@ export class AdminManualComponent implements OnInit {
     this.loading.set(true);
     this.error.set(null);
 
-    this.http.get('/docs/MANUAL_ADMIN.md', { responseType: 'text' }).subscribe({
+    this.http.get('/api/v1/admin/manual', { responseType: 'text' }).subscribe({
       next: (markdown) => {
         const html = this.parseMarkdown(markdown);
         this.renderedContent.set(this.sanitizer.bypassSecurityTrustHtml(html));
         this.loading.set(false);
       },
       error: () => {
-        this.error.set('No se pudo cargar el manual administrativo. Verifique la conexión.');
-        this.loading.set(false);
+        // Respaldo secundario por si se ejecuta en cliente estático sin backend
+        this.http.get('/docs/MANUAL_ADMIN.md', { responseType: 'text' }).subscribe({
+          next: (markdown) => {
+            const html = this.parseMarkdown(markdown);
+            this.renderedContent.set(this.sanitizer.bypassSecurityTrustHtml(html));
+            this.loading.set(false);
+          },
+          error: () => {
+            this.error.set('No se pudo cargar el manual administrativo. Verifique la conexión.');
+            this.loading.set(false);
+          }
+        });
       }
     });
   }

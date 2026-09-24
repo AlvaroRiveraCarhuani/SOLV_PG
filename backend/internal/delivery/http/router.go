@@ -140,6 +140,7 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/plantillas/{id}/duplicar", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate))))
 		mux.Handle("POST /api/v1/admin/templates/{id}/promote-to-model", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.PromoteTemplateToModel))))
 		mux.Handle("GET /api/v1/admin/template-categories", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateCategories)))
+		mux.Handle("GET /api/v1/admin/manual", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetAdminManual)))
 		mux.Handle("POST /api/v1/admin/template-categories", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateCategory))))
 		mux.Handle("PUT /api/v1/admin/template-categories/reorder", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReorderTemplateCategories))))
 		mux.Handle("PUT /api/v1/admin/template-categories/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateCategory))))

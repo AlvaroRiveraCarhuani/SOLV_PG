@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	_ "embed"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -1189,4 +1190,18 @@ func (h *AdminAcademicHandler) DeleteDraft(w http.ResponseWriter, r *http.Reques
 	}
 
 	SendJSON(w, http.StatusOK, map[string]string{"message": "Borrador eliminado exitosamente"}, "Borrador eliminado exitosamente")
+}
+
+//go:embed docs/MANUAL_ADMIN.md
+var embeddedAdminManual []byte
+
+func (h *AdminAcademicHandler) GetAdminManual(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(embeddedAdminManual)
 }
