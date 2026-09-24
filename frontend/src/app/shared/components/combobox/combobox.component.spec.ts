@@ -98,4 +98,50 @@ describe('SolvComboboxComponent', () => {
 
     expect(component.isOpen()).toBe(false);
   });
+
+  it('debe cerrar el listbox al hacer clic fuera del componente', () => {
+    component.isOpen.set(true);
+    fixture.detectChanges();
+    expect(component.isOpen()).toBe(true);
+
+    // Clic fuera del elemento nativo del combobox
+    document.body.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.isOpen()).toBe(false);
+  });
+
+  it('debe mostrar el botón para cargar más opciones y expandir la cota progresiva', () => {
+    component.isOpen.set(true);
+    fixture.detectChanges();
+
+    expect(component.filteredOptions().length).toBe(8);
+    expect(component.hasMoreOptions()).toBe(true);
+
+    const moreBtn = fixture.nativeElement.querySelector('.btn-combobox-more');
+    expect(moreBtn).toBeTruthy();
+    expect(moreBtn.textContent).toContain('Mostrar más (2 restantes)');
+
+    moreBtn.click();
+    fixture.detectChanges();
+
+    expect(component.filteredOptions().length).toBe(10);
+    expect(component.hasMoreOptions()).toBe(false);
+  });
+
+  it('debe filtrar por chip de grupo cuando hay múltiples grupos disponibles', () => {
+    component.isOpen.set(true);
+    fixture.detectChanges();
+
+    const chips = fixture.nativeElement.querySelectorAll('.group-chip');
+    expect(chips.length).toBe(3); // Todas, Oficial, Local
+
+    // Clic en el chip "Local"
+    chips[2].click();
+    fixture.detectChanges();
+
+    expect(component.selectedGroupFilter()).toBe('Local');
+    expect(component.filteredOptions().length).toBe(1);
+    expect(component.filteredOptions()[0].label).toBe('local/custom:latest');
+  });
 });

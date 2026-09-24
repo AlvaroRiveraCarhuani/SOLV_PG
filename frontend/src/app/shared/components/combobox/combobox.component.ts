@@ -6,8 +6,8 @@ import {
   computed, 
   ElementRef, 
   viewChild, 
-  HostListener, 
-  effect 
+  inject,
+  DestroyRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideSearch, LucideChevronDown, LucideCheck } from '@lucide/angular';
@@ -77,6 +77,28 @@ export interface ComboboxGroup {
         >
           <div class="combobox-header">
             <span class="header-count">{{ headerCountText() }}</span>
+            @if (availableGroups().length > 1) {
+              <div class="combobox-group-chips">
+                <button 
+                  type="button" 
+                  class="group-chip"
+                  [class.active]="selectedGroupFilter() === null"
+                  (click)="selectGroupFilter(null, $event)"
+                >
+                  Todas ({{ totalOptionsCount() }})
+                </button>
+                @for (grp of availableGroups(); track grp.name) {
+                  <button 
+                    type="button" 
+                    class="group-chip"
+                    [class.active]="selectedGroupFilter() === grp.name"
+                    (click)="selectGroupFilter(grp.name, $event)"
+                  >
+                    {{ grp.name }} ({{ grp.count }})
+                  </button>
+                }
+              </div>
+            }
           </div>
 
           <div class="options-scroll-container">
@@ -127,6 +149,18 @@ export interface ComboboxGroup {
                   </div>
                 }
               }
+
+              @if (hasMoreOptions()) {
+                <div class="combobox-more-row">
+                  <button 
+                    type="button" 
+                    class="btn-combobox-more"
+                    (click)="showMoreOptions($event)"
+                  >
+                    Mostrar más ({{ remainingOptionsCount() }} restantes)
+                  </button>
+                </div>
+              }
             }
           </div>
         </div>
@@ -136,6 +170,9 @@ export interface ComboboxGroup {
   styleUrls: ['./combobox.component.scss']
 })
 export class SolvComboboxComponent {
+  private readonly elementRef = inject(ElementRef);
+  private readonly destroyRef = inject(DestroyRef);
+
   inputEl = viewChild<ElementRef<HTMLInputElement>>('inputEl');
 
   value = input<string>('');
@@ -153,20 +190,74 @@ export class SolvComboboxComponent {
 
   isOpen = signal<boolean>(false);
   activeFlatIndex = signal<number>(-1);
+  selectedGroupFilter = signal<string | null>(null);
+  visibleLimit = signal<number>(8);
   listboxId = 'combobox-listbox-' + Math.random().toString(36).substring(2, 9);
 
-  // Filtra y acota a un máximo de elementos
-  filteredOptions = computed<ComboboxOption[]>(() => {
-    const query = this.value().trim().toLowerCase();
+  constructor() {
+    if (typeof document !== 'undefined') {
+      const listener = (event: MouseEvent) => {
+        if (!this.isOpen()) return;
+        const target = event.target as Node;
+        if (!this.elementRef.nativeElement.contains(target)) {
+          this.close();
+        }
+      };
+      document.addEventListener('click', listener, { capture: true });
+      this.destroyRef.onDestroy(() => {
+        document.removeEventListener('click', listener, { capture: true });
+      });
+    }
+  }
+
+  totalOptionsCount = computed<number>(() => {
+    return this.totalAvailableCount() ?? this.options().length;
+  });
+
+  availableGroups = computed<{ name: string; count: number }[]>(() => {
     const all = this.options();
-    const filtered = query 
-      ? all.filter(o => 
-          o.label.toLowerCase().includes(query) || 
-          (o.meta && o.meta.toLowerCase().includes(query)) ||
-          (o.description && o.description.toLowerCase().includes(query))
-        )
-      : all;
-    return filtered.slice(0, this.maxSuggestions());
+    const map = new Map<string, number>();
+    for (const opt of all) {
+      if (opt.group) {
+        map.set(opt.group, (map.get(opt.group) || 0) + 1);
+      }
+    }
+    if (map.size <= 1) return [];
+    return Array.from(map.entries()).map(([name, count]) => ({ name, count }));
+  });
+
+  allMatchingOptions = computed<ComboboxOption[]>(() => {
+    const query = this.value().trim().toLowerCase();
+    const grpFilter = this.selectedGroupFilter();
+    let list = this.options();
+
+    if (grpFilter !== null) {
+      list = list.filter(o => o.group === grpFilter);
+    }
+
+    if (query) {
+      list = list.filter(o => 
+        o.label.toLowerCase().includes(query) || 
+        (o.meta && o.meta.toLowerCase().includes(query)) ||
+        (o.description && o.description.toLowerCase().includes(query))
+      );
+    }
+    return list;
+  });
+
+  filteredOptions = computed<ComboboxOption[]>(() => {
+    const lim = this.visibleLimit();
+    return this.allMatchingOptions().slice(0, lim);
+  });
+
+  hasMoreOptions = computed<boolean>(() => {
+    return this.allMatchingOptions().length > this.visibleLimit();
+  });
+
+  remainingOptionsCount = computed<number>(() => {
+    const total = this.allMatchingOptions().length;
+    const current = this.visibleLimit();
+    return Math.max(0, total - current);
   });
 
   groupedOptions = computed<ComboboxGroup[]>(() => {
@@ -193,12 +284,12 @@ export class SolvComboboxComponent {
   });
 
   headerCountText = computed<string>(() => {
-    const total = this.totalAvailableCount() ?? this.options().length;
+    const total = this.allMatchingOptions().length;
     const current = this.filteredOptions().length;
-    if (this.value().trim()) {
-      return `${current} de ${total} disponibles; escriba para filtrar`;
+    if (this.value().trim() || this.selectedGroupFilter() !== null) {
+      return `${current} de ${total} mostradas; escriba para filtrar`;
     }
-    return `${total} disponibles; escriba para filtrar`;
+    return `${current} de ${total} disponibles; escriba para filtrar`;
   });
 
   activeDescendantId = computed<string | null>(() => {
@@ -210,12 +301,27 @@ export class SolvComboboxComponent {
     return null;
   });
 
+  showMoreOptions(event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.visibleLimit.update(v => v + (this.maxSuggestions() || 8));
+  }
+
+  selectGroupFilter(groupName: string | null, event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.selectedGroupFilter.set(groupName);
+    this.visibleLimit.set(this.maxSuggestions() || 8);
+    this.activeFlatIndex.set(-1);
+  }
+
   onInputChange(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.valueChange.emit(val);
     if (!this.isOpen()) {
       this.isOpen.set(true);
     }
+    this.visibleLimit.set(this.maxSuggestions() || 8);
     this.activeFlatIndex.set(-1);
   }
 
@@ -271,7 +377,7 @@ export class SolvComboboxComponent {
         if (!this.isOpen()) {
           this.isOpen.set(true);
           this.activeFlatIndex.set(0);
-        } else {
+        } else if (opts.length > 0) {
           const next = (this.activeFlatIndex() + 1) % opts.length;
           this.activeFlatIndex.set(next);
         }
@@ -282,7 +388,7 @@ export class SolvComboboxComponent {
         if (!this.isOpen()) {
           this.isOpen.set(true);
           this.activeFlatIndex.set(opts.length - 1);
-        } else {
+        } else if (opts.length > 0) {
           const prev = (this.activeFlatIndex() - 1 + opts.length) % opts.length;
           this.activeFlatIndex.set(prev);
         }
@@ -308,15 +414,6 @@ export class SolvComboboxComponent {
           this.close();
         }
         break;
-    }
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: MouseEvent): void {
-    if (!this.inputEl()) return;
-    const clickedInside = (event.target as HTMLElement).closest('.combobox-wrapper');
-    if (!clickedInside && this.isOpen()) {
-      this.close();
     }
   }
 }
