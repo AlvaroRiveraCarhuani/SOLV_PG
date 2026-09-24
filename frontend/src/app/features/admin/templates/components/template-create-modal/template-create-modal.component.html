@@ -216,248 +216,64 @@
         }
 
         <!-- PASO 4: EJECUCIÓN (PU-08 a PU-10, PU-15) -->
-      @if (activeSection() === 'execution') {
-        <div class="section-container animate-fade">
-          @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-            <!-- Configuración de Juez Virtual -->
-            <div class="form-group">
-              <label class="form-label font-semibold" i18n="@@PU-08">
-                Comando de compilación o ejecución: <span class="text-danger">*</span>
-              </label>
-              <input 
-                type="text" 
-                class="form-control font-mono" 
-                placeholder="Ej: gcc -O2 solution.c -o solution && ./solution"
-                [ngModel]="entrypoint()" 
-                (ngModelChange)="entrypoint.set($event)" />
-              <small class="form-hint" i18n="@@PU-15">Comando de ejecución obligatorio para plantillas de juez virtual.</small>
-            </div>
-
-            <div class="grid-2-cols">
-              <div class="form-group">
-                <label class="form-label font-semibold" i18n="@@PU-09">
-                  Tiempo límite de ejecución (ms):
-                </label>
-                <input 
-                  type="number" 
-                  class="form-control font-mono" 
-                  min="500" 
-                  max="15000" 
-                  step="500"
-                  [ngModel]="timeoutMS()" 
-                  (ngModelChange)="timeoutMS.set($event)" />
-                <small class="form-hint">Tiempo máximo antes de veredicto TLE (Time Limit Exceeded).</small>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label font-semibold" i18n="@@PU-10">
-                  Entrada estándar de prueba (stdin opcional):
-                </label>
-                <input 
-                  type="text" 
-                  class="form-control font-mono" 
-                  placeholder="Ej: 5 10"
-                  [ngModel]="sampleInput()" 
-                  (ngModelChange)="sampleInput.set($event)" />
-                <small class="form-hint">Entrada que se inyectará durante la prueba del smoke test.</small>
-              </div>
-            </div>
-          } @else {
-            <!-- Configuración de Laboratorio Interactivo -->
-            <div class="form-group">
-              <label class="form-label font-semibold">
-                Script de Inicialización al Despliegue (Opcional):
-              </label>
-              <textarea 
-                class="form-control font-mono text-area-sm" 
-                rows="5" 
-                placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
-                [ngModel]="setupScript()" 
-                (ngModelChange)="setupScript.set($event)">
-              </textarea>
-              <small class="form-hint">Comandos bash que se ejecutarán automáticamente al iniciar cada workspace.</small>
-            </div>
-          }
-        </div>
-      }
-
-      <!-- PASO 5: RECURSOS Y SERVICIOS (PU-11, PU-14) -->
-      @if (activeSection() === 'resources') {
-        <div class="section-container animate-fade">
-          <!-- Asignación de RAM Base -->
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Memoria RAM por Instancia (MB): <span class="text-danger">*</span>
-            </label>
-            <div class="ram-presets-row">
-              @for (preset of activeRamPresets(); track preset.mb) {
-                <button 
-                  type="button" 
-                  class="btn-ram-preset" 
-                  [class.active]="baseRamMB() === preset.mb" 
-                  (click)="setRam(preset.mb)"
-                >
-                  <span class="preset-label">{{ preset.label }}</span>
-                  <span class="preset-desc">{{ preset.desc }}</span>
-                </button>
-              }
-              <div class="custom-ram-wrapper">
-                <input 
-                  type="number" 
-                  class="form-control input-ram-custom font-mono" 
-                  [value]="baseRamMB()" 
-                  (input)="onRamInput($event)"
-                  [min]="targetEnvironment() === 'JUEZ_EFIMERO' ? 64 : 256" 
-                  max="8192" 
-                  step="64" />
-                <span class="unit-tag">MB</span>
-              </div>
-            </div>
-
-            @if (isRamTooLow()) {
-              <div class="validation-message-alert alert-danger mt-2">
-                <svg lucideAlertCircle class="w-4 h-4"></svg>
-                <span>
-                  {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'El mínimo recomendado es 64 MB para el sandbox de juez.' : 'El mínimo recomendado es 256 MB para alojar el editor web y el runtime.' }}
-                </span>
-              </div>
-            }
+        @if (activeSection() === 'execution') {
+          <div class="section-container animate-fade">
+            <solv-step-execution
+              [targetEnvironment]="targetEnvironment()"
+              [setupScript]="setupScript()"
+              [entrypoint]="entrypoint()"
+              [timeoutMS]="timeoutMS()"
+              [sampleInput]="sampleInput()"
+              (setupScriptChange)="onSetupScriptChange($event)"
+              (entrypointChange)="onEntrypointChange($event)"
+              (timeoutMSChange)="onTimeoutMSChange($event)"
+              (sampleInputChange)="onSampleInputChange($event)"
+              (helpRequested)="toggleHelpDrawer('execution')"
+              (advance)="nextSection()"
+            ></solv-step-execution>
           </div>
+        }
 
-          <!-- Perfil de Distribución de Recursos y Métrica Viva -->
-          <div class="resource-profile-card">
-            <div class="profile-header">
-              <span class="profile-title">Distribución de Recursos Estimada</span>
-              <span class="profile-badge">
-                @if (resourceProfilePreview().isJudge) {
-                  <span>≈ {{ resourceProfilePreview().estimatedCapacity }} evaluaciones concurrentes estimadas en este host</span>
-                } @else {
-                  <span>Capacidad host: ~{{ resourceProfilePreview().estimatedCapacity }} alumnos simultáneos</span>
-                }
-              </span>
-            </div>
-            <div class="memory-bar">
-              <div class="bar-segment bar-editor" [style.flex-grow]="resourceProfilePreview().editorBase" [title]="(resourceProfilePreview().isJudge ? 'Runtime Sandbox: ' : 'Editor Web: ') + resourceProfilePreview().editorBase + ' MB'">
-                <span>{{ resourceProfilePreview().isJudge ? 'Sandbox (32 MB)' : 'IDE (210 MB)' }}</span>
-              </div>
-              <div class="bar-segment bar-usable" [style.flex-grow]="resourceProfilePreview().usable" title="Disponible para compilación / ejecución">
-                <span>Libre ({{ resourceProfilePreview().usable }} MB)</span>
-              </div>
-            </div>
+        <!-- PASO 5: RECURSOS Y SERVICIOS (PU-11, PU-14) -->
+        @if (activeSection() === 'resources') {
+          <div class="section-container animate-fade">
+            <solv-step-resources
+              [targetEnvironment]="targetEnvironment()"
+              [baseRamMB]="baseRamMB()"
+              [availableServices]="availableServices()"
+              [selectedServices]="selectedServices()"
+              [runtimeCapabilities]="runtimeCapabilities()"
+              (baseRamMBChange)="onBaseRamChange($event)"
+              (selectedServicesChange)="onSelectedServicesChange($event)"
+              (helpRequested)="toggleHelpDrawer('resources')"
+              (advance)="nextSection()"
+            ></solv-step-resources>
           </div>
+        }
 
-          <!-- Servicios Satélite Adicionales (Solo en IDE) -->
-          @if (targetEnvironment() === 'IDE_PERSISTENTE') {
-            <div class="form-group mt-4">
-              <label class="form-label font-semibold">
-                Servicios Satélite Opcionales (Bases de Datos Aisladas):
-              </label>
-              <div class="services-toggle-grid">
-                @for (svc of availableServices(); track svc.engine) {
-                  <div 
-                    class="service-card" 
-                    [class.selected]="isServiceSelected(svc.engine)"
-                    [class.disabled]="svc.isAvailable === false"
-                    [title]="svc.isAvailable === false ? 'Servicio no configurado en este entorno' : ''"
-                    (click)="toggleService(svc)"
-                  >
-                    <div class="service-header">
-                      <div class="service-title-wrap">
-                        <svg lucideDatabase class="w-4 h-4 text-primary"></svg>
-                        <strong class="service-name">{{ svc.label }}</strong>
-                      </div>
-                      @if (isServiceSelected(svc.engine)) {
-                        <svg lucideCheck class="w-4 h-4 text-success"></svg>
-                      }
-                      @if (svc.isAvailable === false) {
-                        <span class="badge-disabled">Opcional</span>
-                      }
-                    </div>
-                    <p class="service-desc">{{ svc.description }}</p>
-                    <div class="service-footer">
-                      <span class="badge-tag">v{{ svc.version || '16' }}</span>
-                      <span class="badge-ram">{{ svc.category }}</span>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          } @else {
-            <div class="judge-services-disabled-banner mt-3" i18n="@@PU-14">
-              <svg lucideInfo class="w-4 h-4 text-muted mr-2"></svg>
-              <span>Los entornos de juez virtual no utilizan servicios satélite desacoplados.</span>
-            </div>
-          }
-        </div>
-      }
-
-      <!-- PASO 6: VERIFICACIÓN Y PRUEBA -->
-      @if (activeSection() === 'verification') {
-        <div class="section-container animate-fade">
-          <div class="env-test-section">
-            <div class="section-header-row mb-3">
-              <div>
-                <h5 class="text-base font-semibold">Prueba de Integridad del Entorno</h5>
-                <p class="text-xs text-muted">
-                  {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de binarios requeridos.' }}
-                </p>
-              </div>
-            </div>
-
-            <solv-env-test-button
-              [image]="dockerImage()"
-              [tools]="toolsList()"
+        <!-- PASO 6: VERIFICACIÓN Y PRUEBA (PU-21) -->
+        @if (activeSection() === 'verification') {
+          <div class="section-container animate-fade">
+            <solv-step-verification
+              [dockerImage]="dockerImage()"
+              [toolsList]="toolsList()"
               [targetEnvironment]="targetEnvironment()"
               [entrypoint]="entrypoint()"
               [timeoutMS]="timeoutMS()"
               [sampleInput]="sampleInput()"
-              [isLocal]="verificationResult()?.is_local || false"
+              [name]="name()"
+              [baseRamMB]="baseRamMB()"
+              [selectedServices]="selectedServices()"
+              [isLocalImage]="verificationResult()?.is_local || false"
               [imageSizeMB]="verificationResult()?.estimated_uncompressed_mb || 0"
+              [activeEnvTestJob]="activeEnvTestJob()"
               (testCompleted)="onEnvTestCompleted($event)"
-            ></solv-env-test-button>
+              (retryTest)="triggerEnvTest()"
+              (helpRequested)="toggleHelpDrawer('verification')"
+              (advance)="openPublishDialog()"
+            ></solv-step-verification>
           </div>
-
-          <!-- Resumen de Configuración -->
-          <div class="verification-summary-card mt-4">
-            <div class="summary-header">
-              <span class="font-semibold text-sm">Resumen Técnico de la Plantilla</span>
-            </div>
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="summary-label">Propósito:</span>
-                <span class="summary-val font-semibold">{{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Juez Virtual (CLI Sandbox)' : 'Laboratorio Interactivo (IDE)' }}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Nombre:</span>
-                <span class="summary-val">{{ name() || 'Sin definir' }}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Imagen:</span>
-                <span class="summary-val font-mono">{{ dockerImage() || 'Sin definir' }}</span>
-              </div>
-              <div class="summary-item">
-                <span class="summary-label">Memoria:</span>
-                <span class="summary-val font-mono">{{ baseRamMB() }} MB</span>
-              </div>
-              @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-                <div class="summary-item">
-                  <span class="summary-label">Comando:</span>
-                  <span class="summary-val font-mono">{{ entrypoint() || 'Pendiente' }}</span>
-                </div>
-                <div class="summary-item">
-                  <span class="summary-label">Timeout:</span>
-                  <span class="summary-val font-mono">{{ timeoutMS() }} ms</span>
-                </div>
-              } @else {
-                <div class="summary-item">
-                  <span class="summary-label">Servicios:</span>
-                  <span class="summary-val">{{ selectedServices().length > 0 ? selectedServiceEngines().join(', ') : 'Ninguno' }}</span>
-                </div>
-              }
-            </div>
-          </div>
-        </div>
-      }
+        }
       </div>
 
       <!-- Drawer Lateral de Ayuda Contextual con solv-help-drawer -->
@@ -532,8 +348,50 @@
             <p class="drawer-text">
               <strong>Imágenes Locales vs Curadas:</strong> Las imágenes locales ya residen en este servidor y arrancan inmediatamente. El catálogo curado contiene imágenes oficiales verificadas que se descargarán la primera vez.
             </p>
+          }
+          @case ('execution') {
+            <h6 class="drawer-section-heading">Contrato de Ejecución e Idempotencia</h6>
+            @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              <p class="drawer-text">
+                <strong>Script de Inicialización (<code>setup_script</code>):</strong> Se ejecuta una única vez en segundo plano durante el primer aprovisionamiento del contenedor, antes de que el editor web esté listo para el estudiante.
+              </p>
+              <p class="drawer-text">
+                <strong>Idempotencia obligatoria:</strong> Los comandos deben poder re-ejecutarse sin efectos secundarios destructivos si el contenedor se recupera o se reinicia (use <code>mkdir -p</code> o valide la existencia de archivos antes de crearlos).
+              </p>
+              <p class="drawer-text">
+                <strong>Comportamiento ante fallo:</strong> Si el script finaliza con error (código distinto de cero), el contenedor registra la incidencia en el historial pero no bloquea el daemon global. Capture errores críticos o configure flags de shell apropiados.
+              </p>
+            } @else {
+              <p class="drawer-text">
+                <strong>Comando de Ejecución (<code>entrypoint</code>):</strong> Define la línea de compilación y ejecución que se correrá en el sandbox efímero aislado sin red.
+              </p>
+              <p class="drawer-text">
+                <strong>Tiempo límite (<code>timeout_ms</code>):</strong> Control estricto del cgroup de CPU. Si el proceso excede este límite, el sandbox lo termina con señal <code>SIGKILL</code> y emite veredicto TLE (*Time Limit Exceeded*).
+              </p>
+              <p class="drawer-text">
+                <strong>Entrada estándar (<code>sample_input</code>):</strong> Flujo de entrada stdin opcional inyectado automáticamente en la prueba preliminar de sanidad (*smoke test*).
+              </p>
+            }
+          }
+          @case ('resources') {
+            <h6 class="drawer-section-heading">Derivación de cgroups y Recursos de Hardware</h6>
             <p class="drawer-text">
-              <strong>Herramientas Requeridas:</strong> Especifique los comandos binarios (ej. <code>gcc, python3, node</code>) que el worker comprobará en el smoke test previo a la aprobación.
+              <strong>Límites cgroups v2 (Reserva vs Límite):</strong> La memoria asignada establece los parámetros <code>memory.max</code> y <code>memory.high</code> del contenedor del alumno.
+            </p>
+            <p class="drawer-text">
+              <strong>Consumo Base del Editor:</strong> En entornos IDE persistentes, el motor OpenVSCode Server y servicios auxiliares consumen aproximadamente 210 MB de base. El resto queda disponible para compiladores y terminal.
+            </p>
+            <p class="drawer-text">
+              <strong>Aislamiento de Servicios Satélite:</strong> Las bases de datos satélite (PostgreSQL, MySQL) se ejecutan en contenedores independientes acoplados con límites propios, sin restar cuota de RAM al contenedor principal.
+            </p>
+          }
+          @case ('verification') {
+            <h6 class="drawer-section-heading">Smoke Test y Criterios de Aprobación</h6>
+            <p class="drawer-text">
+              <strong>Comprobación de Integridad:</strong> El sistema descarga la imagen (si no es local) y levanta un contenedor efímero aislado para confirmar la presencia y versión de todas las herramientas declaradas.
+            </p>
+            <p class="drawer-text">
+              <strong>Regla de Prueba Obsoleta:</strong> Si modifica la imagen Docker o la memoria RAM después de haber probado, la prueba se invalida automáticamente hasta que vuelva a ejecutarla.
             </p>
           }
         }

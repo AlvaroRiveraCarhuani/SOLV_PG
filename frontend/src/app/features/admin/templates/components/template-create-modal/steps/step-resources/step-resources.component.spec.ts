@@ -1,0 +1,87 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { SolvStepResourcesComponent } from './step-resources.component';
+import { AvailableSatelliteService } from '../../../../../services/admin-templates.service';
+
+describe('SolvStepResourcesComponent', () => {
+  let component: SolvStepResourcesComponent;
+  let fixture: ComponentFixture<SolvStepResourcesComponent>;
+
+  const mockServices: AvailableSatelliteService[] = [
+    {
+      category: 'database',
+      engine: 'postgres',
+      label: 'PostgreSQL',
+      version: '16',
+      description: 'PostgreSQL aislada',
+      envVar: 'DATABASE_URL',
+      isAvailable: true
+    },
+    {
+      category: 'database',
+      engine: 'mongodb',
+      label: 'MongoDB',
+      version: '7.0',
+      description: 'MongoDB NoSQL',
+      envVar: 'MONGODB_URI',
+      isAvailable: false
+    }
+  ];
+
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
+      imports: [SolvStepResourcesComponent]
+    }).compileComponents();
+
+    fixture = TestBed.createComponent(SolvStepResourcesComponent);
+    component = fixture.componentInstance;
+    fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
+    fixture.componentRef.setInput('baseRamMB', 1024);
+    fixture.componentRef.setInput('availableServices', mockServices);
+    fixture.detectChanges();
+  });
+
+  it('debe crearse correctamente con presets de IDE y memoria inicial', () => {
+    expect(component).toBeTruthy();
+    const activePreset = fixture.nativeElement.querySelector('.btn-ram-preset.active');
+    expect(activePreset).toBeTruthy();
+    expect(activePreset.textContent).toContain('1 GB');
+  });
+
+  it('debe emitir baseRamMBChange al seleccionar otro preset de RAM', () => {
+    let emitted = 0;
+    component.baseRamMBChange.subscribe(v => emitted = v);
+
+    component.setRam(2048);
+    expect(emitted).toBe(2048);
+  });
+
+  it('debe renderizar la lista de servicios satélite', () => {
+    const cards = fixture.nativeElement.querySelectorAll('.service-card');
+    expect(cards.length).toBe(2);
+
+    const postgresCard = cards[0];
+    expect(postgresCard.querySelector('.badge-optional')).toBeTruthy();
+  });
+
+  it('debe permitir alternar la selección de un servicio disponible', () => {
+    let emittedServices: any[] | null = null;
+    component.selectedServicesChange.subscribe(s => emittedServices = s);
+
+    component.toggleService(mockServices[0]); // PostgreSQL isAvailable: true
+    expect(emittedServices).toBeTruthy();
+    expect(emittedServices!.length).toBe(1);
+    expect(emittedServices![0].engine).toBe('postgres');
+  });
+
+  it('debe emitir helpRequested al presionar el botón de ayuda contextual', () => {
+    let emitted = false;
+    component.helpRequested.subscribe(() => emitted = true);
+
+    const helpBtn = fixture.nativeElement.querySelector('.btn-step-help');
+    expect(helpBtn).toBeTruthy();
+    helpBtn.click();
+
+    expect(emitted).toBe(true);
+  });
+});

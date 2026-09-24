@@ -30,10 +30,10 @@ import {
 import { SolvStepPurposeComponent } from './steps/step-purpose/step-purpose.component';
 import { SolvStepIdentityComponent } from './steps/step-identity/step-identity.component';
 import { SolvStepImageComponent } from './steps/step-image/step-image.component';
+import { SolvStepExecutionComponent } from './steps/step-execution/step-execution.component';
+import { SolvStepResourcesComponent } from './steps/step-resources/step-resources.component';
+import { SolvStepVerificationComponent } from './steps/step-verification/step-verification.component';
 import { SolvHelpDrawerComponent } from '../../../../../shared/components/help-drawer/help-drawer.component';
-import { 
-  EnvTestButtonComponent 
-} from '../env-test-button/env-test-button.component';
 import { 
   PublishDialogComponent 
 } from '../publish-dialog/publish-dialog.component';
@@ -43,15 +43,12 @@ import {
 import { 
   LucideX, 
   LucideLayers, 
-  LucideDatabase,
-  LucideInfo,
   LucideAlertCircle,
   LucideHelpCircle,
   LucideSparkles,
   LucideSave,
   LucideSend,
   LucideRotateCw,
-  LucideCheck,
   LucideArrowLeft,
   LucideArrowRight,
   LucidePlus,
@@ -97,29 +94,27 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     CommonModule, 
     FormsModule, 
     RouterModule,
-    EnvTestButtonComponent,
     PublishDialogComponent,
     LucideX, 
     LucideLayers, 
-    LucideDatabase,
-    LucideInfo,
     LucideAlertCircle,
     LucideHelpCircle,
     LucideSparkles,
     LucideSave,
     LucideSend,
     LucideRotateCw,
-    LucideCheck,
     LucideArrowLeft,
     LucideArrowRight,
     LucidePlus,
     LucideEdit,
     LucideTrash2,
     LucideTag,
-    RouterModule,
     SolvStepPurposeComponent,
     SolvStepIdentityComponent,
     SolvStepImageComponent,
+    SolvStepExecutionComponent,
+    SolvStepResourcesComponent,
+    SolvStepVerificationComponent,
     SolvHelpDrawerComponent
   ],
   templateUrl: './template-create-modal.component.html',
@@ -267,7 +262,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       this.selectedServices().length > 0;
   });
 
-  // Estado de borrador guardado y footer contextual (D2)
+  // Estado de borrador guardado
   isDraftSaved = signal<boolean>(false);
 
   footerActionState = computed<'save_draft' | 'publish_disabled' | 'publish_ready'>(() => {
@@ -787,8 +782,12 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       updatedAt: new Date().toISOString()
     };
     this.templatesService.saveDraft(draft).subscribe({
-      next: () => {},
-      error: (err) => console.error('Error saving draft to backend:', err)
+      next: () => {
+        this.isDraftSaved.set(true);
+      },
+      error: (err) => {
+        console.error('Error saving draft to backend:', err);
+      }
     });
   }
 
@@ -990,15 +989,42 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   onEnvTestCompleted(job: EnvTestJob): void {
     this.activeEnvTestJob.set(job);
     this.envTestRan.set(true);
+    this.saveDraftToStorage();
     this.emitTelemetry('test_env_run', { status: job.status, duration_ms: job.result?.duration_ms });
+  }
+
+  onSetupScriptChange(script: string): void {
+    this.setupScript.set(script);
+  }
+
+  onEntrypointChange(ep: string): void {
+    this.entrypoint.set(ep);
+  }
+
+  onTimeoutMSChange(ms: number): void {
+    this.timeoutMS.set(ms);
+  }
+
+  onSampleInputChange(sample: string): void {
+    this.sampleInput.set(sample);
+  }
+
+  onBaseRamChange(ram: number): void {
+    this.baseRamMB.set(ram);
+  }
+
+  onSelectedServicesChange(services: ServiceRequirement[]): void {
+    this.selectedServices.set(services);
+  }
+
+  triggerEnvTest(): void {
+    // Disparador programático de prueba si es necesario desde el paso de verificación
+    this.setSection('verification');
   }
 
   openPublishDialog(): void {
     if (this.footerActionState() === 'publish_disabled') return;
-    if (this.isFormDirty()) {
-      this.saveDraftToStorage();
-      this.isDraftSaved.set(true);
-    }
+    this.saveDraftToStorage();
     this.showPublishDialog.set(true);
   }
 
