@@ -4,6 +4,7 @@ import {
   Output, 
   signal, 
   computed, 
+  effect,
   HostListener, 
   inject, 
   OnInit, 
@@ -26,6 +27,10 @@ import {
   TemplateModelItem,
   TemplateCategory
 } from '../../../services/admin-templates.service';
+import { SolvStepPurposeComponent } from './steps/step-purpose/step-purpose.component';
+import { SolvStepIdentityComponent } from './steps/step-identity/step-identity.component';
+import { SolvStepImageComponent } from './steps/step-image/step-image.component';
+import { SolvHelpDrawerComponent } from '../../../../../shared/components/help-drawer/help-drawer.component';
 import { 
   EnvTestButtonComponent 
 } from '../env-test-button/env-test-button.component';
@@ -40,18 +45,13 @@ import {
   LucideLayers, 
   LucideDatabase,
   LucideInfo,
-  LucideRefreshCw,
   LucideAlertCircle,
   LucideHelpCircle,
   LucideSparkles,
   LucideSave,
   LucideSend,
   LucideRotateCw,
-  LucideCopy,
-  LucideSearch,
   LucideCheck,
-  LucideCheckCircle2,
-  LucideTerminal,
   LucideArrowLeft,
   LucideArrowRight,
   LucidePlus,
@@ -103,25 +103,24 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     LucideLayers, 
     LucideDatabase,
     LucideInfo,
-    LucideRefreshCw,
     LucideAlertCircle,
     LucideHelpCircle,
     LucideSparkles,
     LucideSave,
     LucideSend,
     LucideRotateCw,
-    LucideCopy,
-    LucideSearch,
     LucideCheck,
-    LucideCheckCircle2,
-    LucideTerminal,
     LucideArrowLeft,
     LucideArrowRight,
     LucidePlus,
     LucideEdit,
     LucideTrash2,
     LucideTag,
-    RouterModule
+    RouterModule,
+    SolvStepPurposeComponent,
+    SolvStepIdentityComponent,
+    SolvStepImageComponent,
+    SolvHelpDrawerComponent
   ],
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
@@ -312,9 +311,21 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   private imageDebounce$ = new Subject<string>();
   private sub = new Subscription();
 
+  constructor() {
+    effect(() => {
+      this.activeSection();
+      setTimeout(() => {
+        const activeTab = document.querySelector('.wizard-nav-tabs .tab-btn.active');
+        if (activeTab) {
+          activeTab.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      }, 0);
+    });
+  }
+
   // CONFIG: Semilla de sugerencias curadas para el typeahead de imágenes OCI.
   // Es una allowlist semilla documentada, no representa modelos de plantilla ni catálogo vivo.
-  private curatedOfficialImages: ImageSuggestion[] = [
+  curatedOfficialImages: ImageSuggestion[] = [
     { repoTag: 'python:3.12-slim-bookworm', isLocal: false, isOfficial: true, description: 'Python 3.12 oficial ligero Debian' },
     { repoTag: 'python:3.11-slim', isLocal: false, isOfficial: true, description: 'Python 3.11 versión estable' },
     { repoTag: 'node:20-bookworm-slim', isLocal: false, isOfficial: true, description: 'Node.js LTS 20 Debian Bookworm' },
@@ -324,6 +335,47 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     { repoTag: 'eclipse-temurin:21-alpine', isLocal: false, isOfficial: true, description: 'Java OpenJDK 21 LTS Alpine' },
     { repoTag: 'postgres:16-alpine', isLocal: false, isOfficial: true, description: 'PostgreSQL 16 base ligera' }
   ];
+
+  archDetected = computed<string>(() => this.verificationResult()?.host_arch || 'amd64');
+  digestDetected = computed<string>(() => '');
+
+  onImageSelected(repoTag: string): void {
+    this.dockerImage.set(repoTag);
+    this.triggerVerification(repoTag, false);
+  }
+
+  createCategoryByName(name: string): void {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    this.isQuickCategorySaving.set(true);
+    this.templatesService.createCategory({ name: trimmed }).subscribe({
+      next: (cat) => {
+        this.isQuickCategorySaving.set(false);
+        this.categories.update(list => [...list, cat]);
+        this.selectedCategoryId.set(cat.id);
+      },
+      error: () => {
+        this.isQuickCategorySaving.set(false);
+      }
+    });
+  }
+
+  drawerTitle = computed<string>(() => {
+    switch (this.activeDrawerStep()) {
+      case 'purpose': return 'Propósito del Entorno';
+      case 'identity': return 'Identidad y Categorías';
+      case 'image': return 'Imágenes OCI y Seguridad';
+      case 'execution': return 'Parámetros de Ejecución';
+      case 'resources': return 'Recursos de Hardware';
+      case 'verification': return 'Verificación y Smoke Test';
+      default: return 'Ayuda del Asistente';
+    }
+  });
+
+  drawerStepNumber = computed<number | null>(() => {
+    const idx = this.WIZARD_SECTIONS.indexOf(this.activeDrawerStep());
+    return idx >= 0 ? idx + 1 : null;
+  });
 
   runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
 
@@ -1275,15 +1327,15 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   saveDraftDisabledTooltip = computed(() => {
     if (this.canSaveDraft()) return '';
-    if (this.name().trim().length < 3) return 'Completá el nombre de la plantilla (mínimo 3 caracteres)';
-    if (!this.dockerImage().trim()) return 'Ingresá la imagen Docker requerida';
+    if (this.name().trim().length < 3) return 'Complete el nombre de la plantilla (mínimo 3 caracteres)';
+    if (!this.dockerImage().trim()) return 'Ingrese la imagen Docker requerida';
     if (this.isLatestImage()) return 'El tag :latest está prohibido';
     if (this.isInvalidFormat()) return 'Formato OCI inválido (ej: python:3.12-slim)';
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
-      return $localize`:@@PU-13:Completá el nombre y comando de ejecución para habilitar el guardado`;
+      return $localize`:@@PU-13:Complete el nombre y comando de ejecución para habilitar el guardado`;
     }
     if (this.isRamTooLow()) return 'La memoria RAM asignada está por debajo del mínimo permitido';
-    return 'Completá los campos requeridos para habilitar el guardado';
+    return 'Complete los campos requeridos para habilitar el guardado';
   });
 
   setRam(mb: number): void {

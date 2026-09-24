@@ -138,18 +138,55 @@
           </div>
         </div>
       }
-      
       <div class="modal-form-content">
         <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05, AY-01, AY-02) -->
         @if (activeSection() === 'purpose') {
-        <div class="section-container animate-fade">
-          <div class="purpose-intro-block">
-            <div class="step-header-with-help">
-              <h4 class="purpose-section-title" id="step-title-purpose" tabindex="-1" i18n="@@PU-01">Propósito del entorno</h4>
+          <div class="section-container animate-fade">
+            <solv-step-purpose
+              [targetEnvironment]="targetEnvironment()"
+              (targetEnvironmentChange)="selectTargetEnvironment($event)"
+              (helpRequested)="toggleHelpDrawer('purpose')"
+              (advance)="nextSection()"
+            ></solv-step-purpose>
+          </div>
+        }
+
+        <!-- PASO 2: IDENTIDAD Y PUERTAS DE ENTRADA -->
+        @if (activeSection() === 'identity') {
+          <div class="section-container animate-fade">
+            <solv-step-identity
+              [targetEnvironment]="targetEnvironment()"
+              [creationMode]="creationMode()"
+              [recipeUsed]="recipeUsed()"
+              [name]="name()"
+              [description]="description()"
+              [selectedCategoryId]="selectedCategoryId()"
+              [categories]="categories()"
+              [templateModels]="filteredModels()"
+              [templatesList]="filteredExistingCatalog()"
+              [isSavingCategory]="isQuickCategorySaving()"
+              (creationModeChange)="selectCreationMode($event)"
+              (nameChange)="name.set($event)"
+              (descriptionChange)="description.set($event)"
+              (categorySelected)="onCategorySelect($event)"
+              (createCategory)="createCategoryByName($event)"
+              (applyModel)="applyModel($event)"
+              (duplicateTemplate)="duplicateFromCatalog($event)"
+              (helpRequested)="toggleHelpDrawer('identity')"
+              (advance)="nextSection()"
+            ></solv-step-identity>
+          </div>
+        }
+
+        <!-- PASO 3: IMAGEN Y HERRAMIENTAS (AY-09 a AY-15) -->
+        @if (activeSection() === 'image') {
+          <div class="section-container animate-fade">
+            <div class="step-header-with-help mb-3">
+              <h4 class="step-section-title" id="step-title-image" tabindex="-1" i18n="@@PU-19-HEADING">Imagen del entorno</h4>
               <button 
                 type="button" 
                 class="btn-step-help" 
-                (click)="toggleHelpDrawer('purpose')" 
+                (click)="toggleHelpDrawer('image')" 
                 title="Ayuda contextual del paso" 
                 aria-label="Ayuda contextual del paso"
                 i18n-aria-label="@@AY-02"
@@ -157,571 +194,28 @@
                 <svg lucideHelpCircle class="w-4 h-4"></svg>
               </button>
             </div>
-            <p class="purpose-section-desc">Seleccione el modo de ejecución que define el ciclo de vida, recursos y herramientas de la plantilla.</p>
+
+            <solv-step-image
+              [dockerImage]="dockerImage()"
+              [toolsDeclared]="toolsDeclared()"
+              [targetEnvironment]="targetEnvironment()"
+              [localImages]="localImages()"
+              [curatedImages]="curatedOfficialImages"
+              [usageMap]="usageMap()"
+              [verificationState]="verificationState()"
+              [isStorageBlocked]="isStorageBlocked()"
+              [isArchIncompatible]="isArchIncompatible()"
+              [archDetected]="archDetected()"
+              [digestDetected]="digestDetected()"
+              (dockerImageChange)="onImageInputChange($event)"
+              (toolsDeclaredChange)="toolsDeclared.set($event)"
+              (imageSelected)="onImageSelected($event)"
+              (reverify)="reverify()"
+            ></solv-step-image>
           </div>
+        }
 
-          <div class="purpose-cards-grid" role="radiogroup" aria-labelledby="step-title-purpose">
-            <!-- Tarjeta: Laboratorio Interactivo -->
-            <div 
-              id="purpose-card-ide"
-              class="purpose-card" 
-              role="radio"
-              [attr.aria-checked]="targetEnvironment() === 'IDE_PERSISTENTE'"
-              [tabindex]="targetEnvironment() === 'IDE_PERSISTENTE' ? 0 : -1"
-              [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
-              (click)="selectTargetEnvironment('IDE_PERSISTENTE')"
-              (keydown)="onPurposeKeydown($event, 'IDE_PERSISTENTE')"
-            >
-              <div class="purpose-card-badge-row">
-                <div class="purpose-icon-wrap icon-ide">
-                  <svg lucideLayers class="w-5 h-5"></svg>
-                </div>
-                <div class="purpose-status-indicator">
-                  @if (targetEnvironment() === 'IDE_PERSISTENTE') {
-                    <svg lucideCheckCircle2 class="w-5 h-5 text-success"></svg>
-                  }
-                </div>
-              </div>
-              <h5 class="purpose-card-title" i18n="@@PU-02">Laboratorio Interactivo (IDE Persistente)</h5>
-              <p class="purpose-card-desc" i18n="@@PU-03">
-                Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos satélite.
-              </p>
-              <div class="purpose-tags-list">
-                <span class="purpose-tag">OpenVSCode</span>
-                <span class="purpose-tag">Bases de Datos</span>
-                <span class="purpose-tag">Sesión Larga</span>
-                <span class="purpose-tag">512 MB - 4 GB</span>
-              </div>
-            </div>
-
-            <!-- Tarjeta: Juez Virtual -->
-            <div 
-              id="purpose-card-judge"
-              class="purpose-card" 
-              role="radio"
-              [attr.aria-checked]="targetEnvironment() === 'JUEZ_EFIMERO'"
-              [tabindex]="targetEnvironment() === 'JUEZ_EFIMERO' ? 0 : -1"
-              [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
-              (click)="selectTargetEnvironment('JUEZ_EFIMERO')"
-              (keydown)="onPurposeKeydown($event, 'JUEZ_EFIMERO')"
-            >
-              <div class="purpose-card-badge-row">
-                <div class="purpose-icon-wrap icon-judge">
-                  <svg lucideTerminal class="w-5 h-5"></svg>
-                </div>
-                <div class="purpose-status-indicator">
-                  @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-                    <svg lucideCheckCircle2 class="w-5 h-5 text-success"></svg>
-                  }
-                </div>
-              </div>
-              <h5 class="purpose-card-title" i18n="@@PU-04">Juez Virtual (Sandbox Algorítmico)</h5>
-              <p class="purpose-card-desc" i18n="@@PU-05">
-                Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos.
-              </p>
-              <div class="purpose-tags-list">
-                <span class="purpose-tag">CLI Sandbox</span>
-                <span class="purpose-tag">1-5s Timeout</span>
-                <span class="purpose-tag">Ultra-ligero</span>
-                <span class="purpose-tag">128 MB - 512 MB</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="purpose-keyboard-hint">
-            <span class="hint-text" i18n="@@AY-01">← → eligen propósito · Enter continúa</span>
-          </div>
-        </div>
-      }
-
-      <!-- PASO 2: IDENTIDAD Y PUERTAS DE ENTRADA -->
-      @if (activeSection() === 'identity') {
-        <div class="section-container animate-fade">
-          <div class="step-header-with-help mb-3">
-            <h4 class="step-section-title" id="step-title-identity" tabindex="-1" i18n="@@ST-01">Identidad de la plantilla</h4>
-            <button 
-              type="button" 
-              class="btn-step-help" 
-              (click)="toggleHelpDrawer('identity')" 
-              title="Ayuda contextual del paso" 
-              aria-label="Ayuda contextual del paso"
-              i18n-aria-label="@@AY-02"
-            >
-              <svg lucideHelpCircle class="w-4 h-4"></svg>
-            </button>
-          </div>
-
-          <!-- Menú de Entrada de 3 Puertas -->
-          <div class="entry-doors-strip">
-            <div class="doors-label">
-              <span class="doors-title" i18n="@@ST-10">Nueva plantilla</span>
-            </div>
-            <div class="doors-options">
-              <button 
-                type="button" 
-                class="door-chip" 
-                [class.active]="creationMode() === 'blank'"
-                (click)="selectCreationMode('blank')"
-              >
-                <span i18n="@@ST-11">En blanco</span>
-              </button>
-              <button 
-                type="button" 
-                class="door-chip" 
-                [class.active]="creationMode() === 'recipe'"
-                (click)="selectCreationMode('recipe')"
-              >
-                <span i18n="@@ST-12">Desde modelo</span>
-              </button>
-              <button 
-                type="button" 
-                class="door-chip" 
-                [class.active]="creationMode() === 'duplicate'"
-                (click)="selectCreationMode('duplicate')"
-              >
-                <span i18n="@@ST-13">Duplicar existente</span>
-              </button>
-            </div>
-          </div>
-
-          <!-- Puerta: Desde modelo de plantilla -->
-          @if (creationMode() === 'recipe') {
-            <div class="models-shelf-section">
-              <div class="models-shelf-header">
-                <div class="models-title-wrap">
-                  <svg lucideSparkles class="w-4 h-4 text-warning mr-1.5"></svg>
-                  <span class="models-shelf-title" i18n="@@MO-01">Modelos de plantilla</span>
-                  <span class="models-shelf-sub" i18n="@@MO-02">Entornos preconfigurados listos para usar o personalizar</span>
-                </div>
-                @if (filteredModels().length > 4) {
-                  <div class="models-search-bar">
-                    <svg lucideSearch class="w-3.5 h-3.5 text-muted mr-1.5"></svg>
-                    <input 
-                      type="text" 
-                      class="models-search-input" 
-                      [ngModel]="modelsSearch()"
-                      (ngModelChange)="modelsSearch.set($event)"
-                      placeholder="Buscar modelos..."
-                      i18n-placeholder="@@MO-03"
-                    />
-                  </div>
-                }
-              </div>
-
-              @if (filteredModels().length === 0) {
-                <div class="models-empty-state">
-                  @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-                    <p i18n="@@PU-12">No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco.</p>
-                  } @else {
-                    <span i18n="@@MO-07">No se encontraron modelos para la búsqueda</span>
-                  }
-                  <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="selectCreationMode('blank')">
-                    Comenzar en blanco
-                  </button>
-                </div>
-              } @else {
-                <div class="disciplines-container">
-                  @for (catName of availableCategories(); track catName) {
-                    <div class="discipline-group">
-                      <div class="discipline-badge">{{ catName }}</div>
-                      <div class="models-grid">
-                        @for (model of modelsByCategory(catName); track model.id) {
-                          <div class="model-card" [class.selected]="recipeUsed() === model.id">
-                            <div class="model-card-header">
-                              <span class="model-card-title">{{ model.name }}</span>
-                              <span class="model-usage-badge" [title]="'Usado ' + model.usage_count + ' veces'">
-                                <svg lucideRotateCw class="w-3 h-3 mr-1"></svg>
-                                <span i18n="@@MO-05">{{ model.usage_count }} plantillas basadas en este modelo</span>
-                              </span>
-                            </div>
-                            <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
-                            <div class="model-card-tools">
-                              <span class="tools-label">Imagen:</span>
-                              <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
-                            </div>
-                            <button 
-                              type="button" 
-                              class="btn btn-sm btn-outline-primary mt-2 w-full"
-                              (click)="applyModel(model)"
-                            >
-                              <span i18n="@@MO-06">Usar este modelo</span>
-                            </button>
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  }
-
-                  @if (modelsWithoutCategory().length > 0) {
-                    <div class="discipline-group">
-                      <div class="discipline-badge">General / Sin Categoría</div>
-                      <div class="models-grid">
-                        @for (model of modelsWithoutCategory(); track model.id) {
-                          <div class="model-card" [class.selected]="recipeUsed() === model.id">
-                            <div class="model-card-header">
-                              <span class="model-card-title">{{ model.name }}</span>
-                              <span class="model-usage-badge" [title]="'Usado ' + model.usage_count + ' veces'">
-                                <svg lucideRotateCw class="w-3 h-3 mr-1"></svg>
-                                <span i18n="@@MO-05">{{ model.usage_count }} plantillas basadas en este modelo</span>
-                              </span>
-                            </div>
-                            <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
-                            <div class="model-card-tools">
-                              <span class="tools-label">Imagen:</span>
-                              <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
-                            </div>
-                            <button 
-                              type="button" 
-                              class="btn btn-sm btn-outline-primary mt-2 w-full"
-                              (click)="applyModel(model)"
-                            >
-                              <span i18n="@@MO-06">Usar este modelo</span>
-                            </button>
-                          </div>
-                        }
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-
-          <!-- Puerta: Duplicar existente -->
-          @if (creationMode() === 'duplicate') {
-            <div class="models-shelf-section">
-              <div class="models-shelf-header">
-                <div class="models-title-wrap">
-                  <svg lucideCopy class="w-4 h-4 text-primary mr-1.5"></svg>
-                  <span class="models-shelf-title">Catálogo activo para duplicar</span>
-                  <span class="models-shelf-sub">Cree una nueva plantilla a partir de una existente aprobada</span>
-                </div>
-                <div class="models-search-bar">
-                  <svg lucideSearch class="w-3.5 h-3.5 text-muted mr-1.5"></svg>
-                  <input 
-                    type="text" 
-                    class="duplicate-search-input" 
-                    [ngModel]="duplicateSearch()"
-                    (ngModelChange)="duplicateSearch.set($event)"
-                    placeholder="Buscar plantillas del catálogo para duplicar..."
-                    i18n-placeholder="@@MO-14"
-                  />
-                </div>
-              </div>
-
-              @if (filteredExistingCatalog().length === 0) {
-                <div class="duplicate-empty-state">
-                  <p class="text-sm text-muted">No hay plantillas aprobadas disponibles en el catálogo para este propósito.</p>
-                </div>
-              } @else {
-                <div class="duplicate-grid">
-                  @for (item of filteredExistingCatalog(); track item.id) {
-                    <div class="duplicate-card">
-                      <div class="duplicate-card-info">
-                        <span class="duplicate-card-title">{{ item.name }}</span>
-                        <span class="duplicate-card-image font-mono">{{ item.docker_image }}</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        class="btn btn-sm btn-outline-primary"
-                        (click)="duplicateFromCatalog(item)"
-                      >
-                        <svg lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
-                        <span i18n="@@MO-15">Duplicar esta plantilla</span>
-                      </button>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-
-          <!-- Formulario de Identidad -->
-          <div class="form-group mt-4">
-            <label class="form-label font-semibold">
-              Nombre de la Plantilla: <span class="text-danger">*</span>
-            </label>
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Ej: Programación Web con Node 20" 
-              [ngModel]="name()" 
-              (ngModelChange)="name.set($event)" />
-            <small class="form-hint">Nombre descriptivo que verán los docentes y estudiantes en el catálogo.</small>
-          </div>
-
-          <div class="form-group">
-            <div class="label-row-between">
-              <label class="form-label font-semibold">
-                Categoría Académica:
-              </label>
-              <button 
-                type="button" 
-                class="btn-text-action" 
-                (click)="navigateToCategoryManager()"
-                title="Gestionar categorías en la biblioteca"
-              >
-                <svg lucideTag class="w-3.5 h-3.5 mr-1"></svg>
-                <span i18n="@@CA-01">Gestionar categorías</span>
-              </button>
-            </div>
-            <select 
-              class="form-control form-select" 
-              [ngModel]="selectedCategoryId()" 
-              (ngModelChange)="onCategorySelect($event)">
-              <option [ngValue]="null">-- Sin categoría asignada --</option>
-              @for (cat of categories(); track cat.id) {
-                <option [value]="cat.id">{{ cat.name }}</option>
-              }
-              <option value="__new__" i18n="@@AY-04">＋ Nueva categoría…</option>
-            </select>
-
-            @if (isCreatingCategoryInline()) {
-              <div class="inline-category-row mt-2">
-                <input 
-                  type="text" 
-                  #newCatInput
-                  autofocus
-                  class="form-control inline-cat-input" 
-                  [placeholder]="'Nombre de la nueva categoría:'" 
-                  [attr.aria-label]="'Nombre de la nueva categoría:'"
-                  i18n-placeholder="@@AY-05"
-                  [ngModel]="inlineCategoryName()" 
-                  (ngModelChange)="inlineCategoryName.set($event)"
-                  (keyup.enter)="createCategoryInline()"
-                  (keyup.escape)="cancelInlineCategory()"
-                />
-                <button 
-                  type="button" 
-                  class="btn btn-primary inline-cat-btn" 
-                  [disabled]="!inlineCategoryName().trim() || isQuickCategorySaving()" 
-                  (click)="createCategoryInline()"
-                  i18n="@@AY-06">
-                  {{ isQuickCategorySaving() ? 'Guardando...' : 'Agregar categoría' }}
-                </button>
-                <button 
-                  type="button" 
-                  class="btn btn-secondary inline-cat-cancel-btn" 
-                  (click)="cancelInlineCategory()"
-                  i18n="@@AY-07">
-                  Cancelar
-                </button>
-              </div>
-            }
-            <small class="form-hint" i18n="@@AY-08">La categoría agrupa plantillas para el filtro docente.</small>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Descripción Institucional (Opcional):
-            </label>
-            <textarea 
-              class="form-control text-area-sm" 
-              rows="3" 
-              placeholder="Ej: Plantilla configurada con bibliotecas para machine learning..."
-              [ngModel]="description()" 
-              (ngModelChange)="description.set($event)">
-            </textarea>
-          </div>
-        </div>
-      }
-
-      <!-- PASO 3: IMAGEN Y HERRAMIENTAS (AY-09 a AY-15) -->
-      @if (activeSection() === 'image') {
-        <div class="section-container animate-fade">
-          <div class="step-header-with-help mb-3">
-            <h4 class="step-section-title" id="step-title-image" tabindex="-1" i18n="@@PU-19">Imagen del entorno</h4>
-            <button 
-              type="button" 
-              class="btn-step-help" 
-              (click)="toggleHelpDrawer('image')" 
-              title="Ayuda contextual del paso" 
-              aria-label="Ayuda contextual del paso"
-              i18n-aria-label="@@AY-02"
-            >
-              <svg lucideHelpCircle class="w-4 h-4"></svg>
-            </button>
-          </div>
-
-          <div class="form-group typeahead-container">
-            <div class="label-row-between">
-              <div class="label-with-help">
-                <label class="form-label font-semibold">
-                  Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
-                </label>
-                <button 
-                  type="button" 
-                  class="btn-help-inline" 
-                  (click)="toggleImagePopover()" 
-                  title="Anatomía de una referencia de imagen"
-                  aria-label="Anatomía de una referencia de imagen"
-                >
-                  <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
-                </button>
-              </div>
-              @if (verificationState() === 'checking') {
-                <span class="verification-badge-checking">
-                  <span class="spinner-dot"></span> Verificando...
-                </span>
-              } @else if (verificationState() === 'verified') {
-                <button type="button" class="btn-reverify" (click)="reverify()" title="Forzar re-verificación">
-                  <svg lucideRefreshCw class="w-3 h-3"></svg>
-                  <span>Re-verificar</span>
-                </button>
-              }
-            </div>
-
-            @if (showImagePopover()) {
-              <div class="image-popover-box animate-fade">
-                <div class="popover-header">
-                  <h6 class="popover-title" i18n="@@AY-13">Anatomía de una referencia de imagen Docker</h6>
-                  <button type="button" class="btn-close-popover" (click)="showImagePopover.set(false)" aria-label="Cerrar">×</button>
-                </div>
-                <div class="popover-content">
-                  <div class="image-anatomy-breakdown">
-                    <div class="anatomy-part"><span class="part-label">Registro:</span> <code class="part-code">docker.io/</code></div>
-                    <div class="anatomy-part"><span class="part-label">Namespace:</span> <code class="part-code">library/</code></div>
-                    <div class="anatomy-part"><span class="part-label">Repositorio:</span> <code class="part-code font-bold">python</code></div>
-                    <div class="anatomy-part"><span class="part-label">Tag fijado:</span> <code class="part-code tag-code">:3.12-slim-bookworm</code></div>
-                  </div>
-                  <p class="popover-warning" i18n="@@AY-14">El tag :latest está prohibido por reproducibilidad y gobernanza.</p>
-                </div>
-              </div>
-            }
-
-            <div class="image-combobox-wrapper" style="position: relative;">
-              <div class="input-with-action">
-                <input 
-                  type="text" 
-                  class="form-control font-mono" 
-                  [class.is-invalid]="isLatestImage() || isInvalidFormat() || isStorageBlocked() || isArchIncompatible()"
-                  [class.is-valid]="verificationState() === 'verified' && !isStorageBlocked() && !isArchIncompatible()"
-                  placeholder="Ej: python:3.12-slim-bookworm" 
-                  [ngModel]="dockerImage()" 
-                  (ngModelChange)="onImageInputChange($event)"
-                  (keydown)="onComboboxKeydown($event)"
-                  (focus)="openCombobox()" 
-                  role="combobox"
-                  aria-autocomplete="list"
-                  [attr.aria-expanded]="isDropdownOpen()"
-                  aria-controls="image-listbox-overlay" />
-              </div>
-
-              <!-- Listbox Overlay sin reflow -->
-              @if (isDropdownOpen()) {
-                <div id="image-listbox-overlay" class="combobox-overlay-listbox" role="listbox">
-                  <!-- Grupo 1: En este servidor -->
-                  @if (groupLocalImages().length > 0) {
-                    <div class="combobox-group-header sticky-header" i18n="@@AY-09">En este servidor — despliegue inmediato</div>
-                    @for (item of groupLocalImages(); track item.repoTag; let idx = $index) {
-                      <div 
-                        class="combobox-item" 
-                        role="option"
-                        [class.active]="activeComboboxIndex() === idx"
-                        [attr.aria-selected]="activeComboboxIndex() === idx"
-                        (mousedown)="selectSuggestion(item)"
-                      >
-                        <div class="combobox-item-main">
-                          <span class="combobox-repo font-mono">{{ item.repoTag }}</span>
-                          <div class="combobox-badges-row">
-                            <span class="badge-tag badge-local">Local</span>
-                            @if (item.sizeMB) {
-                              <span class="badge-size">{{ item.sizeMB }} MB</span>
-                            }
-                            @if (item.usageCount && item.usageCount > 0) {
-                              <span class="badge-usage" i18n="@@AY-12">{item.usageCount, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}</span>
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    }
-                  }
-
-                  <!-- Grupo 2: Catálogo oficial curado -->
-                  @if (groupCuratedImages().length > 0) {
-                    <div class="combobox-group-header sticky-header" i18n="@@AY-10">Catálogo oficial curado — se descargará una vez</div>
-                    @for (item of groupCuratedImages(); track item.repoTag; let idx = $index) {
-                      <div 
-                        class="combobox-item" 
-                        role="option"
-                        [class.active]="activeComboboxIndex() === (groupLocalImages().length + idx)"
-                        [attr.aria-selected]="activeComboboxIndex() === (groupLocalImages().length + idx)"
-                        (mousedown)="selectSuggestion(item)"
-                      >
-                        <div class="combobox-item-main">
-                          <span class="combobox-repo font-mono">{{ item.repoTag }}</span>
-                          <div class="combobox-badges-row">
-                            <span class="badge-tag badge-official">Oficial</span>
-                            @if (item.usageCount && item.usageCount > 0) {
-                              <span class="badge-usage" i18n="@@AY-12">{item.usageCount, plural, =1 {usada en 1 plantilla} other {usada en # plantillas}}</span>
-                            }
-                          </div>
-                        </div>
-                        @if (item.description) {
-                          <div class="combobox-item-desc">{{ item.description }}</div>
-                        }
-                      </div>
-                    }
-                  }
-
-                  <!-- Estado Vacío -->
-                  @if (groupLocalImages().length === 0 && groupCuratedImages().length === 0) {
-                    <div class="combobox-empty-state" i18n="@@AY-11">
-                      Sin coincidencias locales; verificaremos en el registro al continuar
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-
-            <!-- Validaciones tempranas -->
-            @if (isLatestImage()) {
-              <div class="validation-message-alert alert-danger">
-                <svg lucideAlertCircle class="w-4 h-4"></svg>
-                <span>Prohibido el tag <code>:latest</code> por reproducibilidad académica y gobernanza institucional.</span>
-              </div>
-            }
-            @if (isInvalidFormat()) {
-              <div class="validation-message-alert alert-warning">
-                <svg lucideInfo class="w-4 h-4"></svg>
-                <span>Formato OCI inválido: debe ser repositorio:tag (ej: <code>python:3.12-slim</code>).</span>
-              </div>
-            }
-          </div>
-
-          <!-- Herramientas declaradas con Chips Sugeridos -->
-          <div class="form-group">
-            <label class="form-label font-semibold">
-              Herramientas Requeridas en la Imagen (Separadas por coma):
-            </label>
-            <input 
-              type="text" 
-              class="form-control font-mono" 
-              [placeholder]="suggestedToolsPlaceholder()" 
-              [ngModel]="toolsDeclared()" 
-              (ngModelChange)="toolsDeclared.set($event)" />
-            
-            <div class="tools-suggested-chips mt-2">
-              <span class="chips-label" i18n="@@AY-15">Ejemplos sugeridos para este propósito:</span>
-              <div class="chips-row">
-                @for (tool of suggestedToolChips(); track tool) {
-                  <button 
-                    type="button" 
-                    class="tool-chip" 
-                    [class.added]="isToolDeclared(tool)"
-                    (click)="addToolDeclared(tool)"
-                  >
-                    + {{ tool }}
-                  </button>
-                }
-              </div>
-            </div>
-            <small class="form-hint">Binarios que el sistema comprobará dentro del contenedor antes de aprobar la plantilla.</small>
-          </div>
-        </div>
-      }
-
-      <!-- PASO 4: EJECUCIÓN (PU-08 a PU-10, PU-15) -->
+        <!-- PASO 4: EJECUCIÓN (PU-08 a PU-10, PU-15) -->
       @if (activeSection() === 'execution') {
         <div class="section-container animate-fade">
           @if (targetEnvironment() === 'JUEZ_EFIMERO') {
@@ -966,112 +460,84 @@
       }
       </div>
 
-      <!-- Drawer Lateral de Ayuda Contextual (AY-02, AY-03, AY-16, AY-17) -->
-      @if (isHelpDrawerOpen()) {
-        <aside class="modal-help-drawer animate-fade" role="complementary" aria-label="Panel de ayuda contextual">
-          <div class="drawer-header">
-            <div class="drawer-title-wrap">
-              <svg lucideHelpCircle class="w-4 h-4 text-primary"></svg>
-              <h5 class="drawer-title">
-                @switch (activeDrawerStep()) {
-                  @case ('purpose') { Propósito del Entorno }
-                  @case ('identity') { Identidad y Categorías }
-                  @case ('image') { Imágenes OCI y Seguridad }
-                  @default { Ayuda del Asistente }
-                }
-              </h5>
+      <!-- Drawer Lateral de Ayuda Contextual con solv-help-drawer -->
+      <solv-help-drawer
+        [isOpen]="isHelpDrawerOpen()"
+        [title]="drawerTitle()"
+        [stepNumber]="drawerStepNumber()"
+        (closed)="closeHelpDrawer()"
+      >
+        @switch (activeDrawerStep()) {
+          @case ('purpose') {
+            <h6 class="drawer-section-heading" i18n="@@AY-16">Comparativa de Entornos: IDE Persistente vs Juez Virtual</h6>
+            <div class="drawer-table-wrap">
+              <table class="drawer-table">
+                <thead>
+                  <tr>
+                    <th>Característica</th>
+                    <th>IDE Persistente</th>
+                    <th>Juez Virtual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><strong>Interfaz</strong></td>
+                    <td>OpenVSCode Server</td>
+                    <td>Sin interfaz web (CLI)</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Ciclo de vida</strong></td>
+                    <td>Sesión interactiva</td>
+                    <td>Efímero y desechable</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Persistencia</strong></td>
+                    <td>Volumen persistente</td>
+                    <td>Tmpfs descartable</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Servicios</strong></td>
+                    <td>Admite satélites (BDs)</td>
+                    <td>Aislado estrictamente</td>
+                  </tr>
+                  <tr>
+                    <td><strong>Límites RAM</strong></td>
+                    <td>512 MB – 4 GB</td>
+                    <td>128 MB – 512 MB</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <button 
-              type="button" 
-              class="btn-close-drawer" 
-              (click)="closeHelpDrawer()" 
-              aria-label="Cerrar panel de ayuda"
-              i18n-aria-label="@@AY-17"
-            >
-              <svg lucideX class="w-4 h-4"></svg>
-            </button>
-          </div>
-
-          <div class="drawer-body">
-            @switch (activeDrawerStep()) {
-              @case ('purpose') {
-                <h6 class="drawer-section-heading" i18n="@@AY-16">Comparativa de Entornos: IDE Persistente vs Juez Virtual</h6>
-                <div class="drawer-table-wrap">
-                  <table class="drawer-table">
-                    <thead>
-                      <tr>
-                        <th>Característica</th>
-                        <th>IDE Persistente</th>
-                        <th>Juez Virtual</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><strong>Interfaz</strong></td>
-                        <td>OpenVSCode Server</td>
-                        <td>Sin interfaz web (CLI)</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Ciclo de vida</strong></td>
-                        <td>Sesión interactiva</td>
-                        <td>Efímero y desechable</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Persistencia</strong></td>
-                        <td>Volumen persistente</td>
-                        <td>Tmpfs descartable</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Servicios</strong></td>
-                        <td>Admite satélites (BDs)</td>
-                        <td>Aislado estrictamente</td>
-                      </tr>
-                      <tr>
-                        <td><strong>Límites RAM</strong></td>
-                        <td>512 MB – 4 GB</td>
-                        <td>128 MB – 512 MB</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                <p class="drawer-note">
-                  Elegí <strong>IDE Persistente</strong> para clases prácticas donde el alumno programa con editor y terminal. Elegí <strong>Juez Virtual</strong> para exámenes automatizados donde el código se compila, corre contra casos de prueba y se destruye en segundos.
-                </p>
-              }
-              @case ('identity') {
-                <h6 class="drawer-section-heading">Identidad y Categorización</h6>
-                <p class="drawer-text">
-                  <strong>Nombre:</strong> Utilizá una convención clara y descriptiva que incluya la materia y el runtime principal (ej. <em>Programación II — Go 1.24</em>).
-                </p>
-                <p class="drawer-text">
-                  <strong>Categoría Académica:</strong> Agrupa plantillas afines en el catálogo docente. Podés seleccionar una existente o registrar una nueva escribiendo su nombre directamente.
-                </p>
-                <p class="drawer-text">
-                  <strong>Descripción:</strong> Informa a los docentes qué librerías, dependencias o herramientas especiales incluye la imagen para evitar configuraciones duplicadas.
-                </p>
-              }
-              @case ('image') {
-                <h6 class="drawer-section-heading">Imágenes Docker y Gobernanza</h6>
-                <p class="drawer-text">
-                  <strong>Prohibición de <code>:latest</code>:</strong> Todas las imágenes deben tener un tag inmutable (ej: <code>python:3.12-slim-bookworm</code>) para garantizar la reproducibilidad académica histórica.
-                </p>
-                <p class="drawer-text">
-                  <strong>Imágenes Locales vs Curadas:</strong> Las imágenes locales ya residen en este servidor y arrancan inmediatamente. El catálogo curado contiene imágenes oficiales verificadas que se descargarán la primera vez.
-                </p>
-                <p class="drawer-text">
-                  <strong>Herramientas Requeridas:</strong> Especificá los comandos binarios (ej. <code>gcc, python3, node</code>) que el worker comprobará en el smoke test previo a la aprobación.
-                </p>
-              }
-            }
-          </div>
-
-          <div class="drawer-footer">
-            <a routerLink="/admin/manual" (click)="closeModal()" class="drawer-manual-link" i18n="@@AY-03">
-              Ver manual completo &rarr;
-            </a>
-          </div>
-        </aside>
-      }
+            <p class="drawer-note">
+              Seleccione <strong>IDE Persistente</strong> para clases prácticas donde el alumno programa con editor y terminal. Seleccione <strong>Juez Virtual</strong> para evaluaciones automatizadas donde el código se compila, corre contra casos de prueba y se destruye en segundos.
+            </p>
+          }
+          @case ('identity') {
+            <h6 class="drawer-section-heading">Identidad y Categorización</h6>
+            <p class="drawer-text">
+              <strong>Nombre:</strong> Utilice una convención clara y descriptiva que incluya la materia y el runtime principal (ej. <em>Programación II — Go 1.24</em>).
+            </p>
+            <p class="drawer-text">
+              <strong>Categoría Académica:</strong> Agrupa plantillas afines en el catálogo institucional. Puede seleccionar una existente o registrar una nueva escribiendo su nombre directamente.
+            </p>
+            <p class="drawer-text">
+              <strong>Descripción:</strong> Informa a los docentes qué librerías, dependencias o herramientas especiales incluye la imagen para evitar configuraciones duplicadas.
+            </p>
+          }
+          @case ('image') {
+            <h6 class="drawer-section-heading">Imágenes Docker y Gobernanza</h6>
+            <p class="drawer-text">
+              <strong>Prohibición de <code>:latest</code>:</strong> Todas las imágenes deben tener un tag inmutable (ej: <code>python:3.12-slim-bookworm</code>) para asegurar la reproducibilidad académica histórica.
+            </p>
+            <p class="drawer-text">
+              <strong>Imágenes Locales vs Curadas:</strong> Las imágenes locales ya residen en este servidor y arrancan inmediatamente. El catálogo curado contiene imágenes oficiales verificadas que se descargarán la primera vez.
+            </p>
+            <p class="drawer-text">
+              <strong>Herramientas Requeridas:</strong> Especifique los comandos binarios (ej. <code>gcc, python3, node</code>) que el worker comprobará en el smoke test previo a la aprobación.
+            </p>
+          }
+        }
+      </solv-help-drawer>
     </div>
 
     <!-- Footer de Acciones Estructurado con 5 Botones -->
@@ -1080,6 +546,7 @@
         <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting()">
           Cancelar
         </button>
+        <span class="footer-keyboard-hint">Tab para navegar · Enter para continuar · Esc para cerrar paneles</span>
       </div>
 
       <div class="footer-center-nav">

@@ -2,6 +2,17 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, map, catchError, of } from 'rxjs';
 
+export type TargetEnvironment = 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO';
+
+export interface ImageSuggestion {
+  repoTag: string;
+  isLocal: boolean;
+  isOfficial?: boolean;
+  sizeMB?: number;
+  usageCount?: number;
+  description?: string;
+}
+
 export interface ServiceRequirement {
   category: string; // "database", "cache", "message_broker", "storage", etc.
   engine: string;   // "postgres", "mysql", "mongodb", "redis", etc.
