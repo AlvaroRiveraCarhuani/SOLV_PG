@@ -102,4 +102,27 @@ describe('SolvStepImageComponent', () => {
     const label = fixture.nativeElement.querySelector('.chips-label');
     expect(label.textContent).toContain('Sugerencias según el propósito:');
   });
+
+  it('debe advertir si una herramienta declarada pertenece a un ecosistema distinto al de la imagen', () => {
+    fixture.componentRef.setInput('dockerImage', 'python:3.12-slim-bookworm');
+    fixture.componentRef.setInput('toolsDeclared', 'python3, node');
+    fixture.detectChanges();
+
+    const warning = component.toolsAffinityWarning();
+    expect(warning).toBeTruthy();
+    expect(warning).toContain('node');
+    expect(warning).toContain('Node.js');
+
+    const warningEl = fixture.nativeElement.querySelector('.mt-2 solv-field-message');
+    expect(warningEl).toBeTruthy();
+    expect(warningEl.textContent).toContain('node');
+  });
+
+  it('no debe advertir si las herramientas pertenecen al ecosistema de la imagen o son universales', () => {
+    fixture.componentRef.setInput('dockerImage', 'python:3.12-slim-bookworm');
+    fixture.componentRef.setInput('toolsDeclared', 'python3, pip, git, curl');
+    fixture.detectChanges();
+
+    expect(component.toolsAffinityWarning()).toBeNull();
+  });
 });

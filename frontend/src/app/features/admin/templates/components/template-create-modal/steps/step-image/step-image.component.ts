@@ -20,8 +20,58 @@ import {
 import { 
   LocalImageItem, 
   ImageSuggestion,
-  TargetEnvironment 
+  TargetEnvironment
 } from '../../../../../services/admin-templates.service';
+
+interface ToolEcosystem {
+  name: string;
+  imageKeywords: string[];
+  tools: string[];
+}
+
+const TOOL_ECOSYSTEMS: ToolEcosystem[] = [
+  {
+    name: 'Python',
+    imageKeywords: ['python'],
+    tools: ['python', 'python3', 'pip', 'pip3', 'pytest', 'poetry', 'uv', 'virtualenv', 'mypy', 'black', 'flake8']
+  },
+  {
+    name: 'Node.js',
+    imageKeywords: ['node', 'javascript', 'typescript'],
+    tools: ['node', 'nodejs', 'npm', 'npx', 'yarn', 'pnpm', 'bun', 'deno', 'tsc']
+  },
+  {
+    name: 'Go',
+    imageKeywords: ['golang', 'go:'],
+    tools: ['go', 'gofmt', 'golint']
+  },
+  {
+    name: 'C / C++',
+    imageKeywords: ['gcc', 'clang', 'cpp'],
+    tools: ['gcc', 'g++', 'clang', 'clang++', 'make', 'cmake', 'gdb', 'ninja']
+  },
+  {
+    name: 'Java',
+    imageKeywords: ['openjdk', 'eclipse-temurin', 'java', 'maven', 'gradle'],
+    tools: ['javac', 'java', 'jar', 'mvn', 'gradle']
+  },
+  {
+    name: 'Rust',
+    imageKeywords: ['rust'],
+    tools: ['rustc', 'cargo']
+  },
+  {
+    name: 'Bases de datos',
+    imageKeywords: ['postgres', 'mysql', 'redis', 'mariadb'],
+    tools: ['psql', 'pg_dump', 'mysql', 'redis-cli', 'redis-server', 'mongosh']
+  }
+];
+
+const UNIVERSAL_TOOLS = new Set([
+  'bash', 'sh', 'zsh', 'git', 'curl', 'wget', 'tar', 'gzip', 'unzip', 'zip',
+  'cat', 'ls', 'grep', 'awk', 'sed', 'sudo', 'env', 'jq', 'nano', 'vim', 'vi',
+  'ssh', 'openssl', 'find', 'which', 'echo'
+]);
 
 @Component({
   selector: 'solv-step-image',
@@ -147,6 +197,15 @@ import {
         [ngModel]="toolsDeclared()" 
         (ngModelChange)="toolsDeclaredChange.emit($event)" 
       />
+
+      @if (toolsAffinityWarning()) {
+        <div class="mt-2">
+          <solv-field-message 
+            variant="warning"
+            [message]="toolsAffinityWarning()!"
+          ></solv-field-message>
+        </div>
+      }
       
       <div class="tools-suggested-chips mt-2">
         <span class="chips-label" i18n="@@AY-15">
@@ -269,6 +328,44 @@ export class SolvStepImageComponent {
     'postgres': ['psql', 'pg_dump'],
     'redis': ['redis-cli', 'redis-server']
   };
+
+  toolsAffinityWarning = computed<string | null>(() => {
+    const img = this.dockerImage().trim().toLowerCase();
+    if (!img) return null;
+
+    const currentEco = TOOL_ECOSYSTEMS.find(eco =>
+      eco.imageKeywords.some(kw => img.includes(kw))
+    );
+    if (!currentEco) return null;
+
+    const declared = this.toolsDeclared()
+      .split(',')
+      .map(t => t.trim().toLowerCase())
+      .filter(Boolean);
+
+    if (declared.length === 0) return null;
+
+    const mismatches: { tool: string; otherEco: string }[] = [];
+
+    for (const tool of declared) {
+      if (UNIVERSAL_TOOLS.has(tool)) continue;
+      if (currentEco.tools.includes(tool)) continue;
+
+      const otherEco = TOOL_ECOSYSTEMS.find(eco => eco.name !== currentEco.name && eco.tools.includes(tool));
+      if (otherEco) {
+        mismatches.push({ tool, otherEco: otherEco.name });
+      }
+    }
+
+    if (mismatches.length === 0) return null;
+
+    if (mismatches.length === 1) {
+      return `Aviso: La herramienta "${mismatches[0].tool}" suele pertenecer al entorno ${mismatches[0].otherEco}, inusual en imágenes base de ${currentEco.name}. Si la imagen no la incluye, fallará en el paso de verificación.`;
+    }
+
+    const list = mismatches.map(m => `"${m.tool}" (${m.otherEco})`).join(', ');
+    return `Aviso: Las herramientas [${list}] pertenecen a otros entornos. Si la imagen no las incluye, fallará en el paso de verificación.`;
+  });
 
   hasImageFamilyMatch = computed<boolean>(() => {
     const img = this.dockerImage().toLowerCase();
