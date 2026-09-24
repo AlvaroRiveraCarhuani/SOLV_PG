@@ -74,7 +74,7 @@ describe('SolvStepResourcesComponent', () => {
     expect(emitted).toBe(2048);
   });
 
-  it('debe mostrar servicios satélite diferenciando disponibles de no disponibles', () => {
+  it('debe mostrar bases de datos adicionales diferenciando disponibles de no disponibles', () => {
     const cards = fixture.nativeElement.querySelectorAll('.service-card');
     expect(cards.length).toBe(4);
 
@@ -129,6 +129,83 @@ describe('SolvStepResourcesComponent', () => {
     expect(engines).toContain('mysql');
     expect(engines).toContain('redis');
     expect(engines).not.toContain('postgres');
+  });
+
+  it('spec de barra con satélites: los segmentos suman el base declarado', () => {
+    const declaredBaseRam = 1024;
+    fixture.componentRef.setInput('baseRamMB', declaredBaseRam);
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      editor_base_mb: 210,
+      host_memory: { total_ram_mb: 8192, available_ram_mb: 4096 }
+    } as any);
+    fixture.componentRef.setInput('selectedServices', [
+      { category: 'database', engine: 'postgres', version: '16' }
+    ]);
+    fixture.detectChanges();
+
+    const profile = component.resourceProfilePreview();
+    const editorSegment = profile.editorBase; // 210
+    const satSegments = profile.satelliteSegments; // [ { engine: 'postgres', baseMB: 128 } ]
+    const satTotal = satSegments.reduce((sum, s) => sum + s.baseMB, 0); // 128
+    const usableSegment = profile.usable; // 1024 - 210 - 128 = 686
+
+    expect(satSegments.length).toBe(1);
+    expect(satSegments[0].baseMB).toBe(128);
+    expect(editorSegment + satTotal + usableSegment).toBe(declaredBaseRam);
+
+    // Verificación en el DOM de la barra
+    const barSegments = fixture.nativeElement.querySelectorAll('.memory-bar .bar-segment');
+    expect(barSegments.length).toBe(3); // editor + postgres + libre
+    expect(barSegments[1].classList.contains('bar-satellite')).toBe(true);
+    expect(barSegments[1].textContent).toContain('PostgreSQL (128 MB)');
+  });
+
+  it('la capacidad de alumnos descuenta el consumo base de satélites seleccionados', () => {
+    const availableHostRam = 4096;
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      host_memory: { available_ram_mb: availableHostRam }
+    } as any);
+    fixture.componentRef.setInput('baseRamMB', 1024);
+
+    // Sin satélites: 4096 / 1024 = 4 alumnos
+    fixture.componentRef.setInput('selectedServices', []);
+    fixture.detectChanges();
+    const capacityWithoutSatellites = component.resourceProfilePreview().estimatedCapacity;
+    expect(capacityWithoutSatellites).toBe(4);
+
+    // Con PostgreSQL (+128 MB): total por alumno = 1024 + 128 = 1152 MB -> 4096 / 1152 = 3 alumnos
+    fixture.componentRef.setInput('selectedServices', [
+      { category: 'database', engine: 'postgres', version: '16' }
+    ]);
+    fixture.detectChanges();
+    const capacityWithSatellites = component.resourceProfilePreview().estimatedCapacity;
+    expect(capacityWithSatellites).toBe(3);
+    expect(capacityWithSatellites).toBeLessThan(capacityWithoutSatellites);
+  });
+
+  it('el badge de piso indica el piso y la alerta muestra hecho, causa y acción', () => {
+    fixture.componentRef.setInput('runtimeCapabilities', {
+      editor_base_mb: 210,
+      host_memory: { available_ram_mb: 4096 }
+    } as any);
+    fixture.componentRef.setInput('selectedServices', [
+      { category: 'database', engine: 'postgres', version: '16' }
+    ]);
+    // Piso = 210 + 128 = 338 MB. Asignamos 256 MB (bajo el piso)
+    fixture.componentRef.setInput('baseRamMB', 256);
+    fixture.detectChanges();
+
+    expect(component.minimumFloorMB()).toBe(338);
+    expect(component.isRamBelowFloor()).toBe(true);
+
+    const badgeFloor = fixture.nativeElement.querySelector('.badge-floor');
+    expect(badgeFloor.textContent).toContain('338 MB');
+
+    const alert = fixture.nativeElement.querySelector('.validation-message-alert.alert-danger');
+    expect(alert).toBeTruthy();
+    expect(alert.textContent).toContain('Hecho:');
+    expect(alert.textContent).toContain('Causa:');
+    expect(alert.textContent).toContain('Acción:');
   });
 
   it('debe emitir helpRequested al presionar el botón de ayuda contextual', () => {

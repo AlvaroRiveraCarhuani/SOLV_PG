@@ -95,11 +95,13 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
           </div>
         </div>
 
-        @if (isRamTooLow()) {
+        @if (isRamBelowFloor()) {
           <div class="validation-message-alert alert-danger mt-2">
             <svg lucideAlertCircle class="w-4 h-4"></svg>
             <span>
-              {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'El mínimo recomendado es 64 MB para el sandbox de juez.' : 'El mínimo recomendado es 256 MB para alojar el editor web y el runtime.' }}
+              <strong>Hecho:</strong> Asignación actual ({{ baseRamMB() }} MB) inferior al piso requerido ({{ minimumFloorMB() }} MB).
+              <strong>Causa:</strong> {{ floorAlertCause() }}
+              <strong>Acción:</strong> {{ floorAlertAction() }}
             </span>
           </div>
         }
@@ -124,7 +126,12 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
       <!-- Perfil de Distribución de Recursos y Métrica Viva -->
       <div class="resource-profile-card">
         <div class="profile-header">
-          <span class="profile-title">Distribución de Recursos Estimada</span>
+          <div class="profile-header-left">
+            <span class="profile-title">Distribución de Recursos Estimada</span>
+            <span class="badge-floor" [class.badge-floor-alert]="isRamBelowFloor()">
+              Piso: {{ minimumFloorMB() }} MB ({{ floorReason() }})
+            </span>
+          </div>
           <span class="profile-badge">
             {{ capacityPluralLabel() }}
           </span>
@@ -142,6 +149,15 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
             >
               <span>{{ resourceProfilePreview().isJudge ? 'Sandbox (' + resourceProfilePreview().editorBase + ' MB)' : 'IDE (' + resourceProfilePreview().editorBase + ' MB)' }}</span>
             </div>
+            @for (seg of resourceProfilePreview().satelliteSegments; track seg.engine) {
+              <div 
+                class="bar-segment bar-satellite" 
+                [style.flex-grow]="seg.baseMB" 
+                [title]="seg.label + ': ' + seg.baseMB + ' MB'"
+              >
+                <span>{{ seg.label }} ({{ seg.baseMB }} MB)</span>
+              </div>
+            }
             <div 
               class="bar-segment bar-usable" 
               [style.flex-grow]="resourceProfilePreview().usable" 
@@ -153,11 +169,11 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
         </div>
       </div>
 
-      <!-- Servicios Satélite Adicionales (Solo en IDE) -->
+      <!-- Bases de datos adicionales (Solo en IDE) -->
       @if (targetEnvironment() === 'IDE_PERSISTENTE') {
         <div class="form-group mt-4">
-          <label class="form-label font-semibold">
-            Servicios Satélite Opcionales (Bases de Datos Aisladas):
+          <label class="form-label font-semibold" i18n="@@PU-32">
+            Bases de datos adicionales (opcional):
           </label>
           <div class="services-toggle-grid">
             @for (svc of availableServices(); track svc.engine) {
@@ -179,11 +195,11 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                       <svg lucideCheck class="w-4 h-4 text-success mr-1"></svg>
                     }
                     @if (svc.isAvailable === false) {
-                      <span class="badge-satellite badge-unavailable" [title]="svc.description || 'No disponible en este host'">
+                      <span class="badge-service badge-unavailable" [title]="svc.description || 'No disponible en este host'">
                         No disponible en este host
                       </span>
                     } @else {
-                      <span class="badge-satellite badge-optional" title="Servicio opcional que se aprovisionará de forma aislada">
+                      <span class="badge-service badge-optional" title="Servicio opcional que se aprovisionará de forma aislada">
                         Opcional
                       </span>
                     }
@@ -201,7 +217,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
       } @else {
         <div class="judge-services-disabled-banner mt-3" i18n="@@PU-14">
           <svg lucideInfo class="w-4 h-4 text-muted mr-2"></svg>
-          <span>Los entornos de juez virtual no utilizan servicios satélite desacoplados.</span>
+          <span>Los entornos de juez virtual no utilizan bases de datos adicionales.</span>
         </div>
       }
     </div>
@@ -209,6 +225,14 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
   styleUrls: ['./step-resources.component.scss']
 })
 export class SolvStepResourcesComponent {
+  readonly RELATIONAL_ENGINES = ['postgres', 'mysql'];
+  readonly SATELLITE_BASE_RAM: Record<string, number> = {
+    postgres: 128,
+    mysql: 128,
+    mongodb: 128,
+    redis: 64
+  };
+
   targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
   baseRamMB = input<number>(1024);
   availableServices = input<AvailableSatelliteService[]>([]);
@@ -242,10 +266,76 @@ export class SolvStepResourcesComponent {
     return Math.max(0, this.baseRamMB() - this.maxAllowedRamMB());
   });
 
-  isRamTooLow = computed<boolean>(() => {
+  selectedServiceSegments = computed<{ engine: string; label: string; baseMB: number }[]>(() => {
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return [];
+    return this.selectedServices().map(s => {
+      const match = this.availableServices().find(a => a.engine === s.engine);
+      const label = match?.label ?? (s.engine === 'postgres' ? 'PostgreSQL' : s.engine === 'mysql' ? 'MySQL' : s.engine === 'mongodb' ? 'MongoDB' : s.engine === 'redis' ? 'Redis' : s.engine);
+      return {
+        engine: s.engine,
+        label,
+        baseMB: this.SATELLITE_BASE_RAM[s.engine] ?? 128
+      };
+    });
+  });
+
+  totalSatelliteBaseMB = computed<number>(() => {
+    return this.selectedServiceSegments().reduce((acc, curr) => acc + curr.baseMB, 0);
+  });
+
+  minimumFloorMB = computed<number>(() => {
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const minRam = isJudge ? 64 : 256;
-    return this.baseRamMB() < minRam;
+    if (isJudge) {
+      return 64;
+    }
+    const editorBase = this.runtimeCapabilities()?.editor_base_mb ?? 210;
+    return editorBase + this.totalSatelliteBaseMB();
+  });
+
+  isRamBelowFloor = computed<boolean>(() => {
+    return this.baseRamMB() < this.minimumFloorMB();
+  });
+
+  isRamTooLow = computed<boolean>(() => {
+    return this.isRamBelowFloor();
+  });
+
+  floorReason = computed<string>(() => {
+    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
+    if (isJudge) {
+      return 'Sandbox CLI';
+    }
+    const editorBase = this.runtimeCapabilities()?.editor_base_mb ?? 210;
+    const segments = this.selectedServiceSegments();
+    if (segments.length === 0) {
+      return `IDE base ${editorBase} MB`;
+    }
+    const dbLabels = segments.map(s => `${s.label} ${s.baseMB} MB`).join(' + ');
+    return `IDE base ${editorBase} MB + ${dbLabels}`;
+  });
+
+  floorAlertCause = computed<string>(() => {
+    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
+    if (isJudge) {
+      return 'El sandbox de juez virtual requiere un mínimo de 64 MB para la inicialización del proceso.';
+    }
+    const editorBase = this.runtimeCapabilities()?.editor_base_mb ?? 210;
+    const segments = this.selectedServiceSegments();
+    if (segments.length === 0) {
+      return `El editor web base (OpenVSCode Server) requiere al menos ${editorBase} MB para iniciar.`;
+    }
+    const dbLabels = segments.map(s => `${s.label} (${s.baseMB} MB)`).join(', ');
+    return `El editor web requiere ${editorBase} MB y las bases de datos adicionales seleccionadas requieren ${this.totalSatelliteBaseMB()} MB (${dbLabels}).`;
+  });
+
+  floorAlertAction = computed<string>(() => {
+    const min = this.minimumFloorMB();
+    const presets = this.activeRamPresets();
+    const candidate = presets.find(p => p.mb >= min);
+    if (candidate) {
+      return `Seleccione el preset de ${candidate.label} o configure al menos ${min} MB en el campo personalizado.`;
+    }
+    return `Configure al menos ${min} MB en el campo personalizado o desactive bases de datos adicionales.`;
   });
 
   resourceProfilePreview = computed(() => {
@@ -261,6 +351,7 @@ export class SolvStepResourcesComponent {
       return {
         ram,
         editorBase: runtimeBase,
+        satelliteSegments: [] as { engine: string; label: string; baseMB: number }[],
         usable,
         estimatedCapacity: estimatedConcurrentEvaluations,
         isJudge: true
@@ -268,11 +359,16 @@ export class SolvStepResourcesComponent {
     }
 
     const editorBase = caps?.editor_base_mb ?? 210;
-    const usable = Math.max(0, ram - editorBase);
-    const estimatedStudents = Math.max(1, Math.floor(hostFreeRamMB / ram));
+    const satelliteSegments = this.selectedServiceSegments();
+    const satBaseTotal = this.totalSatelliteBaseMB();
+    const usable = Math.max(0, ram - editorBase - satBaseTotal);
+    const perInstanceHostMB = ram + satBaseTotal;
+    const estimatedStudents = Math.max(1, Math.floor(hostFreeRamMB / perInstanceHostMB));
+
     return {
       ram,
       editorBase,
+      satelliteSegments,
       usable,
       estimatedCapacity: estimatedStudents,
       isJudge: false
@@ -323,8 +419,6 @@ export class SolvStepResourcesComponent {
   isServiceSelected(engine: string): boolean {
     return this.selectedServices().some(s => s.engine === engine);
   }
-
-  readonly RELATIONAL_ENGINES = ['postgres', 'mysql'];
 
   toggleService(service: AvailableSatelliteService): void {
     if (service.isAvailable === false) {
