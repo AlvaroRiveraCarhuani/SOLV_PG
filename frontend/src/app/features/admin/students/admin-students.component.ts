@@ -13,16 +13,17 @@ import { StudentCoursesModalComponent } from './components/student-courses-modal
 import { StudentResetOOMModalComponent } from './components/student-reset-oom-modal/student-reset-oom-modal.component';
 import { StudentCreateModalComponent } from './components/student-create-modal/student-create-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { 
   LucideUsers, 
-  LucideSearch, 
   LucideCpu, 
   LucideAlertTriangle, 
   LucideShieldAlert, 
   LucideRotateCcw, 
   LucideBookOpen, 
-  LucideChevronLeft, 
-  LucideChevronRight, 
   LucideCheckCircle2,
   LucideUserPlus,
   LucideUserX,
@@ -38,19 +39,21 @@ import {
   imports: [
     CommonModule, 
     FormsModule, 
+    ComboboxComponent,
+    SearchBarComponent,
+    KpiCardComponent,
+    KpiGridComponent,
+    PaginationBarComponent,
     StudentCoursesModalComponent,
     StudentResetOOMModalComponent,
     StudentCreateModalComponent,
     ConfirmModalComponent,
     LucideUsers, 
-    LucideSearch, 
     LucideCpu, 
     LucideAlertTriangle, 
     LucideShieldAlert, 
     LucideRotateCcw, 
     LucideBookOpen, 
-    LucideChevronLeft, 
-    LucideChevronRight, 
     LucideCheckCircle2,
     LucideUserPlus,
     LucideUserX,
@@ -76,6 +79,73 @@ export class AdminStudentsComponent implements OnInit {
   selectedPeriod = signal<string>('');
   selectedSubject = signal<string>('all');
   selectedStatus = signal<string>('all');
+
+  periodComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: 'all', label: 'Todos los periodos', value: 'all' },
+      ...this.academicPeriods().map(p => ({
+        id: p.id,
+        label: `${p.code}${p.is_active ? ' • Vigente' : ''}`,
+        value: p.id
+      }))
+    ];
+  });
+
+  selectedPeriodLabel = computed<string>(() => {
+    const id = this.selectedPeriod();
+    if (!id || id === 'all') return 'Todos los periodos';
+    const match = this.academicPeriods().find(p => p.id === id);
+    return match ? `${match.code}${match.is_active ? ' • Vigente' : ''}` : 'Todos los periodos';
+  });
+
+  onPeriodSelected(opt: ComboboxOption): void {
+    this.selectedPeriod.set(opt.value || 'all');
+    this.onFilterChange();
+  }
+
+  subjectComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: 'all', label: 'Todas las materias', value: 'all' },
+      ...this.subjects().map(s => ({
+        id: s.id,
+        label: `${s.code} - ${s.name}`,
+        value: s.id
+      }))
+    ];
+  });
+
+  selectedSubjectLabel = computed<string>(() => {
+    const id = this.selectedSubject();
+    if (!id || id === 'all') return 'Todas las materias';
+    const match = this.subjects().find(s => s.id === id);
+    return match ? `${match.code} - ${match.name}` : 'Todas las materias';
+  });
+
+  onSubjectSelected(opt: ComboboxOption): void {
+    this.selectedSubject.set(opt.value || 'all');
+    this.onFilterChange();
+  }
+
+  statusComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'enrolled', label: 'Cursando materias', value: 'enrolled' },
+    { id: 'inactive', label: 'Sin materias en el periodo', value: 'inactive' },
+    { id: 'running', label: 'Con entornos activos', value: 'running' },
+    { id: 'strikes', label: 'Con penalizaciones OOM', value: 'strikes' },
+    { id: 'blocked', label: 'Bloqueados (3 Strikes)', value: 'blocked' },
+    { id: 'suspended', label: 'Cuentas suspendidas', value: 'suspended' }
+  ]);
+
+  selectedStatusLabel = computed<string>(() => {
+    const id = this.selectedStatus();
+    const match = this.statusComboboxOptions().find(o => o.value === id);
+    return match ? match.label : 'Todos los estados';
+  });
+
+  onStatusSelected(opt: ComboboxOption): void {
+    this.selectedStatus.set(opt.value || 'all');
+    this.currentPage.set(1);
+  }
 
   // Paginación
   currentPage = signal<number>(1);
@@ -196,6 +266,20 @@ export class AdminStudentsComponent implements OnInit {
   totalPages = computed(() => 
     Math.ceil(this.filteredStudents().length / this.pageSize) || 1
   );
+
+  paginationFrom = computed(() => {
+    if (this.filteredStudents().length === 0) return 0;
+    return (this.currentPage() - 1) * this.pageSize + 1;
+  });
+
+  paginationTo = computed(() => {
+    return Math.min(this.currentPage() * this.pageSize, this.filteredStudents().length);
+  });
+
+  onSearchChange(term: string): void {
+    this.searchTerm.set(term);
+    this.currentPage.set(1);
+  }
 
   ngOnInit(): void {
     this.loadAcademicPeriods();

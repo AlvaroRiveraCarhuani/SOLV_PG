@@ -27,109 +27,63 @@
   </header>
 
   <!-- Tarjetas de Resumen KPI -->
-  <section class="kpis-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-box blue">
-        <svg lucideUsers class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Total Docentes</span>
-        <div class="kpi-value">{{ counts().all }}</div>
-        <span class="kpi-detail">Profesores registrados en el sistema</span>
-      </div>
-    </div>
+  <kpi-grid [columns]="3">
+    <kpi-card
+      label="Total Docentes"
+      [value]="counts().all"
+      detail="Profesores registrados en el sistema"
+      variant="primary"
+    >
+      <svg kpi-icon lucideUsers></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box green">
-        <svg lucideBookOpen class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Con Materias Asignadas</span>
-        <div class="kpi-value">{{ counts().active - counts().noCourses }}</div>
-        <span class="kpi-detail">Docentes con materias asignadas</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Con Materias Asignadas"
+      [value]="counts().active - counts().noCourses"
+      detail="Docentes con materias asignadas"
+      variant="running"
+    >
+      <svg kpi-icon lucideBookOpen></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box amber">
-        <svg lucideClock class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Sin Materias Asignadas</span>
-        <div class="kpi-value">{{ counts().noCourses }}</div>
-        <span class="kpi-detail">Docentes activos sin carga horaria</span>
-      </div>
-    </div>
-  </section>
+    <kpi-card
+      label="Sin Materias Asignadas"
+      [value]="counts().noCourses"
+      detail="Docentes activos sin carga horaria"
+      variant="warning"
+    >
+      <svg kpi-icon lucideClock></svg>
+    </kpi-card>
+  </kpi-grid>
 
   <!-- Pestañas de Estado con Contadores -->
-  <div class="status-tabs">
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'all'"
-      (click)="onStatusChange('all')">
-      Todos
-      <span class="tab-badge">{{ counts().all }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'active'"
-      (click)="onStatusChange('active')">
-      Activos
-      <span class="tab-badge active">{{ counts().active }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'no_courses'"
-      (click)="onStatusChange('no_courses')">
-      Sin materias
-      <span class="tab-badge no-courses">{{ counts().noCourses }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'pending'"
-      (click)="onStatusChange('pending')">
-      Pendientes (72h)
-      <span class="tab-badge pending">{{ counts().pending }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'expired'"
-      (click)="onStatusChange('expired')">
-      Expirados
-      <span class="tab-badge expired">{{ counts().expired }}</span>
-    </button>
-  </div>
+  <status-tabs
+    [tabs]="teacherStatusTabs()"
+    [activeTab]="statusFilter()"
+    (tabChange)="onStatusChange($event)"
+  />
 
   <!-- Tabla y Barra de Filtros -->
   <div class="table-card">
     <div class="filter-toolbar">
       <div class="search-box">
-        <svg lucideSearch class="search-icon"></svg>
-        <input 
-          type="text" 
-          placeholder="Buscar docente por nombre o correo institucional..." 
-          [ngModel]="searchTerm()" 
-          (ngModelChange)="onSearchChange($event)"
-          class="search-input"
+        <search-bar
+          [query]="searchTerm()"
+          placeholder="Buscar docente por nombre o correo institucional..."
+          (queryChange)="onSearchChange($event)"
         />
-        @if (searchTerm()) {
-          <button class="btn-clear-search" (click)="clearSearch()" title="Limpiar búsqueda">✕</button>
-        }
       </div>
 
       <div class="filters-group">
         <div class="filter-item">
-          <label class="filter-label" for="filter-origin">Origen:</label>
-          <select 
-            id="filter-origin"
-            [ngModel]="originFilter()" 
-            (ngModelChange)="onOriginChange($event)"
-            class="filter-select">
-            <option value="all">Todos los orígenes</option>
-            <option value="manual">Manual</option>
-            <option value="gclassroom">Google Classroom</option>
-          </select>
+          <label class="filter-label">Origen:</label>
+          <solv-combobox
+            [compact]="true"
+            [value]="selectedOriginLabel()"
+            [options]="originComboboxOptions()"
+            placeholder="Origen..."
+            (optionSelected)="onOriginSelected($event)"
+          ></solv-combobox>
         </div>
       </div>
     </div>
@@ -287,42 +241,15 @@
     </div>
 
     <!-- Paginación de la Tabla -->
-    <footer class="table-footer">
-      <div class="pagination-info">
-        Mostrando <strong>{{ paginationDisplay().from }}–{{ paginationDisplay().to }}</strong> de <strong>{{ filteredTeachersList().length }}</strong> docentes
-      </div>
-
-      @if (totalPages() > 1) {
-        <div class="pagination-controls">
-          <button 
-            class="btn-page" 
-            [disabled]="currentPage() === 1" 
-            (click)="goToPage(currentPage() - 1)">
-            <svg lucideChevronLeft class="page-icon"></svg>
-            <span>Anterior</span>
-          </button>
-
-          <div class="page-numbers">
-            @for (p of displayedPages(); track p) {
-              <button 
-                class="btn-page-number" 
-                [class.active]="p === currentPage()" 
-                (click)="goToPage(p)">
-                {{ p }}
-              </button>
-            }
-          </div>
-
-          <button 
-            class="btn-page" 
-            [disabled]="currentPage() === totalPages()" 
-            (click)="goToPage(currentPage() + 1)">
-            <span>Siguiente</span>
-            <svg lucideChevronRight class="page-icon"></svg>
-          </button>
-        </div>
-      }
-    </footer>
+    <pagination-bar
+      [currentPage]="currentPage()"
+      [totalPages]="totalPages()"
+      [totalItems]="filteredTeachersList().length"
+      [from]="paginationDisplay().from"
+      [to]="paginationDisplay().to"
+      itemLabel="docentes"
+      (pageChange)="goToPage($event)"
+    />
   </div>
 
   <!-- Modal de Invitación -->
@@ -443,15 +370,13 @@
                       <div class="reassign-form">
                         <div class="form-group">
                           <label class="form-label">Nuevo docente asignado:</label>
-                          <select 
-                            [ngModel]="selectedNewTeacherId()" 
-                            (ngModelChange)="selectedNewTeacherId.set($event)"
-                            class="form-select">
-                            <option value="">Seleccione el nuevo docente...</option>
-                            @for (target of activeTeachersList(); track target.id) {
-                              <option [value]="target.id">{{ target.full_name }} ({{ target.email }})</option>
-                            }
-                          </select>
+                          <solv-combobox
+                            [compact]="true"
+                            [value]="selectedNewTeacherLabel()"
+                            [options]="activeTeacherComboboxOptions()"
+                            placeholder="Seleccione el nuevo docente..."
+                            (optionSelected)="onNewTeacherSelected($event)"
+                          ></solv-combobox>
                         </div>
                         <div class="form-group">
                           <label class="form-label">Motivo del cambio (opcional):</label>
@@ -511,15 +436,13 @@
                     <div class="reassign-form">
                       <div class="form-group">
                         <label class="form-label">Materia a asignar:</label>
-                        <select 
-                          [ngModel]="selectedCourseToAssign()" 
-                          (ngModelChange)="selectedCourseToAssign.set($event)"
-                          class="form-select">
-                          <option value="">Seleccione una materia disponible...</option>
-                          @for (c of availableTenantCourses(); track c.id) {
-                            <option [value]="c.id">{{ c.name }} (Actual: {{ c.teacher_name }})</option>
-                          }
-                        </select>
+                        <solv-combobox
+                          [compact]="true"
+                          [value]="selectedCourseToAssignLabel()"
+                          [options]="availableCourseComboboxOptions()"
+                          placeholder="Seleccione una materia disponible..."
+                          (optionSelected)="onCourseToAssignSelected($event)"
+                        ></solv-combobox>
                       </div>
                       <div class="form-group">
                         <label class="form-label">Motivo de asignación (opcional):</label>

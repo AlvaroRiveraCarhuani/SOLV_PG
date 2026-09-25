@@ -4,10 +4,14 @@ import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
+import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { TeacherItem, TeacherInvitationPayload } from '@core/models/admin.model';
 import { 
   LucideUserPlus, 
-  LucideSearch, 
   LucideLock, 
   LucideCheckCircle, 
   LucideClock, 
@@ -18,8 +22,6 @@ import {
   LucideTrash2,
   LucideBookOpen,
   LucideUsers,
-  LucideChevronLeft,
-  LucideChevronRight,
   LucideArrowRightLeft,
   LucidePlus
 } from '@lucide/angular';
@@ -41,10 +43,15 @@ interface ToastData {
   imports: [
     CommonModule, 
     FormsModule, 
+    ComboboxComponent,
+    SearchBarComponent,
+    KpiCardComponent,
+    KpiGridComponent,
+    StatusTabsComponent,
+    PaginationBarComponent,
     TeacherInviteModalComponent,
     ConfirmModalComponent,
     LucideUserPlus, 
-    LucideSearch, 
     LucideLock, 
     LucideCheckCircle, 
     LucideClock, 
@@ -55,8 +62,6 @@ interface ToastData {
     LucideTrash2,
     LucideBookOpen,
     LucideUsers,
-    LucideChevronLeft,
-    LucideChevronRight,
     LucideArrowRightLeft,
     LucidePlus
   ],
@@ -73,6 +78,62 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');
   originFilter = signal<string>('all');
+
+  originComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todos los orígenes', value: 'all' },
+    { id: 'manual', label: 'Manual', value: 'manual' },
+    { id: 'gclassroom', label: 'Google Classroom', value: 'gclassroom' }
+  ]);
+
+  selectedOriginLabel = computed<string>(() => {
+    const val = this.originFilter();
+    const match = this.originComboboxOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos los orígenes';
+  });
+
+  onOriginSelected(opt: ComboboxOption): void {
+    this.onOriginChange(opt.value || 'all');
+  }
+
+  activeTeacherComboboxOptions = computed<ComboboxOption[]>(() => {
+    return this.activeTeachersList().map(t => ({
+      id: t.id,
+      label: t.full_name,
+      value: t.id,
+      meta: t.email
+    }));
+  });
+
+  selectedNewTeacherLabel = computed<string>(() => {
+    const id = this.selectedNewTeacherId();
+    if (!id) return 'Seleccione el nuevo docente...';
+    const match = this.activeTeachersList().find(t => t.id === id);
+    return match ? match.full_name : 'Seleccione el nuevo docente...';
+  });
+
+  onNewTeacherSelected(opt: ComboboxOption): void {
+    this.selectedNewTeacherId.set(opt.value || '');
+  }
+
+  availableCourseComboboxOptions = computed<ComboboxOption[]>(() => {
+    return this.availableTenantCourses().map(c => ({
+      id: c.id,
+      label: c.name,
+      value: c.id,
+      meta: `Actual: ${c.teacher_name}`
+    }));
+  });
+
+  selectedCourseToAssignLabel = computed<string>(() => {
+    const id = this.selectedCourseToAssign();
+    if (!id) return 'Seleccione una materia disponible...';
+    const match = this.availableTenantCourses().find(c => c.id === id);
+    return match ? match.name : 'Seleccione una materia disponible...';
+  });
+
+  onCourseToAssignSelected(opt: ComboboxOption): void {
+    this.selectedCourseToAssign.set(opt.value || '');
+  }
 
   // Paginación
   currentPage = signal<number>(1);
@@ -128,6 +189,14 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
       expired: list.filter(t => t.status === 'expired').length
     };
   });
+
+  teacherStatusTabs = computed<StatusTabItem[]>(() => [
+    { id: 'all', label: 'Todos', count: this.counts().all },
+    { id: 'active', label: 'Activos', count: this.counts().active, badgeVariant: 'active' },
+    { id: 'no_courses', label: 'Sin materias', count: this.counts().noCourses, badgeVariant: 'warning' },
+    { id: 'pending', label: 'Pendientes (72h)', count: this.counts().pending, badgeVariant: 'warning' },
+    { id: 'expired', label: 'Expirados', count: this.counts().expired, badgeVariant: 'neutral' }
+  ]);
 
   // Lista filtrada en cliente por si la búsqueda/estado cambia en vista
   filteredTeachersList = computed(() => {

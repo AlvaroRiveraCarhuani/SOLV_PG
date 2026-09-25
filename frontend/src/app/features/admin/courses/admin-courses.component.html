@@ -21,18 +21,13 @@
     <div class="header-actions">
       <!-- Selector de Periodo Activo -->
       <div class="period-selector-box">
-        <svg lucideCalendar class="period-icon"></svg>
-        <select 
-          class="period-select"
-          [ngModel]="coursesService.activePeriod()?.id || ''"
-          (ngModelChange)="onPeriodChange($event)">
-          <option value="">Todos los periodos</option>
-          @for (p of coursesService.periods(); track p.id) {
-            <option [value]="p.id">
-              {{ p.name }} ({{ p.code }}) {{ p.is_active ? '— Actual' : '' }}
-            </option>
-          }
-        </select>
+        <solv-combobox
+          [compact]="true"
+          [value]="selectedPeriodHeaderLabel()"
+          [options]="periodHeaderComboboxOptions()"
+          placeholder="Periodo..."
+          (optionSelected)="onPeriodHeaderSelected($event)"
+        ></solv-combobox>
         <button class="btn-manage-periods" (click)="openPeriodsModal()" title="Gestionar Periodos">
           <span>Gestionar</span>
         </button>
@@ -47,90 +42,54 @@
   </header>
 
   <!-- Tarjetas de KPIs del Periodo (100% enfocadas en Cursos) -->
-  <section class="kpis-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-box blue">
-        <svg lucideBookOpen class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Cursos en el Ciclo</span>
-        <div class="kpi-value">{{ periodKpis().totalCourses }}</div>
-        <span class="kpi-detail">Cursos registrados en el periodo</span>
-      </div>
-    </div>
+  <kpi-grid [columns]="3">
+    <kpi-card
+      label="Cursos en el Ciclo"
+      [value]="periodKpis().totalCourses"
+      detail="Cursos registrados en el periodo"
+      variant="primary"
+    >
+      <svg kpi-icon lucideBookOpen></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box" [class.amber]="periodKpis().unassignedCourses > 0" [class.green]="periodKpis().unassignedCourses === 0">
-        @if (periodKpis().unassignedCourses > 0) {
-          <svg lucideAlertTriangle class="kpi-icon"></svg>
-        } @else {
-          <svg lucideCheckCircle class="kpi-icon"></svg>
-        }
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Sin Docente</span>
-        <div class="kpi-value">{{ periodKpis().unassignedCourses }}</div>
-        <span class="kpi-detail">
-          {{ periodKpis().unassignedCourses === 0 ? 'Todos los cursos con docente asignado' : 'Requieren asignación de docente' }}
-        </span>
-      </div>
-    </div>
+    <kpi-card
+      label="Sin Docente"
+      [value]="periodKpis().unassignedCourses"
+      [detail]="periodKpis().unassignedCourses === 0 ? 'Todos los cursos con docente asignado' : 'Requieren asignación de docente'"
+      [variant]="periodKpis().unassignedCourses > 0 ? 'warning' : 'running'"
+    >
+      @if (periodKpis().unassignedCourses > 0) {
+        <svg kpi-icon lucideAlertTriangle></svg>
+      } @else {
+        <svg kpi-icon lucideCheckCircle></svg>
+      }
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box gray">
-        <svg lucideArchive class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Cursos Archivados</span>
-        <div class="kpi-value">{{ periodKpis().archivedCourses }}</div>
-        <span class="kpi-detail">Materias inactivas en este ciclo</span>
-      </div>
-    </div>
-  </section>
+    <kpi-card
+      label="Cursos Archivados"
+      [value]="periodKpis().archivedCourses"
+      detail="Materias inactivas en este ciclo"
+      variant="default"
+    >
+      <svg kpi-icon lucideArchive></svg>
+    </kpi-card>
+  </kpi-grid>
 
   <!-- Pestañas de Estado con Contadores (Patrón unificado con Docentes) -->
-  <div class="status-tabs">
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'all'" 
-      (click)="onStatusFilterChange('all')">
-      Todos
-      <span class="tab-badge">{{ coursesCounts().all }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'active'" 
-      (click)="onStatusFilterChange('active')">
-      Activos
-      <span class="tab-badge active">{{ coursesCounts().active }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'unassigned'" 
-      (click)="onStatusFilterChange('unassigned')">
-      Sin Docente
-      <span class="tab-badge warning">{{ coursesCounts().unassigned }}</span>
-    </button>
-    <button 
-      class="tab-btn" 
-      [class.active]="statusFilter() === 'archived'" 
-      (click)="onStatusFilterChange('archived')">
-      Archivados
-      <span class="tab-badge archived">{{ coursesCounts().archived }}</span>
-    </button>
-  </div>
+  <status-tabs
+    [tabs]="courseStatusTabs()"
+    [activeTab]="statusFilter()"
+    (tabChange)="onStatusFilterChange($event)"
+  />
 
   <!-- Contenedor Card de Tabla (Patrón unificado con Docentes) -->
   <div class="table-card table-responsive">
     <div class="filter-toolbar">
       <div class="search-box">
-        <svg lucideSearch class="search-icon"></svg>
-        <input 
-          type="text" 
-          class="search-input" 
-          placeholder="Buscar por código, materia o docente..." 
-          [ngModel]="searchQuery()" 
-          (ngModelChange)="onSearchChange($event)" 
+        <search-bar
+          [query]="searchQuery()"
+          placeholder="Buscar por código, materia o docente..."
+          (queryChange)="onSearchChange($event)"
         />
       </div>
     </div>
@@ -244,51 +203,15 @@
       </table>
 
       <!-- Paginación de Tabla -->
-      <footer class="table-footer">
-        <div class="pagination-info">
-          Mostrando <strong>{{ paginationDisplay().from }}–{{ paginationDisplay().to }}</strong> de <strong>{{ filteredCourses().length }}</strong> cursos
-          
-          <div class="page-size-selector">
-            <span class="size-label">Mostrar:</span>
-            <select [ngModel]="pageSize()" (ngModelChange)="onPageSizeChange($event)" class="size-select">
-              @for (size of pageSizeOptions; track size) {
-                <option [value]="size">{{ size }}</option>
-              }
-            </select>
-          </div>
-        </div>
-
-        @if (totalPages() > 1) {
-          <div class="pagination-controls">
-            <button 
-              class="btn-page" 
-              [disabled]="currentPage() === 1" 
-              (click)="goToPage(currentPage() - 1)">
-              <svg lucideChevronLeft class="page-icon"></svg>
-              <span>Anterior</span>
-            </button>
-
-            <div class="page-numbers">
-              @for (p of displayedPages(); track p) {
-                <button 
-                  class="btn-page-number" 
-                  [class.active]="p === currentPage()" 
-                  (click)="goToPage(p)">
-                  {{ p }}
-                </button>
-              }
-            </div>
-
-            <button 
-              class="btn-page" 
-              [disabled]="currentPage() === totalPages()" 
-              (click)="goToPage(currentPage() + 1)">
-              <span>Siguiente</span>
-              <svg lucideChevronRight class="page-icon"></svg>
-            </button>
-          </div>
-        }
-      </footer>
+      <pagination-bar
+        [currentPage]="currentPage()"
+        [totalPages]="totalPages()"
+        [totalItems]="filteredCourses().length"
+        [from]="paginationDisplay().from"
+        [to]="paginationDisplay().to"
+        itemLabel="cursos"
+        (pageChange)="goToPage($event)"
+      />
     }
   </div>
 

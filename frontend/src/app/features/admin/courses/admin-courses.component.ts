@@ -11,9 +11,13 @@ import { PeriodManageModalComponent } from './components/period-manage-modal/per
 import { CourseCreateModalComponent } from './components/course-create-modal/course-create-modal.component';
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
+import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
+import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { 
   LucideBookOpen, 
-  LucideSearch, 
   LucidePlus, 
   LucideCalendar, 
   LucideCheckCircle, 
@@ -23,8 +27,6 @@ import {
   LucideArchive, 
   LucideArchiveRestore, 
   LucideRefreshCw,
-  LucideChevronLeft,
-  LucideChevronRight,
   LucideAlertTriangle,
   LucidePencil,
   LucideX
@@ -41,12 +43,17 @@ interface ToastState {
   imports: [
     CommonModule,
     FormsModule,
+    ComboboxComponent,
+    SearchBarComponent,
+    KpiCardComponent,
+    KpiGridComponent,
+    StatusTabsComponent,
+    PaginationBarComponent,
     PeriodManageModalComponent,
     CourseCreateModalComponent,
     CourseReassignModalComponent,
     ConfirmModalComponent,
     LucideBookOpen,
-    LucideSearch,
     LucidePlus,
     LucideCalendar,
     LucideCheckCircle,
@@ -55,8 +62,6 @@ interface ToastState {
     LucideArrowRightLeft,
     LucideArchive,
     LucideArchiveRestore,
-    LucideChevronLeft,
-    LucideChevronRight,
     LucideAlertTriangle,
     LucidePencil,
     LucideX
@@ -70,6 +75,29 @@ export class AdminCoursesComponent implements OnInit {
   // Filtros de búsqueda
   searchQuery = signal<string>('');
   statusFilter = signal<'all' | 'active' | 'unassigned' | 'archived'>('all');
+
+  periodHeaderComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: '', label: 'Todos los periodos', value: '' },
+      ...this.coursesService.periods().map(p => ({
+        id: p.id,
+        label: `${p.name} (${p.code})`,
+        value: p.id,
+        badge: p.is_active ? 'Actual' : undefined,
+        badgeVariant: p.is_active ? ('official' as const) : undefined
+      }))
+    ];
+  });
+
+  selectedPeriodHeaderLabel = computed<string>(() => {
+    const active = this.coursesService.activePeriod();
+    if (!active) return 'Todos los periodos';
+    return `${active.name} (${active.code})`;
+  });
+
+  onPeriodHeaderSelected(opt: ComboboxOption): void {
+    this.onPeriodChange(opt.value || '');
+  }
 
   // Paginación
   currentPage = signal<number>(1);
@@ -180,6 +208,13 @@ export class AdminCoursesComponent implements OnInit {
     };
   });
 
+  courseStatusTabs = computed<StatusTabItem[]>(() => [
+    { id: 'all', label: 'Todos', count: this.coursesCounts().all },
+    { id: 'active', label: 'Activos', count: this.coursesCounts().active, badgeVariant: 'active' },
+    { id: 'unassigned', label: 'Sin Docente', count: this.coursesCounts().unassigned, badgeVariant: 'warning' },
+    { id: 'archived', label: 'Archivados', count: this.coursesCounts().archived, badgeVariant: 'neutral' }
+  ]);
+
   ngOnInit(): void {
     this.coursesService.loadAll();
   }
@@ -202,8 +237,8 @@ export class AdminCoursesComponent implements OnInit {
     this.currentPage.set(1);
   }
 
-  onStatusFilterChange(filter: 'all' | 'active' | 'unassigned' | 'archived'): void {
-    this.statusFilter.set(filter);
+  onStatusFilterChange(filter: string): void {
+    this.statusFilter.set(filter as 'all' | 'active' | 'unassigned' | 'archived');
     this.currentPage.set(1);
   }
 

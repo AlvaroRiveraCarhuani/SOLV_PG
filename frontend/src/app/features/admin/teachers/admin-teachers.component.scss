@@ -45,45 +45,8 @@ $mut: #64748B;
 }
 
 .search-box {
-  position: relative;
   flex: 1;
   min-width: 260px;
-}
-
-.search-icon {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 15px;
-  height: 15px;
-  color: #94A3B8;
-}
-
-.search-input {
-  width: 100%;
-  padding: 7px 32px;
-  font-size: 13px;
-  border: 1px solid #CBD5E1;
-  border-radius: 6px;
-  outline: none;
-  box-sizing: border-box;
-  &:focus { border-color: $p; }
-}
-
-.btn-clear-search {
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: transparent;
-  border: none;
-  color: #94A3B8;
-  cursor: pointer;
-  font-size: 11px;
-  padding: 2px 6px;
-  border-radius: 50%;
-  &:hover { background: $bdr; color: $txt; }
 }
 
 .filters-group { display: flex; align-items: center; gap: 16px; }

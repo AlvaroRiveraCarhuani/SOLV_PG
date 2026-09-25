@@ -28,112 +28,86 @@
   </header>
 
   <!-- Métricas Operativas Rápidas (KPIs) -->
-  <section class="kpi-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-wrapper total">
-        <svg lucideUsers class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Cursando en Periodo</span>
-        <div class="kpi-value-row">
-          <span class="kpi-value">{{ enrolledStudentsCount() }}</span>
-          <span class="kpi-total-badge">de {{ totalStudents() }} total</span>
-        </div>
-      </div>
-    </div>
+  <kpi-grid [columns]="4">
+    <kpi-card
+      label="Cursando en Periodo"
+      [value]="enrolledStudentsCount()"
+      [totalBadge]="'de ' + totalStudents() + ' total'"
+      variant="primary"
+    >
+      <svg kpi-icon lucideUsers></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-wrapper running">
-        <svg lucideCpu class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Entornos en Ejecución</span>
-        <span class="kpi-value">{{ activeWorkspacesTotal() }}</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Entornos en Ejecución"
+      [value]="activeWorkspacesTotal()"
+      variant="running"
+    >
+      <svg kpi-icon lucideCpu></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-wrapper warning">
-        <svg lucideAlertTriangle class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">En Riesgo (1–2 Strikes)</span>
-        <span class="kpi-value">{{ strikesStudentsCount() }}</span>
-      </div>
-    </div>
+    <kpi-card
+      label="En Riesgo (1–2 Strikes)"
+      [value]="strikesStudentsCount()"
+      variant="warning"
+    >
+      <svg kpi-icon lucideAlertTriangle></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-wrapper danger">
-        <svg lucideShieldAlert class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Bloqueados por OOM</span>
-        <span class="kpi-value">{{ blockedStudentsCount() }}</span>
-      </div>
-    </div>
-  </section>
+    <kpi-card
+      label="Bloqueados por OOM"
+      [value]="blockedStudentsCount()"
+      variant="danger"
+    >
+      <svg kpi-icon lucideShieldAlert></svg>
+    </kpi-card>
+  </kpi-grid>
 
   <!-- Barra de Filtros y Búsqueda -->
   <section class="filters-bar">
     <div class="search-box">
-      <svg lucideSearch class="search-icon"></svg>
-      <input 
-        type="text" 
-        class="search-input" 
-        placeholder="Buscar por nombre, apellido o correo institucional..." 
-        [ngModel]="searchTerm()" 
-        (ngModelChange)="searchTerm.set($event); currentPage.set(1)" />
+      <search-bar
+        [query]="searchTerm()"
+        placeholder="Buscar por nombre, apellido o correo institucional..."
+        (queryChange)="onSearchChange($event)"
+      />
     </div>
 
     <div class="filters-controls">
       <!-- Filtro por Periodo Académico -->
       <div class="filter-group">
-        <label for="filter-period" class="filter-label">Periodo:</label>
-        <select 
-          id="filter-period" 
-          class="filter-select" 
-          [ngModel]="selectedPeriod()" 
-          (ngModelChange)="selectedPeriod.set($event); onFilterChange()">
-          <option value="all">Todos los periodos</option>
-          @for (period of academicPeriods(); track period.id) {
-            <option [value]="period.id">
-              {{ period.code }} {{ period.is_active ? '• Vigente' : '' }}
-            </option>
-          }
-        </select>
+        <label class="filter-label">Periodo:</label>
+        <solv-combobox
+          [compact]="true"
+          [value]="selectedPeriodLabel()"
+          [options]="periodComboboxOptions()"
+          placeholder="Periodo..."
+          (optionSelected)="onPeriodSelected($event)"
+        ></solv-combobox>
       </div>
 
       <!-- Filtro por Materia -->
       <div class="filter-group">
-        <label for="filter-subject" class="filter-label">Materia:</label>
-        <select 
-          id="filter-subject" 
-          class="filter-select" 
-          [ngModel]="selectedSubject()" 
-          (ngModelChange)="selectedSubject.set($event); onFilterChange()">
-          <option value="all">Todas las materias</option>
-          @for (sub of subjects(); track sub.id) {
-            <option [value]="sub.id">{{ sub.code }} - {{ sub.name }}</option>
-          }
-        </select>
+        <label class="filter-label">Materia:</label>
+        <solv-combobox
+          [compact]="true"
+          [value]="selectedSubjectLabel()"
+          [options]="subjectComboboxOptions()"
+          placeholder="Materia..."
+          (optionSelected)="onSubjectSelected($event)"
+        ></solv-combobox>
       </div>
 
       <!-- Filtro por Estado -->
       <div class="filter-group">
-        <label for="filter-status" class="filter-label">Estado:</label>
-        <select 
-          id="filter-status" 
-          class="filter-select" 
-          [ngModel]="selectedStatus()" 
-          (ngModelChange)="selectedStatus.set($event); currentPage.set(1)">
-          <option value="all">Todos los estados</option>
-          <option value="enrolled">Cursando materias</option>
-          <option value="inactive">Sin materias en el periodo</option>
-          <option value="running">Con entornos activos</option>
-          <option value="strikes">Con penalizaciones OOM</option>
-          <option value="blocked">Bloqueados (3 Strikes)</option>
-          <option value="suspended">Cuentas suspendidas</option>
-        </select>
+        <label class="filter-label">Estado:</label>
+        <solv-combobox
+          [compact]="true"
+          [value]="selectedStatusLabel()"
+          [options]="statusComboboxOptions()"
+          placeholder="Estado..."
+          (optionSelected)="onStatusSelected($event)"
+        ></solv-combobox>
       </div>
     </div>
   </section>
@@ -313,28 +287,15 @@
       </table>
 
       <!-- Paginación -->
-      <footer class="pagination-footer">
-        <div class="pagination-info">
-          Mostrando página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> 
-          ({{ filteredStudents().length }} estudiantes)
-        </div>
-        <div class="pagination-controls">
-          <button 
-            class="btn-page" 
-            [disabled]="currentPage() === 1" 
-            (click)="goToPage(currentPage() - 1)">
-            <svg lucideChevronLeft class="page-icon"></svg>
-            <span>Anterior</span>
-          </button>
-          <button 
-            class="btn-page" 
-            [disabled]="currentPage() === totalPages()" 
-            (click)="goToPage(currentPage() + 1)">
-            <span>Siguiente</span>
-            <svg lucideChevronRight class="page-icon"></svg>
-          </button>
-        </div>
-      </footer>
+      <pagination-bar
+        [currentPage]="currentPage()"
+        [totalPages]="totalPages()"
+        [totalItems]="filteredStudents().length"
+        [from]="paginationFrom()"
+        [to]="paginationTo()"
+        itemLabel="estudiantes"
+        (pageChange)="goToPage($event)"
+      />
     }
   </section>
 
