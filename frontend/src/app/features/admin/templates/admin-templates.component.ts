@@ -37,6 +37,9 @@ import {
   LucideX
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
+import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
+import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
+import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
 
 export interface TechMeta {
   id: string;
@@ -91,6 +94,10 @@ export interface ToastNotification {
     TemplateCreateModalComponent,
     TemplateEditModalComponent,
     TechLogoComponent,
+    SearchBarComponent,
+    KpiCardComponent,
+    KpiGridComponent,
+    PaginationBarComponent,
     LucideLayers,
     LucideBox,
     LucideSearch,

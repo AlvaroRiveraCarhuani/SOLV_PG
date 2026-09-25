@@ -12,11 +12,12 @@ import {
   UpdateCategoryDTO,
   ReorderCategoryItem
 } from '../../../services/admin-templates.service';
-import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
+import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
+import { SearchBarComponent } from '../../../../../shared/components/search-bar/search-bar.component';
+import { KpiCardComponent, KpiGridComponent } from '../../../../../shared/components/kpi-card/kpi-card.component';
 import {
   LucideBoxes,
   LucideTag,
-  LucideSearch,
   LucidePlus,
   LucidePencil,
   LucideTrash2,
@@ -42,10 +43,12 @@ import {
     CommonModule,
     FormsModule,
     RouterModule,
-    SolvComboboxComponent,
+    ComboboxComponent,
+    SearchBarComponent,
+    KpiCardComponent,
+    KpiGridComponent,
     LucideBoxes,
     LucideTag,
-    LucideSearch,
     LucidePlus,
     LucidePencil,
     LucideTrash2,
@@ -161,6 +164,58 @@ export class ModelLibraryComponent implements OnInit {
 
   onEditModelCategorySelected(opt: ComboboxOption): void {
     this.modelCategoryId.set(opt.value || '');
+  }
+
+  readonly purposeFilterComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'ALL', label: 'Todos los propósitos', value: 'ALL' },
+    { id: 'IDE_PERSISTENTE', label: 'IDE Persistente', value: 'IDE_PERSISTENTE' },
+    { id: 'JUEZ_VIRTUAL', label: 'Juez Virtual', value: 'JUEZ_VIRTUAL' }
+  ]);
+
+  readonly selectedPurposeFilterLabel = computed<string>(() => {
+    const val = this.filterPurpose();
+    const match = this.purposeFilterComboboxOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos los propósitos';
+  });
+
+  onPurposeFilterSelected(opt: ComboboxOption): void {
+    this.filterPurpose.set(opt.value || 'ALL');
+  }
+
+  readonly categoryFilterComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'ALL', label: 'Todas las categorías', value: 'ALL' },
+    ...this.categories().map(c => ({
+      id: c.id,
+      label: c.name,
+      value: c.id
+    }))
+  ]);
+
+  readonly selectedCategoryFilterLabel = computed<string>(() => {
+    const val = this.filterCategory();
+    if (val === 'ALL') return 'Todas las categorías';
+    const match = this.categories().find(c => c.id === val);
+    return match ? match.name : 'Todas las categorías';
+  });
+
+  onCategoryFilterSelected(opt: ComboboxOption): void {
+    this.filterCategory.set(opt.value || 'ALL');
+  }
+
+  readonly statusFilterComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'ALL', label: 'Todos', value: 'ALL' },
+    { id: 'ACTIVE', label: 'Solo Activos', value: 'ACTIVE' },
+    { id: 'INACTIVE', label: 'Solo Inactivos', value: 'INACTIVE' }
+  ]);
+
+  readonly selectedStatusFilterLabel = computed<string>(() => {
+    const val = this.filterStatus();
+    const match = this.statusFilterComboboxOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos';
+  });
+
+  onStatusFilterSelected(opt: ComboboxOption): void {
+    this.filterStatus.set(opt.value || 'ALL');
   }
 
   // Modales Categorías

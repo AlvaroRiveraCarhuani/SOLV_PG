@@ -120,27 +120,6 @@
   }
 }
 
-// KPIs Grid
-.kpis-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 12px;
-  margin-bottom: 4px;
-
-  @media (max-width: 1200px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-  }
-}
-
-.kpi-icon-box.purple {
-  background-color: #FAF5FF;
-  color: #7E22CE;
-}
-
 // Barra de Pestañas y Alternador de Vistas
 .nav-toolbar {
   display: flex;
@@ -258,37 +237,9 @@
   border: 1px solid var(--border-subtle, #E2E8F0);
   border-radius: 8px;
 
-  .search-box {
-    position: relative;
+  search-bar {
     flex: 1;
     min-width: 260px;
-
-    .search-icon {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
-      color: var(--text-muted, #64748B);
-    }
-
-    .search-input {
-      width: 100%;
-      padding: 8px 10px 8px 34px;
-      font-family: var(--font-sans);
-      font-size: var(--text-sm);
-      border: 1px solid var(--border-subtle, #E2E8F0);
-      border-radius: 6px;
-      outline: none;
-      box-sizing: border-box;
-      background-color: #FFFFFF;
-      color: var(--text-main, #0F172A);
-
-      &:focus {
-        border-color: var(--tenant-primary, #2563EB);
-      }
-    }
   }
 
   .filter-controls {

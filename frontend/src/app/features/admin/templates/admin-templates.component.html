@@ -31,68 +31,56 @@
   </header>
 
   <!-- Grilla de KPIs de Gobernanza Docker -->
-  <section class="kpis-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-box blue">
-        <svg lucideLayers class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Total en Catálogo</span>
-        <div class="kpi-value">{{ catalogCount() }}</div>
-        <span class="kpi-detail">Plantillas institucionales</span>
-      </div>
-    </div>
+  <kpi-grid [columns]="5">
+    <kpi-card
+      label="Total en Catálogo"
+      [value]="catalogCount()"
+      detail="Plantillas institucionales"
+      variant="primary"
+    >
+      <svg lucideLayers icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box" [class.amber]="pendingCount() > 0" [class.green]="pendingCount() === 0">
-        @if (pendingCount() > 0) {
-          <svg lucideClock class="kpi-icon"></svg>
-        } @else {
-          <svg lucideCheckCircle2 class="kpi-icon"></svg>
-        }
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Pendientes</span>
-        <div class="kpi-value">{{ pendingCount() }}</div>
-        <span class="kpi-detail">
-          {{ pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión administrativa' }}
-        </span>
-      </div>
-    </div>
+    <kpi-card
+      label="Pendientes"
+      [value]="pendingCount()"
+      [detail]="pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión administrativa'"
+      [variant]="pendingCount() > 0 ? 'warning' : 'running'"
+    >
+      @if (pendingCount() > 0) {
+        <svg lucideClock icon></svg>
+      } @else {
+        <svg lucideCheckCircle2 icon></svg>
+      }
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box green">
-        <svg lucideCheckCircle2 class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Activas en catálogo</span>
-        <div class="kpi-value">{{ activeCount() }}</div>
-        <span class="kpi-detail">Disponibles para laboratorios</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Activas en catálogo"
+      [value]="activeCount()"
+      detail="Disponibles para laboratorios"
+      variant="running"
+    >
+      <svg lucideCheckCircle2 icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box gray">
-        <svg lucidePause class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Pausadas</span>
-        <div class="kpi-value">{{ pausedCount() }}</div>
-        <span class="kpi-detail">En mantenimiento temporal</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Pausadas"
+      [value]="pausedCount()"
+      detail="En mantenimiento temporal"
+      variant="default"
+    >
+      <svg lucidePause icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box purple">
-        <svg lucideHardDrive class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">RAM Promedio</span>
-        <div class="kpi-value">{{ averageRam() }} MB</div>
-        <span class="kpi-detail">Cuota media por entorno</span>
-      </div>
-    </div>
-  </section>
+    <kpi-card
+      label="RAM Promedio"
+      [value]="averageRam() + ' MB'"
+      detail="Cuota media por entorno"
+      variant="purple"
+    >
+      <svg lucideHardDrive icon></svg>
+    </kpi-card>
+  </kpi-grid>
 
   <!-- Barra de Pestañas y Alternador de Vista -->
   <div class="nav-toolbar">
@@ -161,18 +149,11 @@
   <!-- Barra de Búsqueda y Filtros Dinámicos -->
   <div class="search-and-filters-panel">
     <div class="search-bar-row">
-      <div class="search-input-wrapper">
-        <svg lucideSearch class="search-icon"></svg>
-        <input 
-          type="text" 
-          class="search-input" 
-          placeholder="Buscar plantilla, imagen docker, docente o motivo..."
-          [ngModel]="searchTerm()" 
-          (ngModelChange)="searchTerm.set($event)" />
-        @if (searchTerm()) {
-          <button type="button" class="btn-clear-search" (click)="searchTerm.set('')">✕</button>
-        }
-      </div>
+      <search-bar
+        [query]="searchTerm()"
+        (queryChange)="searchTerm.set($event)"
+        placeholder="Buscar plantilla, imagen docker, docente o motivo..."
+      />
     </div>
 
     <!-- Chips Dinámicos por Tecnología (Calculados Reactivamente desde la BD) -->
@@ -671,29 +652,12 @@
 
       <!-- Paginación del Catálogo -->
       @if (totalCatalogPages() > 1) {
-        <footer class="pagination-footer">
-          <div class="pagination-info">
-            Mostrando página <strong>{{ catalogPage() }}</strong> de <strong>{{ totalCatalogPages() }}</strong> ({{ catalogTemplates().length }} plantillas)
-          </div>
-          <div class="pagination-controls">
-            <button 
-              type="button" 
-              class="btn-page" 
-              [disabled]="catalogPage() === 1" 
-              (click)="goToCatalogPage(catalogPage() - 1)">
-              <svg lucideChevronLeft class="page-icon"></svg>
-              <span>Anterior</span>
-            </button>
-            <button 
-              type="button" 
-              class="btn-page" 
-              [disabled]="catalogPage() === totalCatalogPages()" 
-              (click)="goToCatalogPage(catalogPage() + 1)">
-              <span>Siguiente</span>
-              <svg lucideChevronRight class="page-icon"></svg>
-            </button>
-          </div>
-        </footer>
+        <pagination-bar
+          [currentPage]="catalogPage()"
+          [totalPages]="totalCatalogPages()"
+          [totalItems]="catalogTemplates().length"
+          (pageChange)="goToCatalogPage($event)"
+        />
       }
 
       <!-- Nota pedagógica institucional -->
@@ -845,29 +809,12 @@
 
       <!-- Paginación de Rechazadas -->
       @if (totalRejectedPages() > 1) {
-        <footer class="pagination-footer">
-          <div class="pagination-info">
-            Mostrando página <strong>{{ rejectedPage() }}</strong> de <strong>{{ totalRejectedPages() }}</strong> ({{ rejectedTemplates().length }} solicitudes rechazadas)
-          </div>
-          <div class="pagination-controls">
-            <button 
-              type="button" 
-              class="btn-page" 
-              [disabled]="rejectedPage() === 1" 
-              (click)="goToRejectedPage(rejectedPage() - 1)">
-              <svg lucideChevronLeft class="page-icon"></svg>
-              <span>Anterior</span>
-            </button>
-            <button 
-              type="button" 
-              class="btn-page" 
-              [disabled]="rejectedPage() === totalRejectedPages()" 
-              (click)="goToRejectedPage(rejectedPage() + 1)">
-              <span>Siguiente</span>
-              <svg lucideChevronRight class="page-icon"></svg>
-            </button>
-          </div>
-        </footer>
+        <pagination-bar
+          [currentPage]="rejectedPage()"
+          [totalPages]="totalRejectedPages()"
+          [totalItems]="rejectedTemplates().length"
+          (pageChange)="goToRejectedPage($event)"
+        />
       }
     }
   }

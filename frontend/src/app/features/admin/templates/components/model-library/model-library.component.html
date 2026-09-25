@@ -39,62 +39,52 @@
   </header>
 
   <!-- Grilla de KPIs -->
-  <section class="kpis-grid">
-    <div class="kpi-card">
-      <div class="kpi-icon-box blue">
-        <svg lucideBoxes class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Total Modelos</span>
-        <div class="kpi-value">{{ totalModelsCount() }}</div>
-        <span class="kpi-detail">Recetas institucionales</span>
-      </div>
-    </div>
+  <kpi-grid [columns]="5">
+    <kpi-card
+      label="Total Modelos"
+      [value]="totalModelsCount()"
+      detail="Recetas institucionales"
+      variant="primary"
+    >
+      <svg lucideBoxes icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box green">
-        <svg lucideCheckCircle2 class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Modelos Activos</span>
-        <div class="kpi-value">{{ activeModelsCount() }}</div>
-        <span class="kpi-detail">Disponibles en asistente</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Modelos Activos"
+      [value]="activeModelsCount()"
+      detail="Disponibles en asistente"
+      variant="running"
+    >
+      <svg lucideCheckCircle2 icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box purple">
-        <svg lucideCode class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Entornos IDE</span>
-        <div class="kpi-value">{{ ideModelsCount() }}</div>
-        <span class="kpi-detail">Laboratorios interactivos</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Entornos IDE"
+      [value]="ideModelsCount()"
+      detail="Laboratorios interactivos"
+      variant="purple"
+    >
+      <svg lucideCode icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box amber">
-        <svg lucideTerminal class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Entornos Juez</span>
-        <div class="kpi-value">{{ judgeModelsCount() }}</div>
-        <span class="kpi-detail">Sandboxes de evaluación</span>
-      </div>
-    </div>
+    <kpi-card
+      label="Entornos Juez"
+      [value]="judgeModelsCount()"
+      detail="Sandboxes de evaluación"
+      variant="warning"
+    >
+      <svg lucideTerminal icon></svg>
+    </kpi-card>
 
-    <div class="kpi-card">
-      <div class="kpi-icon-box gray">
-        <svg lucideTag class="kpi-icon"></svg>
-      </div>
-      <div class="kpi-content">
-        <span class="kpi-label">Categorías</span>
-        <div class="kpi-value">{{ categoriesCount() }}</div>
-        <span class="kpi-detail">Áreas académicas</span>
-      </div>
-    </div>
-  </section>
+    <kpi-card
+      label="Categorías"
+      [value]="categoriesCount()"
+      detail="Áreas académicas"
+      variant="default"
+    >
+      <svg lucideTag icon></svg>
+    </kpi-card>
+  </kpi-grid>
 
   <!-- Barra de Pestañas y Alternador de Vista (Tarjetas / Tabla) -->
   <div class="nav-toolbar">
@@ -147,53 +137,44 @@
     <section class="tab-content">
       <!-- Barra de Filtros (Sin botón refresh redundante) -->
       <div class="filters-bar">
-        <div class="search-box">
-          <svg lucideSearch class="search-icon"></svg>
-          <input 
-            type="text" 
-            class="search-input" 
-            placeholder="Buscar por nombre, descripción o imagen Docker..." 
-            [ngModel]="searchQuery()" 
-            (ngModelChange)="searchQuery.set($event)"
-          />
-        </div>
+        <search-bar
+          [query]="searchQuery()"
+          (queryChange)="searchQuery.set($event)"
+          placeholder="Buscar por nombre, descripción o imagen Docker..."
+        />
 
         <div class="filter-controls">
           <div class="select-wrap">
             <label class="filter-label">Propósito:</label>
-            <select 
-              class="form-select" 
-              [ngModel]="filterPurpose()" 
-              (ngModelChange)="filterPurpose.set($event)">
-              <option value="ALL">Todos los propósitos</option>
-              <option value="IDE_PERSISTENTE">IDE Persistente</option>
-              <option value="JUEZ_VIRTUAL">Juez Virtual</option>
-            </select>
+            <solv-combobox
+              [compact]="true"
+              [value]="selectedPurposeFilterLabel()"
+              [options]="purposeFilterComboboxOptions()"
+              placeholder="Propósito..."
+              (optionSelected)="onPurposeFilterSelected($event)"
+            ></solv-combobox>
           </div>
 
           <div class="select-wrap">
             <label class="filter-label">Categoría:</label>
-            <select 
-              class="form-select" 
-              [ngModel]="filterCategory()" 
-              (ngModelChange)="filterCategory.set($event)">
-              <option value="ALL">Todas las categorías</option>
-              @for (cat of categories(); track cat.id) {
-                <option [value]="cat.id">{{ cat.name }}</option>
-              }
-            </select>
+            <solv-combobox
+              [compact]="true"
+              [value]="selectedCategoryFilterLabel()"
+              [options]="categoryFilterComboboxOptions()"
+              placeholder="Categoría..."
+              (optionSelected)="onCategoryFilterSelected($event)"
+            ></solv-combobox>
           </div>
 
           <div class="select-wrap">
             <label class="filter-label">Estado:</label>
-            <select 
-              class="form-select" 
-              [ngModel]="filterStatus()" 
-              (ngModelChange)="filterStatus.set($event)">
-              <option value="ALL">Todos</option>
-              <option value="ACTIVE">Solo Activos</option>
-              <option value="INACTIVE">Solo Inactivos</option>
-            </select>
+            <solv-combobox
+              [compact]="true"
+              [value]="selectedStatusFilterLabel()"
+              [options]="statusFilterComboboxOptions()"
+              placeholder="Estado..."
+              (optionSelected)="onStatusFilterSelected($event)"
+            ></solv-combobox>
           </div>
         </div>
       </div>
