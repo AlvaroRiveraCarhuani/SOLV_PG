@@ -1,0 +1,22 @@
+<div class="view-switcher" role="group" [attr.aria-label]="ariaLabel()">
+  <button 
+    type="button" 
+    class="switcher-btn" 
+    [class.active]="mode() === 'cards'"
+    [attr.aria-pressed]="mode() === 'cards'"
+    (click)="selectMode('cards')"
+    [title]="'Vista en ' + cardsLabel()">
+    <svg lucideLayoutGrid class="switcher-icon" aria-hidden="true"></svg>
+    <span>{{ cardsLabel() }}</span>
+  </button>
+  <button 
+    type="button" 
+    class="switcher-btn" 
+    [class.active]="mode() === 'table'"
+    [attr.aria-pressed]="mode() === 'table'"
+    (click)="selectMode('table')"
+    [title]="'Vista en ' + tableLabel()">
+    <svg lucideTable class="switcher-icon" aria-hidden="true"></svg>
+    <span>{{ tableLabel() }}</span>
+  </button>
+</div>
