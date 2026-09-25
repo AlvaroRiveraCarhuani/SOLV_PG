@@ -1,8 +1,9 @@
-import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminCoursesService, AdminCourseItem } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
+import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { 
   LucideArrowRightLeft, 
   LucideX, 
@@ -17,6 +18,7 @@ import {
   imports: [
     CommonModule, 
     FormsModule, 
+    SolvComboboxComponent,
     LucideArrowRightLeft, 
     LucideX, 
     LucideAlertCircle, 
@@ -45,6 +47,28 @@ export class CourseReassignModalComponent implements OnInit {
 
   isSubmitting = signal<boolean>(false);
   formError = signal<string | null>(null);
+
+  teacherComboboxOptions = computed<ComboboxOption[]>(() => {
+    return this.teachers.map(t => ({
+      id: t.id,
+      label: t.full_name,
+      value: t.id,
+      meta: t.email,
+      badge: t.id === this.course.teacher_id ? 'Actual' : undefined,
+      badgeVariant: t.id === this.course.teacher_id ? ('official' as const) : undefined
+    }));
+  });
+
+  selectedTeacherLabel = computed<string>(() => {
+    const id = this.selectedTeacherId();
+    if (!id) return '';
+    const match = this.teachers.find(t => t.id === id);
+    return match ? match.full_name : '';
+  });
+
+  onTeacherSelected(opt: ComboboxOption): void {
+    this.selectedTeacherId.set(opt.value || '');
+  }
 
   ngOnInit(): void {
     // Filtrar para que por defecto no seleccione al docente actual si ya está asignado

@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
@@ -8,6 +8,7 @@ import {
   CreateCoursePayload 
 } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
+import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { 
   LucideBookPlus, 
   LucideX, 
@@ -23,6 +24,7 @@ import {
   imports: [
     CommonModule, 
     FormsModule, 
+    SolvComboboxComponent,
     LucideBookPlus, 
     LucideX, 
     LucideAlertCircle, 
@@ -58,6 +60,73 @@ export class CourseCreateModalComponent implements OnInit {
 
   isSubmitting = signal<boolean>(false);
   formError = signal<string | null>(null);
+
+  periodComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: '', label: 'Sin periodo asignado', value: '' },
+      ...this.periods.map(p => ({
+        id: p.id,
+        label: `${p.name} (${p.code})`,
+        value: p.id,
+        badge: p.is_active ? 'Activo' : undefined,
+        badgeVariant: p.is_active ? ('official' as const) : undefined
+      }))
+    ];
+  });
+
+  selectedPeriodLabel = computed<string>(() => {
+    const id = this.selectedPeriodId();
+    if (!id) return 'Sin periodo asignado';
+    const match = this.periods.find(p => p.id === id);
+    return match ? `${match.name} (${match.code})` : 'Sin periodo asignado';
+  });
+
+  teacherComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: '', label: 'Dejar sin asignar temporalmente', value: '' },
+      ...this.teachers.map(t => ({
+        id: t.id,
+        label: t.full_name,
+        value: t.id,
+        meta: t.email
+      }))
+    ];
+  });
+
+  selectedTeacherLabel = computed<string>(() => {
+    const id = this.selectedTeacherId();
+    if (!id) return 'Dejar sin asignar temporalmente';
+    const match = this.teachers.find(t => t.id === id);
+    return match ? match.full_name : 'Dejar sin asignar temporalmente';
+  });
+
+  templateComboboxOptions = computed<ComboboxOption[]>(() => {
+    return this.templates.map(tpl => ({
+      id: tpl.id,
+      label: tpl.display_name || tpl.name,
+      value: tpl.id,
+      meta: tpl.base_ram_mb ? `${tpl.base_ram_mb} MB RAM` : undefined
+    }));
+  });
+
+  selectedTemplateLabel = computed<string>(() => {
+    const id = this.selectedTemplateId();
+    if (!id) return '';
+    const match = this.templates.find(t => t.id === id);
+    return match ? (match.display_name || match.name) : '';
+  });
+
+  onPeriodSelected(opt: ComboboxOption): void {
+    this.selectedPeriodId.set(opt.value || '');
+  }
+
+  onTeacherSelected(opt: ComboboxOption): void {
+    this.selectedTeacherId.set(opt.value || '');
+  }
+
+  onTemplateSelected(opt: ComboboxOption): void {
+    this.selectedTemplateId.set(opt.value || '');
+  }
 
   ngOnInit(): void {
     if (this.defaultPeriodId) {
@@ -102,3 +171,4 @@ export class CourseCreateModalComponent implements OnInit {
     });
   }
 }
+

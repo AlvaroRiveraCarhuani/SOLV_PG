@@ -40,22 +40,13 @@
 
       <!-- Nuevo Docente Selector -->
       <div class="form-group">
-        <label for="newTeacher" class="form-label">Nuevo Docente Asignado *</label>
-        <div class="input-icon-wrapper">
-          <svg lucideUser class="input-icon"></svg>
-          <select 
-            id="newTeacher" 
-            [ngModel]="selectedTeacherId()" 
-            (ngModelChange)="selectedTeacherId.set($event)" 
-            class="form-select with-icon">
-            <option value="" disabled>Seleccione el nuevo docente...</option>
-            @for (t of teachers; track t.id) {
-              <option [value]="t.id" [disabled]="t.id === course.teacher_id">
-                {{ t.full_name }} ({{ t.email }}) {{ t.id === course.teacher_id ? '— (Actual)' : '' }}
-              </option>
-            }
-          </select>
-        </div>
+        <label class="form-label">Nuevo Docente Asignado *</label>
+        <solv-combobox
+          [value]="selectedTeacherLabel()"
+          [options]="teacherComboboxOptions()"
+          placeholder="Seleccione o busque nuevo docente..."
+          (optionSelected)="onTeacherSelected($event)"
+        ></solv-combobox>
       </div>
 
       <!-- Motivo obligatorio -->

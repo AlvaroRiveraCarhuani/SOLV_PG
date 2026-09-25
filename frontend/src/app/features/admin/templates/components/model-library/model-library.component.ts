@@ -12,6 +12,7 @@ import {
   UpdateCategoryDTO,
   ReorderCategoryItem
 } from '../../../services/admin-templates.service';
+import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import {
   LucideBoxes,
   LucideTag,
@@ -41,6 +42,7 @@ import {
     CommonModule,
     FormsModule,
     RouterModule,
+    SolvComboboxComponent,
     LucideBoxes,
     LucideTag,
     LucideSearch,
@@ -107,6 +109,59 @@ export class ModelLibraryComponent implements OnInit {
   readonly newModelDescription = signal<string>('');
   readonly isNewModelPromoting = signal<boolean>(false);
   readonly newModelError = signal<string | null>(null);
+
+  readonly approvedTemplateComboboxOptions = computed<ComboboxOption[]>(() => {
+    return this.approvedTemplates().map(tpl => ({
+      id: tpl.id,
+      label: tpl.name,
+      value: tpl.id,
+      meta: `${tpl.docker_image} · ${tpl.target_environment || 'IDE'}`
+    }));
+  });
+
+  readonly selectedTemplateToPromoteLabel = computed<string>(() => {
+    const id = this.selectedTemplateId();
+    if (!id) return '';
+    const match = this.approvedTemplates().find(t => t.id === id);
+    return match ? match.name : '';
+  });
+
+  onTemplateToPromoteSelected(opt: ComboboxOption): void {
+    this.onSelectTemplateToPromote(opt.value || '');
+  }
+
+  readonly categoryComboboxOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: '', label: '-- Sin categoría asignada --', value: '' },
+      ...this.categories().map(c => ({
+        id: c.id,
+        label: c.name,
+        value: c.id
+      }))
+    ];
+  });
+
+  readonly selectedNewModelCategoryLabel = computed<string>(() => {
+    const id = this.newModelCategoryId();
+    if (!id) return '-- Sin categoría asignada --';
+    const match = this.categories().find(c => c.id === id);
+    return match ? match.name : '-- Sin categoría asignada --';
+  });
+
+  onNewModelCategorySelected(opt: ComboboxOption): void {
+    this.newModelCategoryId.set(opt.value || '');
+  }
+
+  readonly selectedEditModelCategoryLabel = computed<string>(() => {
+    const id = this.modelCategoryId();
+    if (!id) return 'Seleccione una categoría';
+    const match = this.categories().find(c => c.id === id);
+    return match ? match.name : 'Seleccione una categoría';
+  });
+
+  onEditModelCategorySelected(opt: ComboboxOption): void {
+    this.modelCategoryId.set(opt.value || '');
+  }
 
   // Modales Categorías
   readonly showCategoryModal = signal<boolean>(false);
