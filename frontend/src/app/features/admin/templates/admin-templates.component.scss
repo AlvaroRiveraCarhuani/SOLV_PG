@@ -5,6 +5,7 @@
 }
 
 // Header Superior
+.page-header,
 .view-header {
   display: flex;
   justify-content: space-between;
@@ -25,11 +26,15 @@
   gap: 10px;
 }
 
+.page-title,
 .view-title {
+  font-family: var(--font-sans);
   font-size: var(--text-xl);
   font-weight: 700;
   color: var(--text-primary, #0F172A);
   margin: 0;
+  letter-spacing: -0.01em;
+  line-height: var(--leading-tight, 1.25);
 }
 
 .role-badge {
@@ -42,10 +47,13 @@
   border: 1px solid #BFDBFE;
 }
 
+.page-subtitle,
 .view-subtitle {
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   color: var(--text-secondary, #64748B);
-  margin: 4px 0 0;
+  margin: 2px 0 0;
+  line-height: var(--leading-normal, 1.5);
 }
 
 .header-actions {

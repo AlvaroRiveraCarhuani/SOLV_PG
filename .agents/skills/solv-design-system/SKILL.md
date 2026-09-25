@@ -15,6 +15,21 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 - Escala de espaciado: múltiplos de 4px (4px, 8px, 12px, 16px, 24px, 32px).
 - Radios de borde: 6px, 8px, 12px máximos.
 
+### Jerarquía Tipográfica de Cabeceras
+- **Título de Página (H1, `.page-title`, `.view-title`):** `font-size: var(--text-xl)` (20px / 1.25rem), `font-weight: 700`, `color: var(--text-primary)`, `letter-spacing: -0.01em`, `line-height: var(--leading-tight)`.
+- **Subtítulo de Página (`.page-subtitle`, `.view-subtitle`):** `font-size: var(--text-sm)` (13-14px / 0.875rem), `color: var(--text-secondary)`, margen superior 2px, `line-height: var(--leading-normal)`.
+- **Título de Sección (H2, `.section-title`):** `font-size: var(--text-lg)` (18px / 1.125rem), `font-weight: 600`, `color: var(--text-primary)`.
+- **Título de Tarjeta / Modal (H3, `.card-title`):** `font-size: var(--text-base)` (16px / 1rem), `font-weight: 600`, `color: var(--text-primary)`.
+- **Subsección / Pasos (H4, `.step-section-title`):** `font-size: var(--text-sm)` (14px) o `var(--text-base)`, `font-weight: 600`.
+
+### Controles de Selección (`select`, `option`)
+- Obligatorio `font-family: var(--font-sans)` en todo `select`, `.form-select`, `.filter-select` y en sus `option` / `optgroup`.
+- Native selects deben usar `appearance: none` con el icono SVG de chevron vectorizado (`stroke: #64748B`) y padding derecho para evitar que el motor de renderizado del sistema operativo sustituya la tipografía web por fuentes del sistema.
+
+### Padding de Contenedor de Vistas
+- El cascarón principal (`.shell-content`) ya aplica `padding: var(--space-6, 24px)`.
+- PROHIBIDO agregar `padding: 24px` en el contenedor raíz de una vista hija (ej. `.model-library-container`), ya que genera doble espaciado (48px) y desalinea la cabecera respecto a las demás vistas.
+
 ## Color y Tema
 - Tema Claro por defecto: Fondo `#F6F7F9`, Superficie `#FFFFFF`, Bordes `gray-200`.
 - Separación visual mediante bordes limpios, no mediante sombras.

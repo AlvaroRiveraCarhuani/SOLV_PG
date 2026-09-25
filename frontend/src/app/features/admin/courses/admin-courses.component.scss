@@ -55,11 +55,18 @@
 .period-select {
   border: none;
   background: transparent;
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   color: var(--text-primary, #0f172a);
   cursor: pointer;
   outline: none;
+
+  option {
+    font-family: var(--font-sans);
+    color: var(--text-primary, #0f172a);
+    background-color: var(--bg-surface, #ffffff);
+  }
 }
 
 .btn-manage-periods {

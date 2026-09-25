@@ -265,6 +265,7 @@
   border: 1px solid var(--border-subtle, #E2E8F0);
   border-radius: var(--radius-sm, 6px);
   background-color: var(--bg-canvas, #F6F7F9);
+  font-family: var(--font-sans);
   font-size: var(--text-xs, 0.75rem);
   color: var(--text-primary, #0F172A);
   font-weight: 500;
@@ -278,6 +279,12 @@
     outline: none;
     border-color: var(--tenant-primary, #2563EB);
     background-color: var(--color-white, #FFFFFF);
+  }
+
+  option {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--text-primary);
   }
 }
 
