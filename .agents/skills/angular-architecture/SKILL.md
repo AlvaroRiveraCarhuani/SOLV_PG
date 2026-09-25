@@ -18,6 +18,11 @@ description: Reglas y estándares para el desarrollo en Angular 22 standalone, z
 - Comunicaciones de componentes mediante `input()` y `output()` nativas de Signals.
 - Lecturas de API mediante `httpResource()` / `resource()` o RxJS interoperable con `toSignal()`.
 
+## Nomenclatura y Selectores (PROHIBIDO prefijo `solv-`)
+- Selectores limpios en kebab-case sin prefijo corporativo: `selector: 'kpi-card'`, `selector: 'search-bar'`, `selector: 'status-tabs'`, `selector: 'view-switcher'`.
+- Nombres de clase en PascalCase limpios sin prefijo `Solv`: `KpiCardComponent`, `SearchBarComponent`, `StatusTabsComponent`, `ViewSwitcherComponent`.
+- PROHIBIDO: `selector: 'solv-...'` o prefijar clases con `Solv...Component`.
+
 ## Estructura de Directorios (Feature-Based)
 ```text
 src/app/

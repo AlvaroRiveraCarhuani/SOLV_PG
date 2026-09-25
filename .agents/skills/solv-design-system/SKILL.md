@@ -76,3 +76,4 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 
 ## Regla de Componentes
 Antes de crear cualquier componente UI nuevo, verificar si el Inventario existente ya resuelve la necesidad.
+Queda estrictamente PROHIBIDO usar el prefijo `solv-` en selectors o clases de componentes (`selector: 'solv-...'` o `Solv...Component`). Utilizar nombres semánticos limpios en kebab-case para el selector (ej. `kpi-card`, `search-bar`, `status-tabs`, `pagination-bar`, `view-switcher`).

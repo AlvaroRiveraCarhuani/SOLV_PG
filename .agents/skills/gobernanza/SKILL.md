@@ -20,6 +20,7 @@ Esta skill define las reglas obligatorias de gobernanza y trazabilidad para cual
   - `ADRs: ADR-XXX` (si aplica)
 - PROHIBIDO: Usar nomenclatura interna "CRIT-XX" o términos de delator de IA (ej. "suite de pruebas", "veredicto PASS", "cobertura automatizada", "evidencias empíricas", "robustecer").
 - PROHIBIDO EMOJIS: Queda estrictamente prohibido el uso de emojis en cualquier archivo de documentación Markdown (.md), código fuente Go/TypeScript, o comentarios. Utilizar texto plano formal, diagramas Mermaid o referenciar Lucide Icons (`lucide:name`).
+- PROHIBIDO PREFIJO SOLV EN SELECTORES: Los selectores y clases de componentes de Angular deben usar nombres de dominio limpios (`kpi-card`, `search-bar`, `status-tabs`, `view-switcher`, etc.), nunca prefijados con `solv-` ni clases `Solv*Component`.
 
 ## Reglas de Trazabilidad Documental
 

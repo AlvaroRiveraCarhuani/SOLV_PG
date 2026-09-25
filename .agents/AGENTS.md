@@ -36,6 +36,7 @@ Para cualquier sesión que modifique el frontend o arquitectura, deben consultar
 - Usar imágenes :latest (versiones fijadas)
 - Usar fondos oscuros, azules o slate (#0F172A, #2563EB) en toasts/alertas de éxito (siempre verde semántico #15803D)
 - Escribir literales de font-size, font-family o colores hex (#...) en SCSS de componentes: tipografía y familias únicamente con tokens var(--text-*), var(--font-sans|mono); colores únicamente vía tokens (--tenant-*, --color-*, --border-color, transparent, currentColor). Gate de stylelint `color-no-hex` activo en CI. Ejecutar `npm run lint:styles` antes de commitear.
+- Usar el prefijo `solv-` en selectors o clases de componentes (PROHIBIDO `selector: 'solv-...'` o `class Solv...Component`). Utilizar nombres semánticos limpios en kebab-case para el selector (ej. `kpi-card`, `search-bar`, `status-tabs`, `pagination-bar`, `view-switcher`, `template-status-modal`).
 
 ## Semántica de estados (UI y API)
 
