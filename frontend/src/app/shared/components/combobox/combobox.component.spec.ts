@@ -144,4 +144,30 @@ describe('SolvComboboxComponent', () => {
     expect(component.filteredOptions().length).toBe(1);
     expect(component.filteredOptions()[0].label).toBe('local/custom:latest');
   });
+
+  it('debe filtrar en tiempo real al tipear en el input nativo y mostrar mensaje si no hay coincidencias', () => {
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.value = 'sdklfjdslkjflsdjfl';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(component.isOpen()).toBe(true);
+    expect(component.filteredOptions().length).toBe(0);
+    expect(component.headerCountText()).toContain('0 de 0 mostradas; escriba para filtrar');
+
+    const emptyMsg = fixture.nativeElement.querySelector('.no-options-message');
+    expect(emptyMsg).toBeTruthy();
+    expect(emptyMsg.textContent).toContain('No se encontraron opciones');
+  });
+
+  it('debe mostrar todas las opciones cuando value coincide exactamente con una opción seleccionada', () => {
+    fixture.componentRef.setInput('value', 'python:3.12-slim');
+    component.isOpen.set(true);
+    fixture.detectChanges();
+
+    // Al no haber tipeado búsqueda y estar seleccionada una opción válida, se muestran todas
+    expect(component.filteredOptions().length).toBe(8);
+    expect(component.headerCountText()).toContain('disponibles; escriba para filtrar');
+    expect(component.isOptionSelected(mockOptions[0])).toBe(true);
+  });
 });

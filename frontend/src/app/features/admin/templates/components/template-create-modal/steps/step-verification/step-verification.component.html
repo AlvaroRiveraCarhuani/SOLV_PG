@@ -1,0 +1,305 @@
+<div class="verification-step-container">
+  <div class="step-header-with-help mb-3">
+    <h4 class="step-section-title" id="step-title-verification" tabindex="-1" i18n="@@PU-21-HEADING">
+      Verificación y prueba de arranque
+    </h4>
+    <button 
+      type="button" 
+      class="btn-step-help" 
+      (click)="helpRequested.emit()" 
+      aria-label="Ayuda contextual del paso"
+      i18n-aria-label="@@AY-02"
+    >
+      <svg lucideHelpCircle class="w-4 h-4"></svg>
+    </button>
+  </div>
+
+  <!-- Alerta de prueba obsoleta si cambiaron imagen o RAM -->
+  @if (isEnvTestStale()) {
+    <div class="stale-test-alert mb-3" role="alert">
+      <div class="stale-alert-content">
+        <svg lucideAlertTriangle class="w-5 h-5 text-warning shrink-0"></svg>
+        <div class="stale-alert-text">
+          <strong class="stale-title">Prueba obsoleta</strong>
+          <p class="stale-desc">
+            Prueba obsoleta: la configuración cambió tras la última verificación. Vuelva a ejecutar la prueba para validar la plantilla antes de publicar.
+          </p>
+        </div>
+      </div>
+      <button 
+        type="button" 
+        class="btn-retry-stale" 
+        (click)="handleRetry()"
+        aria-label="Re-ejecutar prueba"
+      >
+        <svg lucideRotateCw class="w-3.5 h-3.5 mr-1"></svg>
+        <span>Re-ejecutar prueba</span>
+      </button>
+    </div>
+  }
+
+  <!-- Tarjeta de Prueba de Integridad -->
+  <div class="integrity-card">
+    <div class="integrity-header-row">
+      <div class="integrity-title-wrap">
+        <div class="title-with-badge">
+          <h5 class="integrity-title">Prueba de arranque del entorno</h5>
+          @if (activeEnvTestJob()?.status === 'failed') {
+            <span class="status-pill status-pill-failed">● Falló ejecución</span>
+          } @else if (activeEnvTestJob()?.status === 'success') {
+            <span class="status-pill status-pill-success">● Aprobada</span>
+          } @else if (activeEnvTestJob()?.status === 'pulling' || activeEnvTestJob()?.status === 'testing') {
+            <span class="status-pill status-pill-running">● En ejecución</span>
+          }
+        </div>
+        <p class="integrity-subtitle">
+          {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de herramientas en el servidor host.' }}
+        </p>
+      </div>
+
+      <!-- Botonera agrupada en la misma fila a la derecha -->
+      <div class="integrity-actions-group">
+        <button 
+          type="button" 
+          class="btn-integrity-primary" 
+          [disabled]="isTestRunning()" 
+          (click)="handleRetry()"
+        >
+          <svg *ngIf="!isTestRunning()" lucidePlay class="w-4 h-4 mr-1.5"></svg>
+          <svg *ngIf="isTestRunning()" lucideLoader2 class="w-4 h-4 mr-1.5 spin-icon"></svg>
+          <span>{{ isTestRunning() ? 'Probando...' : 'Probar entorno' }}</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-integrity-secondary" 
+          (click)="openFullLogsModal()"
+          aria-label="Ver registro de prueba"
+        >
+          <svg lucideTerminal class="w-3.5 h-3.5 mr-1.5 text-primary"></svg>
+          <span>Ver registro de prueba</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-integrity-icon" 
+          (click)="handleRetry()" 
+          [disabled]="isTestRunning()"
+          aria-label="Reintentar prueba"
+        >
+          <svg lucideRotateCw class="w-4 h-4"></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra informativa de imagen y caché host -->
+    <div class="registry-info-bar">
+      <div class="registry-info-left">
+        <svg lucideInfo class="w-4 h-4 text-info mr-1.5 shrink-0"></svg>
+        <span>La imagen se descargará y quedará en caché en el servidor host.</span>
+      </div>
+      <span class="registry-tag font-mono">{{ isLocalImage() ? 'Origen: Imagen local en el host' : 'Origen: Registro de contenedores' }}</span>
+    </div>
+
+    <!-- SolvEnvTestButton invisible o de apoyo para manejo de eventos -->
+    <div class="hidden-button-runner">
+      <solv-env-test-button
+        #envTestButton
+        [image]="dockerImage()"
+        [tools]="toolsList()"
+        [targetEnvironment]="targetEnvironment()"
+        [entrypoint]="entrypoint()"
+        [timeoutMS]="timeoutMS()"
+        [sampleInput]="sampleInput()"
+        [isLocal]="isLocalImage()"
+        [imageSizeMB]="imageSizeMB()"
+        (testCompleted)="onTestCompleted($event)"
+      ></solv-env-test-button>
+    </div>
+
+    <!-- Diagnóstico de la Verificación (Estructurado en 3 niveles con saltos directos) -->
+    @if (activeEnvTestJob()?.status === 'failed' || isEnvTestStale()) {
+      <div class="diagnostic-card-box animate-fade" role="alert">
+        <div class="diagnostic-card-header">
+          <svg lucideAlertCircle class="w-4 h-4 text-danger mr-1.5 shrink-0"></svg>
+          <strong class="diagnostic-card-title">DIAGNÓSTICO DE LA VERIFICACIÓN</strong>
+        </div>
+        <div class="diagnostic-grid">
+          <div class="diagnostic-item">
+            <span class="diagnostic-prop">Hecho:</span>
+            <span class="diagnostic-val">
+              {{ isEnvTestStale() ? 'La configuración de la plantilla cambió tras la última verificación aprobada.' : 'La prueba de integridad del entorno falló durante la ejecución.' }}
+            </span>
+          </div>
+          <div class="diagnostic-item">
+            <span class="diagnostic-prop">Causa:</span>
+            <span class="diagnostic-val diagnostic-val-cause">
+              {{ diagnosticCause() }}
+            </span>
+          </div>
+          <div class="diagnostic-item">
+            <span class="diagnostic-prop">Próxima acción:</span>
+            <div class="diagnostic-val diagnostic-action-text">
+              Revise las herramientas declaradas en el 
+              <button type="button" class="btn-step-jump-link" (click)="jumpToSection.emit('image')">Paso 3</button>
+              o corrija los parámetros en el 
+              <button type="button" class="btn-step-jump-link" (click)="jumpToSection.emit('execution')">Paso 4</button>
+              antes de reintentar.
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <!-- Resumen Técnico de la Plantilla -->
+  <div class="technical-summary-card mt-4">
+    <div class="tech-summary-header">
+      <span class="tech-summary-title">RESUMEN TÉCNICO DE LA PLANTILLA</span>
+      <span class="tech-summary-id font-mono">ID: #{{ templateShortId() }}</span>
+    </div>
+
+    <div class="tech-summary-grid">
+      <div class="tech-item">
+        <span class="tech-label">Propósito:</span>
+        <span class="tech-val font-semibold">
+          {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Juez Virtual (CLI Sandbox)' : 'Laboratorio Interactivo (IDE)' }}
+        </span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-label">Nombre:</span>
+        <span class="tech-val" [class.italic-muted]="!name()">{{ name() || 'Sin definir' }}</span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-label">Imagen de Contenedor:</span>
+        @if (!dockerImage()) {
+          <span class="tech-val italic-muted">Sin definir</span>
+        } @else {
+          <div class="image-chip-copy-wrap">
+            <code class="image-chip-code font-mono">{{ dockerImage() }}</code>
+            <button 
+              type="button" 
+              class="btn-copy-chip" 
+              (click)="copyImageTag()" 
+              aria-label="Copiar referencia de imagen"
+            >
+              <svg *ngIf="!copyImageSuccess()" lucideCopy class="w-3.5 h-3.5"></svg>
+              <svg *ngIf="copyImageSuccess()" lucideCheck class="w-3.5 h-3.5 text-success"></svg>
+            </button>
+          </div>
+        }
+      </div>
+
+      <div class="tech-item">
+        <span class="tech-label">Memoria:</span>
+        <span class="tech-val font-mono">{{ baseRamMB() }} MB</span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-label">Servicios:</span>
+        <span class="tech-val">
+          {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ninguno (Sandbox Aislado)' : (selectedServices().length > 0 ? serviceNames().join(', ') : 'Ninguno') }}
+        </span>
+      </div>
+      <div class="tech-item">
+        <span class="tech-label">Nivel de Toolchain:</span>
+        <span class="badge-toolchain" [class.badge-low]="toolsList().length === 0" [class.badge-full]="toolsList().length > 0">
+          {{ toolsList().length === 0 ? 'Sin herramientas declaradas' : 'Herramientas declaradas' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Observaciones de Configuración (Informativo / Advertencia no bloqueante) -->
+    @if (suboptimalWarnings().length > 0) {
+      <div class="observations-box mt-3">
+        <div class="obs-header">
+          <svg lucideAlertTriangle class="w-4 h-4 text-warning mr-1.5 shrink-0"></svg>
+          <strong class="obs-title">Observaciones de configuración (Informativo):</strong>
+        </div>
+        <p class="obs-body">
+          {{ combinedObservationsText() }}
+        </p>
+      </div>
+    }
+  </div>
+
+  <!-- Submodal de Registro de Ejecución (Terminal Modal sobre Modal con Blur) -->
+  @if (isFullLogsModalOpen()) {
+    <div class="audit-logs-modal-backdrop animate-fade" (click)="closeFullLogsModal()" role="dialog" aria-modal="true">
+      <div class="audit-logs-modal-dialog" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="audit-modal-header">
+          <div class="audit-title-left">
+            <svg lucideTerminal class="w-4 h-4 text-primary mr-2"></svg>
+            <span class="audit-modal-title" i18n="@@PU-22">Registro de ejecución de la prueba</span>
+            @if (activeEnvTestJob()?.status === 'failed') {
+              <span class="audit-badge audit-badge-failed">FALLIDO</span>
+            } @else if (activeEnvTestJob()?.status === 'success') {
+              <span class="audit-badge audit-badge-success">APROBADO</span>
+            }
+          </div>
+          <div class="audit-header-right">
+            <span class="esc-hint font-mono">Presione [ESC] para cerrar</span>
+            <button type="button" class="btn-audit-close" (click)="closeFullLogsModal()" aria-label="Cerrar modal de logs">
+              <svg lucideX class="w-4 h-4"></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filter Toolbar -->
+        <div class="audit-toolbar">
+          <div class="search-input-wrap">
+            <svg lucideSearch class="w-3.5 h-3.5 search-icon"></svg>
+            <input 
+              type="text" 
+              class="form-control-search font-mono" 
+              placeholder="Filtrar registros (ej. 'error', 'tools', 'info')"
+              [ngModel]="searchQuery()" 
+              (ngModelChange)="searchQuery.set($event)"
+            />
+          </div>
+          <div class="toolbar-meta">
+            <span class="events-count font-mono">Total: {{ filteredParsedLogLines().length }} eventos</span>
+            <label class="autoscroll-label">
+              <input type="checkbox" [checked]="autoScrollLogs()" (change)="toggleAutoScroll($event)" />
+              <span>Auto-scroll</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Terminal Content -->
+        <div class="audit-terminal-body font-mono" #terminalContainer>
+          @for (line of filteredParsedLogLines(); track $index) {
+            <div class="log-line-row">
+              <span class="log-timestamp">{{ line.timestamp }}</span>
+              <span class="log-level" [class]="'level-' + line.level.toLowerCase()">[{{ line.level }}]</span>
+              <span class="log-message" [class.highlight-error]="line.level === 'ERROR' || line.level === 'STDERR'" [class.highlight-warn]="line.level === 'WARN'">{{ line.message }}</span>
+            </div>
+          }
+          @if (filteredParsedLogLines().length === 0) {
+            <div class="empty-logs-row">
+              <span>No hay eventos que coincidan con el filtro "{{ searchQuery() }}"</span>
+            </div>
+          }
+        </div>
+
+        <!-- Footer -->
+        <div class="audit-modal-footer">
+          <div class="audit-footer-left">
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copyLogs()">
+              <svg *ngIf="!copySuccess()" lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
+              <svg *ngIf="copySuccess()" lucideCheck class="w-3.5 h-3.5 mr-1 text-success"></svg>
+              <span>{{ copySuccess() ? '¡Copiado!' : 'Copiar log' }}</span>
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="downloadLogs()">
+              <svg lucideDownload class="w-3.5 h-3.5 mr-1"></svg>
+              <span>Descargar log (.txt)</span>
+            </button>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" (click)="closeFullLogsModal()">
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+</div>

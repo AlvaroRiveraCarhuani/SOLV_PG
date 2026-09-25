@@ -57,4 +57,18 @@ describe('SolvHelpDrawerComponent', () => {
 
     expect(closed).toBe(true);
   });
+
+  it('debe emitir closed al hacer clic en el backdrop', () => {
+    fixture.componentRef.setInput('isOpen', true);
+    fixture.detectChanges();
+
+    let closed = false;
+    component.closed.subscribe(() => (closed = true));
+
+    const backdrop = fixture.nativeElement.querySelector('.drawer-backdrop');
+    expect(backdrop).toBeTruthy();
+    backdrop.click();
+
+    expect(closed).toBe(true);
+  });
 });

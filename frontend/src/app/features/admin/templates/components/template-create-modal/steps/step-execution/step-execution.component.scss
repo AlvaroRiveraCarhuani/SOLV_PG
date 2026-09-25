@@ -33,17 +33,15 @@
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
+    border: none;
+    border-radius: 4px;
     padding: 0.25rem;
-    color: #64748B;
+    color: var(--tenant-primary, #0284C7);
     cursor: pointer;
-    transition: all 150ms ease;
+    transition: background-color 150ms ease;
 
     &:hover {
       background-color: #F1F5F9;
-      color: var(--tenant-primary, #0284C7);
-      border-color: #CBD5E1;
     }
   }
 }
@@ -98,6 +96,7 @@
     padding: 0.5rem 0.75rem;
     border: 1px solid #CBD5E1;
     border-radius: 6px;
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: #0F172A;
     background-color: #FFFFFF;
@@ -114,9 +113,31 @@
     }
 
     &.text-area-sm {
-      min-height: 120px;
+      min-height: 140px;
       resize: vertical;
       line-height: 1.5;
+    }
+  }
+
+  .textarea-wrapper {
+    position: relative;
+    width: 100%;
+
+    .inline-toast-warning {
+      position: absolute;
+      bottom: 0.75rem;
+      right: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+      background-color: #FFFBEB;
+      border: 1px solid #FDE68A;
+      color: #92400E;
+      font-size: var(--text-xs);
+      font-weight: 500;
+      padding: 0.375rem 0.625rem;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      z-index: 10;
     }
   }
 
@@ -224,15 +245,73 @@
         color: #64748B;
       }
 
-      &:hover {
+      &.chip-applied {
+        border-color: var(--color-success, #16A34A);
+        background-color: #F0FDF4;
+        color: #15803D;
+      }
+
+      .chip-badge-inserted {
+        font-size: var(--text-2xs, 0.625rem);
+        font-weight: 600;
+        background-color: #DCFCE7;
+        color: #15803D;
+        padding: 0.1rem 0.35rem;
+        border-radius: 9999px;
+      }
+
+      &:hover,
+      &:focus {
         border-color: var(--tenant-primary, #0284C7);
         background-color: #F0F9FF;
         color: var(--tenant-primary, #0284C7);
+        outline: none;
 
         .chip-icon {
           color: var(--tenant-primary, #0284C7);
         }
       }
+    }
+  }
+
+  .example-preview-card {
+    margin-top: 0.625rem;
+    padding: 0.625rem 0.75rem;
+    background-color: #FFFFFF;
+    border: 1px solid #BAE6FD;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+
+    .preview-header {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+      margin-bottom: 0.375rem;
+
+      strong {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: #0369A1;
+      }
+
+      span {
+        font-size: var(--text-xs);
+        color: #64748B;
+      }
+    }
+
+    .preview-code {
+      margin: 0;
+      padding: 0.5rem;
+      background-color: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      font-size: var(--text-xs);
+      color: #0F172A;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      line-height: 1.4;
     }
   }
 }

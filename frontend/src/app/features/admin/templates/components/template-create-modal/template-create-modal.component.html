@@ -240,6 +240,7 @@
             <solv-step-resources
               [targetEnvironment]="targetEnvironment()"
               [baseRamMB]="baseRamMB()"
+              [hasUserConfiguredResources]="hasUserConfiguredResources()"
               [availableServices]="availableServices()"
               [selectedServices]="selectedServices()"
               [runtimeCapabilities]="runtimeCapabilities()"
@@ -274,6 +275,7 @@
               (testCompleted)="onEnvTestCompleted($event)"
               (retryTest)="triggerEnvTest()"
               (helpRequested)="toggleHelpDrawer('verification')"
+              (jumpToSection)="setSection($event)"
               (advance)="openPublishDialog()"
             ></solv-step-verification>
           </div>
@@ -354,27 +356,93 @@
             </p>
           }
           @case ('execution') {
-            <h6 class="drawer-section-heading">Contrato de Ejecución e Idempotencia</h6>
             @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              <h6 class="drawer-section-heading" i18n="@@AY-22">Contrato de ejecución del script de inicialización</h6>
               <p class="drawer-text">
-                <strong>Script de Inicialización (<code>setup_script</code>):</strong> Se ejecuta una única vez en segundo plano durante el primer aprovisionamiento del contenedor, antes de que el editor web esté listo para el estudiante.
+                El <code>setup_script</code> es un script bash opcional que prepara el espacio de trabajo del estudiante al aprovisionar el laboratorio por primera vez.
               </p>
+              
+              <div class="drawer-table-wrap">
+                <table class="drawer-table">
+                  <thead>
+                    <tr>
+                      <th>Parámetro</th>
+                      <th>Comportamiento Garantizado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td><strong>Intérprete</strong></td>
+                      <td><code>/bin/sh -c</code> dentro de <code>/home/workspace</code></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Momento</strong></td>
+                      <td>En segundo plano (1 s tras el arranque, sin bloquear el editor)</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Permisos</strong></td>
+                      <td>Usuario no-root por defecto (<code>workspace</code>)</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Timeout</strong></td>
+                      <td>5 minutos máximo por ejecución</td>
+                    </tr>
+                    <tr>
+                      <td><strong>Logs</strong></td>
+                      <td>Redirigidos a <code>/home/workspace/.solv_setup.log</code></td>
+                    </tr>
+                    <tr>
+                      <td><strong>Fallo</strong></td>
+                      <td>Registra el error en log; no reinicia ni detiene el contenedor</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <h6 class="drawer-section-heading mt-3" i18n="@@AY-32">Reglas de Idempotencia y Contraejemplos</h6>
               <p class="drawer-text">
-                <strong>Idempotencia obligatoria:</strong> Los comandos deben poder re-ejecutarse sin efectos secundarios destructivos si el contenedor se recupera o se reinicia (use <code>mkdir -p</code> o valide la existencia de archivos antes de crearlos).
+                Dado que el volumen del estudiante persiste entre sesiones, el script debe poder re-ejecutarse sin efectos secundarios si el contenedor se recupera o reinicia.
               </p>
-              <p class="drawer-text">
-                <strong>Comportamiento ante fallo:</strong> Si el script finaliza con error (código distinto de cero), el contenedor registra la incidencia en el historial pero no bloquea el daemon global. Capture errores críticos o configure flags de shell apropiados.
-              </p>
+              <div class="drawer-code-block">
+                <div class="code-example correct">
+                  <span class="badge-success-label">✓ Patrón Idempotente (Recomendado)</span>
+                  <pre class="drawer-code-snippet"><code># Crea directorios sin fallar si ya existen
+mkdir -p /home/workspace/data
+
+# Instala dependencias solo si existe el manifiesto
+if [ -f "requirements.txt" ]; then
+  pip install --no-cache-dir -r requirements.txt
+fi</code></pre>
+                </div>
+                <div class="code-example incorrect mt-2">
+                  <span class="badge-danger-label">✗ Contraejemplo (Falla en reinicio)</span>
+                  <pre class="drawer-code-snippet"><code># Falla si el directorio ya existe
+mkdir /home/workspace/data
+
+# Falla si no hay red o duplica sin verificar
+pip install pandas</code></pre>
+                </div>
+              </div>
             } @else {
+              <h6 class="drawer-section-heading" i18n="@@AY-25">Contrato de ejecución del Juez Virtual</h6>
               <p class="drawer-text">
                 <strong>Comando de Ejecución (<code>entrypoint</code>):</strong> Define la línea de compilación y ejecución que se correrá en el sandbox efímero aislado sin red.
               </p>
               <p class="drawer-text">
-                <strong>Tiempo límite (<code>timeout_ms</code>):</strong> Control estricto del cgroup de CPU. Si el proceso excede este límite, el sandbox lo termina con señal <code>SIGKILL</code> y emite veredicto TLE (*Time Limit Exceeded*).
+                <strong>Tiempo límite (<code>timeout_ms</code>):</strong> Control estricto del cgroup de CPU. Si el proceso excede este límite (1.000 a 30.000 ms), el sandbox lo termina y emite veredicto TLE.
               </p>
               <p class="drawer-text">
-                <strong>Entrada estándar (<code>sample_input</code>):</strong> Flujo de entrada stdin opcional inyectado automáticamente en la prueba preliminar de arranque (*prueba de arranque*).
+                <strong>Entrada estándar (<code>sample_input</code>):</strong> Flujo de entrada stdin opcional inyectado automáticamente en la prueba preliminar de arranque.
               </p>
+
+              <h6 class="drawer-section-heading mt-3" i18n="@@AY-26">Glosario de veredictos (en tiempo de ejecución)</h6>
+              <ul class="drawer-verdicts-list">
+                <li><strong class="verdict-tag verdict-ac">AC:</strong> <span i18n="@@AY-27">AC (Accepted): Código 0 y salida idéntica al caso de prueba.</span></li>
+                <li><strong class="verdict-tag verdict-wa">WA:</strong> <span i18n="@@AY-28">WA (Wrong Answer): Salida diferente a la esperada por el ejercicio.</span></li>
+                <li><strong class="verdict-tag verdict-tle">TLE:</strong> <span i18n="@@AY-29">TLE (Time Limit Exceeded): Ejecución interrumpida al exceder el timeout configurado.</span></li>
+                <li><strong class="verdict-tag verdict-re">RE:</strong> <span i18n="@@AY-30">RE (Runtime Error): Terminación con código de salida distinto de cero o excepción no capturada.</span></li>
+                <li><strong class="verdict-tag verdict-ast">AST_BLOCKED:</strong> <span i18n="@@AY-31">AST_BLOCKED: Bloqueo estático por análisis de sintaxis prohibida.</span></li>
+              </ul>
             }
           }
           @case ('resources') {
@@ -411,7 +479,7 @@
         <span class="autosave-status-badge font-mono" [class.saving]="autosaveStatus() === 'saving'">
           {{ autosaveIndicator() }}
         </span>
-        @if (isDraftSaved() || lastSavedTime()) {
+        @if (isDraftSaved() || (lastSavedTime() && lastSavedTime() !== 'Borrador descartado')) {
           <button 
             type="button" 
             class="btn-link-discard" 
@@ -450,20 +518,20 @@
             type="button" 
             class="btn btn-secondary btn-disabled" 
             disabled
-            [title]="publishDisabledReason()"
+            [title]="publishDisabledReason() || 'Debe solucionar el fallo de integridad o verificar el manifiesto en los Pasos 3 y 4.'"
           >
-            <svg lucideSend class="w-4 h-4 mr-1"></svg>
-            <span>Publicar Plantilla</span>
+            <svg lucideSend class="w-4 h-4 mr-1.5"></svg>
+            <span>Resolver Errores para Publicar</span>
           </button>
         } @else {
           <button 
             type="button" 
-            class="btn btn-primary" 
+            class="btn btn-success" 
             (click)="openPublishDialog()"
             title="Abre el diálogo de pre-flight para confirmar la publicación en el catálogo"
           >
-            <svg lucideSend class="w-4 h-4 mr-1"></svg>
-            <span>Publicar Plantilla</span>
+            <svg lucideSend class="w-4 h-4 mr-1.5"></svg>
+            <span>Publicar Plantilla Oficial</span>
           </button>
         }
       </div>

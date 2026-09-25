@@ -5,11 +5,24 @@
   width: 100%;
 }
 
+.btn-idle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .env-helper {
+    font-size: var(--text-xs);
+    color: var(--text-muted, #64748b);
+    line-height: 1.4;
+  }
+}
+
 .btn-env-test {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 14px;
+  padding: 0.5rem 1rem;
   font-size: var(--text-sm);
   font-weight: 500;
   border-radius: 6px;
@@ -239,6 +252,17 @@
         font-style: italic;
       }
     }
+  }
+
+  .panel-log-box {
+    padding: 8px 12px;
+    font-size: var(--text-xs);
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    word-break: break-all;
   }
 }
 

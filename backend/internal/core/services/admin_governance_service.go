@@ -387,6 +387,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Description: "Base de datos relacional aislada por estudiante y materia",
 			EnvVar:      "DATABASE_URL",
 			IsAvailable: true,
+			BaseRAMMB:   128,
 		},
 		{
 			Category:    "database",
@@ -396,6 +397,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Description: "Base de datos relacional MySQL para ejercicios de SQL",
 			EnvVar:      "DATABASE_URL",
 			IsAvailable: true,
+			BaseRAMMB:   128,
 		},
 		{
 			Category:    "database",
@@ -405,6 +407,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Description: "Base de datos de documentos NoSQL para proyectos web",
 			EnvVar:      "MONGODB_URI",
 			IsAvailable: false,
+			BaseRAMMB:   128,
 		},
 		{
 			Category:    "cache",
@@ -414,6 +417,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Description: "Almacén en memoria y caché clave-valor",
 			EnvVar:      "REDIS_URL",
 			IsAvailable: false,
+			BaseRAMMB:   64,
 		},
 	}
 

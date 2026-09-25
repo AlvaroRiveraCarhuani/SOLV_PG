@@ -5,7 +5,8 @@ import {
   LucideHelpCircle, 
   LucideInfo, 
   LucideX, 
-  LucideCode 
+  LucideCode,
+  LucideAlertCircle
 } from '@lucide/angular';
 import { TargetEnvironment } from '../../../../../services/admin-templates.service';
 
@@ -30,7 +31,8 @@ export interface EntrypointExample {
     LucideHelpCircle, 
     LucideInfo, 
     LucideX, 
-    LucideCode
+    LucideCode,
+    LucideAlertCircle
   ],
   template: `
     <div class="execution-step-container">
@@ -42,7 +44,6 @@ export interface EntrypointExample {
           type="button" 
           class="btn-step-help" 
           (click)="helpRequested.emit()" 
-          title="Ayuda contextual del paso" 
           aria-label="Ayuda contextual del paso"
           i18n-aria-label="@@AY-02"
         >
@@ -62,7 +63,7 @@ export interface EntrypointExample {
               class="btn-contract-info" 
               (click)="toggleContractPopover()"
               [attr.aria-expanded]="showContractPopover()"
-              title="Ver contrato de ejecución del juez"
+              aria-label="Ver contrato de ejecución del juez virtual"
             >
               <svg lucideInfo class="w-3.5 h-3.5 mr-1"></svg>
               <span>Contrato de ejecución</span>
@@ -73,8 +74,8 @@ export interface EntrypointExample {
           @if (showContractPopover()) {
             <div class="contract-popover animate-fade">
               <div class="popover-header">
-                <strong class="popover-title">Contrato de Ejecución en Juez Virtual</strong>
-                <button type="button" class="btn-popover-close" (click)="closeContractPopover()">
+                <strong class="popover-title" i18n="@@AY-25">Contrato de ejecución del Juez Virtual</strong>
+                <button type="button" class="btn-popover-close" (click)="closeContractPopover()" aria-label="Cerrar">
                   <svg lucideX class="w-3.5 h-3.5"></svg>
                 </button>
               </div>
@@ -109,10 +110,14 @@ export interface EntrypointExample {
                 <button 
                   type="button" 
                   class="chip-example-btn" 
-                  (click)="applyEntrypointExample(ex.cmd)"
-                  [title]="ex.desc + ' · Clic para insertar'"
+                  [class.chip-applied]="appliedJudgeChip() === ex.label"
+                  (click)="applyEntrypointExample(ex)"
+                  [attr.aria-label]="ex.label + ': ' + ex.desc + ' · Clic para insertar'"
                 >
                   <span class="chip-label">{{ ex.label }}</span>
+                  @if (appliedJudgeChip() === ex.label) {
+                    <span class="chip-badge-inserted">Insertado</span>
+                  }
                 </button>
               }
             </div>
@@ -133,7 +138,9 @@ export interface EntrypointExample {
               [ngModel]="timeoutMS()" 
               (ngModelChange)="timeoutMSChange.emit($event)" 
             />
-            <small class="form-hint">Rango de 1 a 30 segundos (default: 5.000 ms). Veredicto TLE al sobrepasarlo.</small>
+            <small class="form-hint" i18n="@@AY-33">
+              Rango de 1 a 30 segundos (default: 5.000 ms). Veredicto TLE al sobrepasarlo.
+            </small>
           </div>
 
           <div class="form-group">
@@ -147,7 +154,9 @@ export interface EntrypointExample {
               [ngModel]="sampleInput()" 
               (ngModelChange)="sampleInputChange.emit($event)" 
             />
-            <small class="form-hint">Entrada recomendada para alimentar el proceso durante la prueba de arranque.</small>
+            <small class="form-hint" i18n="@@AY-34">
+              Entrada recomendada para alimentar el proceso durante la prueba de arranque.
+            </small>
           </div>
         </div>
       } @else {
@@ -162,7 +171,7 @@ export interface EntrypointExample {
               class="btn-contract-info" 
               (click)="toggleContractPopover()"
               [attr.aria-expanded]="showContractPopover()"
-              title="Ver contrato formal del script de inicio (?)"
+              aria-label="Ver contrato de ejecución del script de inicialización"
             >
               <svg lucideHelpCircle class="w-3.5 h-3.5 mr-1"></svg>
               <span>Contrato del script (?)</span>
@@ -173,34 +182,45 @@ export interface EntrypointExample {
           @if (showContractPopover()) {
             <div class="contract-popover animate-fade">
               <div class="popover-header">
-                <strong class="popover-title">Contrato de Ejecución del Script de Inicialización</strong>
-                <button type="button" class="btn-popover-close" (click)="closeContractPopover()">
+                <strong class="popover-title" i18n="@@AY-22">Contrato de ejecución del script de inicialización</strong>
+                <button type="button" class="btn-popover-close" (click)="closeContractPopover()" aria-label="Cerrar">
                   <svg lucideX class="w-3.5 h-3.5"></svg>
                 </button>
               </div>
               <ul class="contract-list">
                 <li><strong>Intérprete:</strong> Ejecutado con <code>/bin/sh -c</code> dentro de <code>/home/workspace</code>.</li>
-                <li><strong>Momento del ciclo de vida:</strong> Se ejecuta en segundo plano 1 segundo después de arrancar el contenedor en estado activo.</li>
+                <li><strong>Momento de ejecución:</strong> En segundo plano 1 segundo después del arranque activo (no bloquea el editor).</li>
+                <li><strong>Permisos:</strong> Usuario no-root por defecto (<code>workspace</code>).</li>
                 <li><strong>Comportamiento ante fallo:</strong> Timeout máximo de 5 minutos. Errores y salida se redirigen a <code>/home/workspace/.solv_setup.log</code>. El fallo no interrumpe ni reinicia el contenedor.</li>
                 <li><strong>Regla de idempotencia:</strong> Debe ser idempotente frente a reinicios (verificar si las rutas o paquetes ya existen antes de crearlos).</li>
               </ul>
             </div>
           }
 
-          <textarea 
-            class="form-control font-mono text-area-sm" 
-            rows="5" 
-            placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
-            [ngModel]="setupScript()" 
-            (ngModelChange)="setupScriptChange.emit($event)"
-          ></textarea>
-          <small class="form-hint">
-            Comandos bash que se ejecutarán automáticamente al iniciar cada workspace antes del editor.
+          <div class="textarea-wrapper">
+            <textarea 
+              id="setup-script-textarea"
+              class="form-control font-mono text-area-sm" 
+              rows="5" 
+              spellcheck="false"
+              placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
+              [ngModel]="setupScript()" 
+              (ngModelChange)="setupScriptChange.emit($event)"
+            ></textarea>
+            @if (toastWarning(); as warn) {
+              <div class="inline-toast-warning animate-fade" role="alert">
+                <svg lucideAlertCircle class="w-3.5 h-3.5 mr-1.5 shrink-0"></svg>
+                <span i18n="@@AY-24">{{ warn }}</span>
+              </div>
+            }
+          </div>
+          <small class="form-hint" i18n="@@AY-21">
+            Se ejecuta en segundo plano una sola vez al aprovisionar el volumen, como usuario no-root en /home/workspace. Timeout: 5 minutos. Logs en /.solv_setup.log.
           </small>
 
           <!-- Ejemplos rápidos recomendados para IDE -->
           <div class="quick-examples-box mt-3">
-            <span class="examples-header-label">
+            <span class="examples-header-label" i18n="@@AY-23">
               <svg lucideCode class="w-3.5 h-3.5 mr-1 text-primary"></svg>
               Plantillas de script recomendadas:
             </span>
@@ -209,10 +229,14 @@ export interface EntrypointExample {
                 <button 
                   type="button" 
                   class="chip-example-btn" 
-                  (click)="applyScriptExample(ex.code)"
-                  [title]="ex.desc + ' · Clic para insertar al final'"
+                  [class.chip-applied]="appliedIdeChip() === ex.label"
+                  (click)="applyScriptExample(ex)"
+                  [attr.aria-label]="ex.label + ': ' + ex.desc + ' · Clic para insertar al final'"
                 >
                   <span class="chip-label">{{ ex.label }}</span>
+                  @if (appliedIdeChip() === ex.label) {
+                    <span class="chip-badge-inserted">Agregado</span>
+                  }
                 </button>
               }
             </div>
@@ -238,6 +262,14 @@ export class SolvStepExecutionComponent {
   advance = output<void>();
 
   showContractPopover = signal<boolean>(false);
+  hoveredIdeExample = signal<ScriptExample | null>(null);
+  hoveredJudgeExample = signal<EntrypointExample | null>(null);
+  appliedIdeChip = signal<string | null>(null);
+  appliedJudgeChip = signal<string | null>(null);
+  toastWarning = signal<string | null>(null);
+  private warningTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private appliedIdeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  private appliedJudgeTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   ideExamples: ScriptExample[] = [
     {
@@ -288,16 +320,68 @@ export class SolvStepExecutionComponent {
     this.showContractPopover.set(false);
   }
 
-  applyScriptExample(code: string): void {
-    const current = this.setupScript().trim();
-    if (!current) {
-      this.setupScriptChange.emit(code);
-    } else {
-      this.setupScriptChange.emit(`${current}\n\n${code}`);
-    }
+  showIdePreview(ex: ScriptExample): void {
+    this.hoveredIdeExample.set(ex);
   }
 
-  applyEntrypointExample(cmd: string): void {
+  hideIdePreview(): void {
+    this.hoveredIdeExample.set(null);
+  }
+
+  showJudgePreview(ex: EntrypointExample): void {
+    this.hoveredJudgeExample.set(ex);
+  }
+
+  hideJudgePreview(): void {
+    this.hoveredJudgeExample.set(null);
+  }
+
+  applyScriptExample(ex: ScriptExample): void {
+    const current = this.setupScript();
+    const marker = `# --- ${ex.label} ---`;
+    
+    if (current.includes(marker) || current.includes(ex.code)) {
+      this.showToastWarning('La plantilla ya está insertada en el editor');
+      return;
+    }
+
+    const snippetWithMarker = `${marker}\n${ex.code}`;
+    const trimmed = current.trim();
+    if (!trimmed) {
+      this.setupScriptChange.emit(snippetWithMarker);
+    } else {
+      this.setupScriptChange.emit(`${trimmed}\n\n${snippetWithMarker}`);
+    }
+
+    // Feedback visual momentáneo
+    this.appliedIdeChip.set(ex.label);
+    if (this.appliedIdeTimeoutId) clearTimeout(this.appliedIdeTimeoutId);
+    this.appliedIdeTimeoutId = setTimeout(() => {
+      this.appliedIdeChip.set(null);
+      this.appliedIdeTimeoutId = null;
+    }, 2000);
+  }
+
+  applyEntrypointExample(ex: EntrypointExample | string): void {
+    const cmd = typeof ex === 'string' ? ex : ex.cmd;
+    const label = typeof ex === 'string' ? ex : ex.label;
     this.entrypointChange.emit(cmd);
+    this.appliedJudgeChip.set(label);
+    if (this.appliedJudgeTimeoutId) clearTimeout(this.appliedJudgeTimeoutId);
+    this.appliedJudgeTimeoutId = setTimeout(() => {
+      this.appliedJudgeChip.set(null);
+      this.appliedJudgeTimeoutId = null;
+    }, 2000);
+  }
+
+  private showToastWarning(msg: string): void {
+    this.toastWarning.set(msg);
+    if (this.warningTimeoutId) {
+      clearTimeout(this.warningTimeoutId);
+    }
+    this.warningTimeoutId = setTimeout(() => {
+      this.toastWarning.set(null);
+      this.warningTimeoutId = null;
+    }, 3000);
   }
 }

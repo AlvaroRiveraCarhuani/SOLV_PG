@@ -17,11 +17,16 @@ describe('SolvStepExecutionComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe crearse correctamente y mostrar textarea de setupScript para IDE_PERSISTENTE', () => {
+  it('debe crearse correctamente y mostrar textarea de setupScript para IDE_PERSISTENTE sin title nativos', () => {
     expect(component).toBeTruthy();
     const textarea = fixture.nativeElement.querySelector('textarea');
     expect(textarea).toBeTruthy();
+    expect(textarea.getAttribute('spellcheck')).toBe('false');
     expect(fixture.nativeElement.querySelector('input[type="number"]')).toBeNull();
+
+    // Sin atributos title nativos en botones o inputs
+    const elementsWithTitle = fixture.nativeElement.querySelectorAll('[title]');
+    expect(elementsWithTitle.length).toBe(0);
   });
 
   it('debe emitir setupScriptChange cuando se modifica el script de inicialización', () => {
@@ -79,12 +84,41 @@ describe('SolvStepExecutionComponent', () => {
     expect(component.showContractPopover()).toBe(false);
   });
 
-  it('debe emitir setupScript al seleccionar un ejemplo de script para IDE', () => {
+  it('debe insertar snippet con marcador formateado al hacer clic en chip de IDE', () => {
     let emitted = '';
     component.setupScriptChange.subscribe(v => emitted = v);
 
-    component.applyScriptExample('export APP_ENV=development');
-    expect(emitted).toBe('export APP_ENV=development');
+    const example = component.ideExamples[0];
+    component.applyScriptExample(example);
+    expect(emitted).toContain(`# --- ${example.label} ---`);
+    expect(emitted).toContain(example.code);
+  });
+
+  it('no debe duplicar un snippet ya insertado y debe activar toastWarning', () => {
+    const example = component.ideExamples[0];
+    fixture.componentRef.setInput('setupScript', `# --- ${example.label} ---\n${example.code}`);
+    fixture.detectChanges();
+
+    let emitted = '';
+    component.setupScriptChange.subscribe(v => emitted = v);
+
+    component.applyScriptExample(example);
+    expect(emitted).toBe('');
+    expect(component.toastWarning()).toBe('La plantilla ya está insertada en el editor');
+  });
+
+  it('debe gestionar el estado de hoveredIdeExample y hoveredJudgeExample para previsualización', () => {
+    expect(component.hoveredIdeExample()).toBeNull();
+    component.showIdePreview(component.ideExamples[0]);
+    expect(component.hoveredIdeExample()).toEqual(component.ideExamples[0]);
+    component.hideIdePreview();
+    expect(component.hoveredIdeExample()).toBeNull();
+
+    expect(component.hoveredJudgeExample()).toBeNull();
+    component.showJudgePreview(component.judgeExamples[0]);
+    expect(component.hoveredJudgeExample()).toEqual(component.judgeExamples[0]);
+    component.hideJudgePreview();
+    expect(component.hoveredJudgeExample()).toBeNull();
   });
 
   it('debe emitir entrypoint al seleccionar un ejemplo de compilación para Juez', () => {

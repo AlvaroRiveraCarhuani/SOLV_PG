@@ -66,6 +66,13 @@ describe('SolvStepResourcesComponent', () => {
     expect(activePreset.textContent).toContain('1 GB');
   });
 
+  it('no debe marcar ningun preset como active si hasUserConfiguredResources es false', () => {
+    fixture.componentRef.setInput('hasUserConfiguredResources', false);
+    fixture.detectChanges();
+    const activePreset = fixture.nativeElement.querySelector('.btn-ram-preset.active');
+    expect(activePreset).toBeNull();
+  });
+
   it('debe emitir baseRamMBChange al seleccionar otro preset de RAM', () => {
     let emitted = 0;
     component.baseRamMBChange.subscribe(v => emitted = v);
@@ -250,5 +257,26 @@ describe('SolvStepResourcesComponent', () => {
     } as any);
     fixture.detectChanges();
     expect(component.capacityPluralLabel()).toContain('alumnos simultáneos');
+  });
+
+  it('debe utilizar base_ram_mb dinámico enviado por las capacidades del backend', () => {
+    fixture.componentRef.setInput('availableServices', [
+      {
+        category: 'database',
+        engine: 'postgres',
+        label: 'PostgreSQL',
+        version: '16',
+        description: 'PostgreSQL aislada',
+        envVar: 'DATABASE_URL',
+        isAvailable: true,
+        base_ram_mb: 256
+      }
+    ]);
+    fixture.componentRef.setInput('selectedServices', [{ category: 'database', engine: 'postgres' }]);
+    fixture.detectChanges();
+
+    // Editor base por defecto 210 + Postgres dinámico 256 = 466 MB
+    expect(component.totalSatelliteBaseMB()).toBe(256);
+    expect(component.minimumFloorMB()).toBe(466);
   });
 });

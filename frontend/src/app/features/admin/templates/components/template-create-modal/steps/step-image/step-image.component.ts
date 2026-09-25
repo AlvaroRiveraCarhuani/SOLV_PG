@@ -198,7 +198,14 @@ const UNIVERSAL_TOOLS = new Set([
         (ngModelChange)="toolsDeclaredChange.emit($event)" 
       />
 
-      @if (toolsAffinityWarning()) {
+      @if (invalidToolSyntaxError()) {
+        <div class="mt-2">
+          <solv-field-message 
+            variant="error"
+            [message]="invalidToolSyntaxError()!"
+          ></solv-field-message>
+        </div>
+      } @else if (toolsAffinityWarning()) {
         <div class="mt-2">
           <solv-field-message 
             variant="warning"
@@ -328,6 +335,20 @@ export class SolvStepImageComponent {
     'postgres': ['psql', 'pg_dump'],
     'redis': ['redis-cli', 'redis-server']
   };
+
+  invalidToolSyntaxError = computed<string | null>(() => {
+    const raw = this.toolsDeclared().trim();
+    if (!raw) return null;
+    const tools = raw.split(',').map(t => t.trim()).filter(Boolean);
+    const validRegex = /^[a-zA-Z0-9_.-]+$/;
+
+    for (const tool of tools) {
+      if (!validRegex.test(tool)) {
+        return `Error: La herramienta "${tool}" contiene caracteres no válidos. Usá solo letras, números, guiones y punto.`;
+      }
+    }
+    return null;
+  });
 
   toolsAffinityWarning = computed<string | null>(() => {
     const img = this.dockerImage().trim().toLowerCase();

@@ -50,6 +50,7 @@ export interface AvailableSatelliteService {
   description: string;
   envVar: string;
   isAvailable?: boolean;
+  base_ram_mb?: number;
 }
 
 export interface HostCapacityInfo {
@@ -67,6 +68,7 @@ export interface SatelliteServiceCapability {
   description: string;
   env_var: string;
   is_available: boolean;
+  base_ram_mb?: number;
 }
 
 export interface RamPresetSuggestion {

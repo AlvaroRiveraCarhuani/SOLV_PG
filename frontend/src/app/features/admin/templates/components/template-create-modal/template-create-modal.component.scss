@@ -472,6 +472,7 @@
 .form-control {
   width: 100%;
   padding: 8px 12px;
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   border: 1px solid var(--border-subtle, #CBD5E1);
   border-radius: 6px;
@@ -2688,6 +2689,102 @@
 
       tr:last-child td {
         border-bottom: none;
+      }
+    }
+
+    .drawer-code-block {
+      margin: 10px 0;
+
+      .code-example {
+        background: var(--bg-subtle, #F8FAFC);
+        border: 1px solid var(--border-color, #E2E8F0);
+        border-radius: 6px;
+        padding: 8px 10px;
+
+        &.correct {
+          border-left: 3px solid #16A34A;
+        }
+
+        &.incorrect {
+          border-left: 3px solid #DC2626;
+        }
+
+        .badge-success-label {
+          display: inline-block;
+          font-size: var(--text-xs);
+          font-weight: 600;
+          color: #15803D;
+          margin-bottom: 4px;
+        }
+
+        .badge-danger-label {
+          display: inline-block;
+          font-size: var(--text-xs);
+          font-weight: 600;
+          color: #B91C1C;
+          margin-bottom: 4px;
+        }
+
+        .drawer-code-snippet {
+          margin: 0;
+          padding: 6px 8px;
+          background: #0F172A;
+          color: #F8FAFC;
+          border-radius: 4px;
+          font-family: var(--font-mono);
+          font-size: var(--text-xs);
+          line-height: 1.4;
+          overflow-x: auto;
+        }
+      }
+    }
+
+    .drawer-verdicts-list {
+      list-style: none;
+      padding: 0;
+      margin: 8px 0 0;
+
+      li {
+        padding: 4px 0;
+        font-size: var(--text-xs);
+        line-height: 1.5;
+        border-bottom: 1px solid var(--border-color, #E2E8F0);
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .verdict-tag {
+          font-family: var(--font-mono);
+          padding: 1px 4px;
+          border-radius: 3px;
+          margin-right: 4px;
+
+          &.verdict-ac {
+            background-color: #DCFCE7;
+            color: #15803D;
+          }
+
+          &.verdict-wa {
+            background-color: #FEE2E2;
+            color: #DC2626;
+          }
+
+          &.verdict-tle {
+            background-color: #FEF3C7;
+            color: #D97706;
+          }
+
+          &.verdict-re {
+            background-color: #FFEDD5;
+            color: #EA580C;
+          }
+
+          &.verdict-ast {
+            background-color: #FEE2E2;
+            color: #991B1B;
+          }
+        }
       }
     }
   }

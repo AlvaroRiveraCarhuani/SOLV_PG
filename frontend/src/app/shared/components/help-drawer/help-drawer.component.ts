@@ -9,6 +9,11 @@ import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
   imports: [CommonModule, RouterModule, LucideBookOpen, LucideX, LucideExternalLink],
   template: `
     @if (isOpen()) {
+      <div 
+        class="drawer-backdrop" 
+        (click)="onClose()" 
+        aria-hidden="true"
+      ></div>
       <aside 
         class="help-drawer" 
         role="complementary" 

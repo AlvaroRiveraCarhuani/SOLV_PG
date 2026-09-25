@@ -45,7 +45,7 @@ export interface ComboboxGroup {
           type="text"
           class="combobox-input"
           [placeholder]="placeholder()"
-          [value]="value()"
+          [value]="displayValue()"
           [disabled]="disabled()"
           role="combobox"
           [attr.aria-expanded]="isOpen()"
@@ -189,10 +189,26 @@ export class SolvComboboxComponent {
   closed = output<void>();
 
   isOpen = signal<boolean>(false);
+  searchQuery = signal<string | null>(null);
   activeFlatIndex = signal<number>(-1);
   selectedGroupFilter = signal<string | null>(null);
   visibleLimit = signal<number>(8);
   listboxId = 'combobox-listbox-' + Math.random().toString(36).substring(2, 9);
+
+  displayValue = computed<string>(() => {
+    const typed = this.searchQuery();
+    if (typed !== null) return typed;
+    return this.value();
+  });
+
+  effectiveQuery = computed<string>(() => {
+    const typed = this.searchQuery();
+    if (typed !== null) return typed;
+    const val = this.value();
+    const isExactOption = this.options().some(o => o.label === val);
+    if (isExactOption) return '';
+    return val;
+  });
 
   constructor() {
     if (typeof document !== 'undefined') {
@@ -227,7 +243,7 @@ export class SolvComboboxComponent {
   });
 
   allMatchingOptions = computed<ComboboxOption[]>(() => {
-    const query = this.value().trim().toLowerCase();
+    const query = this.effectiveQuery().trim().toLowerCase();
     const grpFilter = this.selectedGroupFilter();
     let list = this.options();
 
@@ -286,7 +302,7 @@ export class SolvComboboxComponent {
   headerCountText = computed<string>(() => {
     const total = this.allMatchingOptions().length;
     const current = this.filteredOptions().length;
-    if (this.value().trim() || this.selectedGroupFilter() !== null) {
+    if (this.effectiveQuery().trim() || this.selectedGroupFilter() !== null) {
       return `${current} de ${total} mostradas; escriba para filtrar`;
     }
     return `${current} de ${total} disponibles; escriba para filtrar`;
@@ -317,6 +333,7 @@ export class SolvComboboxComponent {
 
   onInputChange(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
+    this.searchQuery.set(val);
     this.valueChange.emit(val);
     if (!this.isOpen()) {
       this.isOpen.set(true);
@@ -328,6 +345,7 @@ export class SolvComboboxComponent {
   onInputFocus(): void {
     if (!this.disabled() && !this.suppressListbox()) {
       this.isOpen.set(true);
+      this.inputEl()?.nativeElement.select();
     }
   }
 
@@ -337,17 +355,21 @@ export class SolvComboboxComponent {
       this.close();
     } else {
       this.isOpen.set(true);
-      this.inputEl()?.nativeElement.focus();
+      const el = this.inputEl()?.nativeElement;
+      el?.focus();
+      el?.select();
     }
   }
 
   close(): void {
     this.isOpen.set(false);
+    this.searchQuery.set(null);
     this.activeFlatIndex.set(-1);
     this.closed.emit();
   }
 
   selectOption(option: ComboboxOption): void {
+    this.searchQuery.set(null);
     this.optionSelected.emit(option);
     this.close();
   }

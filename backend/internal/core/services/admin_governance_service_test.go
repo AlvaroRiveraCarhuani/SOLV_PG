@@ -446,10 +446,16 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 
 	foundPostgres := false
 	for _, s := range caps.SatelliteServices {
+		if s.BaseRAMMB <= 0 {
+			t.Errorf("BaseRAMMB de %s debe ser mayor a 0, obtenido: %d", s.Engine, s.BaseRAMMB)
+		}
 		if s.Engine == "postgres" && s.IsAvailable {
 			foundPostgres = true
 			if s.Description == "" {
 				t.Error("descripción de postgres no debe estar vacía")
+			}
+			if s.BaseRAMMB != 128 {
+				t.Errorf("BaseRAMMB de postgres debe ser 128, obtenido: %d", s.BaseRAMMB)
 			}
 		}
 	}

@@ -52,10 +52,10 @@ describe('SolvStepVerificationComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe crearse correctamente con el botón de prueba y resumen técnico', () => {
+  it('debe crearse correctamente con la tarjeta de integridad y resumen técnico', () => {
     expect(component).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('solv-env-test-button')).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.verification-summary-card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.integrity-card')).toBeTruthy();
+    expect(fixture.nativeElement.querySelector('.technical-summary-card')).toBeTruthy();
   });
 
   it('debe mostrar la alerta de prueba obsoleta si isEnvTestStale es true', () => {
@@ -74,76 +74,83 @@ describe('SolvStepVerificationComponent', () => {
     expect(retryClicked).toBe(true);
   });
 
-  it('debe permitir expandir los logs de ejecución y mostrar el output formateado', () => {
+  it('debe abrir modal de terminal de auditoría al presionar Ver logs de auditoría', () => {
     fixture.componentRef.setInput('activeEnvTestJob', mockJob);
     fixture.detectChanges();
 
-    const toggleBtn = fixture.nativeElement.querySelector('.btn-toggle-logs');
+    const toggleBtn = fixture.nativeElement.querySelector('.btn-integrity-secondary');
     expect(toggleBtn).toBeTruthy();
-    expect(fixture.nativeElement.querySelector('.logs-terminal')).toBeNull();
 
     toggleBtn.click();
     fixture.detectChanges();
 
-    const terminal = fixture.nativeElement.querySelector('.logs-terminal');
-    expect(terminal).toBeTruthy();
-    expect(terminal.textContent).toContain('Python 3.12.2');
+    expect(component.isFullLogsModalOpen()).toBe(true);
+    const modal = fixture.nativeElement.querySelector('.audit-logs-modal-dialog');
+    expect(modal).toBeTruthy();
+    expect(modal.textContent).toContain('Registro de ejecución');
+    expect(modal.textContent).toContain('APROBADO');
   });
 
-  it('debe abrir modal con el log completo y permitir copiar y descargar al presionar Ver log completo', () => {
-    fixture.componentRef.setInput('activeEnvTestJob', mockJob);
-    fixture.detectChanges();
-
-    component.showLogs.set(true);
-    fixture.detectChanges();
-
-    const openFullLogBtn = fixture.nativeElement.querySelector('.btn-link-action');
-    expect(openFullLogBtn).toBeTruthy();
-
-    openFullLogBtn.click();
-    fixture.detectChanges();
-
+  it('debe cerrar el modal de logs al pulsar Escape sin cerrar el asistente padre', () => {
+    component.openFullLogsModal();
     expect(component.isFullLogsModalOpen()).toBe(true);
-    const modal = fixture.nativeElement.querySelector('.full-logs-modal-card');
-    expect(modal).toBeTruthy();
-    expect(modal.textContent).toContain('SOLV PRUEBA DE ARRANQUE');
-    expect(modal.textContent).toContain('Python 3.12.2');
 
-    // Botones de copiar y descargar presentes
-    const copyBtn = modal.querySelector('button:has(svg)');
-    expect(copyBtn).toBeTruthy();
-
-    component.closeFullLogsModal();
-    fixture.detectChanges();
+    component.onEscape();
     expect(component.isFullLogsModalOpen()).toBe(false);
   });
 
-  it('debe mostrar badges de advertencia en el resumen técnico cuando apliquen', () => {
-    fixture.componentRef.setInput('isRamExceedingHost', true);
-    fixture.componentRef.setInput('isEnvTestStale', true);
-    fixture.componentRef.setInput('toolsList', []);
-    fixture.componentRef.setInput('dockerImage', 'community/custom-node:14');
+  it('debe filtrar líneas del log en tiempo real según el término de búsqueda', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-err',
+      image: 'custom:v1',
+      tools: [],
+      status: 'failed',
+      error_message: 'Fallo durante la inicialización'
+    } as any);
     fixture.detectChanges();
 
-    const badges = fixture.nativeElement.querySelectorAll('.badge-tag-warning');
-    expect(badges.length).toBeGreaterThanOrEqual(3);
+    component.openFullLogsModal();
+    fixture.detectChanges();
 
-    const badgeTexts = Array.from(badges).map((b: any) => b.textContent);
-    expect(badgeTexts).toContain('RAM sobre capacidad');
-    expect(badgeTexts).toContain('Prueba obsoleta');
-    expect(badgeTexts).toContain('Mantenedor no oficial');
+    const totalBefore = component.filteredParsedLogLines().length;
+    expect(totalBefore).toBeGreaterThan(0);
+
+    component.searchQuery.set('error');
+    fixture.detectChanges();
+
+    const filtered = component.filteredParsedLogLines();
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.some(l => l.message.toLowerCase().includes('error') || l.level === 'ERROR')).toBe(true);
   });
 
-  it('debe surfacear advertencias si la configuración es subóptima', () => {
-    // IDE con RAM < 512 MB y sin herramientas
-    fixture.componentRef.setInput('baseRamMB', 256);
-    fixture.componentRef.setInput('toolsList', []);
+  it('debe emitir jumpToSection al hacer clic en los enlaces de salto directo del diagnóstico', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-err',
+      image: 'python:3.12-slim-bookworm',
+      tools: ['pytest'],
+      status: 'failed',
+      error_message: 'MISSING:pytest'
+    } as any);
     fixture.detectChanges();
 
-    expect(component.suboptimalWarnings().length).toBeGreaterThan(0);
-    const warningsBox = fixture.nativeElement.querySelector('.suboptimal-warnings-box');
-    expect(warningsBox).toBeTruthy();
-    expect(warningsBox.textContent).toContain('256 MB');
+    let jumpedTo: string = '';
+    component.jumpToSection.subscribe((step: any) => jumpedTo = step);
+
+    const jumpButtons = fixture.nativeElement.querySelectorAll('.btn-step-jump-link');
+    expect(jumpButtons.length).toBe(2);
+
+    // Clic en Paso 3
+    jumpButtons[0].click();
+    expect(jumpedTo).toBe('image');
+
+    // Clic en Paso 4
+    jumpButtons[1].click();
+    expect(jumpedTo).toBe('execution');
+  });
+
+  it('debe copiar el tag de la imagen con feedback visual', () => {
+    component.copyImageTag();
+    expect(component.copyImageSuccess()).toBe(true);
   });
 
   it('debe emitir helpRequested al presionar el botón de ayuda contextual', () => {
@@ -155,27 +162,5 @@ describe('SolvStepVerificationComponent', () => {
     helpBtn.click();
 
     expect(emitted).toBe(true);
-  });
-
-  it('debe mostrar la caja de diagnóstico estructurado Hecho-Causa-PróximaAcción si la prueba falla', () => {
-    fixture.componentRef.setInput('activeEnvTestJob', {
-      id: 'job-err',
-      image: 'python:3.12-slim-bookworm',
-      tools: ['pytest'],
-      status: 'failed',
-      error_message: 'MISSING:pytest',
-      progress: { percent: 100 },
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    } as any);
-    fixture.detectChanges();
-
-    const diagBox = fixture.nativeElement.querySelector('.diagnostic-failure-box');
-    expect(diagBox).toBeTruthy();
-    expect(diagBox.textContent).toContain('Diagnóstico de la Verificación');
-    expect(diagBox.textContent).toContain('Hecho:');
-    expect(diagBox.textContent).toContain('Causa:');
-    expect(diagBox.textContent).toContain('MISSING:pytest');
-    expect(diagBox.textContent).toContain('Próxima acción:');
   });
 });

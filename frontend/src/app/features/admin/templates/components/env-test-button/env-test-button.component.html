@@ -12,14 +12,10 @@
       >
         <svg lucidePlay class="btn-icon w-4 h-4"></svg>
         <span class="btn-text">
-          @if (!image().trim() || isLatestImage()) {
-            <span i18n="@@TE-01">Probar entorno</span>
-          } @else if (hasDigestMismatch()) {
+          @if (hasDigestMismatch()) {
             <span i18n="@@TE-40">Actualizar imagen y probar</span>
-          } @else if (isLocal()) {
-            <span i18n="@@TE-10">Probar entorno (local, < 2s)</span>
           } @else {
-            <span i18n="@@TE-20">Descargar y probar (~{{ imageSizeMB() || 350 }} MB)</span>
+            <span i18n="@@TE-01">Probar entorno</span>
           }
         </span>
       </button>
@@ -102,10 +98,6 @@
           }
         </button>
       </div>
-
-      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-53">
-        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
-      </button>
     </div>
   }
 
@@ -125,10 +117,6 @@
           }
         </button>
       </div>
-
-      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-74">
-        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
-      </button>
     </div>
   }
 
@@ -149,7 +137,7 @@
               <span i18n="@@TE-75">Descarga detenida: sin datos de red por más de 60 s</span>
             }
             @case ('registry_unreachable') {
-              <span i18n="@@TE-76">No se pudo conectar al registro OCI público</span>
+              <span i18n="@@TE-76">La imagen no existe en Docker Hub o el registro OCI no responde</span>
             }
             @case ('pull_timeout') {
               <span i18n="@@TE-77">Tiempo total de prueba excedido (15 min)</span>
@@ -159,14 +147,7 @@
             }
           }
         </span>
-        <button type="button" class="btn-log-link" (click)="toggleDetails()">
-          <span i18n="@@TE-73">Ver log completo</span>
-        </button>
       </div>
-
-      <button type="button" class="btn-retry" (click)="startTest()" title="Reintentar prueba" i18n-title="@@TE-74">
-        <svg lucideRotateCw class="w-3.5 h-3.5"></svg>
-      </button>
     </div>
   }
 
@@ -205,11 +186,11 @@
           <span class="panel-header" i18n="@@TE-78">Registro del evento:</span>
           <span class="panel-intro text-danger">{{ errorCode() }}</span>
         </div>
-        <div class="p-3 text-xs bg-slate-900 text-slate-100 rounded font-mono break-words mt-2">
+        <div class="panel-log-box mt-2">
           <div><strong>Estado:</strong> {{ activeJob()?.status || visualState() }}</div>
           <div><strong>Detalle:</strong> {{ activeJob()?.error_message || errorMessage() || 'Sin detalles adicionales' }}</div>
           @if (activeJob()?.progress?.current_action) {
-            <div class="mt-1 text-slate-400"><strong>Última acción:</strong> {{ activeJob()?.progress?.current_action }}</div>
+            <div class="mt-1 text-secondary"><strong>Última acción:</strong> {{ activeJob()?.progress?.current_action }}</div>
           }
         </div>
       }

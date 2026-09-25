@@ -33,17 +33,15 @@
     align-items: center;
     justify-content: center;
     background: transparent;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
+    border: none;
+    border-radius: 4px;
     padding: 0.25rem;
-    color: #64748B;
+    color: var(--tenant-primary, #0284C7);
     cursor: pointer;
-    transition: all 150ms ease;
+    transition: background-color 150ms ease;
 
     &:hover {
       background-color: #F1F5F9;
-      color: var(--tenant-primary, #0284C7);
-      border-color: #CBD5E1;
     }
   }
 }

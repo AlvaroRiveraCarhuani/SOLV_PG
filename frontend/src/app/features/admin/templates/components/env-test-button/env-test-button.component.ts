@@ -22,7 +22,6 @@ import {
   LucideCheckCircle2, 
   LucideAlertTriangle, 
   LucideXCircle, 
-  LucideRotateCw,
   LucideX,
   LucideChevronDown,
   LucideChevronUp
@@ -53,7 +52,6 @@ export function getEnvTestErrorMessage(code: string): string {
     LucideCheckCircle2,
     LucideAlertTriangle,
     LucideXCircle,
-    LucideRotateCw,
     LucideX,
     LucideChevronDown,
     LucideChevronUp

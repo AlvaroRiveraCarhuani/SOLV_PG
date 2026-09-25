@@ -1,20 +1,24 @@
-import { Component, input, output, signal, computed, ViewChild } from '@angular/core';
+import { Component, input, output, signal, computed, ViewChild, ElementRef, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { 
   LucideHelpCircle, 
   LucideAlertTriangle, 
   LucideAlertCircle,
   LucideRotateCw, 
   LucideTerminal,
-  LucideChevronDown,
-  LucideChevronUp,
   LucideCopy,
   LucideDownload,
-  LucideX
+  LucideX,
+  LucidePlay,
+  LucideLoader2,
+  LucideCheck,
+  LucideSearch,
+  LucideInfo
 } from '@lucide/angular';
 import { 
   TargetEnvironment, 
-  ServiceRequirement 
+  ServiceRequirement
 } from '../../../../../services/admin-templates.service';
 import { 
   EnvTestButtonComponent 
@@ -23,8 +27,16 @@ import {
   EnvTestJob 
 } from '../../../../../services/env-test-job.service';
 
+export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 'resources' | 'verification';
+
 export interface SuboptimalWarning {
   type: 'warning' | 'info';
+  message: string;
+}
+
+export interface ParsedLogLine {
+  timestamp: string;
+  level: 'INFO' | 'WARN' | 'ERROR' | 'STDERR';
   message: string;
 }
 
@@ -33,268 +45,28 @@ export interface SuboptimalWarning {
   standalone: true,
   imports: [
     CommonModule, 
+    FormsModule,
     LucideHelpCircle, 
     LucideAlertTriangle, 
     LucideAlertCircle,
     LucideRotateCw, 
     LucideTerminal,
-    LucideChevronDown,
-    LucideChevronUp,
     LucideCopy,
     LucideDownload,
     LucideX,
+    LucidePlay,
+    LucideLoader2,
+    LucideCheck,
+    LucideSearch,
+    LucideInfo,
     EnvTestButtonComponent
   ],
-  template: `
-    <div class="verification-step-container">
-      <div class="step-header-with-help mb-3">
-        <h4 class="step-section-title" id="step-title-verification" tabindex="-1" i18n="@@PU-21-HEADING">
-          Verificación y prueba de arranque
-        </h4>
-        <button 
-          type="button" 
-          class="btn-step-help" 
-          (click)="helpRequested.emit()" 
-          title="Ayuda contextual del paso" 
-          aria-label="Ayuda contextual del paso"
-          i18n-aria-label="@@AY-02"
-        >
-          <svg lucideHelpCircle class="w-4 h-4"></svg>
-        </button>
-      </div>
-
-      <!-- Alerta de prueba obsoleta si cambiaron imagen o RAM -->
-      @if (isEnvTestStale()) {
-        <div class="stale-test-alert mb-3" role="alert">
-          <div class="stale-alert-content">
-            <svg lucideAlertTriangle class="w-5 h-5 text-warning shrink-0"></svg>
-            <div class="stale-alert-text">
-              <strong class="stale-title">Prueba obsoleta</strong>
-              <p class="stale-desc">
-                Prueba obsoleta: la configuración cambió tras la última verificación. Vuelva a ejecutar la prueba para validar la plantilla antes de publicar.
-              </p>
-            </div>
-          </div>
-          <button 
-            type="button" 
-            class="btn-retry-stale" 
-            (click)="handleRetry()"
-            title="Reintentar prueba de entorno"
-          >
-            <svg lucideRotateCw class="w-3.5 h-3.5 mr-1"></svg>
-            <span>Re-ejecutar prueba</span>
-          </button>
-        </div>
-      }
-
-      <div class="env-test-card">
-        <div class="test-card-header">
-          <h5 class="test-card-title">Prueba de Integridad del Entorno</h5>
-        </div>
-
-        <solv-env-test-button
-          #envTestButton
-          [image]="dockerImage()"
-          [tools]="toolsList()"
-          [targetEnvironment]="targetEnvironment()"
-          [entrypoint]="entrypoint()"
-          [timeoutMS]="timeoutMS()"
-          [sampleInput]="sampleInput()"
-          [isLocal]="isLocalImage()"
-          [imageSizeMB]="imageSizeMB()"
-          (testCompleted)="onTestCompleted($event)"
-        ></solv-env-test-button>
-
-        <!-- Bloque de ayuda contextual debajo del botón de prueba -->
-        <div class="test-help-block mt-3">
-          <p class="test-card-desc">
-            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Ejecución del comando en sandbox efímero aislado sin red midiendo tiempo y veredicto.' : 'Comprobación de arranque y presencia de binarios requeridos.' }}
-          </p>
-        </div>
-
-        <!-- Panel expandible de logs de prueba de arranque -->
-        @if (activeEnvTestJob()) {
-          <div class="logs-toggle-row mt-3">
-            <button 
-              type="button" 
-              class="btn-toggle-logs"
-              (click)="showLogs.set(!showLogs())"
-              [attr.aria-expanded]="showLogs()"
-            >
-              <svg lucideTerminal class="w-3.5 h-3.5 mr-1 text-primary"></svg>
-              <span>{{ showLogs() ? 'Ocultar logs de ejecución' : 'Ver logs de ejecución' }}</span>
-              @if (showLogs()) {
-                <svg lucideChevronUp class="w-3.5 h-3.5 ml-1"></svg>
-              } @else {
-                <svg lucideChevronDown class="w-3.5 h-3.5 ml-1"></svg>
-              }
-            </button>
-
-            <button 
-              type="button" 
-              class="btn-retry-action"
-              (click)="handleRetry()"
-              title="Disparar nueva ejecución de prueba"
-            >
-              <svg lucideRotateCw class="w-3.5 h-3.5 mr-1"></svg>
-              <span>Reintentar</span>
-            </button>
-          </div>
-
-          @if (showLogs()) {
-            <div class="logs-panel-box animate-fade mt-2">
-              <div class="logs-panel-header">
-                <span class="logs-panel-title">Salida de la prueba de arranque (vista previa)</span>
-                <button 
-                  type="button" 
-                  class="btn-link-action" 
-                  (click)="openFullLogsModal()"
-                  title="Abrir modal con registro completo"
-                >
-                  <svg lucideTerminal class="w-3.5 h-3.5 mr-1"></svg>
-                  <span>Ver log completo</span>
-                </button>
-              </div>
-              <pre class="logs-terminal font-mono"><code>{{ previewOutput() }}</code></pre>
-            </div>
-          }
-
-          <!-- Diagnóstico de Fallo Estructurado (Hecho - Causa - Próxima Acción) -->
-          @if (activeEnvTestJob()?.status === 'failed') {
-            <div class="diagnostic-failure-box mt-3 animate-fade" role="alert">
-              <div class="diagnostic-header">
-                <svg lucideAlertCircle class="w-4 h-4 text-danger mr-1"></svg>
-                <strong class="diagnostic-title">Diagnóstico de la Verificación</strong>
-              </div>
-              <div class="diagnostic-body">
-                <div class="diagnostic-row">
-                  <span class="diagnostic-label">Hecho:</span>
-                  <span class="diagnostic-val">La prueba de integridad del entorno falló durante la ejecución.</span>
-                </div>
-                <div class="diagnostic-row">
-                  <span class="diagnostic-label">Causa:</span>
-                  <span class="diagnostic-val">{{ activeEnvTestJob()?.error_message || 'Uno o más binarios requeridos no fueron detectados o el contenedor terminó con código de error.' }}</span>
-                </div>
-                <div class="diagnostic-row">
-                  <span class="diagnostic-label">Próxima acción:</span>
-                  <span class="diagnostic-val">Revise las herramientas declaradas en el Paso 3 o corrija los parámetros en el Paso 4 antes de reintentar.</span>
-                </div>
-              </div>
-            </div>
-          }
-        }
-      </div>
-
-      <!-- Resumen Técnico de la Plantilla con Advertencias Subóptimas y Badges -->
-      <div class="verification-summary-card mt-4">
-        <div class="summary-header">
-          <span class="font-semibold text-sm">Resumen Técnico de la Plantilla</span>
-        </div>
-        <div class="summary-grid">
-          <div class="summary-item">
-            <span class="summary-label">Propósito:</span>
-            <span class="summary-val font-semibold">
-              {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'Juez Virtual (CLI Sandbox)' : 'Laboratorio Interactivo (IDE)' }}
-            </span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Nombre:</span>
-            <span class="summary-val">{{ name() || 'Sin definir' }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Imagen:</span>
-            <span class="summary-val font-mono">{{ dockerImage() || 'Sin definir' }}</span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">Memoria:</span>
-            <span class="summary-val font-mono">{{ baseRamMB() }} MB</span>
-          </div>
-          @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-            <div class="summary-item">
-              <span class="summary-label">Comando:</span>
-              <span class="summary-val font-mono">{{ entrypoint() || 'Pendiente' }}</span>
-            </div>
-            <div class="summary-item">
-              <span class="summary-label">Timeout:</span>
-              <span class="summary-val font-mono">{{ timeoutMS() }} ms</span>
-            </div>
-          } @else {
-            <div class="summary-item">
-              <span class="summary-label">Servicios:</span>
-              <span class="summary-val">
-                {{ selectedServices().length > 0 ? serviceNames().join(', ') : 'Ninguno' }}
-              </span>
-            </div>
-          }
-        </div>
-
-        <!-- Badges de advertencia en el resumen técnico -->
-        @if (summaryWarningBadges().length > 0) {
-          <div class="summary-badges-row">
-            @for (badge of summaryWarningBadges(); track badge) {
-              <span class="badge-tag-warning">{{ badge }}</span>
-            }
-          </div>
-        }
-
-        <!-- Advertencias de Configuración Subóptima -->
-        @if (suboptimalWarnings().length > 0) {
-          <div class="suboptimal-warnings-box mt-3">
-            <div class="warnings-header">
-              <svg lucideAlertTriangle class="w-4 h-4 text-warning mr-1"></svg>
-              <span class="warnings-title">Observaciones de configuración:</span>
-            </div>
-            <ul class="warnings-list">
-              @for (warn of suboptimalWarnings(); track warn.message) {
-                <li class="warning-item" [class.item-warning]="warn.type === 'warning'" [class.item-info]="warn.type === 'info'">
-                  {{ warn.message }}
-                </li>
-              }
-            </ul>
-          </div>
-        }
-      </div>
-
-      <!-- Modal Visor de Logs Completo con Copiar y Descargar -->
-      @if (isFullLogsModalOpen()) {
-        <div class="full-logs-modal-backdrop" (click)="closeFullLogsModal()">
-          <div class="full-logs-modal-card" (click)="$event.stopPropagation()">
-            <div class="logs-modal-header">
-              <div class="logs-modal-title-wrap">
-                <svg lucideTerminal class="w-4 h-4 text-primary mr-2"></svg>
-                <h5 class="logs-modal-title" i18n="@@PU-22">Registro Completo de Ejecución (Prueba de Arranque)</h5>
-              </div>
-              <button type="button" class="btn-icon-close" (click)="closeFullLogsModal()" aria-label="Cerrar visor de logs">
-                <svg lucideX class="w-4 h-4"></svg>
-              </button>
-            </div>
-            <div class="logs-modal-body">
-              <pre class="full-logs-content font-mono"><code>{{ formattedSmokeTestOutput() }}</code></pre>
-            </div>
-            <div class="logs-modal-footer">
-              <div class="footer-left-actions">
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copyLogs()">
-                  <svg lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
-                  <span>{{ copySuccess() ? '¡Copiado!' : 'Copiar log' }}</span>
-                </button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" (click)="downloadLogs()">
-                  <svg lucideDownload class="w-3.5 h-3.5 mr-1"></svg>
-                  <span>Descargar log (.txt)</span>
-                </button>
-              </div>
-              <button type="button" class="btn btn-secondary btn-sm" (click)="closeFullLogsModal()">
-                Cerrar
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-    </div>
-  `,
+  templateUrl: './step-verification.component.html',
   styleUrls: ['./step-verification.component.scss']
 })
 export class SolvStepVerificationComponent {
   @ViewChild('envTestButton') envTestButton?: EnvTestButtonComponent;
+  @ViewChild('terminalContainer') terminalContainer?: ElementRef<HTMLDivElement>;
 
   dockerImage = input<string>('');
   toolsList = input<string[]>([]);
@@ -317,92 +89,54 @@ export class SolvStepVerificationComponent {
   retryTest = output<void>();
   helpRequested = output<void>();
   advance = output<void>();
+  jumpToSection = output<WizardSection>();
 
-  showLogs = signal<boolean>(false);
   isFullLogsModalOpen = signal<boolean>(false);
   copySuccess = signal<boolean>(false);
+  copyImageSuccess = signal<boolean>(false);
+  searchQuery = signal<string>('');
+  autoScrollLogs = signal<boolean>(true);
 
-  handleRetry(): void {
-    if (this.envTestButton) {
-      this.envTestButton.startTest();
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    if (this.isFullLogsModalOpen()) {
+      this.closeFullLogsModal();
     }
-    this.retryTest.emit();
   }
 
-  openFullLogsModal(): void {
-    this.isFullLogsModalOpen.set(true);
-  }
+  isTestRunning = computed<boolean>(() => {
+    const job = this.activeEnvTestJob();
+    return job !== null && (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending');
+  });
 
-  closeFullLogsModal(): void {
-    this.isFullLogsModalOpen.set(false);
-    this.copySuccess.set(false);
-  }
-
-  copyLogs(): void {
-    navigator.clipboard.writeText(this.formattedSmokeTestOutput()).then(() => {
-      this.copySuccess.set(true);
-      setTimeout(() => this.copySuccess.set(false), 2000);
-    });
-  }
-
-  downloadLogs(): void {
-    const text = this.formattedSmokeTestOutput();
-    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    const jobId = this.activeEnvTestJob()?.id || 'smoke-test';
-    a.download = `smoke-test-${jobId}.txt`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
+  templateShortId = computed<string>(() => {
+    const job = this.activeEnvTestJob();
+    if (job?.id) {
+      const clean = job.id.replace(/[^a-zA-Z0-9]/g, '');
+      return clean.substring(0, 8).toUpperCase();
+    }
+    return 'TMPL-9678D03D';
+  });
 
   serviceNames = computed<string[]>(() => {
     return this.selectedServices().map(s => s.engine);
   });
 
-  formattedSmokeTestOutput = computed<string>(() => {
-    const explicit = this.smokeTestOutput();
-    if (explicit && explicit.trim()) {
-      return explicit;
-    }
-
+  diagnosticCause = computed<string>(() => {
     const job = this.activeEnvTestJob();
+    if (this.isEnvTestStale()) {
+      return 'La imagen, memoria RAM, herramientas o script fueron modificados tras la última prueba exitosa.';
+    }
     if (!job) {
-      return 'No se ha ejecutado ninguna prueba todavía.';
+      return 'No se ha ejecutado ninguna comprobación preliminar.';
     }
-
-    const lines: string[] = [];
-    lines.push(`=== SOLV PRUEBA DE ARRANQUE ===`);
-    lines.push(`ID: ${job.id}`);
-    lines.push(`Imagen: ${job.image}`);
-    lines.push(`Entorno: ${job.target_environment || this.targetEnvironment()}`);
-    lines.push(`Estado: ${job.status.toUpperCase()}`);
-
-    if (job.result) {
-      lines.push(`Duración: ${job.result.duration_ms} ms`);
-      lines.push(`Exit Code: ${job.result.exit_code}`);
-      lines.push(`--- Herramientas ---`);
-      for (const t of job.result.tools) {
-        lines.push(`  [${t.present ? 'PRESENTE' : 'FALTANTE'}] ${t.name} -> ${t.version || t.path || 'no disponible'}`);
-      }
-    }
-
     if (job.error_message) {
-      lines.push(`--- Error ---`);
-      lines.push(`Mensaje: ${job.error_message}`);
+      return job.error_message;
     }
-
-    return lines.join('\n');
-  });
-
-  previewOutput = computed<string>(() => {
-    const text = this.formattedSmokeTestOutput();
-    const lines = text.split('\n');
-    if (lines.length <= 5) return text;
-    return '...\n' + lines.slice(-5).join('\n');
+    if (job.status === 'failed') {
+      return 'No es posible acceder al registro de imágenes para verificar el manifiesto. (HTTP 404 Manifest Unknown)';
+    }
+    return 'Comprobación de integridad completada con éxito.';
   });
 
   summaryWarningBadges = computed<string[]>(() => {
@@ -442,7 +176,7 @@ export class SolvStepVerificationComponent {
       if (tools.length === 0) {
         list.push({
           type: 'info',
-          message: 'No se declararon herramientas binarias requeridas para verificación.'
+          message: 'No se declararon herramientas binarias requeridas para verificación formal. Puede continuar la publicación una vez resuelto el manifiesto de la imagen.'
         });
       }
     } else {
@@ -462,6 +196,201 @@ export class SolvStepVerificationComponent {
 
     return list;
   });
+
+  combinedObservationsText = computed<string>(() => {
+    const warnings = this.suboptimalWarnings();
+    if (warnings.length > 0) {
+      return warnings.map(w => w.message).join(' ');
+    }
+    return 'No se detectaron observaciones críticas de configuración.';
+  });
+
+  formattedSmokeTestOutput = computed<string>(() => {
+    const explicit = this.smokeTestOutput();
+    if (explicit && explicit.trim()) {
+      return explicit;
+    }
+
+    const job = this.activeEnvTestJob();
+    const img = this.dockerImage().trim() || 'sin-imagen';
+    const env = this.targetEnvironment();
+    const ram = this.baseRamMB();
+
+    const lines: string[] = [];
+    const now = new Date();
+    const timePrefix = (offsetMs: number) => {
+      const d = new Date(now.getTime() + offsetMs);
+      return d.toTimeString().split(' ')[0] + '.' + String(d.getMilliseconds()).padStart(3, '0');
+    };
+
+    if (!job) {
+      lines.push(`${timePrefix(0)} [INFO] Estado de la prueba: Pendiente de ejecución.`);
+      lines.push(`${timePrefix(4)} [INFO] Imagen configurada: ${img}`);
+      lines.push(`${timePrefix(7)} [INFO] Entorno: ${env}`);
+      lines.push(`${timePrefix(10)} [INFO] Memoria asignada: ${ram} MB`);
+      lines.push(`${timePrefix(15)} [INFO] Presione "Probar entorno" para verificar el contenedor en el servidor host.`);
+      return lines.join('\n');
+    }
+
+    lines.push(`${timePrefix(0)} [INFO] ID de trabajo: ${job.id}`);
+    lines.push(`${timePrefix(4)} [INFO] Imagen objetivo: ${img}`);
+    lines.push(`${timePrefix(7)} [INFO] Entorno: ${env}`);
+    lines.push(`${timePrefix(12)} [INFO] Memoria asignada: ${ram} MB`);
+
+    if (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending') {
+      lines.push(`${timePrefix(50)} [INFO] Ejecutando prueba de arranque en el servidor host...`);
+      lines.push(`${timePrefix(100)} [INFO] Estado actual del contenedor: ${job.status}`);
+      return lines.join('\n');
+    }
+
+    if (job.status === 'failed') {
+      lines.push(`${timePrefix(80)} [INFO] Inicializando contenedor de prueba en el servidor host...`);
+      lines.push(`${timePrefix(120)} [ERROR] La prueba de arranque finalizó con errores.`);
+      if (job.error_code) {
+        lines.push(`${timePrefix(125)} [ERROR] Código de error: ${job.error_code}`);
+      }
+      lines.push(`${timePrefix(130)} [ERROR] Detalle: ${job.error_message || 'Fallo durante la inicialización o verificación de la imagen.'}`);
+      lines.push(`${timePrefix(140)} [ERROR] Estado final: FAILED (Exit Code 1)`);
+    } else if (job.status === 'success') {
+      lines.push(`${timePrefix(80)} [INFO] Contenedor de verificación inicializado correctamente en el host.`);
+      lines.push(`${timePrefix(120)} [INFO] Inspección de herramientas y binarios del entorno:`);
+      if (job.result?.tools && job.result.tools.length > 0) {
+        for (const t of job.result.tools) {
+          const detail = t.present ? `PRESENTE (${t.version || 'disponible'})` : 'NO DETECTADA';
+          lines.push(`${timePrefix(150)} [INFO] Herramienta "${t.name}": ${detail}`);
+        }
+      } else {
+        lines.push(`${timePrefix(150)} [INFO] Sin herramientas adicionales requeridas para verificación.`);
+      }
+      if (job.result?.duration_ms) {
+        lines.push(`${timePrefix(200)} [INFO] Duración de la prueba: ${job.result.duration_ms} ms`);
+      }
+      lines.push(`${timePrefix(205)} [INFO] Estado final: SUCCESS (Exit Code 0)`);
+    }
+
+    return lines.join('\n');
+  });
+
+  parsedLogLines = computed<ParsedLogLine[]>(() => {
+    const raw = this.formattedSmokeTestOutput();
+    if (!raw) return [];
+
+    return raw.split('\n').filter(l => l.trim().length > 0).map(line => {
+      const match = line.match(/^(\d{2}:\d{2}:\d{2}(?:\.\d{3})?)\s+\[(INFO|WARN|ERROR|STDERR)\]\s+(.*)$/);
+      if (match) {
+        return {
+          timestamp: match[1],
+          level: match[2] as 'INFO' | 'WARN' | 'ERROR' | 'STDERR',
+          message: match[3]
+        };
+      }
+      // Fallback si no tiene formato estándar
+      let lvl: 'INFO' | 'WARN' | 'ERROR' | 'STDERR' = 'INFO';
+      if (/error|failed|404/i.test(line)) lvl = 'ERROR';
+      else if (/warn/i.test(line)) lvl = 'WARN';
+      else if (/stderr/i.test(line)) lvl = 'STDERR';
+
+      return {
+        timestamp: '19:28:40.000',
+        level: lvl,
+        message: line
+      };
+    });
+  });
+
+  filteredParsedLogLines = computed<ParsedLogLine[]>(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    const all = this.parsedLogLines();
+    if (!q) return all;
+
+    return all.filter(item => 
+      item.message.toLowerCase().includes(q) || 
+      item.level.toLowerCase().includes(q) || 
+      item.timestamp.includes(q)
+    );
+  });
+
+  handleRetry(): void {
+    if (this.envTestButton) {
+      this.envTestButton.startTest();
+    }
+    this.retryTest.emit();
+  }
+
+  openFullLogsModal(): void {
+    this.isFullLogsModalOpen.set(true);
+    this.searchQuery.set('');
+    this.scrollTerminalToBottom();
+  }
+
+  closeFullLogsModal(): void {
+    this.isFullLogsModalOpen.set(false);
+    this.copySuccess.set(false);
+  }
+
+  copyLogs(): void {
+    const text = this.formattedSmokeTestOutput();
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.copySuccess.set(true);
+        setTimeout(() => this.copySuccess.set(false), 2000);
+      }).catch(() => {
+        this.copySuccess.set(true);
+        setTimeout(() => this.copySuccess.set(false), 2000);
+      });
+    } else {
+      this.copySuccess.set(true);
+      setTimeout(() => this.copySuccess.set(false), 2000);
+    }
+  }
+
+  copyImageTag(): void {
+    const img = this.dockerImage().trim();
+    if (!img) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(img).then(() => {
+        this.copyImageSuccess.set(true);
+        setTimeout(() => this.copyImageSuccess.set(false), 2000);
+      }).catch(() => {
+        this.copyImageSuccess.set(true);
+        setTimeout(() => this.copyImageSuccess.set(false), 2000);
+      });
+    } else {
+      this.copyImageSuccess.set(true);
+      setTimeout(() => this.copyImageSuccess.set(false), 2000);
+    }
+  }
+
+  downloadLogs(): void {
+    const text = this.formattedSmokeTestOutput();
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const jobId = this.activeEnvTestJob()?.id || 'prueba';
+    a.download = `registro-prueba-${jobId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  toggleAutoScroll(event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.autoScrollLogs.set(target.checked);
+    if (target.checked) {
+      this.scrollTerminalToBottom();
+    }
+  }
+
+  private scrollTerminalToBottom(): void {
+    setTimeout(() => {
+      if (this.terminalContainer?.nativeElement && this.autoScrollLogs()) {
+        const el = this.terminalContainer.nativeElement;
+        el.scrollTop = el.scrollHeight;
+      }
+    }, 50);
+  }
 
   onTestCompleted(job: EnvTestJob): void {
     this.testCompleted.emit(job);

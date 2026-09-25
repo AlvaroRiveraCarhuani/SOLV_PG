@@ -258,7 +258,16 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
 
     it('la tecla Escape debe cerrar drawer, popover o combobox antes de cerrar el modal', () => {
       let closedEmitted = false;
-      component.closed.subscribe(() => { closedEmitted = true; });
+      component.closed.subscribe(() => {
+        closedEmitted = true;
+      });
+      // 0. Con modal de logs abierto en el DOM, Escape no cierra el modal principal
+      const backdrop = document.createElement('div');
+      backdrop.className = 'audit-logs-modal-backdrop';
+      document.body.appendChild(backdrop);
+      component.onEscape();
+      expect(closedEmitted).toBe(false);
+      document.body.removeChild(backdrop);
 
       // 1. Con drawer abierto, Escape cierra el drawer
       component.isHelpDrawerOpen.set(true);
@@ -427,6 +436,12 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       component.closeHelpDrawer();
       expect(component.isHelpDrawerOpen()).toBe(false);
     });
+
+    it('debe cerrar el drawer automáticamente al cambiar de sección con setSection', () => {
+      component.isHelpDrawerOpen.set(true);
+      component.setSection('identity');
+      expect(component.isHelpDrawerOpen()).toBe(false);
+    });
   });
 
   describe('Regla stale de Prueba de Arranque e Invalidación', () => {
@@ -517,8 +532,18 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(component.showPublishDialog()).toBe(true);
     });
 
+    it('paso de recursos nace en pending en modo blanco y pasa a complete tras configurarse', () => {
+      expect(component.hasUserConfiguredResources()).toBe(false);
+      expect(component.resourcesStatus()).toBe('pending');
+
+      component.onBaseRamChange(1024);
+      expect(component.hasUserConfiguredResources()).toBe(true);
+      expect(component.resourcesStatus()).toBe('complete');
+    });
+
     it('bloquea avanzar si la RAM supera la capacidad del host y marca estado warning', () => {
       component.runtimeCapabilities.set({ max_allowed_ram_mb: 4096 } as any);
+      component.hasUserConfiguredResources.set(true);
       component.baseRamMB.set(8192);
 
       expect(component.isRamExceedingHost()).toBe(true);

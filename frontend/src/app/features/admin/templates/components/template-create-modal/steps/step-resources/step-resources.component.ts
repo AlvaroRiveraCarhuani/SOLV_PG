@@ -74,7 +74,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
             <button 
               type="button" 
               class="btn-ram-preset" 
-              [class.active]="baseRamMB() === preset.mb" 
+              [class.active]="hasUserConfiguredResources() && baseRamMB() === preset.mb" 
               (click)="setRam(preset.mb)"
             >
               <span class="preset-label">{{ preset.label }}</span>
@@ -235,6 +235,7 @@ export class SolvStepResourcesComponent {
 
   targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
   baseRamMB = input<number>(1024);
+  hasUserConfiguredResources = input<boolean>(true);
   availableServices = input<AvailableSatelliteService[]>([]);
   selectedServices = input<ServiceRequirement[]>([]);
   runtimeCapabilities = input<RuntimeCapabilities | null>(null);
@@ -274,7 +275,7 @@ export class SolvStepResourcesComponent {
       return {
         engine: s.engine,
         label,
-        baseMB: this.SATELLITE_BASE_RAM[s.engine] ?? 128
+        baseMB: match?.base_ram_mb ?? this.SATELLITE_BASE_RAM[s.engine] ?? 128
       };
     });
   });

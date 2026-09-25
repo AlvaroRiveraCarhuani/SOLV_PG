@@ -98,10 +98,6 @@ import { TargetEnvironment } from '../../../../../services/admin-templates.servi
         </div>
       </div>
     </div>
-
-    <div class="purpose-keyboard-hint">
-      <span class="hint-text" i18n="@@AY-01">Flechas eligen propósito · Enter avanza al siguiente paso</span>
-    </div>
   `,
   styleUrls: ['./step-purpose.component.scss']
 })

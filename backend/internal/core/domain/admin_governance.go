@@ -322,6 +322,7 @@ type SatelliteServiceCapability struct {
 	Description string `json:"description"`
 	EnvVar      string `json:"env_var"`
 	IsAvailable bool   `json:"is_available"`
+	BaseRAMMB   int    `json:"base_ram_mb"`
 }
 
 // RamPresetSuggestion preset de memoria contextual sugerido según capacidades del nodo

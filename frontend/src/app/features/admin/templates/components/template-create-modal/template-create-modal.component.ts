@@ -148,6 +148,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   timeoutMS = signal<number>(5000);
   sampleInput = signal<string>('');
   baseRamMB = signal<number>(512);
+  hasUserConfiguredResources = signal<boolean>(false);
   selectedCategoryId = signal<string | null>(null);
   selectedModelId = signal<string | null>(null);
   isSubmitting = signal<boolean>(false);
@@ -271,6 +272,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     }
     const t = this.lastSavedTime();
     if (t) {
+      if (t === 'Borrador descartado') {
+        return 'Borrador descartado y formulario reiniciado';
+      }
       return `Borrador guardado automáticamente · ${t}`;
     }
     return 'Borrador sin guardar';
@@ -501,6 +505,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   });
 
   resourcesStatus = computed<'complete' | 'warning' | 'pending'>(() => {
+    if (!this.hasUserConfiguredResources()) {
+      return 'pending';
+    }
     if (this.isRamExceedingHost()) {
       return 'warning';
     }
@@ -585,7 +592,8 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
                 version: s.version,
                 description: s.description,
                 envVar: s.env_var,
-                isAvailable: s.is_available
+                isAvailable: s.is_available,
+                base_ram_mb: s.base_ram_mb
               }))
             );
           }
@@ -808,14 +816,20 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     if (d.targetEnvironment) this.targetEnvironment.set(d.targetEnvironment);
     if (d.name) this.name.set(d.name);
     if (d.dockerImage) this.dockerImage.set(d.dockerImage);
-    if (d.baseRamMB) this.baseRamMB.set(d.baseRamMB);
+    if (d.baseRamMB) {
+      this.baseRamMB.set(d.baseRamMB);
+      this.hasUserConfiguredResources.set(true);
+    }
     if (d.setupScript) this.setupScript.set(d.setupScript);
     if (d.entrypoint) this.entrypoint.set(d.entrypoint);
     if (d.timeoutMS) this.timeoutMS.set(d.timeoutMS);
     if (d.sampleInput) this.sampleInput.set(d.sampleInput);
     if (d.description) this.description.set(d.description);
     if (d.toolsDeclared) this.toolsDeclared.set(d.toolsDeclared);
-    if (d.selectedServices) this.selectedServices.set(d.selectedServices);
+    if (d.selectedServices) {
+      this.selectedServices.set(d.selectedServices);
+      if (d.selectedServices.length > 0) this.hasUserConfiguredResources.set(true);
+    }
     if (d.selectedCategoryId) this.selectedCategoryId.set(d.selectedCategoryId);
     if (d.selectedModelId) this.selectedModelId.set(d.selectedModelId);
     if (d.dockerImage) this.triggerVerification(d.dockerImage, false);
@@ -853,6 +867,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.verificationState.set('idle');
     this.verificationResult.set(null);
     this.verificationError.set(null);
+    this.hasUserConfiguredResources.set(false);
+    this.isDraftSaved.set(false);
+    this.lastSavedTime.set('Borrador descartado');
   }
 
   saveDraft(): void {
@@ -897,6 +914,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   // Navegación modular por pasos
   setSection(section: WizardSection): void {
     this.activeSection.set(section);
+    this.closeHelpDrawer();
     this.stepPath.update((path: string[]) => [...path, section]);
     this.saveDraftToStorage();
     setTimeout(() => {
@@ -981,6 +999,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     // Identidad e imagen se conservan.
     this.recipeUsed.set(null);
     this.baseRamMB.set(newEnv === 'JUEZ_EFIMERO' ? 256 : 512);
+    this.hasUserConfiguredResources.set(false);
     this.selectedServices.set([]);
     this.setupScript.set('');
     this.entrypoint.set('');
@@ -1020,6 +1039,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
       this.description.set('');
       this.toolsDeclared.set('');
       this.baseRamMB.set(this.targetEnvironment() === 'JUEZ_EFIMERO' ? 256 : 512);
+      this.hasUserConfiguredResources.set(false);
       this.selectedServices.set([]);
       this.setupScript.set('');
       this.entrypoint.set('');
@@ -1058,6 +1078,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.name.set(model.name);
     this.dockerImage.set(model.docker_image);
     this.baseRamMB.set(model.base_ram_mb);
+    this.hasUserConfiguredResources.set(true);
     this.description.set(model.description || '');
     if (model.entrypoint) this.entrypoint.set(model.entrypoint);
     if (model.timeout_ms) this.timeoutMS.set(model.timeout_ms);
@@ -1075,6 +1096,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.name.set(`(Copia) ${template.name}`);
     this.dockerImage.set(template.docker_image);
     this.baseRamMB.set(template.base_ram_mb || (this.targetEnvironment() === 'JUEZ_EFIMERO' ? 256 : 512));
+    this.hasUserConfiguredResources.set(true);
     this.description.set(template.description || '');
     this.toolsDeclared.set((template.tools_declared || []).join(', '));
     this.setupScript.set(template.setup_script || '');
@@ -1126,11 +1148,13 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   }
 
   onBaseRamChange(ram: number): void {
+    this.hasUserConfiguredResources.set(true);
     this.baseRamMB.set(ram);
     this.formAutoSave$.next();
   }
 
   onSelectedServicesChange(services: ServiceRequirement[]): void {
+    this.hasUserConfiguredResources.set(true);
     this.selectedServices.set(services);
     this.formAutoSave$.next();
   }
@@ -1157,6 +1181,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
+    if (typeof document !== 'undefined' && document.querySelector('.audit-logs-modal-backdrop')) {
+      return;
+    }
     if (this.showPublishDialog()) {
       this.showPublishDialog.set(false);
       return;
@@ -1190,6 +1217,31 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     }
     if (!target.closest('.label-with-help') && !target.closest('.image-popover-box')) {
       this.showImagePopover.set(false);
+    }
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  onGlobalKeydown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement;
+    const tagName = target?.tagName?.toLowerCase();
+    const isEditable = target?.isContentEditable || 
+                       tagName === 'input' || 
+                       tagName === 'textarea' || 
+                       tagName === 'select' ||
+                       target?.getAttribute('role') === 'combobox';
+
+    if (isEditable) return;
+
+    if (event.key === 'k' || event.key === 'K') {
+      if (this.canGoNext()) {
+        event.preventDefault();
+        this.nextSection();
+      }
+    } else if (event.key === 'j' || event.key === 'J') {
+      if (this.canGoPrev()) {
+        event.preventDefault();
+        this.prevSection();
+      }
     }
   }
 
