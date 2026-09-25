@@ -421,5 +421,20 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `AY-18` | "Sugerencias según la imagen elegida:" | Label reactivo para chips clickeables cuando se detecta familia de imagen |
 | `AY-19` | "Los modelos se originan a partir de plantillas aprobadas promovidas desde el catálogo institucional o de entornos base predeterminados." | Línea informativa en la puerta Desde modelo |
 | `AY-20` | "Ver detalles de promoción en el manual" | Enlace al manual para promoción de plantillas a modelos |
+| `AY-21` | "Se ejecuta en segundo plano una sola vez al aprovisionar el volumen, como usuario no-root en /home/workspace. Timeout: 5 minutos. Logs en /.solv_setup.log." | Helper debajo del textarea de setup_script en Paso 4 (IDE) |
+| `AY-22` | "Contrato de ejecución del script de inicialización" | Título de tabla del contrato en drawer de ayuda de Paso 4 (IDE) |
+| `AY-23` | "Plantillas de script recomendadas:" | Encabezado para chips de snippets de inicialización en Paso 4 (IDE) |
+| `AY-24` | "La plantilla ya está insertada en el editor" | Aviso flotante / toast al hacer segundo clic en un chip ya insertado |
+| `AY-25` | "Contrato de ejecución del Juez Virtual" | Título de sección de contrato en drawer de ayuda de Paso 4 (Juez) |
+| `AY-26` | "Glosario de veredictos (en tiempo de ejecución)" | Título del glosario de veredictos en drawer de ayuda de Paso 4 (Juez) |
+| `AY-27` | "AC (Accepted): Código 0 y salida idéntica al caso de prueba." | Glosario veredicto AC |
+| `AY-28` | "WA (Wrong Answer): Salida diferente a la esperada por el ejercicio." | Glosario veredicto WA |
+| `AY-29` | "TLE (Time Limit Exceeded): Ejecución interrumpida al exceder el timeout configurado." | Glosario veredicto TLE |
+| `AY-30` | "RE (Runtime Error): Terminación con código de salida distinto de cero o excepción no capturada." | Glosario veredicto RE |
+| `AY-31` | "AST_BLOCKED: Bloqueo estático por análisis de sintaxis prohibida." | Glosario veredicto AST_BLOCKED |
+| `AY-32` | "Reglas de Idempotencia y Contraejemplos" | Título de reglas de idempotencia en drawer de ayuda de Paso 4 (IDE) |
+| `AY-33` | "Rango de 1 a 30 segundos (default: 5.000 ms). Veredicto TLE al sobrepasarlo." | Helper de campo timeout en Paso 4 (Juez) |
+| `AY-34` | "Entrada recomendada para alimentar el proceso durante la prueba de arranque." | Helper de campo sample_input en Paso 4 (Juez) |
+| `AY-35` | "Comando de ejecución obligatorio para plantillas de juez virtual." | Helper de campo entrypoint en Paso 4 (Juez) |
 
 
