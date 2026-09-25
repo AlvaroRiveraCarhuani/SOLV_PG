@@ -1,0 +1,23 @@
+<div class="search-bar-wrapper" [class.compact]="compact()">
+  <svg lucideSearch class="search-icon" aria-hidden="true"></svg>
+  <input
+    #inputEl
+    type="text"
+    class="search-input"
+    [placeholder]="placeholder()"
+    [value]="query()"
+    [attr.aria-label]="ariaLabel()"
+    (input)="onInput($event)"
+    (keydown.escape)="clear()"
+  />
+  @if (query().trim()) {
+    <button 
+      type="button" 
+      class="btn-clear" 
+      (click)="clear()" 
+      title="Limpiar búsqueda" 
+      aria-label="Limpiar campo de búsqueda">
+      <svg lucideX class="clear-icon" aria-hidden="true"></svg>
+    </button>
+  }
+</div>

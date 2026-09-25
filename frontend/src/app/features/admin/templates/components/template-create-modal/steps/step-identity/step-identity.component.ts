@@ -21,7 +21,7 @@ import {
   LucideInfo
 } from '@lucide/angular';
 import { 
-  SolvComboboxComponent, 
+  ComboboxComponent, 
   ComboboxOption 
 } from '../../../../../../../shared/components/combobox/combobox.component';
 import { 
@@ -48,7 +48,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     LucideCheck,
     LucideX,
     LucideInfo,
-    SolvComboboxComponent
+    ComboboxComponent
   ],
   template: `
     <div class="step-header-with-help mb-3">

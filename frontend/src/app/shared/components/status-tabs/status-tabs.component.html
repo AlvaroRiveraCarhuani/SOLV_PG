@@ -1,0 +1,22 @@
+<nav class="status-tabs" role="tablist" aria-label="Filtro por estados">
+  @for (tab of tabs(); track tab.id) {
+    <button
+      type="button"
+      role="tab"
+      class="tab-btn"
+      [class.active]="tab.id === activeTab()"
+      [attr.aria-selected]="tab.id === activeTab()"
+      (click)="selectTab(tab.id)"
+    >
+      <span class="tab-label">{{ tab.label }}</span>
+      @if (tab.count !== undefined) {
+        <span
+          class="tab-badge"
+          [attr.data-variant]="tab.badgeVariant || (tab.id === activeTab() ? 'active' : 'default')"
+        >
+          {{ tab.count }}
+        </span>
+      }
+    </button>
+  }
+</nav>

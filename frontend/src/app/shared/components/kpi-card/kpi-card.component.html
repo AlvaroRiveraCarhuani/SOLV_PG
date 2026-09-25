@@ -1,0 +1,17 @@
+<div class="kpi-card">
+  <div class="kpi-icon-wrapper" [attr.data-variant]="resolvedVariant()">
+    <ng-content select="[kpi-icon], svg, [icon]"></ng-content>
+  </div>
+  <div class="kpi-content">
+    <span class="kpi-label">{{ label() }}</span>
+    <div class="kpi-value-row">
+      <span class="kpi-value">{{ value() }}</span>
+      @if (totalBadge()) {
+        <span class="kpi-total-badge">{{ totalBadge() }}</span>
+      }
+    </div>
+    @if (detail()) {
+      <span class="kpi-detail">{{ detail() }}</span>
+    }
+  </div>
+</div>

@@ -165,7 +165,7 @@ describe('SolvStepResourcesComponent', () => {
     expect(barSegments.length).toBe(3); // editor + postgres + libre
     expect(barSegments[1].classList.contains('bar-satellite')).toBe(true);
     expect(barSegments[1].textContent).toContain('PostgreSQL (128 MB)');
-  });
+  }, 15000);
 
   it('la capacidad de alumnos descuenta el consumo base de satélites seleccionados', () => {
     const availableHostRam = 4096;

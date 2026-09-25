@@ -81,6 +81,22 @@
     pointer-events: none;
   }
 
+  &.compact {
+    .input-container {
+      .combobox-input {
+        height: 34px;
+        font-size: var(--text-xs);
+        padding-left: 2rem;
+      }
+
+      .search-icon {
+        left: 0.6rem;
+        width: 14px;
+        height: 14px;
+      }
+    }
+  }
+
   .combobox-overlay {
     position: absolute;
     top: calc(100% + 4px);

@@ -37,6 +37,7 @@ export interface ComboboxGroup {
       class="combobox-wrapper" 
       [class.open]="isOpen()" 
       [class.disabled]="disabled()"
+      [class.compact]="compact()"
     >
       <div class="input-container">
         <svg lucideSearch class="search-icon" aria-hidden="true"></svg>
@@ -169,7 +170,7 @@ export interface ComboboxGroup {
   `,
   styleUrls: ['./combobox.component.scss']
 })
-export class SolvComboboxComponent {
+export class ComboboxComponent {
   private readonly elementRef = inject(ElementRef);
   private readonly destroyRef = inject(DestroyRef);
 
@@ -181,6 +182,7 @@ export class SolvComboboxComponent {
   maxSuggestions = input<number>(8);
   totalAvailableCount = input<number | null>(null);
   disabled = input<boolean>(false);
+  compact = input<boolean>(false);
   inputAriaLabel = input<string>('Selector con búsqueda');
   suppressListbox = input<boolean>(false);
 
@@ -439,3 +441,5 @@ export class SolvComboboxComponent {
     }
   }
 }
+
+export { ComboboxComponent as SolvComboboxComponent };

@@ -8,7 +8,7 @@ import {
   CreateCoursePayload 
 } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
-import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
+import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { 
   LucideBookPlus, 
   LucideX, 
@@ -24,7 +24,7 @@ import {
   imports: [
     CommonModule, 
     FormsModule, 
-    SolvComboboxComponent,
+    ComboboxComponent,
     LucideBookPlus, 
     LucideX, 
     LucideAlertCircle, 

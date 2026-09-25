@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SolvComboboxComponent, ComboboxOption } from './combobox.component';
+import { ComboboxComponent, ComboboxOption } from './combobox.component';
 
-describe('SolvComboboxComponent', () => {
-  let component: SolvComboboxComponent;
-  let fixture: ComponentFixture<SolvComboboxComponent>;
+describe('ComboboxComponent', () => {
+  let component: ComboboxComponent;
+  let fixture: ComponentFixture<ComboboxComponent>;
 
   const mockOptions: ComboboxOption[] = [
     { id: '1', label: 'python:3.12-slim', value: 'python:3.12-slim', group: 'Oficial' },
@@ -21,10 +21,10 @@ describe('SolvComboboxComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvComboboxComponent]
+      imports: [ComboboxComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvComboboxComponent);
+    fixture = TestBed.createComponent(ComboboxComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('options', mockOptions);
     fixture.detectChanges();

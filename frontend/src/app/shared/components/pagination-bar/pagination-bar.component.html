@@ -1,0 +1,53 @@
+<footer class="pagination-bar">
+  <div class="pagination-info">
+    @if (from() !== undefined && to() !== undefined && totalItems() !== undefined) {
+      Mostrando <strong>{{ from() }}–{{ to() }}</strong> de <strong>{{ totalItems() }}</strong> {{ itemLabel() }}
+    } @else if (totalItems() !== undefined) {
+      Mostrando página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong> ({{ totalItems() }} {{ itemLabel() }})
+    } @else {
+      Mostrando página <strong>{{ currentPage() }}</strong> de <strong>{{ totalPages() }}</strong>
+    }
+  </div>
+
+  @if (totalPages() > 1) {
+    <div class="pagination-controls">
+      <button
+        type="button"
+        class="btn-page"
+        [disabled]="currentPage() <= 1"
+        (click)="goToPage(currentPage() - 1)"
+        aria-label="Página anterior"
+      >
+        <svg lucideChevronLeft class="page-icon"></svg>
+        <span>Anterior</span>
+      </button>
+
+      @if (showPageNumbers()) {
+        <div class="page-numbers">
+          @for (p of displayedPages(); track p) {
+            <button
+              type="button"
+              class="btn-page-number"
+              [class.active]="p === currentPage()"
+              [attr.aria-current]="p === currentPage() ? 'page' : null"
+              (click)="goToPage(p)"
+            >
+              {{ p }}
+            </button>
+          }
+        </div>
+      }
+
+      <button
+        type="button"
+        class="btn-page"
+        [disabled]="currentPage() >= totalPages()"
+        (click)="goToPage(currentPage() + 1)"
+        aria-label="Página siguiente"
+      >
+        <span>Siguiente</span>
+        <svg lucideChevronRight class="page-icon"></svg>
+      </button>
+    </div>
+  }
+</footer>

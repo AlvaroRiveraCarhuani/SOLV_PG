@@ -11,7 +11,7 @@ import {
   LucideHelpCircle 
 } from '@lucide/angular';
 import { 
-  SolvComboboxComponent, 
+  ComboboxComponent, 
   ComboboxOption 
 } from '../../../../../../../shared/components/combobox/combobox.component';
 import { 
@@ -80,7 +80,7 @@ const UNIVERSAL_TOOLS = new Set([
     CommonModule, 
     FormsModule, 
     LucideHelpCircle,
-    SolvComboboxComponent,
+    ComboboxComponent,
     SolvFieldMessageComponent
   ],
   template: `

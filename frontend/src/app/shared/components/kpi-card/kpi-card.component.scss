@@ -1,0 +1,116 @@
+:host {
+  display: block;
+}
+
+.kpi-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md, 8px);
+  padding: var(--space-4, 16px) var(--space-5, 20px);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4, 16px);
+  box-shadow: var(--shadow-subtle, 0 1px 2px 0 rgba(0, 0, 0, 0.04));
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--border-strong, var(--border-subtle));
+    box-shadow: var(--shadow-card, 0 1px 3px 0 rgba(0, 0, 0, 0.06));
+  }
+}
+
+.kpi-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md, 8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  ::ng-deep svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  &[data-variant="primary"] {
+    background-color: var(--tenant-primary-subtle, rgba(37, 99, 235, 0.08));
+    color: var(--tenant-primary);
+  }
+
+  &[data-variant="running"] {
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &[data-variant="warning"] {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+
+  &[data-variant="danger"] {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+
+  &[data-variant="purple"] {
+    background-color: var(--color-purple-50);
+    color: var(--color-purple-600);
+  }
+
+  &[data-variant="default"] {
+    background-color: var(--bg-surface-active, var(--color-gray-100));
+    color: var(--text-secondary);
+  }
+}
+
+.kpi-content {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.kpi-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  margin-bottom: var(--space-1, 4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2, 8px);
+}
+
+.kpi-value {
+  font-size: var(--text-2xl);
+  font-weight: 700;
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+  line-height: var(--leading-tight, 1.25);
+  letter-spacing: -0.02em;
+}
+
+.kpi-total-badge {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.kpi-detail {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-top: var(--space-1, 4px);
+  line-height: var(--leading-tight, 1.25);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

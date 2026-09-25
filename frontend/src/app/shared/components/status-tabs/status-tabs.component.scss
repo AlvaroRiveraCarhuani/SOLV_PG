@@ -1,0 +1,81 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.status-tabs {
+  display: flex;
+  gap: var(--space-2, 8px);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 2px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s ease, border-color 0.15s ease;
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &.active {
+    color: var(--tenant-primary);
+    font-weight: 600;
+    border-bottom-color: var(--tenant-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tenant-primary);
+    outline-offset: -2px;
+    border-radius: var(--radius-sm, 6px);
+  }
+}
+
+.tab-badge {
+  font-size: var(--text-xs);
+  line-height: 1;
+  padding: 2px 7px;
+  border-radius: var(--radius-full, 9999px);
+  background-color: var(--bg-surface-active, var(--color-gray-100));
+  color: var(--text-secondary);
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease;
+
+  &[data-variant="active"] {
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &[data-variant="warning"] {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+
+  &[data-variant="error"],
+  &[data-variant="danger"] {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+
+  &[data-variant="neutral"],
+  &[data-variant="archived"],
+  &[data-variant="expired"],
+  &[data-variant="default"] {
+    background-color: var(--bg-surface-active, var(--color-gray-100));
+    color: var(--text-secondary);
+  }
+}

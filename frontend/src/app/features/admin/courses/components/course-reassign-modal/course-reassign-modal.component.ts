@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminCoursesService, AdminCourseItem } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
-import { SolvComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
+import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { 
   LucideArrowRightLeft, 
   LucideX, 
@@ -18,7 +18,7 @@ import {
   imports: [
     CommonModule, 
     FormsModule, 
-    SolvComboboxComponent,
+    ComboboxComponent,
     LucideArrowRightLeft, 
     LucideX, 
     LucideAlertCircle, 
