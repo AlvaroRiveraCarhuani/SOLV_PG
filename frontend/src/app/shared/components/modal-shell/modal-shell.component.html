@@ -1,0 +1,34 @@
+<div class="modal-backdrop" (click)="onBackdrop()" role="dialog" aria-modal="true">
+  <div class="modal-dialog" [style.max-width]="maxWidth()" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="header-left">
+        @if (showIcon()) {
+          <div class="icon-circle" [class]="'intent-' + intent()">
+            <ng-content select="[modal-icon]" />
+          </div>
+        }
+        <div>
+          <h2 class="modal-title">{{ title() }}</h2>
+          <p class="modal-subtitle">
+            @if (subtitle()) {
+              {{ subtitle() }}
+            } @else {
+              <ng-content select="[modal-subtitle]" />
+            }
+          </p>
+        </div>
+      </div>
+      @if (showClose()) {
+        <button class="btn-close" (click)="close.emit()" [disabled]="disableClose()" title="Cerrar modal" aria-label="Cerrar">
+          <svg lucideX class="icon"></svg>
+        </button>
+      }
+    </header>
+    <div class="modal-body">
+      <ng-content />
+    </div>
+    <footer class="modal-footer">
+      <ng-content select="[modal-footer]" />
+    </footer>
+  </div>
+</div>

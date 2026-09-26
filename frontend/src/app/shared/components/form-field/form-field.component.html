@@ -1,0 +1,11 @@
+<div class="form-group">
+  <label class="form-label" [attr.for]="fieldId() || null">{{ label() }}@if (required()) {
+      <span aria-hidden="true"> *</span>
+    }</label>
+  <ng-content />
+  @if (error()) {
+    <span class="field-error" role="alert">{{ error() }}</span>
+  } @else if (hint()) {
+    <span class="field-hint">{{ hint() }}</span>
+  }
+</div>

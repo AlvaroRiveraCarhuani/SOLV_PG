@@ -53,17 +53,9 @@ export class KpiCardComponent {
   styles: [`
     .kpi-grid {
       display: grid;
-      grid-template-columns: repeat(var(--kpi-grid-cols, 4), 1fr);
+      grid-template-columns: repeat(auto-fit, minmax(max(180px, calc(100% / var(--kpi-grid-cols, 4) - 16px)), 1fr));
       gap: var(--space-4, 16px);
       margin-bottom: var(--space-6, 24px);
-
-      @media (max-width: 1100px) {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      @media (max-width: 640px) {
-        grid-template-columns: 1fr;
-      }
     }
   `],
   changeDetection: ChangeDetectionStrategy.OnPush
