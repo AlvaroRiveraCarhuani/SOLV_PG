@@ -1,21 +1,22 @@
-import { Component, input, output, signal, inject, effect, OnInit, HostListener } from '@angular/core';
+import { Component, input, output, signal, inject, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CourseLoadSummary, DockerContainerSummary } from '@core/models/admin.model';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
-import { LucideX, LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
 
 @Component({
   selector: 'course-workspaces-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    StatusBadgeComponent, 
-    LucideX, 
-    LucideSearch, 
-    LucideRotateCcw, 
+    CommonModule,
+    FormsModule,
+    StatusBadgeComponent,
+    ModalShellComponent,
+    LucideSearch,
+    LucideRotateCcw,
     LucidePause,
     LucideTerminal
   ],
@@ -31,11 +32,6 @@ export class CourseWorkspacesModalComponent implements OnInit {
   close = output<void>();
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.close.emit();
-  }
 
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');

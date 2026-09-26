@@ -1,23 +1,16 @@
-<div class="modal-backdrop" (click)="close.emit()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <!-- Cabecera del Modal -->
-    <div class="modal-header">
-      <div class="header-info">
-        <div class="title-row">
-          <h2 class="modal-title">Contenedores: {{ course().course_name }}</h2>
-          <span class="header-badge">{{ course().active_students }} en sesión</span>
-        </div>
-        <span class="modal-subtitle">
-          Docente: {{ course().teacher_name }} &bull; Materia ID: {{ course().id }}
-        </span>
-      </div>
-      <button class="btn-close" (click)="close.emit()" title="Cerrar ventana">
-        <svg lucideX class="icon"></svg>
-      </button>
-    </div>
+<modal-shell
+  [title]="'Contenedores: ' + course().course_name"
+  maxWidth="900px"
+  [showIcon]="false"
+  (close)="close.emit()"
+>
+  <span modal-subtitle>
+    Docente: {{ course().teacher_name }} &bull; Materia ID: {{ course().id }} &bull;
+    <span class="header-badge">{{ course().active_students }} en sesión</span>
+  </span>
 
-    <!-- Barra de Búsqueda y Filtros -->
-    <div class="modal-filter-bar">
+  <!-- Barra de Búsqueda y Filtros -->
+  <div class="modal-filter-bar">
       <div class="search-box">
         <svg lucideSearch class="search-icon"></svg>
         <input 
@@ -147,7 +140,7 @@
     </div>
 
     <!-- Pie del Modal -->
-    <div class="modal-footer">
+    <div modal-footer class="ws-footer">
       <div class="footer-meta">
         <span class="count-indicator">{{ workspaces().length }} {{ workspaces().length === 1 ? 'instancia encontrada' : 'instancias encontradas' }}</span>
       </div>
@@ -155,5 +148,4 @@
         <span>Cerrar</span>
       </button>
     </div>
-  </div>
-</div>
+</modal-shell>

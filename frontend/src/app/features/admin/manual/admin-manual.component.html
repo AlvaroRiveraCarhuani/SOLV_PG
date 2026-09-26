@@ -1,26 +1,153 @@
 <div class="manual-page-container">
-  <header class="manual-header">
-    <div class="header-left">
-      <a routerLink="/admin/plantillas" class="back-link" aria-label="Volver al catálogo de plantillas">
-        <span class="back-arrow">&larr;</span> Volver a Plantillas
-      </a>
-      <span class="manual-badge">Documentación Oficial</span>
+
+  <!-- Reading progress bar -->
+  <div class="reading-progress-bar" [style.width.%]="readingProgress()" aria-hidden="true"></div>
+
+  <!-- Page Header -->
+  <header class="page-header view-header">
+    <div class="header-info">
+      <div class="title-with-badge">
+        <h1 class="page-title view-title">Manual de Administración</h1>
+        <span class="role-badge">Referencia Operativa</span>
+      </div>
+      <p class="page-subtitle view-subtitle">
+        Guía técnica, operativa y de gobernanza para la administración de la plataforma
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <!-- Section combobox -->
+      @if (sectionComboboxOptions().length > 0) {
+        <div class="section-combobox-wrapper">
+          <combobox
+            [compact]="true"
+            [options]="sectionComboboxOptions()"
+            placeholder="Ir a sección..."
+            (optionSelected)="onSectionSelected($event)"
+          ></combobox>
+        </div>
+      }
+
+      <!-- Live search -->
+      <div class="search-box">
+        <svg lucideSearch class="search-icon w-4 h-4"></svg>
+        <input
+          type="text"
+          class="search-input"
+          placeholder="Buscar comando, error..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          aria-label="Buscar en el manual"
+        />
+        @if (searchQuery()) {
+          <button type="button" class="btn-clear-search" (click)="clearSearch()" aria-label="Limpiar búsqueda">
+            <svg lucideX class="w-3.5 h-3.5"></svg>
+          </button>
+        }
+      </div>
+
+      <!-- Reading progress label -->
+      @if (!loading() && !error() && readingProgress() > 0) {
+        <span class="reading-progress-label">{{ readingProgress() }}%</span>
+      }
+
+      <!-- Re-open TOC when hidden -->
+      @if (!showToc() && !searchQuery()) {
+        <button
+          type="button"
+          class="btn-show-toc-eye"
+          (click)="toggleToc()"
+          title="Mostrar índice de contenidos"
+          aria-label="Mostrar índice de contenidos"
+        >
+          <svg lucideEye class="w-4 h-4"></svg>
+          <span>Ver Índice</span>
+        </button>
+      }
     </div>
   </header>
 
-  <main class="manual-content-card">
-    @if (loading()) {
-      <div class="manual-loading">
-        <div class="spinner"></div>
-        <p>Cargando manual administrativo...</p>
-      </div>
-    } @else if (error()) {
-      <div class="manual-error">
-        <p>{{ error() }}</p>
-        <button class="retry-btn" (click)="loadManual()">Reintentar</button>
-      </div>
-    } @else {
-      <article class="markdown-body" [innerHTML]="renderedContent()"></article>
+  <!-- Main body: content + TOC sidebar -->
+  <div class="manual-layout-grid" [class.toc-hidden]="!showToc() || !!searchQuery()">
+
+    <!-- Content column -->
+    <main class="manual-content-card">
+      @if (loading()) {
+        <div class="manual-loading">
+          <div class="spinner"></div>
+          <p>Cargando documentación operativa...</p>
+        </div>
+      } @else if (error()) {
+        <div class="manual-error">
+          <p>{{ error() }}</p>
+          <button class="btn-retry" (click)="loadManual()">
+            <svg lucideRefreshCw class="w-4 h-4"></svg>
+            <span>Reintentar</span>
+          </button>
+        </div>
+      } @else {
+        @if (searchQuery()) {
+          <div class="search-feedback-banner">
+            <span>Resultados para: <strong>"{{ searchQuery() }}"</strong></span>
+            <button type="button" class="btn-text-link" (click)="clearSearch()">Mostrar documento completo</button>
+          </div>
+        }
+        <article class="markdown-body" [innerHTML]="renderedContent()"></article>
+      }
+    </main>
+
+    <!-- TOC sidebar -->
+    @if (!loading() && !error() && tocItems().length > 0 && showToc() && !searchQuery()) {
+      <aside class="manual-toc-sidebar" aria-label="Tabla de contenidos">
+        <div class="toc-sticky-card">
+          <div class="toc-header">
+            <span class="toc-title">En esta página</span>
+            <button
+              type="button"
+              class="btn-toggle-eye"
+              (click)="toggleToc()"
+              title="Ocultar índice"
+              aria-label="Ocultar índice"
+            >
+              <svg lucideEyeOff class="w-4 h-4"></svg>
+            </button>
+          </div>
+
+          <!-- Progress indicator inside TOC -->
+          <div class="toc-progress-track">
+            <div class="toc-progress-fill" [style.width.%]="readingProgress()"></div>
+          </div>
+
+          <nav class="toc-nav">
+            <ul class="toc-list">
+              @for (item of tocItems(); track item.id) {
+                <li class="toc-item" [class.toc-subitem]="item.level === 3">
+                  <a
+                    href="javascript:void(0)"
+                    class="toc-link"
+                    [class.active]="activeSectionId() === item.id"
+                    (click)="scrollToSection(item.id)"
+                  >
+                    {{ item.title }}
+                  </a>
+                </li>
+              }
+            </ul>
+          </nav>
+        </div>
+      </aside>
     }
-  </main>
+  </div>
+
+  <!-- Back to top -->
+  @if (showBackToTop()) {
+    <button
+      type="button"
+      class="btn-back-to-top"
+      (click)="scrollToTop()"
+      aria-label="Volver al inicio de la página"
+    >
+      <svg lucideArrowUp class="w-4 h-4"></svg>
+    </button>
+  }
 </div>
