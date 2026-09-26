@@ -60,4 +60,19 @@
   --z-modal-backdrop: 1040;
   --z-modal: 1050;
   --z-toast: 1100;
+
+  // Verde Éxito Oscuro (hover de botones sólidos + insignias sobre superficies oscuras)
+  // Ambos valores sancionados por solv-design-system (Success: #16A34A / #15803D)
+  --color-success-dark: #15803D;
+
+  // Superficies de Código / Terminal (visor de logs, auditoría dry-run, previsualizaciones)
+  // Escala propia para no contaminar la semántica claro del resto del sistema
+  --code-bg:      #0F172A; // Panel principal (slate-900)
+  --code-bg-deep: #020617; // Cabecera y franjas profundas (slate-950)
+  --code-border:  #1E293B; // Bordes sobre oscuro (slate-800)
+  --code-text:    #F8FAFC; // Texto principal sobre oscuro
+  --code-muted:   #94A3B8; // Texto atenuado sobre oscuro
+  --code-accent:  #38BDF8; // Acentos e info sobre oscuro
+  --code-warning: #FBBF24; // Avisos sobre oscuro
+  --code-error:   #EF4444; // Errores sobre oscuro
 }
