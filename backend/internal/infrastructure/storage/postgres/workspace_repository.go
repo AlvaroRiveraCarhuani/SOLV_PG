@@ -62,7 +62,7 @@ func (r *PostgresWorkspaceRepository) Create(ctx context.Context, workspace *dom
 		workspace.TenantID = domain.DefaultTenantID
 	}
 	if workspace.SubjectID == "" {
-		workspace.SubjectID = "00000000-0000-0000-0000-000000000001"
+		workspace.SubjectID = domain.DefaultTenantID
 	}
 	if workspace.MemoryLimitMB <= 0 {
 		workspace.MemoryLimitMB = domain.DefaultBaseMemoryMB

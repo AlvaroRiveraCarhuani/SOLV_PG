@@ -43,16 +43,7 @@ func (h *AdminAcademicHandler) WithAuditLogRepo(auditLogRepo domain.AuditLogRepo
 	return h
 }
 
-func getTenantFromCtx(r *http.Request) string {
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
-	return tenantID
-}
+
 
 // -----------------------------------------------------------------------------
 // Maintenance Endpoints (ADR-031)
@@ -503,7 +494,7 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 
 	var dto domain.ReviewTemplateDTO
@@ -571,7 +562,7 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	tenantID := getTenantFromCtx(r)
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 
 	var dto domain.CreateOfficialTemplateDTO
@@ -646,7 +637,7 @@ func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 
 	if h.govService == nil {
@@ -706,7 +697,7 @@ func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *
 
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 
 	var req domain.EmergencyActionRequest
@@ -815,7 +806,7 @@ func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Reques
 		})
 		adminID := r.Header.Get("X-User-Id")
 		if adminID == "" {
-			adminID = "00000000-0000-0000-0000-000000000001"
+			adminID = domain.DefaultTenantID
 		}
 		_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
 			TenantID:     getTenantFromCtx(r),
@@ -914,7 +905,7 @@ func (h *AdminAcademicHandler) DeleteTemplateCategory(w http.ResponseWriter, r *
 	}
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 	err := h.govService.DeleteTemplateCategory(r.Context(), tenantID, adminID, categoryID)
 	if err != nil {
@@ -1022,7 +1013,7 @@ func (h *AdminAcademicHandler) DeactivateTemplateModel(w http.ResponseWriter, r 
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid
 		} else {
-			adminID = "00000000-0000-0000-0000-000000000001"
+			adminID = domain.DefaultTenantID
 		}
 	}
 	if err := h.govService.DeactivateTemplateModel(r.Context(), tenantID, adminID, modelID); err != nil {
@@ -1044,7 +1035,7 @@ func (h *AdminAcademicHandler) ReactivateTemplateModel(w http.ResponseWriter, r 
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid
 		} else {
-			adminID = "00000000-0000-0000-0000-000000000001"
+			adminID = domain.DefaultTenantID
 		}
 	}
 	if err := h.govService.ReactivateTemplateModel(r.Context(), tenantID, adminID, modelID); err != nil {
@@ -1063,7 +1054,7 @@ func (h *AdminAcademicHandler) PromoteTemplateToModel(w http.ResponseWriter, r *
 	}
 	adminID := r.Header.Get("X-User-Id")
 	if adminID == "" {
-		adminID = "00000000-0000-0000-0000-000000000001"
+		adminID = domain.DefaultTenantID
 	}
 
 	var dto domain.PromoteTemplateToModelDTO

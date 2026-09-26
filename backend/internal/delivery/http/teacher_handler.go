@@ -25,13 +25,7 @@ func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	teacherID := r.Header.Get("X-User-Id")
 
@@ -51,13 +45,7 @@ func (h *TeacherHandler) GetAttention(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	teacherID := r.Header.Get("X-User-Id")
 
@@ -77,13 +65,7 @@ func (h *TeacherHandler) GetCourseLabs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	subjectID := r.PathValue("id")
 	if subjectID == "" {
@@ -113,13 +95,7 @@ func (h *TeacherHandler) GetCourseSubmissions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	subjectID := r.PathValue("id")
 	if subjectID == "" {
@@ -151,13 +127,7 @@ func (h *TeacherHandler) GetSubmissionReview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -187,13 +157,7 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -214,7 +178,7 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 
 	authorID := r.Header.Get("X-User-Id")
 	if authorID == "" {
-		authorID = "00000000-0000-0000-0000-000000000001"
+		authorID = domain.DefaultTenantID
 	}
 
 	comment := &domain.SubmissionComment{
@@ -234,13 +198,7 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 }
 
 func (h *TeacherHandler) GetSubmissionComments(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -264,13 +222,7 @@ func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -305,13 +257,7 @@ func (h *TeacherHandler) ExportGrades(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	subjectID := r.PathValue("id")
 	if subjectID == "" {

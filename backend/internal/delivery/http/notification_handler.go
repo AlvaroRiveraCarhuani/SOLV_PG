@@ -17,13 +17,6 @@ func NewNotificationHandler(service *services.NotificationService) *Notification
 	return &NotificationHandler{service: service}
 }
 
-func getUserIDFromCtx(r *http.Request) string {
-	userID := r.Header.Get("X-User-Id")
-	if userID == "" {
-		userID = "00000000-0000-0000-0000-000000000001"
-	}
-	return userID
-}
 
 func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/gorilla/websocket"
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
@@ -43,7 +44,7 @@ func (h *WebSocketHandler) HandleEvaluationWS(w http.ResponseWriter, r *http.Req
 	}
 
 	userID := "anonymous"
-	tenantID := "00000000-0000-0000-0000-000000000001"
+	tenantID := domain.DefaultTenantID
 
 	if tokenStr != "" && h.authService != nil {
 		claims, err := h.authService.ValidateSessionToken(tokenStr)

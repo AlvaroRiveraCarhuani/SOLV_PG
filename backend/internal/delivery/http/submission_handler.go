@@ -128,13 +128,7 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
-	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -164,7 +158,7 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 		gradedBy = &userID
 	}
 
-	err = h.service.OverrideSubmission(r.Context(), tenantID, submissionID, dto.Verdict, dto.OverrideReason, dto.Score, gradedBy)
+	err := h.service.OverrideSubmission(r.Context(), tenantID, submissionID, dto.Verdict, dto.OverrideReason, dto.Score, gradedBy)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar override de calificacion")
 		return

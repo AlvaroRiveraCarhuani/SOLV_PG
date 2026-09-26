@@ -27,7 +27,7 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 				if userID := r.Header.Get("X-User-Id"); userID != "" {
 					tenantID := r.Header.Get("X-Tenant-Id")
 					if tenantID == "" {
-						tenantID = "00000000-0000-0000-0000-000000000001"
+						tenantID = domain.DefaultTenantID
 					}
 					ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
 					ctx = context.WithValue(ctx, domain.UserIDKey, userID)

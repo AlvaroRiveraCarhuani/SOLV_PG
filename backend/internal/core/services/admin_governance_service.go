@@ -497,7 +497,7 @@ func (s *AdminGovernanceService) UpdateTemplateModel(ctx context.Context, tenant
 
 func (s *AdminGovernanceService) DeactivateTemplateModel(ctx context.Context, tenantID, actorID, modelID string) error {
 	if actorID == "" {
-		actorID = "00000000-0000-0000-0000-000000000001"
+		actorID = domain.DefaultTenantID
 	}
 	if err := s.govRepo.SetTemplateModelActive(ctx, tenantID, modelID, false); err != nil {
 		return err
@@ -517,7 +517,7 @@ func (s *AdminGovernanceService) DeactivateTemplateModel(ctx context.Context, te
 
 func (s *AdminGovernanceService) ReactivateTemplateModel(ctx context.Context, tenantID, actorID, modelID string) error {
 	if actorID == "" {
-		actorID = "00000000-0000-0000-0000-000000000001"
+		actorID = domain.DefaultTenantID
 	}
 	if err := s.govRepo.SetTemplateModelActive(ctx, tenantID, modelID, true); err != nil {
 		return err

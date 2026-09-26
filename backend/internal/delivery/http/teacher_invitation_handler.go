@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"solv-backend/internal/core/services"
-	"solv-backend/internal/delivery/http/middleware"
 )
 
 type TeacherInvitationHandler struct {
@@ -18,13 +17,7 @@ func NewTeacherInvitationHandler(service *services.TeacherInvitationService) *Te
 }
 
 func (h *TeacherInvitationHandler) ListTeachers(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	search := r.URL.Query().Get("search")
 	status := r.URL.Query().Get("status")
@@ -45,13 +38,7 @@ func (h *TeacherInvitationHandler) ListTeachers(w http.ResponseWriter, r *http.R
 }
 
 func (h *TeacherInvitationHandler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	var req struct {
 		Email         string `json:"email"`
@@ -103,13 +90,7 @@ func (h *TeacherInvitationHandler) CreateInvitation(w http.ResponseWriter, r *ht
 }
 
 func (h *TeacherInvitationHandler) ResendInvitation(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	invID := r.PathValue("id")
 	if invID == "" {
@@ -142,13 +123,7 @@ func (h *TeacherInvitationHandler) ResendInvitation(w http.ResponseWriter, r *ht
 }
 
 func (h *TeacherInvitationHandler) RenewInvitation(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	invID := r.PathValue("id")
 	if invID == "" {
@@ -181,13 +156,7 @@ func (h *TeacherInvitationHandler) RenewInvitation(w http.ResponseWriter, r *htt
 }
 
 func (h *TeacherInvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	userID := r.Header.Get("X-User-Id")
 	userEmail := r.Header.Get("X-User-Email")
@@ -213,13 +182,7 @@ func (h *TeacherInvitationHandler) AcceptInvitation(w http.ResponseWriter, r *ht
 }
 
 func (h *TeacherInvitationHandler) GetTeacherCourses(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	teacherID := r.PathValue("id")
 	if teacherID == "" {
@@ -242,13 +205,7 @@ func (h *TeacherInvitationHandler) GetTeacherCourses(w http.ResponseWriter, r *h
 }
 
 func (h *TeacherInvitationHandler) DeleteInvitation(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	invID := r.PathValue("id")
 	if invID == "" {
@@ -269,13 +226,7 @@ func (h *TeacherInvitationHandler) DeleteInvitation(w http.ResponseWriter, r *ht
 }
 
 func (h *TeacherInvitationHandler) DeleteTeacher(w http.ResponseWriter, r *http.Request) {
-	tenantID, _ := middleware.GetTenantIDFromContext(r.Context())
-	if tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
-	}
-	if tenantID == "" {
-		tenantID = "00000000-0000-0000-0000-000000000001"
-	}
+	tenantID := getTenantFromCtx(r)
 
 	teacherID := r.PathValue("id")
 	if teacherID == "" {

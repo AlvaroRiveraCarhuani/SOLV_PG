@@ -29,7 +29,7 @@ func MaintenanceMiddleware(tenantRepo domain.TenantRepository) func(http.Handler
 			// 3. Obtener tenantID del contexto
 			tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
 			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
+				tenantID = domain.DefaultTenantID
 			}
 
 			// 4. Consultar estado de mantenimiento

@@ -55,8 +55,7 @@ func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) 
 	} else if tenantID != "" {
 		tenant, err = h.tenantRepo.GetByID(r.Context(), tenantID)
 	} else {
-		const defaultTenantID = "00000000-0000-0000-0000-000000000001"
-		tenant, err = h.tenantRepo.GetByID(r.Context(), defaultTenantID)
+		tenant, err = h.tenantRepo.GetByID(r.Context(), domain.DefaultTenantID)
 	}
 
 	if err != nil {
