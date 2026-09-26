@@ -1,102 +1,153 @@
-# Manual de Administración de Plantillas de Entorno — SOLV
+# Manual de Administración del Sistema — SOLV
 
-Guía oficial de gobernanza, configuración técnica y operaciones para administradores de la plataforma SOLV.
+Guía operativa, técnica y de gestión para administradores de la plataforma SOLV.
 
 ---
 
-## 1. Comparativa de Entornos: IDE Persistente vs Juez Virtual
+## 1. Visión General e Identidad del Sistema
 
-SOLV provee dos modalidades diferenciadas de ejecución de laboratorios virtuales según el objetivo pedagógico de la cátedra:
+### 1.1 Propósito y Alcance
+La plataforma SOLV está diseñada para centralizar la gestión, ejecución y evaluación de laboratorios virtuales de programación en entornos académicos. Permite a las instituciones educativas proporcionar a sus estudiantes entornos de desarrollo listos para usar y sistemas de calificación automática de código, manteniendo el control de los recursos del servidor y la seguridad de la infraestructura.
 
-| Característica | Laboratorio Interactivo (IDE Persistente) | Juez Virtual (Sandbox Algorítmico) |
+### 1.2 Glosario de Términos
+- **Laboratorio Interactivo (IDE):** Entorno de desarrollo completo basado en navegador web (OpenVSCode Server) con terminal integrada, explorador de archivos y persistencia de código durante el semestre.
+- **Juez Evaluador (Sandbox):** Entorno de ejecución rápida y aislada que compila y ejecuta código fuente frente a casos de prueba predefinidos para emitir una calificación automática.
+- **Contenedor Docker:** Unidad ligera y aislada que empaqueta el sistema operativo base, los compiladores, intérpretes y herramientas necesarias para cada práctica.
+- **Límite de Recursos (cgroups v2):** Mecanismo del kernel de Linux que restringe la cantidad de memoria RAM y procesador (CPU) que un contenedor puede utilizar.
+- **Análisis Estático (Semgrep):** Verificación previa del código fuente para detectar llamadas al sistema o librerías prohibidas antes de permitir su compilación.
+
+### 1.3 Matriz de Roles y Responsabilidades
+| Rol | Alcance y Responsabilidades |
+| :--- | :--- |
+| **Administrador Central** | Control global de infraestructura, gestión de periodos académicos, aprobación de plantillas de entorno, fijación de límites de hardware, asignación de docentes a materias y auditoría de eventos. |
+| **Docente** | Creación de actividades pedagógicas, configuración de ejercicios en el juez, supervisión de entregas de estudiantes y consulta de plantillas aprobadas. |
+| **Estudiante** | Acceso a sus materias inscritas, desarrollo en su laboratorio interactivo personal y envío de soluciones para evaluación automática. |
+
+---
+
+## 2. Entornos de Laboratorio y Evaluación
+
+### 2.1 Comparativa Técnica de Entornos
+SOLV ofrece dos modalidades de ejecución según la necesidad pedagógica:
+
+| Característica | Laboratorio Interactivo (IDE) | Juez Evaluador (Sandbox) |
 | :--- | :--- | :--- |
-| **Propósito Pedagógico** | Sesiones interactivas de desarrollo, experimentación y proyectos integradores. | Evaluación automática de algoritmos, pruebas unitarias y exámenes cronometrados. |
-| **Interfaz de Usuario** | Editor web completo OpenVSCode Server con terminal integrada y visor de archivos. | Sin interfaz gráfica ni web. Ejecución automatizada vía API / CLI de evaluación. |
-| **Ciclo de Vida** | Sesiones de larga duración. Soporta estados activo, inactivo y suspensión controlada. | Efímero y desechable. Se instancia por envío, ejecuta la prueba y se destruye de inmediato. |
-| **Persistencia de Datos** | Volumen de trabajo persistente por estudiante montado en `/home/workspace`. | Sistema de archivos efímero (`tmpfs` / capa descartable sin persistencia posterior). |
-| **Servicios Satélite** | Admite bases de datos satélite desacopladas (PostgreSQL, MariaDB, Redis). | Aislado estrictamente: sin servicios satélite ni dependencias de red externa. |
-| **Acceso a Red** | Restringido a la red interna institucional del laboratorio; sin salida pública salvo allowlist. | Aislamiento estricto de red (`network_mode: none` o bridge local sin gateway externo). |
-| **Parámetros de Ejecución** | Puerto HTTP para OpenVSCode Server, script de inicialización (`setup_script`). | Comando de compilación/ejecución, tiempo límite (`timeout_ms`), entrada estándar (`stdin`). |
-| **Límites de Recursos** | Dimensionado para soporte de IDE web y herramientas de compilación/ejecución concurrentes. | Dimensionado compacto y austero para una evaluación unitaria rápida. |
+| **Objetivo** | Desarrollo de proyectos, tareas extensas y aprendizaje guiado. | Exámenes cronometrados y evaluación automática de algoritmos. |
+| **Interfaz** | Editor visual completo en el navegador web con terminal. | Sin interfaz gráfica. Proceso automatizado por API. |
+| **Persistencia** | Almacena archivos en un volumen de disco asignado al estudiante. | Efímero. Los archivos temporales se destruyen al finalizar la prueba. |
+| **Servicios Adicionales** | Admite bases de datos auxiliares (PostgreSQL, MariaDB) en red local. | Aislado totalmente sin bases de datos auxiliares. |
+| **Acceso a Red** | Conectividad restringida a la red local del laboratorio. | Aislamiento estricto sin salida a red (`network_mode: none`). |
+| **Consumo de Memoria** | Mayor asignación para soportar el editor web y compiladores. | Asignación compacta dimensionada para una prueba individual. |
 
----
-
-## 2. Flujo de Publicación y Gobernanza Institucional
-
-El ciclo de vida de una plantilla garantiza que ningún entorno alcance a los estudiantes sin validación técnica previa:
-
-```
-[ BORRADOR ] 
-      │  (Guardado en PostgreSQL por usuario y tenant)
-      ▼
-[ PENDIENTE_AUDITORIA ]
-      │  (Prueba de entorno / Smoke test + Auditoría CVE)
-      ├──────────────────────────────┐
-      ▼                              ▼
-[ APROBADA ]                   [ RECHAZADA ]
-      │                         (Motivo obligatorio >= 10 caracteres)
-      ├─────────────────┐
-      ▼                 ▲
-[ SUSPENDIDA ] ─────────┘ (Reactivación exige smoke test en verde)
-  (Deprecación suave, no altera entornos históricos)
-```
-
-### Reglas Clave de Gobernanza:
-1. **Separación de Roles (Decisión D4):** El docente propone los requerimientos pedagógicos; la potestad sobre memoria RAM, cuotas vCPU y aprobación definitiva es exclusiva del Administrador.
-2. **Inmutabilidad de Entornos en Producción:** Las plantillas aprobadas que han sido utilizadas por cátedras nunca sufren eliminación física (`hard delete`). Si una imagen queda obsoleta, se marca como `SUSPENDIDA`.
-3. **Criterio de Uso Institucional:** El conteo de uso de una imagen (`usage_count`) contabiliza plantillas activas y suspendidas que efectivamente operaron en el sistema. Las plantillas con estado `RECHAZADA` quedan expresamente excluidas.
-
----
-
-## 3. Guía de Imágenes OCI y Buenas Prácticas
-
-### 3.1 Prohibición Estricta del Tag `:latest`
-- El uso de `:latest` está terminantemente prohibido en SOLV.
-- **Justificación:** Viola el principio de reproducibilidad académica. Una entrega evaluada hoy debe comportarse idénticamente si se vuelve a auditar en tres años.
-- **Práctica requerida:** Fijar siempre la versión de distribución y versión de lenguaje (por ejemplo, `python:3.12-slim-bookworm` en lugar de `python:latest`).
-
-### 3.2 Anatomía de una Referencia OCI
-Una referencia completa se compone de:
-- **Registro:** Servidor donde reside la imagen (ej: `docker.io` para Docker Hub, `ghcr.io` para GitHub Packages). Si se omite, se asume Docker Hub oficial.
-- **Repositorio / Namespace:** Organización y nombre de la imagen (ej: `library/python` o `alvaro/solv-worker`).
-- **Tag:** Versión explícita e inmutable (ej: `3.12-slim-bookworm`).
-
-### 3.3 Variantes Recomendadas
-- **`-slim` (Debian Slim):** Variante recomendada por defecto. Excelente compatibilidad con dependencias C/C++ y tamaño moderado.
-- **`-alpine` (Alpine Linux):** Solo recomendada para microservicios muy compactos o donde `musl-libc` no genere incompatibilidades con paquetes binarios (ej. `numpy` o `wheels` de Python).
-- **Distroless:** Indicada para ejecutables estáticos compilados en Go o Rust en entornos de juez virtual.
-
----
-
-## 4. Perfiles de Recursos y Derivación cgroups v2
-
+### 2.2 Políticas de Memoria y Derivación Automática
 Para garantizar estabilidad en servidores on-premise compartidos, SOLV calcula de forma automática y determinística el perfil de memoria cgroups v2 a partir de la memoria base (`base_ram_mb`):
 
 $$\text{Memoria Mínima Garantizada } (memory.min) = \frac{\text{base\_ram\_mb}}{2}$$
+
 $$\text{Umbral de Throttling } (memory.high) = \text{base\_ram\_mb} \times 1.5$$
+
 $$\text{Límite Máximo Duro } (memory.max) = \text{base\_ram\_mb} \times 2$$
 
-- **Ejemplo con base de 1024 MB:**
-  - `min_mb`: 512 MB garantizados sin reclamación de memoria.
-  - `high_mb`: 1536 MB donde el kernel comienza a frenar la asignación de páginas.
-  - `max_mb`: 2048 MB límite absoluto que dispara el OOM killer si es superado.
+- **`memory.min` (50%):** Memoria garantizada por el kernel que nunca será reclamada en situaciones de estrés.
+- **`memory.high` (150%):** Umbral donde el sistema operativo ralentiza las asignaciones de páginas adicionales para evitar cortes abruptos.
+- **`memory.max` (200%):** Límite estricto e infranqueable; superarlo activa inmediatamente el mecanismo de corte por OOM (Out Of Memory).
+
+**Ejemplo de dimensionamiento para una base de 1024 MB:**
+- Memoria mínima garantizada: 512 MB.
+- Umbral de contención: 1536 MB.
+- Límite absoluto de corte (OOM): 2048 MB.
+
+### 2.3 Perfiles Recomendados por Lenguaje
+- **C / C++:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
+- **Python:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
+- **Java / OpenJDK:** 1024 MB en Juez Evaluador / 1536 MB a 2048 MB en Laboratorio Interactivo (por la reserva de memoria de la JVM).
+- **Node.js / TypeScript:** 1536 MB a 2048 MB en Laboratorio Interactivo (para soportar `node_modules` y compilación en segundo plano).
+- **Go:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
 
 ---
 
-## 5. Casos de Uso Típicos por Disciplina
+## 3. Gestión de Infraestructura y Contenedores
 
-### Algoritmos y Programación Inicial (C / C++ / Python)
-- **Modalidad:** Juez Virtual o IDE Persistente Ligero.
-- **Imagen recomendada:** `gcc:14-bookworm` o `python:3.12-slim-bookworm`.
-- **RAM base:** 512 MB (Juez) / 1024 MB (IDE).
+### 3.1 Requisitos de Imágenes Docker
+- **Prohibición de la etiqueta `:latest`:** Está estrictamente prohibido utilizar `:latest`. Se deben especificar siempre versiones inmutables (ejemplo: `python:3.12-slim-bookworm`). Esto asegura que los ejercicios se ejecuten exactamente igual en cualquier momento.
+- **Variantes Ligeras (`-slim`):** Se recomienda priorizar imágenes basadas en Debian Slim (`-slim`) por su balance entre tamaño reducido y compatibilidad con librerías nativas.
+- **Variantes Alpine (`-alpine`):** Utilizarlas únicamente cuando se haya comprobado que las dependencias del curso son totalmente compatibles con la librería `musl-libc`.
 
-### Desarrollo Web y Frontend (Node.js / TypeScript)
-- **Modalidad:** IDE Persistente.
-- **Imagen recomendada:** `node:20-bookworm-slim`.
-- **RAM base:** 1536 MB a 2048 MB para soportar `npm install` y servidores Vite/Webpack concurrentes.
+### 3.2 Ciclo de Vida y Gobernanza de Plantillas
+El ciclo de vida de una plantilla asegura que ningún entorno alcance a los estudiantes sin validación técnica previa:
 
-### Sistemas y Bases de Datos (Fullstack con Satélite)
-- **Modalidad:** IDE Persistente con Base de Datos Satélite.
-- **Imagen principal:** `golang:1.24-bookworm` o `openjdk:21-slim-bookworm`.
-- **Servicio satélite:** `postgres:18-alpine` desacoplado en red interna con volumen propio.
-- **RAM base:** 2048 MB para la aplicación + cuota independiente del motor relacional.
+```mermaid
+graph TD
+    Borrador["Borrador (Edición inicial)"] -->|Enviar a Auditoría| Auditoria["Pendiente de Auditoría"]
+    Auditoria -->|Smoke Test en Verde| Aprobada["Aprobada (Catálogo Oficial)"]
+    Auditoria -->|Observaciones Técnicas| Rechazada["Rechazada (Motivo >= 10 caracteres)"]
+    Aprobada -->|Deprecación Suave| Suspendida["Suspendida (Solo Histórico)"]
+    Suspendida -->|Reactivación con Test| Aprobada
+```
+
+- **Borrador:** Estado inicial de edición técnica. Solo visible para el autor.
+- **Pendiente de Auditoría:** Solicitud enviada a revisión técnica. Requiere la ejecución obligatoria de una prueba de entorno (smoke test) para validar que la imagen descargue y responda.
+- **Aprobada:** Plantilla validada e integrada en el catálogo institucional para su uso en materias y laboratorios.
+- **Rechazada:** Plantilla observada por no cumplir los requisitos técnicos. Requiere un motivo de justificación de al menos 10 caracteres.
+- **Suspendida:** Desactivación temporal de una plantilla obsoleta sin eliminar los historiales ni entornos de cursos anteriores.
+
+---
+
+## 4. Gestión Académica y Operativa
+
+### 4.1 Periodos Académicos (Semestres)
+- Los periodos definen el rango de fechas en que las materias están activas.
+- Un periodo con fecha final vencida no puede establecerse como activo ni recibir nuevas inscripciones.
+- No es posible eliminar un periodo que tenga materias asociadas.
+
+### 4.2 Cursos y Asignación de Docentes
+- Cada materia creada pertenece a un periodo académico y cuenta con un docente titular responsable.
+- Si un docente deja una cátedra, el Administrador puede reasignar la materia a otro docente registrado sin perder la información del curso ni los laboratorios de los estudiantes.
+
+### 4.3 Directorio de Estudiantes y Desbloqueo de Memoria
+- El Administrador puede consultar el estado de cada cuenta de estudiante (Activo o Suspendido).
+- **Desbloqueo por exceso de memoria (Reset OOM):** Cuando un estudiante supera repetidamente el límite de memoria de su laboratorio, su acceso queda restringido. El Administrador puede restablecer el contador de penalizaciones ingresando una justificación de al menos 10 caracteres.
+
+---
+
+## 5. Monitoreo, Salud y Auditoría
+
+### 5.1 Métricas de Hardware en Tiempo Real
+El panel principal de administración presenta indicadores de salud del servidor:
+- **Uso de CPU:** Porcentaje de procesamiento actual respecto a la capacidad del servidor.
+- **Uso de Memoria RAM:** Memoria ocupada por el sistema y los contenedores frente al total disponible.
+- **Contenedores Activos:** Número de laboratorios interactivos en ejecución simultánea.
+
+### 5.2 Registro de Auditoría
+Las acciones sensibles quedan registradas con identificación de usuario, fecha, dirección IP y detalle del cambio:
+- Registro y aprobación de plantillas.
+- Modificación o suspensión de estados de plantillas.
+- Reasignación de docentes en materias.
+- Restablecimiento de penalizaciones de memoria de estudiantes.
+- Acciones de emergencia sobre el servidor.
+
+---
+
+## 6. Solución de Problemas Frecuentes
+
+### 6.1 Contenedor detenido por falta de memoria (Error OOM)
+- **Causa:** El código ejecutado por el usuario consumió más memoria RAM que el límite máximo asignado al contenedor.
+- **Solución:** 
+  1. Revisar si el código contiene bucles infinitos, fugas de memoria o estructuras de datos sobredimensionadas.
+  2. Si la práctica requiere legítimamente más memoria, el Administrador puede editar la plantilla y aumentar la memoria base (`base_ram_mb`).
+  3. Restablecer las penalizaciones del estudiante desde el módulo de Estudiantes.
+
+### 6.2 Error al verificar imagen Docker
+- **Causa:** La imagen no existe en el registro, se utilizó la etiqueta prohibida `:latest`, o la descarga superó el tiempo de espera.
+- **Solución:**
+  1. Comprobar que el nombre de la imagen esté escrito correctamente (ejemplo: `gcc:14-bookworm`).
+  2. Reemplazar cualquier referencia a `:latest` por un número de versión fijo.
+  3. Verificar que el servidor cuente con conexión a internet para descargar la imagen por primera vez.
+
+### 6.3 Código rechazado por análisis estático (Semgrep)
+- **Causa:** El archivo de código contiene llamadas al sistema prohibidas (como manipulación directa de procesos, accesos no permitidos al sistema de archivos o apertura de conexiones de red no autorizadas).
+- **Solución:** Explicar al estudiante que la solución debe enfocarse en la lógica algorítmica solicitada sin invocar comandos del sistema operativo.
+
+### 6.4 Conflicto al crear materia o periodo
+- **Causa:** Se intenta registrar una materia con un código duplicado o activar un periodo académico cuya fecha de fin ya expiró.
+- **Solución:** Verificar que el código de la materia sea único y que las fechas del periodo correspondan al calendario académico vigente.

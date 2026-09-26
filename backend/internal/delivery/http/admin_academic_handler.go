@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	_ "embed"
 
@@ -1209,7 +1210,19 @@ func (h *AdminAcademicHandler) GetAdminManual(w http.ResponseWriter, r *http.Req
 		return
 	}
 	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set("Cache-Control", "no-cache")
+
+	if data, err := os.ReadFile("internal/delivery/http/docs/MANUAL_ADMIN.md"); err == nil && len(data) > 0 {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+		return
+	}
+	if data, err := os.ReadFile("backend/internal/delivery/http/docs/MANUAL_ADMIN.md"); err == nil && len(data) > 0 {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(data)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(embeddedAdminManual)
 }
