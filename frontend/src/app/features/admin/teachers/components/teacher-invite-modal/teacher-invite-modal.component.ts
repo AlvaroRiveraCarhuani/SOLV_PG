@@ -1,14 +1,16 @@
-import { Component, output, signal, computed, inject, HostListener } from '@angular/core';
+import { Component, output, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TeacherInvitationPayload } from '@core/models/admin.model';
 import { TenantService } from '@core/services/tenant.service';
-import { LucideX, LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle } from '@lucide/angular';
 
 @Component({
   selector: 'teacher-invite-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideX, LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle],
+  imports: [CommonModule, FormsModule, ModalShellComponent, FormFieldComponent, LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle],
   templateUrl: './teacher-invite-modal.component.html',
   styleUrl: './teacher-invite-modal.component.scss'
 })
@@ -17,11 +19,6 @@ export class TeacherInviteModalComponent {
 
   close = output<void>();
   submit = output<TeacherInvitationPayload>();
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.close.emit();
-  }
 
   email = signal<string>('');
   sendEmail = signal<boolean>(true);

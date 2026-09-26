@@ -1,85 +1,72 @@
-<div class="modal-backdrop" (click)="close.emit()" role="dialog" aria-modal="true">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
-    <!-- Encabezado del Modal -->
-    <header class="modal-header">
-      <div class="header-left">
-        <div class="icon-circle">
-          <svg lucideUserPlus class="icon"></svg>
-        </div>
-        <div>
-          <h2 class="modal-title">Invitar Nuevo Docente</h2>
-          <p class="modal-subtitle">Emisión de token transaccional de un solo uso con vigencia de 72 horas.</p>
-        </div>
-      </div>
-      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
-        <svg lucideX class="icon"></svg>
-      </button>
-    </header>
+<modal-shell
+  title="Invitar Nuevo Docente"
+  subtitle="Emisión de token transaccional de un solo uso con vigencia de 72 horas."
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideUserPlus class="icon"></svg>
 
-    <!-- Cuerpo del Formulario -->
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label" for="teacher-email">Correo Institucional del Docente *</label>
-        <div class="input-with-icon">
-          <svg lucideMail class="field-icon"></svg>
-          <input 
-            id="teacher-email"
-            type="email" 
-            [placeholder]="institutionDomain() ? ('profesor@' + institutionDomain()) : 'profesor@institucion.edu'"
-            [ngModel]="email()" 
-            (ngModelChange)="email.set($event)"
-            class="form-input"
-            autofocus
-            autocomplete="email"
-          />
-        </div>
-
-        @if (isExternalDomain()) {
-          <div class="domain-warning-box">
-            <svg lucideAlertTriangle class="warning-icon"></svg>
-            <div class="warning-content">
-              <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
-              <p class="warning-text">
-                El correo no coincide con el dominio oficial ({{ institutionDomain() }}). Si la institución restringe el acceso con Google Workspace institucional, el docente no podrá completar su registro.
-              </p>
-            </div>
-          </div>
-        } @else {
-          <span class="field-hint">El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.</span>
-        }
-      </div>
-
-      <div class="form-group checkbox-group">
-        <label class="checkbox-label">
-          <input 
-            type="checkbox" 
-            [checked]="sendEmail()" 
-            (change)="sendEmail.set(!sendEmail())" 
-          />
-          <span class="checkbox-text">
-            Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas)
-          </span>
-        </label>
-      </div>
+  <form-field
+    label="Correo Institucional del Docente"
+    for="teacher-email"
+    [required]="true"
+    [hint]="isExternalDomain() ? '' : 'El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.'"
+  >
+    <div class="input-with-icon">
+      <svg lucideMail class="field-icon"></svg>
+      <input
+        id="teacher-email"
+        type="email"
+        [placeholder]="institutionDomain() ? ('profesor@' + institutionDomain()) : 'profesor@institucion.edu'"
+        [ngModel]="email()"
+        (ngModelChange)="email.set($event)"
+        class="form-input with-icon"
+        autofocus
+        autocomplete="email"
+      />
     </div>
 
-    <!-- Pie del Modal -->
-    <footer class="modal-footer">
-      <button class="btn-cancel" (click)="close.emit()">
-        <span>Cancelar</span>
-      </button>
-      <button 
-        class="btn-submit" 
-        [disabled]="!isValidEmail() || isSubmitting()" 
-        (click)="onSubmit()">
-        @if (isSubmitting()) {
-          <div class="tenant-spinner-sm"></div>
-          <span>Generando...</span>
-        } @else {
-          <svg lucideShieldCheck class="btn-icon"></svg>
-          <span>Generar Token e Invitar</span>
-        }
-      </button>
-    </footer>
+    @if (isExternalDomain()) {
+      <div class="domain-warning-box">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <div class="warning-content">
+          <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
+          <p class="warning-text">
+            El correo no coincide con el dominio oficial ({{ institutionDomain() }}). Si la institución restringe el acceso con Google Workspace institucional, el docente no podrá completar su registro.
+          </p>
+        </div>
+      </div>
+    }
+  </form-field>
+
+  <div class="checkbox-group">
+    <label class="checkbox-label">
+      <input
+        type="checkbox"
+        [checked]="sendEmail()"
+        (change)="sendEmail.set(!sendEmail())"
+      />
+      <span class="checkbox-text">
+        Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas)
+      </span>
+    </label>
   </div>
-</div>
+
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="close.emit()">
+      <span>Cancelar</span>
+    </button>
+    <button
+      class="btn-primary"
+      [disabled]="!isValidEmail() || isSubmitting()"
+      (click)="onSubmit()"
+    >
+      @if (isSubmitting()) {
+        <div class="tenant-spinner-sm"></div>
+        <span>Generando...</span>
+      } @else {
+        <svg lucideShieldCheck class="btn-icon"></svg>
+        <span>Generar Token e Invitar</span>
+      }
+    </button>
+  </ng-container>
+</modal-shell>

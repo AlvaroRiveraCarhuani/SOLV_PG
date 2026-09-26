@@ -11,6 +11,8 @@ import { PeriodManageModalComponent } from './components/period-manage-modal/per
 import { CourseCreateModalComponent } from './components/course-create-modal/course-create-modal.component';
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
@@ -52,6 +54,8 @@ interface ToastState {
     CourseCreateModalComponent,
     CourseReassignModalComponent,
     ConfirmModalComponent,
+    ModalShellComponent,
+    FormFieldComponent,
     LucideBookOpen,
     LucidePlus,
     LucideCheckCircle,
@@ -327,8 +331,6 @@ export class AdminCoursesComponent implements OnInit {
   handleEscape(): void {
     if (this.courseToToggleArchive()) {
       this.cancelToggleArchive();
-    } else if (this.editingCourse()) {
-      this.closeEditCourseModal();
     } else if (this.selectedCourseForReassign()) {
       this.closeReassignModal();
     } else if (this.showCreateCourseModal()) {

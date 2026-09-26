@@ -1,29 +1,31 @@
-import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { 
-  AdminCoursesService, 
-  AcademicPeriod, 
-  DockerTemplateItem, 
-  CreateCoursePayload 
+import {
+  AdminCoursesService,
+  AcademicPeriod,
+  DockerTemplateItem,
+  CreateCoursePayload
 } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
-import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
-import { 
-  LucideBookPlus, 
-  LucideX, 
-  LucideAlertCircle 
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import {
+  LucideBookPlus,
+  LucideAlertCircle
 } from '@lucide/angular';
 
 @Component({
   selector: 'course-create-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
+    CommonModule,
+    FormsModule,
     ComboboxComponent,
-    LucideBookPlus, 
-    LucideX, 
+    ModalShellComponent,
+    FormFieldComponent,
+    LucideBookPlus,
     LucideAlertCircle
   ],
   templateUrl: './course-create-modal.component.html',
@@ -39,11 +41,6 @@ export class CourseCreateModalComponent implements OnInit {
 
   @Output() close = new EventEmitter<void>();
   @Output() courseCreated = new EventEmitter<void>();
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.close.emit();
-  }
 
   // Campos del formulario
   name = signal<string>('');

@@ -1,26 +1,28 @@
-import { Component, EventEmitter, Input, Output, HostListener, OnInit, inject, signal, computed } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminCoursesService, AdminCourseItem } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
-import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
-import { 
-  LucideArrowRightLeft, 
-  LucideX, 
-  LucideAlertCircle, 
-  LucideFileText 
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import {
+  LucideArrowRightLeft,
+  LucideAlertCircle,
+  LucideFileText
 } from '@lucide/angular';
 
 @Component({
   selector: 'course-reassign-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
+    CommonModule,
+    FormsModule,
     ComboboxComponent,
-    LucideArrowRightLeft, 
-    LucideX, 
-    LucideAlertCircle, 
+    ModalShellComponent,
+    FormFieldComponent,
+    LucideArrowRightLeft,
+    LucideAlertCircle,
     LucideFileText
   ],
   templateUrl: './course-reassign-modal.component.html',
@@ -34,11 +36,6 @@ export class CourseReassignModalComponent implements OnInit {
 
   @Output() close = new EventEmitter<void>();
   @Output() reassignCompleted = new EventEmitter<void>();
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.close.emit();
-  }
 
   selectedTeacherId = signal<string>('');
   reason = signal<string>('');

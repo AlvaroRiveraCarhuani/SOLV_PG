@@ -1,13 +1,15 @@
-import { Component, input, output, signal, HostListener } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminStudentItem } from '../../../services/admin-students.service';
-import { LucideAlertTriangle, LucideX, LucideRotateCcw } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { LucideAlertTriangle, LucideRotateCcw } from '@lucide/angular';
 
 @Component({
   selector: 'student-reset-oom-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideAlertTriangle, LucideX, LucideRotateCcw],
+  imports: [CommonModule, FormsModule, ModalShellComponent, FormFieldComponent, LucideAlertTriangle, LucideRotateCcw],
   templateUrl: './student-reset-oom-modal.component.html',
   styleUrls: ['./student-reset-oom-modal.component.scss']
 })
@@ -20,13 +22,6 @@ export class StudentResetOOMModalComponent {
 
   reason = signal<string>('');
   error = signal<string | null>(null);
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    if (!this.isSubmitting()) {
-      this.close.emit();
-    }
-  }
 
   onSubmit(): void {
     const trimmed = this.reason().trim();

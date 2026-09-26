@@ -1,96 +1,74 @@
-<div class="modal-backdrop" (click)="close.emit()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <div class="header-info">
-        <div class="header-icon-box">
-          <svg lucideBookPlus class="header-icon"></svg>
-        </div>
-        <div>
-          <h2 class="modal-title">Nuevo Curso Institucional</h2>
-          <p class="modal-subtitle">Alta de materia oficial y asignación de titular docente.</p>
-        </div>
-      </div>
-      <button class="btn-close" (click)="close.emit()" title="Cerrar modal" aria-label="Cerrar">
-        <svg lucideX class="close-icon"></svg>
-      </button>
+<modal-shell
+  title="Nuevo Curso Institucional"
+  subtitle="Alta de materia oficial y asignación de titular docente."
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideBookPlus class="header-icon"></svg>
+
+  @if (formError()) {
+    <div class="error-banner">
+      <svg lucideAlertCircle class="error-icon"></svg>
+      <span>{{ formError() }}</span>
     </div>
+  }
 
-    <!-- Error Banner -->
-    @if (formError()) {
-      <div class="error-banner">
-        <svg lucideAlertCircle class="error-icon"></svg>
-        <span>{{ formError() }}</span>
-      </div>
-    }
+  <div class="form-row">
+    <form-field class="flex-2" label="Nombre de la Materia" for="courseName" [required]="true">
+      <input
+        id="courseName"
+        type="text"
+        placeholder="ej. Sistemas Operativos II"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)"
+        class="form-input"
+      />
+    </form-field>
 
-    <!-- Form Body -->
-    <div class="modal-body">
-      <div class="form-row">
-        <div class="form-group flex-2">
-          <label for="courseName" class="form-label">Nombre de la Materia *</label>
-          <input 
-            id="courseName" 
-            type="text" 
-            placeholder="ej. Sistemas Operativos II" 
-            [ngModel]="name()" 
-            (ngModelChange)="name.set($event)" 
-            class="form-input" 
-          />
-        </div>
-
-        <div class="form-group flex-1">
-          <label for="courseCode" class="form-label">Código Oficial *</label>
-          <input 
-            id="courseCode" 
-            type="text" 
-            placeholder="ej. SIS-311" 
-            [ngModel]="code()" 
-            (ngModelChange)="code.set($event)" 
-            class="form-input uppercase" 
-          />
-        </div>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Periodo Académico (Semestre)</label>
-        <combobox
-          [value]="selectedPeriodLabel()"
-          [options]="periodComboboxOptions()"
-          placeholder="Seleccione o busque un periodo académico..."
-          (optionSelected)="onPeriodSelected($event)"
-        ></combobox>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Docente Titular Asignado</label>
-        <combobox
-          [value]="selectedTeacherLabel()"
-          [options]="teacherComboboxOptions()"
-          placeholder="Seleccione o busque docente titular..."
-          (optionSelected)="onTeacherSelected($event)"
-        ></combobox>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label">Plantilla Docker Base</label>
-        <combobox
-          [value]="selectedTemplateLabel()"
-          [options]="templateComboboxOptions()"
-          placeholder="Seleccione o busque plantilla Docker base..."
-          (optionSelected)="onTemplateSelected($event)"
-        ></combobox>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
-        Cancelar
-      </button>
-      <button class="btn-primary" (click)="submitCourse()" [disabled]="isSubmitting()">
-        <span>{{ isSubmitting() ? 'Creando curso...' : 'Crear Curso' }}</span>
-      </button>
-    </div>
+    <form-field class="flex-1" label="Código Oficial" for="courseCode" [required]="true">
+      <input
+        id="courseCode"
+        type="text"
+        placeholder="ej. SIS-311"
+        [ngModel]="code()"
+        (ngModelChange)="code.set($event)"
+        class="form-input uppercase"
+      />
+    </form-field>
   </div>
-</div>
+
+  <form-field label="Periodo Académico (Semestre)">
+    <combobox
+      [value]="selectedPeriodLabel()"
+      [options]="periodComboboxOptions()"
+      placeholder="Seleccione o busque un periodo académico..."
+      (optionSelected)="onPeriodSelected($event)"
+    ></combobox>
+  </form-field>
+
+  <form-field label="Docente Titular Asignado">
+    <combobox
+      [value]="selectedTeacherLabel()"
+      [options]="teacherComboboxOptions()"
+      placeholder="Seleccione o busque docente titular..."
+      (optionSelected)="onTeacherSelected($event)"
+    ></combobox>
+  </form-field>
+
+  <form-field label="Plantilla Docker Base">
+    <combobox
+      [value]="selectedTemplateLabel()"
+      [options]="templateComboboxOptions()"
+      placeholder="Seleccione o busque plantilla Docker base..."
+      (optionSelected)="onTemplateSelected($event)"
+    ></combobox>
+  </form-field>
+
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+      Cancelar
+    </button>
+    <button class="btn-primary" (click)="submitCourse()" [disabled]="isSubmitting()">
+      <span>{{ isSubmitting() ? 'Creando curso...' : 'Crear Curso' }}</span>
+    </button>
+  </ng-container>
+</modal-shell>

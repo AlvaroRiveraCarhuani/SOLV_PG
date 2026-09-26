@@ -1,35 +1,11 @@
-.header-icon-wrapper {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md, 8px);
-  background-color: rgba(37, 99, 235, 0.08);
-  color: var(--tenant-primary, #2563EB);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-
-  .header-icon {
-    width: 20px;
-    height: 20px;
-  }
-}
-
 .form-error-banner {
-  background-color: rgba(220, 38, 38, 0.08);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  color: #B91C1C;
+  background-color: var(--status-failed-bg);
+  border: 1px solid var(--status-failed-border);
+  color: var(--status-failed-color);
   font-size: var(--text-xs);
   padding: 0.6rem 0.8rem;
-  border-radius: var(--radius-sm, 6px);
+  border-radius: var(--radius-sm);
   margin-bottom: 1rem;
-}
-
-.input-hint {
-  font-size: 11px;
-  color: var(--text-muted, #94A3B8);
-  margin-top: 0.35rem;
-  display: block;
 }
 
 .btn-icon {
@@ -40,9 +16,9 @@
 .domain-warning-box {
   margin-top: 0.5rem;
   padding: 0.625rem 0.75rem;
-  background-color: #FFFBEB;
-  border: 1px solid #FCD34D;
-  border-radius: var(--radius-sm, 6px);
+  background-color: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
@@ -51,7 +27,7 @@
   .warning-icon {
     width: 16px;
     height: 16px;
-    color: #D97706;
+    color: var(--status-pending-color);
     flex-shrink: 0;
     margin-top: 2px;
   }
@@ -63,15 +39,15 @@
   }
 
   .warning-title {
-    font-size: 11.5px;
+    font-size: var(--text-xs);
     font-weight: 600;
-    color: #B45309;
+    color: var(--status-pending-color);
   }
 
   .warning-text {
-    font-size: 11px;
-    color: #92400E;
-    line-height: 1.4;
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+    line-height: var(--leading-normal);
     margin: 0;
   }
 }

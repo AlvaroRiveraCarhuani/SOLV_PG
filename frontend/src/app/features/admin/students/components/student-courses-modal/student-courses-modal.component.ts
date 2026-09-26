@@ -1,12 +1,12 @@
-import { Component, input, output, HostListener } from '@angular/core';
+import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AdminStudentItem, AdminStudentCourseItem } from '../../../services/admin-students.service';
-import { 
-  LucideBookOpen, 
-  LucideX, 
-  LucideCpu, 
-  LucideAlertTriangle, 
-  LucideUserCheck, 
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import {
+  LucideBookOpen,
+  LucideCpu,
+  LucideAlertTriangle,
+  LucideUserCheck,
   LucideCalendar,
   LucideRotateCcw,
   LucidePause
@@ -16,12 +16,12 @@ import {
   selector: 'student-courses-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    LucideBookOpen, 
-    LucideX, 
-    LucideCpu, 
-    LucideAlertTriangle, 
-    LucideUserCheck, 
+    CommonModule,
+    ModalShellComponent,
+    LucideBookOpen,
+    LucideCpu,
+    LucideAlertTriangle,
+    LucideUserCheck,
     LucideCalendar,
     LucideRotateCcw,
     LucidePause
@@ -38,11 +38,6 @@ export class StudentCoursesModalComponent {
   close = output<void>();
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    this.close.emit();
-  }
 
   formatDate(dateStr?: string | null): string {
     if (!dateStr) return 'Sin fecha';

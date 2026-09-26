@@ -247,62 +247,47 @@
 
   <!-- Modal de Edición de Curso -->
   @if (editingCourse(); as course) {
-    <div class="modal-backdrop" (click)="closeEditCourseModal()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div class="header-info">
-            <div class="header-icon-box">
-              <svg lucideBookOpen class="header-icon"></svg>
-            </div>
-            <div>
-              <h2 class="modal-title">Editar Materia</h2>
-              <p class="modal-subtitle">Modificar nombre y código oficial de la materia.</p>
-            </div>
-          </div>
-          <button class="btn-close" (click)="closeEditCourseModal()" title="Cerrar modal">
-            <svg lucideX class="close-icon"></svg>
-          </button>
+    <modal-shell
+      title="Editar Materia"
+      subtitle="Modificar nombre y código oficial de la materia."
+      (close)="closeEditCourseModal()"
+    >
+      <svg modal-icon lucideBookOpen class="icon"></svg>
+
+      @if (editCourseError()) {
+        <div class="error-banner">
+          <svg lucideAlertCircle class="error-icon"></svg>
+          <span>{{ editCourseError() }}</span>
         </div>
+      }
 
-        @if (editCourseError()) {
-          <div class="error-banner">
-            <svg lucideAlertCircle class="error-icon"></svg>
-            <span>{{ editCourseError() }}</span>
-          </div>
-        }
+      <form-field label="Nombre de la Materia" for="editCourseName" [required]="true">
+        <input
+          id="editCourseName"
+          type="text"
+          [ngModel]="editCourseName()"
+          (ngModelChange)="editCourseName.set($event)"
+          class="form-input"
+        />
+      </form-field>
 
-        <div class="modal-body">
-          <div class="form-group">
-            <label for="editCourseName" class="form-label">Nombre de la Materia *</label>
-            <input 
-              id="editCourseName" 
-              type="text" 
-              [ngModel]="editCourseName()" 
-              (ngModelChange)="editCourseName.set($event)" 
-              class="form-input" 
-            />
-          </div>
+      <form-field label="Código Oficial" for="editCourseCode" [required]="true">
+        <input
+          id="editCourseCode"
+          type="text"
+          [ngModel]="editCourseCode()"
+          (ngModelChange)="editCourseCode.set($event)"
+          class="form-input uppercase"
+        />
+      </form-field>
 
-          <div class="form-group">
-            <label for="editCourseCode" class="form-label">Código Oficial *</label>
-            <input 
-              id="editCourseCode" 
-              type="text" 
-              [ngModel]="editCourseCode()" 
-              (ngModelChange)="editCourseCode.set($event)" 
-              class="form-input uppercase" 
-            />
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-outline" (click)="closeEditCourseModal()">Cancelar</button>
-          <button class="btn-primary-sm" [disabled]="isSubmittingEditCourse()" (click)="saveEditCourse(course)">
-            <span>{{ isSubmittingEditCourse() ? 'Guardando...' : 'Guardar Cambios' }}</span>
-          </button>
-        </div>
-      </div>
-    </div>
+      <ng-container modal-footer>
+        <button class="btn-outline" (click)="closeEditCourseModal()">Cancelar</button>
+        <button class="btn-primary-sm" [disabled]="isSubmittingEditCourse()" (click)="saveEditCourse(course)">
+          <span>{{ isSubmittingEditCourse() ? 'Guardando...' : 'Guardar Cambios' }}</span>
+        </button>
+      </ng-container>
+    </modal-shell>
   }
 
   <!-- Modal Institucional de Confirmación de Archivo/Activación de Curso -->

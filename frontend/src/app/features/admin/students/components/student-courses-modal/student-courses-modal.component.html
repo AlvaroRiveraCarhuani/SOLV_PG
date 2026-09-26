@@ -1,128 +1,108 @@
-<div class="modal-backdrop" (click)="close.emit()">
-  <div class="modal-card modal-lg" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <div class="header-left">
-        <div class="header-icon-wrapper">
-          <svg lucideBookOpen class="header-icon"></svg>
-        </div>
-        <div>
-          <h2 class="modal-title">Materias Asignadas</h2>
-          <p class="modal-subtitle">
-            {{ student().first_name }} {{ student().last_name }} &bull; {{ student().email }}
-          </p>
-        </div>
-      </div>
-      <button class="btn-close" (click)="close.emit()" title="Cerrar modal">
-        <svg lucideX class="close-icon"></svg>
-      </button>
+<modal-shell
+  title="Materias Asignadas"
+  maxWidth="720px"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideBookOpen class="icon"></svg>
+  <span modal-subtitle>
+    {{ student().first_name }} {{ student().last_name }} &bull; {{ student().email }}
+  </span>
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Consultando materias y espacios de trabajo...</span>
     </div>
-
-    <!-- Body -->
-    <div class="modal-body">
-      @if (isLoading()) {
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <span>Consultando materias y espacios de trabajo...</span>
-        </div>
-      } @else if (courses().length === 0) {
-        <div class="empty-state">
-          <p>El estudiante no se encuentra matriculado en materias registradas.</p>
-        </div>
-      } @else {
-        <div class="courses-list">
-          @for (course of courses(); track course.subject_id) {
-            <div class="course-card">
-              <div class="course-main-info">
-                <div class="course-code-badge">{{ course.subject_code }}</div>
-                <div class="course-title-group">
-                  <h3 class="course-name">{{ course.subject_name }}</h3>
-                  <div class="course-teacher">
-                    <svg lucideUserCheck class="info-icon"></svg>
-                    <span>Docente: <strong>{{ course.teacher_name }}</strong></span>
-                  </div>
-                </div>
-              </div>
-
-              <div class="course-tech-details">
-                <!-- Estado del Entorno Docker -->
-                <div class="tech-item">
-                  <span class="tech-label">Espacio de trabajo:</span>
-                  <span class="status-pill" [ngClass]="getWorkspaceBadgeClass(course.workspace_status)">
-                    {{ getWorkspaceLabel(course.workspace_status) }}
-                  </span>
-                </div>
-
-                <!-- Límite de Memoria RAM -->
-                @if (course.memory_limit_mb) {
-                  <div class="tech-item">
-                    <span class="tech-label">Límite RAM:</span>
-                    <span class="ram-badge">
-                      <svg lucideCpu class="badge-icon"></svg>
-                      {{ course.memory_limit_mb }} MB
-                    </span>
-                  </div>
-                }
-
-                <!-- Strikes OOM en la materia -->
-                <div class="tech-item">
-                  <span class="tech-label">Strikes OOM:</span>
-                  @if ((course.oom_strike_count ?? 0) === 0) {
-                    <span class="strikes-pill zero">0 strikes</span>
-                  } @else if ((course.oom_strike_count ?? 0) < 3) {
-                    <span class="strikes-pill warning">
-                      <svg lucideAlertTriangle class="badge-icon"></svg>
-                      {{ course.oom_strike_count }} / 3 strikes
-                    </span>
-                  } @else {
-                    <span class="strikes-pill blocked">
-                      <svg lucideAlertTriangle class="badge-icon"></svg>
-                      3 / 3 (Bloqueado)
-                    </span>
-                  }
-                </div>
-
-                <!-- Acciones directas sobre el contenedor -->
-                @if (course.workspace_id) {
-                  <div class="tech-item workspace-actions">
-                    <button 
-                      class="btn-ws-action restart" 
-                      (click)="restartWorkspace.emit(course.workspace_id!)"
-                      [disabled]="actionInProgressId() === course.workspace_id"
-                      title="Reiniciar contenedor en Docker">
-                      <svg lucideRotateCcw class="ws-action-icon" [class.spin]="actionInProgressId() === course.workspace_id"></svg>
-                      <span>{{ actionInProgressId() === course.workspace_id ? 'Procesando...' : 'Reiniciar' }}</span>
-                    </button>
-                    @if (course.workspace_status === 'running') {
-                      <button 
-                        class="btn-ws-action pause" 
-                        (click)="pauseWorkspace.emit(course.workspace_id!)"
-                        [disabled]="actionInProgressId() === course.workspace_id"
-                        title="Pausar contenedor para liberar RAM">
-                        <svg lucidePause class="ws-action-icon"></svg>
-                        <span>{{ actionInProgressId() === course.workspace_id ? 'Pausando...' : 'Pausar' }}</span>
-                      </button>
-                    }
-                  </div>
-                }
-
-                <!-- Fecha de Registro -->
-                <div class="tech-item enrollment-date">
-                  <svg lucideCalendar class="info-icon"></svg>
-                  <span>Matriculado el {{ formatDate(course.enrolled_at) }}</span>
-                </div>
+  } @else if (courses().length === 0) {
+    <div class="empty-state">
+      <p>El estudiante no se encuentra matriculado en materias registradas.</p>
+    </div>
+  } @else {
+    <div class="courses-list">
+      @for (course of courses(); track course.subject_id) {
+        <div class="course-card">
+          <div class="course-main-info">
+            <div class="course-code-badge">{{ course.subject_code }}</div>
+            <div class="course-title-group">
+              <h3 class="course-name">{{ course.subject_name }}</h3>
+              <div class="course-teacher">
+                <svg lucideUserCheck class="info-icon"></svg>
+                <span>Docente: <strong>{{ course.teacher_name }}</strong></span>
               </div>
             </div>
-          }
+          </div>
+
+          <div class="course-tech-details">
+            <div class="tech-item">
+              <span class="tech-label">Espacio de trabajo:</span>
+              <span class="status-pill" [ngClass]="getWorkspaceBadgeClass(course.workspace_status)">
+                {{ getWorkspaceLabel(course.workspace_status) }}
+              </span>
+            </div>
+
+            @if (course.memory_limit_mb) {
+              <div class="tech-item">
+                <span class="tech-label">Límite RAM:</span>
+                <span class="ram-badge">
+                  <svg lucideCpu class="badge-icon"></svg>
+                  {{ course.memory_limit_mb }} MB
+                </span>
+              </div>
+            }
+
+            <div class="tech-item">
+              <span class="tech-label">Strikes OOM:</span>
+              @if ((course.oom_strike_count ?? 0) === 0) {
+                <span class="strikes-pill zero">0 strikes</span>
+              } @else if ((course.oom_strike_count ?? 0) < 3) {
+                <span class="strikes-pill warning">
+                  <svg lucideAlertTriangle class="badge-icon"></svg>
+                  {{ course.oom_strike_count }} / 3 strikes
+                </span>
+              } @else {
+                <span class="strikes-pill blocked">
+                  <svg lucideAlertTriangle class="badge-icon"></svg>
+                  3 / 3 (Bloqueado)
+                </span>
+              }
+            </div>
+
+            @if (course.workspace_id) {
+              <div class="tech-item workspace-actions">
+                <button
+                  class="btn-ws-action restart"
+                  (click)="restartWorkspace.emit(course.workspace_id!)"
+                  [disabled]="actionInProgressId() === course.workspace_id"
+                  title="Reiniciar contenedor en Docker">
+                  <svg lucideRotateCcw class="ws-action-icon" [class.spin]="actionInProgressId() === course.workspace_id"></svg>
+                  <span>{{ actionInProgressId() === course.workspace_id ? 'Procesando...' : 'Reiniciar' }}</span>
+                </button>
+                @if (course.workspace_status === 'running') {
+                  <button
+                    class="btn-ws-action pause"
+                    (click)="pauseWorkspace.emit(course.workspace_id!)"
+                    [disabled]="actionInProgressId() === course.workspace_id"
+                    title="Pausar contenedor para liberar RAM">
+                    <svg lucidePause class="ws-action-icon"></svg>
+                    <span>{{ actionInProgressId() === course.workspace_id ? 'Pausando...' : 'Pausar' }}</span>
+                  </button>
+                }
+              </div>
+            }
+
+            <div class="tech-item enrollment-date">
+              <svg lucideCalendar class="info-icon"></svg>
+              <span>Matriculado el {{ formatDate(course.enrolled_at) }}</span>
+            </div>
+          </div>
         </div>
       }
     </div>
+  }
 
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button class="btn-outline" (click)="close.emit()">
-        Cerrar
-      </button>
-    </div>
-  </div>
-</div>
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="close.emit()">
+      Cerrar
+    </button>
+  </ng-container>
+</modal-shell>

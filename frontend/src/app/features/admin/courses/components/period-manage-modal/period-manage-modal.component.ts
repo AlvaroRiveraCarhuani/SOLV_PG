@@ -3,12 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AcademicPeriod, AdminCoursesService, CreateAcademicPeriodDTO } from '../../../services/admin-courses.service';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
-import { 
-  LucideCalendar, 
-  LucidePlus, 
-  LucideCheck, 
-  LucideX, 
-  LucideTrash2, 
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import {
+  LucideCalendar,
+  LucidePlus,
+  LucideCheck,
+  LucideTrash2,
   LucideAlertCircle,
   LucidePencil
 } from '@lucide/angular';
@@ -17,14 +18,15 @@ import {
   selector: 'period-manage-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
+    CommonModule,
+    FormsModule,
     ConfirmModalComponent,
-    LucideCalendar, 
-    LucidePlus, 
-    LucideCheck, 
-    LucideX, 
-    LucideTrash2, 
+    ModalShellComponent,
+    FormFieldComponent,
+    LucideCalendar,
+    LucidePlus,
+    LucideCheck,
+    LucideTrash2,
     LucideAlertCircle,
     LucidePencil
   ],

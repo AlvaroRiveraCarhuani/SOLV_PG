@@ -262,75 +262,53 @@
 
   <!-- Modal de Feedback de Invitación (Neutral, profesional) -->
   @if (tokenFeedback(); as feedback) {
-    <div class="modal-backdrop" (click)="tokenFeedback.set(null)">
-      <div class="feedback-card" (click)="$event.stopPropagation()">
-        <header class="feedback-header">
-          <div class="feedback-icon-circle">
-            <svg lucideCheckCircle class="feedback-icon"></svg>
-          </div>
-          <div>
-            <h3 class="feedback-title">{{ feedback.title }}</h3>
-            <p class="feedback-subtitle">Destinatario: <strong>{{ feedback.email }}</strong></p>
-          </div>
-          <button class="btn-close-card" (click)="tokenFeedback.set(null)" title="Cerrar">✕</button>
-        </header>
+    <modal-shell [title]="feedback.title" intent="success" (close)="tokenFeedback.set(null)">
+      <svg modal-icon lucideCheckCircle class="icon"></svg>
+      <span modal-subtitle>Destinatario: <strong>{{ feedback.email }}</strong></span>
 
-        <div class="feedback-body">
-          <div class="info-alert">
-            <svg lucideSend class="alert-icon"></svg>
-            <p class="alert-text">
-              Se ha enviado la notificación por correo electrónico para que el docente active su cuenta institucional mediante Google Workspace SSO.
-            </p>
-          </div>
-
-          <div class="direct-link-section">
-            <label class="direct-link-label">Enlace de acceso directo (vigencia de 72 horas):</label>
-            <div class="token-box">
-              <input type="text" readonly [value]="feedback.inviteUrl" class="token-input" />
-              <button class="btn-copy" (click)="copyTokenUrl(feedback.inviteUrl)" [class.copied]="copied()">
-                @if (!copied()) {
-                  <svg lucideCopy class="btn-icon"></svg>
-                } @else {
-                  <svg lucideCheckCircle class="btn-icon"></svg>
-                }
-                <span>{{ copied() ? '¡Copiado!' : 'Copiar enlace' }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <footer class="feedback-footer">
-          <button class="btn-primary" (click)="tokenFeedback.set(null)">
-            <span>Aceptar y Cerrar</span>
-          </button>
-        </footer>
+      <div class="info-alert">
+        <svg lucideSend class="alert-icon"></svg>
+        <p class="alert-text">
+          Se ha enviado la notificación por correo electrónico para que el docente active su cuenta institucional mediante Google Workspace SSO.
+        </p>
       </div>
-    </div>
+
+      <div class="direct-link-section">
+        <label class="direct-link-label">Enlace de acceso directo (vigencia de 72 horas):</label>
+        <div class="token-box">
+          <input type="text" readonly [value]="feedback.inviteUrl" class="token-input" />
+          <button class="btn-copy" (click)="copyTokenUrl(feedback.inviteUrl)" [class.copied]="copied()">
+            @if (!copied()) {
+              <svg lucideCopy class="btn-icon"></svg>
+            } @else {
+              <svg lucideCheckCircle class="btn-icon"></svg>
+            }
+            <span>{{ copied() ? '¡Copiado!' : 'Copiar enlace' }}</span>
+          </button>
+        </div>
+      </div>
+
+      <ng-container modal-footer>
+        <button class="btn-primary" (click)="tokenFeedback.set(null)">
+          <span>Aceptar y Cerrar</span>
+        </button>
+      </ng-container>
+    </modal-shell>
   }
 
   <!-- Modal: Materias Asignadas y Reasignación de Docente -->
   @if (selectedTeacherForCourses(); as teacher) {
-    <div class="modal-backdrop" (click)="closeTeacherCoursesModal()">
-      <div class="courses-dialog" (click)="$event.stopPropagation()">
-        <header class="courses-header">
-          <div class="courses-header-info">
-            <div class="teacher-avatar-lg">
-              {{ getInitials(teacher.full_name) }}
-            </div>
-            <div class="courses-header-meta">
-              <div class="courses-title-row">
-                <h3 class="courses-title">Materias Asignadas</h3>
-                <span class="academic-load-badge">
-                  {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }} · {{ totalStudentsForTeacher() }} estudiantes a cargo
-                </span>
-              </div>
-              <p class="courses-subtitle">{{ teacher.full_name }} · <span class="teacher-email-sub">{{ teacher.email }}</span></p>
-            </div>
-          </div>
-          <button class="btn-close-card" (click)="closeTeacherCoursesModal()" title="Cerrar modal">✕</button>
-        </header>
+    <modal-shell
+      title="Materias Asignadas"
+      maxWidth="620px"
+      (close)="closeTeacherCoursesModal()"
+    >
+      <span modal-icon class="avatar-initials">{{ getInitials(teacher.full_name) }}</span>
+      <span modal-subtitle>
+        {{ teacher.full_name }} · {{ teacher.email }} · {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }} · {{ totalStudentsForTeacher() }} estudiantes a cargo
+      </span>
 
-        <div class="courses-body">
+      <div class="courses-scroll">
           @if (isLoadingCourses()) {
             <div class="courses-loading">
               <div class="tenant-spinner-sm"></div>
@@ -368,26 +346,24 @@
                         <span class="panel-tag">Reasignación de docente para {{ course.code }}</span>
                       </div>
                       <div class="reassign-form">
-                        <div class="form-group">
-                          <label class="form-label">Nuevo docente asignado:</label>
-                          <combobox
-                            [compact]="true"
-                            [value]="selectedNewTeacherLabel()"
-                            [options]="activeTeacherComboboxOptions()"
-                            placeholder="Seleccione el nuevo docente..."
-                            (optionSelected)="onNewTeacherSelected($event)"
-                          ></combobox>
-                        </div>
-                        <div class="form-group">
-                          <label class="form-label">Motivo del cambio (opcional):</label>
-                          <input 
-                            type="text" 
-                            placeholder="Ej. Rotación de materias, licencia temporal..."
-                            [ngModel]="reassignReason()" 
-                            (ngModelChange)="reassignReason.set($event)"
-                            class="form-input"
-                          />
-                        </div>
+                      <form-field label="Nuevo docente asignado">
+                        <combobox
+                          [compact]="true"
+                          [value]="selectedNewTeacherLabel()"
+                          [options]="activeTeacherComboboxOptions()"
+                          placeholder="Seleccione el nuevo docente..."
+                          (optionSelected)="onNewTeacherSelected($event)"
+                        ></combobox>
+                      </form-field>
+                      <form-field label="Motivo del cambio (opcional)">
+                        <input
+                          type="text"
+                          placeholder="Ej. Rotación de materias, licencia temporal..."
+                          [ngModel]="reassignReason()"
+                          (ngModelChange)="reassignReason.set($event)"
+                          class="form-input"
+                        />
+                      </form-field>
                         <div class="reassign-actions">
                           <button 
                             class="btn-sm-primary" 
@@ -434,8 +410,7 @@
                     </div>
                   } @else {
                     <div class="reassign-form">
-                      <div class="form-group">
-                        <label class="form-label">Materia a asignar:</label>
+                      <form-field label="Materia a asignar">
                         <combobox
                           [compact]="true"
                           [value]="selectedCourseToAssignLabel()"
@@ -443,17 +418,16 @@
                           placeholder="Seleccione una materia disponible..."
                           (optionSelected)="onCourseToAssignSelected($event)"
                         ></combobox>
-                      </div>
-                      <div class="form-group">
-                        <label class="form-label">Motivo de asignación (opcional):</label>
-                        <input 
-                          type="text" 
+                      </form-field>
+                      <form-field label="Motivo de asignación (opcional)">
+                        <input
+                          type="text"
                           placeholder="Ej. Asignación inicial de carga docente"
-                          [ngModel]="reassignReason()" 
+                          [ngModel]="reassignReason()"
                           (ngModelChange)="reassignReason.set($event)"
                           class="form-input"
                         />
-                      </div>
+                      </form-field>
                       <div class="reassign-actions">
                         <button 
                           class="btn-sm-primary" 
@@ -478,15 +452,14 @@
               }
             </div>
           }
-        </div>
-
-        <footer class="courses-footer">
-          <button class="btn-secondary" (click)="closeTeacherCoursesModal()">
-            <span>Cerrar</span>
-          </button>
-        </footer>
       </div>
-    </div>
+
+      <ng-container modal-footer>
+        <button class="btn-secondary" (click)="closeTeacherCoursesModal()">
+          <span>Cerrar</span>
+        </button>
+      </ng-container>
+    </modal-shell>
   }
 
   <!-- Modal Institucional de Confirmación de Baja -->

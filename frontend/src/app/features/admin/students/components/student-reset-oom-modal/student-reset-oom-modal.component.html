@@ -1,78 +1,65 @@
-<div class="modal-backdrop" (click)="close.emit()">
-  <div class="modal-card" (click)="$event.stopPropagation()">
-    <!-- Header -->
-    <div class="modal-header">
-      <div class="header-left">
-        <div class="warning-icon-wrapper">
-          <svg lucideAlertTriangle class="header-icon"></svg>
-        </div>
-        <div>
-          <h2 class="modal-title">Desbloqueo de Penalizaciones OOM</h2>
-          <p class="modal-subtitle">
-            Estudiante: <strong>{{ student().first_name }} {{ student().last_name }}</strong> ({{ student().email }})
-          </p>
-        </div>
-      </div>
-      <button class="btn-close" (click)="close.emit()" [disabled]="isSubmitting()">
-        <svg lucideX class="close-icon"></svg>
-      </button>
+<modal-shell
+  title="Desbloqueo de Penalizaciones OOM"
+  intent="warning"
+  [disableClose]="isSubmitting()"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideAlertTriangle class="icon"></svg>
+  <span modal-subtitle>
+    Estudiante: <strong>{{ student().first_name }} {{ student().last_name }}</strong> ({{ student().email }})
+  </span>
+
+  <div class="info-alert">
+    <p>
+      Esta acción reiniciará a <strong>0 strikes</strong> todas las penalizaciones por exceso de memoria (OOM-Killed) de este estudiante, permitiéndole reanudar la ejecución de sus entornos de programación.
+    </p>
+  </div>
+
+  <div class="current-strikes-summary">
+    <div class="summary-item">
+      <span class="summary-label">Strikes actuales acumulados:</span>
+      <span class="summary-value" [class.danger]="student().oom_strike_count >= 3">
+        {{ student().oom_strike_count }} / 3
+      </span>
     </div>
-
-    <!-- Body -->
-    <div class="modal-body">
-      <div class="info-alert">
-        <p>
-          Esta acción reiniciará a <strong>0 strikes</strong> todas las penalizaciones por exceso de memoria (OOM-Killed) de este estudiante, permitiéndole reanudar la ejecución de sus entornos de programación.
-        </p>
-      </div>
-
-      <div class="current-strikes-summary">
-        <div class="summary-item">
-          <span class="summary-label">Strikes actuales acumulados:</span>
-          <span class="summary-value" [class.danger]="student().oom_strike_count >= 3">
-            {{ student().oom_strike_count }} / 3
-          </span>
-        </div>
-        <div class="summary-item">
-          <span class="summary-label">Entornos activos en ejecución:</span>
-          <span class="summary-value">{{ student().active_workspaces_count }}</span>
-        </div>
-      </div>
-
-      @if (error()) {
-        <div class="form-error-banner">
-          {{ error() }}
-        </div>
-      }
-
-      <div class="form-group">
-        <label class="form-label" for="reset-reason">
-          Motivo técnico de justificación <span class="required">*</span>
-        </label>
-        <textarea
-          id="reset-reason"
-          class="form-textarea"
-          rows="3"
-          placeholder="Ej: Código corregido tras revisión en clase presencial por bucle infinito de memoria."
-          [ngModel]="reason()"
-          (ngModelChange)="reason.set($event); error.set(null)"
-          [disabled]="isSubmitting()"></textarea>
-        <span class="input-hint">Mínimo 10 caracteres requeridos para el registro de auditoría institucional.</span>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="modal-footer">
-      <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
-        Cancelar
-      </button>
-      <button 
-        class="btn-primary" 
-        (click)="onSubmit()" 
-        [disabled]="isSubmitting() || reason().trim().length < 10">
-        <svg lucideRotateCcw class="btn-icon"></svg>
-        <span>{{ isSubmitting() ? 'Restableciendo...' : 'Restablecer penalizaciones' }}</span>
-      </button>
+    <div class="summary-item">
+      <span class="summary-label">Entornos activos en ejecución:</span>
+      <span class="summary-value">{{ student().active_workspaces_count }}</span>
     </div>
   </div>
-</div>
+
+  @if (error()) {
+    <div class="form-error-banner">
+      {{ error() }}
+    </div>
+  }
+
+  <form-field
+    label="Motivo técnico de justificación"
+    for="reset-reason"
+    [required]="true"
+    hint="Mínimo 10 caracteres requeridos para el registro de auditoría institucional."
+  >
+    <textarea
+      id="reset-reason"
+      class="form-textarea"
+      rows="3"
+      placeholder="Ej: Código corregido tras revisión en clase presencial por bucle infinito de memoria."
+      [ngModel]="reason()"
+      (ngModelChange)="reason.set($event); error.set(null)"
+      [disabled]="isSubmitting()"></textarea>
+  </form-field>
+
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+      Cancelar
+    </button>
+    <button
+      class="btn-primary"
+      (click)="onSubmit()"
+      [disabled]="isSubmitting() || reason().trim().length < 10">
+      <svg lucideRotateCcw class="btn-icon"></svg>
+      <span>{{ isSubmitting() ? 'Restableciendo...' : 'Restablecer penalizaciones' }}</span>
+    </button>
+  </ng-container>
+</modal-shell>

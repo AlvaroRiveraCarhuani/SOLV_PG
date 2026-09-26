@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
@@ -51,6 +53,8 @@ interface ToastData {
     PaginationBarComponent,
     TeacherInviteModalComponent,
     ConfirmModalComponent,
+    ModalShellComponent,
+    FormFieldComponent,
     LucideUserPlus, 
     LucideLock, 
     LucideCheckCircle, 

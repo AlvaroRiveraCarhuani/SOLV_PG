@@ -1,14 +1,16 @@
-import { Component, input, output, signal, computed, inject, HostListener } from '@angular/core';
+import { Component, input, output, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CreateStudentDTO } from '../../../services/admin-students.service';
 import { TenantService } from '@core/services/tenant.service';
-import { LucideUserPlus, LucideX, LucideAlertTriangle } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { LucideUserPlus, LucideAlertTriangle } from '@lucide/angular';
 
 @Component({
   selector: 'student-create-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideUserPlus, LucideX, LucideAlertTriangle],
+  imports: [CommonModule, FormsModule, ModalShellComponent, FormFieldComponent, LucideUserPlus, LucideAlertTriangle],
   templateUrl: './student-create-modal.component.html',
   styleUrls: ['./student-create-modal.component.scss']
 })
@@ -53,13 +55,6 @@ export class StudentCreateModalComponent {
     if (!entered || !inst || !entered.includes('.')) return false;
     return entered !== inst && !entered.endsWith('.' + inst);
   });
-
-  @HostListener('document:keydown.escape')
-  handleEscape(): void {
-    if (!this.isSubmitting()) {
-      this.close.emit();
-    }
-  }
 
   onSubmit(): void {
     const fn = this.firstName().trim();
