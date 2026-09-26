@@ -1,13 +1,15 @@
 import { Component, EventEmitter, Input, OnInit, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideX, LucideAlertTriangle } from '@lucide/angular';
-import { 
-  TemplateCategory, 
-  CreateCategoryDTO, 
-  UpdateCategoryDTO, 
-  AdminTemplatesService 
+import { LucideTag, LucideAlertTriangle } from '@lucide/angular';
+import {
+  TemplateCategory,
+  CreateCategoryDTO,
+  UpdateCategoryDTO,
+  AdminTemplatesService
 } from '../../../../../services/admin-templates.service';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 
 @Component({
   selector: 'category-form-modal',
@@ -15,7 +17,9 @@ import {
   imports: [
     CommonModule,
     FormsModule,
-    LucideX,
+    ModalShellComponent,
+    FormFieldComponent,
+    LucideTag,
     LucideAlertTriangle
   ],
   templateUrl: './category-form-modal.component.html',

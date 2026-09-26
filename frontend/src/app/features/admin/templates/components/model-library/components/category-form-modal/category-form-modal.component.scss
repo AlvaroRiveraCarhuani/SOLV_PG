@@ -1,177 +1,19 @@
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(15, 23, 42, 0.45);
+// Estilos propios del contenido (el shell —fondo, cabecera, pie— lo pone modal-shell).
+.field-error-alert {
   display: flex;
   align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 16px;
-  animation: fadeIn 150ms ease;
-}
+  gap: var(--space-2);
+  background-color: var(--status-failed-bg);
+  border: 1px solid var(--status-failed-border);
+  color: var(--color-error);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
 
-.modal-card {
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-md, 8px);
-  width: 100%;
-  max-width: 540px;
-  border: 1px solid var(--border-subtle);
-  display: flex;
-  flex-direction: column;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px 20px;
-    border-bottom: 1px solid var(--border-subtle);
-
-    .modal-title {
-      font-size: var(--text-base);
-      font-weight: 600;
-      margin: 0;
-      color: var(--text-primary);
-    }
-
-    .btn-icon-close {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-muted);
-      padding: 4px;
-      display: flex;
-      border-radius: 4px;
-
-      &:hover {
-        background-color: var(--bg-surface-active);
-        color: var(--text-primary);
-      }
-
-      .w-4 {
-        width: 16px;
-        height: 16px;
-      }
-    }
-  }
-
-  .modal-body {
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 14px;
-
-    .form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-
-      .form-label {
-        font-family: var(--font-sans);
-        font-size: var(--text-sm);
-        color: var(--text-primary);
-
-        &.font-semibold {
-          font-weight: 600;
-        }
-
-        .text-danger {
-          color: var(--color-error);
-        }
-      }
-
-      .form-control {
-        padding: 8px 12px;
-        font-family: var(--font-sans);
-        font-size: var(--text-sm);
-        border: 1px solid var(--border-strong);
-        border-radius: 6px;
-        outline: none;
-        background-color: var(--bg-surface);
-        color: var(--text-primary);
-        box-sizing: border-box;
-
-        &:focus {
-          border-color: var(--tenant-primary);
-        }
-      }
-
-      .text-area-sm {
-        resize: vertical;
-      }
-    }
-
-    .field-error-alert {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background-color: var(--status-failed-bg);
-      border: 1px solid var(--status-failed-border);
-      color: var(--color-error);
-      padding: 10px 12px;
-      border-radius: 6px;
-      font-size: var(--text-xs);
-
-      .w-4 {
-        width: 16px;
-        height: 16px;
-        flex-shrink: 0;
-      }
-    }
-  }
-
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-    padding: 14px 20px;
-    background-color: var(--bg-canvas);
-    border-top: 1px solid var(--border-subtle);
-    border-radius: 0 0 8px 8px;
-
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      font-family: var(--font-sans);
-      font-size: var(--text-sm);
-      font-weight: 500;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: all 120ms ease;
-      border: 1px solid transparent;
-
-      &.btn-secondary {
-        background-color: var(--bg-surface);
-        border-color: var(--border-strong);
-        color: var(--text-primary);
-
-        &:hover:not(:disabled) {
-          background-color: var(--bg-surface-active);
-        }
-      }
-
-      &.btn-primary {
-        background-color: var(--tenant-primary);
-        color: var(--text-inverse);
-        font-weight: 600;
-
-        &:hover:not(:disabled) {
-          filter: brightness(0.92);
-        }
-      }
-
-      &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
-    }
+  .alert-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
   }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}

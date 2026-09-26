@@ -1,75 +1,61 @@
-<div class="modal-backdrop" (click)="closeModal()">
-  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title-group">
-        <div class="modal-icon-badge">
-          <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
-        </div>
-        <div>
-          <h3 class="modal-title" i18n="@@ST-15">Promover a modelo de plantilla</h3>
-          <p class="modal-subtitle">Convierte esta plantilla aprobada en una receta base para nuevos entornos</p>
-        </div>
-      </div>
-      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
-        <svg lucideX class="w-4 h-4"></svg>
-      </button>
-    </div>
+<modal-shell
+  title="Promover a modelo de plantilla"
+  subtitle="Convierte esta plantilla aprobada en una receta base para nuevos entornos"
+  intent="warning"
+  (close)="closeModal()"
+>
+  <svg modal-icon lucideSparkles class="icon"></svg>
 
-    <div class="modal-body">
-      @if (errorMsg()) {
-        <div class="field-error-alert mb-3">
-          <svg lucideAlertCircle class="w-4 h-4"></svg>
-          <span>{{ errorMsg() }}</span>
-        </div>
+  @if (errorMsg()) {
+    <div class="field-error-alert">
+      <svg lucideAlertCircle class="alert-icon"></svg>
+      <span>{{ errorMsg() }}</span>
+    </div>
+  }
+
+  <form-field label="Nombre del Modelo">
+    <input
+      type="text"
+      class="form-input"
+      [ngModel]="modelName()"
+      (ngModelChange)="modelName.set($event)"
+    />
+  </form-field>
+
+  <form-field label="Categoría Académica" [required]="true">
+    <select
+      class="form-select"
+      required
+      [ngModel]="categoryId()"
+      (ngModelChange)="categoryId.set($event)"
+    >
+      <option [ngValue]="null" disabled>Seleccione una categoría...</option>
+      @for (cat of categories(); track cat.id) {
+        <option [value]="cat.id">{{ cat.name }}</option>
       }
+    </select>
+  </form-field>
 
-      <div class="form-group mb-3">
-        <label class="form-label font-semibold">Nombre del Modelo:</label>
-        <input 
-          type="text" 
-          class="form-control" 
-          [ngModel]="modelName()" 
-          (ngModelChange)="modelName.set($event)"
-        />
-      </div>
+  <form-field label="Descripción del Modelo (Opcional)">
+    <textarea
+      class="form-textarea"
+      rows="3"
+      [ngModel]="description()"
+      (ngModelChange)="description.set($event)"
+    ></textarea>
+  </form-field>
 
-      <div class="form-group mb-3">
-        <label class="form-label font-semibold">Categoría Académica:</label>
-        <select 
-          class="form-control form-select" 
-          [ngModel]="categoryId()" 
-          (ngModelChange)="categoryId.set($event)"
-        >
-          <option [ngValue]="null">-- Sin categoría asignada --</option>
-          @for (cat of categories(); track cat.id) {
-            <option [value]="cat.id">{{ cat.name }}</option>
-          }
-        </select>
-      </div>
-
-      <div class="form-group">
-        <label class="form-label font-semibold">Descripción del Modelo (Opcional):</label>
-        <textarea 
-          class="form-control text-area-sm" 
-          rows="3" 
-          [ngModel]="description()" 
-          (ngModelChange)="description.set($event)"
-        ></textarea>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isPromoting()">
-        Cancelar
-      </button>
-      <button 
-        type="button" 
-        class="btn-primary" 
-        [disabled]="!modelName().trim() || isPromoting()"
-        (click)="confirm()"
-      >
-        <span>Promover a Modelo</span>
-      </button>
-    </div>
-  </div>
-</div>
+  <ng-container modal-footer>
+    <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isPromoting()">
+      Cancelar
+    </button>
+    <button
+      type="button"
+      class="btn-primary"
+      [disabled]="!modelName().trim() || !categoryId() || isPromoting()"
+      (click)="confirm()"
+    >
+      <span>Promover a Modelo</span>
+    </button>
+  </ng-container>
+</modal-shell>

@@ -99,9 +99,43 @@ describe('ModelNewModalComponent', () => {
 
     component.selectedTemplateId.set('tpl-1');
     component.modelTitle.set('Python Oficial');
+    component.modelCategoryId.set('cat-1');
     component.onConfirm();
 
     expect(component.isSubmitting()).toBe(false);
     expect(component.errorMessage()).toBe('Fallo al promover');
+  });
+
+  it('debe bloquear la confirmación sin categoría con error obligatorio', () => {
+    component.selectedTemplateId.set('tpl-1');
+    component.modelTitle.set('Python Oficial');
+    component.modelCategoryId.set('');
+    component.onConfirm();
+
+    expect(templatesServiceMock.promoteToModel).not.toHaveBeenCalled();
+    expect(component.errorMessage()).toBe('La categoría es obligatoria');
+  });
+
+  it('muestra la caja del wizard con copy honesto y botón "Crear plantilla"', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    const box = compiled.querySelector('.wizard-callout-box');
+    expect(box?.textContent).toContain('¿Necesita diseñar un entorno nuevo desde cero?');
+    expect(box?.textContent).toContain('wizard de plantillas');
+    expect(box?.textContent).not.toContain('Asistente');
+    expect(box?.querySelector('button')?.textContent).toContain('Crear plantilla');
+  });
+
+  it('emite openWizard al pulsar "Crear plantilla"', () => {
+    const emitSpy = vi.spyOn(component.openWizard, 'emit');
+    const button = fixture.nativeElement.querySelector('.wizard-callout-box button') as HTMLButtonElement;
+    button.click();
+    expect(emitSpy).toHaveBeenCalled();
+  });
+
+  it('no debe ofrecer opción fantasma de categoría y el label vacío debe ser cadena vacía', () => {
+    expect(component.categoryOptions().length).toBe(1);
+    expect(component.categoryOptions().every(o => o.value !== '')).toBe(true);
+    component.modelCategoryId.set('');
+    expect(component.selectedCategoryLabel()).toBe('');
   });
 });

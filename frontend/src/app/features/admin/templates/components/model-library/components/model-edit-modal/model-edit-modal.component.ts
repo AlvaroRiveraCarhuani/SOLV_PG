@@ -1,7 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideX, LucideAlertTriangle } from '@lucide/angular';
+import { LucidePencil, LucideAlertTriangle } from '@lucide/angular';
 import { 
   TemplateModelItem, 
   TemplateCategory, 
@@ -9,6 +9,8 @@ import {
   AdminTemplatesService 
 } from '../../../../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '../../../../../../../shared/components/combobox/combobox.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 
 @Component({
   selector: 'model-edit-modal',
@@ -17,7 +19,9 @@ import { ComboboxComponent, ComboboxOption } from '../../../../../../../shared/c
     CommonModule,
     FormsModule,
     ComboboxComponent,
-    LucideX,
+    ModalShellComponent,
+    FormFieldComponent,
+    LucidePencil,
     LucideAlertTriangle
   ],
   templateUrl: './model-edit-modal.component.html',

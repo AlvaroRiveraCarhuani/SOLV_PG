@@ -1,13 +1,15 @@
-import { Component, EventEmitter, Input, Output, signal, inject, OnInit, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTemplateItem, TemplateCategory, AdminTemplatesService } from '../../../services/admin-templates.service';
-import { LucideX, LucideSparkles, LucideAlertCircle } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { LucideSparkles, LucideAlertCircle } from '@lucide/angular';
 
 @Component({
   selector: 'template-promote-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideX, LucideSparkles, LucideAlertCircle],
+  imports: [CommonModule, FormsModule, ModalShellComponent, FormFieldComponent, LucideSparkles, LucideAlertCircle],
   templateUrl: './template-promote-modal.component.html',
   styleUrls: ['./template-promote-modal.component.scss']
 })
@@ -36,14 +38,13 @@ export class TemplatePromoteModalComponent implements OnInit {
     });
   }
 
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    this.closeModal();
-  }
-
   confirm(): void {
     const name = this.modelName().trim();
     if (!name || this.isPromoting()) return;
+    if (!this.categoryId()) {
+      this.errorMsg.set('La categoría es obligatoria');
+      return;
+    }
 
     this.isPromoting.set(true);
     this.errorMsg.set(null);

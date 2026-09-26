@@ -1,13 +1,15 @@
 import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideSparkles, LucideX, LucideAlertTriangle } from '@lucide/angular';
+import { LucideSparkles, LucideAlertTriangle } from '@lucide/angular';
 import { 
   AdminTemplateItem, 
   TemplateCategory, 
   AdminTemplatesService 
 } from '../../../../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '../../../../../../../shared/components/combobox/combobox.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 
 @Component({
   selector: 'model-new-modal',
@@ -16,8 +18,9 @@ import { ComboboxComponent, ComboboxOption } from '../../../../../../../shared/c
     CommonModule,
     FormsModule,
     ComboboxComponent,
+    ModalShellComponent,
+    FormFieldComponent,
     LucideSparkles,
-    LucideX,
     LucideAlertTriangle
   ],
   templateUrl: './model-new-modal.component.html',
@@ -57,21 +60,18 @@ export class ModelNewModalComponent {
   });
 
   readonly categoryOptions = computed<ComboboxOption[]>(() => {
-    return [
-      { id: '', label: '-- Sin categoría asignada --', value: '' },
-      ...this.categories.map(c => ({
-        id: c.id,
-        label: c.name,
-        value: c.id
-      }))
-    ];
+    return this.categories.map(c => ({
+      id: c.id,
+      label: c.name,
+      value: c.id
+    }));
   });
 
   readonly selectedCategoryLabel = computed<string>(() => {
     const id = this.modelCategoryId();
-    if (!id) return '-- Sin categoría asignada --';
+    if (!id) return '';
     const match = this.categories.find(c => c.id === id);
-    return match ? match.name : '-- Sin categoría asignada --';
+    return match ? match.name : '';
   });
 
   onTemplateSelected(opt: ComboboxOption): void {
@@ -108,13 +108,18 @@ export class ModelNewModalComponent {
       this.errorMessage.set('El título del modelo es obligatorio.');
       return;
     }
+    const categoryId = this.modelCategoryId();
+    if (!categoryId) {
+      this.errorMessage.set('La categoría es obligatoria');
+      return;
+    }
 
     this.isSubmitting.set(true);
     this.errorMessage.set(null);
 
     this.templatesService.promoteToModel(tplId, {
       name: title,
-      category_id: this.modelCategoryId() || undefined,
+      category_id: categoryId,
       description: this.modelDescription().trim()
     }).subscribe({
       next: (res: any) => {

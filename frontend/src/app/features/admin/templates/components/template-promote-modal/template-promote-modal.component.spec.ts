@@ -69,6 +69,16 @@ describe('TemplatePromoteModalComponent', () => {
     });
   });
 
+  it('debe bloquear la promoción sin categoría con el mensaje del backend', () => {
+    fixture.detectChanges();
+    component.categoryId.set(null);
+
+    component.confirm();
+
+    expect(templatesServiceMock.promoteToModel).not.toHaveBeenCalled();
+    expect(component.errorMsg()).toBe('La categoría es obligatoria');
+  });
+
   it('debe capturar error si promoteToModel falla', () => {
     templatesServiceMock.promoteToModel.mockReturnValue(throwError(() => ({ error: { message: 'El modelo ya existe' } })));
     fixture.detectChanges();

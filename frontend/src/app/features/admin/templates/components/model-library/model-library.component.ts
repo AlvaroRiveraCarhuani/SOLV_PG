@@ -105,57 +105,9 @@ export class ModelLibraryComponent implements OnInit {
   readonly modelCategoryId = signal<string>('');
   readonly isModelSaving = signal<boolean>(false);
 
-  // Modal Nuevo Modelo Oficial (Promoción / Creación)
+  // Modal Nuevo Modelo Oficial (delegado en model-new-modal)
   readonly showNewModelModal = signal<boolean>(false);
   readonly approvedTemplates = signal<AdminTemplateItem[]>([]);
-  readonly selectedTemplateId = signal<string>('');
-  readonly newModelTitle = signal<string>('');
-  readonly newModelCategoryId = signal<string>('');
-  readonly newModelDescription = signal<string>('');
-  readonly isNewModelPromoting = signal<boolean>(false);
-  readonly newModelError = signal<string | null>(null);
-
-  readonly approvedTemplateComboboxOptions = computed<ComboboxOption[]>(() => {
-    return this.approvedTemplates().map(tpl => ({
-      id: tpl.id,
-      label: tpl.name,
-      value: tpl.id,
-      meta: `${tpl.docker_image} · ${tpl.target_environment || 'IDE'}`
-    }));
-  });
-
-  readonly selectedTemplateToPromoteLabel = computed<string>(() => {
-    const id = this.selectedTemplateId();
-    if (!id) return '';
-    const match = this.approvedTemplates().find(t => t.id === id);
-    return match ? match.name : '';
-  });
-
-  onTemplateToPromoteSelected(opt: ComboboxOption): void {
-    this.onSelectTemplateToPromote(opt.value || '');
-  }
-
-  readonly categoryComboboxOptions = computed<ComboboxOption[]>(() => {
-    return [
-      { id: '', label: '-- Sin categoría asignada --', value: '' },
-      ...this.categories().map(c => ({
-        id: c.id,
-        label: c.name,
-        value: c.id
-      }))
-    ];
-  });
-
-  readonly selectedNewModelCategoryLabel = computed<string>(() => {
-    const id = this.newModelCategoryId();
-    if (!id) return '-- Sin categoría asignada --';
-    const match = this.categories().find(c => c.id === id);
-    return match ? match.name : '-- Sin categoría asignada --';
-  });
-
-  onNewModelCategorySelected(opt: ComboboxOption): void {
-    this.newModelCategoryId.set(opt.value || '');
-  }
 
   readonly selectedEditModelCategoryLabel = computed<string>(() => {
     const id = this.modelCategoryId();
@@ -330,11 +282,6 @@ export class ModelLibraryComponent implements OnInit {
 
   openNewModelModal(): void {
     this.showNewModelModal.set(true);
-    this.selectedTemplateId.set('');
-    this.newModelTitle.set('');
-    this.newModelCategoryId.set('');
-    this.newModelDescription.set('');
-    this.newModelError.set(null);
     this.templatesService.getTemplates('approved').subscribe({
       next: (tpls) => this.approvedTemplates.set(tpls || []),
       error: () => this.approvedTemplates.set([])
@@ -343,56 +290,11 @@ export class ModelLibraryComponent implements OnInit {
 
   closeNewModelModal(): void {
     this.showNewModelModal.set(false);
-    this.newModelError.set(null);
-  }
-
-  onSelectTemplateToPromote(tplId: string): void {
-    this.selectedTemplateId.set(tplId);
-    const tpl = this.approvedTemplates().find(t => t.id === tplId);
-    if (tpl) {
-      this.newModelTitle.set(tpl.name);
-      this.newModelCategoryId.set(tpl.category_id || '');
-      this.newModelDescription.set(tpl.description || '');
-    }
-  }
-
-  confirmPromoteToModel(): void {
-    const tplId = this.selectedTemplateId();
-    const title = this.newModelTitle().trim();
-    if (!tplId) {
-      this.newModelError.set('Debe seleccionar una plantilla aprobada como base.');
-      return;
-    }
-    if (!title) {
-      this.newModelError.set('El título del modelo es obligatorio.');
-      return;
-    }
-
-    this.isNewModelPromoting.set(true);
-    this.newModelError.set(null);
-
-    this.templatesService.promoteToModel(tplId, {
-      name: title,
-      category_id: this.newModelCategoryId() || undefined,
-      description: this.newModelDescription().trim()
-    }).subscribe({
-      next: () => {
-        this.isNewModelPromoting.set(false);
-        this.closeNewModelModal();
-        this.showToast('Plantilla promovida a modelo oficial exitosamente.', 'success');
-        this.loadData();
-      },
-      error: (err) => {
-        this.isNewModelPromoting.set(false);
-        const msg = err.error?.message || err.error?.error || 'No se pudo promover la plantilla a modelo.';
-        this.newModelError.set(msg);
-      }
-    });
   }
 
   navigateToTemplatesWizard(): void {
     this.closeNewModelModal();
-    this.router.navigate(['/admin/plantillas']);
+    this.router.navigate(['/admin/plantillas'], { queryParams: { nueva: '1' } });
   }
 
   handleModelPromoted(_event: { id: string; name: string }): void {

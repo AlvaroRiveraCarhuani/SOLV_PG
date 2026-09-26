@@ -3,7 +3,7 @@ import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import { ModelLibraryComponent } from './model-library.component';
 import { AdminTemplatesService, TemplateModelItem, TemplateCategory, AdminTemplateItem } from '../../../services/admin-templates.service';
 
@@ -84,7 +84,6 @@ describe('ModelLibraryComponent Spec', () => {
   let deactivateModelSpy: any;
   let reorderCategoriesSpy: any;
   let deleteCategorySpy: any;
-  let promoteToModelSpy: any;
 
   beforeEach(() => {
     getModelsSpy = vi.fn().mockReturnValue(of(mockModels));
@@ -92,7 +91,6 @@ describe('ModelLibraryComponent Spec', () => {
     deactivateModelSpy = vi.fn().mockReturnValue(of(void 0));
     reorderCategoriesSpy = vi.fn().mockReturnValue(of(void 0));
     deleteCategorySpy = vi.fn().mockReturnValue(of(void 0));
-    promoteToModelSpy = vi.fn().mockReturnValue(of(mockModels[0]));
 
     const mockService = {
       getModels: getModelsSpy,
@@ -104,8 +102,7 @@ describe('ModelLibraryComponent Spec', () => {
       updateCategory: vi.fn().mockReturnValue(of(mockCategories[0])),
       deleteCategory: deleteCategorySpy,
       reorderCategories: reorderCategoriesSpy,
-      getTemplates: vi.fn().mockReturnValue(of(mockApprovedTemplates)),
-      promoteToModel: promoteToModelSpy
+      getTemplates: vi.fn().mockReturnValue(of(mockApprovedTemplates))
     };
 
     TestBed.configureTestingModule({
@@ -178,20 +175,26 @@ describe('ModelLibraryComponent Spec', () => {
     expect(reorderCategoriesSpy).toHaveBeenCalled();
   });
 
-  it('debe abrir el modal de nuevo modelo y promover plantilla seleccionada', () => {
+  it('debe abrir el modal de nuevo modelo y delegar la promoción en model-new-modal', () => {
     component.openNewModelModal();
     expect(component.showNewModelModal()).toBe(true);
+    expect(component.approvedTemplates().length).toBe(1);
+    expect(component.approvedTemplates()[0].id).toBe('t-1');
+  });
 
-    component.onSelectTemplateToPromote('t-1');
-    expect(component.newModelTitle()).toBe('Plantilla Python Base');
-    expect(component.newModelCategoryId()).toBe('c-1');
+  it('no debe exponer opción fantasma de categoría; el filtro conserva "Todas las categorías"', () => {
+    expect((component as any).categoryComboboxOptions).toBeUndefined();
+    const filterOpts = component.categoryFilterComboboxOptions();
+    expect(filterOpts[0]).toMatchObject({ id: 'ALL', label: 'Todas las categorías' });
+    expect(filterOpts.some(o => (o.label || '').includes('Sin categoría'))).toBe(false);
+  });
 
-    component.confirmPromoteToModel();
-    expect(promoteToModelSpy).toHaveBeenCalledWith('t-1', {
-      name: 'Plantilla Python Base',
-      category_id: 'c-1',
-      description: 'Plantilla aprobada de Python para entornos'
-    });
+  it('navega al wizard de plantillas pidiendo apertura de la creación al llegar', () => {
+    const router = TestBed.inject(Router);
+    const navigateSpy = vi.spyOn(router, 'navigate');
+    component.showNewModelModal.set(true);
+    component.navigateToTemplatesWizard();
     expect(component.showNewModelModal()).toBe(false);
+    expect(navigateSpy).toHaveBeenCalledWith(['/admin/plantillas'], { queryParams: { nueva: '1' } });
   });
 });

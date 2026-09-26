@@ -1,15 +1,16 @@
 import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAlertTriangle, LucideX } from '@lucide/angular';
+import { LucideAlertTriangle } from '@lucide/angular';
 import { TemplateCategory, AdminTemplatesService } from '../../../../../services/admin-templates.service';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'category-delete-modal',
   standalone: true,
   imports: [
     CommonModule,
-    LucideAlertTriangle,
-    LucideX
+    ModalShellComponent,
+    LucideAlertTriangle
   ],
   templateUrl: './category-delete-modal.component.html',
   styleUrls: ['./category-delete-modal.component.scss']
