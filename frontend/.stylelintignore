@@ -46,7 +46,3 @@ src/app/features/admin/templates/components/template-reject-modal/template-rejec
 src/app/features/admin/templates/components/template-review-modal/template-review-modal.component.scss
 # TODO: salir de la lista exige limpiar el archivo en el mismo PR
 src/app/features/admin/templates/admin-templates.component.scss
-# TODO: salir de la lista exige limpiar el archivo en el mismo PR
-src/app/shared/components/field-message/field-message.component.scss
-# TODO: salir de la lista exige limpiar el archivo en el mismo PR
-src/app/shared/components/help-drawer/help-drawer.component.scss

@@ -58,26 +58,26 @@
   }
 
   &.variant-success {
-    background-color: rgba(21, 128, 61, 0.08);
-    color: #15803D;
-    border: 1px solid rgba(21, 128, 61, 0.2);
+    background-color: var(--status-running-bg);
+    color: var(--color-success);
+    border: 1px solid var(--status-running-border);
   }
 
   &.variant-warning {
-    background-color: rgba(217, 119, 6, 0.08);
-    color: #D97706;
-    border: 1px solid rgba(217, 119, 6, 0.2);
+    background-color: var(--status-pending-bg);
+    color: var(--color-warning);
+    border: 1px solid var(--status-pending-border);
   }
 
   &.variant-error {
-    background-color: rgba(220, 38, 38, 0.08);
-    color: #DC2626;
-    border: 1px solid rgba(220, 38, 38, 0.2);
+    background-color: var(--status-failed-bg);
+    color: var(--color-error);
+    border: 1px solid var(--status-failed-border);
   }
 
   &.variant-info {
-    background-color: rgba(100, 116, 139, 0.08);
-    color: #475569;
-    border: 1px solid rgba(100, 116, 139, 0.2);
+    background-color: var(--status-hibernated-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--status-hibernated-border);
   }
 }
