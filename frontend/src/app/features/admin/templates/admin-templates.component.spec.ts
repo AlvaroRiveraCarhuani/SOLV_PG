@@ -2,6 +2,7 @@ import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { AdminTemplatesComponent } from './admin-templates.component';
 import { AdminTemplatesService, AdminTemplateItem } from '../services/admin-templates.service';
@@ -58,9 +59,16 @@ describe('AdminTemplatesComponent Spec', () => {
     reviewTemplate: any;
     promoteToModel: any;
     duplicateTemplate: any;
+    getModels: any;
+    getAvailableSatelliteServices: any;
+    getLocalImages: any;
+    getDraft: any;
   };
 
-  beforeEach(async () => {
+  let routerMock: { navigate: any };
+  let queryParamNueva: string | null = null;
+
+  async function createFixture(): Promise<void> {
     mockTemplatesService = {
       getTemplates: vi.fn().mockReturnValue(of([...mockTemplates])),
       getCategories: vi.fn().mockReturnValue(of([])),
@@ -77,19 +85,34 @@ describe('AdminTemplatesComponent Spec', () => {
         base_ram_mb: dto.base_ram_mb || 512
       })),
       promoteToModel: vi.fn().mockReturnValue(of({ id: 'm-1' })),
-      duplicateTemplate: vi.fn().mockReturnValue(of({ ...mockTemplates[0], id: 'dup-1', name: '(Copia) ' + mockTemplates[0].name }))
+      duplicateTemplate: vi.fn().mockReturnValue(of({ ...mockTemplates[0], id: 'dup-1', name: '(Copia) ' + mockTemplates[0].name })),
+      getModels: vi.fn().mockReturnValue(of([])),
+      getAvailableSatelliteServices: vi.fn().mockReturnValue([]),
+      getLocalImages: vi.fn().mockReturnValue(of({ images: [], usage_map: {} })),
+      getDraft: vi.fn().mockReturnValue(of(null))
     };
 
     await TestBed.configureTestingModule({
       imports: [AdminTemplatesComponent],
       providers: [
-        { provide: AdminTemplatesService, useValue: mockTemplatesService }
+        { provide: AdminTemplatesService, useValue: mockTemplatesService },
+        {
+          provide: ActivatedRoute,
+          useValue: { snapshot: { queryParamMap: { get: (key: string) => (key === 'nueva' ? queryParamNueva : null) } } }
+        },
+        { provide: Router, useValue: routerMock }
       ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(AdminTemplatesComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
+  }
+
+  beforeEach(async () => {
+    routerMock = { navigate: vi.fn() };
+    queryParamNueva = null;
+    await createFixture();
   });
 
   it('el listado renderiza estados v2 con badges correctos en cada pestaña', () => {
@@ -168,5 +191,26 @@ describe('AdminTemplatesComponent Spec', () => {
 
     // Promedio RAM: solo tpl-1 (1024 MB) -> 1024 MB
     expect(component.averageRam()).toBe(1024);
+  });
+
+  it('no abre el modal de creación al cargar sin el parámetro nueva', () => {
+    expect(component.showCreateModal()).toBe(false);
+    expect(routerMock.navigate).not.toHaveBeenCalled();
+  });
+
+  it('abre el wizard de creación al llegar con ?nueva=1 y luego limpia el parámetro', async () => {
+    queryParamNueva = '1';
+    TestBed.resetTestingModule();
+    await createFixture();
+
+    expect(component.showCreateModal()).toBe(true);
+    expect(routerMock.navigate).toHaveBeenCalledWith([], {
+      queryParams: { nueva: null },
+      queryParamsHandling: 'merge',
+      replaceUrl: true
+    });
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('template-create-modal')).not.toBeNull();
   });
 });

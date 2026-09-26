@@ -136,6 +136,17 @@ describe('StepIdentityComponent', () => {
     expect(component.filteredModels()[0].name).toBe('NestJS Microservices');
   });
 
+  it('no debe ofrecer opción fantasma de categoría; vacío equivale a sin categoría', () => {
+    const opts = component.categoryComboboxOptions();
+    expect(opts.some(o => o.id === '__none__')).toBe(false);
+    expect(opts.some(o => (o.label || '').includes('Sin categoría'))).toBe(false);
+    expect(opts[opts.length - 1].id).toBe('__new__');
+
+    fixture.componentRef.setInput('selectedCategoryId', null);
+    fixture.detectChanges();
+    expect(component.selectedCategoryLabel()).toBe('');
+  });
+
   it('debe mostrar la línea informativa de descubribilidad de promoción con enlace al manual', () => {
     fixture.componentRef.setInput('creationMode', 'recipe');
     fixture.detectChanges();

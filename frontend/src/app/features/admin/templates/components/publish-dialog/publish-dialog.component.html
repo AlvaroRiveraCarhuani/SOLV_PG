@@ -1,18 +1,12 @@
-<div class="modal-backdrop" (click)="onClose()">
-  <div class="dialog-card" (click)="$event.stopPropagation()">
-    <div class="dialog-header">
-      <div class="header-titles">
-        <h3 class="dialog-title" i18n="@@PB-01">Publicar plantilla oficial</h3>
-        <p class="dialog-subtitle" i18n="@@PB-02">Comprobación de preparación para uso institucional</p>
-      </div>
-      <button type="button" class="btn-close" (click)="onClose()" title="Cerrar">
-        <svg lucideX class="w-4 h-4"></svg>
-      </button>
-    </div>
+<modal-shell
+  i18n-title="@@PB-01" title="Publicar plantilla oficial"
+  i18n-subtitle="@@PB-02" subtitle="Comprobación de preparación para uso institucional"
+  [showIcon]="false"
+  maxWidth="640px"
+  (close)="onClose()"
+>
 
-    <div class="dialog-body">
-      <!-- Sección RESUMEN (PB-04) con labels PB-33 a PB-41 y PB-03/PB-07 -->
-      <div class="summary-section">
+  <div class="summary-section">
         <div class="summary-title-row">
           <h4 class="summary-title" i18n="@@PB-04">Resumen</h4>
           <span class="summary-badge" i18n="@@PB-07">Imagen verificada</span>
@@ -46,7 +40,7 @@
               @if (services().length > 0) {
                 {{ services().join(', ') }}
               } @else {
-                <span class="text-muted" i18n="@@PB-41">Sin servicios</span>
+                <span class="cell-muted" i18n="@@PB-41">Sin servicios</span>
               }
             </span>
           </div>
@@ -56,7 +50,7 @@
               @if (setupScript().trim()) {
                 <button type="button" class="btn-link" (click)="toggleScriptModal()" i18n="@@PB-39">Ver</button>
               } @else {
-                <span class="text-muted" i18n="@@PB-40">Sin script</span>
+                <span class="cell-muted" i18n="@@PB-40">Sin script</span>
               }
             </span>
           </div>
@@ -80,13 +74,13 @@
             <div class="item-icon">
               @switch (item.type) {
                 @case ('pass') {
-                  <svg lucideCheckCircle2 class="w-4 h-4"></svg>
+                  <svg lucideCheckCircle2 class="item-check-icon"></svg>
                 }
                 @case ('warning') {
-                  <svg lucideAlertTriangle class="w-4 h-4"></svg>
+                  <svg lucideAlertTriangle class="item-check-icon"></svg>
                 }
                 @case ('error') {
-                  <svg lucideXCircle class="w-4 h-4"></svg>
+                  <svg lucideXCircle class="item-check-icon"></svg>
                 }
               }
             </div>
@@ -166,7 +160,7 @@
 
       @if (hasBlockingErrors()) {
         <div class="blocking-banner">
-          <svg lucideXCircle class="w-4 h-4"></svg>
+          <svg lucideXCircle class="item-check-icon"></svg>
           <span i18n="@@PB-20">Existen elementos bloqueantes que impiden la publicación. Corrija los errores indicados.</span>
         </div>
       } @else {
@@ -174,29 +168,26 @@
           <small i18n="@@PB-32">La plantilla será visible y asignable para todos los docentes.</small>
         </div>
       }
+  <div modal-footer class="publish-footer">
+    <div class="footer-left">
+      <button type="button" class="btn-outline" (click)="onClose()" i18n="@@PB-05">
+        Mantener como borrador
+      </button>
+      <button type="button" class="btn-outline" (click)="onClose()" i18n="@@PB-30">
+        Volver a editar
+      </button>
     </div>
-
-    <div class="dialog-footer">
-      <div class="footer-left">
-        <button type="button" class="btn-cancel" (click)="onClose()" i18n="@@PB-05">
-          Mantener como borrador
-        </button>
-        <button type="button" class="btn-secondary" (click)="onClose()" i18n="@@PB-30">
-          Volver a editar
-        </button>
-      </div>
-      <div class="footer-right">
-        <button 
-          type="button" 
-          class="btn-confirm" 
-          [disabled]="hasBlockingErrors()"
-          (click)="onConfirm()"
-        >
-          <svg lucideSend class="w-4 h-4"></svg>
-          <span i18n="@@PB-06">Publicar en el catálogo</span>
-          <span class="sr-only" i18n="@@PB-31">Confirmar y publicar</span>
-        </button>
-      </div>
+    <div class="footer-right">
+      <button
+        type="button"
+        class="btn-primary"
+        [disabled]="hasBlockingErrors()"
+        (click)="onConfirm()"
+      >
+        <svg lucideSend class="btn-icon"></svg>
+        <span i18n="@@PB-06">Publicar en el catálogo</span>
+        <span class="sr-only" i18n="@@PB-31">Confirmar y publicar</span>
+      </button>
     </div>
   </div>
-</div>
+</modal-shell>

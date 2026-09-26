@@ -275,7 +275,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     <!-- Categoría Académica con Combobox Buscable y Creación Inline -->
     <div class="form-group">
       <label class="form-label font-semibold">
-        Categoría académica:
+        Categoría académica (Opcional):
       </label>
 
       @if (!isCreatingCategoryInline()) {
@@ -453,9 +453,7 @@ export class StepIdentityComponent {
 
   categoryComboboxOptions = computed<ComboboxOption[]>(() => {
     const cats = this.categories();
-    const opts: ComboboxOption[] = [
-      { id: '__none__', label: '-- Sin categoría asignada --', value: null }
-    ];
+    const opts: ComboboxOption[] = [];
     for (const c of cats) {
       opts.push({ id: c.id, label: c.name, value: c.id });
     }
@@ -490,8 +488,6 @@ export class StepIdentityComponent {
       this.isCreatingCategoryInline.set(true);
       this.inlineCategoryName.set('');
       setTimeout(() => this.newCatInput()?.nativeElement.focus(), 50);
-    } else if (opt.id === '__none__') {
-      this.categorySelected.emit(null);
     } else {
       this.categorySelected.emit(opt.value);
     }

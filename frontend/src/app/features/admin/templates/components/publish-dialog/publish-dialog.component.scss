@@ -1,79 +1,8 @@
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.55);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1050;
-  padding: 16px;
-}
-
-.dialog-card {
-  background: var(--bg-surface, #ffffff);
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  width: 100%;
-  max-width: 520px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--font-sans);
-
-  input,
-  select,
-  textarea {
-    font-family: inherit;
-    font-size: var(--text-sm);
-  }
-}
-
-.dialog-header {
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border-color, #e2e8f0);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-
-  .dialog-title {
-    font-size: var(--text-lg);
-    font-weight: 600;
-    color: var(--text-main, #1e293b);
-    margin: 0;
-  }
-
-  .dialog-subtitle {
-    font-size: var(--text-sm);
-    color: var(--text-muted, #64748b);
-    margin: 4px 0 0 0;
-  }
-
-  .btn-close {
-    background: none;
-    border: none;
-    padding: 6px;
-    cursor: pointer;
-    color: var(--text-muted, #94a3b8);
-    border-radius: 6px;
-
-    &:hover {
-      background: var(--bg-hover, #f1f5f9);
-      color: var(--text-main, #1e293b);
-    }
-  }
-}
-
-.dialog-body {
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-
-  .summary-section {
-    background: var(--bg-muted, #f8fafc);
-    border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 8px;
+// Estilos propios del contenido (el shell —fondo, cabecera, pie— lo pone modal-shell).
+.summary-section {
+    background: var(--bg-surface-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
     padding: 12px 14px;
     display: flex;
     flex-direction: column;
@@ -89,17 +18,17 @@
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        color: var(--text-muted, #64748b);
+        color: var(--text-muted);
         margin: 0;
       }
 
       .summary-badge {
         font-size: var(--text-xs);
-        background: #f0fdf4;
-        color: #15803d;
-        border: 1px solid #bbf7d0;
+        background: var(--status-running-bg);
+        color: var(--status-running-color);
+        border: 1px solid var(--status-running-border);
         padding: 2px 8px;
-        border-radius: 9999px;
+        border-radius: var(--radius-full);
         font-weight: 500;
       }
     }
@@ -116,19 +45,24 @@
 
         .cell-label {
           font-size: var(--text-xs);
-          color: var(--text-muted, #64748b);
+          color: var(--text-muted);
           font-weight: 600;
         }
 
         .cell-value {
           font-size: var(--text-sm);
-          color: var(--text-main, #1e293b);
+          color: var(--text-primary);
+        }
+
+        .cell-muted {
+          font-size: var(--text-sm);
+          color: var(--text-muted);
         }
 
         .cell-value-code {
           font-size: var(--text-sm);
           font-family: var(--font-mono);
-          color: var(--color-primary, #2563eb);
+          color: var(--tenant-primary);
           word-break: break-all;
         }
 
@@ -136,7 +70,7 @@
           background: none;
           border: none;
           padding: 0;
-          color: var(--color-primary, #2563eb);
+          color: var(--tenant-primary);
           font-size: var(--text-sm);
           text-decoration: underline;
           cursor: pointer;
@@ -147,10 +81,10 @@
 
     .script-preview-box {
       margin-top: 6px;
-      background: #0f172a;
-      color: #f8fafc;
+      background: var(--text-primary);
+      color: var(--bg-surface-subtle);
       padding: 10px;
-      border-radius: 6px;
+      border-radius: var(--radius-sm);
       font-size: var(--text-xs);
       max-height: 120px;
       overflow-y: auto;
@@ -169,7 +103,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      color: var(--text-muted, #64748b);
+      color: var(--text-muted);
     }
   }
 
@@ -183,7 +117,7 @@
       align-items: flex-start;
       gap: 12px;
       padding: 10px 12px;
-      border-radius: 8px;
+      border-radius: var(--radius-md);
       font-size: var(--text-sm);
 
       .item-icon {
@@ -207,32 +141,32 @@
       }
 
       &.check-pass {
-        background: #f0fdf4;
-        color: #166534;
-        border: 1px solid #bbf7d0;
+        background: var(--status-running-bg);
+        color: var(--status-running-color);
+        border: 1px solid var(--status-running-border);
 
         .item-icon {
-          color: #15803d;
+          color: var(--status-running-color);
         }
       }
 
       &.check-warning {
-        background: #fffbeb;
-        color: #b45309;
-        border: 1px solid #fde68a;
+        background: var(--status-pending-bg);
+        color: var(--status-pending-color);
+        border: 1px solid var(--status-pending-border);
 
         .item-icon {
-          color: #d97706;
+          color: var(--status-pending-color);
         }
       }
 
       &.check-error {
-        background: #fef2f2;
-        color: #991b1b;
-        border: 1px solid #fecaca;
+        background: var(--status-failed-bg);
+        color: var(--verdict-ast-color);
+        border: 1px solid var(--status-failed-border);
 
         .item-icon {
-          color: #dc2626;
+          color: var(--color-error);
         }
       }
     }
@@ -243,23 +177,27 @@
     align-items: center;
     gap: 10px;
     padding: 10px 14px;
-    background: #fef2f2;
-    border: 1px solid #f87171;
-    border-radius: 8px;
-    color: #991b1b;
+    background: var(--status-failed-bg);
+    border: 1px solid var(--status-failed-color);
+    border-radius: var(--radius-md);
+    color: var(--verdict-ast-color);
     font-size: var(--text-sm);
     font-weight: 500;
   }
+
+.item-check-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
-.dialog-footer {
-  padding: 14px 20px;
-  background: var(--bg-muted, #f8fafc);
-  border-top: 1px solid var(--border-color, #e2e8f0);
+.publish-footer {
+  width: 100%;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 10px;
+}
 
   .footer-left {
     display: flex;
@@ -271,45 +209,8 @@
     gap: 8px;
   }
 
-  .btn-cancel, .btn-secondary {
-    padding: 8px 14px;
-    font-size: var(--text-sm);
-    font-weight: 500;
-    border-radius: 6px;
-    border: 1px solid var(--border-color, #cbd5e1);
-    background: #ffffff;
-    color: var(--text-main, #334155);
-    cursor: pointer;
-
-    &:hover {
-      background: #f1f5f9;
-    }
-  }
-
-  .btn-confirm {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 18px;
-    font-size: var(--text-sm);
-    font-weight: 500;
-    border-radius: 6px;
-    border: none;
-    background: var(--color-primary, #3b82f6);
-    color: #ffffff;
-    cursor: pointer;
-    transition: background 0.2s ease;
-
-    &:hover:not(:disabled) {
-      background: #2563eb;
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      background: #94a3b8;
-    }
-  }
+  // Footer buttons use the globals from styles.scss:
+  // cancel actions -> .btn-outline, confirm action -> .btn-primary.
 
   .sr-only {
     position: absolute;
@@ -322,4 +223,3 @@
     white-space: nowrap;
     border: 0;
   }
-}

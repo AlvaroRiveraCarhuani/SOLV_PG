@@ -1,13 +1,14 @@
-import { Component, EventEmitter, Input, Output, signal, computed, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTemplateItem } from '../../../services/admin-templates.service';
-import { LucideX, LucideAlertCircle, LucidePlay } from '@lucide/angular';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { LucideAlertCircle, LucidePlay } from '@lucide/angular';
 
 @Component({
   selector: 'template-status-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideX, LucideAlertCircle, LucidePlay],
+  imports: [CommonModule, FormsModule, ModalShellComponent, LucideAlertCircle, LucidePlay],
   templateUrl: './template-status-modal.component.html',
   styleUrls: ['./template-status-modal.component.scss']
 })
@@ -27,11 +28,6 @@ export class TemplateStatusModalComponent {
     if (!this.isPausing()) return true;
     return this.reason().trim().length >= 10;
   });
-
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    this.closeModal();
-  }
 
   confirm(): void {
     if (!this.isValid() || this.isSubmitting()) return;

@@ -1,23 +1,25 @@
-import { Component, EventEmitter, Input, Output, signal, OnInit, HostListener } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTemplateItem } from '../../../services/admin-templates.service';
-import { 
-  LucideX, 
-  LucideHardDrive, 
-  LucideLayers, 
-  LucideSave 
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import {
+  LucideHardDrive,
+  LucideLayers,
+  LucideSave
 } from '@lucide/angular';
 
 @Component({
   selector: 'template-edit-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    LucideX, 
-    LucideHardDrive, 
-    LucideLayers, 
+    CommonModule,
+    FormsModule,
+    ModalShellComponent,
+    FormFieldComponent,
+    LucideHardDrive,
+    LucideLayers,
     LucideSave
   ],
   templateUrl: './template-edit-modal.component.html',
@@ -31,11 +33,6 @@ export class TemplateEditModalComponent implements OnInit {
   selectedRam = signal<number>(512);
   description = signal<string>('');
   isSubmitting = signal<boolean>(false);
-
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    this.closeModal();
-  }
 
   ngOnInit(): void {
     if (this.template) {

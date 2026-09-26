@@ -129,7 +129,7 @@
             <span i18n="@@ST-09">Continuar borrador anterior (guardado recientemente).</span>
           </div>
           <div class="resume-actions">
-            <button type="button" class="btn-resume-action btn-confirm-resume" (click)="resumeDraft()">
+            <button type="button" class="btn-primary-sm" (click)="resumeDraft()">
               Reanudar borrador
             </button>
             <button type="button" class="btn-resume-action btn-discard-resume" (click)="discardDraft()">
@@ -506,7 +506,7 @@ pip install pandas</code></pre>
         @if (activeSection() !== 'verification') {
           <button 
             type="button" 
-            class="btn btn-primary" 
+            class="btn-primary" 
             [disabled]="!canGoNext()"
             (click)="nextSection()"
           >

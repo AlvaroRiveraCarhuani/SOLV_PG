@@ -21,7 +21,7 @@
     .purpose-section-title {
       font-size: var(--text-base);
       font-weight: 600;
-      color: #0F172A;
+      color: var(--text-primary);
       margin: 0;
       outline: none;
     }
@@ -30,21 +30,21 @@
       background: transparent;
       border: none;
       cursor: pointer;
-      color: var(--tenant-primary, #0284C7);
+      color: var(--tenant-primary);
       padding: 0.25rem;
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
       display: inline-flex;
       align-items: center;
 
       &:hover {
-        background-color: #F1F5F9;
+        background-color: var(--bg-surface-active);
       }
     }
   }
 
   .purpose-section-desc {
     font-size: var(--text-xs);
-    color: #64748B;
+    color: var(--text-muted);
     margin: 0.25rem 0 0 0;
     line-height: 1.5;
   }
@@ -61,32 +61,32 @@
   }
 
   .purpose-card {
-    border: 2px solid #E2E8F0;
-    border-radius: 8px;
+    border: 2px solid var(--border-subtle);
+    border-radius: var(--radius-md);
     padding: 1.25rem;
     cursor: pointer;
-    background-color: #FFFFFF;
+    background-color: var(--bg-surface);
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
     outline: none;
 
     &:hover {
-      border-color: #CBD5E1;
+      border-color: var(--border-strong);
       transform: translateY(-1px);
     }
 
     &:focus-visible {
-      border-color: var(--tenant-primary, #0284C7);
+      border-color: var(--tenant-primary);
       box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
     }
 
     &.selected {
-      border-color: var(--tenant-primary, #0284C7);
+      border-color: var(--tenant-primary);
       background-color: rgba(2, 132, 199, 0.03);
 
       .purpose-card-title {
-        color: var(--tenant-primary, #0284C7);
+        color: var(--tenant-primary);
       }
     }
 
@@ -99,19 +99,19 @@
       .purpose-icon-wrap {
         width: 36px;
         height: 36px;
-        border-radius: 8px;
+        border-radius: var(--radius-md);
         display: inline-flex;
         align-items: center;
         justify-content: center;
 
         &.icon-ide {
-          background-color: #E0F2FE;
-          color: #0369A1;
+          background-color: var(--tenant-primary-subtle);
+          color: var(--tenant-primary-hover);
         }
 
         &.icon-judge {
-          background-color: #FEF3C7;
-          color: #B45309;
+          background-color: var(--status-pending-bg);
+          color: var(--status-pending-color);
         }
       }
 
@@ -120,7 +120,7 @@
         height: 20px;
 
         .text-success {
-          color: #15803D;
+          color: var(--status-running-color);
         }
       }
     }
@@ -128,13 +128,13 @@
     .purpose-card-title {
       font-size: var(--text-sm);
       font-weight: 600;
-      color: #0F172A;
+      color: var(--text-primary);
       margin: 0 0 0.5rem 0;
     }
 
     .purpose-card-desc {
       font-size: var(--text-xs);
-      color: #64748B;
+      color: var(--text-muted);
       line-height: 1.5;
       margin: 0 0 1rem 0;
       flex: 1;
@@ -148,9 +148,9 @@
       .purpose-tag {
         font-size: var(--text-xs);
         padding: 0.125rem 0.5rem;
-        background-color: #F1F5F9;
-        color: #475569;
-        border-radius: 4px;
+        background-color: var(--bg-surface-active);
+        color: var(--text-secondary);
+        border-radius: var(--radius-sm);
         font-weight: 500;
       }
     }

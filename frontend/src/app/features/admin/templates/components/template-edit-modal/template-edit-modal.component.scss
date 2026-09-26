@@ -11,9 +11,9 @@
 }
 
 .template-summary-card {
-  background-color: var(--bg-canvas, #F8FAFC);
-  border: 1px solid var(--border-subtle, #E2E8F0);
-  border-radius: var(--radius-md, 8px);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
@@ -30,23 +30,24 @@
 }
 
 .summary-label {
-  color: var(--text-secondary, #64748B);
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .summary-value {
-  color: var(--text-primary, #0F172A);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .docker-image-tag {
   font-family: var(--font-mono);
-  background-color: #EEF2F6;
-  color: var(--text-primary, #0F172A);
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-primary);
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: var(--text-xs);
   font-weight: 600;
-  border: 1px solid var(--border-subtle, #CBD5E1);
+  border: 1px solid var(--border-subtle);
 }
 
 .quota-section {
@@ -62,7 +63,13 @@
   gap: 6px;
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--text-primary, #0F172A);
+  color: var(--text-primary);
+
+  .quota-icon {
+    width: 16px;
+    height: 16px;
+    color: var(--text-secondary);
+  }
 }
 
 .chips-selector {
@@ -77,26 +84,26 @@
   align-items: center;
   justify-content: center;
   padding: 10px 8px;
-  background-color: var(--bg-surface, #FFFFFF);
-  border: 1px solid var(--border-subtle, #CBD5E1);
-  border-radius: var(--radius-md, 6px);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--text-secondary, #475569);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 150ms ease;
 
   &:hover {
-    border-color: var(--tenant-primary, #2563EB);
-    color: var(--tenant-primary, #2563EB);
-    background-color: #F8FAFC;
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+    background-color: var(--bg-surface-subtle);
   }
 
   &.active {
-    border-color: var(--tenant-primary, #2563EB);
-    background-color: #EFF6FF;
-    color: var(--tenant-primary, #2563EB);
-    box-shadow: 0 0 0 1px var(--tenant-primary, #2563EB);
+    border-color: var(--tenant-primary);
+    background-color: var(--tenant-primary-subtle);
+    color: var(--tenant-primary);
+    box-shadow: 0 0 0 1px var(--tenant-primary);
   }
 }
 
@@ -104,10 +111,15 @@
   font-size: var(--text-xs);
   font-weight: 400;
   margin-top: 2px;
-  color: var(--text-tertiary, #94A3B8);
+  color: var(--text-muted);
 
   &.chip-badge {
-    color: #15803D;
+    color: var(--status-running-color);
     font-weight: 600;
   }
+}
+
+.btn-icon {
+  width: 14px;
+  height: 14px;
 }

@@ -1,6 +1,7 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, signal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { 
   AdminTemplatesService, 
   AdminTemplateItem, 
@@ -30,7 +31,8 @@ import {
   LucideCopy,
   LucideCheck,
   LucideChevronDown,
-  LucideSparkles
+  LucideBadgeCheck,
+  LucideMoreVertical
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
@@ -113,13 +115,16 @@ export interface ToastNotification {
     LucideCopy,
     LucideCheck,
     LucideChevronDown,
-    LucideSparkles
+    LucideBadgeCheck,
+    LucideMoreVertical
   ],
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
 })
 export class AdminTemplatesComponent implements OnInit {
   private templatesService = inject(AdminTemplatesService);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   // States
   activeTab = signal<TabType>('pending');
@@ -128,6 +133,20 @@ export class AdminTemplatesComponent implements OnInit {
   selectedTech = signal<string>('all');
   copiedTag = signal<string | null>(null);
   isLoading = signal<boolean>(false);
+  openMenuId = signal<string | null>(null);
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.row-menu-anchor')) {
+      this.openMenuId.set(null);
+    }
+  }
+
+  toggleRowMenu(id: string, event: MouseEvent): void {
+    event.stopPropagation();
+    this.openMenuId.update((current) => (current === id ? null : id));
+  }
 
   // Paginación Catálogo
   catalogPage = signal<number>(1);
@@ -307,6 +326,14 @@ export class AdminTemplatesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTemplates();
+    if (this.route.snapshot.queryParamMap.get('nueva') === '1') {
+      this.openCreateModal();
+      void this.router.navigate([], {
+        queryParams: { nueva: null },
+        queryParamsHandling: 'merge',
+        replaceUrl: true
+      });
+    }
   }
 
   loadTemplates(): void {

@@ -1,10 +1,10 @@
 import { Component, input, output, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { 
-  LucideAlertTriangle, 
-  LucideXCircle, 
-  LucideCheckCircle2, 
-  LucideX,
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import {
+  LucideAlertTriangle,
+  LucideXCircle,
+  LucideCheckCircle2,
   LucideSend
 } from '@lucide/angular';
 import { EnvTestJob } from '../../../services/env-test-job.service';
@@ -21,10 +21,10 @@ export interface PreflightCheckItem {
   standalone: true,
   imports: [
     CommonModule,
+    ModalShellComponent,
     LucideAlertTriangle,
     LucideXCircle,
     LucideCheckCircle2,
-    LucideX,
     LucideSend
   ],
   templateUrl: './publish-dialog.component.html',

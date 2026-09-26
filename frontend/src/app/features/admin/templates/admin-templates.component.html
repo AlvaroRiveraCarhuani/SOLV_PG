@@ -471,6 +471,13 @@
                   <span>Duplicar</span>
                 </button>
 
+                                @if (item.status === 'approved' || item.status === 'APROBADA') {
+                  <button type="button" class="btn-promote-icon" (click)="promoteToModel(item)" title="Promover a modelo de plantilla">
+                    <svg lucideBadgeCheck class="btn-icon-xs"></svg>
+                    <span>Promover</span>
+                  </button>
+                }
+
                 @if (item.status === 'approved' || item.status === 'APROBADA') {
                   <button type="button" class="btn-pause-template" (click)="requestToggleStatus(item)" title="Pausar plantilla">
                     <svg lucidePause class="btn-icon-xs"></svg>
@@ -573,54 +580,51 @@
                     }
                   </td>
                   <td class="text-right">
-                    <div class="action-buttons-group">
-                      <button 
-                        type="button" 
-                        class="btn-edit-action" 
-                        (click)="openEditModal(item)" 
-                        title="Ajustar cuotas de la plantilla">
-                        <svg lucidePencil class="w-3.5 h-3.5"></svg>
-                        <span>Editar</span>
+                    <div class="row-menu-anchor">
+                      <button
+                        type="button"
+                        class="btn-row-menu"
+                        (click)="toggleRowMenu(item.id, $event)"
+                        [class.active]="openMenuId() === item.id"
+                        title="Acciones"
+                        aria-label="Abrir menú de acciones"
+                      >
+                        <svg lucideMoreVertical class="w-4 h-4"></svg>
                       </button>
 
-                      <button 
-                        type="button" 
-                        class="btn-edit-action" 
-                        (click)="duplicateTemplate(item)" 
-                        title="Duplicar plantilla">
-                        <svg lucideCopy class="w-3.5 h-3.5"></svg>
-                        <span>Duplicar</span>
-                      </button>
+                      @if (openMenuId() === item.id) {
+                        <div class="row-actions-menu" role="menu">
+                          <button type="button" class="menu-item" role="menuitem" (click)="openEditModal(item); openMenuId.set(null)">
+                            <svg lucidePencil class="menu-item-icon"></svg>
+                            <span>Editar / Ajustar Cuota</span>
+                          </button>
 
-                      @if (item.status === 'approved' || item.status === 'APROBADA') {
-                        <button 
-                          type="button" 
-                          class="btn-edit-action" 
-                          (click)="promoteToModel(item)" 
-                          title="Promover plantilla a modelo institucional">
-                          <svg lucideSparkles class="w-3.5 h-3.5"></svg>
-                          <span i18n="@@ST-15">Promover a modelo de plantilla</span>
-                        </button>
-                      }
+                          <button type="button" class="menu-item" role="menuitem" (click)="duplicateTemplate(item); openMenuId.set(null)">
+                            <svg lucideCopy class="menu-item-icon"></svg>
+                            <span>Duplicar</span>
+                          </button>
 
-                      @if (item.status === 'approved' || item.status === 'APROBADA') {
-                        <button 
-                          type="button" 
-                          class="btn-pause-template" 
-                          (click)="requestToggleStatus(item)" 
-                          title="Pausar plantilla">
-                          <svg lucidePause class="w-3.5 h-3.5"></svg>
-                          <span>Pausar</span>
-                        </button>
-                      } @else {
-                        <button 
-                          type="button" 
-                          class="btn-resume-template" 
-                          (click)="requestToggleStatus(item)" 
-                          title="Reactivar plantilla">
-                          <svg lucidePlay class="w-3.5 h-3.5"></svg>
-                          <span>Reactivar</span>
-                        </button>
+                          @if (item.status === 'approved' || item.status === 'APROBADA') {
+                            <button type="button" class="menu-item menu-item--promote" role="menuitem" (click)="promoteToModel(item); openMenuId.set(null)">
+                              <svg lucideBadgeCheck class="menu-item-icon"></svg>
+                              <span>Promover a modelo</span>
+                            </button>
+                          }
+
+                          <div class="menu-divider"></div>
+
+                          @if (item.status === 'approved' || item.status === 'APROBADA') {
+                            <button type="button" class="menu-item menu-item--danger" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
+                              <svg lucidePause class="menu-item-icon"></svg>
+                              <span>Pausar</span>
+                            </button>
+                          } @else {
+                            <button type="button" class="menu-item menu-item--success" role="menuitem" (click)="requestToggleStatus(item); openMenuId.set(null)">
+                              <svg lucidePlay class="menu-item-icon"></svg>
+                              <span>Reactivar</span>
+                            </button>
+                          }
+                        </div>
                       }
                     </div>
                   </td>

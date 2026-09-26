@@ -24,7 +24,7 @@
   .step-section-title {
     font-size: var(--text-base);
     font-weight: 600;
-    color: #1E293B;
+    color: var(--color-gray-800);
     margin: 0;
   }
 
@@ -34,14 +34,14 @@
     justify-content: center;
     background: transparent;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     padding: 0.25rem;
-    color: var(--tenant-primary, #0284C7);
+    color: var(--tenant-primary);
     cursor: pointer;
     transition: background-color 150ms ease;
 
     &:hover {
-      background-color: #F1F5F9;
+      background-color: var(--bg-surface-active);
     }
   }
 }
@@ -67,13 +67,13 @@
       padding: 0.125rem 0.375rem;
       font-size: var(--text-xs);
       font-family: inherit;
-      color: var(--tenant-primary, #0284C7);
+      color: var(--tenant-primary);
       cursor: pointer;
-      border-radius: 4px;
+      border-radius: var(--radius-sm);
       transition: background-color 150ms ease;
 
       &:hover {
-        background-color: #F0F9FF;
+        background-color: var(--tenant-primary-subtle);
         text-decoration: underline;
       }
     }
@@ -83,23 +83,23 @@
     display: block;
     font-size: var(--text-xs);
     font-weight: 600;
-    color: #334155;
+    color: var(--text-primary);
     margin-bottom: 0.375rem;
 
     .text-danger {
-      color: #DC2626;
+      color: var(--color-error);
     }
   }
 
   .form-control {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border: 1px solid #CBD5E1;
-    border-radius: 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
-    color: #0F172A;
-    background-color: #FFFFFF;
+    color: var(--text-primary);
+    background-color: var(--bg-surface);
     outline: none;
     box-sizing: border-box;
 
@@ -108,7 +108,7 @@
     }
 
     &:focus {
-      border-color: var(--tenant-primary, #0284C7);
+      border-color: var(--tenant-primary);
       box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
     }
 
@@ -129,14 +129,14 @@
       right: 0.75rem;
       display: inline-flex;
       align-items: center;
-      background-color: #FFFBEB;
-      border: 1px solid #FDE68A;
-      color: #92400E;
+      background-color: var(--status-pending-bg);
+      border: 1px solid var(--status-pending-border);
+      color: var(--status-pending-color);
       font-size: var(--text-xs);
       font-weight: 500;
       padding: 0.375rem 0.625rem;
-      border-radius: 6px;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow-card);
       z-index: 10;
     }
   }
@@ -145,18 +145,18 @@
     display: block;
     margin-top: 0.375rem;
     font-size: var(--text-xs);
-    color: #64748B;
+    color: var(--text-muted);
   }
 }
 
 .contract-popover {
-  background-color: #F8FAFC;
-  border: 1px solid #BAE6FD;
-  border-left: 3px solid var(--tenant-primary, #0284C7);
-  border-radius: 6px;
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--tenant-primary-border);
+  border-left: 3px solid var(--tenant-primary);
+  border-radius: var(--radius-sm);
   padding: 0.75rem 1rem;
   margin-bottom: 0.75rem;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-card);
 
   .popover-header {
     display: flex;
@@ -167,21 +167,21 @@
     .popover-title {
       font-size: var(--text-xs);
       font-weight: 600;
-      color: #0369A1;
+      color: var(--tenant-primary-hover);
     }
 
     .btn-popover-close {
       background: none;
       border: none;
       padding: 0.125rem;
-      color: #64748B;
+      color: var(--text-muted);
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       justify-content: center;
 
       &:hover {
-        color: #0F172A;
+        color: var(--text-primary);
       }
     }
   }
@@ -190,7 +190,7 @@
     margin: 0;
     padding-left: 1.25rem;
     font-size: var(--text-xs);
-    color: #334155;
+    color: var(--color-gray-700);
     line-height: 1.5;
 
     li {
@@ -198,9 +198,9 @@
 
       code {
         font-family: var(--font-mono);
-        background-color: #E2E8F0;
+        background-color: var(--border-subtle);
         padding: 0.1rem 0.3rem;
-        border-radius: 3px;
+        border-radius: var(--radius-sm);
         font-size: var(--text-xs);
       }
     }
@@ -208,9 +208,9 @@
 }
 
 .quick-examples-box {
-  background-color: #F8FAFC;
-  border: 1px solid #E2E8F0;
-  border-radius: 6px;
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
   padding: 0.625rem 0.75rem;
 
   .examples-header-label {
@@ -218,7 +218,7 @@
     align-items: center;
     font-size: var(--text-xs);
     font-weight: 600;
-    color: #475569;
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
   }
 
@@ -231,44 +231,44 @@
       display: inline-flex;
       align-items: center;
       gap: 0.375rem;
-      background-color: #FFFFFF;
-      border: 1px solid #CBD5E1;
-      border-radius: 9999px;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-full);
       padding: 0.25rem 0.625rem;
       font-family: inherit;
       font-size: var(--text-xs);
-      color: #1E293B;
+      color: var(--color-gray-800);
       cursor: pointer;
       transition: all 150ms ease;
 
       .chip-icon {
-        color: #64748B;
+        color: var(--text-muted);
       }
 
       &.chip-applied {
-        border-color: var(--color-success, #16A34A);
-        background-color: #F0FDF4;
-        color: #15803D;
+        border-color: var(--color-success);
+        background-color: var(--status-running-bg);
+        color: var(--status-running-color);
       }
 
       .chip-badge-inserted {
-        font-size: var(--text-2xs, 0.625rem);
+        font-size: var(--text-xs);
         font-weight: 600;
-        background-color: #DCFCE7;
-        color: #15803D;
+        background-color: var(--status-running-bg);
+        color: var(--status-running-color);
         padding: 0.1rem 0.35rem;
-        border-radius: 9999px;
+        border-radius: var(--radius-full);
       }
 
       &:hover,
       &:focus {
-        border-color: var(--tenant-primary, #0284C7);
-        background-color: #F0F9FF;
-        color: var(--tenant-primary, #0284C7);
+        border-color: var(--tenant-primary);
+        background-color: var(--tenant-primary-subtle);
+        color: var(--tenant-primary);
         outline: none;
 
         .chip-icon {
-          color: var(--tenant-primary, #0284C7);
+          color: var(--tenant-primary);
         }
       }
     }
@@ -277,10 +277,10 @@
   .example-preview-card {
     margin-top: 0.625rem;
     padding: 0.625rem 0.75rem;
-    background-color: #FFFFFF;
-    border: 1px solid #BAE6FD;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--tenant-primary-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-card);
 
     .preview-header {
       display: flex;
@@ -291,24 +291,24 @@
       strong {
         font-size: var(--text-xs);
         font-weight: 600;
-        color: #0369A1;
+        color: var(--tenant-primary-hover);
       }
 
       span {
         font-size: var(--text-xs);
-        color: #64748B;
+        color: var(--text-muted);
       }
     }
 
     .preview-code {
       margin: 0;
       padding: 0.5rem;
-      background-color: #F8FAFC;
-      border: 1px solid #E2E8F0;
-      border-radius: 4px;
+      background-color: var(--bg-surface-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
       font-family: var(--font-mono);
       font-size: var(--text-xs);
-      color: #0F172A;
+      color: var(--text-primary);
       overflow-x: auto;
       white-space: pre-wrap;
       line-height: 1.4;

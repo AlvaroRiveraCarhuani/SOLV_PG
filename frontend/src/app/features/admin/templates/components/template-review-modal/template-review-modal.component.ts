@@ -1,11 +1,11 @@
-import { Component, EventEmitter, Input, Output, signal, computed, HostListener, OnInit, inject } from '@angular/core';
+import { Component, EventEmitter, Input, Output, signal, computed, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AdminTemplateItem, AdminTemplatesService, RamPresetSuggestion } from '../../../services/admin-templates.service';
-import { 
-  LucideX, 
-  LucideHardDrive, 
-  LucideCheckCircle2, 
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import {
+  LucideHardDrive,
+  LucideCheckCircle2,
   LucideLayers,
   LucideInfo,
   LucideAlertTriangle
@@ -15,11 +15,11 @@ import {
   selector: 'template-review-modal',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    LucideX, 
-    LucideHardDrive, 
-    LucideCheckCircle2, 
+    CommonModule,
+    FormsModule,
+    ModalShellComponent,
+    LucideHardDrive,
+    LucideCheckCircle2,
     LucideLayers,
     LucideInfo,
     LucideAlertTriangle
@@ -37,11 +37,6 @@ export class TemplateReviewModalComponent implements OnInit {
   selectedRam = signal<number>(512);
   ramPresets = signal<RamPresetSuggestion[]>([]);
   isSubmitting = signal<boolean>(false);
-
-  @HostListener('document:keydown.escape')
-  onEscape(): void {
-    this.closeModal();
-  }
 
   hasLatestTag = computed(() => {
     const img = this.template?.docker_image?.toLowerCase().trim() || '';

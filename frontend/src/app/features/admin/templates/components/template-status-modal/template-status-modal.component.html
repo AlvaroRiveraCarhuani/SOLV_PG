@@ -1,82 +1,67 @@
-<div class="modal-backdrop" (click)="closeModal()">
-  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-    <div class="modal-header">
-      <div class="modal-title-group">
-        <div class="modal-icon-badge" [class.danger]="isPausing()">
-          @if (isPausing()) {
-            <svg lucideAlertCircle class="w-5 h-5 text-danger"></svg>
-          } @else {
-            <svg lucidePlay class="w-5 h-5 text-primary"></svg>
-          }
-        </div>
-        <div>
-          <h3 class="modal-title">
-            {{ isPausing() ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial' }}
-          </h3>
-          <p class="modal-subtitle">
-            {{ isPausing() ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios' }}
-          </p>
-        </div>
-      </div>
-      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
-        <svg lucideX class="w-4 h-4"></svg>
-      </button>
+<modal-shell
+  [title]="isPausing() ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial'"
+  [subtitle]="isPausing() ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios'"
+  [intent]="isPausing() ? 'error' : 'info'"
+  (close)="closeModal()"
+>
+  @if (isPausing()) {
+    <svg modal-icon lucideAlertCircle class="icon"></svg>
+  } @else {
+    <svg modal-icon lucidePlay class="icon"></svg>
+  }
+
+  <div class="template-summary-card">
+    <div class="summary-row">
+      <span class="summary-label">Plantilla:</span>
+      <span class="summary-value">{{ template.name }}</span>
     </div>
+    <div class="summary-row">
+      <span class="summary-label">Imagen Docker:</span>
+      <code class="docker-image-tag">{{ template.docker_image }}</code>
+    </div>
+  </div>
 
-    <div class="modal-body">
-      <div class="template-summary-card mb-3">
-        <div class="summary-row">
-          <span class="summary-label">Plantilla:</span>
-          <span class="summary-value font-semibold">{{ template.name }}</span>
-        </div>
-        <div class="summary-row">
-          <span class="summary-label">Imagen Docker:</span>
-          <code class="docker-image-tag">{{ template.docker_image }}</code>
-        </div>
+  @if (isPausing()) {
+    <div class="form-group">
+      <div class="label-row">
+        <label class="form-label" for="pause-reason">
+          Motivo de Suspensión (Obligatorio, mínimo 10 caracteres):
+        </label>
+        <span class="char-counter" [class.ok]="reason().trim().length >= 10" [class.low]="reason().trim().length > 0 && reason().trim().length < 10">
+          {{ reason().trim().length }} / 10 caracteres
+        </span>
       </div>
-
-      @if (isPausing()) {
-        <div class="form-group">
-          <div class="label-row flex justify-between items-center mb-1">
-            <label class="form-label font-semibold text-sm">
-              Motivo de Suspensión (Obligatorio, mínimo 10 caracteres):
-            </label>
-            <span class="char-counter text-xs" [class.text-success]="reason().trim().length >= 10" [class.text-danger]="reason().trim().length > 0 && reason().trim().length < 10">
-              {{ reason().trim().length }} / 10 caracteres
-            </span>
-          </div>
-          <textarea
-            class="form-control"
-            rows="3"
-            placeholder="Indique la justificación técnica o de gobernanza (ej: Mantenimiento programado de dependencias...)"
-            [ngModel]="reason()"
-            (ngModelChange)="reason.set($event)">
-          </textarea>
-          @if (reason().trim().length > 0 && reason().trim().length < 10) {
-            <p class="field-hint text-xs text-danger mt-1">
-              El motivo debe tener al menos 10 caracteres.
-            </p>
-          }
-        </div>
-      } @else {
-        <p class="text-sm text-secondary">
-          ¿Confirmas reactivar la plantilla <strong>{{ template.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
+      <textarea
+        id="pause-reason"
+        class="form-textarea"
+        rows="3"
+        placeholder="Indique la justificación técnica o de gobernanza (ej: Mantenimiento programado de dependencias...)"
+        [ngModel]="reason()"
+        (ngModelChange)="reason.set($event)">
+      </textarea>
+      @if (reason().trim().length > 0 && reason().trim().length < 10) {
+        <p class="field-hint-error">
+          El motivo debe tener al menos 10 caracteres.
         </p>
       }
     </div>
+  } @else {
+    <p class="confirm-text">
+      ¿Confirmas reactivar la plantilla <strong>{{ template.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
+    </p>
+  }
 
-    <div class="modal-footer">
-      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
-        Cancelar
-      </button>
-      <button
-        type="button"
-        class="btn-primary"
-        [class.btn-danger]="isPausing()"
-        [disabled]="!isValid() || isSubmitting()"
-        (click)="confirm()">
-        {{ isPausing() ? 'Confirmar Suspensión' : 'Reactivar Plantilla' }}
-      </button>
-    </div>
-  </div>
-</div>
+  <ng-container modal-footer>
+    <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isSubmitting()">
+      Cancelar
+    </button>
+    <button
+      type="button"
+      class="btn-primary"
+      [class.btn-danger]="isPausing()"
+      [disabled]="!isValid() || isSubmitting()"
+      (click)="confirm()">
+      {{ isPausing() ? 'Confirmar Suspensión' : 'Reactivar Plantilla' }}
+    </button>
+  </ng-container>
+</modal-shell>
