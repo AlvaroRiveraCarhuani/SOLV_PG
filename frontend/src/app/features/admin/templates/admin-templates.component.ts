@@ -26,7 +26,6 @@ import {
   LucidePlay, 
   LucideAlertCircle,
   LucidePencil,
-  LucideXCircle,
   LucideHardDrive,
   LucideCopy,
   LucideCheck,
@@ -39,6 +38,7 @@ import { SearchBarComponent } from '../../../shared/components/search-bar/search
 import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
 import { ViewSwitcherComponent } from '../../../shared/components/view-switcher/view-switcher.component';
+import { StatusTabsComponent, StatusTabItem } from '../../../shared/components/status-tabs/status-tabs.component';
 
 export interface TechMeta {
   id: string;
@@ -100,6 +100,7 @@ export interface ToastNotification {
     KpiGridComponent,
     PaginationBarComponent,
     ViewSwitcherComponent,
+    StatusTabsComponent,
     LucideLayers,
     LucideBox,
     LucideRefreshCw,
@@ -110,7 +111,6 @@ export interface ToastNotification {
     LucidePlay,
     LucideAlertCircle,
     LucidePencil,
-    LucideXCircle,
     LucideHardDrive,
     LucideCopy,
     LucideCheck,
@@ -316,6 +316,31 @@ export class AdminTemplatesComponent implements OnInit {
   rejectedCount = computed(() => {
     return this.allTemplates().filter(t => t.status === 'rejected' || t.status === 'RECHAZADA').length;
   });
+
+  templateTabs = computed<StatusTabItem[]>(() => [
+    {
+      id: 'pending',
+      label: 'Solicitudes Pendientes',
+      count: this.pendingCount(),
+      badgeVariant: this.pendingCount() > 0 ? 'warning' : 'default'
+    },
+    {
+      id: 'catalog',
+      label: 'Catálogo Activo',
+      count: this.catalogCount(),
+      badgeVariant: 'neutral'
+    },
+    {
+      id: 'rejected',
+      label: 'Rechazadas',
+      count: this.rejectedCount(),
+      badgeVariant: this.rejectedCount() > 0 ? 'error' : 'default'
+    }
+  ]);
+
+  onTabChange(tabId: string): void {
+    this.setTab(tabId as TabType);
+  }
 
   averageRam = computed(() => {
     const activeCatalog = this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA');

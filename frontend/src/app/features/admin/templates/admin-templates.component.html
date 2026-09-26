@@ -82,48 +82,13 @@
     </kpi-card>
   </kpi-grid>
 
-  <!-- Barra de Pestañas y Alternador de Vista -->
+  <!-- Pestañas de Estado y Alternador de Vista -->
   <div class="nav-toolbar">
-    <!-- Pestañas Principales -->
-    <div class="tabs-group">
-      <button 
-        type="button" 
-        class="tab-btn" 
-        [class.active]="activeTab() === 'pending'"
-        (click)="setTab('pending')">
-        <svg lucideClock class="tab-icon"></svg>
-        <span>Solicitudes Pendientes</span>
-        <span class="tab-badge" [class.highlight]="pendingCount() > 0">
-          {{ pendingCount() }}
-        </span>
-      </button>
-
-      <button 
-        type="button" 
-        class="tab-btn" 
-        [class.active]="activeTab() === 'catalog'"
-        (click)="setTab('catalog')">
-        <svg lucideLayers class="tab-icon"></svg>
-        <span>Catálogo Activo</span>
-        <span class="tab-badge neutral">
-          {{ catalogCount() }}
-        </span>
-      </button>
-
-      <button 
-        type="button" 
-        class="tab-btn" 
-        [class.active]="activeTab() === 'rejected'"
-        (click)="setTab('rejected')">
-        <svg lucideXCircle class="tab-icon"></svg>
-        <span>Rechazadas</span>
-        <span class="tab-badge" [class.highlight]="rejectedCount() > 0">
-          {{ rejectedCount() }}
-        </span>
-      </button>
-    </div>
-
-    <!-- Alternador de Vista: Tarjetas vs Tabla (Unificado para todas las pestañas) -->
+    <status-tabs
+      [tabs]="templateTabs()"
+      [activeTab]="activeTab()"
+      (tabChange)="onTabChange($event)"
+    />
     <view-switcher [(mode)]="viewMode" />
   </div>
 
