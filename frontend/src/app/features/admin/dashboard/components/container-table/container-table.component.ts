@@ -6,7 +6,7 @@ import { StatusBadgeComponent } from '@shared/components/status-badge/status-bad
 import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-container-table',
+  selector: 'container-table',
   standalone: true,
   imports: [
     CommonModule, 
@@ -75,7 +75,7 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
                   </span>
                 </td>
                 <td>
-                  <solv-status-badge [status]="c.status" />
+                  <status-badge [status]="c.status" />
                 </td>
                 <td class="text-right">
                   <div class="actions-group">

@@ -1,14 +1,14 @@
-$p: var(--tenant-primary, #2563EB);
-$p-bg: rgba(37, 99, 235, 0.08);
-$p-bdr: rgba(37, 99, 235, 0.2);
-$bdr: #E2E8F0;
-$txt: #0F172A;
-$mut: #64748B;
+$p: var(--tenant-primary);
+$p-bg: var(--tenant-primary-subtle, rgba(37, 99, 235, 0.08));
+$p-bdr: var(--tenant-primary-border, rgba(37, 99, 235, 0.2));
+$bdr: var(--border-subtle);
+$txt: var(--text-primary);
+$mut: var(--text-secondary);
 
 .teachers-page {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4, 16px);
   max-width: 1440px;
   margin: 0 auto;
 }
@@ -18,30 +18,21 @@ $mut: #64748B;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: var(--space-4, 16px);
 }
 
-.page-title { font-size: 20px; font-weight: 700; color: $txt; margin: 0; }
-.page-subtitle { font-size: 13px; color: $mut; margin: 2px 0 0; }
-
-
-.table-card {
-  background: #FFF;
-  border: 1px solid $bdr;
-  border-radius: 8px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+.page-title {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
 }
 
-.filter-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 20px;
-  border-bottom: 1px solid $bdr;
-  gap: 16px;
-  flex-wrap: wrap;
+.page-subtitle {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 2px 0 0;
 }
 
 .search-box {

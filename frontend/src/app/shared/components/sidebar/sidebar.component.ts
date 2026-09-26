@@ -44,7 +44,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
 ];
 
 @Component({
-  selector: 'solv-sidebar',
+  selector: 'sidebar',
   standalone: true,
   imports: [
     CommonModule, 

@@ -14,7 +14,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-period-manage-modal',
+  selector: 'period-manage-modal',
   standalone: true,
   imports: [
     CommonModule, 

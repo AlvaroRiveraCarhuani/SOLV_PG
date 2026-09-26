@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { SolvStepVerificationComponent } from './step-verification.component';
+import { StepVerificationComponent } from './step-verification.component';
 import { EnvTestJob } from '../../../../../services/env-test-job.service';
 
-describe('SolvStepVerificationComponent', () => {
-  let component: SolvStepVerificationComponent;
-  let fixture: ComponentFixture<SolvStepVerificationComponent>;
+describe('StepVerificationComponent', () => {
+  let component: StepVerificationComponent;
+  let fixture: ComponentFixture<StepVerificationComponent>;
 
   const mockJob: EnvTestJob = {
     id: 'job-123',
@@ -36,14 +36,14 @@ describe('SolvStepVerificationComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvStepVerificationComponent],
+      imports: [StepVerificationComponent],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting()
       ]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvStepVerificationComponent);
+    fixture = TestBed.createComponent(StepVerificationComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('dockerImage', 'python:3.12-slim-bookworm');
     fixture.componentRef.setInput('toolsList', ['python3', 'pip']);

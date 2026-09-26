@@ -41,12 +41,12 @@
       <!-- Nuevo Docente Selector -->
       <div class="form-group">
         <label class="form-label">Nuevo Docente Asignado *</label>
-        <solv-combobox
+        <combobox
           [value]="selectedTeacherLabel()"
           [options]="teacherComboboxOptions()"
           placeholder="Seleccione o busque nuevo docente..."
           (optionSelected)="onTeacherSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
 
       <!-- Motivo obligatorio -->

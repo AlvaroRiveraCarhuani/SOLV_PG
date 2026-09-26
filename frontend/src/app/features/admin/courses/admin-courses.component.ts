@@ -19,7 +19,6 @@ import { PaginationBarComponent } from '@shared/components/pagination-bar/pagina
 import { 
   LucideBookOpen, 
   LucidePlus, 
-  LucideCalendar, 
   LucideCheckCircle, 
   LucideAlertCircle, 
   LucideLayers, 
@@ -38,7 +37,7 @@ interface ToastState {
 }
 
 @Component({
-  selector: 'solv-admin-courses',
+  selector: 'admin-courses',
   standalone: true,
   imports: [
     CommonModule,
@@ -55,7 +54,6 @@ interface ToastState {
     ConfirmModalComponent,
     LucideBookOpen,
     LucidePlus,
-    LucideCalendar,
     LucideCheckCircle,
     LucideAlertCircle,
     LucideLayers,

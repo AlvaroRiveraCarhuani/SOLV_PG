@@ -23,7 +23,7 @@ export interface EntrypointExample {
 }
 
 @Component({
-  selector: 'solv-step-execution',
+  selector: 'step-execution',
   standalone: true,
   imports: [
     CommonModule, 
@@ -247,7 +247,7 @@ export interface EntrypointExample {
   `,
   styleUrls: ['./step-execution.component.scss']
 })
-export class SolvStepExecutionComponent {
+export class StepExecutionComponent {
   targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
   setupScript = input<string>('');
   entrypoint = input<string>('');
@@ -385,3 +385,5 @@ export class SolvStepExecutionComponent {
     }, 3000);
   }
 }
+
+export { StepExecutionComponent as SolvStepExecutionComponent };

@@ -11,7 +11,7 @@ import {
 export type FieldMessageVariant = 'success' | 'warning' | 'error' | 'info';
 
 @Component({
-  selector: 'solv-field-message',
+  selector: 'field-message',
   standalone: true,
   imports: [
     CommonModule, 
@@ -69,7 +69,7 @@ export type FieldMessageVariant = 'success' | 'warning' | 'error' | 'info';
   `,
   styleUrls: ['./field-message.component.scss']
 })
-export class SolvFieldMessageComponent {
+export class FieldMessageComponent {
   variant = input<FieldMessageVariant>('info');
   message = input<string>('');
   showIcon = input<boolean>(true);
@@ -78,3 +78,5 @@ export class SolvFieldMessageComponent {
 
   actionClicked = output<void>();
 }
+
+export { FieldMessageComponent as SolvFieldMessageComponent };

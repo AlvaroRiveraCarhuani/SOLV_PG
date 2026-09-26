@@ -142,19 +142,19 @@
         <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05, AY-01, AY-02) -->
         @if (activeSection() === 'purpose') {
           <div class="section-container animate-fade">
-            <solv-step-purpose
+            <step-purpose
               [targetEnvironment]="targetEnvironment()"
               (targetEnvironmentChange)="selectTargetEnvironment($event)"
               (helpRequested)="toggleHelpDrawer('purpose')"
               (advance)="nextSection()"
-            ></solv-step-purpose>
+            ></step-purpose>
           </div>
         }
 
         <!-- PASO 2: IDENTIDAD Y PUERTAS DE ENTRADA -->
         @if (activeSection() === 'identity') {
           <div class="section-container animate-fade">
-            <solv-step-identity
+            <step-identity
               [targetEnvironment]="targetEnvironment()"
               [creationMode]="creationMode()"
               [recipeUsed]="recipeUsed()"
@@ -174,7 +174,7 @@
               (duplicateTemplate)="duplicateFromCatalog($event)"
               (helpRequested)="toggleHelpDrawer('identity')"
               (advance)="nextSection()"
-            ></solv-step-identity>
+            ></step-identity>
           </div>
         }
 
@@ -195,7 +195,7 @@
               </button>
             </div>
 
-            <solv-step-image
+            <step-image
               [dockerImage]="dockerImage()"
               [toolsDeclared]="toolsDeclared()"
               [targetEnvironment]="targetEnvironment()"
@@ -211,14 +211,14 @@
               (toolsDeclaredChange)="toolsDeclared.set($event)"
               (imageSelected)="onImageSelected($event)"
               (reverify)="reverify()"
-            ></solv-step-image>
+            ></step-image>
           </div>
         }
 
         <!-- PASO 4: EJECUCIÓN (PU-08 a PU-10, PU-15) -->
         @if (activeSection() === 'execution') {
           <div class="section-container animate-fade">
-            <solv-step-execution
+            <step-execution
               [targetEnvironment]="targetEnvironment()"
               [setupScript]="setupScript()"
               [entrypoint]="entrypoint()"
@@ -230,14 +230,14 @@
               (sampleInputChange)="onSampleInputChange($event)"
               (helpRequested)="toggleHelpDrawer('execution')"
               (advance)="nextSection()"
-            ></solv-step-execution>
+            ></step-execution>
           </div>
         }
 
         <!-- PASO 5: RECURSOS Y SERVICIOS (PU-11, PU-14) -->
         @if (activeSection() === 'resources') {
           <div class="section-container animate-fade">
-            <solv-step-resources
+            <step-resources
               [targetEnvironment]="targetEnvironment()"
               [baseRamMB]="baseRamMB()"
               [hasUserConfiguredResources]="hasUserConfiguredResources()"
@@ -248,14 +248,14 @@
               (selectedServicesChange)="onSelectedServicesChange($event)"
               (helpRequested)="toggleHelpDrawer('resources')"
               (advance)="nextSection()"
-            ></solv-step-resources>
+            ></step-resources>
           </div>
         }
 
         <!-- PASO 6: VERIFICACIÓN Y PRUEBA (PU-21) -->
         @if (activeSection() === 'verification') {
           <div class="section-container animate-fade">
-            <solv-step-verification
+            <step-verification
               [dockerImage]="dockerImage()"
               [toolsList]="toolsList()"
               [targetEnvironment]="targetEnvironment()"
@@ -277,13 +277,13 @@
               (helpRequested)="toggleHelpDrawer('verification')"
               (jumpToSection)="setSection($event)"
               (advance)="openPublishDialog()"
-            ></solv-step-verification>
+            ></step-verification>
           </div>
         }
       </div>
 
-      <!-- Drawer Lateral de Ayuda Contextual con solv-help-drawer -->
-      <solv-help-drawer
+      <!-- Drawer Lateral de Ayuda Contextual con help-drawer -->
+      <help-drawer
         [isOpen]="isHelpDrawerOpen()"
         [title]="drawerTitle()"
         [stepNumber]="drawerStepNumber()"
@@ -467,7 +467,7 @@ pip install pandas</code></pre>
             </p>
           }
         }
-      </solv-help-drawer>
+      </help-drawer>
     </div>
 
     <!-- Footer y Navegación Inferior -->
@@ -591,110 +591,17 @@ pip install pandas</code></pre>
       </div>
     }
 
-    <!-- Diálogo de Gestión de Categorías (CA-01 a CA-10) -->
+    <!-- Diálogo de Gestión de Categorías -->
     @if (showCategoryManagerModal()) {
-      <div class="door-confirm-overlay" (click)="closeCategoryManager()">
-        <div class="category-manager-modal" (click)="$event.stopPropagation()">
-          <div class="category-modal-header">
-            <div class="category-modal-title-wrap">
-              <svg lucideTag class="w-4 h-4 text-primary mr-1.5"></svg>
-              <h4 class="category-modal-title" i18n="@@CA-02">Gestión de Categorías Académicas</h4>
-            </div>
-            <button type="button" class="btn-icon-close" (click)="closeCategoryManager()" aria-label="Cerrar">
-              <svg lucideX class="w-4 h-4"></svg>
-            </button>
-          </div>
-
-          <div class="category-modal-body">
-            @if (categoryErrorMsg()) {
-              <div class="validation-message-alert alert-danger mb-3">
-                <svg lucideAlertCircle class="w-4 h-4"></svg>
-                <span>{{ categoryErrorMsg() }}</span>
-              </div>
-            }
-
-            <!-- Formulario crear / editar categoría -->
-            <div class="category-form-box">
-              <div class="category-form-row">
-                <input 
-                  type="text" 
-                  class="form-control form-control-sm" 
-                  placeholder="Nombre de categoría (ej: Ciencia de Datos & IA)"
-                  [ngModel]="categoryFormName()" 
-                  (ngModelChange)="categoryFormName.set($event)"
-                />
-                <button 
-                  type="button" 
-                  class="btn btn-primary btn-sm shrink-0" 
-                  [disabled]="!categoryFormName().trim() || isCategorySaving()"
-                  (click)="saveCategory()"
-                >
-                  <svg lucidePlus class="w-3.5 h-3.5 mr-1" *ngIf="!editingCategoryId()"></svg>
-                  <span>{{ editingCategoryId() ? 'Actualizar' : 'Agregar' }}</span>
-                </button>
-                @if (editingCategoryId()) {
-                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelEditCategory()">
-                    Cancelar
-                  </button>
-                }
-              </div>
-              <input 
-                type="text" 
-                class="form-control form-control-sm mt-2" 
-                placeholder="Descripción opcional"
-                [ngModel]="categoryFormDescription()" 
-                (ngModelChange)="categoryFormDescription.set($event)"
-              />
-            </div>
-
-            <!-- Lista de categorías existentes -->
-            <div class="categories-list-box mt-3">
-              <span class="categories-list-title">Categorías registradas ({{ categories().length }}):</span>
-              <div class="categories-scroll-list">
-                @for (cat of categories(); track cat.id) {
-                  <div class="category-item-row">
-                    <div class="category-item-info">
-                      <span class="category-item-name">{{ cat.name }}</span>
-                      @if (cat.description) {
-                        <span class="category-item-desc">{{ cat.description }}</span>
-                      }
-                    </div>
-                    <div class="category-item-actions">
-                      <button 
-                        type="button" 
-                        class="btn-icon-action" 
-                        (click)="startEditCategory(cat)"
-                        title="Editar categoría"
-                      >
-                        <svg lucideEdit class="w-3.5 h-3.5"></svg>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="btn-icon-action text-danger" 
-                        (click)="deleteCategory(cat)"
-                        title="Eliminar categoría"
-                      >
-                        <svg lucideTrash2 class="w-3.5 h-3.5"></svg>
-                      </button>
-                    </div>
-                  </div>
-                }
-              </div>
-            </div>
-          </div>
-
-          <div class="category-modal-footer">
-            <button type="button" class="btn btn-secondary btn-sm" (click)="closeCategoryManager()">
-              Cerrar
-            </button>
-          </div>
-        </div>
-      </div>
+      <category-form-modal
+        (closed)="closeCategoryManager()"
+        (saved)="onCategoryModalSaved($event)"
+      />
     }
 
-    <!-- Diálogo de Pre-flight para Publicación (PB-01 a PB-41) -->
+    <!-- Diálogo de Pre-flight para Publicación -->
     @if (showPublishDialog()) {
-      <solv-publish-dialog
+      <publish-dialog
         [templateName]="name()"
         [dockerImage]="dockerImage()"
         [baseRamMB]="baseRamMB()"
@@ -704,7 +611,7 @@ pip install pandas</code></pre>
         [envTestJob]="activeEnvTestJob()"
         (confirmed)="onPublishConfirmed()"
         (closed)="closePublishDialog()"
-      ></solv-publish-dialog>
+      ></publish-dialog>
     }
 
   </div>

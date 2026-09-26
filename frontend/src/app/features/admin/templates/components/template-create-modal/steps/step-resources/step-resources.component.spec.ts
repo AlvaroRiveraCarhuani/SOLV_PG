@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SolvStepResourcesComponent } from './step-resources.component';
+import { StepResourcesComponent } from './step-resources.component';
 import { AvailableSatelliteService } from '../../../../../services/admin-templates.service';
 
-describe('SolvStepResourcesComponent', () => {
-  let component: SolvStepResourcesComponent;
-  let fixture: ComponentFixture<SolvStepResourcesComponent>;
+describe('StepResourcesComponent', () => {
+  let component: StepResourcesComponent;
+  let fixture: ComponentFixture<StepResourcesComponent>;
 
   const mockServices: AvailableSatelliteService[] = [
     {
@@ -48,10 +48,10 @@ describe('SolvStepResourcesComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvStepResourcesComponent]
+      imports: [StepResourcesComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvStepResourcesComponent);
+    fixture = TestBed.createComponent(StepResourcesComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
     fixture.componentRef.setInput('baseRamMB', 1024);

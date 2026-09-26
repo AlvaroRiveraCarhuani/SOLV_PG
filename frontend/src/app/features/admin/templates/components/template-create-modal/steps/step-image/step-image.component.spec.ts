@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SolvStepImageComponent } from './step-image.component';
+import { StepImageComponent } from './step-image.component';
 import { LocalImageItem, ImageSuggestion } from '../../../../../services/admin-templates.service';
 
-describe('SolvStepImageComponent', () => {
-  let component: SolvStepImageComponent;
-  let fixture: ComponentFixture<SolvStepImageComponent>;
+describe('StepImageComponent', () => {
+  let component: StepImageComponent;
+  let fixture: ComponentFixture<StepImageComponent>;
 
   const mockLocalImages: LocalImageItem[] = [
     { repo_tag: 'python:3.12-slim-bookworm', size_mb: 150, is_official: true, has_latest_tag: false, created_at: '', usage_count: 5 },
@@ -19,10 +19,10 @@ describe('SolvStepImageComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvStepImageComponent]
+      imports: [StepImageComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvStepImageComponent);
+    fixture = TestBed.createComponent(StepImageComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('localImages', mockLocalImages);
     fixture.componentRef.setInput('curatedImages', mockCuratedImages);
@@ -35,7 +35,7 @@ describe('SolvStepImageComponent', () => {
     fixture.detectChanges();
 
     expect(component.isLatestImage()).toBe(true);
-    const fieldMsg = fixture.nativeElement.querySelector('solv-field-message');
+    const fieldMsg = fixture.nativeElement.querySelector('field-message');
     expect(fieldMsg).toBeTruthy();
     expect(fieldMsg.textContent).toContain('Prohibido el tag :latest');
   });
@@ -45,7 +45,7 @@ describe('SolvStepImageComponent', () => {
     fixture.componentRef.setInput('verificationState', 'verified');
     fixture.detectChanges();
 
-    const fieldMsg = fixture.nativeElement.querySelector('solv-field-message');
+    const fieldMsg = fixture.nativeElement.querySelector('field-message');
     expect(fieldMsg).toBeTruthy();
     expect(fieldMsg.textContent).toContain('Imagen verificada en el nodo');
   });
@@ -113,7 +113,7 @@ describe('SolvStepImageComponent', () => {
     expect(warning).toContain('node');
     expect(warning).toContain('Node.js');
 
-    const warningEl = fixture.nativeElement.querySelector('.mt-2 solv-field-message');
+    const warningEl = fixture.nativeElement.querySelector('.mt-2 field-message');
     expect(warningEl).toBeTruthy();
     expect(warningEl.textContent).toContain('node');
   });

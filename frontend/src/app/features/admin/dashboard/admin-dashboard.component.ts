@@ -31,7 +31,7 @@ const STORAGE_LAYOUT_KEY = 'solv_admin_dashboard_layout';
 const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'containers'];
 
 @Component({
-  selector: 'solv-admin-dashboard',
+  selector: 'admin-dashboard',
   standalone: true,
   imports: [
     CommonModule, 

@@ -41,7 +41,7 @@ export interface ParsedLogLine {
 }
 
 @Component({
-  selector: 'solv-step-verification',
+  selector: 'step-verification',
   standalone: true,
   imports: [
     CommonModule, 
@@ -64,7 +64,7 @@ export interface ParsedLogLine {
   templateUrl: './step-verification.component.html',
   styleUrls: ['./step-verification.component.scss']
 })
-export class SolvStepVerificationComponent {
+export class StepVerificationComponent {
   @ViewChild('envTestButton') envTestButton?: EnvTestButtonComponent;
   @ViewChild('terminalContainer') terminalContainer?: ElementRef<HTMLDivElement>;
 
@@ -396,3 +396,5 @@ export class SolvStepVerificationComponent {
     this.testCompleted.emit(job);
   }
 }
+
+export { StepVerificationComponent as SolvStepVerificationComponent };

@@ -6,7 +6,7 @@ import { AuthService } from '@core/services/auth.service';
 import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-topbar',
+  selector: 'topbar',
   standalone: true,
   imports: [CommonModule, LucidePanelLeft, LucideBell, LucideLogOut, LucideUser],
   template: `

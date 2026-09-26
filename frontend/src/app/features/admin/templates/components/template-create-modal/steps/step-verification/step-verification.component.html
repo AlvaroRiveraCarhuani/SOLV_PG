@@ -101,9 +101,9 @@
       <span class="registry-tag font-mono">{{ isLocalImage() ? 'Origen: Imagen local en el host' : 'Origen: Registro de contenedores' }}</span>
     </div>
 
-    <!-- SolvEnvTestButton invisible o de apoyo para manejo de eventos -->
+    <!-- EnvTestButton invisible o de apoyo para manejo de eventos -->
     <div class="hidden-button-runner">
-      <solv-env-test-button
+      <env-test-button
         #envTestButton
         [image]="dockerImage()"
         [tools]="toolsList()"
@@ -114,7 +114,7 @@
         [isLocal]="isLocalImage()"
         [imageSizeMB]="imageSizeMB()"
         (testCompleted)="onTestCompleted($event)"
-      ></solv-env-test-button>
+      ></env-test-button>
     </div>
 
     <!-- Diagnóstico de la Verificación (Estructurado en 3 niveles con saltos directos) -->

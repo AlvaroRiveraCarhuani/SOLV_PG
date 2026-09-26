@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { LucideAlertTriangle, LucideHelpCircle, LucideX } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-confirm-modal',
+  selector: 'confirm-modal',
   standalone: true,
   imports: [CommonModule, LucideAlertTriangle, LucideHelpCircle, LucideX],
   template: `

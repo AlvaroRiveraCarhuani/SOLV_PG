@@ -27,16 +27,17 @@ import {
   TemplateModelItem,
   TemplateCategory
 } from '../../../services/admin-templates.service';
-import { SolvStepPurposeComponent } from './steps/step-purpose/step-purpose.component';
-import { SolvStepIdentityComponent } from './steps/step-identity/step-identity.component';
-import { SolvStepImageComponent } from './steps/step-image/step-image.component';
-import { SolvStepExecutionComponent } from './steps/step-execution/step-execution.component';
-import { SolvStepResourcesComponent } from './steps/step-resources/step-resources.component';
-import { SolvStepVerificationComponent } from './steps/step-verification/step-verification.component';
-import { SolvHelpDrawerComponent } from '../../../../../shared/components/help-drawer/help-drawer.component';
+import { StepPurposeComponent } from './steps/step-purpose/step-purpose.component';
+import { StepIdentityComponent } from './steps/step-identity/step-identity.component';
+import { StepImageComponent } from './steps/step-image/step-image.component';
+import { StepExecutionComponent } from './steps/step-execution/step-execution.component';
+import { StepResourcesComponent } from './steps/step-resources/step-resources.component';
+import { StepVerificationComponent } from './steps/step-verification/step-verification.component';
+import { HelpDrawerComponent } from '../../../../../shared/components/help-drawer/help-drawer.component';
 import { 
   PublishDialogComponent 
 } from '../publish-dialog/publish-dialog.component';
+import { CategoryFormModalComponent } from '../model-library/components/category-form-modal/category-form-modal.component';
 import { 
   EnvTestJob 
 } from '../../../services/env-test-job.service';
@@ -49,11 +50,7 @@ import {
   LucideSend,
   LucideRotateCw,
   LucideArrowLeft,
-  LucideArrowRight,
-  LucidePlus,
-  LucideEdit,
-  LucideTrash2,
-  LucideTag
+  LucideArrowRight
 } from '@lucide/angular';
 
 export interface ImageSuggestion {
@@ -87,13 +84,14 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
 export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 'resources' | 'verification';
 
 @Component({
-  selector: 'solv-template-create-modal',
+  selector: 'template-create-modal',
   standalone: true,
   imports: [
     CommonModule, 
     FormsModule, 
     RouterModule,
     PublishDialogComponent,
+    CategoryFormModalComponent,
     LucideX, 
     LucideLayers, 
     LucideAlertCircle,
@@ -103,17 +101,13 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     LucideRotateCw,
     LucideArrowLeft,
     LucideArrowRight,
-    LucidePlus,
-    LucideEdit,
-    LucideTrash2,
-    LucideTag,
-    SolvStepPurposeComponent,
-    SolvStepIdentityComponent,
-    SolvStepImageComponent,
-    SolvStepExecutionComponent,
-    SolvStepResourcesComponent,
-    SolvStepVerificationComponent,
-    SolvHelpDrawerComponent
+    StepPurposeComponent,
+    StepIdentityComponent,
+    StepImageComponent,
+    StepExecutionComponent,
+    StepResourcesComponent,
+    StepVerificationComponent,
+    HelpDrawerComponent
   ],
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
@@ -629,6 +623,15 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.showCategoryManagerModal.set(false);
     this.categoryErrorMsg.set(null);
     this.editingCategoryId.set(null);
+  }
+
+  onCategoryModalSaved(result: { id: string; name: string }): void {
+    this.loadCategories();
+    this.loadModels();
+    if (result.id) {
+      this.selectedCategoryId.set(result.id);
+    }
+    this.closeCategoryManager();
   }
 
   startEditCategory(cat: TemplateCategory): void {

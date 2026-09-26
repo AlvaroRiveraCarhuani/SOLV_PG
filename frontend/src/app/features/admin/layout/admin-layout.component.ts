@@ -33,14 +33,14 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
 ];
 
 @Component({
-  selector: 'solv-admin-layout',
+  selector: 'admin-layout',
   standalone: true,
   imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent],
   template: `
     <div class="shell-container">
-      <solv-topbar (toggleSidebar)="toggleSidebar()" />
+      <topbar (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
-        <solv-sidebar 
+        <sidebar 
           [collapsed]="isSidebarCollapsed()" 
           [sections]="adminSections" 
         />

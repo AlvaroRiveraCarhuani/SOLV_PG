@@ -8,12 +8,11 @@ import {
   LucideArrowRightLeft, 
   LucideX, 
   LucideAlertCircle, 
-  LucideUser, 
   LucideFileText 
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-course-reassign-modal',
+  selector: 'course-reassign-modal',
   standalone: true,
   imports: [
     CommonModule, 
@@ -22,7 +21,6 @@ import {
     LucideArrowRightLeft, 
     LucideX, 
     LucideAlertCircle, 
-    LucideUser, 
     LucideFileText
   ],
   templateUrl: './course-reassign-modal.component.html',

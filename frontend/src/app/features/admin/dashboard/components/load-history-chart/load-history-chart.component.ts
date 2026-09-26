@@ -4,7 +4,7 @@ import { LoadSnapshot } from '@core/models/admin.model';
 import { LucideActivity } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-load-history-chart',
+  selector: 'load-history-chart',
   standalone: true,
   imports: [CommonModule, LucideActivity],
   template: `

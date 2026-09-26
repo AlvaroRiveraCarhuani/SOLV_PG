@@ -1,18 +1,18 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { SolvHelpDrawerComponent } from './help-drawer.component';
+import { HelpDrawerComponent } from './help-drawer.component';
 
-describe('SolvHelpDrawerComponent', () => {
-  let component: SolvHelpDrawerComponent;
-  let fixture: ComponentFixture<SolvHelpDrawerComponent>;
+describe('HelpDrawerComponent', () => {
+  let component: HelpDrawerComponent;
+  let fixture: ComponentFixture<HelpDrawerComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvHelpDrawerComponent, RouterTestingModule]
+      imports: [HelpDrawerComponent, RouterTestingModule]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvHelpDrawerComponent);
+    fixture = TestBed.createComponent(HelpDrawerComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

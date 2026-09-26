@@ -12,14 +12,11 @@ import { ComboboxComponent, ComboboxOption } from '../../../../../shared/compone
 import { 
   LucideBookPlus, 
   LucideX, 
-  LucideAlertCircle, 
-  LucideUser, 
-  LucideLayers, 
-  LucideCalendar 
+  LucideAlertCircle 
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-course-create-modal',
+  selector: 'course-create-modal',
   standalone: true,
   imports: [
     CommonModule, 
@@ -27,10 +24,7 @@ import {
     ComboboxComponent,
     LucideBookPlus, 
     LucideX, 
-    LucideAlertCircle, 
-    LucideUser, 
-    LucideLayers, 
-    LucideCalendar
+    LucideAlertCircle
   ],
   templateUrl: './course-create-modal.component.html',
   styleUrls: ['./course-create-modal.component.scss']

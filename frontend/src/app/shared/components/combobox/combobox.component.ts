@@ -29,7 +29,7 @@ export interface ComboboxGroup {
 }
 
 @Component({
-  selector: 'solv-combobox',
+  selector: 'combobox',
   standalone: true,
   imports: [CommonModule, LucideSearch, LucideChevronDown, LucideCheck],
   template: `

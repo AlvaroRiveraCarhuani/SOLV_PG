@@ -15,29 +15,30 @@ import {
 import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '../../../../../shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '../../../../../shared/components/kpi-card/kpi-card.component';
+import { ViewSwitcherComponent } from '../../../../../shared/components/view-switcher/view-switcher.component';
+import { ModelNewModalComponent } from './components/model-new-modal/model-new-modal.component';
+import { ModelEditModalComponent } from './components/model-edit-modal/model-edit-modal.component';
+import { CategoryFormModalComponent } from './components/category-form-modal/category-form-modal.component';
+import { CategoryDeleteModalComponent } from './components/category-delete-modal/category-delete-modal.component';
 import {
   LucideBoxes,
   LucideTag,
   LucidePlus,
   LucidePencil,
   LucideTrash2,
-  LucideX,
   LucideCheck,
   LucidePower,
   LucideAlertTriangle,
   LucideGripVertical,
   LucideChevronUp,
   LucideChevronDown,
-  LucideLayoutGrid,
-  LucideTable,
   LucideCheckCircle2,
   LucideCode,
-  LucideTerminal,
-  LucideSparkles
+  LucideTerminal
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-model-library',
+  selector: 'model-library',
   standalone: true,
   imports: [
     CommonModule,
@@ -47,24 +48,25 @@ import {
     SearchBarComponent,
     KpiCardComponent,
     KpiGridComponent,
+    ViewSwitcherComponent,
+    ModelNewModalComponent,
+    ModelEditModalComponent,
+    CategoryFormModalComponent,
+    CategoryDeleteModalComponent,
     LucideBoxes,
     LucideTag,
     LucidePlus,
     LucidePencil,
     LucideTrash2,
-    LucideX,
     LucideCheck,
     LucidePower,
     LucideAlertTriangle,
     LucideGripVertical,
     LucideChevronUp,
     LucideChevronDown,
-    LucideLayoutGrid,
-    LucideTable,
     LucideCheckCircle2,
     LucideCode,
-    LucideTerminal,
-    LucideSparkles
+    LucideTerminal
   ],
   templateUrl: './model-library.component.html',
   styleUrls: ['./model-library.component.scss']
@@ -391,6 +393,31 @@ export class ModelLibraryComponent implements OnInit {
   navigateToTemplatesWizard(): void {
     this.closeNewModelModal();
     this.router.navigate(['/admin/plantillas']);
+  }
+
+  handleModelPromoted(_event: { id: string; name: string }): void {
+    this.closeNewModelModal();
+    this.showToast('Plantilla promovida a modelo oficial exitosamente.', 'success');
+    this.loadData();
+  }
+
+  handleModelSaved(_event: { id: string; title: string }): void {
+    this.closeModelModal();
+    this.showToast('Modelo actualizado exitosamente.', 'success');
+    this.loadData();
+  }
+
+  handleCategorySaved(event: { id: string; name: string }): void {
+    const isEdit = !!this.editingCategory();
+    this.closeCategoryModal();
+    this.showToast(isEdit ? 'Categoría actualizada.' : 'Categoría creada exitosamente.', 'success');
+    this.loadCategories();
+  }
+
+  handleCategoryDeleted(cat: TemplateCategory): void {
+    this.cancelDeleteCategory();
+    this.showToast(`Categoría "${cat.name}" eliminada.`, 'success');
+    this.loadCategories();
   }
 
   openEditModel(model: TemplateModelItem): void {

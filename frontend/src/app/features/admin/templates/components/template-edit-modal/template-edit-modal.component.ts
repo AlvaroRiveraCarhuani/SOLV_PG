@@ -10,7 +10,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-template-edit-modal',
+  selector: 'template-edit-modal',
   standalone: true,
   imports: [
     CommonModule, 

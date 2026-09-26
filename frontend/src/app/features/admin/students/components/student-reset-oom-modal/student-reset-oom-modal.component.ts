@@ -5,7 +5,7 @@ import { AdminStudentItem } from '../../../services/admin-students.service';
 import { LucideAlertTriangle, LucideX, LucideRotateCcw } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-student-reset-oom-modal',
+  selector: 'student-reset-oom-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideAlertTriangle, LucideX, LucideRotateCcw],
   templateUrl: './student-reset-oom-modal.component.html',

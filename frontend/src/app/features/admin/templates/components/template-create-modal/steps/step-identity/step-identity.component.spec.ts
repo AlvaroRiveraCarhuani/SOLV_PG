@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { SolvStepIdentityComponent } from './step-identity.component';
+import { StepIdentityComponent } from './step-identity.component';
 import { TemplateCategory } from '../../../../../services/admin-templates.service';
 
-describe('SolvStepIdentityComponent', () => {
-  let component: SolvStepIdentityComponent;
-  let fixture: ComponentFixture<SolvStepIdentityComponent>;
+describe('StepIdentityComponent', () => {
+  let component: StepIdentityComponent;
+  let fixture: ComponentFixture<StepIdentityComponent>;
 
   const mockCategories: TemplateCategory[] = [
     { id: 'cat-1', tenant_id: 't-1', name: 'Algoritmos y Estructuras', sort_order: 1, created_at: '', updated_at: '' },
@@ -15,11 +15,11 @@ describe('SolvStepIdentityComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvStepIdentityComponent],
+      imports: [StepIdentityComponent],
       providers: [provideRouter([])]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvStepIdentityComponent);
+    fixture = TestBed.createComponent(StepIdentityComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('categories', mockCategories);
     fixture.detectChanges();

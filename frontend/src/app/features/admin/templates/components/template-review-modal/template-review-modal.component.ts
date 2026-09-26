@@ -12,7 +12,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-template-review-modal',
+  selector: 'template-review-modal',
   standalone: true,
   imports: [
     CommonModule, 

@@ -1,0 +1,51 @@
+<div class="modal-backdrop" (click)="onCancel()">
+  <div class="modal-card modal-sm" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge danger">
+          <svg lucideAlertTriangle class="w-5 h-5 text-danger"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Eliminar Categoría</h3>
+          <p class="modal-subtitle">Esta acción no se puede deshacer</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="onCancel()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (errorMessage()) {
+        <div class="field-error-alert mb-3">
+          <svg lucideAlertTriangle class="w-4 h-4"></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <p class="delete-warning-text">
+        ¿Está seguro de eliminar la categoría <strong>"{{ category.name }}"</strong>?
+      </p>
+      <p class="delete-hint-text">
+        No se podrá eliminar si tiene modelos o plantillas asociadas.
+      </p>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="onCancel()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-danger" 
+        (click)="onConfirm()" 
+        [disabled]="isSubmitting()">
+        @if (isSubmitting()) {
+          <span>Eliminando...</span>
+        } @else {
+          <span>Eliminar Categoría</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

@@ -110,26 +110,7 @@
     </div>
 
     <!-- Alternador de Vista: Tarjetas vs Tabla -->
-    <div class="view-switcher" role="group" aria-label="Modo de visualización">
-      <button 
-        type="button" 
-        class="switcher-btn" 
-        [class.active]="viewMode() === 'cards'"
-        (click)="viewMode.set('cards')"
-        title="Vista en Tarjetas">
-        <svg lucideLayoutGrid class="switcher-icon"></svg>
-        <span>Tarjetas</span>
-      </button>
-      <button 
-        type="button" 
-        class="switcher-btn" 
-        [class.active]="viewMode() === 'table'"
-        (click)="viewMode.set('table')"
-        title="Vista en Tabla">
-        <svg lucideTable class="switcher-icon"></svg>
-        <span>Tabla</span>
-      </button>
-    </div>
+    <view-switcher [(mode)]="viewMode" />
   </div>
 
   <!-- Contenido TAB 1: MODELOS OFICIALES -->
@@ -146,35 +127,35 @@
         <div class="filter-controls">
           <div class="select-wrap">
             <label class="filter-label">Propósito:</label>
-            <solv-combobox
+            <combobox
               [compact]="true"
               [value]="selectedPurposeFilterLabel()"
               [options]="purposeFilterComboboxOptions()"
               placeholder="Propósito..."
               (optionSelected)="onPurposeFilterSelected($event)"
-            ></solv-combobox>
+            ></combobox>
           </div>
 
           <div class="select-wrap">
             <label class="filter-label">Categoría:</label>
-            <solv-combobox
+            <combobox
               [compact]="true"
               [value]="selectedCategoryFilterLabel()"
               [options]="categoryFilterComboboxOptions()"
               placeholder="Categoría..."
               (optionSelected)="onCategoryFilterSelected($event)"
-            ></solv-combobox>
+            ></combobox>
           </div>
 
           <div class="select-wrap">
             <label class="filter-label">Estado:</label>
-            <solv-combobox
+            <combobox
               [compact]="true"
               [value]="selectedStatusFilterLabel()"
               [options]="statusFilterComboboxOptions()"
               placeholder="Estado..."
               (optionSelected)="onStatusFilterSelected($event)"
-            ></solv-combobox>
+            ></combobox>
           </div>
         </div>
       </div>
@@ -476,274 +457,40 @@
 
   <!-- Modal Nuevo Modelo Oficial (Promoción Guiada) -->
   @if (showNewModelModal()) {
-    <div class="modal-backdrop" (click)="closeNewModelModal()">
-      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <div class="modal-icon-badge">
-              <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
-            </div>
-            <div>
-              <h3 class="modal-title">Nuevo Modelo Oficial (Receta)</h3>
-              <p class="modal-subtitle">Promocione una plantilla aprobada para convertirla en arquetipo base del catálogo</p>
-            </div>
-          </div>
-          <button type="button" class="btn-icon-close" (click)="closeNewModelModal()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          @if (newModelError()) {
-            <div class="field-error-alert mb-3">
-              <svg lucideAlertTriangle class="w-4 h-4"></svg>
-              <span>{{ newModelError() }}</span>
-            </div>
-          }
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">
-              Plantilla Aprobada Base: <span class="text-danger">*</span>
-            </label>
-            <solv-combobox
-              [value]="selectedTemplateToPromoteLabel()"
-              [options]="approvedTemplateComboboxOptions()"
-              placeholder="Seleccione o busque una plantilla aprobada..."
-              (optionSelected)="onTemplateToPromoteSelected($event)"
-            ></solv-combobox>
-            <small class="form-hint">
-              Solo plantillas aprobadas que han superado la prueba de arranque y auditoría pueden ser promovidas.
-            </small>
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">
-              Título del Modelo Institucional: <span class="text-danger">*</span>
-            </label>
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Ej: Python 3.12 Data Science Base"
-              [ngModel]="newModelTitle()" 
-              (ngModelChange)="newModelTitle.set($event)"
-            />
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Categoría Académica:</label>
-            <solv-combobox
-              [value]="selectedNewModelCategoryLabel()"
-              [options]="categoryComboboxOptions()"
-              placeholder="Seleccione o busque categoría..."
-              (optionSelected)="onNewModelCategorySelected($event)"
-            ></solv-combobox>
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Descripción del Modelo:</label>
-            <textarea 
-              class="form-control text-area-sm" 
-              rows="3" 
-              placeholder="Describa el objetivo pedagógico y tecnologías incluidas..."
-              [ngModel]="newModelDescription()" 
-              (ngModelChange)="newModelDescription.set($event)">
-            </textarea>
-          </div>
-
-          <div class="wizard-callout-box mt-3">
-            <div class="callout-content">
-              <strong>¿Necesita diseñar un entorno nuevo desde cero?</strong>
-              <p>Puede crear y auditar una nueva plantilla oficial directamente en el asistente interactivo.</p>
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" (click)="navigateToTemplatesWizard()">
-              <span>Abrir Asistente</span>
-            </button>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeNewModelModal()" [disabled]="isNewModelPromoting()">
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            class="btn btn-primary" 
-            (click)="confirmPromoteToModel()" 
-            [disabled]="isNewModelPromoting() || !selectedTemplateId() || !newModelTitle().trim()">
-            @if (isNewModelPromoting()) {
-              <span>Guardando...</span>
-            } @else {
-              <span>Convertir en Modelo Oficial</span>
-            }
-          </button>
-        </div>
-      </div>
-    </div>
+    <model-new-modal
+      [approvedTemplates]="approvedTemplates()"
+      [categories]="categories()"
+      (closed)="closeNewModelModal()"
+      (promoted)="handleModelPromoted($event)"
+      (openWizard)="navigateToTemplatesWizard()"
+    />
   }
 
   <!-- Modal Editar Modelo -->
-  @if (showModelModal()) {
-    <div class="modal-backdrop" (click)="closeModelModal()">
-      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3 class="modal-title">Editar Modelo Oficial</h3>
-          <button type="button" class="btn-icon-close" (click)="closeModelModal()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Título del Modelo: <span class="text-danger">*</span></label>
-            <input 
-              type="text" 
-              class="form-control" 
-              [ngModel]="modelTitle()" 
-              (ngModelChange)="modelTitle.set($event)"
-            />
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Categoría Académica: <span class="text-danger">*</span></label>
-            <solv-combobox
-              [value]="selectedEditModelCategoryLabel()"
-              [options]="categoryComboboxOptions()"
-              placeholder="Seleccione o busque categoría..."
-              (optionSelected)="onEditModelCategorySelected($event)"
-            ></solv-combobox>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label font-semibold">Descripción Pedagógica:</label>
-            <textarea 
-              class="form-control text-area-sm" 
-              rows="3" 
-              [ngModel]="modelDescription()" 
-              (ngModelChange)="modelDescription.set($event)">
-            </textarea>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeModelModal()" [disabled]="isModelSaving()">
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            class="btn btn-primary" 
-            (click)="saveModel()" 
-            [disabled]="isModelSaving() || !modelTitle().trim() || !modelCategoryId()">
-            @if (isModelSaving()) {
-              <span>Guardando...</span>
-            } @else {
-              <span>Guardar Cambios</span>
-            }
-          </button>
-        </div>
-      </div>
-    </div>
+  @if (editingModel(); as model) {
+    <model-edit-modal
+      [model]="model"
+      [categories]="categories()"
+      (closed)="closeModelModal()"
+      (saved)="handleModelSaved($event)"
+    />
   }
 
   <!-- Modal Crear/Editar Categoría -->
   @if (showCategoryModal()) {
-    <div class="modal-backdrop" (click)="closeCategoryModal()">
-      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <h3 class="modal-title">{{ editingCategory() ? 'Editar Categoría' : 'Nueva Categoría Académica' }}</h3>
-          <button type="button" class="btn-icon-close" (click)="closeCategoryModal()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Nombre de la Categoría: <span class="text-danger">*</span></label>
-            <input 
-              type="text" 
-              class="form-control" 
-              placeholder="Ej: Inteligencia Artificial y Machine Learning"
-              [ngModel]="categoryName()" 
-              (ngModelChange)="categoryName.set($event)"
-            />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label font-semibold">Descripción (Opcional):</label>
-            <textarea 
-              class="form-control text-area-sm" 
-              rows="3" 
-              placeholder="Descripción del área temática o materias de aplicación..."
-              [ngModel]="categoryDescription()" 
-              (ngModelChange)="categoryDescription.set($event)">
-            </textarea>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="closeCategoryModal()" [disabled]="isCategorySaving()">
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            class="btn btn-primary" 
-            (click)="saveCategory()" 
-            [disabled]="isCategorySaving() || !categoryName().trim()">
-            @if (isCategorySaving()) {
-              <span>Guardando...</span>
-            } @else {
-              <span>{{ editingCategory() ? 'Actualizar Categoría' : 'Crear Categoría' }}</span>
-            }
-          </button>
-        </div>
-      </div>
-    </div>
+    <category-form-modal
+      [category]="editingCategory()"
+      (closed)="closeCategoryModal()"
+      (saved)="handleCategorySaved($event)"
+    />
   }
 
   <!-- Modal Confirmar Eliminación de Categoría -->
   @if (categoryToDelete(); as cat) {
-    <div class="modal-backdrop" (click)="cancelDeleteCategory()">
-      <div class="modal-card modal-sm" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <div class="modal-icon-badge danger">
-              <svg lucideAlertTriangle class="w-5 h-5 text-danger"></svg>
-            </div>
-            <div>
-              <h3 class="modal-title">Eliminar Categoría</h3>
-              <p class="modal-subtitle">Esta acción no se puede deshacer</p>
-            </div>
-          </div>
-          <button type="button" class="btn-icon-close" (click)="cancelDeleteCategory()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <p class="delete-warning-text">
-            ¿Está seguro de eliminar la categoría <strong>"{{ cat.name }}"</strong>?
-          </p>
-          <p class="delete-hint-text">
-            No se podrá eliminar si tiene modelos o plantillas asociadas.
-          </p>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" (click)="cancelDeleteCategory()" [disabled]="isCategoryDeleting()">
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            class="btn btn-danger" 
-            (click)="executeDeleteCategory()" 
-            [disabled]="isCategoryDeleting()">
-            @if (isCategoryDeleting()) {
-              <span>Eliminando...</span>
-            } @else {
-              <span>Eliminar Categoría</span>
-            }
-          </button>
-        </div>
-      </div>
-    </div>
+    <category-delete-modal
+      [category]="cat"
+      (cancelled)="cancelDeleteCategory()"
+      (deleted)="handleCategoryDeleted($event)"
+    />
   }
 </div>

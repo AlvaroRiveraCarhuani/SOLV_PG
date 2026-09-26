@@ -4,7 +4,7 @@ import { TenantService } from '@core/services/tenant.service';
 import { AuthService } from '@core/services/auth.service';
 
 @Component({
-  selector: 'solv-login',
+  selector: 'login',
   standalone: true,
   imports: [CommonModule],
   templateUrl: './login.component.html',

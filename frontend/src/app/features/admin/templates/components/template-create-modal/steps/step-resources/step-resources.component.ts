@@ -35,7 +35,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
 ];
 
 @Component({
-  selector: 'solv-step-resources',
+  selector: 'step-resources',
   standalone: true,
   imports: [
     CommonModule, 
@@ -224,7 +224,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
   `,
   styleUrls: ['./step-resources.component.scss']
 })
-export class SolvStepResourcesComponent {
+export class StepResourcesComponent {
   readonly RELATIONAL_ENGINES = ['postgres', 'mysql'];
   readonly SATELLITE_BASE_RAM: Record<string, number> = {
     postgres: 128,
@@ -445,3 +445,5 @@ export class SolvStepResourcesComponent {
     this.selectedServicesChange.emit(current);
   }
 }
+
+export { StepResourcesComponent as SolvStepResourcesComponent };

@@ -4,7 +4,7 @@ import { HostHardwareMetrics } from '@core/models/admin.model';
 import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-hardware-kpi',
+  selector: 'hardware-kpi',
   standalone: true,
   imports: [CommonModule, LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes],
   template: `

@@ -1,0 +1,58 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h3 class="modal-title">{{ category ? 'Editar Categoría' : 'Nueva Categoría Académica' }}</h3>
+      <button type="button" class="btn-icon-close" (click)="onClose()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (errorMessage()) {
+        <div class="field-error-alert mb-3">
+          <svg lucideAlertTriangle class="w-4 h-4"></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">Nombre de la Categoría: <span class="text-danger">*</span></label>
+        <input 
+          type="text" 
+          class="form-control" 
+          placeholder="Ej: Inteligencia Artificial y Machine Learning"
+          [ngModel]="name()" 
+          (ngModelChange)="name.set($event)"
+        />
+      </div>
+
+      <div class="form-group">
+        <label class="form-label font-semibold">Descripción (Opcional):</label>
+        <textarea 
+          class="form-control text-area-sm" 
+          rows="3" 
+          placeholder="Descripción del área temática o materias de aplicación..."
+          [ngModel]="description()" 
+          (ngModelChange)="description.set($event)">
+        </textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary" 
+        (click)="onSave()" 
+        [disabled]="isSubmitting() || !name().trim()">
+        @if (isSubmitting()) {
+          <span>Guardando...</span>
+        } @else {
+          <span>{{ category ? 'Actualizar Categoría' : 'Crear Categoría' }}</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

@@ -15,7 +15,7 @@ import {
   ComboboxOption 
 } from '../../../../../../../shared/components/combobox/combobox.component';
 import { 
-  SolvFieldMessageComponent 
+  FieldMessageComponent 
 } from '../../../../../../../shared/components/field-message/field-message.component';
 import { 
   LocalImageItem, 
@@ -74,14 +74,14 @@ const UNIVERSAL_TOOLS = new Set([
 ]);
 
 @Component({
-  selector: 'solv-step-image',
+  selector: 'step-image',
   standalone: true,
   imports: [
     CommonModule, 
     FormsModule, 
     LucideHelpCircle,
     ComboboxComponent,
-    SolvFieldMessageComponent
+    FieldMessageComponent
   ],
   template: `
     <div class="form-group">
@@ -129,7 +129,7 @@ const UNIVERSAL_TOOLS = new Set([
       }
 
       <!-- Combobox de imagen (solo filtra) -->
-      <solv-combobox
+      <combobox
         [value]="dockerImage()"
         [options]="comboboxOptions()"
         [maxSuggestions]="8"
@@ -139,48 +139,48 @@ const UNIVERSAL_TOOLS = new Set([
         inputAriaLabel="Imagen Docker"
         (valueChange)="onImageChange($event)"
         (optionSelected)="onImageOptionSelected($event)"
-      ></solv-combobox>
+      ></combobox>
 
       <!-- Mensajes de verificación y validación con semántica de color (separados del listbox) -->
       @if (isLatestImage()) {
-        <solv-field-message 
+        <field-message 
           variant="error"
           message="Prohibido el tag :latest por reproducibilidad académica y gobernanza institucional."
-        ></solv-field-message>
+        ></field-message>
       } @else if (isInvalidFormat()) {
-        <solv-field-message 
+        <field-message 
           variant="warning"
           message="Formato OCI inválido: debe ser repositorio:tag (ej: python:3.12-slim)."
-        ></solv-field-message>
+        ></field-message>
       } @else if (verificationState() === 'checking') {
-        <solv-field-message 
+        <field-message 
           variant="info"
           message="Verificando imagen en el nodo y registro Docker..."
-        ></solv-field-message>
+        ></field-message>
       } @else if (verificationState() === 'verified' && !isStorageBlocked() && !isArchIncompatible()) {
-        <solv-field-message 
+        <field-message 
           variant="success"
           [message]="verificationSuccessMessage()"
           actionLabel="Re-verificar"
           (actionClicked)="reverify.emit()"
-        ></solv-field-message>
+        ></field-message>
       } @else if (verificationState() === 'failed' || verificationState() === 'error') {
-        <solv-field-message 
+        <field-message 
           variant="error"
           message="No se pudo verificar la imagen en el nodo ni en el registro público."
           actionLabel="Reintentar verificación"
           (actionClicked)="reverify.emit()"
-        ></solv-field-message>
+        ></field-message>
       } @else if (isStorageBlocked()) {
-        <solv-field-message 
+        <field-message 
           variant="error"
           message="El tamaño de la imagen excede la cuota de almacenamiento del nodo."
-        ></solv-field-message>
+        ></field-message>
       } @else if (isArchIncompatible()) {
-        <solv-field-message 
+        <field-message 
           variant="error"
           message="La arquitectura de la imagen es incompatible con el host (requiere amd64)."
-        ></solv-field-message>
+        ></field-message>
       }
     </div>
 
@@ -200,17 +200,17 @@ const UNIVERSAL_TOOLS = new Set([
 
       @if (invalidToolSyntaxError()) {
         <div class="mt-2">
-          <solv-field-message 
+          <field-message 
             variant="error"
             [message]="invalidToolSyntaxError()!"
-          ></solv-field-message>
+          ></field-message>
         </div>
       } @else if (toolsAffinityWarning()) {
         <div class="mt-2">
-          <solv-field-message 
+          <field-message 
             variant="warning"
             [message]="toolsAffinityWarning()!"
-          ></solv-field-message>
+          ></field-message>
         </div>
       }
       
@@ -219,7 +219,7 @@ const UNIVERSAL_TOOLS = new Set([
           {{ hasImageFamilyMatch() ? 'Sugerencias según la imagen elegida:' : 'Sugerencias según el propósito:' }}
         </span>
         <div class="chips-row">
-          @for (tool of reactiveSuggestedTools(); track tool) {
+          @for (tool of reactiveSuggestedTools(); track $index) {
             <button 
               type="button" 
               class="tool-chip" 
@@ -238,7 +238,7 @@ const UNIVERSAL_TOOLS = new Set([
   `,
   styleUrls: ['./step-image.component.scss']
 })
-export class SolvStepImageComponent {
+export class StepImageComponent {
   dockerImage = input<string>('');
   toolsDeclared = input<string>('');
   targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
@@ -453,3 +453,5 @@ export class SolvStepImageComponent {
     }
   }
 }
+
+export { StepImageComponent as SolvStepImageComponent };

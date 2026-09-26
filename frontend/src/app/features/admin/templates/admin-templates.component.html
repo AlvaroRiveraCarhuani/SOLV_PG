@@ -124,26 +124,7 @@
     </div>
 
     <!-- Alternador de Vista: Tarjetas vs Tabla (Unificado para todas las pestañas) -->
-    <div class="view-switcher" role="group" aria-label="Modo de visualización">
-      <button 
-        type="button" 
-        class="switcher-btn" 
-        [class.active]="viewMode() === 'cards'"
-        (click)="setViewMode('cards')"
-        title="Vista en Tarjetas">
-        <svg lucideLayoutGrid class="switcher-icon"></svg>
-        <span>Tarjetas</span>
-      </button>
-      <button 
-        type="button" 
-        class="switcher-btn" 
-        [class.active]="viewMode() === 'table'"
-        (click)="setViewMode('table')"
-        title="Vista en Tabla">
-        <svg lucideTable class="switcher-icon"></svg>
-        <span>Tabla</span>
-      </button>
-    </div>
+    <view-switcher [(mode)]="viewMode" />
   </div>
 
   <!-- Barra de Búsqueda y Filtros Dinámicos -->
@@ -174,7 +155,7 @@
             class="tech-chip" 
             [class.active]="selectedTech() === tech.meta.id"
             (click)="setTechFilter(tech.meta.id)">
-            <solv-tech-logo [iconType]="tech.meta.iconType" [size]="16" />
+            <tech-logo [iconType]="tech.meta.iconType" [size]="16" />
             <span>{{ tech.meta.name }}</span>
             <span class="chip-count">{{ tech.count }}</span>
           </button>
@@ -228,7 +209,7 @@
             <div class="template-card">
               <div class="card-header">
                 <div class="card-title-group">
-                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
@@ -320,7 +301,7 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
                       <div>
                         <div class="cell-main-title font-semibold">{{ item.name }}</div>
                         <div class="docker-copy-inline">
@@ -398,7 +379,7 @@
             <div class="template-card" [class.card-paused]="item.status === 'paused'">
               <div class="card-header">
                 <div class="card-title-group">
-                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
@@ -524,7 +505,7 @@
                 <tr [class.row-paused]="item.status === 'paused'">
                   <td>
                     <div class="cell-entity-group">
-                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
                       <div>
                         <div class="cell-main-title font-semibold">{{ item.name }}</div>
                         @if (item.description) {
@@ -695,7 +676,7 @@
             <div class="template-card card-rejected">
               <div class="card-header">
                 <div class="card-title-group">
-                  <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
@@ -767,7 +748,7 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <solv-tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
                       <div>
                         <div class="cell-main-title font-semibold">{{ item.name }}</div>
                         <div class="docker-copy-inline">
@@ -821,194 +802,47 @@
 
   <!-- Modales -->
   @if (selectedTemplateForReview(); as tpl) {
-    <solv-template-review-modal 
+    <template-review-modal 
       [template]="tpl" 
       (approved)="handleApprove($event)" 
       (closed)="closeReviewModal()" />
   }
 
   @if (selectedTemplateForReject(); as tpl) {
-    <solv-template-reject-modal 
+    <template-reject-modal 
       [template]="tpl" 
       (rejected)="handleReject($event)" 
       (closed)="closeRejectModal()" />
   }
 
   @if (selectedTemplateForEdit(); as tpl) {
-    <solv-template-edit-modal 
+    <template-edit-modal 
       [template]="tpl" 
       (saved)="handleSaveEdit($event)" 
       (closed)="closeEditModal()" />
   }
 
   @if (showCreateModal()) {
-    <solv-template-create-modal 
+    <template-create-modal 
       (created)="handleCreateOfficial($event)" 
       (closed)="closeCreateModal()" />
   }
 
-  <!-- Modal de Suspensión / Reactivación con motivo obligatorio (>= 10 caracteres) -->
+  <!-- Modal de Suspensión / Reactivación -->
   @if (templateToToggleStatus(); as tpl) {
-    <div class="modal-backdrop" (click)="cancelToggleStatus()">
-      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <div class="modal-icon-badge" [class.danger]="tpl.status === 'approved' || tpl.status === 'APROBADA'">
-              @if (tpl.status === 'approved' || tpl.status === 'APROBADA') {
-                <svg lucideAlertCircle class="w-5 h-5 text-danger"></svg>
-              } @else {
-                <svg lucidePlay class="w-5 h-5 text-primary"></svg>
-              }
-            </div>
-            <div>
-              <h3 class="modal-title">
-                {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial' }}
-              </h3>
-              <p class="modal-subtitle">
-                {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios' }}
-              </p>
-            </div>
-          </div>
-          <button type="button" class="btn-icon-close" (click)="cancelToggleStatus()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          <div class="template-summary-card mb-3">
-            <div class="summary-row">
-              <span class="summary-label">Plantilla:</span>
-              <span class="summary-value font-semibold">{{ tpl.name }}</span>
-            </div>
-            <div class="summary-row">
-              <span class="summary-label">Imagen Docker:</span>
-              <code class="docker-image-tag">{{ tpl.docker_image }}</code>
-            </div>
-          </div>
-
-          @if (tpl.status === 'approved' || tpl.status === 'APROBADA') {
-            <div class="form-group">
-              <div class="label-row flex justify-between items-center mb-1">
-                <label class="form-label font-semibold text-sm">
-                  Motivo de Suspensión (Obligatorio, mínimo 10 caracteres):
-                </label>
-                <span class="char-counter text-xs" [class.text-success]="toggleStatusReason().trim().length >= 10" [class.text-danger]="toggleStatusReason().trim().length > 0 && toggleStatusReason().trim().length < 10">
-                  {{ toggleStatusReason().trim().length }} / 10 caracteres
-                </span>
-              </div>
-              <textarea
-                class="form-control"
-                rows="3"
-                placeholder="Indique la justificación técnica o de gobernanza (ej: Mantenimiento programado de dependencias...)"
-                [ngModel]="toggleStatusReason()"
-                (ngModelChange)="toggleStatusReason.set($event)">
-              </textarea>
-              @if (toggleStatusReason().trim().length > 0 && toggleStatusReason().trim().length < 10) {
-                <p class="field-hint text-xs text-danger mt-1">
-                  El motivo debe tener al menos 10 caracteres.
-                </p>
-              }
-            </div>
-          } @else {
-            <p class="text-sm text-secondary">
-              ¿Confirmas reactivar la plantilla <strong>{{ tpl.name }}</strong>? Estará disponible de inmediato en el catálogo institucional para nuevas prácticas docentes.
-            </p>
-          }
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-outline" (click)="cancelToggleStatus()">
-            Cancelar
-          </button>
-          <button
-            type="button"
-            class="btn-primary"
-            [class.btn-danger]="tpl.status === 'approved' || tpl.status === 'APROBADA'"
-            [disabled]="(tpl.status === 'approved' || tpl.status === 'APROBADA') && toggleStatusReason().trim().length < 10"
-            (click)="confirmToggleStatus(tpl)">
-            {{ (tpl.status === 'approved' || tpl.status === 'APROBADA') ? 'Confirmar Suspensión' : 'Reactivar Plantilla' }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <template-status-modal
+      [template]="tpl"
+      (confirmed)="handleConfirmToggleStatus($event)"
+      (closed)="cancelToggleStatus()"
+    />
   }
 
   <!-- Diálogo Modal de Promoción a Modelo (ST-15) -->
   @if (templateToPromote(); as tpl) {
-    <div class="modal-backdrop" (click)="closePromoteModal()">
-      <div class="modal-card modal-md" (click)="$event.stopPropagation()">
-        <div class="modal-header">
-          <div class="modal-title-group">
-            <div class="modal-icon-badge">
-              <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
-            </div>
-            <div>
-              <h3 class="modal-title" i18n="@@ST-15">Promover a modelo de plantilla</h3>
-              <p class="modal-subtitle">Convierte esta plantilla aprobada en una receta base para nuevos entornos</p>
-            </div>
-          </div>
-          <button type="button" class="btn-icon-close" (click)="closePromoteModal()" aria-label="Cerrar modal">
-            <svg lucideX class="w-4 h-4"></svg>
-          </button>
-        </div>
-
-        <div class="modal-body">
-          @if (promoteErrorMsg()) {
-            <div class="field-error-alert mb-3">
-              <svg lucideAlertCircle class="w-4 h-4"></svg>
-              <span>{{ promoteErrorMsg() }}</span>
-            </div>
-          }
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Nombre del Modelo:</label>
-            <input 
-              type="text" 
-              class="form-control" 
-              [ngModel]="promoteModelName()" 
-              (ngModelChange)="promoteModelName.set($event)"
-            />
-          </div>
-
-          <div class="form-group mb-3">
-            <label class="form-label font-semibold">Categoría Académica:</label>
-            <select 
-              class="form-control form-select" 
-              [ngModel]="promoteCategoryId()" 
-              (ngModelChange)="promoteCategoryId.set($event)"
-            >
-              <option [ngValue]="null">-- Sin categoría asignada --</option>
-              @for (cat of promoteCategories(); track cat.id) {
-                <option [value]="cat.id">{{ cat.name }}</option>
-              }
-            </select>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label font-semibold">Descripción del Modelo (Opcional):</label>
-            <textarea 
-              class="form-control text-area-sm" 
-              rows="3" 
-              [ngModel]="promoteDescription()" 
-              (ngModelChange)="promoteDescription.set($event)"
-            ></textarea>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-outline" (click)="closePromoteModal()" [disabled]="isPromoting()">
-            Cancelar
-          </button>
-          <button 
-            type="button" 
-            class="btn-primary" 
-            [disabled]="!promoteModelName().trim() || isPromoting()"
-            (click)="confirmPromote()"
-          >
-            <span>Promover a Modelo</span>
-          </button>
-        </div>
-      </div>
-    </div>
+    <template-promote-modal
+      [template]="tpl"
+      (promoted)="handlePromoted($event)"
+      (closed)="closePromoteModal()"
+    />
   }
 </div>

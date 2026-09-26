@@ -21,13 +21,13 @@
     <div class="header-actions">
       <!-- Selector de Periodo Activo -->
       <div class="period-selector-box">
-        <solv-combobox
+        <combobox
           [compact]="true"
           [value]="selectedPeriodHeaderLabel()"
           [options]="periodHeaderComboboxOptions()"
           placeholder="Periodo..."
           (optionSelected)="onPeriodHeaderSelected($event)"
-        ></solv-combobox>
+        ></combobox>
         <button class="btn-manage-periods" (click)="openPeriodsModal()" title="Gestionar Periodos">
           <span>Gestionar</span>
         </button>
@@ -99,7 +99,7 @@
         <span>Cargando catálogo de materias y periodos...</span>
       </div>
     } @else {
-      <table class="solv-table">
+      <table class="data-table">
         <thead>
           <tr>
             <th class="col-code">CÓDIGO & MATERIA</th>
@@ -217,32 +217,32 @@
 
   <!-- Modales -->
   @if (showPeriodsModal()) {
-    <solv-period-manage-modal 
+    <period-manage-modal 
       [periods]="coursesService.periods()" 
       (close)="closePeriodsModal()"
       (periodCreated)="reload()"
       (periodActivated)="reload()">
-    </solv-period-manage-modal>
+    </period-manage-modal>
   }
 
   @if (showCreateCourseModal()) {
-    <solv-course-create-modal 
+    <course-create-modal 
       [periods]="coursesService.periods()"
       [teachers]="coursesService.teachers()"
       [templates]="coursesService.templates()"
       [defaultPeriodId]="coursesService.activePeriod()?.id || null"
       (close)="closeCreateCourseModal()"
       (courseCreated)="onCourseCreated()">
-    </solv-course-create-modal>
+    </course-create-modal>
   }
 
   @if (selectedCourseForReassign(); as course) {
-    <solv-course-reassign-modal 
+    <course-reassign-modal 
       [course]="course"
       [teachers]="coursesService.teachers()"
       (close)="closeReassignModal()"
       (reassignCompleted)="onReassignCompleted()">
-    </solv-course-reassign-modal>
+    </course-reassign-modal>
   }
 
   <!-- Modal de Edición de Curso -->
@@ -307,7 +307,7 @@
 
   <!-- Modal Institucional de Confirmación de Archivo/Activación de Curso -->
   @if (courseToToggleArchive(); as course) {
-    <solv-confirm-modal
+    <confirm-modal
       [title]="course.is_archived ? '¿Desarchivar materia?' : '¿Archivar materia?'"
       [message]="course.is_archived ? 'La materia ' + course.code + ' — ' + course.name + ' volverá a estar disponible para docentes y alumnos.' : 'La materia ' + course.code + ' — ' + course.name + ' pasará a modo archivado de solo lectura.'"
       [confirmText]="course.is_archived ? 'Desarchivar' : 'Archivar'"
@@ -315,7 +315,7 @@
       [type]="course.is_archived ? 'primary' : 'danger'"
       (confirm)="executeToggleArchive(course)"
       (cancel)="cancelToggleArchive()">
-    </solv-confirm-modal>
+    </confirm-modal>
   }
 </div>
 

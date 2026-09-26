@@ -5,14 +5,14 @@ import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
 
 @Component({
-  selector: 'solv-student-layout',
+  selector: 'student-layout',
   standalone: true,
   imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent],
   template: `
     <div class="shell-container">
-      <solv-topbar (toggleSidebar)="toggleSidebar()" />
+      <topbar (toggleSidebar)="toggleSidebar()" />
       <div class="shell-body">
-        <solv-sidebar [collapsed]="isSidebarCollapsed()" />
+        <sidebar [collapsed]="isSidebarCollapsed()" />
         <main class="shell-content">
           <router-outlet />
         </main>

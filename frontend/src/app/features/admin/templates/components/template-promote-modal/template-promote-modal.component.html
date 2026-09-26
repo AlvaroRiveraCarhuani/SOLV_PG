@@ -1,0 +1,75 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge">
+          <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title" i18n="@@ST-15">Promover a modelo de plantilla</h3>
+          <p class="modal-subtitle">Convierte esta plantilla aprobada en una receta base para nuevos entornos</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (errorMsg()) {
+        <div class="field-error-alert mb-3">
+          <svg lucideAlertCircle class="w-4 h-4"></svg>
+          <span>{{ errorMsg() }}</span>
+        </div>
+      }
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">Nombre del Modelo:</label>
+        <input 
+          type="text" 
+          class="form-control" 
+          [ngModel]="modelName()" 
+          (ngModelChange)="modelName.set($event)"
+        />
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">Categoría Académica:</label>
+        <select 
+          class="form-control form-select" 
+          [ngModel]="categoryId()" 
+          (ngModelChange)="categoryId.set($event)"
+        >
+          <option [ngValue]="null">-- Sin categoría asignada --</option>
+          @for (cat of categories(); track cat.id) {
+            <option [value]="cat.id">{{ cat.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label font-semibold">Descripción del Modelo (Opcional):</label>
+        <textarea 
+          class="form-control text-area-sm" 
+          rows="3" 
+          [ngModel]="description()" 
+          (ngModelChange)="description.set($event)"
+        ></textarea>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn-outline" (click)="closeModal()" [disabled]="isPromoting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn-primary" 
+        [disabled]="!modelName().trim() || isPromoting()"
+        (click)="confirm()"
+      >
+        <span>Promover a Modelo</span>
+      </button>
+    </div>
+  </div>
+</div>

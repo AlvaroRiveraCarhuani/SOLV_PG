@@ -4,7 +4,7 @@ import { TechnicalIncident } from '@core/models/admin.model';
 import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-incidents-panel',
+  selector: 'incidents-panel',
   standalone: true,
   imports: [CommonModule, LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo],
   template: `

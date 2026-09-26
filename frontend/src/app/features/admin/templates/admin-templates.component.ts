@@ -12,10 +12,11 @@ import { TemplateReviewModalComponent } from './components/template-review-modal
 import { TemplateRejectModalComponent } from './components/template-reject-modal/template-reject-modal.component';
 import { TemplateCreateModalComponent } from './components/template-create-modal/template-create-modal.component';
 import { TemplateEditModalComponent } from './components/template-edit-modal/template-edit-modal.component';
+import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
+import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
 import { 
   LucideLayers, 
   LucideBox, 
-  LucideSearch, 
   LucideRefreshCw, 
   LucidePlus, 
   LucideClock, 
@@ -23,23 +24,19 @@ import {
   LucidePause, 
   LucidePlay, 
   LucideAlertCircle,
-  LucideLayoutGrid,
-  LucideTable,
   LucidePencil,
   LucideXCircle,
   LucideHardDrive,
   LucideCopy,
   LucideCheck,
-  LucideChevronLeft,
-  LucideChevronRight,
   LucideChevronDown,
-  LucideSparkles,
-  LucideX
+  LucideSparkles
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
+import { ViewSwitcherComponent } from '../../../shared/components/view-switcher/view-switcher.component';
 
 export interface TechMeta {
   id: string;
@@ -84,7 +81,7 @@ export interface ToastNotification {
 }
 
 @Component({
-  selector: 'solv-admin-templates',
+  selector: 'admin-templates',
   standalone: true,
   imports: [
     CommonModule,
@@ -93,14 +90,16 @@ export interface ToastNotification {
     TemplateRejectModalComponent,
     TemplateCreateModalComponent,
     TemplateEditModalComponent,
+    TemplateStatusModalComponent,
+    TemplatePromoteModalComponent,
     TechLogoComponent,
     SearchBarComponent,
     KpiCardComponent,
     KpiGridComponent,
     PaginationBarComponent,
+    ViewSwitcherComponent,
     LucideLayers,
     LucideBox,
-    LucideSearch,
     LucideRefreshCw,
     LucidePlus,
     LucideClock,
@@ -108,18 +107,13 @@ export interface ToastNotification {
     LucidePause,
     LucidePlay,
     LucideAlertCircle,
-    LucideLayoutGrid,
-    LucideTable,
     LucidePencil,
     LucideXCircle,
     LucideHardDrive,
     LucideCopy,
     LucideCheck,
-    LucideChevronLeft,
-    LucideChevronRight,
     LucideChevronDown,
-    LucideSparkles,
-    LucideX
+    LucideSparkles
   ],
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
@@ -387,12 +381,6 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   templateToPromote = signal<AdminTemplateItem | null>(null);
-  promoteModelName = signal<string>('');
-  promoteCategoryId = signal<string | null>(null);
-  promoteDescription = signal<string>('');
-  isPromoting = signal<boolean>(false);
-  promoteCategories = signal<TemplateCategory[]>([]);
-  promoteErrorMsg = signal<string | null>(null);
 
   openPromoteModal(template: AdminTemplateItem): void {
     if (template.status !== 'approved' && template.status !== 'APROBADA') {
@@ -400,45 +388,16 @@ export class AdminTemplatesComponent implements OnInit {
       return;
     }
     this.templateToPromote.set(template);
-    this.promoteModelName.set(template.name);
-    this.promoteCategoryId.set(template.category_id || null);
-    this.promoteDescription.set(template.description || '');
-    this.promoteErrorMsg.set(null);
-    this.templatesService.getCategories().subscribe({
-      next: (cats) => this.promoteCategories.set(cats || []),
-      error: () => {}
-    });
   }
 
   closePromoteModal(): void {
     this.templateToPromote.set(null);
-    this.promoteErrorMsg.set(null);
   }
 
-  confirmPromote(): void {
-    const tpl = this.templateToPromote();
-    if (!tpl || !this.promoteModelName().trim()) return;
-
-    this.isPromoting.set(true);
-    this.promoteErrorMsg.set(null);
-
-    this.templatesService.promoteToModel(tpl.id, {
-      name: this.promoteModelName().trim(),
-      category_id: this.promoteCategoryId() || undefined,
-      description: this.promoteDescription().trim()
-    }).subscribe({
-      next: () => {
-        this.isPromoting.set(false);
-        this.closePromoteModal();
-        const msg = $localize`:@@ST-16:Plantilla promovida a modelo institucional.`;
-        this.showToast(msg, 'success');
-      },
-      error: (err) => {
-        this.isPromoting.set(false);
-        const msg = err.error?.message || err.error?.error || 'No se pudo promover la plantilla a modelo.';
-        this.promoteErrorMsg.set(msg);
-      }
-    });
+  handlePromoted(_event: { id: string; name: string }): void {
+    this.closePromoteModal();
+    const msg = $localize`:@@ST-16:Plantilla promovida a modelo institucional.`;
+    this.showToast(msg, 'success');
   }
 
   promoteToModel(template: AdminTemplateItem): void {
@@ -493,13 +452,9 @@ export class AdminTemplatesComponent implements OnInit {
     this.toggleStatusReason.set('');
   }
 
-  confirmToggleStatus(template: AdminTemplateItem): void {
+  handleConfirmToggleStatus(event: { template: AdminTemplateItem; reason: string }): void {
+    const { template, reason } = event;
     const isPausing = template.status === 'approved' || template.status === 'APROBADA';
-    const reason = this.toggleStatusReason().trim();
-    if (isPausing && reason.length < 10) {
-      return;
-    }
-
     const nextStatus = isPausing ? 'paused' : 'approved';
     const dto: ReviewTemplateDTO = {
       status: nextStatus,
@@ -522,6 +477,15 @@ export class AdminTemplatesComponent implements OnInit {
         this.showToast('No se pudo modificar el estado de la plantilla.', 'error');
       }
     });
+  }
+
+  confirmToggleStatus(template: AdminTemplateItem): void {
+    const reason = this.toggleStatusReason().trim();
+    const isPausing = template.status === 'approved' || template.status === 'APROBADA';
+    if (isPausing && reason.length < 10) {
+      return;
+    }
+    this.handleConfirmToggleStatus({ template, reason });
   }
 
   duplicateTemplate(template: AdminTemplateItem): void {

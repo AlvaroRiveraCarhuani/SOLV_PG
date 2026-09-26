@@ -6,7 +6,7 @@ import { TenantService } from '@core/services/tenant.service';
 import { LucideUserPlus, LucideX, LucideAlertTriangle } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-student-create-modal',
+  selector: 'student-create-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideUserPlus, LucideX, LucideAlertTriangle],
   templateUrl: './student-create-modal.component.html',

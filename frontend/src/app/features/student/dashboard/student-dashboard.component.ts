@@ -13,7 +13,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-student-dashboard',
+  selector: 'student-dashboard',
   standalone: true,
   imports: [
     CommonModule, 
@@ -67,7 +67,7 @@ import {
 
                     <div class="lab-status">
                       @if (item.active_workspace) {
-                        <solv-status-badge [status]="item.active_workspace.status" />
+                        <status-badge [status]="item.active_workspace.status" />
                         <span class="lab-details">
                           RAM: {{ item.active_workspace.memory_limit_mb }} MB &bull; {{ item.active_workspace.type }}
                         </span>

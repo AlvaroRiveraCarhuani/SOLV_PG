@@ -1,0 +1,103 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-card modal-md" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title-group">
+        <div class="modal-icon-badge">
+          <svg lucideSparkles class="w-5 h-5 text-warning"></svg>
+        </div>
+        <div>
+          <h3 class="modal-title">Nuevo Modelo Oficial (Receta)</h3>
+          <p class="modal-subtitle">Promocione una plantilla aprobada para convertirla en arquetipo base del catálogo</p>
+        </div>
+      </div>
+      <button type="button" class="btn-icon-close" (click)="onClose()" aria-label="Cerrar modal">
+        <svg lucideX class="w-4 h-4"></svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      @if (errorMessage()) {
+        <div class="field-error-alert mb-3">
+          <svg lucideAlertTriangle class="w-4 h-4"></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">
+          Plantilla Aprobada Base: <span class="text-danger">*</span>
+        </label>
+        <combobox
+          [value]="selectedTemplateLabel()"
+          [options]="templateOptions()"
+          placeholder="Seleccione o busque una plantilla aprobada..."
+          (optionSelected)="onTemplateSelected($event)"
+        ></combobox>
+        <small class="form-hint">
+          Solo plantillas aprobadas que han superado la prueba de arranque y auditoría pueden ser promovidas.
+        </small>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">
+          Título del Modelo Institucional: <span class="text-danger">*</span>
+        </label>
+        <input 
+          type="text" 
+          class="form-control" 
+          placeholder="Ej: Python 3.12 Data Science Base"
+          [ngModel]="modelTitle()" 
+          (ngModelChange)="modelTitle.set($event)"
+        />
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">Categoría Académica:</label>
+        <combobox
+          [value]="selectedCategoryLabel()"
+          [options]="categoryOptions()"
+          placeholder="Seleccione o busque categoría..."
+          (optionSelected)="onCategorySelected($event)"
+        ></combobox>
+      </div>
+
+      <div class="form-group mb-3">
+        <label class="form-label font-semibold">Descripción del Modelo:</label>
+        <textarea 
+          class="form-control text-area-sm" 
+          rows="3" 
+          placeholder="Describa el objetivo pedagógico y tecnologías incluidas..."
+          [ngModel]="modelDescription()" 
+          (ngModelChange)="modelDescription.set($event)">
+        </textarea>
+      </div>
+
+      <div class="wizard-callout-box mt-3">
+        <div class="callout-content">
+          <strong>¿Necesita diseñar un entorno nuevo desde cero?</strong>
+          <p>Puede crear y auditar una nueva plantilla oficial directamente en el asistente interactivo.</p>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" (click)="onOpenWizard()">
+          <span>Abrir Asistente</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary" 
+        (click)="onConfirm()" 
+        [disabled]="isSubmitting() || !selectedTemplateId() || !modelTitle().trim()">
+        @if (isSubmitting()) {
+          <span>Guardando...</span>
+        } @else {
+          <span>Convertir en Modelo Oficial</span>
+        }
+      </button>
+    </div>
+  </div>
+</div>

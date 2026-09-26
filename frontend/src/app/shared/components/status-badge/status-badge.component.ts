@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { WorkspaceStatus } from '@core/models/workspace.model';
 
 @Component({
-  selector: 'solv-status-badge',
+  selector: 'status-badge',
   standalone: true,
   imports: [CommonModule],
   template: `

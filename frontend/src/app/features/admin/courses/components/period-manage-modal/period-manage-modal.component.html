@@ -190,7 +190,7 @@
   </div>
 
   @if (periodToDelete(); as period) {
-    <solv-confirm-modal
+    <confirm-modal
       [title]="'¿Eliminar periodo académico?'"
       [message]="'¿Confirma la eliminación del periodo ' + period.name + ' (' + period.code + ')? Esta acción no se puede deshacer y fallará si tiene materias asignadas.'"
       [confirmText]="'Eliminar periodo'"
@@ -198,6 +198,6 @@
       [type]="'danger'"
       (confirm)="executeDeletePeriod(period)"
       (cancel)="cancelDeletePeriod()">
-    </solv-confirm-modal>
+    </confirm-modal>
   }
 </div>

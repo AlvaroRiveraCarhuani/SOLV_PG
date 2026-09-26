@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SolvStepExecutionComponent } from './step-execution.component';
+import { StepExecutionComponent } from './step-execution.component';
 
-describe('SolvStepExecutionComponent', () => {
-  let component: SolvStepExecutionComponent;
-  let fixture: ComponentFixture<SolvStepExecutionComponent>;
+describe('StepExecutionComponent', () => {
+  let component: StepExecutionComponent;
+  let fixture: ComponentFixture<StepExecutionComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvStepExecutionComponent]
+      imports: [StepExecutionComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvStepExecutionComponent);
+    fixture = TestBed.createComponent(StepExecutionComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
     fixture.detectChanges();

@@ -77,13 +77,13 @@
       <div class="filters-group">
         <div class="filter-item">
           <label class="filter-label">Origen:</label>
-          <solv-combobox
+          <combobox
             [compact]="true"
             [value]="selectedOriginLabel()"
             [options]="originComboboxOptions()"
             placeholder="Origen..."
             (optionSelected)="onOriginSelected($event)"
-          ></solv-combobox>
+          ></combobox>
         </div>
       </div>
     </div>
@@ -254,7 +254,7 @@
 
   <!-- Modal de Invitación -->
   @if (showInviteModal()) {
-    <solv-teacher-invite-modal 
+    <teacher-invite-modal 
       (close)="showInviteModal.set(false)"
       (submit)="onInviteSubmitted($event)"
     />
@@ -370,13 +370,13 @@
                       <div class="reassign-form">
                         <div class="form-group">
                           <label class="form-label">Nuevo docente asignado:</label>
-                          <solv-combobox
+                          <combobox
                             [compact]="true"
                             [value]="selectedNewTeacherLabel()"
                             [options]="activeTeacherComboboxOptions()"
                             placeholder="Seleccione el nuevo docente..."
                             (optionSelected)="onNewTeacherSelected($event)"
-                          ></solv-combobox>
+                          ></combobox>
                         </div>
                         <div class="form-group">
                           <label class="form-label">Motivo del cambio (opcional):</label>
@@ -436,13 +436,13 @@
                     <div class="reassign-form">
                       <div class="form-group">
                         <label class="form-label">Materia a asignar:</label>
-                        <solv-combobox
+                        <combobox
                           [compact]="true"
                           [value]="selectedCourseToAssignLabel()"
                           [options]="availableCourseComboboxOptions()"
                           placeholder="Seleccione una materia disponible..."
                           (optionSelected)="onCourseToAssignSelected($event)"
-                        ></solv-combobox>
+                        ></combobox>
                       </div>
                       <div class="form-group">
                         <label class="form-label">Motivo de asignación (opcional):</label>
@@ -491,7 +491,7 @@
 
   <!-- Modal Institucional de Confirmación de Baja -->
   @if (teacherToDelete(); as teacher) {
-    <solv-confirm-modal
+    <confirm-modal
       [title]="'¿Dar de baja al docente?'"
       [message]="'¿Confirma la baja de ' + teacher.full_name + ' (' + teacher.email + ')? Se desasignarán sus materias actuales y perderá los privilegios docentes en la plataforma.'"
       [confirmText]="'Dar de baja'"
@@ -499,6 +499,6 @@
       [type]="'danger'"
       (confirm)="executeDeleteTeacher(teacher)"
       (cancel)="cancelDeleteTeacher()">
-    </solv-confirm-modal>
+    </confirm-modal>
   }
 </div>

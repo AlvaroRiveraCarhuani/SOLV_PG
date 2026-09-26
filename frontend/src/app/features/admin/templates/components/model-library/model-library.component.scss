@@ -49,7 +49,7 @@
   }
 }
 
-// Botones estándar
+// Botones
 .btn {
   display: inline-flex;
   align-items: center;
@@ -183,46 +183,7 @@
     }
   }
 
-  .view-switcher {
-    display: inline-flex;
-    background-color: #F1F5F9;
-    padding: 2px;
-    border-radius: 6px;
-    border: 1px solid var(--border-subtle, #E2E8F0);
 
-    .switcher-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      padding: 5px 10px;
-      border: none;
-      background: transparent;
-      border-radius: 4px;
-      font-family: var(--font-sans);
-      font-size: var(--text-xs);
-      font-weight: 500;
-      color: var(--text-muted, #64748B);
-      cursor: pointer;
-      transition: all 120ms ease;
-
-      .switcher-icon {
-        width: 14px;
-        height: 14px;
-        flex-shrink: 0;
-      }
-
-      &.active {
-        background-color: #FFFFFF;
-        color: var(--text-main, #0F172A);
-        font-weight: 600;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-      }
-
-      &:hover:not(.active) {
-        color: var(--text-main, #0F172A);
-      }
-    }
-  }
 }
 
 // Filtros

@@ -17,7 +17,7 @@ export interface PreflightCheckItem {
 }
 
 @Component({
-  selector: 'solv-publish-dialog',
+  selector: 'publish-dialog',
   standalone: true,
   imports: [
     CommonModule,

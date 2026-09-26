@@ -7,7 +7,7 @@ import { StatusBadgeComponent } from '@shared/components/status-badge/status-bad
 import { LucideX, LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-course-workspaces-modal',
+  selector: 'course-workspaces-modal',
   standalone: true,
   imports: [
     CommonModule, 

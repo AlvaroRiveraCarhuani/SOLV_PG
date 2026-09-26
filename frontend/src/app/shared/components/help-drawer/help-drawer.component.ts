@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-help-drawer',
+  selector: 'help-drawer',
   standalone: true,
   imports: [CommonModule, RouterModule, LucideBookOpen, LucideX, LucideExternalLink],
   template: `
@@ -59,7 +59,7 @@ import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
   `,
   styleUrls: ['./help-drawer.component.scss']
 })
-export class SolvHelpDrawerComponent {
+export class HelpDrawerComponent {
   isOpen = input<boolean>(false);
   title = input<string>('Ayuda Contextual');
   stepNumber = input<number | null>(null);
@@ -79,3 +79,5 @@ export class SolvHelpDrawerComponent {
     }
   }
 }
+
+export { HelpDrawerComponent as SolvHelpDrawerComponent };

@@ -5,7 +5,7 @@ import { AdminTemplateItem } from '../../../services/admin-templates.service';
 import { LucideX, LucideAlertTriangle, LucideXCircle } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-template-reject-modal',
+  selector: 'template-reject-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideX, LucideAlertTriangle, LucideXCircle],
   templateUrl: './template-reject-modal.component.html',

@@ -34,7 +34,7 @@ import {
 export type CreationMode = 'blank' | 'recipe' | 'duplicate';
 
 @Component({
-  selector: 'solv-step-identity',
+  selector: 'step-identity',
   standalone: true,
   imports: [
     CommonModule, 
@@ -279,14 +279,14 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
       </label>
 
       @if (!isCreatingCategoryInline()) {
-        <solv-combobox
+        <combobox
           [value]="selectedCategoryLabel()"
           [options]="categoryComboboxOptions()"
           placeholder="Seleccione o busque una categoría..."
           inputAriaLabel="Categoría académica"
           (optionSelected)="onCategoryOptionSelected($event)"
           (valueChange)="onCategorySearchChange($event)"
-        ></solv-combobox>
+        ></combobox>
       } @else {
         <div class="inline-category-row">
           <input 
@@ -340,7 +340,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
   `,
   styleUrls: ['./step-identity.component.scss']
 })
-export class SolvStepIdentityComponent {
+export class StepIdentityComponent {
   nameInput = viewChild<ElementRef<HTMLInputElement>>('nameInput');
   newCatInput = viewChild<ElementRef<HTMLInputElement>>('newCatInput');
 
@@ -498,7 +498,7 @@ export class SolvStepIdentityComponent {
   }
 
   onCategorySearchChange(query: string): void {
-    // Si el usuario escribe y no existe, se mantiene la búsqueda interna de solv-combobox
+    // Si el usuario escribe y no existe, se mantiene la búsqueda interna de combobox
   }
 
   createCategoryInline(): void {
@@ -513,3 +513,5 @@ export class SolvStepIdentityComponent {
     this.inlineCategoryName.set('');
   }
 }
+
+export { StepIdentityComponent as SolvStepIdentityComponent };

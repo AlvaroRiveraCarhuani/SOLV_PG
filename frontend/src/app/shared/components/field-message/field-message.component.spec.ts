@@ -1,17 +1,17 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { SolvFieldMessageComponent } from './field-message.component';
+import { FieldMessageComponent } from './field-message.component';
 
-describe('SolvFieldMessageComponent', () => {
-  let component: SolvFieldMessageComponent;
-  let fixture: ComponentFixture<SolvFieldMessageComponent>;
+describe('FieldMessageComponent', () => {
+  let component: FieldMessageComponent;
+  let fixture: ComponentFixture<FieldMessageComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SolvFieldMessageComponent]
+      imports: [FieldMessageComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(SolvFieldMessageComponent);
+    fixture = TestBed.createComponent(FieldMessageComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

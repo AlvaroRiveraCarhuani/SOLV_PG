@@ -6,7 +6,7 @@ import { TenantService } from '@core/services/tenant.service';
 import { LucideX, LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-teacher-invite-modal',
+  selector: 'teacher-invite-modal',
   standalone: true,
   imports: [CommonModule, FormsModule, LucideX, LucideUserPlus, LucideMail, LucideShieldCheck, LucideAlertTriangle],
   templateUrl: './teacher-invite-modal.component.html',

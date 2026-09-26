@@ -5,7 +5,7 @@ import { RouterModule } from '@angular/router';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
-  selector: 'solv-admin-manual',
+  selector: 'admin-manual',
   standalone: true,
   imports: [CommonModule, RouterModule],
   templateUrl: './admin-manual.component.html',

@@ -43,7 +43,7 @@ export function getEnvTestErrorMessage(code: string): string {
 }
 
 @Component({
-  selector: 'solv-env-test-button',
+  selector: 'env-test-button',
   standalone: true,
   imports: [
     CommonModule,

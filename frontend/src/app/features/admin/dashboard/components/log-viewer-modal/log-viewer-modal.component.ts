@@ -5,7 +5,7 @@ import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-log-viewer-modal',
+  selector: 'log-viewer-modal',
   standalone: true,
   imports: [CommonModule, LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw],
   template: `

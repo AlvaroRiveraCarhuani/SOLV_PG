@@ -77,37 +77,37 @@
       <!-- Filtro por Periodo Académico -->
       <div class="filter-group">
         <label class="filter-label">Periodo:</label>
-        <solv-combobox
+        <combobox
           [compact]="true"
           [value]="selectedPeriodLabel()"
           [options]="periodComboboxOptions()"
           placeholder="Periodo..."
           (optionSelected)="onPeriodSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
 
       <!-- Filtro por Materia -->
       <div class="filter-group">
         <label class="filter-label">Materia:</label>
-        <solv-combobox
+        <combobox
           [compact]="true"
           [value]="selectedSubjectLabel()"
           [options]="subjectComboboxOptions()"
           placeholder="Materia..."
           (optionSelected)="onSubjectSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
 
       <!-- Filtro por Estado -->
       <div class="filter-group">
         <label class="filter-label">Estado:</label>
-        <solv-combobox
+        <combobox
           [compact]="true"
           [value]="selectedStatusLabel()"
           [options]="statusComboboxOptions()"
           placeholder="Estado..."
           (optionSelected)="onStatusSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
     </div>
   </section>
@@ -301,15 +301,15 @@
 
   <!-- Modales -->
   @if (showCreateModal()) {
-    <solv-student-create-modal
+    <student-create-modal
       [isSubmitting]="isCreatingStudent()"
       (studentCreated)="onStudentCreated($event)"
       (close)="closeCreateModal()">
-    </solv-student-create-modal>
+    </student-create-modal>
   }
 
   @if (studentToToggleStatus(); as st) {
-    <solv-confirm-modal
+    <confirm-modal
       [title]="st.status === 'suspended' ? 'Reactivar cuenta institucional' : 'Suspender acceso institucional'"
       [message]="st.status === 'suspended' 
         ? '¿Confirmas el restablecimiento de acceso a la plataforma para el estudiante ' + st.first_name + ' ' + st.last_name + '?' 
@@ -318,11 +318,11 @@
       [type]="st.status === 'suspended' ? 'primary' : 'danger'"
       (confirm)="confirmToggleStatus(st)"
       (cancel)="cancelToggleStatus()">
-    </solv-confirm-modal>
+    </confirm-modal>
   }
 
   @if (studentForCourses(); as st) {
-    <solv-student-courses-modal
+    <student-courses-modal
       [student]="st"
       [courses]="studentCourses()"
       [isLoading]="isLoadingCourses()"
@@ -330,15 +330,15 @@
       (restartWorkspace)="onRestartWorkspace($event)"
       (pauseWorkspace)="onPauseWorkspace($event)"
       (close)="closeCoursesModal()">
-    </solv-student-courses-modal>
+    </student-courses-modal>
   }
 
   @if (studentForReset(); as st) {
-    <solv-student-reset-oom-modal
+    <student-reset-oom-modal
       [student]="st"
       [isSubmitting]="isResetting()"
       (confirmReset)="confirmResetOOM($event)"
       (close)="closeResetOOMModal()">
-    </solv-student-reset-oom-modal>
+    </student-reset-oom-modal>
   }
 </div>

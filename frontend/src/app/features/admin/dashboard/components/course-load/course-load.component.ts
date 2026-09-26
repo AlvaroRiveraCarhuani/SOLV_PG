@@ -13,7 +13,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-course-load',
+  selector: 'course-load',
   standalone: true,
   imports: [
     CommonModule, 

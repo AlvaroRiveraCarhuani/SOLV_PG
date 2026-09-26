@@ -34,7 +34,7 @@ import {
 } from '@lucide/angular';
 
 @Component({
-  selector: 'solv-admin-students',
+  selector: 'admin-students',
   standalone: true,
   imports: [
     CommonModule, 

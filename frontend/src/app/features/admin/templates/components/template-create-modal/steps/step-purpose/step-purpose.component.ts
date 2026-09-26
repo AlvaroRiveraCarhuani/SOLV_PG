@@ -4,7 +4,7 @@ import { LucideLayers, LucideTerminal, LucideCheckCircle2, LucideHelpCircle } fr
 import { TargetEnvironment } from '../../../../../services/admin-templates.service';
 
 @Component({
-  selector: 'solv-step-purpose',
+  selector: 'step-purpose',
   standalone: true,
   imports: [CommonModule, LucideLayers, LucideTerminal, LucideCheckCircle2, LucideHelpCircle],
   template: `
@@ -101,7 +101,7 @@ import { TargetEnvironment } from '../../../../../services/admin-templates.servi
   `,
   styleUrls: ['./step-purpose.component.scss']
 })
-export class SolvStepPurposeComponent {
+export class StepPurposeComponent {
   ideCard = viewChild<ElementRef<HTMLElement>>('ideCard');
   judgeCard = viewChild<ElementRef<HTMLElement>>('judgeCard');
 
@@ -132,3 +132,5 @@ export class SolvStepPurposeComponent {
     }
   }
 }
+
+export { StepPurposeComponent as SolvStepPurposeComponent };

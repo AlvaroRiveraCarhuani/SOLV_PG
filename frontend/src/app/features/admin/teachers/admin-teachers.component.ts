@@ -38,7 +38,7 @@ interface ToastData {
 }
 
 @Component({
-  selector: 'solv-admin-teachers',
+  selector: 'admin-teachers',
   standalone: true,
   imports: [
     CommonModule, 

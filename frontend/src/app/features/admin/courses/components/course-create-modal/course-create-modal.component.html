@@ -54,32 +54,32 @@
 
       <div class="form-group">
         <label class="form-label">Periodo Académico (Semestre)</label>
-        <solv-combobox
+        <combobox
           [value]="selectedPeriodLabel()"
           [options]="periodComboboxOptions()"
           placeholder="Seleccione o busque un periodo académico..."
           (optionSelected)="onPeriodSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
 
       <div class="form-group">
         <label class="form-label">Docente Titular Asignado</label>
-        <solv-combobox
+        <combobox
           [value]="selectedTeacherLabel()"
           [options]="teacherComboboxOptions()"
           placeholder="Seleccione o busque docente titular..."
           (optionSelected)="onTeacherSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
 
       <div class="form-group">
         <label class="form-label">Plantilla Docker Base</label>
-        <solv-combobox
+        <combobox
           [value]="selectedTemplateLabel()"
           [options]="templateComboboxOptions()"
           placeholder="Seleccione o busque plantilla Docker base..."
           (optionSelected)="onTemplateSelected($event)"
-        ></solv-combobox>
+        ></combobox>
       </div>
     </div>
 
