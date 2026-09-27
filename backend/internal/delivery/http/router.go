@@ -5,6 +5,7 @@ import (
 )
 
 type Handlers struct {
+	ServerPoliciesHandler    *ServerPoliciesHandler
 	UserHandler              *UserHandler
 	TemplateHandler          *TemplateHandler
 	AuthHandler              *AuthHandler
@@ -44,7 +45,24 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerTeacherRoutes(mux, deps)
 	registerNotificationRoutes(mux, deps)
 	registerBackupRoutes(mux, deps)
+	registerServerPoliciesRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
+}
+
+func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	if deps.ServerPoliciesHandler != nil {
+		mux.Handle("GET /api/v1/admin/server/policies", tm(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
+		mux.Handle("PUT /api/v1/admin/server/policies", am(tm(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies))))
+	}
 }
 
 func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {

@@ -22,6 +22,7 @@ type QoSOrchestratorWorker struct {
 	hostMonitor        domain.HostMonitor
 	inactivityTimeout  time.Duration
 	checkInterval      time.Duration
+	policiesProvider   func(ctx context.Context) (int, bool) // minutos de inactividad vigentes, opcional
 	history            map[string]*containerStatsHistory
 	mu                 sync.Mutex
 	stopChan           chan struct{}
@@ -74,7 +75,26 @@ func (w *QoSOrchestratorWorker) Stop() {
 	close(w.stopChan)
 }
 
+// SetPoliciesProvider inyecta la recarga de configuración por ciclo (submódulo
+// 14.6): si el proveedor devuelve un valor válido, el timeout de inactividad
+// vigente se aplica desde el siguiente ciclo sin reiniciar el worker.
+func (w *QoSOrchestratorWorker) SetPoliciesProvider(provider func(ctx context.Context) (int, bool)) {
+	w.policiesProvider = provider
+}
+
+// effectiveInactivityTimeout resuelve el timeout vigente para este ciclo.
+func (w *QoSOrchestratorWorker) effectiveInactivityTimeout(ctx context.Context) time.Duration {
+	if w.policiesProvider != nil {
+		if minutes, ok := w.policiesProvider(ctx); ok && minutes > 0 {
+			return time.Duration(minutes) * time.Minute
+		}
+	}
+	return w.inactivityTimeout
+}
+
 func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
+	inactivityTimeout := w.effectiveInactivityTimeout(ctx)
+
 	activeWorkspaces, err := w.repo.GetActiveWorkspaces(ctx)
 	if err != nil {
 		log.Printf("[QoS Worker] Error fetching active workspaces: %v", err)
@@ -155,11 +175,11 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 		w.mu.Unlock()
 
 		// Validación Dual:
-		// Condición A (Intención): tiempo transcurrido desde el último Heartbeat HTTP > inactivityTimeout
-		intentionTimeout := time.Since(ws.LastHeartbeatAt) >= w.inactivityTimeout
+		// Condición A (Intención): tiempo transcurrido desde el último Heartbeat HTTP > timeout vigente
+		intentionTimeout := time.Since(ws.LastHeartbeatAt) >= inactivityTimeout
 
 		// Condición B (Realidad): inactividad física persistente en CPU/Red equivalente a la ventana de hibernación
-		maxIdleCycles := int(w.inactivityTimeout / w.checkInterval)
+		maxIdleCycles := int(inactivityTimeout / w.checkInterval)
 		realityTimeout := hist.idleCounter >= maxIdleCycles
 
 		if intentionTimeout || realityTimeout {

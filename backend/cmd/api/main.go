@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/go-playground/validator/v10"
 
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/delivery/http/middleware"
@@ -77,6 +78,18 @@ func main() {
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
 
 	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
+
+	// Submódulo 14.6: políticas QoS configurables. El worker recarga el timeout
+	// de inactividad vigente en cada ciclo desde tenants.config (sin reinicio).
+	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
+	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
+		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
+		if err != nil {
+			return 0, false
+		}
+		return policies.InactivityMinutes, true
+	})
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	qosWorker.Start(ctx)
@@ -94,6 +107,7 @@ func main() {
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
+	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
 	adminHandler.SetOrchestrator(dockerClient)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
@@ -174,6 +188,7 @@ func main() {
 		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
 		AdminHandler:             adminHandler,
+		ServerPoliciesHandler:    serverPoliciesHandler,
 		AdminAcademicHandler:     adminAcademicHandler,
 		StudentHandler:           studentHandler,
 		TeacherHandler:           teacherHandler,
