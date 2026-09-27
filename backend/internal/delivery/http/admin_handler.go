@@ -194,6 +194,42 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// GetActorTimeline sirve la cronología aislada de un actor para el drawer
+// off-canvas del wireframe AUDIT_LOGS.md (identidad resuelta por el repo).
+func (h *AdminHandler) GetActorTimeline(w http.ResponseWriter, r *http.Request) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
+		return
+	}
+
+	actorID := r.PathValue("actorId")
+	if actorID == "" {
+		http.Error(w, `{"error":"missing_actor"}`, http.StatusBadRequest)
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	limit := 200
+	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 200 {
+		limit = l
+	}
+
+	logs, err := h.auditRepo.ListByActorTimeline(r.Context(), tenantID, actorID, limit)
+	if err != nil {
+		http.Error(w, `{"error":"Failed to retrieve actor timeline"}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"tenant_id": tenantID,
+		"actor_id":  actorID,
+		"count":     len(logs),
+		"data":      logs,
+	})
+}
+
 type UpdateBrandingDTO struct {
 	LogoURL            string `json:"logo_url"`
 	InstitutionName    string `json:"institution_name"`
