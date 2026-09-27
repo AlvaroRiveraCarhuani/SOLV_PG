@@ -58,6 +58,11 @@ func (h *BackupHandler) UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	cfg, err := h.service.UpdateConfig(r.Context(), tenantID, dto)
 	if err != nil {
+		var vErr *services.BackupValidationError
+		if errors.As(err, &vErr) {
+			SendError(w, http.StatusUnprocessableEntity, vErr.Code, vErr.Message)
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al actualizar configuración de respaldos")
 		return
 	}

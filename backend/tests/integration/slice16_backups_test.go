@@ -332,4 +332,48 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 			t.Errorf("Expected 403 Forbidden for non-admin user, got %d", respNoAuth.StatusCode)
 		}
 	})
+
+	// =========================================================================
+	// 8. TEST Hardening: rangos fail-closed con 422 (frecuencia 1-168, retención 1-365)
+	// =========================================================================
+	t.Run("8. Hardening Config - 422 en rangos inválidos y bordes válidos", func(t *testing.T) {
+		putConfig := func(freq, retention int) (int, map[string]interface{}) {
+			dto := domain.UpdateBackupConfigDTO{LocalFrequencyHours: freq, LocalRetentionDays: retention}
+			raw, _ := json.Marshal(dto)
+			req, _ := http.NewRequest("PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
+			req.Header.Set("X-User-Id", adminID)
+			req.Header.Set("X-User-Role", "admin")
+			req.Header.Set("X-Tenant-Id", tenantID)
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("PUT backup config failed: %v", err)
+			}
+			defer resp.Body.Close()
+			var body map[string]interface{}
+			_ = json.NewDecoder(resp.Body).Decode(&body)
+			return resp.StatusCode, body
+		}
+
+		invalid := []struct {
+			freq, retention int
+			wantCode        string
+		}{
+			{0, 7, "backup_frequency_invalid"},
+			{169, 7, "backup_frequency_invalid"},
+			{6, 0, "backup_retention_invalid"},
+			{6, 366, "backup_retention_invalid"},
+		}
+		for _, tc := range invalid {
+			if code, body := putConfig(tc.freq, tc.retention); code != http.StatusUnprocessableEntity || body["error"] != tc.wantCode {
+				t.Errorf("freq=%d retention=%d: expected 422 %s, got %d %v", tc.freq, tc.retention, tc.wantCode, code, body)
+			}
+		}
+
+		for _, tc := range [][2]int{{1, 1}, {168, 365}} {
+			if code, _ := putConfig(tc[0], tc[1]); code != http.StatusOK {
+				t.Errorf("freq=%d retention=%d: expected 200 OK, got %d", tc[0], tc[1], code)
+			}
+		}
+	})
 }

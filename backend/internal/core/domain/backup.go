@@ -31,7 +31,10 @@ type BackupConfig struct {
 	UpdatedAt                time.Time `db:"updated_at" json:"updated_at"`
 }
 
-// UpdateBackupConfigDTO DTO para modificar la configuración de backups
+// UpdateBackupConfigDTO DTO para modificar la configuración de backups.
+// Fail-closed contract: LocalFrequencyHours must be 1-168 (hours) and
+// LocalRetentionDays must be 1-365 (days); anything else is rejected with
+// 422 backup_frequency_invalid / backup_retention_invalid.
 type UpdateBackupConfigDTO struct {
 	LocalFrequencyHours int     `json:"local_frequency_hours"`
 	LocalRetentionDays  int     `json:"local_retention_days"`

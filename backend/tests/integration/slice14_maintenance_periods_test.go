@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ import (
 	"solv-backend/internal/infrastructure/storage/postgres"
 )
 
-func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *database.Database, *services.AcademicPeriodService, *services.MaintenanceService) {
+func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *database.Database, *services.AcademicPeriodService, *services.MaintenanceService, *postgres.AuditLogRepository) {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = getTestDSN()
@@ -28,7 +29,7 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 	db, err := database.NewPostgresDB(dsn)
 	if err != nil {
 		t.Skipf("Skipping integration test: database not available: %v", err)
-		return nil, nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
@@ -37,11 +38,13 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
+	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
 
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 
-	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, nil)
+	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, nil).
+		WithAuditLogRepo(auditRepo)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
@@ -69,11 +72,11 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 
 	// Envolver el multiplexor con tenantMiddleware y maintenanceMiddleware
 	server := httptest.NewServer(tenantMiddleware(maintenanceMiddleware(mux)))
-	return server, db, academicPeriodService, maintenanceService
+	return server, db, academicPeriodService, maintenanceService, auditRepo
 }
 
 func TestSlice14_MaintenancePeriods(t *testing.T) {
-	server, db, academicPeriodService, maintenanceService := setupSlice14MaintenancePeriodsServer(t)
+	server, db, academicPeriodService, maintenanceService, _ := setupSlice14MaintenancePeriodsServer(t)
 	if server == nil {
 		return
 	}
@@ -106,7 +109,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		untilTime := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
 		enablePayload := []byte(fmt.Sprintf(`{
 			"until": "%s",
-			"reason": "Actualización programada de base de datos"
+			"reason": "Actualización programada de base de datos",
+			"confirm_phrase": "MANTENIMIENTO"
 		}`, untilTime))
 
 		req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBuffer(enablePayload))
@@ -182,16 +186,20 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			t.Errorf("Student should not receive 503 after maintenance is disabled")
 		}
 
-		// 1.7 Mantenimiento con fecha expirada en el pasado -> No bloquea
+		// 1.7 Mantenimiento con fecha expirada seed directo (el servicio
+		// rechaza until pasado con 422): no bloquea y el lazy-clear lo apaga.
 		pastUntil := time.Now().Add(-1 * time.Hour)
-		_ = maintenanceService.EnableMaintenance(context.Background(), tenantID, domain.EnableMaintenanceDTO{
-			Until:  pastUntil.Format(time.RFC3339),
-			Reason: "Mantenimiento viejo",
-		})
+		_, _ = db.GetDB().Exec(`UPDATE tenants SET maintenance_mode = true, maintenance_until = $1, maintenance_reason = 'Ventana vencida seed' WHERE id = $2`, pastUntil, tenantID)
 
 		respExpired, _ := client.Do(reqStudent)
 		if respExpired.StatusCode == http.StatusServiceUnavailable {
 			t.Errorf("Expired maintenance until should not block requests!")
+		}
+
+		var modeAfter bool
+		_ = db.GetDB().Get(&modeAfter, `SELECT maintenance_mode FROM tenants WHERE id = $1`, tenantID)
+		if modeAfter {
+			t.Errorf("Expired maintenance must be lazy-cleared to off on read")
 		}
 
 		// Limpiar estado
@@ -422,5 +430,66 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if !isArchived {
 			t.Errorf("Expected subject to be marked as is_archived = true")
 		}
+	})
+
+	// =========================================================================
+	// 4. TEST Hardening: validación fail-closed + auditoría + auto-off (Slice 16)
+	// =========================================================================
+	t.Run("4. Hardening Mantenimiento - 422, auditoría verbatim y lectura expirada", func(t *testing.T) {
+		postEnable := func(payload string) (int, map[string]interface{}) {
+			req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBufferString(payload))
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-User-Role", "admin")
+			req.Header.Set("X-Tenant-Id", tenantID)
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("Enable request failed: %v", err)
+			}
+			defer resp.Body.Close()
+			var body map[string]interface{}
+			_ = json.NewDecoder(resp.Body).Decode(&body)
+			return resp.StatusCode, body
+		}
+		future := time.Now().Add(2 * time.Hour).Format(time.RFC3339)
+		past := time.Now().Add(-1 * time.Hour).Format(time.RFC3339)
+
+		if code, body := postEnable(fmt.Sprintf(`{"until":%q,"reason":"Ventana programada de actualizacion","confirm_phrase":"MANTENIMIENTO!"}`, future)); code != http.StatusUnprocessableEntity || body["error"] != "maintenance_confirm_invalid" {
+			t.Errorf("Expected 422 maintenance_confirm_invalid, got %d %v", code, body)
+		}
+		if code, body := postEnable(fmt.Sprintf(`{"until":%q,"reason":"corto","confirm_phrase":"MANTENIMIENTO"}`, future)); code != http.StatusUnprocessableEntity || body["error"] != "maintenance_reason_invalid" {
+			t.Errorf("Expected 422 maintenance_reason_invalid, got %d %v", code, body)
+		}
+		if code, body := postEnable(fmt.Sprintf(`{"until":%q,"reason":"Ventana programada de actualizacion","confirm_phrase":"MANTENIMIENTO"}`, past)); code != http.StatusUnprocessableEntity || body["error"] != "maintenance_until_invalid" {
+			t.Errorf("Expected 422 maintenance_until_invalid, got %d %v", code, body)
+		}
+
+		motive := fmt.Sprintf("Ventana hardening %s", uuid.NewString()[:8])
+		if code, _ := postEnable(fmt.Sprintf(`{"until":%q,"reason":%q,"confirm_phrase":"MANTENIMIENTO"}`, future, motive)); code != http.StatusOK {
+			t.Fatalf("Expected 200 OK enabling maintenance, got %d", code)
+		}
+
+		var action, metadata string
+		err := db.GetDB().QueryRow(`SELECT action, metadata::text FROM audit_logs WHERE tenant_id = $1 AND action = 'MAINTENANCE_ENABLED' ORDER BY created_at DESC LIMIT 1`, tenantID).Scan(&action, &metadata)
+		if err != nil {
+			t.Fatalf("Expected MAINTENANCE_ENABLED audit row: %v", err)
+		}
+		if !strings.Contains(metadata, motive) {
+			t.Errorf("Expected audit metadata to store motive verbatim %q, got %s", motive, metadata)
+		}
+
+		// Vigencia vencida: la lectura la apaga (lazy-clear) y reporta off.
+		_, _ = db.GetDB().Exec(`UPDATE tenants SET maintenance_mode = true, maintenance_until = $1 WHERE id = $2`, past, tenantID)
+		reqStatus, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/maintenance/status", nil)
+		reqStatus.Header.Set("X-User-Role", "admin")
+		reqStatus.Header.Set("X-Tenant-Id", tenantID)
+		respStatus, _ := client.Do(reqStatus)
+		var statusBody map[string]interface{}
+		_ = json.NewDecoder(respStatus.Body).Decode(&statusBody)
+		respStatus.Body.Close()
+		if data, ok := statusBody["data"].(map[string]interface{}); !ok || data["maintenance_mode"] != false {
+			t.Errorf("Expected expired maintenance to read as off, got %v", statusBody)
+		}
+
+		_ = maintenanceService.DisableMaintenance(context.Background(), tenantID)
 	})
 }

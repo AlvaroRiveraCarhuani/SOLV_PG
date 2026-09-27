@@ -22,6 +22,16 @@ type BackupService struct {
 	backupDir    string
 }
 
+// BackupValidationError is the typed fail-closed validation error for backup
+// config ranges, mirroring PoliciesValidationError (QoS). Code is one of
+// backup_frequency_invalid | backup_retention_invalid and maps to HTTP 422.
+type BackupValidationError struct {
+	Code    string
+	Message string
+}
+
+func (e *BackupValidationError) Error() string { return e.Message }
+
 func NewBackupService(repo domain.BackupRepository, notifService *NotificationService, backupDir string) *BackupService {
 	if backupDir == "" {
 		backupDir = os.Getenv("BACKUP_DIR")
@@ -43,17 +53,32 @@ func (s *BackupService) GetConfig(ctx context.Context, tenantID string) (*domain
 }
 
 func (s *BackupService) UpdateConfig(ctx context.Context, tenantID string, dto domain.UpdateBackupConfigDTO) (*domain.BackupConfig, error) {
+	if dto.LocalFrequencyHours < 1 || dto.LocalFrequencyHours > 168 {
+		return nil, &BackupValidationError{
+			Code:    "backup_frequency_invalid",
+			Message: fmt.Sprintf("local_frequency_hours must be between 1 and 168. Received: %d", dto.LocalFrequencyHours),
+		}
+	}
+	if dto.LocalRetentionDays < 1 || dto.LocalRetentionDays > 365 {
+		return nil, &BackupValidationError{
+			Code:    "backup_retention_invalid",
+			Message: fmt.Sprintf("local_retention_days must be between 1 and 365. Received: %d", dto.LocalRetentionDays),
+		}
+	}
+	if dto.RemoteRetentionDays != nil && (*dto.RemoteRetentionDays < 1 || *dto.RemoteRetentionDays > 365) {
+		return nil, &BackupValidationError{
+			Code:    "backup_retention_invalid",
+			Message: fmt.Sprintf("remote_retention_days must be between 1 and 365. Received: %d", *dto.RemoteRetentionDays),
+		}
+	}
+
 	cfg, err := s.repo.GetConfig(ctx, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	if dto.LocalFrequencyHours > 0 {
-		cfg.LocalFrequencyHours = dto.LocalFrequencyHours
-	}
-	if dto.LocalRetentionDays > 0 {
-		cfg.LocalRetentionDays = dto.LocalRetentionDays
-	}
+	cfg.LocalFrequencyHours = dto.LocalFrequencyHours
+	cfg.LocalRetentionDays = dto.LocalRetentionDays
 	if dto.RemoteEnabled != nil {
 		cfg.RemoteEnabled = *dto.RemoteEnabled
 	}
@@ -69,7 +94,7 @@ func (s *BackupService) UpdateConfig(ctx context.Context, tenantID string, dto d
 	if dto.RemoteAccessKey != nil {
 		cfg.RemoteAccessKey = *dto.RemoteAccessKey
 	}
-	if dto.RemoteRetentionDays != nil && *dto.RemoteRetentionDays > 0 {
+	if dto.RemoteRetentionDays != nil {
 		cfg.RemoteRetentionDays = *dto.RemoteRetentionDays
 	}
 	if dto.IsActive != nil {

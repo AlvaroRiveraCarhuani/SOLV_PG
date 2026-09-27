@@ -59,9 +59,16 @@ func (h *AdminAcademicHandler) EnableMaintenance(w http.ResponseWriter, r *http.
 	}
 
 	if err := h.maintenanceService.EnableMaintenance(r.Context(), tenantID, dto); err != nil {
+		var vErr *services.MaintenanceValidationError
+		if errors.As(err, &vErr) {
+			SendError(w, http.StatusUnprocessableEntity, vErr.Code, vErr.Message)
+			return
+		}
 		SendError(w, http.StatusBadRequest, err.Error(), "Error al activar modo mantenimiento")
 		return
 	}
+
+	h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_ENABLED", dto.Reason, dto.Until, http.StatusOK)
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "maintenance_enabled"}, "Modo mantenimiento activado exitosamente")
 }
@@ -74,11 +81,17 @@ func (h *AdminAcademicHandler) DisableMaintenance(w http.ResponseWriter, r *http
 		return
 	}
 
+	h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_DISABLED", "", "", http.StatusOK)
+
 	SendJSON(w, http.StatusOK, map[string]string{"status": "maintenance_disabled"}, "Modo mantenimiento desactivado exitosamente")
 }
 
 func (h *AdminAcademicHandler) GetMaintenanceStatus(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
+
+	if cleared, _ := h.maintenanceService.ClearExpiredMaintenance(r.Context(), tenantID); cleared {
+		h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_AUTO_DISABLED", "vigencia vencida", "", http.StatusOK)
+	}
 
 	status, err := h.maintenanceService.GetStatus(r.Context(), tenantID)
 	if err != nil {
@@ -87,6 +100,41 @@ func (h *AdminAcademicHandler) GetMaintenanceStatus(w http.ResponseWriter, r *ht
 	}
 
 	SendJSON(w, http.StatusOK, status, "Estado de mantenimiento obtenido exitosamente")
+}
+
+// writeMaintenanceAudit records MAINTENANCE_ENABLED / MAINTENANCE_DISABLED /
+// MAINTENANCE_AUTO_DISABLED events with motive, vigencia and actor metadata,
+// mirroring the TEMPLATE_REVIEWED pattern. Best-effort: never fails the request.
+func (h *AdminAcademicHandler) writeMaintenanceAudit(r *http.Request, tenantID, action, reason, until string, statusCode int) {
+	if h.auditLogRepo == nil {
+		return
+	}
+	adminID := getUserIDFromCtx(r)
+	if adminID == "" {
+		adminID = r.Header.Get("X-User-Id")
+	}
+	if adminID == "" {
+		adminID = domain.DefaultTenantID
+	}
+	meta, _ := json.Marshal(map[string]any{
+		"reason": reason,
+		"until":  until,
+		"actor":  adminID,
+	})
+	ipAddr := r.RemoteAddr
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		ipAddr = host
+	}
+	_ = h.auditLogRepo.Create(r.Context(), &domain.AuditLog{
+		TenantID:     tenantID,
+		ActorID:      adminID,
+		Action:       action,
+		ResourceType: "maintenance",
+		StatusCode:   statusCode,
+		Metadata:     meta,
+		IPAddress:    ipAddr,
+		UserAgent:    r.UserAgent(),
+	})
 }
 
 // -----------------------------------------------------------------------------

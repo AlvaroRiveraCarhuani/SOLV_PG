@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -180,22 +181,58 @@ func NewMaintenanceService(tenantRepo domain.TenantRepository) *MaintenanceServi
 	return &MaintenanceService{tenantRepo: tenantRepo}
 }
 
+// MaintenanceValidationError is the typed fail-closed validation error for
+// maintenance activation. Code is one of maintenance_confirm_invalid |
+// maintenance_reason_invalid | maintenance_until_invalid, mapping to HTTP 422.
+type MaintenanceValidationError struct {
+	Code    string
+	Message string
+}
+
+func (e *MaintenanceValidationError) Error() string { return e.Message }
+
+// MaintenanceConfirmPhrase is the exact type-to-confirm phrase required to
+// enable maintenance mode.
+const MaintenanceConfirmPhrase = "MANTENIMIENTO"
+
 func (s *MaintenanceService) EnableMaintenance(ctx context.Context, tenantID string, dto domain.EnableMaintenanceDTO) error {
+	if dto.ConfirmPhrase != MaintenanceConfirmPhrase {
+		return &MaintenanceValidationError{
+			Code:    "maintenance_confirm_invalid",
+			Message: "confirm_phrase must match MANTENIMIENTO exactly",
+		}
+	}
+	if len(strings.TrimSpace(dto.Reason)) < 10 {
+		return &MaintenanceValidationError{
+			Code:    "maintenance_reason_invalid",
+			Message: "reason must contain at least 10 characters",
+		}
+	}
+
 	var until *time.Time
-	if dto.Until != "" {
+	if strings.TrimSpace(dto.Until) != "" {
 		t, err := time.Parse(time.RFC3339, dto.Until)
 		if err != nil {
 			// Intentar formato sin zona o simple
 			t2, err2 := time.Parse("2006-01-02T15:04:05", dto.Until)
 			if err2 != nil {
-				return fmt.Errorf("invalid until format, expected RFC3339: %w", err)
+				return &MaintenanceValidationError{
+					Code:    "maintenance_until_invalid",
+					Message: fmt.Sprintf("until must be RFC3339 or empty: %s", dto.Until),
+				}
 			}
 			t = t2
+		}
+		if t.Before(time.Now()) {
+			return &MaintenanceValidationError{
+				Code:    "maintenance_until_invalid",
+				Message: "until must be in the future",
+			}
 		}
 		until = &t
 	}
 
-	return s.tenantRepo.SetMaintenance(ctx, tenantID, true, until, dto.Reason)
+	return s.tenantRepo.SetMaintenance(ctx, tenantID, true, until, strings.TrimSpace(dto.Reason))
 }
 
 func (s *MaintenanceService) DisableMaintenance(ctx context.Context, tenantID string) error {
@@ -203,5 +240,23 @@ func (s *MaintenanceService) DisableMaintenance(ctx context.Context, tenantID st
 }
 
 func (s *MaintenanceService) GetStatus(ctx context.Context, tenantID string) (*domain.MaintenanceStatus, error) {
+	_, _ = s.ClearExpiredMaintenance(ctx, tenantID)
 	return s.tenantRepo.GetMaintenance(ctx, tenantID)
+}
+
+// ClearExpiredMaintenance performs the lazy auto-off: when maintenance is on
+// with a past until, it persists off once and reports cleared=true so callers
+// can emit the MAINTENANCE_AUTO_DISABLED audit event. No sweeper needed.
+func (s *MaintenanceService) ClearExpiredMaintenance(ctx context.Context, tenantID string) (bool, error) {
+	status, err := s.tenantRepo.GetMaintenance(ctx, tenantID)
+	if err != nil || status == nil || !status.MaintenanceMode || status.MaintenanceUntil == nil {
+		return false, err
+	}
+	if !time.Now().After(*status.MaintenanceUntil) {
+		return false, nil
+	}
+	if err := s.tenantRepo.SetMaintenance(ctx, tenantID, false, nil, ""); err != nil {
+		return false, err
+	}
+	return true, nil
 }
