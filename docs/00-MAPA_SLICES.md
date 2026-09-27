@@ -30,7 +30,7 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 | **11** | Operabilidad B2B & Migrations Lock | ADR-027, ADR-028 | Implementado | N/A | Verificado (Integración) |
 | **12** | Experiencia Estudiante, Shell y Juez en Tiempo Real | ADR-012, ADR-037, ADR-029 | Implementado | En Proceso | Verificado (PostgreSQL Real) |
 | **13** | Experiencia Docente, Cursos y Creación de Laboratorios | ADR-026, ADR-029, ADR-030, ADR-037 | Implementado | Pendiente | Verificado (Integración) |
-| **14** | Panel Administrador Institucional & Gobernanza | ADR-024, ADR-027, ADR-029, ADR-030, ADR-031, ADR-032, ADR-033, ADR-036 | Implementado | **En Proceso** | Verificado (Integración) |
+| **14** | Panel Administrador Institucional & Gobernanza | ADR-024, ADR-027, ADR-029, ADR-030, ADR-031, ADR-032, ADR-033, ADR-036 | Implementado | **Implementado** | Verificado (Integración) |
 | **15** | Notificaciones Proactivas (In-App & Email) | ADR-031, ADR-032, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
 | **16** | Backups y Retención Institucional | ADR-027, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
 
@@ -50,7 +50,7 @@ El backend cuenta con todos los endpoints de gobernanza registrados y verificado
 | **14.4 Directorio de Estudiantes** | `/admin/estudiantes` | ADR-033 | **Implementado** | Búsqueda institucional de alumnos, cursos inscritos, monitor de 3 strikes OOM-Killed y reseteo manual justificado. |
 | **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **EN CURSO (Siguiente paso)** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes y fijación de límites de RAM base. |
 | **14.6 Configuración y Mantenimiento** | `/admin/configuracion` | ADR-027, ADR-029, ADR-031, ADR-035, ADR-038 | **Implementado** | Personalización institucional (logo por upload real, branding, tipografía white-label por catálogo ADR-038, correo soporte) con preview en vivo, gestión de períodos con archivado formal irreversible, políticas QoS configurables con recarga en worker, respaldos con verificación SHA-256 y switch de Modo Mantenimiento. Detalle en `docs/SLICES/SLICE_14/05-SUBMODULO_14.6_CONFIGURACION.md`. |
-| **14.7 Auditoría y Emergencias** | `/admin/auditoria` | ADR-027, ADR-032 | **Planificado** | Tabla de audit logs de seguridad y 5 acciones de emergencia con confirmación tipada obligatoria. |
+| **14.7 Auditoría y Emergencias** | `/admin/auditoria` | ADR-027, ADR-032 | **Implementado** | Tabla de audit logs con enriquecimiento semántico y drawer de cronología por actor, más centro de control de emergencias con las 5 acciones de ADR-032 (doble confirmación tipada, motivo obligatorio, registro EMERGENCY_* en auditoría). Detalle en `docs/SLICES/SLICE_14/07-SUBMODULO_14.7_AUDITORIA.md`. |
 
 ---
 

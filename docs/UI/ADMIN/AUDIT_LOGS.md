@@ -80,10 +80,34 @@ sequenceDiagram
 
 ---
 
-## 5. Contrato de Integración y Endpoints (v0.16.0)
+## 5. Contrato de Integración y Endpoints (v0.17.0)
 
 | Método | Endpoint | Parámetros / Query | Propósito |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/admin/audit-logs` | `?page={p}&limit=20&actor_id={id}&action={act}` | Lista cronológica paginada de eventos de auditoría con enriquecimiento semántico. |
-| `GET` | `/api/v1/admin/audit-logs/actors/{id}/timeline` | — | Cronología de eventos aislada por docente para el Drawer lateral. |
+| `GET` | `/api/v1/admin/audit-logs` | `?limit=20&offset=0&actor_id={id}&action={act}` | Lista cronológica paginada (offset) de eventos con `actor_email` resuelto vía JOIN a users (fallback: `actor_id`). |
+| `GET` | `/api/v1/admin/audit-logs/actors/{actorId}/timeline` | `?limit=200` | Cronología de eventos aislada por actor para el Drawer lateral (tope 200). |
+| `POST` | `/api/v1/admin/emergency/{action}` | `{ "confirmation_phrase": "...", "reason": "..." }` | Acciones de emergencia (ADR-032) con registro `EMERGENCY_*` en audit_logs. Ver §6. |
+
+El enriquecimiento semántico (§2) colorea el status según la combinación
+verbo + código: `POST 201` verde, `PUT 200` azul, `403/4xx` rojo.
+
+## 6. Pestaña Emergencias (ADR-032, v0.17.0)
+
+La vista `/admin/auditoria` expone el centro de control con las 5 acciones
+del catálogo como tarjetas clasificadas por impacto, franja de estado del
+host (RAM % y contenedores activos, banner crítico >= 90%), modal de doble
+confirmación (frase exacta + motivo >= 10 caracteres) e historial de las
+últimas ejecuciones leído de los eventos `EMERGENCY_*`:
+
+| Acción | Impacto | Frase de confirmación |
+| :--- | :--- | :--- |
+| Terminar todos los workspaces | Destructiva | `TERMINAR TODOS LOS WORKSPACES` |
+| Hibernar todos los workspaces | Operativa | `HIBERNAR TODOS LOS WORKSPACES` |
+| Limpiar zombies Docker | Operativa | `LIMPIAR ZOMBIES DOCKER` |
+| Purgar capas huérfanas | Operativa | `PURGAR CAPAS HUERFANAS` |
+| Reiniciar pools | Operativa | `REINICIAR POOLS` |
+
+El mapeo completo entre capacidades del ADR-032 y acciones reales del
+sistema está en el anexo del ADR. El cierre de sesiones inactivas
+(`reap-stale`) es política continua del worker QoS (submódulo 14.6).
 
