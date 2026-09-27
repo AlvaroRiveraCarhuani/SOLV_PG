@@ -168,6 +168,10 @@ func (h *AdminAcademicHandler) UpdatePeriod(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusUnprocessableEntity, "period_expired", "No se puede activar un periodo académico cuya fecha ya finalizó")
 			return
 		}
+		if errors.Is(err, services.ErrPeriodArchived) {
+			SendError(w, http.StatusConflict, "period_archived", "El periodo académico está formalmente archivado y es inmutable (ADR-029)")
+			return
+		}
 		if strings.Contains(err.Error(), "not found") {
 			SendError(w, http.StatusNotFound, "not_found", "periodo académico no encontrado")
 			return
@@ -177,6 +181,47 @@ func (h *AdminAcademicHandler) UpdatePeriod(w http.ResponseWriter, r *http.Reque
 	}
 
 	SendJSON(w, http.StatusOK, period, "Periodo académico actualizado exitosamente")
+}
+
+// ArchivePeriod congela formalmente un periodo académico con confirmación fuerte
+// por tipeo del código (ADR-029). Es irreversible desde la API.
+func (h *AdminAcademicHandler) ArchivePeriod(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	id := r.PathValue("id")
+	if id == "" {
+		SendError(w, http.StatusBadRequest, "missing_id", "id de periodo requerido")
+		return
+	}
+
+	var dto domain.ArchiveAcademicPeriodDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+	if dto.ConfirmationCode == "" {
+		SendError(w, http.StatusUnprocessableEntity, "validation_failed", "confirmation_code es obligatorio para archivar un periodo")
+		return
+	}
+
+	archivedBy := getUserIDFromCtx(r)
+	if err := h.periodService.ArchivePeriod(r.Context(), tenantID, id, archivedBy, dto.ConfirmationCode); err != nil {
+		if errors.Is(err, services.ErrConfirmationFailed) {
+			SendError(w, http.StatusUnprocessableEntity, "confirmation_failed", "El código de confirmación no coincide con el código del período")
+			return
+		}
+		if errors.Is(err, services.ErrPeriodArchived) {
+			SendError(w, http.StatusConflict, "period_archived", "El periodo académico ya está archivado")
+			return
+		}
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "not_found", "periodo académico no encontrado")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al archivar periodo académico")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]string{"status": "archived"}, "Periodo académico archivado. Sus materias quedaron en modo solo lectura (:ro)")
 }
 
 func (h *AdminAcademicHandler) DeletePeriod(w http.ResponseWriter, r *http.Request) {
@@ -189,6 +234,10 @@ func (h *AdminAcademicHandler) DeletePeriod(w http.ResponseWriter, r *http.Reque
 
 	err := h.periodService.DeletePeriod(r.Context(), tenantID, id)
 	if err != nil {
+		if errors.Is(err, services.ErrPeriodArchived) {
+			SendError(w, http.StatusConflict, "period_archived", "El periodo académico está formalmente archivado y no puede eliminarse (ADR-029)")
+			return
+		}
 		if strings.Contains(err.Error(), "associated subjects") {
 			SendError(w, http.StatusConflict, "conflict_associated_subjects", "No se puede eliminar un periodo académico con materias asociadas")
 			return

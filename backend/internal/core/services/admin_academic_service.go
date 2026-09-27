@@ -11,9 +11,12 @@ import (
 )
 
 var (
-	ErrInvalidDateRange = errors.New("end_date must be equal to or after start_date")
-	ErrPeriodExpired    = errors.New("cannot activate an expired academic period")
-	ErrConflict         = errors.New("conflict: resource has dependencies")
+	ErrInvalidDateRange   = errors.New("end_date must be equal to or after start_date")
+	ErrPeriodExpired      = errors.New("cannot activate an expired academic period")
+	ErrConflict           = errors.New("conflict: resource has dependencies")
+	ErrNotFound           = errors.New("academic period not found")
+	ErrConfirmationFailed = errors.New("confirmation code does not match period code")
+	ErrPeriodArchived     = errors.New("academic period is formally archived and immutable")
 )
 
 type AcademicPeriodService struct {
@@ -87,6 +90,13 @@ func (s *AcademicPeriodService) UpdatePeriod(ctx context.Context, tenantID, id s
 		return nil, err
 	}
 
+	// Guardia de inmutabilidad: un periodo formalmente archivado no admite
+	// cambios (ni reactivación) salvo la operación inversa explícita del
+	// administrador de plataforma fuera de esta API (ADR-029).
+	if period.IsArchived {
+		return nil, ErrPeriodArchived
+	}
+
 	if dto.Name != "" {
 		period.Name = dto.Name
 	}
@@ -126,7 +136,32 @@ func (s *AcademicPeriodService) UpdatePeriod(ctx context.Context, tenantID, id s
 }
 
 func (s *AcademicPeriodService) DeletePeriod(ctx context.Context, tenantID, id string) error {
+	period, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if period.IsArchived {
+		return ErrPeriodArchived
+	}
 	return s.repo.Delete(ctx, tenantID, id)
+}
+
+// ArchivePeriod congela formalmente un periodo académico (ADR-029). Exige que
+// el código de confirmación coincida exactamente con el código corto del
+// periodo; es la única vía (junto a la expiración automática) de establecer
+// is_archived, y no tiene operación inversa en esta API.
+func (s *AcademicPeriodService) ArchivePeriod(ctx context.Context, tenantID, id, archivedBy, confirmationCode string) error {
+	period, err := s.repo.GetByID(ctx, tenantID, id)
+	if err != nil {
+		return err
+	}
+	if period.IsArchived {
+		return ErrPeriodArchived
+	}
+	if confirmationCode != period.Code {
+		return ErrConfirmationFailed
+	}
+	return s.repo.Archive(ctx, tenantID, id, archivedBy)
 }
 
 func (s *AcademicPeriodService) ArchiveExpiredPeriods(ctx context.Context) (int64, error) {

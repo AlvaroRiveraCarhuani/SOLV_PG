@@ -118,6 +118,7 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/admin/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
 		mux.Handle("POST /api/v1/admin/academic-periods", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreatePeriod))))
 		mux.Handle("PUT /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdatePeriod))))
+		mux.Handle("POST /api/v1/admin/academic-periods/{id}/archive", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ArchivePeriod))))
 		mux.Handle("DELETE /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeletePeriod))))
 		mux.Handle("POST /api/v1/admin/courses/{id}/reassign", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReassignCourse))))
 		mux.Handle("GET /api/v1/admin/students", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ListStudents))))

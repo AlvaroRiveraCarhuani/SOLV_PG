@@ -102,3 +102,21 @@ ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'active' CHECK (sta
 
 - **Positivas:** Separación clara entre datos operativos del semestre en curso e histórico inmutable de años anteriores.
 - **Trade-offs:** Requiere que toda creación de materias exija un período académico asociado, agregando un paso previo en la configuración inicial del tenant.
+
+## Anexo: Hardening de Archivado Formal (2026-09-27, submódulo 14.6)
+
+La implementación histórica solo mantenía el booleano `is_active` (archivado derivado
+y reversible con un PUT trivial), divergiendo de la irreversibilidad documentada.
+El esquema se alineó al contrato con la migración `00007_academic_period_archiving.sql`:
+
+- Columnas nuevas en `academic_periods`: `is_archived` (boolean), `archived_at`
+  (timestamptz), `archived_by` (uuid); índice parcial tenant + archivado.
+- Normalización de períodos vencidos históricos a estado archivado formal.
+- Nuevo endpoint `POST /api/v1/admin/academic-periods/{id}/archive` con
+  `confirmation_code` (tipeo del código del período): 422 `confirmation_failed`
+  si no coincide, 409 `period_archived` al intentar reactivar, editar o eliminar.
+- `Archive()` transaccional en el repositorio: congela el período y sella sus
+  materias en solo lectura en la misma transacción.
+- Sweep de expiración corregido: ya no sella materias de períodos futuros
+  planificados; formaliza únicamente períodos vencidos.
+- La cascada de activación no toca períodos archivados.

@@ -136,6 +136,9 @@ type AcademicPeriodRepository interface {
 	Update(ctx context.Context, period *AcademicPeriod) error
 	Delete(ctx context.Context, tenantID, id string) error
 	ArchiveExpiredPeriods(ctx context.Context) (int64, error)
+	// Archive congela formalmente el periodo (is_archived=true, archived_at/by)
+	// y sella sus materias con is_archived=true en la misma transacción (ADR-029).
+	Archive(ctx context.Context, tenantID, id, archivedBy string) error
 }
 
 type SubjectRepository interface {

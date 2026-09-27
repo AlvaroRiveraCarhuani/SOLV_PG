@@ -4,16 +4,26 @@ import (
 	"time"
 )
 
-// AcademicPeriod representa un semestre o periodo académico formal (ADR-029)
+// AcademicPeriod representa un semestre o periodo académico formal (ADR-029).
+// IsArchived es el congelamiento institucional formal e irreversible: solo se
+// establece vía ArchivePeriod (confirmación fuerte) o por expiración automática.
 type AcademicPeriod struct {
-	ID        string    `db:"id" json:"id"`
-	TenantID  string    `db:"tenant_id" json:"tenant_id"`
-	Name      string    `db:"name" json:"name"`
-	Code      string    `db:"code" json:"code"`
-	StartDate time.Time `db:"start_date" json:"start_date"`
-	EndDate   time.Time `db:"end_date" json:"end_date"`
-	IsActive  bool      `db:"is_active" json:"is_active"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	ID         string     `db:"id" json:"id"`
+	TenantID   string     `db:"tenant_id" json:"tenant_id"`
+	Name       string     `db:"name" json:"name"`
+	Code       string     `db:"code" json:"code"`
+	StartDate  time.Time  `db:"start_date" json:"start_date"`
+	EndDate    time.Time  `db:"end_date" json:"end_date"`
+	IsActive   bool       `db:"is_active" json:"is_active"`
+	IsArchived bool       `db:"is_archived" json:"is_archived"`
+	ArchivedAt *time.Time `db:"archived_at" json:"archived_at,omitempty"`
+	ArchivedBy *string    `db:"archived_by" json:"archived_by,omitempty"`
+	CreatedAt  time.Time  `db:"created_at" json:"created_at"`
+}
+
+// ArchiveAcademicPeriodDTO DTO para el archivo formal con confirmación fuerte (ADR-029)
+type ArchiveAcademicPeriodDTO struct {
+	ConfirmationCode string `json:"confirmation_code" validate:"required"`
 }
 
 // CreateAcademicPeriodDTO DTO para crear periodos
