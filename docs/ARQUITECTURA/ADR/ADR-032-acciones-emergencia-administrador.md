@@ -92,3 +92,34 @@ WHERE action LIKE 'EMERGENCY_%';
 
 - **Positivas:** Estabilidad operativa del host y capacidad de recuperación rápida sin reiniciar la máquina física.
 - **Trade-offs:** Pausar o limpiar instancias puede desconectar temporalmente a estudiantes que se encontraban programando activamente en ese instante.
+
+## Anexo: Implementación Real del Catálogo (2026-09-27, submódulo 14.7)
+
+La implementación conserva las 5 capacidades operativas de este ADR con
+identificadores y frases de confirmación propios del sistema (español, sin
+guiones), verificados por la suite de integración del submódulo:
+
+| Capacidad ADR-032 | Acción real (`POST /api/v1/admin/emergency/{action}`) | Frase de confirmación | Evento de auditoría |
+| :--- | :--- | :--- | :--- |
+| pause-all | `hibernate_all_workspaces` | `HIBERNAR TODOS LOS WORKSPACES` | `EMERGENCY_HIBERNATE_ALL` |
+| purge-failed | `kill_zombies` | `LIMPIAR ZOMBIES DOCKER` | `EMERGENCY_KILL_ZOMBIES` |
+| reap-stale | Cubierto por el worker QoS con `inactivity_minutes` configurable (submódulo 14.6, sin reinicio) | No aplica | Ciclo del worker |
+| docker-prune | `docker_prune` | `PURGAR CAPAS HUERFANAS` | `EMERGENCY_PRUNE_DOCKER` |
+| reset-pools | `reset_pools` | `REINICIAR POOLS` | `EMERGENCY_RESET_POOLS` |
+| (adicional) | `terminate_all_workspaces` | `TERMINAR TODOS LOS WORKSPACES` | `EMERGENCY_TERMINATE_ALL` |
+
+Decisiones de implementación:
+
+1. **Auditoría obligatoria:** toda ejecución aceptada persiste su evento
+   `EMERGENCY_*` en `audit_logs` con motivo e impacto en `metadata`; un
+   rechazo por frase inválida no registra evento.
+2. **`docker-prune` selectivo:** elimina contenedores SOLV detenidos y
+   imágenes dangling; jamás toca volúmenes nombrados con trabajo de
+   estudiantes ni imágenes de plantillas en uso.
+3. **`reset-pools` sin corte:** recicla conexiones inactivas del pool de
+   PostgreSQL y reinicializa contadores de circuitos en memoria; si una
+   acción carece de executor en la instancia, responde 503
+   `executor_unavailable` en lugar de simular éxito.
+4. **`reap-stale` evolucionado:** el cierre de sesiones inactivas dejó de
+   ser una acción manual puntual y pasó a ser política continua del worker
+   QoS (recarga por ciclo desde `tenants.config`, submódulo 14.6).

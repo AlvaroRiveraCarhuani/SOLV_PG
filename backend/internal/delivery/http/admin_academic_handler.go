@@ -770,6 +770,10 @@ func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *
 			SendError(w, http.StatusUnprocessableEntity, "unknown_action", "Acción de emergencia no reconocida")
 			return
 		}
+		if errors.Is(err, services.ErrEmergencyExecutorUnavailable) {
+			SendError(w, http.StatusServiceUnavailable, "executor_unavailable", "El executor de esta acción de emergencia no está disponible en esta instancia")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al ejecutar acción de emergencia")
 		return
 	}

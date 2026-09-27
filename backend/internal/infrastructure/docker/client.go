@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
@@ -385,6 +386,7 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 	}
 
 	var managedIDs []string
+
 	for _, cnt := range containers {
 		// Filtrar contenedores gestionados por SOLV (por label o por prefijo /solv-workspace-)
 		isSolvManaged := false
@@ -407,6 +409,50 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 	}
 
 	return managedIDs, nil
+}
+
+// PruneOrphans ejecuta la poda selectiva de emergencia (ADR-032,
+// docker-prune): elimina contenedores gestionados por SOLV que ya no
+// corren (exitados, fallidos, muertos) e imágenes huérfanas no etiquetadas,
+// preservando los volúmenes nombrados con el trabajo de los estudiantes.
+func (c *Client) PruneOrphans(ctx context.Context) (containersPruned int64, spaceReclaimedMB int64, err error) {
+	containers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
+	if err != nil {
+		return 0, 0, fmt.Errorf("failed to list docker containers for prune: %w", err)
+	}
+
+	for _, cnt := range containers {
+		if cnt.State == "running" || cnt.State == "paused" {
+			continue
+		}
+		isSolvManaged := cnt.Labels["solv.managed"] == "true"
+		if !isSolvManaged {
+			for _, name := range cnt.Names {
+				if strings.Contains(name, "solv-workspace-") {
+					isSolvManaged = true
+					break
+				}
+			}
+		}
+		if !isSolvManaged {
+			continue
+		}
+		if err := c.cli.ContainerRemove(ctx, cnt.ID, container.RemoveOptions{Force: true}); err != nil {
+			log.Printf("[EMERGENCY-PRUNE] No se pudo eliminar el contenedor %s: %v", cnt.ID[:12], err)
+			continue
+		}
+		containersPruned++
+	}
+
+	// Imágenes huérfanas: solo dangling (sin etiqueta), jamás las de plantilla en uso.
+	pruneFilters := filters.NewArgs(filters.Arg("dangling", "true"))
+	pruneReport, err := c.cli.ImagesPrune(ctx, pruneFilters)
+	if err != nil {
+		return containersPruned, spaceReclaimedMB, fmt.Errorf("failed to prune dangling images: %w", err)
+	}
+	spaceReclaimedMB = int64(pruneReport.SpaceReclaimed) / (1024 * 1024)
+
+	return containersPruned, spaceReclaimedMB, nil
 }
 
 func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error) {

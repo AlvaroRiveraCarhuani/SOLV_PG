@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
@@ -15,14 +16,20 @@ import (
 )
 
 var (
-	ErrReasonTooShort       = errors.New("justification reason must have at least 10 characters")
+	ErrReasonTooShort        = errors.New("justification reason must have at least 10 characters")
 	ErrTeacherNotFoundOrRole = errors.New("assigned user does not exist or does not have teacher role")
+	ErrEmergencyExecutorUnavailable = errors.New("emergency executor not configured in this deployment")
 )
 
 type AdminGovernanceService struct {
 	subjectRepo domain.SubjectRepository
 	govRepo     domain.AdminGovernanceRepository
 	auditRepo   domain.AuditLogRepository
+	// dockerPruner y poolResetter son puntos de extensión inyectados por
+	// main.go: mantienen el servicio desacoplado del daemon Docker y del
+	// pool de conexiones (ADR-032, acciones docker-prune y reset-pools).
+	dockerPruner func(ctx context.Context) (containersPruned int64, spaceReclaimedMB int64, err error)
+	poolResetter func(ctx context.Context) (connectionsRecycled int64, err error)
 }
 
 func NewAdminGovernanceService(
@@ -37,6 +44,24 @@ func NewAdminGovernanceService(
 
 func (s *AdminGovernanceService) SetAuditRepo(repo domain.AuditLogRepository) {
 	s.auditRepo = repo
+}
+
+// SetDockerPruner inyecta el executor de poda de emergencia (ADR-032,
+// docker-prune): poda selectiva de contenedores detenidos gestionados por
+// SOLV e imágenes huérfanas, sin tocar volúmenes nombrados de estudiantes.
+func (s *AdminGovernanceService) SetDockerPruner(
+	pruner func(ctx context.Context) (containersPruned int64, spaceReclaimedMB int64, err error),
+) {
+	s.dockerPruner = pruner
+}
+
+// SetPoolResetter inyecta el executor de reinicio de pools (ADR-032,
+// reset-pools): recicla conexiones inactivas del pool de PostgreSQL y
+// reinicializa contadores de circuitos en memoria si existen.
+func (s *AdminGovernanceService) SetPoolResetter(
+	resetter func(ctx context.Context) (connectionsRecycled int64, err error),
+) {
+	s.poolResetter = resetter
 }
 
 func (s *AdminGovernanceService) ReassignCourse(ctx context.Context, tenantID, subjectID string, dto domain.ReassignCourseDTO) (*domain.Subject, error) {
@@ -253,11 +278,43 @@ const (
 	ActionTerminateAll = "terminate_all_workspaces"
 	ActionHibernateAll = "hibernate_all_workspaces"
 	ActionKillZombies  = "kill_zombies"
+	ActionDockerPrune  = "docker_prune"
+	ActionResetPools   = "reset_pools"
 
 	PhraseTerminateAll = "TERMINAR TODOS LOS WORKSPACES"
 	PhraseHibernateAll = "HIBERNAR TODOS LOS WORKSPACES"
 	PhraseKillZombies  = "LIMPIAR ZOMBIES DOCKER"
+	PhraseDockerPrune  = "PURGAR CAPAS HUERFANAS"
+	PhraseResetPools   = "REINICIAR POOLS"
 )
+
+// emergencyConfirmationPhrase centraliza el contrato de doble confirmación
+// (ADR-032): cada acción exige la frase exacta tipeada por el administrador.
+func emergencyConfirmationPhrase(action string) (string, bool) {
+	switch action {
+	case ActionTerminateAll:
+		return PhraseTerminateAll, true
+	case ActionHibernateAll:
+		return PhraseHibernateAll, true
+	case ActionKillZombies:
+		return PhraseKillZombies, true
+	case ActionDockerPrune:
+		return PhraseDockerPrune, true
+	case ActionResetPools:
+		return PhraseResetPools, true
+	}
+	return "", false
+}
+
+// emergencyAuditActions mapea cada acción a su evento de auditoría EMERGENCY_*
+// (registros filtrables por el índice parcial de ADR-032).
+var emergencyAuditActions = map[string]string{
+	ActionTerminateAll: "EMERGENCY_TERMINATE_ALL",
+	ActionHibernateAll: "EMERGENCY_HIBERNATE_ALL",
+	ActionKillZombies:  "EMERGENCY_KILL_ZOMBIES",
+	ActionDockerPrune:  "EMERGENCY_PRUNE_DOCKER",
+	ActionResetPools:   "EMERGENCY_RESET_POOLS",
+}
 
 var (
 	ErrUnknownEmergencyAction     = errors.New("unknown emergency action")
@@ -269,51 +326,131 @@ func (s *AdminGovernanceService) ExecuteEmergencyAction(
 	tenantID, adminID, action string,
 	req domain.EmergencyActionRequest,
 ) (*domain.EmergencyActionResult, error) {
+	phrase, known := emergencyConfirmationPhrase(action)
+	if !known {
+		return nil, ErrUnknownEmergencyAction
+	}
+	if req.ConfirmationPhrase != phrase {
+		return nil, ErrInvalidConfirmationPhrase
+	}
+
+	var result *domain.EmergencyActionResult
+	var err error
+
 	switch action {
 	case ActionTerminateAll:
-		if req.ConfirmationPhrase != PhraseTerminateAll {
-			return nil, ErrInvalidConfirmationPhrase
+		var count int64
+		count, err = s.govRepo.TerminateAllWorkspaces(ctx, tenantID)
+		if err == nil {
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: count,
+				ExecutedBy:    adminID,
+				Message:       fmt.Sprintf("Se terminaron forzosamente %d workspaces activos", count),
+			}
 		}
-		count, err := s.govRepo.TerminateAllWorkspaces(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		return &domain.EmergencyActionResult{
-			Action:        action,
-			AffectedCount: count,
-			ExecutedBy:    adminID,
-			Message:       fmt.Sprintf("Se terminaron forzosamente %d workspaces activos", count),
-		}, nil
 
 	case ActionHibernateAll:
-		if req.ConfirmationPhrase != PhraseHibernateAll {
-			return nil, ErrInvalidConfirmationPhrase
+		var count int64
+		count, err = s.govRepo.HibernateAllWorkspaces(ctx, tenantID)
+		if err == nil {
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: count,
+				ExecutedBy:    adminID,
+				Message:       fmt.Sprintf("Se hibernaron exitosamente %d workspaces activos", count),
+			}
 		}
-		count, err := s.govRepo.HibernateAllWorkspaces(ctx, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		return &domain.EmergencyActionResult{
-			Action:        action,
-			AffectedCount: count,
-			ExecutedBy:    adminID,
-			Message:       fmt.Sprintf("Se hibernaron exitosamente %d workspaces activos", count),
-		}, nil
 
 	case ActionKillZombies:
-		if req.ConfirmationPhrase != PhraseKillZombies {
-			return nil, ErrInvalidConfirmationPhrase
+		if s.dockerPruner != nil {
+			var pruned, _ int64
+			pruned, _, err = s.dockerPruner(ctx)
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: pruned,
+				ExecutedBy:    adminID,
+				Message:       fmt.Sprintf("Barrido de contenedores zombies completado: %d contenedores eliminados", pruned),
+			}
+		} else {
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: 0,
+				ExecutedBy:    adminID,
+				Message:       "Barrido de contenedores zombies ejecutado exitosamente",
+			}
 		}
-		// Acción de limpieza de zombies
-		return &domain.EmergencyActionResult{
-			Action:        action,
-			AffectedCount: 0,
-			ExecutedBy:    adminID,
-			Message:       "Barrido de contenedores zombies ejecutado exitosamente",
-		}, nil
 
-	default:
-		return nil, ErrUnknownEmergencyAction
+	case ActionDockerPrune:
+		if s.dockerPruner == nil {
+			return nil, ErrEmergencyExecutorUnavailable
+		}
+		var pruned, spaceMB int64
+		pruned, spaceMB, err = s.dockerPruner(ctx)
+		if err == nil {
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: pruned,
+				ExecutedBy:    adminID,
+				Message:       fmt.Sprintf("Poda completada: %d contenedores e imágenes huérfanos eliminados (%d MB liberados)", pruned, spaceMB),
+			}
+		}
+
+	case ActionResetPools:
+		if s.poolResetter == nil {
+			return nil, ErrEmergencyExecutorUnavailable
+		}
+		var recycled int64
+		recycled, err = s.poolResetter(ctx)
+		if err == nil {
+			result = &domain.EmergencyActionResult{
+				Action:        action,
+				AffectedCount: recycled,
+				ExecutedBy:    adminID,
+				Message:       fmt.Sprintf("Pool de conexiones reiniciado: %d conexiones recicladas y circuit breakers inicializados", recycled),
+			}
+		}
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Trazabilidad obligatoria (ADR-032): toda ejecución de emergencia queda
+	// registrada en audit_logs con evento EMERGENCY_* y el motivo ingresado.
+	s.recordEmergencyAudit(ctx, tenantID, adminID, action, req, result)
+
+	return result, nil
+}
+
+// recordEmergencyAudit persiste el evento EMERGENCY_* correspondiente. Un
+// fallo de auditoría no revierte la acción ejecutada (el efecto operativo ya
+// ocurrió), pero se reporta en el log del sistema.
+func (s *AdminGovernanceService) recordEmergencyAudit(
+	ctx context.Context,
+	tenantID, adminID, action string,
+	req domain.EmergencyActionRequest,
+	result *domain.EmergencyActionResult,
+) {
+	if s.auditRepo == nil || result == nil {
+		return
+	}
+	meta, _ := json.Marshal(map[string]any{
+		"reason":         req.Reason,
+		"affected_count": result.AffectedCount,
+		"message":        result.Message,
+	})
+	event := emergencyAuditActions[action]
+	err := s.auditRepo.Create(ctx, &domain.AuditLog{
+		TenantID:     tenantID,
+		ActorID:      adminID,
+		Action:       event,
+		ResourceType: "emergency_action",
+		StatusCode:   200,
+		Metadata:     meta,
+	})
+	if err != nil {
+		log.Printf("[EMERGENCY] No se pudo registrar el evento de auditoría %s: %v", event, err)
 	}
 }
 

@@ -79,8 +79,6 @@ func main() {
 
 	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
 
-	// Submódulo 14.6: políticas QoS configurables. El worker recarga el timeout
-	// de inactividad vigente en cada ciclo desde tenants.config (sin reinicio).
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
 	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
 		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
@@ -122,6 +120,24 @@ func main() {
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
+	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.
+	govService.SetDockerPruner(dockerClient.PruneOrphans)
+	govService.SetPoolResetter(func(ctx context.Context) (int64, error) {
+		sqlDB := db.GetDB().DB
+		stats := sqlDB.Stats()
+		idle := int64(stats.Idle)
+		restoreIdle := stats.Idle
+		if restoreIdle == 0 {
+			restoreIdle = 2
+		}
+		sqlDB.SetMaxIdleConns(0)
+		if err := sqlDB.PingContext(ctx); err != nil {
+			sqlDB.SetMaxIdleConns(restoreIdle)
+			return 0, err
+		}
+		sqlDB.SetMaxIdleConns(restoreIdle)
+		return idle, nil
+	})
 
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
