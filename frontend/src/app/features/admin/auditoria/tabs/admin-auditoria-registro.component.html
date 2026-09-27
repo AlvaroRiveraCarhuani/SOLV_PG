@@ -1,0 +1,120 @@
+<div class="registro-panel">
+  <div class="toolbar">
+    <search-bar
+      [query]="searchQuery()"
+      placeholder="Buscar evento, actor o recurso..."
+      ariaLabel="Buscar eventos de auditoría"
+      (queryChange)="onSearchChange($event)"
+    />
+
+    <label class="action-filter" for="audit-action-filter">
+      <span class="filter-label">Acción</span>
+      <select id="audit-action-filter" [ngModel]="actionFilter()" (ngModelChange)="onActionFilterChange($event)">
+        @for (opt of actionOptions; track opt.value) {
+          <option [value]="opt.value">{{ opt.label }}</option>
+        }
+      </select>
+    </label>
+
+    @if (hasActiveFilters()) {
+      <button type="button" class="btn-outline clear-filters" (click)="clearFilters()">Limpiar filtros</button>
+    }
+  </div>
+
+  @if (isLoading()) {
+    <div class="loading-state">Cargando eventos de auditoría...</div>
+  } @else if (rows().length === 0) {
+    <div class="empty-state">
+      <h3>Sin eventos</h3>
+      <p>No hay eventos de auditoría que coincidan con la búsqueda.</p>
+    </div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="audit-table">
+        <thead>
+          <tr>
+            <th>Timestamp</th>
+            <th>Actor</th>
+            <th>Acción</th>
+            <th>Recurso</th>
+            <th>Status</th>
+            <th><span class="visually-hidden">Ver cronología</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.log.id) {
+            <tr>
+              <td class="cell-timestamp">{{ row.log.created_at | date: 'dd/MM HH:mm:ss' }}</td>
+              <td class="cell-actor" [title]="row.log.actor_id">{{ row.log.actor_email }}</td>
+              <td class="cell-action">
+                <span class="action-kind" [class]="'kind-' + row.enriched.kind">{{ row.enriched.label }}</span>
+                @if (row.reason) {
+                  <span class="action-reason" [title]="row.reason">{{ row.reason }}</span>
+                }
+              </td>
+              <td class="cell-resource">{{ row.log.resource_type }}</td>
+              <td class="cell-status">
+                <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
+              </td>
+              <td class="cell-open">
+                <button type="button" class="open-drawer-btn" (click)="openDrawer(row)" aria-label="Ver cronología del actor">
+                  <svg lucidePanelRightOpen aria-hidden="true"></svg>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+
+    <pagination-bar
+      [currentPage]="currentPage()"
+      [totalPages]="totalPages()"
+      [itemLabel]="'eventos'"
+      [showPageNumbers]="false"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+
+  @if (drawerOpen()) {
+    <div class="drawer-backdrop" (click)="onDrawerBackdropClick($event)">
+      <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Cronología de ' + drawerActorEmail()">
+        <header class="drawer-header">
+          <div class="drawer-title">
+            <h3>Cronología de Actividad</h3>
+            <p>{{ drawerActorEmail() }}</p>
+          </div>
+          <button type="button" class="drawer-close" (click)="closeDrawer()" aria-label="Cerrar cronología">
+            <svg lucideX aria-hidden="true"></svg>
+          </button>
+        </header>
+
+        @if (drawerLoading()) {
+          <p class="drawer-loading">Cargando cronología...</p>
+        } @else if (drawerTimeline().length === 0) {
+          <p class="drawer-loading">Sin eventos para este actor.</p>
+        } @else {
+          <ol class="timeline">
+            @for (row of drawerTimeline(); track row.log.id) {
+              <li class="timeline-item">
+                <span class="timeline-dot" [class]="'dot-' + row.status.kind"></span>
+                <div class="timeline-body">
+                  <p class="timeline-headline">
+                    {{ row.enriched.label }} de {{ row.log.resource_type }}
+                    <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
+                  </p>
+                  <p class="timeline-meta">
+                    {{ row.log.created_at | date: "EEEE dd 'de' MMM, HH:mm:ss" }}
+                  </p>
+                  @if (row.reason) {
+                    <p class="timeline-reason">Motivo: {{ row.reason }}</p>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+        }
+      </aside>
+    </div>
+  }
+</div>
