@@ -1,0 +1,41 @@
+<div class="config-page">
+  <header class="page-header view-header">
+    <div class="header-info">
+      <h1 class="page-title view-title">Configuración Institucional</h1>
+      <p class="page-subtitle view-subtitle">
+        Períodos lectivos, identidad white-label y operación del servidor de {{ tenantName() }}
+      </p>
+    </div>
+  </header>
+
+  <nav class="config-tabs" role="tablist" aria-label="Secciones de configuración">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        role="tab"
+        class="config-tab"
+        [class.active]="activeTab() === tab.id"
+        [attr.aria-selected]="activeTab() === tab.id"
+        (click)="selectTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+
+  <p class="tab-description">{{ activeDef().description }}</p>
+
+  <div class="config-tab-panel" role="tabpanel">
+    @switch (activeTab()) {
+      @case ('periodos') {
+        <admin-config-periodos />
+      }
+      @case ('identidad') {
+        <admin-config-identidad />
+      }
+      @case ('servidor') {
+        <admin-config-servidor />
+      }
+    }
+  </div>
+</div>

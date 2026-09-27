@@ -1,0 +1,315 @@
+<div class="identidad-tab">
+  @if (toast(); as t) {
+    <div class="toast-notification" [class.toast-error]="t.type === 'error'">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  <div class="split-screen">
+    <!-- ================= Panel izquierdo: configuración ================= -->
+    <div class="config-panel table-card">
+      <h2 class="section-title">Identidad Institucional</h2>
+      <p class="panel-hint">
+        Los cambios se reflejan en el preview al instante. La propagación a todos
+        los usuarios tarda hasta 5 minutos (caché institucional).
+      </p>
+
+      <!-- 1. Logo: subida de archivo real + URL manual como alternativa -->
+      <form-field
+        label="Logo de la Institución"
+        for="branding-logo"
+        hint="Imagen PNG, SVG, JPG o WEBP de hasta 2 MB. También puedes pegar una URL https."
+        [error]="validation().logoError"
+      >
+        <div class="logo-upload-row">
+          <label class="btn-outline logo-upload-btn" for="branding-logo-file">
+            <svg lucideUpload class="btn-icon"></svg>
+            @if (isUploadingLogo()) {
+              <span>Subiendo...</span>
+            } @else {
+              <span>Subir Logo</span>
+            }
+          </label>
+          <input
+            id="branding-logo-file"
+            type="file"
+            class="logo-file-input"
+            accept=".png,.svg,.jpg,.jpeg,.webp"
+            (change)="onLogoFileSelected($event)" />
+        </div>
+        <div class="input-with-icon">
+          <svg lucideImage class="field-icon"></svg>
+          <input
+            id="branding-logo"
+            type="url"
+            class="form-input with-icon"
+            placeholder="https://institucion.edu.bo/logo.png"
+            [ngModel]="logoUrl()"
+            (ngModelChange)="onLogoUrlChange($event)" />
+        </div>
+      </form-field>
+
+      @if (logoUrl() && !logoPreviewFailed()) {
+        <div class="logo-chip">
+          <img [src]="logoUrl()" alt="Previsualización del logo institucional" (error)="onLogoError()" />
+          <span>Carga correcta</span>
+        </div>
+      } @else if (logoUrl() && logoPreviewFailed()) {
+        <div class="logo-chip logo-chip-error">
+          <svg lucideAlertCircle></svg>
+          <span>No se pudo cargar la imagen desde esa URL</span>
+        </div>
+      }
+
+      <!-- 2. Nombre -->
+      <form-field
+        label="Nombre de la Universidad"
+        for="branding-name"
+        [error]="validation().nameError"
+      >
+        <div class="input-with-icon">
+          <svg lucideBuilding2 class="field-icon"></svg>
+          <input
+            id="branding-name"
+            type="text"
+            class="form-input with-icon"
+            placeholder="Ej. Universidad Adventista de Bolivia"
+            [ngModel]="institutionName()"
+            (ngModelChange)="institutionName.set($event)" />
+        </div>
+      </form-field>
+
+      <!-- 3. Color primario -->
+      <form-field
+        label="Color Primario de la Marca"
+        for="branding-color"
+        hint="Formato #RRGGBB. El motor HSL deriva hover, foco y badges automáticamente."
+        [error]="validation().colorError"
+      >
+        <div class="color-row">
+          <input
+            type="color"
+            class="color-picker"
+            aria-label="Selector visual de color primario"
+            [value]="validation().colorError === undefined ? primaryColor() : '#2563EB'"
+            (input)="primaryColor.set($any($event.target).value)" />
+          <input
+            id="branding-color"
+            type="text"
+            class="form-input color-hex-input"
+            placeholder="#2563EB"
+            [ngModel]="primaryColor()"
+            (ngModelChange)="primaryColor.set($event)" />
+        </div>
+      </form-field>
+
+      <div class="contrast-indicator" [class.ok]="contrastOk()">
+        <svg lucidePalette></svg>
+        @if (contrastOk()) {
+          <span>Contraste verificado: texto {{ previewTextColor() === '#FFFFFF' ? 'blanco' : 'oscuro' }} sobre el primario (WCAG AA)</span>
+        } @else {
+          <span>Ingresa un color válido para verificar el contraste</span>
+        }
+      </div>
+
+      <!-- 4. Email de soporte -->
+      <form-field
+        label="Correo de Soporte"
+        for="branding-email"
+        hint="Visible para estudiantes y docentes en los mensajes de ayuda."
+        [error]="validation().emailError"
+      >
+        <div class="input-with-icon">
+          <svg lucideMail class="field-icon"></svg>
+          <input
+            id="branding-email"
+            type="email"
+            class="form-input with-icon"
+            placeholder="soporte@institucion.edu.bo"
+            [ngModel]="supportEmail()"
+            (ngModelChange)="supportEmail.set($event)" />
+        </div>
+      </form-field>
+
+      <!-- 5. Tipografía white-label -->
+      <div class="typography-section">
+        <div class="typography-header">
+          <svg lucideType></svg>
+          <span>Tipografía Institucional</span>
+          <button
+            type="button"
+            class="btn-toggle-custom"
+            (click)="toggleCustomFonts()"
+            title="Opción avanzada: hoja CSS de Google Fonts">
+            {{ showCustomFonts() ? 'Ocultar opción avanzada' : 'Opción avanzada' }}
+          </button>
+        </div>
+
+        <div class="font-grid">
+          <form-field
+            label="Fuente de Interfaz (UI)"
+            for="font-sans"
+            hint="Textos, botones, tablas y formularios de toda la plataforma."
+          >
+            <select
+              id="font-sans"
+              class="form-select font-select"
+              [ngModel]="fontSansValue().startsWith('cat:') ? fontSansValue().slice(4) : 'custom'"
+              (ngModelChange)="onSansCatalogChange($event)"
+              [style.font-family]="fontPreviewStack()">
+              @for (font of sansCatalog; track font.slug) {
+                <option [value]="font.slug" [style.font-family]="font.name">{{ font.name }}</option>
+              }
+              @if (fontSansValue().startsWith('url:')) {
+                <option value="custom" disabled>Custom (URL)</option>
+              }
+            </select>
+          </form-field>
+
+          <form-field
+            label="Fuente de Datos de Máquina (mono)"
+            for="font-mono"
+            hint="Logs, UUIDs, métricas RAM/CPU, veredictos del juez y código."
+          >
+            <select
+              id="font-mono"
+              class="form-select font-select"
+              [ngModel]="fontMonoValue().startsWith('cat:') ? fontMonoValue().slice(4) : 'custom'"
+              (ngModelChange)="onMonoCatalogChange($event)"
+              [style.font-family]="fontMonoPreviewStack()">
+              @for (font of monoCatalog; track font.slug) {
+                <option [value]="font.slug" [style.font-family]="font.name">{{ font.name }}</option>
+              }
+              @if (fontMonoValue().startsWith('url:')) {
+                <option value="custom" disabled>Custom (URL)</option>
+              }
+            </select>
+          </form-field>
+        </div>
+
+        <!-- Muestra de la pareja tipográfica elegida -->
+        <div class="font-specimen">
+          <p class="specimen-sans" [style.font-family]="fontPreviewStack()">
+            Aa — Laboratorio Virtual {{ fontSansFamily() }} 400/600
+          </p>
+          <p class="specimen-mono" [style.font-family]="fontMonoPreviewStack()">
+            0x1F ws-a3f9 RAM 512MB AC 42ms
+          </p>
+        </div>
+
+        @if (showCustomFonts()) {
+          <div class="custom-fonts-panel">
+            <p class="custom-fonts-hint">
+              Avanzado: pega la URL de una hoja CSS de Google Fonts (dominio permitido).
+              El backend valida HTTPS, dominio y alcanzabilidad antes de guardar.
+            </p>
+            <div class="custom-font-row">
+              <input
+                type="url"
+                class="form-input"
+                placeholder="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700"
+                [ngModel]="customSansUrl()"
+                (ngModelChange)="customSansUrl.set($event)" />
+              <button type="button" class="btn-outline" (click)="applyCustomSansUrl()" [disabled]="!customSansUrl().trim()">
+                Aplicar a UI
+              </button>
+            </div>
+            <div class="custom-font-row">
+              <input
+                type="url"
+                class="form-input"
+                placeholder="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600"
+                [ngModel]="customMonoUrl()"
+                (ngModelChange)="customMonoUrl.set($event)" />
+              <button type="button" class="btn-outline" (click)="applyCustomMonoUrl()" [disabled]="!customMonoUrl().trim()">
+                Aplicar a mono
+              </button>
+            </div>
+          </div>
+        }
+
+        @if (fontError()) {
+          <div class="form-error-banner" role="alert">
+            <svg lucideAlertCircle></svg>
+            <span>{{ fontError() }}</span>
+          </div>
+        }
+      </div>
+
+      @if (formError()) {
+        <div class="form-error-banner" role="alert">
+          <svg lucideAlertCircle></svg>
+          <span>{{ formError() }}</span>
+        </div>
+      }
+
+      <div class="panel-actions">
+        <button type="button" class="btn-outline" (click)="resetForm()" [disabled]="!isDirty() || isSaving()">
+          Cancelar Cambios
+        </button>
+        <button type="button" class="btn-primary" (click)="save()" [disabled]="!canSave()">
+          @if (isSaving()) {
+            <span>Guardando...</span>
+          } @else {
+            <span>Guardar Marca</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= Panel derecho: preview en vivo ================= -->
+    <div class="preview-panel" aria-label="Vista previa en vivo del branding">
+      <div class="preview-header">
+        <svg lucideEye class="preview-eye"></svg>
+        <span>Vista Previa en Vivo</span>
+      </div>
+
+      <div
+        class="preview-shell"
+        [style.--pv-h]="previewHsl().h"
+        [style.--pv-s]="previewHsl().s"
+        [style.--pv-l]="previewHsl().l"
+        [style.--pv-text]="previewTextColor()"
+      >
+        <!-- Header emulado -->
+        <div class="pv-topbar">
+          @if (logoUrl() && !logoPreviewFailed()) {
+            <img class="pv-logo" [src]="logoUrl()" alt="" (error)="onLogoError()" />
+          } @else {
+            <span class="pv-shield">{{ tenantInitials() }}</span>
+          }
+          <span class="pv-institution">{{ institutionName() || 'Nombre Institucional' }}</span>
+          <span class="pv-bell">Admin</span>
+        </div>
+
+        <!-- Juez Virtual emulado (componente del wireframe oficial) -->
+        <div class="pv-judge">
+          <p class="pv-judge-title">JUEZ VIRTUAL</p>
+          <div class="pv-verdict">
+            <span class="pv-verdict-badge">AC</span>
+            <span class="pv-verdict-label">Accepted</span>
+          </div>
+          <button type="button" class="pv-btn-primary" [disabled]="true">
+            Enviar Solución a Evaluación
+          </button>
+          <div class="pv-input-emu">
+            <span class="pv-input-label">CONSOLA DE SALIDA</span>
+            <span class="pv-input-value" [style.font-family]="fontMonoPreviewStack()">Hola, mundo!</span>
+          </div>
+          <p class="pv-font-name" [style.font-family]="fontPreviewStack()">
+            {{ fontSansFamily() }} · {{ fontMonoFamily() }}
+          </p>
+        </div>
+
+        <p class="pv-note">
+          Cualquier cambio en el panel izquierdo se refleja instantáneamente aquí.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>

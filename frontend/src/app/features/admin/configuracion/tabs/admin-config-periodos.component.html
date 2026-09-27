@@ -1,0 +1,320 @@
+@if (toast(); as t) {
+  <div class="toast-notification" [class.toast-error]="t.type === 'error'">
+    @if (t.type === 'success') {
+      <svg lucideCheckCircle2 class="toast-icon"></svg>
+    } @else {
+      <svg lucideAlertCircle class="toast-icon"></svg>
+    }
+    <span>{{ t.message }}</span>
+  </div>
+}
+
+<div class="periodos-tab">
+  <!-- KPIs del ciclo lectivo -->
+  <kpi-grid [columns]="4">
+    <kpi-card label="Períodos Registrados" [value]="periods().length" detail="Ciclos lectivos históricos" variant="primary">
+      <svg kpi-icon lucideCalendar></svg>
+    </kpi-card>
+    <kpi-card label="Período Activo" [value]="activeCount()" [detail]="activeCount() === 1 ? 'Ciclo lectivo vigente' : 'Sin ciclo vigente'" [variant]="activeCount() === 1 ? 'running' : 'warning'">
+      <svg kpi-icon lucideRocket></svg>
+    </kpi-card>
+    <kpi-card label="Próximos a Iniciar" [value]="nextUpCount()" detail="Planificados con vigencia futura" variant="default">
+      <svg kpi-icon lucideCalendar></svg>
+    </kpi-card>
+    <kpi-card label="Archivados" [value]="archivedCount()" detail="Cerrados con materias en solo lectura" variant="default">
+      <svg kpi-icon lucideArchive></svg>
+    </kpi-card>
+  </kpi-grid>
+
+  <!-- Encabezado de tabla -->
+  <div class="table-card table-responsive">
+    <div class="table-toolbar">
+      <h2 class="section-title">Semestres y Ciclos Lectivos Registrados</h2>
+      <button type="button" class="btn-primary" (click)="openCreate()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nuevo Período</span>
+      </button>
+    </div>
+
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <span>Cargando períodos académicos...</span>
+      </div>
+    } @else if (loadError()) {
+      <div class="empty-state">
+        <div class="empty-icon-box">
+          <svg lucideAlertCircle></svg>
+        </div>
+        <p class="empty-title">No se pudieron cargar los períodos</p>
+        <p class="empty-description">{{ loadError() }}</p>
+      </div>
+    } @else {
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Período</th>
+            <th>Código</th>
+            <th>Rango de Fechas</th>
+            <th>Materias</th>
+            <th>Estado</th>
+            <th class="col-actions">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track trackByPeriod($index, row)) {
+            <tr [class.row-archived]="row.lifecycle === 'archivado'">
+              <td class="col-name">
+                <span class="period-name">{{ row.name }}</span>
+              </td>
+              <td class="col-code">
+                <span class="period-code-badge">{{ row.code }}</span>
+              </td>
+              <td class="col-dates">{{ formatDate(row.start_date) }} — {{ formatDate(row.end_date) }}</td>
+              <td class="col-courses">
+                {{ courseCountByPeriod()[row.id] ?? 0 }} cursos
+              </td>
+              <td class="col-status">
+                <span class="status-badge" [class]="'status-' + row.lifecycle">
+                  {{ lifecycleLabel(row.lifecycle) }}
+                </span>
+              </td>
+              <td class="col-actions">
+                <div class="action-buttons">
+                  @if (row.lifecycle === 'activo') {
+                    <button type="button" class="btn-action" (click)="openArchive(row)" title="Archivar período con confirmación fuerte">
+                      <svg lucideArchive class="action-icon"></svg>
+                      <span>Archivar</span>
+                    </button>
+                  }
+                  @if (row.lifecycle === 'proximo') {
+                    <button type="button" class="btn-action" (click)="openActivate(row)" title="Activar como período vigente">
+                      <svg lucideRocket class="action-icon"></svg>
+                      <span>Activar</span>
+                    </button>
+                  }
+                  @if (row.lifecycle === 'archivado') {
+                    <span class="archived-note" title="El archivado formal es irreversible (ADR-029)">Inmutable</span>
+                  }
+                  <button type="button" class="btn-action-icon" (click)="openEdit(row)" title="Editar período">
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+                  <button type="button" class="btn-action-icon btn-danger-icon" (click)="openDelete(row)" title="Eliminar período">
+                    <svg lucideTrash2 class="action-icon"></svg>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-cell">
+                <div class="empty-state">
+                  <div class="empty-icon-box">
+                    <svg lucideCalendar></svg>
+                  </div>
+                  <p class="empty-title">Sin períodos académicos registrados</p>
+                  <p class="empty-description">Registra el primer ciclo lectivo para habilitar la gestión de materias.</p>
+                  <button type="button" class="btn-primary" (click)="openCreate()">
+                    <svg lucidePlus class="btn-icon"></svg>
+                    <span>Nuevo Período</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
+
+<!-- ================= Modal: Alta / Edición ================= -->
+@if (formOpen()) {
+  <modal-shell [title]="formTitle()" subtitle="Define el ciclo lectivo institucional" (close)="closeForm()">
+    <svg modal-icon lucideCalendar class="icon"></svg>
+
+    <form-field label="Nombre del Semestre / Ciclo" [error]="name().trim() === '' ? 'El nombre es obligatorio.' : ''">
+      <input
+        type="text"
+        class="form-input"
+        placeholder="Ej. Semestre II / 2026"
+        [ngModel]="name()"
+        (ngModelChange)="name.set($event)" />
+    </form-field>
+
+    <form-field label="Código Corto Institucional" [error]="code().trim() === '' ? 'El código es obligatorio.' : ''">
+      <input
+        type="text"
+        class="form-input"
+        placeholder="Ej. 2026-2"
+        [ngModel]="code()"
+        (ngModelChange)="code.set($event)" />
+    </form-field>
+
+    <div class="form-row">
+      <form-field label="Fecha de Inicio" [error]="startDate() === '' ? 'Requerido.' : ''">
+        <input type="date" class="form-input" [ngModel]="startDate()" (ngModelChange)="startDate.set($event)" />
+      </form-field>
+      <form-field label="Fecha de Fin" [error]="endDate() !== '' && endDate() < startDate() ? 'Debe ser posterior al inicio.' : ''">
+        <input type="date" class="form-input" [ngModel]="endDate()" (ngModelChange)="endDate.set($event)" />
+      </form-field>
+    </div>
+
+    <label class="checkbox-row">
+      <input
+        type="checkbox"
+        [ngModel]="activateNow()"
+        (ngModelChange)="activateNow.set($event)" />
+      <span>Establecer como período activo de la universidad inmediatamente</span>
+    </label>
+
+    @if (formError()) {
+      <div class="form-error-banner" role="alert">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <span>{{ formError() }}</span>
+      </div>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeForm()" [disabled]="isSubmitting()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" (click)="submitForm()" [disabled]="!isFormValid() || isSubmitting()">
+        @if (isSubmitting()) {
+          <span>Guardando...</span>
+        } @else {
+          <span>{{ editingId() ? 'Guardar Cambios' : 'Crear Período Académico' }}</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}
+
+<!-- ================= Modal: Archivo fuerte ================= -->
+@if (archiving(); as target) {
+  <modal-shell
+    title="¿Archivar {{ target.name }} ({{ target.code }})?"
+    subtitle="Acción de congelamiento institucional del ciclo lectivo"
+    intent="warning"
+    (close)="closeArchive()">
+    <svg modal-icon lucideArchive class="icon"></svg>
+
+    <div class="archive-warning-list">
+      <div class="warning-item">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <span><strong>{{ archiveImpactedCourses() }}</strong> materia(s) asociada(s) pasarán automáticamente a modo Solo Lectura (:ro).</span>
+      </div>
+      <div class="warning-item">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <span>Los estudiantes ya no podrán iniciar entornos de desarrollo ni enviar soluciones en este ciclo.</span>
+      </div>
+      <div class="warning-item">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <span>Los docentes solo podrán consultar calificaciones y código en modo auditoría.</span>
+      </div>
+      <div class="warning-item permanent">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <span><strong>Esta acción es permanente:</strong> el archivado formal no tiene reversión desde la plataforma (ADR-029).</span>
+      </div>
+    </div>
+
+    <form-field label="Para confirmar, escribe el código del período ({{ target.code }}):">
+      <input
+        type="text"
+        class="form-input"
+        placeholder="{{ target.code }}"
+        [ngModel]="archiveConfirmation()"
+        (ngModelChange)="archiveConfirmation.set($event)" />
+    </form-field>
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeArchive()" [disabled]="isArchiving()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-danger" (click)="confirmArchive()" [disabled]="!archiveCodeMatches() || isArchiving()">
+        @if (isArchiving()) {
+          <span>Archivando...</span>
+        } @else {
+          <span>Confirmar y Archivar Período</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}
+
+<!-- ================= Modal: Activación ================= -->
+@if (activating(); as target) {
+  <modal-shell
+    title="¿Activar {{ target.name }} ({{ target.code }})?"
+    subtitle="Se convertirá en el único ciclo lectivo vigente de la universidad"
+    [intent]="activatingExpired() ? 'warning' : 'info'"
+    (close)="closeActivate()">
+    <svg modal-icon [ngClass]="'icon'" lucideRocket></svg>
+
+    <div class="activate-summary">
+      <div class="summary-row">
+        <span class="summary-label">Vigencia:</span>
+        <span class="summary-value">{{ formatDate(target.start_date) }} — {{ formatDate(target.end_date) }}</span>
+      </div>
+      <div class="summary-row">
+        <span class="summary-label">Materias asociadas:</span>
+        <span class="summary-value">{{ courseCountByPeriod()[target.id] ?? 0 }}</span>
+      </div>
+    </div>
+
+    @if (activatingExpired()) {
+      <div class="form-error-banner" role="alert">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <span>Este período tiene fecha de fin vencida: el backend rechazará la activación (period_expired).</span>
+      </div>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeActivate()" [disabled]="isActivating()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" (click)="confirmActivate()" [disabled]="isActivating()">
+        @if (isActivating()) {
+          <span>Activando...</span>
+        } @else {
+          <span>Activar Período</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}
+
+<!-- ================= Modal: Borrado ================= -->
+@if (deleting(); as target) {
+  <modal-shell
+    title="¿Eliminar {{ target.name }} ({{ target.code }})?"
+    subtitle="Esta acción no se puede deshacer"
+    intent="error"
+    (close)="closeDelete()">
+    <svg modal-icon lucideTrash2 class="icon"></svg>
+
+    @if (deletingHasCourses()) {
+      <div class="form-error-banner" role="alert">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <span>Este período tiene {{ courseCountByPeriod()[target.id] }} materia(s) asociada(s). El backend rechazará la eliminación (409): desasócialas primero.</span>
+      </div>
+    } @else {
+      <p class="delete-copy">
+        El período no tiene materias asociadas y será eliminado permanentemente del sistema.
+      </p>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeDelete()" [disabled]="isDeleting()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-danger" (click)="confirmDelete()" [disabled]="deletingHasCourses() || isDeleting()">
+        @if (isDeleting()) {
+          <span>Eliminando...</span>
+        } @else {
+          <span>Eliminar Período</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}

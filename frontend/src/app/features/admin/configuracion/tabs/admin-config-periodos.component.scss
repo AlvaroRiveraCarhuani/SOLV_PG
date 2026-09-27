@@ -1,0 +1,344 @@
+.periodos-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+// Encabezado de tabla
+.table-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+}
+
+.table-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+
+  .section-title {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .btn-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+// Tabla
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+
+  thead th {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  tbody td {
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background-color: var(--bg-surface-subtle);
+  }
+
+  .row-archived {
+    opacity: 0.65;
+  }
+}
+
+.col-name {
+  .period-name {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+}
+
+.period-code-badge {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-active);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+}
+
+.col-dates {
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.col-courses {
+  color: var(--text-secondary);
+}
+
+// Estados del ciclo de vida (tokens semánticos del design system)
+.status-badge {
+  display: inline-block;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &.status-activo {
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &.status-proximo {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+
+  &.status-archivado {
+    background-color: var(--status-hibernated-bg);
+    color: var(--status-hibernated-color);
+  }
+}
+
+// Acciones
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+  }
+}
+
+.btn-action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+  }
+
+  &.btn-danger-icon:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+  }
+}
+
+.action-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.col-actions {
+  text-align: right;
+}
+
+.empty-cell {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+// Formularios en modales
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  cursor: pointer;
+
+  input[type='checkbox'] {
+    accent-color: var(--tenant-primary);
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.form-error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--status-failed-bg);
+  border: 1px solid var(--status-failed-border);
+  color: var(--status-failed-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .error-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+}
+
+// Modal de archivo fuerte
+.archive-warning-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.warning-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+  color: var(--status-pending-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .warning-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+  }
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+// Modal de activación
+.activate-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+
+  .summary-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+  }
+
+  .summary-label {
+    color: var(--text-secondary);
+  }
+
+  .summary-value {
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+}
+
+.archived-note {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.warning-item.permanent {
+  background-color: var(--status-failed-bg);
+  border-color: var(--status-failed-border);
+  color: var(--status-failed-color);
+
+  strong {
+    font-weight: 700;
+  }
+}
+
+// Modal de borrado
+.delete-copy {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+// Toast: se usa el primitivo global .toast-notification de styles.scss (sin redefinirlo).
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8, 32px);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--tenant-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

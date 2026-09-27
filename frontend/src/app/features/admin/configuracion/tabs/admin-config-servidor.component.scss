@@ -1,0 +1,325 @@
+.servidor-tab {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.server-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+
+  .card-title-group {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+
+    .card-icon {
+      width: 20px;
+      height: 20px;
+      color: var(--tenant-primary);
+      margin-top: 2px;
+      flex-shrink: 0;
+    }
+
+    .section-title {
+      font-size: var(--text-lg);
+      font-weight: 600;
+      color: var(--text-primary);
+      margin: 0;
+    }
+
+    .card-hint {
+      margin: var(--space-1) 0 0;
+      font-family: var(--font-sans);
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      max-width: 560px;
+    }
+  }
+
+  .trigger-btn {
+    flex-shrink: 0;
+  }
+}
+
+.updated-badge {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+// Radio-pills del wireframe (valores únicamente del catálogo)
+.qos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+.radio-group {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  input[type='radio'] {
+    accent-color: var(--tenant-primary);
+  }
+
+  &.selected {
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+    background-color: var(--tenant-primary-subtle);
+  }
+}
+
+.card-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.btn-icon {
+  width: 15px;
+  height: 15px;
+}
+
+// Estado de mantenimiento
+.maintenance-state {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-full, 9999px);
+  background-color: var(--status-hibernated-bg);
+  color: var(--status-hibernated-color);
+
+  &.on {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+}
+
+.maintenance-info {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--status-pending-bg);
+  border: 1px solid var(--status-pending-border);
+  color: var(--status-pending-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  p {
+    margin: 0 0 var(--space-1);
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.maintenance-copy {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.maintenance-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background-color: var(--status-failed-bg);
+  border: 1px solid var(--status-failed-border);
+  color: var(--status-failed-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+}
+
+// Respaldos
+.backup-strategy-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: var(--space-4);
+  align-items: end;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+  }
+
+  .strategy-save {
+    padding-bottom: 2px;
+  }
+}
+
+.backups-table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-sans);
+
+  thead th {
+    text-align: left;
+    padding: var(--space-2) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  tbody td {
+    padding: var(--space-3);
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background-color: var(--bg-surface-subtle);
+  }
+}
+
+.col-mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &.backup-success {
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &.backup-failed {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+
+  &.backup-progress {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+}
+
+.action-buttons {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.btn-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.3rem 0.6rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-decoration: none;
+  transition: border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+  }
+}
+
+.action-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.col-actions {
+  text-align: right;
+}
+
+.empty-cell {
+  padding: 3rem 1rem;
+  text-align: center;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-8, 32px);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border-strong);
+    border-top-color: var(--tenant-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// Toast: se usa el primitivo global .toast-notification de styles.scss.

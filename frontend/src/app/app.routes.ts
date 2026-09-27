@@ -63,6 +63,11 @@ export const routes: Routes = [
           import('@features/admin/templates/components/model-library/model-library.component').then((m) => m.ModelLibraryComponent)
       },
       {
+        path: 'configuracion',
+        loadComponent: () =>
+          import('@features/admin/configuracion/admin-configuracion.component').then((m) => m.AdminConfiguracionComponent)
+      },
+      {
         path: 'manual',
         loadComponent: () =>
           import('@features/admin/manual/admin-manual.component').then((m) => m.AdminManualComponent)

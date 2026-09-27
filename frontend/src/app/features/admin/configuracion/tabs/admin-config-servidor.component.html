@@ -1,0 +1,321 @@
+<div class="servidor-tab">
+  @if (toast(); as t) {
+    <div class="toast-notification" [class.toast-error]="t.type === 'error'">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Cargando configuración del servidor...</span>
+    </div>
+  } @else if (loadError()) {
+    <div class="empty-state">
+      <div class="empty-icon-box">
+        <svg lucideAlertCircle></svg>
+      </div>
+      <p class="empty-title">No se pudo cargar la configuración del servidor</p>
+      <p class="empty-description">{{ loadError() }}</p>
+    </div>
+  } @else {
+    <!-- ================= BLOQUE 1: Políticas QoS ================= -->
+    <div class="server-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideServer class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Políticas de Concurrencia y Recursos Estudiantiles</h2>
+            <p class="card-hint">
+              El worker QoS recarga estos valores en cada ciclo. La RAM aplica a
+              contenedores nuevos; los activos conservan su límite (Auto-Bursting intacto).
+            </p>
+          </div>
+        </div>
+        @if (policies()?.updated_at) {
+          <span class="updated-badge">Actualizado {{ formatDate(policies()!.updated_at!) }}</span>
+        }
+      </div>
+
+      <div class="qos-grid">
+        <form-field label="Límite de Memoria RAM por Alumno" for="qos-ram">
+          <div class="radio-group" id="qos-ram">
+            @for (option of ramOptions; track option) {
+              <label class="radio-pill" [class.selected]="selectedRam() === option">
+                <input
+                  type="radio"
+                  name="qos-ram"
+                  [value]="option"
+                  [checked]="selectedRam() === option"
+                  (change)="selectedRam.set(option)" />
+                <span>{{ option }} MB</span>
+              </label>
+            }
+          </div>
+        </form-field>
+
+        <form-field label="Toque de Queda por Inactividad (Hibernación Automática)" for="qos-inactivity">
+          <div class="radio-group" id="qos-inactivity">
+            @for (option of inactivityOptions; track option) {
+              <label class="radio-pill" [class.selected]="selectedInactivity() === option">
+                <input
+                  type="radio"
+                  name="qos-inactivity"
+                  [value]="option"
+                  [checked]="selectedInactivity() === option"
+                  (change)="selectedInactivity.set(option)" />
+                <span>{{ option }} minutos</span>
+              </label>
+            }
+          </div>
+        </form-field>
+
+        <form-field label="Concurrencia Máxima del Servidor" for="qos-containers" hint="Protección contra saturación del host (1-500)">
+          <input
+            id="qos-containers"
+            type="number"
+            class="form-input"
+            min="1"
+            max="500"
+            [ngModel]="selectedMaxContainers()"
+            (ngModelChange)="selectedMaxContainers.set($event)" />
+        </form-field>
+      </div>
+
+      <div class="card-actions-row">
+        <button
+          type="button"
+          class="btn-outline"
+          (click)="syncFormFromPolicies()"
+          [disabled]="!policiesDirty() || isSavingPolicies()">
+          Descartar Cambios
+        </button>
+        <button type="button" class="btn-primary" (click)="savePolicies()" [disabled]="!canSavePolicies()">
+          <svg lucideSave class="btn-icon"></svg>
+          @if (isSavingPolicies()) {
+            <span>Guardando...</span>
+          } @else {
+            <span>Guardar Parámetros de QoS</span>
+          }
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= BLOQUE 2: Modo Mantenimiento ================= -->
+    <div class="server-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideWrench class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Modo Mantenimiento Global</h2>
+            <p class="card-hint">
+              Bloquea sesiones de estudiantes y docentes con pantalla de mantenimiento.
+              Los administradores conservan acceso completo (bypass perimetral ADR-031).
+            </p>
+          </div>
+        </div>
+        <span class="maintenance-state" [class.on]="maintenance()?.maintenance_mode">
+          {{ maintenance()?.maintenance_mode ? 'ACTIVO' : 'INACTIVO' }}
+        </span>
+      </div>
+
+      @if (maintenance()?.maintenance_mode) {
+        <div class="maintenance-info">
+          @if (maintenance()?.maintenance_until) {
+            <p>Hasta: <strong>{{ formatDate(maintenance()!.maintenance_until!) }}</strong></p>
+          }
+          @if (maintenance()?.maintenance_reason) {
+            <p>Motivo: <strong>{{ maintenance()!.maintenance_reason }}</strong></p>
+          }
+        </div>
+      }
+
+      <div class="card-actions-row">
+        <button type="button" class="btn-primary" (click)="openMaintenanceModal()">
+          <svg lucidePower class="btn-icon"></svg>
+          <span>{{ maintenance()?.maintenance_mode ? 'Desactivar Mantenimiento' : 'Activar Mantenimiento' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= BLOQUE 3: Estrategia de Respaldos ================= -->
+    <div class="server-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideHardDrive class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Estrategia de Respaldos y Contingencia</h2>
+            <p class="card-hint">
+              Respaldos transaccionales con pg_dump, verificación SHA-256 y retención rotativa (ADR-035).
+            </p>
+          </div>
+          <button
+            type="button"
+            class="btn-outline trigger-btn"
+            (click)="triggerBackup()"
+            [disabled]="isTriggering()">
+            <svg lucideDatabaseBackup class="btn-icon"></svg>
+            @if (isTriggering()) {
+              <span>Generando...</span>
+            } @else {
+              <span>Generar Respaldo Ahora</span>
+            }
+          </button>
+        </div>
+      </div>
+
+      @if (backupConfig(); as cfg) {
+        <div class="backup-strategy-grid">
+          <form-field label="Frecuencia Local (horas)" for="backup-freq" hint="Intervalo entre respaldos automáticos">
+            <input
+              id="backup-freq"
+              type="number"
+              class="form-input"
+              min="1"
+              max="168"
+              [ngModel]="backupFrequency() || cfg.local_frequency_hours"
+              (ngModelChange)="backupFrequency.set($event)" />
+          </form-field>
+          <form-field label="Retención Local (días)" for="backup-retention" hint="Días antes de la purga rotativa">
+            <input
+              id="backup-retention"
+              type="number"
+              class="form-input"
+              min="1"
+              max="90"
+              [ngModel]="backupRetention() || cfg.local_retention_days"
+              (ngModelChange)="backupRetention.set($event)" />
+          </form-field>
+          <div class="strategy-save">
+            <button type="button" class="btn-primary" (click)="saveBackupStrategy()" [disabled]="isSavingBackup()">
+              @if (isSavingBackup()) {
+                <span>Guardando...</span>
+              } @else {
+                <span>Guardar Estrategia</span>
+              }
+            </button>
+          </div>
+        </div>
+      }
+
+      <!-- Historial de snapshots -->
+      <div class="backups-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Archivo Snapshot</th>
+              <th>Fecha Generación</th>
+              <th>Tamaño</th>
+              <th>Estado</th>
+              <th class="col-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (exec of backups(); track trackByBackup($index, exec)) {
+              <tr>
+                <td class="col-mono">{{ exec.file_name }}</td>
+                <td>{{ formatDate(exec.started_at) }}</td>
+                <td class="col-mono">{{ formatBytes(exec.file_size_bytes) }}</td>
+                <td>
+                  <span class="status-badge" [class]="'backup-' + (exec.status === 'in_progress' ? 'progress' : exec.status)">
+                    {{ exec.status === 'success' ? 'Completado' : exec.status === 'failed' ? 'Fallido' : 'En Progreso' }}
+                  </span>
+                </td>
+                <td class="col-actions">
+                  <div class="action-buttons">
+                    <button type="button" class="btn-action" (click)="verifyBackup(exec)" title="Recalcular checksum SHA-256">
+                      <svg lucideShieldCheck class="action-icon"></svg>
+                      <span>Verificar</span>
+                    </button>
+                    <a class="btn-action" [href]="'/api/v1/admin/backups/' + exec.id + '/download'" title="Descargar snapshot">
+                      <svg lucideDownload class="action-icon"></svg>
+                      <span>Descargar</span>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-cell">
+                  <div class="empty-state">
+                    <div class="empty-icon-box">
+                      <svg lucideDatabaseBackup></svg>
+                    </div>
+                    <p class="empty-title">Sin snapshots registrados</p>
+                    <p class="empty-description">Genera el primer respaldo para iniciar el historial con verificación de integridad.</p>
+                  </div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>
+
+<!-- ================= Modal: confirmación de mantenimiento ================= -->
+@if (maintenanceModalOpen()) {
+  <modal-shell
+    title="{{ maintenance()?.maintenance_mode ? 'Desactivar' : 'Activar' }} Modo Mantenimiento"
+    subtitle="Acción operativa global de la plataforma"
+    [intent]="maintenance()?.maintenance_mode ? 'success' : 'warning'"
+    (close)="closeMaintenanceModal()">
+    <svg modal-icon lucideWrench class="icon"></svg>
+
+    @if (!maintenance()?.maintenance_mode) {
+      <div class="maintenance-warning">
+        <svg lucideAlertTriangle></svg>
+        <span>
+          Los estudiantes y docentes no podrán iniciar sesiones ni enviar soluciones.
+          Los administradores conservan acceso completo (bypass ADR-031).
+        </span>
+      </div>
+
+      <form-field label="Vigencia (opcional)" for="maintenance-until" hint="Si se define, el modo se desactiva automáticamente al vencer.">
+        <input
+          id="maintenance-until"
+          type="datetime-local"
+          class="form-input"
+          [ngModel]="maintenanceUntil()"
+          (ngModelChange)="maintenanceUntil.set($event)" />
+      </form-field>
+
+      <form-field
+        label="Motivo (mínimo 10 caracteres)"
+        for="maintenance-reason"
+        [error]="maintenanceReason().trim().length > 0 && maintenanceReason().trim().length < 10 ? 'Describe el motivo con al menos 10 caracteres.' : ''">
+        <textarea
+          id="maintenance-reason"
+          class="form-textarea"
+          rows="3"
+          placeholder="Ej. Ventana de mantenimiento programado: actualización del orquestador Docker y del host."
+          [ngModel]="maintenanceReason()"
+          (ngModelChange)="maintenanceReason.set($event)"></textarea>
+      </form-field>
+    } @else {
+      <p class="maintenance-copy">
+        La plataforma saldrá del modo mantenimiento y volverá a aceptar sesiones de
+        estudiantes y docentes de forma inmediata.
+      </p>
+    }
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeMaintenanceModal()" [disabled]="isTogglingMaintenance()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" (click)="confirmMaintenance()" [disabled]="!maintenanceConfirmValid() || isTogglingMaintenance()">
+        @if (isTogglingMaintenance()) {
+          <span>Aplicando...</span>
+        } @else {
+          <span>{{ maintenance()?.maintenance_mode ? 'Desactivar Mantenimiento' : 'Confirmar y Activar' }}</span>
+        }
+      </button>
+    </ng-container>
+  </modal-shell>
+}
