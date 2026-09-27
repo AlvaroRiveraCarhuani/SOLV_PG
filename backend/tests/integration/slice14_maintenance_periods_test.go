@@ -247,7 +247,35 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		var createResp map[string]interface{}
 		json.NewDecoder(respCreate.Body).Decode(&createResp)
 		periodData := createResp["data"].(map[string]interface{})
-		periodID := periodData["id"].(string)
+		archivedPeriodID := periodData["id"].(string)
+
+		// 2.2b Crear periodo vigente para el ciclo CRUD completo (fechas futuras).
+		// El historico creado arriba queda sujeto al sweep de archivado formal
+		// y por tanto no admite edicion ni borrado (ADR-029).
+		futurePayload := []byte(`{
+			"name": "Segundo Semestre 2026",
+			"code": "II-2026",
+			"start_date": "2027-01-01",
+			"end_date": "2027-06-30",
+			"is_active": true
+		}`)
+		reqCreateFuture, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(futurePayload))
+		reqCreateFuture.Header.Set("Content-Type", "application/json")
+		reqCreateFuture.Header.Set("X-User-Role", "admin")
+		reqCreateFuture.Header.Set("X-Tenant-Id", tenantID)
+
+		respCreateFuture, err := client.Do(reqCreateFuture)
+		if err != nil {
+			t.Fatalf("Failed to create future academic period: %v", err)
+		}
+		if respCreateFuture.StatusCode != http.StatusCreated {
+			t.Fatalf("Expected 201 Created for future academic period, got %d", respCreateFuture.StatusCode)
+		}
+
+		var createFutureResp map[string]interface{}
+		json.NewDecoder(respCreateFuture.Body).Decode(&createFutureResp)
+		futureData := createFutureResp["data"].(map[string]interface{})
+		periodID := futureData["id"].(string)
 
 		// 2.3 Listar periodos -> 200 OK
 		reqList, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/academic-periods", nil)
@@ -282,12 +310,31 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			}
 		}
 
-		// 2.5 Editar periodo -> 200 OK
+		// 2.5 El periodo histórico vencido fue formalizado por el sweep al
+		// listar (is_archived=true) y rechaza edición con 409 (ADR-029).
 		updatePayload := []byte(`{
 			"name": "Primer Semestre 2026 (Actualizado)",
 			"code": "I-2026",
 			"start_date": "2026-02-01",
 			"end_date": "2026-07-15",
+			"is_active": true
+		}`)
+		reqUpdateArchived, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, archivedPeriodID), bytes.NewBuffer(updatePayload))
+		reqUpdateArchived.Header.Set("Content-Type", "application/json")
+		reqUpdateArchived.Header.Set("X-User-Role", "admin")
+		reqUpdateArchived.Header.Set("X-Tenant-Id", tenantID)
+
+		respUpdateArchived, _ := client.Do(reqUpdateArchived)
+		if respUpdateArchived.StatusCode != http.StatusConflict {
+			t.Errorf("Expected 409 Conflict updating an archived (expired) academic period, got %d", respUpdateArchived.StatusCode)
+		}
+
+		// 2.6 Editar periodo vigente -> 200 OK
+		updatePayload = []byte(`{
+			"name": "Segundo Semestre 2026 (Actualizado)",
+			"code": "II-2026",
+			"start_date": "2027-01-01",
+			"end_date": "2027-07-15",
 			"is_active": true
 		}`)
 		reqUpdate, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), bytes.NewBuffer(updatePayload))
@@ -300,7 +347,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			t.Fatalf("Expected 200 OK updating academic period, got %d", respUpdate.StatusCode)
 		}
 
-		// 2.6 Intentar eliminar periodo con materia asociada -> 409 Conflict
+		// 2.7 Intentar eliminar periodo con materia asociada -> 409 Conflict
 		subjectID := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
 			INSERT INTO subjects (id, tenant_id, name, code, academic_period_id)
@@ -316,7 +363,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			t.Errorf("Expected 409 Conflict when deleting academic period with linked subjects, got %d", respDeleteConflict.StatusCode)
 		}
 
-		// 2.7 Desvincular materia y eliminar -> 204 No Content
+		// 2.8 Desvincular materia y eliminar -> 204 No Content
 		_, _ = db.GetDB().Exec(`DELETE FROM subjects WHERE id = $1`, subjectID)
 
 		reqDeleteSuccess, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
