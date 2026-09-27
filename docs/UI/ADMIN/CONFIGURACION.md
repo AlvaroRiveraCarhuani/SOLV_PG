@@ -2,7 +2,7 @@
 
 > **Especificación Oficial de Interfaz, Componentes y Wireframes**  
 > **Rol:** Administrador de Institución (Tenant Admin)  
-> **Gobernanza:** SDD / Docs-as-Code / SOLV Design System / Slice 14 / Slice 16 / OKLCH Engine / ADR-014 / ADR-022 / ADR-024  
+> **Gobernanza:** SDD / Docs-as-Code / SOLV Design System / Slice 14 (14.6) / Slice 16 / OKLCH Engine / ADR-014 / ADR-022 / ADR-024 / ADR-029 / ADR-031 / ADR-038  
 
 ---
 
@@ -122,7 +122,7 @@ Para salvaguardar las calificaciones y el trabajo de los estudiantes, archivar e
 
 ### 2.3 Pestaña 2: Personalización White-Label en Split-Screen
 
-Permite adaptar el branding de la universidad con verificación matemática de contraste perceptual en tiempo real:
+Permite adaptar el branding de la universidad con verificación matemática de contraste perceptual en tiempo real, subida real del imagotipo (multipart, max 2 MB) y tipografía white-label por catálogo (ADR-038):
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -134,19 +134,37 @@ Permite adaptar el branding de la universidad con verificación matemática de c
 │ [ ]Plantillas│ PANEL DE CONFIGURACIÓN (50%)              │ VISTA PREVIA EN VIVO (50% Live Preview)│
 │ [*]Configur. │ ┌───────────────────────────────────────┐ │ ┌───────────────────────────────────┐ │
 │ [ ] Auditoría│ │ 1. LOGO DE LA INSTITUCIÓN             │ │ │ SOLV | UAB          [lucide:bell] │ │
-│              │ │ [lucide:upload] Arrastrar logo (.png) │ │ ├───────────────────────────────────┤ │
-│              │ │ Archivo actual: logo_uab_hd.png       │ │ │ JUEZ VIRTUAL                        │ │
-│              │ ├───────────────────────────────────────┤ │ │ [ AC ] Accepted  (Color: #2563EB)   │ │
-│              │ │ 2. NOMBRE DE LA UNIVERSIDAD           │ │ │ [ Enviar Solución a Evaluación ]  │ │
-│              │ │ [ Univ. Adventista de Bolivia       ] │ │ └───────────────────────────────────┘ │
-│              │ ├───────────────────────────────────────┤ │ Nota: Cualquier cambio en la izquierda│ │
-│              │ │ 3. COLOR PRIMARIO DE LA MARCA         │ │ se refleja instantáneamente aquí.     │ │
+│              │ │ [lucide:upload] Subir Logo (max 2 MB) │ │ ├───────────────────────────────────┤ │
+│              │ │   PNG, SVG, JPG, WEBP (multipart)     │ │ │ JUEZ VIRTUAL                        │ │
+│              │ │ URL alternativa: [ https://...      ] │ │ │ [ AC ] Accepted  (Color: #2563EB)   │ │
+│              │ │ Chip: [x] Carga correcta              │ │ │ [ Enviar Solución a Evaluación ]  │ │
+│              │ ├───────────────────────────────────────┤ │ │ Fuente: Inter · JetBrains Mono    │ │
+│              │ │ 2. NOMBRE DE LA UNIVERSIDAD           │ │ └───────────────────────────────────┘ │
+│              │ │ [ Univ. Adventista de Bolivia       ] │ │ Nota: Cualquier cambio en la izquierda│ │
+│              │ ├───────────────────────────────────────┤ │ se refleja instantáneamente aquí.     │ │
+│              │ │ 3. COLOR PRIMARIO DE LA MARCA         │ │                                       │ │
 │              │ │ Color Hex: [ #2563EB ] (Azul UAB)     │ │                                       │ │
-│              │ │ Motor OKLCH: Contraste 4.5:1 (WCAG AA)│ │                                       │ │
+│              │ │ Contraste: texto blanco (WCAG AA)     │ │                                       │ │
+│              │ ├───────────────────────────────────────┤ │                                       │ │
+│              │ │ 4. TIPOGRAFÍA INSTITUCIONAL (ADR-038) │ │                                       │ │
+│              │ │ Fuente UI:  [ Inter            v ]    │ │                                       │ │
+│              │ │ Fuente mono:[ JetBrains Mono   v ]    │ │                                       │ │
+│              │ │ Muestra: Aa — Lab Virtual / 0x1F ws   │ │                                       │ │
+│              │ │ [ Opción avanzada: URL custom CSS ]   │ │                                       │ │
+│              │ ├───────────────────────────────────────┤ │                                       │ │
+│              │ │ 5. CORREO DE SOPORTE                  │ │                                       │ │
+│              │ │ [ soporte@solv.edu.bo               ] │ │                                       │ │
 │              │ └───────────────────────────────────────┘ │                                       │ │
 │              │ [ Cancelar Cambios ] [ Guardar Marca ]    │                                       │ │
 └──────────────┴───────────────────────────────────────────┴───────────────────────────────────────┘
 ```
+
+**Reglas de la tipografía white-label (ADR-038):** catálogo cerrado de 9 fuentes
+aprobadas por legibilidad (6 sans con pesos 400-700, 3 mono con pesos 400-600).
+Cada selector se renderiza en su propia fuente. Vía avanzada: solo hojas CSS de
+`fonts.googleapis.com`, validadas por el backend (HTTPS + dominio + alcanzabilidad)
+antes de guardar. La escala tipográfica y la jerarquía del design system NO son
+configurables. Defaults: Inter / JetBrains Mono.
 
 ---
 
@@ -216,7 +234,12 @@ Permite ajustar los límites de hardware del host, los parámetros del trabajado
 | `POST` | `/api/v1/academic-periods/{id}/archive` | `{ "confirmation_code": "2026-2" }` | Archiva y congela formalmente el semestre en modo solo lectura (:ro). |
 | `GET` | `/api/v1/tenants/branding` | — | Obtiene la configuración de marca, logo y color primario institucional. |
 | `PUT` | `/api/v1/tenants/branding` | `{ "name": "...", "primary_color": "#2563EB" }` | Actualiza la identidad visual institucional calculada con OKLCH. |
-| `POST` | `/api/v1/tenants/logo` | `multipart/form-data` (logo file) | Sube y almacena el imagotipo institucional. |
+| `POST` | `/api/v1/tenants/logo` | `multipart/form-data` (campo `logo`, max 2 MB, PNG/SVG/JPG/WEBP) | Sube y almacena el imagotipo institucional; persiste `logo_url` en `tenants.config`. |
+| `GET` | `/api/v1/public/branding/logo/{tenantId}{ext}` | — | Sirve el imagotipo almacenado (público, caché 5 min). |
+| `PUT` | `/api/v1/admin/branding` | `{ ..., "font_sans_family": "cat:inter", "font_mono_family": "cat:jetbrains-mono" }` | Branding con merge parcial + tipografía white-label validada (`cat:slug` o `url:https://fonts.googleapis.com/...`). |
+| `GET` | `/api/v1/admin/server/policies` | — | Obtiene políticas QoS vigentes (RAM, inactividad, concurrencia). |
+| `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 40 }` | Guarda políticas QoS; el worker QoS las recarga en su próximo ciclo. |
+| `POST` | `/api/v1/admin/academic-periods/{id}/archive` | `{ "confirmation_code": "2026-2" }` | Archivo formal e irreversible del período (is_archived + sellado :ro de materias, ADR-029). |
 | `GET` | `/api/v1/admin/server/policies` | — | Obtiene los parámetros actuales de cuota RAM, toque de queda y concurrencia. |
 | `PUT` | `/api/v1/admin/server/policies` | `{ "ram_limit_mb": 512, "inactivity_minutes": 15, "max_containers": 40 }` | Guarda las políticas de QoS del servidor. |
 | `GET` | `/api/v1/admin/backups` | — | Lista los snapshots disponibles en el servidor con fecha, tamaño y checksum. |

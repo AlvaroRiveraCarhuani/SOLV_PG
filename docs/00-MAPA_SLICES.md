@@ -49,7 +49,7 @@ El backend cuenta con todos los endpoints de gobernanza registrados y verificado
 | **14.3 Cursos y Periodos Académicos** | `/admin/cursos` | ADR-024, ADR-029, ADR-036 | **Implementado** | Selector de periodos semestrales, alta y edición de cursos, asignación de docente titular y vinculación de plantilla Docker. |
 | **14.4 Directorio de Estudiantes** | `/admin/estudiantes` | ADR-033 | **Implementado** | Búsqueda institucional de alumnos, cursos inscritos, monitor de 3 strikes OOM-Killed y reseteo manual justificado. |
 | **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **EN CURSO (Siguiente paso)** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes y fijación de límites de RAM base. |
-| **14.6 Configuración y Mantenimiento** | `/admin/configuracion` | ADR-027, ADR-031 | **Planificado** | Personalización institucional (logo, branding, correo soporte) y switch de Modo Mantenimiento con bypass administrativo. |
+| **14.6 Configuración y Mantenimiento** | `/admin/configuracion` | ADR-027, ADR-029, ADR-031, ADR-035, ADR-038 | **Implementado** | Personalización institucional (logo por upload real, branding, tipografía white-label por catálogo ADR-038, correo soporte) con preview en vivo, gestión de períodos con archivado formal irreversible, políticas QoS configurables con recarga en worker, respaldos con verificación SHA-256 y switch de Modo Mantenimiento. Detalle en `docs/SLICES/SLICE_14/05-SUBMODULO_14.6_CONFIGURACION.md`. |
 | **14.7 Auditoría y Emergencias** | `/admin/auditoria` | ADR-027, ADR-032 | **Planificado** | Tabla de audit logs de seguridad y 5 acciones de emergencia con confirmación tipada obligatoria. |
 
 ---
