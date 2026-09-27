@@ -161,7 +161,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   overflow-x: auto;
-  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.02));
+  box-shadow: var(--shadow-subtle);
   scrollbar-width: thin;
   scrollbar-color: var(--border-subtle) transparent;
 
@@ -179,7 +179,7 @@
   min-width: 820px;
   border-collapse: collapse;
   text-align: left;
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--text-sm);
 
   th {
     background-color: var(--bg-surface-subtle);
@@ -568,7 +568,7 @@
   justify-content: center;
   padding: 3rem 1.5rem;
   color: var(--text-secondary);
-  font-size: var(--text-sm, 0.875rem);
+  font-size: var(--text-sm);
   gap: 0.75rem;
 
   .btn-reset-filters {

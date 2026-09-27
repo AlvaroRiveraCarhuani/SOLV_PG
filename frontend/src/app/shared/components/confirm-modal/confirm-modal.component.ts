@@ -47,48 +47,7 @@ import { LucideAlertTriangle, LucideHelpCircle, LucideX } from '@lucide/angular'
       </div>
     </div>
   `,
-  styles: [`
-    .confirm-modal-card {
-      max-width: 480px;
-    }
-
-    .header-icon-box.danger-icon-box {
-      background-color: #fef2f2;
-      color: #dc2626;
-    }
-
-    .confirm-message {
-      font-size: 0.875rem;
-      line-height: 1.5;
-      color: var(--text-secondary, #475569);
-      margin: 0;
-    }
-
-    .btn-confirm-action {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 6px 16px;
-      border: none;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      color: #ffffff;
-      cursor: pointer;
-      transition: opacity 150ms ease, background-color 150ms ease;
-
-      &.btn-primary {
-        background-color: var(--tenant-primary, #2563eb);
-        &:hover { opacity: 0.92; }
-      }
-
-      &.btn-danger {
-        background-color: #dc2626;
-        &:hover { background-color: #b91c1c; }
-      }
-    }
-  `]
+  styleUrl: './confirm-modal.component.scss',
 })
 export class ConfirmModalComponent {
   @Input() title = '¿Confirmar acción?';

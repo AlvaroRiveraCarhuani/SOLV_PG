@@ -68,28 +68,7 @@ import { CommonModule } from '@angular/common';
       }
     </div>
   `,
-  styles: [`
-    .tech-logo-container {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 8px;
-      padding: 4px;
-      flex-shrink: 0;
-      background-color: #F8FAFC;
-      border: 1px solid var(--border-subtle, #E2E8F0);
-      transition: transform 150ms ease;
-
-      &.logo-python { background-color: #F0F7FF; border-color: #BAE6FD; }
-      &.logo-rust { background-color: #FFF7ED; border-color: #FED7AA; }
-      &.logo-node { background-color: #F0FDF4; border-color: #BBF7D0; }
-      &.logo-go { background-color: #F0F9FF; border-color: #BAE6FD; }
-      &.logo-java { background-color: #FFF7ED; border-color: #FFEDD5; }
-      &.logo-cpp { background-color: #EFF6FF; border-color: #BFDBFE; }
-      &.logo-db { background-color: #F0F9FF; border-color: #E0F2FE; }
-      &.logo-docker { background-color: #EFF6FF; border-color: #BFDBFE; }
-    }
-  `]
+  styleUrl: './tech-logo.component.scss',
 })
 export class TechLogoComponent {
   @Input({ required: true }) iconType: 'python' | 'rust' | 'node' | 'go' | 'java' | 'cpp' | 'db' | 'docker' = 'docker';

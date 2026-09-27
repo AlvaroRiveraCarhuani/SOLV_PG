@@ -706,6 +706,7 @@
       line-height: var(--leading-normal);
 
       // highlight.js token colors — mapped to design system neutral palette
+      // stylelint-disable selector-class-pattern -- nombres oficiales de highlight.js (built_in, class_)
       code.hljs {
         background: none;
         padding: 0;
@@ -751,6 +752,7 @@
           color: var(--color-error);
         }
       }
+      // stylelint-enable selector-class-pattern
     }
   }
 
@@ -855,7 +857,7 @@
     }
 
     .manual-callout {
-      border: 1px solid currentColor;
+      border: 1px solid currentcolor;
       break-inside: avoid;
     }
 

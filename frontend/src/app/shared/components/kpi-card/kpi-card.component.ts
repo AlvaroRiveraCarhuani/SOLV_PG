@@ -50,14 +50,7 @@ export class KpiCardComponent {
       <ng-content />
     </div>
   `,
-  styles: [`
-    .kpi-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(max(180px, calc(100% / var(--kpi-grid-cols, 4) - 16px)), 1fr));
-      gap: var(--space-4, 16px);
-      margin-bottom: var(--space-6, 24px);
-    }
-  `],
+  styleUrl: './kpi-grid.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class KpiGridComponent {

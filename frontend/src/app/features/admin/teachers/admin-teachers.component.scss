@@ -436,7 +436,7 @@ $mut: var(--text-secondary);
   flex: 1;
   background: transparent;
   border: none;
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: $txt;
   padding: 6px 8px;

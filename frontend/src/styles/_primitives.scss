@@ -20,6 +20,20 @@
   --color-purple-50:  #FAF5FF;
   --color-purple-600: #9333EA;
 
+  // Escalas auxiliares (gráficas del dashboard y paneles QoS/summary)
+  // Valores Tailwind exactos para preservar paridad visual de los widgets
+  --color-blue-50:   #EFF6FF;
+  --color-blue-100:  #DBEAFE;
+  --color-blue-200:  #BFDBFE;
+  --color-sky-100:   #E0F2FE;
+  --color-green-50:  #F0FDF4;
+  --color-green-100: #DCFCE7;
+  --color-green-200: #BBF7D0;
+  --color-green-800: #166534;
+  --color-green-900: #14532D;
+  --color-orange-100: #FFEDD5;
+  --color-orange-200: #FED7AA;
+
   // Escala de Espaciado Modular (Base 4px)
   --space-1:  4px;
   --space-2:  8px;
@@ -32,6 +46,7 @@
   --space-12: 48px;
 
   // Radios de Borde (Máximo 12px según solv-design-system)
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -42,12 +57,17 @@
   --font-mono: 'JetBrains Mono', 'Fira Code', Menlo, Monaco, Consolas, monospace;
 
   // Escala Tipográfica y Line-Heights
+  --text-2xs:  0.6875rem; // 11px (micro-etiquetas: leyendas de gráficas, badges mono)
   --text-xs:   0.75rem;   // 12px
   --text-sm:   0.875rem;  // 14px
   --text-base: 1rem;      // 16px
   --text-lg:   1.125rem;  // 18px
   --text-xl:   1.25rem;   // 20px
   --text-2xl:  1.5rem;    // 24px
+
+  // Movimiento (transiciones estándar del sistema)
+  --transition-fast: 150ms ease;
+  --transition-normal: 300ms ease;
 
   --leading-tight: 1.25;
   --leading-normal: 1.5;

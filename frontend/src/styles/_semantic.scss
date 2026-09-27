@@ -73,6 +73,13 @@
   --verdict-ast-bg:            #FEE2E2;
   --verdict-ast-border:        #F87171;
 
+  // Alias base (color saturado) para uso directo en fill/stroke/texto
+  --verdict-ac:  var(--verdict-ac-color);
+  --verdict-wa:  var(--verdict-wa-color);
+  --verdict-tle: var(--verdict-tle-color);
+  --verdict-re:  var(--verdict-re-color);
+  --verdict-ast: var(--verdict-ast-color);
+
   // Sombras sutiles y profesionales (Prohibido sombras gigantes estilo SaaS)
   --shadow-subtle: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
   --shadow-card:   0 1px 3px 0 rgba(0, 0, 0, 0.06), 0 1px 2px -1px rgba(0, 0, 0, 0.04);

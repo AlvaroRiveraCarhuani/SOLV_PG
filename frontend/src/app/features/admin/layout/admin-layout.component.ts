@@ -50,27 +50,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       </div>
     </div>
   `,
-  styles: [`
-    .shell-container {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-      background-color: var(--bg-canvas, #F6F7F9);
-    }
-
-    .shell-body {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .shell-content {
-      flex: 1;
-      height: calc(100vh - 60px);
-      overflow-y: auto;
-      padding: var(--space-6, 24px);
-    }
-  `]
+  styleUrl: './admin-layout.component.scss',
 })
 export class AdminLayoutComponent {
   isSidebarCollapsed = signal<boolean>(false);

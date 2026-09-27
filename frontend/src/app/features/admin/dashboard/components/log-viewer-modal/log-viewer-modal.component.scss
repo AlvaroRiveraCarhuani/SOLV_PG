@@ -1,0 +1,228 @@
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(2px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  animation: fadeIn 150ms ease;
+}
+
+.modal-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 780px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  overflow: hidden;
+  animation: scaleUp 150ms ease;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.terminal-icon {
+  width: 18px;
+  height: 18px;
+  color: var(--text-secondary);
+}
+
+.title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.modal-title {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modal-subtitle {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: var(--radius-md);
+  padding: 4px 10px;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover:not(:disabled) {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .action-icon {
+    width: 13px;
+    height: 13px;
+
+    &.success {
+      color: var(--status-running-color);
+    }
+
+    &.spin {
+      animation: spin 1s linear infinite;
+    }
+  }
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: all 150ms ease;
+
+  &:hover {
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+  }
+
+  .close-icon {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.terminal-body {
+  padding: 16px 20px;
+  background-color: var(--bg-canvas);
+  border-bottom: 1px solid var(--border-subtle);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  min-height: 200px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+
+.terminal-output {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.terminal-loading, .terminal-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 16px;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background-color: var(--bg-surface);
+}
+
+.footer-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.badge-status {
+  font-size: var(--text-2xs);
+  background-color: var(--status-failed-bg);
+  border: 1px solid var(--status-failed-border);
+  color: var(--verdict-wa);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.meta-tip {
+  font-size: var(--text-2xs);
+  color: var(--text-secondary);
+}
+
+.btn-primary {
+  padding: 6px 16px;
+  background-color: var(--tenant-primary);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--bg-surface);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background-color: var(--tenant-primary-hover);
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}

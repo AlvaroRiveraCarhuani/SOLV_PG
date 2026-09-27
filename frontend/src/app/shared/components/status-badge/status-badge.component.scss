@@ -1,0 +1,74 @@
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  line-height: 1;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.status-indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* running = success */
+.status-running {
+  background-color: var(--status-running-bg);
+  color: var(--status-running-color);
+  border-color: var(--status-running-border);
+
+  .status-indicator {
+    background-color: var(--status-running-color);
+    box-shadow: 0 0 0 2px var(--status-running-border);
+    animation: pulse-indicator 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+}
+
+/* hibernated = neutral */
+.status-hibernated {
+  background-color: var(--status-hibernated-bg);
+  color: var(--status-hibernated-color);
+  border-color: var(--status-hibernated-border);
+
+  .status-indicator {
+    background-color: var(--status-hibernated-color);
+  }
+}
+
+/* pending = warning */
+.status-pending {
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-color);
+  border-color: var(--status-pending-border);
+
+  .status-indicator {
+    background-color: var(--status-pending-color);
+  }
+}
+
+/* failed / oom_killed = error */
+.status-failed,
+.status-oom-killed {
+  background-color: var(--status-failed-bg);
+  color: var(--status-failed-color);
+  border-color: var(--status-failed-border);
+
+  .status-indicator {
+    background-color: var(--status-failed-color);
+  }
+}
+
+@keyframes pulse-indicator {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}

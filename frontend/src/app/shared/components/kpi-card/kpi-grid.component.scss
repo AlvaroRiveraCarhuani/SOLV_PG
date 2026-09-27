@@ -1,0 +1,9 @@
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(max(180px, calc(100% / var(--kpi-grid-cols, 4) - 16px)), 1fr)
+  );
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}

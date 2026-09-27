@@ -22,9 +22,15 @@
         "ignorePseudoElements": ["ng-deep"]
       }
     ],
+    "selector-type-no-unknown": [
+      true,
+      {
+        "ignoreTypes": ["combobox", "search-bar"]
+      }
+    ],
     "declaration-property-value-allowed-list": {
       "font-size": [
-        "/^var\\(--text-(xs|sm|base|lg|xl|2xl)\\)$/",
+        "/^var\\(--text-(2xs|xs|sm|base|lg|xl|2xl)\\)$/",
         "inherit"
       ],
       "font-family": [
