@@ -1,0 +1,133 @@
+<div class="emergencias-panel">
+  <header class="emergencias-header">
+    <div class="header-text">
+      <h2>Centro de Control de Emergencias</h2>
+      <p>
+        Acciones operativas del host con doble confirmación. Toda ejecución queda
+        registrada en el Registro de Auditoría con el motivo ingresado (ADR-032).
+      </p>
+    </div>
+    <div class="system-strip" [class.critical]="ramCritical()">
+      <span class="strip-label">RAM del host</span>
+      <span class="strip-value">{{ ramPercent() }}%</span>
+      <span class="strip-sub">{{ runningContainers() }} contenedores activos</span>
+    </div>
+  </header>
+
+  @if (ramCritical()) {
+    <div class="critical-banner" role="alert">
+      <svg lucideTriangleAlert aria-hidden="true"></svg>
+      <span>La memoria del host supera el 90%. Considera hibernar workspaces antes de una acción destructiva.</span>
+    </div>
+  }
+
+  <div class="actions-grid">
+    @for (action of actions; track action.id) {
+      <article class="action-card" [class.destructive]="action.impact === 'destructiva'">
+        <header class="action-head">
+          <h3>{{ action.label }}</h3>
+          <span class="impact-tag" [class]="'impact-' + action.impact">{{ action.impact }}</span>
+        </header>
+        <p class="action-desc">{{ action.description }}</p>
+        <button
+          type="button"
+          class="btn-outline execute-btn"
+          [disabled]="isExecuting() && executingAction() === action.id"
+          (click)="openConfirmation(action)"
+        >
+          @if (isExecuting() && executingAction() === action.id) {
+            Ejecutando...
+          } @else {
+            <svg lucideSiren aria-hidden="true"></svg>
+            Ejecutar acción
+          }
+        </button>
+      </article>
+    }
+  </div>
+
+  <section class="history-section">
+    <h3>Últimas emergencias ejecutadas</h3>
+    @if (historyLoading()) {
+      <p class="history-loading">Consultando historial...</p>
+    } @else if (history().length === 0) {
+      <p class="history-loading">No se han ejecutado acciones de emergencia registradas.</p>
+    } @else {
+      <ul class="history-list">
+        @for (row of history(); track row.log.id) {
+          <li class="history-item">
+            <span class="history-date">{{ row.log.created_at | date: 'dd/MM/yyyy HH:mm:ss' }}</span>
+            <span class="history-action">{{ row.label }}</span>
+            <span class="history-actor" [title]="row.log.actor_id">{{ row.log.actor_email }}</span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  @if (toast(); as t) {
+    <div class="toast" [class.toast-success]="t.type === 'success'" [class.toast-error]="t.type === 'error'" role="status">
+      {{ t.message }}
+    </div>
+  }
+
+  @if (confirmTarget(); as target) {
+    <modal-shell
+      [title]="target.label"
+      [subtitle]="'Acción de impacto ' + target.impact"
+      [intent]="confirmIntent()"
+      [disableClose]="isExecuting()"
+      (close)="closeConfirmation()"
+    >
+      <div class="confirm-body">
+        <p class="confirm-desc">{{ target.description }}</p>
+        <p class="confirm-warning">
+          Esta acción quedará registrada en el Registro de Auditoría con tu usuario
+          y el motivo ingresado. Para ejecutarla, escribe la frase exacta:
+          <code class="confirm-phrase">{{ target.phrase }}</code>
+        </p>
+
+        <form-field label="Frase de confirmación" [for]="'emergency-phrase'" [required]="true">
+          <input
+            id="emergency-phrase"
+            type="text"
+            class="confirm-input"
+            autocomplete="off"
+            spellcheck="false"
+            [ngModel]="confirmPhrase()"
+            (ngModelChange)="confirmPhrase.set($event)"
+          />
+        </form-field>
+
+        <form-field label="Motivo (mínimo 10 caracteres)" [for]="'emergency-reason'" [required]="true">
+          <textarea
+            id="emergency-reason"
+            class="confirm-input confirm-textarea"
+            rows="3"
+            maxlength="500"
+            placeholder="Describe la situación que justifica esta acción..."
+            [ngModel]="confirmReason()"
+            (ngModelChange)="confirmReason.set($event)"
+          ></textarea>
+        </form-field>
+
+        @if (confirmError()) {
+          <p class="confirm-error" role="alert">{{ confirmError() }}</p>
+        }
+
+        <div class="confirm-actions">
+          <button type="button" class="btn-outline" [disabled]="isExecuting()" (click)="closeConfirmation()">
+            Cancelar
+          </button>
+          <button type="button" class="btn-primary confirm-execute" [disabled]="confirmDisabled()" (click)="executeConfirmed()">
+            @if (isExecuting()) {
+              Ejecutando...
+            } @else {
+              Confirmar y ejecutar
+            }
+          </button>
+        </div>
+      </div>
+    </modal-shell>
+  }
+</div>
