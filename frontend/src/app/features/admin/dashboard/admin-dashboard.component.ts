@@ -28,7 +28,7 @@ import {
 export type DashboardSectionId = 'kpis' | 'chart' | 'split' | 'containers';
 
 const STORAGE_LAYOUT_KEY = 'solv_admin_dashboard_layout';
-const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'containers'];
+export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'split', 'containers'];
 
 @Component({
   selector: 'admin-dashboard',

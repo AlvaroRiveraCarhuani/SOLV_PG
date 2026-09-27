@@ -149,15 +149,21 @@ describe('AdminTemplatesComponent Spec', () => {
     const rows = compiled.querySelectorAll('tbody tr');
     expect(rows.length).toBe(2);
 
-    // Fila 1 (tpl-1: APROBADA) debe contener el botón de promoción
+    // Fila 1 (tpl-1: APROBADA): abrir menú de fila y verificar acción de promoción
+    component.toggleRowMenu('tpl-1', new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
     const firstRowText = rows[0].textContent || '';
     expect(firstRowText).toContain('Python 3 Data Science');
-    const firstRowPromoteBtn = rows[0].querySelector('.btn-edit-action[title*="Promover"]');
+    const firstRowPromoteBtn = rows[0].querySelector('.menu-item--promote');
     expect(firstRowPromoteBtn).not.toBeNull();
 
-    // Fila 2 (tpl-4: paused) NO debe contener el botón de promoción
-    const secondRowPromoteBtn = rows[1].querySelector('.btn-edit-action[title*="Promover"]');
+    // Fila 2 (tpl-4: paused): su menú NO contiene promoción, contiene Reactivar
+    component.toggleRowMenu('tpl-4', new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    const secondRowPromoteBtn = rows[1].querySelector('.menu-item--promote');
     expect(secondRowPromoteBtn).toBeNull();
+    const secondRowReactivateBtn = rows[1].querySelector('.menu-item--success');
+    expect(secondRowReactivateBtn).not.toBeNull();
   });
 
   it('suspender pide motivo: motivo < 10 caracteres bloquea la acción y >= 10 la habilita enviándolo en el payload', () => {
