@@ -17,6 +17,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/core/services"
 	"solv-backend/internal/delivery/http/middleware"
 )
 
@@ -198,6 +199,9 @@ type UpdateBrandingDTO struct {
 	InstitutionName    string `json:"institution_name"`
 	TenantPrimaryColor string `json:"tenant_primary_color"`
 	SupportEmail       string `json:"support_email"`
+	// Tipografía white-label (proposal tenant-typography): "", "cat:slug" o "url:https://..."
+	FontSansFamily string `json:"font_sans_family"`
+	FontMonoFamily string `json:"font_mono_family"`
 }
 
 func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
@@ -240,6 +244,27 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 	}
 	if dto.SupportEmail != "" {
 		currentConfig["support_email"] = dto.SupportEmail
+	}
+
+	// Tipografía white-label: validación centralizada (catálogo curado o URL
+	// custom de dominio permitido y alcanzable). "" = sin cambio del valor vigente.
+	if dto.FontSansFamily != "" || dto.FontMonoFamily != "" {
+		_, _, fontErr := services.ResolveFontConfig(dto.FontSansFamily, dto.FontMonoFamily)
+		if fontErr != nil {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error":   fontErr.Code,
+				"message": fontErr.Message,
+			})
+			return
+		}
+		if dto.FontSansFamily != "" {
+			currentConfig["font_sans_family"] = dto.FontSansFamily
+		}
+		if dto.FontMonoFamily != "" {
+			currentConfig["font_mono_family"] = dto.FontMonoFamily
+		}
 	}
 
 	newConfigBytes, err := json.Marshal(currentConfig)

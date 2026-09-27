@@ -42,4 +42,5 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 035 | [Copias de Seguridad Configurables con Retención Local y Remota](ADR-035-backups-configurables-retencion.md) | Aprobado | Slice 14 |
 | 036 | [Reasignación de Docentes y Gestión de Cursos Huérfanos](ADR-036-reasignacion-docentes-cursos-huerfanos.md) | Aprobado | Slice 14 |
 | 037 | [Concentrador WebSocket para Evaluación del Juez Virtual](ADR-037-websocket-hub-evaluacion-juez-virtual.md) | Aprobado | Slice 12 |
+| 038 | [Tipografía White-Label por Tenant con Catálogo Curado](ADR-038-tipografia-white-label-tenant.md) | Aprobado | Slice 14 (14.6) |
 
