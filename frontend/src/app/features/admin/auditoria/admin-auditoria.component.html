@@ -1,0 +1,38 @@
+<div class="auditoria-page">
+  <header class="page-header view-header">
+    <div class="header-info">
+      <h1 class="page-title view-title">Auditoría y Emergencias</h1>
+      <p class="page-subtitle view-subtitle">
+        Trazabilidad institucional y control operativo de {{ tenantName() }}
+      </p>
+    </div>
+  </header>
+
+  <nav class="auditoria-tabs" role="tablist" aria-label="Secciones de auditoría">
+    @for (tab of tabs; track tab.id) {
+      <button
+        type="button"
+        role="tab"
+        class="auditoria-tab"
+        [class.active]="activeTab() === tab.id"
+        [attr.aria-selected]="activeTab() === tab.id"
+        (click)="selectTab(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    }
+  </nav>
+
+  <p class="tab-description">{{ activeDef().description }}</p>
+
+  <div class="auditoria-tab-panel" role="tabpanel">
+    @switch (activeTab()) {
+      @case ('registro') {
+        <admin-auditoria-registro />
+      }
+      @case ('emergencias') {
+        <admin-auditoria-emergencias />
+      }
+    }
+  </div>
+</div>

@@ -1,0 +1,51 @@
+.auditoria-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auditoria-tabs {
+  display: flex;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.auditoria-tab {
+  padding: var(--space-2) var(--space-4);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color var(--transition-fast), border-color var(--transition-fast);
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &.active {
+    color: var(--tenant-primary);
+    border-bottom-color: var(--tenant-primary);
+    font-weight: 600;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--tenant-primary-border);
+    border-radius: var(--radius-sm);
+  }
+}
+
+.tab-description {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.auditoria-tab-panel {
+  min-height: 300px;
+}

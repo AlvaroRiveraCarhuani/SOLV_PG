@@ -68,6 +68,11 @@ export const routes: Routes = [
           import('@features/admin/configuracion/admin-configuracion.component').then((m) => m.AdminConfiguracionComponent)
       },
       {
+        path: 'auditoria',
+        loadComponent: () =>
+          import('@features/admin/auditoria/admin-auditoria.component').then((m) => m.AdminAuditoriaComponent)
+      },
+      {
         path: 'manual',
         loadComponent: () =>
           import('@features/admin/manual/admin-manual.component').then((m) => m.AdminManualComponent)
