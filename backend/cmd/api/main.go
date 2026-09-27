@@ -107,8 +107,9 @@ func main() {
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
-	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
+	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
+	tenantLogoHandler := httpdelivery.NewTenantLogoHandler(tenantRepo)
 	adminHandler.SetOrchestrator(dockerClient)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
@@ -189,6 +190,7 @@ func main() {
 		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
 		AdminHandler:             adminHandler,
 		ServerPoliciesHandler:    serverPoliciesHandler,
+		TenantLogoHandler:        tenantLogoHandler,
 		AdminAcademicHandler:     adminAcademicHandler,
 		StudentHandler:           studentHandler,
 		TeacherHandler:           teacherHandler,

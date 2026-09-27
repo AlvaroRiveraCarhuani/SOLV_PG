@@ -6,6 +6,7 @@ import (
 
 type Handlers struct {
 	ServerPoliciesHandler    *ServerPoliciesHandler
+	TenantLogoHandler        *TenantLogoHandler
 	UserHandler              *UserHandler
 	TemplateHandler          *TemplateHandler
 	AuthHandler              *AuthHandler
@@ -46,6 +47,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerNotificationRoutes(mux, deps)
 	registerBackupRoutes(mux, deps)
 	registerServerPoliciesRoutes(mux, deps)
+	registerTenantLogoRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
 
@@ -62,6 +64,24 @@ func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.ServerPoliciesHandler != nil {
 		mux.Handle("GET /api/v1/admin/server/policies", tm(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
 		mux.Handle("PUT /api/v1/admin/server/policies", am(tm(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies))))
+	}
+}
+
+// registerTenantLogoRoutes subida autenticada del imagotipo + servicio
+// público cacheable del archivo almacenado.
+func registerTenantLogoRoutes(mux *http.ServeMux, deps *Handlers) {
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	if deps.TenantLogoHandler != nil {
+		mux.Handle("POST /api/v1/tenants/logo", am(tm(http.HandlerFunc(deps.TenantLogoHandler.UploadLogo))))
+		mux.Handle("GET /api/v1/public/branding/logo/{tenantId}{ext}", http.HandlerFunc(deps.TenantLogoHandler.ServePublicLogo))
 	}
 }
 
