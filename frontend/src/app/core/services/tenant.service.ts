@@ -2,6 +2,13 @@ import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TenantConfig, TenantBrandingHSL } from '@core/models/tenant.model';
+import {
+  CURATED_FONTS,
+  DEFAULT_SANS_SLUG,
+  DEFAULT_MONO_SLUG,
+  curatedFontCSSUrl,
+  findCuratedFont
+} from '@shared/curated-fonts';
 
 @Injectable({
   providedIn: 'root'
@@ -120,11 +127,86 @@ export class TenantService {
     const contrastTextColor = lightnessNum > 60 ? '#0F172A' : '#FFFFFF';
     root.style.setProperty('--tenant-primary-text', contrastTextColor);
 
-    // 3. Título de pestaña del navegador
+    // 3. Tipografía white-label: carga la fuente del tenant y setea los tokens
+    this.applyTenantFonts(config);
+
+    // 4. Título de pestaña del navegador
     if (config.institution_name) {
       document.title = `${config.institution_name} — SOLV`;
     }
   }
+
+  /**
+   * Tipografía white-label (proposal tenant-typography): inyecta la hoja CSS de
+   * Google Fonts del tenant (display=swap, pesos del catálogo) y setea los
+   * tokens --font-sans / --font-mono en :root. Los stacks con fallbacks de
+   * _primitives.scss permanecen como red de seguridad si la CDN no responde.
+   */
+  applyTenantFonts(config: TenantConfig): void {
+    if (typeof document === 'undefined') return;
+
+    const sansValue = config.font_sans_family || `cat:${DEFAULT_SANS_SLUG}`;
+    const monoValue = config.font_mono_family || `cat:${DEFAULT_MONO_SLUG}`;
+
+    const sansFont = sansValue.startsWith('cat:') ? findCuratedFont(sansValue.slice(4)) : undefined;
+    const monoFont = monoValue.startsWith('cat:') ? findCuratedFont(monoValue.slice(4)) : undefined;
+
+    // Resolución de familia visible: catálogo -> nombre curado; custom -> family del query
+    const familyFrom = (value: string, fallback: string): string => {
+      if (value.startsWith('cat:')) {
+        return findCuratedFont(value.slice(4))?.name ?? fallback;
+      }
+      if (value.startsWith('url:')) {
+        const match = value.match(/family=([^:&]+)/);
+        if (match) return match[1].replace(/\+/g, ' ');
+      }
+      return fallback;
+    };
+
+    const sansFamily = familyFrom(sansValue, 'Inter');
+    const monoFamily = familyFrom(monoValue, 'JetBrains Mono');
+
+    // 1. Hojas CSS: una por fuente única (curadas y custom comparten mecanismo)
+    const cssUrls = new Set<string>();
+    if (sansFont) cssUrls.add(curatedFontCSSUrl(sansFont));
+    if (monoFont) cssUrls.add(curatedFontCSSUrl(monoFont));
+    if (!sansFont && sansValue.startsWith('url:')) cssUrls.add(sansValue.slice(4));
+    if (!monoFont && monoValue.startsWith('url:') && !cssUrls.has(monoValue.slice(4))) {
+      cssUrls.add(monoValue.slice(4));
+    }
+
+    for (const url of cssUrls) {
+      this.ensureStylesheet(url);
+    }
+
+    // 2. Tokens tipográficos del tenant (el resto de la app consume var(--font-*))
+    const root = document.documentElement;
+    root.style.setProperty('--font-sans', `'${sansFamily}', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif`);
+    root.style.setProperty('--font-mono', `'${monoFamily}', 'Fira Code', Menlo, Monaco, Consolas, monospace`);
+  }
+
+  /** Inyecta <link> de hoja CSS una única vez por URL (idempotente). */
+  private ensureStylesheet(url: string): void {
+    const linkId = `tenant-font-${this.hashString(url)}`;
+    if (document.getElementById(linkId)) return;
+
+    const link = document.createElement('link');
+    link.id = linkId;
+    link.rel = 'stylesheet';
+    link.href = url;
+    document.head.appendChild(link);
+  }
+
+  private hashString(value: string): string {
+    let hash = 0;
+    for (let i = 0; i < value.length; i++) {
+      hash = (hash * 31 + value.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  /** Slugs del catálogo (uso administrativo). */
+  static readonly catalog = CURATED_FONTS;
 
   /**
    * Convierte un color HEX (#RRGGBB) a canales HSL matemáticos puros.
