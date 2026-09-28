@@ -1,7 +1,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.4);
+  background-color: var(--overlay-backdrop-soft);
   backdrop-filter: blur(2px);
   z-index: 1000;
   display: flex;
@@ -19,7 +19,7 @@
   max-width: 780px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: var(--shadow-dropdown);
   overflow: hidden;
   animation: scaleUp 150ms ease;
 }

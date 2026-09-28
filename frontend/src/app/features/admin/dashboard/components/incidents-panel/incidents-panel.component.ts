@@ -1,12 +1,13 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TechnicalIncident } from '@core/models/admin.model';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } from '@lucide/angular';
 
 @Component({
   selector: 'incidents-panel',
   standalone: true,
-  imports: [CommonModule, LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo],
+  imports: [CommonModule, MachineDataDirective, LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo],
   template: `
     <div class="panel-container">
       <div class="panel-header">
@@ -29,12 +30,12 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
                   <span class="dot-danger"></span>
                   <span class="tag-text">OOM Killed (Exit code 137)</span>
                 </div>
-                <span class="incident-time">{{ inc.timestamp }}</span>
+                <span class="incident-time" machineData>{{ inc.timestamp }}</span>
               </div>
 
               <div class="card-content">
                 <span class="student-info">{{ inc.student_name }}</span>
-                <span class="course-sub">{{ inc.course_name }} &bull; {{ inc.workspace_id }}</span>
+                <span class="course-sub">{{ inc.course_name }} &bull; <span machineData>{{ inc.workspace_id }}</span></span>
                 <p class="incident-desc">{{ inc.description }}</p>
               </div>
 

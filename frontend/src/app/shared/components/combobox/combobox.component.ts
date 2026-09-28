@@ -38,9 +38,12 @@ export interface ComboboxGroup {
       [class.open]="isOpen()" 
       [class.disabled]="disabled()"
       [class.compact]="compact()"
+      [class.no-search-icon]="!showSearchIcon()"
     >
       <div class="input-container">
-        <svg lucideSearch class="search-icon" aria-hidden="true"></svg>
+        @if (showSearchIcon()) {
+          <svg lucideSearch class="search-icon" aria-hidden="true"></svg>
+        }
         <input
           #inputEl
           type="text"
@@ -183,6 +186,7 @@ export class ComboboxComponent {
   totalAvailableCount = input<number | null>(null);
   disabled = input<boolean>(false);
   compact = input<boolean>(false);
+  showSearchIcon = input<boolean>(true);
   inputAriaLabel = input<string>('Selector con búsqueda');
   suppressListbox = input<boolean>(false);
 

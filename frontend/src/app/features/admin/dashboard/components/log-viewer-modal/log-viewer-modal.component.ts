@@ -1,5 +1,6 @@
 import { Component, input, output, signal, inject, effect, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TechnicalIncident } from '@core/models/admin.model';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } from '@lucide/angular';
@@ -7,7 +8,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
 @Component({
   selector: 'log-viewer-modal',
   standalone: true,
-  imports: [CommonModule, LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw],
+  imports: [CommonModule, MachineDataDirective, LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw],
   template: `
     <div class="modal-backdrop" (click)="close.emit()">
       <div class="modal-card" (click)="$event.stopPropagation()">
@@ -18,7 +19,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
             <div class="title-group">
               <h3 class="modal-title">Registro de Ejecución (Logs del Contenedor)</h3>
               <span class="modal-subtitle">
-                Instancia: {{ incident()?.workspace_id || 'WS-CONTAINER' }} &bull; Salida en vivo de Docker daemon
+                Instancia: <span machineData>{{ incident()?.workspace_id || 'WS-CONTAINER' }}</span> &bull; Salida en vivo de Docker daemon
               </span>
             </div>
           </div>

@@ -1,12 +1,13 @@
 import { Component, input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LoadSnapshot } from '@core/models/admin.model';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideActivity } from '@lucide/angular';
 
 @Component({
   selector: 'load-history-chart',
   standalone: true,
-  imports: [CommonModule, LucideActivity],
+  imports: [CommonModule, MachineDataDirective, LucideActivity],
   template: `
     <div class="chart-card">
       <div class="chart-header">
@@ -28,12 +29,12 @@ import { LucideActivity } from '@lucide/angular';
           <div class="legend-item">
             <span class="legend-indicator ram"></span>
             <span class="legend-label">Memoria RAM</span>
-            <span class="legend-value">{{ currentRAM() }}%</span>
+            <span class="legend-value" machineData>{{ currentRAM() }}%</span>
           </div>
           <div class="legend-item">
             <span class="legend-indicator cpu"></span>
             <span class="legend-label">Carga vCPU</span>
-            <span class="legend-value">{{ currentCPU() }}%</span>
+            <span class="legend-value" machineData>{{ currentCPU() }}%</span>
           </div>
           <div class="legend-item">
             <span class="legend-indicator threshold"></span>
@@ -106,16 +107,16 @@ import { LucideActivity } from '@lucide/angular';
               [style.left.%]="tooltipPercent()"
               [style.top.px]="15"
             >
-              <div class="tooltip-time">{{ snap.timestamp }} (Hace {{ 59 - (hoveredIndex() ?? 0) }}m)</div>
+              <div class="tooltip-time"><span machineData>{{ snap.timestamp }}</span> (Hace {{ 59 - (hoveredIndex() ?? 0) }}m)</div>
               <div class="tooltip-row">
                 <span class="dot ram-bg"></span>
                 <span class="tooltip-name">RAM Host:</span>
-                <span class="tooltip-val">{{ snap.ram_percent }}% ({{ snap.ram_used_gb }} GB)</span>
+                <span class="tooltip-val"><span machineData>{{ snap.ram_percent }}%</span> (<span machineData>{{ snap.ram_used_gb }} GB</span>)</span>
               </div>
               <div class="tooltip-row">
                 <span class="dot cpu-bg"></span>
                 <span class="tooltip-name">vCPU:</span>
-                <span class="tooltip-val">{{ snap.cpu_percent }}%</span>
+                <span class="tooltip-val" machineData>{{ snap.cpu_percent }}%</span>
               </div>
             </div>
           }

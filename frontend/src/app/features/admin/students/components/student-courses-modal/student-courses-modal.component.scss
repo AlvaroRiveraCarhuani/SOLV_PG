@@ -87,6 +87,8 @@
   &.enrollment-date {
     margin-left: auto;
     color: var(--text-secondary);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
 
     .info-icon {
       width: 13px;

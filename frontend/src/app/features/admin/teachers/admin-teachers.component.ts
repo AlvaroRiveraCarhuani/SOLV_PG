@@ -6,6 +6,8 @@ import { TeacherInviteModalComponent } from './components/teacher-invite-modal/t
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
@@ -39,6 +41,11 @@ interface ToastData {
   isError: boolean;
 }
 
+const ENGLISH_MONTH_INDEX: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+};
+
 @Component({
   selector: 'admin-teachers',
   standalone: true,
@@ -55,6 +62,7 @@ interface ToastData {
     ConfirmModalComponent,
     ModalShellComponent,
     FormFieldComponent,
+    MachineDataDirective,
     LucideUserPlus, 
     LucideLock, 
     LucideCheckCircle, 
@@ -97,6 +105,20 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
 
   onOriginSelected(opt: ComboboxOption): void {
     this.onOriginChange(opt.value || 'all');
+  }
+
+  formatInvitedAt(value: string): string {
+    // Formato legacy '17-Sep-2026' → ISO antes del formateador canónico
+    const legacyDate = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(value);
+    if (legacyDate) {
+      const monthIndex = ENGLISH_MONTH_INDEX[legacyDate[2].toLowerCase()] ?? -1;
+      if (monthIndex >= 0) {
+        const iso = `${legacyDate[3]}-${String(monthIndex + 1).padStart(2, '0')}-${legacyDate[1]}`;
+        return formatSolvDate(iso, 'daymonthyear') ?? value;
+      }
+      return value;
+    }
+    return formatSolvDate(value, 'daymonthyear') ?? value;
   }
 
   activeTeacherComboboxOptions = computed<ComboboxOption[]>(() => {

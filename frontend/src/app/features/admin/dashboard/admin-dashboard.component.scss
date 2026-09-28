@@ -126,7 +126,7 @@
 
   &.on {
     background-color: var(--color-success);
-    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+    box-shadow: 0 0 0 2px var(--status-running-border);
     animation: pulseLiveDot 2s infinite ease-in-out;
   }
 }

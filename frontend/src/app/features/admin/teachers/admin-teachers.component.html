@@ -172,7 +172,7 @@
 
                 <!-- Fecha Invitado / Registro -->
                 <td>
-                  <span class="date-text">{{ teacher.invited_at }}</span>
+                  <span class="date-text">{{ formatInvitedAt(teacher.invited_at) }}</span>
                 </td>
 
                 <!-- Acciones -->
@@ -320,7 +320,7 @@
                 <div class="course-card-wrapper">
                   <div class="course-card">
                     <div class="course-main">
-                      <span class="course-code-badge">{{ course.code }}</span>
+                      <span class="course-code-badge" machineData>{{ course.code }}</span>
                       <h4 class="course-name">{{ course.name }}</h4>
                     </div>
                     <div class="course-actions-area">
@@ -343,7 +343,7 @@
                   @if (reassigningCourse()?.id === course.id) {
                     <div class="reassign-inline-panel">
                       <div class="reassign-panel-header">
-                        <span class="panel-tag">Reasignación de docente para {{ course.code }}</span>
+                        <span class="panel-tag">Reasignación de docente para <span machineData>{{ course.code }}</span></span>
                       </div>
                       <div class="reassign-form">
                       <form-field label="Nuevo docente asignado">

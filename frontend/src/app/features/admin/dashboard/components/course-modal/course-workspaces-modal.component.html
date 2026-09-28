@@ -5,7 +5,7 @@
   (close)="close.emit()"
 >
   <span modal-subtitle>
-    Docente: {{ course().teacher_name }} &bull; Materia ID: {{ course().id }} &bull;
+    Docente: {{ course().teacher_name }} &bull; Materia ID: <span machineData>{{ course().id }}</span> &bull;
     <span class="header-badge">{{ course().active_students }} en sesión</span>
   </span>
 
@@ -61,7 +61,7 @@
             @for (ws of workspaces(); track ws.id) {
               <tr class="data-row">
                 <td>
-                  <span class="mono-id">{{ ws.id }}</span>
+                  <span class="mono-id" machineData>{{ ws.id }}</span>
                 </td>
                 <td>
                   <div class="student-cell">
@@ -77,8 +77,8 @@
                 <td>
                   <div class="mem-gauge">
                     <div class="gauge-labels">
-                      <span class="mono-mem">{{ ws.memory_used_mb }} / {{ ws.memory_limit_mb }} MB</span>
-                      <span class="gauge-percent">{{ getMemoryPercent(ws) }}%</span>
+                      <span class="mono-mem" machineData>{{ ws.memory_used_mb }} / {{ ws.memory_limit_mb }} MB</span>
+                      <span class="gauge-percent" machineData>{{ getMemoryPercent(ws) }}%</span>
                     </div>
                     <div class="gauge-track">
                       <div 

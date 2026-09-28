@@ -1,12 +1,13 @@
 import { Component, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HostHardwareMetrics } from '@core/models/admin.model';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide/angular';
 
 @Component({
   selector: 'hardware-kpi',
   standalone: true,
-  imports: [CommonModule, LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes],
+  imports: [CommonModule, MachineDataDirective, LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes],
   template: `
     <div class="kpi-grid">
       <!-- 1. RAM KPI -->
@@ -17,9 +18,9 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
-            <span class="kpi-mono-val">{{ ramUsedGB() }} / {{ ramTotalGB() }} GB</span>
+            <span class="kpi-mono-val" machineData>{{ ramUsedGB() }} / {{ ramTotalGB() }} GB</span>
             <span class="kpi-badge" [class.badge-danger]="ramPercentComputed() > 85" [class.badge-warning]="ramPercentComputed() >= 70 && ramPercentComputed() <= 85">
-              {{ ramPercentComputed() }}%
+              <span machineData>{{ ramPercentComputed() }}%</span>
             </span>
           </div>
           <div class="meter-track">
@@ -39,9 +40,9 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
-            <span class="kpi-mono-val">{{ metrics().cpu_cores }} vCPUs</span>
+            <span class="kpi-mono-val"><span machineData>{{ metrics().cpu_cores }}</span> vCPUs</span>
             <span class="kpi-badge" [class.badge-danger]="metrics().cpu_percent > 85" [class.badge-warning]="metrics().cpu_percent >= 70 && metrics().cpu_percent <= 85">
-              {{ metrics().cpu_percent }}%
+              <span machineData>{{ metrics().cpu_percent }}%</span>
             </span>
           </div>
           <div class="meter-track">
@@ -61,9 +62,9 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
-            <span class="kpi-mono-val">{{ diskUsedGB() }} / {{ diskTotalGB() }} GB</span>
+            <span class="kpi-mono-val" machineData>{{ diskUsedGB() }} / {{ diskTotalGB() }} GB</span>
             <span class="kpi-badge badge-neutral">
-              {{ metrics().disk_percent }}%
+              <span machineData>{{ metrics().disk_percent }}%</span>
             </span>
           </div>
           <div class="meter-track">
@@ -83,9 +84,9 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
-            <span class="kpi-mono-val">{{ metrics().containers_active }} / {{ metrics().containers_max }} Activos</span>
+            <span class="kpi-mono-val"><span machineData>{{ metrics().containers_active }} / {{ metrics().containers_max }}</span> Activos</span>
             <span class="kpi-badge badge-success">
-              {{ concurrencyPercent() }}%
+              <span machineData>{{ concurrencyPercent() }}%</span>
             </span>
           </div>
           <div class="meter-track">
@@ -94,9 +95,9 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-footer">
           @if (metrics().containers_active === 0) {
-            <span>0 labs en RAM &bull; {{ metrics().containers_hibernated }} hibernados</span>
+            <span>0 labs en RAM &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
           } @else {
-            <span>{{ metrics().containers_hibernated }} contenedores hibernados</span>
+            <span><span machineData>{{ metrics().containers_hibernated }}</span> contenedores hibernados</span>
           }
         </div>
       </div>

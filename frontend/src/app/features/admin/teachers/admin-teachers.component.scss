@@ -93,12 +93,13 @@ $mut: var(--text-secondary);
 
   th {
     background: var(--bg-surface-subtle);
-    padding: 10px 16px;
+    padding: 0.75rem 1rem;
     font-size: var(--text-xs);
-    font-weight: 700;
-    color: $mut;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid $bdr;
+    border-bottom: 1px solid var(--border-subtle);
     white-space: nowrap;
   }
 
@@ -109,8 +110,8 @@ $mut: var(--text-secondary);
   }
 
   tr:hover td { background: var(--bg-surface-subtle); }
-  tr.row-pending td { background: rgba(254, 243, 199, 0.15); }
-  tr.row-expired td { background: rgba(254, 226, 226, 0.12); }
+  tr.row-pending td { background: var(--status-pending-bg); }
+  tr.row-expired td { background: var(--status-failed-bg); }
 }
 
 .teacher-cell { display: flex; align-items: center; gap: 12px; }
@@ -189,7 +190,13 @@ $mut: var(--text-secondary);
   }
 }
 
-.date-text { font-size: var(--text-xs); color: $mut; }
+.date-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
 .text-right { text-align: right; }
 .actions-cell {
   display: inline-flex;

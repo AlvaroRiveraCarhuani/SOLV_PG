@@ -10,6 +10,7 @@ import { ContainerTableComponent } from './components/container-table/container-
 import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewer-modal.component';
 import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CourseLoadSummary, TechnicalIncident, DockerContainerSummary } from '@core/models/admin.model';
 import { 
   LucideRefreshCw, 
@@ -46,6 +47,7 @@ export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'spli
     LogViewerModalComponent,
     LoadHistoryChartComponent,
     ConfirmModalComponent,
+    MachineDataDirective,
     LucideRefreshCw, 
     LucideMoon, 
     LucideServer, 

@@ -17,6 +17,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { 
   LucideUsers, 
   LucideCpu, 
@@ -517,18 +518,8 @@ export class AdminStudentsComponent implements OnInit {
   }
 
   formatDate(dateStr?: string | null): string {
-    if (!dateStr) return 'Sin registros';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('es-ES', { 
-        day: '2-digit', 
-        month: 'short', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      });
-    } catch {
-      return dateStr;
-    }
+    if (!dateStr || dateStr.trim() === '') return 'Sin registros';
+    return formatSolvDate(dateStr, 'datetime') ?? dateStr;
   }
 
   showToast(msg: string, type: 'success' | 'error' = 'success'): void {

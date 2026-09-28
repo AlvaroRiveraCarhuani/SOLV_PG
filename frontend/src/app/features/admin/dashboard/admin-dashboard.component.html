@@ -12,10 +12,10 @@
       <div class="meta-row">
         <span class="host-info">
           <svg lucideServer class="meta-icon"></svg>
-          {{ health()?.docker_version }}
+          <span machineData>{{ health()?.docker_version }}</span>
         </span>
         <span class="meta-separator">&bull;</span>
-        <span class="uptime-text">{{ formatUptime(health()?.uptime_seconds) }}</span>
+        <span class="uptime-text"><span machineData>{{ formatUptime(health()?.uptime_seconds) }}</span></span>
       </div>
     </div>
 

@@ -45,7 +45,7 @@
                 <span class="tech-label">Límite RAM:</span>
                 <span class="ram-badge">
                   <svg lucideCpu class="badge-icon"></svg>
-                  {{ course.memory_limit_mb }} MB
+                  <span machineData>{{ course.memory_limit_mb }} MB</span>
                 </span>
               </div>
             }
@@ -53,16 +53,16 @@
             <div class="tech-item">
               <span class="tech-label">Strikes OOM:</span>
               @if ((course.oom_strike_count ?? 0) === 0) {
-                <span class="strikes-pill zero">0 strikes</span>
+                <span class="strikes-pill zero"><span machineData>0</span> strikes</span>
               } @else if ((course.oom_strike_count ?? 0) < 3) {
                 <span class="strikes-pill warning">
                   <svg lucideAlertTriangle class="badge-icon"></svg>
-                  {{ course.oom_strike_count }} / 3 strikes
+                  <span machineData>{{ course.oom_strike_count }} / 3</span> strikes
                 </span>
               } @else {
                 <span class="strikes-pill blocked">
                   <svg lucideAlertTriangle class="badge-icon"></svg>
-                  3 / 3 (Bloqueado)
+                  <span machineData>3 / 3</span> (Bloqueado)
                 </span>
               }
             </div>
@@ -92,7 +92,7 @@
 
             <div class="tech-item enrollment-date">
               <svg lucideCalendar class="info-icon"></svg>
-              <span>Matriculado el {{ formatDate(course.enrolled_at) }}</span>
+              <span class="font-date">Matriculado el {{ formatDate(course.enrolled_at) }}</span>
             </div>
           </div>
         </div>

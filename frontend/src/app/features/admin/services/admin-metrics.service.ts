@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { 
   HostHardwareMetrics, 
   DockerContainerSummary, 
@@ -228,7 +229,7 @@ export class AdminMetricsService {
 
     for (let i = 59; i >= 0; i--) {
       const d = new Date(now.getTime() - i * 60000);
-      const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timeStr = formatSolvDate(d, 'time') ?? '';
       // Variación sutil alrededor de las métricas reales del host
       const variance = Math.sin(i / 5) * 1.5;
       const ram = Math.max(1, Math.min(100, Math.round(baseRam + variance)));

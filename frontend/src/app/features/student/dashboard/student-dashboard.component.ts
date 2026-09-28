@@ -4,6 +4,8 @@ import { RouterModule } from '@angular/router';
 import { AuthService } from '@core/services/auth.service';
 import { StudentService, StudentSubjectItem, DueAssignment } from '@core/services/student.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { 
   LucidePlay, 
   LucideRotateCw, 
@@ -19,6 +21,7 @@ import {
     CommonModule, 
     RouterModule, 
     StatusBadgeComponent,
+    MachineDataDirective,
     LucidePlay, 
     LucideRotateCw, 
     LucidePlus, 
@@ -61,7 +64,7 @@ import {
                 <div class="lab-item">
                   <div class="lab-main">
                     <div class="lab-meta">
-                      <span class="subject-code">{{ item.subject.code }}</span>
+                      <span class="subject-code" machineData>{{ item.subject.code }}</span>
                       <span class="subject-name">{{ item.subject.name }}</span>
                     </div>
 
@@ -69,7 +72,7 @@ import {
                       @if (item.active_workspace) {
                         <status-badge [status]="item.active_workspace.status" />
                         <span class="lab-details">
-                          RAM: {{ item.active_workspace.memory_limit_mb }} MB &bull; {{ item.active_workspace.type }}
+                          RAM: <span machineData>{{ item.active_workspace.memory_limit_mb }} MB</span> &bull; {{ item.active_workspace.type }}
                         </span>
                       } @else {
                         <span class="no-workspace-text">Sin entorno instanciado</span>
@@ -166,7 +169,7 @@ import {
                   <div class="agenda-body">
                     <span class="agenda-title">{{ due.title }}</span>
                     <span class="agenda-sub">{{ due.subject_name }} ({{ due.subject_code }})</span>
-                    <span class="agenda-date">
+                    <span class="agenda-date font-date">
                       <svg lucideClock class="date-icon"></svg>
                       {{ formatDate(due.due_date) }}
                     </span>
@@ -238,9 +241,8 @@ export class StudentDashboardComponent implements OnInit {
   }
 
   formatDate(dateStr: string): string {
-    if (!dateStr) return 'Próximamente';
-    const d = new Date(dateStr);
-    return d.toLocaleDateString('es-BO', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    if (!dateStr || dateStr.trim() === '') return 'Próximamente';
+    return formatSolvDate(dateStr, 'datetime') ?? dateStr;
   }
 
   async openIDE(item: StudentSubjectItem): Promise<void> {

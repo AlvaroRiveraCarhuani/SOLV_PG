@@ -5,6 +5,7 @@ import { CourseLoadSummary, DockerContainerSummary } from '@core/models/admin.mo
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
 
 @Component({
@@ -15,6 +16,7 @@ import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@luc
     FormsModule,
     StatusBadgeComponent,
     ModalShellComponent,
+    MachineDataDirective,
     LucideSearch,
     LucideRotateCcw,
     LucidePause,

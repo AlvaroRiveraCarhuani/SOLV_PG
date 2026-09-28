@@ -37,6 +37,15 @@ describe('ComboboxComponent', () => {
     expect(input.getAttribute('aria-expanded')).toBe('false');
   });
 
+  it('muestra el icono de búsqueda por defecto y permite ocultarlo', () => {
+    expect(fixture.nativeElement.querySelector('.search-icon')).not.toBeNull();
+
+    fixture.componentRef.setInput('showSearchIcon', false);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.search-icon')).toBeNull();
+  });
+
   it('debe acotar las opciones visibles al máximo configurado (por defecto 8)', () => {
     component.isOpen.set(true);
     fixture.detectChanges();

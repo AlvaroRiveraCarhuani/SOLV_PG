@@ -97,11 +97,19 @@
     }
   }
 
+  &.no-search-icon {
+    .input-container .combobox-input {
+      padding-left: 0.75rem;
+    }
+  }
+
   .combobox-overlay {
     position: absolute;
     top: calc(100% + 4px);
     left: 0;
     right: 0;
+    transform-origin: top center;
+    animation: combobox-listbox-enter 140ms ease-out both;
     background-color: var(--bg-surface);
     border: 1px solid var(--border-strong);
     border-radius: 6px;
@@ -297,5 +305,23 @@
         color: var(--text-muted);
       }
     }
+  }
+}
+
+@keyframes combobox-listbox-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.99);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .combobox-wrapper .combobox-overlay {
+    animation: none;
   }
 }

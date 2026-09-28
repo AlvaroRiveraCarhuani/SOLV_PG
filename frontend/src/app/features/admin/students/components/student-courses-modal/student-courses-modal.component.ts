@@ -1,7 +1,9 @@
 import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminStudentItem, AdminStudentCourseItem } from '../../../services/admin-students.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import {
   LucideBookOpen,
   LucideCpu,
@@ -17,6 +19,7 @@ import {
   standalone: true,
   imports: [
     CommonModule,
+    MachineDataDirective,
     ModalShellComponent,
     LucideBookOpen,
     LucideCpu,
@@ -40,13 +43,8 @@ export class StudentCoursesModalComponent {
   pauseWorkspace = output<string>();
 
   formatDate(dateStr?: string | null): string {
-    if (!dateStr) return 'Sin fecha';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' });
-    } catch {
-      return dateStr;
-    }
+    if (!dateStr || dateStr.trim() === '') return 'Sin fecha';
+    return formatSolvDate(dateStr, 'daymonthyear') ?? dateStr;
   }
 
   getWorkspaceBadgeClass(status?: string | null): string {

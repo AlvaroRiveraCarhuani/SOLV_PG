@@ -87,6 +87,15 @@ describe('AdminTeachersComponent Unit Tests', () => {
     expect(mockTeachersService.fetchTeachers).toHaveBeenCalled();
   });
 
+  it('formatea fechas de registro en español y conserva fechas relativas de invitación', () => {
+    expect(component.formatInvitedAt('17-Sep-2026')).toBe('17 sep 2026');
+    expect(component.formatInvitedAt('2026-09-17')).toBe('17 sep 2026');
+    expect(component.formatInvitedAt('Hace 2d')).toBe('Hace 2d');
+
+    const renderedDate = fixture.nativeElement.querySelector('.date-text') as HTMLElement;
+    expect(renderedDate.textContent?.trim()).toBe('15 feb 2026');
+  });
+
   it('debe calcular correctamente los KPIs de docentes', () => {
     const counts = component.counts();
     expect(counts.all).toBe(4);

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DockerContainerSummary } from '@core/models/admin.model';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 
 @Component({
@@ -11,7 +12,8 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
   imports: [
     CommonModule, 
     FormsModule, 
-    StatusBadgeComponent, 
+    StatusBadgeComponent,
+    MachineDataDirective,
     LucideSearch, 
     LucidePower, 
     LucideChevronLeft, 
@@ -64,13 +66,13 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
                   <span class="course-text">{{ c.course_name }}</span>
                 </td>
                 <td>
-                  <span class="mono-tag">{{ c.image_tag }}</span>
+                  <span class="mono-tag" machineData>{{ c.image_tag }}</span>
                 </td>
                 <td>
-                  <span class="mono-val">{{ c.memory_used_mb }} / {{ c.memory_limit_mb }} MB</span>
+                  <span class="mono-val" machineData>{{ c.memory_used_mb }} / {{ c.memory_limit_mb }} MB</span>
                 </td>
                 <td>
-                  <span class="mono-val" [class.ttl-urgent]="c.ttl_remaining_seconds > 0 && c.ttl_remaining_seconds < 600">
+                  <span class="mono-val" machineData [class.ttl-urgent]="c.ttl_remaining_seconds > 0 && c.ttl_remaining_seconds < 600">
                     {{ formatTTL(c.ttl_remaining_seconds) }}
                   </span>
                 </td>
