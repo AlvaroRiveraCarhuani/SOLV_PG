@@ -27,8 +27,8 @@ func TestTLSAndHardening(t *testing.T) {
 		if domain.SemgrepImage != "semgrep/semgrep:1.100.0" {
 			t.Errorf("Expected SemgrepImage semgrep/semgrep:1.100.0, got %s", domain.SemgrepImage)
 		}
-		if domain.TraefikImage != "traefik:v3.1.2" {
-			t.Errorf("Expected TraefikImage traefik:v3.1.2, got %s", domain.TraefikImage)
+		if domain.TraefikImage != "traefik:v3.7.8" {
+			t.Errorf("Expected TraefikImage traefik:v3.7.8, got %s", domain.TraefikImage)
 		}
 
 		t.Logf("PASS: Image versions correctly pinned -> OpenVSCode: %s | Semgrep: %s | Traefik: %s",

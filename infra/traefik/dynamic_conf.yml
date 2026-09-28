@@ -16,6 +16,10 @@ http:
         - websecure
       tls:
         certResolver: letsencrypt
+        domains:
+          - main: "solv.dedyn.io"
+            sans:
+              - "*.solv.dedyn.io"
       middlewares:
         - solv-forwardauth
 

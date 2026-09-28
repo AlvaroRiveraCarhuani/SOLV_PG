@@ -1,12 +1,16 @@
 services:
   traefik:
-    image: traefik:v3.1.2
+    image: traefik:v3.7.8
     container_name: solv_traefik
     environment:
       - DOCKER_API_VERSION=1.41
       - DESEC_TOKEN=${DESEC_TOKEN}
       - DESEC_API_BASE_URL=https://desec.io/api/v1/
       - ACME_EMAIL=${ACME_EMAIL}
+      # Override idiomático: el traefik.yml montado NO expande ${...}
+      # (Compose solo interpola su propio YAML), así que el email se
+      # inyecta por variable TRAEFIK_* que sí pisa la config estática.
+      - TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL=${ACME_EMAIL}
     ports:
       - "80:80"
       - "443:443"

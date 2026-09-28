@@ -1,15 +1,13 @@
 certificatesResolvers:
   letsencrypt:
     acme:
-      email: ${ACME_EMAIL}
+      # email se inyecta por TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPT_ACME_EMAIL
+      # (ver compose.yml): el archivo NO expande ${...}, y su valor literal
+      # pisa al env, así que no debe declararse acá.
       storage: /letsencrypt/acme.json
       dnsChallenge:
         provider: desec
         delayBeforeCheck: 10
-      domains:
-        - main: "solv.dedyn.io"
-          sans:
-            - "*.solv.dedyn.io"
 
 providers:
   docker:
