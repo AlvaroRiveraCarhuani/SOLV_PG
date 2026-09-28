@@ -168,7 +168,7 @@ export class AdminConfigPeriodosService {
       return 'No se puede eliminar un período con materias asociadas. Desasócialas primero.';
     }
     if (code === 'period_archived') {
-      return 'El período está formalmente archivado y es inmutable (ADR-029).';
+      return 'El período está archivado y es inmutable.';
     }
     if (code === 'confirmation_failed') {
       return 'El código de confirmación no coincide con el código del período.';

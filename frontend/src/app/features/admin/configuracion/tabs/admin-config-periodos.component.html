@@ -94,7 +94,7 @@
                     </button>
                   }
                   @if (row.lifecycle === 'archivado') {
-                    <span class="archived-note" title="El archivado formal es irreversible (ADR-029)">Inmutable</span>
+                    <span class="archived-note" title="El archivado es irreversible">Inmutable</span>
                   }
                   <button type="button" class="btn-action-icon" (click)="openEdit(row)" title="Editar período">
                     <svg lucidePencil class="action-icon"></svg>
@@ -214,7 +214,7 @@
       </div>
       <div class="warning-item permanent">
         <svg lucideAlertTriangle class="warning-icon"></svg>
-        <span><strong>Esta acción es permanente:</strong> el archivado formal no tiene reversión desde la plataforma (ADR-029).</span>
+        <span><strong>Esta acción es permanente:</strong> el archivado no tiene reversión desde la plataforma.</span>
       </div>
     </div>
 

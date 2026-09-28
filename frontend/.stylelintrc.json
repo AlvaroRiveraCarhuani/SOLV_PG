@@ -40,10 +40,6 @@
     }
   },
   "ignoreFiles": [
-    "**/features/admin/courses/**",
-    "**/features/admin/dashboard/**",
-    "**/features/admin/students/**",
-    "**/features/admin/teachers/**",
-    "**/features/auth/**"
+    "**/*.spec.ts"
   ]
 }
