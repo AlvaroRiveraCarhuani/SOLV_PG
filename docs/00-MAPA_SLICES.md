@@ -38,9 +38,9 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 
 ## Detalle y Estado de Ejecución por Rol
 
-### Prioridad Activa: Consola del Administrador Institucional (Slice 14)
+### Consola del Administrador Institucional (Slice 14) — Completada
 
-El backend cuenta con todos los endpoints de gobernanza registrados y verificados. En el frontend, completamos el módulo del Administrador vista por vista en el siguiente orden estricto:
+El backend cuenta con todos los endpoints de gobernanza registrados y verificados. En el frontend, el módulo del Administrador quedó completo vista por vista en el siguiente orden:
 
 | Submódulo / Vista | Ruta Frontend | ADRs Base | Estado | Alcance Principal |
 | :--- | :--- | :--- | :---: | :--- |
@@ -48,7 +48,7 @@ El backend cuenta con todos los endpoints de gobernanza registrados y verificado
 | **14.2 Gestión de Docentes** | `/admin/docentes` | ADR-025, ADR-036 | **Implementado** | Alta e invitación (72h), roles titular/auxiliar, filtros de estado, atajo de copiado de correo y reasignación de materias asignadas. |
 | **14.3 Cursos y Periodos Académicos** | `/admin/cursos` | ADR-024, ADR-029, ADR-036 | **Implementado** | Selector de periodos semestrales, alta y edición de cursos, asignación de docente titular y vinculación de plantilla Docker. |
 | **14.4 Directorio de Estudiantes** | `/admin/estudiantes` | ADR-033 | **Implementado** | Búsqueda institucional de alumnos, cursos inscritos, monitor de 3 strikes OOM-Killed y reseteo manual justificado. |
-| **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **EN CURSO (Siguiente paso)** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes y fijación de límites de RAM base. |
+| **14.5 Plantillas Docker** | `/admin/plantillas` | ADR-030 | **Implementado** | Catálogo oficial de imágenes, bandeja de aprobación/rechazo de plantillas docentes, fijación y edición de límites de RAM base, biblioteca de modelos y verificación de entorno. |
 | **14.6 Configuración y Mantenimiento** | `/admin/configuracion` | ADR-027, ADR-029, ADR-031, ADR-035, ADR-038 | **Implementado** | Personalización institucional (logo por upload real, branding, tipografía white-label por catálogo ADR-038, correo soporte) con preview en vivo, gestión de períodos con archivado formal irreversible, políticas QoS configurables con recarga en worker, respaldos con verificación SHA-256 y switch de Modo Mantenimiento. Detalle en `docs/SLICES/SLICE_14/05-SUBMODULO_14.6_CONFIGURACION.md`. |
 | **14.7 Auditoría y Emergencias** | `/admin/auditoria` | ADR-027, ADR-032 | **Implementado** | Tabla de audit logs con enriquecimiento semántico y drawer de cronología por actor, más centro de control de emergencias con las 5 acciones de ADR-032 (doble confirmación tipada, motivo obligatorio, registro EMERGENCY_* en auditoría). Detalle en `docs/SLICES/SLICE_14/07-SUBMODULO_14.7_AUDITORIA.md`. |
 
