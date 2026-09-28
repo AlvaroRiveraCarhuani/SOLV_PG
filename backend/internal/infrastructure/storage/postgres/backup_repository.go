@@ -89,10 +89,12 @@ func (r *PostgresBackupRepository) CreateExecution(ctx context.Context, executio
 	query := `
 		INSERT INTO backup_executions (
 			id, tenant_id, file_name, file_size_bytes, sha256_checksum,
-			storage_tier, status, error_message, started_at, completed_at
+			storage_tier, status, error_message, started_at, completed_at,
+			last_verify_ok, last_verify_at
 		) VALUES (
 			:id, :tenant_id, :file_name, :file_size_bytes, :sha256_checksum,
-			:storage_tier, :status, :error_message, :started_at, :completed_at
+			:storage_tier, :status, :error_message, :started_at, :completed_at,
+			:last_verify_ok, :last_verify_at
 		)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, execution)
@@ -110,7 +112,9 @@ func (r *PostgresBackupRepository) UpdateExecution(ctx context.Context, executio
 			sha256_checksum = :sha256_checksum,
 			status = :status,
 			error_message = :error_message,
-			completed_at = :completed_at
+			completed_at = :completed_at,
+			last_verify_ok = :last_verify_ok,
+			last_verify_at = :last_verify_at
 		WHERE id = :id
 	`
 	_, err := r.db.NamedExecContext(ctx, query, execution)
@@ -124,7 +128,8 @@ func (r *PostgresBackupRepository) GetExecutionByID(ctx context.Context, tenantI
 	query := `
 		SELECT 
 			id, tenant_id, file_name, file_size_bytes, sha256_checksum,
-			storage_tier, status, error_message, started_at, completed_at
+			storage_tier, status, error_message, started_at, completed_at,
+			last_verify_ok, last_verify_at
 		FROM backup_executions
 		WHERE tenant_id = $1 AND id = $2
 	`
@@ -156,7 +161,8 @@ func (r *PostgresBackupRepository) ListExecutions(ctx context.Context, tenantID 
 	selectQuery := `
 		SELECT 
 			id, tenant_id, file_name, file_size_bytes, sha256_checksum,
-			storage_tier, status, error_message, started_at, completed_at
+			storage_tier, status, error_message, started_at, completed_at,
+			last_verify_ok, last_verify_at
 		FROM backup_executions
 		WHERE tenant_id = $1
 		ORDER BY started_at DESC
@@ -181,7 +187,8 @@ func (r *PostgresBackupRepository) GetExpiredExecutions(ctx context.Context, ten
 	query := `
 		SELECT 
 			id, tenant_id, file_name, file_size_bytes, sha256_checksum,
-			storage_tier, status, error_message, started_at, completed_at
+			storage_tier, status, error_message, started_at, completed_at,
+			last_verify_ok, last_verify_at
 		FROM backup_executions
 		WHERE tenant_id = $1 AND status = 'success' AND started_at < NOW() - ($2 || ' days')::INTERVAL
 	`
@@ -199,4 +206,19 @@ func (r *PostgresBackupRepository) DeleteExecution(ctx context.Context, id strin
 	query := `DELETE FROM backup_executions WHERE id = $1`
 	_, err := r.db.ExecContext(ctx, query, id)
 	return err
+}
+
+// UpdateExecutionVerifyColumns persists ONLY last_verify_ok/last_verify_at.
+// Never touches status, checksum, file_size, or other execution fields.
+func (r *PostgresBackupRepository) UpdateExecutionVerifyColumns(ctx context.Context, execution *domain.BackupExecution) error {
+	query := `
+		UPDATE backup_executions
+		SET last_verify_ok = :last_verify_ok, last_verify_at = :last_verify_at
+		WHERE id = :id
+	`
+	_, err := r.db.NamedExecContext(ctx, query, execution)
+	if err != nil {
+		return fmt.Errorf("error updating backup verify columns: %w", err)
+	}
+	return nil
 }

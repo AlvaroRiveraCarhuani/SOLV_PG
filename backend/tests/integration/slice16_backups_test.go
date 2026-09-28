@@ -3,12 +3,15 @@ package integration
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +22,18 @@ import (
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/storage/postgres"
 )
+
+type deterministicBackupFixture struct{}
+
+func (deterministicBackupFixture) WriteBackup(_ context.Context, _ string, _ time.Time, dst io.Writer) error {
+	for i := 0; i < 64; i++ {
+		checksum := sha256.Sum256([]byte(fmt.Sprintf("fixture-row-%d", i)))
+		if _, err := fmt.Fprintf(dst, "-- deterministic test fixture row %02d %x\n", i, checksum); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func setupSlice16BackupsServer(t *testing.T) (*httptest.Server, *database.Database, *services.BackupService, *services.NotificationService, string) {
 	dsn := os.Getenv("DATABASE_URL")
@@ -39,7 +54,7 @@ func setupSlice16BackupsServer(t *testing.T) (*httptest.Server, *database.Databa
 	notifService := services.NewNotificationService(notifRepo, 256)
 
 	backupRepo := postgres.NewPostgresBackupRepository(db.GetDB())
-	backupService := services.NewBackupService(backupRepo, notifService, tmpBackupDir)
+	backupService := services.NewBackupServiceWithContentSource(backupRepo, notifService, tmpBackupDir, deterministicBackupFixture{})
 	backupHandler := httpdelivery.NewBackupHandler(backupService)
 	notifHandler := httpdelivery.NewNotificationHandler(notifService)
 
@@ -201,8 +216,8 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		}
 
 		size := int64(data["file_size_bytes"].(float64))
-		if size <= 0 {
-			t.Errorf("Expected positive file_size_bytes, got %d", size)
+		if size < services.MinBackupSizeBytes {
+			t.Errorf("Expected file_size_bytes >= %d, got %d", services.MinBackupSizeBytes, size)
 		}
 	})
 
@@ -376,4 +391,115 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 			}
 		}
 	})
+
+}
+
+func TestSlice16_Backups_VerifyPersistence(t *testing.T) {
+	server, db, _, _, tmpDir := setupSlice16BackupsServer(t)
+	if server == nil {
+		return
+	}
+	defer server.Close()
+	defer os.RemoveAll(tmpDir)
+
+	tenantID := uuid.NewString()
+	adminID := uuid.NewString()
+
+	client := &http.Client{}
+
+	_, err := db.GetDB().Exec(`
+		INSERT INTO tenants (id, name, slug, allowed_domains)
+		VALUES ($1, 'Verify Test Tenant', $2, '["@test.bo"]'::jsonb)
+		ON CONFLICT (id) DO NOTHING`, tenantID, "verify-"+tenantID[:8])
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.GetDB().Exec(`
+		INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
+		VALUES ($1, 'Admin', 'Verify', $2, 'admin', $3)
+		ON CONFLICT (id) DO NOTHING`, adminID, "admin_"+adminID[:6]+"@test.bo", tenantID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	do := func(method, path string, want int) json.RawMessage {
+		req, _ := http.NewRequest(method, server.URL+path, nil)
+		req.Header.Set("X-User-Id", adminID)
+		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Tenant-Id", tenantID)
+		resp, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != want {
+			t.Fatalf("%s %s: got status %d, want %d", method, path, resp.StatusCode, want)
+		}
+		var envelope struct {
+			Data json.RawMessage `json:"data"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+			t.Fatal(err)
+		}
+		return envelope.Data
+	}
+	var first domain.BackupExecution
+	if err := json.Unmarshal(do("POST", "/api/v1/admin/backups/trigger", http.StatusCreated), &first); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(tmpDir, first.FileName)); err != nil {
+		t.Fatal(err)
+	}
+	var missing domain.VerifyBackupResponse
+	if err := json.Unmarshal(do("POST", "/api/v1/admin/backups/"+first.ID+"/verify", http.StatusOK), &missing); err != nil {
+		t.Fatal(err)
+	}
+	if missing.IsValid || missing.ComputedChecksum != "" || !strings.Contains(missing.Message, "no encontrado") {
+		t.Fatalf("missing-file outcome was not distinct: %+v", missing)
+	}
+	var missingRow struct {
+		LastVerifyOK *bool      `db:"last_verify_ok"`
+		LastVerifyAt *time.Time `db:"last_verify_at"`
+	}
+	if err := db.GetDB().Get(&missingRow, "SELECT last_verify_ok, last_verify_at FROM backup_executions WHERE id = $1", first.ID); err != nil {
+		t.Fatal(err)
+	}
+	if missingRow.LastVerifyOK == nil || *missingRow.LastVerifyOK || missingRow.LastVerifyAt == nil {
+		t.Fatalf("missing-file verify outcome not persisted: %+v", missingRow)
+	}
+	var second domain.BackupExecution
+	if err := json.Unmarshal(do("POST", "/api/v1/admin/backups/trigger", http.StatusCreated), &second); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmpDir, second.FileName), []byte("tampered"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var tampered domain.VerifyBackupResponse
+	if err := json.Unmarshal(do("POST", "/api/v1/admin/backups/"+second.ID+"/verify", http.StatusOK), &tampered); err != nil {
+		t.Fatal(err)
+	}
+	if tampered.IsValid || tampered.ComputedChecksum == "" || tampered.ComputedChecksum == tampered.DatabaseChecksum || !strings.Contains(tampered.Message, "difiere") {
+		t.Fatalf("tampered-file outcome was not distinct: %+v", tampered)
+	}
+	var items []domain.BackupExecution
+	if err := json.Unmarshal(do("GET", "/api/v1/admin/backups?page=1&limit=10", http.StatusOK), &items); err != nil {
+		t.Fatal(err)
+	}
+	var reloaded bool
+	for _, item := range items {
+		if item.ID == first.ID {
+			reloaded = item.LastVerifyOK != nil && !*item.LastVerifyOK && item.LastVerifyAt != nil
+		}
+	}
+	if !reloaded {
+		t.Fatal("list reload did not preserve the missing-file verify outcome")
+	}
+	var unchangedStatus struct {
+		Status string `db:"status"`
+	}
+	if err := db.GetDB().Get(&unchangedStatus, "SELECT status FROM backup_executions WHERE id = $1", second.ID); err != nil {
+		t.Fatal(err)
+	}
+	if unchangedStatus.Status != domain.BackupStatusSuccess {
+		t.Fatalf("verify changed execution status to %q", unchangedStatus.Status)
+	}
 }

@@ -2,15 +2,22 @@ package services_test
 
 import (
 	"context"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
 type mockBackupRepo struct {
-	cfg      *domain.BackupConfig
-	upserted *domain.BackupConfig
+	cfg         *domain.BackupConfig
+	upserted    *domain.BackupConfig
+	lastUpdated *domain.BackupExecution
 }
 
 func newMockBackupRepo() *mockBackupRepo {
@@ -41,6 +48,7 @@ func (m *mockBackupRepo) CreateExecution(ctx context.Context, execution *domain.
 }
 
 func (m *mockBackupRepo) UpdateExecution(ctx context.Context, execution *domain.BackupExecution) error {
+	m.lastUpdated = execution
 	return nil
 }
 
@@ -57,6 +65,10 @@ func (m *mockBackupRepo) GetExpiredExecutions(ctx context.Context, tenantID stri
 }
 
 func (m *mockBackupRepo) DeleteExecution(ctx context.Context, id string) error { return nil }
+
+func (m *mockBackupRepo) UpdateExecutionVerifyColumns(ctx context.Context, execution *domain.BackupExecution) error {
+	return nil
+}
 
 func TestBackupService_UpdateConfig_FrequencyEdges(t *testing.T) {
 	cases := []struct {
@@ -167,5 +179,51 @@ func TestBackupService_UpdateConfig_RemoteRetentionEdges(t *testing.T) {
 				t.Fatalf("expected BackupValidationError, got nil")
 			}
 		})
+	}
+}
+
+type failingBackupContentSource struct{ err error }
+
+func (f failingBackupContentSource) WriteBackup(context.Context, string, time.Time, io.Writer) error {
+	return f.err
+}
+
+func TestBackupService_TriggerBackupFailsClosedOnContentWriteError(t *testing.T) {
+	repo := newMockBackupRepo()
+	backupDir := t.TempDir()
+	svc := services.NewBackupServiceWithContentSource(repo, nil, backupDir, failingBackupContentSource{err: errors.New("fixture write failed")})
+
+	_, err := svc.TriggerBackup(context.Background(), "tenant-1", "")
+	if err == nil || !strings.Contains(err.Error(), "fixture write failed") {
+		t.Fatalf("expected content write error, got %v", err)
+	}
+	if repo.lastUpdated == nil || repo.lastUpdated.Status != domain.BackupStatusFailed {
+		t.Fatalf("expected failed execution persisted, got %#v", repo.lastUpdated)
+	}
+	if repo.lastUpdated.SHA256Checksum != "" {
+		t.Fatalf("failed execution must not store a checksum, got %q", repo.lastUpdated.SHA256Checksum)
+	}
+	if _, statErr := os.Stat(filepath.Join(backupDir, repo.lastUpdated.FileName)); !os.IsNotExist(statErr) {
+		t.Fatalf("partial backup should be removed, stat error = %v", statErr)
+	}
+}
+
+func TestBackupService_TriggerBackupRejectsOutputBelowFloor(t *testing.T) {
+	repo := newMockBackupRepo()
+	backupDir := t.TempDir()
+	svc := services.NewBackupService(repo, nil, backupDir)
+
+	_, err := svc.TriggerBackup(context.Background(), "tenant-1", "")
+	if err == nil || !strings.Contains(err.Error(), "below minimum size floor") {
+		t.Fatalf("expected below-floor failure, got %v", err)
+	}
+	if repo.lastUpdated == nil || repo.lastUpdated.Status != domain.BackupStatusFailed {
+		t.Fatalf("expected failed execution persisted, got %#v", repo.lastUpdated)
+	}
+	if repo.lastUpdated.SHA256Checksum != "" {
+		t.Fatalf("below-floor execution must not store a checksum, got %q", repo.lastUpdated.SHA256Checksum)
+	}
+	if _, statErr := os.Stat(filepath.Join(backupDir, repo.lastUpdated.FileName)); !os.IsNotExist(statErr) {
+		t.Fatalf("below-floor output should be removed, stat error = %v", statErr)
 	}
 }

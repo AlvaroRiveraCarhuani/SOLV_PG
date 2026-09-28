@@ -231,6 +231,7 @@ type BackupRepository interface {
 	UpsertConfig(ctx context.Context, config *BackupConfig) error
 	CreateExecution(ctx context.Context, execution *BackupExecution) error
 	UpdateExecution(ctx context.Context, execution *BackupExecution) error
+	UpdateExecutionVerifyColumns(ctx context.Context, execution *BackupExecution) error
 	GetExecutionByID(ctx context.Context, tenantID, id string) (*BackupExecution, error)
 	ListExecutions(ctx context.Context, tenantID string, limit, offset int) ([]*BackupExecution, int64, error)
 	GetExpiredExecutions(ctx context.Context, tenantID string, retentionDays int) ([]*BackupExecution, error)

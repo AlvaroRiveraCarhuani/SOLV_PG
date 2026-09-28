@@ -17,10 +17,34 @@ import (
 )
 
 type BackupService struct {
-	repo         domain.BackupRepository
-	notifService *NotificationService
-	backupDir    string
+	repo           domain.BackupRepository
+	notifService   *NotificationService
+	backupDir      string
+	contentSource  BackupContentSource
+	newGzipWriter  func(io.Writer) io.WriteCloser
+	readBackupFile func(string) ([]byte, error)
 }
+
+// BackupContentSource writes backup bytes before compression. The default
+// source remains header-only; callers must not treat it as a database dump.
+type BackupContentSource interface {
+	WriteBackup(ctx context.Context, tenantID string, startedAt time.Time, dst io.Writer) error
+}
+
+type headerOnlyBackupContentSource struct{}
+
+func (headerOnlyBackupContentSource) WriteBackup(_ context.Context, tenantID string, startedAt time.Time, dst io.Writer) error {
+	_, err := fmt.Fprintf(dst,
+		"-- SOLV Platform PostgreSQL Database Dump\n-- Tenant: %s\n-- Timestamp: %s\n-- Host: on-premise\n\n"+
+			"SET client_encoding = 'UTF8';\nSET standard_conforming_strings = on;\nSET check_function_bodies = false;\n"+
+			"SELECT pg_catalog.set_config('search_path', 'public', false);\n\n--\n-- Datos de la base de datos\n--\n\n",
+		tenantID, startedAt.Format(time.RFC3339),
+	)
+	return err
+}
+
+// MinBackupSizeBytes is the 1 KB floor; outputs below this are marked failed.
+const MinBackupSizeBytes int64 = 1024
 
 // BackupValidationError is the typed fail-closed validation error for backup
 // config ranges, mirroring PoliciesValidationError (QoS). Code is one of
@@ -33,6 +57,13 @@ type BackupValidationError struct {
 func (e *BackupValidationError) Error() string { return e.Message }
 
 func NewBackupService(repo domain.BackupRepository, notifService *NotificationService, backupDir string) *BackupService {
+	return NewBackupServiceWithContentSource(repo, notifService, backupDir, headerOnlyBackupContentSource{})
+}
+
+// NewBackupServiceWithContentSource injects a deterministic or production
+// content source while keeping compression, size validation, and checksumming
+// in the service. The default constructor remains header-only and fails closed.
+func NewBackupServiceWithContentSource(repo domain.BackupRepository, notifService *NotificationService, backupDir string, contentSource BackupContentSource) *BackupService {
 	if backupDir == "" {
 		backupDir = os.Getenv("BACKUP_DIR")
 		if backupDir == "" {
@@ -42,9 +73,12 @@ func NewBackupService(repo domain.BackupRepository, notifService *NotificationSe
 	_ = os.MkdirAll(backupDir, 0750)
 
 	return &BackupService{
-		repo:         repo,
-		notifService: notifService,
-		backupDir:    backupDir,
+		repo:           repo,
+		notifService:   notifService,
+		backupDir:      backupDir,
+		contentSource:  contentSource,
+		newGzipWriter:  func(dst io.Writer) io.WriteCloser { return gzip.NewWriter(dst) },
+		readBackupFile: os.ReadFile,
 	}
 }
 
@@ -133,6 +167,9 @@ func (s *BackupService) checkDiskSpace(dir string, minBytesRequired uint64) erro
 	return nil
 }
 
+// TriggerBackup creates a compressed backup file with fail-closed staged gates:
+// Write error → Close error → file size floor (1024 B) → re-read checksum.
+// First failure marks execution as failed, removes partial file, stores no success checksum.
 func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID string) (*domain.BackupExecution, error) {
 	_ = os.MkdirAll(s.backupDir, 0750)
 
@@ -173,7 +210,7 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 		return nil, err
 	}
 
-	// 2. Crear archivo comprimido .dump.gz
+	// 2. Crear archivo comprimido .dump.gz con puertas de enlace staged
 	file, err := os.Create(filePath)
 	if err != nil {
 		exec.Status = domain.BackupStatusFailed
@@ -182,20 +219,37 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 		return nil, err
 	}
 
-	hasher := sha256.New()
-	multiWriter := io.MultiWriter(file, hasher)
-	gzWriter := gzip.NewWriter(multiWriter)
+	gzWriter := s.newGzipWriter(file)
 
-	// Escribir cabecera y metadatos del volcado
-	dumpHeader := fmt.Sprintf(
-		"-- SOLV Platform PostgreSQL Database Dump\n-- Tenant: %s\n-- Timestamp: %s\n-- Host: on-premise\n\nSELECT pg_catalog.set_config('search_path', 'public', false);\n",
-		tenantID, startedAt.Format(time.RFC3339),
-	)
-	_, _ = gzWriter.Write([]byte(dumpHeader))
-	_ = gzWriter.Close()
-	_ = file.Close()
+	// Gate: Write error
+	if err := s.contentSource.WriteBackup(ctx, tenantID, startedAt, gzWriter); err != nil {
+		exec.Status = domain.BackupStatusFailed
+		exec.ErrorMessage = fmt.Sprintf("Error writing backup data: %v", err)
+		_ = s.repo.UpdateExecution(ctx, exec)
+		_ = gzWriter.Close()
+		_ = file.Close()
+		_ = os.Remove(filePath)
+		return nil, err
+	}
 
-	// 3. Obtener tamaño final y checksum SHA-256
+	// Gate: Close error
+	if err := gzWriter.Close(); err != nil {
+		exec.Status = domain.BackupStatusFailed
+		exec.ErrorMessage = fmt.Sprintf("Error finalizing backup gzip: %v", err)
+		_ = s.repo.UpdateExecution(ctx, exec)
+		_ = file.Close()
+		_ = os.Remove(filePath)
+		return nil, err
+	}
+	if err := file.Close(); err != nil {
+		exec.Status = domain.BackupStatusFailed
+		exec.ErrorMessage = fmt.Sprintf("Error closing backup file: %v", err)
+		_ = s.repo.UpdateExecution(ctx, exec)
+		_ = os.Remove(filePath)
+		return nil, err
+	}
+
+	// Gate: File size floor (1024 bytes)
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		exec.Status = domain.BackupStatusFailed
@@ -204,7 +258,26 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 		return nil, err
 	}
 
-	checksum := hex.EncodeToString(hasher.Sum(nil))
+	if fileInfo.Size() < MinBackupSizeBytes {
+		exec.Status = domain.BackupStatusFailed
+		exec.ErrorMessage = fmt.Sprintf("Backup output below minimum size floor of %d bytes: %d bytes", MinBackupSizeBytes, fileInfo.Size())
+		_ = s.repo.UpdateExecution(ctx, exec)
+		_ = os.Remove(filePath)
+		return nil, fmt.Errorf("backup output below minimum size floor")
+	}
+
+	// Gate: Re-read file for checksum (success path)
+	fileBytes, err := s.readBackupFile(filePath)
+	if err != nil {
+		exec.Status = domain.BackupStatusFailed
+		exec.ErrorMessage = fmt.Sprintf("Error re-reading backup file for checksum: %v", err)
+		_ = s.repo.UpdateExecution(ctx, exec)
+		return nil, err
+	}
+
+	checksumHasher := sha256.New()
+	_, _ = checksumHasher.Write(fileBytes)
+	checksum := hex.EncodeToString(checksumHasher.Sum(nil))
 	completedAt := time.Now().UTC()
 
 	exec.FileSizeBytes = fileInfo.Size()
@@ -219,12 +292,12 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 	// 4. Aplicar política de rotación de retención
 	go s.applyRetentionPolicy(tenantID)
 
-	// 5. Notificación proactiva al Administrador (Integración con Slice 15 / ADR-034)
+	// 5. Notificación proactiva al Administrador (integrity-only copy)
 	if s.notifService != nil && adminUserID != "" {
 		s.notifService.NotifyAsync(tenantID, domain.CreateNotificationDTO{
 			RecipientUserID: adminUserID,
-			Title:           "Copia de Seguridad Completada",
-			Message:         fmt.Sprintf("Respaldo '%s' generado exitosamente (Tamaño: %d bytes, SHA-256 verificado).", fileName, fileInfo.Size()),
+			Title:           "Copia de Seguridad Creada",
+			Message:         fmt.Sprintf("Respaldo '%s' generado (%d bytes). Integridad aún no verificada — usar Verificar.", fileName, fileInfo.Size()),
 			Severity:        domain.NotificationSeverityInfo,
 			EventType:       "backup_created",
 			Link:            "/admin/backups",
@@ -252,6 +325,10 @@ func (s *BackupService) applyRetentionPolicy(tenantID string) {
 	}
 }
 
+// VerifyBackup reads the file, re-computes checksum, persists the verify
+// outcome (last_verify_ok / last_verify_at only), and returns the result.
+// On persist failure it still returns the verification result — verify is a
+// read path and must never flip is_valid or status.
 func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID string) (*domain.VerifyBackupResponse, error) {
 	exec, err := s.repo.GetExecutionByID(ctx, tenantID, executionID)
 	if err != nil {
@@ -261,6 +338,13 @@ func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID 
 	filePath := filepath.Join(s.backupDir, exec.FileName)
 	file, err := os.Open(filePath)
 	if err != nil {
+		// File missing: persist the failure of verify, then return result
+		verifyOK := false
+		now := time.Now().UTC()
+		exec.LastVerifyOK = &verifyOK
+		exec.LastVerifyAt = &now
+		_ = s.repo.UpdateExecutionVerifyColumns(ctx, exec)
+
 		return &domain.VerifyBackupResponse{
 			ExecutionID:      exec.ID,
 			FileName:         exec.FileName,
@@ -280,9 +364,22 @@ func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID 
 	computed := hex.EncodeToString(hasher.Sum(nil))
 	isValid := computed == exec.SHA256Checksum
 
+	// Persist verify outcome (only last_verify_* columns)
+	verifyOK := isValid
+	now := time.Now().UTC()
+	exec.LastVerifyOK = &verifyOK
+	exec.LastVerifyAt = &now
+	if err := s.repo.UpdateExecutionVerifyColumns(ctx, exec); err != nil {
+		// Persist failure must not flip is_valid — verify is a read path
+	}
+
 	msg := "Integridad criptográfica verificada: el archivo no está corrupto ni alterado"
 	if !isValid {
-		msg = "ALERTA: El checksum del archivo físico difiere del registro en base de datos (posible corrupción)"
+		if computed == "" {
+			msg = "Archivo físico no encontrado en disco para verificación"
+		} else {
+			msg = "ALERTA: El checksum del archivo físico difiere del registro en base de datos (posible corrupción)"
+		}
 	}
 
 	return &domain.VerifyBackupResponse{

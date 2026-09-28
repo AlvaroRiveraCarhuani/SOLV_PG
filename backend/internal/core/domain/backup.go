@@ -60,6 +60,8 @@ type BackupExecution struct {
 	ErrorMessage   string     `db:"error_message" json:"error_message,omitempty"`
 	StartedAt      time.Time  `db:"started_at" json:"started_at"`
 	CompletedAt    *time.Time `db:"completed_at" json:"completed_at,omitempty"`
+	LastVerifyOK   *bool      `db:"last_verify_ok" json:"last_verify_ok,omitempty"`
+	LastVerifyAt   *time.Time `db:"last_verify_at" json:"last_verify_at,omitempty"`
 }
 
 // VerifyBackupResponse resultado de la verificación de integridad
