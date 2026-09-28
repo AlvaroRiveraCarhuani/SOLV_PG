@@ -22,7 +22,7 @@
 | **Framework Frontend** | **Angular Standalone** | `22` | Interfaz reactiva basada en Signals, Material 3 e integración Iframe |
 | **Base de Datos** | **PostgreSQL** | `18-alpine` | Persistencia relacional multi-tenant con aislamiento por `tenant_id` |
 | **Orquestación Sandbox** | **Docker Engine SDK** | `v27.0` | Contenedores efímeros/persistentes en entornos aislados (`network_mode: none`) |
-| **Proxy Ingress / TLS** | **Traefik Reverse Proxy** | `v3.1.2` | Terminación TLS Wildcard, ForwardAuth HttpOnly y Rate Limiting |
+| **Proxy Ingress / TLS** | **Traefik Reverse Proxy** | `v3.7.8` | Terminación TLS Wildcard, ForwardAuth HttpOnly y Rate Limiting |
 | **Auditoría AST** | **Semgrep CLI** | `1.100.0` | Análisis estático y semántico de código previo a la asignación de recursos |
 
 ---
@@ -70,15 +70,22 @@ SOLV_PG/
 ├── backend/                # Código fuente Backend en Go 1.26 (Arquitectura Hexagonal)
 ├── frontend/               # Código fuente Frontend en Angular 22 (Standalone & Signals)
 ├── infra/                  # Configuraciones de Traefik v3, firewall iptables y scripts de backup
-├── docs/                   # Centro de Documentación Técnica viva (Docs-as-Code)
-│   ├── ARQUITECTURA/       # Inventario de tipos Go, ADR-000 a ADR-028, Concurrencia y Seguridad
+├── docs/                   # El SISTEMA: arquitectura, ADRs, BD, API, wireframes y metodología
+│   ├── ARQUITECTURA/       # Inventario de tipos Go, ADRs, Concurrencia y Seguridad
 │   ├── UI/                 # Wireframes ASCII Art, diagramas Mermaid HD y Principios UX
 │   ├── BD/                 # Modelo Relacional (ERD Mermaid) y DDL PostgreSQL 18
 │   ├── API/                # Contratos OpenAPI y payloads JSON REST
-│   └── GOBERNANZA/         # Backlog de costuras, capacidades BaaS y metodología SDD
+│   ├── SLICES/             # Especificación por Rebanadas Verticales (etapas 1-3)
+│   └── GOBERNANZA/         # Metodología de ingeniería, convenciones y backlog
+├── openspec/               # El PROCESO: ciclo spec-driven de construcción y verificación
+│   ├── config.yaml         # Reglas operativas (tests obligatorios, presupuesto de revisión)
+│   ├── specs/              # Especificaciones de capacidad vigentes (fuente de verdad)
+│   └── changes/            # Ciclo de vida de cambios + archive/ con evidencia verificada
 ├── compose.yml             # Orquestación Docker Compose (Traefik v3 + PostgreSQL 18)
 └── Makefile                # Automatización de tareas de compilación y pruebas de integración
 ```
+
+**Regla de lectura rápida:** `docs/` responde *qué es* el sistema (arquitectura, decisiones, contratos); `openspec/` responde *cómo se gobierna su construcción* (especificación de cambios, verificación y evidencia). La correspondencia entre ambas y el flujo de contribución están en [`docs/GOBERNANZA/METODOLOGIA.md`](docs/GOBERNANZA/METODOLOGIA.md).
 
 ---
 

@@ -3,7 +3,7 @@
 > **Documentación Oficial y Mapa de Arquitectura del Proyecto de Grado**  
 > **Sistema de Orquestación de Laboratorios Virtuales (SOLV)**  
 > **Arquitectura:** Hexagonal / Zero-Framework Go 1.26 + Angular 22 + PostgreSQL 18  
-> **Gobernanza:** SDD (Spec-Driven Development) / Docs-as-Code  
+> **Gobernanza:** SDD (Spec-Driven Development) / Docs-as-Code — [METODOLOGIA.md](GOBERNANZA/METODOLOGIA.md)  
 
 ---
 
@@ -39,12 +39,18 @@
 ---
 
 ## 5. Gobernanza, Metodología y Backlog
+* [`GOBERNANZA/METODOLOGIA.md`](GOBERNANZA/METODOLOGIA.md): Metodología de ingeniería del proyecto: 4 etapas (MVP, Hardening, Vertical UI y formalización SDD), correspondencia entre slices y OpenSpec, y ciclo de trabajo spec-driven.
 * [`GOBERNANZA/INVENTARIO_BAAS.md`](GOBERNANZA/INVENTARIO_BAAS.md): Catálogo oficial de las 24 Capacidades Técnicas BaaS.
 * [`GOBERNANZA/BACKLOG_COSTURAS.md`](GOBERNANZA/BACKLOG_COSTURAS.md): Registro de costuras técnicas y tareas post-MVP (COST-01 al COST-06).
-* [`GOBERNANZA/METODOLOGIA.md`](GOBERNANZA/METODOLOGIA.md): Metodología Spec-Driven Development (SDD) e ingeniería por Rebanadas Verticales.
 * [`GOBERNANZA/CONVENCIONES.md`](GOBERNANZA/CONVENCIONES.md): Convenciones de código, estándares de commit humano y vocabulario de delatores de IA prohibido.
 
----
-
-## 6. Historial de Rebanadas Verticales (Slices 1 al 11)
+## 6. Historial de Rebanadas Verticales (Slices 1 al 16)
 La carpeta [`SLICES/`](SLICES/) contiene la especificación ejecutada y probada de cada slice completado del backend.
+
+## 7. Proceso de Ingeniería Especificado (OpenSpec)
+Los cambios de comportamiento post-MVP se gobiernan con el ciclo Spec-Driven formalizado en [`openspec/`](../openspec/):
+* [`openspec/config.yaml`](../openspec/config.yaml): Reglas operativas del proceso (comandos de prueba obligatorios, presupuesto de revisión, reglas de archivo).
+* [`openspec/specs/`](../openspec/specs/): Especificaciones de capacidad **vigentes** — descripción normativa del comportamiento actual del sistema.
+* [`openspec/changes/`](../openspec/changes/): Ciclo de vida de cambios — changes activos y [`archive/`](../openspec/changes/archive/) con la evidencia verificada de cada change cerrado (proposal, design, tasks, veredicto).
+
+La relación entre ambas documentaciones, junto a la tabla de correspondencia slice↔OpenSpec, está definida en [`GOBERNANZA/METODOLOGIA.md`](GOBERNANZA/METODOLOGIA.md).
