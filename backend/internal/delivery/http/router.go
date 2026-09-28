@@ -81,7 +81,7 @@ func registerTenantLogoRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	if deps.TenantLogoHandler != nil {
 		mux.Handle("POST /api/v1/tenants/logo", am(tm(http.HandlerFunc(deps.TenantLogoHandler.UploadLogo))))
-		mux.Handle("GET /api/v1/public/branding/logo/{tenantId}{ext}", http.HandlerFunc(deps.TenantLogoHandler.ServePublicLogo))
+		mux.Handle("GET /api/v1/public/branding/logo/{filename}", http.HandlerFunc(deps.TenantLogoHandler.ServePublicLogo))
 	}
 }
 

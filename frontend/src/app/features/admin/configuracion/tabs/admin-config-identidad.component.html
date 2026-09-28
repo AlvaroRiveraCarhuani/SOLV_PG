@@ -27,7 +27,11 @@
         [error]="validation().logoError"
       >
         <div class="logo-upload-row">
-          <label class="btn-outline logo-upload-btn" for="branding-logo-file">
+          <label
+            class="btn-outline logo-upload-btn"
+            [class.is-disabled]="isUploadingLogo()"
+            [attr.aria-disabled]="isUploadingLogo()"
+            for="branding-logo-file">
             <svg lucideUpload class="btn-icon"></svg>
             @if (isUploadingLogo()) {
               <span>Subiendo...</span>
@@ -40,6 +44,7 @@
             type="file"
             class="logo-file-input"
             accept=".png,.svg,.jpg,.jpeg,.webp"
+            [disabled]="isUploadingLogo()"
             (change)="onLogoFileSelected($event)" />
         </div>
         <div class="input-with-icon">
@@ -49,7 +54,8 @@
             type="url"
             class="form-input with-icon"
             placeholder="https://institucion.edu.bo/logo.png"
-            [ngModel]="logoUrl()"
+            autocomplete="off"
+            [ngModel]="logoInputValue()"
             (ngModelChange)="onLogoUrlChange($event)" />
         </div>
       </form-field>
@@ -117,13 +123,20 @@
         }
       </div>
 
-      <!-- 4. Email de soporte -->
+      <!-- 4. Email de soporte (opcional por universidad) -->
       <form-field
         label="Correo de Soporte"
         for="branding-email"
-        hint="Visible para estudiantes y docentes en los mensajes de ayuda."
+        hint="Visible para estudiantes y docentes en los mensajes de ayuda. Apágalo si tu universidad no tiene soporte."
         [error]="validation().emailError"
       >
+        <label class="support-toggle">
+          <input
+            type="checkbox"
+            [ngModel]="supportEmailEnabled()"
+            (ngModelChange)="onSupportEmailToggle($event)" />
+          <span>Mostrar correo de soporte en mensajes de ayuda</span>
+        </label>
         <div class="input-with-icon">
           <svg lucideMail class="field-icon"></svg>
           <input
@@ -131,6 +144,8 @@
             type="email"
             class="form-input with-icon"
             placeholder="soporte@institucion.edu.bo"
+            autocomplete="off"
+            [disabled]="!supportEmailEnabled()"
             [ngModel]="supportEmail()"
             (ngModelChange)="supportEmail.set($event)" />
         </div>
@@ -160,10 +175,9 @@
               id="font-sans"
               class="form-select font-select"
               [ngModel]="fontSansValue().startsWith('cat:') ? fontSansValue().slice(4) : 'custom'"
-              (ngModelChange)="onSansCatalogChange($event)"
-              [style.font-family]="fontPreviewStack()">
+              (ngModelChange)="onSansCatalogChange($event)">
               @for (font of sansCatalog; track font.slug) {
-                <option [value]="font.slug" [style.font-family]="font.name">{{ font.name }}</option>
+                <option [value]="font.slug">{{ font.name }}</option>
               }
               @if (fontSansValue().startsWith('url:')) {
                 <option value="custom" disabled>Custom (URL)</option>
@@ -180,10 +194,9 @@
               id="font-mono"
               class="form-select font-select"
               [ngModel]="fontMonoValue().startsWith('cat:') ? fontMonoValue().slice(4) : 'custom'"
-              (ngModelChange)="onMonoCatalogChange($event)"
-              [style.font-family]="fontMonoPreviewStack()">
+              (ngModelChange)="onMonoCatalogChange($event)">
               @for (font of monoCatalog; track font.slug) {
-                <option [value]="font.slug" [style.font-family]="font.name">{{ font.name }}</option>
+                <option [value]="font.slug">{{ font.name }}</option>
               }
               @if (fontMonoValue().startsWith('url:')) {
                 <option value="custom" disabled>Custom (URL)</option>
@@ -192,15 +205,18 @@
           </form-field>
         </div>
 
-        <!-- Muestra de la pareja tipográfica elegida -->
+        <!-- Muestra de la pareja tipográfica elegida (tokens: la previa staged tiñe todo el tab) -->
         <div class="font-specimen">
-          <p class="specimen-sans" [style.font-family]="fontPreviewStack()">
+          <p class="specimen-sans">
             Aa — Laboratorio Virtual {{ fontSansFamily() }} 400/600
           </p>
-          <p class="specimen-mono" [style.font-family]="fontMonoPreviewStack()">
+          <p class="specimen-mono">
             0x1F ws-a3f9 RAM 512MB AC 42ms
           </p>
         </div>
+        <p class="typography-hint">
+          Aplicar muestra la previa sin guardar. Guardar Marca persiste marca y tipografía juntas.
+        </p>
 
         @if (showCustomFonts()) {
           <div class="custom-fonts-panel">
@@ -215,10 +231,13 @@
                 placeholder="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700"
                 [ngModel]="customSansUrl()"
                 (ngModelChange)="customSansUrl.set($event)" />
-              <button type="button" class="btn-outline" (click)="applyCustomSansUrl()" [disabled]="!customSansUrl().trim()">
+              <button type="button" class="btn-outline" (click)="applyCustomSansUrl()" [disabled]="!customSansUrl().trim() || customSansUrlError() !== null">
                 Aplicar a UI
               </button>
             </div>
+            @if (validation().fontSansError) {
+              <p class="font-inline-error" role="alert">{{ validation().fontSansError }}</p>
+            }
             <div class="custom-font-row">
               <input
                 type="url"
@@ -226,10 +245,13 @@
                 placeholder="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600"
                 [ngModel]="customMonoUrl()"
                 (ngModelChange)="customMonoUrl.set($event)" />
-              <button type="button" class="btn-outline" (click)="applyCustomMonoUrl()" [disabled]="!customMonoUrl().trim()">
+              <button type="button" class="btn-outline" (click)="applyCustomMonoUrl()" [disabled]="!customMonoUrl().trim() || customMonoUrlError() !== null">
                 Aplicar a mono
               </button>
             </div>
+            @if (validation().fontMonoError) {
+              <p class="font-inline-error" role="alert">{{ validation().fontMonoError }}</p>
+            }
           </div>
         }
 
@@ -299,9 +321,9 @@
           </button>
           <div class="pv-input-emu">
             <span class="pv-input-label">CONSOLA DE SALIDA</span>
-            <span class="pv-input-value" [style.font-family]="fontMonoPreviewStack()">Hola, mundo!</span>
+            <span class="pv-input-value">Hola, mundo!</span>
           </div>
-          <p class="pv-font-name" [style.font-family]="fontPreviewStack()">
+          <p class="pv-font-name">
             {{ fontSansFamily() }} · {{ fontMonoFamily() }}
           </p>
         </div>

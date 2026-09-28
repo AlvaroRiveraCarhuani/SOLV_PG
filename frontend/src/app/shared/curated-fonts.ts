@@ -41,8 +41,7 @@ export function curatedFontCSSUrl(font: CuratedFont): string {
 }
 
 /** Extrae la familia principal de un valor de fuente para atribuir font-family local. */
-export function fontValueToFamily(value: string | undefined, defaultSlug: string): string {
-  if (!value) return findCuratedFont(defaultSlug)?.name ?? 'Inter';
+export function fontValueToFamily(value: string | undefined, defaultSlug: string): string {  if (!value) return findCuratedFont(defaultSlug)?.name ?? 'Inter';
   if (value.startsWith('cat:')) return findCuratedFont(value.slice(4))?.name ?? 'Inter';
   if (value.startsWith('url:')) {
     const match = value.match(/family=([^:&]+)/);
@@ -60,4 +59,41 @@ export function fontValueToStack(value: string | undefined, defaultSlug: string)
 export function fontValueToMonoStack(value: string | undefined, defaultSlug: string): string {
   const family = fontValueToFamily(value, defaultSlug);
   return `'${family}', Menlo, Monaco, Consolas, monospace`;
+}
+
+/** Causa del rechazo inline de una URL custom (espejo barato del backend). */
+export type FontUrlIssue = 'https' | 'host' | 'family';
+
+export interface FontUrlCheck {
+  ok: boolean;
+  issue?: FontUrlIssue;
+  message?: string;
+}
+
+/** Host permitido por gobernanza para hojas CSS custom (igual que el backend). */
+export const ALLOWED_FONT_CSS_HOST = 'fonts.googleapis.com';
+
+/**
+ * Valida una URL custom de fuente sin red: exige HTTPS, host permitido y
+ * presencia de `family=`. La alcanzabilidad queda solo en el backend
+ * (código 422 `font_url_unreachable`).
+ */
+export function validateCustomFontUrl(raw: string): FontUrlCheck {
+  const url = (raw ?? '').trim();
+  if (!url || !url.startsWith('https://')) {
+    return { ok: false, issue: 'https', message: 'La URL de la fuente debe iniciar con https://.' };
+  }
+  let host = '';
+  try {
+    host = new URL(url).host;
+  } catch {
+    return { ok: false, issue: 'https', message: 'La URL de la fuente no es válida. Usa una URL https:// completa.' };
+  }
+  if (host !== ALLOWED_FONT_CSS_HOST) {
+    return { ok: false, issue: 'host', message: `Solo se permiten hojas CSS de ${ALLOWED_FONT_CSS_HOST}.` };
+  }
+  if (!/[?&]family=/.test(url)) {
+    return { ok: false, issue: 'family', message: 'La URL debe incluir el parámetro family= con la familia a cargar.' };
+  }
+  return { ok: true };
 }

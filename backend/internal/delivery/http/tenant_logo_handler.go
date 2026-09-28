@@ -124,11 +124,14 @@ func (h *TenantLogoHandler) persistLogoURL(r *http.Request, tenantID, publicURL 
 }
 
 // ServePublicLogo sirve el imagotipo almacenado (ruta pública, cacheable).
-// tenantID y extensión vienen en el path; se valida la extensión contra la
+// El segmento {filename} tiene forma <tenantId><ext> (ej. abc123.png);
+// se separa por extensión para evitar el patrón inválido {tenantId}{ext}
+// que net/http ServeMux rechaza. Se valida la extensión contra la
 // allowlist para evitar traversal.
 func (h *TenantLogoHandler) ServePublicLogo(w http.ResponseWriter, r *http.Request) {
-	tenantID := r.PathValue("tenantId")
-	ext := strings.ToLower(r.PathValue("ext"))
+	filename := r.PathValue("filename")
+	ext := strings.ToLower(filepath.Ext(filename))
+	tenantID := strings.TrimSuffix(filename, ext)
 	if tenantID == "" {
 		http.Error(w, `{"error":"missing_tenant"}`, http.StatusBadRequest)
 		return

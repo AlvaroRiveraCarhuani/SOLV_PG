@@ -29,8 +29,7 @@ describe('Tipografía white-label (tenant-typography)', () => {
 
   const setup = async (configOverrides: Partial<TenantConfig> = {}): Promise<void> => {
     configSignal = signal<TenantConfig | null>(makeConfig(configOverrides));
-    applyBrandingMock = vi.fn();
-    mockService = {
+    applyBrandingMock = vi.fn();    mockService = {
       isSaving: signal(false),
       currentConfig: () => configSignal(),
       initialValues: (): BrandingPayload => ({
@@ -51,7 +50,7 @@ describe('Tipografía white-label (tenant-typography)', () => {
       imports: [AdminConfigIdentidadComponent],
       providers: [
         { provide: AdminConfigIdentidadService, useValue: mockService },
-        { provide: TenantService, useValue: { config: configSignal, applyBranding: applyBrandingMock } }
+        { provide: TenantService, useValue: { config: configSignal, applyBranding: applyBrandingMock, applyTenantFonts: vi.fn() } }
       ]
     }).compileComponents();
 
