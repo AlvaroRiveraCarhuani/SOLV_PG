@@ -1,7 +1,9 @@
 import { Component, OnInit, signal, computed, inject, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ActivatedRoute, Router } from '@angular/router';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { 
   AdminTemplatesService, 
   AdminTemplateItem, 
@@ -88,6 +90,8 @@ export interface ToastNotification {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
+    DateTextPipe,
     TemplateReviewModalComponent,
     TemplateRejectModalComponent,
     TemplateCreateModalComponent,

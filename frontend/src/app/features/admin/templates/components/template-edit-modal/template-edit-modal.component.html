@@ -21,29 +21,47 @@
       <svg lucideHardDrive class="quota-icon"></svg>
       <span>Asignación de Memoria RAM:</span>
     </label>
-    <div class="chips-selector">
-      <button
-        type="button"
-        class="chip-btn"
-        [class.active]="selectedRam() === 256"
-        (click)="setRam(256)">
-        256 MB <span class="chip-desc">Ligera</span>
-      </button>
-      <button
-        type="button"
-        class="chip-btn"
-        [class.active]="selectedRam() === 512"
-        (click)="setRam(512)">
-        512 MB <span class="chip-desc chip-badge">Sugerido</span>
-      </button>
-      <button
-        type="button"
-        class="chip-btn"
-        [class.active]="selectedRam() === 1024"
-        (click)="setRam(1024)">
-        1024 MB <span class="chip-desc">Intensiva</span>
-      </button>
+    <div class="chips-selector" [class.chips-dynamic]="ramPresets().length !== 3">
+      @for (preset of ramPresets(); track preset.mb) {
+        <button
+          type="button"
+          class="chip-btn"
+          [class.active]="selectedRam() === preset.mb"
+          (click)="setRam(preset.mb)">
+          {{ preset.label }} <span class="chip-desc">{{ preset.desc }}</span>
+        </button>
+      }
     </div>
+    <div class="custom-ram-row">
+      <input
+        type="text"
+        inputmode="numeric"
+        class="form-control input-ram-custom"
+        [value]="formattedRamValue()"
+        (input)="onCustomRamInput($event)"
+        placeholder="Valor personalizado en MB"
+        aria-label="RAM personalizada en MB" />
+      <span class="unit-tag">MB</span>
+      <span class="capacity-hint">Máx host: {{ maxAllowedRamMB() }} MB · Libre: {{ hostFreeRamMB() }} MB</span>
+    </div>
+
+    @if (isRamBelowFloor()) {
+      <div class="validation-alert alert-danger">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <span>Asignación inferior al mínimo permitido ({{ minimumFloorMB() }} MB para {{ isJudge() ? 'Juez Virtual' : 'Laboratorio IDE' }}). Aumente el valor o el contenedor no arrancará.</span>
+      </div>
+    }
+    @if (isRamExceedingHost()) {
+      <div class="validation-alert alert-danger">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <span>Excede la capacidad del host en {{ ramExcessMB() }} MB (máximo permitido: {{ maxAllowedRamMB() }} MB). Reduzca el valor para guardar.</span>
+      </div>
+    } @else if (isRamExceedingCurrentFree()) {
+      <div class="validation-alert alert-warning">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <span>Aviso: supera la RAM libre actual ({{ hostFreeRamMB() }} MB). Se admite pero la concurrencia dependerá de la carga del servidor.</span>
+      </div>
+    }
   </div>
 
   <form-field label="Descripción / Justificación Técnica">
@@ -63,7 +81,8 @@
       type="button"
       class="btn-primary"
       (click)="confirmSave()"
-      [disabled]="isSubmitting()">
+      [disabled]="!canSave()"
+      [title]="invalidReason() || 'Guardar cambios de cuota y descripción'">
       @if (isSubmitting()) {
         <span>Guardando...</span>
       } @else {

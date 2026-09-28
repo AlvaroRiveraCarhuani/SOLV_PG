@@ -186,7 +186,7 @@
                       } @else {
                         <span class="badge-status-pending">Pendiente</span>
                       }
-                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
                       @for (srv of item.services_config?.services; track srv.engine) {
                         <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
                           {{ srv.engine }}
@@ -205,9 +205,9 @@
                 </div>
                 <div class="meta-row">
                   <svg lucideClock class="meta-icon"></svg>
-                  <span class="meta-text text-tertiary">
-                    {{ item.created_at | date:'dd/MM/yyyy HH:mm' }}
-                  </span>
+                  <time class="meta-text text-tertiary font-mono">
+                    {{ item.created_at | dateText }}
+                  </time>
                 </div>
               </div>
 
@@ -290,10 +290,10 @@
                     <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
                   </td>
                   <td>
-                    <span class="ram-badge">{{ item.base_ram_mb }} MB</span>
+                    <span class="ram-badge"><span machineData>{{ item.base_ram_mb }} MB</span></span>
                   </td>
                   <td>
-                    <span class="cell-text text-secondary">{{ item.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
+                    <time class="cell-text text-secondary font-mono font-date">{{ item.created_at | dateText }}</time>
                   </td>
                   <td>
                     <span class="cell-desc-subtle" [title]="item.description || 'Sin justificación'">
@@ -380,7 +380,7 @@
                           Próximo a EOL
                         </span>
                       }
-                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
                       @for (srv of item.services_config?.services; track srv.engine) {
                         <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
                           {{ srv.engine }}
@@ -419,8 +419,8 @@
               <div class="card-meta">
                 <div class="meta-row">
                   <svg lucideClock class="meta-icon"></svg>
-                  <span class="meta-text text-tertiary">
-                    Aprobada: {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy' }}
+                  <span class="meta-text text-tertiary font-mono">
+                    Aprobada: <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
                   </span>
                 </div>
               </div>
@@ -503,11 +503,11 @@
                     </div>
                   </td>
                   <td>
-                    <span class="ram-badge">{{ item.base_ram_mb }} MB</span>
+                    <span class="ram-badge"><span machineData>{{ item.base_ram_mb }} MB</span></span>
                   </td>
                   <td>
-                    <span class="cell-text text-secondary">
-                      {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy' }}
+                    <span class="cell-text text-secondary font-mono">
+                      <time>{{ (item.reviewed_at || item.created_at) | dateText:'date' }}</time>
                     </span>
                   </td>
                   <td>
@@ -650,7 +650,7 @@
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
                       <span class="badge-status-rejected">Rechazada</span>
-                      <span class="badge-profile">RAM: {{ item.base_ram_mb }} MB</span>
+                      <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
                       @for (srv of item.services_config?.services; track srv.engine) {
                         <span class="badge-service" [title]="srv.category + ': ' + srv.engine">
                           {{ srv.engine }}
@@ -667,8 +667,8 @@
                 </div>
                 <div class="meta-row">
                   <svg lucideClock class="meta-icon"></svg>
-                  <span class="meta-text text-tertiary">
-                    Revisada: {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy HH:mm' }}
+                  <span class="meta-text text-tertiary font-mono">
+                    Revisada: <time>{{ (item.reviewed_at || item.created_at) | dateText }}</time>
                   </span>
                 </div>
               </div>
@@ -741,8 +741,8 @@
                     <span class="cell-text font-medium">{{ item.requested_by_name || 'Docente' }}</span>
                   </td>
                   <td>
-                    <span class="cell-text text-secondary">
-                      {{ (item.reviewed_at || item.created_at) | date:'dd/MM/yyyy HH:mm' }}
+                    <span class="cell-text text-secondary font-mono">
+                      <time>{{ (item.reviewed_at || item.created_at) | dateText }}</time>
                     </span>
                   </td>
                   <td>

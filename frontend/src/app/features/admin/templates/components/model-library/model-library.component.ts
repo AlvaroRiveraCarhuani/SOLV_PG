@@ -1,6 +1,7 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { Router, RouterModule } from '@angular/router';
 import {
   AdminTemplatesService,
@@ -44,6 +45,7 @@ import {
     CommonModule,
     FormsModule,
     RouterModule,
+    MachineDataDirective,
     ComboboxComponent,
     SearchBarComponent,
     KpiCardComponent,

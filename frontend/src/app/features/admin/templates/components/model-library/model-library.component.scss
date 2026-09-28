@@ -722,7 +722,7 @@
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background-color: rgba(15, 23, 42, 0.5);
+  background-color: var(--overlay-backdrop);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -961,27 +961,28 @@
   }
 }
 
-// TOAST NOTIFICATIONS (Regla estricta: fondo verde var(--status-running-color) o rojo var(--color-error))
+// Toast: usar el estilo global de sistema para evitar conflicto entre mensajes
+// y garantizar posición, color y semántica consistentes en toda la app.
 .toast-notification {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
-  z-index: 2000;
+  z-index: var(--z-toast, 1100);
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 18px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-md);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-inverse);
-  background-color: var(--status-running-color) !important;
-  box-shadow: var(--shadow-dropdown);
-  animation: slideUp 200ms ease;
+  background-color: var(--status-running-color);
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.12);
+  animation: slideInGlobalToast 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
   &.toast-error {
-    background-color: var(--color-error) !important;
+    background-color: var(--color-error);
   }
 
   .toast-icon {

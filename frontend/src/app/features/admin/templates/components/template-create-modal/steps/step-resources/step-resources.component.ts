@@ -1,5 +1,6 @@
 import { Component, input, output, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { FormsModule } from '@angular/forms';
 import { 
   LucideHelpCircle, 
@@ -39,6 +40,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
   standalone: true,
   imports: [
     CommonModule, 
+    MachineDataDirective,
     FormsModule, 
     LucideHelpCircle, 
     LucideAlertCircle, 
@@ -207,7 +209,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                 </div>
                 <p class="service-desc">{{ svc.description }}</p>
                 <div class="service-footer">
-                  <span class="badge-tag">v{{ svc.version || '16' }}</span>
+                  <span class="badge-tag">v<span machineData>{{ svc.version || '16' }}</span></span>
                   <span class="badge-ram">{{ svc.category }}</span>
                 </div>
               </div>

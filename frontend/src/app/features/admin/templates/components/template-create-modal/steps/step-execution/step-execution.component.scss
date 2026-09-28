@@ -109,7 +109,7 @@
 
     &:focus {
       border-color: var(--tenant-primary);
-      box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+      box-shadow: 0 0 0 2px var(--tenant-primary-border);
     }
 
     &.text-area-sm {

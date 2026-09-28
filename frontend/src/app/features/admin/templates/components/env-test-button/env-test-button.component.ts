@@ -10,6 +10,7 @@ import {
   untracked 
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { Subscription } from 'rxjs';
 import { 
   EnvTestJobService, 
@@ -47,6 +48,7 @@ export function getEnvTestErrorMessage(code: string): string {
   standalone: true,
   imports: [
     CommonModule,
+    MachineDataDirective,
     LucidePlay,
     LucideLoader2,
     LucideCheckCircle2,

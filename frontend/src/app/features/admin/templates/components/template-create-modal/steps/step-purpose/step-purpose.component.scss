@@ -78,12 +78,12 @@
 
     &:focus-visible {
       border-color: var(--tenant-primary);
-      box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.2);
+      box-shadow: 0 0 0 3px var(--tenant-primary-border);
     }
 
     &.selected {
       border-color: var(--tenant-primary);
-      background-color: rgba(2, 132, 199, 0.03);
+      background-color: var(--tenant-primary-subtle);
 
       .purpose-card-title {
         color: var(--tenant-primary);

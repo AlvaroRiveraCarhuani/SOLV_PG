@@ -82,7 +82,7 @@
         <span class="badge-text" i18n="@@TE-50">
           Entorno verificado: {{ activeJob()?.result?.tools?.length || 0 }} herramientas verificadas
           @if (activeJob()?.result?.duration_ms) {
-            ({{ activeJob()?.result?.duration_ms }} ms)
+            (<span machineData>{{ activeJob()?.result?.duration_ms }}</span> ms)
           }
         </span>
         @if (activeJob()?.digest_unverified) {
@@ -169,7 +169,7 @@
               }
               <span class="tool-name">{{ tool.name }}</span>
               @if (tool.present) {
-                <span class="tool-version">{{ tool.version || tool.path }}</span>
+                <span class="tool-version" machineData>{{ tool.version || tool.path }}</span>
               } @else {
                 <span class="tool-status" i18n="@@TE-62">No encontrada</span>
               }

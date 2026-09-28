@@ -187,7 +187,7 @@
                       {{ m.target_environment === 'IDE_PERSISTENTE' ? 'IDE' : 'JUEZ' }}
                     </span>
 
-                    <span class="ram-badge">{{ m.base_ram_mb }} MB</span>
+                    <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
                   </div>
                 </div>
               </div>
@@ -202,7 +202,7 @@
               <div class="card-footer">
                 <div class="card-meta">
                   <span class="usage-badge" [class.has-usage]="m.usage_count > 0">
-                    <strong>{{ m.usage_count }}</strong> plantillas asociadas
+                      <strong><span machineData>{{ m.usage_count }}</span></strong> plantillas asociadas
                   </span>
                 </div>
                 <div class="actions-group">
@@ -283,17 +283,17 @@
                     </span>
                   </td>
                   <td>
-                    <span class="ram-badge">{{ m.base_ram_mb }} MB</span>
+                    <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
                   </td>
                   <td>
                     <span class="usage-badge" [class.has-usage]="m.usage_count > 0">
-                      <strong>{{ m.usage_count }}</strong> plantillas
+                      <strong><span machineData>{{ m.usage_count }}</span></strong> plantillas
                     </span>
                   </td>
                   <td>
                     @if (m.source_template_id) {
                       <span class="provenance-tag" title="Origen: {{ m.source_template_id }}">
-                        Plantilla {{ m.source_template_id | slice:0:8 }}
+                        Plantilla <span machineData>{{ m.source_template_id | slice:0:8 }}</span>
                       </span>
                     } @else {
                       <span class="text-muted text-xs">Semilla base</span>

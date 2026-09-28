@@ -8,6 +8,7 @@ import {
   viewChild 
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { 
@@ -38,6 +39,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
   standalone: true,
   imports: [
     CommonModule, 
+    MachineDataDirective,
     FormsModule, 
     RouterModule,
     LucideSparkles, 
@@ -182,7 +184,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
                       <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
                       <div class="model-card-tools">
                         <span class="tools-label">Imagen: </span>
-                        <span class="tools-val font-mono">{{ model.docker_image }} ({{ model.base_ram_mb }} MB)</span>
+                        <span class="tools-val"><span machineData>{{ model.docker_image }}</span> (<span machineData>{{ model.base_ram_mb }} MB</span>)</span>
                       </div>
                       <button 
                         type="button" 
@@ -237,7 +239,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
               <div class="duplicate-card">
                 <div class="duplicate-card-info">
                   <span class="duplicate-card-title">{{ item.name }}</span>
-                  <span class="duplicate-card-image font-mono">{{ item.docker_image }}</span>
+                  <span class="duplicate-card-image" machineData>{{ item.docker_image }}</span>
                 </div>
                 <button 
                   type="button" 
