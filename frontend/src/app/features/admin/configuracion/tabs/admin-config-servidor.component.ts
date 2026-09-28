@@ -9,6 +9,8 @@ import {
 } from '../admin-config-servidor.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
 import {
   LucideServer,
   LucideHardDrive,
@@ -43,8 +45,10 @@ export function validateBackupInt(raw: unknown, min: number, max: number, field:
   imports: [
     CommonModule,
     FormsModule,
+    DateTextPipe,
     ModalShellComponent,
     FormFieldComponent,
+    PaginationBarComponent,
     LucideServer,
     LucideHardDrive,
     LucideWrench,
@@ -115,6 +119,33 @@ export class AdminConfigServidorComponent implements OnInit {
     const cutoff = Date.now() - retention * 86400000;
     return this.backups().filter((b) => new Date(b.started_at).getTime() < cutoff).length;
   });
+
+  // ------------------------------------------------------------------
+  // Paginación historial de respaldos (estilo Docentes)
+  // ------------------------------------------------------------------
+  readonly backupsCurrentPage = signal(1);
+  readonly backupsPageSize = 10;
+
+  readonly paginatedBackups = computed(() => {
+    const start = (this.backupsCurrentPage() - 1) * this.backupsPageSize;
+    return this.backups().slice(start, start + this.backupsPageSize);
+  });
+
+  readonly backupsTotalPages = computed(() => Math.max(1, Math.ceil(this.backups().length / this.backupsPageSize)));
+
+  readonly backupsPaginationDisplay = computed(() => {
+    const total = this.backups().length;
+    if (total === 0) return { from: 0, to: 0 };
+    const from = (this.backupsCurrentPage() - 1) * this.backupsPageSize + 1;
+    const to = Math.min(this.backupsCurrentPage() * this.backupsPageSize, total);
+    return { from, to };
+  });
+
+  goToBackupsPage(page: number): void {
+    if (page >= 1 && page <= this.backupsTotalPages()) {
+      this.backupsCurrentPage.set(page);
+    }
+  }
 
   // El servicio carga async; sin esta sincronización el form muestra los
   // defaults locales (512/15/40, 6/7) aunque el backend tenga otros valores:
@@ -332,9 +363,7 @@ export class AdminConfigServidorComponent implements OnInit {
   }
 
   formatDate(iso: string): string {
-    return new Date(iso).toLocaleString('es-BO', {
-      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'
-    });
+    return formatSolvDate(iso, 'daymonth') ?? iso;
   }
 
   trackByBackup(index: number, exec: BackupExecutionItem): string {

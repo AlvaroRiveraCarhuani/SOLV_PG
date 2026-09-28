@@ -40,7 +40,7 @@
           </div>
         </div>
         @if (policies()?.updated_at) {
-          <span class="updated-badge">Actualizado {{ formatDate(policies()!.updated_at!) }}</span>
+          <span class="updated-badge font-date">Actualizado {{ formatDate(policies()!.updated_at!) }}</span>
         }
       </div>
 
@@ -129,7 +129,7 @@
       @if (maintenance()?.maintenance_mode) {
         <div class="maintenance-info">
           @if (maintenance()?.maintenance_until) {
-            <p>Hasta: <strong>{{ formatDate(maintenance()!.maintenance_until!) }}</strong></p>
+            <p>Hasta: <strong class="font-mono">{{ formatDate(maintenance()!.maintenance_until!) }}</strong></p>
           }
           @if (maintenance()?.maintenance_reason) {
             <p>Motivo: <strong>{{ maintenance()!.maintenance_reason }}</strong></p>
@@ -229,10 +229,10 @@
               </tr>
           </thead>
           <tbody>
-            @for (exec of backups(); track trackByBackup($index, exec)) {
+            @for (exec of paginatedBackups(); track trackByBackup($index, exec)) {
               <tr>
                 <td class="col-mono">{{ exec.file_name }}</td>
-                <td>{{ formatDate(exec.started_at) }}</td>
+                <td class="col-date font-date">{{ formatDate(exec.started_at) }}</td>
                 <td class="col-mono">{{ formatBytes(exec.file_size_bytes) }}</td>
                 <td>
                   <span class="status-badge" [class]="'backup-' + (exec.status === 'in_progress' ? 'progress' : exec.status)">
@@ -245,7 +245,7 @@
                     [class.verify-failed]="exec.last_verify_ok === false"
                     [class.verify-never]="exec.last_verify_ok === null || exec.last_verify_ok === undefined">
                     @if (exec.last_verify_ok === true) {
-                      Verificado {{ exec.last_verify_at ? '(' + (exec.last_verify_at | date:'dd/MM/yyyy') + ')' : '' }}
+                      Verificado @if (exec.last_verify_at) { <time class="font-mono">({{ exec.last_verify_at | dateText:'date' }})</time> }
                     } @else if (exec.last_verify_ok === false) {
                       Verificación fallida
                     } @else {
@@ -281,6 +281,16 @@
             }
           </tbody>
         </table>
+
+        <pagination-bar
+          [currentPage]="backupsCurrentPage()"
+          [totalPages]="backupsTotalPages()"
+          [totalItems]="backups().length"
+          [from]="backupsPaginationDisplay().from"
+          [to]="backupsPaginationDisplay().to"
+          itemLabel="respaldos"
+          (pageChange)="goToBackupsPage($event)"
+        />
       </div>
     </div>
   }
