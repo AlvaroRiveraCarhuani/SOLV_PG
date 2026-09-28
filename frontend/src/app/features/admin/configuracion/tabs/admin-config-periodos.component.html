@@ -62,15 +62,15 @@
           </tr>
         </thead>
         <tbody>
-          @for (row of rows(); track trackByPeriod($index, row)) {
+          @for (row of paginatedRows(); track trackByPeriod($index, row)) {
             <tr [class.row-archived]="row.lifecycle === 'archivado'">
               <td class="col-name">
                 <span class="period-name">{{ row.name }}</span>
               </td>
               <td class="col-code">
-                <span class="period-code-badge">{{ row.code }}</span>
+                <span class="period-code-badge" machineData>{{ row.code }}</span>
               </td>
-              <td class="col-dates">{{ formatDate(row.start_date) }} — {{ formatDate(row.end_date) }}</td>
+              <td class="col-dates font-date">{{ formatDate(row.start_date) }} — {{ formatDate(row.end_date) }}</td>
               <td class="col-courses">
                 {{ courseCountByPeriod()[row.id] ?? 0 }} cursos
               </td>
@@ -124,8 +124,18 @@
           }
         </tbody>
       </table>
-    }
-  </div>
+
+    <pagination-bar
+      [currentPage]="currentPage()"
+      [totalPages]="totalPages()"
+      [totalItems]="rows().length"
+      [from]="paginationDisplay().from"
+      [to]="paginationDisplay().to"
+      itemLabel="períodos"
+      (pageChange)="goToPage($event)"
+    />
+  }
+</div>
 </div>
 
 <!-- ================= Modal: Alta / Edición ================= -->
@@ -254,7 +264,7 @@
     <div class="activate-summary">
       <div class="summary-row">
         <span class="summary-label">Vigencia:</span>
-        <span class="summary-value">{{ formatDate(target.start_date) }} — {{ formatDate(target.end_date) }}</span>
+        <span class="summary-value font-mono">{{ formatDate(target.start_date) }} — {{ formatDate(target.end_date) }}</span>
       </div>
       <div class="summary-row">
         <span class="summary-label">Materias asociadas:</span>

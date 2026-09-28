@@ -113,7 +113,7 @@
             } @else {
               <div class="period-item-left">
                 <div class="period-code-badge" [class.badge-active]="p.is_active">
-                  {{ p.code }}
+                  <span machineData>{{ p.code }}</span>
                 </div>
                 <div class="period-meta">
                   <span class="period-name">{{ p.name }}</span>

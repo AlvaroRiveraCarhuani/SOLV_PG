@@ -7,12 +7,12 @@ import {
   AcademicPeriod, 
   DockerTemplateItem 
 } from '../services/admin-courses.service';
-import { PeriodManageModalComponent } from './components/period-manage-modal/period-manage-modal.component';
 import { CourseCreateModalComponent } from './components/course-create-modal/course-create-modal.component';
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
@@ -44,13 +44,13 @@ interface ToastState {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
     ComboboxComponent,
     SearchBarComponent,
     KpiCardComponent,
     KpiGridComponent,
     StatusTabsComponent,
     PaginationBarComponent,
-    PeriodManageModalComponent,
     CourseCreateModalComponent,
     CourseReassignModalComponent,
     ConfirmModalComponent,
@@ -66,7 +66,6 @@ interface ToastState {
     LucideArchiveRestore,
     LucideAlertTriangle,
     LucidePencil,
-    LucideX
   ],
   templateUrl: './admin-courses.component.html',
   styleUrls: ['./admin-courses.component.scss']
@@ -107,7 +106,6 @@ export class AdminCoursesComponent implements OnInit {
   readonly pageSizeOptions = [10, 25, 50];
 
   // Control de modales
-  showPeriodsModal = signal<boolean>(false);
   showCreateCourseModal = signal<boolean>(false);
   selectedCourseForReassign = signal<AdminCourseItem | null>(null);
 
@@ -261,14 +259,6 @@ export class AdminCoursesComponent implements OnInit {
   }
 
   // Modales
-  openPeriodsModal(): void {
-    this.showPeriodsModal.set(true);
-  }
-
-  closePeriodsModal(): void {
-    this.showPeriodsModal.set(false);
-  }
-
   openCreateCourseModal(): void {
     this.showCreateCourseModal.set(true);
   }
@@ -333,11 +323,9 @@ export class AdminCoursesComponent implements OnInit {
       this.cancelToggleArchive();
     } else if (this.selectedCourseForReassign()) {
       this.closeReassignModal();
-    } else if (this.showCreateCourseModal()) {
-      this.closeCreateCourseModal();
-    } else if (this.showPeriodsModal()) {
-      this.closePeriodsModal();
-    }
+     } else if (this.showCreateCourseModal()) {
+       this.closeCreateCourseModal();
+     }
   }
 
   openEditCourseModal(course: AdminCourseItem): void {

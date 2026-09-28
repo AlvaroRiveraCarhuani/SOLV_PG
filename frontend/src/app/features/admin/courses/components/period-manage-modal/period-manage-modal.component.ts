@@ -5,6 +5,8 @@ import { AcademicPeriod, AdminCoursesService, CreateAcademicPeriodDTO } from '..
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import {
   LucideCalendar,
   LucidePlus,
@@ -20,6 +22,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
     ConfirmModalComponent,
     ModalShellComponent,
     FormFieldComponent,
@@ -111,13 +114,7 @@ export class PeriodManageModalComponent {
   }
 
   formatDate(isoStr?: string): string {
-    if (!isoStr) return '';
-    const datePart = isoStr.split('T')[0];
-    const parts = datePart.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return datePart;
+    return formatSolvDate(isoStr, 'date') ?? '';
   }
 
   isPeriodExpired(period: AcademicPeriod): boolean {

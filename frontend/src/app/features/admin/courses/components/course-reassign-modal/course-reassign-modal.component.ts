@@ -6,6 +6,7 @@ import { TeacherItem } from '@core/models/admin.model';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   LucideArrowRightLeft,
   LucideAlertCircle,
@@ -18,6 +19,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
     ComboboxComponent,
     ModalShellComponent,
     FormFieldComponent,

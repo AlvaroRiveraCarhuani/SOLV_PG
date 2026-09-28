@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { Observable, forkJoin, map, catchError, of } from 'rxjs';
 import {
   AdminConfigPeriodosService,
@@ -11,8 +12,11 @@ import {
   PeriodLifecycle
 } from '../admin-config-periodos.service';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import {
   LucideCalendar,
   LucidePlus,
@@ -40,10 +44,13 @@ interface SubjectCountRow {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
+    DateTextPipe,
     KpiCardComponent,
     KpiGridComponent,
     ModalShellComponent,
     FormFieldComponent,
+    PaginationBarComponent,
     LucideCalendar,
     LucidePlus,
     LucideArchive,
@@ -78,6 +85,33 @@ export class AdminConfigPeriodosComponent implements OnInit {
   readonly activeCount = computed(() => this.rows().filter((r) => r.lifecycle === 'activo').length);
   readonly nextUpCount = computed(() => this.rows().filter((r) => r.lifecycle === 'proximo').length);
   readonly archivedCount = computed(() => this.rows().filter((r) => r.lifecycle === 'archivado').length);
+
+  // ------------------------------------------------------------------
+  // Paginación (estilo Docentes: client-side, 10 por página)
+  // ------------------------------------------------------------------
+  readonly currentPage = signal(1);
+  readonly pageSize = 10;
+
+  readonly paginatedRows = computed(() => {
+    const start = (this.currentPage() - 1) * this.pageSize;
+    return this.rows().slice(start, start + this.pageSize);
+  });
+
+  readonly totalPages = computed(() => Math.max(1, Math.ceil(this.rows().length / this.pageSize)));
+
+  readonly paginationDisplay = computed(() => {
+    const total = this.rows().length;
+    if (total === 0) return { from: 0, to: 0 };
+    const from = (this.currentPage() - 1) * this.pageSize + 1;
+    const to = Math.min(this.currentPage() * this.pageSize, total);
+    return { from, to };
+  });
+
+  goToPage(page: number): void {
+    if (page >= 1 && page <= this.totalPages()) {
+      this.currentPage.set(page);
+    }
+  }
 
   // ------------------------------------------------------------------
   // Toast
@@ -342,8 +376,7 @@ export class AdminConfigPeriodosComponent implements OnInit {
   }
 
   formatDate(iso: string): string {
-    const d = new Date(iso.length === 10 ? iso + 'T00:00:00' : iso);
-    return d.toLocaleDateString('es-BO', { day: '2-digit', month: 'short', year: 'numeric' });
+    return formatSolvDate(iso, 'daymonthyear') ?? iso;
   }
 
   trackByPeriod(index: number, row: PeriodRow): string {

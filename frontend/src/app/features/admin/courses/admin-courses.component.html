@@ -19,19 +19,16 @@
     </div>
 
     <div class="header-actions">
-      <!-- Selector de Periodo Activo -->
-      <div class="period-selector-box">
-        <combobox
-          [compact]="true"
-          [value]="selectedPeriodHeaderLabel()"
-          [options]="periodHeaderComboboxOptions()"
-          placeholder="Periodo..."
-          (optionSelected)="onPeriodHeaderSelected($event)"
-        ></combobox>
-        <button class="btn-manage-periods" (click)="openPeriodsModal()" title="Gestionar Periodos">
-          <span>Gestionar</span>
-        </button>
-      </div>
+       <!-- Selector de Periodo Activo -->
+       <div class="period-selector-box">
+         <combobox
+           [compact]="true"
+           [value]="selectedPeriodHeaderLabel()"
+           [options]="periodHeaderComboboxOptions()"
+           placeholder="Periodo..."
+           (optionSelected)="onPeriodHeaderSelected($event)"
+         ></combobox>
+       </div>
 
       <!-- Botón Alta Curso -->
       <button class="btn-primary" (click)="openCreateCourseModal()">
@@ -116,7 +113,7 @@
               <!-- Código y Materia -->
               <td class="col-code">
                 <div class="course-title-cell">
-                  <span class="course-code-badge">{{ course.code }}</span>
+                  <span class="course-code-badge" machineData>{{ course.code }}</span>
                   <span class="course-name">{{ course.name }}</span>
                 </div>
               </td>
@@ -215,15 +212,7 @@
     }
   </div>
 
-  <!-- Modales -->
-  @if (showPeriodsModal()) {
-    <period-manage-modal 
-      [periods]="coursesService.periods()" 
-      (close)="closePeriodsModal()"
-      (periodCreated)="reload()"
-      (periodActivated)="reload()">
-    </period-manage-modal>
-  }
+   <!-- Modales -->
 
   @if (showCreateCourseModal()) {
     <course-create-modal 
