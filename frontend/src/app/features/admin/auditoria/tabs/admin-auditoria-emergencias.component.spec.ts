@@ -8,7 +8,7 @@ import { AdminAuditoriaEmergenciasComponent } from './admin-auditoria-emergencia
 import { AdminAuditoriaService, EMERGENCY_ACTIONS, EmergencyActionResult } from '../admin-auditoria.service';
 import { AdminMetricsService } from '@features/admin/services/admin-metrics.service';
 
-const EMPTY_LIST = { tenant_id: 't', limit: 10, offset: 0, data: [] };
+const EMPTY_LIST = { tenant_id: 't', limit: 10, offset: 0, total: 0, data: [] };
 
 describe('AdminAuditoriaEmergenciasComponent', () => {
   let fixture: ComponentFixture<AdminAuditoriaEmergenciasComponent>;

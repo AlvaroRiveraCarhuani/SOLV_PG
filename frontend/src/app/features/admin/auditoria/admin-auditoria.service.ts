@@ -7,6 +7,7 @@ export interface AuditLogListResponse {
   tenant_id: string;
   limit: number;
   offset: number;
+  total: number;
   data: AuditLog[];
 }
 

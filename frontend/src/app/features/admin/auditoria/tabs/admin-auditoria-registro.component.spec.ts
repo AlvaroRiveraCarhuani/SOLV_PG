@@ -52,7 +52,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
 
   it('carga y enriquece la tabla con el enriquecimiento semántico del wireframe', () => {
     listSpy.mockReturnValue(of({
-      tenant_id: 't', limit: 20, offset: 0,
+      tenant_id: 't', limit: 20, offset: 0, total: 3,
       data: [
         makeLog({ action: 'POST /api/v1/subjects', status_code: 201 }),
         makeLog({ action: 'PUT /api/v1/admin/branding', status_code: 200 }),
@@ -74,7 +74,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
 
   it('muestra el email institucional del actor resuelto por el backend', () => {
     listSpy.mockReturnValue(of({
-      tenant_id: 't', limit: 20, offset: 0,
+      tenant_id: 't', limit: 20, offset: 0, total: 1,
       data: [makeLog({ actor_email: 'mhamilton@uab.edu.bo' })]
     }));
     fixture.detectChanges();
@@ -84,7 +84,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
   });
 
   it('cambiar el filtro de acción relanza la consulta con el verbo seleccionado', () => {
-    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, data: [] }));
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
     expect(listSpy).toHaveBeenCalledTimes(1);
 
@@ -94,7 +94,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
   });
 
   it('la paginación pide la siguiente página al servicio', () => {
-    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, data: [] }));
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
 
     component.onPageChange(3);
@@ -105,7 +105,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
   it('el drawer carga la cronología del actor seleccionado', () => {
     const actorId = '22222222-2222-2222-2222-222222222222';
     listSpy.mockReturnValue(of({
-      tenant_id: 't', limit: 20, offset: 0,
+      tenant_id: 't', limit: 20, offset: 0, total: 1,
       data: [makeLog({ actor_id: actorId, actor_email: 'alovelace@uab.edu.bo' })]
     }));
     timelineSpy.mockReturnValue(of({
@@ -124,6 +124,27 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(component.drawerOpen()).toBe(true);
     expect(fixture.nativeElement.querySelectorAll('.timeline-item').length).toBe(2);
     expect(fixture.nativeElement.querySelector('.drawer-title p').textContent).toContain('alovelace@uab.edu.bo');
+  });
+
+  it('usa el total del backend para la paginación en vez de estimarlo', () => {
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 45, data: [] }));
+    fixture.detectChanges();
+
+    expect(component.totalPages()).toBe(3);
+  });
+
+  it('filtra por actor con debounce y resetea a la primera página', () => {
+    vi.useFakeTimers();
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
+    fixture.detectChanges();
+    expect(listSpy).toHaveBeenCalledTimes(1);
+
+    component.onActorFilterChange('docente@uab.edu.bo');
+    expect(listSpy).toHaveBeenCalledTimes(1);
+
+    vi.runAllTimers();
+    expect(listSpy).toHaveBeenLastCalledWith(1, 20, { actorId: 'docente@uab.edu.bo' });
+    vi.useRealTimers();
   });
 
   it('muestra estado vacío cuando no hay eventos y maneja errores del backend', () => {

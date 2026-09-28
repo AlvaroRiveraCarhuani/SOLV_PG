@@ -54,6 +54,16 @@ func (r *AuditLogRepository) ListByTenant(ctx context.Context, tenantID string, 
 	return r.ListFiltered(ctx, tenantID, "", "", limit, 0)
 }
 
+// auditLogFilterWhere predicados compartidos de ListFiltered/CountFiltered:
+//   - action es prefijo ("POST" matchea "POST /api/v1/..."), porque el
+//     middleware persiste "MÉTODO ruta" y el filtro de UI envía el verbo.
+//   - actor matchea por id exacto o por email institucional (JOIN a users).
+const auditLogFilterWhere = `
+	WHERE a.tenant_id = $1
+	  AND ($2 = '' OR a.actor_id::text = $2 OR u.email ILIKE '%' || $2 || '%')
+	  AND ($3 = '' OR a.action LIKE $3 || '%')
+`
+
 func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID, action string, limit, offset int) ([]*domain.AuditLog, error) {
 	if limit <= 0 {
 		limit = 50
@@ -62,10 +72,7 @@ func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID
 		offset = 0
 	}
 
-	query := auditLogSelectColumns + `
-		WHERE a.tenant_id = $1
-		  AND ($2 = '' OR a.actor_id::text = $2)
-		  AND ($3 = '' OR a.action = $3)
+	query := auditLogSelectColumns + auditLogFilterWhere + `
 		ORDER BY a.created_at DESC
 		LIMIT $4 OFFSET $5
 	`
@@ -75,6 +82,19 @@ func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID
 		return nil, fmt.Errorf("failed to list filtered audit logs: %w", err)
 	}
 	return logs, nil
+}
+
+func (r *AuditLogRepository) CountFiltered(ctx context.Context, tenantID, actorID, action string) (int, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM audit_logs a
+		LEFT JOIN users u ON u.id = a.actor_id
+	` + auditLogFilterWhere
+	var total int
+	if err := r.db.GetContext(ctx, &total, query, tenantID, actorID, action); err != nil {
+		return 0, fmt.Errorf("failed to count filtered audit logs: %w", err)
+	}
+	return total, nil
 }
 
 // ListByActorTimeline devuelve la cronología completa de un actor (desc) para

@@ -78,8 +78,8 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
     if (this.actionFilter()) {
       filters.action = this.actionFilter();
     }
-    if (this.actorFilter()) {
-      filters.actorId = this.actorFilter();
+    if (this.actorFilter().trim()) {
+      filters.actorId = this.actorFilter().trim();
     }
 
     this.auditoriaService.listAuditLogs(this.currentPage(), PAGE_SIZE, filters).subscribe({
@@ -88,8 +88,8 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
           ? resp.data.filter((log) => this.matchesSearch(log, raw.toLowerCase()))
           : resp.data;
         this.rows.set(filtered.map((log) => this.toRow(log)));
-        this.totalKnown.update((n) => Math.max(n, (this.currentPage() - 1) * PAGE_SIZE + resp.data.length));
-        this.totalPages.set(Math.max(1, Math.ceil(this.totalKnown() / PAGE_SIZE) + (resp.data.length === PAGE_SIZE ? 1 : 0)));
+        this.totalKnown.set(resp.total);
+        this.totalPages.set(Math.max(1, Math.ceil(resp.total / PAGE_SIZE)));
         this.isLoading.set(false);
       },
       error: () => {
@@ -114,6 +114,17 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
     this.actionFilter.set(value);
     this.currentPage.set(1);
     this.load();
+  }
+
+  onActorFilterChange(value: string): void {
+    this.actorFilter.set(value);
+    this.currentPage.set(1);
+    if (this.searchDebounce) {
+      clearTimeout(this.searchDebounce);
+    }
+    this.searchDebounce = setTimeout(() => {
+      this.load();
+    }, 250);
   }
 
   onPageChange(page: number): void {

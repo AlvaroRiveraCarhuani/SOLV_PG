@@ -248,6 +248,14 @@ type UpdateBrandingDTO struct {
 	FontMonoFamily string `json:"font_mono_family"`
 }
 
+// brandingHexPattern misma regla que el frontend (validate() en
+// admin-config-identidad.service.ts): #RRGGBB estricto, 6 dígitos.
+var brandingHexPattern = regexp.MustCompile(`^#([A-Fa-f0-9]{6})$`)
+
+// brandingCacheBusterPattern quita el ?t=<ts> (o &t=<ts>) que el frontend
+// agrega tras subir el logo para evitar la caché de 5 min del navegador.
+var brandingCacheBusterPattern = regexp.MustCompile(`([?&])t=\d+$`)
+
 func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
@@ -256,10 +264,20 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var dto UpdateBrandingDTO
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+	// Se lee el cuerpo crudo para detectar presencia explícita de claves:
+	// support_email "" significa "sin soporte" y debe limpiar el valor
+	// vigente (el resto de campos vacíos siguen sin pisar, contrato merge).
+	var rawBody map[string]json.RawMessage
+	bodyBytes, readErr := io.ReadAll(r.Body)
+	if readErr != nil {
 		http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
 		return
 	}
+	if err := json.Unmarshal(bodyBytes, &dto); err != nil {
+		http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
+		return
+	}
+	_ = json.Unmarshal(bodyBytes, &rawBody)
 
 	tenant, err := h.tenantRepo.GetByID(r.Context(), tenantID)
 	if err != nil || tenant == nil {
@@ -278,15 +296,43 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if dto.LogoURL != "" {
-		currentConfig["logo_url"] = dto.LogoURL
+		// El frontend agrega ?t=<ts> como cache-buster tras subir el logo;
+		// se persiste la URL canónica sin ese query.
+		canonicalLogo := brandingCacheBusterPattern.ReplaceAllString(dto.LogoURL, "")
+		currentConfig["logo_url"] = canonicalLogo
 	}
 	if dto.InstitutionName != "" {
 		currentConfig["institution_name"] = dto.InstitutionName
 	}
 	if dto.TenantPrimaryColor != "" {
+		if !brandingHexPattern.MatchString(strings.TrimSpace(dto.TenantPrimaryColor)) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			json.NewEncoder(w).Encode(map[string]string{
+				"error":   "color_invalid",
+				"message": "tenant_primary_color debe usar el formato #RRGGBB (ej. #2563EB).",
+			})
+			return
+		}
 		currentConfig["tenant_primary_color"] = dto.TenantPrimaryColor
 	}
-	if dto.SupportEmail != "" {
+	// support_email es opcional por universidad: clave presente con "" limpia
+	// el valor (oculta el bloque de ayuda); clave ausente no pisa.
+	if rawBody != nil {
+		if _, present := rawBody["support_email"]; present {
+			email := strings.TrimSpace(dto.SupportEmail)
+			if email != "" && !strings.Contains(email, "@") {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				json.NewEncoder(w).Encode(map[string]string{
+					"error":   "email_invalid",
+					"message": "support_email no tiene un formato válido.",
+				})
+				return
+			}
+			currentConfig["support_email"] = email
+		}
+	} else if dto.SupportEmail != "" {
 		currentConfig["support_email"] = dto.SupportEmail
 	}
 

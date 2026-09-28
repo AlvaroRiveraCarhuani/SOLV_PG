@@ -16,6 +16,17 @@
       </select>
     </label>
 
+    <label class="action-filter" for="audit-actor-filter">
+      <span class="filter-label">Actor</span>
+      <input
+        id="audit-actor-filter"
+        type="search"
+        class="form-input"
+        placeholder="Email o ID del actor..."
+        [ngModel]="actorFilter()"
+        (ngModelChange)="onActorFilterChange($event)" />
+    </label>
+
     @if (hasActiveFilters()) {
       <button type="button" class="btn-outline clear-filters" (click)="clearFilters()">Limpiar filtros</button>
     }

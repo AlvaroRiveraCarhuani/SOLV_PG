@@ -26,6 +26,9 @@ type AuditLogRepository interface {
 	Create(ctx context.Context, log *AuditLog) error
 	ListByTenant(ctx context.Context, tenantID string, limit int) ([]*AuditLog, error)
 	ListFiltered(ctx context.Context, tenantID, actorID, action string, limit, offset int) ([]*AuditLog, error)
+	// CountFiltered cuenta las filas de los mismos predicados de ListFiltered
+	// para paginación real (el frontend no debe estimar el total).
+	CountFiltered(ctx context.Context, tenantID, actorID, action string) (int, error)
 	// ListByActorTimeline devuelve la cronología completa (desc) de un actor
 	// dentro del tenant, para el drawer del wireframe AUDIT_LOGS.md.
 	ListByActorTimeline(ctx context.Context, tenantID, actorID string, limit int) ([]*AuditLog, error)

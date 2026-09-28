@@ -27,8 +27,8 @@ export class AdminAuditoriaComponent {
   );
 
   readonly tabs: AuditoriaTabDef[] = [
-    { id: 'registro', label: 'Registro de Auditoría', description: 'Trazabilidad cronológica de eventos de la institución (ADR-027)' },
-    { id: 'emergencias', label: 'Emergencias', description: 'Centro de control operativo con doble confirmación y registro obligatorio (ADR-032)' }
+    { id: 'registro', label: 'Registro de Auditoría', description: 'Trazabilidad cronológica de eventos de la institución' },
+    { id: 'emergencias', label: 'Emergencias', description: 'Centro de control operativo con doble confirmación y registro obligatorio' }
   ];
 
   readonly activeTab = signal<AuditoriaTab>('registro');
