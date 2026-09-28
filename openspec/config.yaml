@@ -1,0 +1,42 @@
+schema: spec-driven
+
+context: |
+  Backend: Go 1.25 + net/http.ServeMux (no Gin) + sqlx + PostgreSQL; hexagonal (core/domain, core/services, infrastructure/, delivery/http); goose migrations.
+  Frontend: Angular 22 standalone zoneless (Signals only, @if/@for/@switch, inject(), loadComponent); Material 3 + Lucide + SCSS tokens; selector prefix `app`, `solv-` banned; Tailwind banned.
+  Testing: backend `go test ./...` unit + integration (needs TEST_DB_DSN); frontend `ng test` (vitest + jsdom); stylelint gate `npm run lint:styles`; Semgrep in CI.
+  Style: Conventional Commits with Que/Por que/Como/Impacto body; no emojis; ADRs tracked in docs/ARQUITECTURA/ADR/INDEX.md.
+
+rules:
+  proposal:
+    - Include rollback plan for risky changes
+    - Flag ADR-INDEX and slice-traceability updates when architecture or DB changes
+  specs:
+    - Use Given/When/Then for scenarios
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+  design:
+    - Include sequence diagrams for complex flows
+    - Document fit with hexagonal layers and D1-D6 constraints
+  tasks:
+    - Group by phase, use hierarchical numbering
+    - Keep tasks completable in one session
+  apply:
+    guidelines:
+      - Follow existing code patterns
+      - Respect solv-context, angular-architecture, solv-design-system, gobernanza skills
+    tdd: true
+    test_command: "cd backend && go test ./... -count=1"
+  verify:
+    test_command: "cd backend && go test ./... -count=1"
+    build_command: "cd frontend && npm run build"
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas
+
+testing:
+  strict_tdd: true
+  backend_runner: "cd backend && go test ./... -count=1"
+  backend_integration_env: "TEST_DB_DSN=postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
+  frontend_runner: "cd frontend && npx ng test"
+  coverage_backend: "cd backend && go test -cover ./..."
+  coverage_frontend: "cd frontend && npx ng test --coverage"
+  lint_styles: "cd frontend && npm run lint:styles"
