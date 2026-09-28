@@ -78,6 +78,21 @@ jobs:
           cd frontend
           npm run lint:styles
 
+      - name: Run Frontend Unit Tests
+        run: |
+          cd frontend
+          npm run test:ci
+
+      - name: Install Playwright Chromium
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run Computed Typography Check
+        run: |
+          cd frontend
+          npm run test:e2e:typography
+
       - name: Build Angular Application
         run: |
           cd frontend

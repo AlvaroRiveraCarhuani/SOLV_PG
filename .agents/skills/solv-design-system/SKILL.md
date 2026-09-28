@@ -10,16 +10,22 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 - PROHIBIDO: gradientes excesivos, cards redondeadas gigantes, sombras pesadas, animaciones decorativas, KPI cards vistosos, ilustraciones o estética "AI SaaS".
 
 ## Tipografía y Espaciado
-- Fuente UI Principal: Inter.
-- Fuente Datos/Código: JetBrains Mono (para UUIDs, URLs, métricas, veredictos, RAM/CPU).
+- Fuente UI Principal: la configurada en `--font-sans`.
+- Fuente Datos/Código: la configurada en `--font-mono` (para UUIDs, URLs, métricas, veredictos, RAM/CPU).
 - Escala de espaciado: múltiplos de 4px (4px, 8px, 12px, 16px, 24px, 32px).
 - Radios de borde: 6px, 8px, 12px máximos.
 
 ### Contrato Tipográfico (personas vs. máquina)
-- Inter para personas (todo texto de UI); JetBrains Mono SOLO para datos de máquina: imágenes Docker, RAM/CPU, UUIDs, logs, código.
+- Usar `--font-sans` para texto de UI y controles; no hardcodear Inter. Fechas dentro de `<time>` y otros valores técnicos visibles con `[machineData]` usan `--font-mono` por el estilo global compartido.
 - Escala: `xs` 12px / `sm` 14px / `base` 16px / `lg` 18px / `xl` 20px (`var(--text-xs)` … `var(--text-xl)`).
 - Tablas: cabeceras en `xs`, mayúsculas, `var(--text-secondary)`.
 - Cards: texto `base`, `600`.
+
+### Fechas: canon obligatorio (pipe `dateText` + `<time>`)
+- Renderizar fechas únicamente con el pipe compartido `dateText` (`shared/pipes/date-text.pipe.ts`) dentro de un `<time>` semántico. PROHIBIDO `toLocaleDateString`, `toLocaleTimeString`, `Intl.DateTimeFormat` y `| date:` de Angular en vistas. Gate de CI `date-format-gate.mjs` (parte de `npm run lint:styles`) aplica este contrato.
+- Estilos del pipe (salida determinista, independiente del locale del runtime): `datetime` = `dd/MM/yyyy HH:mm` (default) · `datetime-sec` = `dd/MM/yyyy HH:mm:ss` · `compact-datetime` = `dd/MM HH:mm:ss` · `date` = `dd/MM/yyyy` · `time` = `HH:mm` · `daymonth` = `dd MMM` · `daymonthyear` = `dd MMM yyyy` · `long-datetime` = `EEEE dd 'de' MMM, HH:mm:ss` (español fijo).
+- La regla global `<time>` aplica fuente mono y números tabulares. Para otros valores técnicos visibles (códigos, IDs, métricas, versiones, tags, veredictos y logs), usar `[machineData]` (`@shared/directives/machine-data.directive`) o un contenedor semántico `<code>`, `<pre>`, `<kbd>`, `<samp>` o con la clase estática `font-mono`; no replicar reglas SCSS por vista. Mantener la etiqueta y la prosa humanizada fuera del nodo marcado. No marcar controles, opciones ni etiquetas humanizadas de badges de estado.
+- Para lógica en TS (ordenar, agrupar) usar las funciones puras exportadas `formatSolvDate` / `parseDateValue` del mismo archivo; nunca formatear a mano.
 
 ### Jerarquía Tipográfica de Cabeceras
 - **Título de Página (H1, `.page-title`, `.view-title`):** `font-size: var(--text-xl)` (20px / 1.25rem), `font-weight: 700`, `color: var(--text-primary)`, `letter-spacing: -0.01em`, `line-height: var(--leading-tight)`.
@@ -58,8 +64,8 @@ Visores de logs, auditoría dry-run y previsualizaciones usan la escala `--code-
 - Native selects deben usar `appearance: none` con el icono SVG de chevron vectorizado (`stroke: #64748B`) y padding derecho para evitar que el motor de renderizado del sistema operativo sustituya la tipografía web por fuentes del sistema.
 
 ### Combobox (contrato cerrado/abierto)
-- Estado cerrado: tipografía Inter `var(--text-sm)`, idéntica a `.form-input`.
-- Lista abierta: opciones en Inter `var(--text-xs)`; metadatos secundarios (descripciones, contadores) con color muted.
+- Estado cerrado: tipografía `var(--font-sans)` y `var(--text-sm)`, idéntica a `.form-input`.
+- Lista abierta: opciones en `var(--font-sans)` y `var(--text-xs)`; metadatos secundarios (descripciones, contadores) con color muted.
 - TODO resuelto por tokens (`var(--text-*)`, `--text-secondary`/`--text-muted`). PROHIBIDO `var(--x, #hex)` en fallbacks: todo fallback con hexadecimal viola la regla `color-no-hex`; usar token puro.
 
 ### Padding de Contenedor de Vistas
