@@ -10,6 +10,10 @@
   --bg-surface-subtle:#F8FAFC;
   --bg-surface-active:#F1F5F9;
 
+  // Overlays y fondos de modal (tokens semánticos, no hex sueltos)
+  --overlay-backdrop: rgba(15, 23, 42, 0.5);
+  --overlay-backdrop-soft: rgba(15, 23, 42, 0.4);
+
   // Bordes Limpios (Separación visual mediante bordes, NO sombras pesadas)
   --border-subtle:    #E2E8F0;
   --border-strong:    #CBD5E1;
@@ -19,6 +23,7 @@
   --text-primary:     #0F172A;
   --text-secondary:   #475569;
   --text-muted:       #64748B;
+  --text-tertiary:    #64748B;
   --text-inverse:     #FFFFFF;
 
   // Semánticos Fijos Base

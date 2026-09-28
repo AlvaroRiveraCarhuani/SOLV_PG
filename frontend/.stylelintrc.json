@@ -41,5 +41,16 @@
   },
   "ignoreFiles": [
     "**/*.spec.ts"
+  ],
+  "overrides": [
+    {
+      "files": ["src/styles/_primitives.scss", "src/styles/_semantic.scss", "src/styles/_tenant.scss"],
+      "rules": {
+        "color-no-hex": null,
+        "declaration-property-value-allowed-list": null,
+        "value-keyword-case": null,
+        "custom-property-empty-line-before": null
+      }
+    }
   ]
 }

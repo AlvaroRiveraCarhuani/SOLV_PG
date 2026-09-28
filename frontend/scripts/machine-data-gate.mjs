@@ -4,49 +4,8 @@ import { pathToFileURL } from 'node:url';
 import { parseTemplate } from '@angular/compiler';
 import ts from 'typescript';
 
+import { TECHNICAL_MEMBER_NAMES } from './machine-data-catalog.mjs';
 const SRC_APP = join(process.cwd(), 'src', 'app');
-const TECHNICAL_MEMBER_NAMES = new Set([
-  'id',
-  'code',
-  'uuid',
-  'hash',
-  'version',
-  'verdict',
-  'level',
-  'tag',
-  'image_tag',
-  'workspace_id',
-  'docker_version',
-  'uptime_seconds',
-  'path',
-  'base_ram_mb',
-  'currentRAM',
-  'currentCPU',
-  'ttl_remaining_seconds',
-  'resource_type',
-  'docker_image',
-  'memory_used_mb',
-  'memory_limit_mb',
-  'cpu_cores',
-  'cpu_percent',
-  'disk_percent',
-  'containers_active',
-  'containers_max',
-  'containers_hibernated',
-  'ram_percent',
-  'ram_used_gb',
-  'timestamp',
-  'duration_ms',
-  'ramPercentComputed',
-  'ramUsedGB',
-  'ramTotalGB',
-  'diskUsedGB',
-  'diskTotalGB',
-  'concurrencyPercent',
-  'getMemoryPercent',
-  'formatUptime',
-  'formatTTL'
-]);
 const MACHINE_MARKED_ELEMENTS = new Set(['code', 'pre', 'kbd', 'samp']);
 const FORM_CONTROL_ELEMENTS = new Set(['input', 'select', 'option', 'textarea']);
 

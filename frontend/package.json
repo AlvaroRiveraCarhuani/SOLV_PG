@@ -7,9 +7,9 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "test:ci": "ng test --watch=false && vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs",
+    "test:ci": "ng test --watch=false && vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs",
     "test:e2e:typography": "playwright test --config=playwright.config.mjs",
-    "lint:styles": "node scripts/inline-styles-gate.mjs && node scripts/date-format-gate.mjs && node scripts/machine-data-gate.mjs && stylelint 'src/app/**/*.scss' --ignore-path .stylelintignore"
+    "lint:styles": "node scripts/inline-styles-gate.mjs && node scripts/date-format-gate.mjs && node scripts/machine-data-gate.mjs && stylelint 'src/app/**/*.scss' 'src/styles.scss' 'src/styles/**/*.scss' --ignore-path .stylelintignore"
   },
   "private": true,
   "packageManager": "npm@10.9.8",

@@ -21,6 +21,29 @@ description: Sistema de diseño, tokens, tipografía, paleta semántica y compon
 - Tablas: cabeceras en `xs`, mayúsculas, `var(--text-secondary)`.
 - Cards: texto `base`, `600`.
 
+### Matriz de tamaños por rol (sin literales ad hoc)
+| Rol | Token | Uso |
+|---|---|---|
+| Título página | `var(--text-xl)` 700 | `.page-title`, `h1` |
+| Título sección | `var(--text-lg)` 600 | `.section-title`, `h2` |
+| Título tarjeta/modal | `var(--text-base)` 600 | `.card-title`, `h3` |
+| Cuerpo | `var(--text-sm)` o `var(--text-base)` | párrafos, contenido |
+| Label | `var(--text-xs)` 600 | `.form-label` |
+| Control | `var(--text-sm)` | inputs, selects, botones |
+| Metadata | `var(--text-xs)` | hints, subtítulos, ayuda |
+| Celda tabla | `var(--text-sm)`; cabecera `var(--text-xs)` uppercase | tablas |
+| Métrica/KPI valor | `var(--text-xl)` o `var(--text-lg)` mono 700 | `.kpi-value` con `[machineData]` o `font-mono` |
+| Texto legal/ayuda | `var(--text-xs)` | footers, disclaimers |
+- PROHIBIDO `px`/`rem` literales en `font-size` y familias literales en `font-family`: solo tokens. Lo verifica Stylelint en `src/app/**/*.scss`, `src/styles.scss` y `src/styles/**/*.scss` (`_primitives.scss` define los tokens crudos y es la única excepción documentada a `color-no-hex`).
+- Casos mixtos: marcar solo el valor técnico y dejar etiqueta/prosa fuera del nodo mono. ID visible es máquina; nombre/descripción es UI; estado traducido a "En ejecución" es UI; `select` de RAM es control aunque contenga números. No usar mono en labels, opciones editables ni estados humanizados.
+
+### Checklist para vista nueva (clasificación + comandos)
+1. Clasificar cada interpolación visible: UI, dato técnico o control.
+2. Fechas con `dateText` dentro de `<time>`; técnicos con `[machineData]`/`code`/`pre`/`font-mono`; controles con `form-field`/clases globales.
+3. Tokens de la matriz de arriba, sin overrides locales de `font-family`/`font-size`.
+4. Nuevo campo técnico público: registrarlo en `frontend/scripts/machine-data-catalog.mjs` con categoría/ejemplo y agregar fixture en `machine-data-gate.test.mjs`.
+5. Correr desde `frontend/`: `npm run lint:styles`, luego el test focalizado, `npm run test:ci`, `npm run test:e2e:typography`, `npm run build`.
+
 ### Fechas: canon obligatorio (pipe `dateText` + `<time>`)
 - Renderizar fechas únicamente con el pipe compartido `dateText` (`shared/pipes/date-text.pipe.ts`) dentro de un `<time>` semántico. PROHIBIDO `toLocaleDateString`, `toLocaleTimeString`, `Intl.DateTimeFormat` y `| date:` de Angular en vistas. Gate de CI `date-format-gate.mjs` (parte de `npm run lint:styles`) aplica este contrato.
 - Estilos del pipe (salida determinista, independiente del locale del runtime): `datetime` = `dd/MM/yyyy HH:mm` (default) · `datetime-sec` = `dd/MM/yyyy HH:mm:ss` · `compact-datetime` = `dd/MM HH:mm:ss` · `date` = `dd/MM/yyyy` · `time` = `HH:mm` · `daymonth` = `dd MMM` · `daymonthyear` = `dd MMM yyyy` · `long-datetime` = `EEEE dd 'de' MMM, HH:mm:ss` (español fijo).
