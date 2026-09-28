@@ -45,6 +45,10 @@ func (h *WorkspaceHandler) StartWorkspace(w http.ResponseWriter, r *http.Request
 			SendError(w, http.StatusServiceUnavailable, err.Error(), "Servidor saturado: La memoria RAM del host cayó por debajo del 15% de margen de seguridad. Intente más tarde.")
 			return
 		}
+		if errors.Is(err, services.ErrMaxContainersReached) {
+			SendError(w, http.StatusServiceUnavailable, err.Error(), "Cupo institucional lleno: se alcanzó el máximo de entornos concurrentes configurado. Intente más tarde.")
+			return
+		}
 		if errors.Is(err, services.ErrOOMKilledCooldownPenalty) {
 			SendError(w, http.StatusTooManyRequests, err.Error(), "Memoria Excedida: Has superado la cuota de RAM (OOMKilled) 3 veces seguidas. Espera 5 minutos antes de reiniciar.")
 			return

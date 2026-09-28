@@ -31,6 +31,36 @@ func (m *MockHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 	return int64(m.AvailableMB) >= requiredMB
 }
 
+// stubTenantRepo seeds a fixed QoS base (256MB) for the tenant so the test
+// does not depend on ambient DB seed state. Only GetByID is exercised.
+type stubTenantRepo struct {
+	config []byte
+}
+
+func (s *stubTenantRepo) GetByID(ctx context.Context, id string) (*domain.Tenant, error) {
+	return &domain.Tenant{ID: id, Config: s.config}, nil
+}
+
+func (s *stubTenantRepo) GetBySlug(ctx context.Context, slug string) (*domain.Tenant, error) {
+	return nil, nil
+}
+
+func (s *stubTenantRepo) GetAll(ctx context.Context) ([]*domain.Tenant, error) {
+	return nil, nil
+}
+
+func (s *stubTenantRepo) UpdateConfig(ctx context.Context, id string, config []byte) error {
+	return nil
+}
+
+func (s *stubTenantRepo) SetMaintenance(ctx context.Context, tenantID string, enabled bool, until *time.Time, reason string) error {
+	return nil
+}
+
+func (s *stubTenantRepo) GetMaintenance(ctx context.Context, tenantID string) (*domain.MaintenanceStatus, error) {
+	return nil, nil
+}
+
 func TestHostAdmissionControl15PercentMargin(t *testing.T) {
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
@@ -113,6 +143,13 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 	repo := NewMockWorkspaceRepository()
 	healthyHostMonitor := &MockHostMonitor{FreePct: 50.0, AvailableMB: 8192}
 	service := services.NewWorkspaceService(repo, dockerClient, healthyHostMonitor)
+
+	// Seed the expected 256MB QoS base locally: without an injected policies
+	// service the workspace falls back to domain defaults (512MB).
+	policiesSvc := services.NewServerPoliciesService(&stubTenantRepo{
+		config: []byte(`{"server_policies":{"ram_limit_mb":256,"inactivity_minutes":15,"max_containers":40}}`),
+	})
+	service.SetPoliciesService(policiesSvc)
 
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()

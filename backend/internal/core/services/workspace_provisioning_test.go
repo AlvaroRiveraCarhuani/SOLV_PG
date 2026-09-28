@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,7 @@ import (
 
 type mockWorkspaceRepo struct {
 	workspaces map[string]*domain.WorkspaceInstance
+	active     []*domain.WorkspaceInstance
 }
 
 func newMockWorkspaceRepo() *mockWorkspaceRepo {
@@ -70,7 +72,7 @@ func (m *mockWorkspaceRepo) ResetOOMStrikes(ctx context.Context, id string) erro
 }
 
 func (m *mockWorkspaceRepo) GetActiveWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
-	return nil, nil
+	return m.active, nil
 }
 
 func (m *mockWorkspaceRepo) GetAllRunningWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
@@ -294,13 +296,102 @@ func TestWorkspaceService_DefaultFallbackWithoutTemplate(t *testing.T) {
 		t.Fatalf("error inesperado en fallback: %v", err)
 	}
 
-	// Debe caer a 256 MB y OpenVSCodeImage por defecto
-	if ws.MemoryLimitMB != domain.DefaultBaseMemoryMB {
-		t.Errorf("esperado DefaultBaseMemoryMB (%d), obtenido: %d", domain.DefaultBaseMemoryMB, ws.MemoryLimitMB)
+	// Sin políticas inyectadas rigen los defaults del dominio (512/15/40,
+	// iguales a los de un tenant fresco y a los defaults de la vista).
+	if ws.MemoryLimitMB != int64(domain.DefaultServerPolicies().RAMLimitMB) {
+		t.Errorf("esperado default de políticas (%d), obtenido: %d", domain.DefaultServerPolicies().RAMLimitMB, ws.MemoryLimitMB)
 	}
 	if orch.lastConfig.Image != domain.OpenVSCodeImage {
 		t.Errorf("esperado imagen default %s, obtenido: %s", domain.OpenVSCodeImage, orch.lastConfig.Image)
 	}
+}
+
+func TestWorkspaceService_PoliciesAdmission(t *testing.T) {
+	policiesJSON := []byte(`{"server_policies":{"ram_limit_mb":256,"inactivity_minutes":15,"max_containers":2,"updated_at":"2026-01-01T00:00:00Z"}}`)
+
+	newSvcWithPolicies := func(wsRepo *mockWorkspaceRepo, subjRepo *mockSubjectRepo, tplRepo *mockTemplateRepo) *services.WorkspaceService {
+		polSvc := services.NewServerPoliciesService(&mockTenantRepo{config: policiesJSON})
+		return services.NewWorkspaceService(wsRepo, &mockOrchestrator{}, &mockHostMonitor{}).
+			WithProvisioning(subjRepo, tplRepo, nil).
+			SetPoliciesService(polSvc)
+	}
+
+	t.Run("la RAM de la política es el default sin plantilla", func(t *testing.T) {
+		wsRepo := newMockWorkspaceRepo()
+		subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{}}
+		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}})
+
+		ws, err := svc.StartWorkspace(context.Background(), "student-pol", "subj-sin-plantilla")
+		if err != nil {
+			t.Fatalf("error inesperado: %v", err)
+		}
+		if ws.MemoryLimitMB != 256 {
+			t.Errorf("esperado RAM de política = 256, obtenido: %d", ws.MemoryLimitMB)
+		}
+	})
+
+	t.Run("la plantilla prevalece sobre la política y el inicio no se bloquea", func(t *testing.T) {
+		wsRepo := newMockWorkspaceRepo()
+		tplID := "tpl-1gb"
+		subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{
+			"subj-1gb": {ID: "subj-1gb", TemplateID: &tplID},
+		}}
+		tplRepo := &mockTemplateRepo{templates: map[string]*domain.Template{
+			tplID: {ID: tplID, DockerImage: "solv/cs:1gb", BaseRamMB: 1024},
+		}}
+		svc := newSvcWithPolicies(wsRepo, subjRepo, tplRepo)
+
+		ws, err := svc.StartWorkspace(context.Background(), "student-1gb", "subj-1gb")
+		if err != nil {
+			t.Fatalf("la plantilla debe prevalecer, pero falló: %v", err)
+		}
+		if ws.MemoryLimitMB != 1024 {
+			t.Errorf("esperado RAM de plantilla = 1024, obtenido: %d", ws.MemoryLimitMB)
+		}
+	})
+
+	t.Run("el techo de concurrencia rechaza inicios nuevos", func(t *testing.T) {
+		wsRepo := newMockWorkspaceRepo()
+		wsRepo.active = []*domain.WorkspaceInstance{{ID: "ws-1"}, {ID: "ws-2"}}
+		subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{}}
+		svc := newSvcWithPolicies(wsRepo, subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}})
+
+		_, err := svc.StartWorkspace(context.Background(), "student-full", "subj-x")
+		if err == nil {
+			t.Fatal("esperado ErrMaxContainersReached con 2 activos y techo 2")
+		}
+		if !errors.Is(err, services.ErrMaxContainersReached) {
+			t.Errorf("esperado ErrMaxContainersReached, obtenido: %v", err)
+		}
+	})
+}
+
+type mockTenantRepo struct {
+	config []byte
+}
+
+func (m *mockTenantRepo) GetByID(ctx context.Context, id string) (*domain.Tenant, error) {
+	return &domain.Tenant{ID: id, Config: m.config}, nil
+}
+
+func (m *mockTenantRepo) GetBySlug(ctx context.Context, slug string) (*domain.Tenant, error) {
+	return nil, nil
+}
+
+func (m *mockTenantRepo) GetAll(ctx context.Context) ([]*domain.Tenant, error) {
+	return nil, nil
+}
+
+func (m *mockTenantRepo) UpdateConfig(ctx context.Context, id string, config []byte) error {
+	return nil
+}
+
+func (m *mockTenantRepo) SetMaintenance(ctx context.Context, tenantID string, enabled bool, until *time.Time, reason string) error {
+	return nil
+}
+
+func (m *mockTenantRepo) GetMaintenance(ctx context.Context, tenantID string) (*domain.MaintenanceStatus, error) {
+	return nil, nil
 }
 
 func TestWorkspaceService_StartWorkspace_RamExceedsHost(t *testing.T) {

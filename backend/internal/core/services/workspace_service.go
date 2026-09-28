@@ -19,15 +19,17 @@ import (
 var (
 	ErrHostMemoryExhausted      = errors.New("host physical memory depleted: admission control denied request (HTTP 503)")
 	ErrOOMKilledCooldownPenalty = errors.New("workspace reached 3 consecutive OOMKilled strikes: 5-minute cooldown penalty enforced")
+	ErrMaxContainersReached     = errors.New("tenant concurrency quota exhausted: max_containers admission denied request (HTTP 503)")
 )
 
 type WorkspaceService struct {
-	repo         domain.WorkspaceRepository
-	docker       domain.WorkspaceOrchestrator
-	hostMonitor  domain.HostMonitor
-	subjectRepo  domain.SubjectRepository
-	templateRepo domain.TemplateRepository
-	db           *sqlx.DB
+	repo            domain.WorkspaceRepository
+	docker          domain.WorkspaceOrchestrator
+	hostMonitor     domain.HostMonitor
+	subjectRepo     domain.SubjectRepository
+	templateRepo    domain.TemplateRepository
+	db              *sqlx.DB
+	policiesService *ServerPoliciesService
 }
 
 func NewWorkspaceService(repo domain.WorkspaceRepository, docker domain.WorkspaceOrchestrator, hostMonitor domain.HostMonitor) *WorkspaceService {
@@ -46,12 +48,44 @@ func (s *WorkspaceService) WithProvisioning(subjectRepo domain.SubjectRepository
 	return s
 }
 
+// SetPoliciesService inyecta las políticas QoS del tenant (submódulo 14.6):
+// la RAM de la política es el default por alumno y max_containers el techo
+// de concurrencia en la admisión. Sin inyección rigen los defaults del dominio.
+func (s *WorkspaceService) SetPoliciesService(policies *ServerPoliciesService) *WorkspaceService {
+	s.policiesService = policies
+	return s
+}
+
+// effectivePolicies resuelve las políticas vigentes del tenant con fallback a
+// defaults ante cualquier fallo (fail-open: una política nunca voltea clases;
+// la protección dura del host vive en el admission control físico).
+func (s *WorkspaceService) effectivePolicies(ctx context.Context, tenantID string) domain.ServerPolicies {
+	defaults := domain.DefaultServerPolicies()
+	if s.policiesService == nil {
+		return defaults
+	}
+	policies, err := s.policiesService.Get(ctx, tenantID)
+	if err != nil || policies == nil {
+		return defaults
+	}
+	return *policies
+}
+
 func getBaseDomain() string {
 	d := strings.TrimSpace(os.Getenv("BASE_DOMAIN"))
 	if d != "" {
 		return d
 	}
 	return "solv.local"
+}
+
+// hostTotalMB lee la RAM física total del host con fallback a 8 GB cuando
+// gopsutil no responde (mismo contrato que el resto de los workers).
+func hostTotalMB() int {
+	if vm, err := mem.VirtualMemory(); err == nil && vm.Total > 0 {
+		return int(vm.Total / (1024 * 1024))
+	}
+	return 8192
 }
 
 func sanitizeIDForDB(id string) string {
@@ -119,21 +153,37 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	// 0. Resolución de plantilla institucional asociada a la materia
 	template := s.resolveTemplate(ctx, subjectID)
 
-	ramLimitMB := domain.DefaultBaseMemoryMB // 256
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	policies := s.effectivePolicies(ctx, tenantID)
+
+	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
+	// Solo cuenta workspaces nuevos; reactivaciones de existentes no consumen cupo.
+	if active, err := s.repo.GetActiveWorkspaces(ctx); err != nil {
+		log.Printf("[Admission] WARNING: no se pudo contar workspaces activos, admitiendo por fail-open: %v", err)
+	} else if len(active) >= policies.MaxContainers {
+		return nil, fmt.Errorf("%w: tenant %s tiene %d activos (techo %d)", ErrMaxContainersReached, tenantID, len(active), policies.MaxContainers)
+	}
+
+	// 0.2 RAM efectiva: la política es el default por alumno; la plantilla
+	// prevalece cuando declara un requisito (BaseRamMB >= 256) y el exceso
+	// sobre la política queda registrado para visibilidad del admin.
+	ramLimitMB := int64(policies.RAMLimitMB)
 	imageName := domain.OpenVSCodeImage     // gitpod/openvscode-server:latest
 	var templateIDStr *string
 	if template != nil {
 		templateIDStr = &template.ID
 		if template.BaseRamMB >= 256 {
 			ramLimitMB = int64(template.BaseRamMB)
+			if int(ramLimitMB) > policies.RAMLimitMB {
+				log.Printf("[Admission PolicyOverride] plantilla %s requiere %d MB sobre la política del tenant (%d MB): prevalece la plantilla",
+					template.ID, ramLimitMB, policies.RAMLimitMB)
+			}
 		}
-		totalHostMB := 8192
-		if vm, err := mem.VirtualMemory(); err == nil && vm.Total > 0 {
-			totalHostMB = int(vm.Total / (1024 * 1024))
-		}
-		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
-		if err := domain.ValidateRamAgainstHost(int(ramLimitMB), maxAllowedRAM); err != nil {
-			return nil, fmt.Errorf("solicitud rechazada: la memoria de la plantilla (%d MB) excede la capacidad estructural del host (%d MB)", ramLimitMB, maxAllowedRAM)
+		if err := domain.ValidateRamAgainstHost(int(ramLimitMB), domain.CalculateHostMaxAllowedRAM(hostTotalMB())); err != nil {
+			return nil, fmt.Errorf("solicitud rechazada: la memoria de la plantilla (%d MB) excede la capacidad estructural del host", ramLimitMB)
 		}
 		if strings.TrimSpace(template.DockerImage) != "" {
 			imageName = strings.TrimSpace(template.DockerImage)
@@ -175,11 +225,6 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	containerName := fmt.Sprintf("solv-workspace-%s", workspaceID)
 	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
 	networkName := "solv-traefik-net"
-
-	tenantID := domain.GetTenantID(ctx)
-	if tenantID == "" {
-		tenantID = domain.DefaultTenantID
-	}
 
 	instance := &domain.WorkspaceInstance{
 		ID:              workspaceID,
@@ -312,10 +357,15 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	}
 
 	template := s.resolveTemplate(ctx, instance.SubjectID)
-	ramLimitMB := domain.DefaultBaseMemoryMB
+	// La reactivación preserva el límite vigente en BD (refleja política,
+	// plantilla y auto-bursting acumulados); solo recalcula si no hay valor.
+	ramLimitMB := instance.MemoryLimitMB
+	if ramLimitMB <= 0 {
+		ramLimitMB = int64(s.effectivePolicies(ctx, instance.TenantID).RAMLimitMB)
+	}
 	imageName := domain.OpenVSCodeImage
 	if template != nil {
-		if template.BaseRamMB >= 256 {
+		if template.BaseRamMB >= 256 && int64(template.BaseRamMB) > ramLimitMB {
 			ramLimitMB = int64(template.BaseRamMB)
 		}
 		if strings.TrimSpace(template.DockerImage) != "" {

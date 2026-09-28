@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -184,12 +186,18 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"error":"Failed to retrieve audit logs"}`, http.StatusInternalServerError)
 		return
 	}
+	total, err := h.auditRepo.CountFiltered(r.Context(), tenantID, actorID, action)
+	if err != nil {
+		http.Error(w, `{"error":"Failed to count audit logs"}`, http.StatusInternalServerError)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"tenant_id": tenantID,
 		"limit":     limit,
 		"offset":    offset,
+		"total":     total,
 		"data":      logs,
 	})
 }

@@ -80,6 +80,7 @@ func main() {
 	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
 
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
+	workspaceService.SetPoliciesService(serverPoliciesService)
 	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
 		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
 		if err != nil {
