@@ -1,10 +1,11 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   AdminConfigServidorService,
   ServerPolicies,
-  BackupExecutionItem
+  BackupExecutionItem,
+  VerifyBackupResult
 } from '../admin-config-servidor.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -25,6 +26,16 @@ import {
 
 const RAM_OPTIONS = [256, 512, 1024];
 const INACTIVITY_OPTIONS = [10, 15, 30];
+
+// Pure fail-closed integer check: NaN, empty, decimals and out-of-range all
+// produce an inline message; valid input returns ''.
+export function validateBackupInt(raw: unknown, min: number, max: number, field: string): string {
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < min || value > max) {
+    return `La ${field} debe ser un entero entre ${min} y ${max}.`;
+  }
+  return '';
+}
 
 @Component({
   selector: 'admin-config-servidor',
@@ -87,6 +98,49 @@ export class AdminConfigServidorComponent implements OnInit {
   readonly isSavingBackup = signal(false);
   readonly isTriggering = signal(false);
 
+  // Fail-closed: ngModel con type="number" entrega ""/NaN; Number() los
+  // normaliza a 0/NaN para que caigan en la rama inválida.
+  readonly backupFrequencyError = computed(() => validateBackupInt(this.backupFrequency(), 1, 168, 'frecuencia'));
+  readonly backupRetentionError = computed(() => validateBackupInt(this.backupRetention(), 1, 365, 'retención'));
+
+  readonly canSaveBackup = computed(
+    () => !this.backupFrequencyError() && !this.backupRetentionError() && !this.isSavingBackup()
+  );
+
+  // Conteo client-side (sin endpoint nuevo): respaldos más viejos que la
+  // retención ingresada expirarían al guardar.
+  readonly purgeCount = computed(() => {
+    const retention = Number(this.backupRetention());
+    if (!Number.isInteger(retention) || retention < 1) return 0;
+    const cutoff = Date.now() - retention * 86400000;
+    return this.backups().filter((b) => new Date(b.started_at).getTime() < cutoff).length;
+  });
+
+  // El servicio carga async; sin esta sincronización el form muestra los
+  // defaults locales (512/15/40, 6/7) aunque el backend tenga otros valores:
+  // falso "dirty" en QoS y riesgo de pisar la estrategia de respaldos.
+  // Se sincroniza una sola vez por carga para no pisar ediciones en curso.
+  private formSynced = false;
+
+  constructor() {
+    effect(() => {
+      const p = this.policies();
+      const cfg = this.backupConfig();
+      if (this.formSynced) return;
+      if (!p && !cfg) return;
+      if (p) {
+        this.selectedRam.set(p.ram_limit_mb);
+        this.selectedInactivity.set(p.inactivity_minutes);
+        this.selectedMaxContainers.set(p.max_containers);
+      }
+      if (cfg) {
+        this.backupFrequency.set(cfg.local_frequency_hours);
+        this.backupRetention.set(cfg.local_retention_days);
+      }
+      this.formSynced = true;
+    });
+  }
+
   // ------------------------------------------------------------------
   // Toast + modal de mantenimiento
   // ------------------------------------------------------------------
@@ -102,7 +156,33 @@ export class AdminConfigServidorComponent implements OnInit {
   readonly maintenanceModalOpen = signal(false);
   readonly maintenanceUntil = signal('');
   readonly maintenanceReason = signal('');
+  readonly confirmPhrase = signal('');
   readonly isTogglingMaintenance = signal(false);
+
+  readonly maintenanceUntilError = computed(() => {
+    const raw = this.maintenanceUntil().trim();
+    if (raw === '') return '';
+    if (new Date(raw).getTime() < Date.now()) return 'La vigencia debe ser futura.';
+    return '';
+  });
+
+  // Vacía = indefinida: avisar que queda activo hasta baja manual.
+  readonly vigenciaWarning = computed(() =>
+    this.maintenanceUntil().trim() === ''
+      ? 'Sin vigencia el mantenimiento permanece activo hasta desactivación manual.'
+      : ''
+  );
+
+  // Activar exige frase exacta + motivo >= 10 + vigencia no vencida.
+  readonly confirmDisabled = computed(() => {
+    if (this.maintenance()?.maintenance_mode) return this.isTogglingMaintenance();
+    return (
+      this.confirmPhrase() !== 'MANTENIMIENTO' ||
+      this.maintenanceReason().trim().length < 10 ||
+      this.maintenanceUntilError() !== '' ||
+      this.isTogglingMaintenance()
+    );
+  });
 
   readonly maintenanceConfirmValid = computed(() => {
     const status = this.maintenance();
@@ -152,6 +232,7 @@ export class AdminConfigServidorComponent implements OnInit {
   openMaintenanceModal(): void {
     this.maintenanceUntil.set('');
     this.maintenanceReason.set('');
+    this.confirmPhrase.set('');
     this.maintenanceModalOpen.set(true);
   }
 
@@ -160,7 +241,7 @@ export class AdminConfigServidorComponent implements OnInit {
   }
 
   confirmMaintenance(): void {
-    if (!this.maintenanceConfirmValid() || this.isTogglingMaintenance()) return;
+    if (this.confirmDisabled() || this.isTogglingMaintenance()) return;
     this.isTogglingMaintenance.set(true);
 
     // Capturar la intención ANTES de la llamada: el estado se actualiza en el
@@ -169,7 +250,7 @@ export class AdminConfigServidorComponent implements OnInit {
 
     const call$ = wasActive
       ? this.servidorService.disableMaintenance()
-      : this.servidorService.enableMaintenance(this.maintenanceUntil(), this.maintenanceReason().trim());
+      : this.servidorService.enableMaintenance(this.maintenanceUntil(), this.maintenanceReason().trim(), this.confirmPhrase());
 
     call$.subscribe({
       next: () => {
@@ -192,7 +273,7 @@ export class AdminConfigServidorComponent implements OnInit {
   // Respaldos
   // ------------------------------------------------------------------
   saveBackupStrategy(): void {
-    if (this.isSavingBackup()) return;
+    if (!this.canSaveBackup() || this.isSavingBackup()) return;
     this.isSavingBackup.set(true);
 
     this.servidorService.updateBackupConfig({
@@ -201,7 +282,7 @@ export class AdminConfigServidorComponent implements OnInit {
     }).subscribe({
       next: () => {
         this.isSavingBackup.set(false);
-        this.showToast('Estrategia de respaldos actualizada.');
+        this.showToast('Configuración de respaldos guardada.');
       },
       error: (err) => {
         this.isSavingBackup.set(false);
@@ -217,7 +298,7 @@ export class AdminConfigServidorComponent implements OnInit {
     this.servidorService.triggerBackup().subscribe({
       next: () => {
         this.isTriggering.set(false);
-        this.showToast('Respaldo generado y verificado con checksum SHA-256.');
+        this.showToast('Respaldo creado. Integridad sin verificar — usa Verificar para confirmar.');
       },
       error: (err) => {
         this.isTriggering.set(false);
@@ -229,22 +310,25 @@ export class AdminConfigServidorComponent implements OnInit {
   async verifyBackup(exec: BackupExecutionItem): Promise<void> {
     this.servidorService.verifyBackup(exec.id).subscribe({
       next: (res) => {
-        this.showToast(
-          res.valid
-            ? `Integridad verificada: ${exec.file_name} OK.`
-            : `CORRUPTO: el checksum de ${exec.file_name} no coincide.`,
-          res.valid ? 'success' : 'error'
-        );
+        const data = res.data;
+        if (data.is_valid) {
+          this.showToast(`Integridad verificada: ${exec.file_name} OK.`, 'success');
+        } else if (data.computed_checksum === '') {
+          this.showToast(`Archivo no disponible en disco: ${exec.file_name}.`, 'error');
+        } else {
+          this.showToast(`Checksum no coincide: ${exec.file_name} podría estar corrupto.`, 'error');
+        }
       },
       error: (err) => this.showToast(this.servidorService.resolveError(err), 'error')
     });
   }
 
   formatBytes(bytes: number): string {
-    if (bytes >= 1024 * 1024 * 1024) {
-      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-    }
-    return `${(bytes / (1024 * 1024)).toFixed(0)} MB`;
+    if (bytes <= 0) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
   }
 
   formatDate(iso: string): string {

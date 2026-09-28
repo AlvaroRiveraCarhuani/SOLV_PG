@@ -43,12 +43,24 @@ export interface BackupExecutionItem {
   error_message?: string;
   started_at: string;
   completed_at?: string | null;
+  last_verify_ok?: boolean | null;
+  last_verify_at?: string | null;
 }
 
 /** Respuesta GlobalResponse del backend: { data, error, message } */
 interface ApiEnvelope<T> {
   data: T;
   message?: string;
+}
+
+/** Resultado tipado de verifyBackup: { data: { is_valid, ... } } */
+export interface VerifyBackupResult {
+  execution_id: string;
+  file_name: string;
+  database_checksum: string;
+  computed_checksum: string;
+  is_valid: boolean;
+  message: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -101,8 +113,8 @@ export class AdminConfigServidorService {
     );
   }
 
-  enableMaintenance(until: string, reason: string): Observable<unknown> {
-    return this.http.post('/api/v1/admin/maintenance/enable', { until, reason }).pipe(
+  enableMaintenance(until: string, reason: string, confirmPhrase = ''): Observable<unknown> {
+    return this.http.post('/api/v1/admin/maintenance/enable', { until, reason, confirm_phrase: confirmPhrase }).pipe(
       tap(() => this.maintenance.set({ maintenance_mode: true, maintenance_until: until || null, maintenance_reason: reason }))
     );
   }
@@ -125,12 +137,12 @@ export class AdminConfigServidorService {
     );
   }
 
-  verifyBackup(id: string): Observable<{ valid: boolean; message?: string }> {
-    return this.http.post<{ valid: boolean }>(`/api/v1/admin/backups/${id}/verify`, {});
+  verifyBackup(id: string): Observable<ApiEnvelope<VerifyBackupResult>> {
+    return this.http.post<ApiEnvelope<VerifyBackupResult>>(`/api/v1/admin/backups/${id}/verify`, {});
   }
 
   resolveError(err: unknown): string {
-    const e = err as { error?: { message?: string; error?: string } };
-    return e?.error?.message || e?.error?.error || 'Ocurrió un error inesperado. Intenta nuevamente.';
+    const e = err as { error?: { message?: string; error?: string }; message?: string };
+    return e?.error?.message ?? e?.message ?? 'Ocurrió un error inesperado. Intenta nuevamente.';
   }
 }

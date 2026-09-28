@@ -9,7 +9,8 @@ import {
   AdminConfigServidorService,
   ServerPolicies,
   MaintenanceStatus,
-  BackupExecutionItem
+  BackupExecutionItem,
+  VerifyBackupResult
 } from '../admin-config-servidor.service';
 
 const makePolicies = (overrides: Partial<ServerPolicies> = {}): ServerPolicies => ({
@@ -27,8 +28,22 @@ const makeExec = (overrides: Partial<BackupExecutionItem> = {}): BackupExecution
   storage_tier: 'local',
   status: 'success',
   started_at: '2026-09-26T03:00:00Z',
+  last_verify_ok: null,
+  last_verify_at: null,
   ...overrides
 });
+
+const makeVerifyResult = (overrides: Partial<VerifyBackupResult> = {}): VerifyBackupResult => ({
+  execution_id: 'b1',
+  file_name: 'solv_snap_20260926.tar.gz',
+  database_checksum: 'abc123',
+  computed_checksum: 'abc123',
+  is_valid: true,
+  message: 'Integridad criptográfica verificada: el archivo no está corrupto ni alterado',
+  ...overrides
+});
+
+const verifyEnvelope = (result: VerifyBackupResult) => ({ data: result });
 
 describe('AdminConfigServidorComponent', () => {
   let component: AdminConfigServidorComponent;
@@ -68,7 +83,7 @@ describe('AdminConfigServidorComponent', () => {
         backupsSignal.update((prev) => [makeExec({ id: 'b-new' }), ...prev]);
         return of(makeExec({ id: 'b-new' }));
       }),
-      verifyBackup: vi.fn().mockReturnValue(of({ valid: true })),
+      verifyBackup: vi.fn().mockReturnValue(of(verifyEnvelope(makeVerifyResult()))),
       resolveError: vi.fn().mockReturnValue('Error de prueba')
     };
 
@@ -133,13 +148,69 @@ describe('AdminConfigServidorComponent', () => {
     expect(component.backups()[0].id).toBe('b-new');
   });
 
-  it('verificación de integridad: checksum OK genera toast de éxito', async () => {
+  it('verificación de integridad: checksum OK genera toast de éxito con envelope data.is_valid', async () => {
     await setup();
 
     component.verifyBackup(makeExec());
 
     expect(mockService.verifyBackup).toHaveBeenCalledWith('b1');
     expect(component.toast()?.message).toContain('OK');
+  });
+
+  it('verificación: archivo faltante muestra copy de missing (is_valid=false, checksum vacío)', async () => {
+    await setup();
+
+    const missingResult = makeVerifyResult({
+      is_valid: false,
+      computed_checksum: '',
+      database_checksum: 'abc123',
+      message: 'Archivo físico no encontrado en disco'
+    });
+    mockService.verifyBackup.mockReturnValue(of(verifyEnvelope(missingResult)));
+
+    component.verifyBackup(makeExec());
+
+    expect(component.toast()?.message).toContain('no disponible');
+  });
+
+  it('verificación: checksum mismatch muestra copy distinta de missing', async () => {
+    await setup();
+
+    const mismatchResult = makeVerifyResult({
+      is_valid: false,
+      computed_checksum: 'tampered123',
+      database_checksum: 'abc123',
+      message: 'ALERTA: El checksum del archivo físico difiere'
+    });
+    mockService.verifyBackup.mockReturnValue(of(verifyEnvelope(mismatchResult)));
+
+    component.verifyBackup(makeExec());
+
+    expect(component.toast()?.message).toContain('Checksum no coincide');
+    expect(component.toast()?.message).toContain('corrupto');
+  });
+
+  it('formatBytes: 150 B renderiza KB, nunca 0 MB', () => {
+    expect(component.formatBytes(150)).not.toBe('0 MB');
+    expect(component.formatBytes(150)).toContain('B');
+    expect(component.formatBytes(150)).not.toContain('MB');
+  });
+
+  it('formatBytes: 1024 B renderiza 1.0 KB', () => {
+    expect(component.formatBytes(1024)).toBe('1.0 KB');
+  });
+
+  it('formatBytes: 0 B renderiza 0 B', () => {
+    expect(component.formatBytes(0)).toBe('0 B');
+  });
+
+  it('trigger toast no contiene claim de verificación', async () => {
+    await setup();
+
+    component.triggerBackup();
+
+    expect(component.toast()?.message).not.toContain('verificad');
+    expect(component.toast()?.message).toContain('Integridad');
   });
 
   it('activación de mantenimiento exige motivo >= 10 caracteres y ventana opcional', async () => {
@@ -154,8 +225,9 @@ describe('AdminConfigServidorComponent', () => {
     component.maintenanceReason.set('Actualización programada del orquestador');
     expect(component.maintenanceConfirmValid()).toBe(true);
 
+    component.confirmPhrase.set('MANTENIMIENTO');
     component.confirmMaintenance();
-    expect(mockService.enableMaintenance).toHaveBeenCalledWith('', 'Actualización programada del orquestador');
+    expect(mockService.enableMaintenance).toHaveBeenCalledWith('', 'Actualización programada del orquestador', 'MANTENIMIENTO');
     expect(component.maintenance()?.maintenance_mode).toBe(true);
     expect(component.toast()?.message).toContain('bypass');
   });
@@ -170,5 +242,69 @@ describe('AdminConfigServidorComponent', () => {
     component.confirmMaintenance();
     expect(mockService.disableMaintenance).toHaveBeenCalled();
     expect(component.maintenance()?.maintenance_mode).toBe(false);
+  });
+
+  it('respaldo inválido: error inline, Save bloqueado y sin toast de éxito', async () => {
+    await setup();
+
+    component.backupFrequency.set(0);
+    expect(component.backupFrequencyError()).toContain('1');
+    expect(component.canSaveBackup()).toBe(false);
+
+    component.saveBackupStrategy();
+    expect(mockService.updateBackupConfig).not.toHaveBeenCalled();
+    expect(component.toast()).toBeNull();
+
+    component.backupFrequency.set(6);
+    component.backupRetention.set(366);
+    expect(component.backupRetentionError()).toContain('365');
+    expect(component.canSaveBackup()).toBe(false);
+  });
+
+  it('respaldo NaN o decimal se rechaza igual que fuera de rango', async () => {
+    await setup();
+
+    component.backupFrequency.set(NaN);
+    expect(component.backupFrequencyError()).toBeTruthy();
+    expect(component.canSaveBackup()).toBe(false);
+
+    component.backupFrequency.set(6.5);
+    expect(component.backupFrequencyError()).toBeTruthy();
+    expect(component.canSaveBackup()).toBe(false);
+  });
+
+  it('bajar retención advierte cuántos respaldos expirarían', async () => {
+    await setup();
+    backupsSignal.set([
+      makeExec({ id: 'old', started_at: '2026-01-01T00:00:00Z' }),
+      makeExec({ id: 'new', started_at: new Date().toISOString() })
+    ]);
+
+    component.backupRetention.set(7);
+    expect(component.purgeCount()).toBe(1);
+    expect(component.canSaveBackup()).toBe(true);
+  });
+
+  it('frase distinta de MANTENIMIENTO bloquea la activación', async () => {
+    await setup();
+
+    component.openMaintenanceModal();
+    component.maintenanceReason.set('Actualización programada del orquestador');
+    component.confirmPhrase.set('mantenimiento');
+    expect(component.confirmDisabled()).toBe(true);
+
+    component.confirmMaintenance();
+    expect(mockService.enableMaintenance).not.toHaveBeenCalled();
+
+    component.confirmPhrase.set('MANTENIMIENTO');
+    expect(component.confirmDisabled()).toBe(false);
+  });
+
+  it('vigencia vacía advierte permanencia indefinida', async () => {
+    await setup();
+
+    component.openMaintenanceModal();
+    component.maintenanceUntil.set('');
+    expect(component.vigenciaWarning()).toContain('manual');
   });
 });

@@ -32,8 +32,10 @@
           <div>
             <h2 class="section-title">Políticas de Concurrencia y Recursos Estudiantiles</h2>
             <p class="card-hint">
-              El worker QoS recarga estos valores en cada ciclo. La RAM aplica a
-              contenedores nuevos; los activos conservan su límite (Auto-Bursting intacto).
+              El worker QoS recarga estos valores en cada ciclo. La RAM es el default
+              por alumno para contenedores nuevos (los activos la conservan); si una
+              plantilla exige más, prevalece y queda registrado. La concurrencia
+              máxima rechaza inicios nuevos con 503 al alcanzar el techo.
             </p>
           </div>
         </div>
@@ -115,7 +117,7 @@
             <h2 class="section-title">Modo Mantenimiento Global</h2>
             <p class="card-hint">
               Bloquea sesiones de estudiantes y docentes con pantalla de mantenimiento.
-              Los administradores conservan acceso completo (bypass perimetral ADR-031).
+              Los administradores conservan acceso completo.
             </p>
           </div>
         </div>
@@ -143,27 +145,29 @@
       </div>
     </div>
 
-    <!-- ================= BLOQUE 3: Estrategia de Respaldos ================= -->
+    <!-- ================= BLOQUE 3: Respaldos ================= -->
     <div class="server-card">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideHardDrive class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Estrategia de Respaldos y Contingencia</h2>
+            <h2 class="section-title">Respaldos y Contingencia</h2>
             <p class="card-hint">
-              Respaldos transaccionales con pg_dump, verificación SHA-256 y retención rotativa (ADR-035).
+              Copias de seguridad automáticas de la plataforma, con verificación
+              de integridad y eliminación automática de los archivos más antiguos.
             </p>
           </div>
           <button
             type="button"
             class="btn-outline trigger-btn"
             (click)="triggerBackup()"
-            [disabled]="isTriggering()">
+            [disabled]="isTriggering()"
+            title="Crea ahora mismo una copia de seguridad completa y la agrega al historial de abajo">
             <svg lucideDatabaseBackup class="btn-icon"></svg>
             @if (isTriggering()) {
-              <span>Generando...</span>
+              <span>Creando...</span>
             } @else {
-              <span>Generar Respaldo Ahora</span>
+              <span>Crear Respaldo Ahora</span>
             }
           </button>
         </div>
@@ -171,7 +175,7 @@
 
       @if (backupConfig(); as cfg) {
         <div class="backup-strategy-grid">
-          <form-field label="Frecuencia Local (horas)" for="backup-freq" hint="Intervalo entre respaldos automáticos">
+          <form-field label="Cada Cuántas Horas (automático)" for="backup-freq" hint="Cada cuántas horas se crea un respaldo solo" [error]="backupFrequencyError()">
             <input
               id="backup-freq"
               type="number"
@@ -181,39 +185,48 @@
               [ngModel]="backupFrequency() || cfg.local_frequency_hours"
               (ngModelChange)="backupFrequency.set($event)" />
           </form-field>
-          <form-field label="Retención Local (días)" for="backup-retention" hint="Días antes de la purga rotativa">
+          <form-field label="Conservar Respaldos (días)" for="backup-retention" hint="Cuántos días se guardan antes de borrarlos solos" [error]="backupRetentionError()">
             <input
               id="backup-retention"
               type="number"
               class="form-input"
               min="1"
-              max="90"
+              max="365"
               [ngModel]="backupRetention() || cfg.local_retention_days"
               (ngModelChange)="backupRetention.set($event)" />
           </form-field>
-          <div class="strategy-save">
-            <button type="button" class="btn-primary" (click)="saveBackupStrategy()" [disabled]="isSavingBackup()">
-              @if (isSavingBackup()) {
-                <span>Guardando...</span>
-              } @else {
-                <span>Guardar Estrategia</span>
-              }
-            </button>
+        </div>
+        @if (purgeCount() > 0 && !backupRetentionError()) {
+          <div class="maintenance-warning">
+            <svg lucideAlertTriangle></svg>
+            <span>
+              Reducir la retención a {{ backupRetention() }} días expiraría {{ purgeCount() }} respaldo(s) del historial. Se eliminarán en la próxima rotación.
+            </span>
           </div>
+        }
+        <div class="card-actions-row">
+          <button type="button" class="btn-primary" (click)="saveBackupStrategy()" [disabled]="!canSaveBackup()">
+            @if (isSavingBackup()) {
+              <span>Guardando...</span>
+            } @else {
+              <span>Guardar Configuración</span>
+            }
+          </button>
         </div>
       }
 
-      <!-- Historial de snapshots -->
+      <!-- Historial de respaldos -->
       <div class="backups-table-wrap">
         <table class="data-table">
           <thead>
-            <tr>
-              <th>Archivo Snapshot</th>
-              <th>Fecha Generación</th>
-              <th>Tamaño</th>
-              <th>Estado</th>
-              <th class="col-actions">Acciones</th>
-            </tr>
+              <tr>
+                <th>Archivo de Respaldo</th>
+                <th>Fecha</th>
+                <th>Tamaño</th>
+                <th>Estado</th>
+                <th>Verificación</th>
+                <th class="col-actions">Acciones</th>
+              </tr>
           </thead>
           <tbody>
             @for (exec of backups(); track trackByBackup($index, exec)) {
@@ -226,13 +239,27 @@
                     {{ exec.status === 'success' ? 'Completado' : exec.status === 'failed' ? 'Fallido' : 'En Progreso' }}
                   </span>
                 </td>
+                <td>
+                  <span class="verify-indicator"
+                    [class.verify-ok]="exec.last_verify_ok === true"
+                    [class.verify-failed]="exec.last_verify_ok === false"
+                    [class.verify-never]="exec.last_verify_ok === null || exec.last_verify_ok === undefined">
+                    @if (exec.last_verify_ok === true) {
+                      Verificado {{ exec.last_verify_at ? '(' + (exec.last_verify_at | date:'dd/MM/yyyy') + ')' : '' }}
+                    } @else if (exec.last_verify_ok === false) {
+                      Verificación fallida
+                    } @else {
+                      Sin verificar
+                    }
+                  </span>
+                </td>
                 <td class="col-actions">
                   <div class="action-buttons">
                     <button type="button" class="btn-action" (click)="verifyBackup(exec)" title="Recalcular checksum SHA-256">
                       <svg lucideShieldCheck class="action-icon"></svg>
                       <span>Verificar</span>
                     </button>
-                    <a class="btn-action" [href]="'/api/v1/admin/backups/' + exec.id + '/download'" title="Descargar snapshot">
+                    <a class="btn-action" [href]="'/api/v1/admin/backups/' + exec.id + '/download'" title="Descargar respaldo">
                       <svg lucideDownload class="action-icon"></svg>
                       <span>Descargar</span>
                     </a>
@@ -246,8 +273,8 @@
                     <div class="empty-icon-box">
                       <svg lucideDatabaseBackup></svg>
                     </div>
-                    <p class="empty-title">Sin snapshots registrados</p>
-                    <p class="empty-description">Genera el primer respaldo para iniciar el historial con verificación de integridad.</p>
+                    <p class="empty-title">Sin respaldos registrados</p>
+                    <p class="empty-description">Crea el primer respaldo para iniciar el historial con verificación de integridad.</p>
                   </div>
                 </td>
               </tr>
@@ -273,11 +300,11 @@
         <svg lucideAlertTriangle></svg>
         <span>
           Los estudiantes y docentes no podrán iniciar sesiones ni enviar soluciones.
-          Los administradores conservan acceso completo (bypass ADR-031).
+          Los administradores conservan acceso completo.
         </span>
       </div>
 
-      <form-field label="Vigencia (opcional)" for="maintenance-until" hint="Si se define, el modo se desactiva automáticamente al vencer.">
+      <form-field label="Vigencia (opcional)" for="maintenance-until" hint="Si se define, el modo se desactiva automáticamente al vencer." [error]="maintenanceUntilError()">
         <input
           id="maintenance-until"
           type="datetime-local"
@@ -286,9 +313,17 @@
           (ngModelChange)="maintenanceUntil.set($event)" />
       </form-field>
 
+      @if (vigenciaWarning()) {
+        <div class="maintenance-warning">
+          <svg lucideAlertTriangle></svg>
+          <span>{{ vigenciaWarning() }}</span>
+        </div>
+      }
+
       <form-field
         label="Motivo (mínimo 10 caracteres)"
         for="maintenance-reason"
+        hint="El motivo queda visible en el bloque de estado y en la auditoría."
         [error]="maintenanceReason().trim().length > 0 && maintenanceReason().trim().length < 10 ? 'Describe el motivo con al menos 10 caracteres.' : ''">
         <textarea
           id="maintenance-reason"
@@ -297,6 +332,20 @@
           placeholder="Ej. Ventana de mantenimiento programado: actualización del orquestador Docker y del host."
           [ngModel]="maintenanceReason()"
           (ngModelChange)="maintenanceReason.set($event)"></textarea>
+      </form-field>
+
+      <form-field
+        label="Confirmación (escribe MANTENIMIENTO)"
+        for="maintenance-confirm"
+        [error]="confirmPhrase().length > 0 && confirmPhrase() !== 'MANTENIMIENTO' ? 'La frase debe coincidir exactamente con MANTENIMIENTO.' : ''">
+        <input
+          id="maintenance-confirm"
+          type="text"
+          class="form-input"
+          placeholder="MANTENIMIENTO"
+          autocomplete="off"
+          [ngModel]="confirmPhrase()"
+          (ngModelChange)="confirmPhrase.set($event)" />
       </form-field>
     } @else {
       <p class="maintenance-copy">
@@ -309,7 +358,7 @@
       <button type="button" class="btn-outline" (click)="closeMaintenanceModal()" [disabled]="isTogglingMaintenance()">
         Cancelar
       </button>
-      <button type="button" class="btn-primary" (click)="confirmMaintenance()" [disabled]="!maintenanceConfirmValid() || isTogglingMaintenance()">
+      <button type="button" class="btn-primary" (click)="confirmMaintenance()" [disabled]="confirmDisabled() || isTogglingMaintenance()">
         @if (isTogglingMaintenance()) {
           <span>Aplicando...</span>
         } @else {

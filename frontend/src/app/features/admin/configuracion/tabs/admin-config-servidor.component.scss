@@ -172,19 +172,16 @@
   }
 }
 
-// Respaldos
+// Respaldos: dos campos a la par; el guardado va en .card-actions-row
+// (alineado a la derecha, mismo patrón del bloque QoS).
 .backup-strategy-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-4);
-  align-items: end;
+  align-items: start;
 
   @media (max-width: 860px) {
     grid-template-columns: 1fr;
-  }
-
-  .strategy-save {
-    padding-bottom: 2px;
   }
 }
 
@@ -323,3 +320,28 @@
 }
 
 // Toast: se usa el primitivo global .toast-notification de styles.scss.
+
+.verify-indicator {
+  display: inline-block;
+  padding: 0.1875rem 0.5rem;
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  &.verify-ok {
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &.verify-failed {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+
+  &.verify-never {
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-muted);
+  }
+}
