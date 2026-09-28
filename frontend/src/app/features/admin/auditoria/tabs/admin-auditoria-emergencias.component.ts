@@ -2,9 +2,11 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { LucideSiren, LucideTriangleAlert } from '@lucide/angular';
 import { ModalShellComponent, ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { AdminMetricsService } from '@features/admin/services/admin-metrics.service';
 import {
   AdminAuditoriaService,
@@ -35,7 +37,7 @@ interface EmergencyHistoryRow {
 @Component({
   selector: 'admin-auditoria-emergencias',
   standalone: true,
-  imports: [CommonModule, FormsModule, LucideSiren, LucideTriangleAlert, ModalShellComponent, FormFieldComponent],
+  imports: [CommonModule, FormsModule, DateTextPipe, LucideSiren, LucideTriangleAlert, ModalShellComponent, FormFieldComponent, PaginationBarComponent],
   templateUrl: './admin-auditoria-emergencias.component.html',
   styleUrl: './admin-auditoria-emergencias.component.scss'
 })
@@ -76,6 +78,33 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit {
 
   readonly history = signal<EmergencyHistoryRow[]>([]);
   readonly historyLoading = signal(false);
+
+  // ------------------------------------------------------------------
+  // Paginación historial (estilo Docentes)
+  // ------------------------------------------------------------------
+  readonly historyCurrentPage = signal(1);
+  readonly historyPageSize = 10;
+
+  readonly paginatedHistory = computed(() => {
+    const start = (this.historyCurrentPage() - 1) * this.historyPageSize;
+    return this.history().slice(start, start + this.historyPageSize);
+  });
+
+  readonly historyTotalPages = computed(() => Math.max(1, Math.ceil(this.history().length / this.historyPageSize)));
+
+  readonly historyPaginationDisplay = computed(() => {
+    const total = this.history().length;
+    if (total === 0) return { from: 0, to: 0 };
+    const from = (this.historyCurrentPage() - 1) * this.historyPageSize + 1;
+    const to = Math.min(this.historyCurrentPage() * this.historyPageSize, total);
+    return { from, to };
+  });
+
+  goToHistoryPage(page: number): void {
+    if (page >= 1 && page <= this.historyTotalPages()) {
+      this.historyCurrentPage.set(page);
+    }
+  }
 
   ngOnInit(): void {
     this.loadHistory();
@@ -145,7 +174,7 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit {
       return;
     }
     for (const event of events) {
-      this.auditoriaService.listAuditLogs(1, 10, { action: event }).subscribe({
+      this.auditoriaService.listAuditLogs(1, 100, { action: event }).subscribe({
         next: (resp) => {
           for (const log of resp.data) {
             merged.push({ log, label: humanizeConstant(log.action) });
@@ -153,14 +182,17 @@ export class AdminAuditoriaEmergenciasComponent implements OnInit {
           pending--;
           if (pending === 0) {
             merged.sort((a, b) => b.log.created_at.localeCompare(a.log.created_at));
-            this.history.set(merged.slice(0, 10));
+            this.history.set(merged); // Guardar TODOS, paginación la maneja el cliente
+            this.historyCurrentPage.set(1); // Reset a página 1 al recargar
             this.historyLoading.set(false);
           }
         },
         error: () => {
           pending--;
           if (pending === 0) {
-            this.history.set(merged.slice(0, 10));
+            merged.sort((a, b) => b.log.created_at.localeCompare(a.log.created_at));
+            this.history.set(merged);
+            this.historyCurrentPage.set(1);
             this.historyLoading.set(false);
           }
         }

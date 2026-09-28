@@ -1,9 +1,10 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { HttpErrorResponse } from '@angular/common/http';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminAuditoriaService, AuditLogListResponse } from '../admin-auditoria.service';
 import {
   AuditLog,
@@ -13,6 +14,7 @@ import {
   enrichAction,
   metadataReason
 } from '@core/models/audit-log.model';
+import { LucideActivity, LucidePanelRightOpen } from '@lucide/angular';
 
 interface AuditRow {
   log: AuditLog;
@@ -31,7 +33,7 @@ const PAGE_SIZE = 20;
 @Component({
   selector: 'admin-auditoria-registro',
   standalone: true,
-  imports: [CommonModule, FormsModule, SearchBarComponent, PaginationBarComponent],
+  imports: [CommonModule, DateTextPipe, SearchBarComponent, PaginationBarComponent, ComboboxComponent, MachineDataDirective, LucideActivity, LucidePanelRightOpen],
   templateUrl: './admin-auditoria-registro.component.html',
   styleUrl: './admin-auditoria-registro.component.scss'
 })
@@ -47,7 +49,6 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
 
   readonly searchQuery = signal('');
   readonly actionFilter = signal('');
-  readonly actorFilter = signal('');
 
   readonly drawerOpen = signal(false);
   readonly drawerActorEmail = signal('');
@@ -55,17 +56,30 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
   readonly drawerLoading = signal(false);
 
   readonly hasActiveFilters = computed(() =>
-    this.searchQuery().trim() !== '' || this.actionFilter() !== '' || this.actorFilter() !== ''
+    this.searchQuery().trim() !== '' || this.actionFilter() !== ''
   );
+
+  /** Paginación estilo Docentes: rango visible "Mostrando X–Y de Z eventos" */
+  readonly paginationDisplay = computed(() => {
+    const total = this.totalKnown();
+    if (total === 0) return { from: 0, to: 0 };
+    const from = (this.currentPage() - 1) * PAGE_SIZE + 1;
+    const to = Math.min(this.currentPage() * PAGE_SIZE, total);
+    return { from, to };
+  });
 
   private searchDebounce: ReturnType<typeof setTimeout> | null = null;
 
-  readonly actionOptions = [
-    { value: '', label: 'Todas las acciones' },
-    { value: 'POST', label: 'Creación' },
-    { value: 'PUT', label: 'Actualización' },
-    { value: 'DELETE', label: 'Eliminación' }
+  readonly actionOptions: ComboboxOption<string>[] = [
+    { id: 'all-actions', value: '', label: 'Todas las acciones' },
+    { id: 'create-action', value: 'POST', label: 'Creación' },
+    { id: 'update-action', value: 'PUT', label: 'Actualización' },
+    { id: 'delete-action', value: 'DELETE', label: 'Eliminación' }
   ];
+
+  readonly selectedActionLabel = computed(() =>
+    this.actionOptions.find((option) => option.value === this.actionFilter())?.label ?? this.actionOptions[0].label
+  );
 
   ngOnInit(): void {
     this.load();
@@ -73,21 +87,18 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
 
   load(): void {
     this.isLoading.set(true);
-    const raw = this.searchQuery().trim();
-    const filters: { action?: string; actorId?: string } = {};
+    const search = this.searchQuery().trim();
+    const filters: { action?: string; search?: string } = {};
     if (this.actionFilter()) {
       filters.action = this.actionFilter();
     }
-    if (this.actorFilter().trim()) {
-      filters.actorId = this.actorFilter().trim();
+    if (search) {
+      filters.search = search;
     }
 
     this.auditoriaService.listAuditLogs(this.currentPage(), PAGE_SIZE, filters).subscribe({
       next: (resp: AuditLogListResponse) => {
-        const filtered = raw
-          ? resp.data.filter((log) => this.matchesSearch(log, raw.toLowerCase()))
-          : resp.data;
-        this.rows.set(filtered.map((log) => this.toRow(log)));
+        this.rows.set(resp.data.map((log) => this.toRow(log)));
         this.totalKnown.set(resp.total);
         this.totalPages.set(Math.max(1, Math.ceil(resp.total / PAGE_SIZE)));
         this.isLoading.set(false);
@@ -116,17 +127,6 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
     this.load();
   }
 
-  onActorFilterChange(value: string): void {
-    this.actorFilter.set(value);
-    this.currentPage.set(1);
-    if (this.searchDebounce) {
-      clearTimeout(this.searchDebounce);
-    }
-    this.searchDebounce = setTimeout(() => {
-      this.load();
-    }, 250);
-  }
-
   onPageChange(page: number): void {
     this.currentPage.set(page);
     this.load();
@@ -135,7 +135,6 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
   clearFilters(): void {
     this.searchQuery.set('');
     this.actionFilter.set('');
-    this.actorFilter.set('');
     this.currentPage.set(1);
     this.load();
   }
@@ -165,14 +164,6 @@ export class AdminAuditoriaRegistroComponent implements OnInit {
     if ((event.target as HTMLElement).classList.contains('drawer-backdrop')) {
       this.closeDrawer();
     }
-  }
-
-  private matchesSearch(log: AuditLog, term: string): boolean {
-    return (
-      log.actor_email.toLowerCase().includes(term) ||
-      log.action.toLowerCase().includes(term) ||
-      log.resource_type.toLowerCase().includes(term)
-    );
   }
 
   private toRow(log: AuditLog): AuditRow {

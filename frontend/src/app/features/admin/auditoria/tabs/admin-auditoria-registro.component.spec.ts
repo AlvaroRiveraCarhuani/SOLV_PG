@@ -93,6 +93,56 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(listSpy).toHaveBeenLastCalledWith(1, 20, { action: 'DELETE' });
   });
 
+  it('muestra una sola búsqueda de toolbar y deja Acción como filtro independiente', () => {
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
+    fixture.detectChanges();
+
+    const toolbar = fixture.nativeElement.querySelector('.toolbar');
+    expect(toolbar.querySelectorAll('input[aria-label="Buscar eventos de auditoría"]').length).toBe(1);
+    expect(toolbar.querySelector('#audit-actor-filter')).toBeNull();
+    expect(toolbar.querySelector('combobox')).not.toBeNull();
+    expect(toolbar.querySelector('select')).toBeNull();
+  });
+
+  it('selecciona un verbo desde el combobox de Acción', () => {
+    listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
+    fixture.detectChanges();
+
+    const actionCombobox = fixture.nativeElement.querySelector('#audit-action-filter');
+    expect(actionCombobox).not.toBeNull();
+    expect(actionCombobox.querySelector('input').getAttribute('aria-label')).toBe('Filtrar por verbo de acción');
+    actionCombobox.querySelector('.toggle-btn').click();
+    fixture.detectChanges();
+
+    const deleteOption = [...actionCombobox.querySelectorAll('[role="option"]')]
+      .find((option: HTMLElement) => option.textContent?.includes('Eliminación')) as HTMLElement;
+    deleteOption.click();
+    fixture.detectChanges();
+
+    expect(component.actionFilter()).toBe('DELETE');
+    expect(listSpy).toHaveBeenLastCalledWith(1, 20, { action: 'DELETE' });
+  });
+
+  it('envía la búsqueda unificada al backend y conserva sus filas y paginación', () => {
+    vi.useFakeTimers();
+    const resourceID = 'resource-search-unique-42';
+    listSpy.mockReturnValue(of({
+      tenant_id: 't', limit: 20, offset: 0, total: 41,
+      data: [makeLog({ resource_id: resourceID })]
+    }));
+    fixture.detectChanges();
+
+    component.onSearchChange(resourceID);
+    vi.runAllTimers();
+    fixture.detectChanges();
+
+    expect(listSpy).toHaveBeenLastCalledWith(1, 20, { search: resourceID });
+    expect(component.rows()).toHaveLength(1);
+    expect(component.totalKnown()).toBe(41);
+    expect(component.totalPages()).toBe(3);
+    vi.useRealTimers();
+  });
+
   it('la paginación pide la siguiente página al servicio', () => {
     listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
@@ -133,17 +183,17 @@ describe('AdminAuditoriaRegistroComponent', () => {
     expect(component.totalPages()).toBe(3);
   });
 
-  it('filtra por actor con debounce y resetea a la primera página', () => {
+  it('envía el email del actor como búsqueda global con debounce', () => {
     vi.useFakeTimers();
     listSpy.mockReturnValue(of({ tenant_id: 't', limit: 20, offset: 0, total: 0, data: [] }));
     fixture.detectChanges();
     expect(listSpy).toHaveBeenCalledTimes(1);
 
-    component.onActorFilterChange('docente@uab.edu.bo');
+    component.onSearchChange('docente@uab.edu.bo');
     expect(listSpy).toHaveBeenCalledTimes(1);
 
     vi.runAllTimers();
-    expect(listSpy).toHaveBeenLastCalledWith(1, 20, { actorId: 'docente@uab.edu.bo' });
+    expect(listSpy).toHaveBeenLastCalledWith(1, 20, { search: 'docente@uab.edu.bo' });
     vi.useRealTimers();
   });
 

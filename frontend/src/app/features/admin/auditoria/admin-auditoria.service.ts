@@ -77,12 +77,15 @@ export class AdminAuditoriaService {
 
   readonly isExecuting = signal(false);
 
-  listAuditLogs(page: number, limit = 20, filters: { action?: string; actorId?: string } = {}): Observable<AuditLogListResponse> {
+  listAuditLogs(page: number, limit = 20, filters: { action?: string; search?: string; actorId?: string } = {}): Observable<AuditLogListResponse> {
     let params = new HttpParams()
       .set('limit', limit)
       .set('offset', (page - 1) * limit);
     if (filters.action) {
       params = params.set('action', filters.action);
+    }
+    if (filters.search) {
+      params = params.set('search', filters.search);
     }
     if (filters.actorId) {
       params = params.set('actor_id', filters.actorId);

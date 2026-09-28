@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
-	"github.com/google/uuid"
 	"solv-backend/internal/core/domain"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/storage/postgres"
+
+	"github.com/google/uuid"
 )
 
 // TestSlice147_AuditActorTimeline verifica el submódulo 14.7:
@@ -150,6 +152,100 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 	for _, log := range respBody.Data {
 		if log.ActorEmail != email {
 			t.Errorf("Expected resolved email in endpoint response, got %q", log.ActorEmail)
+		}
+	}
+}
+
+func TestSlice147_AuditUnifiedSearchAndCount(t *testing.T) {
+	db, err := setupTestDB()
+	if err != nil {
+		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+	}
+
+	tenantID := "00000000-0000-0000-0000-000000000001"
+	ctx := context.Background()
+	actorID := uuid.NewString()
+	email := fmt.Sprintf("audit_search_%s@uab.edu.bo", actorID[:8])
+	resourceID := uuid.NewString()
+	actionMarker := "search-action-" + actorID[:8]
+	resourceTypeMarker := "search-resource-type-" + actorID[:8]
+
+	_, err = db.GetDB().Exec(`
+		INSERT INTO users (id, email, role, tenant_id)
+		VALUES ($1, $2, 'teacher', $3)
+	`, actorID, email, tenantID)
+	if err != nil {
+		t.Fatalf("Failed to seed actor user: %v", err)
+	}
+
+	repo := postgres.NewAuditLogRepository(db.GetDB())
+	logs := []domain.AuditLog{
+		{TenantID: tenantID, ActorID: actorID, Action: "POST /api/v1/" + actionMarker, ResourceType: resourceTypeMarker, ResourceID: &resourceID, StatusCode: http.StatusCreated},
+		{TenantID: tenantID, ActorID: uuid.NewString(), Action: "DELETE /api/v1/other", ResourceType: "other", StatusCode: http.StatusOK},
+	}
+	for i := range logs {
+		if err := repo.Create(ctx, &logs[i]); err != nil {
+			t.Fatalf("Failed to create audit log: %v", err)
+		}
+	}
+
+	searchTerms := []string{email, actorID, actionMarker, resourceTypeMarker, resourceID}
+	for _, search := range searchTerms {
+		t.Run(search, func(t *testing.T) {
+			results, err := repo.ListFiltered(ctx, tenantID, search, "", 1, 0)
+			if err != nil {
+				t.Fatalf("ListFiltered failed for %q: %v", search, err)
+			}
+			total, err := repo.CountFiltered(ctx, tenantID, search, "")
+			if err != nil {
+				t.Fatalf("CountFiltered failed for %q: %v", search, err)
+			}
+			if total != 1 || len(results) != 1 {
+				t.Fatalf("Expected one matching result and count for %q, got results=%d total=%d", search, len(results), total)
+			}
+			if results[0].ActorID != actorID {
+				t.Errorf("Search %q returned unexpected actor %q", search, results[0].ActorID)
+			}
+		})
+	}
+
+	adminHandler := httpdelivery.NewAdminHandler(repo, nil, nil, nil, nil)
+	mux := http.NewServeMux()
+	httpdelivery.SetupRoutes(mux, &httpdelivery.Handlers{
+		AdminHandler: adminHandler,
+		TenantMiddleware: func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				tenantCtx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
+				next.ServeHTTP(w, r.WithContext(tenantCtx))
+			})
+		},
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	for _, query := range []url.Values{
+		{"search": []string{resourceTypeMarker}},
+		{"actor_id": []string{email}},
+	} {
+		requestURL := fmt.Sprintf("%s/api/v1/admin/audit-logs?%s", server.URL, query.Encode())
+		response, err := http.Get(requestURL)
+		if err != nil {
+			t.Fatalf("Failed to call audit log endpoint: %v", err)
+		}
+		var body struct {
+			Total int               `json:"total"`
+			Data  []domain.AuditLog `json:"data"`
+		}
+		decodeErr := json.NewDecoder(response.Body).Decode(&body)
+		response.Body.Close()
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("Expected 200 OK from audit log endpoint, got %d", response.StatusCode)
+		}
+		if decodeErr != nil {
+			t.Fatalf("Failed to decode audit log response: %v", decodeErr)
+		}
+		if body.Total != 1 || len(body.Data) != 1 || body.Data[0].ActorID != actorID {
+			t.Errorf("Unexpected endpoint results for %v: total=%d rows=%d", query, body.Total, len(body.Data))
 		}
 	}
 }

@@ -163,7 +163,10 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	actorID := r.URL.Query().Get("actor_id")
+	search := r.URL.Query().Get("search")
+	if search == "" {
+		search = r.URL.Query().Get("actor_id")
+	}
 	action := r.URL.Query().Get("action")
 	limitStr := r.URL.Query().Get("limit")
 	offsetStr := r.URL.Query().Get("offset")
@@ -181,12 +184,12 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	logs, err := h.auditRepo.ListFiltered(r.Context(), tenantID, actorID, action, limit, offset)
+	logs, err := h.auditRepo.ListFiltered(r.Context(), tenantID, search, action, limit, offset)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to retrieve audit logs"}`, http.StatusInternalServerError)
 		return
 	}
-	total, err := h.auditRepo.CountFiltered(r.Context(), tenantID, actorID, action)
+	total, err := h.auditRepo.CountFiltered(r.Context(), tenantID, search, action)
 	if err != nil {
 		http.Error(w, `{"error":"Failed to count audit logs"}`, http.StatusInternalServerError)
 		return

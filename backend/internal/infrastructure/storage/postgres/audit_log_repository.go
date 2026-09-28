@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"solv-backend/internal/core/domain"
+
 	"github.com/jmoiron/sqlx"
 )
 
@@ -57,14 +58,18 @@ func (r *AuditLogRepository) ListByTenant(ctx context.Context, tenantID string, 
 // auditLogFilterWhere predicados compartidos de ListFiltered/CountFiltered:
 //   - action es prefijo ("POST" matchea "POST /api/v1/..."), porque el
 //     middleware persiste "MÉTODO ruta" y el filtro de UI envía el verbo.
-//   - actor matchea por id exacto o por email institucional (JOIN a users).
+//   - search matchea globalmente email/id del actor, acción y recurso.
 const auditLogFilterWhere = `
 	WHERE a.tenant_id = $1
-	  AND ($2 = '' OR a.actor_id::text = $2 OR u.email ILIKE '%' || $2 || '%')
+	  AND ($2 = '' OR a.actor_id::text ILIKE '%' || $2 || '%'
+	       OR u.email ILIKE '%' || $2 || '%'
+	       OR a.action ILIKE '%' || $2 || '%'
+	       OR a.resource_type ILIKE '%' || $2 || '%'
+	       OR COALESCE(a.resource_id::text, '') ILIKE '%' || $2 || '%')
 	  AND ($3 = '' OR a.action LIKE $3 || '%')
 `
 
-func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID, action string, limit, offset int) ([]*domain.AuditLog, error) {
+func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, search, action string, limit, offset int) ([]*domain.AuditLog, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -77,21 +82,21 @@ func (r *AuditLogRepository) ListFiltered(ctx context.Context, tenantID, actorID
 		LIMIT $4 OFFSET $5
 	`
 	var logs []*domain.AuditLog
-	err := r.db.SelectContext(ctx, &logs, query, tenantID, actorID, action, limit, offset)
+	err := r.db.SelectContext(ctx, &logs, query, tenantID, search, action, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list filtered audit logs: %w", err)
 	}
 	return logs, nil
 }
 
-func (r *AuditLogRepository) CountFiltered(ctx context.Context, tenantID, actorID, action string) (int, error) {
+func (r *AuditLogRepository) CountFiltered(ctx context.Context, tenantID, search, action string) (int, error) {
 	query := `
 		SELECT COUNT(*)
 		FROM audit_logs a
 		LEFT JOIN users u ON u.id = a.actor_id
 	` + auditLogFilterWhere
 	var total int
-	if err := r.db.GetContext(ctx, &total, query, tenantID, actorID, action); err != nil {
+	if err := r.db.GetContext(ctx, &total, query, tenantID, search, action); err != nil {
 		return 0, fmt.Errorf("failed to count filtered audit logs: %w", err)
 	}
 	return total, nil
@@ -117,4 +122,3 @@ func (r *AuditLogRepository) ListByActorTimeline(ctx context.Context, tenantID, 
 	}
 	return logs, nil
 }
-

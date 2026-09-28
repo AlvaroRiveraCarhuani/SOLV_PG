@@ -7,25 +7,19 @@
       (queryChange)="onSearchChange($event)"
     />
 
-    <label class="action-filter" for="audit-action-filter">
+    <div class="action-filter">
       <span class="filter-label">Acción</span>
-      <select id="audit-action-filter" [ngModel]="actionFilter()" (ngModelChange)="onActionFilterChange($event)">
-        @for (opt of actionOptions; track opt.value) {
-          <option [value]="opt.value">{{ opt.label }}</option>
-        }
-      </select>
-    </label>
-
-    <label class="action-filter" for="audit-actor-filter">
-      <span class="filter-label">Actor</span>
-      <input
-        id="audit-actor-filter"
-        type="search"
-        class="form-input"
-        placeholder="Email o ID del actor..."
-        [ngModel]="actorFilter()"
-        (ngModelChange)="onActorFilterChange($event)" />
-    </label>
+      <combobox
+        id="audit-action-filter"
+        [value]="selectedActionLabel()"
+        [options]="actionOptions"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Filtrar acciones..."
+        inputAriaLabel="Filtrar por verbo de acción"
+        (optionSelected)="onActionFilterChange($event.value)"
+      />
+    </div>
 
     @if (hasActiveFilters()) {
       <button type="button" class="btn-outline clear-filters" (click)="clearFilters()">Limpiar filtros</button>
@@ -49,13 +43,19 @@
             <th>Acción</th>
             <th>Recurso</th>
             <th>Status</th>
-            <th><span class="visually-hidden">Ver cronología</span></th>
+            <th class="cell-open-header">
+              <span class="visually-hidden">Ver cronología</span>
+              <div class="header-icon-wrapper" title="Ver cronología del actor">
+                <svg lucidePanelRightOpen class="header-icon" aria-hidden="true"></svg>
+                <span class="tooltip">Ver cronología</span>
+              </div>
+            </th>
           </tr>
         </thead>
         <tbody>
           @for (row of rows(); track row.log.id) {
             <tr>
-              <td class="cell-timestamp">{{ row.log.created_at | date: 'dd/MM HH:mm:ss' }}</td>
+              <td class="cell-timestamp font-date"><time>{{ row.log.created_at | dateText:'compact-datetime' }}</time></td>
               <td class="cell-actor" [title]="row.log.actor_id">{{ row.log.actor_email }}</td>
               <td class="cell-action">
                 <span class="action-kind" [class]="'kind-' + row.enriched.kind">{{ row.enriched.label }}</span>
@@ -63,7 +63,7 @@
                   <span class="action-reason" [title]="row.reason">{{ row.reason }}</span>
                 }
               </td>
-              <td class="cell-resource">{{ row.log.resource_type }}</td>
+              <td class="cell-resource" machineData>{{ row.log.resource_type }}</td>
               <td class="cell-status">
                 <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
               </td>
@@ -81,8 +81,10 @@
     <pagination-bar
       [currentPage]="currentPage()"
       [totalPages]="totalPages()"
-      [itemLabel]="'eventos'"
-      [showPageNumbers]="false"
+      [totalItems]="totalKnown()"
+      [from]="paginationDisplay().from"
+      [to]="paginationDisplay().to"
+      itemLabel="eventos"
       (pageChange)="onPageChange($event)"
     />
   }
@@ -92,8 +94,13 @@
       <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Cronología de ' + drawerActorEmail()">
         <header class="drawer-header">
           <div class="drawer-title">
-            <h3>Cronología de Actividad</h3>
-            <p>{{ drawerActorEmail() }}</p>
+            <div class="drawer-title-icon">
+              <svg lucideActivity aria-hidden="true"></svg>
+            </div>
+            <div>
+              <h3>Cronología de Actividad</h3>
+              <p>{{ drawerActorEmail() }}</p>
+            </div>
           </div>
           <button type="button" class="drawer-close" (click)="closeDrawer()" aria-label="Cerrar cronología">
             <svg lucideX aria-hidden="true"></svg>
@@ -111,12 +118,9 @@
                 <span class="timeline-dot" [class]="'dot-' + row.status.kind"></span>
                 <div class="timeline-body">
                   <p class="timeline-headline">
-                    {{ row.enriched.label }} de {{ row.log.resource_type }}
+                    {{ row.enriched.label }} de <span machineData>{{ row.log.resource_type }}</span>
                     <span [class]="'status-pill status-' + row.status.kind">{{ row.status.label }}</span>
-                  </p>
-                  <p class="timeline-meta">
-                    {{ row.log.created_at | date: "EEEE dd 'de' MMM, HH:mm:ss" }}
-                  </p>
+                  </p><p class="timeline-meta font-date"><time>{{ row.log.created_at | dateText:'long-datetime' }}</time></p>
                   @if (row.reason) {
                     <p class="timeline-reason">Motivo: {{ row.reason }}</p>
                   }
