@@ -28,7 +28,8 @@ export const TEACHER_ROUTES: Routes = [
   },
   {
     path: 'anti-plagio',
-    redirectTo: 'evaluaciones'
+    loadComponent: () =>
+      import('./supervision/anti-plagio/teacher-plagiarism.component').then(m => m.TeacherPlagiarismComponent)
   },
   {
     path: 'exercises',
