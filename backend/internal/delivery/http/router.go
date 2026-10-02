@@ -330,6 +330,10 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/submissions/{id}/timeline", tm(http.HandlerFunc(deps.TeacherHandler.GetTimeline)))
 	mux.Handle("GET /api/v1/teacher/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
+	mux.Handle("GET /api/v1/teacher/live-sessions", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessions)))
+	mux.Handle("POST /api/v1/teacher/live-sessions/{id}/exec", tm(http.HandlerFunc(deps.TeacherHandler.PostTutorExec)))
+	mux.HandleFunc("GET /api/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)
+	mux.HandleFunc("GET /ws/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)
 }
 
 func registerNotificationRoutes(mux *http.ServeMux, deps *Handlers) {

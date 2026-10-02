@@ -13,9 +13,10 @@ import (
 )
 
 type TeacherService struct {
-	repo        domain.TeacherRepository
-	subRepo     domain.SubmissionRepository
-	evalService *EvaluationService
+	repo          domain.TeacherRepository
+	subRepo       domain.SubmissionRepository
+	evalService   *EvaluationService
+	mirrorService *TerminalMirrorService
 }
 
 func NewTeacherService(repo domain.TeacherRepository, subRepo ...domain.SubmissionRepository) *TeacherService {
@@ -24,9 +25,14 @@ func NewTeacherService(repo domain.TeacherRepository, subRepo ...domain.Submissi
 		sRepo = subRepo[0]
 	}
 	return &TeacherService{
-		repo:    repo,
-		subRepo: sRepo,
+		repo:          repo,
+		subRepo:       sRepo,
+		mirrorService: NewTerminalMirrorService(nil),
 	}
+}
+
+func (s *TeacherService) SetWorkspaceOrchestrator(orch domain.WorkspaceOrchestrator) {
+	s.mirrorService = NewTerminalMirrorService(orch)
 }
 
 func (s *TeacherService) SetSubmissionRepository(subRepo domain.SubmissionRepository) {
@@ -317,4 +323,32 @@ func (s *TeacherService) GetSubmissionTimeline(ctx context.Context, tenantID, te
 	return timeline, nil
 }
 
+func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
 
+	sessions, err := s.repo.ListLiveWorkspaceSessions(ctx, tenantID, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("error al listar sesiones en vivo: %w", err)
+	}
+
+	return sessions, nil
+}
+
+func (s *TeacherService) GetInitialTerminalBuffer(ctx context.Context, containerID string, tailLines int) (string, error) {
+	if s.mirrorService == nil {
+		return "[SOLV Shadow Mode] Sesión conectada.\n", nil
+	}
+	return s.mirrorService.GetInitialTerminalBuffer(ctx, containerID, tailLines)
+}
+
+func (s *TeacherService) ExecuteTutorCommand(ctx context.Context, tenantID, teacherID, containerID, cmd string) (*domain.TutorCommandResponse, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if s.mirrorService == nil {
+		s.mirrorService = NewTerminalMirrorService(nil)
+	}
+	return s.mirrorService.ExecuteTutorCommand(ctx, containerID, cmd)
+}

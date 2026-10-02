@@ -192,7 +192,43 @@
             </a>
           </div>
         }
+
+        <!-- Sesiones Activas en Vivo (Shadow Mode) -->
+        @if (liveSessions().length > 0) {
+          <div class="live-sessions-header">
+            <span class="live-pulse-dot"></span>
+            <strong>Contenedores Activos ({{ liveSessions().length }})</strong>
+          </div>
+          @for (live of liveSessions(); track live.workspace_id) {
+            <div class="attention-item item-live">
+              <div class="item-header">
+                <span class="item-tag tag-live">
+                  <svg lucideTerminal class="tag-icon"></svg>
+                  <span>SHADOW</span>
+                </span>
+                <time class="item-time">{{ live.last_heartbeat | dateText:'time' }}</time>
+              </div>
+              <div class="item-body">
+                <strong>{{ live.student_name }}</strong>
+                <p>{{ live.subject_name }} · <code machineData>{{ live.container_id ? (live.container_id | slice:0:8) : 'activa' }}</code></p>
+              </div>
+              <button type="button" class="btn-shadow-inspect" (click)="openShadowTerminal(live)">
+                <svg lucideTerminal class="btn-icon-xs"></svg>
+                <span>Inspeccionar Terminal</span>
+              </button>
+            </div>
+          }
+        }
       </div>
     </aside>
   </div>
+
+  <!-- Modal de Terminal en Vivo (Shadow Mode) -->
+  @if (selectedLiveSession(); as session) {
+    <shadow-terminal-modal 
+      [session]="session" 
+      (close)="closeShadowTerminal()">
+    </shadow-terminal-modal>
+  }
 </div>
+

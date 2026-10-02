@@ -69,6 +69,15 @@
           <span>{{ isRunningEphemeral() ? 'Ejecutando...' : 'Re-ejecutar Sandbox' }}</span>
         </button>
 
+        <button 
+          class="btn-outline" 
+          (click)="openShadowTerminal()"
+          title="Inspeccionar Terminal en Vivo (Shadow Mode)"
+        >
+          <svg lucideTerminal class="btn-icon-sm"></svg>
+          <span>Terminal (Shadow)</span>
+        </button>
+
         <button class="btn-primary" (click)="openOverrideModal()" title="Modificar Nota (A)">
           <svg lucideEdit3 class="btn-icon-sm"></svg>
           <span>Calificar <kbd>A</kbd></span>
@@ -443,3 +452,12 @@
     </div>
   </div>
 }
+
+<!-- Modal de Shadow Mode / Terminal Mirroring -->
+@if (showShadowTerminal() && currentLiveSession(); as session) {
+  <shadow-terminal-modal 
+    [session]="session" 
+    (close)="closeShadowTerminal()">
+  </shadow-terminal-modal>
+}
+

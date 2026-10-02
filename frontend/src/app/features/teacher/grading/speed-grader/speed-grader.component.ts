@@ -20,10 +20,11 @@ import {
 } from '@lucide/angular';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { SubmissionComment, SubmissionTimeline, TimelineKeyframe } from '../../models/teacher.models';
+import { SubmissionComment, SubmissionTimeline, TimelineKeyframe, LiveWorkspaceSession } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
 
 @Component({
@@ -49,7 +50,8 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideHistory,
     DateTextPipe,
     MachineDataDirective,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    ShadowTerminalModalComponent
   ],
   templateUrl: './speed-grader.component.html',
   styleUrl: './speed-grader.component.scss'
@@ -91,6 +93,35 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   overrideReason = signal<string>('');
   overrideError = signal<string | null>(null);
   isSubmittingOverride = signal<boolean>(false);
+
+  showShadowTerminal = signal<boolean>(false);
+
+  currentLiveSession = computed<LiveWorkspaceSession | null>(() => {
+    const rev = this.review();
+    if (!rev) return null;
+    return {
+      workspace_id: rev.id,
+      container_id: rev.student_id ? `workspace-${rev.student_id.slice(0, 8)}` : '',
+      student_id: rev.student_id,
+      student_name: rev.student_name,
+      student_email: rev.student_email,
+      subject_id: rev.subject_id,
+      subject_name: rev.subject_name,
+      status: 'running',
+      memory_limit_mb: 256,
+      oom_strikes: 0,
+      last_heartbeat: rev.submitted_at,
+      is_attached: true
+    };
+  });
+
+  openShadowTerminal(): void {
+    this.showShadowTerminal.set(true);
+  }
+
+  closeShadowTerminal(): void {
+    this.showShadowTerminal.set(false);
+  }
 
   activeCodeContent = computed<string>(() => {
     if (this.showReplayPlayer()) {

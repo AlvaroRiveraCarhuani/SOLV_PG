@@ -10,13 +10,17 @@ import {
   LucideClock, 
   LucideCheckCircle, 
   LucideFlame, 
-  LucideShieldAlert 
+  LucideShieldAlert,
+  LucideTerminal
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
+import { TeacherLiveService } from '../services/teacher-live.service';
+import { LiveWorkspaceSession } from '../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ViewSwitcherComponent, ViewMode } from '@shared/components/view-switcher/view-switcher.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
 
 @Component({
   selector: 'teacher-dashboard',
@@ -32,25 +36,30 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
     LucideClock, 
     LucideCheckCircle, 
     LucideFlame, 
-    LucideShieldAlert, 
+    LucideShieldAlert,
+    LucideTerminal,
     DateTextPipe, 
     MachineDataDirective,
     ViewSwitcherComponent,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    ShadowTerminalModalComponent
   ],
   templateUrl: './teacher-dashboard.component.html',
   styleUrl: './teacher-dashboard.component.scss'
 })
 export class TeacherDashboardComponent implements OnInit {
   private dashboardService = inject(TeacherDashboardService);
+  private liveService = inject(TeacherLiveService);
 
   courses = this.dashboardService.courses;
   attention = this.dashboardService.attention;
   periods = this.dashboardService.periods;
   isLoading = this.dashboardService.isLoading;
+  liveSessions = this.liveService.liveSessions;
 
   viewMode = signal<ViewMode>((localStorage.getItem('solv_teacher_view_mode') as ViewMode) || 'cards');
   selectedPeriodId = signal<string>('');
+  selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
 
   constructor() {
     effect(() => {
@@ -97,6 +106,7 @@ export class TeacherDashboardComponent implements OnInit {
       },
       error: () => this.loadDashboard()
     });
+    this.loadLiveSessions();
   }
 
   onPeriodChange(periodId: string): void {
@@ -104,7 +114,20 @@ export class TeacherDashboardComponent implements OnInit {
     this.loadDashboard();
   }
 
+  loadLiveSessions(): void {
+    this.liveService.loadLiveSessions().subscribe();
+  }
+
+  openShadowTerminal(session: LiveWorkspaceSession): void {
+    this.selectedLiveSession.set(session);
+  }
+
+  closeShadowTerminal(): void {
+    this.selectedLiveSession.set(null);
+  }
+
   private loadDashboard(): void {
     this.dashboardService.loadDashboardData(this.selectedPeriodId()).subscribe();
   }
 }
+

@@ -220,4 +220,27 @@ export interface SubmissionTimeline {
   keyframes: TimelineKeyframe[];
 }
 
+export interface LiveWorkspaceSession {
+  workspace_id: string;
+  container_id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  subject_id: string;
+  subject_name: string;
+  status: string;
+  memory_limit_mb: number;
+  oom_strikes: number;
+  last_heartbeat: string;
+  is_attached: boolean;
+}
+
+export interface TutorCommandResponse {
+  container_id: string;
+  command: string;
+  output: string;
+  exit_code: number;
+  executed_at: string;
+}
+
 

@@ -1,0 +1,149 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-dialog" [class.is-fullscreen]="isFullscreen()" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-title-wrap">
+        <div class="header-icon-badge">
+          <svg lucideTerminal class="modal-icon"></svg>
+        </div>
+        <div>
+          <div class="title-row">
+            <h2 class="modal-title">Shadow Mode · Terminal en Vivo</h2>
+            <span class="live-pill" [class.is-live]="isConnected()">
+              <span class="live-indicator"></span>
+              <span>{{ isConnected() ? 'EN VIVO' : 'STANDBY' }}</span>
+            </span>
+          </div>
+          <p class="modal-subtitle">
+            Estudiante: <strong>{{ session.student_name }}</strong> · Materia: <span>{{ session.subject_name }}</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button 
+          type="button" 
+          class="btn-icon-header" 
+          (click)="toggleFullscreen()" 
+          [title]="isFullscreen() ? 'Restaurar ventana' : 'Pantalla completa'">
+          @if (isFullscreen()) {
+            <svg lucideMinimize2 class="icon-sm"></svg>
+          } @else {
+            <svg lucideMaximize2 class="icon-sm"></svg>
+          }
+        </button>
+        <button type="button" class="btn-icon-header" (click)="onClose()" title="Cerrar modal (Esc)">
+          <svg lucideX class="icon-sm"></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Telemetría del Contenedor -->
+    <div class="telemetry-bar">
+      <div class="telemetry-item">
+        <span class="telemetry-label">Contenedor:</span>
+        <code class="telemetry-val" machineData>{{ session.container_id ? (session.container_id | slice:0:12) : 'N/A' }}</code>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Límite RAM:</span>
+        <span class="telemetry-val" machineData>{{ session.memory_limit_mb }} MB</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Strikes OOM:</span>
+        <span class="telemetry-val" [class.text-danger]="session.oom_strikes > 0" machineData>{{ session.oom_strikes }}</span>
+      </div>
+      <div class="telemetry-item">
+        <span class="telemetry-label">Último Heartbeat:</span>
+        <time class="telemetry-val">{{ session.last_heartbeat | dateText:'time' }}</time>
+      </div>
+    </div>
+
+    <!-- Barra de Herramientas de Terminal -->
+    <div class="terminal-toolbar">
+      <div class="diagnostic-chips">
+        <span class="chip-label">Diagnósticos Rápidos:</span>
+        <button type="button" class="btn-chip" (click)="runDiagnostic('git status')">
+          <code>git status</code>
+        </button>
+        <button type="button" class="btn-chip" (click)="runDiagnostic('ls -la')">
+          <code>ls -la</code>
+        </button>
+        <button type="button" class="btn-chip" (click)="runDiagnostic('free -m')">
+          <code>free -m</code>
+        </button>
+        <button type="button" class="btn-chip" (click)="runDiagnostic('python3 --version')">
+          <code>python3 -V</code>
+        </button>
+      </div>
+
+      <div class="toolbar-controls">
+        <button 
+          type="button" 
+          class="btn-tool" 
+          [class.active]="autoScroll()" 
+          (click)="toggleAutoScroll()" 
+          title="Auto-scroll">
+          <span>Auto-scroll</span>
+        </button>
+        <button 
+          type="button" 
+          class="btn-tool" 
+          (click)="copyLogs()" 
+          title="Copiar salida de terminal">
+          @if (isCopied()) {
+            <svg lucideCheck class="tool-icon text-success"></svg>
+            <span>Copiado</span>
+          } @else {
+            <svg lucideCopy class="tool-icon"></svg>
+            <span>Copiar</span>
+          }
+        </button>
+        <button 
+          type="button" 
+          class="btn-tool" 
+          (click)="clearTerminal()" 
+          title="Limpiar pantalla">
+          <svg lucideTrash2 class="tool-icon"></svg>
+          <span>Limpiar</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pantalla de Terminal -->
+    <div class="terminal-screen" #terminalOutput>
+      @if (terminalLogs().length === 0) {
+        <div class="terminal-empty">
+          <span class="cursor-pulse">_</span> Esperando actividad del contenedor...
+        </div>
+      } @else {
+        <pre class="terminal-pre"><code>@for (line of terminalLogs(); track $index) {<div class="terminal-line">{{ line }}</div>}</code></pre>
+      }
+    </div>
+
+    <!-- Command Prompt / Tutor Execution Bar -->
+    <div class="terminal-footer">
+      <div class="prompt-prefix">
+        <svg lucideTerminal class="prompt-icon"></svg>
+        <span class="prompt-user" machineData>tutor@solv</span>
+        <span class="prompt-sep">:</span>
+        <span class="prompt-path" machineData>~/workspace$</span>
+      </div>
+      <input 
+        type="text" 
+        class="prompt-input" 
+        placeholder="Ejecutar comando de diagnóstico o test en el workspace del alumno..." 
+        [ngModel]="commandInput()"
+        (ngModelChange)="commandInput.set($event)"
+        (keydown.enter)="sendCommand()"
+        [disabled]="isExecuting()" />
+      <button 
+        type="button" 
+        class="btn-send-cmd" 
+        (click)="sendCommand()" 
+        [disabled]="!commandInput().trim() || isExecuting()">
+        <svg lucideSend class="icon-sm"></svg>
+        <span>Ejecutar</span>
+      </button>
+    </div>
+  </div>
+</div>

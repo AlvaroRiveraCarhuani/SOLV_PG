@@ -886,3 +886,45 @@ func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx cont
 	return list, nil
 }
 
+func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+	query := `
+		SELECT 
+			w.id AS workspace_id,
+			COALESCE(w.container_id, '') AS container_id,
+			w.student_id,
+			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS student_name,
+			u.email AS student_email,
+			w.subject_id,
+			s.name AS subject_name,
+			w.status,
+			w.memory_limit_mb,
+			w.oom_strike_count AS oom_strikes,
+			COALESCE(w.last_heartbeat_at, w.created_at) AS last_heartbeat
+		FROM workspaces w
+		JOIN users u ON w.student_id = u.id
+		JOIN subjects s ON w.subject_id = s.id
+		WHERE w.tenant_id = $1
+		  AND ($2 = '' OR s.teacher_id = $2::uuid)
+		  AND w.status IN ('running', 'active', 'pending')
+		ORDER BY w.last_heartbeat_at DESC NULLS LAST
+	`
+
+	var sessions []*domain.LiveWorkspaceSession
+	err := r.db.SelectContext(ctx, &sessions, query, tenantID, teacherID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query live workspace sessions: %w", err)
+	}
+
+	if sessions == nil {
+		sessions = make([]*domain.LiveWorkspaceSession, 0)
+	}
+
+	for _, s := range sessions {
+		if s.ContainerID != "" && s.Status == "running" {
+			s.IsAttached = true
+		}
+	}
+
+	return sessions, nil
+}
+

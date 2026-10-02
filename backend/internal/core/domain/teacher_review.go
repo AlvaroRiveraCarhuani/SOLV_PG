@@ -194,4 +194,32 @@ type SubmissionTimeline struct {
 	Keyframes            []TimelineKeyframe `json:"keyframes"`
 }
 
+// LiveWorkspaceSession representa una sesion de contenedor activa en vivo para Shadow Mode y monitoreo en tiempo real.
+type LiveWorkspaceSession struct {
+	WorkspaceID   string    `db:"workspace_id" json:"workspace_id"`
+	ContainerID   string    `db:"container_id" json:"container_id"`
+	StudentID     string    `db:"student_id" json:"student_id"`
+	StudentName   string    `db:"student_name" json:"student_name"`
+	StudentEmail  string    `db:"student_email" json:"student_email"`
+	SubjectID     string    `db:"subject_id" json:"subject_id"`
+	SubjectName   string    `db:"subject_name" json:"subject_name"`
+	Status        string    `db:"status" json:"status"`
+	MemoryLimitMB int64     `db:"memory_limit_mb" json:"memory_limit_mb"`
+	OOMStrikes    int       `db:"oom_strikes" json:"oom_strikes"`
+	LastHeartbeat time.Time `db:"last_heartbeat" json:"last_heartbeat"`
+	IsAttached    bool      `json:"is_attached"`
+}
 
+// TutorCommandRequest comando emitido por el docente para ejecutar diagnostico o ayuda interactiva.
+type TutorCommandRequest struct {
+	Command string `json:"command"`
+}
+
+// TutorCommandResponse resultado de la ejecucion del comando en el contenedor del estudiante.
+type TutorCommandResponse struct {
+	ContainerID string `json:"container_id"`
+	Command     string `json:"command"`
+	Output      string `json:"output"`
+	ExitCode    int    `json:"exit_code"`
+	ExecutedAt  string `json:"executed_at"`
+}
