@@ -130,7 +130,7 @@
           </div>
         </div>
 
-        <!-- Switch Pedagógico ADR-007 -->
+        <!-- Switch Pedagógico de Transmisión -->
         <div class="pedagogical-options-box">
           <label class="checkbox-setting">
             <input
@@ -141,10 +141,10 @@
             <div class="setting-labels">
               <span class="setting-title">
                 <svg lucideRadio class="setting-icon"></svg>
-                Permitir emisión de código en vivo a la clase (ADR-007)
+                Permitir transmisión de código en vivo a la clase
               </span>
               <span class="setting-desc">
-                Habilita el botón "Emitir Avance" en tu IDE para enviar snapshots de código en tiempo real a los alumnos conectados.
+                Habilita el botón "Emitir Avance" en tu entorno para que los estudiantes puedan sincronizar tu código en tiempo real con un solo clic.
               </span>
             </div>
           </label>
@@ -349,11 +349,11 @@
     <!-- =================================================================== -->
     @if (currentStep() === 2 && labType() === 'IDE_PERSISTENTE') {
       <div class="step-container">
-        <!-- Selector de Plantilla Docker Oficial (ADR-030) -->
+        <!-- Selector de Plantilla Docker Oficial -->
         <div class="template-selector-section">
           <div class="section-header-flex">
             <div>
-              <label class="section-title">Plantilla del Entorno de Desarrollo (ADR-030)</label>
+              <label class="section-title">Plantilla del Entorno de Desarrollo</label>
               <p class="section-subtitle">
                 Selecciona la imagen base oficial aprobada por la administración del sistema.
               </p>
@@ -408,12 +408,12 @@
           }
         </div>
 
-        <!-- Servicios Satélite de Base de Datos (ADR-006) -->
+        <!-- Servicios Satélite de Base de Datos -->
         <div class="database-satellite-section">
           <div class="section-header">
             <label class="section-title">
               <svg lucideDatabase class="section-icon-db"></svg>
-              <span>Servicios de Base de Datos Acoplados (ADR-006)</span>
+              <span>Servicios de Base de Datos Acoplados</span>
             </label>
             <p class="section-subtitle">
               Provisiona automáticamente una base de datos aislada conectada al workspace del alumno.
@@ -491,16 +491,16 @@
     }
 
     <!-- =================================================================== -->
-    <!-- PASO 3: Restricciones AST (Semgrep) & Código Inicial (Boilerplate)  -->
+    <!-- PASO 3: Restricciones de Código & Boilerplate                       -->
     <!-- =================================================================== -->
     @if (currentStep() === 3) {
       <div class="step-container">
-        <!-- 1. Restricciones AST / Semgrep (ADR-026) -->
+        <!-- 1. Restricciones de Código -->
         <div class="ast-rules-section">
           <div class="section-header">
             <label class="section-title">
               <svg lucideShield class="section-icon-shield"></svg>
-              <span>1. Restricciones de Análisis Estático (AST / Semgrep — ADR-026)</span>
+              <span>1. Restricciones de Código y Reglas Pedagógicas</span>
             </label>
             <p class="section-subtitle">
               Activa reglas pedagógicas para bloquear atajos sintácticos o módulos de sistema antes de ejecutar el código:
