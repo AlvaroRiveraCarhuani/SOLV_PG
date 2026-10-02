@@ -1,12 +1,21 @@
 import { Routes } from '@angular/router';
 import { authGuard } from '@core/guards/auth.guard';
 import { adminGuard } from '@core/guards/admin.guard';
+import { teacherGuard } from '@core/guards/teacher.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
     loadComponent: () =>
       import('@features/auth/login/login.component').then((m) => m.LoginComponent)
+  },
+  {
+    path: 'teacher',
+    canActivate: [authGuard, teacherGuard],
+    loadComponent: () =>
+      import('@features/teacher/layout/teacher-layout.component').then((m) => m.TeacherLayoutComponent),
+    loadChildren: () =>
+      import('@features/teacher/teacher.routes').then((m) => m.TEACHER_ROUTES)
   },
   {
     path: 'student',

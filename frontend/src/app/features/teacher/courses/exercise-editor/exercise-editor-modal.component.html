@@ -1,0 +1,135 @@
+<modal-shell
+  [title]="exerciseToEdit() ? 'Editar Laboratorio' : 'Nuevo Laboratorio / Guía'"
+  subtitle="Definición pedagógica de ejercicios, plazos y casos de prueba."
+  maxWidth="640px"
+  [disableClose]="isSubmitting()"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideCode class="icon"></svg>
+
+  @if (formError()) {
+    <div class="error-banner">
+      <svg lucideAlertCircle class="error-icon"></svg>
+      <span>{{ formError() }}</span>
+    </div>
+  }
+
+  <div class="form-body">
+    <form-field label="Título del Laboratorio" for="labTitle" [required]="true">
+      <input
+        id="labTitle"
+        type="text"
+        placeholder="ej. Estructuras de Datos: Listas Enlazadas"
+        [ngModel]="title()"
+        (ngModelChange)="title.set($event)"
+        class="form-input"
+      />
+    </form-field>
+
+    <form-field label="Descripción / Consigna" for="labDesc">
+      <textarea
+        id="labDesc"
+        rows="3"
+        placeholder="Instrucciones para el estudiante..."
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+        class="form-textarea"
+      ></textarea>
+    </form-field>
+
+    <form-field label="Fecha Límite de Entrega" for="labDueDate" hint="Opcional. Los alumnos sin entrega previa a 24h serán marcados en riesgo.">
+      <input
+        id="labDueDate"
+        type="datetime-local"
+        [ngModel]="dueDate()"
+        (ngModelChange)="dueDate.set($event)"
+        class="form-input"
+      />
+    </form-field>
+
+    <!-- Sección de Casos de Prueba -->
+    <div class="test-cases-section">
+      <div class="section-top">
+        <label class="section-label">Casos de Prueba (Juez Virtual)</label>
+        <div class="csv-upload-box">
+          <label class="btn-outline-sm" for="csvFile">
+            <svg lucideUpload class="btn-icon-sm"></svg>
+            <span>Importar CSV</span>
+          </label>
+          <input
+            id="csvFile"
+            type="file"
+            accept=".csv"
+            (change)="onCsvSelected($event)"
+            class="hidden-file-input"
+          />
+        </div>
+      </div>
+
+      @if (csvError()) {
+        <div class="csv-error-box">
+          <svg lucideAlertTriangle class="error-icon"></svg>
+          <pre>{{ csvError() }}</pre>
+        </div>
+      }
+
+      <div class="test-cases-list">
+        @for (tc of testCases(); track $index) {
+          <div class="test-case-row">
+            <div class="tc-inputs">
+              <input
+                type="text"
+                placeholder="Entrada (Input)"
+                [ngModel]="tc.input"
+                (ngModelChange)="tc.input = $event"
+                class="form-input form-input-sm font-mono"
+              />
+              <input
+                type="text"
+                placeholder="Salida esperada (Expected)"
+                [ngModel]="tc.expected_output"
+                (ngModelChange)="tc.expected_output = $event"
+                class="form-input form-input-sm font-mono"
+              />
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [checked]="tc.is_hidden"
+                  (change)="tc.is_hidden = $any($event.target).checked"
+                />
+                <span>Oculto</span>
+              </label>
+            </div>
+            <button
+              type="button"
+              class="btn-icon-danger"
+              [disabled]="testCases().length <= 1"
+              (click)="removeTestCase($index)"
+              title="Eliminar caso"
+            >
+              <svg lucideTrash2 class="btn-icon-sm"></svg>
+            </button>
+          </div>
+        }
+      </div>
+
+      <button type="button" class="btn-outline-sm btn-add-tc" (click)="addTestCase()">
+        <svg lucidePlus class="btn-icon-sm"></svg>
+        <span>Agregar Caso Manual</span>
+      </button>
+    </div>
+  </div>
+
+  <ng-container modal-footer>
+    <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="close.emit()">
+      Cancelar
+    </button>
+    <button type="button" class="btn-primary" [disabled]="isSubmitting()" (click)="submit()">
+      @if (isSubmitting()) {
+        Guardando...
+      } @else {
+        {{ exerciseToEdit() ? 'Actualizar' : 'Guardar Borrador' }}
+      }
+    </button>
+  </ng-container>
+</modal-shell>

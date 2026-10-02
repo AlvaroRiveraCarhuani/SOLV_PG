@@ -1,0 +1,225 @@
+<div class="course-detail-container">
+  <!-- Header del Cuaderno -->
+  <header class="course-header">
+    <div class="header-left">
+      <a routerLink="/teacher/dashboard" class="back-link">
+        <svg lucideArrowLeft class="btn-icon-sm"></svg>
+        <span>Volver al Panel</span>
+      </a>
+      <h1 class="page-title">Gestión de Cuaderno y Laboratorios</h1>
+      <p class="page-subtitle">Materia: <code class="font-mono">{{ subjectId() }}</code></p>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn-outline btn-pause" (click)="openPauseConfirmModal()" title="Hibernar contenedores de la clase">
+        <svg lucidePauseCircle class="btn-icon-sm"></svg>
+        <span>Pausar Entornos</span>
+      </button>
+
+      <button class="btn-outline" [disabled]="isExporting()" (click)="exportGrades()">
+        <svg lucideDownload class="btn-icon-sm"></svg>
+        <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
+      </button>
+
+      <button class="btn-primary" (click)="openCreateExerciseModal()">
+        <svg lucidePlus class="btn-icon-sm"></svg>
+        <span>Nuevo Laboratorio</span>
+      </button>
+    </div>
+  </header>
+
+  @if (pauseSuccessMessage()) {
+    <div class="success-banner">
+      <svg lucideCheckCircle class="success-icon"></svg>
+      <span>{{ pauseSuccessMessage() }}</span>
+    </div>
+  }
+
+  @if (publishError()) {
+    <div class="error-banner">
+      <svg lucideAlertTriangle class="error-icon"></svg>
+      <span>{{ publishError() }}</span>
+    </div>
+  }
+
+  <!-- Pestañas de Vista -->
+  <div class="tabs-nav">
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'labs'"
+      (click)="activeTab.set('labs')"
+    >
+      <svg lucideBookOpen class="btn-icon-sm"></svg>
+      <span>Guías y Laboratorios ({{ labs().length }})</span>
+    </button>
+    <button
+      class="tab-btn"
+      [class.active]="activeTab() === 'submissions'"
+      (click)="activeTab.set('submissions')"
+    >
+      <svg lucideListChecks class="btn-icon-sm"></svg>
+      <span>Cola de Entregas ({{ submissions().length }})</span>
+    </button>
+  </div>
+
+  <!-- Contenido: Pestaña Laboratorios -->
+  @if (activeTab() === 'labs') {
+    <div class="labs-view">
+      @if (isLoading()) {
+        <skeleton-loader variant="cards" [count]="3" />
+      } @else if (labs().length === 0) {
+        <div class="empty-state">
+          <svg lucideFolderPlus class="empty-icon"></svg>
+          <p>No hay laboratorios creados en esta materia todavía.</p>
+          <button class="btn-primary" (click)="openCreateExerciseModal()">
+            Crear Primer Laboratorio
+          </button>
+        </div>
+      } @else {
+        <div class="labs-list">
+          @for (lab of labs(); track lab.id) {
+            <div class="lab-card" [class.lab-draft]="lab.status === 'draft'">
+              <div class="lab-main">
+                <div class="lab-badges">
+                  <span class="status-badge" [class.badge-draft]="lab.status === 'draft'" [class.badge-published]="lab.status === 'published'">
+                    {{ lab.status === 'draft' ? 'Borrador' : 'Publicado' }}
+                  </span>
+                  @if (lab.due_date) {
+                    <span class="due-badge">
+                      <svg lucideCalendar class="btn-icon-sm"></svg>
+                      <span>Límite: <time>{{ lab.due_date | dateText:'compact-datetime' }}</time></span>
+                    </span>
+                  }
+                </div>
+                <h3 class="lab-title">{{ lab.title }}</h3>
+                
+                <div class="lab-metrics">
+                  <span class="metric-item">
+                    <strong>{{ lab.submissions_count }}</strong> entregas
+                  </span>
+                  <span class="metric-item">
+                    <strong class="text-success">{{ lab.auto_graded }}</strong> calificadas auto
+                  </span>
+                  <span class="metric-item">
+                    <strong class="text-warning">{{ lab.pending_review }}</strong> revisión manual
+                  </span>
+                  @if (lab.at_risk > 0) {
+                    <span class="metric-item text-danger">
+                      <strong>{{ lab.at_risk }}</strong> alumnos en riesgo
+                    </span>
+                  }
+                </div>
+              </div>
+
+              <div class="lab-actions">
+                @if (lab.status === 'draft') {
+                  <button class="btn-publish" (click)="publishExercise(lab)" title="Publicar para los estudiantes">
+                    <svg lucideGlobe class="btn-icon-sm"></svg>
+                    <span>Publicar</span>
+                  </button>
+                }
+                <button class="btn-edit" (click)="openEditExerciseModal(lab)">
+                  <svg lucideEdit3 class="btn-icon-sm"></svg>
+                  <span>Editar</span>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+
+  <!-- Contenido: Pestaña Cola de Entregas -->
+  @if (activeTab() === 'submissions') {
+    <div class="submissions-view">
+      <div class="filters-bar">
+        <label class="filter-label">Filtrar por Veredicto:</label>
+        <select
+          [value]="verdictFilter()"
+          (change)="verdictFilter.set($any($event.target).value)"
+          class="form-select"
+        >
+          <option value="all">Todos los veredictos</option>
+          <option value="AC">AC (Aceptado)</option>
+          <option value="WA">WA (Wrong Answer)</option>
+          <option value="TLE">TLE (Time Limit Exceeded)</option>
+          <option value="RE">RE (Runtime Error)</option>
+          <option value="AST_BLOCKED">AST Bloqueado</option>
+        </select>
+      </div>
+
+      @if (isLoading()) {
+        <skeleton-loader variant="table" [rows]="4" [columns]="7" />
+      } @else if (filteredSubmissions().length === 0) {
+        <div class="empty-state">
+          <p>No se encontraron entregas con el filtro seleccionado.</p>
+        </div>
+      } @else {
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Estudiante</th>
+              <th>Laboratorio</th>
+              <th>Veredicto</th>
+              <th>Puntaje</th>
+              <th>Fecha Entrega</th>
+              <th>Comentarios</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (sub of filteredSubmissions(); track sub.id) {
+              <tr>
+                <td>
+                  <div class="student-cell">
+                    <strong>{{ sub.student_name }}</strong>
+                    <span class="student-email">{{ sub.student_email }}</span>
+                  </div>
+                </td>
+                <td>{{ sub.exercise_title }}</td>
+                <td>
+                  <span class="verdict-tag" [class]="'verdict-' + sub.verdict.toLowerCase().replace('_', '-')">
+                    <code class="font-mono">{{ sub.verdict }}</code>
+                  </span>
+                </td>
+                <td><span machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' pts' : '—' }}</span></td>
+                <td>
+                  <time>{{ sub.submitted_at | dateText:'datetime' }}</time>
+                </td>
+                <td><span machineData>{{ sub.comments_count }}</span></td>
+                <td>
+                  <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade">
+                    <span>SpeedGrader</span>
+                    <svg lucideExternalLink class="btn-icon-sm"></svg>
+                  </a>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+</div>
+
+@if (showEditorModal()) {
+  <exercise-editor-modal
+    [subjectId]="subjectId()"
+    [exerciseToEdit]="selectedExerciseToEdit()"
+    (close)="closeEditorModal()"
+    (saved)="loadData()"
+  />
+}
+
+@if (showPauseConfirmModal()) {
+  <confirm-modal
+    title="¿Pausar todos los entornos de la clase?"
+    message="Esta acción hibernará de forma masiva los contenedores de los estudiantes para liberar recursos de memoria en el servidor."
+    confirmText="Pausar Entornos"
+    cancelText="Cancelar"
+    type="danger"
+    (confirm)="confirmPauseAllEnvironments()"
+    (cancel)="closePauseConfirmModal()"
+  />
+}

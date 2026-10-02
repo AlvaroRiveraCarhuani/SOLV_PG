@@ -1,0 +1,130 @@
+<div class="evaluations-container">
+  <!-- Header principal -->
+  <header class="evaluations-header">
+    <div class="header-titles">
+      <h1 class="page-title">Centro Global de Evaluaciones</h1>
+      <p class="page-subtitle">Planilla consolidada de calificaciones, métricas de avance y exportación de actas.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-primary" (click)="exportGradesCSV()">
+        <svg lucideDownload class="btn-icon"></svg>
+        <span>Exportar Acta CSV / Excel</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Control Bar: Filtros de Curso y Laboratorio -->
+  <div class="control-bar">
+    <div class="control-left">
+      <div class="filter-group">
+        <label class="control-label">Materia:</label>
+        <select [ngModel]="selectedCourseId()" (ngModelChange)="onCourseChange($event)" class="form-select">
+          @for (course of courses(); track course.id) {
+            <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
+          }
+          @if (courses().length === 0) {
+            <option value="">Programación II</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label class="control-label">Laboratorio:</label>
+        <select [ngModel]="selectedLabId()" (ngModelChange)="selectedLabId.set($event)" class="form-select">
+          <option value="all">Todos los laboratorios</option>
+          @for (lab of labsList(); track lab.id) {
+            <option [value]="lab.id">{{ lab.title }}</option>
+          }
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Métricas Rápidas del Laboratorio Seleccionado (KPIs) -->
+  @if (labStats(); as stats) {
+    <div class="kpi-summary-grid">
+      <div class="kpi-box">
+        <span class="kpi-label">Promedio de Calificación</span>
+        <span class="kpi-val text-primary" machineData>{{ stats.average }} / 100</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-label">Tasa de Aprobación</span>
+        <span class="kpi-val text-success" machineData>{{ stats.passRate }}%</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-label">Total Alumnos</span>
+        <span class="kpi-val" machineData>{{ stats.totalStudents }}</span>
+      </div>
+      <div class="kpi-box">
+        <span class="kpi-label">Entregas Pendientes / Riesgo</span>
+        <span class="kpi-val text-warning" machineData>{{ stats.pendingCount }}</span>
+      </div>
+    </div>
+  }
+
+  <!-- Matriz de Calificaciones -->
+  <div class="table-container">
+    @if (isLoading()) {
+      <skeleton-loader variant="table" [rows]="4" [columns]="6" />
+    } @else if (evaluationsList().length === 0) {
+      <div class="empty-state">
+        <p>No hay entregas registradas para esta materia.</p>
+      </div>
+    } @else {
+      <table class="evaluations-table">
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th class="text-center">Código</th>
+            @for (lab of filteredLabs(); track lab.id) {
+              <th class="text-center">{{ lab.title }}</th>
+            }
+            <th class="text-center">Promedio</th>
+            <th class="text-center">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of evaluationsList(); track row.student_id) {
+            <tr>
+              <td class="cell-student">
+                <span class="student-name">{{ row.student_name }}</span>
+              </td>
+              <td class="text-center">
+                <span machineData>{{ row.student_code }}</span>
+              </td>
+              @for (lab of filteredLabs(); track lab.id) {
+                <td class="text-center">
+                  @if (row.scores[lab.id] !== undefined && row.scores[lab.id] !== null) {
+                    <span class="score-pill" machineData>{{ row.scores[lab.id] }}/100</span>
+                  } @else {
+                    <span class="score-pending">—</span>
+                  }
+                </td>
+              }
+              <td class="text-center">
+                <span class="score-average" machineData>{{ row.average }}/100</span>
+              </td>
+              <td class="text-center">
+                <span 
+                  class="status-pill"
+                  [class.pill-success]="row.status === 'aprobado'"
+                  [class.pill-warning]="row.status === 'riesgo'"
+                  [class.pill-danger]="row.status === 'reprobado'"
+                >
+                  @if (row.status === 'aprobado') {
+                    Aprobado
+                  } @else if (row.status === 'riesgo') {
+                    Riesgo
+                  } @else {
+                    Reprobado
+                  }
+                </span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+</div>
