@@ -29,7 +29,7 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 | **10** | Robustez BaaS & Resiliencia | ADR-022, ADR-023, ADR-025 | Implementado | N/A | Verificado (Integración) |
 | **11** | Operabilidad B2B & Migrations Lock | ADR-027, ADR-028 | Implementado | N/A | Verificado (Integración) |
 | **12** | Experiencia Estudiante, Shell y Juez en Tiempo Real | ADR-012, ADR-037, ADR-029 | Implementado | En Proceso | Verificado (PostgreSQL Real) |
-| **13** | Experiencia Docente, Cursos y Creación de Laboratorios | ADR-026, ADR-029, ADR-030, ADR-037 | Implementado | Pendiente | Verificado (Integración) |
+| **13** | Experiencia Docente, Cursos y Creación de Laboratorios | ADR-026, ADR-029, ADR-030, ADR-037 | Implementado | **Implementado** | Verificado (Integración) |
 | **14** | Panel Administrador Institucional & Gobernanza | ADR-024, ADR-027, ADR-029, ADR-030, ADR-031, ADR-032, ADR-033, ADR-036 | Implementado | **Implementado** | Verificado (Integración) |
 | **15** | Notificaciones Proactivas (In-App & Email) | ADR-031, ADR-032, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
 | **16** | Backups y Retención Institucional | ADR-027, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
