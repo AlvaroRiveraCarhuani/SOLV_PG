@@ -1,21 +1,36 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideDownload, LucideShieldAlert } from '@lucide/angular';
+import { RouterLink } from '@angular/router';
+import { 
+  LucideDownload, 
+  LucideShieldAlert, 
+  LucideListChecks, 
+  LucideAward, 
+  LucideSearch, 
+  LucideExternalLink,
+  LucideCheckCircle
+} from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
-import { TeacherLabStats } from '../models/teacher.models';
+import { TeacherLabStats, SubmissionQueueItem } from '../models/teacher.models';
 
 export interface EvaluationRow {
   student_id: string;
   student_name: string;
   student_code: string;
-  scores: Record<string, number | null>; // labId -> score
+  scores: Record<string, number | null>;
   average: number;
   status: 'aprobado' | 'riesgo' | 'reprobado';
+}
+
+export interface EnrichedQueueItem extends SubmissionQueueItem {
+  course_id?: string;
+  course_name?: string;
 }
 
 @Component({
@@ -24,9 +39,16 @@ export interface EvaluationRow {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     LucideDownload,
     LucideShieldAlert,
+    LucideListChecks,
+    LucideAward,
+    LucideSearch,
+    LucideExternalLink,
+    LucideCheckCircle,
     MachineDataDirective,
+    DateTextPipe,
     SkeletonLoaderComponent,
     PlagiarismModalComponent
   ],
@@ -38,14 +60,64 @@ export class TeacherEvaluationsComponent implements OnInit {
   private courseService = inject(TeacherCourseService);
 
   courses = this.dashboardService.courses;
-  selectedCourseId = signal<string>('');
-  selectedLabId = signal<string>('all');
+  activeTab = signal<'queue' | 'grades'>('queue');
   isLoading = signal<boolean>(false);
   isPlagiarismModalOpen = signal<boolean>(false);
 
+  // Filtros Cola Global
+  courseFilter = signal<string>('all');
+  verdictFilter = signal<string>('all');
+  statusFilter = signal<'all' | 'pending' | 'graded'>('all');
+  searchTerm = signal<string>('');
+
+  // Datos Cola
+  queueList = signal<EnrichedQueueItem[]>([]);
+
+  // Datos Planilla de Calificaciones (Actas)
+  selectedCourseId = signal<string>('');
+  selectedLabId = signal<string>('all');
   labsList = signal<TeacherLabStats[]>([]);
   evaluationsList = signal<EvaluationRow[]>([]);
 
+  // Computeds Cola Global
+  filteredQueue = computed(() => {
+    let items = this.queueList();
+    const course = this.courseFilter();
+    const verdict = this.verdictFilter();
+    const status = this.statusFilter();
+    const query = this.searchTerm().trim().toLowerCase();
+
+    if (course !== 'all') {
+      items = items.filter(i => i.course_id === course);
+    }
+    if (verdict !== 'all') {
+      items = items.filter(i => i.verdict === verdict);
+    }
+    if (status === 'pending') {
+      items = items.filter(i => i.score === undefined || i.score === null);
+    } else if (status === 'graded') {
+      items = items.filter(i => i.score !== undefined && i.score !== null);
+    }
+    if (query) {
+      items = items.filter(i => 
+        i.student_name.toLowerCase().includes(query) ||
+        i.exercise_title.toLowerCase().includes(query) ||
+        (i.course_name && i.course_name.toLowerCase().includes(query))
+      );
+    }
+    return items;
+  });
+
+  kpiStats = computed(() => {
+    const queue = this.queueList();
+    const total = queue.length;
+    const pending = queue.filter(q => q.score === undefined || q.score === null).length;
+    const graded = total - pending;
+    const atRisk = queue.filter(q => q.verdict === 'WA' || q.verdict === 'TLE' || q.verdict === 'AST_BLOCKED').length;
+    return { total, pending, graded, atRisk };
+  });
+
+  // Computeds Planilla de Calificaciones
   filteredLabs = computed(() => {
     const selected = this.selectedLabId();
     const all = this.labsList();
@@ -67,7 +139,6 @@ export class TeacherEvaluationsComponent implements OnInit {
       return { average: avg, passRate, totalStudents: rows.length, pendingCount: rows.filter(r => r.status === 'riesgo' || r.status === 'reprobado').length };
     }
 
-    // Single lab stats
     const scores = rows.map(r => r.scores[selected]).filter((s): s is number => s !== undefined && s !== null);
     const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
     const passed = scores.filter(s => s >= 70).length;
@@ -77,19 +148,59 @@ export class TeacherEvaluationsComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    if (this.courses().length === 0) {
-      this.dashboardService.loadDashboardData().subscribe({
-        next: (data) => {
-          if (data.courses.length > 0) {
-            this.selectedCourseId.set(data.courses[0].id);
-            this.loadCourseEvaluations(data.courses[0].id);
+    this.loadAllData();
+  }
+
+  loadAllData(): void {
+    this.isLoading.set(true);
+
+    this.dashboardService.loadDashboardData().subscribe({
+      next: (data) => {
+        if (data.courses.length > 0) {
+          const firstId = data.courses[0].id;
+          this.selectedCourseId.set(firstId);
+          this.loadCourseEvaluations(firstId);
+        }
+
+        // Cargar entregas de todos los cursos para la cola global
+        this.loadGlobalSubmissions(data.courses);
+      },
+      error: () => this.isLoading.set(false)
+    });
+  }
+
+  loadGlobalSubmissions(courses: { id: string; name: string }[]): void {
+    if (courses.length === 0) {
+      this.isLoading.set(false);
+      return;
+    }
+
+    let loadedCount = 0;
+    const allItems: EnrichedQueueItem[] = [];
+
+    for (const course of courses) {
+      this.courseService.getCourseSubmissions(course.id).subscribe({
+        next: (subs) => {
+          const mapped = subs.map(s => ({
+            ...s,
+            course_id: course.id,
+            course_name: course.name
+          }));
+          allItems.push(...mapped);
+          loadedCount++;
+          if (loadedCount === courses.length) {
+            this.queueList.set(allItems);
+            this.isLoading.set(false);
+          }
+        },
+        error: () => {
+          loadedCount++;
+          if (loadedCount === courses.length) {
+            this.queueList.set(allItems);
+            this.isLoading.set(false);
           }
         }
       });
-    } else {
-      const firstCourseId = this.courses()[0].id;
-      this.selectedCourseId.set(firstCourseId);
-      this.loadCourseEvaluations(firstCourseId);
     }
   }
 
@@ -100,7 +211,6 @@ export class TeacherEvaluationsComponent implements OnInit {
 
   loadCourseEvaluations(courseId: string): void {
     if (!courseId) return;
-    this.isLoading.set(true);
 
     this.courseService.getCourseLabs(courseId).subscribe({
       next: (labs) => {
@@ -126,7 +236,6 @@ export class TeacherEvaluationsComponent implements OnInit {
               row.scores[sub.exercise_id] = numericScore;
             }
 
-            // Calculate averages and statuses
             const rows: EvaluationRow[] = Array.from(studentMap.values()).map(r => {
               const scoresArr = Object.values(r.scores).filter((s): s is number => s !== null);
               const total = scoresArr.reduce((acc, s) => acc + s, 0);
@@ -143,12 +252,9 @@ export class TeacherEvaluationsComponent implements OnInit {
             });
 
             this.evaluationsList.set(rows);
-            this.isLoading.set(false);
-          },
-          error: () => this.isLoading.set(false)
+          }
         });
-      },
-      error: () => this.isLoading.set(false)
+      }
     });
   }
 
@@ -173,7 +279,6 @@ export class TeacherEvaluationsComponent implements OnInit {
         link.click();
       },
       error: () => {
-        // Fallback to local client CSV export
         const rows = this.evaluationsList();
         const headers = ['Estudiante', 'Código', 'Promedio', 'Estado'];
         const csvContent = [

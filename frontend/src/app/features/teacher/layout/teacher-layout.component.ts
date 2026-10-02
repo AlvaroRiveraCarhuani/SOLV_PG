@@ -12,7 +12,20 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
     title: 'DOCENCIA',
     items: [
       { label: 'Panel de Control', route: '/teacher/dashboard', iconName: 'activity', exact: true },
-      { label: 'Evaluaciones', route: '/teacher/evaluaciones', iconName: 'award' }
+      { label: 'Evaluaciones & Entregas', route: '/teacher/evaluaciones', iconName: 'award' }
+    ]
+  },
+  {
+    title: 'CONTENIDOS',
+    items: [
+      { label: 'Banco de Ejercicios', route: '/teacher/exercises', iconName: 'boxes' },
+      { label: 'Plantillas de Entorno', route: '/teacher/templates', iconName: 'layers' }
+    ]
+  },
+  {
+    title: 'SUPERVISIÓN',
+    items: [
+      { label: 'Anti-Plagio AST', route: '/teacher/anti-plagio', iconName: 'shield-alert' }
     ]
   }
 ];

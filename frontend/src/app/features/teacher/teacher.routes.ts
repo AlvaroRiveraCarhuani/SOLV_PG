@@ -25,5 +25,17 @@ export const TEACHER_ROUTES: Routes = [
     path: 'evaluaciones',
     loadComponent: () =>
       import('./evaluations/teacher-evaluations.component').then(m => m.TeacherEvaluationsComponent)
+  },
+  {
+    path: 'anti-plagio',
+    redirectTo: 'evaluaciones'
+  },
+  {
+    path: 'exercises',
+    redirectTo: 'dashboard'
+  },
+  {
+    path: 'templates',
+    redirectTo: 'dashboard'
   }
 ];

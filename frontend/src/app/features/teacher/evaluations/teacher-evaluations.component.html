@@ -3,7 +3,7 @@
   <header class="evaluations-header">
     <div class="header-titles">
       <h1 class="page-title">Centro Global de Evaluaciones</h1>
-      <p class="page-subtitle">Planilla consolidada de calificaciones, métricas de avance y exportación de actas.</p>
+      <p class="page-subtitle">Cola centralizada de entregas, revisión rápida con SpeedGrader y actas consolidadas.</p>
     </div>
 
     <div class="header-actions">
@@ -13,131 +13,319 @@
       </button>
       <button type="button" class="btn btn-primary" (click)="exportGradesCSV()">
         <svg lucideDownload class="btn-icon"></svg>
-        <span>Exportar Acta CSV / Excel</span>
+        <span>Exportar Acta CSV</span>
       </button>
     </div>
   </header>
 
-  <!-- Control Bar: Filtros de Curso y Laboratorio -->
-  <div class="control-bar">
-    <div class="control-left">
-      <div class="filter-group">
-        <label class="control-label">Materia:</label>
-        <select [ngModel]="selectedCourseId()" (ngModelChange)="onCourseChange($event)" class="form-select">
-          @for (course of courses(); track course.id) {
-            <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
-          }
-          @if (courses().length === 0) {
-            <option value="">Programación II</option>
-          }
-        </select>
-      </div>
+  <!-- Pestañas Principales -->
+  <div class="eval-tabs-nav">
+    <button
+      type="button"
+      class="eval-tab-btn"
+      [class.active]="activeTab() === 'queue'"
+      (click)="activeTab.set('queue')"
+    >
+      <svg lucideListChecks class="tab-icon"></svg>
+      <span>Cola de Entregas ({{ kpiStats().total }})</span>
+      @if (kpiStats().pending > 0) {
+        <span class="pending-pill" machineData>{{ kpiStats().pending }}</span>
+      }
+    </button>
 
-      <div class="filter-group">
-        <label class="control-label">Laboratorio:</label>
-        <select [ngModel]="selectedLabId()" (ngModelChange)="selectedLabId.set($event)" class="form-select">
-          <option value="all">Todos los laboratorios</option>
-          @for (lab of labsList(); track lab.id) {
-            <option [value]="lab.id">{{ lab.title }}</option>
-          }
-        </select>
-      </div>
-    </div>
+    <button
+      type="button"
+      class="eval-tab-btn"
+      [class.active]="activeTab() === 'grades'"
+      (click)="activeTab.set('grades')"
+    >
+      <svg lucideAward class="tab-icon"></svg>
+      <span>Planilla de Calificaciones (Actas)</span>
+    </button>
   </div>
 
-  <!-- Métricas Rápidas del Laboratorio Seleccionado (KPIs) -->
-  @if (labStats(); as stats) {
-    <div class="kpi-summary-grid">
-      <div class="kpi-box">
-        <span class="kpi-label">Promedio de Calificación</span>
-        <span class="kpi-val text-primary" machineData>{{ stats.average }} / 100</span>
+  <!-- VISTA 1: COLA DE ENTREGAS & SPEEDGRADER -->
+  @if (activeTab() === 'queue') {
+    <div class="queue-view-container">
+      <!-- KPIs Resumen de la Cola -->
+      <div class="kpi-summary-grid">
+        <div class="kpi-box">
+          <span class="kpi-label">Total Entregas</span>
+          <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
+        </div>
+        <div class="kpi-box">
+          <span class="kpi-label">Pendientes de Revisión</span>
+          <span class="kpi-val text-warning" machineData>{{ kpiStats().pending }}</span>
+        </div>
+        <div class="kpi-box">
+          <span class="kpi-label">Evaluadas / Calificadas</span>
+          <span class="kpi-val text-success" machineData>{{ kpiStats().graded }}</span>
+        </div>
+        <div class="kpi-box">
+          <span class="kpi-label">En Riesgo (Fallas / AST)</span>
+          <span class="kpi-val text-danger" machineData>{{ kpiStats().atRisk }}</span>
+        </div>
       </div>
-      <div class="kpi-box">
-        <span class="kpi-label">Tasa de Aprobación</span>
-        <span class="kpi-val text-success" machineData>{{ stats.passRate }}%</span>
+
+      <!-- Barra de Filtros Reactivos -->
+      <div class="filters-toolbar">
+        <div class="search-box">
+          <svg lucideSearch class="search-icon"></svg>
+          <input
+            type="text"
+            placeholder="Buscar por estudiante, materia o laboratorio..."
+            [ngModel]="searchTerm()"
+            (ngModelChange)="searchTerm.set($event)"
+            class="search-input"
+          />
+        </div>
+
+        <div class="filters-row">
+          <div class="filter-item">
+            <label class="filter-label">Materia:</label>
+            <select
+              [ngModel]="courseFilter()"
+              (ngModelChange)="courseFilter.set($event)"
+              class="form-select"
+            >
+              <option value="all">Todas las materias</option>
+              @for (course of courses(); track course.id) {
+                <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label class="filter-label">Veredicto:</label>
+            <select
+              [ngModel]="verdictFilter()"
+              (ngModelChange)="verdictFilter.set($event)"
+              class="form-select"
+            >
+              <option value="all">Todos los veredictos</option>
+              <option value="AC">AC (Aceptado)</option>
+              <option value="WA">WA (Wrong Answer)</option>
+              <option value="TLE">TLE (Time Limit Exceeded)</option>
+              <option value="RE">RE (Runtime Error)</option>
+              <option value="AST_BLOCKED">AST Bloqueado</option>
+            </select>
+          </div>
+
+          <div class="filter-item">
+            <label class="filter-label">Estado:</label>
+            <select
+              [ngModel]="statusFilter()"
+              (ngModelChange)="statusFilter.set($event)"
+              class="form-select"
+            >
+              <option value="all">Todos los estados</option>
+              <option value="pending">Pendientes de revisión</option>
+              <option value="graded">Calificadas</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="kpi-box">
-        <span class="kpi-label">Total Alumnos</span>
-        <span class="kpi-val" machineData>{{ stats.totalStudents }}</span>
-      </div>
-      <div class="kpi-box">
-        <span class="kpi-label">Entregas Pendientes / Riesgo</span>
-        <span class="kpi-val text-warning" machineData>{{ stats.pendingCount }}</span>
-      </div>
+
+      <!-- Tabla de la Cola -->
+      @if (isLoading()) {
+        <skeleton-loader variant="table" [rows]="6" [columns]="6" />
+      } @else if (filteredQueue().length === 0) {
+        <div class="empty-state">
+          <svg lucideCheckCircle class="empty-icon"></svg>
+          <h3>No hay entregas pendientes</h3>
+          <p>No se encontraron entregas que coincidan con los filtros seleccionados.</p>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="solv-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>Materia</th>
+                <th>Laboratorio</th>
+                <th>Fecha de Entrega</th>
+                <th>Veredicto</th>
+                <th>Calificación</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (item of filteredQueue(); track item.id) {
+                <tr>
+                  <td>
+                    <div class="student-info">
+                      <span class="student-name">{{ item.student_name }}</span>
+                      <span class="student-email font-mono">{{ item.student_email }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="course-badge">{{ item.course_name || 'Materia' }}</span>
+                  </td>
+                  <td>
+                    <span class="exercise-title">{{ item.exercise_title }}</span>
+                  </td>
+                  <td>
+                    <time class="submission-time font-mono">
+                      {{ item.submitted_at | dateText:'compact-datetime' }}
+                    </time>
+                  </td>
+                  <td>
+                    <span
+                      class="verdict-tag"
+                      [class.verdict-ac]="item.verdict === 'AC'"
+                      [class.verdict-wa]="item.verdict === 'WA'"
+                      [class.verdict-tle]="item.verdict === 'TLE'"
+                      [class.verdict-re]="item.verdict === 'RE'"
+                      [class.verdict-ast]="item.verdict === 'AST_BLOCKED'"
+                      machineData
+                    >
+                      {{ item.verdict }}
+                    </span>
+                  </td>
+                  <td>
+                    @if (item.score !== undefined && item.score !== null) {
+                      <span class="score-pill" [class.score-pass]="item.score >= 70" machineData>
+                        {{ item.score }} / 100
+                      </span>
+                    } @else {
+                      <span class="pending-score-badge">Por revisar</span>
+                    }
+                  </td>
+                  <td>
+                    <a
+                      [routerLink]="['/teacher/revision', item.id]"
+                      class="btn-review-action"
+                      title="Abrir SpeedGrader para revisar código y rúbrica"
+                    >
+                      <span>Revisar</span>
+                      <svg lucideExternalLink class="btn-icon-xs"></svg>
+                    </a>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </div>
   }
 
-  <!-- Matriz de Calificaciones -->
-  <div class="table-container">
-    @if (isLoading()) {
-      <skeleton-loader variant="table" [rows]="4" [columns]="6" />
-    } @else if (evaluationsList().length === 0) {
-      <div class="empty-state">
-        <p>No hay entregas registradas para esta materia.</p>
-      </div>
-    } @else {
-      <table class="evaluations-table">
-        <thead>
-          <tr>
-            <th>Estudiante</th>
-            <th class="text-center">Código</th>
-            @for (lab of filteredLabs(); track lab.id) {
-              <th class="text-center">{{ lab.title }}</th>
-            }
-            <th class="text-center">Promedio</th>
-            <th class="text-center">Estado</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (row of evaluationsList(); track row.student_id) {
-            <tr>
-              <td class="cell-student">
-                <span class="student-name">{{ row.student_name }}</span>
-              </td>
-              <td class="text-center">
-                <span machineData>{{ row.student_code }}</span>
-              </td>
-              @for (lab of filteredLabs(); track lab.id) {
-                <td class="text-center">
-                  @if (row.scores[lab.id] !== undefined && row.scores[lab.id] !== null) {
-                    <span class="score-pill" machineData>{{ row.scores[lab.id] }}/100</span>
-                  } @else {
-                    <span class="score-pending">—</span>
-                  }
-                </td>
+  <!-- VISTA 2: PLANILLA DE CALIFICACIONES (ACTAS) -->
+  @if (activeTab() === 'grades') {
+    <div class="grades-view-container">
+      <div class="control-bar">
+        <div class="control-left">
+          <div class="filter-group">
+            <label class="control-label">Materia:</label>
+            <select [ngModel]="selectedCourseId()" (ngModelChange)="onCourseChange($event)" class="form-select">
+              @for (course of courses(); track course.id) {
+                <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
               }
-              <td class="text-center">
-                <span class="score-average" machineData>{{ row.average }}/100</span>
-              </td>
-              <td class="text-center">
-                <span 
-                  class="status-pill"
-                  [class.pill-success]="row.status === 'aprobado'"
-                  [class.pill-warning]="row.status === 'riesgo'"
-                  [class.pill-danger]="row.status === 'reprobado'"
-                >
-                  @if (row.status === 'aprobado') {
-                    Aprobado
-                  } @else if (row.status === 'riesgo') {
-                    Riesgo
-                  } @else {
-                    Reprobado
-                  }
-                </span>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    }
-  </div>
+            </select>
+          </div>
 
-  @if (isPlagiarismModalOpen()) {
-    <plagiarism-modal
-      [subjectId]="selectedCourseId()"
-      [labs]="labsList()"
-      (close)="closePlagiarismModal()"
-    />
+          <div class="filter-group">
+            <label class="control-label">Laboratorio:</label>
+            <select [ngModel]="selectedLabId()" (ngModelChange)="selectedLabId.set($event)" class="form-select">
+              <option value="all">Todos los laboratorios</option>
+              @for (lab of labsList(); track lab.id) {
+                <option [value]="lab.id">{{ lab.title }}</option>
+              }
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Métricas del Laboratorio Seleccionado -->
+      @if (labStats(); as stats) {
+        <div class="kpi-summary-grid">
+          <div class="kpi-box">
+            <span class="kpi-label">Promedio de Calificación</span>
+            <span class="kpi-val text-primary" machineData>{{ stats.average }} / 100</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Tasa de Aprobación</span>
+            <span class="kpi-val text-success" machineData>{{ stats.passRate }}%</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Total Alumnos</span>
+            <span class="kpi-val" machineData>{{ stats.totalStudents }}</span>
+          </div>
+          <div class="kpi-box">
+            <span class="kpi-label">Requieren Atención</span>
+            <span class="kpi-val text-warning" machineData>{{ stats.pendingCount }}</span>
+          </div>
+        </div>
+      }
+
+      <!-- Tabla Consolidada -->
+      @if (isLoading()) {
+        <skeleton-loader variant="table" [rows]="5" [columns]="5" />
+      } @else if (evaluationsList().length === 0) {
+        <div class="empty-state">
+          <p>No hay datos de calificaciones disponibles para esta materia.</p>
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="solv-table">
+            <thead>
+              <tr>
+                <th>Estudiante</th>
+                <th>Código</th>
+                @for (lab of filteredLabs(); track lab.id) {
+                  <th class="text-center font-mono">{{ lab.title }}</th>
+                }
+                <th class="text-center">Promedio</th>
+                <th class="text-center">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of evaluationsList(); track row.student_id) {
+                <tr>
+                  <td>
+                    <span class="student-name">{{ row.student_name }}</span>
+                  </td>
+                  <td>
+                    <span class="student-code" machineData>{{ row.student_code }}</span>
+                  </td>
+                  @for (lab of filteredLabs(); track lab.id) {
+                    <td class="text-center font-mono">
+                      @if (row.scores[lab.id] !== undefined && row.scores[lab.id] !== null) {
+                        <span class="score-cell" [class.score-pass]="(row.scores[lab.id] || 0) >= 70" machineData>
+                          {{ row.scores[lab.id] }}
+                        </span>
+                      } @else {
+                        <span class="score-missing">—</span>
+                      }
+                    </td>
+                  }
+                  <td class="text-center font-mono font-bold">
+                    <span machineData>{{ row.average }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span
+                      class="status-pill"
+                      [class.status-pass]="row.status === 'aprobado'"
+                      [class.status-warn]="row.status === 'riesgo'"
+                      [class.status-fail]="row.status === 'reprobado'"
+                    >
+                      {{ row.status | uppercase }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
   }
 </div>
 
+<!-- Modal de Anti-Plagio AST -->
+@if (isPlagiarismModalOpen()) {
+  <plagiarism-modal
+    [subjectId]="selectedCourseId() || (courses()[0]?.id ?? '')"
+    (close)="closePlagiarismModal()"
+  />
+}
