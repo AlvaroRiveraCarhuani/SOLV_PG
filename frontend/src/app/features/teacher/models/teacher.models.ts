@@ -54,6 +54,12 @@ export interface TeacherLabStats {
   id: string;
   title: string;
   status: 'draft' | 'published';
+  type?: 'algorithm' | 'database' | 'workspace' | string;
+  language?: string;
+  boilerplate?: string;
+  template_id?: string;
+  memory_limit_mb?: number;
+  time_limit_ms?: number;
   due_date?: string;
   submissions_count: number;
   students_count: number;
@@ -154,12 +160,24 @@ export interface CreateExerciseRequestDTO {
   subject_id: string;
   title: string;
   description: string;
+  type?: 'algorithm' | 'database' | 'workspace' | string;
+  language?: string;
+  boilerplate?: string;
+  template_id?: string;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
   due_date?: string;
 }
 
 export interface UpdateExerciseRequestDTO {
   title?: string;
   description?: string;
+  type?: 'algorithm' | 'database' | 'workspace' | string;
+  language?: string;
+  boilerplate?: string;
+  template_id?: string;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
   due_date?: string;
 }
 

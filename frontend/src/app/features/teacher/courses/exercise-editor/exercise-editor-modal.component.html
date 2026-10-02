@@ -1,7 +1,7 @@
 <modal-shell
   [title]="exerciseToEdit() ? 'Editar Laboratorio' : 'Nuevo Laboratorio / Guía'"
-  subtitle="Definición pedagógica de ejercicios, plazos y casos de prueba."
-  maxWidth="640px"
+  subtitle="Definición pedagógica de ejercicios, modalidad de entorno, recursos y evaluación."
+  maxWidth="720px"
   [disableClose]="isSubmitting()"
   (close)="close.emit()"
 >
@@ -15,109 +15,314 @@
   }
 
   <div class="form-body">
-    <form-field label="Título del Laboratorio" for="labTitle" [required]="true">
-      <input
-        id="labTitle"
-        type="text"
-        placeholder="ej. Estructuras de Datos: Listas Enlazadas"
-        [ngModel]="title()"
-        (ngModelChange)="title.set($event)"
-        class="form-input"
-      />
-    </form-field>
+    <!-- Selector de Modalidad -->
+    <div class="modality-selector">
+      <span class="modality-label">Modalidad del Laboratorio</span>
+      <div class="modality-tabs" role="tablist">
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="labType() === 'ALGORITMO'"
+          (click)="setLabType('ALGORITMO')"
+        >
+          <svg lucideCode class="tab-icon"></svg>
+          <div class="tab-content">
+            <span class="tab-title">Juez Virtual (Monaco)</span>
+            <span class="tab-desc">Evaluación rápida por casos de prueba I/O en sandbox efímero</span>
+          </div>
+        </button>
 
-    <form-field label="Descripción / Consigna" for="labDesc">
+        <button
+          type="button"
+          class="tab-btn"
+          [class.active]="labType() === 'IDE_PERSISTENTE'"
+          (click)="setLabType('IDE_PERSISTENTE')"
+        >
+          <svg lucideServer class="tab-icon"></svg>
+          <div class="tab-content">
+            <span class="tab-title">Workspace Completo (VS Code)</span>
+            <span class="tab-desc">Contenedor interactivo persistente con PTY y OpenVSCode</span>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <!-- Campos Generales -->
+    <div class="fields-grid">
+      <form-field label="Título del Laboratorio" for="labTitle" [required]="true">
+        <input
+          id="labTitle"
+          type="text"
+          placeholder="ej. Algoritmos de Grafos: Dijkstra y Bellman-Ford"
+          [ngModel]="title()"
+          (ngModelChange)="title.set($event)"
+          class="form-input"
+        />
+      </form-field>
+
+      <form-field label="Fecha Límite de Entrega" for="labDueDate" hint="Opcional. Monitorea entregas y marca riesgo <24h.">
+        <input
+          id="labDueDate"
+          type="datetime-local"
+          [ngModel]="dueDate()"
+          (ngModelChange)="dueDate.set($event)"
+          class="form-input"
+        />
+      </form-field>
+    </div>
+
+    <form-field label="Descripción / Consigna Pedagógica" for="labDesc">
       <textarea
         id="labDesc"
-        rows="3"
-        placeholder="Instrucciones para el estudiante..."
+        rows="2"
+        placeholder="Instrucciones, objetivos de aprendizaje y directivas para el estudiante..."
         [ngModel]="description()"
         (ngModelChange)="description.set($event)"
         class="form-textarea"
       ></textarea>
     </form-field>
 
-    <form-field label="Fecha Límite de Entrega" for="labDueDate" hint="Opcional. Los alumnos sin entrega previa a 24h serán marcados en riesgo.">
-      <input
-        id="labDueDate"
-        type="datetime-local"
-        [ngModel]="dueDate()"
-        (ngModelChange)="dueDate.set($event)"
-        class="form-input"
-      />
-    </form-field>
+    <!-- Modalidad: JUEZ VIRTUAL (Monaco) -->
+    @if (labType() === 'ALGORITMO') {
+      <div class="modality-panel judge-panel">
+        <div class="panel-header">
+          <div class="panel-badge judge-badge">
+            <svg lucideTerminal class="badge-icon"></svg>
+            <span>Configuración del Juez Automático</span>
+          </div>
+        </div>
 
-    <!-- Sección de Casos de Prueba -->
-    <div class="test-cases-section">
-      <div class="section-top">
-        <label class="section-label">Casos de Prueba (Juez Virtual)</label>
-        <div class="csv-upload-box">
-          <label class="btn-outline-sm" for="csvFile">
-            <svg lucideUpload class="btn-icon-sm"></svg>
-            <span>Importar CSV</span>
-          </label>
-          <input
-            id="csvFile"
-            type="file"
-            accept=".csv"
-            (change)="onCsvSelected($event)"
-            class="hidden-file-input"
-          />
+        <div class="settings-row">
+          <form-field label="Lenguaje de Programación" for="labLanguage">
+            <select
+              id="labLanguage"
+              [ngModel]="language()"
+              (ngModelChange)="setLanguage($event)"
+              class="form-select font-mono"
+            >
+              <option value="python">Python 3.11</option>
+              <option value="javascript">JavaScript / Node.js</option>
+              <option value="cpp">C++ (GCC 13 / C++20)</option>
+              <option value="c">C (GCC 13 / C17)</option>
+              <option value="go">Go 1.22</option>
+              <option value="sql">PostgreSQL SQL</option>
+            </select>
+          </form-field>
+
+          <form-field label="Límite de Tiempo" for="timeLimit" hint="Tiempo máximo de CPU por test">
+            <div class="input-with-suffix">
+              <input
+                id="timeLimit"
+                type="number"
+                min="100"
+                max="10000"
+                step="100"
+                [ngModel]="timeLimitMs()"
+                (ngModelChange)="timeLimitMs.set($event)"
+                class="form-input font-mono"
+              />
+              <span class="input-suffix">ms</span>
+            </div>
+          </form-field>
+
+          <form-field label="Límite de Memoria" for="memLimit" hint="Cgroup RAM por sandbox">
+            <div class="input-with-suffix">
+              <input
+                id="memLimit"
+                type="number"
+                min="64"
+                max="1024"
+                step="32"
+                [ngModel]="memoryLimitMb()"
+                (ngModelChange)="memoryLimitMb.set($event)"
+                class="form-input font-mono"
+              />
+              <span class="input-suffix">MB</span>
+            </div>
+          </form-field>
+        </div>
+
+        <form-field label="Código Inicial / Boilerplate" for="labBoilerplate" hint="Plantilla con la que inicia el editor Monaco del alumno.">
+          <textarea
+            id="labBoilerplate"
+            rows="3"
+            placeholder="def solution():&#10;    pass"
+            [ngModel]="boilerplate()"
+            (ngModelChange)="boilerplate.set($event)"
+            class="form-textarea font-mono code-input"
+          ></textarea>
+        </form-field>
+
+        <!-- Casos de Prueba -->
+        <div class="test-cases-section">
+          <div class="section-top">
+            <label class="section-label">Casos de Prueba y Evaluación</label>
+            <div class="tc-actions">
+              <button
+                type="button"
+                class="btn-outline-sm btn-fuzzing"
+                (click)="openFuzzingModal()"
+                title="Generar casos de prueba y boundary edge cases automáticamente"
+              >
+                <svg lucideSparkles class="btn-icon-sm sparkle-icon"></svg>
+                <span>Sintetizador Fuzzing</span>
+              </button>
+
+              <div class="csv-upload-box">
+                <label class="btn-outline-sm" for="csvFile">
+                  <svg lucideUpload class="btn-icon-sm"></svg>
+                  <span>Importar CSV</span>
+                </label>
+                <input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv"
+                  (change)="onCsvSelected($event)"
+                  class="hidden-file-input"
+                />
+              </div>
+            </div>
+          </div>
+
+          @if (csvError()) {
+            <div class="csv-error-box">
+              <svg lucideAlertTriangle class="error-icon"></svg>
+              <pre>{{ csvError() }}</pre>
+            </div>
+          }
+
+          <div class="test-cases-list">
+            @for (tc of testCases(); track $index) {
+              <div class="test-case-row">
+                <span class="tc-index">#{{ $index + 1 }}</span>
+                <div class="tc-inputs">
+                  <input
+                    type="text"
+                    placeholder="Entrada (stdin / args)"
+                    [ngModel]="tc.input"
+                    (ngModelChange)="tc.input = $event"
+                    class="form-input form-input-sm font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Salida esperada (stdout)"
+                    [ngModel]="tc.expected_output"
+                    (ngModelChange)="tc.expected_output = $event"
+                    class="form-input form-input-sm font-mono"
+                  />
+                  <label class="checkbox-label" title="Los casos ocultos no revelan la entrada al alumno en caso de fallo">
+                    <input
+                      type="checkbox"
+                      [checked]="tc.is_hidden"
+                      (change)="tc.is_hidden = $any($event.target).checked"
+                    />
+                    <span>Oculto</span>
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  class="btn-icon-danger"
+                  [disabled]="testCases().length <= 1"
+                  (click)="removeTestCase($index)"
+                  title="Eliminar caso"
+                >
+                  <svg lucideTrash2 class="btn-icon-sm"></svg>
+                </button>
+              </div>
+            }
+          </div>
+
+          <button type="button" class="btn-outline-sm btn-add-tc" (click)="addTestCase()">
+            <svg lucidePlus class="btn-icon-sm"></svg>
+            <span>Agregar Caso Manual</span>
+          </button>
         </div>
       </div>
+    }
 
-      @if (csvError()) {
-        <div class="csv-error-box">
-          <svg lucideAlertTriangle class="error-icon"></svg>
-          <pre>{{ csvError() }}</pre>
+    <!-- Modalidad: WORKSPACE COMPLETO (OpenVSCode Server) -->
+    @if (labType() === 'IDE_PERSISTENTE') {
+      <div class="modality-panel workspace-panel">
+        <div class="panel-header">
+          <div class="panel-badge workspace-badge">
+            <svg lucideLaptop class="badge-icon"></svg>
+            <span>Configuración de Workspace Docker (OpenVSCode Server)</span>
+          </div>
         </div>
-      }
 
-      <div class="test-cases-list">
-        @for (tc of testCases(); track $index) {
-          <div class="test-case-row">
-            <div class="tc-inputs">
-              <input
-                type="text"
-                placeholder="Entrada (Input)"
-                [ngModel]="tc.input"
-                (ngModelChange)="tc.input = $event"
-                class="form-input form-input-sm font-mono"
-              />
-              <input
-                type="text"
-                placeholder="Salida esperada (Expected)"
-                [ngModel]="tc.expected_output"
-                (ngModelChange)="tc.expected_output = $event"
-                class="form-input form-input-sm font-mono"
-              />
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  [checked]="tc.is_hidden"
-                  (change)="tc.is_hidden = $any($event.target).checked"
-                />
-                <span>Oculto</span>
-              </label>
-            </div>
+        <form-field label="Plantilla Docker de Entorno" for="workspaceTemplate" hint="Selecciona la imagen base oficial con runtimes, compiladores y extensiones precargadas.">
+          <select
+            id="workspaceTemplate"
+            [ngModel]="templateId()"
+            (ngModelChange)="templateId.set($event)"
+            class="form-select font-mono"
+          >
+            @for (tpl of templatesList(); track tpl.id) {
+              <option [value]="tpl.id">
+                [{{ tpl.category }}] {{ tpl.name }} — {{ tpl.docker_image }}
+              </option>
+            }
+          </select>
+        </form-field>
+
+        <!-- Asignación de Recursos de Memoria RAM (cgroup limit) -->
+        <div class="ram-allocation-box">
+          <label class="ram-label">
+            <svg lucideCpu class="ram-icon"></svg>
+            <span>Límite de Memoria RAM Asignada al Contenedor</span>
+          </label>
+          <div class="ram-pills">
             <button
               type="button"
-              class="btn-icon-danger"
-              [disabled]="testCases().length <= 1"
-              (click)="removeTestCase($index)"
-              title="Eliminar caso"
+              class="ram-pill"
+              [class.active]="workspaceRamMb() === 256"
+              (click)="setWorkspaceRam(256)"
             >
-              <svg lucideTrash2 class="btn-icon-sm"></svg>
+              <span class="ram-val">256 MB</span>
+              <span class="ram-hint">Scripts básicos</span>
+            </button>
+            <button
+              type="button"
+              class="ram-pill"
+              [class.active]="workspaceRamMb() === 512"
+              (click)="setWorkspaceRam(512)"
+            >
+              <span class="ram-val">512 MB</span>
+              <span class="ram-hint">C / C++ / Go CLI</span>
+            </button>
+            <button
+              type="button"
+              class="ram-pill"
+              [class.active]="workspaceRamMb() === 1024"
+              (click)="setWorkspaceRam(1024)"
+            >
+              <span class="ram-val">1024 MB (1 GB)</span>
+              <span class="ram-hint">Recomendado (Web / Python)</span>
+            </button>
+            <button
+              type="button"
+              class="ram-pill"
+              [class.active]="workspaceRamMb() === 2048"
+              (click)="setWorkspaceRam(2048)"
+            >
+              <span class="ram-val">2048 MB (2 GB)</span>
+              <span class="ram-hint">Spring Boot / Big Data</span>
             </button>
           </div>
-        }
-      </div>
+        </div>
 
-      <button type="button" class="btn-outline-sm btn-add-tc" (click)="addTestCase()">
-        <svg lucidePlus class="btn-icon-sm"></svg>
-        <span>Agregar Caso Manual</span>
-      </button>
-    </div>
+        <form-field label="README Inicial del Proyecto (Markdown)" for="wsReadme" hint="Instrucciones que el alumno verá en el explorador de archivos del IDE.">
+          <textarea
+            id="wsReadme"
+            rows="3"
+            placeholder="# Proyecto de Laboratorio&#10;&#10;Instrucciones para compilar y probar..."
+            [ngModel]="workspaceReadme()"
+            (ngModelChange)="workspaceReadme.set($event)"
+            class="form-textarea font-mono code-input"
+          ></textarea>
+        </form-field>
+      </div>
+    }
   </div>
 
   <ng-container modal-footer>
@@ -128,8 +333,19 @@
       @if (isSubmitting()) {
         Guardando...
       } @else {
-        {{ exerciseToEdit() ? 'Actualizar' : 'Guardar Borrador' }}
+        {{ exerciseToEdit() ? 'Actualizar Laboratorio' : 'Guardar y Crear Laboratorio' }}
       }
     </button>
   </ng-container>
 </modal-shell>
+
+<!-- Modal Sintetizador Fuzzing -->
+@if (showFuzzingModal()) {
+  <fuzzing-modal
+    [exerciseId]="exerciseToEdit()?.id || 'new-exercise'"
+    [exerciseTitle]="title() || 'Nuevo Laboratorio'"
+    [language]="language()"
+    (close)="closeFuzzingModal()"
+    (applied)="onFuzzCasesApplied($event)"
+  />
+}
