@@ -7,17 +7,20 @@ import {
   LucideChevronLeft, 
   LucideChevronRight, 
   LucidePlay, 
+  LucidePause,
+  LucideRotateCcw,
   LucideEdit3, 
   LucideTerminal, 
   LucideCheckCircle, 
   LucideXCircle, 
   LucideAlertTriangle, 
   LucideKeyboard,
-  LucideGitCompare
+  LucideGitCompare,
+  LucideHistory
 } from '@lucide/angular';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { SubmissionComment } from '../../models/teacher.models';
+import { SubmissionComment, SubmissionTimeline, TimelineKeyframe } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -34,6 +37,8 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideChevronLeft,
     LucideChevronRight,
     LucidePlay,
+    LucidePause,
+    LucideRotateCcw,
     LucideEdit3,
     LucideTerminal,
     LucideCheckCircle,
@@ -41,6 +46,7 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideAlertTriangle,
     LucideKeyboard,
     LucideGitCompare,
+    LucideHistory,
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent
@@ -55,6 +61,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private hotkeysService = inject(HotkeysService);
 
   private unregisterFns: Array<() => void> = [];
+  private replayTimer: any = null;
 
   submissionId = signal<string>('');
   review = this.gradingService.currentReview;
@@ -65,6 +72,14 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   showDiffView = signal<boolean>(false);
   starterBoilerplate = signal<string>('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escribe tu solución aquí\n    return 0;\n}');
+
+  // Time-Travel Replay State
+  showReplayPlayer = signal<boolean>(false);
+  isPlayingReplay = signal<boolean>(false);
+  replaySpeed = signal<number>(1);
+  currentKeyframeIndex = signal<number>(0);
+  timeline = signal<SubmissionTimeline | null>(null);
+  isLoadingTimeline = signal<boolean>(false);
 
   selectedLineNumber = signal<number | null>(null);
   newCommentText = signal<string>('');
@@ -77,13 +92,30 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   overrideError = signal<string | null>(null);
   isSubmittingOverride = signal<boolean>(false);
 
+  activeCodeContent = computed<string>(() => {
+    if (this.showReplayPlayer()) {
+      const tl = this.timeline();
+      if (tl && tl.keyframes.length > 0) {
+        const idx = Math.min(this.currentKeyframeIndex(), tl.keyframes.length - 1);
+        return tl.keyframes[idx]?.content ?? '';
+      }
+    }
+    return this.review()?.code || '';
+  });
+
   codeLines = computed(() => {
-    const code = this.review()?.code || '';
-    return code.split('\n');
+    return this.activeCodeContent().split('\n');
   });
 
   diffLines = computed<DiffLine[]>(() => {
-    return computeLineDiff(this.starterBoilerplate(), this.review()?.code || '');
+    return computeLineDiff(this.starterBoilerplate(), this.activeCodeContent());
+  });
+
+  currentKeyframe = computed<TimelineKeyframe | null>(() => {
+    const tl = this.timeline();
+    if (!tl || tl.keyframes.length === 0) return null;
+    const idx = Math.min(this.currentKeyframeIndex(), tl.keyframes.length - 1);
+    return tl.keyframes[idx] ?? null;
   });
 
   commentsByLine = computed(() => {
@@ -110,6 +142,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.pauseReplay();
     for (const unregister of this.unregisterFns) {
       unregister();
     }
@@ -174,7 +207,21 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         description: 'Alternar vista de diferencias (Diff)',
         category: 'SpeedGrader',
         scope: 'speed-grader',
-        action: () => this.showDiffView.update(v => !v)
+        action: () => {
+          this.showReplayPlayer.set(false);
+          this.showDiffView.update(v => !v);
+        }
+      })
+    );
+
+    // T: Alternar Time-Travel Replay de Escritura
+    this.unregisterFns.push(
+      this.hotkeysService.register({
+        key: 't',
+        description: 'Alternar reproductor Time-Travel Replay',
+        category: 'SpeedGrader',
+        scope: 'speed-grader',
+        action: () => this.toggleReplay()
       })
     );
 
@@ -201,7 +248,85 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.selectedLineNumber.set(null);
     this.newCommentText.set('');
     this.overrideError.set(null);
+    this.timeline.set(null);
+    this.pauseReplay();
     this.gradingService.getSubmissionReview(id).subscribe();
+  }
+
+  toggleReplay(): void {
+    const nextVal = !this.showReplayPlayer();
+    this.showReplayPlayer.set(nextVal);
+    if (nextVal) {
+      this.showDiffView.set(false);
+      if (!this.timeline()) {
+        this.loadTimeline();
+      }
+    } else {
+      this.pauseReplay();
+    }
+  }
+
+  loadTimeline(): void {
+    const id = this.submissionId();
+    if (!id) return;
+
+    this.isLoadingTimeline.set(true);
+    this.gradingService.getSubmissionTimeline(id).subscribe({
+      next: (data) => {
+        this.timeline.set(data);
+        this.currentKeyframeIndex.set(data.keyframes.length - 1);
+        this.isLoadingTimeline.set(false);
+      },
+      error: () => {
+        this.isLoadingTimeline.set(false);
+      }
+    });
+  }
+
+  playReplay(): void {
+    const tl = this.timeline();
+    if (!tl || tl.keyframes.length === 0) return;
+
+    if (this.currentKeyframeIndex() >= tl.keyframes.length - 1) {
+      this.currentKeyframeIndex.set(0);
+    }
+
+    this.isPlayingReplay.set(true);
+    if (this.replayTimer) clearInterval(this.replayTimer);
+
+    const intervalMs = Math.max(50, Math.round(300 / this.replaySpeed()));
+    this.replayTimer = setInterval(() => {
+      const nextIdx = this.currentKeyframeIndex() + 1;
+      if (nextIdx < tl.keyframes.length) {
+        this.currentKeyframeIndex.set(nextIdx);
+      } else {
+        this.pauseReplay();
+      }
+    }, intervalMs);
+  }
+
+  pauseReplay(): void {
+    this.isPlayingReplay.set(false);
+    if (this.replayTimer) {
+      clearInterval(this.replayTimer);
+      this.replayTimer = null;
+    }
+  }
+
+  resetReplay(): void {
+    this.pauseReplay();
+    this.currentKeyframeIndex.set(0);
+  }
+
+  setReplaySpeed(speed: number): void {
+    this.replaySpeed.set(speed);
+    if (this.isPlayingReplay()) {
+      this.playReplay();
+    }
+  }
+
+  seekKeyframe(index: number): void {
+    this.currentKeyframeIndex.set(index);
   }
 
   openShortcutsGuide(): void {
