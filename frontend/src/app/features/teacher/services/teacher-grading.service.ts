@@ -7,7 +7,8 @@ import {
   AddCommentRequestDTO,
   SubmissionComment,
   EphemeralRunRequestDTO,
-  EphemeralRunResult
+  EphemeralRunResult,
+  SubmissionTimeline
 } from '../models/teacher.models';
 
 interface ApiResponse<T> {
@@ -39,6 +40,14 @@ export class TeacherGradingService {
         this.comments.set(review.comments || []);
         this.isLoading.set(false);
       })
+    );
+  }
+
+  getSubmissionTimeline(submissionId: string): Observable<SubmissionTimeline> {
+    return this.http.get<ApiResponse<SubmissionTimeline>>(
+      `/api/v1/teacher/submissions/${submissionId}/timeline`
+    ).pipe(
+      map(res => res.data)
     );
   }
 

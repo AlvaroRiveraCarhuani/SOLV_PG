@@ -11,6 +11,11 @@
     </div>
 
     <div class="header-actions">
+      <button class="btn-outline btn-plagiarism" (click)="openPlagiarismModal()" title="Escanear similitud estructural AST">
+        <svg lucideShieldAlert class="btn-icon-sm"></svg>
+        <span>Anti-Plagio AST</span>
+      </button>
+
       <button class="btn-outline btn-pause" (click)="openPauseConfirmModal()" title="Hibernar contenedores de la clase">
         <svg lucidePauseCircle class="btn-icon-sm"></svg>
         <span>Pausar Entornos</span>
@@ -223,3 +228,12 @@
     (cancel)="closePauseConfirmModal()"
   />
 }
+
+@if (isPlagiarismModalOpen()) {
+  <plagiarism-modal
+    [subjectId]="subjectId()"
+    [labs]="labs()"
+    (close)="closePlagiarismModal()"
+  />
+}
+

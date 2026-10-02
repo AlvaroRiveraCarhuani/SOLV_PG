@@ -126,3 +126,72 @@ type CourseGradesMatrix struct {
 	Exercises   []CourseExerciseHeader `json:"exercises"`
 	Students    []StudentGradesRow     `json:"students"`
 }
+
+// SubmissionForPlagiarism representa la entrega normalizada para el motor anti-plagio AST.
+type SubmissionForPlagiarism struct {
+	SubmissionID  string    `json:"submission_id" db:"submission_id"`
+	ExerciseID    string    `json:"exercise_id" db:"exercise_id"`
+	ExerciseTitle string    `json:"exercise_title" db:"exercise_title"`
+	StudentID     string    `json:"student_id" db:"student_id"`
+	StudentName   string    `json:"student_name" db:"student_name"`
+	StudentEmail  string    `json:"student_email" db:"student_email"`
+	Language      string    `json:"language" db:"language"`
+	Code          string    `json:"code" db:"code"`
+	Verdict       string    `json:"verdict" db:"verdict"`
+	SubmittedAt   time.Time `json:"submitted_at" db:"submitted_at"`
+}
+
+// PlagiarismMatch representa un par de entregas con similitud estructural AST por encima del umbral.
+type PlagiarismMatch struct {
+	SubmissionIDA    string   `json:"submission_id_a"`
+	StudentIDA       string   `json:"student_id_a"`
+	StudentNameA     string   `json:"student_name_a"`
+	SubmissionIDB    string   `json:"submission_id_b"`
+	StudentIDB       string   `json:"student_id_b"`
+	StudentNameB     string   `json:"student_name_b"`
+	ExerciseID       string   `json:"exercise_id"`
+	ExerciseTitle    string   `json:"exercise_title"`
+	Similarity       float64  `json:"similarity"`
+	RiskLevel        string   `json:"risk_level"`
+	MatchingTokens   int      `json:"matching_tokens"`
+	TotalTokensA     int      `json:"total_tokens_a"`
+	TotalTokensB     int      `json:"total_tokens_b"`
+	CommonStructures []string `json:"common_structures"`
+}
+
+// PlagiarismReport reporte consolidado de similitud estructural por ejercicio o curso.
+type PlagiarismReport struct {
+	SubjectID         string            `json:"subject_id"`
+	SubjectName       string            `json:"subject_name,omitempty"`
+	ExerciseID        string            `json:"exercise_id,omitempty"`
+	ExerciseTitle     string            `json:"exercise_title,omitempty"`
+	AnalyzedAt        time.Time         `json:"analyzed_at"`
+	TotalSubmissions  int               `json:"total_submissions"`
+	SuspectPairsCount int               `json:"suspect_pairs_count"`
+	Matches           []PlagiarismMatch `json:"matches"`
+}
+
+// TimelineKeyframe representa un snapshot o delta en la línea de tiempo de escritura del código.
+type TimelineKeyframe struct {
+	OffsetMS   int    `json:"offset_ms"`
+	Action     string `json:"action"` // "insert", "delete", "paste", "checkpoint"
+	Content    string `json:"content"`
+	CursorLine int    `json:"cursor_line"`
+	IsPaste    bool   `json:"is_paste"`
+	CharCount  int    `json:"char_count"`
+}
+
+// SubmissionTimeline telemetría completa de time-travel replay para auditar el proceso de desarrollo.
+type SubmissionTimeline struct {
+	SubmissionID         string             `json:"submission_id"`
+	StudentID            string             `json:"student_id"`
+	StudentName          string             `json:"student_name"`
+	TotalDurationSeconds int                `json:"total_duration_seconds"`
+	TotalKeystrokes      int                `json:"total_keystrokes"`
+	PasteEventsCount     int                `json:"paste_events_count"`
+	PastePercentage      float64            `json:"paste_percentage"`
+	SuspiciousPasteFlag  bool               `json:"suspicious_paste_flag"`
+	Keyframes            []TimelineKeyframe `json:"keyframes"`
+}
+
+

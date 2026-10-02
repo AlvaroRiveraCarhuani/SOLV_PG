@@ -1,0 +1,180 @@
+<div class="modal-backdrop" (click)="close.emit()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <header class="modal-header">
+      <div class="header-title-wrap">
+        <div class="header-icon-badge">
+          <svg lucideShieldAlert class="modal-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Auditoría Anti-Plagio por Huella Estructural AST</h2>
+          <p class="modal-subtitle">
+            Detección de similitud algorítmica independiente de nombres de variables y formato
+          </p>
+        </div>
+      </div>
+      <button class="close-btn" (click)="close.emit()" title="Cerrar modal">
+        <svg lucideX class="icon-sm"></svg>
+      </button>
+    </header>
+
+    <!-- Toolbar / Filtros -->
+    <div class="modal-toolbar">
+      <div class="filter-group">
+        <label for="lab-select" class="filter-label">Laboratorio:</label>
+        <select
+          id="lab-select"
+          class="filter-select"
+          [value]="selectedExerciseId()"
+          (change)="onExerciseChange($any($event.target).value)"
+        >
+          <option value="all">Todos los ejercicios del curso</option>
+          @for (lab of labs; track lab.id) {
+            <option [value]="lab.id">{{ lab.title }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="toolbar-actions">
+        <button class="btn-scan" [disabled]="isLoading()" (click)="runScan()">
+          <svg lucideRefreshCw class="icon-sm" [class.spinning]="isLoading()"></svg>
+          <span>Escanear Ahora</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="modal-body">
+      @if (isLoading()) {
+        <div class="loading-state">
+          <skeleton-loader variant="table" [count]="4" />
+        </div>
+      } @else if (report(); as rep) {
+        <!-- Métricas Resumen -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <span class="metric-label">Entregas Auditadas</span>
+            <span class="metric-val" machineData>{{ rep.total_submissions }}</span>
+          </div>
+          <div class="metric-card" [class.metric-warning]="getWarningCount() > 0">
+            <span class="metric-label">Advertencias (70-84%)</span>
+            <span class="metric-val" machineData>{{ getWarningCount() }}</span>
+          </div>
+          <div class="metric-card" [class.metric-danger]="getCriticalCount() > 0">
+            <span class="metric-label">Casos Críticos (≥85%)</span>
+            <span class="metric-val" machineData>{{ getCriticalCount() }}</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Último Análisis</span>
+            <time class="metric-val text-sm font-mono">{{ rep.analyzed_at | dateText:'datetime' }}</time>
+          </div>
+        </div>
+
+        @if (rep.matches.length === 0) {
+          <div class="empty-state">
+            <svg lucideCheckCircle2 class="empty-icon-success"></svg>
+            <h3>Código 100% Original</h3>
+            <p>No se encontraron similitudes estructurales anómalas entre las entregas analizadas.</p>
+          </div>
+        } @else {
+          <!-- Layout Doble Panel: Lista de Pares + Detalle Comparativo -->
+          <div class="comparison-layout">
+            <!-- Columna Izquierda: Lista de Pares Sospechosos -->
+            <div class="matches-list">
+              <h3 class="list-heading">Pares Sospechosos Detectados ({{ rep.matches.length }})</h3>
+              @for (match of rep.matches; track match.submission_id_a + match.submission_id_b) {
+                <div
+                  class="match-card"
+                  [class.active]="selectedMatch() === match"
+                  [class.critical]="match.risk_level === 'critical'"
+                  [class.warning]="match.risk_level === 'warning'"
+                  (click)="selectMatch(match)"
+                >
+                  <div class="match-header">
+                    <span class="badge-risk" [class.badge-critical]="match.risk_level === 'critical'">
+                      {{ match.similarity }}% similitud
+                    </span>
+                    <span class="exercise-badge" machineData>{{ match.exercise_title }}</span>
+                  </div>
+
+                  <div class="students-pair">
+                    <div class="student-item">
+                      <svg lucideUsers class="icon-xs"></svg>
+                      <span class="student-name">{{ match.student_name_a }}</span>
+                    </div>
+                    <div class="pair-divider">↔</div>
+                    <div class="student-item">
+                      <svg lucideUsers class="icon-xs"></svg>
+                      <span class="student-name">{{ match.student_name_b }}</span>
+                    </div>
+                  </div>
+
+                  <div class="tokens-info">
+                    <span machineData>{{ match.matching_tokens }} tokens coincidentes</span>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Columna Derecha: Detalle del Par Seleccionado -->
+            @if (selectedMatch(); as sel) {
+              <div class="match-detail">
+                <div class="detail-header">
+                  <div>
+                    <h4 class="detail-title">Comparativa Estructural AST</h4>
+                    <p class="detail-subtitle">
+                      {{ sel.student_name_a }} vs {{ sel.student_name_b }} — {{ sel.exercise_title }}
+                    </p>
+                  </div>
+                  <div class="detail-badge" [class.badge-critical]="sel.risk_level === 'critical'">
+                    Índice AST: {{ sel.similarity }}%
+                  </div>
+                </div>
+
+                <!-- Patrones AST Comunes -->
+                @if (sel.common_structures && sel.common_structures.length > 0) {
+                  <div class="patterns-box">
+                    <span class="patterns-label">
+                      <svg lucideLayers class="icon-xs"></svg>
+                      Huellas de control coincidentes:
+                    </span>
+                    <div class="pattern-chips">
+                      @for (pat of sel.common_structures; track pat) {
+                        <code class="pattern-chip" machineData>{{ pat }}</code>
+                      }
+                    </div>
+                  </div>
+                }
+
+                <!-- Acciones Rápidas SpeedGrader -->
+                <div class="grader-actions">
+                  <a
+                    [routerLink]="['/teacher/revision', sel.submission_id_a]"
+                    class="btn-grader"
+                    target="_blank"
+                  >
+                    <svg lucideExternalLink class="icon-xs"></svg>
+                    <span>Auditar a {{ sel.student_name_a }}</span>
+                  </a>
+                  <a
+                    [routerLink]="['/teacher/revision', sel.submission_id_b]"
+                    class="btn-grader"
+                    target="_blank"
+                  >
+                    <svg lucideExternalLink class="icon-xs"></svg>
+                    <span>Auditar a {{ sel.student_name_b }}</span>
+                  </a>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      }
+    </div>
+
+    <!-- Footer -->
+    <footer class="modal-footer">
+      <button class="btn-secondary" (click)="close.emit()">Cerrar</button>
+    </footer>
+  </div>
+</div>

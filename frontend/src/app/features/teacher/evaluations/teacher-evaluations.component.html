@@ -7,6 +7,10 @@
     </div>
 
     <div class="header-actions">
+      <button type="button" class="btn btn-danger-outline" (click)="openPlagiarismModal()">
+        <svg lucideShieldAlert class="btn-icon"></svg>
+        <span>Auditoría Anti-Plagio AST</span>
+      </button>
       <button type="button" class="btn btn-primary" (click)="exportGradesCSV()">
         <svg lucideDownload class="btn-icon"></svg>
         <span>Exportar Acta CSV / Excel</span>
@@ -127,4 +131,13 @@
       </table>
     }
   </div>
+
+  @if (isPlagiarismModalOpen()) {
+    <plagiarism-modal
+      [subjectId]="selectedCourseId()"
+      [labs]="labsList()"
+      (close)="closePlagiarismModal()"
+    />
+  }
 </div>
+

@@ -218,6 +218,17 @@
     }
   }
 
+  &.btn-danger-outline {
+    background-color: var(--color-danger-subtle, rgb(239 68 68 / 10%));
+    color: var(--color-danger);
+    border: 1px solid var(--color-danger);
+
+    &:hover {
+      background-color: var(--color-danger);
+      color: var(--tenant-primary-contrast, var(--bg-surface));
+    }
+  }
+
   .btn-icon {
     width: 16px;
     height: 16px;

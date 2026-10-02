@@ -263,3 +263,58 @@ func (s *TeacherService) ExportCourseGradesCSV(ctx context.Context, tenantID, te
 
 	return buf.Bytes(), filename, nil
 }
+
+func (s *TeacherService) AnalyzePlagiarism(ctx context.Context, tenantID, teacherID, subjectID, exerciseID string) (*domain.PlagiarismReport, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if subjectID == "" {
+		return nil, domain.ErrNotFound
+	}
+
+	submissions, err := s.repo.GetExerciseSubmissionsForPlagiarism(ctx, tenantID, teacherID, subjectID, exerciseID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener entregas para analisis anti-plagio: %w", err)
+	}
+
+	engine := NewASTPlagiarismEngine()
+	matches := engine.AnalyzeSubmissions(submissions)
+
+	exerciseTitle := ""
+	if len(submissions) > 0 && exerciseID != "" {
+		exerciseTitle = submissions[0].ExerciseTitle
+	}
+
+	report := &domain.PlagiarismReport{
+		SubjectID:         subjectID,
+		ExerciseID:        exerciseID,
+		ExerciseTitle:     exerciseTitle,
+		AnalyzedAt:        time.Now(),
+		TotalSubmissions:  len(submissions),
+		SuspectPairsCount: len(matches),
+		Matches:           matches,
+	}
+
+	return report, nil
+}
+
+func (s *TeacherService) GetSubmissionTimeline(ctx context.Context, tenantID, teacherID, submissionID string) (*domain.SubmissionTimeline, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if submissionID == "" {
+		return nil, domain.ErrNotFound
+	}
+
+	review, err := s.repo.GetTeacherSubmissionReview(ctx, tenantID, teacherID, submissionID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener entrega para timeline: %w", err)
+	}
+
+	engine := NewTimelineEngine()
+	timeline := engine.GenerateTimeline(submissionID, review.StudentID, review.StudentName, review.Code, "")
+
+	return timeline, nil
+}
+
+

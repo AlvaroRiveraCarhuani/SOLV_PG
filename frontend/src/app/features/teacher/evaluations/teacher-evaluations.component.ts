@@ -1,11 +1,13 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideDownload } from '@lucide/angular';
+import { LucideDownload, LucideShieldAlert } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
+import { TeacherLabStats } from '../models/teacher.models';
 
 export interface EvaluationRow {
   student_id: string;
@@ -23,8 +25,10 @@ export interface EvaluationRow {
     CommonModule,
     FormsModule,
     LucideDownload,
+    LucideShieldAlert,
     MachineDataDirective,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    PlagiarismModalComponent
   ],
   templateUrl: './teacher-evaluations.component.html',
   styleUrl: './teacher-evaluations.component.scss'
@@ -37,8 +41,9 @@ export class TeacherEvaluationsComponent implements OnInit {
   selectedCourseId = signal<string>('');
   selectedLabId = signal<string>('all');
   isLoading = signal<boolean>(false);
+  isPlagiarismModalOpen = signal<boolean>(false);
 
-  labsList = signal<{ id: string; title: string }[]>([]);
+  labsList = signal<TeacherLabStats[]>([]);
   evaluationsList = signal<EvaluationRow[]>([]);
 
   filteredLabs = computed(() => {
@@ -99,7 +104,7 @@ export class TeacherEvaluationsComponent implements OnInit {
 
     this.courseService.getCourseLabs(courseId).subscribe({
       next: (labs) => {
-        this.labsList.set(labs.map(l => ({ id: l.id, title: l.title })));
+        this.labsList.set(labs);
         
         this.courseService.getCourseSubmissions(courseId).subscribe({
           next: (submissions) => {
@@ -145,6 +150,14 @@ export class TeacherEvaluationsComponent implements OnInit {
       },
       error: () => this.isLoading.set(false)
     });
+  }
+
+  openPlagiarismModal(): void {
+    this.isPlagiarismModalOpen.set(true);
+  }
+
+  closePlagiarismModal(): void {
+    this.isPlagiarismModalOpen.set(false);
   }
 
   exportGradesCSV(): void {

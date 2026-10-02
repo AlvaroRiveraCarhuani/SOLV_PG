@@ -850,3 +850,39 @@ func (r *PostgresTeacherRepository) GetCourseGradesMatrix(ctx context.Context, t
 
 	return matrix, nil
 }
+
+func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx context.Context, tenantID, teacherID, subjectID, exerciseID string) ([]*domain.SubmissionForPlagiarism, error) {
+	query := `
+		SELECT DISTINCT ON (sub.student_id, sub.exercise_id)
+			sub.id AS submission_id,
+			sub.exercise_id,
+			ex.title AS exercise_title,
+			sub.student_id,
+			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS student_name,
+			u.email AS student_email,
+			COALESCE(ex.language, 'python') AS language,
+			sub.code AS code,
+			sub.verdict,
+			sub.submitted_at
+		FROM submissions sub
+		JOIN exercises ex ON sub.exercise_id = ex.id
+		JOIN users u ON sub.student_id = u.id
+		WHERE ex.subject_id = $1 AND sub.tenant_id = $2
+		  AND ($3 = '' OR sub.exercise_id::text = $3)
+		  AND LENGTH(TRIM(sub.code)) > 0
+		ORDER BY sub.student_id, sub.exercise_id, (CASE WHEN sub.verdict = 'AC' THEN 1 ELSE 2 END), sub.submitted_at DESC
+	`
+
+	var list []*domain.SubmissionForPlagiarism
+	err := r.db.SelectContext(ctx, &list, query, subjectID, tenantID, exerciseID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch submissions for plagiarism: %w", err)
+	}
+
+	if list == nil {
+		list = make([]*domain.SubmissionForPlagiarism, 0)
+	}
+
+	return list, nil
+}
+

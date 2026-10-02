@@ -170,3 +170,54 @@ export interface BulkTestCasesRequestDTO {
     is_hidden: boolean;
   }>;
 }
+
+export interface PlagiarismMatch {
+  submission_id_a: string;
+  student_id_a: string;
+  student_name_a: string;
+  submission_id_b: string;
+  student_id_b: string;
+  student_name_b: string;
+  exercise_id: string;
+  exercise_title: string;
+  similarity: number;
+  risk_level: 'critical' | 'warning' | 'info';
+  matching_tokens: number;
+  total_tokens_a: number;
+  total_tokens_b: number;
+  common_structures: string[];
+}
+
+export interface PlagiarismReport {
+  subject_id: string;
+  subject_name?: string;
+  exercise_id?: string;
+  exercise_title?: string;
+  analyzed_at: string;
+  total_submissions: number;
+  suspect_pairs_count: number;
+  matches: PlagiarismMatch[];
+}
+
+export interface TimelineKeyframe {
+  offset_ms: number;
+  action: 'insert' | 'delete' | 'paste' | 'checkpoint' | string;
+  content: string;
+  cursor_line: number;
+  is_paste: boolean;
+  char_count: number;
+}
+
+export interface SubmissionTimeline {
+  submission_id: string;
+  student_id: string;
+  student_name: string;
+  total_duration_seconds: number;
+  total_keystrokes: number;
+  paste_events_count: number;
+  paste_percentage: number;
+  suspicious_paste_flag: boolean;
+  keyframes: TimelineKeyframe[];
+}
+
+

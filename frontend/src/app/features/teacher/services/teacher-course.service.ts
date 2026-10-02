@@ -6,7 +6,8 @@ import {
   SubmissionQueueItem,
   CreateExerciseRequestDTO,
   UpdateExerciseRequestDTO,
-  BulkTestCasesRequestDTO
+  BulkTestCasesRequestDTO,
+  PlagiarismReport
 } from '../models/teacher.models';
 
 interface ApiResponse<T> {
@@ -93,5 +94,18 @@ export class TeacherCourseService {
       params: new HttpParams().set('format', 'csv'),
       responseType: 'blob'
     });
+  }
+
+  analyzePlagiarism(subjectId: string, exerciseId?: string): Observable<PlagiarismReport> {
+    let params = new HttpParams();
+    if (exerciseId && exerciseId !== 'all') {
+      params = params.set('exercise_id', exerciseId);
+    }
+    return this.http.get<ApiResponse<PlagiarismReport>>(
+      `/api/v1/teacher/courses/${subjectId}/plagiarism`,
+      { params }
+    ).pipe(
+      map(res => res.data)
+    );
   }
 }

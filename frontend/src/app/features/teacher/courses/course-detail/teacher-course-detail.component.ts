@@ -14,13 +14,15 @@ import {
   LucideEdit3, 
   LucideExternalLink,
   LucidePauseCircle,
-  LucideCheckCircle
+  LucideCheckCircle,
+  LucideShieldAlert
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherLabStats } from '../../models/teacher.models';
 import { ExerciseEditorModalComponent } from '../exercise-editor/exercise-editor-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
@@ -43,11 +45,13 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     LucideExternalLink,
     LucidePauseCircle,
     LucideCheckCircle,
+    LucideShieldAlert,
     ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    PlagiarismModalComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -69,6 +73,8 @@ export class TeacherCourseDetailComponent implements OnInit {
   showPauseConfirmModal = signal<boolean>(false);
   isPausingEnvironments = signal<boolean>(false);
   pauseSuccessMessage = signal<string | null>(null);
+
+  isPlagiarismModalOpen = signal<boolean>(false);
 
   verdictFilter = signal<string>('all');
   publishError = signal<string | null>(null);
@@ -166,4 +172,13 @@ export class TeacherCourseDetailComponent implements OnInit {
       setTimeout(() => this.pauseSuccessMessage.set(null), 5000);
     }, 600);
   }
+
+  openPlagiarismModal(): void {
+    this.isPlagiarismModalOpen.set(true);
+  }
+
+  closePlagiarismModal(): void {
+    this.isPlagiarismModalOpen.set(false);
+  }
 }
+
