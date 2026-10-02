@@ -1,0 +1,181 @@
+<div class="step-general-container">
+  <div class="fields-grid">
+    <form-field
+      label="Título del Laboratorio"
+      for="labTitle"
+      [required]="true"
+      [error]="titleError() || ''"
+    >
+      <input
+        id="labTitle"
+        type="text"
+        placeholder="ej. Estructuras de Datos: Árboles AVL y Balanceo"
+        [ngModel]="title()"
+        (ngModelChange)="onTitleInput($event)"
+        class="form-input"
+        [class.input-error]="!!titleError()"
+      />
+    </form-field>
+
+    <div class="due-date-control-group">
+      <div class="due-date-label-row">
+        <label class="form-label" for="labDueDate">Fecha Límite de Entrega</label>
+        <label class="no-deadline-checkbox">
+          <input
+            type="checkbox"
+            [checked]="!hasDueDate()"
+            (change)="toggleNoDueDate($any($event.target).checked)"
+          />
+          <span>Sin fecha límite</span>
+        </label>
+      </div>
+
+      @if (hasDueDate()) {
+        <input
+          id="labDueDate"
+          type="datetime-local"
+          [ngModel]="dueDate()"
+          (ngModelChange)="dueDate.set($event)"
+          class="form-input"
+        />
+        <span class="field-hint">Marca entregas en riesgo (&lt;24h) y fija congelamiento en examen.</span>
+      } @else {
+        <div class="no-deadline-badge">
+          <svg lucideClock class="badge-icon"></svg>
+          <span>Acceso abierto continuo durante el periodo lectivo.</span>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Selector de Modalidad Pedagógica -->
+  <div class="modality-selection-group">
+    <label class="section-title">Seleccionar Modalidad del Laboratorio</label>
+    <div class="modality-cards">
+      <!-- Modalidad A: Juez Virtual -->
+      <div
+        class="modality-card"
+        [class.selected]="labType() === 'ALGORITMO'"
+        (click)="setLabType('ALGORITMO')"
+      >
+        <div class="card-radio-box">
+          <span class="radio-indicator"></span>
+        </div>
+        <div class="card-content">
+          <div class="card-top">
+            <svg lucideCode class="card-icon icon-judge"></svg>
+            <span class="card-name">Desafío de Código (Juez Automático)</span>
+          </div>
+          <p class="card-description">
+            Evaluación algorítmica efímera con casos de prueba automáticos (I/O) y restricciones sintácticas AST en Monaco Editor.
+          </p>
+        </div>
+      </div>
+
+      <!-- Modalidad B: Workspace Completo -->
+      <div
+        class="modality-card"
+        [class.selected]="labType() === 'IDE_PERSISTENTE'"
+        (click)="setLabType('IDE_PERSISTENTE')"
+      >
+        <div class="card-radio-box">
+          <span class="radio-indicator"></span>
+        </div>
+        <div class="card-content">
+          <div class="card-top">
+            <svg lucideLaptop class="card-icon icon-workspace"></svg>
+            <span class="card-name">Laboratorio Interactivo (VS Code + DB)</span>
+          </div>
+          <p class="card-description">
+            Entorno persistente con OpenVSCode Server, PTY terminal y servicios satélite de catálogo homologados (PostgreSQL, MySQL).
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selector de Propósito Pedagógico (Práctica vs. Examen) -->
+  <div class="pedagogical-purpose-group">
+    <label class="section-title">Propósito Pedagógico</label>
+    <div class="purpose-cards">
+      <!-- Opción A: Clase Práctica / Taller -->
+      <div
+        class="purpose-card"
+        [class.selected]="pedagogicalPurpose() === 'PRACTICE'"
+        (click)="setPedagogicalPurpose('PRACTICE')"
+      >
+        <div class="card-radio-box">
+          <span class="radio-indicator"></span>
+        </div>
+        <div class="card-content">
+          <div class="card-top">
+            <svg lucideRadio class="card-icon icon-practice"></svg>
+            <span class="card-name">Clase Práctica / Taller Guiado</span>
+          </div>
+          <p class="card-description">
+            Aprendizaje guiado y colaborativo. Permite transmitir checkpoints de código en vivo para sincronización voluntaria de los alumnos.
+          </p>
+        </div>
+      </div>
+
+      <!-- Opción B: Examen / Evaluación Sumativa -->
+      <div
+        class="purpose-card"
+        [class.selected]="pedagogicalPurpose() === 'EXAM'"
+        (click)="setPedagogicalPurpose('EXAM')"
+      >
+        <div class="card-radio-box">
+          <span class="radio-indicator"></span>
+        </div>
+        <div class="card-content">
+          <div class="card-top">
+            <svg lucideShield class="card-icon icon-exam"></svg>
+            <span class="card-name">Examen / Evaluación Sumativa</span>
+          </div>
+          <p class="card-description">
+            Evaluación individual estricta. Transmisión en vivo desactivada, congelamiento en fecha límite y auditoría de similitud activa.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Enunciado con Tabs (Escribir / Preview Markdown) -->
+  <div class="statement-editor-box">
+    <div class="statement-header">
+      <label class="section-title">Enunciado / Guía de Práctica (Markdown)</label>
+      <div class="tab-pill-group">
+        <button
+          type="button"
+          class="tab-pill"
+          [class.active]="activeDescTab() === 'edit'"
+          (click)="activeDescTab.set('edit')"
+        >
+          <svg lucideEdit3 class="pill-icon"></svg>
+          <span>Escribir Enunciado</span>
+        </button>
+        <button
+          type="button"
+          class="tab-pill"
+          [class.active]="activeDescTab() === 'preview'"
+          (click)="activeDescTab.set('preview')"
+        >
+          <svg lucideEye class="pill-icon"></svg>
+          <span>Vista Previa</span>
+        </button>
+      </div>
+    </div>
+
+    @if (activeDescTab() === 'edit') {
+      <textarea
+        rows="4"
+        placeholder="Escribe las instrucciones pedagógicas en Markdown...&#10;&#10;### Objetivos&#10;1. Implementar la función de rotación...&#10;2. Respetar el límite de complejidad O(log n)."
+        [ngModel]="description()"
+        (ngModelChange)="description.set($event)"
+        class="form-textarea font-mono statement-textarea"
+      ></textarea>
+    } @else {
+      <div class="markdown-preview-box" [innerHTML]="renderedDescription()"></div>
+    }
+  </div>
+</div>

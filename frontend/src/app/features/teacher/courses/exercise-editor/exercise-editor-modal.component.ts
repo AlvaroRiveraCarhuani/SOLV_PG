@@ -1,84 +1,40 @@
 import { Component, input, output, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { marked } from 'marked';
 import { 
   LucideCode, 
-  LucideTerminal,
-  LucideServer,
-  LucideLaptop,
-  LucideCpu,
-  LucideSparkles,
-  LucideUpload, 
-  LucideTrash2, 
-  LucidePlus,
   LucideAlertCircle, 
-  LucideAlertTriangle,
-  LucideCheck,
-  LucideChevronRight,
-  LucideChevronLeft,
-  LucideEye,
-  LucideEdit3,
-  LucideRadio,
-  LucideShield,
-  LucideDatabase,
-  LucideHelpCircle
+  LucideCheck, 
+  LucideChevronRight, 
+  LucideChevronLeft 
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
-import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherLabStats } from '../../models/teacher.models';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { TemplateRequestModalComponent } from '../../templates/template-request-modal/template-request-modal.component';
+import { StepGeneralComponent } from './steps/step-general/step-general.component';
+import { StepTechnicalComponent, type TestCaseFormItem, type WorkspaceTemplateOption } from './steps/step-technical/step-technical.component';
+import { StepRulesComponent } from './steps/step-rules/step-rules.component';
 
-export interface TestCaseFormItem {
-  input: string;
-  expected_output: string;
-  is_hidden: boolean;
-}
-
-export interface WorkspaceTemplateOption {
-  id: string;
-  name: string;
-  docker_image: string;
-  description: string;
-  base_ram_mb: number;
-  category: string;
-}
+export type { TestCaseFormItem, WorkspaceTemplateOption };
 
 @Component({
   selector: 'exercise-editor-modal',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
     LucideCode,
-    LucideTerminal,
-    LucideServer,
-    LucideLaptop,
-    LucideCpu,
-    LucideSparkles,
-    LucideUpload,
-    LucideTrash2,
-    LucidePlus,
     LucideAlertCircle,
-    LucideAlertTriangle,
     LucideCheck,
     LucideChevronRight,
     LucideChevronLeft,
-    LucideEye,
-    LucideEdit3,
-    LucideRadio,
-    LucideShield,
-    LucideDatabase,
-    LucideHelpCircle,
-    MachineDataDirective,
     ModalShellComponent,
-    FormFieldComponent,
     FuzzingModalComponent,
-    TemplateRequestModalComponent
+    TemplateRequestModalComponent,
+    StepGeneralComponent,
+    StepTechnicalComponent,
+    StepRulesComponent
   ],
   templateUrl: './exercise-editor-modal.component.html',
   styleUrl: './exercise-editor-modal.component.scss'
@@ -99,21 +55,13 @@ export class ExerciseEditorModalComponent implements OnInit {
 
   // PASO 1: Metadatos & Modalidad
   title = signal<string>('');
+  titleError = signal<string | null>(null);
   description = signal<string>('');
   dueDate = signal<string>('');
+  hasDueDate = signal<boolean>(false);
   labType = signal<'ALGORITMO' | 'IDE_PERSISTENTE'>('ALGORITMO');
-  allowBroadcast = signal<boolean>(true); // ADR-007
-  activeDescTab = signal<'edit' | 'preview'>('edit');
-
-  renderedDescription = computed(() => {
-    const raw = this.description();
-    if (!raw.trim()) return '<p class="empty-preview">Sin enunciado especificado.</p>';
-    try {
-      return marked.parse(raw, { async: false }) as string;
-    } catch {
-      return raw;
-    }
-  });
+  pedagogicalPurpose = signal<'PRACTICE' | 'EXAM'>('PRACTICE');
+  allowBroadcast = signal<boolean>(true);
 
   // PASO 2A: Configuración Juez Virtual
   language = signal<string>('python');
@@ -121,10 +69,10 @@ export class ExerciseEditorModalComponent implements OnInit {
   testCases = signal<TestCaseFormItem[]>([
     { input: '', expected_output: '', is_hidden: false }
   ]);
+  csvError = signal<string | null>(null);
 
-  // PASO 2B: Configuración Workspace Docker (ADR-030 & ADR-006)
+  // PASO 2B: Configuración Workspace Docker
   templateId = signal<string>('tpl-python-ds');
-  databaseService = signal<'none' | 'postgres' | 'mysql' | 'mongodb'>('none');
   dbInitScript = signal<string>('');
 
   templatesList = signal<WorkspaceTemplateOption[]>([
@@ -134,7 +82,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/python-ds:3.11',
       description: 'NumPy, Pandas, Scikit-learn, Jupyter y soporte para Python 3.11.',
       base_ram_mb: 1024,
-      category: 'Data Science'
+      category: 'Data Science',
+      satellite_service: 'Sin servicios satélite (Entorno autónomo)',
+      has_database: false
     },
     {
       id: 'tpl-node-fullstack',
@@ -142,7 +92,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/node-fullstack:20',
       description: 'Node.js LTS con TypeScript, Express, Vite y testing Jest/Vitest.',
       base_ram_mb: 1024,
-      category: 'Web Development'
+      category: 'Web Development',
+      satellite_service: 'Sin servicios satélite',
+      has_database: false
     },
     {
       id: 'tpl-cpp-systems',
@@ -150,7 +102,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/cpp-dev:gcc-13',
       description: 'GCC 13, Clang, GDB, CMake, Valgrind para sistemas y estructuras.',
       base_ram_mb: 512,
-      category: 'Systems'
+      category: 'Systems',
+      satellite_service: 'Sin servicios satélite',
+      has_database: false
     },
     {
       id: 'tpl-postgres-db',
@@ -158,7 +112,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/postgres-lab:16',
       description: 'PostgreSQL 16 con psql y scripts DDL precargados.',
       base_ram_mb: 1024,
-      category: 'Databases'
+      category: 'Databases',
+      satellite_service: 'PostgreSQL 16 (Relacional / SQL)',
+      has_database: true
     },
     {
       id: 'tpl-go-backend',
@@ -166,7 +122,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/golang:1.22',
       description: 'Go con linter golangci-lint, gRPC y testing integrado.',
       base_ram_mb: 512,
-      category: 'Backend'
+      category: 'Backend',
+      satellite_service: 'Sin servicios satélite',
+      has_database: false
     },
     {
       id: 'tpl-java-spring',
@@ -174,7 +132,9 @@ export class ExerciseEditorModalComponent implements OnInit {
       docker_image: 'solv-lab/java-spring:21',
       description: 'OpenJDK 21, Maven 3.9 y extensiones Java para VS Code.',
       base_ram_mb: 2048,
-      category: 'Enterprise'
+      category: 'Enterprise',
+      satellite_service: 'PostgreSQL 16 (Relacional / Spring JPA)',
+      has_database: true
     }
   ]);
 
@@ -182,7 +142,12 @@ export class ExerciseEditorModalComponent implements OnInit {
     return this.templatesList().find(t => t.id === this.templateId()) || this.templatesList()[0];
   });
 
-  // PASO 3: Restricciones AST (Semgrep ADR-026) y Boilerplate
+  hasDatabaseSatellite = computed(() => {
+    const tpl = this.selectedTemplate();
+    return !!tpl?.has_database || tpl?.category === 'Databases' || (tpl?.satellite_service ? tpl.satellite_service.toLowerCase().includes('sql') : false);
+  });
+
+  // PASO 3: Restricciones AST y Boilerplate
   blockNativeSort = signal<boolean>(false);
   blockSystemModules = signal<boolean>(true);
   forceRecursion = signal<boolean>(false);
@@ -193,7 +158,6 @@ export class ExerciseEditorModalComponent implements OnInit {
   showTemplateRequestModal = signal<boolean>(false);
 
   // Estados UI
-  csvError = signal<string | null>(null);
   formError = signal<string | null>(null);
   isSubmitting = signal<boolean>(false);
 
@@ -203,7 +167,14 @@ export class ExerciseEditorModalComponent implements OnInit {
     const edit = this.exerciseToEdit();
     if (edit) {
       this.title.set(edit.title);
-      this.dueDate.set(edit.due_date ? edit.due_date.substring(0, 16) : '');
+      if (edit.due_date) {
+        this.dueDate.set(edit.due_date.substring(0, 16));
+        this.hasDueDate.set(true);
+      } else {
+        this.dueDate.set('');
+        this.hasDueDate.set(false);
+      }
+
       if (edit.type === 'workspace' || edit.type === 'IDE_PERSISTENTE') {
         this.labType.set('IDE_PERSISTENTE');
         this.templateId.set(edit.template_id || 'tpl-python-ds');
@@ -216,6 +187,14 @@ export class ExerciseEditorModalComponent implements OnInit {
       }
     } else {
       this.boilerplate.set(this.getDefaultBoilerplate('python'));
+    }
+  }
+
+  onTitleChange(val: string): void {
+    this.title.set(val);
+    if (val.trim()) {
+      this.titleError.set(null);
+      this.formError.set(null);
     }
   }
 
@@ -234,8 +213,11 @@ export class ExerciseEditorModalComponent implements OnInit {
 
   goToStep(step: 1 | 2 | 3): void {
     this.formError.set(null);
+    this.titleError.set(null);
     if (step > 1 && !this.title().trim()) {
-      this.formError.set('El título del laboratorio es obligatorio para continuar.');
+      const msg = 'El título del laboratorio es obligatorio para continuar.';
+      this.formError.set(msg);
+      this.titleError.set(msg);
       return;
     }
     this.currentStep.set(step);
@@ -245,129 +227,23 @@ export class ExerciseEditorModalComponent implements OnInit {
     this.labType.set(type);
   }
 
-  setLanguage(lang: string): void {
+  setPedagogicalPurpose(purpose: 'PRACTICE' | 'EXAM'): void {
+    this.pedagogicalPurpose.set(purpose);
+    this.allowBroadcast.set(purpose === 'PRACTICE');
+  }
+
+  onLanguageChange(lang: string): void {
     this.language.set(lang);
     if (!this.boilerplate().trim() || this.isDefaultBoilerplate(this.boilerplate())) {
       this.boilerplate.set(this.getDefaultBoilerplate(lang));
     }
   }
 
-  isDefaultBoilerplate(code: string): boolean {
-    const list = ['python', 'javascript', 'cpp', 'c', 'go', 'sql'].map(l => this.getDefaultBoilerplate(l).trim());
-    return list.includes(code.trim());
-  }
-
-  getDefaultBoilerplate(lang: string): string {
-    switch (lang) {
-      case 'python':
-        return 'def solution(arr):\n    # TODO: Implemente su algoritmo aquí\n    pass\n';
-      case 'javascript':
-        return 'function solution(arr) {\n  // TODO: Implemente su solución aquí\n}\n\nmodule.exports = { solution };\n';
-      case 'cpp':
-        return '#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    // TODO: Implemente su solución aquí\n    return 0;\n}\n';
-      case 'c':
-        return '#include <stdio.h>\n\nint main() {\n    // TODO: Implemente su solución aquí\n    return 0;\n}\n';
-      case 'go':
-        return 'package main\n\nimport "fmt"\n\nfunc main() {\n    // TODO: Implemente su solución aquí\n    fmt.Println("SOLV")\n}\n';
-      case 'sql':
-        return '-- Escriba su consulta SQL de consulta\nSELECT * FROM data;\n';
-      default:
-        return '';
+  toggleNoDueDate(noDeadline: boolean): void {
+    this.hasDueDate.set(!noDeadline);
+    if (noDeadline) {
+      this.dueDate.set('');
     }
-  }
-
-  addTestCase(): void {
-    this.testCases.update(list => [
-      ...list,
-      { input: '', expected_output: '', is_hidden: false }
-    ]);
-  }
-
-  removeTestCase(index: number): void {
-    this.testCases.update(list => list.filter((_, i) => i !== index));
-  }
-
-  onCsvSelected(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    if (!input.files || input.files.length === 0) return;
-
-    const file = input.files[0];
-    const reader = new FileReader();
-
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      this.parseCsvTestCases(text);
-    };
-
-    reader.readAsText(file);
-  }
-
-  parseCsvTestCases(csvText: string): void {
-    this.csvError.set(null);
-    const lines = csvText.split(/\r?\n/).filter(line => line.trim().length > 0);
-    if (lines.length === 0) {
-      this.csvError.set('El archivo CSV está vacío.');
-      return;
-    }
-
-    const parsed: TestCaseFormItem[] = [];
-    const errors: string[] = [];
-
-    let startIndex = 0;
-    if (lines[0].toLowerCase().includes('input') && lines[0].toLowerCase().includes('output')) {
-      startIndex = 1;
-    }
-
-    for (let i = startIndex; i < lines.length; i++) {
-      const rowNum = i + 1;
-      const line = lines[i];
-      const parts = line.split(',');
-
-      if (parts.length < 2) {
-        errors.push(`Línea ${rowNum}: formato inválido (se requiere al menos input y output)`);
-        continue;
-      }
-
-      const inputVal = parts[0].trim();
-      const outputVal = parts[1].trim();
-      const isHidden = parts[2] ? parts[2].trim().toLowerCase() === 'true' || parts[2].trim() === '1' : false;
-
-      if (!inputVal || !outputVal) {
-        errors.push(`Línea ${rowNum}: campos requeridos vacíos`);
-        continue;
-      }
-
-      parsed.push({
-        input: inputVal,
-        expected_output: outputVal,
-        is_hidden: isHidden
-      });
-    }
-
-    if (errors.length > 0) {
-      this.csvError.set(`Errores en CSV:\n${errors.slice(0, 3).join('\n')}${errors.length > 3 ? ` (+${errors.length - 3} más)` : ''}`);
-      return;
-    }
-
-    if (parsed.length > 0) {
-      this.testCases.set(parsed);
-    }
-  }
-
-  openFuzzingModal(): void {
-    this.showFuzzingModal.set(true);
-  }
-
-  closeFuzzingModal(): void {
-    this.showFuzzingModal.set(false);
-  }
-
-  onFuzzCasesApplied(addedCount: number): void {
-    this.showFuzzingModal.set(false);
-    this.testCases.update(current => [
-      ...current,
-      { input: `[fuzz-test-${addedCount}]`, expected_output: '0', is_hidden: true }
-    ]);
   }
 
   openTemplateRequestModal(): void {
@@ -380,6 +256,10 @@ export class ExerciseEditorModalComponent implements OnInit {
 
   onTemplateRequested(): void {
     this.loadApprovedTemplates();
+  }
+
+  onFuzzCasesApplied(count: number): void {
+    this.showFuzzingModal.set(false);
   }
 
   submit(publish: boolean = false): void {
@@ -407,7 +287,7 @@ export class ExerciseEditorModalComponent implements OnInit {
         template_id: isWorkspace ? tpl?.id : undefined,
         memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? undefined : this.timeLimitMs(),
-        due_date: this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
+        due_date: this.hasDueDate() && this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
       }).subscribe({
         next: () => {
           if (publish) {
@@ -445,7 +325,7 @@ export class ExerciseEditorModalComponent implements OnInit {
         template_id: isWorkspace ? tpl?.id : undefined,
         memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? 0 : this.timeLimitMs(),
-        due_date: this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
+        due_date: this.hasDueDate() && this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
       }).subscribe({
         next: (created) => {
           const onFinish = () => {
@@ -487,5 +367,29 @@ export class ExerciseEditorModalComponent implements OnInit {
         }
       });
     }
+  }
+
+  private getDefaultBoilerplate(lang: string): string {
+    switch (lang) {
+      case 'python':
+        return `def solve():\n    # Tu solucion aqui\n    pass\n\nif __name__ == '__main__':\n    solve()`;
+      case 'javascript':
+        return `function solve() {\n  // Tu solucion aqui\n}\n\nsolve();`;
+      case 'cpp':
+        return `#include <iostream>\n\nusing namespace std;\n\nint main() {\n    // Tu solucion aqui\n    return 0;\n}`;
+      case 'c':
+        return `#include <stdio.h>\n\nint main() {\n    // Tu solucion aqui\n    return 0;\n}`;
+      case 'go':
+        return `package main\n\nimport "fmt"\n\nfunc main() {\n    // Tu solucion aqui\n}`;
+      case 'sql':
+        return `-- Escribe tu consulta SQL aqui\nSELECT * FROM tabla;`;
+      default:
+        return '';
+    }
+  }
+
+  private isDefaultBoilerplate(code: string): boolean {
+    const defaults = ['python', 'javascript', 'cpp', 'c', 'go', 'sql'].map(l => this.getDefaultBoilerplate(l));
+    return defaults.includes(code.trim());
   }
 }

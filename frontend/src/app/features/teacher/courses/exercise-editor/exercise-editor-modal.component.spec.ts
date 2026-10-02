@@ -34,18 +34,46 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     fixture.detectChanges();
   });
 
-  it('should initialize on step 1 with default ALGORITMO modality', () => {
+  it('should initialize on step 1 with default ALGORITMO modality and PRACTICE purpose', () => {
     expect(component.currentStep()).toBe(1);
     expect(component.labType()).toBe('ALGORITMO');
     expect(component.language()).toBe('python');
+    expect(component.pedagogicalPurpose()).toBe('PRACTICE');
     expect(component.allowBroadcast()).toBe(true);
   });
 
-  it('should require title before advancing to step 2', () => {
+  it('should toggle pedagogical purpose to EXAM and disable broadcast', () => {
+    component.setPedagogicalPurpose('EXAM');
+    expect(component.pedagogicalPurpose()).toBe('EXAM');
+    expect(component.allowBroadcast()).toBe(false);
+
+    component.setPedagogicalPurpose('PRACTICE');
+    expect(component.pedagogicalPurpose()).toBe('PRACTICE');
+    expect(component.allowBroadcast()).toBe(true);
+  });
+
+  it('should require title before advancing to step 2 and set titleError', () => {
     component.title.set('');
     component.goToStep(2);
     expect(component.currentStep()).toBe(1);
     expect(component.formError()).toBe('El título del laboratorio es obligatorio para continuar.');
+    expect(component.titleError()).toBe('El título del laboratorio es obligatorio para continuar.');
+
+    component.onTitleChange('Árboles Binarios');
+    expect(component.titleError()).toBeNull();
+    expect(component.formError()).toBeNull();
+  });
+
+  it('should toggle no due date correctly', () => {
+    component.dueDate.set('2026-10-15T18:00');
+    component.hasDueDate.set(true);
+
+    component.toggleNoDueDate(true);
+    expect(component.hasDueDate()).toBe(false);
+    expect(component.dueDate()).toBe('');
+
+    component.toggleNoDueDate(false);
+    expect(component.hasDueDate()).toBe(true);
   });
 
   it('should navigate through 3 steps when title is valid', () => {
@@ -57,11 +85,9 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     expect(component.currentStep()).toBe(3);
   });
 
-  it('should render markdown preview for pedagogical description', () => {
+  it('should store pedagogical description in markdown', () => {
     component.description.set('### Instrucciones\nImplementar rotación simple.');
-    const preview = component.renderedDescription();
-    expect(preview).toContain('<h3>Instrucciones</h3>');
-    expect(preview).toContain('Implementar rotación simple.');
+    expect(component.description()).toBe('### Instrucciones\nImplementar rotación simple.');
   });
 
   it('should open template request modal (ADR-030) from workspace step', () => {
@@ -106,5 +132,14 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
       template_id: 'tpl-python-ds',
       memory_limit_mb: 1024
     }));
+  });
+
+  it('should compute hasDatabaseSatellite dynamically based on selected template', () => {
+    component.setLabType('IDE_PERSISTENTE');
+    component.templateId.set('tpl-python-ds');
+    expect(component.hasDatabaseSatellite()).toBe(false);
+
+    component.templateId.set('tpl-postgres-db');
+    expect(component.hasDatabaseSatellite()).toBe(true);
   });
 });

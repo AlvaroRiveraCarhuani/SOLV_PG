@@ -1,0 +1,253 @@
+<div class="step-technical-container">
+  <!-- =================================================================== -->
+  <!-- PASO 2A: Casos de Prueba (Para Desafío de Código / Juez Virtual)    -->
+  <!-- =================================================================== -->
+  @if (labType() === 'ALGORITMO') {
+    <div class="judge-config-row">
+      <form-field label="Lenguaje Principal" for="labLang">
+        <select
+          id="labLang"
+          [ngModel]="language()"
+          (ngModelChange)="onLanguageSelect($event)"
+          class="form-select font-mono"
+        >
+          <option value="python">Python 3.11</option>
+          <option value="javascript">JavaScript / Node.js 20</option>
+          <option value="cpp">C++ (GCC 13 / C++20)</option>
+          <option value="c">C (GCC 13 / C17)</option>
+          <option value="go">Go 1.22</option>
+          <option value="sql">PostgreSQL 16 SQL</option>
+        </select>
+      </form-field>
+
+      <form-field label="Límite de Tiempo (CPU)" for="labTimeLimit" hint="Tiempo máximo por test case">
+        <div class="input-suffix-wrapper">
+          <input
+            id="labTimeLimit"
+            type="number"
+            min="100"
+            max="10000"
+            step="100"
+            [ngModel]="timeLimitMs()"
+            (ngModelChange)="timeLimitMs.set($event)"
+            class="form-input font-mono"
+          />
+          <span class="suffix font-mono">ms</span>
+        </div>
+      </form-field>
+    </div>
+
+    <!-- Tabla y Acciones de Casos de Prueba -->
+    <div class="test-cases-section">
+      <div class="cases-header-actions">
+        <div>
+          <label class="section-title">Casos de Prueba (Entrada / Salida Esperada)</label>
+          <p class="section-subtitle">
+            Al menos 1 caso público requerido para verificar la sintaxis del estudiante.
+          </p>
+        </div>
+
+        <div class="cases-btn-group">
+          <button
+            type="button"
+            class="btn-outline-sm btn-fuzz-trigger"
+            (click)="openFuzzing.emit()"
+            title="Generar casos automáticos con Fuzzing y Edge Cases"
+          >
+            <svg lucideSparkles class="btn-icon-sm"></svg>
+            <span>Generar con Fuzzing</span>
+          </button>
+
+          <label class="btn-outline-sm btn-upload-csv" title="Importar archivo CSV con formato (input;expected_output;is_hidden)">
+            <svg lucideUpload class="btn-icon-sm"></svg>
+            <span>Subir CSV</span>
+            <input
+              type="file"
+              accept=".csv,.txt"
+              (change)="handleCsvUpload($event)"
+              class="hidden-file-input"
+            />
+          </label>
+        </div>
+      </div>
+
+      @if (csvError()) {
+        <div class="csv-error-banner">
+          <svg lucideAlertTriangle class="error-icon"></svg>
+          <pre>{{ csvError() }}</pre>
+        </div>
+      }
+
+      <div class="cases-table">
+        <div class="cases-table-head">
+          <span class="col-num">#</span>
+          <span class="col-in">Entrada (Input)</span>
+          <span class="col-out">Salida Esperada (Output)</span>
+          <span class="col-vis">Visibilidad</span>
+          <span class="col-act"></span>
+        </div>
+
+        <div class="cases-table-body">
+          @for (tc of testCases(); track $index) {
+            <div class="case-row">
+              <span class="case-num">#{{ $index + 1 }}</span>
+              <div class="case-input-cell">
+                <input
+                  type="text"
+                  placeholder="ej. [5, 2, 9, 1]"
+                  [ngModel]="tc.input"
+                  (ngModelChange)="tc.input = $event"
+                  class="form-input form-input-sm font-mono"
+                />
+              </div>
+              <div class="case-input-cell">
+                <input
+                  type="text"
+                  placeholder="ej. [1, 2, 5, 9]"
+                  [ngModel]="tc.expected_output"
+                  (ngModelChange)="tc.expected_output = $event"
+                  class="form-input form-input-sm font-mono"
+                />
+              </div>
+              <div class="case-visibility-cell">
+                <label class="visibility-toggle" title="Los casos privados no muestran los datos al alumno en caso de fallo">
+                  <input
+                    type="checkbox"
+                    [checked]="tc.is_hidden"
+                    (change)="tc.is_hidden = $any($event.target).checked"
+                  />
+                  <span class="toggle-text">{{ tc.is_hidden ? 'Privado' : 'Público' }}</span>
+                </label>
+              </div>
+              <div class="case-actions-cell">
+                <button
+                  type="button"
+                  class="btn-icon-danger-sm"
+                  [disabled]="testCases().length <= 1"
+                  (click)="removeTestCase($index)"
+                  title="Eliminar caso"
+                >
+                  <svg lucideTrash2 class="btn-icon-sm"></svg>
+                </button>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+      <button type="button" class="btn-outline-sm btn-add-manual" (click)="addTestCase()">
+        <svg lucidePlus class="btn-icon-sm"></svg>
+        <span>Añadir Caso Manual</span>
+      </button>
+    </div>
+  }
+
+  <!-- =================================================================== -->
+  <!-- PASO 2B: Entorno Docker & Base de Datos (Workspace VS Code)        -->
+  <!-- =================================================================== -->
+  @if (labType() === 'IDE_PERSISTENTE') {
+    <!-- Selector de Plantilla Docker Oficial -->
+    <div class="template-selector-section">
+      <div class="section-header-flex">
+        <div>
+          <label class="section-title">Plantilla del Entorno de Desarrollo</label>
+          <p class="section-subtitle">
+            Selecciona la imagen base oficial aprobada por la administración del sistema.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="btn-outline-sm btn-request-template"
+          (click)="requestTemplate.emit()"
+        >
+          <svg lucidePlus class="btn-icon-sm"></svg>
+          <span>+ Solicitar Nueva Plantilla Docker</span>
+        </button>
+      </div>
+
+      <form-field label="Plantilla Homologada" for="wsTplSelect">
+        <select
+          id="wsTplSelect"
+          [ngModel]="templateId()"
+          (ngModelChange)="templateId.set($event)"
+          class="form-select font-mono"
+        >
+          @for (tpl of templatesList(); track tpl.id) {
+            <option [value]="tpl.id">
+              [{{ tpl.category }}] {{ tpl.name }} ({{ tpl.docker_image }})
+            </option>
+          }
+        </select>
+      </form-field>
+
+      <!-- Card Informativo de la Plantilla Seleccionada -->
+      @if (selectedTemplate(); as tpl) {
+        <div class="selected-template-card">
+          <div class="card-badge-row">
+            <span class="category-badge">{{ tpl.category }}</span>
+            <span class="ram-governance-badge">
+              <svg lucideCpu class="badge-icon"></svg>
+              <span machineData>{{ tpl.base_ram_mb }} MB</span>
+              <span>RAM Asignada (cgroups)</span>
+            </span>
+            <span class="status-badge">
+              <svg lucideCheck class="badge-icon"></svg>
+              <span>Homologada Oficial</span>
+            </span>
+          </div>
+          <div class="card-details">
+            <span class="template-title">{{ tpl.name }}</span>
+            <span class="template-image font-mono">{{ tpl.docker_image }}</span>
+            <p class="template-description">{{ tpl.description }}</p>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Servicios Satélite de Base de Datos (Gobernados por la Plantilla) -->
+    <div class="database-satellite-section">
+      <div class="section-header">
+        <label class="section-title">
+          <svg lucideDatabase class="section-icon-db"></svg>
+          <span>Servicio de Base de Datos Homologado</span>
+        </label>
+        <p class="section-subtitle">
+          Aprovisionado automáticamente según la especificación técnica de la plantilla seleccionada.
+        </p>
+      </div>
+
+      <div class="satellite-info-box" [class.has-db]="hasDatabaseSatellite()">
+        <div class="satellite-info-content">
+          <svg lucideDatabase class="satellite-icon" *ngIf="hasDatabaseSatellite()"></svg>
+          <svg lucideServer class="satellite-icon" *ngIf="!hasDatabaseSatellite()"></svg>
+          <div class="satellite-text">
+            <span class="satellite-name">
+              {{ selectedTemplate().satellite_service || (hasDatabaseSatellite() ? 'PostgreSQL 16' : 'Sin servicios satélite') }}
+            </span>
+            <span class="satellite-desc">
+              {{ hasDatabaseSatellite() ? 'Instancia aislada por alumno, conectada y gestionada por cgroups.' : 'Entorno autónomo optimizado sin consumo extra de memoria para satélites.' }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      @if (hasDatabaseSatellite()) {
+        <form-field
+          label="Script de Inicialización SQL / DDL (Opcional)"
+          for="dbInitScript"
+          hint="Se ejecutará automáticamente al inicializar la base de datos de cada estudiante."
+        >
+          <textarea
+            id="dbInitScript"
+            rows="3"
+            placeholder="CREATE TABLE estudiantes (id SERIAL PRIMARY KEY, nombre VARCHAR(100));&#10;INSERT INTO estudiantes (nombre) VALUES ('Carlos Ruiz'), ('Ana Torres');"
+            [ngModel]="dbInitScript()"
+            (ngModelChange)="dbInitScript.set($event)"
+            class="form-textarea font-mono code-input"
+          ></textarea>
+        </form-field>
+      }
+    </div>
+  }
+</div>

@@ -7,7 +7,7 @@
 >
   <svg modal-icon lucideCode class="icon"></svg>
 
-  <!-- Barra de Pasos del Wizard (CREAR_LAB.md) -->
+  <!-- Barra de Pasos del Wizard -->
   <div class="wizard-steps-nav">
     <button
       type="button"
@@ -56,585 +56,120 @@
   }
 
   <div class="wizard-body">
-    <!-- =================================================================== -->
-    <!-- PASO 1: Tipo de Laboratorio, Enunciado y Opciones Pedagógicas       -->
-    <!-- =================================================================== -->
     @if (currentStep() === 1) {
-      <div class="step-container">
-        <div class="fields-grid">
-          <form-field label="Título del Laboratorio" for="labTitle" [required]="true">
-            <input
-              id="labTitle"
-              type="text"
-              placeholder="ej. Estructuras de Datos: Árboles AVL y Balanceo"
-              [ngModel]="title()"
-              (ngModelChange)="title.set($event)"
-              class="form-input"
-            />
-          </form-field>
-
-          <form-field label="Fecha Límite de Entrega" for="labDueDate" hint="Opcional. Marca entregas en riesgo (<24h).">
-            <input
-              id="labDueDate"
-              type="datetime-local"
-              [ngModel]="dueDate()"
-              (ngModelChange)="dueDate.set($event)"
-              class="form-input"
-            />
-          </form-field>
-        </div>
-
-        <!-- Selector de Modalidad Pedagógica -->
-        <div class="modality-selection-group">
-          <label class="section-title">Seleccionar Modalidad del Laboratorio</label>
-          <div class="modality-cards">
-            <!-- Modalidad A: Juez Virtual -->
-            <div
-              class="modality-card"
-              [class.selected]="labType() === 'ALGORITMO'"
-              (click)="setLabType('ALGORITMO')"
-            >
-              <div class="card-radio-box">
-                <span class="radio-indicator"></span>
-              </div>
-              <div class="card-content">
-                <div class="card-top">
-                  <svg lucideCode class="card-icon icon-judge"></svg>
-                  <span class="card-name">Desafío de Código (Juez Automático)</span>
-                </div>
-                <p class="card-description">
-                  Evaluación algorítmica efímera con casos de prueba automáticos (I/O) y restricciones sintácticas AST en Monaco Editor.
-                </p>
-              </div>
-            </div>
-
-            <!-- Modalidad B: Workspace Completo -->
-            <div
-              class="modality-card"
-              [class.selected]="labType() === 'IDE_PERSISTENTE'"
-              (click)="setLabType('IDE_PERSISTENTE')"
-            >
-              <div class="card-radio-box">
-                <span class="radio-indicator"></span>
-              </div>
-              <div class="card-content">
-                <div class="card-top">
-                  <svg lucideLaptop class="card-icon icon-workspace"></svg>
-                  <span class="card-name">Laboratorio Interactivo (VS Code + DB)</span>
-                </div>
-                <p class="card-description">
-                  Entorno persistente con OpenVSCode Server, PTY terminal y servicios satélite de catálogo homologados (PostgreSQL, MySQL).
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Switch Pedagógico de Transmisión -->
-        <div class="pedagogical-options-box">
-          <label class="checkbox-setting">
-            <input
-              type="checkbox"
-              [checked]="allowBroadcast()"
-              (change)="allowBroadcast.set($any($event.target).checked)"
-            />
-            <div class="setting-labels">
-              <span class="setting-title">
-                <svg lucideRadio class="setting-icon"></svg>
-                Permitir transmisión de código en vivo a la clase
-              </span>
-              <span class="setting-desc">
-                Habilita el botón "Emitir Avance" en tu entorno para que los estudiantes puedan sincronizar tu código en tiempo real con un solo clic.
-              </span>
-            </div>
-          </label>
-        </div>
-
-        <!-- Enunciado con Tabs (Escribir / Preview Markdown) -->
-        <div class="statement-editor-box">
-          <div class="statement-header">
-            <label class="section-title">Enunciado / Guía de Práctica (Markdown)</label>
-            <div class="tab-pill-group">
-              <button
-                type="button"
-                class="tab-pill"
-                [class.active]="activeDescTab() === 'edit'"
-                (click)="activeDescTab.set('edit')"
-              >
-                <svg lucideEdit3 class="pill-icon"></svg>
-                <span>Escribir Enunciado</span>
-              </button>
-              <button
-                type="button"
-                class="tab-pill"
-                [class.active]="activeDescTab() === 'preview'"
-                (click)="activeDescTab.set('preview')"
-              >
-                <svg lucideEye class="pill-icon"></svg>
-                <span>Vista Previa</span>
-              </button>
-            </div>
-          </div>
-
-          @if (activeDescTab() === 'edit') {
-            <textarea
-              rows="4"
-              placeholder="Escribe las instrucciones pedagógicas en Markdown...&#10;&#10;### Objetivos&#10;1. Implementar la función de rotación...&#10;2. Respetar el límite de complejidad O(log n)."
-              [ngModel]="description()"
-              (ngModelChange)="description.set($event)"
-              class="form-textarea font-mono statement-textarea"
-            ></textarea>
-          } @else {
-            <div class="markdown-preview-box" [innerHTML]="renderedDescription()"></div>
-          }
-        </div>
-      </div>
+      <step-general
+        [(title)]="title"
+        [titleError]="titleError()"
+        (titleChanged)="onTitleChange($event)"
+        [(dueDate)]="dueDate"
+        [(hasDueDate)]="hasDueDate"
+        [(labType)]="labType"
+        [(pedagogicalPurpose)]="pedagogicalPurpose"
+        [(allowBroadcast)]="allowBroadcast"
+        [(description)]="description"
+      />
     }
 
-    <!-- =================================================================== -->
-    <!-- PASO 2A: Casos de Prueba (Para Desafío de Código / Juez Virtual)    -->
-    <!-- =================================================================== -->
-    @if (currentStep() === 2 && labType() === 'ALGORITMO') {
-      <div class="step-container">
-        <div class="judge-config-row">
-          <form-field label="Lenguaje Principal" for="labLang">
-            <select
-              id="labLang"
-              [ngModel]="language()"
-              (ngModelChange)="setLanguage($event)"
-              class="form-select font-mono"
-            >
-              <option value="python">Python 3.11</option>
-              <option value="javascript">JavaScript / Node.js 20</option>
-              <option value="cpp">C++ (GCC 13 / C++20)</option>
-              <option value="c">C (GCC 13 / C17)</option>
-              <option value="go">Go 1.22</option>
-              <option value="sql">PostgreSQL 16 SQL</option>
-            </select>
-          </form-field>
-
-          <form-field label="Límite de Tiempo (CPU)" for="labTimeLimit" hint="Tiempo máximo por test case">
-            <div class="input-suffix-wrapper">
-              <input
-                id="labTimeLimit"
-                type="number"
-                min="200"
-                max="10000"
-                step="100"
-                [ngModel]="timeLimitMs()"
-                (ngModelChange)="timeLimitMs.set($event)"
-                class="form-input font-mono"
-              />
-              <span class="suffix">ms</span>
-            </div>
-          </form-field>
-        </div>
-
-        <div class="sandbox-governance-notice">
-          <svg lucideShield class="notice-icon"></svg>
-          <div class="notice-text">
-            <strong>Sandbox Efímero de Alta Seguridad:</strong> Cada ejecución se aísla automáticamente en micro-contenedores con cuota de CPU y memoria protegida por el kernel del sistema.
-          </div>
-        </div>
-
-        <!-- Batería de Casos de Prueba -->
-        <div class="test-cases-suite">
-          <div class="suite-top">
-            <div class="suite-title">
-              <label class="section-title">Batería de Casos de Prueba (I/O)</label>
-              <span class="suite-subtitle">Entradas y salidas esperadas para autoevaluación</span>
-            </div>
-
-            <div class="suite-actions">
-              <button
-                type="button"
-                class="btn-outline-sm btn-fuzzing-sparkle"
-                (click)="openFuzzingModal()"
-                title="Generar casos de prueba y boundary edge cases automáticamente"
-              >
-                <svg lucideSparkles class="btn-icon-sm sparkle-icon"></svg>
-                <span>Sintetizador Fuzzing</span>
-              </button>
-
-              <div class="csv-upload-container">
-                <label class="btn-outline-sm" for="csvFileInput">
-                  <svg lucideUpload class="btn-icon-sm"></svg>
-                  <span>Importar CSV / JSON</span>
-                </label>
-                <input
-                  id="csvFileInput"
-                  type="file"
-                  accept=".csv,.json"
-                  (change)="onCsvSelected($event)"
-                  class="hidden-file-input"
-                />
-              </div>
-            </div>
-          </div>
-
-          @if (csvError()) {
-            <div class="csv-error-banner">
-              <svg lucideAlertTriangle class="error-icon"></svg>
-              <pre>{{ csvError() }}</pre>
-            </div>
-          }
-
-          <div class="cases-table">
-            <div class="cases-table-head">
-              <span class="col-num">#</span>
-              <span class="col-in">Entrada (Input)</span>
-              <span class="col-out">Salida Esperada (Output)</span>
-              <span class="col-vis">Visibilidad</span>
-              <span class="col-act"></span>
-            </div>
-
-            <div class="cases-table-body">
-              @for (tc of testCases(); track $index) {
-                <div class="case-row">
-                  <span class="case-num">#{{ $index + 1 }}</span>
-                  <div class="case-input-cell">
-                    <input
-                      type="text"
-                      placeholder="ej. [5, 2, 9, 1]"
-                      [ngModel]="tc.input"
-                      (ngModelChange)="tc.input = $event"
-                      class="form-input form-input-sm font-mono"
-                    />
-                  </div>
-                  <div class="case-input-cell">
-                    <input
-                      type="text"
-                      placeholder="ej. [1, 2, 5, 9]"
-                      [ngModel]="tc.expected_output"
-                      (ngModelChange)="tc.expected_output = $event"
-                      class="form-input form-input-sm font-mono"
-                    />
-                  </div>
-                  <div class="case-visibility-cell">
-                    <label class="visibility-toggle" title="Los casos privados no muestran los datos al alumno en caso de fallo">
-                      <input
-                        type="checkbox"
-                        [checked]="tc.is_hidden"
-                        (change)="tc.is_hidden = $any($event.target).checked"
-                      />
-                      <span class="toggle-text">{{ tc.is_hidden ? 'Privado' : 'Público' }}</span>
-                    </label>
-                  </div>
-                  <div class="case-actions-cell">
-                    <button
-                      type="button"
-                      class="btn-icon-danger-sm"
-                      [disabled]="testCases().length <= 1"
-                      (click)="removeTestCase($index)"
-                      title="Eliminar caso"
-                    >
-                      <svg lucideTrash2 class="btn-icon-sm"></svg>
-                    </button>
-                  </div>
-                </div>
-              }
-            </div>
-          </div>
-
-          <button type="button" class="btn-outline-sm btn-add-manual" (click)="addTestCase()">
-            <svg lucidePlus class="btn-icon-sm"></svg>
-            <span>Añadir Caso Manual</span>
-          </button>
-        </div>
-      </div>
+    @if (currentStep() === 2) {
+      <step-technical
+        [labType]="labType()"
+        [(language)]="language"
+        [(timeLimitMs)]="timeLimitMs"
+        [(testCases)]="testCases"
+        [(csvError)]="csvError"
+        [(templateId)]="templateId"
+        [templatesList]="templatesList()"
+        [selectedTemplate]="selectedTemplate()"
+        [hasDatabaseSatellite]="hasDatabaseSatellite()"
+        [(dbInitScript)]="dbInitScript"
+        (languageChanged)="onLanguageChange($event)"
+        (requestTemplate)="openTemplateRequestModal()"
+        (openFuzzing)="showFuzzingModal.set(true)"
+      />
     }
 
-    <!-- =================================================================== -->
-    <!-- PASO 2B: Entorno Docker & Base de Datos (Workspace VS Code)        -->
-    <!-- =================================================================== -->
-    @if (currentStep() === 2 && labType() === 'IDE_PERSISTENTE') {
-      <div class="step-container">
-        <!-- Selector de Plantilla Docker Oficial -->
-        <div class="template-selector-section">
-          <div class="section-header-flex">
-            <div>
-              <label class="section-title">Plantilla del Entorno de Desarrollo</label>
-              <p class="section-subtitle">
-                Selecciona la imagen base oficial aprobada por la administración del sistema.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              class="btn-outline-sm btn-request-template"
-              (click)="openTemplateRequestModal()"
-            >
-              <svg lucidePlus class="btn-icon-sm"></svg>
-              <span>+ Solicitar Nueva Plantilla Docker</span>
-            </button>
-          </div>
-
-          <form-field label="Plantilla Homologada" for="wsTplSelect">
-            <select
-              id="wsTplSelect"
-              [ngModel]="templateId()"
-              (ngModelChange)="templateId.set($event)"
-              class="form-select font-mono"
-            >
-              @for (tpl of templatesList(); track tpl.id) {
-                <option [value]="tpl.id">
-                  [{{ tpl.category }}] {{ tpl.name }} ({{ tpl.docker_image }})
-                </option>
-              }
-            </select>
-          </form-field>
-
-          <!-- Card Informativo de la Plantilla Seleccionada -->
-          @if (selectedTemplate(); as tpl) {
-            <div class="selected-template-card">
-              <div class="card-badge-row">
-                <span class="category-badge">{{ tpl.category }}</span>
-                <span class="ram-governance-badge">
-                  <svg lucideCpu class="badge-icon"></svg>
-                  <span machineData>{{ tpl.base_ram_mb }} MB</span>
-                  <span>RAM Asignada (cgroups)</span>
-                </span>
-                <span class="status-badge">
-                  <svg lucideCheck class="badge-icon"></svg>
-                  <span>Homologada Oficial</span>
-                </span>
-              </div>
-              <div class="card-details">
-                <span class="template-title">{{ tpl.name }}</span>
-                <span class="template-image font-mono">{{ tpl.docker_image }}</span>
-                <p class="template-description">{{ tpl.description }}</p>
-              </div>
-            </div>
-          }
-        </div>
-
-        <!-- Servicios Satélite de Base de Datos -->
-        <div class="database-satellite-section">
-          <div class="section-header">
-            <label class="section-title">
-              <svg lucideDatabase class="section-icon-db"></svg>
-              <span>Servicios de Base de Datos Acoplados</span>
-            </label>
-            <p class="section-subtitle">
-              Provisiona automáticamente una base de datos aislada conectada al workspace del alumno.
-            </p>
-          </div>
-
-          <div class="db-options-grid">
-            <label class="db-option-card" [class.active]="databaseService() === 'postgres'">
-              <input
-                type="radio"
-                name="dbService"
-                value="postgres"
-                [checked]="databaseService() === 'postgres'"
-                (change)="databaseService.set('postgres')"
-              />
-              <span class="db-name">PostgreSQL 16</span>
-              <span class="db-hint">Relacional / SQL</span>
-            </label>
-
-            <label class="db-option-card" [class.active]="databaseService() === 'mysql'">
-              <input
-                type="radio"
-                name="dbService"
-                value="mysql"
-                [checked]="databaseService() === 'mysql'"
-                (change)="databaseService.set('mysql')"
-              />
-              <span class="db-name">MySQL 8.4</span>
-              <span class="db-hint">Relacional / ACID</span>
-            </label>
-
-            <label class="db-option-card" [class.active]="databaseService() === 'mongodb'">
-              <input
-                type="radio"
-                name="dbService"
-                value="mongodb"
-                [checked]="databaseService() === 'mongodb'"
-                (change)="databaseService.set('mongodb')"
-              />
-              <span class="db-name">MongoDB 7.0</span>
-              <span class="db-hint">NoSQL / Documental</span>
-            </label>
-
-            <label class="db-option-card" [class.active]="databaseService() === 'none'">
-              <input
-                type="radio"
-                name="dbService"
-                value="none"
-                [checked]="databaseService() === 'none'"
-                (change)="databaseService.set('none')"
-              />
-              <span class="db-name">Sin Base de Datos</span>
-              <span class="db-hint">Solo código</span>
-            </label>
-          </div>
-
-          @if (databaseService() !== 'none') {
-            <form-field
-              label="Script de Inicialización SQL / DDL (Opcional)"
-              for="dbInitScript"
-              hint="Se ejecutará automáticamente al inicializar la base de datos de cada estudiante."
-            >
-              <textarea
-                id="dbInitScript"
-                rows="3"
-                placeholder="CREATE TABLE estudiantes (id SERIAL PRIMARY KEY, nombre VARCHAR(100));&#10;INSERT INTO estudiantes (nombre) VALUES ('Carlos Ruiz'), ('Ana Torres');"
-                [ngModel]="dbInitScript()"
-                (ngModelChange)="dbInitScript.set($event)"
-                class="form-textarea font-mono code-input"
-              ></textarea>
-            </form-field>
-          }
-        </div>
-      </div>
-    }
-
-    <!-- =================================================================== -->
-    <!-- PASO 3: Restricciones de Código & Boilerplate                       -->
-    <!-- =================================================================== -->
     @if (currentStep() === 3) {
-      <div class="step-container">
-        <!-- 1. Restricciones de Código -->
-        <div class="ast-rules-section">
-          <div class="section-header">
-            <label class="section-title">
-              <svg lucideShield class="section-icon-shield"></svg>
-              <span>1. Restricciones de Código y Reglas Pedagógicas</span>
-            </label>
-            <p class="section-subtitle">
-              Activa reglas pedagógicas para bloquear atajos sintácticos o módulos de sistema antes de ejecutar el código:
-            </p>
-          </div>
-
-          <div class="rules-checkbox-list">
-            <label class="rule-checkbox-card">
-              <input
-                type="checkbox"
-                [checked]="blockNativeSort()"
-                (change)="blockNativeSort.set($any($event.target).checked)"
-              />
-              <div class="rule-text">
-                <span class="rule-name">Bloquear funciones nativas de ordenamiento</span>
-                <span class="rule-code font-mono">.sort(), sorted(), qsort()</span>
-              </div>
-            </label>
-
-            <label class="rule-checkbox-card">
-              <input
-                type="checkbox"
-                [checked]="blockSystemModules()"
-                (change)="blockSystemModules.set($any($event.target).checked)"
-              />
-              <div class="rule-text">
-                <span class="rule-name">Bloquear módulos de acceso a sistema operativo</span>
-                <span class="rule-code font-mono">os, sys, subprocess, fs, child_process</span>
-              </div>
-            </label>
-
-            <label class="rule-checkbox-card">
-              <input
-                type="checkbox"
-                [checked]="forceRecursion()"
-                (change)="forceRecursion.set($any($event.target).checked)"
-              />
-              <div class="rule-text">
-                <span class="rule-name">Bloquear bucles iterativos (Forzar recursividad)</span>
-                <span class="rule-code font-mono">for, while, do-while</span>
-              </div>
-            </label>
-          </div>
-        </div>
-
-        <!-- 2. Código Inicial / Boilerplate -->
-        <div class="boilerplate-section">
-          <div class="section-header">
-            <label class="section-title">2. Código Inicial para el Estudiante (Boilerplate)</label>
-            <p class="section-subtitle">
-              Plantilla que encontrará el alumno en su editor al abrir el laboratorio.
-            </p>
-          </div>
-
-          <textarea
-            rows="5"
-            [ngModel]="boilerplate()"
-            (ngModelChange)="boilerplate.set($event)"
-            class="form-textarea font-mono code-input"
-          ></textarea>
-        </div>
-      </div>
+      <step-rules
+        [(blockNativeSort)]="blockNativeSort"
+        [(blockSystemModules)]="blockSystemModules"
+        [(forceRecursion)]="forceRecursion"
+        [(boilerplate)]="boilerplate"
+        [language]="language()"
+      />
     }
   </div>
 
-  <!-- Footer con Navegación del Wizard -->
-  <ng-container modal-footer>
-    <div class="wizard-footer-flex">
-      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="close.emit()">
-        Cancelar
-      </button>
+  <!-- Footer con Acciones de Navegación y Guardado -->
+  <div modal-footer class="wizard-footer-flex">
+    <button
+      type="button"
+      class="btn-outline"
+      [disabled]="isSubmitting()"
+      (click)="close.emit()"
+    >
+      Cancelar
+    </button>
 
-      <div class="footer-actions-right">
-        @if (currentStep() > 1) {
-          <button
-            type="button"
-            class="btn-outline"
-            [disabled]="isSubmitting()"
-            (click)="goToStep($any(currentStep() - 1))"
-          >
-            <svg lucideChevronLeft class="btn-icon-left"></svg>
-            <span>Anterior</span>
-          </button>
-        }
+    <div class="footer-actions-right">
+      @if (currentStep() > 1) {
+        <button
+          type="button"
+          class="btn-outline"
+          [disabled]="isSubmitting()"
+          (click)="goToStep(currentStep() === 3 ? 2 : 1)"
+        >
+          <svg lucideChevronLeft class="btn-icon-left"></svg>
+          <span>Anterior</span>
+        </button>
+      }
 
-        @if (currentStep() < 3) {
-          <button
-            type="button"
-            class="btn-primary"
-            (click)="goToStep($any(currentStep() + 1))"
-          >
-            <span>Siguiente Paso</span>
-            <svg lucideChevronRight class="btn-icon-right"></svg>
-          </button>
-        } @else {
-          <button
-            type="button"
-            class="btn-outline"
-            [disabled]="isSubmitting()"
-            (click)="submit(false)"
-          >
-            {{ isSubmitting() ? 'Guardando...' : 'Guardar Borrador' }}
-          </button>
-          <button
-            type="button"
-            class="btn-primary"
-            [disabled]="isSubmitting()"
-            (click)="submit(true)"
-          >
-            <svg lucideCheck class="btn-icon-sm"></svg>
-            <span>{{ isSubmitting() ? 'Guardando...' : 'Publicar Lab' }}</span>
-          </button>
-        }
-      </div>
+      @if (currentStep() < 3) {
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="isSubmitting()"
+          (click)="goToStep(currentStep() === 1 ? 2 : 3)"
+        >
+          <span>Siguiente Paso</span>
+          <svg lucideChevronRight class="btn-icon-right"></svg>
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn-outline"
+          [disabled]="isSubmitting()"
+          (click)="submit(false)"
+        >
+          <span>{{ isSubmitting() ? 'Guardando...' : 'Guardar Borrador' }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-primary btn-publish-final"
+          [disabled]="isSubmitting()"
+          (click)="submit(true)"
+        >
+          <svg lucideCheck class="btn-icon-sm"></svg>
+          <span>{{ isSubmitting() ? 'Publicando...' : 'Publicar Ahora' }}</span>
+        </button>
+      }
     </div>
-  </ng-container>
+  </div>
 </modal-shell>
 
-<!-- Modal Secundario: Sintetizador Fuzzing -->
+<!-- Modal Secundario de Fuzzing -->
 @if (showFuzzingModal()) {
   <fuzzing-modal
-    [exerciseId]="exerciseToEdit()?.id || 'new-exercise'"
-    [exerciseTitle]="title() || 'Laboratorio'"
-    [language]="language()"
-    (close)="closeFuzzingModal()"
+    [exerciseId]="exerciseToEdit()?.id || 'new-fuzz'"
+    [exerciseTitle]="title() || 'Laboratorio Nuevo'"
+    (close)="showFuzzingModal.set(false)"
     (applied)="onFuzzCasesApplied($event)"
   />
 }
 
-<!-- Modal Secundario: Solicitud de Plantilla Docker (ADR-030) -->
+<!-- Modal Secundario de Solicitud de Plantilla Docker -->
 @if (showTemplateRequestModal()) {
   <template-request-modal
-    [subjectId]="subjectId()"
-    [subjectName]="subjectName()"
     (close)="closeTemplateRequestModal()"
     (requested)="onTemplateRequested()"
   />
