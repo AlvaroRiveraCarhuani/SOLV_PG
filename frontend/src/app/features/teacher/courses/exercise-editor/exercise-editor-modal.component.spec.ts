@@ -4,7 +4,7 @@ import { TeacherCourseService } from '../../services/teacher-course.service';
 import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { of } from 'rxjs';
 
-describe('ExerciseEditorModalComponent', () => {
+describe('ExerciseEditorModalComponent Wizard & Governance', () => {
   let component: ExerciseEditorModalComponent;
   let fixture: ComponentFixture<ExerciseEditorModalComponent>;
   let mockCourseService: Partial<TeacherCourseService>;
@@ -13,6 +13,7 @@ describe('ExerciseEditorModalComponent', () => {
     mockCourseService = {
       createExercise: vi.fn().mockReturnValue(of({ id: 'ex-123' })),
       updateExercise: vi.fn().mockReturnValue(of(undefined)),
+      publishExercise: vi.fn().mockReturnValue(of(undefined)),
       bulkUploadTestCases: vi.fn().mockReturnValue(of({ imported_count: 2 }))
     };
 
@@ -29,43 +30,58 @@ describe('ExerciseEditorModalComponent', () => {
     fixture = TestBed.createComponent(ExerciseEditorModalComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('subjectId', 'sub-001');
+    fixture.componentRef.setInput('subjectName', 'Programación II');
     fixture.detectChanges();
   });
 
-  it('should initialize with default ALGORITMO modality', () => {
+  it('should initialize on step 1 with default ALGORITMO modality', () => {
+    expect(component.currentStep()).toBe(1);
     expect(component.labType()).toBe('ALGORITMO');
     expect(component.language()).toBe('python');
-    expect(component.memoryLimitMb()).toBe(256);
+    expect(component.allowBroadcast()).toBe(true);
   });
 
-  it('should switch modality to IDE_PERSISTENTE and configure workspace', () => {
-    component.setLabType('IDE_PERSISTENTE');
-    expect(component.labType()).toBe('IDE_PERSISTENTE');
-
-    component.setWorkspaceRam(2048);
-    expect(component.workspaceRamMb()).toBe(2048);
-  });
-
-  it('should auto-fill boilerplate when changing programming language in ALGORITMO mode', () => {
-    component.setLanguage('cpp');
-    expect(component.language()).toBe('cpp');
-    expect(component.boilerplate()).toContain('#include <iostream>');
-  });
-
-  it('should validate required title before submission', () => {
+  it('should require title before advancing to step 2', () => {
     component.title.set('');
-    component.submit();
-    expect(component.formError()).toBe('El título del laboratorio es obligatorio.');
-    expect(mockCourseService.createExercise).not.toHaveBeenCalled();
+    component.goToStep(2);
+    expect(component.currentStep()).toBe(1);
+    expect(component.formError()).toBe('El título del laboratorio es obligatorio para continuar.');
   });
 
-  it('should submit algorithm lab with test cases', () => {
+  it('should navigate through 3 steps when title is valid', () => {
+    component.title.set('Árboles AVL');
+    component.goToStep(2);
+    expect(component.currentStep()).toBe(2);
+
+    component.goToStep(3);
+    expect(component.currentStep()).toBe(3);
+  });
+
+  it('should render markdown preview for pedagogical description', () => {
+    component.description.set('### Instrucciones\nImplementar rotación simple.');
+    const preview = component.renderedDescription();
+    expect(preview).toContain('<h3>Instrucciones</h3>');
+    expect(preview).toContain('Implementar rotación simple.');
+  });
+
+  it('should open template request modal (ADR-030) from workspace step', () => {
+    component.setLabType('IDE_PERSISTENTE');
+    expect(component.showTemplateRequestModal()).toBe(false);
+
+    component.openTemplateRequestModal();
+    expect(component.showTemplateRequestModal()).toBe(true);
+
+    component.closeTemplateRequestModal();
+    expect(component.showTemplateRequestModal()).toBe(false);
+  });
+
+  it('should submit algorithm lab with test cases and publish', () => {
     component.title.set('Grafos Dijkstra');
     component.testCases.set([
       { input: '4 4', expected_output: '10', is_hidden: false }
     ]);
 
-    component.submit();
+    component.submit(true);
 
     expect(mockCourseService.createExercise).toHaveBeenCalledWith(expect.objectContaining({
       subject_id: 'sub-001',
@@ -73,15 +89,15 @@ describe('ExerciseEditorModalComponent', () => {
       type: 'algorithm',
       language: 'python'
     }));
+    expect(mockCourseService.publishExercise).toHaveBeenCalledWith('ex-123');
   });
 
-  it('should submit persistent workspace lab', () => {
+  it('should submit persistent workspace lab using approved template RAM', () => {
     component.setLabType('IDE_PERSISTENTE');
     component.title.set('Proyecto Data Science con Pandas');
     component.templateId.set('tpl-python-ds');
-    component.workspaceRamMb.set(1024);
 
-    component.submit();
+    component.submit(false);
 
     expect(mockCourseService.createExercise).toHaveBeenCalledWith(expect.objectContaining({
       subject_id: 'sub-001',

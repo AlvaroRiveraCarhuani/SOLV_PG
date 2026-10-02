@@ -1,7 +1,8 @@
-import { Component, input, output, signal, inject, OnInit } from '@angular/core';
+import { Component, input, output, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { marked } from 'marked';
 import { 
   LucideCode, 
   LucideTerminal,
@@ -13,13 +14,24 @@ import {
   LucideTrash2, 
   LucidePlus,
   LucideAlertCircle, 
-  LucideAlertTriangle
+  LucideAlertTriangle,
+  LucideCheck,
+  LucideChevronRight,
+  LucideChevronLeft,
+  LucideEye,
+  LucideEdit3,
+  LucideRadio,
+  LucideShield,
+  LucideDatabase,
+  LucideHelpCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherLabStats } from '../../models/teacher.models';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
+import { TemplateRequestModalComponent } from '../../templates/template-request-modal/template-request-modal.component';
 
 export interface TestCaseFormItem {
   input: string;
@@ -53,9 +65,20 @@ export interface WorkspaceTemplateOption {
     LucidePlus,
     LucideAlertCircle,
     LucideAlertTriangle,
+    LucideCheck,
+    LucideChevronRight,
+    LucideChevronLeft,
+    LucideEye,
+    LucideEdit3,
+    LucideRadio,
+    LucideShield,
+    LucideDatabase,
+    LucideHelpCircle,
+    MachineDataDirective,
     ModalShellComponent,
     FormFieldComponent,
-    FuzzingModalComponent
+    FuzzingModalComponent,
+    TemplateRequestModalComponent
   ],
   templateUrl: './exercise-editor-modal.component.html',
   styleUrl: './exercise-editor-modal.component.scss'
@@ -65,48 +88,59 @@ export class ExerciseEditorModalComponent implements OnInit {
   private http = inject(HttpClient);
 
   subjectId = input.required<string>();
+  subjectName = input<string>('');
   exerciseToEdit = input<TeacherLabStats | null>(null);
 
   close = output<void>();
   saved = output<void>();
 
-  // Modalidad seleccionada
-  labType = signal<'ALGORITMO' | 'IDE_PERSISTENTE'>('ALGORITMO');
+  // Wizard Step: 1 = Tipo y Enunciado, 2 = Config Técnica, 3 = Reglas y Plantilla
+  currentStep = signal<1 | 2 | 3>(1);
 
-  // Campos generales
+  // PASO 1: Metadatos & Modalidad
   title = signal<string>('');
   description = signal<string>('');
   dueDate = signal<string>('');
+  labType = signal<'ALGORITMO' | 'IDE_PERSISTENTE'>('ALGORITMO');
+  allowBroadcast = signal<boolean>(true); // ADR-007
+  activeDescTab = signal<'edit' | 'preview'>('edit');
 
-  // Configuración Juez Virtual (Monaco)
+  renderedDescription = computed(() => {
+    const raw = this.description();
+    if (!raw.trim()) return '<p class="empty-preview">Sin enunciado especificado.</p>';
+    try {
+      return marked.parse(raw, { async: false }) as string;
+    } catch {
+      return raw;
+    }
+  });
+
+  // PASO 2A: Configuración Juez Virtual
   language = signal<string>('python');
-  boilerplate = signal<string>('');
-  timeLimitMs = signal<number>(2000);
-  memoryLimitMb = signal<number>(256);
+  timeLimitMs = signal<number>(1000);
   testCases = signal<TestCaseFormItem[]>([
     { input: '', expected_output: '', is_hidden: false }
   ]);
 
-  // Configuración Workspace Completo (OpenVSCode)
+  // PASO 2B: Configuración Workspace Docker (ADR-030 & ADR-006)
   templateId = signal<string>('tpl-python-ds');
-  workspaceRamMb = signal<number>(1024);
-  workspaceReadme = signal<string>('# Guía del Proyecto\n\nBienvenido a tu entorno de laboratorio en OpenVSCode Server.\nEjecuta los tests locales con tu terminal integrado.');
+  databaseService = signal<'none' | 'postgres' | 'mysql' | 'mongodb'>('none');
+  dbInitScript = signal<string>('');
 
-  // Lista de plantillas de catálogo
   templatesList = signal<WorkspaceTemplateOption[]>([
     {
       id: 'tpl-python-ds',
-      name: 'Python Data Science & AI',
+      name: 'Python 3.11 Data Science & AI',
       docker_image: 'solv-lab/python-ds:3.11',
-      description: 'Entorno con NumPy, Pandas, Scikit-learn, Jupyter y soporte para Python 3.11.',
+      description: 'NumPy, Pandas, Scikit-learn, Jupyter y soporte para Python 3.11.',
       base_ram_mb: 1024,
       category: 'Data Science'
     },
     {
       id: 'tpl-node-fullstack',
-      name: 'Node.js Fullstack & TypeScript',
+      name: 'Node.js 20 Fullstack & TypeScript',
       docker_image: 'solv-lab/node-fullstack:20',
-      description: 'Node.js 20 LTS con TypeScript, Express, Vite y herramientas de testing Jest/Vitest.',
+      description: 'Node.js LTS con TypeScript, Express, Vite y testing Jest/Vitest.',
       base_ram_mb: 1024,
       category: 'Web Development'
     },
@@ -114,23 +148,23 @@ export class ExerciseEditorModalComponent implements OnInit {
       id: 'tpl-cpp-systems',
       name: 'C/C++ Sistemas y Algoritmos',
       docker_image: 'solv-lab/cpp-dev:gcc-13',
-      description: 'GCC 13, Clang, GDB, CMake, Valgrind para programación de sistemas y estructuras.',
+      description: 'GCC 13, Clang, GDB, CMake, Valgrind para sistemas y estructuras.',
       base_ram_mb: 512,
       category: 'Systems'
     },
     {
       id: 'tpl-postgres-db',
-      name: 'PostgreSQL & Database Lab',
+      name: 'PostgreSQL 16 Database Lab',
       docker_image: 'solv-lab/postgres-lab:16',
-      description: 'Servidor PostgreSQL 16 con DBeaver/psql y scripts DDL precargados.',
+      description: 'PostgreSQL 16 con psql y scripts DDL precargados.',
       base_ram_mb: 1024,
       category: 'Databases'
     },
     {
       id: 'tpl-go-backend',
-      name: 'Go Cloud Native Microservices',
+      name: 'Go 1.22 Cloud Native',
       docker_image: 'solv-lab/golang:1.22',
-      description: 'Go 1.22 con linter golangci-lint, gRPC tools y soporte para tests paralelos.',
+      description: 'Go con linter golangci-lint, gRPC y testing integrado.',
       base_ram_mb: 512,
       category: 'Backend'
     },
@@ -138,14 +172,25 @@ export class ExerciseEditorModalComponent implements OnInit {
       id: 'tpl-java-spring',
       name: 'Java 21 & Spring Boot',
       docker_image: 'solv-lab/java-spring:21',
-      description: 'OpenJDK 21, Maven 3.9, Spring Boot CLI y extensiones Java para VS Code.',
+      description: 'OpenJDK 21, Maven 3.9 y extensiones Java para VS Code.',
       base_ram_mb: 2048,
       category: 'Enterprise'
     }
   ]);
 
+  selectedTemplate = computed(() => {
+    return this.templatesList().find(t => t.id === this.templateId()) || this.templatesList()[0];
+  });
+
+  // PASO 3: Restricciones AST (Semgrep ADR-026) y Boilerplate
+  blockNativeSort = signal<boolean>(false);
+  blockSystemModules = signal<boolean>(true);
+  forceRecursion = signal<boolean>(false);
+  boilerplate = signal<string>('');
+
   // Modales secundarios
   showFuzzingModal = signal<boolean>(false);
+  showTemplateRequestModal = signal<boolean>(false);
 
   // Estados UI
   csvError = signal<string | null>(null);
@@ -162,15 +207,15 @@ export class ExerciseEditorModalComponent implements OnInit {
       if (edit.type === 'workspace' || edit.type === 'IDE_PERSISTENTE') {
         this.labType.set('IDE_PERSISTENTE');
         this.templateId.set(edit.template_id || 'tpl-python-ds');
-        this.workspaceRamMb.set(edit.memory_limit_mb || 1024);
-        this.workspaceReadme.set(edit.boilerplate || '');
+        this.boilerplate.set(edit.boilerplate || '');
       } else {
         this.labType.set('ALGORITMO');
         this.language.set(edit.language || 'python');
         this.boilerplate.set(edit.boilerplate || '');
-        this.memoryLimitMb.set(edit.memory_limit_mb || 256);
-        this.timeLimitMs.set(edit.time_limit_ms || 2000);
+        this.timeLimitMs.set(edit.time_limit_ms || 1000);
       }
+    } else {
+      this.boilerplate.set(this.getDefaultBoilerplate('python'));
     }
   }
 
@@ -182,9 +227,18 @@ export class ExerciseEditorModalComponent implements OnInit {
         }
       },
       error: () => {
-        // Fallback silently to preloaded canonical catalog
+        // Fallback al catálogo precargado
       }
     });
+  }
+
+  goToStep(step: 1 | 2 | 3): void {
+    this.formError.set(null);
+    if (step > 1 && !this.title().trim()) {
+      this.formError.set('El título del laboratorio es obligatorio para continuar.');
+      return;
+    }
+    this.currentStep.set(step);
   }
 
   setLabType(type: 'ALGORITMO' | 'IDE_PERSISTENTE'): void {
@@ -193,29 +247,30 @@ export class ExerciseEditorModalComponent implements OnInit {
 
   setLanguage(lang: string): void {
     this.language.set(lang);
-    if (!this.boilerplate().trim()) {
+    if (!this.boilerplate().trim() || this.isDefaultBoilerplate(this.boilerplate())) {
       this.boilerplate.set(this.getDefaultBoilerplate(lang));
     }
   }
 
-  setWorkspaceRam(mb: number): void {
-    this.workspaceRamMb.set(mb);
+  isDefaultBoilerplate(code: string): boolean {
+    const list = ['python', 'javascript', 'cpp', 'c', 'go', 'sql'].map(l => this.getDefaultBoilerplate(l).trim());
+    return list.includes(code.trim());
   }
 
   getDefaultBoilerplate(lang: string): string {
     switch (lang) {
       case 'python':
-        return 'def solution():\n    # Escribe tu solución aquí\n    pass\n';
+        return 'def solution(arr):\n    # TODO: Implemente su algoritmo aquí\n    pass\n';
       case 'javascript':
-        return 'function solution() {\n  // Escribe tu solución aquí\n}\n\nmodule.exports = { solution };\n';
+        return 'function solution(arr) {\n  // TODO: Implemente su solución aquí\n}\n\nmodule.exports = { solution };\n';
       case 'cpp':
-        return '#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escribe tu solución aquí\n    return 0;\n}\n';
+        return '#include <iostream>\n#include <vector>\nusing namespace std;\n\nint main() {\n    // TODO: Implemente su solución aquí\n    return 0;\n}\n';
       case 'c':
-        return '#include <stdio.h>\n\nint main() {\n    // Escribe tu solución aquí\n    return 0;\n}\n';
+        return '#include <stdio.h>\n\nint main() {\n    // TODO: Implemente su solución aquí\n    return 0;\n}\n';
       case 'go':
-        return 'package main\n\nimport "fmt"\n\nfunc main() {\n    // Escribe tu solución aquí\n    fmt.Println("Hola")\n}\n';
+        return 'package main\n\nimport "fmt"\n\nfunc main() {\n    // TODO: Implemente su solución aquí\n    fmt.Println("SOLV")\n}\n';
       case 'sql':
-        return '-- Escribe tu consulta SQL aquí\nSELECT * FROM data;\n';
+        return '-- Escriba su consulta SQL de consulta\nSELECT * FROM data;\n';
       default:
         return '';
     }
@@ -315,10 +370,23 @@ export class ExerciseEditorModalComponent implements OnInit {
     ]);
   }
 
-  submit(): void {
+  openTemplateRequestModal(): void {
+    this.showTemplateRequestModal.set(true);
+  }
+
+  closeTemplateRequestModal(): void {
+    this.showTemplateRequestModal.set(false);
+  }
+
+  onTemplateRequested(): void {
+    this.loadApprovedTemplates();
+  }
+
+  submit(publish: boolean = false): void {
     this.formError.set(null);
     if (!this.title().trim()) {
       this.formError.set('El título del laboratorio es obligatorio.');
+      this.currentStep.set(1);
       return;
     }
 
@@ -326,8 +394,7 @@ export class ExerciseEditorModalComponent implements OnInit {
 
     const isWorkspace = this.labType() === 'IDE_PERSISTENTE';
     const exerciseType = isWorkspace ? 'workspace' : 'algorithm';
-    const selectedMemory = isWorkspace ? this.workspaceRamMb() : this.memoryLimitMb();
-    const selectedBoilerplate = isWorkspace ? this.workspaceReadme().trim() : this.boilerplate().trim();
+    const tpl = this.selectedTemplate();
 
     const edit = this.exerciseToEdit();
     if (edit) {
@@ -336,16 +403,31 @@ export class ExerciseEditorModalComponent implements OnInit {
         description: this.description().trim(),
         type: exerciseType,
         language: isWorkspace ? undefined : this.language(),
-        boilerplate: selectedBoilerplate,
-        template_id: isWorkspace ? this.templateId() : undefined,
-        memory_limit_mb: selectedMemory,
+        boilerplate: this.boilerplate().trim(),
+        template_id: isWorkspace ? tpl?.id : undefined,
+        memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? undefined : this.timeLimitMs(),
         due_date: this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
       }).subscribe({
         next: () => {
-          this.isSubmitting.set(false);
-          this.saved.emit();
-          this.close.emit();
+          if (publish) {
+            this.courseService.publishExercise(edit.id).subscribe({
+              next: () => {
+                this.isSubmitting.set(false);
+                this.saved.emit();
+                this.close.emit();
+              },
+              error: () => {
+                this.isSubmitting.set(false);
+                this.saved.emit();
+                this.close.emit();
+              }
+            });
+          } else {
+            this.isSubmitting.set(false);
+            this.saved.emit();
+            this.close.emit();
+          }
         },
         error: (err) => {
           this.isSubmitting.set(false);
@@ -359,17 +441,16 @@ export class ExerciseEditorModalComponent implements OnInit {
         description: this.description().trim(),
         type: exerciseType,
         language: isWorkspace ? 'workspace' : this.language(),
-        boilerplate: selectedBoilerplate,
-        template_id: isWorkspace ? this.templateId() : undefined,
-        memory_limit_mb: selectedMemory,
+        boilerplate: this.boilerplate().trim(),
+        template_id: isWorkspace ? tpl?.id : undefined,
+        memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? 0 : this.timeLimitMs(),
         due_date: this.dueDate() ? new Date(this.dueDate()).toISOString() : undefined
       }).subscribe({
         next: (created) => {
-          if (!isWorkspace) {
-            const validCases = this.testCases().filter(c => c.input.trim() && c.expected_output.trim());
-            if (validCases.length > 0) {
-              this.courseService.bulkUploadTestCases(created.id, { test_cases: validCases }).subscribe({
+          const onFinish = () => {
+            if (publish) {
+              this.courseService.publishExercise(created.id).subscribe({
                 next: () => {
                   this.isSubmitting.set(false);
                   this.saved.emit();
@@ -381,12 +462,24 @@ export class ExerciseEditorModalComponent implements OnInit {
                   this.close.emit();
                 }
               });
+            } else {
+              this.isSubmitting.set(false);
+              this.saved.emit();
+              this.close.emit();
+            }
+          };
+
+          if (!isWorkspace) {
+            const validCases = this.testCases().filter(c => c.input.trim() && c.expected_output.trim());
+            if (validCases.length > 0) {
+              this.courseService.bulkUploadTestCases(created.id, { test_cases: validCases }).subscribe({
+                next: onFinish,
+                error: onFinish
+              });
               return;
             }
           }
-          this.isSubmitting.set(false);
-          this.saved.emit();
-          this.close.emit();
+          onFinish();
         },
         error: (err) => {
           this.isSubmitting.set(false);

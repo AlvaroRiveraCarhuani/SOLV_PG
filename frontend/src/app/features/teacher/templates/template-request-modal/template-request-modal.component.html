@@ -1,0 +1,186 @@
+<modal-shell
+  title="Solicitar Nueva Plantilla Docker"
+  subtitle="Envía una propuesta de entorno para revisión y homologación por la administración (ADR-030)."
+  maxWidth="600px"
+  [disableClose]="isSubmitting()"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideServer class="icon"></svg>
+
+  <!-- Pasos Wizard -->
+  <div class="steps-progress">
+    <div class="step-indicator" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
+      <span class="step-num">1</span>
+      <span class="step-label">Perfil de Carga</span>
+    </div>
+    <div class="step-connector"></div>
+    <div class="step-indicator" [class.active]="currentStep() === 2">
+      <span class="step-num">2</span>
+      <span class="step-label">Imagen y Justificación</span>
+    </div>
+  </div>
+
+  @if (formError()) {
+    <div class="error-banner">
+      <svg lucideAlertCircle class="error-icon"></svg>
+      <span>{{ formError() }}</span>
+    </div>
+  }
+
+  @if (successMessage()) {
+    <div class="success-banner">
+      <svg lucideCheck class="success-icon"></svg>
+      <span>{{ successMessage() }}</span>
+    </div>
+  }
+
+  <div class="modal-form-body">
+    <!-- PASO 1: Perfil de Carga Pedagógica -->
+    @if (currentStep() === 1) {
+      <div class="step-section">
+        <p class="section-intro">
+          Selecciona la intensidad de cómputo estimada para las prácticas de tu materia:
+        </p>
+
+        <div class="profile-cards">
+          <!-- Ligera -->
+          <div
+            class="profile-card"
+            [class.selected]="loadProfile() === 'light'"
+            (click)="setProfile('light')"
+          >
+            <div class="card-radio">
+              <span class="radio-circle"></span>
+            </div>
+            <div class="card-info">
+              <div class="card-header">
+                <svg lucideZap class="card-icon icon-light"></svg>
+                <span class="card-title">Ligera</span>
+              </div>
+              <p class="card-desc">
+                Lenguajes interpretados o scripts básicos (ej: Python básico, scripts Node.js, algoritmos introductorios).
+              </p>
+            </div>
+          </div>
+
+          <!-- Estándar -->
+          <div
+            class="profile-card"
+            [class.selected]="loadProfile() === 'standard'"
+            (click)="setProfile('standard')"
+          >
+            <div class="card-radio">
+              <span class="radio-circle"></span>
+            </div>
+            <div class="card-info">
+              <div class="card-header">
+                <svg lucideLayers class="card-icon icon-standard"></svg>
+                <span class="card-title">Estándar (Recomendado)</span>
+              </div>
+              <p class="card-desc">
+                Compilación estándar, frameworks web o bases de datos ligeras (ej: Go, C++, Java, Express, PostgreSQL).
+              </p>
+            </div>
+          </div>
+
+          <!-- Intensiva -->
+          <div
+            class="profile-card"
+            [class.selected]="loadProfile() === 'intensive'"
+            (click)="setProfile('intensive')"
+          >
+            <div class="card-radio">
+              <span class="radio-circle"></span>
+            </div>
+            <div class="card-info">
+              <div class="card-header">
+                <svg lucideCpu class="card-icon icon-intensive"></svg>
+                <span class="card-title">Intensiva</span>
+              </div>
+              <p class="card-desc">
+                Procesamiento pesado, ciencia de datos, compilación masiva o modelos locales (ej: Rust, PyTorch, Spring Boot).
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="governance-note">
+          <svg lucideInfo class="note-icon"></svg>
+          <span>
+            <strong>Gobernanza de Recursos:</strong> La cuota de memoria RAM real (cgroups) y el perfil de aislamiento serán evaluados y fijados por el Administrador según la capacidad del servidor.
+          </span>
+        </div>
+      </div>
+    }
+
+    <!-- PASO 2: Referencia de Imagen y Justificación Académica -->
+    @if (currentStep() === 2) {
+      <div class="step-section">
+        <form-field label="Nombre Descriptivo del Entorno" for="reqName" [required]="true" hint="ej: Rust 1.80 con Herramientas de Análisis">
+          <input
+            id="reqName"
+            type="text"
+            placeholder="ej. Rust 1.80 para Sistemas Operativos"
+            [ngModel]="templateName()"
+            (ngModelChange)="templateName.set($event)"
+            class="form-input"
+          />
+        </form-field>
+
+        <form-field label="Imagen Docker Base (Docker Hub / Registro)" for="reqImage" [required]="true" hint="Usa tags fijados, no :latest (ej: rust:1.80-slim, gcc:13-bookworm)">
+          <input
+            id="reqImage"
+            type="text"
+            placeholder="ej. rust:1.80-slim"
+            [ngModel]="dockerImage()"
+            (ngModelChange)="dockerImage.set($event)"
+            class="form-input font-mono"
+          />
+        </form-field>
+
+        @if (subjectName()) {
+          <div class="subject-tag">
+            <span class="tag-label">Materia solicitante:</span>
+            <span class="tag-value">{{ subjectName() }}</span>
+          </div>
+        }
+
+        <form-field label="Justificación Académica" for="reqReason" [required]="true" hint="Explica los objetivos pedagógicos y requerimientos de la práctica.">
+          <textarea
+            id="reqReason"
+            rows="3"
+            placeholder="Se requiere para la práctica de concurrencia segura y manejo de memoria en la Unidad 3..."
+            [ngModel]="justification()"
+            (ngModelChange)="justification.set($event)"
+            class="form-textarea"
+          ></textarea>
+        </form-field>
+      </div>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    @if (currentStep() === 1) {
+      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="close.emit()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" (click)="nextStep()">
+        <span>Siguiente Paso</span>
+        <svg lucideChevronRight class="btn-icon-right"></svg>
+      </button>
+    } @else {
+      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="prevStep()">
+        <svg lucideChevronLeft class="btn-icon-left"></svg>
+        <span>Anterior</span>
+      </button>
+      <button type="button" class="btn-primary" [disabled]="isSubmitting()" (click)="submitRequest()">
+        @if (isSubmitting()) {
+          Enviando...
+        } @else {
+          <svg lucideCheck class="btn-icon-sm"></svg>
+          <span>Enviar Solicitud</span>
+        }
+      </button>
+    }
+  </ng-container>
+</modal-shell>
