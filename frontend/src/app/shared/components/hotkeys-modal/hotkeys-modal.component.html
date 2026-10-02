@@ -1,0 +1,45 @@
+@if (isOpen()) {
+  <div class="modal-backdrop" (click)="close()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="header-title-box">
+          <svg lucideKeyboard class="header-icon"></svg>
+          <div>
+            <h2 class="modal-title">Atajos de Teclado</h2>
+            <p class="modal-subtitle">Comandos rápidos para maximizar tu productividad</p>
+          </div>
+        </div>
+        <button class="btn-close" (click)="close()" title="Cerrar (Esc)" aria-label="Cerrar">
+          <svg lucideX class="close-icon"></svg>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        @for (entry of hotkeysByCategory() | keyvalue; track entry.key) {
+          <div class="category-group">
+            <h3 class="category-title">{{ entry.key }}</h3>
+            <div class="hotkeys-list">
+              @for (item of entry.value; track item.key) {
+                <div class="hotkey-row">
+                  <span class="hotkey-desc">{{ item.description }}</span>
+                  <div class="hotkey-keys">
+                    @if (item.key === 'ctrl+enter') {
+                      <kbd>Ctrl</kbd> + <kbd>Enter</kbd>
+                    } @else {
+                      <kbd>{{ item.key.toUpperCase() }}</kbd>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="modal-footer">
+        <span class="footer-tip">Presioná <kbd>?</kbd> en cualquier momento para abrir esta guía.</span>
+        <button class="btn btn-primary" (click)="close()">Entendido</button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,100 @@
+@switch (variant()) {
+  @case ('cards') {
+    <div class="skeleton-cards-grid">
+      @for (_ of itemsArray(); track $index) {
+        <div class="skeleton-card-item">
+          <div class="card-header-row">
+            <skeleton width="60px" height="18px" radius="4px" />
+            <skeleton width="70px" height="18px" radius="12px" />
+          </div>
+          <skeleton width="80%" height="22px" radius="4px" />
+          <div class="card-stats-row">
+            <skeleton width="22%" height="32px" radius="6px" />
+            <skeleton width="22%" height="32px" radius="6px" />
+            <skeleton width="22%" height="32px" radius="6px" />
+            <skeleton width="22%" height="32px" radius="6px" />
+          </div>
+          <div class="card-actions-row">
+            <skeleton width="100px" height="28px" radius="6px" />
+          </div>
+        </div>
+      }
+    </div>
+  }
+
+  @case ('kpi') {
+    <div class="skeleton-kpi-grid">
+      @for (_ of itemsArray(); track $index) {
+        <div class="skeleton-kpi-item">
+          <skeleton width="50%" height="14px" radius="4px" />
+          <skeleton width="35%" height="28px" radius="6px" />
+        </div>
+      }
+    </div>
+  }
+
+  @case ('table') {
+    <div class="skeleton-table-container">
+      <div class="table-header-row">
+        @for (_ of columnsArray(); track $index) {
+          <skeleton width="75%" height="16px" radius="4px" />
+        }
+      </div>
+      <div class="table-body">
+        @for (_ of rowsArray(); track $index) {
+          <div class="table-body-row">
+            @for (_ of columnsArray(); track $index) {
+              <skeleton width="85%" height="16px" radius="4px" />
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @case ('code') {
+    <div class="skeleton-code-box">
+      <div class="code-topbar">
+        <skeleton width="180px" height="18px" radius="4px" />
+      </div>
+      <div class="code-lines-list">
+        @for (_ of itemsArray(); track $index) {
+          <div class="code-line-item">
+            <skeleton width="24px" height="14px" radius="2px" />
+            <skeleton [width]="$index % 2 === 0 ? '60%' : ($index % 3 === 0 ? '80%' : '40%')" height="14px" radius="2px" />
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @case ('form') {
+    <div class="skeleton-form-box">
+      @for (_ of itemsArray(); track $index) {
+        <div class="form-field-group">
+          <skeleton width="120px" height="14px" radius="4px" />
+          <skeleton width="100%" height="36px" radius="6px" />
+        </div>
+      }
+      <div class="form-actions-row">
+        <skeleton width="90px" height="34px" radius="6px" />
+        <skeleton width="110px" height="34px" radius="6px" />
+      </div>
+    </div>
+  }
+
+  @case ('list') {
+    <div class="skeleton-list-box">
+      @for (_ of itemsArray(); track $index) {
+        <div class="skeleton-list-item">
+          <skeleton width="36px" height="36px" radius="50%" />
+          <div class="list-item-content">
+            <skeleton width="45%" height="16px" radius="4px" />
+            <skeleton width="25%" height="12px" radius="4px" />
+          </div>
+          <skeleton width="60px" height="24px" radius="12px" />
+        </div>
+      }
+    </div>
+  }
+}
