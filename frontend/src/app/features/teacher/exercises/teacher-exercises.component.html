@@ -1,0 +1,239 @@
+<div class="exercises-container">
+  <!-- Header Principal -->
+  <header class="exercises-header">
+    <div class="header-titles">
+      <h1 class="page-title">Banco Global de Ejercicios y Laboratorios</h1>
+      <p class="page-subtitle">Gestioná, editá y generá casos de prueba para todos los laboratorios de tus materias.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Nuevo Laboratorio</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- KPIs Resumen -->
+  <div class="kpi-summary-grid">
+    <div class="kpi-box">
+      <span class="kpi-label">Total de Laboratorios</span>
+      <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Publicados y Activos</span>
+      <span class="kpi-val text-success" machineData>{{ kpiStats().published }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Borradores en Edición</span>
+      <span class="kpi-val text-warning" machineData>{{ kpiStats().drafts }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Entregas Recibidas</span>
+      <span class="kpi-val text-primary" machineData>{{ kpiStats().totalSubmissions }}</span>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros -->
+  <div class="filters-toolbar">
+    <div class="search-box">
+      <svg lucideSearch class="search-icon"></svg>
+      <input
+        type="text"
+        placeholder="Buscar por título, materia o tecnología..."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        class="search-input"
+      />
+    </div>
+
+    <div class="filters-row">
+      <div class="filter-item">
+        <label class="filter-label">Materia:</label>
+        <select
+          [ngModel]="courseFilter()"
+          (ngModelChange)="courseFilter.set($event)"
+          class="form-select"
+        >
+          <option value="all">Todas las materias</option>
+          @for (course of courses(); track course.id) {
+            <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Modalidad:</label>
+        <select
+          [ngModel]="modalityFilter()"
+          (ngModelChange)="modalityFilter.set($event)"
+          class="form-select"
+        >
+          <option value="all">Todas las modalidades</option>
+          <option value="ALGORITMO">Algoritmo (Código Puro)</option>
+          <option value="DATABASE">Base de Datos (SQL)</option>
+          <option value="WORKSPACE">Entorno Persistente</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Estado:</label>
+        <select
+          [ngModel]="statusFilter()"
+          (ngModelChange)="statusFilter.set($event)"
+          class="form-select"
+        >
+          <option value="all">Todos los estados</option>
+          <option value="published">Publicados</option>
+          <option value="draft">Borradores</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listado / Cuadrícula de Ejercicios -->
+  @if (isLoading()) {
+    <skeleton-loader variant="cards" [count]="6" />
+  } @else if (filteredExercises().length === 0) {
+    <div class="empty-state">
+      <svg lucideLayers class="empty-icon"></svg>
+      <h3>No se encontraron laboratorios</h3>
+      <p>Creá un nuevo laboratorio o ajustá los filtros seleccionados.</p>
+      <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Crear Laboratorio</span>
+      </button>
+    </div>
+  } @else {
+    <div class="exercises-grid">
+      @for (lab of filteredExercises(); track lab.id) {
+        <article class="exercise-card" [class.card-draft]="lab.status === 'draft'">
+          <!-- Card Header -->
+          <div class="card-header">
+            <div class="course-meta">
+              <span class="course-tag">{{ lab.subject_code }}</span>
+              <span class="course-name">{{ lab.subject_name }}</span>
+            </div>
+
+            <span
+              class="status-pill"
+              [class.status-published]="lab.status === 'published'"
+              [class.status-draft]="lab.status === 'draft'"
+            >
+              {{ lab.status === 'published' ? 'Publicado' : 'Borrador' }}
+            </span>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body">
+            <h2 class="exercise-card-title">{{ lab.title }}</h2>
+
+            <div class="tech-spec-tags">
+              <span class="tech-tag font-mono">
+                @if (lab.type === 'DATABASE') {
+                  <svg lucideDatabase class="tag-icon"></svg>
+                  <span>SQL</span>
+                } @else if (lab.type === 'WORKSPACE') {
+                  <svg lucideTerminal class="tag-icon"></svg>
+                  <span>Workspace</span>
+                } @else {
+                  <svg lucideCode class="tag-icon"></svg>
+                  <span>{{ lab.language || 'Python' }}</span>
+                }
+              </span>
+
+              @if (lab.memory_limit_mb) {
+                <span class="resource-tag font-mono" machineData>{{ lab.memory_limit_mb }} MB RAM</span>
+              }
+
+              @if (lab.time_limit_ms) {
+                <span class="resource-tag font-mono" machineData>{{ lab.time_limit_ms }} ms</span>
+              }
+            </div>
+
+            <div class="activity-stats">
+              <div class="stat-item">
+                <svg lucideUsers class="stat-icon"></svg>
+                <span class="stat-text">
+                  <strong machineData>{{ lab.submissions_count }}</strong> entregas
+                </span>
+              </div>
+
+              @if (lab.pending_review > 0) {
+                <div class="stat-item text-warning">
+                  <svg lucideClock class="stat-icon"></svg>
+                  <span class="stat-text">
+                    <strong machineData>{{ lab.pending_review }}</strong> por revisar
+                  </span>
+                </div>
+              }
+
+              @if (lab.due_date) {
+                <div class="stat-item">
+                  <span class="due-label">Vence:</span>
+                  <time class="due-date font-mono">
+                    {{ lab.due_date | dateText:'compact-datetime' }}
+                  </time>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Card Footer Actions -->
+          <div class="card-footer">
+            <button
+              type="button"
+              class="btn-card-action"
+              (click)="openFuzzingModal(lab)"
+              title="Generar casos de prueba automáticos mediante Fuzzing"
+            >
+              <svg lucideSparkles class="action-icon"></svg>
+              <span>Fuzzing</span>
+            </button>
+
+            <button
+              type="button"
+              class="btn-card-action"
+              (click)="openEditModal(lab)"
+              title="Editar configuración y casos de prueba"
+            >
+              <svg lucideEdit class="action-icon"></svg>
+              <span>Editar</span>
+            </button>
+
+            <a
+              [routerLink]="['/teacher/cursos', lab.subject_id]"
+              class="btn-card-action-link"
+              title="Ir a la vista detallada del curso"
+            >
+              <span>Curso</span>
+              <svg lucideExternalLink class="action-icon-xs"></svg>
+            </a>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</div>
+
+<!-- Modal Asistente de Creación / Edición de Laboratorios -->
+@if (isEditorOpen()) {
+  <exercise-editor-modal
+    [subjectId]="editorSubjectId()"
+    [subjectName]="editorSubjectName()"
+    [exerciseToEdit]="exerciseToEdit()"
+    (close)="closeEditorModal()"
+    (saved)="onExerciseSaved()"
+  />
+}
+
+<!-- Modal de Fuzzing -->
+@if (isFuzzingOpen() && exerciseForFuzzing(); as lab) {
+  <fuzzing-modal
+    [exerciseId]="lab.id"
+    [exerciseTitle]="lab.title"
+    [language]="lab.language || 'python'"
+    (close)="closeFuzzingModal()"
+    (applied)="onFuzzingApplied()"
+  />
+}

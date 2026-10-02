@@ -32,10 +32,12 @@ export const TEACHER_ROUTES: Routes = [
   },
   {
     path: 'exercises',
-    redirectTo: 'dashboard'
+    loadComponent: () =>
+      import('./exercises/teacher-exercises.component').then(m => m.TeacherExercisesComponent)
   },
   {
     path: 'templates',
-    redirectTo: 'dashboard'
+    loadComponent: () =>
+      import('./templates/teacher-templates.component').then(m => m.TeacherTemplatesComponent)
   }
 ];

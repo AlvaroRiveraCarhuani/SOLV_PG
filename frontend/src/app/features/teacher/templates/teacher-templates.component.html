@@ -1,0 +1,180 @@
+<div class="templates-container">
+  <!-- Header Principal -->
+  <header class="templates-header">
+    <div class="header-titles">
+      <h1 class="page-title">Catálogo de Plantillas y Entornos</h1>
+      <p class="page-subtitle">Explorá las imágenes Docker y stacks preconfigurados disponibles para tus laboratorios.</p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Solicitar Nueva Plantilla</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- KPIs Resumen -->
+  <div class="kpi-summary-grid">
+    <div class="kpi-box">
+      <span class="kpi-label">Total de Plantillas</span>
+      <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Entornos IDE Persistentes</span>
+      <span class="kpi-val text-primary" machineData>{{ kpiStats().persistent }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Juez / Algoritmos Efímeros</span>
+      <span class="kpi-val text-success" machineData>{{ kpiStats().ephemeral }}</span>
+    </div>
+    <div class="kpi-box">
+      <span class="kpi-label">Plantillas Oficiales</span>
+      <span class="kpi-val text-accent" machineData>{{ kpiStats().official }}</span>
+    </div>
+  </div>
+
+  <!-- Barra de Filtros -->
+  <div class="filters-toolbar">
+    <div class="search-box">
+      <svg lucideSearch class="search-icon"></svg>
+      <input
+        type="text"
+        placeholder="Buscar por nombre, descripción o imagen Docker..."
+        [ngModel]="searchTerm()"
+        (ngModelChange)="searchTerm.set($event)"
+        class="search-input"
+      />
+    </div>
+
+    <div class="filters-row">
+      <div class="filter-item">
+        <label class="filter-label">Categoría:</label>
+        <select
+          [ngModel]="categoryFilter()"
+          (ngModelChange)="categoryFilter.set($event)"
+          class="form-select"
+        >
+          <option value="all">Todas las categorías</option>
+          @for (cat of categories(); track cat) {
+            <option [value]="cat">{{ cat }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label class="filter-label">Tipo de Entorno:</label>
+        <select
+          [ngModel]="envTypeFilter()"
+          (ngModelChange)="envTypeFilter.set($event)"
+          class="form-select"
+        >
+          <option value="all">Todos los entornos</option>
+          <option value="IDE_PERSISTENTE">IDE Persistente (OpenVSCode)</option>
+          <option value="JUEZ_EFIMERO">Juez Efímero (Evaluación)</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Listado de Plantillas en Cuadrícula -->
+  @if (isLoading()) {
+    <skeleton-loader variant="cards" [count]="6" />
+  } @else if (filteredTemplates().length === 0) {
+    <div class="empty-state">
+      <svg lucideLayers class="empty-icon"></svg>
+      <h3>No se encontraron plantillas</h3>
+      <p>Ajustá los filtros o solicitá una imagen Docker al administrador.</p>
+      <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Solicitar Plantilla</span>
+      </button>
+    </div>
+  } @else {
+    <div class="templates-grid">
+      @for (tpl of filteredTemplates(); track tpl.id) {
+        <article class="template-card">
+          <!-- Card Header -->
+          <div class="card-header">
+            <div class="category-meta">
+              <span class="category-pill">{{ tpl.category || 'General' }}</span>
+              @if (tpl.is_official) {
+                <span class="official-badge" title="Plantilla Oficial Verificada">
+                  <svg lucideBadgeCheck class="badge-icon"></svg>
+                  <span>Oficial</span>
+                </span>
+              }
+            </div>
+
+            <span class="env-type-pill font-mono">
+              {{ tpl.environment_type === 'IDE_PERSISTENTE' ? 'IDE' : 'Juez' }}
+            </span>
+          </div>
+
+          <!-- Card Body -->
+          <div class="card-body">
+            <h2 class="template-title">{{ tpl.name }}</h2>
+
+            @if (tpl.description) {
+              <p class="template-desc">{{ tpl.description }}</p>
+            }
+
+            <div class="docker-image-row">
+              <span class="docker-label">Imagen:</span>
+              <code class="docker-image font-mono" machineData>{{ tpl.docker_image }}</code>
+            </div>
+
+            <div class="specs-grid">
+              <div class="spec-item">
+                <svg lucideHardDrive class="spec-icon"></svg>
+                <span class="spec-val font-mono" machineData>{{ tpl.default_memory_mb || 512 }} MB RAM</span>
+              </div>
+
+              <div class="spec-item">
+                <svg lucideCpu class="spec-icon"></svg>
+                <span class="spec-val font-mono" machineData>{{ tpl.default_cpu_cores || 1 }} CPU Core(s)</span>
+              </div>
+
+              @if (tpl.ports) {
+                <div class="spec-item">
+                  <svg lucideServer class="spec-icon"></svg>
+                  <span class="spec-val font-mono" machineData>Puertos: {{ tpl.ports }}</span>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Card Footer Actions -->
+          <div class="card-footer">
+            <button
+              type="button"
+              class="btn-use-template"
+              (click)="createLabFromTemplate(tpl)"
+              title="Crear un nuevo laboratorio a partir de este entorno"
+            >
+              <svg lucideSparkles class="btn-icon-xs"></svg>
+              <span>Usar en Laboratorio</span>
+            </button>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</div>
+
+<!-- Modal de Solicitud de Plantilla al Admin -->
+@if (isRequestModalOpen()) {
+  <template-request-modal
+    (close)="closeRequestModal()"
+    (requested)="onRequestSubmitted()"
+  />
+}
+
+<!-- Modal de Creación de Ejercicio desde Plantilla -->
+@if (isExerciseModalOpen() && courses().length > 0) {
+  <exercise-editor-modal
+    [subjectId]="courses()[0].id"
+    [subjectName]="courses()[0].code + ' — ' + courses()[0].name"
+    (close)="closeExerciseModal()"
+  />
+}
