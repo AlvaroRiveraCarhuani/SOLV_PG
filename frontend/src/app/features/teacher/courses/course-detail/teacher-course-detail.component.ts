@@ -15,7 +15,8 @@ import {
   LucideExternalLink,
   LucidePauseCircle,
   LucideCheckCircle,
-  LucideShieldAlert
+  LucideShieldAlert,
+  LucideSparkles
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherLabStats } from '../../models/teacher.models';
@@ -23,6 +24,7 @@ import { ExerciseEditorModalComponent } from '../exercise-editor/exercise-editor
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
+import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
@@ -46,12 +48,14 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     LucidePauseCircle,
     LucideCheckCircle,
     LucideShieldAlert,
+    LucideSparkles,
     ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
-    PlagiarismModalComponent
+    PlagiarismModalComponent,
+    FuzzingModalComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -75,6 +79,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   pauseSuccessMessage = signal<string | null>(null);
 
   isPlagiarismModalOpen = signal<boolean>(false);
+  selectedFuzzExercise = signal<{ id: string; title: string } | null>(null);
 
   verdictFilter = signal<string>('all');
   publishError = signal<string | null>(null);
@@ -180,5 +185,21 @@ export class TeacherCourseDetailComponent implements OnInit {
   closePlagiarismModal(): void {
     this.isPlagiarismModalOpen.set(false);
   }
+
+  openFuzzingModal(exerciseId: string, title: string): void {
+    this.selectedFuzzExercise.set({ id: exerciseId, title });
+  }
+
+  closeFuzzingModal(): void {
+    this.selectedFuzzExercise.set(null);
+  }
+
+  onFuzzCasesApplied(count: number): void {
+    const id = this.subjectId();
+    if (id) {
+      this.courseService.getCourseLabs(id).subscribe();
+    }
+  }
 }
+
 

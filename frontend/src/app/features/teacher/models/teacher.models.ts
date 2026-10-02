@@ -243,4 +243,36 @@ export interface TutorCommandResponse {
   executed_at: string;
 }
 
+export interface FuzzGenerationRequest {
+  exercise_id?: string;
+  target_language: string;
+  parameter_types: string[];
+  categories: string[];
+  reference_code?: string;
+  count?: number;
+}
+
+export interface GeneratedFuzzCase {
+  category: string;
+  description: string;
+  input: string;
+  expected: string;
+  is_public: boolean;
+  weight: number;
+  risk_level: 'critical' | 'warning' | 'boundary' | 'stress' | string;
+  selected?: boolean;
+}
+
+export interface FuzzGenerationReport {
+  total_generated: number;
+  categories: Record<string, number>;
+  cases: GeneratedFuzzCase[];
+}
+
+export interface ApplyFuzzCasesResponse {
+  added_count: number;
+  exercise_id: string;
+}
+
+
 

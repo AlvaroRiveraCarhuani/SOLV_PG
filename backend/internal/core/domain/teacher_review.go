@@ -223,3 +223,37 @@ type TutorCommandResponse struct {
 	ExitCode    int    `json:"exit_code"`
 	ExecutedAt  string `json:"executed_at"`
 }
+
+// FuzzGenerationRequest parametros para la generacion automatizada de casos de prueba y condiciones de borde.
+type FuzzGenerationRequest struct {
+	ExerciseID     string   `json:"exercise_id,omitempty"`
+	TargetLanguage string   `json:"target_language"`
+	ParameterTypes []string `json:"parameter_types"` // "integer", "string", "array", "matrix", "float", "sql"
+	Categories     []string `json:"categories"`      // "numeric_bounds", "empty_structures", "unicode_special", "injection_escape", "large_input"
+	ReferenceCode  string   `json:"reference_code,omitempty"`
+	Count          int      `json:"count"`
+}
+
+// GeneratedFuzzCase caso de prueba individual generado para evaluar robustez.
+type GeneratedFuzzCase struct {
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Input       string `json:"input"`
+	Expected    string `json:"expected"`
+	IsPublic    bool   `json:"is_public"`
+	Weight      int    `json:"weight"`
+	RiskLevel   string `json:"risk_level"`
+}
+
+// FuzzGenerationReport reporte consolidado de casos generados.
+type FuzzGenerationReport struct {
+	TotalGenerated int                 `json:"total_generated"`
+	Categories     map[string]int      `json:"categories"`
+	Cases          []GeneratedFuzzCase `json:"cases"`
+}
+
+// ApplyFuzzCasesRequest solicitud para persistir los casos seleccionados en el ejercicio.
+type ApplyFuzzCasesRequest struct {
+	Cases []GeneratedFuzzCase `json:"cases"`
+}
+

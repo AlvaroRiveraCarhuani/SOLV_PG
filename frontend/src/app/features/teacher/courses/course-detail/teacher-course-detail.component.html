@@ -123,6 +123,10 @@
                     <span>Publicar</span>
                   </button>
                 }
+                <button class="btn-fuzz" (click)="openFuzzingModal(lab.id, lab.title)" title="Generar casos de prueba y fuzzing">
+                  <svg lucideSparkles class="btn-icon-sm"></svg>
+                  <span>Fuzzing</span>
+                </button>
                 <button class="btn-edit" (click)="openEditExerciseModal(lab)">
                   <svg lucideEdit3 class="btn-icon-sm"></svg>
                   <span>Editar</span>
@@ -236,4 +240,14 @@
     (close)="closePlagiarismModal()"
   />
 }
+
+@if (selectedFuzzExercise(); as fuzz) {
+  <fuzzing-modal
+    [exerciseId]="fuzz.id"
+    [exerciseTitle]="fuzz.title"
+    (close)="closeFuzzingModal()"
+    (applied)="onFuzzCasesApplied($event)"
+  />
+}
+
 

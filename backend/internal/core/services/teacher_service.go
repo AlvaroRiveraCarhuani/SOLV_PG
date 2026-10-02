@@ -352,3 +352,41 @@ func (s *TeacherService) ExecuteTutorCommand(ctx context.Context, tenantID, teac
 	}
 	return s.mirrorService.ExecuteTutorCommand(ctx, containerID, cmd)
 }
+
+func (s *TeacherService) GenerateFuzzCases(ctx context.Context, tenantID, teacherID string, req domain.FuzzGenerationRequest) (*domain.FuzzGenerationReport, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+
+	engine := NewFuzzingEngine()
+	report := engine.GenerateTestCases(req)
+	return report, nil
+}
+
+func (s *TeacherService) ApplyFuzzCases(ctx context.Context, tenantID, teacherID, exerciseID string, cases []domain.GeneratedFuzzCase) (int, error) {
+	if tenantID == "" {
+		return 0, domain.ErrInvalidTenant
+	}
+	if exerciseID == "" {
+		return 0, domain.ErrNotFound
+	}
+
+	testCases := make([]domain.TestCase, 0, len(cases))
+	for _, c := range cases {
+		testCases = append(testCases, domain.TestCase{
+			Input:          c.Input,
+			ExpectedOutput: c.Expected,
+			IsHidden:       !c.IsPublic,
+		})
+	}
+
+	if s.evalService != nil {
+		err := s.evalService.BulkAddTestCases(ctx, exerciseID, tenantID, testCases)
+		if err != nil {
+			return 0, fmt.Errorf("error al agregar casos de prueba al ejercicio: %w", err)
+		}
+	}
+
+	return len(testCases), nil
+}
+

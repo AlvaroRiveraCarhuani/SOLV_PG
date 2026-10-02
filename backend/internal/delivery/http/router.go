@@ -334,6 +334,8 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("POST /api/v1/teacher/live-sessions/{id}/exec", tm(http.HandlerFunc(deps.TeacherHandler.PostTutorExec)))
 	mux.HandleFunc("GET /api/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)
 	mux.HandleFunc("GET /ws/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)
+	mux.Handle("POST /api/v1/teacher/exercises/generate-fuzz-cases", tm(http.HandlerFunc(deps.TeacherHandler.GenerateFuzzCases)))
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/apply-fuzz-cases", tm(http.HandlerFunc(deps.TeacherHandler.ApplyFuzzCases)))
 }
 
 func registerNotificationRoutes(mux *http.ServeMux, deps *Handlers) {

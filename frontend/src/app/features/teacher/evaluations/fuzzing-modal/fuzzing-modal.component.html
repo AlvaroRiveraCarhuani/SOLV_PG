@@ -1,0 +1,181 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Header -->
+    <div class="modal-header">
+      <div class="header-title-wrap">
+        <div class="header-icon-badge">
+          <svg lucideSparkles class="modal-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Generador de Fuzzing & Condiciones de Borde</h2>
+          <p class="modal-subtitle">
+            Ejercicio: <strong>{{ exerciseTitle }}</strong> · Lenguaje: <code machineData>{{ selectedLanguage() }}</code>
+          </p>
+        </div>
+      </div>
+
+      <button type="button" class="btn-close" (click)="onClose()" title="Cerrar modal (Esc)">
+        <svg lucideX class="icon-sm"></svg>
+      </button>
+    </div>
+
+    <!-- Configuration Chips -->
+    <div class="modal-filters">
+      <div class="filter-section">
+        <span class="filter-label">Tipos de Parámetro:</span>
+        <div class="chips-wrap">
+          @for (type of availableTypes; track type.id) {
+            <button 
+              type="button" 
+              class="chip-btn" 
+              [class.active]="selectedTypes().includes(type.id)"
+              (click)="toggleType(type.id)">
+              <span>{{ type.label }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="filter-section">
+        <span class="filter-label">Categorías de Fuzzing:</span>
+        <div class="chips-wrap">
+          @for (cat of availableCategories; track cat.id) {
+            <button 
+              type="button" 
+              class="chip-btn" 
+              [class.active]="selectedCategories().includes(cat.id)"
+              (click)="toggleCategory(cat.id)">
+              <span>{{ cat.label }}</span>
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button 
+          type="button" 
+          class="btn-regenerate" 
+          [disabled]="isGenerating()" 
+          (click)="generateCases()">
+          <svg lucideSparkles class="icon-xs"></svg>
+          <span>{{ isGenerating() ? 'Sintetizando...' : 'Re-generar Casos' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Cases Preview Table -->
+    <div class="modal-body">
+      @if (feedbackMessage()) {
+        <div class="alert-box">
+          <svg lucideAlertTriangle class="alert-icon"></svg>
+          <span>{{ feedbackMessage() }}</span>
+        </div>
+      }
+
+      <div class="table-header-controls">
+        <button type="button" class="btn-select-all" (click)="toggleSelectAll()">
+          @if (allSelected()) {
+            <svg lucideCheckSquare class="icon-sm text-primary"></svg>
+          } @else {
+            <svg lucideSquare class="icon-sm"></svg>
+          }
+          <span>Seleccionar Todos ({{ selectedCasesCount() }} / {{ generatedCases().length }})</span>
+        </button>
+
+        <span class="cases-total-info">
+          {{ generatedCases().length }} casos sintetizados
+        </span>
+      </div>
+
+      <div class="cases-table-wrap">
+        <table class="cases-table">
+          <thead>
+            <tr>
+              <th class="col-sel"></th>
+              <th class="col-risk">Riesgo</th>
+              <th class="col-desc">Categoría / Descripción</th>
+              <th class="col-input">Entrada (Input)</th>
+              <th class="col-expected">Salida Esperada (Expected)</th>
+              <th class="col-vis">Visibilidad</th>
+              <th class="col-pts">Puntos</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (c of generatedCases(); track $index) {
+              <tr [class.is-selected]="c.selected" (click)="toggleCaseSelection($index)">
+                <td class="col-sel" (click)="$event.stopPropagation()">
+                  <input 
+                    type="checkbox" 
+                    [checked]="c.selected" 
+                    (change)="toggleCaseSelection($index)" 
+                    class="checkbox-input" />
+                </td>
+                <td class="col-risk">
+                  <span class="risk-pill" [class]="'risk-' + c.risk_level">
+                    {{ c.risk_level }}
+                  </span>
+                </td>
+                <td class="col-desc">
+                  <strong class="case-desc-title">{{ c.description }}</strong>
+                  <span class="case-category-tag">{{ c.category }}</span>
+                </td>
+                <td class="col-input" (click)="$event.stopPropagation()">
+                  <input 
+                    type="text" 
+                    class="cell-input" 
+                    [(ngModel)]="c.input" 
+                    placeholder="Input data" 
+                    machineData />
+                </td>
+                <td class="col-expected" (click)="$event.stopPropagation()">
+                  <input 
+                    type="text" 
+                    class="cell-input" 
+                    [(ngModel)]="c.expected" 
+                    placeholder="Expected result" 
+                    machineData />
+                </td>
+                <td class="col-vis" (click)="$event.stopPropagation()">
+                  <button 
+                    type="button" 
+                    class="btn-vis-toggle" 
+                    (click)="toggleVisibility($index)"
+                    [title]="c.is_public ? 'Público (visible para el alumno)' : 'Oculto (evaluación ciega)'">
+                    @if (c.is_public) {
+                      <svg lucideEye class="vis-icon text-success"></svg>
+                      <span>Público</span>
+                    } @else {
+                      <svg lucideEyeOff class="vis-icon text-muted"></svg>
+                      <span>Oculto</span>
+                    }
+                  </button>
+                </td>
+                <td class="col-pts" (click)="$event.stopPropagation()">
+                  <input 
+                    type="number" 
+                    class="cell-pts" 
+                    [(ngModel)]="c.weight" 
+                    min="1" 
+                    max="100" />
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn-cancel" (click)="onClose()">Cancelar</button>
+      <button 
+        type="button" 
+        class="btn-apply" 
+        [disabled]="selectedCasesCount() === 0 || isApplying()" 
+        (click)="applySelectedCases()">
+        <svg lucidePlus class="icon-sm"></svg>
+        <span>{{ isApplying() ? 'Incorporando...' : 'Incorporar ' + selectedCasesCount() + ' Casos al Laboratorio' }}</span>
+      </button>
+    </div>
+  </div>
+</div>
