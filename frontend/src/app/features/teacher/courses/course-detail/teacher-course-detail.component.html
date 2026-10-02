@@ -1,16 +1,40 @@
 <div class="course-detail-container">
-  <!-- Header del Cuaderno -->
+  <!-- Header del Curso -->
   <header class="course-header">
     <div class="header-left">
-      <a routerLink="/teacher/dashboard" class="back-link">
+      <a routerLink="/teacher/dashboard" class="btn-back-nav">
         <svg lucideArrowLeft class="btn-icon-sm"></svg>
-        <span>Volver al Panel</span>
+        <span>Volver a Cursos</span>
       </a>
-      <h1 class="page-title">Gestión de Cuaderno y Laboratorios</h1>
-      <p class="page-subtitle">Materia: <code class="font-mono">{{ subjectId() }}</code></p>
+      <h1 class="page-title">{{ courseInfo()?.name || 'Detalle del Curso' }}</h1>
+      <div class="course-meta-row">
+        @if (courseInfo()?.code) {
+          <span class="course-code-badge" machineData>{{ courseInfo()?.code }}</span>
+        }
+        <span class="meta-item">
+          <span machineData>{{ courseInfo()?.students_count || 0 }}</span> Estudiantes
+        </span>
+        @if (courseInfo()?.active_now) {
+          <span class="meta-sep">·</span>
+          <span class="meta-item text-success">
+            <span machineData>{{ courseInfo()?.active_now }}</span> Activos ahora
+          </span>
+        }
+        @if (courseInfo()?.pending_review) {
+          <span class="meta-sep">·</span>
+          <span class="meta-item text-warning">
+            <span machineData>{{ courseInfo()?.pending_review }}</span> Por revisar
+          </span>
+        }
+      </div>
     </div>
 
     <div class="header-actions">
+      <button class="btn-primary btn-new-lab" (click)="openCreateExerciseModal()">
+        <svg lucidePlus class="btn-icon-sm"></svg>
+        <span>Nuevo Laboratorio</span>
+      </button>
+
       <button class="btn-outline btn-plagiarism" (click)="openPlagiarismModal()" title="Escanear similitud estructural AST">
         <svg lucideShieldAlert class="btn-icon-sm"></svg>
         <span>Anti-Plagio AST</span>
@@ -24,11 +48,6 @@
       <button class="btn-outline" [disabled]="isExporting()" (click)="exportGrades()">
         <svg lucideDownload class="btn-icon-sm"></svg>
         <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
-      </button>
-
-      <button class="btn-primary" (click)="openCreateExerciseModal()">
-        <svg lucidePlus class="btn-icon-sm"></svg>
-        <span>Nuevo Laboratorio</span>
       </button>
     </div>
   </header>
@@ -123,6 +142,10 @@
                     <span>Publicar</span>
                   </button>
                 }
+                <button class="btn-outline btn-open-lab" (click)="openLabEnvironment(lab)" title="Abrir y probar el entorno de este laboratorio como docente">
+                  <svg lucideLaptop class="btn-icon-sm"></svg>
+                  <span>Probar Entorno</span>
+                </button>
                 <button class="btn-fuzz" (click)="openFuzzingModal(lab.id, lab.title)" title="Generar casos de prueba y fuzzing">
                   <svg lucideSparkles class="btn-icon-sm"></svg>
                   <span>Fuzzing</span>

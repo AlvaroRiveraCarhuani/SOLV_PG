@@ -16,10 +16,12 @@ import {
   LucidePauseCircle,
   LucideCheckCircle,
   LucideShieldAlert,
-  LucideSparkles
+  LucideSparkles,
+  LucideLaptop
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { TeacherLabStats } from '../../models/teacher.models';
+import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
+import { TeacherLabStats, TeacherCourseSummary } from '../../models/teacher.models';
 import { ExerciseEditorModalComponent } from '../exercise-editor/exercise-editor-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -49,6 +51,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     LucideCheckCircle,
     LucideShieldAlert,
     LucideSparkles,
+    LucideLaptop,
     ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,
@@ -63,8 +66,10 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 export class TeacherCourseDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private courseService = inject(TeacherCourseService);
+  private dashboardService = inject(TeacherDashboardService);
 
   subjectId = signal<string>('');
+  courseInfo = signal<TeacherCourseSummary | null>(null);
   activeTab = signal<'labs' | 'submissions'>('labs');
   
   labs = this.courseService.labs;
@@ -104,6 +109,15 @@ export class TeacherCourseDetailComponent implements OnInit {
     if (!id) return;
     this.courseService.getCourseLabs(id).subscribe();
     this.courseService.getCourseSubmissions(id).subscribe();
+
+    this.dashboardService.loadDashboardData().subscribe({
+      next: (data) => {
+        const found = data.courses.find(c => c.id === id);
+        if (found) {
+          this.courseInfo.set(found);
+        }
+      }
+    });
   }
 
   openCreateExerciseModal(): void {
@@ -192,6 +206,10 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   closeFuzzingModal(): void {
     this.selectedFuzzExercise.set(null);
+  }
+
+  openLabEnvironment(lab: TeacherLabStats): void {
+    window.open(`/student/workspace?exercise_id=${lab.id}&mode=teacher_preview`, '_blank');
   }
 
   onFuzzCasesApplied(count: number): void {
