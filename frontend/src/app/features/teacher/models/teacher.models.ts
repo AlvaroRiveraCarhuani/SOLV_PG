@@ -303,5 +303,36 @@ export interface ApplyFuzzCasesResponse {
   exercise_id: string;
 }
 
+export type ComplexityClass = 'O(1)' | 'O(log N)' | 'O(N)' | 'O(N log N)' | 'O(N^2)' | 'O(2^N)' | 'O(N!)' | 'Unknown';
+
+export interface BenchmarkSample {
+  input_size: number;
+  execution_time_ms: number;
+  memory_used_kb: number;
+  operations_count?: number;
+  status: 'pass' | 'tle' | 'mle' | 'error';
+}
+
+export interface BenchmarkReport {
+  submission_id: string;
+  exercise_id?: string;
+  student_name?: string;
+  expected_time_complexity?: ComplexityClass;
+  detected_time_complexity: ComplexityClass;
+  expected_space_complexity?: ComplexityClass;
+  detected_space_complexity: ComplexityClass;
+  r_squared: number;
+  samples: BenchmarkSample[];
+  is_optimal: boolean;
+  summary: string;
+  analyzed_at: string;
+}
+
+export interface RunBenchmarkRequestDTO {
+  submission_id: string;
+  input_sizes?: number[];
+  preset?: 'small' | 'standard' | 'stress';
+}
+
 
 

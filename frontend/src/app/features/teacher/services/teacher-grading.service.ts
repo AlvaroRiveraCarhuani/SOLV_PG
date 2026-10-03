@@ -8,7 +8,9 @@ import {
   SubmissionComment,
   EphemeralRunRequestDTO,
   EphemeralRunResult,
-  SubmissionTimeline
+  SubmissionTimeline,
+  BenchmarkReport,
+  RunBenchmarkRequestDTO
 } from '../models/teacher.models';
 
 interface ApiResponse<T> {
@@ -110,6 +112,23 @@ export class TeacherGradingService {
       tap(result => {
         this.ephemeralResult.set(result);
         this.isRunningEphemeral.set(false);
+      })
+    );
+  }
+
+  readonly benchmarkReport = signal<BenchmarkReport | null>(null);
+  readonly isRunningBenchmark = signal<boolean>(false);
+
+  runComplexityBenchmark(submissionId: string, req: RunBenchmarkRequestDTO = { submission_id: submissionId }): Observable<BenchmarkReport> {
+    this.isRunningBenchmark.set(true);
+    return this.http.post<ApiResponse<BenchmarkReport>>(
+      `/api/v1/teacher/submissions/${submissionId}/benchmark`,
+      req
+    ).pipe(
+      map(res => res.data),
+      tap(report => {
+        this.benchmarkReport.set(report);
+        this.isRunningBenchmark.set(false);
       })
     );
   }

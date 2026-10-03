@@ -45,6 +45,11 @@ describe('StepVerificationComponent', () => {
 
     fixture = TestBed.createComponent(StepVerificationComponent);
     component = fixture.componentInstance;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: () => Promise.resolve() },
+      configurable: true
+    });
+
     fixture.componentRef.setInput('dockerImage', 'python:3.12-slim-bookworm');
     fixture.componentRef.setInput('toolsList', ['python3', 'pip']);
     fixture.componentRef.setInput('targetEnvironment', 'IDE_PERSISTENTE');
@@ -148,8 +153,12 @@ describe('StepVerificationComponent', () => {
     expect(jumpedTo).toBe('execution');
   });
 
-  it('debe copiar el tag de la imagen con feedback visual', () => {
+  it('debe copiar el tag de la imagen con feedback visual', async () => {
+    fixture.componentRef.setInput('dockerImage', 'python:3.12-slim-bookworm');
+    fixture.detectChanges();
     component.copyImageTag();
+    await Promise.resolve();
+    await Promise.resolve();
     expect(component.copyImageSuccess()).toBe(true);
   });
 

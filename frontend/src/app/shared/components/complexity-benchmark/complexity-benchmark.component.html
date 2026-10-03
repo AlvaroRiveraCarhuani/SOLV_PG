@@ -1,0 +1,333 @@
+<div class="benchmark-container" [class.is-modal-mode]="isModal">
+  <!-- Header de Control -->
+  <div class="benchmark-header">
+    <div class="header-title-box">
+      <div class="header-icon-badge" [class.badge-warning]="!isOptimal()">
+        <svg lucideTrendingUp class="header-icon"></svg>
+      </div>
+      <div>
+        <div class="title-row">
+          <h3 class="section-title">Benchmark de Complejidad Asintótica</h3>
+          @if (report) {
+            <span class="complexity-verdict-badge" [class.badge-optimal]="isOptimal()" [class.badge-suboptimal]="!isOptimal()">
+              @if (isOptimal()) {
+                <svg lucideCheckCircle class="badge-icon"></svg>
+              } @else {
+                <svg lucideAlertTriangle class="badge-icon"></svg>
+              }
+              <span>{{ isOptimal() ? 'Complejidad Óptima' : 'Ineficiencia Asintótica' }}</span>
+            </span>
+          }
+        </div>
+        <p class="section-subtitle">
+          Evaluación empírica del tiempo de ejecución y consumo de memoria ante diferentes volúmenes de entrada (N).
+        </p>
+      </div>
+    </div>
+
+    @if (isModal) {
+      <button type="button" class="btn-close-header" (click)="onClose()" title="Cerrar (Esc)">
+        <svg lucideX class="icon-sm"></svg>
+      </button>
+    }
+  </div>
+
+  <!-- Barra de Acciones y Presets de Ejecución -->
+  <div class="benchmark-toolbar">
+    <div class="preset-group">
+      <span class="toolbar-label">Volumen de Prueba (N):</span>
+      <button 
+        type="button" 
+        class="btn-preset" 
+        [class.active]="selectedPreset() === 'small'" 
+        (click)="selectedPreset.set('small')"
+        [disabled]="isLoading">
+        <span>Pequeño (10 .. 1k)</span>
+      </button>
+      <button 
+        type="button" 
+        class="btn-preset" 
+        [class.active]="selectedPreset() === 'standard'" 
+        (click)="selectedPreset.set('standard')"
+        [disabled]="isLoading">
+        <span>Estándar (10 .. 50k)</span>
+      </button>
+      <button 
+        type="button" 
+        class="btn-preset" 
+        [class.active]="selectedPreset() === 'stress'" 
+        (click)="selectedPreset.set('stress')"
+        [disabled]="isLoading">
+        <span>Estrés (100 .. 200k)</span>
+      </button>
+
+      <button 
+        type="button" 
+        class="btn-run-benchmark" 
+        (click)="onExecuteBenchmark(selectedPreset())" 
+        [disabled]="isLoading">
+        <svg lucidePlay class="icon-sm"></svg>
+        <span>{{ isLoading ? 'Perfilando algoritmo...' : 'Ejecutar Benchmark' }}</span>
+      </button>
+    </div>
+
+    <!-- Controles de Visualización del Gráfico -->
+    @if (hasData()) {
+      <div class="view-controls">
+        <div class="control-segmented">
+          <button 
+            type="button" 
+            class="seg-btn" 
+            [class.active]="activeMetric() === 'time'" 
+            (click)="activeMetric.set('time')" 
+            title="Graficar Tiempo de Ejecución">
+            <svg lucideClock class="seg-icon"></svg>
+            <span>Tiempo (ms)</span>
+          </button>
+          <button 
+            type="button" 
+            class="seg-btn" 
+            [class.active]="activeMetric() === 'memory'" 
+            (click)="activeMetric.set('memory')" 
+            title="Graficar Consumo de Memoria">
+            <svg lucideHardDrive class="seg-icon"></svg>
+            <span>Memoria (KB)</span>
+          </button>
+        </div>
+
+        <div class="control-segmented">
+          <button 
+            type="button" 
+            class="seg-btn" 
+            [class.active]="scaleType() === 'linear'" 
+            (click)="scaleType.set('linear')">
+            <span>Lineal</span>
+          </button>
+          <button 
+            type="button" 
+            class="seg-btn" 
+            [class.active]="scaleType() === 'log'" 
+            (click)="scaleType.set('log')">
+            <span>Log (Log-Log)</span>
+          </button>
+        </div>
+
+        <button 
+          type="button" 
+          class="btn-toggle-curves" 
+          [class.active]="showTheoreticalBounds()" 
+          (click)="showTheoreticalBounds.update(v => !v)"
+          title="Mostrar curvas teóricas de referencia O(N) y O(N²)">
+          <svg lucideZap class="seg-icon"></svg>
+          <span>Asíntotas Teóricas</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-export-csv" 
+          (click)="exportDataCsv()" 
+          title="Exportar datos a CSV">
+          <svg lucideDownload class="seg-icon"></svg>
+          <span>Exportar CSV</span>
+        </button>
+      </div>
+    }
+  </div>
+
+  @if (report; as rep) {
+    <!-- Panel Resumen de Complejidad y Regresión -->
+    <div class="complexity-verdict-card" [class.is-inefficient]="!isOptimal()">
+      <div class="verdict-grid">
+        <div class="verdict-item">
+          <span class="v-label">Complejidad Esperada:</span>
+          <code class="v-val font-mono text-muted" machineData>{{ rep.expected_time_complexity || 'O(N log N)' }}</code>
+        </div>
+        <div class="verdict-item">
+          <span class="v-label">Complejidad Detectada:</span>
+          <code class="v-val font-mono" [class.text-danger]="!isOptimal()" [class.text-success]="isOptimal()" machineData>
+            {{ rep.detected_time_complexity }}
+          </code>
+        </div>
+        <div class="verdict-item">
+          <span class="v-label">Ajuste de Regresión (R²):</span>
+          <span class="v-val font-mono" machineData>{{ (rep.r_squared * 100).toFixed(1) }}% ({{ rep.r_squared.toFixed(3) }})</span>
+        </div>
+        <div class="verdict-item">
+          <span class="v-label">Espacio en Memoria:</span>
+          <code class="v-val font-mono text-muted" machineData>{{ rep.detected_space_complexity || 'O(1)' }}</code>
+        </div>
+      </div>
+
+      <div class="verdict-explanation">
+        <svg lucideInfo class="info-icon"></svg>
+        <p class="explanation-text">{{ rep.summary }}</p>
+      </div>
+    </div>
+
+    <!-- Gráfico SVG Interactivo de Curvas Asintóticas -->
+    <div class="chart-wrapper">
+      <div class="chart-canvas-container">
+        <svg 
+          [attr.viewBox]="'0 0 ' + chartWidth + ' ' + chartHeight" 
+          class="benchmark-svg" 
+          preserveAspectRatio="xMidYMid meet">
+          
+          <defs>
+            <!-- Gradiente de área bajo la curva empírica -->
+            <linearGradient id="curveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="var(--tenant-primary)" stop-opacity="0.3" />
+              <stop offset="100%" stop-color="var(--tenant-primary)" stop-opacity="0.0" />
+            </linearGradient>
+
+            <linearGradient id="warnCurveGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="var(--color-danger)" stop-opacity="0.35" />
+              <stop offset="100%" stop-color="var(--color-danger)" stop-opacity="0.0" />
+            </linearGradient>
+          </defs>
+
+          <!-- Grid Lines Horizontales -->
+          <g class="chart-grid">
+            <line [attr.x1]="padding.left" [attr.y1]="padding.top" [attr.x2]="chartWidth - padding.right" [attr.y2]="padding.top" stroke="var(--border-color)" stroke-dasharray="3,3" />
+            <line [attr.x1]="padding.left" [attr.y1]="(chartHeight - padding.bottom + padding.top) / 2" [attr.x2]="chartWidth - padding.right" [attr.y2]="(chartHeight - padding.bottom + padding.top) / 2" stroke="var(--border-color)" stroke-dasharray="3,3" />
+            <line [attr.x1]="padding.left" [attr.y1]="chartHeight - padding.bottom" [attr.x2]="chartWidth - padding.right" [attr.y2]="chartHeight - padding.bottom" stroke="var(--border-color)" />
+            <line [attr.x1]="padding.left" [attr.y1]="padding.top" [attr.x2]="padding.left" [attr.y2]="chartHeight - padding.bottom" stroke="var(--border-color)" />
+          </g>
+
+          <!-- Curvas Teóricas de Referencia O(N) y O(N^2) -->
+          @for (curve of theoreticalCurves(); track curve.name) {
+            <path 
+              [attr.d]="curve.path" 
+              class="theoretical-path" 
+              [class]="curve.class" 
+              fill="none" 
+              stroke-dasharray="4,4" />
+          }
+
+          <!-- Área Rellena Empírica -->
+          @if (areaPath()) {
+            <path 
+              [attr.d]="areaPath()" 
+              [attr.fill]="isOptimal() ? 'url(#curveGradient)' : 'url(#warnCurveGradient)'" 
+              class="empirical-area" />
+          }
+
+          <!-- Línea Empírica Principal -->
+          @if (empiricalPath()) {
+            <path 
+              [attr.d]="empiricalPath()" 
+              fill="none" 
+              class="empirical-line" 
+              [class.line-danger]="!isOptimal()" />
+          }
+
+          <!-- Puntos de Muestra (Data Points) -->
+          @for (pt of chartPoints(); track pt.sample.input_size) {
+            <g class="chart-point-group" (mouseenter)="hoveredPoint.set(pt)" (mouseleave)="hoveredPoint.set(null)">
+              <circle 
+                [attr.cx]="pt.x" 
+                [attr.cy]="pt.y" 
+                r="5" 
+                class="chart-circle" 
+                [class.circle-danger]="!isOptimal()" />
+              
+              <!-- Etiqueta de valor encima del punto -->
+              <text 
+                [attr.x]="pt.x" 
+                [attr.y]="pt.y - 10" 
+                text-anchor="middle" 
+                class="point-label font-mono">
+                {{ pt.label }}
+              </text>
+
+              <!-- Etiqueta del eje X (N) debajo -->
+              <text 
+                [attr.x]="pt.x" 
+                [attr.y]="chartHeight - padding.bottom + 16" 
+                text-anchor="middle" 
+                class="axis-n-label font-mono">
+                N={{ pt.sample.input_size >= 1000 ? (pt.sample.input_size / 1000) + 'k' : pt.sample.input_size }}
+              </text>
+            </g>
+          }
+        </svg>
+
+        <!-- Tooltip Hover Detallado -->
+        @if (hoveredPoint(); as hp) {
+          <div 
+            class="chart-hover-tooltip" 
+            [style.left.px]="hp.x" 
+            [style.top.px]="hp.y - 45">
+            <span class="tooltip-header font-mono">N = {{ hp.sample.input_size }}</span>
+            <div class="tooltip-body">
+              <span>Tiempo: <strong class="font-mono">{{ hp.sample.execution_time_ms }} ms</strong></span>
+              <span>Memoria: <strong class="font-mono">{{ hp.sample.memory_used_kb }} KB</strong></span>
+            </div>
+          </div>
+        }
+      </div>
+
+      <!-- Leyenda de Curvas -->
+      <div class="chart-legend">
+        <div class="legend-item">
+          <span class="legend-line line-empirical" [class.line-danger]="!isOptimal()"></span>
+          <span>Resultado Empírico ({{ isOptimal() ? 'Óptimo' : 'Subóptimo' }})</span>
+        </div>
+        @if (showTheoreticalBounds()) {
+          <div class="legend-item">
+            <span class="legend-line line-linear-ref"></span>
+            <span>Referencia Lineal O(N)</span>
+          </div>
+          <div class="legend-item">
+            <span class="legend-line line-quadratic-ref"></span>
+            <span>Referencia Cuadrática O(N²)</span>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Tabla Detallada de Muestras Empíricas -->
+    <div class="benchmark-table-wrapper">
+      <table class="benchmark-table font-mono">
+        <thead>
+          <tr>
+            <th>Volumen (N)</th>
+            <th>Tiempo (ms)</th>
+            <th>Memoria (KB)</th>
+            <th>Factor ΔT / ΔN</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (s of rep.samples; track s.input_size; let idx = $index) {
+            <tr>
+              <td class="font-bold" machineData>N = {{ s.input_size }}</td>
+              <td machineData>{{ s.execution_time_ms.toFixed(3) }} ms</td>
+              <td machineData>{{ s.memory_used_kb }} KB</td>
+              <td class="text-muted">
+                @if (idx > 0 && rep.samples[idx - 1]) {
+                  {{ (s.execution_time_ms / (rep.samples[idx - 1].execution_time_ms || 1)).toFixed(2) }}x
+                } @else {
+                  —
+                }
+              </td>
+              <td>
+                <span class="status-chip chip-pass">{{ s.status.toUpperCase() }}</span>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <!-- Empty State / Antes de ejecutar benchmark -->
+    <div class="benchmark-empty-state">
+      <div class="empty-icon-wrap">
+        <svg lucideTrendingUp class="empty-icon"></svg>
+      </div>
+      <h4 class="empty-title">Sin datos de benchmark asintótico</h4>
+      <p class="empty-desc">
+        Seleccioná un volumen de prueba y hacé clic en "Ejecutar Benchmark" para perfilar la complejidad algorítmica de esta entrega.
+      </p>
+    </div>
+  }
+</div>

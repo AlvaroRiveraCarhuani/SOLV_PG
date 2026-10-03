@@ -56,6 +56,16 @@
 
         <button 
           class="btn-outline" 
+          [class.active]="showBenchmark()" 
+          (click)="toggleBenchmark()"
+          title="Benchmark de Complejidad Asintótica O(N) (B)"
+        >
+          <svg lucideTrendingUp class="btn-icon-sm"></svg>
+          <span>Benchmark O(N) <kbd>B</kbd></span>
+        </button>
+
+        <button 
+          class="btn-outline" 
           [class.active]="showDiffView()" 
           (click)="showDiffView.update(v => !v)"
           title="Alternar comparación de código (D)"
@@ -100,6 +110,16 @@
               [timeline]="timeline()"
               [initialBoilerplate]="starterBoilerplate()"
               (close)="showReplayPlayer.set(false)"
+            />
+          </div>
+        } @else if (showBenchmark()) {
+          <div class="benchmark-embedded-container">
+            <complexity-benchmark
+              [report]="benchmarkReport()"
+              [submissionId]="submissionId()"
+              [isLoading]="isLoadingBenchmark()"
+              (runBenchmark)="runBenchmark($event)"
+              (close)="showBenchmark.set(false)"
             />
           </div>
         } @else {

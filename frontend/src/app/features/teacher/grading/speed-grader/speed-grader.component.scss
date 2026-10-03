@@ -187,7 +187,8 @@
   border-radius: var(--radius-md);
   overflow: hidden;
 
-  .replay-embedded-container {
+  .replay-embedded-container,
+  .benchmark-embedded-container {
     width: 100%;
     height: 100%;
     overflow: auto;
