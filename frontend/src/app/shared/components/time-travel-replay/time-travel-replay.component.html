@@ -1,0 +1,277 @@
+<div class="time-travel-container" [class.mode-modal]="mode() === 'modal'" [class.mode-drawer]="mode() === 'drawer'">
+  <!-- Cabecera / Barra Superior de Replay -->
+  <header class="replay-header">
+    <div class="header-main-info">
+      <div class="timeline-title-row">
+        <svg lucideHistory class="header-icon"></svg>
+        <h3 class="replay-title">{{ title() }}</h3>
+        @if (timeline(); as tl) {
+          <span class="student-author-tag">{{ tl.student_name }}</span>
+        }
+      </div>
+      @if (timeline(); as tl) {
+        <p class="timeline-meta-subtitle">
+          Duración: <strong class="font-mono" machineData>{{ formatDuration(tl.total_duration_seconds) }}</strong> · 
+          Pulsaciones: <strong class="font-mono" machineData>{{ tl.total_keystrokes }}</strong> · 
+          Eventos de pegado: <strong class="font-mono" machineData>{{ tl.paste_events_count }}</strong>
+        </p>
+      }
+    </div>
+
+    <div class="header-actions">
+      <button 
+        type="button" 
+        class="btn-diff-toggle" 
+        [class.active]="showDiff()" 
+        (click)="toggleDiff()"
+        title="Alternar vista de diferencias respecto al código base"
+      >
+        <svg lucideGitCompare class="btn-icon-xs"></svg>
+        <span>{{ showDiff() ? 'Código Replay' : 'Ver Diff vs Base' }}</span>
+      </button>
+
+      @if (mode() === 'modal' || mode() === 'drawer') {
+        <button 
+          type="button" 
+          class="btn-close-replay" 
+          (click)="close.emit()"
+          title="Cerrar reproductor"
+          aria-label="Cerrar reproductor"
+        >
+          <svg lucideX class="btn-icon-sm"></svg>
+        </button>
+      }
+    </div>
+  </header>
+
+  <!-- Banner Forense de Alerta de Pegado Masivo -->
+  @if (timeline(); as tl) {
+    @if (tl.suspicious_paste_flag) {
+      <div class="paste-warning-banner">
+        <svg lucideAlertTriangle class="warning-icon"></svg>
+        <div class="banner-text">
+          <strong>Detección Forense de Inserción Masiva:</strong>
+          <span>El {{ tl.paste_percentage | number:'1.0-0' }}% del código final fue insertado mediante operaciones de pegado externo en ráfagas rápidas.</span>
+        </div>
+      </div>
+    }
+  }
+
+  <!-- Barra de Controles y Scrubber Interactivo -->
+  <div class="replay-control-bar">
+    <div class="playback-controls">
+      <button 
+        type="button" 
+        class="btn-step" 
+        (click)="stepBackward()" 
+        [disabled]="currentKeyframeIndex() <= 0"
+        title="Paso anterior (Flecha Izquierda)"
+        aria-label="Paso anterior"
+      >
+        <svg lucideChevronLeft class="btn-icon-sm"></svg>
+      </button>
+
+      <button 
+        type="button" 
+        class="btn-play-pause" 
+        (click)="togglePlayPause()"
+        [title]="isPlaying() ? 'Pausar (Espacio)' : 'Reproducir (Espacio)'"
+      >
+        @if (isPlaying()) {
+          <svg lucidePause class="btn-icon-sm"></svg>
+          <span>Pausar</span>
+        } @else {
+          <svg lucidePlay class="btn-icon-sm"></svg>
+          <span>Reproducir</span>
+        }
+      </button>
+
+      <button 
+        type="button" 
+        class="btn-step" 
+        (click)="stepForward()" 
+        [disabled]="isAtEnd()"
+        title="Paso siguiente (Flecha Derecha)"
+        aria-label="Paso siguiente"
+      >
+        <svg lucideChevronRight class="btn-icon-sm"></svg>
+      </button>
+
+      <button 
+        type="button" 
+        class="btn-reset" 
+        (click)="resetPlayback()" 
+        title="Reiniciar desde el primer paso"
+        aria-label="Reiniciar reproducción"
+      >
+        <svg lucideRotateCcw class="btn-icon-sm"></svg>
+      </button>
+    </div>
+
+    <!-- Pista de Scrubber con Marcadores de Eventos -->
+    <div class="scrubber-track-wrapper">
+      <div class="scrubber-markers-layer">
+        @for (kf of timeline()?.keyframes || []; track $index) {
+          @if (kf.is_paste || kf.action === 'paste') {
+            <span 
+              class="marker-dot marker-paste" 
+              [style.left.%]="getKeyframePercent($index)"
+              [title]="'Pegado masivo en paso ' + ($index + 1)"
+              (click)="seek($index)"
+            ></span>
+          } @else if (kf.action === 'checkpoint') {
+            <span 
+              class="marker-dot marker-checkpoint" 
+              [style.left.%]="getKeyframePercent($index)"
+              [title]="'Ejecución / Checkpoint en paso ' + ($index + 1)"
+              (click)="seek($index)"
+            ></span>
+          } @else if (kf.action === 'ast_change') {
+            <span 
+              class="marker-dot marker-ast" 
+              [style.left.%]="getKeyframePercent($index)"
+              [title]="'Mutación AST en paso ' + ($index + 1)"
+              (click)="seek($index)"
+            ></span>
+          }
+        }
+      </div>
+
+      <input
+        type="range"
+        class="timeline-slider"
+        min="0"
+        [max]="maxKeyframeIndex()"
+        [value]="currentKeyframeIndex()"
+        (input)="onSliderInput($event)"
+        aria-label="Línea de tiempo de código"
+      />
+    </div>
+
+    <!-- Contador de Pasos y Velocidad -->
+    <div class="playback-meta">
+      <span class="step-counter font-mono" machineData>
+        {{ currentKeyframeIndex() + 1 }} / {{ (timeline()?.keyframes?.length || 1) }}
+      </span>
+
+      <div class="speed-pill-group">
+        @for (spd of [0.5, 1, 2, 5, 10]; track spd) {
+          <button 
+            type="button" 
+            class="speed-chip" 
+            [class.active]="speed() === spd"
+            (click)="setSpeed(spd)"
+          >
+            {{ spd }}x
+          </button>
+        }
+      </div>
+    </div>
+  </div>
+
+  <!-- Telemetría del Paso Actual (AST y Ráfagas) -->
+  @if (currentKeyframe(); as kf) {
+    <div class="current-keyframe-telemetry">
+      <div class="keyframe-stat-item">
+        <span class="stat-label">Acción:</span>
+        <span 
+          class="badge-action-type" 
+          [class.action-paste]="kf.is_paste || kf.action === 'paste'"
+          [class.action-checkpoint]="kf.action === 'checkpoint'"
+          [class.action-ast]="kf.action === 'ast_change'"
+        >
+          @if (kf.is_paste || kf.action === 'paste') {
+            <svg lucideAlertCircle class="badge-icon-xs"></svg>
+            <span>Pegado externo</span>
+          } @else if (kf.action === 'checkpoint') {
+            <svg lucideCheckCircle class="badge-icon-xs"></svg>
+            <span>Compilación / Ejecución</span>
+          } @else if (kf.action === 'ast_change') {
+            <svg lucideLayers class="badge-icon-xs"></svg>
+            <span>Mutación AST</span>
+          } @else {
+            <span>Tipeo manual</span>
+          }
+        </span>
+      </div>
+
+      <div class="keyframe-stat-item">
+        <span class="stat-label">Tiempo relativo:</span>
+        <span class="stat-val font-mono" machineData>+{{ formatOffset(kf.offset_ms) }}</span>
+      </div>
+
+      <div class="keyframe-stat-item">
+        <span class="stat-label">Caracteres:</span>
+        <span class="stat-val font-mono" machineData>{{ kf.char_count }}</span>
+      </div>
+
+      @if (kf.ast_node_count !== undefined) {
+        <div class="keyframe-stat-item">
+          <span class="stat-label">Nodos AST:</span>
+          <span class="stat-val font-mono" machineData>{{ kf.ast_node_count }}</span>
+        </div>
+      }
+
+      @if (kf.cyclomatic_complexity !== undefined) {
+        <div class="keyframe-stat-item">
+          <span class="stat-label">Complejidad:</span>
+          <span class="stat-val font-mono" [class.text-warning]="kf.cyclomatic_complexity > 5" machineData>
+            CC {{ kf.cyclomatic_complexity }}
+          </span>
+        </div>
+      }
+
+      <div class="keyframe-sparkline-box">
+        <span class="sparkline-label">Evolución AST:</span>
+        <sparkline 
+          [data]="astHistoryData()" 
+          [color]="kf.is_paste ? 'var(--color-error)' : 'var(--tenant-primary)'" 
+          [width]="70" 
+          [height]="16"
+        />
+      </div>
+    </div>
+  }
+
+  <!-- Visor de Código Reactivo del Keyframe -->
+  <div class="code-viewport-container">
+    @if (showDiff()) {
+      <!-- Vista Diff vs Starter Boilerplate -->
+      <div class="code-scroll-pane diff-view">
+        <table class="code-table">
+          <tbody>
+            @for (dline of diffLines(); track $index) {
+              <tr class="code-row" [class.diff-added]="dline.type === 'added'" [class.diff-removed]="dline.type === 'removed'">
+                <td class="line-num font-mono">
+                  {{ dline.newLineNumber || dline.oldLineNumber || ' ' }}
+                </td>
+                <td class="diff-sign font-mono">
+                  {{ dline.type === 'added' ? '+' : (dline.type === 'removed' ? '-' : ' ') }}
+                </td>
+                <td class="code-text font-mono">
+                  <pre>{{ dline.content || ' ' }}</pre>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <!-- Vista Código Fuente en el Paso Actual -->
+      <div class="code-scroll-pane standard-view">
+        <table class="code-table">
+          <tbody>
+            @for (line of codeLines(); track $index) {
+              <tr class="code-row" [class.cursor-line]="$index + 1 === currentKeyframe()?.cursor_line">
+                <td class="line-num font-mono">{{ $index + 1 }}</td>
+                <td class="code-text font-mono">
+                  <pre>{{ line || ' ' }}</pre>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+</div>

@@ -219,11 +219,16 @@ export interface PlagiarismReport {
 
 export interface TimelineKeyframe {
   offset_ms: number;
-  action: 'insert' | 'delete' | 'paste' | 'checkpoint' | string;
+  action: 'insert' | 'delete' | 'paste' | 'checkpoint' | 'ast_change' | string;
   content: string;
   cursor_line: number;
   is_paste: boolean;
   char_count: number;
+  ast_node_count?: number;
+  cyclomatic_complexity?: number;
+  description?: string;
+  lines_added?: number;
+  lines_deleted?: number;
 }
 
 export interface SubmissionTimeline {

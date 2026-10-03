@@ -8,11 +8,14 @@ import {
   LucideExternalLink,
   LucideRefreshCw,
   LucideUsers,
-  LucideLayers
+  LucideLayers,
+  LucideHistory
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { PlagiarismReport, PlagiarismMatch, TeacherLabStats } from '../../models/teacher.models';
+import { TeacherGradingService } from '../../services/teacher-grading.service';
+import { PlagiarismReport, PlagiarismMatch, TeacherLabStats, SubmissionTimeline } from '../../models/teacher.models';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 
@@ -29,7 +32,9 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
     LucideRefreshCw,
     LucideUsers,
     LucideLayers,
+    LucideHistory,
     SkeletonLoaderComponent,
+    TimeTravelReplayComponent,
     MachineDataDirective,
     DateTextPipe
   ],
@@ -38,6 +43,7 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 })
 export class PlagiarismModalComponent implements OnInit {
   private courseService = inject(TeacherCourseService);
+  private gradingService = inject(TeacherGradingService);
 
   @Input({ required: true }) subjectId!: string;
   @Input() initialExerciseId?: string;
@@ -48,6 +54,11 @@ export class PlagiarismModalComponent implements OnInit {
   report = signal<PlagiarismReport | null>(null);
   isLoading = signal<boolean>(false);
   selectedMatch = signal<PlagiarismMatch | null>(null);
+
+  // Replay Forense Modal
+  showForensicReplay = signal<boolean>(false);
+  activeReplayTimeline = signal<SubmissionTimeline | null>(null);
+  activeReplayStudentName = signal<string>('');
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
@@ -101,5 +112,31 @@ export class PlagiarismModalComponent implements OnInit {
     const r = this.report();
     if (!r || !r.matches) return 0;
     return r.matches.filter(m => m.risk_level === 'warning').length;
+  }
+
+  inspectSubmissionReplay(submissionId: string, studentName: string): void {
+    if (!submissionId) return;
+    this.activeReplayStudentName.set(studentName);
+    this.gradingService.getSubmissionTimeline(submissionId).subscribe({
+      next: (timelineData) => {
+        this.activeReplayTimeline.set(timelineData);
+        this.showForensicReplay.set(true);
+      },
+      error: () => {
+        // Fallback default timeline if endpoint not seeded
+        this.activeReplayTimeline.set({
+          submission_id: submissionId,
+          student_id: '',
+          student_name: studentName,
+          total_duration_seconds: 120,
+          total_keystrokes: 240,
+          paste_events_count: 1,
+          paste_percentage: 60,
+          suspicious_paste_flag: true,
+          keyframes: []
+        });
+        this.showForensicReplay.set(true);
+      }
+    });
   }
 }

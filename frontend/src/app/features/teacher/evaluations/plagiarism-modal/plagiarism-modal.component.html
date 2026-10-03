@@ -146,15 +146,33 @@
                   </div>
                 }
 
-                <!-- Acciones Rápidas SpeedGrader -->
+                <!-- Acciones Rápidas SpeedGrader & Replay Forense -->
                 <div class="grader-actions">
+                  <button 
+                    type="button" 
+                    class="btn-replay-action" 
+                    (click)="inspectSubmissionReplay(sel.submission_id_a, sel.student_name_a)"
+                    title="Ver evolución temporal de código de {{ sel.student_name_a }}"
+                  >
+                    <svg lucideHistory class="icon-xs"></svg>
+                    <span>Replay {{ sel.student_name_a }}</span>
+                  </button>
+                  <button 
+                    type="button" 
+                    class="btn-replay-action" 
+                    (click)="inspectSubmissionReplay(sel.submission_id_b, sel.student_name_b)"
+                    title="Ver evolución temporal de código de {{ sel.student_name_b }}"
+                  >
+                    <svg lucideHistory class="icon-xs"></svg>
+                    <span>Replay {{ sel.student_name_b }}</span>
+                  </button>
                   <a
                     [routerLink]="['/teacher/revision', sel.submission_id_a]"
                     class="btn-grader"
                     target="_blank"
                   >
                     <svg lucideExternalLink class="icon-xs"></svg>
-                    <span>Auditar a {{ sel.student_name_a }}</span>
+                    <span>Auditar {{ sel.student_name_a }}</span>
                   </a>
                   <a
                     [routerLink]="['/teacher/revision', sel.submission_id_b]"
@@ -162,7 +180,7 @@
                     target="_blank"
                   >
                     <svg lucideExternalLink class="icon-xs"></svg>
-                    <span>Auditar a {{ sel.student_name_b }}</span>
+                    <span>Auditar {{ sel.student_name_b }}</span>
                   </a>
                 </div>
               </div>
@@ -178,3 +196,13 @@
     </footer>
   </div>
 </div>
+
+@if (showForensicReplay()) {
+  <time-travel-replay
+    mode="modal"
+    [timeline]="activeReplayTimeline()"
+    [title]="'Replay Forense AST: ' + activeReplayStudentName()"
+    (close)="showForensicReplay.set(false)"
+  />
+}
+

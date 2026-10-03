@@ -93,80 +93,16 @@
     <div class="grader-body">
       <!-- Visor de Código -->
       <main class="code-viewer-panel">
-        <!-- Barra Reproductor Time-Travel Replay -->
+        <!-- Reproductor Time-Travel Replay Standalone Integrado -->
         @if (showReplayPlayer()) {
-          <div class="replay-toolbar">
-            <div class="replay-controls">
-              <button class="player-btn" (click)="isPlayingReplay() ? pauseReplay() : playReplay()">
-                @if (isPlayingReplay()) {
-                  <svg lucidePause class="btn-icon-sm"></svg>
-                  <span>Pausar</span>
-                } @else {
-                  <svg lucidePlay class="btn-icon-sm"></svg>
-                  <span>Reproducir</span>
-                }
-              </button>
-
-              <button class="player-btn-icon" (click)="resetReplay()" title="Reiniciar al inicio">
-                <svg lucideRotateCcw class="btn-icon-sm"></svg>
-              </button>
-
-              <!-- Scrub Slider -->
-              @if (timeline(); as tl) {
-                <div class="scrub-container">
-                  <input
-                    type="range"
-                    class="scrub-slider"
-                    min="0"
-                    [max]="tl.keyframes.length > 0 ? tl.keyframes.length - 1 : 0"
-                    [value]="currentKeyframeIndex()"
-                    (input)="seekKeyframe(+$any($event.target).value)"
-                  />
-                  <div class="scrub-info font-mono">
-                    Paso {{ currentKeyframeIndex() + 1 }} / {{ tl.keyframes.length }}
-                  </div>
-                </div>
-
-                <!-- Velocidades -->
-                <div class="speed-selector">
-                  @for (spd of [1, 2, 5, 10]; track spd) {
-                    <button
-                      class="speed-chip"
-                      [class.active]="replaySpeed() === spd"
-                      (click)="setReplaySpeed(spd)"
-                    >
-                      {{ spd }}x
-                    </button>
-                  }
-                </div>
-              }
-            </div>
-
-            <!-- Banner de Telemetría y Alerta de Pegado -->
-            @if (timeline(); as tl) {
-              <div class="telemetry-bar">
-                <div class="telemetry-metrics">
-                  <span class="telemetry-item">
-                    Tiempo estimado: <strong class="font-mono">{{ tl.total_duration_seconds }}s</strong>
-                  </span>
-                  <span class="telemetry-item">
-                    Pulsaciones: <strong class="font-mono">{{ tl.total_keystrokes }}</strong>
-                  </span>
-                  <span class="telemetry-item">
-                    Eventos de pegado: <strong class="font-mono">{{ tl.paste_events_count }}</strong>
-                  </span>
-                </div>
-
-                @if (tl.suspicious_paste_flag) {
-                  <div class="paste-alert-badge">
-                    <svg lucideAlertTriangle class="icon-xs"></svg>
-                    <span>Alerta: {{ tl.paste_percentage | number:'1.0-0' }}% del código insertado por pegado masivo</span>
-                  </div>
-                }
-              </div>
-            }
+          <div class="replay-embedded-container">
+            <time-travel-replay
+              [timeline]="timeline()"
+              [initialBoilerplate]="starterBoilerplate()"
+              (close)="showReplayPlayer.set(false)"
+            />
           </div>
-        }
+        } @else {
 
         <div class="code-panel-header">
           <span class="panel-label">
@@ -261,6 +197,7 @@
             </table>
           }
         </div>
+      }
       </main>
 
       <!-- Panel Lateral de Juez y Casos de Prueba -->
