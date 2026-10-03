@@ -323,9 +323,11 @@ export class AdminCoursesComponent implements OnInit {
       this.cancelToggleArchive();
     } else if (this.selectedCourseForReassign()) {
       this.closeReassignModal();
-     } else if (this.showCreateCourseModal()) {
-       this.closeCreateCourseModal();
-     }
+    } else if (this.showCreateCourseModal()) {
+      this.closeCreateCourseModal();
+    } else if (this.editingCourse()) {
+      this.closeEditCourseModal();
+    }
   }
 
   openEditCourseModal(course: AdminCourseItem): void {

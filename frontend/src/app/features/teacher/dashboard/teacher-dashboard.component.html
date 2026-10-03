@@ -190,10 +190,18 @@
                       [style.--course-accent-border]="getCourseThemeStyle(course.id, course.code).accentBorder"
                     >
                       <div class="course-header">
-                        <div class="course-identity">
+                        <button 
+                          #courseIdentityBtn
+                          type="button"
+                          class="course-identity-btn"
+                          (click)="toggleCourseColorPicker(course.id, $event)"
+                          title="Click para cambiar el color de la materia"
+                          aria-label="Cambiar color del curso"
+                        >
                           <span class="course-color-dot"></span>
                           <span class="course-code" machineData>{{ course.code }}</span>
-                        </div>
+                          <svg lucidePalette class="color-picker-hint-icon"></svg>
+                        </button>
                         <span class="course-badge" [class.badge-risk]="course.at_risk > 0">
                           @if (course.at_risk > 0) {
                             {{ course.at_risk }} en riesgo
@@ -202,6 +210,22 @@
                           }
                         </span>
                       </div>
+
+                      @if (activeColorPickerCourseId() === course.id) {
+                        <div 
+                          class="course-color-popover" 
+                          dismissible 
+                          [dismissExclude]="courseIdentityBtn"
+                          (dismiss)="activeColorPickerCourseId.set(null)"
+                        >
+                          <course-color-picker
+                            [courseId]="course.id"
+                            [courseCode]="course.code"
+                            [selectedColor]="getCourseColor(course.id, course.code)"
+                            (colorChange)="onCourseColorChanged(course.id, $event)"
+                          ></course-color-picker>
+                        </div>
+                      }
                       <h3 class="course-title">{{ course.name }}</h3>
 
                       <div class="course-stats">

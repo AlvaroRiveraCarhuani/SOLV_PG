@@ -5,6 +5,7 @@ import { SearchBarComponent } from '@shared/components/search-bar/search-bar.com
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { AdminAuditoriaService, AuditLogListResponse } from '../admin-auditoria.service';
 import {
   AuditLog,
@@ -33,7 +34,7 @@ const PAGE_SIZE = 20;
 @Component({
   selector: 'admin-auditoria-registro',
   standalone: true,
-  imports: [CommonModule, DateTextPipe, SearchBarComponent, PaginationBarComponent, ComboboxComponent, MachineDataDirective, LucideActivity, LucidePanelRightOpen],
+  imports: [CommonModule, DateTextPipe, SearchBarComponent, PaginationBarComponent, ComboboxComponent, MachineDataDirective, DismissibleDirective, LucideActivity, LucidePanelRightOpen],
   templateUrl: './admin-auditoria-registro.component.html',
   styleUrl: './admin-auditoria-registro.component.scss'
 })

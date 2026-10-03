@@ -17,12 +17,15 @@ import {
   LucideGripVertical,
   LucideRotateCcw,
   LucideEye,
-  LucideEyeOff
+  LucideEyeOff,
+  LucidePalette
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
 import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
+import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { LiveWorkspaceSession } from '../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -49,6 +52,8 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
+    CourseColorPickerComponent,
+    DismissibleDirective,
     LucideBookOpen, 
     LucideArrowRight, 
     LucideCheckCircle2, 
@@ -63,6 +68,7 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     LucideRotateCcw,
     LucideEye,
     LucideEyeOff,
+    LucidePalette,
     DateTextPipe, 
     MachineDataDirective,
     ViewSwitcherComponent,
@@ -87,6 +93,7 @@ export class TeacherDashboardComponent implements OnInit {
   viewMode = signal<ViewMode>((localStorage.getItem('solv_teacher_view_mode') as ViewMode) || 'cards');
   selectedPeriodId = signal<string>('');
   selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
+  activeColorPickerCourseId = signal<string | null>(null);
 
   // Modo Bento Grid & Personalización
   isCustomizing = signal<boolean>(false);
@@ -231,6 +238,17 @@ export class TeacherDashboardComponent implements OnInit {
   getCourseThemeStyle(courseId: string, courseCode?: string): CourseThemeStyle {
     const color = this.getCourseColor(courseId, courseCode);
     return this.courseColorService.getCourseThemeStyle(color);
+  }
+
+  toggleCourseColorPicker(courseId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.activeColorPickerCourseId.update(current => current === courseId ? null : courseId);
+  }
+
+  onCourseColorChanged(courseId: string, color: string): void {
+    this.courseColorService.setCourseColor(courseId, color);
   }
 
   openTerminal(session: LiveWorkspaceSession): void {

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, inject, signal, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, inject, signal, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
@@ -48,6 +48,11 @@ export class PlagiarismModalComponent implements OnInit {
   report = signal<PlagiarismReport | null>(null);
   isLoading = signal<boolean>(false);
   selectedMatch = signal<PlagiarismMatch | null>(null);
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.close.emit();
+  }
 
   ngOnInit(): void {
     if (this.initialExerciseId) {

@@ -47,7 +47,7 @@ export class CourseColorService {
     if (custom) {
       return custom;
     }
-    return this.getDeterministicColor(courseId || courseCode || 'solv');
+    return this.getDeterministicColor(courseCode || courseId || 'solv');
   }
 
   /**

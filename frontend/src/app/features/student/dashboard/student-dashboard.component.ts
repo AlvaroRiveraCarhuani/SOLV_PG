@@ -9,6 +9,7 @@ import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/s
 import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { 
   LucidePlay, 
@@ -20,8 +21,10 @@ import {
   LucideGripVertical,
   LucideRotateCcw,
   LucideEye,
-  LucideEyeOff
+  LucideEyeOff,
+  LucidePalette
 } from '@lucide/angular';
+import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
 
 export const STUDENT_DASHBOARD_STORAGE_KEY = 'solv_student_dashboard_bento_layout';
 
@@ -42,6 +45,8 @@ export const STUDENT_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
+    CourseColorPickerComponent,
+    DismissibleDirective,
     StatusBadgeComponent,
     MachineDataDirective,
     DateTextPipe,
@@ -54,7 +59,8 @@ export const STUDENT_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     LucideGripVertical,
     LucideRotateCcw,
     LucideEye,
-    LucideEyeOff
+    LucideEyeOff,
+    LucidePalette
   ],
   templateUrl: './student-dashboard.component.html',
   styleUrl: './student-dashboard.component.scss'
@@ -68,6 +74,7 @@ export class StudentDashboardComponent implements OnInit {
   isActionLoading = signal<boolean>(false);
   isCustomizing = signal<boolean>(false);
   widgets = signal<WidgetLayoutItem[]>(STUDENT_DEFAULT_WIDGETS);
+  activeColorPickerCourseId = signal<string | null>(null);
 
   studentFirstName = computed(() => {
     return this.authService.currentUser()?.first_name || 'Estudiante';
@@ -154,6 +161,17 @@ export class StudentDashboardComponent implements OnInit {
   getCourseThemeStyle(courseId: string, courseCode?: string): CourseThemeStyle {
     const color = this.getCourseColor(courseId, courseCode);
     return this.courseColorService.getCourseThemeStyle(color);
+  }
+
+  toggleCourseColorPicker(courseId: string, event?: Event): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.activeColorPickerCourseId.update(current => current === courseId ? null : courseId);
+  }
+
+  onCourseColorChanged(courseId: string, color: string): void {
+    this.courseColorService.setCourseColor(courseId, color);
   }
 
   formatDate(dateStr: string): string {

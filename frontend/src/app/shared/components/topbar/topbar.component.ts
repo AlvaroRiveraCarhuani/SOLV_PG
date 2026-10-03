@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { TenantService } from '@core/services/tenant.service';
 import { AuthService } from '@core/services/auth.service';
 import { UserTypographyModalComponent } from '@shared/components/user-typography-modal/user-typography-modal.component';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } from '@lucide/angular';
 
 @Component({
@@ -16,7 +17,8 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
     LucideLogOut, 
     LucideUser, 
     LucideType,
-    UserTypographyModalComponent
+    UserTypographyModalComponent,
+    DismissibleDirective
   ],
   template: `
     <header class="topbar">
@@ -50,7 +52,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
       <div class="topbar-right">
         <!-- Campana de Notificaciones Proactivas -->
         <div class="notif-wrapper">
-          <button class="btn-icon" (click)="toggleNotifMenu()" title="Notificaciones" aria-label="Notificaciones">
+          <button #notifBtn class="btn-icon" (click)="toggleNotifMenu()" title="Notificaciones" aria-label="Notificaciones">
             <svg lucideBell class="icon"></svg>
             @if (unreadCount() > 0) {
               <span class="notif-badge">{{ unreadCount() }}</span>
@@ -58,7 +60,12 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
           </button>
 
           @if (notifMenuOpen()) {
-            <div class="notif-dropdown">
+            <div 
+              class="notif-dropdown"
+              dismissible
+              [dismissExclude]="notifBtn"
+              (dismiss)="notifMenuOpen.set(false)"
+            >
               <div class="notif-header">
                 <span class="notif-heading">Avisos del Sistema</span>
                 @if (notifications().length > 0) {
@@ -84,7 +91,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
 
         <!-- Perfil del Usuario -->
         <div class="profile-wrapper">
-          <div class="profile-trigger" (click)="toggleProfileMenu()">
+          <div #profileBtn class="profile-trigger" (click)="toggleProfileMenu()">
             <div class="profile-avatar">
               @if (authService.currentUser()?.avatar_url) {
                 <img [src]="authService.currentUser()?.avatar_url" alt="Avatar" />
@@ -101,7 +108,12 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
           </div>
 
           @if (profileMenuOpen()) {
-            <div class="profile-dropdown">
+            <div 
+              class="profile-dropdown"
+              dismissible
+              [dismissExclude]="profileBtn"
+              (dismiss)="profileMenuOpen.set(false)"
+            >
               <div class="dropdown-header">
                 <span class="user-fullname">
                   {{ formatTitleCase((authService.currentUser()?.first_name || '') + ' ' + (authService.currentUser()?.last_name || '')) }}
@@ -122,10 +134,6 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
           }
         </div>
       </div>
-
-      @if (notifMenuOpen() || profileMenuOpen()) {
-        <div class="menu-backdrop" (click)="closeAllMenus()"></div>
-      }
 
       @if (typographyModalOpen()) {
         <user-typography-modal (close)="typographyModalOpen.set(false)" />

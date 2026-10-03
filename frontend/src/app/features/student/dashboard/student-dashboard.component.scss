@@ -286,6 +286,7 @@
 }
 
 .lab-item {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -316,10 +317,34 @@
   gap: var(--space-2);
 }
 
-.subject-identity {
-  display: flex;
+.subject-identity-btn {
+  display: inline-flex;
   align-items: center;
   gap: var(--space-1);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 1px 4px;
+  margin: -1px -4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background-color: var(--bg-surface);
+    border-color: var(--border-subtle);
+
+    .color-picker-hint-icon {
+      opacity: 1;
+    }
+  }
+}
+
+.color-picker-hint-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+  opacity: 0;
+  transition: opacity 0.15s ease;
 }
 
 .course-color-dot {
@@ -343,6 +368,20 @@
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.course-color-popover {
+  position: absolute;
+  top: 48px;
+  left: var(--space-4);
+  z-index: 50;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  padding: var(--space-3);
+  width: 240px;
+  animation: dropdownFadeIn 150ms ease;
 }
 
 .lab-status {

@@ -136,12 +136,36 @@
                     [style.--course-accent-bg]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBg"
                     [style.--course-accent-border]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBorder"
                   >
+                    @if (activeColorPickerCourseId() === item.subject.id) {
+                      <div 
+                        class="course-color-popover" 
+                        dismissible 
+                        [dismissExclude]="subjectIdentityBtn"
+                        (dismiss)="activeColorPickerCourseId.set(null)"
+                      >
+                        <course-color-picker
+                          [courseId]="item.subject.id"
+                          [courseCode]="item.subject.code"
+                          [selectedColor]="getCourseColor(item.subject.id, item.subject.code)"
+                          (colorChange)="onCourseColorChanged(item.subject.id, $event)"
+                        ></course-color-picker>
+                      </div>
+                    }
+
                     <div class="lab-main">
                       <div class="lab-meta">
-                        <div class="subject-identity">
+                        <button 
+                          #subjectIdentityBtn
+                          type="button"
+                          class="subject-identity-btn"
+                          (click)="toggleCourseColorPicker(item.subject.id, $event)"
+                          title="Click para cambiar el color de la materia"
+                          aria-label="Cambiar color del curso"
+                        >
                           <span class="course-color-dot"></span>
                           <span class="subject-code" machineData>{{ item.subject.code }}</span>
-                        </div>
+                          <svg lucidePalette class="color-picker-hint-icon"></svg>
+                        </button>
                         <span class="subject-name">{{ item.subject.name }}</span>
                       </div>
 

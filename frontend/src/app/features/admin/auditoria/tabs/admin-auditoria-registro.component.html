@@ -91,7 +91,14 @@
 
   @if (drawerOpen()) {
     <div class="drawer-backdrop" (click)="onDrawerBackdropClick($event)">
-      <aside class="drawer" role="dialog" aria-modal="true" [attr.aria-label]="'Cronología de ' + drawerActorEmail()">
+      <aside 
+        class="drawer" 
+        dismissible 
+        (dismiss)="closeDrawer()" 
+        role="dialog" 
+        aria-modal="true" 
+        [attr.aria-label]="'Cronología de ' + drawerActorEmail()"
+      >
         <header class="drawer-header">
           <div class="drawer-title">
             <div class="drawer-title-icon">

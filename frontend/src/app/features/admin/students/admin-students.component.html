@@ -239,6 +239,7 @@
                 <div class="actions-cell">
                   <div class="actions-menu-container">
                     <button 
+                      #actionsTriggerBtn
                       type="button" 
                       class="btn-action-icon more"
                       (click)="toggleActionsMenu(student.id, $event)"
@@ -247,7 +248,12 @@
                     </button>
 
                     @if (activeMenuStudentId() === student.id) {
-                      <div class="actions-dropdown" (click)="$event.stopPropagation()">
+                      <div 
+                        class="actions-dropdown" 
+                        dismissible 
+                        [dismissExclude]="actionsTriggerBtn"
+                        (dismiss)="activeMenuStudentId.set(null)"
+                      >
                         @if (student.oom_strike_count > 0) {
                           <button 
                             type="button" 

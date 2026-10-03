@@ -17,6 +17,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { 
   LucideUsers, 
@@ -49,6 +50,7 @@ import {
     StudentResetOOMModalComponent,
     StudentCreateModalComponent,
     ConfirmModalComponent,
+    DismissibleDirective,
     LucideUsers, 
     LucideCpu, 
     LucideAlertTriangle, 
@@ -154,11 +156,6 @@ export class AdminStudentsComponent implements OnInit {
 
   // Menú contextual de acciones
   activeMenuStudentId = signal<string | null>(null);
-
-  @HostListener('document:click')
-  onDocumentClick() {
-    this.activeMenuStudentId.set(null);
-  }
 
   @HostListener('document:keydown.escape')
   onEscape() {
