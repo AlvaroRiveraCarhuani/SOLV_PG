@@ -46,6 +46,7 @@ export class ExerciseEditorModalComponent implements OnInit {
   subjectId = input.required<string>();
   subjectName = input<string>('');
   exerciseToEdit = input<TeacherLabStats | null>(null);
+  initialTemplate = input<any | null>(null);
 
   close = output<void>();
   saved = output<void>();
@@ -186,6 +187,22 @@ export class ExerciseEditorModalComponent implements OnInit {
         this.timeLimitMs.set(edit.time_limit_ms || 1000);
       }
     } else {
+      const initTpl = this.initialTemplate();
+      if (initTpl) {
+        const envType = initTpl.environment_type || initTpl.target_environment || '';
+        if (envType === 'JUEZ_EFIMERO' || envType === 'ALGORITMO') {
+          this.labType.set('ALGORITMO');
+        } else {
+          this.labType.set('IDE_PERSISTENTE');
+          if (initTpl.id) {
+            this.templateId.set(initTpl.id);
+          }
+        }
+
+        if (initTpl.name) {
+          this.title.set(`Laboratorio: ${initTpl.name}`);
+        }
+      }
       this.boilerplate.set(this.getDefaultBoilerplate('python'));
     }
   }
@@ -199,10 +216,29 @@ export class ExerciseEditorModalComponent implements OnInit {
   }
 
   loadApprovedTemplates(): void {
-    this.http.get<{ data: WorkspaceTemplateOption[] }>('/api/v1/templates').subscribe({
+    this.http.get<any>('/api/v1/templates').subscribe({
       next: (res) => {
-        if (res?.data && Array.isArray(res.data) && res.data.length > 0) {
-          this.templatesList.set(res.data);
+        let items: any[] = [];
+        if (Array.isArray(res)) {
+          items = res;
+        } else if (Array.isArray(res?.data)) {
+          items = res.data;
+        } else if (Array.isArray(res?.data?.data)) {
+          items = res.data.data;
+        }
+
+        if (items.length > 0) {
+          const mapped: WorkspaceTemplateOption[] = items.map(t => ({
+            id: t.id,
+            name: t.name,
+            docker_image: t.docker_image,
+            description: t.description || '',
+            base_ram_mb: t.base_ram_mb || t.default_memory_mb || 512,
+            category: t.category || t.category_name || 'General',
+            satellite_service: t.satellite_service || 'Sin servicios satélite',
+            has_database: !!t.has_database
+          }));
+          this.templatesList.set(mapped);
         }
       },
       error: () => {

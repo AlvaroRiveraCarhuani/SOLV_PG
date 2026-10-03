@@ -15,6 +15,7 @@ import { TeacherCourseService } from '../../services/teacher-course.service';
 import { PlagiarismReport, PlagiarismMatch, TeacherLabStats, TeacherCourseSummary } from '../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
 @Component({
   selector: 'teacher-plagiarism',
@@ -30,7 +31,8 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
     LucideGitCompare,
     LucideInfo,
     MachineDataDirective,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    ComboboxComponent
   ],
   templateUrl: './teacher-plagiarism.component.html',
   styleUrl: './teacher-plagiarism.component.scss'
@@ -52,6 +54,32 @@ export class TeacherPlagiarismComponent implements OnInit {
   // Filtros
   riskFilter = signal<'all' | 'critical' | 'warning' | 'info'>('all');
   searchTerm = signal<string>('');
+
+  courseOptions = computed<ComboboxOption[]>(() => {
+    return this.courses().map(c => ({
+      id: c.id,
+      label: `${c.code} — ${c.name}`,
+      value: c.id
+    }));
+  });
+
+  exerciseOptions = computed<ComboboxOption[]>(() => {
+    return [
+      { id: 'all', label: 'Todos los laboratorios', value: 'all' },
+      ...this.labsList().map(l => ({
+        id: l.id,
+        label: l.title,
+        value: l.id
+      }))
+    ];
+  });
+
+  readonly riskOptions: ComboboxOption<'all' | 'critical' | 'warning' | 'info'>[] = [
+    { id: 'all', label: 'Todos los niveles', value: 'all' },
+    { id: 'critical', label: 'Crítico (>= 80%)', value: 'critical' },
+    { id: 'warning', label: 'Advertencia (50-79%)', value: 'warning' },
+    { id: 'info', label: 'Informativo (< 50%)', value: 'info' }
+  ];
 
   // Computeds
   filteredMatches = computed(() => {

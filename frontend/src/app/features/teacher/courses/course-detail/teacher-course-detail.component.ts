@@ -29,6 +29,7 @@ import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/pla
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
 @Component({
   selector: 'teacher-course-detail',
@@ -58,7 +59,8 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     MachineDataDirective,
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
-    FuzzingModalComponent
+    FuzzingModalComponent,
+    ComboboxComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -67,6 +69,15 @@ export class TeacherCourseDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private courseService = inject(TeacherCourseService);
   private dashboardService = inject(TeacherDashboardService);
+
+  readonly verdictOptions: ComboboxOption[] = [
+    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
+    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
+    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
+    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
+    { id: 'AST_BLOCKED', label: 'AST Bloqueado', value: 'AST_BLOCKED' }
+  ];
 
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);

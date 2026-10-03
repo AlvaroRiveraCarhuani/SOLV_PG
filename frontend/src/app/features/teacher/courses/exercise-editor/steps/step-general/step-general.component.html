@@ -50,12 +50,20 @@
 
   <!-- Selector de Modalidad Pedagógica -->
   <div class="modality-selection-group">
-    <label class="section-title">Seleccionar Modalidad del Laboratorio</label>
+    <div class="section-title-row">
+      <label class="section-title">Seleccionar Modalidad del Laboratorio</label>
+      @if (lockLabType() && lockedTemplateName()) {
+        <span class="locked-template-badge">
+          Vinculado a plantilla: <strong>{{ lockedTemplateName() }}</strong>
+        </span>
+      }
+    </div>
     <div class="modality-cards">
       <!-- Modalidad A: Juez Virtual -->
       <div
         class="modality-card"
         [class.selected]="labType() === 'ALGORITMO'"
+        [class.disabled]="lockLabType() && labType() !== 'ALGORITMO'"
         (click)="setLabType('ALGORITMO')"
       >
         <div class="card-radio-box">
@@ -69,6 +77,12 @@
           <p class="card-description">
             Evaluación algorítmica efímera con casos de prueba automáticos (I/O) y restricciones sintácticas AST en Monaco Editor.
           </p>
+          @if (lockLabType() && labType() !== 'ALGORITMO') {
+            <div class="card-lock-info">
+              <svg lucideLock class="lock-icon"></svg>
+              <span>No disponible: la plantilla <strong>{{ lockedTemplateName() }}</strong> requiere entorno interactivo IDE.</span>
+            </div>
+          }
         </div>
       </div>
 
@@ -76,6 +90,7 @@
       <div
         class="modality-card"
         [class.selected]="labType() === 'IDE_PERSISTENTE'"
+        [class.disabled]="lockLabType() && labType() !== 'IDE_PERSISTENTE'"
         (click)="setLabType('IDE_PERSISTENTE')"
       >
         <div class="card-radio-box">
@@ -89,6 +104,12 @@
           <p class="card-description">
             Entorno persistente con OpenVSCode Server, PTY terminal y servicios satélite de catálogo homologados (PostgreSQL, MySQL).
           </p>
+          @if (lockLabType() && labType() !== 'IDE_PERSISTENTE') {
+            <div class="card-lock-info">
+              <svg lucideLock class="lock-icon"></svg>
+              <span>No disponible: la plantilla <strong>{{ lockedTemplateName() }}</strong> es exclusiva para desafíos de código efímeros.</span>
+            </div>
+          }
         </div>
       </div>
     </div>

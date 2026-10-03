@@ -50,29 +50,26 @@
     <div class="filters-row">
       <div class="filter-item">
         <label class="filter-label">Categoría:</label>
-        <select
-          [ngModel]="categoryFilter()"
-          (ngModelChange)="categoryFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todas las categorías</option>
-          @for (cat of categories(); track cat) {
-            <option [value]="cat">{{ cat }}</option>
-          }
-        </select>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="selectedCategoryLabel()"
+          [options]="categoryComboboxOptions()"
+          placeholder="Categoría..."
+          (optionSelected)="onCategorySelected($event)"
+        />
       </div>
 
       <div class="filter-item">
         <label class="filter-label">Tipo de Entorno:</label>
-        <select
-          [ngModel]="envTypeFilter()"
-          (ngModelChange)="envTypeFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todos los entornos</option>
-          <option value="IDE_PERSISTENTE">IDE Persistente (OpenVSCode)</option>
-          <option value="JUEZ_EFIMERO">Juez Efímero (Evaluación)</option>
-        </select>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="selectedEnvTypeLabel()"
+          [options]="envTypeComboboxOptions()"
+          placeholder="Entorno..."
+          (optionSelected)="onEnvTypeSelected($event)"
+        />
       </div>
     </div>
   </div>
@@ -175,6 +172,7 @@
   <exercise-editor-modal
     [subjectId]="courses()[0].id"
     [subjectName]="courses()[0].code + ' — ' + courses()[0].name"
+    [initialTemplate]="selectedTemplateForExercise()"
     (close)="closeExerciseModal()"
   />
 }

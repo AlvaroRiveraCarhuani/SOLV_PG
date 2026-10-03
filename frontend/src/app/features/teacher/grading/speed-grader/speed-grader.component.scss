@@ -667,51 +667,16 @@
   }
 }
 
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: var(--bg-overlay, rgb(0 0 0 / 50%));
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-}
-
-.modal-box {
-  background-color: var(--bg-surface);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  max-width: 480px;
-  padding: var(--space-5);
+.modal-body-form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
+}
 
-  .modal-title {
-    font-size: var(--text-base);
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .modal-subtitle {
-    font-size: var(--text-xs);
-    color: var(--text-secondary);
-    margin: 0;
-  }
-
-  .modal-body {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-3);
-  }
-
-  .modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--space-2);
-  }
+.modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
 }
 
 .loading-state {

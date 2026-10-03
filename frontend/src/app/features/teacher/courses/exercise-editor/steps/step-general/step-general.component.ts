@@ -8,7 +8,8 @@ import {
   LucideShield, 
   LucideEdit3, 
   LucideEye, 
-  LucideClock 
+  LucideClock,
+  LucideLock 
 } from '@lucide/angular';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { marked } from 'marked';
@@ -26,6 +27,7 @@ import { marked } from 'marked';
     LucideEdit3,
     LucideEye,
     LucideClock,
+    LucideLock,
     FormFieldComponent
   ],
   templateUrl: './step-general.component.html',
@@ -38,6 +40,8 @@ export class StepGeneralComponent {
   dueDate = model.required<string>();
   hasDueDate = model.required<boolean>();
   labType = model.required<'ALGORITMO' | 'IDE_PERSISTENTE'>();
+  lockLabType = input<boolean>(false);
+  lockedTemplateName = input<string>('');
   pedagogicalPurpose = model.required<'PRACTICE' | 'EXAM'>();
   allowBroadcast = model.required<boolean>();
   description = model.required<string>();
@@ -69,6 +73,7 @@ export class StepGeneralComponent {
   }
 
   setLabType(type: 'ALGORITMO' | 'IDE_PERSISTENTE'): void {
+    if (this.lockLabType()) return;
     this.labType.set(type);
   }
 

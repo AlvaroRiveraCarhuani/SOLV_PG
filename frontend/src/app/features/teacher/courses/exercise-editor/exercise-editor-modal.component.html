@@ -64,6 +64,8 @@
         [(dueDate)]="dueDate"
         [(hasDueDate)]="hasDueDate"
         [(labType)]="labType"
+        [lockLabType]="!!initialTemplate()"
+        [lockedTemplateName]="initialTemplate()?.name || ''"
         [(pedagogicalPurpose)]="pedagogicalPurpose"
         [(allowBroadcast)]="allowBroadcast"
         [(description)]="description"

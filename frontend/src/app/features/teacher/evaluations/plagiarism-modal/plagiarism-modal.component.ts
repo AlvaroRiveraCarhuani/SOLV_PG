@@ -18,6 +18,7 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
 @Component({
   selector: 'plagiarism-modal',
@@ -36,7 +37,8 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
     SkeletonLoaderComponent,
     TimeTravelReplayComponent,
     MachineDataDirective,
-    DateTextPipe
+    DateTextPipe,
+    ComboboxComponent
   ],
   templateUrl: './plagiarism-modal.component.html',
   styleUrl: './plagiarism-modal.component.scss'
@@ -54,6 +56,13 @@ export class PlagiarismModalComponent implements OnInit {
   report = signal<PlagiarismReport | null>(null);
   isLoading = signal<boolean>(false);
   selectedMatch = signal<PlagiarismMatch | null>(null);
+
+  get labOptions(): ComboboxOption[] {
+    return [
+      { id: 'all', label: 'Todos los ejercicios del curso', value: 'all' },
+      ...this.labs.map(l => ({ id: l.id, label: l.title, value: l.id }))
+    ];
+  }
 
   // Replay Forense Modal
   showForensicReplay = signal<boolean>(false);

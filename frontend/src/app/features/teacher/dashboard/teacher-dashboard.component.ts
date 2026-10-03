@@ -15,6 +15,7 @@ import {
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { LiveWorkspaceSession } from '../models/teacher.models';
 import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
 import { DashboardKpiWidgetComponent } from './widgets/dashboard-kpi-widget/dashboard-kpi-widget.component';
@@ -48,6 +49,7 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     LucideRotateCcw,
     LucideEye,
     LucideEyeOff,
+    ComboboxComponent,
     ShadowTerminalModalComponent,
     DashboardKpiWidgetComponent,
     DashboardCoursesWidgetComponent,
@@ -72,6 +74,18 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
 
   selectedPeriodId = signal<string>('');
   selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
+
+  periodOptions = computed<ComboboxOption[]>(() => {
+    const list = this.periods();
+    if (list.length === 0) {
+      return [{ id: '', label: 'Semestre Actual (Activo)', value: '' }];
+    }
+    return list.map(p => ({
+      id: p.id,
+      label: `${p.name} (${p.code})${p.is_active ? ' - Activo' : ''}`,
+      value: p.id
+    }));
+  });
 
   // Modo Bento Grid & Personalización
   isCustomizing = signal<boolean>(false);

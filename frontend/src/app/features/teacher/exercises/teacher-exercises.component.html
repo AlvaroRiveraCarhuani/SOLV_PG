@@ -50,43 +50,38 @@
     <div class="filters-row">
       <div class="filter-item">
         <label class="filter-label">Materia:</label>
-        <select
-          [ngModel]="courseFilter()"
-          (ngModelChange)="courseFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todas las materias</option>
-          @for (course of courses(); track course.id) {
-            <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
-          }
-        </select>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="selectedCourseLabel()"
+          [options]="courseComboboxOptions()"
+          placeholder="Materia..."
+          (optionSelected)="onCourseSelected($event)"
+        />
       </div>
 
       <div class="filter-item">
         <label class="filter-label">Modalidad:</label>
-        <select
-          [ngModel]="modalityFilter()"
-          (ngModelChange)="modalityFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todas las modalidades</option>
-          <option value="ALGORITMO">Algoritmo (Código Puro)</option>
-          <option value="DATABASE">Base de Datos (SQL)</option>
-          <option value="WORKSPACE">Entorno Persistente</option>
-        </select>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="selectedModalityLabel()"
+          [options]="modalityComboboxOptions()"
+          placeholder="Modalidad..."
+          (optionSelected)="onModalitySelected($event)"
+        />
       </div>
 
       <div class="filter-item">
         <label class="filter-label">Estado:</label>
-        <select
-          [ngModel]="statusFilter()"
-          (ngModelChange)="statusFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todos los estados</option>
-          <option value="published">Publicados</option>
-          <option value="draft">Borradores</option>
-        </select>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="selectedStatusLabel()"
+          [options]="statusComboboxOptions()"
+          placeholder="Estado..."
+          (optionSelected)="onStatusSelected($event)"
+        />
       </div>
     </div>
   </div>

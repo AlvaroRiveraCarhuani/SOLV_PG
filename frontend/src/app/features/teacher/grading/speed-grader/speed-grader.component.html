@@ -351,63 +351,65 @@
 
 <!-- Modal de Override de Calificación -->
 @if (showOverrideModal()) {
-  <div class="modal-backdrop">
-    <div class="modal-box">
-      <div class="modal-header">
-        <h3 class="modal-title">Modificar Calificación Manualmente</h3>
-        <p class="modal-subtitle">Requiere justificación obligatoria para el registro de auditoría institucional.</p>
+  <modal-shell
+    title="Modificar Calificación Manualmente"
+    subtitle="Ajuste manual de puntaje y veredicto para el alumno."
+    maxWidth="520px"
+    [disableClose]="isSubmittingOverride()"
+    (close)="closeOverrideModal()"
+  >
+    <svg modal-icon lucideEdit3 class="icon"></svg>
+
+    @if (overrideError()) {
+      <div class="error-banner">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <span>{{ overrideError() }}</span>
+      </div>
+    }
+
+    <div class="modal-body-form">
+      <div class="form-group">
+        <label class="form-label">Nuevo Veredicto</label>
+        <combobox
+          [options]="verdictOptions"
+          [value]="overrideVerdict()"
+          (valueChange)="overrideVerdict.set($event)"
+          [showSearchIcon]="false"
+          placeholder="Seleccionar veredicto..."
+        />
       </div>
 
-      @if (overrideError()) {
-        <div class="error-banner">
-          <svg lucideAlertTriangle class="error-icon"></svg>
-          <span>{{ overrideError() }}</span>
-        </div>
-      }
-
-      <div class="modal-body">
-        <div class="form-group">
-          <label class="form-label">Nuevo Veredicto</label>
-          <select [ngModel]="overrideVerdict()" (ngModelChange)="overrideVerdict.set($event)" class="form-select">
-            <option value="AC">AC (Aceptado / Aprobado)</option>
-            <option value="WA">WA (Wrong Answer)</option>
-            <option value="RE">RE (Runtime Error)</option>
-            <option value="TLE">TLE (Time Limit Exceeded)</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Puntaje Asignado (0-100)</label>
-          <input
-            type="number"
-            min="0"
-            max="100"
-            [ngModel]="overrideScore()"
-            (ngModelChange)="overrideScore.set($event)"
-            class="form-input"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Motivo de la Convalidación (mínimo 10 caracteres)</label>
-          <textarea
-            rows="3"
-            placeholder="Explique detalladamente la razón pedagógica del cambio de nota..."
-            [ngModel]="overrideReason()"
-            (ngModelChange)="overrideReason.set($event)"
-            class="form-textarea"
-          ></textarea>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Puntaje Asignado (0-100)</label>
+        <input
+          type="number"
+          min="0"
+          max="100"
+          [ngModel]="overrideScore()"
+          (ngModelChange)="overrideScore.set($event)"
+          class="form-input"
+        />
       </div>
 
-      <div class="modal-footer">
-        <button class="btn-outline" [disabled]="isSubmittingOverride()" (click)="closeOverrideModal()">Cancelar</button>
-        <button class="btn-primary" [disabled]="isSubmittingOverride()" (click)="submitOverride()">
-          {{ isSubmittingOverride() ? 'Guardando...' : 'Aplicar Modificación' }}
-        </button>
+      <div class="form-group">
+        <label class="form-label">Motivo de la Convalidación (Opcional)</label>
+        <textarea
+          rows="3"
+          placeholder="Explique la razón pedagógica del cambio de nota (opcional)..."
+          [ngModel]="overrideReason()"
+          (ngModelChange)="overrideReason.set($event)"
+          class="form-textarea"
+        ></textarea>
       </div>
     </div>
-  </div>
+
+    <div modal-footer class="modal-footer-actions">
+      <button type="button" class="btn-outline" [disabled]="isSubmittingOverride()" (click)="closeOverrideModal()">Cancelar</button>
+      <button type="button" class="btn-primary" [disabled]="isSubmittingOverride()" (click)="submitOverride()">
+        {{ isSubmittingOverride() ? 'Guardando...' : 'Aplicar Modificación' }}
+      </button>
+    </div>
+  </modal-shell>
 }
 
 <!-- Modal de Shadow Mode / Terminal Mirroring -->

@@ -167,18 +167,16 @@
     <div class="submissions-view">
       <div class="filters-bar">
         <label class="filter-label">Filtrar por Veredicto:</label>
-        <select
-          [value]="verdictFilter()"
-          (change)="verdictFilter.set($any($event.target).value)"
-          class="form-select"
-        >
-          <option value="all">Todos los veredictos</option>
-          <option value="AC">AC (Aceptado)</option>
-          <option value="WA">WA (Wrong Answer)</option>
-          <option value="TLE">TLE (Time Limit Exceeded)</option>
-          <option value="RE">RE (Runtime Error)</option>
-          <option value="AST_BLOCKED">AST Bloqueado</option>
-        </select>
+        <div class="filter-combobox-wrapper">
+          <combobox
+            [options]="verdictOptions"
+            [value]="verdictFilter()"
+            (valueChange)="verdictFilter.set($event)"
+            [compact]="true"
+            [showSearchIcon]="false"
+            placeholder="Todos los veredictos"
+          />
+        </div>
       </div>
 
       @if (isLoading()) {

@@ -23,9 +23,11 @@ import { SubmissionComment, SubmissionTimeline, TimelineKeyframe, LiveWorkspaceS
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
 
 @Component({
@@ -51,9 +53,11 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
+    ModalShellComponent,
     ShadowTerminalModalComponent,
     TimeTravelReplayComponent,
-    ComplexityBenchmarkComponent
+    ComplexityBenchmarkComponent,
+    ComboboxComponent
   ],
   templateUrl: './speed-grader.component.html',
   styleUrl: './speed-grader.component.scss'
@@ -64,6 +68,13 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private gradingService = inject(TeacherGradingService);
   private hotkeysService = inject(HotkeysService);
   private unregisterFns: Array<() => void> = [];
+
+  readonly verdictOptions: ComboboxOption[] = [
+    { id: 'AC', label: 'AC (Aceptado / Aprobado)', value: 'AC' },
+    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
+    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
+    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' }
+  ];
 
   submissionId = signal<string>('');
   review = this.gradingService.currentReview;
@@ -405,12 +416,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   submitOverride(): void {
     this.overrideError.set(null);
-    const reason = this.overrideReason().trim();
-
-    if (reason.length < 10) {
-      this.overrideError.set('La justificación debe tener al menos 10 caracteres para auditoría.');
-      return;
-    }
+    const reason = this.overrideReason().trim() || 'Ajuste manual docente';
 
     this.isSubmittingOverride.set(true);
     this.gradingService.overrideSubmission(this.submissionId(), {

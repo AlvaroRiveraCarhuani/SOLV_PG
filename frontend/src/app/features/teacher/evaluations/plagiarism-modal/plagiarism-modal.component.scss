@@ -102,6 +102,10 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+
+  &.combobox-filter {
+    min-width: 260px;
+  }
 }
 
 .filter-label {
@@ -109,22 +113,7 @@
   font-size: var(--text-sm);
   font-weight: 500;
   color: var(--text-secondary);
-}
-
-.filter-select {
-  font-family: var(--font-sans);
-  font-size: var(--text-sm);
-  background-color: var(--bg-surface-subtle);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-3);
-  cursor: pointer;
-
-  &:focus {
-    outline: none;
-    border-color: var(--tenant-primary);
-  }
+  white-space: nowrap;
 }
 
 .btn-scan {

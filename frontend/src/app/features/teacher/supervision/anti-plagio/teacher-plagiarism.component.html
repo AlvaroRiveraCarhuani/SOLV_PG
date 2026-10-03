@@ -22,47 +22,42 @@
   <!-- Barra de Selección y Filtros -->
   <div class="control-bar">
     <div class="control-left">
-      <div class="filter-group">
+      <div class="filter-group combobox-filter">
         <label class="control-label">Materia:</label>
-        <select
-          [ngModel]="selectedCourseId()"
-          (ngModelChange)="onCourseChange($event)"
-          class="form-select"
-        >
-          @for (course of courses(); track course.id) {
-            <option [value]="course.id">{{ course.code }} — {{ course.name }}</option>
-          }
-        </select>
+        <combobox
+          [options]="courseOptions()"
+          [value]="selectedCourseId()"
+          (valueChange)="onCourseChange($event)"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Seleccionar materia..."
+        />
       </div>
 
-      <div class="filter-group">
+      <div class="filter-group combobox-filter">
         <label class="control-label">Laboratorio:</label>
-        <select
-          [ngModel]="selectedExerciseId()"
-          (ngModelChange)="onExerciseChange($event)"
-          class="form-select"
-        >
-          <option value="all">Todos los laboratorios</option>
-          @for (lab of labsList(); track lab.id) {
-            <option [value]="lab.id">{{ lab.title }}</option>
-          }
-        </select>
+        <combobox
+          [options]="exerciseOptions()"
+          [value]="selectedExerciseId()"
+          (valueChange)="onExerciseChange($event)"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Todos los laboratorios"
+        />
       </div>
     </div>
 
     <div class="control-right">
-      <div class="filter-group">
+      <div class="filter-group combobox-filter">
         <label class="control-label">Nivel de Riesgo:</label>
-        <select
-          [ngModel]="riskFilter()"
-          (ngModelChange)="riskFilter.set($event)"
-          class="form-select"
-        >
-          <option value="all">Todos los niveles</option>
-          <option value="critical">Crítico (&gt;= 80%)</option>
-          <option value="warning">Advertencia (50-79%)</option>
-          <option value="info">Informativo (&lt; 50%)</option>
-        </select>
+        <combobox
+          [options]="riskOptions"
+          [value]="riskFilter()"
+          (valueChange)="riskFilter.set($any($event))"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Todos los niveles"
+        />
       </div>
     </div>
   </div>

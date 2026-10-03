@@ -122,4 +122,18 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.isExerciseModalOpen()).toBe(false);
     expect(component.selectedTemplateForExercise()).toBeNull();
   });
+
+  it('should correctly parse nested paginated data responses', () => {
+    component.loadTemplates();
+    const req = httpMock.expectOne('/api/v1/templates');
+    req.flush({
+      data: {
+        data: mockTemplates,
+        meta: { total: 2, page: 1, limit: 10 }
+      }
+    });
+
+    expect(component.templates().length).toBe(2);
+    expect(component.isLoading()).toBe(false);
+  });
 });

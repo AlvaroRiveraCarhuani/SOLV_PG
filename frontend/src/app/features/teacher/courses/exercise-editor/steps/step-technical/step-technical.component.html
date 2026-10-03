@@ -5,19 +5,13 @@
   @if (labType() === 'ALGORITMO') {
     <div class="judge-config-row">
       <form-field label="Lenguaje Principal" for="labLang">
-        <select
-          id="labLang"
-          [ngModel]="language()"
-          (ngModelChange)="onLanguageSelect($event)"
-          class="form-select font-mono"
-        >
-          <option value="python">Python 3.11</option>
-          <option value="javascript">JavaScript / Node.js 20</option>
-          <option value="cpp">C++ (GCC 13 / C++20)</option>
-          <option value="c">C (GCC 13 / C17)</option>
-          <option value="go">Go 1.22</option>
-          <option value="sql">PostgreSQL 16 SQL</option>
-        </select>
+        <combobox
+          [options]="languageOptions"
+          [value]="language()"
+          (valueChange)="onLanguageSelect($event)"
+          [showSearchIcon]="false"
+          placeholder="Seleccionar lenguaje..."
+        />
       </form-field>
 
       <form-field label="Límite de Tiempo (CPU)" for="labTimeLimit" hint="Tiempo máximo por test case">
@@ -167,18 +161,13 @@
       </div>
 
       <form-field label="Plantilla Homologada" for="wsTplSelect">
-        <select
-          id="wsTplSelect"
-          [ngModel]="templateId()"
-          (ngModelChange)="templateId.set($event)"
-          class="form-select font-mono"
-        >
-          @for (tpl of templatesList(); track tpl.id) {
-            <option [value]="tpl.id">
-              [{{ tpl.category }}] {{ tpl.name }} ({{ tpl.docker_image }})
-            </option>
-          }
-        </select>
+        <combobox
+          [options]="templateOptions()"
+          [value]="templateId()"
+          (valueChange)="templateId.set($event)"
+          [showSearchIcon]="true"
+          placeholder="Seleccionar plantilla homologada..."
+        />
       </form-field>
 
       <!-- Card Informativo de la Plantilla Seleccionada -->

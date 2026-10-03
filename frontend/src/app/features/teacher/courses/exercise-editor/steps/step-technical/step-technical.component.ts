@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, model, input, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, model, input, output, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
@@ -14,6 +14,7 @@ import {
 } from '@lucide/angular';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
 export interface TestCaseFormItem {
   input: string;
@@ -48,7 +49,8 @@ export interface WorkspaceTemplateOption {
     LucideDatabase,
     LucideServer,
     FormFieldComponent,
-    MachineDataDirective
+    MachineDataDirective,
+    ComboboxComponent
   ],
   templateUrl: './step-technical.component.html',
   styleUrl: './step-technical.component.scss',
@@ -56,6 +58,15 @@ export interface WorkspaceTemplateOption {
 })
 export class StepTechnicalComponent {
   labType = input.required<'ALGORITMO' | 'IDE_PERSISTENTE'>();
+
+  readonly languageOptions: ComboboxOption[] = [
+    { id: 'python', label: 'Python 3.11', value: 'python' },
+    { id: 'javascript', label: 'JavaScript / Node.js 20', value: 'javascript' },
+    { id: 'cpp', label: 'C++ (GCC 13 / C++20)', value: 'cpp' },
+    { id: 'c', label: 'C (GCC 13 / C17)', value: 'c' },
+    { id: 'go', label: 'Go 1.22', value: 'go' },
+    { id: 'sql', label: 'PostgreSQL 16 SQL', value: 'sql' }
+  ];
   
   // Algoritmo
   language = model.required<string>();
@@ -69,6 +80,15 @@ export class StepTechnicalComponent {
   selectedTemplate = input.required<WorkspaceTemplateOption>();
   hasDatabaseSatellite = input.required<boolean>();
   dbInitScript = model.required<string>();
+
+  templateOptions = computed<ComboboxOption[]>(() => {
+    return this.templatesList().map(tpl => ({
+      id: tpl.id,
+      label: `[${tpl.category}] ${tpl.name} (${tpl.docker_image})`,
+      value: tpl.id,
+      group: tpl.category
+    }));
+  });
 
   // Outputs
   requestTemplate = output<void>();

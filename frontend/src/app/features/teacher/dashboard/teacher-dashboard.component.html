@@ -23,17 +23,16 @@
   <!-- Barra de Control y Modo Personalización -->
   <div class="control-bar">
     <div class="control-left">
-      <label class="control-label">Período Académico:</label>
-      <select [ngModel]="selectedPeriodId()" (ngModelChange)="onPeriodChange($event)" class="form-select period-select">
-        @if (periods().length === 0) {
-          <option value="">Semestre Actual (Activo)</option>
-        }
-        @for (period of periods(); track period.id) {
-          <option [value]="period.id">
-            {{ period.name }} ({{ period.code }}) @if (period.is_active) { - Activo }
-          </option>
-        }
-      </select>
+      <div class="period-combobox-wrapper">
+        <combobox
+          [options]="periodOptions()"
+          [value]="selectedPeriodId()"
+          (valueChange)="onPeriodChange($event)"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Semestre Actual (Activo)"
+        />
+      </div>
     </div>
 
     <div class="control-right">

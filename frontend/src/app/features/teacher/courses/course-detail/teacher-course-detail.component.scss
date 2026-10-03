@@ -387,11 +387,11 @@
       font-size: var(--text-xs);
       font-weight: 600;
       color: var(--text-secondary);
+      white-space: nowrap;
     }
 
-    .form-select {
-      max-width: 240px;
-      font-size: var(--text-xs);
+    .filter-combobox-wrapper {
+      min-width: 220px;
     }
   }
 }

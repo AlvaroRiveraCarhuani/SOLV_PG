@@ -142,4 +142,20 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     component.templateId.set('tpl-postgres-db');
     expect(component.hasDatabaseSatellite()).toBe(true);
   });
+
+  it('should initialize with locked IDE modality when initialTemplate is passed', () => {
+    const testFixture = TestBed.createComponent(ExerciseEditorModalComponent);
+    const testComp = testFixture.componentInstance;
+    testFixture.componentRef.setInput('subjectId', 'sub-001');
+    testFixture.componentRef.setInput('initialTemplate', {
+      id: 'tpl-custom-ide',
+      name: 'Entorno C# .NET',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    testFixture.detectChanges();
+
+    expect(testComp.labType()).toBe('IDE_PERSISTENTE');
+    expect(testComp.templateId()).toBe('tpl-custom-ide');
+    expect(testComp.title()).toBe('Laboratorio: Entorno C# .NET');
+  });
 });

@@ -56,12 +56,32 @@ time {
   font-feature-settings: "tnum" 1, "zero" 1;
 }
 
-// Form controls always use the configured UI font.
+// Form controls and dropdown components always use the configured UI font.
+select,
+option,
+optgroup,
+datalist,
+.form-select,
+.filter-select,
+.period-select,
+.size-select,
+.actions-dropdown,
+.dropdown-item,
+.dropdown-header,
+.dropdown-menu,
+.combobox-wrapper,
+.combobox-input,
+.combobox-overlay,
+.option-item,
+.group-header,
+.group-chip {
+  font-family: var(--font-sans) !important;
+}
+
 select,
 .form-select,
 .filter-select,
 .period-select {
-  font-family: var(--font-sans) !important;
   font-size: var(--text-sm);
   color: var(--text-primary);
   background-color: var(--bg-surface);
@@ -83,13 +103,13 @@ select,
     border-color: var(--tenant-primary);
     box-shadow: 0 0 0 2px var(--tenant-primary-border);
   }
+}
 
-  option, optgroup {
-    font-family: var(--font-sans) !important;
-    font-size: var(--text-sm);
-    color: var(--text-primary);
-    background-color: var(--bg-surface);
-  }
+option, optgroup {
+  font-family: var(--font-sans) !important;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  background-color: var(--bg-surface);
 }
 
 // Enlaces

@@ -15,6 +15,7 @@ import {
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TemplateRequestModalComponent } from './template-request-modal/template-request-modal.component';
 import { ExerciseEditorModalComponent } from '../courses/exercise-editor/exercise-editor-modal.component';
 
@@ -54,6 +55,7 @@ interface ApiResponse<T> {
     LucideSparkles,
     MachineDataDirective,
     SkeletonLoaderComponent,
+    ComboboxComponent,
     TemplateRequestModalComponent,
     ExerciseEditorModalComponent
   ],
@@ -122,16 +124,75 @@ export class TeacherTemplatesComponent implements OnInit {
     return Array.from(set);
   });
 
+  categoryComboboxOptions = computed<ComboboxOption[]>(() => {
+    const opts: ComboboxOption[] = [
+      { id: 'all', label: 'Todas las categorías', value: 'all' }
+    ];
+    this.categories().forEach(cat => {
+      opts.push({ id: cat, label: cat, value: cat });
+    });
+    return opts;
+  });
+
+  selectedCategoryLabel = computed(() => {
+    const sel = this.categoryFilter();
+    if (sel === 'all') return 'Todas las categorías';
+    return sel;
+  });
+
+  envTypeComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todos los entornos', value: 'all' },
+    { id: 'IDE_PERSISTENTE', label: 'IDE Persistente (OpenVSCode)', value: 'IDE_PERSISTENTE' },
+    { id: 'JUEZ_EFIMERO', label: 'Juez Efímero (Evaluación)', value: 'JUEZ_EFIMERO' }
+  ]);
+
+  selectedEnvTypeLabel = computed(() => {
+    const sel = this.envTypeFilter();
+    if (sel === 'IDE_PERSISTENTE') return 'IDE Persistente (OpenVSCode)';
+    if (sel === 'JUEZ_EFIMERO') return 'Juez Efímero (Evaluación)';
+    return 'Todos los entornos';
+  });
+
+  onCategorySelected(opt: ComboboxOption): void {
+    this.categoryFilter.set(opt.value);
+  }
+
+  onEnvTypeSelected(opt: ComboboxOption): void {
+    this.envTypeFilter.set(opt.value);
+  }
+
   ngOnInit(): void {
     this.loadTemplates();
   }
 
   loadTemplates(): void {
     this.isLoading.set(true);
-    this.http.get<ApiResponse<PublishedTemplate[]>>('/api/v1/templates').subscribe({
+    this.http.get<any>('/api/v1/templates').subscribe({
       next: res => {
-        const data = res.data || [];
-        this.templates.set(data.filter(t => t.is_active !== false));
+        let items: any[] = [];
+        if (Array.isArray(res)) {
+          items = res;
+        } else if (Array.isArray(res?.data)) {
+          items = res.data;
+        } else if (Array.isArray(res?.data?.data)) {
+          items = res.data.data;
+        }
+
+        const mapped: PublishedTemplate[] = items.map((item: any) => ({
+          id: item.id || '',
+          name: item.name || '',
+          description: item.description || '',
+          docker_image: item.docker_image || '',
+          default_memory_mb: item.default_memory_mb || item.base_ram_mb || 512,
+          default_cpu_cores: item.default_cpu_cores || 1,
+          category: item.category || item.category_name || 'General',
+          environment_type: item.environment_type || item.target_environment || 'IDE_PERSISTENTE',
+          is_official: item.is_official ?? true,
+          is_active: item.is_active !== false,
+          ports: item.ports || ''
+        }));
+
+        this.templates.set(mapped.filter(t => t.is_active !== false));
         this.isLoading.set(false);
       },
       error: () => {

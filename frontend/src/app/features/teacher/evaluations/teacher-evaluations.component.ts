@@ -17,6 +17,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TeacherLabStats, SubmissionQueueItem } from '../models/teacher.models';
 
 export interface EvaluationRow {
@@ -50,7 +51,8 @@ export interface EnrichedQueueItem extends SubmissionQueueItem {
     MachineDataDirective,
     DateTextPipe,
     SkeletonLoaderComponent,
-    PlagiarismModalComponent
+    PlagiarismModalComponent,
+    ComboboxComponent
   ],
   templateUrl: './teacher-evaluations.component.html',
   styleUrl: './teacher-evaluations.component.scss'
@@ -78,6 +80,36 @@ export class TeacherEvaluationsComponent implements OnInit {
   selectedLabId = signal<string>('all');
   labsList = signal<TeacherLabStats[]>([]);
   evaluationsList = signal<EvaluationRow[]>([]);
+
+  // Opciones para Comboboxes
+  courseFilterOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todas las materias', value: 'all' },
+    ...this.courses().map(c => ({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id }))
+  ]);
+
+  readonly verdictFilterOptions: ComboboxOption[] = [
+    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
+    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
+    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
+    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
+    { id: 'AST_BLOCKED', label: 'AST Bloqueado', value: 'AST_BLOCKED' }
+  ];
+
+  readonly statusFilterOptions: ComboboxOption<'all' | 'pending' | 'graded'>[] = [
+    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'pending', label: 'Pendientes de revisión', value: 'pending' },
+    { id: 'graded', label: 'Calificadas', value: 'graded' }
+  ];
+
+  gradesCourseOptions = computed<ComboboxOption[]>(() => [
+    ...this.courses().map(c => ({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id }))
+  ]);
+
+  gradesLabOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todos los laboratorios', value: 'all' },
+    ...this.labsList().map(l => ({ id: l.id, label: l.title, value: l.id }))
+  ]);
 
   // Computeds Cola Global
   filteredQueue = computed(() => {

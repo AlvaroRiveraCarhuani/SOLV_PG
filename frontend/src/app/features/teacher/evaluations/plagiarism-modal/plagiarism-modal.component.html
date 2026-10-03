@@ -20,19 +20,16 @@
 
     <!-- Toolbar / Filtros -->
     <div class="modal-toolbar">
-      <div class="filter-group">
-        <label for="lab-select" class="filter-label">Laboratorio:</label>
-        <select
-          id="lab-select"
-          class="filter-select"
+      <div class="filter-group combobox-filter">
+        <label class="filter-label">Laboratorio:</label>
+        <combobox
+          [options]="labOptions"
           [value]="selectedExerciseId()"
-          (change)="onExerciseChange($any($event.target).value)"
-        >
-          <option value="all">Todos los ejercicios del curso</option>
-          @for (lab of labs; track lab.id) {
-            <option [value]="lab.id">{{ lab.title }}</option>
-          }
-        </select>
+          (valueChange)="onExerciseChange($event)"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Todos los ejercicios del curso"
+        />
       </div>
 
       <div class="toolbar-actions">

@@ -133,4 +133,22 @@ describe('SpeedGraderComponent', () => {
     component.closeOverrideModal();
     expect(component.showOverrideModal()).toBe(false);
   });
+
+  it('submits manual override with optional justification defaulting to fallback reason', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    component.openOverrideModal();
+    component.overrideReason.set('');
+    component.overrideScore.set(95);
+    component.overrideVerdict.set('AC');
+
+    component.submitOverride();
+
+    expect(gradingService.overrideSubmission).toHaveBeenCalledWith('rev-1', {
+      verdict: 'AC',
+      override_reason: 'Ajuste manual docente',
+      score: 95
+    });
+    expect(component.showOverrideModal()).toBe(false);
+  });
 });
+

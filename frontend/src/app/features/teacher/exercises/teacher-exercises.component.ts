@@ -21,6 +21,7 @@ import { TeacherLabStats, TeacherCourseSummary } from '../models/teacher.models'
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ExerciseEditorModalComponent } from '../courses/exercise-editor/exercise-editor-modal.component';
 import { FuzzingModalComponent } from '../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { forkJoin, of } from 'rxjs';
@@ -53,6 +54,7 @@ export interface EnrichedLabItem extends TeacherLabStats {
     MachineDataDirective,
     DateTextPipe,
     SkeletonLoaderComponent,
+    ComboboxComponent,
     ExerciseEditorModalComponent,
     FuzzingModalComponent
   ],
@@ -125,6 +127,61 @@ export class TeacherExercisesComponent implements OnInit {
 
     return { total, published, drafts, totalSubmissions };
   });
+
+  courseComboboxOptions = computed<ComboboxOption[]>(() => {
+    const opts: ComboboxOption[] = [
+      { id: 'all', label: 'Todas las materias', value: 'all' }
+    ];
+    this.courses().forEach(c => {
+      opts.push({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id });
+    });
+    return opts;
+  });
+
+  selectedCourseLabel = computed(() => {
+    const sel = this.courseFilter();
+    if (sel === 'all') return 'Todas las materias';
+    const match = this.courses().find(c => c.id === sel);
+    return match ? `${match.code} — ${match.name}` : 'Todas las materias';
+  });
+
+  modalityComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todas las modalidades', value: 'all' },
+    { id: 'ALGORITMO', label: 'Juez Automático', value: 'ALGORITMO' },
+    { id: 'WORKSPACE', label: 'Laboratorio VS Code', value: 'WORKSPACE' }
+  ]);
+
+  selectedModalityLabel = computed(() => {
+    const sel = this.modalityFilter();
+    if (sel === 'ALGORITMO') return 'Juez Automático';
+    if (sel === 'WORKSPACE') return 'Laboratorio VS Code';
+    return 'Todas las modalidades';
+  });
+
+  statusComboboxOptions = computed<ComboboxOption[]>(() => [
+    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'published', label: 'Publicados', value: 'published' },
+    { id: 'draft', label: 'Borradores', value: 'draft' }
+  ]);
+
+  selectedStatusLabel = computed(() => {
+    const sel = this.statusFilter();
+    if (sel === 'published') return 'Publicados';
+    if (sel === 'draft') return 'Borradores';
+    return 'Todos los estados';
+  });
+
+  onCourseSelected(opt: ComboboxOption): void {
+    this.courseFilter.set(opt.value);
+  }
+
+  onModalitySelected(opt: ComboboxOption): void {
+    this.modalityFilter.set(opt.value);
+  }
+
+  onStatusSelected(opt: ComboboxOption): void {
+    this.statusFilter.set(opt.value);
+  }
 
   ngOnInit(): void {
     this.loadData();
