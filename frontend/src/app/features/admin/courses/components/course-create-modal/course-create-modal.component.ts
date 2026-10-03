@@ -8,6 +8,8 @@ import {
   CreateCoursePayload
 } from '../../../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
+import { CourseColorService } from '@core/services/course-color.service';
+import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -25,6 +27,7 @@ import {
     ComboboxComponent,
     ModalShellComponent,
     FormFieldComponent,
+    CourseColorPickerComponent,
     LucideBookPlus,
     LucideAlertCircle
   ],
@@ -33,6 +36,7 @@ import {
 })
 export class CourseCreateModalComponent implements OnInit {
   private coursesService = inject(AdminCoursesService);
+  private courseColorService = inject(CourseColorService);
 
   @Input() periods: AcademicPeriod[] = [];
   @Input() teachers: TeacherItem[] = [];
@@ -48,6 +52,7 @@ export class CourseCreateModalComponent implements OnInit {
   selectedPeriodId = signal<string>('');
   selectedTeacherId = signal<string>('');
   selectedTemplateId = signal<string>('');
+  selectedColor = signal<string>('');
 
   isSubmitting = signal<boolean>(false);
   formError = signal<string | null>(null);
@@ -150,7 +155,10 @@ export class CourseCreateModalComponent implements OnInit {
     };
 
     this.coursesService.createCourse(payload).subscribe({
-      next: () => {
+      next: (createdCourse) => {
+        if (this.selectedColor() && createdCourse?.id) {
+          this.courseColorService.setCourseColor(createdCourse.id, this.selectedColor());
+        }
         this.isSubmitting.set(false);
         this.courseCreated.emit();
       },

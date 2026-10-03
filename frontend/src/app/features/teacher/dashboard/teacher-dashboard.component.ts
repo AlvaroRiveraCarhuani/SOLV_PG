@@ -2,6 +2,7 @@ import { Component, OnInit, inject, signal, computed, effect } from '@angular/co
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { 
   LucideBookOpen, 
   LucideArrowRight, 
@@ -11,16 +12,32 @@ import {
   LucideCheckCircle, 
   LucideFlame, 
   LucideShieldAlert,
-  LucideTerminal
+  LucideTerminal,
+  LucideSliders,
+  LucideGripVertical,
+  LucideRotateCcw,
+  LucideEye,
+  LucideEyeOff
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
+import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
+import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
 import { LiveWorkspaceSession } from '../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ViewSwitcherComponent, ViewMode } from '@shared/components/view-switcher/view-switcher.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
+
+export const TEACHER_DASHBOARD_STORAGE_KEY = 'solv_teacher_dashboard_bento_layout';
+
+export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
+  { id: 'kpis', title: 'Métricas Generales', colSpan: 12, visible: true },
+  { id: 'courses', title: 'Mis Materias Asignadas', colSpan: 8, visible: true },
+  { id: 'attention', title: 'Atención Requerida', colSpan: 4, visible: true },
+  { id: 'live_sessions', title: 'Sesiones en Vivo y Telemetría', colSpan: 12, visible: true }
+];
 
 @Component({
   selector: 'teacher-dashboard',
@@ -29,6 +46,9 @@ import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-ter
     CommonModule, 
     RouterLink, 
     FormsModule,
+    CdkDropList,
+    CdkDrag,
+    CdkDragHandle,
     LucideBookOpen, 
     LucideArrowRight, 
     LucideCheckCircle2, 
@@ -38,6 +58,11 @@ import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-ter
     LucideFlame, 
     LucideShieldAlert,
     LucideTerminal,
+    LucideSliders,
+    LucideGripVertical,
+    LucideRotateCcw,
+    LucideEye,
+    LucideEyeOff,
     DateTextPipe, 
     MachineDataDirective,
     ViewSwitcherComponent,
@@ -50,6 +75,8 @@ import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-ter
 export class TeacherDashboardComponent implements OnInit {
   private dashboardService = inject(TeacherDashboardService);
   private liveService = inject(TeacherLiveService);
+  private layoutService = inject(DashboardLayoutService);
+  private courseColorService = inject(CourseColorService);
 
   courses = this.dashboardService.courses;
   attention = this.dashboardService.attention;
@@ -60,6 +87,10 @@ export class TeacherDashboardComponent implements OnInit {
   viewMode = signal<ViewMode>((localStorage.getItem('solv_teacher_view_mode') as ViewMode) || 'cards');
   selectedPeriodId = signal<string>('');
   selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
+
+  // Modo Bento Grid & Personalización
+  isCustomizing = signal<boolean>(false);
+  widgets = signal<WidgetLayoutItem[]>(TEACHER_DEFAULT_WIDGETS);
 
   constructor() {
     effect(() => {
@@ -73,6 +104,29 @@ export class TeacherDashboardComponent implements OnInit {
   criticalCount = computed(() => this.attention()?.critical?.length ?? 0);
   warningCount = computed(() => this.attention()?.warning?.length ?? 0);
   standardCount = computed(() => this.attention()?.standard?.length ?? 0);
+
+  totalStudentsCount = computed(() => {
+    return this.courses().reduce((sum, c) => sum + (c.students_count || 0), 0);
+  });
+
+  activeNowCount = computed(() => {
+    return this.courses().reduce((sum, c) => sum + (c.active_now || 0), 0);
+  });
+
+  totalPendingReviews = computed(() => {
+    return this.courses().reduce((sum, c) => sum + (c.pending_review || 0), 0);
+  });
+
+  totalAtRisk = computed(() => {
+    return this.courses().reduce((sum, c) => sum + (c.at_risk || 0), 0);
+  });
+
+  visibleWidgets = computed(() => {
+    if (this.isCustomizing()) {
+      return this.widgets(); // Mostrar todos en modo edición para poder reactivarlos
+    }
+    return this.widgets().filter(w => w.visible);
+  });
 
   greetingMessage = computed(() => {
     const critical = this.criticalCount();
@@ -96,38 +150,94 @@ export class TeacherDashboardComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.loadLayout();
+
     this.dashboardService.getAcademicPeriods().subscribe({
       next: (periodsList) => {
         const active = periodsList.find(p => p.is_active) || periodsList[0];
         if (active) {
           this.selectedPeriodId.set(active.id);
+          this.loadData(active.id);
+        } else {
+          this.loadData();
         }
-        this.loadDashboard();
       },
-      error: () => this.loadDashboard()
+      error: () => this.loadData()
     });
-    this.loadLiveSessions();
+
+    this.liveService.loadLiveSessions().subscribe();
+  }
+
+  loadLayout(): void {
+    const loaded = this.layoutService.loadLayout(TEACHER_DASHBOARD_STORAGE_KEY, TEACHER_DEFAULT_WIDGETS);
+    this.widgets.set(loaded);
+  }
+
+  toggleCustomize(): void {
+    this.isCustomizing.update(v => !v);
+  }
+
+  toggleCustomizing(): void {
+    this.toggleCustomize();
+  }
+
+  setWidgetColSpan(widgetId: string, span: WidgetColSpan): void {
+    const updated = this.widgets().map(w => {
+      if (w.id === widgetId) {
+        return { ...w, colSpan: span };
+      }
+      return w;
+    });
+    this.widgets.set(updated);
+    this.layoutService.saveLayout(TEACHER_DASHBOARD_STORAGE_KEY, updated);
+  }
+
+  toggleWidgetVisibility(widgetId: string): void {
+    const updated = this.widgets().map(w => {
+      if (w.id === widgetId) {
+        return { ...w, visible: !w.visible };
+      }
+      return w;
+    });
+    this.widgets.set(updated);
+    this.layoutService.saveLayout(TEACHER_DASHBOARD_STORAGE_KEY, updated);
+  }
+
+  resetLayout(): void {
+    const reset = this.layoutService.resetLayout(TEACHER_DASHBOARD_STORAGE_KEY, TEACHER_DEFAULT_WIDGETS);
+    this.widgets.set(reset);
+  }
+
+  onDropWidget(event: CdkDragDrop<WidgetLayoutItem[]>): void {
+    const updated = [...this.widgets()];
+    moveItemInArray(updated, event.previousIndex, event.currentIndex);
+    this.widgets.set(updated);
+    this.layoutService.saveLayout(TEACHER_DASHBOARD_STORAGE_KEY, updated);
+  }
+
+  loadData(periodId?: string): void {
+    this.dashboardService.loadDashboardData(periodId).subscribe();
   }
 
   onPeriodChange(periodId: string): void {
     this.selectedPeriodId.set(periodId);
-    this.loadDashboard();
+    this.loadData(periodId);
   }
 
-  loadLiveSessions(): void {
-    this.liveService.loadLiveSessions().subscribe();
+  getCourseColor(courseId: string, courseCode?: string): string {
+    return this.courseColorService.getCourseColor(courseId, courseCode);
   }
 
-  openShadowTerminal(session: LiveWorkspaceSession): void {
+  getCourseThemeStyle(courseId: string, courseCode?: string): CourseThemeStyle {
+    const color = this.getCourseColor(courseId, courseCode);
+    return this.courseColorService.getCourseThemeStyle(color);
+  }
+
+  openTerminal(session: LiveWorkspaceSession): void {
     this.selectedLiveSession.set(session);
   }
 
-  closeShadowTerminal(): void {
+  closeTerminal(): void {
     this.selectedLiveSession.set(null);
   }
-
-  private loadDashboard(): void {
-    this.dashboardService.loadDashboardData(this.selectedPeriodId()).subscribe();
-  }
 }
-

@@ -1,0 +1,56 @@
+<div class="course-color-picker-container">
+  <div class="picker-header">
+    <span class="picker-label">Color del curso</span>
+    @if (courseId) {
+      <button 
+        type="button" 
+        class="btn-reset-color" 
+        (click)="resetToDefault()"
+        title="Restablecer color por defecto"
+        aria-label="Restablecer color por defecto"
+      >
+        <svg lucideRotateCcw class="reset-icon"></svg>
+        <span>Por defecto</span>
+      </button>
+    }
+  </div>
+
+  <div class="swatches-grid">
+    @for (preset of presets; track preset.id) {
+      <button
+        type="button"
+        class="swatch-btn"
+        [class.active]="currentColor().toUpperCase() === preset.hex.toUpperCase()"
+        [style.background-color]="preset.hex"
+        [title]="preset.name"
+        [attr.aria-label]="preset.name"
+        (click)="selectPreset(preset.hex)"
+      >
+        @if (currentColor().toUpperCase() === preset.hex.toUpperCase()) {
+          <svg lucideCheck class="check-icon"></svg>
+        }
+      </button>
+    }
+
+    <!-- Custom Color Trigger -->
+    <label 
+      class="custom-color-wrapper swatch-btn" 
+      [class.active]="isCustom()"
+      [style.background-color]="isCustom() ? currentColor() : 'transparent'"
+      title="Personalizado (Cualquier color)"
+    >
+      <input
+        type="color"
+        class="native-color-input"
+        [value]="currentColor()"
+        (input)="onCustomColorInput($event)"
+        aria-label="Seleccionar color personalizado"
+      />
+      @if (isCustom()) {
+        <svg lucideCheck class="check-icon"></svg>
+      } @else {
+        <svg lucidePalette class="custom-icon"></svg>
+      }
+    </label>
+  </div>
+</div>

@@ -63,6 +63,13 @@
     ></combobox>
   </form-field>
 
+  <form-field label="Color de Identificación">
+    <course-color-picker
+      [selectedColor]="selectedColor()"
+      (colorChange)="selectedColor.set($event)"
+    ></course-color-picker>
+  </form-field>
+
   <ng-container modal-footer>
     <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
       Cancelar
