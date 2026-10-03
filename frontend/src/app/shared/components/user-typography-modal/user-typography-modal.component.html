@@ -1,0 +1,66 @@
+<modal-shell
+  title="Preferencia de Tipografía"
+  subtitle="Personalizá la fuente de interfaz y de código para tu sesión."
+  intent="info"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideType class="header-icon"></svg>
+
+  <form-field label="Fuente de Interfaz (UI)">
+    <combobox
+      [value]="selectedSansLabel()"
+      [options]="sansOptions()"
+      placeholder="Seleccione fuente de interfaz..."
+      (optionSelected)="onSansSelected($event)"
+    ></combobox>
+  </form-field>
+
+  <form-field label="Fuente de Código / Datos Técnicos">
+    <combobox
+      [value]="selectedMonoLabel()"
+      [options]="monoOptions()"
+      placeholder="Seleccione fuente monoespaciada..."
+      (optionSelected)="onMonoSelected($event)"
+    ></combobox>
+  </form-field>
+
+  <!-- Live Preview Panel -->
+  <div class="typography-preview-card">
+    <div class="preview-header">
+      <span class="preview-label">Vista Previa en Vivo</span>
+      @if (selectedSansSlug() || selectedMonoSlug()) {
+        <span class="custom-indicator">Personalizada</span>
+      } @else {
+        <span class="default-indicator">Institucional</span>
+      }
+    </div>
+
+    <div class="preview-body">
+      <p class="preview-sans">
+        El veloz murciélago hindú comía feliz cardillo y kiwi. 1234567890
+      </p>
+
+      <div class="preview-mono-box">
+        <span class="preview-mono-line" machineData>UUID: 4f8b2c1a-8e2a-41d1-b58e-01a2b3c4d5e6</span>
+        <span class="preview-mono-line" machineData>RAM: 512 MB &bull; CPU: 2 Cores &bull; Veredicto: AC</span>
+      </div>
+    </div>
+  </div>
+
+  <ng-container modal-footer>
+    <button 
+      type="button" 
+      class="btn-reset-pref" 
+      (click)="resetToDefault()"
+      [disabled]="!selectedSansSlug() && !selectedMonoSlug()"
+    >
+      <svg lucideRotateCcw class="btn-icon-xs"></svg>
+      <span>Usar Fuentes Institucionales</span>
+    </button>
+
+    <button type="button" class="btn-primary" (click)="close.emit()">
+      <svg lucideCheck class="btn-icon-xs"></svg>
+      <span>Listo</span>
+    </button>
+  </ng-container>
+</modal-shell>

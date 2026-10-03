@@ -3,12 +3,21 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { TenantService } from '@core/services/tenant.service';
 import { AuthService } from '@core/services/auth.service';
-import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/angular';
+import { UserTypographyModalComponent } from '@shared/components/user-typography-modal/user-typography-modal.component';
+import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } from '@lucide/angular';
 
 @Component({
   selector: 'topbar',
   standalone: true,
-  imports: [CommonModule, LucidePanelLeft, LucideBell, LucideLogOut, LucideUser],
+  imports: [
+    CommonModule, 
+    LucidePanelLeft, 
+    LucideBell, 
+    LucideLogOut, 
+    LucideUser, 
+    LucideType,
+    UserTypographyModalComponent
+  ],
   template: `
     <header class="topbar">
       <div class="topbar-left">
@@ -100,6 +109,11 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
                 <span class="user-email">{{ authService.currentUser()?.email }}</span>
               </div>
               <div class="dropdown-divider"></div>
+              <button class="dropdown-item" (click)="openTypographyModal()">
+                <svg lucideType class="dropdown-icon"></svg>
+                <span>Tipografía</span>
+              </button>
+              <div class="dropdown-divider"></div>
               <button class="dropdown-item logout" (click)="logout()">
                 <svg lucideLogOut class="dropdown-icon"></svg>
                 <span>Cerrar Sesión</span>
@@ -111,6 +125,10 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser } from '@lucide/a
 
       @if (notifMenuOpen() || profileMenuOpen()) {
         <div class="menu-backdrop" (click)="closeAllMenus()"></div>
+      }
+
+      @if (typographyModalOpen()) {
+        <user-typography-modal (close)="typographyModalOpen.set(false)" />
       }
     </header>
   `,
@@ -126,6 +144,7 @@ export class TopbarComponent {
   logoFailed = signal<boolean>(false);
   profileMenuOpen = signal<boolean>(false);
   notifMenuOpen = signal<boolean>(false);
+  typographyModalOpen = signal<boolean>(false);
   private loadInitialNotifs() {
     if (typeof window !== 'undefined' && localStorage.getItem('solv_notifs_cleared') === 'true') {
       return [];
@@ -206,6 +225,11 @@ export class TopbarComponent {
       .filter(Boolean)
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  }
+
+  openTypographyModal(): void {
+    this.profileMenuOpen.set(false);
+    this.typographyModalOpen.set(true);
   }
 
   logout(): void {
