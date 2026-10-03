@@ -1,0 +1,18 @@
+<div class="kpi-widget-container">
+  <div class="kpi-box">
+    <span class="kpi-label">Total Estudiantes</span>
+    <span class="kpi-val" machineData>{{ totalStudents() }}</span>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-label">Activos en Vivo</span>
+    <span class="kpi-val text-success" machineData>{{ activeNow() }}</span>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-label">Entregas Pendientes</span>
+    <span class="kpi-val text-warning" machineData>{{ pendingReviews() }}</span>
+  </div>
+  <div class="kpi-box">
+    <span class="kpi-label">Alumnos en Riesgo</span>
+    <span class="kpi-val text-danger" machineData>{{ atRisk() }}</span>
+  </div>
+</div>

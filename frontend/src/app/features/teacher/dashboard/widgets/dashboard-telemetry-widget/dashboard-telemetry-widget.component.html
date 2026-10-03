@@ -1,0 +1,331 @@
+<section class="live-sessions-widget-container">
+  <!-- Toolbar Superior de Telemetría -->
+  <div class="telemetry-toolbar">
+    <div class="header-with-badge">
+      <div class="live-pulse-container" [class.is-pulsing]="isPollingActive() && pollingRateMs() > 0">
+        <span class="pulse-dot"></span>
+        <h2 class="section-title">Telemetría de Aula en Vivo</h2>
+      </div>
+      <span class="badge-count badge-live">{{ sessions().length }} activos</span>
+    </div>
+
+    <div class="telemetry-controls">
+      <!-- Buscador rápido en el aula -->
+      <div class="telemetry-search-box">
+        <svg lucideSearch class="search-icon"></svg>
+        <input 
+          type="text" 
+          [ngModel]="liveSearchTerm()" 
+          (ngModelChange)="liveSearchTerm.set($event)"
+          placeholder="Filtrar estudiante o materia..."
+          class="telemetry-search-input"
+        />
+      </div>
+
+      <!-- Selector de Frecuencia de Muestreo -->
+      <div class="rate-selector-group">
+        <span class="rate-label">Muestreo:</span>
+        <button 
+          type="button" 
+          class="rate-btn" 
+          [class.active]="pollingRateMs() === 3000 && isPollingActive()"
+          (click)="onSetPollingRate(3000)"
+          title="Actualización en vivo cada 3 segundos"
+        >
+          3s
+        </button>
+        <button 
+          type="button" 
+          class="rate-btn" 
+          [class.active]="pollingRateMs() === 5000 && isPollingActive()"
+          (click)="onSetPollingRate(5000)"
+          title="Actualización moderada cada 5 segundos"
+        >
+          5s
+        </button>
+        <button 
+          type="button" 
+          class="rate-btn" 
+          [class.active]="pollingRateMs() === 10000 && isPollingActive()"
+          (click)="onSetPollingRate(10000)"
+          title="Modo ahorro cada 10 segundos"
+        >
+          10s
+        </button>
+        <button 
+          type="button" 
+          class="rate-btn pause-btn" 
+          [class.active]="!isPollingActive() || pollingRateMs() === 0"
+          (click)="onSetPollingRate(0)"
+          title="Pausar muestreo automático"
+        >
+          @if (isPollingActive() && pollingRateMs() > 0) {
+            <svg lucidePause class="btn-icon-xs"></svg>
+          } @else {
+            <svg lucidePlay class="btn-icon-xs"></svg>
+          }
+        </button>
+      </div>
+
+      <!-- Alternador Matriz / Tabla -->
+      <div class="view-toggle-pills">
+        <button 
+          type="button" 
+          class="view-pill-btn" 
+          [class.active]="liveViewMode() === 'matrix'"
+          (click)="setLiveViewMode('matrix')"
+          title="Vista Matriz Visual"
+          aria-label="Vista Matriz Visual"
+        >
+          <svg lucideLayoutGrid class="view-icon"></svg>
+        </button>
+        <button 
+          type="button" 
+          class="view-pill-btn" 
+          [class.active]="liveViewMode() === 'table'"
+          (click)="setLiveViewMode('table')"
+          title="Vista Tabla Detallada"
+          aria-label="Vista Tabla Detallada"
+        >
+          <svg lucideList class="view-icon"></svg>
+        </button>
+      </div>
+
+      <button 
+        type="button" 
+        class="btn-refresh-telemetry" 
+        (click)="refresh.emit()"
+        title="Forzar actualización de telemetría"
+        aria-label="Refrescar telemetría"
+      >
+        <svg lucideRotateCcw class="refresh-icon"></svg>
+      </button>
+    </div>
+  </div>
+
+  @if (sessions().length === 0) {
+    <div class="empty-state">
+      <svg lucideTerminal class="empty-icon"></svg>
+      <p>No hay alumnos con contenedores de laboratorio activos en este momento.</p>
+    </div>
+  } @else if (filteredSessions().length === 0) {
+    <div class="empty-state">
+      <svg lucideSearch class="empty-icon"></svg>
+      <p>No se encontraron sesiones que coincidan con la búsqueda.</p>
+    </div>
+  } @else if (liveViewMode() === 'matrix') {
+    <!-- VISTA 1: MATRIZ VISUAL DE AULA EN TIEMPO REAL -->
+    <div class="telemetry-matrix-grid">
+      @for (session of filteredSessions(); track session.workspace_id) {
+        <div 
+          class="telemetry-student-card" 
+          [class.card-oom-risk]="getMemoryPercent(session) >= 90 || session.oom_strikes > 0"
+        >
+          <!-- Cabecera de la tarjeta del alumno -->
+          <div class="card-header-row">
+            <div class="student-avatar-badge">
+              {{ getStudentInitials(session.student_name) }}
+            </div>
+            <div class="student-meta-block">
+              <span class="student-full-name" [title]="session.student_name">{{ session.student_name }}</span>
+              <span class="student-subject-tag">{{ session.subject_name }}</span>
+            </div>
+            <span 
+              class="activity-status-chip" 
+              [class.status-typing]="session.activity_state === 'typing'"
+              [class.status-executing]="session.activity_state === 'executing'"
+              [class.status-idle]="session.activity_state === 'idle'"
+              [class.status-oom]="session.activity_state === 'oom_warning'"
+            >
+              @switch (session.activity_state) {
+                @case ('typing') {
+                  <span class="dot-typing"></span>
+                  <span>Tipeando @if (session.wpm) { <small machineData>({{ session.wpm }} WPM)</small> }</span>
+                }
+                @case ('executing') {
+                  <span class="dot-executing"></span>
+                  <span>Ejecutando</span>
+                }
+                @case ('oom_warning') {
+                  <svg lucideAlertCircle class="chip-alert-icon"></svg>
+                  <span>OOM Riesgo</span>
+                }
+                @default {
+                  <span class="dot-idle"></span>
+                  <span>En espera</span>
+                }
+              }
+            </span>
+          </div>
+
+          <!-- Medidor de RAM y Sparkline -->
+          <div class="telemetry-metrics-section">
+            <div class="metric-row">
+              <span class="metric-label">
+                <svg lucideHardDrive class="metric-icon"></svg>
+                <span>RAM (cgroups)</span>
+              </span>
+              <span class="metric-value font-mono" machineData>
+                {{ session.memory_used_mb || 0 }} / {{ session.memory_limit_mb }} MB 
+                ({{ getMemoryPercent(session) }}%)
+              </span>
+            </div>
+
+            <!-- Barra de saturación de cgroups -->
+            <div class="ram-progress-track">
+              <div 
+                class="ram-progress-fill" 
+                [style.width.%]="getMemoryPercent(session)"
+                [class.fill-warning]="getMemoryPercent(session) >= 70 && getMemoryPercent(session) < 90"
+                [class.fill-danger]="getMemoryPercent(session) >= 90"
+              ></div>
+            </div>
+
+            <!-- Fila de CPU y Sparkline -->
+            <div class="cpu-sparkline-row">
+              <div class="cpu-stat">
+                <svg lucideCpu class="metric-icon"></svg>
+                <span class="font-mono" machineData>{{ session.cpu_percent || 0 }}% CPU</span>
+              </div>
+              <div class="sparkline-wrapper">
+                <sparkline 
+                  [data]="session.memory_history || []" 
+                  [color]="getMemoryPercent(session) >= 90 ? 'var(--color-error)' : 'var(--tenant-primary)'" 
+                  [width]="84" 
+                  [height]="22"
+                />
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer con acción directa de Shadow Terminal -->
+          <div class="card-footer-row">
+            <div class="strikes-info">
+              @if (session.oom_strikes > 0) {
+                <span class="strike-warning-badge" machineData>
+                  <svg lucideAlertTriangle class="strike-icon"></svg>
+                  {{ session.oom_strikes }} strikes
+                </span>
+              } @else {
+                <span class="heartbeat-hint font-mono">
+                  Latido: <time>{{ session.last_heartbeat | dateText:'compact-datetime' }}</time>
+                </span>
+              }
+            </div>
+
+            <button
+              type="button"
+              class="btn-shadow-terminal"
+              (click)="openTerminal.emit(session)"
+              title="Abrir Shadow Terminal para tutoría remota"
+            >
+              <svg lucideTerminal class="btn-icon-xs"></svg>
+              <span>Shadow Terminal</span>
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- VISTA 2: TABLA DETALLADA DE TELEMETRÍA -->
+    <div class="table-responsive">
+      <table class="solv-table">
+        <thead>
+          <tr>
+            <th>Estudiante</th>
+            <th>Materia</th>
+            <th>Estado de Actividad</th>
+            <th>RAM Usada / Límite</th>
+            <th>Curva de Carga</th>
+            <th>CPU</th>
+            <th>Strikes OOM</th>
+            <th>Tutoría</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (session of filteredSessions(); track session.workspace_id) {
+            <tr [class.row-alert]="getMemoryPercent(session) >= 90">
+              <td>
+                <div class="student-info">
+                  <span class="student-name">{{ session.student_name }}</span>
+                  <span class="student-email font-mono">{{ session.student_email }}</span>
+                </div>
+              </td>
+              <td><span class="course-tag">{{ session.subject_name }}</span></td>
+              <td>
+                <span 
+                  class="activity-status-chip"
+                  [class.status-typing]="session.activity_state === 'typing'"
+                  [class.status-executing]="session.activity_state === 'executing'"
+                  [class.status-idle]="session.activity_state === 'idle'"
+                  [class.status-oom]="session.activity_state === 'oom_warning'"
+                >
+                  @switch (session.activity_state) {
+                    @case ('typing') {
+                      <span class="dot-typing"></span>
+                      <span>Tipeando @if (session.wpm) { <small machineData>({{ session.wpm }} WPM)</small> }</span>
+                    }
+                    @case ('executing') {
+                      <span class="dot-executing"></span>
+                      <span>Ejecutando</span>
+                    }
+                    @case ('oom_warning') {
+                      <svg lucideAlertCircle class="chip-alert-icon"></svg>
+                      <span>OOM Riesgo</span>
+                    }
+                    @default {
+                      <span class="dot-idle"></span>
+                      <span>En espera</span>
+                    }
+                  }
+                </span>
+              </td>
+              <td>
+                <div class="table-ram-gauge">
+                  <span class="font-mono" machineData>
+                    {{ session.memory_used_mb || 0 }} / {{ session.memory_limit_mb }} MB
+                  </span>
+                  <div class="ram-progress-track sm">
+                    <div 
+                      class="ram-progress-fill" 
+                      [style.width.%]="getMemoryPercent(session)"
+                      [class.fill-warning]="getMemoryPercent(session) >= 70 && getMemoryPercent(session) < 90"
+                      [class.fill-danger]="getMemoryPercent(session) >= 90"
+                    ></div>
+                  </div>
+                </div>
+              </td>
+              <td>
+                <sparkline 
+                  [data]="session.memory_history || []" 
+                  [color]="getMemoryPercent(session) >= 90 ? 'var(--color-error)' : 'var(--tenant-primary)'" 
+                  [width]="72" 
+                  [height]="18"
+                />
+              </td>
+              <td>
+                <span class="font-mono" machineData>{{ session.cpu_percent || 0 }}%</span>
+              </td>
+              <td>
+                <span class="font-mono" [class.text-danger]="session.oom_strikes > 0" machineData>
+                  {{ session.oom_strikes }}
+                </span>
+              </td>
+              <td>
+                <button
+                  type="button"
+                  class="btn-terminal-sm"
+                  (click)="openTerminal.emit(session)"
+                  title="Abrir terminal remota de tutoría (Shadow Terminal)"
+                >
+                  <svg lucideTerminal class="btn-icon-xs"></svg>
+                  <span>Terminal</span>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

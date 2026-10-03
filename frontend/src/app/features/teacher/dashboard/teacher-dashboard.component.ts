@@ -1,37 +1,26 @@
-import { Component, OnInit, inject, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { 
-  LucideBookOpen, 
-  LucideArrowRight, 
-  LucideCheckCircle2, 
   LucideAlertTriangle, 
   LucideClock, 
   LucideCheckCircle, 
-  LucideFlame, 
-  LucideShieldAlert,
-  LucideTerminal,
   LucideSliders,
   LucideGripVertical,
   LucideRotateCcw,
   LucideEye,
-  LucideEyeOff,
-  LucidePalette
+  LucideEyeOff
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
-import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
-import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
-import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { LiveWorkspaceSession } from '../models/teacher.models';
-import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { ViewSwitcherComponent, ViewMode } from '@shared/components/view-switcher/view-switcher.component';
-import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
+import { DashboardKpiWidgetComponent } from './widgets/dashboard-kpi-widget/dashboard-kpi-widget.component';
+import { DashboardCoursesWidgetComponent } from './widgets/dashboard-courses-widget/dashboard-courses-widget.component';
+import { DashboardAttentionWidgetComponent } from './widgets/dashboard-attention-widget/dashboard-attention-widget.component';
+import { DashboardTelemetryWidgetComponent } from './widgets/dashboard-telemetry-widget/dashboard-telemetry-widget.component';
 
 export const TEACHER_DASHBOARD_STORAGE_KEY = 'solv_teacher_dashboard_bento_layout';
 
@@ -47,66 +36,46 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
   standalone: true,
   imports: [
     CommonModule, 
-    RouterLink, 
     FormsModule,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
-    CourseColorPickerComponent,
-    DismissibleDirective,
-    LucideBookOpen, 
-    LucideArrowRight, 
-    LucideCheckCircle2, 
     LucideAlertTriangle, 
     LucideClock, 
     LucideCheckCircle, 
-    LucideFlame, 
-    LucideShieldAlert,
-    LucideTerminal,
     LucideSliders,
     LucideGripVertical,
     LucideRotateCcw,
     LucideEye,
     LucideEyeOff,
-    LucidePalette,
-    DateTextPipe, 
-    MachineDataDirective,
-    ViewSwitcherComponent,
-    SkeletonLoaderComponent,
-    ShadowTerminalModalComponent
+    ShadowTerminalModalComponent,
+    DashboardKpiWidgetComponent,
+    DashboardCoursesWidgetComponent,
+    DashboardAttentionWidgetComponent,
+    DashboardTelemetryWidgetComponent
   ],
   templateUrl: './teacher-dashboard.component.html',
   styleUrl: './teacher-dashboard.component.scss'
 })
-export class TeacherDashboardComponent implements OnInit {
+export class TeacherDashboardComponent implements OnInit, OnDestroy {
   private dashboardService = inject(TeacherDashboardService);
   private liveService = inject(TeacherLiveService);
   private layoutService = inject(DashboardLayoutService);
-  private courseColorService = inject(CourseColorService);
 
   courses = this.dashboardService.courses;
   attention = this.dashboardService.attention;
   periods = this.dashboardService.periods;
   isLoading = this.dashboardService.isLoading;
   liveSessions = this.liveService.liveSessions;
+  isPollingActive = this.liveService.isPollingActive;
+  pollingRateMs = this.liveService.pollingIntervalMs;
 
-  viewMode = signal<ViewMode>((localStorage.getItem('solv_teacher_view_mode') as ViewMode) || 'cards');
   selectedPeriodId = signal<string>('');
   selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
-  activeColorPickerCourseId = signal<string | null>(null);
 
   // Modo Bento Grid & Personalización
   isCustomizing = signal<boolean>(false);
   widgets = signal<WidgetLayoutItem[]>(TEACHER_DEFAULT_WIDGETS);
-
-  constructor() {
-    effect(() => {
-      const mode = this.viewMode();
-      try {
-        localStorage.setItem('solv_teacher_view_mode', mode);
-      } catch {}
-    });
-  }
 
   criticalCount = computed(() => this.attention()?.critical?.length ?? 0);
   warningCount = computed(() => this.attention()?.warning?.length ?? 0);
@@ -172,7 +141,11 @@ export class TeacherDashboardComponent implements OnInit {
       error: () => this.loadData()
     });
 
-    this.liveService.loadLiveSessions().subscribe();
+    this.liveService.startPolling(3000);
+  }
+
+  ngOnDestroy(): void {
+    this.liveService.pausePolling();
   }
 
   loadLayout(): void {
@@ -211,15 +184,15 @@ export class TeacherDashboardComponent implements OnInit {
   }
 
   resetLayout(): void {
-    const reset = this.layoutService.resetLayout(TEACHER_DASHBOARD_STORAGE_KEY, TEACHER_DEFAULT_WIDGETS);
-    this.widgets.set(reset);
+    this.widgets.set([...TEACHER_DEFAULT_WIDGETS]);
+    this.layoutService.resetLayout(TEACHER_DASHBOARD_STORAGE_KEY, TEACHER_DEFAULT_WIDGETS);
   }
 
   onDropWidget(event: CdkDragDrop<WidgetLayoutItem[]>): void {
-    const updated = [...this.widgets()];
-    moveItemInArray(updated, event.previousIndex, event.currentIndex);
-    this.widgets.set(updated);
-    this.layoutService.saveLayout(TEACHER_DASHBOARD_STORAGE_KEY, updated);
+    const currentList = [...this.widgets()];
+    moveItemInArray(currentList, event.previousIndex, event.currentIndex);
+    this.widgets.set(currentList);
+    this.layoutService.saveLayout(TEACHER_DASHBOARD_STORAGE_KEY, currentList);
   }
 
   loadData(periodId?: string): void {
@@ -231,24 +204,12 @@ export class TeacherDashboardComponent implements OnInit {
     this.loadData(periodId);
   }
 
-  getCourseColor(courseId: string, courseCode?: string): string {
-    return this.courseColorService.getCourseColor(courseId, courseCode);
+  setPollingRate(rateMs: number): void {
+    this.liveService.setPollingInterval(rateMs);
   }
 
-  getCourseThemeStyle(courseId: string, courseCode?: string): CourseThemeStyle {
-    const color = this.getCourseColor(courseId, courseCode);
-    return this.courseColorService.getCourseThemeStyle(color);
-  }
-
-  toggleCourseColorPicker(courseId: string, event?: Event): void {
-    if (event) {
-      event.stopPropagation();
-    }
-    this.activeColorPickerCourseId.update(current => current === courseId ? null : courseId);
-  }
-
-  onCourseColorChanged(courseId: string, color: string): void {
-    this.courseColorService.setCourseColor(courseId, color);
+  refreshLiveSessions(): void {
+    this.liveService.loadLiveSessions().subscribe();
   }
 
   openTerminal(session: LiveWorkspaceSession): void {

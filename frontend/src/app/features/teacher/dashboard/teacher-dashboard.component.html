@@ -137,325 +137,38 @@
           </div>
         }
 
-        <!-- CONTENIDO DEL WIDGET SEGÚN SU ID -->
+        <!-- CONTENIDO MODULARIZADO DE LOS WIDGETS -->
         @switch (widget.id) {
-
-          <!-- WIDGET 1: KPIS Y MÉTRICAS GENERALES -->
           @case ('kpis') {
-            <div class="kpi-widget-container">
-              <div class="kpi-box">
-                <span class="kpi-label">Total Estudiantes</span>
-                <span class="kpi-val" machineData>{{ totalStudentsCount() }}</span>
-              </div>
-              <div class="kpi-box">
-                <span class="kpi-label">Activos en Vivo</span>
-                <span class="kpi-val text-success" machineData>{{ activeNowCount() }}</span>
-              </div>
-              <div class="kpi-box">
-                <span class="kpi-label">Entregas Pendientes</span>
-                <span class="kpi-val text-warning" machineData>{{ totalPendingReviews() }}</span>
-              </div>
-              <div class="kpi-box">
-                <span class="kpi-label">Alumnos en Riesgo</span>
-                <span class="kpi-val text-danger" machineData>{{ totalAtRisk() }}</span>
-              </div>
-            </div>
+            <dashboard-kpi-widget
+              [totalStudents]="totalStudentsCount()"
+              [activeNow]="activeNowCount()"
+              [pendingReviews]="totalPendingReviews()"
+              [atRisk]="totalAtRisk()"
+            />
           }
-
-          <!-- WIDGET 2: MIS MATERIAS ASIGNADAS -->
           @case ('courses') {
-            <section class="courses-widget-container">
-              <div class="section-header">
-                <div class="header-with-badge">
-                  <h2 class="section-title">Mis Materias Asignadas</h2>
-                  <span class="badge-count">{{ courses().length }} materias</span>
-                </div>
-                <view-switcher [(mode)]="viewMode" />
-              </div>
-
-              @if (isLoading()) {
-                <skeleton-loader variant="cards" [count]="3" />
-              } @else if (courses().length === 0) {
-                <div class="empty-state">
-                  <svg lucideBookOpen class="empty-icon"></svg>
-                  <p>No tenés materias asignadas en este periodo académico.</p>
-                </div>
-              } @else if (viewMode() === 'cards') {
-                <div class="courses-grid">
-                  @for (course of courses(); track course.id) {
-                    <div 
-                      class="course-card"
-                      [style.--course-accent]="getCourseColor(course.id, course.code)"
-                      [style.--course-accent-bg]="getCourseThemeStyle(course.id, course.code).accentBg"
-                      [style.--course-accent-border]="getCourseThemeStyle(course.id, course.code).accentBorder"
-                    >
-                      <div class="course-header">
-                        <button 
-                          #courseIdentityBtn
-                          type="button"
-                          class="course-identity-btn"
-                          (click)="toggleCourseColorPicker(course.id, $event)"
-                          title="Click para cambiar el color de la materia"
-                          aria-label="Cambiar color del curso"
-                        >
-                          <span class="course-color-dot"></span>
-                          <span class="course-code" machineData>{{ course.code }}</span>
-                          <svg lucidePalette class="color-picker-hint-icon"></svg>
-                        </button>
-                        <span class="course-badge" [class.badge-risk]="course.at_risk > 0">
-                          @if (course.at_risk > 0) {
-                            {{ course.at_risk }} en riesgo
-                          } @else {
-                            Al día
-                          }
-                        </span>
-                      </div>
-
-                      @if (activeColorPickerCourseId() === course.id) {
-                        <div 
-                          class="course-color-popover" 
-                          dismissible 
-                          [dismissExclude]="courseIdentityBtn"
-                          (dismiss)="activeColorPickerCourseId.set(null)"
-                        >
-                          <course-color-picker
-                            [courseId]="course.id"
-                            [courseCode]="course.code"
-                            [selectedColor]="getCourseColor(course.id, course.code)"
-                            (colorChange)="onCourseColorChanged(course.id, $event)"
-                          ></course-color-picker>
-                        </div>
-                      }
-                      <h3 class="course-title">{{ course.name }}</h3>
-
-                      <div class="course-stats">
-                        <div class="stat-item">
-                          <span class="stat-label">Alumnos</span>
-                          <span class="stat-value" machineData>{{ course.students_count }}</span>
-                        </div>
-                        <div class="stat-item">
-                          <span class="stat-label">Activos</span>
-                          <span class="stat-value text-success" machineData>{{ course.active_now }}</span>
-                        </div>
-                        <div class="stat-item">
-                          <span class="stat-label">Revisiones</span>
-                          <span class="stat-value text-warning" machineData>{{ course.pending_review }}</span>
-                        </div>
-                        <div class="stat-item">
-                          <span class="stat-label">En riesgo</span>
-                          <span class="stat-value" [class.text-danger]="course.at_risk > 0" machineData>{{ course.at_risk }}</span>
-                        </div>
-                      </div>
-
-                      <div class="course-actions">
-                        <a [routerLink]="['/teacher/cursos', course.id]" class="btn-primary-sm">
-                          <span>Ver Curso</span>
-                          <svg lucideArrowRight class="btn-icon-sm"></svg>
-                        </a>
-                      </div>
-                    </div>
-                  }
-                </div>
-              } @else {
-                <div class="table-responsive">
-                  <table class="solv-table">
-                    <thead>
-                      <tr>
-                        <th>Código</th>
-                        <th>Materia</th>
-                        <th class="text-center">Alumnos</th>
-                        <th class="text-center">Activos</th>
-                        <th class="text-center">Pendientes</th>
-                        <th class="text-center">En Riesgo</th>
-                        <th>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (course of courses(); track course.id) {
-                        <tr>
-                          <td><span class="font-mono" machineData>{{ course.code }}</span></td>
-                          <td><span class="font-bold">{{ course.name }}</span></td>
-                          <td class="text-center font-mono" machineData>{{ course.students_count }}</td>
-                          <td class="text-center font-mono text-success" machineData>{{ course.active_now }}</td>
-                          <td class="text-center font-mono text-warning" machineData>{{ course.pending_review }}</td>
-                          <td class="text-center font-mono" [class.text-danger]="course.at_risk > 0" machineData>{{ course.at_risk }}</td>
-                          <td>
-                            <a [routerLink]="['/teacher/cursos', course.id]" class="btn-primary-sm">
-                              <span>Ver</span>
-                              <svg lucideArrowRight class="btn-icon-sm"></svg>
-                            </a>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              }
-            </section>
+            <dashboard-courses-widget
+              [courses]="courses()"
+              [isLoading]="isLoading()"
+            />
           }
-
-          <!-- WIDGET 3: ATENCIÓN REQUERIDA -->
           @case ('attention') {
-            <section class="attention-widget-container">
-              <div class="section-header">
-                <h2 class="section-title">Atención Requerida</h2>
-                @if (criticalCount() + warningCount() + standardCount() > 0) {
-                  <span class="badge-count badge-count-warning">{{ criticalCount() + warningCount() + standardCount() }}</span>
-                }
-              </div>
-
-              @if (isLoading()) {
-                <skeleton-loader variant="cards" [count]="2" />
-              } @else if (!attention() || (criticalCount() === 0 && warningCount() === 0 && standardCount() === 0)) {
-                <div class="empty-state">
-                  <svg lucideCheckCircle2 class="empty-icon text-success"></svg>
-                  <p>Todo en orden. No hay alertas críticas ni revisiones pendientes.</p>
-                </div>
-              } @else {
-                <div class="attention-cards-list">
-                  <!-- Críticas: OOM Killed -->
-                  @for (crit of attention()?.critical || []; track crit.workspace_id) {
-                    <div class="attention-card card-critical">
-                      <div class="attention-badge">
-                        <svg lucideFlame class="badge-icon"></svg>
-                        <span>Exceso de Memoria (OOM)</span>
-                      </div>
-                      <p class="attention-desc">
-                        El contenedor de <strong>{{ crit.student_name }}</strong> fue detenido por superar el límite de RAM.
-                      </p>
-                      <div class="attention-footer">
-                        <time class="attention-time font-mono">
-                          {{ crit.occurred_at | dateText:'compact-datetime' }}
-                        </time>
-                        <a [routerLink]="['/teacher/cursos', crit.subject_id]" class="btn-action-sm">
-                          <span>Ver espacio</span>
-                          <svg lucideArrowRight class="btn-icon-sm"></svg>
-                        </a>
-                      </div>
-                    </div>
-                  }
-
-                  <!-- Advertencias: AST Bloqueado -->
-                  @for (warn of attention()?.warning || []; track warn.student_id + '-' + warn.exercise_id) {
-                    <div class="attention-card card-warning">
-                      <div class="attention-badge">
-                        <svg lucideShieldAlert class="badge-icon"></svg>
-                        <span>Restricción AST / Semgrep</span>
-                      </div>
-                      <p class="attention-desc">
-                        <strong>{{ warn.student_name }}</strong> intentó usar funciones prohibidas (<code>{{ warn.rule_violated }}</code>).
-                      </p>
-                      <div class="attention-footer">
-                        <time class="attention-time font-mono">
-                          {{ warn.occurred_at | dateText:'compact-datetime' }}
-                        </time>
-                        <a [routerLink]="['/teacher/anti-plagio']" class="btn-action-sm">
-                          <span>Auditar AST</span>
-                          <svg lucideArrowRight class="btn-icon-sm"></svg>
-                        </a>
-                      </div>
-                    </div>
-                  }
-
-                  <!-- Estándar: Entregas Pendientes -->
-                  @for (std of attention()?.standard || []; track std.submission_id) {
-                    <div class="attention-card card-standard">
-                      <div class="attention-badge">
-                        <svg lucideClock class="badge-icon"></svg>
-                        <span>Pendiente de Calificar</span>
-                      </div>
-                      <p class="attention-desc">
-                        <strong>{{ std.student_name }}</strong> entregó <em>{{ std.exercise_title }}</em>.
-                      </p>
-                      <div class="attention-footer">
-                        <time class="attention-time font-mono">
-                          {{ std.submitted_at | dateText:'compact-datetime' }}
-                        </time>
-                        <a [routerLink]="['/teacher/revision', std.submission_id]" class="btn-action-sm">
-                          <span>SpeedGrader</span>
-                          <svg lucideArrowRight class="btn-icon-sm"></svg>
-                        </a>
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </section>
+            <dashboard-attention-widget
+              [attention]="attention()"
+              [isLoading]="isLoading()"
+            />
           }
-
-          <!-- WIDGET 4: SESIONES EN VIVO Y TELEMETRÍA -->
           @case ('live_sessions') {
-            <section class="live-sessions-widget-container">
-              <div class="section-header">
-                <div class="header-with-badge">
-                  <h2 class="section-title">Sesiones de Laboratorio en Vivo</h2>
-                  <span class="badge-count badge-live">{{ liveSessions().length }} activos</span>
-                </div>
-              </div>
-
-              @if (liveSessions().length === 0) {
-                <div class="empty-state">
-                  <svg lucideTerminal class="empty-icon"></svg>
-                  <p>No hay alumnos con contenedores de laboratorio activos en este momento.</p>
-                </div>
-              } @else {
-                <div class="table-responsive">
-                  <table class="solv-table">
-                    <thead>
-                      <tr>
-                        <th>Estudiante</th>
-                        <th>Materia</th>
-                        <th>Estado</th>
-                        <th>RAM Asignada</th>
-                        <th>Strikes OOM</th>
-                        <th>Último Latido</th>
-                        <th>Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      @for (session of liveSessions(); track session.workspace_id) {
-                        <tr>
-                          <td>
-                            <div class="student-info">
-                              <span class="student-name">{{ session.student_name }}</span>
-                              <span class="student-email font-mono">{{ session.student_email }}</span>
-                            </div>
-                          </td>
-                          <td><span class="course-tag">{{ session.subject_name }}</span></td>
-                          <td>
-                            <span class="status-pill status-running">En ejecución</span>
-                          </td>
-                          <td>
-                            <span class="font-mono" machineData>{{ session.memory_limit_mb }} MB</span>
-                          </td>
-                          <td>
-                            <span class="font-mono" [class.text-danger]="session.oom_strikes > 0" machineData>
-                              {{ session.oom_strikes }}
-                            </span>
-                          </td>
-                          <td>
-                            <time class="font-mono">
-                              {{ session.last_heartbeat | dateText:'compact-datetime' }}
-                            </time>
-                          </td>
-                          <td>
-                            <button
-                              type="button"
-                              class="btn-terminal-sm"
-                              (click)="openTerminal(session)"
-                              title="Abrir terminal remota de tutoría (Shadow Terminal)"
-                            >
-                              <svg lucideTerminal class="btn-icon-xs"></svg>
-                              <span>Terminal</span>
-                            </button>
-                          </td>
-                        </tr>
-                      }
-                    </tbody>
-                  </table>
-                </div>
-              }
-            </section>
+            <dashboard-telemetry-widget
+              [sessions]="liveSessions()"
+              [isLoading]="isLoading()"
+              [isPollingActive]="isPollingActive()"
+              [pollingRateMs]="pollingRateMs()"
+              (pollingRateChange)="setPollingRate($event)"
+              (refresh)="refreshLiveSessions()"
+              (openTerminal)="openTerminal($event)"
+            />
           }
         }
       </div>

@@ -31,7 +31,16 @@ describe('TeacherDashboardComponent', () => {
 
     const mockLiveService = {
       liveSessions: () => [],
-      loadLiveSessions: () => of([])
+      isLoading: () => false,
+      pollingIntervalMs: () => 3000,
+      isPollingActive: () => true,
+      lastUpdated: () => new Date(),
+      loadLiveSessions: () => of([]),
+      startPolling: vi.fn(),
+      stopPolling: vi.fn(),
+      setPollingInterval: vi.fn(),
+      pausePolling: vi.fn(),
+      resumePolling: vi.fn()
     };
 
     await TestBed.configureTestingModule({
@@ -58,13 +67,13 @@ describe('TeacherDashboardComponent', () => {
     localStorage.clear();
   });
 
-  it('should initialize with default widgets and course accents', () => {
+  it('should initialize with default widgets and compute reactive stats', () => {
     expect(component).toBeTruthy();
     expect(component.widgets().length).toBe(TEACHER_DEFAULT_WIDGETS.length);
-    const color = component.getCourseColor('c1', 'CS101');
-    expect(color).toBeTruthy();
-    const style = component.getCourseThemeStyle('c1', 'CS101');
-    expect(style.accentBg).toContain('rgba');
+    expect(component.totalStudentsCount()).toBe(20);
+    expect(component.activeNowCount()).toBe(5);
+    expect(component.totalPendingReviews()).toBe(2);
+    expect(component.greetingMessage().text).toContain('Panel docente activo');
   });
 
   it('should toggle customize mode', () => {

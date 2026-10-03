@@ -248,9 +248,15 @@ export interface LiveWorkspaceSession {
   subject_name: string;
   status: string;
   memory_limit_mb: number;
+  memory_used_mb?: number;
+  cpu_percent?: number;
   oom_strikes: number;
   last_heartbeat: string;
   is_attached: boolean;
+  activity_state?: 'typing' | 'idle' | 'executing' | 'oom_warning';
+  wpm?: number;
+  memory_history?: number[];
+  cpu_history?: number[];
 }
 
 export interface TutorCommandResponse {

@@ -1,0 +1,85 @@
+<section class="attention-widget-container">
+  <div class="section-header">
+    <h2 class="section-title">Atención Requerida</h2>
+    @if (totalAlertsCount() > 0) {
+      <span class="badge-count badge-count-warning">{{ totalAlertsCount() }}</span>
+    }
+  </div>
+
+  @if (isLoading()) {
+    <skeleton-loader variant="cards" [count]="2" />
+  } @else if (!attention() || totalAlertsCount() === 0) {
+    <div class="empty-state">
+      <svg lucideCheckCircle2 class="empty-icon text-success"></svg>
+      <p>Todo en orden. No hay alertas críticas ni revisiones pendientes.</p>
+    </div>
+  } @else {
+    <div class="attention-cards-list">
+      <!-- Críticas: OOM Killed -->
+      @for (crit of attention()?.critical || []; track crit.workspace_id) {
+        <div class="attention-card card-critical">
+          <div class="attention-badge">
+            <svg lucideFlame class="badge-icon"></svg>
+            <span>Exceso de Memoria (OOM)</span>
+          </div>
+          <p class="attention-desc">
+            El contenedor de <strong>{{ crit.student_name }}</strong> fue detenido por superar el límite de RAM.
+          </p>
+          <div class="attention-footer">
+            <time class="attention-time font-mono">
+              {{ crit.occurred_at | dateText:'compact-datetime' }}
+            </time>
+            <a [routerLink]="['/teacher/cursos', crit.subject_id]" class="btn-action-sm">
+              <span>Ver espacio</span>
+              <svg lucideArrowRight class="btn-icon-sm"></svg>
+            </a>
+          </div>
+        </div>
+      }
+
+      <!-- Advertencias: AST Bloqueado -->
+      @for (warn of attention()?.warning || []; track warn.student_id + '-' + warn.exercise_id) {
+        <div class="attention-card card-warning">
+          <div class="attention-badge">
+            <svg lucideShieldAlert class="badge-icon"></svg>
+            <span>Restricción AST / Semgrep</span>
+          </div>
+          <p class="attention-desc">
+            <strong>{{ warn.student_name }}</strong> intentó usar funciones prohibidas (<code>{{ warn.rule_violated }}</code>).
+          </p>
+          <div class="attention-footer">
+            <time class="attention-time font-mono">
+              {{ warn.occurred_at | dateText:'compact-datetime' }}
+            </time>
+            <a [routerLink]="['/teacher/anti-plagio']" class="btn-action-sm">
+              <span>Auditar AST</span>
+              <svg lucideArrowRight class="btn-icon-sm"></svg>
+            </a>
+          </div>
+        </div>
+      }
+
+      <!-- Estándar: Entregas Pendientes -->
+      @for (std of attention()?.standard || []; track std.submission_id) {
+        <div class="attention-card card-standard">
+          <div class="attention-badge">
+            <svg lucideClock class="badge-icon"></svg>
+            <span>Pendiente de Calificar</span>
+          </div>
+          <p class="attention-desc">
+            <strong>{{ std.student_name }}</strong> entregó <em>{{ std.exercise_title }}</em>.
+          </p>
+          <div class="attention-footer">
+            <time class="attention-time font-mono">
+              {{ std.submitted_at | dateText:'compact-datetime' }}
+            </time>
+            <a [routerLink]="['/teacher/revision', std.submission_id]" class="btn-action-sm">
+              <span>SpeedGrader</span>
+              <svg lucideArrowRight class="btn-icon-sm"></svg>
+            </a>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>
