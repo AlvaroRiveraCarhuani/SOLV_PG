@@ -7,8 +7,10 @@ import {
   CreateExerciseRequestDTO,
   UpdateExerciseRequestDTO,
   BulkTestCasesRequestDTO,
-  PlagiarismReport
+  PlagiarismReport,
+  CourseGradesMatrix
 } from '../models/teacher.models';
+
 
 interface ApiResponse<T> {
   data: T;
@@ -89,12 +91,19 @@ export class TeacherCourseService {
     );
   }
 
+  getCourseGradesMatrix(subjectId: string): Observable<CourseGradesMatrix> {
+    return this.http.get<ApiResponse<CourseGradesMatrix>>(`/api/v1/teacher/courses/${subjectId}/grades/matrix`).pipe(
+      map(res => res.data)
+    );
+  }
+
   exportGradesCsv(subjectId: string): Observable<Blob> {
     return this.http.get(`/api/v1/teacher/courses/${subjectId}/grades/export`, {
       params: new HttpParams().set('format', 'csv'),
       responseType: 'blob'
     });
   }
+
 
   analyzePlagiarism(subjectId: string, exerciseId?: string): Observable<PlagiarismReport> {
     let params = new HttpParams();

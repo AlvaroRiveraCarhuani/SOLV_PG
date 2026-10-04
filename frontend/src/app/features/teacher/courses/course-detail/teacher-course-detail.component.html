@@ -271,4 +271,14 @@
   />
 }
 
+@if (showExportModal()) {
+  <gradebook-export-modal
+    [subjectId]="subjectId()"
+    [subjectName]="courseInfo()?.name || 'Materia'"
+    [subjectCode]="courseInfo()?.code || ''"
+    (close)="closeExportModal()"
+  />
+}
+
+
 

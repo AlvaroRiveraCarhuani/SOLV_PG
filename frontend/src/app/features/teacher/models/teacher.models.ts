@@ -334,5 +334,26 @@ export interface RunBenchmarkRequestDTO {
   preset?: 'small' | 'standard' | 'stress';
 }
 
+export interface CourseExerciseHeader {
+  id: string;
+  title: string;
+}
+
+export interface StudentGradesRow {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  grades: Record<string, number>;
+  average: number;
+}
+
+export interface CourseGradesMatrix {
+  subject_id: string;
+  subject_name: string;
+  subject_code: string;
+  exercises: CourseExerciseHeader[];
+  students: StudentGradesRow[];
+}
+
 
 

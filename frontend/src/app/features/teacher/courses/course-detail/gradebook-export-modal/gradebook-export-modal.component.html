@@ -1,0 +1,271 @@
+<div class="modal-backdrop" (click)="onClose()">
+  <div class="modal-dialog" (click)="$event.stopPropagation()">
+    <!-- Header Principal -->
+    <header class="modal-header">
+      <div class="header-title-wrap">
+        <div class="header-icon-badge">
+          <svg lucideFileSpreadsheet class="modal-icon"></svg>
+        </div>
+        <div>
+          <h2 class="modal-title">Exportar Planilla de Calificaciones</h2>
+          <p class="modal-subtitle">
+            Materia: <strong>{{ subjectName }}</strong> ({{ subjectCode }}) · {{ totalStudentsCount() }} alumnos registrados
+          </p>
+        </div>
+      </div>
+
+      <button type="button" class="btn-close-header" (click)="onClose()" title="Cerrar modal (Esc)">
+        <svg lucideX class="icon-sm"></svg>
+      </button>
+    </header>
+
+    <!-- Resumen KPI Rápido -->
+    <div class="kpi-summary-strip">
+      <div class="kpi-item">
+        <span class="kpi-label">Estudiantes</span>
+        <span class="kpi-val font-mono" machineData>{{ totalStudentsCount() }}</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Laboratorios</span>
+        <span class="kpi-val font-mono" machineData>{{ matrix()?.exercises?.length || 0 }}</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Promedio del Curso</span>
+        <span class="kpi-val font-mono" machineData>{{ courseAverage() }} / 100</span>
+      </div>
+      <div class="kpi-item">
+        <span class="kpi-label">Aprobados</span>
+        <span class="kpi-val font-mono text-success" machineData>{{ passingPercentage() }}% ({{ passingCount() }})</span>
+      </div>
+    </div>
+
+    <!-- Sección de Progressive Disclosure: Personalización Avanzada (Opcional) -->
+    <div class="customization-accordion" [class.is-open]="isAdvancedOpen()">
+      <button type="button" class="accordion-trigger" (click)="toggleAdvanced()">
+        <div class="trigger-left">
+          <svg lucideSlidersHorizontal class="trigger-icon"></svg>
+          <span class="trigger-title">Personalizar columnas y colores de exportación</span>
+          <span class="trigger-tag">Opcional</span>
+        </div>
+        <div class="trigger-right">
+          <span class="trigger-hint">{{ isAdvancedOpen() ? 'Ocultar ajustes' : 'Configurar diseño y paleta' }}</span>
+          @if (isAdvancedOpen()) {
+            <svg lucideChevronUp class="chevron-icon"></svg>
+          } @else {
+            <svg lucideChevronDown class="chevron-icon"></svg>
+          }
+        </div>
+      </button>
+
+      @if (isAdvancedOpen()) {
+        <div class="accordion-body">
+          <!-- Paletas Predeterminadas -->
+          <div class="config-section">
+            <span class="config-label">
+              <svg lucidePalette class="section-icon"></svg>
+              <span>Paletas Rápidas:</span>
+            </span>
+            <div class="presets-row">
+              @for (preset of presets; track preset.id) {
+                <button
+                  type="button"
+                  class="btn-preset-pill"
+                  [class.active]="activePresetId() === preset.id"
+                  (click)="applyPreset(preset)"
+                >
+                  <span class="preset-swatches">
+                    <span class="swatch-dot" [style.background-color]="preset.infoColor"></span>
+                    <span class="swatch-dot" [style.background-color]="preset.labColor"></span>
+                    <span class="swatch-dot" [style.background-color]="preset.avgColor"></span>
+                  </span>
+                  <span>{{ preset.name }}</span>
+                </button>
+              }
+            </div>
+          </div>
+
+          <!-- Selector de Columnas y Colores Individuales -->
+          <div class="config-section columns-config-section">
+            <div class="section-header-row">
+              <span class="config-label">Columnas a Incluir y Colores por Encabezado:</span>
+              <button type="button" class="btn-reset-cols" (click)="resetToDefaults()">
+                <svg lucideRotateCcw class="btn-icon-xs"></svg>
+                <span>Restablecer</span>
+              </button>
+            </div>
+
+            <div class="columns-chips-grid">
+              @for (col of columns(); track col.key) {
+                <div class="column-config-card" [class.is-excluded]="!col.visible">
+                  <div class="col-main-toggle">
+                    <button
+                      type="button"
+                      class="btn-toggle-vis"
+                      (click)="toggleColumnVisibility(col.key)"
+                      [title]="col.visible ? 'Ocultar esta columna del archivo' : 'Incluir columna'"
+                    >
+                      @if (col.visible) {
+                        <svg lucideEye class="vis-icon text-primary"></svg>
+                      } @else {
+                        <svg lucideEyeOff class="vis-icon text-muted"></svg>
+                      }
+                    </button>
+                    <span class="col-name" [title]="col.label">{{ col.label }}</span>
+                  </div>
+
+                  <div class="color-picker-wrapper">
+                    <!-- Selector de color nativo / paleta rápida -->
+                    <label class="color-swatch-picker" [style.background-color]="col.headerColor" title="Cambiar color del encabezado">
+                      <input
+                        type="color"
+                        [ngModel]="col.headerColor"
+                        (ngModelChange)="setColumnColor(col.key, $event)"
+                        class="color-native-input"
+                      />
+                    </label>
+
+                    <div class="swatches-quick-list">
+                      @for (s of swatches; track s.hex) {
+                        <button
+                          type="button"
+                          class="swatch-mini"
+                          [style.background-color]="s.hex"
+                          [class.active]="col.headerColor === s.hex"
+                          (click)="setColumnColor(col.key, s.hex, s.textHex)"
+                          [title]="s.label"
+                        ></button>
+                      }
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+
+          <!-- Ajustes de Resaltado -->
+          <div class="config-section highlights-section">
+            <span class="config-label">
+              <svg lucideEye class="section-icon"></svg>
+              <span>Resaltado Condicional:</span>
+            </span>
+            <div class="highlights-options-row">
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [ngModel]="highlightFailing()"
+                  (ngModelChange)="highlightFailing.set($event)"
+                />
+                <span>Destacar reprobados (&lt; {{ failingThreshold() }} pts)</span>
+              </label>
+
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  [ngModel]="highlightPassing()"
+                  (ngModelChange)="highlightPassing.set($event)"
+                />
+                <span>Destacar aprobados (&ge; {{ failingThreshold() }} pts)</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+
+    <!-- Previsualización en Vivo de la Planilla -->
+    <div class="preview-section">
+      <div class="preview-header">
+        <span class="preview-title">
+          <svg lucideFileSpreadsheet class="preview-icon"></svg>
+          <span>Previsualización en tiempo real del reporte</span>
+        </span>
+        <span class="preview-hint">Las cabeceras reflejan el color exacto que tendrá el archivo Excel / Reporte</span>
+      </div>
+
+      <div class="table-preview-container">
+        @if (isLoading()) {
+          <div class="preview-loading">
+            <span class="loading-spinner"></span>
+            <span>Cargando matriz de calificaciones...</span>
+          </div>
+        } @else if (!matrix() || matrix()!.students.length === 0) {
+          <div class="preview-empty">
+            <p>No hay estudiantes con notas registradas en este curso todavía.</p>
+          </div>
+        } @else {
+          <div class="table-responsive-box">
+            <table class="preview-grid-table">
+              <thead>
+                <tr>
+                  @for (col of visibleColumns(); track col.key) {
+                    <th [style.background-color]="col.headerColor" [style.color]="col.textColor">
+                      <div class="th-content">
+                        <span>{{ col.label }}</span>
+                      </div>
+                    </th>
+                  }
+                </tr>
+              </thead>
+              <tbody>
+                @for (student of matrix()!.students; track student.student_id) {
+                  <tr>
+                    @for (col of visibleColumns(); track col.key) {
+                      @if (col.key === 'student_id') {
+                        <td class="font-mono text-muted" machineData>{{ student.student_id }}</td>
+                      } @else if (col.key === 'student_name') {
+                        <td class="font-bold">{{ student.student_name }}</td>
+                      } @else if (col.key === 'student_email') {
+                        <td class="font-mono text-muted">{{ student.student_email }}</td>
+                      } @else {
+                        <td 
+                          class="font-mono text-right"
+                          [class.score-failing]="highlightFailing() && getStudentScore(student, col) < failingThreshold()"
+                          [class.score-passing]="highlightPassing() && getStudentScore(student, col) >= failingThreshold()"
+                          [class.score-average]="col.key === 'average'"
+                          machineData
+                        >
+                          {{ getStudentScore(student, col) }}
+                        </td>
+                      }
+                    }
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      </div>
+    </div>
+
+    <!-- Footer con Acciones de Descarga -->
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-outline" (click)="onClose()">
+        <span>Cancelar</span>
+      </button>
+
+      <div class="export-actions-right">
+        <button
+          type="button"
+          class="btn btn-outline"
+          (click)="exportCsv()"
+          [disabled]="isLoading() || isExporting()"
+          title="Descargar en formato CSV estándar para sistemas externos (Moodle/SGA)"
+        >
+          <svg lucideFileText class="btn-icon"></svg>
+          <span>Exportar CSV Plano</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn btn-primary btn-export-excel"
+          (click)="exportExcel()"
+          [disabled]="isLoading() || isExporting()"
+          title="Descargar planilla con formato y colores personalizados en Microsoft Excel"
+        >
+          <svg lucideDownload class="btn-icon"></svg>
+          <span>Descargar Excel Estilizado (.xlsx)</span>
+        </button>
+      </div>
+    </footer>
+  </div>
+</div>

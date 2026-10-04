@@ -27,6 +27,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
+import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -60,18 +61,20 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
     FuzzingModalComponent,
+    GradebookExportModalComponent,
     ComboboxComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
 })
+
 export class TeacherCourseDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private courseService = inject(TeacherCourseService);
   private dashboardService = inject(TeacherDashboardService);
 
   readonly verdictOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
     { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
     { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
@@ -99,7 +102,9 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   verdictFilter = signal<string>('all');
   publishError = signal<string | null>(null);
+  showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
+
 
   filteredSubmissions = computed(() => {
     const filter = this.verdictFilter();
@@ -159,27 +164,13 @@ export class TeacherCourseDetailComponent implements OnInit {
   }
 
   exportGrades(): void {
-    const id = this.subjectId();
-    if (!id) return;
-
-    this.isExporting.set(true);
-    this.courseService.exportGradesCsv(id).subscribe({
-      next: (blob) => {
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `notas_curso_${id}_${new Date().toISOString().slice(0, 10)}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        this.isExporting.set(false);
-      },
-      error: () => {
-        this.isExporting.set(false);
-      }
-    });
+    this.showExportModal.set(true);
   }
+
+  closeExportModal(): void {
+    this.showExportModal.set(false);
+  }
+
 
   openPauseConfirmModal(): void {
     this.showPauseConfirmModal.set(true);
