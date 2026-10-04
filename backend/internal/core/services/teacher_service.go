@@ -212,7 +212,18 @@ func (s *TeacherService) RunEphemeral(ctx context.Context, tenantID, teacherID, 
 	}, nil
 }
 
+func (s *TeacherService) GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*domain.CourseGradesMatrix, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if subjectID == "" {
+		return nil, domain.ErrNotFound
+	}
+	return s.repo.GetCourseGradesMatrix(ctx, tenantID, teacherID, subjectID)
+}
+
 func (s *TeacherService) ExportCourseGradesCSV(ctx context.Context, tenantID, teacherID, subjectID string) ([]byte, string, error) {
+
 	if tenantID == "" {
 		return nil, "", domain.ErrInvalidTenant
 	}
