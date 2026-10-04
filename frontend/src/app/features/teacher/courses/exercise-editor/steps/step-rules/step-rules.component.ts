@@ -23,7 +23,6 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 export class StepRulesComponent {
   blockNativeSort = model.required<boolean>();
   blockSystemModules = model.required<boolean>();
-  forceRecursion = model.required<boolean>();
   boilerplate = model.required<string>();
   language = input.required<string>();
 }

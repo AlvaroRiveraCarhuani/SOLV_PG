@@ -35,18 +35,6 @@
           <span class="rule-code" machineData>Bloquea import os, sys, subprocess, socket, fetch</span>
         </div>
       </label>
-
-      <label class="rule-checkbox-card">
-        <input
-          type="checkbox"
-          [checked]="forceRecursion()"
-          (change)="forceRecursion.set($any($event.target).checked)"
-        />
-        <div class="rule-text">
-          <span class="rule-name">Exigir implementación recursiva</span>
-          <span class="rule-code" machineData>Valida llamada a la misma función en el cuerpo del AST</span>
-        </div>
-      </label>
     </div>
   </div>
 

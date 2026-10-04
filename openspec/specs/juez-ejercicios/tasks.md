@@ -44,8 +44,8 @@ Estimación: 1800–2200 líneas. División: PR1 → PR2 → PR3 → PR4 → PR5
 
 ## Fase 6: Editor (depende de 2 y 5)
 
-- [ ] 6.1 Modificar `exercise-editor/` (parámetros visibles, panel dry-run con badge stale que bloquea publicar, sale `forceRecursion`, cableado blockNativeSort/blockSystemModules). Aceptación: `ng test` pasa; `npm run build` termina.
-- [ ] 6.2 Extracción i18n EJ-* §4 (17 claves; EJ-ERR-RANGE interpola {campo}). Aceptación: sin faltantes ni sobrantes.
+- [x] 6.1 Modificar `exercise-editor/` (parámetros visibles, panel dry-run con badge stale que bloquea publicar, sale `forceRecursion`, cableado blockNativeSort/blockSystemModules). Aceptación: `ng test` pasa; `npm run build` termina.
+- [x] 6.2 Extracción i18n EJ-* §4 (17 claves; EJ-ERR-RANGE interpola {campo}). Aceptación: sin faltantes ni sobrantes.
 
 ## Fase 7: Candado y gates (depende de 1–6)
 

@@ -48,13 +48,6 @@
     </button>
   </div>
 
-  @if (formError()) {
-    <div class="error-banner">
-      <svg lucideAlertCircle class="error-icon"></svg>
-      <span>{{ formError() }}</span>
-    </div>
-  }
-
   <div class="wizard-body">
     @if (currentStep() === 1) {
       <step-general
@@ -64,9 +57,11 @@
         [(dueDate)]="dueDate"
         [(hasDueDate)]="hasDueDate"
         [(labType)]="labType"
+        [labTypeError]="labTypeError()"
         [lockLabType]="!!initialTemplate()"
         [lockedTemplateName]="initialTemplate()?.name || ''"
         [(pedagogicalPurpose)]="pedagogicalPurpose"
+        [purposeError]="purposeError()"
         [(allowBroadcast)]="allowBroadcast"
         [(description)]="description"
       />
@@ -74,7 +69,7 @@
 
     @if (currentStep() === 2) {
       <step-technical
-        [labType]="labType()"
+        [labType]="labType() || 'ALGORITMO'"
         [(language)]="language"
         [(timeLimitMs)]="timeLimitMs"
         [(testCases)]="testCases"
@@ -94,7 +89,6 @@
       <step-rules
         [(blockNativeSort)]="blockNativeSort"
         [(blockSystemModules)]="blockSystemModules"
-        [(forceRecursion)]="forceRecursion"
         [(boilerplate)]="boilerplate"
         [language]="language()"
       />

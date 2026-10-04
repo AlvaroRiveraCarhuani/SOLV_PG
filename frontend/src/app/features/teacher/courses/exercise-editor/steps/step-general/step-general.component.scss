@@ -20,6 +20,13 @@
   }
 }
 
+.field-error-message {
+  margin-top: var(--space-1);
+  font-size: var(--text-2xs);
+  color: var(--color-error);
+  font-weight: 500;
+}
+
 .due-date-control-group {
   display: flex;
   flex-direction: column;

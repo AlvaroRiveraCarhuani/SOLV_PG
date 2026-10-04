@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { 
   LucideCode, 
-  LucideAlertCircle, 
   LucideCheck, 
   LucideChevronRight, 
   LucideChevronLeft 
@@ -25,7 +24,6 @@ export type { TestCaseFormItem, WorkspaceTemplateOption };
   imports: [
     CommonModule,
     LucideCode,
-    LucideAlertCircle,
     LucideCheck,
     LucideChevronRight,
     LucideChevronLeft,
@@ -60,9 +58,11 @@ export class ExerciseEditorModalComponent implements OnInit {
   description = signal<string>('');
   dueDate = signal<string>('');
   hasDueDate = signal<boolean>(false);
-  labType = signal<'ALGORITMO' | 'IDE_PERSISTENTE'>('ALGORITMO');
-  pedagogicalPurpose = signal<'PRACTICE' | 'EXAM'>('PRACTICE');
-  allowBroadcast = signal<boolean>(true);
+  labType = signal<'ALGORITMO' | 'IDE_PERSISTENTE' | null>(null);
+  labTypeError = signal<string | null>(null);
+  pedagogicalPurpose = signal<'PRACTICE' | 'EXAM' | null>(null);
+  purposeError = signal<string | null>(null);
+  allowBroadcast = signal<boolean>(false);
 
   // PASO 2A: Configuración Juez Virtual
   language = signal<string>('python');
@@ -151,7 +151,6 @@ export class ExerciseEditorModalComponent implements OnInit {
   // PASO 3: Restricciones AST y Boilerplate
   blockNativeSort = signal<boolean>(false);
   blockSystemModules = signal<boolean>(true);
-  forceRecursion = signal<boolean>(false);
   boilerplate = signal<string>('');
 
   // Modales secundarios
@@ -248,23 +247,40 @@ export class ExerciseEditorModalComponent implements OnInit {
   }
 
   goToStep(step: 1 | 2 | 3): void {
-    this.formError.set(null);
     this.titleError.set(null);
-    if (step > 1 && !this.title().trim()) {
-      const msg = 'El título del laboratorio es obligatorio para continuar.';
-      this.formError.set(msg);
-      this.titleError.set(msg);
-      return;
+    this.labTypeError.set(null);
+    this.purposeError.set(null);
+
+    if (step > 1) {
+      let hasError = false;
+      if (!this.title().trim()) {
+        this.titleError.set('El título del laboratorio es obligatorio para continuar.');
+        hasError = true;
+      }
+      if (!this.labType()) {
+        this.labTypeError.set('Debe seleccionar la modalidad del laboratorio.');
+        hasError = true;
+      }
+      if (!this.pedagogicalPurpose()) {
+        this.purposeError.set('Debe seleccionar el propósito pedagógico.');
+        hasError = true;
+      }
+      if (hasError) {
+        this.currentStep.set(1);
+        return;
+      }
     }
     this.currentStep.set(step);
   }
 
   setLabType(type: 'ALGORITMO' | 'IDE_PERSISTENTE'): void {
     this.labType.set(type);
+    this.labTypeError.set(null);
   }
 
   setPedagogicalPurpose(purpose: 'PRACTICE' | 'EXAM'): void {
     this.pedagogicalPurpose.set(purpose);
+    this.purposeError.set(null);
     this.allowBroadcast.set(purpose === 'PRACTICE');
   }
 
@@ -299,9 +315,24 @@ export class ExerciseEditorModalComponent implements OnInit {
   }
 
   submit(publish: boolean = false): void {
-    this.formError.set(null);
+    this.titleError.set(null);
+    this.labTypeError.set(null);
+    this.purposeError.set(null);
+
+    let hasError = false;
     if (!this.title().trim()) {
-      this.formError.set('El título del laboratorio es obligatorio.');
+      this.titleError.set('El título del laboratorio es obligatorio para continuar.');
+      hasError = true;
+    }
+    if (!this.labType()) {
+      this.labTypeError.set('Debe seleccionar la modalidad del laboratorio.');
+      hasError = true;
+    }
+    if (!this.pedagogicalPurpose()) {
+      this.purposeError.set('Debe seleccionar el propósito pedagógico.');
+      hasError = true;
+    }
+    if (hasError) {
       this.currentStep.set(1);
       return;
     }
@@ -415,17 +446,17 @@ export class ExerciseEditorModalComponent implements OnInit {
         return `#include <iostream>\n\nusing namespace std;\n\nint main() {\n    // Tu solucion aqui\n    return 0;\n}`;
       case 'c':
         return `#include <stdio.h>\n\nint main() {\n    // Tu solucion aqui\n    return 0;\n}`;
-      case 'go':
-        return `package main\n\nimport "fmt"\n\nfunc main() {\n    // Tu solucion aqui\n}`;
-      case 'sql':
-        return `-- Escribe tu consulta SQL aqui\nSELECT * FROM tabla;`;
+      case 'csharp':
+        return `using System;\n\npublic class Program {\n    public static void Main(string[] args) {\n        // Tu solucion aqui\n    }\n}`;
+      case 'java':
+        return `import java.util.Scanner;\n\npublic class Solution {\n    public static void main(String[] args) {\n        // Tu solucion aqui\n    }\n}`;
       default:
         return '';
     }
   }
 
   private isDefaultBoilerplate(code: string): boolean {
-    const defaults = ['python', 'javascript', 'cpp', 'c', 'go', 'sql'].map(l => this.getDefaultBoilerplate(l));
+    const defaults = ['python', 'javascript', 'cpp', 'c', 'csharp', 'java'].map(l => this.getDefaultBoilerplate(l));
     return defaults.includes(code.trim());
   }
 }

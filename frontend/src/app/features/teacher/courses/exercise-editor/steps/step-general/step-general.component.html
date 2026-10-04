@@ -113,6 +113,11 @@
         </div>
       </div>
     </div>
+    @if (labTypeError()) {
+      <div class="field-error-message">
+        <span>{{ labTypeError() }}</span>
+      </div>
+    }
   </div>
 
   <!-- Selector de Propósito Pedagógico (Práctica vs. Examen) -->
@@ -159,6 +164,11 @@
         </div>
       </div>
     </div>
+    @if (purposeError()) {
+      <div class="field-error-message">
+        <span>{{ purposeError() }}</span>
+      </div>
+    }
   </div>
 
   <!-- Enunciado con Tabs (Escribir / Preview Markdown) -->

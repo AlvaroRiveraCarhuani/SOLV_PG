@@ -34,12 +34,12 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     fixture.detectChanges();
   });
 
-  it('should initialize on step 1 with default ALGORITMO modality and PRACTICE purpose', () => {
+  it('should initialize on step 1 without preselected modality and purpose by default', () => {
     expect(component.currentStep()).toBe(1);
-    expect(component.labType()).toBe('ALGORITMO');
+    expect(component.labType()).toBeNull();
     expect(component.language()).toBe('python');
-    expect(component.pedagogicalPurpose()).toBe('PRACTICE');
-    expect(component.allowBroadcast()).toBe(true);
+    expect(component.pedagogicalPurpose()).toBeNull();
+    expect(component.allowBroadcast()).toBe(false);
   });
 
   it('should toggle pedagogical purpose to EXAM and disable broadcast', () => {
@@ -52,16 +52,22 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     expect(component.allowBroadcast()).toBe(true);
   });
 
-  it('should require title before advancing to step 2 and set titleError', () => {
+  it('should require title, labType and purpose before advancing to step 2', () => {
     component.title.set('');
     component.goToStep(2);
     expect(component.currentStep()).toBe(1);
-    expect(component.formError()).toBe('El título del laboratorio es obligatorio para continuar.');
     expect(component.titleError()).toBe('El título del laboratorio es obligatorio para continuar.');
+    expect(component.labTypeError()).toBe('Debe seleccionar la modalidad del laboratorio.');
+    expect(component.purposeError()).toBe('Debe seleccionar el propósito pedagógico.');
 
     component.onTitleChange('Árboles Binarios');
     expect(component.titleError()).toBeNull();
-    expect(component.formError()).toBeNull();
+
+    component.setLabType('ALGORITMO');
+    expect(component.labTypeError()).toBeNull();
+
+    component.setPedagogicalPurpose('PRACTICE');
+    expect(component.purposeError()).toBeNull();
   });
 
   it('should toggle no due date correctly', () => {
@@ -76,8 +82,10 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
     expect(component.hasDueDate()).toBe(true);
   });
 
-  it('should navigate through 3 steps when title is valid', () => {
+  it('should navigate through 3 steps when title, labType and purpose are valid', () => {
     component.title.set('Árboles AVL');
+    component.setLabType('ALGORITMO');
+    component.setPedagogicalPurpose('PRACTICE');
     component.goToStep(2);
     expect(component.currentStep()).toBe(2);
 
@@ -103,6 +111,8 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
 
   it('should submit algorithm lab with test cases and publish', () => {
     component.title.set('Grafos Dijkstra');
+    component.setLabType('ALGORITMO');
+    component.setPedagogicalPurpose('PRACTICE');
     component.testCases.set([
       { input: '4 4', expected_output: '10', is_hidden: false }
     ]);
@@ -120,6 +130,7 @@ describe('ExerciseEditorModalComponent Wizard & Governance', () => {
 
   it('should submit persistent workspace lab using approved template RAM', () => {
     component.setLabType('IDE_PERSISTENTE');
+    component.setPedagogicalPurpose('PRACTICE');
     component.title.set('Proyecto Data Science con Pandas');
     component.templateId.set('tpl-python-ds');
 

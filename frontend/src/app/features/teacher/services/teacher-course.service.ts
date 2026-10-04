@@ -82,6 +82,21 @@ export class TeacherCourseService {
     );
   }
 
+  startDryRun(exerciseId: string): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}/dry-run`, {}).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getDryRunJob(jobId: string, exerciseId?: string): Observable<any> {
+    const url = exerciseId 
+      ? `/api/v1/exercises/${exerciseId}/dry-run/jobs/${jobId}`
+      : `/api/v1/dry-run/jobs/${jobId}`;
+    return this.http.get<ApiResponse<any>>(url).pipe(
+      map(res => res.data)
+    );
+  }
+
   bulkUploadTestCases(exerciseId: string, dto: BulkTestCasesRequestDTO): Observable<{ imported_count: number }> {
     return this.http.post<ApiResponse<{ imported_count: number }>>(
       `/api/v1/exercises/${exerciseId}/test-cases/bulk`,

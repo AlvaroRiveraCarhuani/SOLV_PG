@@ -39,10 +39,12 @@ export class StepGeneralComponent {
   titleError = input<string | null>(null);
   dueDate = model.required<string>();
   hasDueDate = model.required<boolean>();
-  labType = model.required<'ALGORITMO' | 'IDE_PERSISTENTE'>();
+  labType = model<'ALGORITMO' | 'IDE_PERSISTENTE' | null>(null);
+  labTypeError = input<string | null>(null);
   lockLabType = input<boolean>(false);
   lockedTemplateName = input<string>('');
-  pedagogicalPurpose = model.required<'PRACTICE' | 'EXAM'>();
+  pedagogicalPurpose = model<'PRACTICE' | 'EXAM' | null>(null);
+  purposeError = input<string | null>(null);
   allowBroadcast = model.required<boolean>();
   description = model.required<string>();
 

@@ -64,8 +64,8 @@ export class StepTechnicalComponent {
     { id: 'javascript', label: 'JavaScript / Node.js 20', value: 'javascript' },
     { id: 'cpp', label: 'C++ (GCC 13 / C++20)', value: 'cpp' },
     { id: 'c', label: 'C (GCC 13 / C17)', value: 'c' },
-    { id: 'go', label: 'Go 1.22', value: 'go' },
-    { id: 'sql', label: 'PostgreSQL 16 SQL', value: 'sql' }
+    { id: 'csharp', label: 'C# (.NET / Mono)', value: 'csharp' },
+    { id: 'java', label: 'Java (OpenJDK 21)', value: 'java' }
   ];
   
   // Algoritmo
