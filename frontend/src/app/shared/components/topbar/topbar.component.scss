@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  flex-shrink: 0;
+}
+
 .topbar {
   height: 60px;
   background-color: var(--bg-surface);
@@ -11,6 +16,7 @@
   z-index: 50;
   user-select: none;
 }
+
 
 .topbar-left, .topbar-right {
   display: flex;

@@ -17,6 +17,8 @@
 html {
   font-size: var(--text-base);
   -webkit-text-size-adjust: 100%;
+  height: 100%;
+  overflow: hidden;
 }
 
 body {
@@ -27,8 +29,11 @@ body {
   background-color: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
 }
+
+
 
 // Fuentes Monoespaciadas para Código, Hashes y Números Tabulares
 code, pre, kbd, samp, .font-mono {

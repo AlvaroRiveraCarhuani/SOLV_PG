@@ -1,19 +1,29 @@
+:host {
+  display: block;
+  height: 100%;
+  overflow: hidden;
+}
+
 .shell-container {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
   background-color: var(--bg-canvas);
 }
+
 
 .shell-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .shell-content {
   flex: 1;
-  height: calc(100vh - 60px);
+  min-height: 0;
   overflow-y: auto;
   padding: var(--space-6);
 }
+

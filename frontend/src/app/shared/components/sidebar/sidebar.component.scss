@@ -1,15 +1,21 @@
+:host {
+  display: block;
+  height: 100%;
+  flex-shrink: 0;
+}
+
 .sidebar {
   width: 240px;
-  height: calc(100vh - 60px);
+  height: 100%;
   background-color: var(--bg-surface);
   border-right: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   transition: width var(--transition-normal);
-  overflow-x: hidden;
+  overflow: hidden auto;
   user-select: none;
-  position: sticky;
-  top: 60px;
+
+
 
   &.collapsed {
     width: 64px;
