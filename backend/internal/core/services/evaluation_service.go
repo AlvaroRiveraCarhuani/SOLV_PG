@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shirou/gopsutil/v3/mem"
 	"solv-backend/internal/core/domain"
 )
 
@@ -82,6 +83,14 @@ func NewEvaluationService(
 }
 
 
+func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
+	totalMB := 8192
+	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil && v.Total > 0 {
+		totalMB = int(v.Total / (1024 * 1024))
+	}
+	return totalMB
+}
+
 var ErrZeroPublicTestCases = fmt.Errorf("cannot publish exercise with 0 public test cases")
 
 func (s *EvaluationService) GetExerciseByID(ctx context.Context, id string) (*domain.Exercise, error) {
@@ -96,10 +105,22 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 	if ex.ID == "" {
 		ex.ID = uuid.NewString()
 	}
+	if ex.MemoryLimitMB > 0 {
+		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+		if err := domain.ValidateRamAgainstHost(ex.MemoryLimitMB, maxAllowed); err != nil {
+			return err
+		}
+	}
 	return s.exerciseRepo.Create(ctx, ex)
 }
 
 func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	if ex.MemoryLimitMB > 0 {
+		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+		if err := domain.ValidateRamAgainstHost(ex.MemoryLimitMB, maxAllowed); err != nil {
+			return err
+		}
+	}
 	return s.exerciseRepo.Update(ctx, ex)
 }
 
@@ -172,6 +193,14 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 	cfg := exercise.Config.Algorithm
 	if cfg == nil {
 		return nil, fmt.Errorf("configuración de algoritmia faltante para el ejercicio %s", exercise.ID)
+	}
+
+	// 0. Frontera ValidateRamAgainstHost para evaluación
+	if cfg.MemoryLimitMB > 0 {
+		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+		if err := domain.ValidateRamAgainstHost(cfg.MemoryLimitMB, maxAllowed); err != nil {
+			return nil, err
+		}
 	}
 
 	// 1. Filtro AST Estático Rápido (Regex)
@@ -298,10 +327,17 @@ func (s *EvaluationService) evaluateDatabase(ctx context.Context, exercise *doma
 		return nil, fmt.Errorf("configuración de base de datos faltante para el ejercicio %s", exercise.ID)
 	}
 
+	if cfg.MemoryLimitMB > 0 {
+		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+		if err := domain.ValidateRamAgainstHost(cfg.MemoryLimitMB, maxAllowed); err != nil {
+			return nil, err
+		}
+	}
+
 	// Si no tiene expected_json aún en DB, realizamos Dry Run previo
 	expectedJSON := strings.TrimSpace(cfg.ExpectedJSON)
 	if expectedJSON == "" {
-		dryRunJSON, err := s.runner.RunDBDryRun(ctx, domain.DBEvaluationRunConfig{
+		dryRunJSON, err := s.ExecuteDBDryRun(ctx, domain.DBEvaluationRunConfig{
 			Engine:            cfg.Engine,
 			InitScript:        cfg.InitScript,
 			SolutionSQL:       cfg.ReferenceSolution,
@@ -362,3 +398,15 @@ func (s *EvaluationService) evaluateDatabase(ctx context.Context, exercise *doma
 		ExpectedJSON:    expectedJSON,
 	}, nil
 }
+
+// ExecuteDBDryRun ejecuta el dry-run para base de datos validando la memoria contra el host (D-EJ-04).
+func (s *EvaluationService) ExecuteDBDryRun(ctx context.Context, config domain.DBEvaluationRunConfig) (string, error) {
+	if config.MemoryLimitMB > 0 {
+		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
+		if err := domain.ValidateRamAgainstHost(config.MemoryLimitMB, maxAllowed); err != nil {
+			return "", err
+		}
+	}
+	return s.runner.RunDBDryRun(ctx, config)
+}
+

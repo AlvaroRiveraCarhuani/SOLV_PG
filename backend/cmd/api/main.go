@@ -193,11 +193,17 @@ func main() {
 	})
 	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService)
 
+	// Juez de ejercicios: perfiles de lenguaje versionados y auditoría
+	langProfileRepo := postgres.NewPostgresLanguageProfileRepository(db.GetDB())
+	langProfileService := services.NewLanguageProfileService(langProfileRepo)
+	langProfileHandler := httpdelivery.NewLanguageProfileHandler(langProfileService)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
 		AuthHandler:              httpdelivery.NewAuthHandler(authService),
 		EvaluationHandler:        evalHandler,
+		LanguageProfileHandler:   langProfileHandler,
 		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, v),
 		MetricsHandler:           httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
 		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),

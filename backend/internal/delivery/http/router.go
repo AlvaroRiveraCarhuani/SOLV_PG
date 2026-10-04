@@ -26,6 +26,7 @@ type Handlers struct {
 	BackupHandler            *BackupHandler
 	WebSocketHandler         *WebSocketHandler
 	EnvTestHandler           *EnvTestHandler
+	LanguageProfileHandler   *LanguageProfileHandler
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
@@ -37,6 +38,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerTemplateRoutes(mux, deps.TemplateHandler)
 	registerAuthRoutes(mux, deps.AuthHandler)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
+	registerLanguageProfileRoutes(mux, deps)
 	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
@@ -260,6 +262,24 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 	mux.Handle("PUT /api/v1/exercises/{id}", am(tm(http.HandlerFunc(h.UpdateExercise))))
 	mux.Handle("POST /api/v1/exercises/{id}/test-cases/bulk", am(tm(http.HandlerFunc(h.BulkTestCases))))
 	mux.Handle("POST /api/v1/exercises/{id}/publish", am(tm(http.HandlerFunc(h.PublishExercise))))
+}
+
+func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.LanguageProfileHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/judge/profiles", http.HandlerFunc(deps.LanguageProfileHandler.ListProfiles))
+	mux.Handle("GET /api/v1/judge/profiles/{language}", http.HandlerFunc(deps.LanguageProfileHandler.GetProfile))
+	mux.Handle("PUT /api/v1/admin/judge/profiles/{language}", am(tm(http.HandlerFunc(deps.LanguageProfileHandler.UpdateProfile))))
 }
 
 func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {

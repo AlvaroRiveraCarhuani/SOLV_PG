@@ -35,8 +35,8 @@ Estimación: 1800–2200 líneas. División: PR1 → PR2 → PR3 → PR4 → PR5
 
 ## Fase 4: Perfiles y validador (depende de 1)
 
-- [ ] 4.1 Crear `language_profile_service.go` + handlers `delivery/http/` (GET público, PUT admin auditado; alias c++→cpp, c#→csharp; resto 400). Aceptación: contratos 400/409 con código máquina.
-- [ ] 4.2 Aplicar `ValidateRamAgainstHost` en alta/edición, evaluación, perfiles y dry-run. Aceptación: `rg ValidateRamAgainstHost backend/internal` → cuatro fronteras.
+- [x] 4.1 Crear `language_profile_service.go` + handlers `delivery/http/` (GET público, PUT admin auditado; alias c++→cpp, c#→csharp; resto 400). Aceptación: contratos 400/409 con código máquina.
+- [x] 4.2 Aplicar `ValidateRamAgainstHost` en alta/edición, evaluación, perfiles y dry-run. Aceptación: `rg ValidateRamAgainstHost backend/internal` → cuatro fronteras.
 
 ## Fase 5: Dry-run y publicación (depende de 3–4)
 

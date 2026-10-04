@@ -263,3 +263,11 @@ type ContainerRunnerPort interface {
 	RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) (results []ToolResult, exitCode int, err error)
 	RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (output string, durationMs int64, exitCode int, err error)
 }
+
+// LanguageProfileRepository gestiona la persistencia de perfiles de lenguaje y su auditoría.
+type LanguageProfileRepository interface {
+	ListProfiles(ctx context.Context) ([]*LanguageProfile, error)
+	GetProfileByLanguage(ctx context.Context, language string) (*LanguageProfile, error)
+	UpdateProfile(ctx context.Context, profile *LanguageProfile, audit *LanguageProfileAudit) error
+}
+
