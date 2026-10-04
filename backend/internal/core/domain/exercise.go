@@ -3,6 +3,7 @@ package domain
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -91,21 +92,50 @@ func (ec *ExerciseConfig) Scan(value interface{}) error {
 	return json.Unmarshal(bytes, ec)
 }
 
+var (
+	ErrMissingReferenceSolution = errors.New("el ejercicio requiere una solución de referencia antes de ser publicado")
+	ErrExerciseStale            = errors.New("el ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
+)
+
+type DryRunJobStatus string
+
+const (
+	DryRunJobStatusQueued  DryRunJobStatus = "queued"
+	DryRunJobStatusRunning DryRunJobStatus = "running"
+	DryRunJobStatusDone    DryRunJobStatus = "done"
+	DryRunJobStatusFailed  DryRunJobStatus = "failed"
+)
+
+type DryRunJob struct {
+	ID              string            `json:"id" db:"id"`
+	ExerciseID      string            `json:"exercise_id" db:"exercise_id"`
+	Status          DryRunJobStatus   `json:"status" db:"status"`
+	ProgressCurrent int               `json:"progress_current" db:"progress_current"`
+	ProgressTotal   int               `json:"progress_total" db:"progress_total"`
+	Result          *EvaluationResult `json:"result,omitempty" db:"result"`
+	Error           string            `json:"error,omitempty" db:"error"`
+	CreatedAt       time.Time         `json:"created_at" db:"created_at"`
+	UpdatedAt       time.Time         `json:"updated_at" db:"updated_at"`
+}
+
 type Exercise struct {
-	ID            string         `json:"id" db:"id"`
-	SubjectID     *string        `json:"subject_id,omitempty" db:"subject_id"`
-	Title         string         `json:"title" db:"title"`
-	Description   string         `json:"description" db:"description"`
-	Type          ExerciseType   `json:"type" db:"type"`
-	DueDate       *time.Time     `json:"due_date,omitempty" db:"due_date"`
-	Boilerplate   string         `json:"boilerplate" db:"boilerplate"`
-	Status        string         `json:"status" db:"status"` // draft, published, closed
-	Language      string         `json:"language" db:"language"`
-	TimeLimitMS   int            `json:"time_limit_ms" db:"time_limit_ms"`
-	MemoryLimitMB int            `json:"memory_limit_mb" db:"memory_limit_mb"`
-	Config        ExerciseConfig `json:"config" db:"config"`
-	TenantID      string         `json:"tenant_id" db:"tenant_id"`
-	CreatedAt     time.Time      `json:"created_at" db:"created_at"`
+	ID                string         `json:"id" db:"id"`
+	SubjectID         *string        `json:"subject_id,omitempty" db:"subject_id"`
+	Title             string         `json:"title" db:"title"`
+	Description       string         `json:"description" db:"description"`
+	Type              ExerciseType   `json:"type" db:"type"`
+	DueDate           *time.Time     `json:"due_date,omitempty" db:"due_date"`
+	Boilerplate       string         `json:"boilerplate" db:"boilerplate"`
+	Status            string         `json:"status" db:"status"` // draft, published, closed
+	Language          string         `json:"language" db:"language"`
+	TimeLimitMS       int            `json:"time_limit_ms" db:"time_limit_ms"`
+	MemoryLimitMB     int            `json:"memory_limit_mb" db:"memory_limit_mb"`
+	ReferenceSolution string         `json:"reference_solution" db:"reference_solution"`
+	Stale             bool           `json:"stale" db:"stale"`
+	LastValidDryRunAt *time.Time     `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	Config            ExerciseConfig `json:"config" db:"config"`
+	TenantID          string         `json:"tenant_id" db:"tenant_id"`
+	CreatedAt         time.Time      `json:"created_at" db:"created_at"`
 }
 
 type DueAssignment struct {

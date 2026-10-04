@@ -262,6 +262,9 @@ func registerEvaluationRoutes(mux *http.ServeMux, h *EvaluationHandler, tenantMi
 	mux.Handle("PUT /api/v1/exercises/{id}", am(tm(http.HandlerFunc(h.UpdateExercise))))
 	mux.Handle("POST /api/v1/exercises/{id}/test-cases/bulk", am(tm(http.HandlerFunc(h.BulkTestCases))))
 	mux.Handle("POST /api/v1/exercises/{id}/publish", am(tm(http.HandlerFunc(h.PublishExercise))))
+	mux.Handle("POST /api/v1/exercises/{id}/dry-run", am(tm(http.HandlerFunc(h.StartDryRun))))
+	mux.Handle("GET /api/v1/exercises/{id}/dry-run/jobs/{jobId}", tm(http.HandlerFunc(h.GetDryRunJob)))
+	mux.Handle("GET /api/v1/dry-run/jobs/{jobId}", tm(http.HandlerFunc(h.GetDryRunJob)))
 }
 
 func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {

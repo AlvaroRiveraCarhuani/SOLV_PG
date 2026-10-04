@@ -281,35 +281,98 @@ func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request
 func (h *EvaluationHandler) PublishExercise(w http.ResponseWriter, r *http.Request) {
 	userRole := r.Header.Get("X-User-Role")
 	if userRole != "teacher" && userRole != "admin" {
-		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para publicar ejercicios")
+		SendError(w, http.StatusForbidden, "FORBIDDEN", "No tiene permisos para publicar ejercicios")
 		return
 	}
 
 	exerciseID := r.PathValue("id")
 	if exerciseID == "" {
-		SendError(w, http.StatusBadRequest, "Exercise ID is required", "ID de ejercicio faltante")
+		SendError(w, http.StatusBadRequest, "MISSING_EXERCISE_ID", "ID de ejercicio faltante")
 		return
 	}
 
-	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
-	if tenantID == "" {
-		tenantID = domain.DefaultTenantID
-	}
+	tenantID := getTenantFromCtx(r)
 
 	ex, err := h.service.PublishExercise(r.Context(), exerciseID, tenantID)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			SendError(w, http.StatusNotFound, err.Error(), "Ejercicio no encontrado")
+			SendError(w, http.StatusNotFound, "NOT_FOUND", "Ejercicio no encontrado")
+			return
+		}
+		if errors.Is(err, domain.ErrMissingReferenceSolution) {
+			SendError(w, http.StatusConflict, "REFERENCE_REQUIRED", "El ejercicio requiere una solución de referencia antes de ser publicado")
+			return
+		}
+		if errors.Is(err, domain.ErrExerciseStale) {
+			SendError(w, http.StatusConflict, "EXERCISE_STALE", "El ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
 			return
 		}
 		if errors.Is(err, services.ErrZeroPublicTestCases) || strings.Contains(err.Error(), "0 public test cases") {
-			SendError(w, 422, err.Error(), "No se puede publicar un ejercicio sin al menos un caso de prueba público")
+			SendError(w, 422, "NO_PUBLIC_TEST_CASES", "No se puede publicar un ejercicio sin al menos un caso de prueba público")
 			return
 		}
-		SendError(w, http.StatusInternalServerError, err.Error(), "Error al publicar el ejercicio")
+		SendError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Error al publicar el ejercicio: "+err.Error())
 		return
 	}
 
 	SendJSON(w, http.StatusOK, ex, "Ejercicio publicado exitosamente")
 }
+
+// StartDryRun maneja POST /api/v1/exercises/{id}/dry-run -> 202 Accepted
+func (h *EvaluationHandler) StartDryRun(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "FORBIDDEN", "No tiene permisos para ejecutar comprobación previa")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "MISSING_EXERCISE_ID", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+
+	job, err := h.service.StartDryRun(r.Context(), exerciseID, tenantID)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			SendError(w, http.StatusNotFound, "NOT_FOUND", "Ejercicio no encontrado")
+			return
+		}
+		if errors.Is(err, domain.ErrMissingReferenceSolution) {
+			SendError(w, http.StatusBadRequest, "REFERENCE_REQUIRED", "Debe configurar una solución de referencia antes de iniciar el dry-run")
+			return
+		}
+		if errors.Is(err, domain.ErrRamExceedsHostCapacity) {
+			SendError(w, http.StatusBadRequest, "RAM_EXCEEDS_HOST", "La memoria configurada excede la capacidad estructural del host")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Error al iniciar trabajo de dry-run: "+err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusAccepted, job, "Trabajo de dry-run iniciado exitosamente")
+}
+
+// GetDryRunJob maneja GET /api/v1/exercises/{id}/dry-run/jobs/{jobId}
+func (h *EvaluationHandler) GetDryRunJob(w http.ResponseWriter, r *http.Request) {
+	jobID := r.PathValue("jobId")
+	if jobID == "" {
+		jobID = r.PathValue("id")
+	}
+	if jobID == "" {
+		SendError(w, http.StatusBadRequest, "MISSING_JOB_ID", "ID de trabajo faltante")
+		return
+	}
+
+	job, err := h.service.GetDryRunJob(r.Context(), jobID)
+	if err != nil {
+		SendError(w, http.StatusNotFound, "NOT_FOUND", "Trabajo de dry-run no encontrado")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, job, "Estado de trabajo dry-run obtenido exitosamente")
+}
+
 

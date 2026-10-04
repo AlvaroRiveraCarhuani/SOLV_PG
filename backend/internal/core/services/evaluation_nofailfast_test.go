@@ -56,6 +56,22 @@ func (s *stubExerciseRepo) UpdateConfig(_ context.Context, _, _ string, _ domain
 
 func (s *stubExerciseRepo) UpdateExpectedJSON(_ context.Context, _, _ string) error { return nil }
 
+func (s *stubExerciseRepo) MarkExerciseStale(_ context.Context, _, _ string, _ bool) error { return nil }
+
+func (s *stubExerciseRepo) UpdateExerciseLastValidDryRun(_ context.Context, _, _ string, _ time.Time) error {
+	return nil
+}
+
+func (s *stubExerciseRepo) CreateDryRunJob(_ context.Context, _ *domain.DryRunJob) error { return nil }
+
+func (s *stubExerciseRepo) GetDryRunJob(_ context.Context, _ string) (*domain.DryRunJob, error) {
+	return nil, nil
+}
+
+func (s *stubExerciseRepo) UpdateDryRunJobProgress(_ context.Context, _ string, _ domain.DryRunJobStatus, _, _ int, _ *domain.EvaluationResult, _ string) error {
+	return nil
+}
+
 func (s *stubExerciseRepo) ListDueByStudent(_ context.Context, _, _ string) ([]*domain.DueAssignment, error) {
 	return nil, nil
 }

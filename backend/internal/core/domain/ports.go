@@ -56,6 +56,11 @@ type ExerciseRepository interface {
 	UpdateStatus(ctx context.Context, id, tenantID, status string) error
 	UpdateConfig(ctx context.Context, id, tenantID string, config ExerciseConfig) error
 	UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error
+	MarkExerciseStale(ctx context.Context, exerciseID, tenantID string, stale bool) error
+	UpdateExerciseLastValidDryRun(ctx context.Context, exerciseID, tenantID string, dryRunAt time.Time) error
+	CreateDryRunJob(ctx context.Context, job *DryRunJob) error
+	GetDryRunJob(ctx context.Context, jobID string) (*DryRunJob, error)
+	UpdateDryRunJobProgress(ctx context.Context, jobID string, status DryRunJobStatus, current, total int, result *EvaluationResult, errMsg string) error
 	ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*DueAssignment, error)
 	ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*Exercise, error)
 }

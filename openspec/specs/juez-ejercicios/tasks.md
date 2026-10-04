@@ -40,7 +40,7 @@ Estimación: 1800–2200 líneas. División: PR1 → PR2 → PR3 → PR4 → PR5
 
 ## Fase 5: Dry-run y publicación (depende de 3–4)
 
-- [ ] 5.1 Modelar `dry_run_jobs` (queued→running→done/failed, progreso por caso), referencia obligatoria stdin, edición marca stale y publish 409. Aceptación: `POST dry-run` → 202 con job; `GET job` muestra progreso.
+- [x] 5.1 Modelar `dry_run_jobs` (queued→running→done/failed, progreso por caso), referencia obligatoria stdin, edición marca stale y publish 409. Aceptación: `POST dry-run` → 202 con job; `GET job` muestra progreso.
 
 ## Fase 6: Editor (depende de 2 y 5)
 

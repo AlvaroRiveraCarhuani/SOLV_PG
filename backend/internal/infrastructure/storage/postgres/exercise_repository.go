@@ -2,7 +2,11 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"solv-backend/internal/core/domain"
@@ -32,6 +36,9 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(language, 'python') AS language, 
 			       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+			       COALESCE(reference_solution, '') AS reference_solution,
+			       COALESCE(stale, false) AS stale,
+			       last_valid_dry_run_at,
 			       config, tenant_id, created_at
 			FROM exercises
 			WHERE id = $1 AND tenant_id = $2
@@ -45,6 +52,9 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(language, 'python') AS language, 
 			       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+			       COALESCE(reference_solution, '') AS reference_solution,
+			       COALESCE(stale, false) AS stale,
+			       last_valid_dry_run_at,
 			       config, tenant_id, created_at
 			FROM exercises
 			WHERE id = $1
@@ -78,8 +88,8 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 	}
 
 	query := `
-		INSERT INTO exercises (id, subject_id, title, description, type, due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb, config, tenant_id)
-		VALUES (:id, :subject_id, :title, :description, :type, :due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb, :config, :tenant_id)
+		INSERT INTO exercises (id, subject_id, title, description, type, due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb, reference_solution, stale, config, tenant_id)
+		VALUES (:id, :subject_id, :title, :description, :type, :due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb, :reference_solution, :stale, :config, :tenant_id)
 	`
 	_, err := r.db.NamedExecContext(ctx, query, exercise)
 	if err != nil {
@@ -103,6 +113,8 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		    language = :language,
 		    time_limit_ms = :time_limit_ms,
 		    memory_limit_mb = :memory_limit_mb,
+		    reference_solution = :reference_solution,
+		    stale = :stale,
 		    config = :config
 		WHERE id = :id AND tenant_id = :tenant_id
 	`
@@ -131,7 +143,7 @@ func (r *PostgresExerciseRepository) UpdateStatus(ctx context.Context, id, tenan
 }
 
 func (r *PostgresExerciseRepository) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error {
-	query := `UPDATE exercises SET config = $1 WHERE id = $2 AND tenant_id = $3`
+	query := `UPDATE exercises SET config = $1, stale = TRUE WHERE id = $2 AND tenant_id = $3`
 	res, err := r.db.ExecContext(ctx, query, config, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to update config for exercise %s: %w", id, err)
@@ -153,6 +165,136 @@ func (r *PostgresExerciseRepository) UpdateExpectedJSON(ctx context.Context, id 
 	_, err := r.db.ExecContext(ctx, query, id, expectedJSON, tenantID)
 	if err != nil {
 		return fmt.Errorf("failed to update expected_json for exercise %s: %w", id, err)
+	}
+	return nil
+}
+
+func (r *PostgresExerciseRepository) MarkExerciseStale(ctx context.Context, exerciseID, tenantID string, stale bool) error {
+	query := `UPDATE exercises SET stale = $1 WHERE id = $2 AND tenant_id = $3`
+	_, err := r.db.ExecContext(ctx, query, stale, exerciseID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to mark exercise stale: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresExerciseRepository) UpdateExerciseLastValidDryRun(ctx context.Context, exerciseID, tenantID string, dryRunAt time.Time) error {
+	query := `UPDATE exercises SET stale = FALSE, last_valid_dry_run_at = $1 WHERE id = $2 AND tenant_id = $3`
+	_, err := r.db.ExecContext(ctx, query, dryRunAt, exerciseID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to update last valid dry run for exercise: %w", err)
+	}
+	return nil
+}
+
+type dryRunJobDB struct {
+	ID              string          `db:"id"`
+	ExerciseID      string          `db:"exercise_id"`
+	Status          string          `db:"status"`
+	ProgressCurrent int             `db:"progress_current"`
+	ProgressTotal   int             `db:"progress_total"`
+	Result          json.RawMessage `db:"result"`
+	Error           string          `db:"error"`
+	CreatedAt       time.Time       `db:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at"`
+}
+
+func (r *PostgresExerciseRepository) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
+	resultBytes := []byte("{}")
+	if job.Result != nil {
+		if b, err := json.Marshal(job.Result); err == nil {
+			resultBytes = b
+		}
+	}
+	query := `
+		INSERT INTO dry_run_jobs (id, exercise_id, status, progress_current, progress_total, result, error, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		job.ID,
+		job.ExerciseID,
+		string(job.Status),
+		job.ProgressCurrent,
+		job.ProgressTotal,
+		resultBytes,
+		job.Error,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create dry_run_job: %w", err)
+	}
+	return nil
+}
+
+func (r *PostgresExerciseRepository) GetDryRunJob(ctx context.Context, jobID string) (*domain.DryRunJob, error) {
+	query := `
+		SELECT id, exercise_id, status, progress_current, progress_total, result, error, created_at, updated_at
+		FROM dry_run_jobs
+		WHERE id = $1
+	`
+	var dbJob dryRunJobDB
+	err := r.db.GetContext(ctx, &dbJob, query, jobID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("dry_run_job not found")
+		}
+		return nil, fmt.Errorf("failed to get dry_run_job: %w", err)
+	}
+
+	job := &domain.DryRunJob{
+		ID:              dbJob.ID,
+		ExerciseID:      dbJob.ExerciseID,
+		Status:          domain.DryRunJobStatus(dbJob.Status),
+		ProgressCurrent: dbJob.ProgressCurrent,
+		ProgressTotal:   dbJob.ProgressTotal,
+		Error:           dbJob.Error,
+		CreatedAt:       dbJob.CreatedAt,
+		UpdatedAt:       dbJob.UpdatedAt,
+	}
+
+	if len(dbJob.Result) > 0 && string(dbJob.Result) != "{}" {
+		var res domain.EvaluationResult
+		if err := json.Unmarshal(dbJob.Result, &res); err == nil {
+			job.Result = &res
+		}
+	}
+
+	return job, nil
+}
+
+func (r *PostgresExerciseRepository) UpdateDryRunJobProgress(
+	ctx context.Context,
+	jobID string,
+	status domain.DryRunJobStatus,
+	current, total int,
+	result *domain.EvaluationResult,
+	errMsg string,
+) error {
+	resultBytes := []byte("{}")
+	if result != nil {
+		if b, err := json.Marshal(result); err == nil {
+			resultBytes = b
+		}
+	}
+	query := `
+		UPDATE dry_run_jobs
+		SET status = $1,
+		    progress_current = $2,
+		    progress_total = $3,
+		    result = $4,
+		    error = $5,
+		    updated_at = NOW()
+		WHERE id = $6
+	`
+	_, err := r.db.ExecContext(ctx, query,
+		string(status),
+		current,
+		total,
+		resultBytes,
+		errMsg,
+		jobID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to update dry_run_job progress: %w", err)
 	}
 	return nil
 }
@@ -194,6 +336,9 @@ func (r *PostgresExerciseRepository) ListBySubject(ctx context.Context, tenantID
 		       COALESCE(language, 'python') AS language, 
 		       COALESCE(time_limit_ms, 1000) AS time_limit_ms, 
 		       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
+		       COALESCE(reference_solution, '') AS reference_solution,
+		       COALESCE(stale, false) AS stale,
+		       last_valid_dry_run_at,
 		       config, tenant_id, created_at
 		FROM exercises
 		WHERE tenant_id = $1 AND subject_id = $2
