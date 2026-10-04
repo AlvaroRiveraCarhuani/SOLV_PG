@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -17,6 +18,53 @@ type EvaluationService struct {
 	astAnalyzer  domain.ASTAnalyzer
 	codeScanner  domain.CodeScanner
 	runner       domain.EvaluationRunner
+	metrics      RunMetricsRecorder
+}
+
+// RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,
+// migracion 00012). Es opcional: sin registrador la evaluacion omite el
+// registro pero evalua todos los casos igual.
+type RunMetricsRecorder interface {
+	RecordRunMetric(ctx context.Context, metric domain.RunMetric) error
+}
+
+// P95Query calcula el p95 de duration_ms sobre veredictos AC por lenguaje en
+// la ventana de language_profiles.p95_window_days (design.md, D-EJ-04).
+const P95Query = `SELECT percentile_cont(0.95) WITHIN GROUP (ORDER BY duration_ms) FROM run_metrics WHERE language = $1 AND verdict = 'AC' AND created_at > now() - ($2 || ' days')::interval`
+
+// SetMetricsRecorder activa el registro de run_metrics por caso.
+func (s *EvaluationService) SetMetricsRecorder(r RunMetricsRecorder) {
+	s.metrics = r
+}
+
+// CanonicalLanguage normaliza el alias a clave canonica (c++ -> cpp,
+// c#/cs -> csharp). Los perfiles y run_metrics rechazan alias (spec 3.1).
+func CanonicalLanguage(language string) string {
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "c++":
+		return "cpp"
+	case "c#", "cs":
+		return "csharp"
+	default:
+		return strings.ToLower(strings.TrimSpace(language))
+	}
+}
+
+// P95OverAC calcula el p95 de duration_ms sobre veredictos AC con
+// nearest-rank. Sin muestras AC devuelve 0.
+func P95OverAC(metrics []domain.RunMetric) int {
+	samples := make([]int, 0, len(metrics))
+	for _, m := range metrics {
+		if m.Verdict == domain.VerdictAC {
+			samples = append(samples, m.DurationMS)
+		}
+	}
+	if len(samples) == 0 {
+		return 0
+	}
+	sort.Ints(samples)
+	rank := (95*len(samples) + 99) / 100
+	return samples[rank-1]
 }
 
 func NewEvaluationService(
@@ -158,9 +206,15 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		}
 	}
 
-	// 2. Ejecución de casos de prueba
+	// 2. Ejecución de casos de prueba: todos los casos sin detención
+	// temprana (D-EJ-03, corrige DESVÍO-01). El veredicto global es el
+	// primer veredicto distinto de AC; el detalle por caso va en CaseResults.
 	var totalExecutionTime time.Duration
 	var maxMemoryUsedMB float64
+	caseResults := make([]domain.CaseResult, 0, len(cfg.TestCases))
+	globalVerdict := domain.VerdictAC
+	var firstFailed *domain.TestCase
+	failCount := 0
 
 	for idx, tc := range cfg.TestCases {
 		runConfig := domain.EvaluationRunConfig{
@@ -177,26 +231,42 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		}
 
 		totalExecutionTime += res.ExecutionTime
+		caseMsg := ""
 		if res.Verdict != domain.VerdictAC {
-			failedTC := tc
-			if tc.IsHidden {
-				failedTC.Input = "[OCULTO]"
-				failedTC.ExpectedOutput = "[OCULTO]"
+			failCount++
+			if globalVerdict == domain.VerdictAC {
+				globalVerdict = res.Verdict
+				failedTC := tc
+				if tc.IsHidden {
+					failedTC.Input = "[OCULTO]"
+					failedTC.ExpectedOutput = "[OCULTO]"
+				}
+				firstFailed = &failedTC
 			}
-
-			msg := fmt.Sprintf("Falló en el caso de prueba %d: %s", idx+1, res.Verdict)
+			caseMsg = string(res.Verdict)
 			if res.ErrorDetails != "" {
-				msg = fmt.Sprintf("%s. Detalle: %s", msg, res.ErrorDetails)
+				caseMsg = fmt.Sprintf("%s. Detalle: %s", caseMsg, res.ErrorDetails)
 			}
-
-			return &domain.EvaluationResult{
-				Verdict:         res.Verdict,
-				ExecutionTimeMS: int(res.ExecutionTime.Milliseconds()),
-				MemoryUsedMB:    maxMemoryUsedMB,
-				Message:         msg,
-				FailedTestCase:  &failedTC,
-			}, nil
 		}
+		caseResults = append(caseResults, domain.CaseResult{
+			Index:      idx,
+			Verdict:    res.Verdict,
+			DurationMS: int(res.ExecutionTime.Milliseconds()),
+			Message:    caseMsg,
+		})
+
+		s.recordRunMetric(ctx, exercise.ID, language, res, idx)
+	}
+
+	if globalVerdict != domain.VerdictAC {
+		return &domain.EvaluationResult{
+			Verdict:         globalVerdict,
+			ExecutionTimeMS: int(totalExecutionTime.Milliseconds()),
+			MemoryUsedMB:    maxMemoryUsedMB,
+			Message:         fmt.Sprintf("Fallaron %d de %d casos de prueba", failCount, len(cfg.TestCases)),
+			FailedTestCase:  firstFailed,
+			CaseResults:     caseResults,
+		}, nil
 	}
 
 	return &domain.EvaluationResult{
@@ -204,7 +274,22 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		ExecutionTimeMS: int(totalExecutionTime.Milliseconds()),
 		MemoryUsedMB:    maxMemoryUsedMB,
 		Message:         "¡Solución Aceptada! Todos los casos de prueba pasaron exitosamente.",
+		CaseResults:     caseResults,
 	}, nil
+}
+
+func (s *EvaluationService) recordRunMetric(ctx context.Context, exerciseID, language string, res domain.TestCaseRunResult, caseIdx int) {
+	if s.metrics == nil {
+		return
+	}
+	_ = s.metrics.RecordRunMetric(ctx, domain.RunMetric{
+		ExerciseID:  exerciseID,
+		Language:    CanonicalLanguage(language),
+		ImageDigest: res.ImageDigest,
+		DurationMS:  int(res.ExecutionTime.Milliseconds()),
+		Verdict:     res.Verdict,
+		CaseIndex:   caseIdx,
+	})
 }
 
 func (s *EvaluationService) evaluateDatabase(ctx context.Context, exercise *domain.Exercise, solutionSQL string) (*domain.EvaluationResult, error) {

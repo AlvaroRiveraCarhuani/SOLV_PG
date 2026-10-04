@@ -17,11 +17,13 @@ const (
 type Verdict string
 
 const (
-	VerdictAC           Verdict = "AC"           // Accepted
-	VerdictWA           Verdict = "WA"           // Wrong Answer
-	VerdictTLE          Verdict = "TLE"          // Time Limit Exceeded
-	VerdictRE           Verdict = "RE"           // Runtime Error
-	VerdictCE           Verdict = "CE"           // Compilation Error
+	VerdictAC           Verdict = "AC"            // Accepted
+	VerdictWA           Verdict = "WA"            // Wrong Answer
+	VerdictTLE          Verdict = "TLE"           // Time Limit Exceeded
+	VerdictRE           Verdict = "RE"            // Runtime Error
+	VerdictCE           Verdict = "CE"            // Compilation Error
+	VerdictMLE          Verdict = "MLE"           // Memory Limit Exceeded (OOM kill de cgroups)
+	VerdictVE           Verdict = "VE"            // Verdict Error (fallo o timeout del checker docente)
 	VerdictASTViolation Verdict = "AST_VIOLATION" // AST Security Violation (regex)
 	VerdictASTBlocked   Verdict = "AST_BLOCKED"   // AST Security Violation (Semgrep)
 )
@@ -123,8 +125,30 @@ type EvaluationResult struct {
 	MemoryUsedMB    float64   `json:"memory_used_mb"`
 	Message         string    `json:"message"`
 	FailedTestCase  *TestCase `json:"failed_test_case,omitempty"`
-	ActualJSON      string    `json:"actual_json,omitempty"`
-	ExpectedJSON    string    `json:"expected_json,omitempty"`
+	// CaseResults agrega el veredicto de cada caso evaluado. La evaluacion
+	// recorre todos los casos sin detencion temprana (D-EJ-03).
+	CaseResults  []CaseResult `json:"case_results,omitempty"`
+	ActualJSON   string       `json:"actual_json,omitempty"`
+	ExpectedJSON string       `json:"expected_json,omitempty"`
+}
+
+// CaseResult es el resultado de un unico caso de prueba.
+type CaseResult struct {
+	Index      int     `json:"index"`
+	Verdict    Verdict `json:"verdict"`
+	DurationMS int     `json:"duration_ms"`
+	Message    string  `json:"message,omitempty"`
+}
+
+// RunMetric registra la telemetria de un caso ejecutado. Language usa la
+// clave canonica (c++ -> cpp, c#/cs -> csharp). Ver design.md y 00012.
+type RunMetric struct {
+	ExerciseID  string  `json:"exercise_id" db:"exercise_id"`
+	Language    string  `json:"language" db:"language"`
+	ImageDigest string  `json:"image_digest" db:"image_digest"`
+	DurationMS  int     `json:"duration_ms" db:"duration_ms"`
+	Verdict     Verdict `json:"verdict" db:"verdict"`
+	CaseIndex   int     `json:"case_index" db:"case_index"`
 }
 
 type EvaluationRunConfig struct {
@@ -136,25 +160,28 @@ type EvaluationRunConfig struct {
 }
 
 type TestCaseRunResult struct {
-	Verdict        Verdict
-	ExecutionTime  time.Duration
-	ActualOutput   string
-	StdErr         string
-	ErrorDetails   string
+	Verdict       Verdict
+	ExecutionTime time.Duration
+	ActualOutput  string
+	StdErr        string
+	ErrorDetails  string
+	// ImageDigest identifica la imagen del runner (forma repo@digest) y
+	// alimenta run_metrics. Lo informa la estrategia de lenguaje.
+	ImageDigest string
 }
 
 type DBEvaluationRunConfig struct {
-	Engine            string
-	InitScript        string
-	SolutionSQL       string
-	ValidationQuery   string
-	TimeLimitMS       int
-	MemoryLimitMB     int
+	Engine          string
+	InitScript      string
+	SolutionSQL     string
+	ValidationQuery string
+	TimeLimitMS     int
+	MemoryLimitMB   int
 }
 
 type DBEvaluationResult struct {
-	Verdict        Verdict
-	ExecutionTime  time.Duration
-	ResultingJSON  string
-	ErrorDetails   string
+	Verdict       Verdict
+	ExecutionTime time.Duration
+	ResultingJSON string
+	ErrorDetails  string
 }
