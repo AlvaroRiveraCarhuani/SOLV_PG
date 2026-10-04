@@ -59,113 +59,120 @@
 
       @if (isAdvancedOpen()) {
         <div class="accordion-body">
-          <!-- Paletas Predeterminadas -->
-          <div class="config-section">
-            <span class="config-label">
-              <svg lucidePalette class="section-icon"></svg>
-              <span>Paletas Rápidas:</span>
-            </span>
-            <div class="presets-row">
-              @for (preset of presets; track preset.id) {
-                <button
-                  type="button"
-                  class="btn-preset-pill"
-                  [class.active]="activePresetId() === preset.id"
-                  (click)="applyPreset(preset)"
-                >
-                  <span class="preset-swatches">
-                    <span class="swatch-dot" [style.background-color]="preset.infoColor"></span>
-                    <span class="swatch-dot" [style.background-color]="preset.labColor"></span>
-                    <span class="swatch-dot" [style.background-color]="preset.avgColor"></span>
-                  </span>
-                  <span>{{ preset.name }}</span>
-                </button>
-              }
-            </div>
-          </div>
-
-          <!-- Selector de Columnas y Colores Individuales -->
-          <div class="config-section columns-config-section">
-            <div class="section-header-row">
-              <span class="config-label">Columnas a Incluir y Colores por Encabezado:</span>
-              <button type="button" class="btn-reset-cols" (click)="resetToDefaults()">
-                <svg lucideRotateCcw class="btn-icon-xs"></svg>
-                <span>Restablecer</span>
-              </button>
-            </div>
-
-            <div class="columns-chips-grid">
-              @for (col of columns(); track col.key) {
-                <div class="column-config-card" [class.is-excluded]="!col.visible">
-                  <div class="col-main-toggle">
+          <div class="accordion-grid">
+            <!-- Columna Izquierda: Paletas Rápidas y Resaltado -->
+            <div class="accordion-col-left">
+              <!-- Paletas Predeterminadas -->
+              <div class="config-section">
+                <span class="config-label">
+                  <svg lucidePalette class="section-icon"></svg>
+                  <span>Paletas Rápidas:</span>
+                </span>
+                <div class="presets-row">
+                  @for (preset of presets; track preset.id) {
                     <button
                       type="button"
-                      class="btn-toggle-vis"
-                      (click)="toggleColumnVisibility(col.key)"
-                      [title]="col.visible ? 'Ocultar esta columna del archivo' : 'Incluir columna'"
+                      class="btn-preset-pill"
+                      [class.active]="activePresetId() === preset.id"
+                      (click)="applyPreset(preset)"
                     >
-                      @if (col.visible) {
-                        <svg lucideEye class="vis-icon text-primary"></svg>
-                      } @else {
-                        <svg lucideEyeOff class="vis-icon text-muted"></svg>
-                      }
+                      <span class="preset-swatches">
+                        <span class="swatch-dot" [style.background-color]="preset.infoColor"></span>
+                        <span class="swatch-dot" [style.background-color]="preset.labColor"></span>
+                        <span class="swatch-dot" [style.background-color]="preset.avgColor"></span>
+                      </span>
+                      <span>{{ preset.name }}</span>
                     </button>
-                    <span class="col-name" [title]="col.label">{{ col.label }}</span>
-                  </div>
+                  }
+                </div>
+              </div>
 
-                  <div class="color-picker-wrapper">
-                    <!-- Selector de color nativo / paleta rápida -->
-                    <label class="color-swatch-picker" [style.background-color]="col.headerColor" title="Cambiar color del encabezado">
-                      <input
-                        type="color"
-                        [ngModel]="col.headerColor"
-                        (ngModelChange)="setColumnColor(col.key, $event)"
-                        class="color-native-input"
-                      />
-                    </label>
+              <!-- Ajustes de Resaltado -->
+              <div class="config-section highlights-section">
+                <span class="config-label">
+                  <svg lucideEye class="section-icon"></svg>
+                  <span>Resaltado Condicional:</span>
+                </span>
+                <div class="highlights-options-row">
+                  <label class="checkbox-label">
+                    <input
+                      type="checkbox"
+                      [ngModel]="highlightFailing()"
+                      (ngModelChange)="highlightFailing.set($event)"
+                    />
+                    <span>Destacar reprobados (&lt; {{ failingThreshold() }} pts)</span>
+                  </label>
 
-                    <div class="swatches-quick-list">
-                      @for (s of swatches; track s.hex) {
+                  <label class="checkbox-label">
+                    <input
+                      type="checkbox"
+                      [ngModel]="highlightPassing()"
+                      (ngModelChange)="highlightPassing.set($event)"
+                    />
+                    <span>Destacar aprobados (&ge; {{ failingThreshold() }} pts)</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Columna Derecha: Columnas Individuales -->
+            <div class="accordion-col-right">
+              <div class="config-section columns-config-section">
+                <div class="section-header-row">
+                  <span class="config-label">Columnas a Incluir y Colores:</span>
+                  <button type="button" class="btn-reset-cols" (click)="resetToDefaults()">
+                    <svg lucideRotateCcw class="btn-icon-xs"></svg>
+                    <span>Restablecer</span>
+                  </button>
+                </div>
+
+                <div class="columns-chips-grid">
+                  @for (col of columns(); track col.key) {
+                    <div class="column-config-card" [class.is-excluded]="!col.visible">
+                      <div class="col-main-toggle">
                         <button
                           type="button"
-                          class="swatch-mini"
-                          [style.background-color]="s.hex"
-                          [class.active]="col.headerColor === s.hex"
-                          (click)="setColumnColor(col.key, s.hex, s.textHex)"
-                          [title]="s.label"
-                        ></button>
-                      }
+                          class="btn-toggle-vis"
+                          (click)="toggleColumnVisibility(col.key)"
+                          [title]="col.visible ? 'Ocultar esta columna del archivo' : 'Incluir columna'"
+                        >
+                          @if (col.visible) {
+                            <svg lucideEye class="vis-icon text-primary"></svg>
+                          } @else {
+                            <svg lucideEyeOff class="vis-icon text-muted"></svg>
+                          }
+                        </button>
+                        <span class="col-name" [title]="col.label">{{ col.label }}</span>
+                      </div>
+
+                      <div class="color-picker-wrapper">
+                        <!-- Selector de color nativo / paleta rápida -->
+                        <label class="color-swatch-picker" [style.background-color]="col.headerColor" title="Cambiar color del encabezado">
+                          <input
+                            type="color"
+                            [ngModel]="col.headerColor"
+                            (ngModelChange)="setColumnColor(col.key, $event)"
+                            class="color-native-input"
+                          />
+                        </label>
+
+                        <div class="swatches-quick-list">
+                          @for (s of swatches; track s.hex) {
+                            <button
+                              type="button"
+                              class="swatch-mini"
+                              [style.background-color]="s.hex"
+                              [class.active]="col.headerColor === s.hex"
+                              (click)="setColumnColor(col.key, s.hex, s.textHex)"
+                              [title]="s.label"
+                            ></button>
+                          }
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  }
                 </div>
-              }
-            </div>
-          </div>
-
-          <!-- Ajustes de Resaltado -->
-          <div class="config-section highlights-section">
-            <span class="config-label">
-              <svg lucideEye class="section-icon"></svg>
-              <span>Resaltado Condicional:</span>
-            </span>
-            <div class="highlights-options-row">
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  [ngModel]="highlightFailing()"
-                  (ngModelChange)="highlightFailing.set($event)"
-                />
-                <span>Destacar reprobados (&lt; {{ failingThreshold() }} pts)</span>
-              </label>
-
-              <label class="checkbox-label">
-                <input
-                  type="checkbox"
-                  [ngModel]="highlightPassing()"
-                  (ngModelChange)="highlightPassing.set($event)"
-                />
-                <span>Destacar aprobados (&ge; {{ failingThreshold() }} pts)</span>
-              </label>
+              </div>
             </div>
           </div>
         </div>
