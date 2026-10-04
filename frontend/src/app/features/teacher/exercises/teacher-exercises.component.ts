@@ -130,7 +130,7 @@ export class TeacherExercisesComponent implements OnInit {
 
   courseComboboxOptions = computed<ComboboxOption[]>(() => {
     const opts: ComboboxOption[] = [
-      { id: 'all', label: 'Todas las materias', value: 'all' }
+      { id: 'all', label: 'Todos', value: 'all' }
     ];
     this.courses().forEach(c => {
       opts.push({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id });
@@ -140,13 +140,13 @@ export class TeacherExercisesComponent implements OnInit {
 
   selectedCourseLabel = computed(() => {
     const sel = this.courseFilter();
-    if (sel === 'all') return 'Todas las materias';
+    if (sel === 'all') return 'Todos';
     const match = this.courses().find(c => c.id === sel);
-    return match ? `${match.code} — ${match.name}` : 'Todas las materias';
+    return match ? `${match.code} — ${match.name}` : 'Todos';
   });
 
   modalityComboboxOptions = computed<ComboboxOption[]>(() => [
-    { id: 'all', label: 'Todas las modalidades', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'ALGORITMO', label: 'Juez Automático', value: 'ALGORITMO' },
     { id: 'WORKSPACE', label: 'Laboratorio VS Code', value: 'WORKSPACE' }
   ]);
@@ -155,11 +155,11 @@ export class TeacherExercisesComponent implements OnInit {
     const sel = this.modalityFilter();
     if (sel === 'ALGORITMO') return 'Juez Automático';
     if (sel === 'WORKSPACE') return 'Laboratorio VS Code';
-    return 'Todas las modalidades';
+    return 'Todos';
   });
 
   statusComboboxOptions = computed<ComboboxOption[]>(() => [
-    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'published', label: 'Publicados', value: 'published' },
     { id: 'draft', label: 'Borradores', value: 'draft' }
   ]);
@@ -168,7 +168,7 @@ export class TeacherExercisesComponent implements OnInit {
     const sel = this.statusFilter();
     if (sel === 'published') return 'Publicados';
     if (sel === 'draft') return 'Borradores';
-    return 'Todos los estados';
+    return 'Todos';
   });
 
   onCourseSelected(opt: ComboboxOption): void {

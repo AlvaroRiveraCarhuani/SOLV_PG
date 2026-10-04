@@ -75,7 +75,7 @@ export class TeacherPlagiarismComponent implements OnInit {
   });
 
   readonly riskOptions: ComboboxOption<'all' | 'critical' | 'warning' | 'info'>[] = [
-    { id: 'all', label: 'Todos los niveles', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'critical', label: 'Crítico (>= 80%)', value: 'critical' },
     { id: 'warning', label: 'Advertencia (50-79%)', value: 'warning' },
     { id: 'info', label: 'Informativo (< 50%)', value: 'info' }

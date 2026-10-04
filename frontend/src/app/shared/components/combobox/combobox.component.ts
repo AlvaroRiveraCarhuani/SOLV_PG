@@ -204,14 +204,18 @@ export class ComboboxComponent {
   displayValue = computed<string>(() => {
     const typed = this.searchQuery();
     if (typed !== null) return typed;
-    return this.value();
+    const val = this.value();
+    if (val === null || val === undefined || val === '') return '';
+    const matched = this.options().find(o => o.value === val || o.id === val || o.label === val);
+    if (matched) return matched.label;
+    return String(val);
   });
 
   effectiveQuery = computed<string>(() => {
     const typed = this.searchQuery();
     if (typed !== null) return typed;
     const val = this.value();
-    const isExactOption = this.options().some(o => o.label === val);
+    const isExactOption = this.options().some(o => o.label === val || o.value === val || o.id === val);
     if (isExactOption) return '';
     return val;
   });
@@ -376,12 +380,15 @@ export class ComboboxComponent {
 
   selectOption(option: ComboboxOption): void {
     this.searchQuery.set(null);
+    const emittedVal = option.value !== undefined ? option.value : (option.id !== undefined ? option.id : option.label);
+    this.valueChange.emit(emittedVal);
     this.optionSelected.emit(option);
     this.close();
   }
 
   isOptionSelected(option: ComboboxOption): boolean {
-    return this.value() === option.label;
+    const current = this.value();
+    return current === option.value || current === option.id || current === option.label;
   }
 
   isOptionActive(option: ComboboxOption): boolean {
@@ -445,5 +452,3 @@ export class ComboboxComponent {
     }
   }
 }
-
-export { ComboboxComponent as SolvComboboxComponent };

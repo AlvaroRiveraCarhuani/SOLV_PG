@@ -179,4 +179,16 @@ describe('ComboboxComponent', () => {
     expect(component.headerCountText()).toContain('disponibles; escriba para filtrar');
     expect(component.isOptionSelected(mockOptions[0])).toBe(true);
   });
+
+  it('debe resolver la etiqueta visible a partir del value seleccionado cuando son diferentes', () => {
+    const filterOptions: ComboboxOption[] = [
+      { id: 'all', label: 'Todos', value: 'all' },
+      { id: '1', label: 'Python 3.12', value: 'python' }
+    ];
+    fixture.componentRef.setInput('options', filterOptions);
+    fixture.componentRef.setInput('value', 'all');
+    fixture.detectChanges();
+
+    expect(component.displayValue()).toBe('Todos');
+  });
 });

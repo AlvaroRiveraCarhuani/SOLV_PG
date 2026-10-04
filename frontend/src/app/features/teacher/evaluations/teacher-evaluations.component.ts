@@ -83,12 +83,12 @@ export class TeacherEvaluationsComponent implements OnInit {
 
   // Opciones para Comboboxes
   courseFilterOptions = computed<ComboboxOption[]>(() => [
-    { id: 'all', label: 'Todas las materias', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     ...this.courses().map(c => ({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id }))
   ]);
 
   readonly verdictFilterOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
     { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
     { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
@@ -97,7 +97,7 @@ export class TeacherEvaluationsComponent implements OnInit {
   ];
 
   readonly statusFilterOptions: ComboboxOption<'all' | 'pending' | 'graded'>[] = [
-    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'all', label: 'Todos', value: 'all' },
     { id: 'pending', label: 'Pendientes de revisión', value: 'pending' },
     { id: 'graded', label: 'Calificadas', value: 'graded' }
   ];
