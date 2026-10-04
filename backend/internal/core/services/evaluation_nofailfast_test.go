@@ -154,3 +154,20 @@ func TestEvaluateAlgorithm_AllAC(t *testing.T) {
 func algorithmExerciseRepo(cases int) *stubExerciseRepo {
 	return &stubExerciseRepo{exercise: algorithmExercise(cases)}
 }
+
+func TestEvaluateAlgorithm_TemplateLock(t *testing.T) {
+	// D-EJ-07: Algorithm evaluation executes runner strictly based on language,
+	// ignoring any workspace template.
+	runner := &scriptRunner{verdicts: []domain.Verdict{domain.VerdictAC}}
+	repo := algorithmExerciseRepo(1)
+	svc := NewEvaluationService(repo, allowAnalyzer{}, nil, runner)
+
+	res, err := svc.Evaluate(context.Background(), "ex-1", "python", "cHJpbnQoMSk=")
+	if err != nil {
+		t.Fatalf("unexpected error during evaluation: %v", err)
+	}
+	if res.Verdict != domain.VerdictAC {
+		t.Fatalf("expected verdict AC, got %s", res.Verdict)
+	}
+}
+

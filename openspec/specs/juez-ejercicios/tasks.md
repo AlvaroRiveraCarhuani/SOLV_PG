@@ -49,5 +49,5 @@ Estimación: 1800–2200 líneas. División: PR1 → PR2 → PR3 → PR4 → PR5
 
 ## Fase 7: Candado y gates (depende de 1–6)
 
-- [ ] 7.1 Test candado: evaluación no acepta `template_id`. Aceptación: `rg template_id` en servicio + runner → vacío; test pasa.
-- [ ] 7.2 Gates: `go test ./...` + `ng test` + pinning + i18n → todo en verde.
+- [x] 7.1 Test candado: evaluación no acepta `template_id`. Aceptación: `rg template_id` en servicio + runner → vacío; test pasa.
+- [x] 7.2 Gates: `go test ./...` + `ng test` + pinning + i18n → todo en verde.
