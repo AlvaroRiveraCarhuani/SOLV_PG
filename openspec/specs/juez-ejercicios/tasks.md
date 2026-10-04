@@ -30,8 +30,8 @@ Estimación: 1800–2200 líneas. División: PR1 → PR2 → PR3 → PR4 → PR5
 
 ## Fase 3: Ejecución y veredictos (depende de 1–2)
 
-- [ ] 3.1 Modificar `evaluation_service.go` (dos fases, todos los casos) y `base_runner.go` (TrimSpace solo en exact, OOM→MLE, CE build, VE checker). Aceptación: `rg` detención temprana → vacío.
-- [ ] 3.2 Registrar `run_metrics` por caso y p95 sobre AC con ventana `p95_window_days`. Aceptación: `go test ./...` → todos pasan.
+- [x] 3.1 Modificar `evaluation_service.go` (dos fases, todos los casos) y `base_runner.go` (TrimSpace solo en exact, OOM→MLE, CE build, VE checker). Aceptación: `rg` detención temprana → vacío.
+- [x] 3.2 Registrar `run_metrics` por caso y p95 sobre AC con ventana `p95_window_days`. Aceptación: `go test ./...` → todos pasan.
 
 ## Fase 4: Perfiles y validador (depende de 1)
 
