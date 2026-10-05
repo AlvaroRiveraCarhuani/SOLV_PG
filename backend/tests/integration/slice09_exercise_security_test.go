@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"solv-backend/internal/core/domain"
@@ -43,6 +44,26 @@ func (m *mockSecurityExerciseRepo) UpdateConfig(ctx context.Context, id, tenantI
 }
 
 func (m *mockSecurityExerciseRepo) UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) MarkExerciseStale(ctx context.Context, id, tenantID string, stale bool) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) UpdateExerciseLastValidDryRun(ctx context.Context, id, tenantID string, t time.Time) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
+	return nil
+}
+
+func (m *mockSecurityExerciseRepo) GetDryRunJob(ctx context.Context, id string) (*domain.DryRunJob, error) {
+	return nil, nil
+}
+
+func (m *mockSecurityExerciseRepo) UpdateDryRunJobProgress(ctx context.Context, id string, status domain.DryRunJobStatus, completedCases, totalCases int, result *domain.EvaluationResult, errMsg string) error {
 	return nil
 }
 

@@ -48,6 +48,26 @@ func (m *mockExerciseRepo) UpdateExpectedJSON(ctx context.Context, id string, ex
 	return nil
 }
 
+func (m *mockExerciseRepo) MarkExerciseStale(ctx context.Context, id, tenantID string, stale bool) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) UpdateExerciseLastValidDryRun(ctx context.Context, id, tenantID string, t time.Time) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
+	return nil
+}
+
+func (m *mockExerciseRepo) GetDryRunJob(ctx context.Context, id string) (*domain.DryRunJob, error) {
+	return nil, nil
+}
+
+func (m *mockExerciseRepo) UpdateDryRunJobProgress(ctx context.Context, id string, status domain.DryRunJobStatus, completedCases, totalCases int, result *domain.EvaluationResult, errMsg string) error {
+	return nil
+}
+
 func (m *mockExerciseRepo) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
 	return []*domain.DueAssignment{}, nil
 }
