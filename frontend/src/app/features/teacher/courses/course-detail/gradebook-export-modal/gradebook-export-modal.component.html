@@ -1,5 +1,12 @@
 <div class="modal-backdrop" (click)="onClose()">
-  <div class="modal-dialog" (click)="$event.stopPropagation()">
+  <div 
+    class="modal-dialog" 
+    dismissible
+    [dismissOnClickOutside]="false"
+    [dismissOnEscape]="true"
+    (dismiss)="onClose()"
+    (click)="$event.stopPropagation()"
+  >
     <!-- Header Principal -->
     <header class="modal-header">
       <div class="header-title-wrap">

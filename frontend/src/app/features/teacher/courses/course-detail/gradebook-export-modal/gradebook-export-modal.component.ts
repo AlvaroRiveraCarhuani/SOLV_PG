@@ -6,7 +6,8 @@ import {
   OnInit, 
   inject, 
   signal, 
-  computed 
+  computed,
+  HostListener
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,8 +20,6 @@ import {
   LucideChevronUp, 
   LucidePalette, 
   LucideFileText, 
-  LucidePrinter, 
-  LucideCheck,
   LucideEye,
   LucideEyeOff,
   LucideRotateCcw
@@ -28,6 +27,7 @@ import {
 import { TeacherCourseService } from '../../../services/teacher-course.service';
 import { CourseGradesMatrix, CourseExerciseHeader, StudentGradesRow } from '../../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
 
 
@@ -120,12 +120,11 @@ export const COLOR_SWATCHES: { label: string; hex: string; textHex: string }[] =
     LucideChevronUp,
     LucidePalette,
     LucideFileText,
-    LucidePrinter,
-    LucideCheck,
     LucideEye,
     LucideEyeOff,
     LucideRotateCcw,
-    MachineDataDirective
+    MachineDataDirective,
+    DismissibleDirective
   ],
   templateUrl: './gradebook-export-modal.component.html',
   styleUrl: './gradebook-export-modal.component.scss'
@@ -142,6 +141,11 @@ export class GradebookExportModalComponent implements OnInit {
   isLoading = signal<boolean>(true);
   isExporting = signal<boolean>(false);
   isAdvancedOpen = signal<boolean>(false);
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.onClose();
+  }
 
   columns = signal<ColumnExportConfig[]>([]);
   activePresetId = signal<string>('academic');
