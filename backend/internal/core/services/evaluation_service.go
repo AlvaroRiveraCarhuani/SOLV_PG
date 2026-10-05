@@ -145,25 +145,25 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 	}
 
 	if ex.Type == domain.ExerciseTypeAlgorithm {
+		publicCount := 0
+		if ex.Config.Algorithm != nil {
+			for _, tc := range ex.Config.Algorithm.TestCases {
+				if !tc.IsHidden {
+					publicCount++
+				}
+			}
+		}
+
+		if publicCount == 0 {
+			return nil, ErrZeroPublicTestCases
+		}
+
 		if strings.TrimSpace(ex.ReferenceSolution) == "" {
 			return nil, domain.ErrMissingReferenceSolution
 		}
 		if ex.Stale {
 			return nil, domain.ErrExerciseStale
 		}
-	}
-
-	publicCount := 0
-	if ex.Config.Algorithm != nil {
-		for _, tc := range ex.Config.Algorithm.TestCases {
-			if !tc.IsHidden {
-				publicCount++
-			}
-		}
-	}
-
-	if publicCount == 0 {
-		return nil, ErrZeroPublicTestCases
 	}
 
 	if err := s.exerciseRepo.UpdateStatus(ctx, exerciseID, tenantID, "published"); err != nil {

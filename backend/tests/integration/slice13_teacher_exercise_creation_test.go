@@ -172,12 +172,13 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 
 	// 1. Crear ejercicio con 0 casos públicos (solo privados)
 	zeroPubExercise := domain.Exercise{
-		ID:          exZeroPublicID,
-		Title:       "Ejercicio Solo Casos Ocultos",
-		Description: "Sin casos públicos para validar el 422",
-		Type:        domain.ExerciseTypeAlgorithm,
-		Status:      "draft",
-		TenantID:    tenantID,
+		ID:                exZeroPublicID,
+		Title:             "Ejercicio Solo Casos Ocultos",
+		Description:       "Sin casos públicos para validar el 422",
+		Type:              domain.ExerciseTypeAlgorithm,
+		Status:            "draft",
+		TenantID:          tenantID,
+		ReferenceSolution: "print('res1')",
 		Config: domain.ExerciseConfig{
 			Algorithm: &domain.AlgorithmConfig{
 				TestCases: []domain.TestCase{
@@ -212,12 +213,13 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 	// 2. Crear ejercicio válido con 1 caso público y 1 privado
 	validExID := uuid.NewString()
 	validExercise := domain.Exercise{
-		ID:          validExID,
-		Title:       "Ejercicio Con Caso Público",
-		Description: "Listo para publicar",
-		Type:        domain.ExerciseTypeAlgorithm,
-		Status:      "draft",
-		TenantID:    tenantID,
+		ID:                validExID,
+		Title:             "Ejercicio Con Caso Público",
+		Description:       "Listo para publicar",
+		Type:              domain.ExerciseTypeAlgorithm,
+		Status:            "draft",
+		TenantID:          tenantID,
+		ReferenceSolution: "print('res1')",
 		Config: domain.ExerciseConfig{
 			Algorithm: &domain.AlgorithmConfig{
 				TestCases: []domain.TestCase{
