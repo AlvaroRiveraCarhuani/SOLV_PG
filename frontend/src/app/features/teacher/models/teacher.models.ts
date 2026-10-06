@@ -178,6 +178,36 @@ export interface ChecklistReportDTO {
   can_publish: boolean;
 }
 
+export interface DifficultyMetricDTO {
+  count: number;
+  success_rate: number;
+}
+
+export interface TagMetricDTO {
+  tag: string;
+  count: number;
+  success_rate: number;
+}
+
+export interface FailedCaseMetricDTO {
+  exercise_title: string;
+  case_index: number;
+  fail_count: number;
+}
+
+export interface TimelineMetricDTO {
+  date: string;
+  count: number;
+}
+
+export interface CourseAnalyticsDTO {
+  difficulty_distribution: Record<string, DifficultyMetricDTO>;
+  top_tags: TagMetricDTO[];
+  most_failed_cases: FailedCaseMetricDTO[];
+  avg_resolution_time_by_difficulty: Record<string, number>;
+  submissions_timeline: TimelineMetricDTO[];
+}
+
 export interface ComparatorDTO {
   id: 'exact' | 'float' | 'unordered' | 'custom';
   params?: Record<string, any>;

@@ -928,3 +928,191 @@ func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Contex
 	return sessions, nil
 }
 
+func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*domain.CourseAnalytics, error) {
+	analytics := &domain.CourseAnalytics{
+		DifficultyDistribution:         make(map[string]domain.DifficultyMetric),
+		TopTags:                        make([]domain.TagMetric, 0),
+		MostFailedCases:                make([]domain.FailedCaseMetric, 0),
+		AvgResolutionTimeByDifficulty: make(map[string]int),
+		SubmissionsTimeline:            make([]domain.TimelineMetric, 0),
+	}
+
+	// 1. Distribución por dificultad
+	type diffRow struct {
+		Difficulty  string  `db:"difficulty"`
+		Count       int     `db:"count"`
+		SuccessRate float64 `db:"success_rate"`
+	}
+	var diffRows []diffRow
+	diffQuery := `
+		SELECT 
+			e.difficulty,
+			COUNT(DISTINCT e.id) as count,
+			COALESCE(AVG(CASE WHEN s.score = 100 OR s.verdict = 'AC' THEN 1.0 ELSE 0.0 END), 0.0) as success_rate
+		FROM exercises e
+		LEFT JOIN submissions s ON s.exercise_id = e.id
+		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND e.difficulty IS NOT NULL AND e.difficulty != ''
+		GROUP BY e.difficulty
+	`
+	if err := r.db.SelectContext(ctx, &diffRows, diffQuery, tenantID, subjectID); err == nil {
+		for _, row := range diffRows {
+			analytics.DifficultyDistribution[row.Difficulty] = domain.DifficultyMetric{
+				Count:       row.Count,
+				SuccessRate: row.SuccessRate,
+			}
+		}
+	}
+
+	// 2. Top Tags
+	type tagRow struct {
+		Tag         string  `db:"tag"`
+		Count       int     `db:"exercise_count"`
+		SuccessRate float64 `db:"success_rate"`
+	}
+	var tagRows []tagRow
+	tagQuery := `
+		SELECT 
+			t.tag,
+			COUNT(DISTINCT e.id) as exercise_count,
+			COALESCE(AVG(CASE WHEN s.score = 100 OR s.verdict = 'AC' THEN 1.0 ELSE 0.0 END), 0.0) as success_rate
+		FROM exercises e
+		CROSS JOIN LATERAL unnest(e.tags) AS t(tag)
+		LEFT JOIN submissions s ON s.exercise_id = e.id
+		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND t.tag != ''
+		GROUP BY t.tag
+		ORDER BY exercise_count DESC, success_rate ASC
+		LIMIT 10
+	`
+	if err := r.db.SelectContext(ctx, &tagRows, tagQuery, tenantID, subjectID); err == nil {
+		for _, row := range tagRows {
+			analytics.TopTags = append(analytics.TopTags, domain.TagMetric{
+				Tag:         row.Tag,
+				Count:       row.Count,
+				SuccessRate: row.SuccessRate,
+			})
+		}
+	}
+
+	// 3. Casos más fallados (run_metrics con fallback a submissions)
+	type failRow struct {
+		ExerciseTitle string `db:"exercise_title"`
+		CaseIndex     int    `db:"case_index"`
+		FailCount     int    `db:"fail_count"`
+	}
+	var failRows []failRow
+	failQuery := `
+		SELECT 
+			e.title as exercise_title,
+			rm.case_index as case_index,
+			COUNT(*) as fail_count
+		FROM run_metrics rm
+		JOIN exercises e ON rm.exercise_id = e.id
+		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND rm.verdict != 'AC'
+		GROUP BY e.id, e.title, rm.case_index
+		ORDER BY fail_count DESC
+		LIMIT 5
+	`
+	if err := r.db.SelectContext(ctx, &failRows, failQuery, tenantID, subjectID); err == nil && len(failRows) > 0 {
+		for _, row := range failRows {
+			analytics.MostFailedCases = append(analytics.MostFailedCases, domain.FailedCaseMetric{
+				ExerciseTitle: row.ExerciseTitle,
+				CaseIndex:     row.CaseIndex,
+				FailCount:     row.FailCount,
+			})
+		}
+	} else {
+		// Fallback desde tabla submissions
+		fallbackQuery := `
+			SELECT 
+				e.title as exercise_title,
+				1 as case_index,
+				COUNT(*) as fail_count
+			FROM submissions s
+			JOIN exercises e ON s.exercise_id = e.id
+			WHERE e.tenant_id = $1 AND e.subject_id = $2 AND s.verdict != 'AC'
+			GROUP BY e.id, e.title
+			ORDER BY fail_count DESC
+			LIMIT 5
+		`
+		var fallbackRows []failRow
+		if err := r.db.SelectContext(ctx, &fallbackRows, fallbackQuery, tenantID, subjectID); err == nil {
+			for _, row := range fallbackRows {
+				analytics.MostFailedCases = append(analytics.MostFailedCases, domain.FailedCaseMetric{
+					ExerciseTitle: row.ExerciseTitle,
+					CaseIndex:     row.CaseIndex,
+					FailCount:     row.FailCount,
+				})
+			}
+		}
+	}
+
+	// 4. Tiempo promedio de resolución por dificultad
+	type timeRow struct {
+		Difficulty string `db:"difficulty"`
+		AvgSeconds int    `db:"avg_seconds"`
+	}
+	var timeRows []timeRow
+	timeQuery := `
+		WITH first_seen AS (
+			SELECT student_id, exercise_id, MIN(submitted_at) as first_time
+			FROM submissions
+			GROUP BY student_id, exercise_id
+		),
+		first_ac AS (
+			SELECT student_id, exercise_id, MIN(submitted_at) as ac_time
+			FROM submissions
+			WHERE score = 100 OR verdict = 'AC'
+			GROUP BY student_id, exercise_id
+		),
+		durations AS (
+			SELECT 
+				e.difficulty,
+				EXTRACT(EPOCH FROM (fa.ac_time - fs.first_time)) as duration_sec
+			FROM first_seen fs
+			JOIN first_ac fa ON fs.student_id = fa.student_id AND fs.exercise_id = fa.exercise_id
+			JOIN exercises e ON e.id = fs.exercise_id
+			WHERE e.tenant_id = $1 AND e.subject_id = $2 AND e.difficulty IS NOT NULL AND e.difficulty != ''
+			  AND fa.ac_time >= fs.first_time
+		)
+		SELECT 
+			difficulty,
+			COALESCE(AVG(duration_sec), 0)::int as avg_seconds
+		FROM durations
+		GROUP BY difficulty
+	`
+	if err := r.db.SelectContext(ctx, &timeRows, timeQuery, tenantID, subjectID); err == nil {
+		for _, row := range timeRows {
+			analytics.AvgResolutionTimeByDifficulty[row.Difficulty] = row.AvgSeconds
+		}
+	}
+
+	// 5. Timeline de envíos (últimos 30 días)
+	type timelineRow struct {
+		DateStr string `db:"date_str"`
+		Count   int    `db:"count"`
+	}
+	var timelineRows []timelineRow
+	timelineQuery := `
+		SELECT 
+			TO_CHAR(s.submitted_at, 'YYYY-MM-DD') as date_str,
+			COUNT(*) as count
+		FROM submissions s
+		JOIN exercises e ON s.exercise_id = e.id
+		WHERE e.tenant_id = $1 AND e.subject_id = $2
+		  AND s.submitted_at >= NOW() - INTERVAL '30 days'
+		GROUP BY date_str
+		ORDER BY date_str ASC
+	`
+	if err := r.db.SelectContext(ctx, &timelineRows, timelineQuery, tenantID, subjectID); err == nil {
+		for _, row := range timelineRows {
+			analytics.SubmissionsTimeline = append(analytics.SubmissionsTimeline, domain.TimelineMetric{
+				Date:  row.DateStr,
+				Count: row.Count,
+			})
+		}
+	}
+
+	return analytics, nil
+}
+
+

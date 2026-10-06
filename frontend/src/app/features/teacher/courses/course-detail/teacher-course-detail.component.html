@@ -35,6 +35,11 @@
         <span>Nuevo Laboratorio</span>
       </button>
 
+      <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-outline btn-analytics" title="Ver analítica y métricas del curso">
+        <svg lucideBarChart3 class="btn-icon-sm"></svg>
+        <span>Métricas</span>
+      </a>
+
       <button class="btn-outline btn-plagiarism" (click)="openPlagiarismModal()" title="Escanear similitud estructural AST">
         <svg lucideShieldAlert class="btn-icon-sm"></svg>
         <span>Anti-Plagio AST</span>

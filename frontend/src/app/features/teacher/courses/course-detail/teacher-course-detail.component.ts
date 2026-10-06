@@ -17,7 +17,8 @@ import {
   LucideCheckCircle,
   LucideShieldAlert,
   LucideSparkles,
-  LucideLaptop
+  LucideLaptop,
+  LucideBarChart3
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
@@ -54,6 +55,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     LucideShieldAlert,
     LucideSparkles,
     LucideLaptop,
+    LucideBarChart3,
     ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,

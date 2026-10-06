@@ -222,6 +222,7 @@ type TeacherRepository interface {
 	GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseGradesMatrix, error)
 	GetExerciseSubmissionsForPlagiarism(ctx context.Context, tenantID, teacherID, subjectID, exerciseID string) ([]*SubmissionForPlagiarism, error)
 	ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*LiveWorkspaceSession, error)
+	GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseAnalytics, error)
 }
 
 type NotificationRepository interface {

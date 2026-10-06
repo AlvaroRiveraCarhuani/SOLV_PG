@@ -355,8 +355,8 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("POST /api/v1/teacher/submissions/{id}/run-ephemeral", tm(http.HandlerFunc(deps.TeacherHandler.RunEphemeral)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/grades/matrix", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseGradesMatrix)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/grades/export", tm(http.HandlerFunc(deps.TeacherHandler.ExportGrades)))
-
-
+	mux.Handle("GET /api/v1/teacher/courses/{id}/analytics", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseAnalytics)))
+	mux.Handle("GET /api/v1/courses/{id}/analytics", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseAnalytics)))
 
 	mux.Handle("GET /api/v1/teacher/submissions/{id}/timeline", tm(http.HandlerFunc(deps.TeacherHandler.GetTimeline)))
 	mux.Handle("GET /api/v1/teacher/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))

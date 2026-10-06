@@ -8,7 +8,8 @@ import {
   UpdateExerciseRequestDTO,
   BulkTestCasesRequestDTO,
   PlagiarismReport,
-  CourseGradesMatrix
+  CourseGradesMatrix,
+  CourseAnalyticsDTO
 } from '../models/teacher.models';
 
 
@@ -192,6 +193,12 @@ export class TeacherCourseService {
       `/api/v1/teacher/courses/${subjectId}/plagiarism`,
       { params }
     ).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getCourseAnalytics(courseId: string): Observable<CourseAnalyticsDTO> {
+    return this.http.get<ApiResponse<CourseAnalyticsDTO>>(`/api/v1/teacher/courses/${courseId}/analytics`).pipe(
       map(res => res.data)
     );
   }

@@ -1,0 +1,305 @@
+<div class="analytics-page">
+  <!-- Top Navigation & Header -->
+  <header class="page-topbar">
+    <div class="topbar-left">
+      <a [routerLink]="['/teacher/cursos', getEffectiveCourseId()]" class="back-link">
+        <svg lucideArrowLeft class="back-icon"></svg>
+        <span>Volver al curso</span>
+      </a>
+
+      <div class="title-meta">
+        <div class="title-row">
+          <svg lucideBarChart3 class="header-icon"></svg>
+          <h1 class="page-heading">Métricas y Analítica del Curso</h1>
+        </div>
+        <p class="page-subtitle">
+          Datos agregados sobre rendimiento de ejercicios, etiquetas temáticas y volumen de envíos.
+        </p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button
+        type="button"
+        class="btn-outline refresh-btn"
+        (click)="loadAnalytics()"
+        [disabled]="isLoading()"
+        title="Recargar métricas agregadas"
+      >
+        <svg lucideRefreshCw class="btn-icon" [class.spin-icon]="isLoading()"></svg>
+        <span>{{ isLoading() ? 'Actualizando...' : 'Actualizar' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Estado de Carga / Error -->
+  @if (isLoading() && !analytics()) {
+    <div class="loading-state">
+      <svg lucideRefreshCw class="loading-spinner spin-icon"></svg>
+      <p>Cargando métricas analíticas del curso...</p>
+    </div>
+  } @else if (error()) {
+    <div class="error-state">
+      <svg lucideAlertTriangle class="error-icon"></svg>
+      <div class="error-content">
+        <h3>Error al cargar analíticas</h3>
+        <p>{{ error() }}</p>
+        <button type="button" class="btn-primary" (click)="loadAnalytics()">Reintentar</button>
+      </div>
+    </div>
+  } @else if (analytics()) {
+    <main class="analytics-content">
+      <!-- Fila de Tarjetas KPI -->
+      <section class="kpi-grid">
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap">
+            <svg lucideLayers class="kpi-icon"></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Ejercicios Clasificados</span>
+            <strong class="kpi-value font-mono" machineData>{{ totalExercisesWithDifficulty() }}</strong>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap">
+            <svg lucideTrendingUp class="kpi-icon"></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Envíos (30 días)</span>
+            <strong class="kpi-value font-mono" machineData>{{ totalSubmissionsTimeline() }}</strong>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap">
+            <svg lucideClock class="kpi-icon"></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Resolución Promedio (Fácil)</span>
+            <strong class="kpi-value font-mono" machineData>
+              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['easy'] || 0) }}
+            </strong>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap">
+            <svg lucideClock class="kpi-icon"></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Resolución Promedio (Medio)</span>
+            <strong class="kpi-value font-mono" machineData>
+              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['medium'] || 0) }}
+            </strong>
+          </div>
+        </div>
+
+        <div class="kpi-card">
+          <div class="kpi-icon-wrap">
+            <svg lucideClock class="kpi-icon"></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Resolución Promedio (Difícil)</span>
+            <strong class="kpi-value font-mono" machineData>
+              {{ formatSeconds(analytics()?.avg_resolution_time_by_difficulty?.['hard'] || 0) }}
+            </strong>
+          </div>
+        </div>
+      </section>
+
+      <!-- Grilla Principal 2x2 -->
+      <div class="cards-grid">
+        <!-- 1. Distribución por Dificultad -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title-row">
+              <svg lucideBarChart3 class="card-icon"></svg>
+              <h3 class="card-title">Distribución por Dificultad</h3>
+            </div>
+            <span class="card-subtitle">Cantidad y tasa de éxito (AC)</span>
+          </div>
+
+          <div class="card-body">
+            <div class="difficulty-bars-list">
+              <!-- Fácil -->
+              <div class="difficulty-item">
+                <div class="item-header">
+                  <div class="item-label-group">
+                    <span class="diff-badge diff-easy font-mono" machineData>Fácil</span>
+                    <span class="item-count font-mono" machineData>{{ difficultyEasy().count }} ejercicios</span>
+                  </div>
+                  <span class="item-rate font-mono" machineData>{{ formatPercentage(difficultyEasy().success_rate) }} éxito</span>
+                </div>
+                <div class="progress-track">
+                  <div
+                    class="progress-fill fill-easy"
+                    [style.width.%]="difficultyEasy().success_rate * 100"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Medio -->
+              <div class="difficulty-item">
+                <div class="item-header">
+                  <div class="item-label-group">
+                    <span class="diff-badge diff-medium font-mono" machineData>Medio</span>
+                    <span class="item-count font-mono" machineData>{{ difficultyMedium().count }} ejercicios</span>
+                  </div>
+                  <span class="item-rate font-mono" machineData>{{ formatPercentage(difficultyMedium().success_rate) }} éxito</span>
+                </div>
+                <div class="progress-track">
+                  <div
+                    class="progress-fill fill-medium"
+                    [style.width.%]="difficultyMedium().success_rate * 100"
+                  ></div>
+                </div>
+              </div>
+
+              <!-- Difícil -->
+              <div class="difficulty-item">
+                <div class="item-header">
+                  <div class="item-label-group">
+                    <span class="diff-badge diff-hard font-mono" machineData>Difícil</span>
+                    <span class="item-count font-mono" machineData>{{ difficultyHard().count }} ejercicios</span>
+                  </div>
+                  <span class="item-rate font-mono" machineData>{{ formatPercentage(difficultyHard().success_rate) }} éxito</span>
+                </div>
+                <div class="progress-track">
+                  <div
+                    class="progress-fill fill-hard"
+                    [style.width.%]="difficultyHard().success_rate * 100"
+                  ></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Top Tags -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title-row">
+              <svg lucideTag class="card-icon"></svg>
+              <h3 class="card-title">Top 10 Etiquetas (Tags)</h3>
+            </div>
+            <span class="card-subtitle">Temáticas y tasa de resolución</span>
+          </div>
+
+          <div class="card-body no-padding">
+            @if (analytics()?.top_tags?.length === 0) {
+              <div class="empty-list-notice">
+                <p>Aún no se han configurado etiquetas temáticas en los ejercicios.</p>
+              </div>
+            } @else {
+              <table class="analytics-table">
+                <thead>
+                  <tr>
+                    <th>Etiqueta</th>
+                    <th class="text-right">Ejercicios</th>
+                    <th class="text-right">Tasa de Éxito</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of analytics()?.top_tags; track t.tag) {
+                    <tr>
+                      <td>
+                        <span class="tag-pill font-mono" machineData>{{ t.tag }}</span>
+                      </td>
+                      <td class="text-right font-mono" machineData>{{ t.count }}</td>
+                      <td class="text-right">
+                        <div class="rate-progress-wrapper">
+                          <span class="rate-text font-mono" machineData>{{ formatPercentage(t.success_rate) }}</span>
+                          <div class="mini-progress-track">
+                            <div class="mini-progress-fill" [style.width.%]="t.success_rate * 100"></div>
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+
+        <!-- 3. Casos más fallados -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title-row">
+              <svg lucideAlertTriangle class="card-icon warning-color"></svg>
+              <h3 class="card-title">Casos de Prueba más Fallados</h3>
+            </div>
+            <span class="card-subtitle">Puntos críticos donde fallan los estudiantes</span>
+          </div>
+
+          <div class="card-body no-padding">
+            @if (analytics()?.most_failed_cases?.length === 0) {
+              <div class="empty-list-notice">
+                <p>No se registran fallos reiterados en los casos de prueba.</p>
+              </div>
+            } @else {
+              <table class="analytics-table">
+                <thead>
+                  <tr>
+                    <th>Ejercicio</th>
+                    <th class="text-center">Caso #</th>
+                    <th class="text-right">Fallos</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (c of analytics()?.most_failed_cases; track $index) {
+                    <tr>
+                      <td class="cell-title">
+                        <strong machineData>{{ c.exercise_title }}</strong>
+                      </td>
+                      <td class="text-center font-mono" machineData>
+                        <span class="case-badge">#{{ c.case_index }}</span>
+                      </td>
+                      <td class="text-right font-mono text-danger" machineData>
+                        {{ c.fail_count }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
+          </div>
+        </div>
+
+        <!-- 4. Timeline de Envíos (30 días) -->
+        <div class="dashboard-card">
+          <div class="card-header">
+            <div class="header-title-row">
+              <svg lucideTrendingUp class="card-icon"></svg>
+              <h3 class="card-title">Envíos por Día (Últimos 30 Días)</h3>
+            </div>
+            <span class="card-subtitle">Actividad temporal de entregas</span>
+          </div>
+
+          <div class="card-body">
+            @if (analytics()?.submissions_timeline?.length === 0) {
+              <div class="empty-list-notice">
+                <p>No hay envíos registrados en los últimos 30 días.</p>
+              </div>
+            } @else {
+              <div class="timeline-histogram">
+                @for (item of analytics()?.submissions_timeline; track item.date) {
+                  <div class="timeline-bar-col" [title]="item.date + ': ' + item.count + ' envíos'">
+                    <div class="bar-fill-track">
+                      <div
+                        class="bar-fill"
+                        [style.height.%]="(item.count / maxTimelineCount()) * 100"
+                      ></div>
+                    </div>
+                    <span class="bar-date font-mono" machineData>{{ item.date.slice(5) }}</span>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+    </main>
+  }
+</div>

@@ -17,6 +17,16 @@ export const TEACHER_ROUTES: Routes = [
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)
   },
   {
+    path: 'courses/:courseId/analytics',
+    loadComponent: () =>
+      import('./courses/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
+  },
+  {
+    path: 'cursos/:courseId/analytics',
+    loadComponent: () =>
+      import('./courses/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
+  },
+  {
     path: 'courses/:courseId/exercises/new',
     loadComponent: () =>
       import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
