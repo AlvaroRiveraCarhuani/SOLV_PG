@@ -44,11 +44,28 @@ func TestJudgeMigrationsExist(t *testing.T) {
 		"00013_exercise_metadata_and_test_cases_schema.sql",
 		"00014_migrate_jsonb_test_cases_to_table.sql",
 		"00015_cleanup_jsonb_test_cases.sql",
+		"00016_course_modules_and_prerequisites.sql",
 	}
 	for _, name := range files {
 		content := readJudgeMigration(t, dir, name)
 		if strings.TrimSpace(content) == "" {
 			t.Errorf("migration %s is empty", name)
+		}
+	}
+}
+
+func TestJudgeMigration0016CourseModulesAndPrerequisites(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00016_course_modules_and_prerequisites.sql")
+	for _, marker := range []string{
+		"course_modules",
+		"module_prerequisites",
+		"module_id",
+		"idx_exercises_module",
+		"+goose Down",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("migration 00016 lacks expected marker %q", marker)
 		}
 	}
 }

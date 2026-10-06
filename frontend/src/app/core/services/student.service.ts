@@ -50,6 +50,34 @@ export interface StudentRecommendationsDTO {
   message?: string;
 }
 
+export interface CurricularExercise {
+  id: string;
+  title: string;
+  difficulty?: string;
+  purpose: string;
+  best_score?: number;
+  attempts: number;
+  submittable: boolean;
+}
+
+export interface CurricularModuleMap {
+  id: string;
+  title: string;
+  description: string;
+  order_index: number;
+  pass_score: number;
+  state: 'locked' | 'unlocked' | 'in_progress' | 'completed';
+  lock_reason?: string;
+  prerequisite_module_ids: string[];
+  exercises: CurricularExercise[];
+}
+
+export interface CourseCurricularMap {
+  course_id: string;
+  modules: CurricularModuleMap[];
+  unassigned_exercises: CurricularExercise[];
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -194,4 +222,25 @@ export class StudentService {
       };
     }
   }
+
+  async getCourseCurricularMap(courseId: string): Promise<CourseCurricularMap | null> {
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<{ data: CourseCurricularMap; message?: string } | CourseCurricularMap>(
+          `/api/v1/student/courses/${courseId}/map`,
+          { withCredentials: true }
+        )
+      );
+      if (resp && 'data' in resp && resp.data) {
+        return resp.data;
+      }
+      if (resp && 'modules' in resp) {
+        return resp as CourseCurricularMap;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
 }
+

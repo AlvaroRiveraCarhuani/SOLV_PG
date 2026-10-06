@@ -166,7 +166,9 @@
                           <span class="subject-code" machineData>{{ item.subject.code }}</span>
                           <svg lucidePalette class="color-picker-hint-icon"></svg>
                         </button>
-                        <span class="subject-name">{{ item.subject.name }}</span>
+                        <a [routerLink]="['/student/courses', item.subject.id]" class="subject-name-link" title="Ver detalle del curso y mapa curricular">
+                          <span class="subject-name">{{ item.subject.name }}</span>
+                        </a>
                       </div>
 
                       <div class="lab-status">

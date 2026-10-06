@@ -278,3 +278,19 @@ type LanguageProfileRepository interface {
 	UpdateProfile(ctx context.Context, profile *LanguageProfile, audit *LanguageProfileAudit) error
 }
 
+// CourseModuleRepository gestiona la persistencia de módulos y prerrequisitos curriculares
+type CourseModuleRepository interface {
+	CreateModule(ctx context.Context, module *CourseModule) error
+	GetModuleByID(ctx context.Context, moduleID string) (*CourseModule, error)
+	ListModulesBySubject(ctx context.Context, subjectID string) ([]*CourseModule, error)
+	UpdateModule(ctx context.Context, module *CourseModule) error
+	DeleteModule(ctx context.Context, moduleID string) error
+	SetPrerequisites(ctx context.Context, moduleID string, prerequisiteModuleIDs []string) error
+	GetPrerequisitesBySubject(ctx context.Context, subjectID string) ([]ModulePrerequisite, error)
+	GetPrerequisitesForModule(ctx context.Context, moduleID string) ([]string, error)
+	AssignExerciseModule(ctx context.Context, exerciseID string, moduleID *string) error
+	GetCourseCurricularMapData(ctx context.Context, tenantID, subjectID, studentID string) (*CourseCurricularMap, error)
+	IsModuleLockedForStudent(ctx context.Context, tenantID, moduleID, studentID string) (bool, error)
+}
+
+

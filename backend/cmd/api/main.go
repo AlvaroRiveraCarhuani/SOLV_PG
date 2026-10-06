@@ -198,12 +198,19 @@ func main() {
 	langProfileService := services.NewLanguageProfileService(langProfileRepo)
 	langProfileHandler := httpdelivery.NewLanguageProfileHandler(langProfileService)
 
+	// Estructura Curricular: Módulos y Prerrequisitos
+	courseModuleRepo := postgres.NewPostgresCourseModuleRepository(db.GetDB())
+	courseModuleService := services.NewCourseModuleService(courseModuleRepo, exerciseRepo)
+	courseModuleHandler := httpdelivery.NewCourseModuleHandler(courseModuleService)
+	evaluationService.SetModuleRepository(courseModuleRepo)
+
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:              httpdelivery.NewUserHandler(db, v),
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
 		AuthHandler:              httpdelivery.NewAuthHandler(authService),
 		EvaluationHandler:        evalHandler,
 		LanguageProfileHandler:   langProfileHandler,
+		CourseModuleHandler:      courseModuleHandler,
 		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, v),
 		MetricsHandler:           httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
 		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),

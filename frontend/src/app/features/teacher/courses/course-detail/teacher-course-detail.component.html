@@ -83,6 +83,14 @@
     </button>
     <button
       class="tab-btn"
+      [class.active]="activeTab() === 'modules'"
+      (click)="activeTab.set('modules')"
+    >
+      <svg lucideLayers class="btn-icon-sm"></svg>
+      <span>Módulos y Currícula ({{ modules().length }})</span>
+    </button>
+    <button
+      class="tab-btn"
       [class.active]="activeTab() === 'submissions'"
       (click)="activeTab.set('submissions')"
     >
@@ -236,7 +244,171 @@
       }
     </div>
   }
+
+  <!-- Contenido: Pestaña Módulos y Currícula -->
+  @if (activeTab() === 'modules') {
+    <div class="modules-view">
+      <div class="modules-toolbar">
+        <div>
+          <h2 class="section-title">Estructura de Módulos y Prerrequisitos</h2>
+          <p class="section-subtitle">Define las unidades del curso, el puntaje mínimo de aprobación y los prerrequisitos de desbloqueo.</p>
+        </div>
+        <button class="btn-primary" (click)="openCreateModuleModal()">
+          <svg lucidePlus class="btn-icon-sm"></svg>
+          <span>Nuevo Módulo</span>
+        </button>
+      </div>
+
+      @if (moduleSuccessMessage()) {
+        <div class="success-banner">
+          <svg lucideCheckCircle class="success-icon"></svg>
+          <span>{{ moduleSuccessMessage() }}</span>
+        </div>
+      }
+
+      @if (moduleErrorMessage()) {
+        <div class="error-banner">
+          <svg lucideAlertTriangle class="error-icon"></svg>
+          <span>{{ moduleErrorMessage() }}</span>
+        </div>
+      }
+
+      @if (modules().length === 0) {
+        <div class="empty-state">
+          <svg lucideLayers class="empty-icon"></svg>
+          <p>No hay módulos definidos en este curso todavía.</p>
+          <button class="btn-primary" (click)="openCreateModuleModal()">
+            Crear Primer Módulo
+          </button>
+        </div>
+      } @else {
+        <div class="modules-grid">
+          @for (mod of modules(); track mod.id) {
+            <div class="module-card-manage">
+              <div class="module-card-header">
+                <div class="module-id-badge" machineData>Módulo {{ mod.order_index }}</div>
+                <h3 class="mod-title">{{ mod.title }}</h3>
+                @if (mod.description) {
+                  <p class="mod-desc">{{ mod.description }}</p>
+                }
+                <div class="mod-meta-row">
+                  <span class="mod-pill">Aprobación mínima: <strong machineData>{{ mod.pass_score }}%</strong></span>
+                  <button type="button" class="btn-icon-danger" (click)="deleteModule(mod.id)" title="Eliminar módulo">
+                    <svg lucideTrash2 class="btn-icon-sm"></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Configuración de Prerrequisitos -->
+              <div class="module-card-section">
+                <h4 class="section-label">
+                  <svg lucideLock class="label-icon"></svg>
+                  <span>Prerrequisitos de desbloqueo:</span>
+                </h4>
+                <div class="prereq-options">
+                  @for (other of modules(); track other.id) {
+                    @if (other.id !== mod.id) {
+                      <label class="checkbox-label">
+                        <input
+                          type="checkbox"
+                          [checked]="mod.prerequisites?.includes(other.id)"
+                          (change)="togglePrerequisite(mod.id, other.id)"
+                        />
+                        <span>M{{ other.order_index }}: {{ other.title }}</span>
+                      </label>
+                    }
+                  } @empty {
+                    <span class="muted-text">Crea otros módulos para configurar prerrequisitos.</span>
+                  }
+                </div>
+              </div>
+
+              <!-- Ejercicios Asignados -->
+              <div class="module-card-section">
+                <h4 class="section-label">
+                  <svg lucideBookOpen class="label-icon"></svg>
+                  <span>Ejercicios en este módulo:</span>
+                </h4>
+                <div class="assigned-exercises-list">
+                  @for (lab of labs(); track lab.id) {
+                    <div class="exercise-assign-item">
+                      <span class="ex-name">{{ lab.title }}</span>
+                      <button
+                        type="button"
+                        class="btn-assign"
+                        [class.active]="mod.exercise_ids?.includes(lab.id)"
+                        (click)="assignExerciseToModule(lab.id, mod.exercise_ids?.includes(lab.id) ? null : mod.id)"
+                      >
+                        {{ mod.exercise_ids?.includes(lab.id) ? 'Asignado ✓' : 'Asignar' }}
+                      </button>
+                    </div>
+                  } @empty {
+                    <span class="muted-text">No hay ejercicios creados aún en el curso.</span>
+                  }
+                </div>
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 </div>
+
+<!-- Modal para Crear Módulo -->
+@if (showCreateModuleModal()) {
+  <div class="modal-overlay" (click)="closeCreateModuleModal()">
+    <div class="modal-card" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>Nuevo Módulo Curricular</h3>
+        <button type="button" class="btn-close" (click)="closeCreateModuleModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        @if (moduleErrorMessage()) {
+          <div class="error-banner">
+            <svg lucideAlertTriangle class="error-icon"></svg>
+            <span>{{ moduleErrorMessage() }}</span>
+          </div>
+        }
+        <div class="form-group">
+          <label for="moduleTitle">Título del Módulo *</label>
+          <input
+            id="moduleTitle"
+            type="text"
+            class="form-control"
+            [(ngModel)]="newModuleTitle"
+            placeholder="Ej. Introducción a la Programación"
+          />
+        </div>
+        <div class="form-group">
+          <label for="moduleDescription">Descripción (opcional)</label>
+          <textarea
+            id="moduleDescription"
+            class="form-control"
+            rows="2"
+            [(ngModel)]="newModuleDescription"
+            placeholder="Breve descripción del contenido temático"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label for="modulePassScore">Puntaje mínimo de aprobación (%)</label>
+          <input
+            id="modulePassScore"
+            type="number"
+            min="1"
+            max="100"
+            class="form-control"
+            [(ngModel)]="newModulePassScore"
+          />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeCreateModuleModal()">Cancelar</button>
+        <button type="button" class="btn-primary" [disabled]="!newModuleTitle().trim()" (click)="submitCreateModule()">Crear Módulo</button>
+      </div>
+    </div>
+  </div>
+}
 
 @if (showEditorModal()) {
   <exercise-editor-modal

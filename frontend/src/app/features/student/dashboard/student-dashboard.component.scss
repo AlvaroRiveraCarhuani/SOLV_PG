@@ -364,10 +364,22 @@
   color: var(--course-accent, var(--tenant-primary));
 }
 
+.subject-name-link {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+
+  &:hover .subject-name {
+    color: var(--tenant-primary);
+    text-decoration: underline;
+  }
+}
+
 .subject-name {
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--text-primary);
+  transition: color 0.15s ease;
 }
 
 .course-color-popover {

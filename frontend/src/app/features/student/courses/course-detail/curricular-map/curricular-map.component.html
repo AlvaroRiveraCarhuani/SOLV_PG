@@ -1,0 +1,279 @@
+<section class="curricular-map-container" aria-label="Mapa curricular del curso">
+  <!-- Encabezado del Mapa Curricular -->
+  <header class="map-header">
+    <div class="header-content">
+      <div class="title-with-badge">
+        <svg lucideLayers class="header-icon"></svg>
+        <h2 class="map-title">Mapa Curricular</h2>
+      </div>
+      <p class="map-subtitle">Progreso de módulos y prerrequisitos de desbloqueo académico.</p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="btn-refresh"
+        (click)="loadCurricularMap(courseId())"
+        [disabled]="isLoading()"
+        title="Actualizar estado curricular"
+        aria-label="Actualizar mapa curricular"
+      >
+        <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
+        <span>Actualizar</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Barra de progreso general -->
+  @if (mapData() && totalModules() > 0) {
+    <div class="overall-progress-card">
+      <div class="progress-info">
+        <span class="progress-label">Progreso del curso</span>
+        <span class="progress-counter">
+          <strong machineData>{{ completedModules() }}</strong> de <span machineData>{{ totalModules() }}</span> módulos completados (<span machineData>{{ overallProgressPercent() }}%</span>)
+        </span>
+      </div>
+      <div class="progress-bar-track">
+        <div
+          class="progress-bar-fill"
+          [style.width.%]="overallProgressPercent()"
+        ></div>
+      </div>
+    </div>
+  }
+
+  <!-- Estados de carga y error -->
+  @if (isLoading() && !mapData()) {
+    <div class="map-state loading-state">
+      <div class="skeleton-module-card"></div>
+      <div class="skeleton-module-card"></div>
+    </div>
+  } @else if (loadError()) {
+    <div class="map-state error-state">
+      <svg lucideAlertCircle class="state-icon"></svg>
+      <p>{{ loadError() }}</p>
+      <button type="button" class="btn-retry" (click)="loadCurricularMap(courseId())">
+        Reintentar
+      </button>
+    </div>
+  } @else if (!mapData() || mapData()!.modules.length === 0) {
+    <!-- Sin módulos configurados -->
+    <div class="map-state empty-state">
+      <svg lucideBookOpen class="state-icon"></svg>
+      <p class="state-title">No hay módulos configurados para este curso</p>
+      <p class="state-subtitle">El docente aún no ha definido módulos ni prerrequisitos.</p>
+    </div>
+  } @else {
+    <!-- Lista secuencial de módulos -->
+    <div class="modules-timeline">
+      @for (module of mapData()!.modules; track module.id; let idx = $index) {
+        <article
+          class="module-card"
+          [class.is-locked]="module.state === 'locked'"
+          [class.is-completed]="module.state === 'completed'"
+          [class.is-in-progress]="module.state === 'in_progress'"
+          [class.is-unlocked]="module.state === 'unlocked'"
+        >
+          <!-- Encabezado del Módulo -->
+          <div class="module-header">
+            <div class="module-status-indicator">
+              @switch (module.state) {
+                @case ('completed') {
+                  <span class="indicator-icon completed" title="Módulo completado">
+                    <svg lucideCheckCircle2 class="icon"></svg>
+                  </span>
+                }
+                @case ('in_progress') {
+                  <span class="indicator-icon in-progress" title="Módulo en curso">
+                    <svg lucidePlay class="icon"></svg>
+                  </span>
+                }
+                @case ('locked') {
+                  <span class="indicator-icon locked" title="Módulo bloqueado por prerrequisitos">
+                    <svg lucideLock class="icon"></svg>
+                  </span>
+                }
+                @default {
+                  <span class="indicator-icon unlocked" title="Módulo disponible para iniciar">
+                    <svg lucideUnlock class="icon"></svg>
+                  </span>
+                }
+              }
+              <div class="module-order-badge" machineData>
+                M{{ module.order_index }}
+              </div>
+            </div>
+
+            <div class="module-title-area">
+              <div class="title-row">
+                <h3 class="module-title">{{ module.title }}</h3>
+                <span
+                  class="module-state-badge"
+                  [class.completed]="module.state === 'completed'"
+                  [class.in-progress]="module.state === 'in_progress'"
+                  [class.unlocked]="module.state === 'unlocked'"
+                  [class.locked]="module.state === 'locked'"
+                >
+                  {{ getModuleStateLabel(module.state) }}
+                </span>
+              </div>
+              @if (module.description) {
+                <p class="module-description">{{ module.description }}</p>
+              }
+            </div>
+
+            <div class="module-meta">
+              <span class="pass-score-pill" title="Puntaje mínimo para aprobar ejercicios del módulo">
+                Aprobación: <strong machineData>{{ module.pass_score }}%</strong>
+              </span>
+              @if (module.exercises.length > 0) {
+                <span class="completion-pill">
+                  <strong machineData>{{ getModulePassedCount(module) }}/{{ module.exercises.length }}</strong> superados
+                </span>
+              }
+            </div>
+          </div>
+
+          <!-- Alerta de Bloqueo / Prerrequisitos pendientes -->
+          @if (module.state === 'locked') {
+            <div class="module-lock-banner">
+              <svg lucideLock class="lock-icon"></svg>
+              <div class="lock-text">
+                <strong>Módulo Bloqueado:</strong>
+                <span>{{ module.lock_reason || 'Requiere completar todos los módulos prerrequisito para desbloquear.' }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Lista de ejercicios del módulo -->
+          <div class="module-exercises-list">
+            @for (ex of module.exercises; track ex.id) {
+              <div
+                class="exercise-row"
+                [class.is-exam]="ex.purpose === 'exam'"
+                [class.is-disabled]="!ex.submittable"
+              >
+                <div class="exercise-info">
+                  <div class="exercise-title-group">
+                    <svg lucideFileCode2 class="exercise-icon"></svg>
+                    <span class="exercise-title">{{ ex.title }}</span>
+
+                    @if (ex.purpose === 'exam') {
+                      <span class="exam-badge" title="Evaluación de examen: siempre disponible para envío independiente del estado del módulo">
+                        Examen
+                      </span>
+                    }
+
+                    @if (ex.difficulty) {
+                      <span class="difficulty-badge {{ getDifficultyClass(ex.difficulty) }}">
+                        {{ getDifficultyLabel(ex.difficulty) }}
+                      </span>
+                    }
+                  </div>
+                </div>
+
+                <div class="exercise-score-area">
+                  @if (ex.best_score !== null && ex.best_score !== undefined) {
+                    <span
+                      class="score-badge"
+                      [class.passing]="ex.best_score >= module.pass_score"
+                      [class.failing]="ex.best_score < module.pass_score"
+                    >
+                      Mejor: <strong machineData>{{ ex.best_score }} pts</strong>
+                    </span>
+                  } @else {
+                    <span class="no-attempts-text">Sin intentos</span>
+                  }
+                </div>
+
+                <div class="exercise-action">
+                  @if (ex.submittable) {
+                    <a
+                      [routerLink]="['/student/exercises', ex.id]"
+                      class="btn-solve"
+                      title="Abrir ejercicio para resolver"
+                    >
+                      <span>Resolver</span>
+                      <svg lucideChevronRight class="btn-icon"></svg>
+                    </a>
+                  } @else {
+                    <button
+                      type="button"
+                      class="btn-solve disabled"
+                      disabled
+                      title="Módulo bloqueado. Completa los prerrequisitos para habilitar este ejercicio."
+                    >
+                      <svg lucideLock class="btn-icon"></svg>
+                      <span>Bloqueado</span>
+                    </button>
+                  }
+                </div>
+              </div>
+            } @empty {
+              <div class="empty-exercises">
+                <p>No hay ejercicios asignados a este módulo.</p>
+              </div>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  <!-- Sección de Ejercicios Generales (sin módulo asignado) -->
+  @if (mapData() && mapData()!.unassigned_exercises && mapData()!.unassigned_exercises.length > 0) {
+    <div class="unassigned-section">
+      <div class="unassigned-header">
+        <svg lucideSparkles class="unassigned-icon"></svg>
+        <div>
+          <h3 class="unassigned-title">Ejercicios Generales</h3>
+          <p class="unassigned-subtitle">Prácticas adicionales no asignadas a un módulo específico (siempre disponibles).</p>
+        </div>
+      </div>
+
+      <div class="unassigned-exercises-list">
+        @for (ex of mapData()!.unassigned_exercises; track ex.id) {
+          <div class="exercise-row unassigned-row">
+            <div class="exercise-info">
+              <div class="exercise-title-group">
+                <svg lucideFileCode2 class="exercise-icon"></svg>
+                <span class="exercise-title">{{ ex.title }}</span>
+
+                @if (ex.purpose === 'exam') {
+                  <span class="exam-badge">Examen</span>
+                }
+
+                @if (ex.difficulty) {
+                  <span class="difficulty-badge {{ getDifficultyClass(ex.difficulty) }}">
+                    {{ getDifficultyLabel(ex.difficulty) }}
+                  </span>
+                }
+              </div>
+            </div>
+
+            <div class="exercise-score-area">
+              @if (ex.best_score !== null && ex.best_score !== undefined) {
+                <span class="score-badge" [class.passing]="ex.best_score >= 60">
+                  Mejor: <strong machineData>{{ ex.best_score }} pts</strong>
+                </span>
+              } @else {
+                <span class="no-attempts-text">Sin intentos</span>
+              }
+            </div>
+
+            <div class="exercise-action">
+              <a
+                [routerLink]="['/student/exercises', ex.id]"
+                class="btn-solve"
+                title="Abrir ejercicio general"
+              >
+                <span>Resolver</span>
+                <svg lucideChevronRight class="btn-icon"></svg>
+              </a>
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

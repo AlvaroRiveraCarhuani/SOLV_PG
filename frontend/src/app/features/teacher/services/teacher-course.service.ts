@@ -9,7 +9,11 @@ import {
   BulkTestCasesRequestDTO,
   PlagiarismReport,
   CourseGradesMatrix,
-  CourseAnalyticsDTO
+  CourseAnalyticsDTO,
+  TeacherCourseModule,
+  CreateModuleDTO,
+  UpdateModuleDTO,
+  SetPrerequisitesDTO
 } from '../models/teacher.models';
 
 
@@ -200,6 +204,54 @@ export class TeacherCourseService {
   getCourseAnalytics(courseId: string): Observable<CourseAnalyticsDTO> {
     return this.http.get<ApiResponse<CourseAnalyticsDTO>>(`/api/v1/teacher/courses/${courseId}/analytics`).pipe(
       map(res => res.data)
+    );
+  }
+
+  getCourseModules(subjectId: string): Observable<TeacherCourseModule[]> {
+    return this.http.get<ApiResponse<TeacherCourseModule[]>>(`/api/v1/courses/${subjectId}/modules`).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  createModule(subjectId: string, dto: CreateModuleDTO): Observable<TeacherCourseModule> {
+    return this.http.post<ApiResponse<TeacherCourseModule>>(`/api/v1/courses/${subjectId}/modules`, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  updateModule(subjectId: string, moduleId: string, dto: UpdateModuleDTO): Observable<TeacherCourseModule> {
+    return this.http.put<ApiResponse<TeacherCourseModule>>(`/api/v1/courses/${subjectId}/modules/${moduleId}`, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  deleteModule(subjectId: string, moduleId: string): Observable<void> {
+    return this.http.delete<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}`).pipe(
+      map(() => void 0)
+    );
+  }
+
+  setModulePrerequisites(subjectId: string, moduleId: string, prerequisiteModuleIds: string[]): Observable<void> {
+    return this.http.put<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}/prerequisites`, {
+      prerequisite_module_ids: prerequisiteModuleIds
+    }).pipe(
+      map(() => void 0)
+    );
+  }
+
+  assignExercisesToModule(subjectId: string, moduleId: string, exerciseIds: string[]): Observable<void> {
+    return this.http.put<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}/exercises`, {
+      exercise_ids: exerciseIds
+    }).pipe(
+      map(() => void 0)
+    );
+  }
+
+  assignExerciseModule(exerciseId: string, moduleId: string | null): Observable<void> {
+    return this.http.put<ApiResponse<void>>(`/api/v1/exercises/${exerciseId}/module`, {
+      module_id: moduleId
+    }).pipe(
+      map(() => void 0)
     );
   }
 }

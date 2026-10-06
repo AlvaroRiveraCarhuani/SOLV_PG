@@ -22,6 +22,7 @@ type EvaluationService struct {
 	runner          domain.EvaluationRunner
 	metrics         RunMetricsRecorder
 	formatValidator FormatValidator
+	moduleRepo      domain.CourseModuleRepository
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,
@@ -87,6 +88,10 @@ func NewEvaluationService(
 
 func (s *EvaluationService) SetFormatValidator(v FormatValidator) {
 	s.formatValidator = v
+}
+
+func (s *EvaluationService) SetModuleRepository(repo domain.CourseModuleRepository) {
+	s.moduleRepo = repo
 }
 
 func (s *EvaluationService) validateExerciseInputFormat(ex *domain.Exercise) error {
@@ -385,6 +390,21 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 	exercise, err := s.exerciseRepo.GetByID(ctx, exerciseID)
 	if err != nil {
 		return nil, fmt.Errorf("ejercicio no encontrado (ID: %s): %w", exerciseID, err)
+	}
+
+	// 2.5 Verificar si el módulo está bloqueado para el estudiante (fail-closed, salvaguarda de examen)
+	if exercise.ModuleID != nil && *exercise.ModuleID != "" && exercise.Purpose != string(domain.ExercisePurposeExam) && s.moduleRepo != nil {
+		studentID := ""
+		if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
+			studentID = uid
+		}
+		tenantID := domain.GetTenantID(ctx)
+		if studentID != "" {
+			isLocked, err := s.moduleRepo.IsModuleLockedForStudent(ctx, tenantID, *exercise.ModuleID, studentID)
+			if err == nil && isLocked {
+				return nil, domain.ErrModuleLocked
+			}
+		}
 	}
 
 	// 3. Ramificar evaluación según el Tipo de Ejercicio

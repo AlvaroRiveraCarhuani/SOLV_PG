@@ -8,6 +8,7 @@ import {
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StudentService, StudentSubjectItem } from '@core/services/student.service';
 import { RecommendationsPanelComponent } from './recommendations-panel/recommendations-panel.component';
+import { CurricularMapComponent } from './curricular-map/curricular-map.component';
 
 @Component({
   selector: 'student-course-detail',
@@ -18,7 +19,8 @@ import { RecommendationsPanelComponent } from './recommendations-panel/recommend
     LucideArrowLeft,
     LucideCode,
     MachineDataDirective,
-    RecommendationsPanelComponent
+    RecommendationsPanelComponent,
+    CurricularMapComponent
   ],
   templateUrl: './student-course-detail.component.html',
   styleUrl: './student-course-detail.component.scss'

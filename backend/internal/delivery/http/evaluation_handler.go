@@ -63,6 +63,10 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.Evaluate(r.Context(), req.ExerciseID, req.Language, req.SourceCodeB64)
 	if err != nil {
+		if errors.Is(err, domain.ErrModuleLocked) {
+			SendError(w, http.StatusForbidden, "MODULE_LOCKED", "El módulo curricular se encuentra bloqueado")
+			return
+		}
 		if h.wsHub != nil && userID != "" {
 			h.wsHub.EmitToUser(userID, WebSocketMessage{
 				Event: "EVALUATION_PROGRESS",

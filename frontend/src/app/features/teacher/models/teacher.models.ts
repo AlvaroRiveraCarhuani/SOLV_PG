@@ -437,5 +437,35 @@ export interface CourseGradesMatrix {
   students: StudentGradesRow[];
 }
 
+export interface TeacherCourseModule {
+  id: string;
+  subject_id: string;
+  title: string;
+  description: string;
+  order_index: number;
+  pass_score: number;
+  created_at: string;
+  prerequisites?: string[];
+  exercise_ids?: string[];
+}
+
+export interface CreateModuleDTO {
+  title: string;
+  description?: string;
+  order_index?: number;
+  pass_score?: number;
+}
+
+export interface UpdateModuleDTO {
+  title: string;
+  description?: string;
+  order_index?: number;
+  pass_score?: number;
+}
+
+export interface SetPrerequisitesDTO {
+  prerequisite_module_ids: string[];
+}
+
 
 

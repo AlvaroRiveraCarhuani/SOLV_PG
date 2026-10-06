@@ -46,6 +46,7 @@ var (
 	ErrInvalidWeight           = errors.New("test case weight must be non-negative")
 	ErrEmptyExpectedOutput     = errors.New("test case expected_output cannot be empty")
 	ErrTestCasesNotArray       = errors.New("test_cases must be an array")
+	ErrModuleLocked            = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
 )
 
 type Verdict string
@@ -241,6 +242,7 @@ type Exercise struct {
 	ReferenceSolution string          `json:"reference_solution" db:"reference_solution"`
 	Stale             bool            `json:"stale" db:"stale"`
 	LastValidDryRunAt *time.Time      `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	ModuleID          *string         `json:"module_id,omitempty" db:"module_id"`
 	Config            ExerciseConfig  `json:"config" db:"config"`
 	TenantID          string          `json:"tenant_id" db:"tenant_id"`
 	CreatedAt         time.Time       `json:"created_at" db:"created_at"`
