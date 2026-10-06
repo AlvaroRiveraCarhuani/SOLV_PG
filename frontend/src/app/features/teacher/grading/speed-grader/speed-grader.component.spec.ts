@@ -78,6 +78,15 @@ describe('SpeedGraderComponent', () => {
       isRunningBenchmark: () => false,
       getSubmissionReview: vi.fn().mockReturnValue(of(mockReview)),
       getSubmissionTimeline: vi.fn().mockReturnValue(of(mockTimeline)),
+      getKeystrokeEvents: vi.fn().mockReturnValue(of({
+        submission_id: 'rev-1',
+        total_time_ms: 5000,
+        paste_count: 0,
+        paste_percentage: 0,
+        total_chars_typed: 40,
+        total_chars_pasted: 0,
+        events: []
+      })),
       runComplexityBenchmark: vi.fn().mockReturnValue(of(mockBenchmarkReport)),
       addComment: vi.fn().mockReturnValue(of({})),
       overrideSubmission: vi.fn().mockReturnValue(of(void 0))
@@ -149,6 +158,14 @@ describe('SpeedGraderComponent', () => {
       score: 95
     });
     expect(component.showOverrideModal()).toBe(false);
+  });
+
+  it('opens and closes keystroke replay modal', () => {
+    expect(component.showKeystrokeReplay()).toBe(false);
+    component.openKeystrokeReplay();
+    expect(component.showKeystrokeReplay()).toBe(true);
+    component.closeKeystrokeReplay();
+    expect(component.showKeystrokeReplay()).toBe(false);
   });
 });
 

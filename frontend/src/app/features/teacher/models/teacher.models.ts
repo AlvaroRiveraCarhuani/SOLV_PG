@@ -314,6 +314,27 @@ export interface TimelineKeyframe {
   lines_deleted?: number;
 }
 
+export interface SubmissionKeystrokeEvent {
+  id?: string;
+  submission_id?: string;
+  timestamp_ms: number;
+  event_type: 'insert' | 'delete' | 'paste';
+  position: number;
+  content: string;
+  paste_source_detected?: boolean;
+  created_at?: string;
+}
+
+export interface SubmissionKeystrokeReport {
+  submission_id: string;
+  events: SubmissionKeystrokeEvent[];
+  total_time_ms: number;
+  paste_count: number;
+  paste_percentage: number;
+  total_chars_typed: number;
+  total_chars_pasted: number;
+}
+
 export interface SubmissionTimeline {
   submission_id: string;
   student_id: string;

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	"solv-backend/internal/delivery/http/middleware"
 )
@@ -169,4 +170,41 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 		"verdict": dto.Verdict,
 	}, "Calificación actualizada exitosamente")
 }
+
+type SaveKeystrokeEventsRequestDTO struct {
+	Events []domain.SubmissionKeystrokeEvent `json:"events"`
+}
+
+func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.Request) {
+	submissionID := r.PathValue("id")
+	if submissionID == "" {
+		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+
+	var req SaveKeystrokeEventsRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON", "Cuerpo de solicitud inválido")
+		return
+	}
+
+	if len(req.Events) > 10000 {
+		SendError(w, http.StatusBadRequest, "Max events limit exceeded", "Máximo 10,000 eventos permitidos por lote")
+		return
+	}
+
+	count, err := h.service.SaveKeystrokeEvents(r.Context(), tenantID, submissionID, req.Events)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar eventos de escritura")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]any{
+		"success":      true,
+		"events_count": count,
+	}, "Eventos de escritura registrados exitosamente")
+}
+
 

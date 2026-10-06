@@ -16,7 +16,8 @@ import {
   LucideGitCompare,
   LucideHistory,
   LucideTrendingUp,
-  LucideCopy
+  LucideCopy,
+  LucideFilm
 } from '@lucide/angular';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
@@ -28,6 +29,7 @@ import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.
 import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
+import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
 
@@ -52,6 +54,7 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideHistory,
     LucideTrendingUp,
     LucideCopy,
+    LucideFilm,
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
@@ -59,6 +62,7 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     ShadowTerminalModalComponent,
     TimeTravelReplayComponent,
     ComplexityBenchmarkComponent,
+    KeystrokeReplayModalComponent,
     ComboboxComponent
   ],
   templateUrl: './speed-grader.component.html',
@@ -110,8 +114,17 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   isSubmittingOverride = signal<boolean>(false);
 
   showShadowTerminal = signal<boolean>(false);
+  showKeystrokeReplay = signal<boolean>(false);
 
   copiedIndex = signal<number | null>(null);
+
+  openKeystrokeReplay(): void {
+    this.showKeystrokeReplay.set(true);
+  }
+
+  closeKeystrokeReplay(): void {
+    this.showKeystrokeReplay.set(false);
+  }
 
   copyCaseInput(input: string, index: number): void {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {

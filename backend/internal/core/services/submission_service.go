@@ -11,11 +11,38 @@ import (
 )
 
 type SubmissionService struct {
-	repo domain.SubmissionRepository
+	repo          domain.SubmissionRepository
+	keystrokeRepo domain.KeystrokeRepository
 }
 
 func NewSubmissionService(repo domain.SubmissionRepository) *SubmissionService {
 	return &SubmissionService{repo: repo}
+}
+
+func (s *SubmissionService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {
+	s.keystrokeRepo = kr
+}
+
+func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, submissionID string, events []domain.SubmissionKeystrokeEvent) (int, error) {
+	if submissionID == "" {
+		return 0, errors.New("submission_id is required")
+	}
+	if len(events) == 0 {
+		return 0, nil
+	}
+	if len(events) > 10000 {
+		return 0, errors.New("máximo 10,000 eventos permitidos por lote")
+	}
+	if s.keystrokeRepo == nil {
+		return len(events), nil
+	}
+	if _, err := s.repo.GetByID(ctx, tenantID, submissionID); err != nil {
+		return 0, fmt.Errorf("submission not found: %w", err)
+	}
+	if err := s.keystrokeRepo.SaveBatch(ctx, submissionID, events); err != nil {
+		return 0, fmt.Errorf("failed to save keystroke events: %w", err)
+	}
+	return len(events), nil
 }
 
 type CreateSubmissionDTO struct {

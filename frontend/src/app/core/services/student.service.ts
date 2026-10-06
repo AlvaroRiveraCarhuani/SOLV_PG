@@ -242,5 +242,16 @@ export class StudentService {
       return null;
     }
   }
+
+  async saveKeystrokeEvents(submissionId: string, events: any[]): Promise<void> {
+    if (!submissionId || !events || events.length === 0) return;
+    try {
+      await firstValueFrom(
+        this.http.post(`/api/v1/submissions/${submissionId}/keystroke-events`, { events }, { withCredentials: true })
+      );
+    } catch {
+      // Ignored for non-blocking telemetry
+    }
+  }
 }
 

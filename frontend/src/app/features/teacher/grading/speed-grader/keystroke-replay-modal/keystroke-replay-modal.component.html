@@ -1,0 +1,143 @@
+<modal-shell
+  title="Auditoría Forense: Replay de Escritura"
+  subtitle="Reproducción interactiva de la escritura de código y análisis forense de pegados."
+  intent="info"
+  maxWidth="1020px"
+  [showClose]="true"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideFilm class="icon"></svg>
+
+  @if (isLoading()) {
+    <skeleton-loader variant="code" [count]="10" />
+  } @else if (error()) {
+    <div class="error-banner">
+      <svg lucideAlertTriangle class="error-icon"></svg>
+      <span>{{ error() }}</span>
+    </div>
+  } @else if (report(); as rep) {
+    <div class="forensic-replay-container">
+      <!-- Barra superior de Métricas Forenses -->
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-header">
+            <svg lucideClock class="metric-icon"></svg>
+            <span class="metric-label">Tiempo Total</span>
+          </div>
+          <span class="metric-value font-mono" machineData>{{ (rep.total_time_ms / 1000) | number:'1.0-1' }}s</span>
+        </div>
+
+        <div class="metric-card" [class.metric-warning]="rep.paste_count > 0">
+          <div class="metric-header">
+            <svg lucideClipboard class="metric-icon"></svg>
+            <span class="metric-label">Eventos de Pegado</span>
+          </div>
+          <span class="metric-value font-mono" machineData>{{ rep.paste_count }}</span>
+        </div>
+
+        <div class="metric-card" [class.metric-danger]="rep.paste_percentage > 40">
+          <div class="metric-header">
+            <svg lucidePercent class="metric-icon"></svg>
+            <span class="metric-label">% Código Pegado</span>
+          </div>
+          <span class="metric-value font-mono" machineData>{{ rep.paste_percentage | number:'1.1-1' }}%</span>
+        </div>
+
+        <div class="metric-card">
+          <div class="metric-header">
+            <svg lucideCheckCircle class="metric-icon text-success"></svg>
+            <span class="metric-label">Caracteres Tipeados</span>
+          </div>
+          <span class="metric-value font-mono" machineData>{{ rep.total_chars_typed }}</span>
+        </div>
+      </div>
+
+      <!-- Alerta Forense si hubo pegados masivos -->
+      @if (rep.paste_count > 0) {
+        <div class="forensic-alert" [class.alert-critical]="rep.paste_percentage > 50">
+          <svg lucideAlertTriangle class="alert-icon"></svg>
+          <div class="alert-content">
+            <strong class="alert-title">Se detectaron eventos de pegado en la sesión</strong>
+            <p class="alert-desc">
+              El alumno pegó un total de {{ rep.total_chars_pasted }} caracteres en {{ rep.paste_count }} eventos de portapapeles.
+              Los fragmentos pegados están resaltados en rojo en el visor temporal.
+            </p>
+          </div>
+        </div>
+      }
+
+      <!-- Toolbar de Controles de Reproducción -->
+      <div class="playback-toolbar">
+        <div class="playback-buttons">
+          <button type="button" class="btn-control" (click)="stepBackward()" title="Paso anterior (evento previo)">
+            <svg lucideSkipBack class="btn-icon"></svg>
+          </button>
+
+          <button type="button" class="btn-play-toggle" (click)="togglePlay()" [title]="isPlaying() ? 'Pausar' : 'Reproducir'">
+            @if (isPlaying()) {
+              <svg lucidePause class="btn-icon"></svg>
+              <span>Pausar</span>
+            } @else {
+              <svg lucidePlay class="btn-icon"></svg>
+              <span>Reproducir</span>
+            }
+          </button>
+
+          <button type="button" class="btn-control" (click)="stepForward()" title="Paso siguiente (evento posterior)">
+            <svg lucideSkipForward class="btn-icon"></svg>
+          </button>
+        </div>
+
+        <!-- Timeline Slider -->
+        <div class="timeline-slider-wrapper">
+          <input
+            type="range"
+            class="timeline-slider"
+            [min]="0"
+            [max]="totalDurationMS()"
+            [value]="currentTimeMS()"
+            (input)="onSliderChange($event)"
+            title="Desplazarse en la línea temporal"
+          />
+          <div class="time-indicators">
+            <span class="current-time font-mono" machineData>{{ formattedCurrentTime() }}</span>
+            <span class="time-separator">/</span>
+            <span class="total-time font-mono" machineData>{{ formattedTotalTime() }}</span>
+          </div>
+        </div>
+
+        <!-- Velocidad de reproducción -->
+        <div class="speed-selector">
+          <span class="speed-label">Velocidad:</span>
+          <div class="speed-pills">
+            @for (spd of [0.5, 1, 2, 4]; track spd) {
+              <button
+                type="button"
+                class="speed-pill font-mono"
+                [class.active]="playbackSpeed() === spd"
+                (click)="setSpeed(spd)"
+              >
+                {{ spd }}x
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Visor de Código Reconstruido -->
+      <div class="code-replay-viewer">
+        <div class="viewer-header">
+          <span class="viewer-title">Estado del Código en <span class="font-mono" machineData>{{ formattedCurrentTime() }}</span></span>
+          <span class="events-badge font-mono" machineData>{{ activeEvents().length }} / {{ rep.events.length }} eventos</span>
+        </div>
+        <div class="code-editor-surface">
+          <pre class="code-content font-mono">@for (segment of codeSegments(); track $index) {<span [class.paste-segment]="segment.isPaste" [attr.title]="segment.isPaste ? 'Pegado detectado en t=' + (segment.timestamp / 1000 | number:'1.1-1') + 's' : null">{{ segment.text }}</span>}</pre>
+        </div>
+      </div>
+    </div>
+  }
+
+  <div modal-footer class="modal-footer-actions">
+    <button type="button" class="btn-outline" (click)="close.emit()">Cerrar Auditoría</button>
+  </div>
+</modal-shell>

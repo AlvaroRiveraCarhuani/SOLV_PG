@@ -72,7 +72,9 @@ func main() {
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
 		WithProvisioning(subjectRepo, templateRepo, db.GetDB())
 	subjectService := services.NewSubjectService(subjectRepo)
+	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
 	submissionService := services.NewSubmissionService(submissionRepo)
+	submissionService.SetKeystrokeRepository(keystrokeRepo)
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
 
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
@@ -114,6 +116,7 @@ func main() {
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
+	teacherService.SetKeystrokeRepository(keystrokeRepo)
 	teacherService.SetEvaluationService(evaluationService)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
 

@@ -113,6 +113,7 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
 		mux.Handle("GET /api/v1/submissions/{id}", tm(http.HandlerFunc(deps.SubmissionHandler.GetSubmissionByID)))
 		mux.Handle("POST /api/v1/submissions/{id}/override", am(tm(http.HandlerFunc(deps.SubmissionHandler.OverrideSubmission))))
+		mux.Handle("POST /api/v1/submissions/{id}/keystroke-events", tm(http.HandlerFunc(deps.SubmissionHandler.SaveKeystrokeEvents)))
 	}
 
 	if deps.TeacherInvitationHandler != nil {
@@ -363,6 +364,7 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/courses/{id}/analytics", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseAnalytics)))
 
 	mux.Handle("GET /api/v1/teacher/submissions/{id}/timeline", tm(http.HandlerFunc(deps.TeacherHandler.GetTimeline)))
+	mux.Handle("GET /api/v1/teacher/submissions/{id}/keystroke-events", tm(http.HandlerFunc(deps.TeacherHandler.GetKeystrokeEvents)))
 	mux.Handle("GET /api/v1/teacher/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/live-sessions", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessions)))

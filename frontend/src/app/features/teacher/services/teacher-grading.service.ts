@@ -9,6 +9,7 @@ import {
   EphemeralRunRequestDTO,
   EphemeralRunResult,
   SubmissionTimeline,
+  SubmissionKeystrokeReport,
   BenchmarkReport,
   RunBenchmarkRequestDTO
 } from '../models/teacher.models';
@@ -48,6 +49,14 @@ export class TeacherGradingService {
   getSubmissionTimeline(submissionId: string): Observable<SubmissionTimeline> {
     return this.http.get<ApiResponse<SubmissionTimeline>>(
       `/api/v1/teacher/submissions/${submissionId}/timeline`
+    ).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getKeystrokeEvents(submissionId: string): Observable<SubmissionKeystrokeReport> {
+    return this.http.get<ApiResponse<SubmissionKeystrokeReport>>(
+      `/api/v1/teacher/submissions/${submissionId}/keystroke-events`
     ).pipe(
       map(res => res.data)
     );

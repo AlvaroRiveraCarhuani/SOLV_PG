@@ -423,6 +423,34 @@ func (h *TeacherHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusOK, timeline, "Telemetría de Time-Travel Replay obtenida exitosamente")
 }
 
+func (h *TeacherHandler) GetKeystrokeEvents(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	teacherID := r.Header.Get("X-User-Id")
+	submissionID := r.PathValue("id")
+	if submissionID == "" {
+		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")
+		return
+	}
+
+	report, err := h.service.GetKeystrokeEvents(r.Context(), tenantID, teacherID, submissionID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener eventos de escritura")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, report, "Eventos de escritura obtenidos exitosamente")
+}
+
 func (h *TeacherHandler) GetLiveSessions(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {
