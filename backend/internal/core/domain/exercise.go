@@ -243,9 +243,23 @@ type Exercise struct {
 	Stale             bool            `json:"stale" db:"stale"`
 	LastValidDryRunAt *time.Time      `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
 	ModuleID          *string         `json:"module_id,omitempty" db:"module_id"`
+	ExpectedComplexity *string        `json:"expected_complexity,omitempty" db:"expected_complexity"`
 	Config            ExerciseConfig  `json:"config" db:"config"`
 	TenantID          string          `json:"tenant_id" db:"tenant_id"`
 	CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+}
+
+type ComplexityMeasurement struct {
+	InputSize int     `json:"input_size"`
+	TimeMs    float64 `json:"time_ms"`
+	MemoryKb  float64 `json:"memory_kb"`
+}
+
+type ComplexityAnalysis struct {
+	TimeComplexity  string                  `json:"time_complexity"`
+	SpaceComplexity string                  `json:"space_complexity"`
+	Measurements    []ComplexityMeasurement `json:"measurements"`
+	Confidence      float64                 `json:"confidence"`
 }
 
 func (ex *Exercise) Validate() error {
@@ -290,9 +304,10 @@ type EvaluationResult struct {
 	// CaseResults agrega el veredicto de cada caso evaluado. La evaluacion
 	// recorre todos los casos sin detencion temprana (D-EJ-03).
 	CaseResults  []CaseResult `json:"case_results,omitempty"`
-	ActualJSON   string       `json:"actual_json,omitempty"`
-	ExpectedJSON string       `json:"expected_json,omitempty"`
-	GeneratedCases []TestCase `json:"generated_cases,omitempty"`
+	ActualJSON         string              `json:"actual_json,omitempty"`
+	ExpectedJSON       string              `json:"expected_json,omitempty"`
+	GeneratedCases     []TestCase          `json:"generated_cases,omitempty"`
+	ComplexityAnalysis *ComplexityAnalysis `json:"complexity_analysis,omitempty"`
 }
 
 // CaseResult es el resultado de un unico caso de prueba.

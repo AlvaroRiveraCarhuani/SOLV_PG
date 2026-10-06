@@ -53,8 +53,9 @@ type CreateSubmissionDTO struct {
 	Verdict         string          `json:"verdict"`
 	ASTResult       json.RawMessage `json:"ast_result"`
 	GeneratedCases  json.RawMessage `json:"generated_cases,omitempty"`
-	ExecutionTimeMS int             `json:"execution_time_ms"`
-	MemoryUsedMB    int             `json:"memory_used_mb"`
+	ExecutionTimeMS    int             `json:"execution_time_ms"`
+	MemoryUsedMB       int             `json:"memory_used_mb"`
+	ComplexityAnalysis json.RawMessage `json:"complexity_analysis,omitempty"`
 }
 
 func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID string, dto CreateSubmissionDTO) (*domain.Submission, error) {
@@ -65,17 +66,18 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		dto.ASTResult = json.RawMessage("{}")
 	}
 	sub := &domain.Submission{
-		ID:              uuid.New().String(),
-		TenantID:        tenantID,
-		ExerciseID:      dto.ExerciseID,
-		StudentID:       dto.StudentID,
-		WorkspaceID:     dto.WorkspaceID,
-		Code:            dto.Code,
-		Verdict:         dto.Verdict,
-		ASTResult:       dto.ASTResult,
-		GeneratedCases:  dto.GeneratedCases,
-		ExecutionTimeMS: dto.ExecutionTimeMS,
-		MemoryUsedMB:    dto.MemoryUsedMB,
+		ID:                 uuid.New().String(),
+		TenantID:           tenantID,
+		ExerciseID:         dto.ExerciseID,
+		StudentID:          dto.StudentID,
+		WorkspaceID:        dto.WorkspaceID,
+		Code:               dto.Code,
+		Verdict:            dto.Verdict,
+		ASTResult:          dto.ASTResult,
+		GeneratedCases:     dto.GeneratedCases,
+		ComplexityAnalysis: dto.ComplexityAnalysis,
+		ExecutionTimeMS:    dto.ExecutionTimeMS,
+		MemoryUsedMB:       dto.MemoryUsedMB,
 	}
 	if err := s.repo.Create(ctx, sub); err != nil {
 		return nil, fmt.Errorf("failed to create submission: %w", err)

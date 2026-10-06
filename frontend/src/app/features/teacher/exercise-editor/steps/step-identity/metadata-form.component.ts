@@ -54,6 +54,24 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         </select>
       </div>
 
+      <!-- Complejidad Esperada (Opcional) -->
+      <div class="form-group">
+        <label for="expected-complexity" class="form-label">Complejidad esperada (opcional)</label>
+        <select 
+          id="expected-complexity"
+          class="form-select"
+          [ngModel]="store.metadata().expected_complexity"
+          (ngModelChange)="onExpectedComplexityChange($event)"
+        >
+          <option [ngValue]="null">Sin especificar</option>
+          <option value="O(1)">O(1) - Constante</option>
+          <option value="O(N)">O(N) - Lineal</option>
+          <option value="O(N log N)">O(N log N) - Log-lineal</option>
+          <option value="O(N²)">O(N²) - Cuadrática</option>
+        </select>
+        <span class="field-hint">Si especificás la complejidad esperada, el sistema la comparará con la detectada empíricamente</span>
+      </div>
+
       <!-- Lenguaje Principal -->
       <div class="form-group">
         <label for="exercise-language" class="form-label">Lenguaje de ejecución</label>
@@ -173,6 +191,10 @@ export class MetadataFormComponent {
 
   onDifficultyChange(difficulty: 'easy' | 'medium' | 'hard' | null) {
     this.store.updateMetadata({ difficulty });
+  }
+
+  onExpectedComplexityChange(expected_complexity: string | null) {
+    this.store.updateMetadata({ expected_complexity: expected_complexity || undefined });
   }
 
   onLanguageChange(language: string) {

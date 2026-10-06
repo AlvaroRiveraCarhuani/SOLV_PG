@@ -16,6 +16,7 @@ export interface ExerciseMetadata {
   time_limit_ms: number;
   memory_limit_mb: number;
   due_date?: string;
+  expected_complexity?: string;
 }
 
 export interface ExerciseStatement {
@@ -395,7 +396,8 @@ export class ExerciseEditorStore {
             allowed_languages: [ex.language || 'python'],
             time_limit_ms: ex.time_limit_ms || 1000,
             memory_limit_mb: ex.memory_limit_mb || 128,
-            due_date: ex.due_date ? ex.due_date.substring(0, 16) : ''
+            due_date: ex.due_date ? ex.due_date.substring(0, 16) : '',
+            expected_complexity: ex.expected_complexity || undefined
           });
 
           this.statement.set({
@@ -450,6 +452,7 @@ export class ExerciseEditorStore {
       time_limit_ms: meta.time_limit_ms,
       memory_limit_mb: meta.memory_limit_mb,
       due_date: meta.due_date ? new Date(meta.due_date).toISOString() : undefined,
+      expected_complexity: meta.expected_complexity || undefined,
       reference_solution: this.referenceSolution(),
       boilerplate: this.boilerplate(),
       ast_rules: this.astRules(),

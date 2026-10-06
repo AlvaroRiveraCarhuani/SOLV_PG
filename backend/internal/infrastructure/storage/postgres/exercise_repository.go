@@ -43,7 +43,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
-			       last_valid_dry_run_at,
+			       last_valid_dry_run_at, expected_complexity,
 			       config, tenant_id, created_at
 			FROM exercises
 			WHERE id = $1 AND tenant_id = $2
@@ -63,7 +63,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 			       COALESCE(memory_limit_mb, 128) AS memory_limit_mb, 
 			       COALESCE(reference_solution, '') AS reference_solution,
 			       COALESCE(stale, false) AS stale,
-			       last_valid_dry_run_at,
+			       last_valid_dry_run_at, expected_complexity,
 			       config, tenant_id, created_at
 			FROM exercises
 			WHERE id = $1
@@ -147,12 +147,12 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 		INSERT INTO exercises (
 			id, subject_id, title, description, type, difficulty, tags, purpose, per_student_seed,
 			due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb,
-			reference_solution, stale, config, tenant_id
+			reference_solution, stale, expected_complexity, config, tenant_id
 		)
 		VALUES (
 			:id, :subject_id, :title, :description, :type, :difficulty, :tags, :purpose, :per_student_seed,
 			:due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb,
-			:reference_solution, :stale, :config, :tenant_id
+			:reference_solution, :stale, :expected_complexity, :config, :tenant_id
 		)
 	`
 	_, err = tx.NamedExecContext(ctx, query, exercise)
@@ -214,6 +214,7 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		    memory_limit_mb = :memory_limit_mb,
 		    reference_solution = :reference_solution,
 		    stale = :stale,
+		    expected_complexity = :expected_complexity,
 		    config = :config
 		WHERE id = :id AND tenant_id = :tenant_id
 	`

@@ -263,6 +263,62 @@
           </div>
         </div>
 
+        <!-- Panel de Análisis de Complejidad Asintótica (Espejo Forense) -->
+        @if (r.complexity_analysis; as ca) {
+          <div class="ast-violations-box complexity-analysis-box">
+            <div class="ast-header">
+              <svg lucideTrendingUp class="btn-icon-sm"></svg>
+              <span>Análisis de Complejidad (Espejo Forense)</span>
+            </div>
+            <div class="ast-body">
+              <div class="complexity-badges-grid">
+                <div class="badge-item">
+                  <span class="badge-label">Tiempo:</span>
+                  <span class="verdict-pill" [class]="getComplexityClass(ca.time_complexity)">
+                    <code class="font-mono">{{ ca.time_complexity }}</code>
+                  </span>
+                </div>
+                <div class="badge-item">
+                  <span class="badge-label">Espacio:</span>
+                  <span class="verdict-pill" [class]="getComplexityClass(ca.space_complexity)">
+                    <code class="font-mono">{{ ca.space_complexity }}</code>
+                  </span>
+                </div>
+              </div>
+
+              <!-- Comparación con Complejidad Esperada -->
+              @if (r.expected_complexity && ca.time_complexity !== r.expected_complexity && ca.time_complexity !== 'unknown') {
+                <div class="complexity-mismatch-warning text-danger">
+                  <svg lucideAlertTriangle class="btn-icon-sm"></svg>
+                  <span>Esperado: <code class="font-mono">{{ r.expected_complexity }}</code> | Detectado: <code class="font-mono">{{ ca.time_complexity }}</code></span>
+                </div>
+              }
+
+              <!-- Advertencia de Baja Confianza -->
+              @if (ca.confidence < 0.7 && ca.time_complexity !== 'unknown') {
+                <div class="low-confidence-warning text-warning">
+                  <svg lucideAlertTriangle class="btn-icon-sm"></svg>
+                  <span>Análisis de baja confianza ({{ (ca.confidence * 100) | number:'1.0-0' }}%)</span>
+                </div>
+              }
+
+              <!-- Mediciones empíricas -->
+              @if (ca.measurements && ca.measurements.length >= 3) {
+                <div class="measurements-summary">
+                  <span class="rule-label">Muestras ({{ ca.measurements.length }} puntos):</span>
+                  <div class="measurements-list">
+                    @for (m of ca.measurements; track m.input_size) {
+                      <span class="meas-chip font-mono">N={{ m.input_size }}: {{ m.time_ms | number:'1.1-2' }}ms</span>
+                    }
+                  </div>
+                </div>
+              } @else if (ca.time_complexity === 'unknown') {
+                <p class="ast-desc">Análisis de complejidad no disponible.</p>
+              }
+            </div>
+          </div>
+        }
+
         <!-- Panel de Violaciones AST / Semgrep (ADR-005) -->
         @if (r.verdict === 'AST_BLOCKED' || r.ast_result) {
           <div class="ast-violations-box">

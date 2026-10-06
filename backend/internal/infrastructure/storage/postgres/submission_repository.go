@@ -18,8 +18,8 @@ func NewPostgresSubmissionRepository(db *sqlx.DB) *PostgresSubmissionRepository 
 
 func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.Submission) error {
 	query := `
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, execution_time_ms, memory_used_mb, submitted_at)
-		VALUES (:id, :tenant_id, :exercise_id, :student_id, :workspace_id, :code, :verdict, :ast_result, :generated_cases, :execution_time_ms, :memory_used_mb, NOW())
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb, submitted_at)
+		VALUES (:id, :tenant_id, :exercise_id, :student_id, :workspace_id, :code, :verdict, :ast_result, :generated_cases, :complexity_analysis, :execution_time_ms, :memory_used_mb, NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, sub)
 	if err != nil {
@@ -31,7 +31,7 @@ func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.S
 func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Submission, error) {
 	var sub domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, execution_time_ms, memory_used_mb,
+		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb,
 		       manual_override, override_reason, score, graded_by, submitted_at
 		FROM submissions
 		WHERE tenant_id = $1 AND id = $2
@@ -46,7 +46,7 @@ func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id
 func (r *PostgresSubmissionRepository) ListByExerciseAndStudent(ctx context.Context, tenantID, exerciseID, studentID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, execution_time_ms, memory_used_mb,
+		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb,
 		       manual_override, override_reason, score, graded_by, submitted_at
 		FROM submissions
 		WHERE tenant_id = $1 AND exercise_id = $2 AND student_id = $3
@@ -62,7 +62,7 @@ func (r *PostgresSubmissionRepository) ListByExerciseAndStudent(ctx context.Cont
 func (r *PostgresSubmissionRepository) ListByExercise(ctx context.Context, tenantID, exerciseID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, execution_time_ms, memory_used_mb,
+		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb,
 		       manual_override, override_reason, score, graded_by, submitted_at
 		FROM submissions
 		WHERE tenant_id = $1 AND exercise_id = $2
@@ -78,7 +78,7 @@ func (r *PostgresSubmissionRepository) ListByExercise(ctx context.Context, tenan
 func (r *PostgresSubmissionRepository) ListByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, execution_time_ms, memory_used_mb,
+		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb,
 		       manual_override, override_reason, score, graded_by, submitted_at
 		FROM submissions
 		WHERE tenant_id = $1 AND student_id = $2

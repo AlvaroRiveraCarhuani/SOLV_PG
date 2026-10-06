@@ -124,6 +124,8 @@ export interface TeacherSubmissionReviewDTO {
   memory_used_mb: number;
   ast_result?: unknown;
   generated_cases?: TestCaseReview[] | unknown;
+  expected_complexity?: string;
+  complexity_analysis?: ComplexityAnalysis;
   test_cases: TestCaseReview[];
   comments: SubmissionComment[];
   next_submission_id?: string;
@@ -244,6 +246,7 @@ export interface CreateExerciseRequestDTO {
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
   input_format?: any;
+  expected_complexity?: string;
   test_cases?: TestCaseDTO[];
 }
 
@@ -265,6 +268,7 @@ export interface UpdateExerciseRequestDTO {
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
   input_format?: any;
+  expected_complexity?: string;
   test_cases?: TestCaseDTO[];
 }
 
@@ -405,6 +409,19 @@ export interface FuzzGenerationReport {
 export interface ApplyFuzzCasesResponse {
   added_count: number;
   exercise_id: string;
+}
+
+export interface ComplexityMeasurement {
+  input_size: number;
+  time_ms: number;
+  memory_kb: number;
+}
+
+export interface ComplexityAnalysis {
+  time_complexity: string;
+  space_complexity: string;
+  measurements: ComplexityMeasurement[];
+  confidence: number;
 }
 
 export type ComplexityClass = 'O(1)' | 'O(log N)' | 'O(N)' | 'O(N log N)' | 'O(N^2)' | 'O(2^N)' | 'O(N!)' | 'Unknown';

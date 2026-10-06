@@ -126,6 +126,23 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.showKeystrokeReplay.set(false);
   }
 
+  getComplexityClass(complexity: string): string {
+    switch (complexity) {
+      case 'O(1)':
+      case 'O(log N)':
+      case 'O(N)':
+        return 'badge-success';
+      case 'O(N log N)':
+        return 'badge-warning';
+      case 'O(N²)':
+      case 'O(N³)':
+      case 'O(2^N)':
+        return 'badge-danger';
+      default:
+        return 'badge-secondary';
+    }
+  }
+
   copyCaseInput(input: string, index: number): void {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(input);

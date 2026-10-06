@@ -26,6 +26,17 @@ describe('SpeedGraderComponent', () => {
     manual_override: false,
     execution_time_ms: 45,
     memory_used_mb: 18,
+    expected_complexity: 'O(N)',
+    complexity_analysis: {
+      time_complexity: 'O(N)',
+      space_complexity: 'O(1)',
+      measurements: [
+        { input_size: 10, time_ms: 0.1, memory_kb: 64 },
+        { input_size: 100, time_ms: 1.0, memory_kb: 64 },
+        { input_size: 1000, time_ms: 10.0, memory_kb: 64 }
+      ],
+      confidence: 0.98
+    },
     test_cases: [
       { input: '5 6', expected_output: '12', is_hidden: false, passed: true }
     ],
@@ -158,6 +169,14 @@ describe('SpeedGraderComponent', () => {
       score: 95
     });
     expect(component.showOverrideModal()).toBe(false);
+  });
+
+  it('returns correct CSS classes for complexity badges', () => {
+    expect(component.getComplexityClass('O(1)')).toBe('badge-success');
+    expect(component.getComplexityClass('O(N)')).toBe('badge-success');
+    expect(component.getComplexityClass('O(N log N)')).toBe('badge-warning');
+    expect(component.getComplexityClass('O(N²)')).toBe('badge-danger');
+    expect(component.getComplexityClass('unknown')).toBe('badge-secondary');
   });
 
   it('opens and closes keystroke replay modal', () => {

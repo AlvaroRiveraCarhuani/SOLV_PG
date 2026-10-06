@@ -47,6 +47,7 @@ func TestJudgeMigrationsExist(t *testing.T) {
 		"00016_course_modules_and_prerequisites.sql",
 		"00017_exercise_submissions_generated_cases.sql",
 		"00018_submission_keystroke_events.sql",
+		"00019_exercise_expected_complexity_and_submission_analysis.sql",
 	}
 	for _, name := range files {
 		content := readJudgeMigration(t, dir, name)
@@ -69,6 +70,22 @@ func TestJudgeMigration0018KeystrokeEvents(t *testing.T) {
 	} {
 		if !strings.Contains(content, marker) {
 			t.Errorf("migration 00018 lacks expected marker %q", marker)
+		}
+	}
+}
+
+func TestJudgeMigration0019ComplexityAnalysis(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00019_exercise_expected_complexity_and_submission_analysis.sql")
+	for _, marker := range []string{
+		"ALTER TABLE exercises",
+		"expected_complexity VARCHAR(50)",
+		"ALTER TABLE submissions",
+		"complexity_analysis JSONB",
+		"+goose Down",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("migration 00019 lacks expected marker %q", marker)
 		}
 	}
 }

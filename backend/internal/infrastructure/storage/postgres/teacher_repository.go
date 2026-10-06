@@ -524,11 +524,13 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		OverrideReason  sql.NullString  `db:"override_reason"`
 		GradedBy        sql.NullString  `db:"graded_by"`
 		GradedByName    sql.NullString  `db:"graded_by_name"`
-		ExecutionTimeMS int             `db:"execution_time_ms"`
-		MemoryUsedMB    int             `db:"memory_used_mb"`
-		ASTResult       []byte          `db:"ast_result"`
-		GeneratedCases  []byte          `db:"generated_cases"`
-		SubmittedAt     time.Time       `db:"submitted_at"`
+		ExecutionTimeMS    int            `db:"execution_time_ms"`
+		MemoryUsedMB       int            `db:"memory_used_mb"`
+		ASTResult          []byte         `db:"ast_result"`
+		GeneratedCases     []byte         `db:"generated_cases"`
+		ExpectedComplexity sql.NullString `db:"expected_complexity"`
+		ComplexityAnalysis []byte         `db:"complexity_analysis"`
+		SubmittedAt        time.Time      `db:"submitted_at"`
 	}
 
 	query := `
@@ -538,7 +540,8 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       COALESCE(u.email, '') AS student_email,
 		       sub.code, sub.verdict, sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
-		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.generated_cases, sub.submitted_at
+		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.generated_cases,
+		       ex.expected_complexity, sub.complexity_analysis, sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
 		JOIN subjects s ON ex.subject_id = s.id
@@ -554,25 +557,40 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		return nil, fmt.Errorf("failed to get submission review: %w", err)
 	}
 
+	var ca *domain.ComplexityAnalysis
+	if len(row.ComplexityAnalysis) > 0 && string(row.ComplexityAnalysis) != "null" {
+		var parsed domain.ComplexityAnalysis
+		if err := json.Unmarshal(row.ComplexityAnalysis, &parsed); err == nil {
+			ca = &parsed
+		}
+	}
+
+	expComp := ""
+	if row.ExpectedComplexity.Valid {
+		expComp = row.ExpectedComplexity.String
+	}
+
 	review := &domain.TeacherSubmissionReviewDTO{
-		ID:              row.ID,
-		ExerciseID:      row.ExerciseID,
-		ExerciseTitle:   row.ExerciseTitle,
-		SubjectID:       row.SubjectID,
-		SubjectName:     row.SubjectName,
-		StudentID:       row.StudentID,
-		StudentName:     row.StudentName,
-		StudentEmail:    row.StudentEmail,
-		Code:            row.Code,
-		Verdict:         row.Verdict,
-		ManualOverride:  row.ManualOverride.Valid && row.ManualOverride.Bool,
-		ExecutionTimeMS: row.ExecutionTimeMS,
-		MemoryUsedMB:    row.MemoryUsedMB,
-		ASTResult:       row.ASTResult,
-		GeneratedCases:  row.GeneratedCases,
-		SubmittedAt:     row.SubmittedAt,
-		TestCases:       make([]domain.TestCaseReview, 0),
-		Comments:        make([]domain.SubmissionComment, 0),
+		ID:                 row.ID,
+		ExerciseID:         row.ExerciseID,
+		ExerciseTitle:      row.ExerciseTitle,
+		SubjectID:          row.SubjectID,
+		SubjectName:        row.SubjectName,
+		StudentID:          row.StudentID,
+		StudentName:        row.StudentName,
+		StudentEmail:       row.StudentEmail,
+		Code:               row.Code,
+		Verdict:            row.Verdict,
+		ManualOverride:     row.ManualOverride.Valid && row.ManualOverride.Bool,
+		ExecutionTimeMS:    row.ExecutionTimeMS,
+		MemoryUsedMB:       row.MemoryUsedMB,
+		ASTResult:          row.ASTResult,
+		GeneratedCases:     row.GeneratedCases,
+		ExpectedComplexity: expComp,
+		ComplexityAnalysis: ca,
+		SubmittedAt:        row.SubmittedAt,
+		TestCases:          make([]domain.TestCaseReview, 0),
+		Comments:           make([]domain.SubmissionComment, 0),
 	}
 
 	if row.Score.Valid {
