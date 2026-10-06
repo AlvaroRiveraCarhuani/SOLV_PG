@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type ExerciseType string
@@ -13,6 +15,37 @@ type ExerciseType string
 const (
 	ExerciseTypeAlgorithm ExerciseType = "algorithm"
 	ExerciseTypeDatabase  ExerciseType = "database"
+)
+
+type ExercisePurpose string
+
+const (
+	ExercisePurposeClass ExercisePurpose = "class"
+	ExercisePurposeExam  ExercisePurpose = "exam"
+)
+
+type ExerciseDifficulty string
+
+const (
+	ExerciseDifficultyEasy   ExerciseDifficulty = "easy"
+	ExerciseDifficultyMedium ExerciseDifficulty = "medium"
+	ExerciseDifficultyHard   ExerciseDifficulty = "hard"
+)
+
+type TestCaseVisibility string
+
+const (
+	TestCaseVisibilityExample TestCaseVisibility = "example"
+	TestCaseVisibilityPublic  TestCaseVisibility = "public"
+	TestCaseVisibilityHidden  TestCaseVisibility = "hidden"
+)
+
+var (
+	ErrSeedRequiresExamPurpose = errors.New("per_student_seed is only allowed when purpose is 'exam'")
+	ErrInvalidVisibility       = errors.New("invalid test case visibility: must be 'example', 'public', or 'hidden'")
+	ErrInvalidWeight           = errors.New("test case weight must be non-negative")
+	ErrEmptyExpectedOutput     = errors.New("test case expected_output cannot be empty")
+	ErrTestCasesNotArray       = errors.New("test_cases must be an array")
 )
 
 type Verdict string
@@ -43,23 +76,93 @@ type ScanResult struct {
 }
 
 type TestCase struct {
-	Input          string `json:"input"`
-	ExpectedOutput string `json:"expected_output"`
-	IsHidden       bool   `json:"is_hidden"`
+	ID             string             `json:"id,omitempty" db:"id"`
+	ExerciseID     string             `json:"exercise_id,omitempty" db:"exercise_id"`
+	OrderIndex     int                `json:"order_index" db:"order_index"`
+	Input          string             `json:"input" db:"input"`
+	ExpectedOutput string             `json:"expected_output" db:"expected_output"`
+	Visibility     TestCaseVisibility `json:"visibility" db:"visibility"`
+	Weight         float64            `json:"weight" db:"weight"`
+	CreatedAt      *time.Time         `json:"created_at,omitempty" db:"created_at"`
+
+	// Derived legacy booleans for transient API compatibility
+	IsHidden bool `json:"is_hidden"`
+	IsSample bool `json:"is_sample"`
+}
+
+func (tc *TestCase) Normalize() {
+	if tc.Visibility == "" {
+		if tc.IsHidden {
+			tc.Visibility = TestCaseVisibilityHidden
+		} else if tc.IsSample {
+			tc.Visibility = TestCaseVisibilityExample
+		} else {
+			tc.Visibility = TestCaseVisibilityPublic
+		}
+	}
+	tc.IsHidden = (tc.Visibility == TestCaseVisibilityHidden)
+	tc.IsSample = (tc.Visibility == TestCaseVisibilityExample)
+	if tc.Weight <= 0 {
+		tc.Weight = 1.0
+	}
+}
+
+func (tc *TestCase) Validate() error {
+	if tc.ExpectedOutput == "" {
+		return ErrEmptyExpectedOutput
+	}
+	if tc.Weight < 0 {
+		return ErrInvalidWeight
+	}
+	switch tc.Visibility {
+	case TestCaseVisibilityExample, TestCaseVisibilityPublic, TestCaseVisibilityHidden:
+		return nil
+	default:
+		return fmt.Errorf("%w: got %q", ErrInvalidVisibility, tc.Visibility)
+	}
 }
 
 type TestCases []TestCase
 
+type ASTCustomRule struct {
+	Language string `json:"language"`
+	Pattern  string `json:"pattern"`
+	Type     string `json:"type,omitempty"` // method, function, module
+	Message  string `json:"message"`
+}
+
 type ASTRules struct {
-	ForbiddenImports   []string `json:"forbidden_imports"`
-	ForbiddenFunctions []string `json:"forbidden_functions"`
+	BlockNativeSort    bool            `json:"block_native_sort,omitempty"`
+	BlockSystemModules bool            `json:"block_system_modules,omitempty"`
+	ForbiddenImports   []string        `json:"forbidden_imports"`
+	ForbiddenFunctions []string        `json:"forbidden_functions"`
+	CustomRules        []ASTCustomRule `json:"custom_rules,omitempty"`
+}
+
+type ChecklistReport struct {
+	Blockers   []string `json:"blockers"`
+	Warnings   []string `json:"warnings"`
+	Info       []string `json:"info"`
+	CanPublish bool     `json:"can_publish"`
+}
+
+type ReferenceSolutionInput struct {
+	Code     string `json:"code"`
+	Language string `json:"language"`
+}
+
+type ComparatorConfig struct {
+	ID     string         `json:"id"`
+	Params map[string]any `json:"params,omitempty"`
 }
 
 type AlgorithmConfig struct {
-	TestCases     TestCases `json:"test_cases"`
-	ASTRules      ASTRules  `json:"ast_rules"`
-	TimeLimitMS   int       `json:"time_limit_ms"`
-	MemoryLimitMB int       `json:"memory_limit_mb"`
+	TestCases     TestCases         `json:"test_cases"`
+	ASTRules      ASTRules          `json:"ast_rules"`
+	Comparator    *ComparatorConfig `json:"comparator,omitempty"`
+	TimeLimitMS   int               `json:"time_limit_ms"`
+	MemoryLimitMB int               `json:"memory_limit_mb"`
+	InputFormat   json.RawMessage   `json:"input_format,omitempty"`
 }
 
 type DatabaseConfig struct {
@@ -73,8 +176,9 @@ type DatabaseConfig struct {
 }
 
 type ExerciseConfig struct {
-	Algorithm *AlgorithmConfig `json:"algorithm,omitempty"`
-	Database  *DatabaseConfig  `json:"database,omitempty"`
+	Algorithm   *AlgorithmConfig `json:"algorithm,omitempty"`
+	Database    *DatabaseConfig  `json:"database,omitempty"`
+	InputFormat json.RawMessage  `json:"input_format,omitempty"`
 }
 
 func (ec ExerciseConfig) Value() (driver.Value, error) {
@@ -119,23 +223,49 @@ type DryRunJob struct {
 }
 
 type Exercise struct {
-	ID                string         `json:"id" db:"id"`
-	SubjectID         *string        `json:"subject_id,omitempty" db:"subject_id"`
-	Title             string         `json:"title" db:"title"`
-	Description       string         `json:"description" db:"description"`
-	Type              ExerciseType   `json:"type" db:"type"`
-	DueDate           *time.Time     `json:"due_date,omitempty" db:"due_date"`
-	Boilerplate       string         `json:"boilerplate" db:"boilerplate"`
-	Status            string         `json:"status" db:"status"` // draft, published, closed
-	Language          string         `json:"language" db:"language"`
-	TimeLimitMS       int            `json:"time_limit_ms" db:"time_limit_ms"`
-	MemoryLimitMB     int            `json:"memory_limit_mb" db:"memory_limit_mb"`
-	ReferenceSolution string         `json:"reference_solution" db:"reference_solution"`
-	Stale             bool           `json:"stale" db:"stale"`
-	LastValidDryRunAt *time.Time     `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
-	Config            ExerciseConfig `json:"config" db:"config"`
-	TenantID          string         `json:"tenant_id" db:"tenant_id"`
-	CreatedAt         time.Time      `json:"created_at" db:"created_at"`
+	ID                string          `json:"id" db:"id"`
+	SubjectID         *string         `json:"subject_id,omitempty" db:"subject_id"`
+	Title             string          `json:"title" db:"title"`
+	Description       string          `json:"description" db:"description"`
+	Type              ExerciseType    `json:"type" db:"type"`
+	Difficulty        *string         `json:"difficulty,omitempty" db:"difficulty"`
+	Tags              pq.StringArray  `json:"tags" db:"tags"`
+	Purpose           string          `json:"purpose" db:"purpose"` // class, exam
+	PerStudentSeed    bool            `json:"per_student_seed" db:"per_student_seed"`
+	DueDate           *time.Time      `json:"due_date,omitempty" db:"due_date"`
+	Boilerplate       string          `json:"boilerplate" db:"boilerplate"`
+	Status            string          `json:"status" db:"status"` // draft, published, closed
+	Language          string          `json:"language" db:"language"`
+	TimeLimitMS       int             `json:"time_limit_ms" db:"time_limit_ms"`
+	MemoryLimitMB     int             `json:"memory_limit_mb" db:"memory_limit_mb"`
+	ReferenceSolution string          `json:"reference_solution" db:"reference_solution"`
+	Stale             bool            `json:"stale" db:"stale"`
+	LastValidDryRunAt *time.Time      `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	Config            ExerciseConfig  `json:"config" db:"config"`
+	TenantID          string          `json:"tenant_id" db:"tenant_id"`
+	CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+}
+
+func (ex *Exercise) Validate() error {
+	if ex.PerStudentSeed && ex.Purpose != string(ExercisePurposeExam) {
+		return ErrSeedRequiresExamPurpose
+	}
+	if ex.Difficulty != nil && *ex.Difficulty != "" {
+		diff := *ex.Difficulty
+		if diff != string(ExerciseDifficultyEasy) && diff != string(ExerciseDifficultyMedium) && diff != string(ExerciseDifficultyHard) {
+			return fmt.Errorf("invalid difficulty %q: must be 'easy', 'medium', or 'hard'", diff)
+		}
+	}
+	if ex.Purpose == "" {
+		ex.Purpose = string(ExercisePurposeClass)
+	}
+	if ex.Purpose != string(ExercisePurposeClass) && ex.Purpose != string(ExercisePurposeExam) {
+		return fmt.Errorf("invalid purpose %q: must be 'class' or 'exam'", ex.Purpose)
+	}
+	if ex.Tags == nil {
+		ex.Tags = pq.StringArray{}
+	}
+	return nil
 }
 
 type DueAssignment struct {
@@ -187,6 +317,7 @@ type EvaluationRunConfig struct {
 	MemoryLimitMB int
 	TimeLimitMS   int
 	TestCase      TestCase
+	Comparator    *ComparatorConfig
 }
 
 type TestCaseRunResult struct {

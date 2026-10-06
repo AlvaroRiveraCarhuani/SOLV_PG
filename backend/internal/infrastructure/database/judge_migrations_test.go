@@ -41,11 +41,63 @@ func TestJudgeMigrationsExist(t *testing.T) {
 		"00010_judge_reference_stale.sql",
 		"00011_judge_language_profiles.sql",
 		"00012_judge_run_metrics.sql",
+		"00013_exercise_metadata_and_test_cases_schema.sql",
+		"00014_migrate_jsonb_test_cases_to_table.sql",
+		"00015_cleanup_jsonb_test_cases.sql",
 	}
 	for _, name := range files {
 		content := readJudgeMigration(t, dir, name)
 		if strings.TrimSpace(content) == "" {
 			t.Errorf("migration %s is empty", name)
+		}
+	}
+}
+
+func TestJudgeMigration0013MetadataAndSchema(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00013_exercise_metadata_and_test_cases_schema.sql")
+	for _, marker := range []string{
+		"difficulty",
+		"tags",
+		"purpose",
+		"per_student_seed",
+		"exercise_test_cases",
+		"visibility",
+		"weight",
+		"UNIQUE (exercise_id, order_index)",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("00013 missing marker %q", marker)
+		}
+	}
+}
+
+func TestJudgeMigration0014DataMigration(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00014_migrate_jsonb_test_cases_to_table.sql")
+	for _, marker := range []string{
+		"INSERT INTO exercise_test_cases",
+		"jsonb_array_elements",
+		"WITH ORDINALITY",
+		"ON CONFLICT (exercise_id, order_index) DO UPDATE",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("00014 missing marker %q", marker)
+		}
+	}
+}
+
+func TestJudgeMigration0015JSONBCleanup(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00015_cleanup_jsonb_test_cases.sql")
+	for _, marker := range []string{
+		"UPDATE exercises",
+		"config #- '{algorithm,test_cases}'",
+		"jsonb_agg",
+		"jsonb_build_object",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("00015 missing marker %q", marker)
 		}
 	}
 }

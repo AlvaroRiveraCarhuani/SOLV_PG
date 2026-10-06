@@ -43,4 +43,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 036 | [Reasignación de Docentes y Gestión de Cursos Huérfanos](ADR-036-reasignacion-docentes-cursos-huerfanos.md) | Aprobado | Slice 14 |
 | 037 | [Concentrador WebSocket para Evaluación del Juez Virtual](ADR-037-websocket-hub-evaluacion-juez-virtual.md) | Aprobado | Slice 12 |
 | 038 | [Tipografía White-Label por Tenant con Catálogo Curado](ADR-038-tipografia-white-label-tenant.md) | Aprobado | Slice 14 (14.6) |
+| 039 | [Extracción Relacional de Casos de Prueba con Visibilidad de Tres Estados](ADR-039-extraccion-relacional-casos-prueba-visibilidad-tres-estados.md) | Aprobado | Slice 12 |
+| 040 | [Deprecación Planificada del Wizard Modal Antiguo de Ejercicios](ADR-040-deprecacion-wizard-modal.md) | Aprobado | Slice 12 |
 

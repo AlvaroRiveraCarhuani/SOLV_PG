@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 	"solv-backend/internal/core/domain"
 )
 
@@ -30,7 +31,11 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 	var args []interface{}
 	if tenantID != "" {
 		query = `
-			SELECT id, subject_id, title, description, type, due_date, 
+			SELECT id, subject_id, title, description, type, difficulty, 
+			       COALESCE(tags, '{}') AS tags,
+			       COALESCE(purpose, 'class') AS purpose,
+			       COALESCE(per_student_seed, false) AS per_student_seed,
+			       due_date, 
 			       COALESCE(boilerplate, '') AS boilerplate, 
 			       COALESCE(status, 'draft') AS status, 
 			       COALESCE(language, 'python') AS language, 
@@ -46,7 +51,11 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 		args = []interface{}{id, tenantID}
 	} else {
 		query = `
-			SELECT id, subject_id, title, description, type, due_date, 
+			SELECT id, subject_id, title, description, type, difficulty, 
+			       COALESCE(tags, '{}') AS tags,
+			       COALESCE(purpose, 'class') AS purpose,
+			       COALESCE(per_student_seed, false) AS per_student_seed,
+			       due_date, 
 			       COALESCE(boilerplate, '') AS boilerplate, 
 			       COALESCE(status, 'draft') AS status, 
 			       COALESCE(language, 'python') AS language, 
@@ -66,6 +75,41 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 	if err != nil {
 		return nil, fmt.Errorf("failed to get exercise by id %s: %w", id, err)
 	}
+
+	// Cargar casos de prueba desde exercise_test_cases con aislamiento tenant
+	var testCases []domain.TestCase
+	if tenantID != "" {
+		tcQuery := `
+			SELECT tc.id, tc.exercise_id, tc.order_index, tc.input, tc.expected_output, tc.visibility, tc.weight, tc.created_at
+			FROM exercise_test_cases tc
+			JOIN exercises e ON e.id = tc.exercise_id
+			WHERE tc.exercise_id = $1 AND e.tenant_id = $2
+			ORDER BY tc.order_index ASC
+		`
+		_ = r.db.SelectContext(ctx, &testCases, tcQuery, id, tenantID)
+	} else {
+		tcQuery := `
+			SELECT id, exercise_id, order_index, input, expected_output, visibility, weight, created_at
+			FROM exercise_test_cases
+			WHERE exercise_id = $1
+			ORDER BY order_index ASC
+		`
+		_ = r.db.SelectContext(ctx, &testCases, tcQuery, id)
+	}
+
+	if len(testCases) > 0 {
+		for i := range testCases {
+			testCases[i].Normalize()
+		}
+		if exercise.Config.Algorithm == nil {
+			exercise.Config.Algorithm = &domain.AlgorithmConfig{
+				TimeLimitMS:   exercise.TimeLimitMS,
+				MemoryLimitMB: exercise.MemoryLimitMB,
+			}
+		}
+		exercise.Config.Algorithm.TestCases = testCases
+	}
+
 	return &exercise, nil
 }
 
@@ -86,16 +130,54 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 	if exercise.MemoryLimitMB == 0 {
 		exercise.MemoryLimitMB = 128
 	}
+	if exercise.Purpose == "" {
+		exercise.Purpose = string(domain.ExercisePurposeClass)
+	}
+	if exercise.Tags == nil {
+		exercise.Tags = pq.StringArray{}
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback()
 
 	query := `
-		INSERT INTO exercises (id, subject_id, title, description, type, due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb, reference_solution, stale, config, tenant_id)
-		VALUES (:id, :subject_id, :title, :description, :type, :due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb, :reference_solution, :stale, :config, :tenant_id)
+		INSERT INTO exercises (
+			id, subject_id, title, description, type, difficulty, tags, purpose, per_student_seed,
+			due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb,
+			reference_solution, stale, config, tenant_id
+		)
+		VALUES (
+			:id, :subject_id, :title, :description, :type, :difficulty, :tags, :purpose, :per_student_seed,
+			:due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb,
+			:reference_solution, :stale, :config, :tenant_id
+		)
 	`
-	_, err := r.db.NamedExecContext(ctx, query, exercise)
+	_, err = tx.NamedExecContext(ctx, query, exercise)
 	if err != nil {
 		return fmt.Errorf("failed to create exercise: %w", err)
 	}
-	return nil
+
+	if exercise.Config.Algorithm != nil && len(exercise.Config.Algorithm.TestCases) > 0 {
+		for idx, tc := range exercise.Config.Algorithm.TestCases {
+			tc.Normalize()
+			if err := tc.Validate(); err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO exercise_test_cases (
+					exercise_id, order_index, input, expected_output, visibility, weight
+				) VALUES ($1, $2, $3, $4, $5, $6)
+			`, exercise.ID, idx, tc.Input, tc.ExpectedOutput, string(tc.Visibility), tc.Weight)
+			if err != nil {
+				return fmt.Errorf("failed to insert test case %d: %w", idx, err)
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domain.Exercise) error {
@@ -103,11 +185,28 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	if exercise.TenantID == "" {
 		exercise.TenantID = tenantID
 	}
+	if exercise.Purpose == "" {
+		exercise.Purpose = string(domain.ExercisePurposeClass)
+	}
+	if exercise.Tags == nil {
+		exercise.Tags = pq.StringArray{}
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to begin tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	query := `
 		UPDATE exercises
 		SET title = :title,
 		    description = :description,
 		    subject_id = :subject_id,
+		    difficulty = :difficulty,
+		    tags = :tags,
+		    purpose = :purpose,
+		    per_student_seed = :per_student_seed,
 		    due_date = :due_date,
 		    boilerplate = :boilerplate,
 		    language = :language,
@@ -118,7 +217,7 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		    config = :config
 		WHERE id = :id AND tenant_id = :tenant_id
 	`
-	res, err := r.db.NamedExecContext(ctx, query, exercise)
+	res, err := tx.NamedExecContext(ctx, query, exercise)
 	if err != nil {
 		return fmt.Errorf("failed to update exercise %s: %w", exercise.ID, err)
 	}
@@ -126,7 +225,29 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	if rows == 0 {
 		return fmt.Errorf("exercise %s not found in tenant", exercise.ID)
 	}
-	return nil
+
+	if exercise.Config.Algorithm != nil && len(exercise.Config.Algorithm.TestCases) > 0 {
+		_, err = tx.ExecContext(ctx, `DELETE FROM exercise_test_cases WHERE exercise_id = $1`, exercise.ID)
+		if err != nil {
+			return fmt.Errorf("failed to delete old test cases for %s: %w", exercise.ID, err)
+		}
+		for idx, tc := range exercise.Config.Algorithm.TestCases {
+			tc.Normalize()
+			if err := tc.Validate(); err != nil {
+				return err
+			}
+			_, err = tx.ExecContext(ctx, `
+				INSERT INTO exercise_test_cases (
+					exercise_id, order_index, input, expected_output, visibility, weight
+				) VALUES ($1, $2, $3, $4, $5, $6)
+			`, exercise.ID, idx, tc.Input, tc.ExpectedOutput, string(tc.Visibility), tc.Weight)
+			if err != nil {
+				return fmt.Errorf("failed to insert test case %d: %w", idx, err)
+			}
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *PostgresExerciseRepository) UpdateStatus(ctx context.Context, id, tenantID, status string) error {
@@ -330,7 +451,11 @@ func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenan
 
 func (r *PostgresExerciseRepository) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
 	query := `
-		SELECT id, subject_id, title, description, type, due_date, 
+		SELECT id, subject_id, title, description, type, difficulty,
+		       COALESCE(tags, '{}') AS tags,
+		       COALESCE(purpose, 'class') AS purpose,
+		       COALESCE(per_student_seed, false) AS per_student_seed,
+		       due_date, 
 		       COALESCE(boilerplate, '') AS boilerplate, 
 		       COALESCE(status, 'draft') AS status, 
 		       COALESCE(language, 'python') AS language, 
