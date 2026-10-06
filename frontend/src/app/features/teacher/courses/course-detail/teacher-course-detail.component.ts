@@ -22,7 +22,8 @@ import {
   LucideBarChart3,
   LucideLayers,
   LucideLock,
-  LucideTrash2
+  LucideTrash2,
+  LucideUploadCloud
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
@@ -33,6 +34,7 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
 import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
+import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -64,6 +66,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     LucideLayers,
     LucideLock,
     LucideTrash2,
+    LucideUploadCloud,
     ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,
@@ -72,6 +75,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     PlagiarismModalComponent,
     FuzzingModalComponent,
     GradebookExportModalComponent,
+    ImportExercisesModalComponent,
     ComboboxComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
@@ -115,6 +119,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   publishError = signal<string | null>(null);
   showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
+  showImportModal = signal<boolean>(false);
 
   // Módulos
   showCreateModuleModal = signal<boolean>(false);
@@ -345,6 +350,18 @@ export class TeacherCourseDetailComponent implements OnInit {
         this.moduleErrorMessage.set(err.error?.message || 'Error al asignar el ejercicio.');
       }
     });
+  }
+
+  openImportModal(): void {
+    this.showImportModal.set(true);
+  }
+
+  closeImportModal(): void {
+    this.showImportModal.set(false);
+  }
+
+  onExercisesImported(count: number): void {
+    this.loadData();
   }
 }
 

@@ -1,0 +1,160 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div class="header-title">
+        <svg lucideUploadCloud class="icon-primary"></svg>
+        <div>
+          <h2>Importación masiva de ejercicios</h2>
+          <p class="subtitle">Cargá ejercicios en formato JSON o YAML (Infrastructure-as-Code)</p>
+        </div>
+      </div>
+      <button type="button" class="btn-close" (click)="closeModal()" aria-label="Cerrar modal">
+        <svg lucideX></svg>
+      </button>
+    </header>
+
+    <main class="modal-body">
+      @if (errorMessage()) {
+        <div class="alert alert-error" dismissible>
+          <svg lucideAlertCircle></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      @if (!selectedFile()) {
+        <div
+          class="dropzone"
+          [class.drag-over]="isDragOver()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
+          <input
+            #fileInput
+            type="file"
+            accept=".json,.yaml,.yml"
+            class="file-input-hidden"
+            (change)="onFileSelected($event)"
+          />
+
+          <div class="dropzone-content">
+            <svg lucideUploadCloud class="dropzone-icon"></svg>
+            <h3>Arrastrá tu archivo JSON o YAML aquí</h3>
+            <p>O hace clic para explorar desde tu equipo</p>
+            <span class="file-limits">Soporta <code class="font-mono">.json</code>, <code class="font-mono">.yaml</code> o <code class="font-mono">.yml</code> (máx. <span machineData>50</span> ejercicios / <span machineData>10 MB</span>)</span>
+            <button type="button" class="btn btn-secondary mt-3" (click)="fileInput.click()">
+              Seleccionar archivo
+            </button>
+          </div>
+        </div>
+      } @else {
+        <div class="file-summary-card">
+          <div class="file-info">
+            <svg lucideFileCode class="file-icon"></svg>
+            <div>
+              <div class="file-name font-mono">{{ selectedFile()?.name }}</div>
+              <div class="file-size" machineData>{{ (selectedFile()?.size || 0) / 1024 | number:'1.0-1' }} KB</div>
+            </div>
+          </div>
+          <button type="button" class="btn-text btn-danger" (click)="clearFile()" [disabled]="isAnalyzing() || isImporting()">
+            Cambiar archivo
+          </button>
+        </div>
+
+        @if (isAnalyzing()) {
+          <div class="loading-state">
+            <svg lucideRefreshCw class="spin-icon"></svg>
+            <span>Analizando y validando estructura del archivo...</span>
+          </div>
+        } @else if (importPreview(); as preview) {
+          <div class="preview-status-banner" [class.banner-success]="preview.can_import" [class.banner-error]="!preview.can_import">
+            <div class="banner-info">
+              @if (preview.can_import) {
+                <svg lucideCheckCircle2 class="banner-icon"></svg>
+                <div>
+                  <strong>Previsualización lista para importar</strong>
+                  <p>Se detectaron <span machineData>{{ preview.total_valid }}</span> ejercicios válidos. Presioná confirmar para guardarlos.</p>
+                </div>
+              } @else {
+                <svg lucideAlertTriangle class="banner-icon"></svg>
+                <div>
+                  <strong>Se encontraron errores de validación</strong>
+                  <p><span machineData>{{ preview.total_invalid }}</span> de <span machineData>{{ preview.exercises_count }}</span> ejercicios tienen inconsistencias. Corregí el archivo para importar.</p>
+                </div>
+              }
+            </div>
+            <div class="banner-badges">
+              <span class="badge badge-success" machineData>
+                Válidos: {{ preview.total_valid || 0 }}
+              </span>
+              @if ((preview.total_invalid || 0) > 0) {
+                <span class="badge badge-error" machineData>
+                  Errores: {{ preview.total_invalid }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="preview-table-container">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th>Título del Ejercicio</th>
+                  <th class="col-status">Estado</th>
+                  <th>Detalles / Errores</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (item of preview.exercises; track item.index) {
+                  <tr [class.row-invalid]="!item.valid">
+                    <td class="col-index font-mono" machineData>{{ item.index + 1 }}</td>
+                    <td class="col-title">
+                      <span class="title-text">{{ item.title || '(Sin título)' }}</span>
+                    </td>
+                    <td class="col-status">
+                      @if (item.valid) {
+                        <span class="status-chip chip-success">Válido</span>
+                      } @else {
+                        <span class="status-chip chip-error">Error</span>
+                      }
+                    </td>
+                    <td class="col-details">
+                      @if (item.valid) {
+                        <span class="text-muted">Estructura y casos de prueba correctos</span>
+                      } @else {
+                        <ul class="error-list">
+                          @for (err of item.errors; track err) {
+                            <li>{{ err }}</li>
+                          }
+                        </ul>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+      }
+    </main>
+
+    <footer class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isImporting()">
+        Cancelar
+      </button>
+
+      @if (selectedFile() && importPreview()?.can_import) {
+        <button type="button" class="btn btn-primary" (click)="confirmImport()" [disabled]="isImporting()">
+          @if (isImporting()) {
+            <svg lucideRefreshCw class="spin-icon"></svg>
+            <span>Importando ejercicios...</span>
+          } @else {
+            <svg lucideUploadCloud></svg>
+            <span>Confirmar e Importar (<span machineData>{{ importPreview()?.total_valid }}</span>)</span>
+          }
+        </button>
+      }
+    </footer>
+  </div>
+</div>

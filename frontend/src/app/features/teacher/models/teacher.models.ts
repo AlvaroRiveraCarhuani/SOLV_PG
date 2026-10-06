@@ -506,5 +506,25 @@ export interface SetPrerequisitesDTO {
   prerequisite_module_ids: string[];
 }
 
+export interface ExerciseImportValidationItem {
+  index: number;
+  title: string;
+  valid: boolean;
+  errors?: string[];
+  warnings?: string[];
+}
+
+export interface ExerciseImportResponse {
+  mode: 'dry_run' | 'import';
+  exercises_count?: number;
+  exercises?: ExerciseImportValidationItem[];
+  can_import: boolean;
+  total_valid?: number;
+  total_invalid?: number;
+  imported_count?: number;
+  imported_ids?: string[];
+}
+
+
 
 

@@ -13,7 +13,8 @@ import {
   TeacherCourseModule,
   CreateModuleDTO,
   UpdateModuleDTO,
-  SetPrerequisitesDTO
+  SetPrerequisitesDTO,
+  ExerciseImportResponse
 } from '../models/teacher.models';
 
 
@@ -252,6 +253,24 @@ export class TeacherCourseService {
       module_id: moduleId
     }).pipe(
       map(() => void 0)
+    );
+  }
+
+  importExercises(courseId: string, file: File, dryRun = false): Observable<ExerciseImportResponse> {
+    const formData = new FormData();
+    formData.append('file', file, file.name);
+
+    let params = new HttpParams();
+    if (dryRun) {
+      params = params.set('dry_run', 'true');
+    }
+
+    return this.http.post<ApiResponse<ExerciseImportResponse>>(
+      `/api/v1/teacher/courses/${courseId}/exercises/import`,
+      formData,
+      { params }
+    ).pipe(
+      map(res => res.data)
     );
   }
 }

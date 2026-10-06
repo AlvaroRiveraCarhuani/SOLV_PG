@@ -625,4 +625,70 @@ func (h *EvaluationHandler) GenerateCases(w http.ResponseWriter, r *http.Request
 	}, "Casos generados exitosamente")
 }
 
+func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Request) {
+	courseID := r.PathValue("courseId")
+	if courseID == "" {
+		SendError(w, http.StatusBadRequest, "Course ID missing", "ID de curso faltante")
+		return
+	}
+
+	dryRun := r.URL.Query().Get("dry_run") == "true"
+
+	var content []byte
+	var fileName string
+
+	contentType := r.Header.Get("Content-Type")
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		err := r.ParseMultipartForm(10 << 20) // 10MB limit
+		if err != nil {
+			SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el archivo subido")
+			return
+		}
+		file, header, err := r.FormFile("file")
+		if err != nil {
+			SendError(w, http.StatusBadRequest, err.Error(), "Archivo 'file' no encontrado en el formulario")
+			return
+		}
+		defer file.Close()
+
+		fileName = header.Filename
+		var readErr error
+		content, readErr = io.ReadAll(file)
+		if readErr != nil {
+			SendError(w, http.StatusInternalServerError, readErr.Error(), "Error al leer el archivo")
+			return
+		}
+	} else {
+		var err error
+		content, err = io.ReadAll(r.Body)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, err.Error(), "Error al leer el cuerpo de la petición")
+			return
+		}
+		fileName = r.URL.Query().Get("file_name")
+		if fileName == "" {
+			fileName = "import.json"
+		}
+	}
+
+	res, err := h.service.ImportExercises(r.Context(), courseID, content, fileName, dryRun)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), err.Error())
+		return
+	}
+
+	if !res.CanImport {
+		SendJSON(w, http.StatusUnprocessableEntity, res, "Errores de validación en los ejercicios a importar")
+		return
+	}
+
+	if dryRun {
+		SendJSON(w, http.StatusOK, res, "Previsualización de importación completada")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, res, fmt.Sprintf("Se importaron %d ejercicios exitosamente", res.ImportedCount))
+}
+
+
 
