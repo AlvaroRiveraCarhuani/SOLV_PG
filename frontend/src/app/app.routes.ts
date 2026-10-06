@@ -27,6 +27,17 @@ export const routes: Routes = [
         path: '',
         loadComponent: () =>
           import('@features/student/dashboard/student-dashboard.component').then((m) => m.StudentDashboardComponent)
+      },
+      {
+        path: 'courses/:courseId',
+        loadComponent: () =>
+          import('@features/student/courses/course-detail/student-course-detail.component').then(
+            (m) => m.StudentCourseDetailComponent
+          )
+      },
+      {
+        path: 'cursos/:courseId',
+        redirectTo: 'courses/:courseId'
       }
     ]
   },

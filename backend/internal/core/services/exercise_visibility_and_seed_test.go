@@ -84,6 +84,10 @@ func (m *mockExerciseRepo) ListBySubject(_ context.Context, _, _ string) ([]*dom
 	return nil, nil
 }
 
+func (m *mockExerciseRepo) GetStudentRecommendations(_ context.Context, _, _, _ string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 func TestExerciseValidation_PerStudentSeedRequiresExam(t *testing.T) {
 	repo := &mockExerciseRepo{exercises: make(map[string]*domain.Exercise)}
 	svc := services.NewEvaluationService(repo, nil, nil, nil)

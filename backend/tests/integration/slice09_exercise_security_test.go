@@ -75,6 +75,10 @@ func (m *mockSecurityExerciseRepo) ListBySubject(ctx context.Context, tenantID, 
 	return []*domain.Exercise{}, nil
 }
 
+func (m *mockSecurityExerciseRepo) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 func TestExerciseSecurityDTOFiltering(t *testing.T) {
 	ex := &domain.Exercise{
 		ID:          "ex-sec-101",

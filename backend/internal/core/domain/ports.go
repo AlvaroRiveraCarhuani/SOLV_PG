@@ -63,6 +63,7 @@ type ExerciseRepository interface {
 	UpdateDryRunJobProgress(ctx context.Context, jobID string, status DryRunJobStatus, current, total int, result *EvaluationResult, errMsg string) error
 	ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*DueAssignment, error)
 	ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*Exercise, error)
+	GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*StudentRecommendations, error)
 }
 
 type ASTAnalyzer interface {

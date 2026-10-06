@@ -1,0 +1,49 @@
+<div class="student-course-container">
+  <!-- Header / Breadcrumb -->
+  <header class="course-header">
+    <a routerLink="/student" class="back-link">
+      <svg lucideArrowLeft class="back-icon"></svg>
+      <span>Volver al panel</span>
+    </a>
+    <div class="course-title-section">
+      <div class="title-with-code">
+        <h1 class="course-title">{{ subjectName() }}</h1>
+        @if (subjectCode()) {
+          <span class="subject-code-badge" machineData>{{ subjectCode() }}</span>
+        }
+      </div>
+      <p class="course-subtitle">Panel académico del estudiante y asignaciones</p>
+    </div>
+  </header>
+
+  <!-- Layout de dos columnas -->
+  <div class="course-layout-grid">
+    <!-- Columna principal: Asignaciones y estado del workspace -->
+    <main class="course-main-content">
+      <section class="content-card workspace-status-card">
+        <div class="card-header">
+          <div class="card-header-title">
+            <svg lucideCode class="section-icon"></svg>
+            <h3>Entorno de desarrollo</h3>
+          </div>
+        </div>
+        <div class="workspace-body">
+          @if (subjectItem()?.active_workspace; as ws) {
+            <div class="ws-info">
+              <span class="status-indicator" [class.running]="ws.status === 'running'"></span>
+              <span>Estado: {{ ws.status === 'running' ? 'Activo' : 'En pausa' }}</span>
+              <span class="ws-type" machineData>{{ ws.type }}</span>
+            </div>
+          } @else {
+            <p class="no-ws-text">No hay un entorno activo actualmente para este curso.</p>
+          }
+        </div>
+      </section>
+    </main>
+
+    <!-- Columna lateral: Panel de recomendaciones de refuerzo -->
+    <aside class="course-sidebar">
+      <recommendations-panel [courseId]="effectiveCourseId()"></recommendations-panel>
+    </aside>
+  </div>
+</div>

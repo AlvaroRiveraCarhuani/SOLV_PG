@@ -212,6 +212,8 @@ func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	mux.Handle("GET /api/v1/student/dashboard", tm(http.HandlerFunc(deps.StudentHandler.GetDashboard)))
 	mux.Handle("GET /api/v1/student/assignments/due", tm(http.HandlerFunc(deps.StudentHandler.GetDueAssignments)))
+	mux.Handle("GET /api/v1/student/courses/{id}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
+	mux.Handle("GET /api/v1/student/courses/{courseId}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
 }
 
 func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {

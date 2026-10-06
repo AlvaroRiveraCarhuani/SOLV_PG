@@ -29,6 +29,27 @@ export interface StudentDashboardData {
   recent_submissions: any[];
 }
 
+export interface WeakTag {
+  tag: string;
+  success_rate: number;
+  attempts: number;
+}
+
+export interface RecommendationItem {
+  exercise_id: string;
+  title: string;
+  difficulty: string;
+  matched_tag: string;
+  reason: string;
+}
+
+export interface StudentRecommendationsDTO {
+  has_enough_data: boolean;
+  weak_tags: WeakTag[];
+  recommendations: RecommendationItem[];
+  message?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -142,5 +163,35 @@ export class StudentService {
       this.http.post(`/api/v1/workspaces/${workspaceId}/pause`, {})
     );
     await this.loadDashboard();
+  }
+
+  async getCourseRecommendations(courseId: string): Promise<StudentRecommendationsDTO> {
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<{ success?: boolean; data?: StudentRecommendationsDTO } | StudentRecommendationsDTO>(
+          `/api/v1/student/courses/${courseId}/recommendations`,
+          { withCredentials: true }
+        )
+      );
+      if (resp && 'data' in resp && resp.data) {
+        return resp.data;
+      }
+      if (resp && 'has_enough_data' in resp) {
+        return resp as StudentRecommendationsDTO;
+      }
+      return {
+        has_enough_data: false,
+        weak_tags: [],
+        recommendations: [],
+        message: 'No hay datos disponibles'
+      };
+    } catch {
+      return {
+        has_enough_data: false,
+        weak_tags: [],
+        recommendations: [],
+        message: 'No se pudieron cargar las recomendaciones'
+      };
+    }
   }
 }

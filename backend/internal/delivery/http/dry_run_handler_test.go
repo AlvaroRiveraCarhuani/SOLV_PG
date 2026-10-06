@@ -116,6 +116,10 @@ func (m *mockExerciseRepoHTTP) ListBySubject(ctx context.Context, tenantID, subj
 	return nil, nil
 }
 
+func (m *mockExerciseRepoHTTP) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 type mockRunnerHTTP struct{}
 
 func (r *mockRunnerHTTP) RunTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {

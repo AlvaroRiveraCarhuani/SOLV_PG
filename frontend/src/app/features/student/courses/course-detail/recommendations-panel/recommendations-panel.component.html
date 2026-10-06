@@ -1,0 +1,110 @@
+<aside class="recommendations-container" [class.is-collapsed]="isCollapsed()">
+  <!-- Header con botón colapsable -->
+  <header class="panel-header">
+    <div class="header-main">
+      <div class="header-title-row">
+        <svg lucideLightbulb class="panel-icon"></svg>
+        <div class="title-group">
+          <h3 class="panel-title">Práctica de refuerzo</h3>
+          <span class="optional-badge">Opcional</span>
+        </div>
+      </div>
+      <p class="panel-subtitle">Ejercicios sugeridos según tu progreso</p>
+    </div>
+    <button
+      type="button"
+      class="collapse-btn"
+      (click)="toggleCollapse()"
+      [attr.aria-expanded]="!isCollapsed()"
+      [attr.aria-label]="isCollapsed() ? 'Expandir panel de refuerzo' : 'Colapsar panel de refuerzo'"
+    >
+      @if (isCollapsed()) {
+        <svg lucideChevronDown class="btn-icon"></svg>
+      } @else {
+        <svg lucideChevronUp class="btn-icon"></svg>
+      }
+    </button>
+  </header>
+
+  <!-- Cuerpo del panel -->
+  @if (!isCollapsed()) {
+    <div class="panel-body">
+      @if (loading()) {
+        <div class="panel-state loading-state">
+          <div class="skeleton-card"></div>
+          <div class="skeleton-card"></div>
+        </div>
+      } @else if (!hasEnoughData()) {
+        <!-- Estado: Menos de 5 submissions -->
+        <div class="panel-state empty-state">
+          <div class="state-icon-wrapper info-icon">
+            <svg lucideInfo class="state-icon"></svg>
+          </div>
+          <p class="state-message">
+            {{ message() || 'Completa algunos ejercicios para recibir sugerencias personalizadas' }}
+          </p>
+        </div>
+      } @else if (!hasRecommendations()) {
+        <!-- Estado: Sin sugerencias / Al día -->
+        <div class="panel-state success-state">
+          <div class="state-icon-wrapper success-icon">
+            <svg lucideCheckCircle2 class="state-icon"></svg>
+          </div>
+          <p class="state-message success-message">
+            {{ message() || '¡Vas al día! No hay refuerzos sugeridos.' }}
+          </p>
+        </div>
+      } @else {
+        <!-- Estado: Lista de recomendaciones -->
+        @if (weakTags().length > 0) {
+          <div class="focus-areas-banner">
+            <span class="focus-label">Áreas de enfoque:</span>
+            <div class="focus-tags">
+              @for (wt of weakTags(); track wt.tag) {
+                <span class="focus-tag-chip">
+                  <svg lucideTag class="chip-icon"></svg>
+                  <span machineData>{{ wt.tag }}</span>
+                </span>
+              }
+            </div>
+          </div>
+        }
+
+        <div class="recommendations-list">
+          @for (item of recommendations(); track item.exercise_id) {
+            <article class="recommendation-card">
+              <div class="card-header">
+                <span class="difficulty-badge" [ngClass]="getDifficultyClass(item.difficulty)">
+                  {{ getDifficultyLabel(item.difficulty) }}
+                </span>
+                @if (item.matched_tag) {
+                  <span class="matched-tag-badge">
+                    <svg lucideTag class="tag-icon"></svg>
+                    <span machineData>{{ item.matched_tag }}</span>
+                  </span>
+                }
+              </div>
+
+              <h4 class="exercise-title">{{ item.title }}</h4>
+
+              <p class="pedagogical-reason">
+                <svg lucideSparkles class="reason-icon"></svg>
+                <span>{{ item.reason }}</span>
+              </p>
+
+              <div class="card-action">
+                <a
+                  [routerLink]="['/student/exercises', item.exercise_id]"
+                  class="start-exercise-link"
+                >
+                  <span>Practicar</span>
+                  <svg lucideArrowRight class="link-icon"></svg>
+                </a>
+              </div>
+            </article>
+          }
+        </div>
+      }
+    </div>
+  }
+</aside>

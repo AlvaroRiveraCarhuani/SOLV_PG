@@ -76,6 +76,10 @@ func (m *mockExerciseRepo) ListBySubject(ctx context.Context, tenantID, subjectI
 	return []*domain.Exercise{}, nil
 }
 
+func (m *mockExerciseRepo) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 type mockRunner struct{}
 
 func (m *mockRunner) RunTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {

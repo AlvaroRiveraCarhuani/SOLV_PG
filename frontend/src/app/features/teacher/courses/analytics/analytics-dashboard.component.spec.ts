@@ -62,7 +62,7 @@ describe('AnalyticsDashboardComponent', () => {
   });
 
   it('debe crearse correctamente y cargar metricas', () => {
-    spyOn(courseService, 'getCourseAnalytics').and.returnValue(of(mockAnalytics));
+    vi.spyOn(courseService, 'getCourseAnalytics').mockReturnValue(of(mockAnalytics));
     fixture.detectChanges();
 
     expect(component).toBeTruthy();

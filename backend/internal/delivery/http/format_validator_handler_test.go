@@ -94,6 +94,10 @@ func (m *mockFormatRepo) ListBySubject(_ context.Context, _, _ string) ([]*domai
 	return nil, nil
 }
 
+func (m *mockFormatRepo) GetStudentRecommendations(_ context.Context, _, _, _ string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 func TestValidateInputEndpoint(t *testing.T) {
 	repo := &mockFormatRepo{exercises: make(map[string]*domain.Exercise)}
 	evalSvc := services.NewEvaluationService(repo, nil, nil, nil)

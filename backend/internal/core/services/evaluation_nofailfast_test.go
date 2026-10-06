@@ -80,6 +80,10 @@ func (s *stubExerciseRepo) ListBySubject(_ context.Context, _, _ string) ([]*dom
 	return nil, nil
 }
 
+func (s *stubExerciseRepo) GetStudentRecommendations(_ context.Context, _, _, _ string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
+
 type allowAnalyzer struct{}
 
 func (allowAnalyzer) ValidateCode(_ string, _ string, _ domain.ASTRules) (bool, string) {
