@@ -1,0 +1,196 @@
+<div class="checklist-container">
+  <div class="checklist-card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="header-left">
+        <div class="title-row">
+          <svg lucideShieldCheck class="card-icon"></svg>
+          <h4 class="card-title">Auditoría Previa y Checklist de Publicación</h4>
+        </div>
+        <p class="card-hint">
+          Evaluación estructural automática del ejercicio: integridad de casos, consistencia pedagógica y validación de solución de referencia.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          class="btn-outline refresh-btn"
+          (click)="refreshChecklist()"
+          [disabled]="store.isChecklistLoading()"
+          title="Re-ejecutar análisis de publicación"
+        >
+          <svg
+            lucideRefreshCw
+            class="btn-icon"
+            [class.spin-icon]="store.isChecklistLoading()"
+          ></svg>
+          <span>{{ store.isChecklistLoading() ? 'Analizando...' : 'Re-analizar Ejercicio' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bloque 1: Problemas Bloqueantes (Rojo) -->
+    <div class="checklist-section section-blockers" [class.collapsed]="!blockersOpen()">
+      <button type="button" class="section-header-btn" (click)="toggleBlockers()">
+        <div class="section-title-wrap">
+          @if (hasBlockers()) {
+            <svg lucideAlertCircle class="status-icon icon-danger"></svg>
+            <span class="section-name">Problemas Bloqueantes</span>
+            <span class="count-pill pill-danger font-mono" machineData>{{ blockers().length }}</span>
+          } @else {
+            <svg lucideCheckCircle2 class="status-icon icon-success"></svg>
+            <span class="section-name">Sin Bloqueantes</span>
+            <span class="count-pill pill-success font-mono" machineData>0</span>
+          }
+        </div>
+        @if (!blockersOpen()) {
+          <svg lucideChevronDown class="chevron-icon"></svg>
+        } @else {
+          <svg lucideChevronUp class="chevron-icon"></svg>
+        }
+      </button>
+
+      @if (blockersOpen()) {
+        <div class="section-content">
+          @if (hasBlockers()) {
+            <ul class="items-list">
+              @for (item of blockers(); track item) {
+                <li class="item-row item-danger">
+                  <svg lucideAlertCircle class="item-icon"></svg>
+                  <span class="item-text">{{ item }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="empty-status">
+              <svg lucideCheckCircle2 class="empty-icon icon-success"></svg>
+              <span class="empty-text">El ejercicio cumple con todos los requisitos estructurales obligatorios.</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Bloque 2: Advertencias Pedagógicas (Amarillo) -->
+    <div class="checklist-section section-warnings" [class.collapsed]="!warningsOpen()">
+      <button type="button" class="section-header-btn" (click)="toggleWarnings()">
+        <div class="section-title-wrap">
+          @if (hasWarnings()) {
+            <svg lucideAlertTriangle class="status-icon icon-warning"></svg>
+            <span class="section-name">Advertencias y Recomendaciones</span>
+            <span class="count-pill pill-warning font-mono" machineData>{{ warnings().length }}</span>
+          } @else {
+            <svg lucideCheckCircle2 class="status-icon icon-success"></svg>
+            <span class="section-name">Sin Advertencias</span>
+            <span class="count-pill pill-success font-mono" machineData>0</span>
+          }
+        </div>
+        @if (!warningsOpen()) {
+          <svg lucideChevronDown class="chevron-icon"></svg>
+        } @else {
+          <svg lucideChevronUp class="chevron-icon"></svg>
+        }
+      </button>
+
+      @if (warningsOpen()) {
+        <div class="section-content">
+          @if (hasWarnings()) {
+            <ul class="items-list">
+              @for (item of warnings(); track item) {
+                <li class="item-row item-warning">
+                  <svg lucideAlertTriangle class="item-icon"></svg>
+                  <span class="item-text">{{ item }}</span>
+                </li>
+              }
+            </ul>
+
+            <!-- Confirmación explícita de advertencias -->
+            <div class="warning-acknowledgement">
+              <label class="ack-label">
+                <input
+                  type="checkbox"
+                  class="ack-checkbox"
+                  [ngModel]="store.acceptedWarnings()"
+                  (ngModelChange)="onAcceptWarnings($event)"
+                />
+                <span class="ack-text">
+                  He revisado las advertencias pedagógicas anteriores y confirmo proceder con la publicación del ejercicio.
+                </span>
+              </label>
+            </div>
+          } @else {
+            <div class="empty-status">
+              <svg lucideCheckCircle2 class="empty-icon icon-success"></svg>
+              <span class="empty-text">No se detectaron riesgos pedagógicos ni desbalances de casos.</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Bloque 3: Información y Estadísticas (Gris / Info) -->
+    <div class="checklist-section section-info" [class.collapsed]="!infoOpen()">
+      <button type="button" class="section-header-btn" (click)="toggleInfo()">
+        <div class="section-title-wrap">
+          <svg lucideInfo class="status-icon icon-info"></svg>
+          <span class="section-name">Detalles de Validación y Rendimiento</span>
+          <span class="count-pill pill-info font-mono" machineData>{{ infoItems().length }}</span>
+        </div>
+        @if (!infoOpen()) {
+          <svg lucideChevronDown class="chevron-icon"></svg>
+        } @else {
+          <svg lucideChevronUp class="chevron-icon"></svg>
+        }
+      </button>
+
+      @if (infoOpen()) {
+        <div class="section-content">
+          @if (infoItems().length > 0) {
+            <ul class="items-list">
+              @for (item of infoItems(); track item) {
+                <li class="item-row item-info">
+                  <svg lucideInfo class="item-icon"></svg>
+                  <span class="item-text">{{ item }}</span>
+                </li>
+              }
+            </ul>
+          } @else {
+            <div class="empty-status">
+              <span class="empty-text">Guarda un borrador para obtener telemetría de ejecución.</span>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Banner de Estado de Publicación -->
+    <div class="publication-status-banner">
+      @if (hasBlockers()) {
+        <div class="status-box box-danger">
+          <svg lucideShieldX class="box-icon"></svg>
+          <div class="box-content">
+            <span class="box-title">Publicación Bloqueada</span>
+            <span class="box-desc">Debes corregir los problemas bloqueantes antes de publicar este ejercicio.</span>
+          </div>
+        </div>
+      } @else if (hasWarnings() && !store.acceptedWarnings()) {
+        <div class="status-box box-warning">
+          <svg lucideAlertTriangle class="box-icon"></svg>
+          <div class="box-content">
+            <span class="box-title">Requiere Confirmación</span>
+            <span class="box-desc">Marca la casilla de confirmación de advertencias para habilitar el botón de publicación.</span>
+          </div>
+        </div>
+      } @else {
+        <div class="status-box box-success">
+          <svg lucideShieldCheck class="box-icon"></svg>
+          <div class="box-content">
+            <span class="box-title">Ejercicio Listo para Publicar</span>
+            <span class="box-desc">Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.</span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

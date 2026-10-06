@@ -1,0 +1,58 @@
+@if (isOpen) {
+  <div class="modal-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
+    <div class="modal-container" role="dialog" aria-modal="true" [attr.aria-labelledby]="'modal-title'">
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="header-info">
+          <div class="title-row">
+            <svg lucideFileText class="modal-icon"></svg>
+            <h3 id="modal-title" class="modal-title">{{ title }}</h3>
+          </div>
+          @if (subtitle) {
+            <p class="modal-subtitle">{{ subtitle }}</p>
+          }
+        </div>
+        <button type="button" class="close-btn" (click)="onCancel()" aria-label="Cerrar modal">
+          <svg lucideX class="close-icon"></svg>
+        </button>
+      </div>
+
+      <!-- Body / Textarea -->
+      <div class="modal-body">
+        <div class="editor-wrapper">
+          <textarea
+            class="modal-textarea font-mono"
+            [ngModel]="currentValue()"
+            (ngModelChange)="onTextChange($event)"
+            [placeholder]="placeholder"
+            spellcheck="false"
+            autofocus
+          ></textarea>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="stats-info font-mono">
+          <span class="stat-item">
+            Líneas: <span class="stat-value" machineData>{{ lineCount() }}</span>
+          </span>
+          <span class="stat-divider">•</span>
+          <span class="stat-item">
+            Caracteres: <span class="stat-value" machineData>{{ charCount() }}</span>
+          </span>
+        </div>
+
+        <div class="footer-actions">
+          <button type="button" class="btn-outline" (click)="onCancel()">
+            Cancelar
+          </button>
+          <button type="button" class="btn-primary" (click)="onSave()">
+            <svg lucideCheck class="btn-icon"></svg>
+            <span>Guardar Cambios</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

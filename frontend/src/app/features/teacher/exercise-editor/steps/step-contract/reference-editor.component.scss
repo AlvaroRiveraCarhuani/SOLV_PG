@@ -1,0 +1,114 @@
+.reference-editor-container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+
+  .header-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .title-row {
+      display: flex;
+      align-items: center;
+      gap: var(--space-2);
+
+      .header-icon {
+        width: 16px;
+        height: 16px;
+        color: var(--tenant-primary);
+      }
+
+      .editor-title {
+        font-size: var(--text-sm);
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+    }
+
+    .editor-subtitle {
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+    }
+  }
+
+  .language-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background-color: var(--bg-surface-subtle);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-full);
+
+    .lang-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: var(--radius-full);
+      background-color: var(--tenant-primary);
+    }
+
+    .lang-name {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+  }
+}
+
+.code-editor-wrapper {
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--code-bg, var(--bg-surface));
+  overflow: hidden;
+
+  .code-textarea {
+    width: 100%;
+    min-height: 280px;
+    padding: var(--space-3);
+    background-color: transparent;
+    color: var(--code-text, var(--text-primary));
+    border: none;
+    font-size: var(--text-sm);
+    line-height: var(--leading-relaxed);
+    tab-size: 4;
+    resize: vertical;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.editor-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+
+  .status-valid {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--color-success);
+    font-weight: 500;
+
+    .status-icon {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
+  .status-warning {
+    color: var(--color-warning);
+    font-style: italic;
+  }
+}

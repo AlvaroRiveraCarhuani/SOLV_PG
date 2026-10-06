@@ -156,37 +156,89 @@ export interface EphemeralRunResult {
   actual_json?: string;
 }
 
+export interface ASTCustomRuleDTO {
+  language: string;
+  pattern: string;
+  type?: 'method' | 'function' | 'module' | 'syntax' | string;
+  message: string;
+}
+
+export interface ASTRulesDTO {
+  block_native_sort?: boolean;
+  block_system_modules?: boolean;
+  forbidden_imports?: string[];
+  forbidden_functions?: string[];
+  custom_rules?: ASTCustomRuleDTO[];
+}
+
+export interface ChecklistReportDTO {
+  blockers: string[];
+  warnings: string[];
+  info: string[];
+  can_publish: boolean;
+}
+
+export interface ComparatorDTO {
+  id: 'exact' | 'float' | 'unordered' | 'custom';
+  params?: Record<string, any>;
+}
+
+export interface TestCaseDTO {
+  id?: string;
+  order_index?: number;
+  input: string;
+  expected_output: string;
+  visibility?: 'example' | 'public' | 'hidden';
+  weight?: number;
+  is_hidden?: boolean;
+  is_sample?: boolean;
+}
+
 export interface CreateExerciseRequestDTO {
   subject_id: string;
   title: string;
   description: string;
   type?: 'algorithm' | 'database' | 'workspace' | string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
+  purpose?: 'class' | 'exam';
+  per_student_seed?: boolean;
   language?: string;
   boilerplate?: string;
   template_id?: string;
   time_limit_ms?: number;
   memory_limit_mb?: number;
   due_date?: string;
+  reference_solution?: string;
+  ast_rules?: ASTRulesDTO;
+  comparator?: ComparatorDTO;
+  input_format?: any;
+  test_cases?: TestCaseDTO[];
 }
 
 export interface UpdateExerciseRequestDTO {
   title?: string;
   description?: string;
   type?: 'algorithm' | 'database' | 'workspace' | string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  tags?: string[];
+  purpose?: 'class' | 'exam';
+  per_student_seed?: boolean;
   language?: string;
   boilerplate?: string;
   template_id?: string;
   time_limit_ms?: number;
   memory_limit_mb?: number;
   due_date?: string;
+  reference_solution?: string;
+  ast_rules?: ASTRulesDTO;
+  comparator?: ComparatorDTO;
+  input_format?: any;
+  test_cases?: TestCaseDTO[];
 }
 
 export interface BulkTestCasesRequestDTO {
-  test_cases: Array<{
-    input: string;
-    expected_output: string;
-    is_hidden: boolean;
-  }>;
+  test_cases: TestCaseDTO[];
 }
 
 export interface PlagiarismMatch {

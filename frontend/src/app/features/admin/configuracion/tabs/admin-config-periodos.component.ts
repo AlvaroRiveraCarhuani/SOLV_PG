@@ -12,7 +12,6 @@ import {
   PeriodLifecycle
 } from '../admin-config-periodos.service';
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
-import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -21,7 +20,6 @@ import {
   LucideCalendar,
   LucidePlus,
   LucideArchive,
-  LucideArchiveRestore,
   LucidePencil,
   LucideTrash2,
   LucideAlertTriangle,
@@ -45,7 +43,6 @@ interface SubjectCountRow {
     CommonModule,
     FormsModule,
     MachineDataDirective,
-    DateTextPipe,
     KpiCardComponent,
     KpiGridComponent,
     ModalShellComponent,
@@ -54,7 +51,6 @@ interface SubjectCountRow {
     LucideCalendar,
     LucidePlus,
     LucideArchive,
-    LucideArchiveRestore,
     LucidePencil,
     LucideTrash2,
     LucideAlertTriangle,

@@ -1,0 +1,180 @@
+<div class="ast-rules-container">
+  <!-- Reglas Globales / Toggles Estándar -->
+  <div class="rules-card">
+    <div class="card-header">
+      <div class="title-row">
+        <svg lucideShieldAlert class="card-icon"></svg>
+        <h4 class="card-title">Defensas Estructurales Generales</h4>
+      </div>
+      <p class="card-hint">
+        Restricciones de seguridad y estilo aplicables automáticamente durante el escaneo estático (AST).
+      </p>
+    </div>
+
+    <div class="toggles-grid">
+      <label class="toggle-card">
+        <div class="toggle-info">
+          <span class="toggle-title">Bloquear Ordenamiento Nativo Global</span>
+          <span class="toggle-desc">Detecta e impide métodos nativos de sort/sorted en los lenguajes principales.</span>
+        </div>
+        <input
+          type="checkbox"
+          class="toggle-checkbox"
+          [ngModel]="store.astRules().block_native_sort"
+          (ngModelChange)="onToggleNativeSort($event)"
+        />
+      </label>
+
+      <label class="toggle-card">
+        <div class="toggle-info">
+          <span class="toggle-title">Bloquear Módulos de Sistema y E/S Avanzada</span>
+          <span class="toggle-desc">Impide importaciones de librerías como os, sys, subprocess, socket o filesystem.</span>
+        </div>
+        <input
+          type="checkbox"
+          class="toggle-checkbox"
+          [ngModel]="store.astRules().block_system_modules"
+          (ngModelChange)="onToggleSystemModules($event)"
+        />
+      </label>
+    </div>
+  </div>
+
+  <!-- Presets Rápidos -->
+  <div class="rules-card">
+    <div class="card-header">
+      <div class="title-row">
+        <svg lucideSparkles class="card-icon"></svg>
+        <h4 class="card-title">Plantillas Rápidas (Presets)</h4>
+      </div>
+      <p class="card-hint">
+        Agrega restricciones pedagógicas comunes con un solo clic.
+      </p>
+    </div>
+
+    <div class="presets-list">
+      @for (preset of presets; track preset.id) {
+        <button
+          type="button"
+          class="preset-card-btn"
+          (click)="applyPreset(preset)"
+          title="Haga clic para agregar esta regla al ejercicio"
+        >
+          <div class="preset-top">
+            <span class="preset-name">{{ preset.name }}</span>
+            <span class="preset-badge font-mono" machineData>{{ preset.rule.language }}</span>
+          </div>
+          <p class="preset-desc">{{ preset.description }}</p>
+        </button>
+      }
+    </div>
+  </div>
+
+  <!-- Lista de Reglas Personalizadas y Formulario -->
+  <div class="rules-card">
+    <div class="card-header">
+      <div class="title-row">
+        <svg lucideLayers class="card-icon"></svg>
+        <h4 class="card-title">Reglas AST Personalizadas (<span machineData>{{ (store.astRules().custom_rules || []).length }}</span>)</h4>
+      </div>
+      <p class="card-hint">
+        Reglas pedagógicas específicas configuradas para este ejercicio. Si el estudiante las viola, recibirá el veredicto AST_BLOCKED con el mensaje correspondiente.
+      </p>
+    </div>
+
+    <!-- Reglas existentes -->
+    <div class="rules-list">
+      @for (r of store.astRules().custom_rules || []; track $index; let idx = $index) {
+        <div class="rule-item">
+          <div class="rule-meta">
+            <span class="lang-tag font-mono" machineData>{{ r.language }}</span>
+            <span class="type-tag">{{ r.type || 'patrón' }}</span>
+            <code class="pattern-code font-mono">{{ r.pattern }}</code>
+          </div>
+
+          <div class="rule-body">
+            <p class="rule-message">
+              <strong class="msg-label">Mensaje al estudiante:</strong>
+              {{ r.message }}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            class="delete-rule-btn"
+            (click)="removeRule(idx)"
+            title="Eliminar regla personalizada"
+            aria-label="Eliminar regla"
+          >
+            <svg lucideTrash2 class="trash-icon"></svg>
+          </button>
+        </div>
+      } @empty {
+        <div class="empty-rules">
+          <p class="empty-text">No hay reglas AST personalizadas configuradas para este ejercicio.</p>
+        </div>
+      }
+    </div>
+
+    <!-- Formulario para agregar regla -->
+    <div class="add-rule-form">
+      <h5 class="form-title">+ Agregar Nueva Regla Personalizada</h5>
+      <div class="form-grid">
+        <div class="form-group">
+          <label class="form-label" for="rule-lang">Lenguaje</label>
+          <select id="rule-lang" class="form-select font-mono" [(ngModel)]="newRule().language">
+            <option value="python">python</option>
+            <option value="cpp">cpp (C++)</option>
+            <option value="java">java</option>
+            <option value="csharp">csharp (C#)</option>
+            <option value="javascript">javascript</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="rule-type">Tipo</label>
+          <select id="rule-type" class="form-select" [(ngModel)]="newRule().type">
+            <option value="method">Método / Invocación</option>
+            <option value="function">Función Global</option>
+            <option value="module">Módulo / Importación</option>
+            <option value="syntax">Sintaxis / Palabra clave</option>
+          </select>
+        </div>
+
+        <div class="form-group form-group-pattern">
+          <label class="form-label" for="rule-pattern">Patrón / Identificador Prohibido</label>
+          <input
+            id="rule-pattern"
+            type="text"
+            class="form-input font-mono"
+            placeholder="ej: sort, collections, std::sort, pop"
+            [(ngModel)]="newRule().pattern"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="rule-msg">Mensaje Pedagógico (Español)</label>
+        <input
+          id="rule-msg"
+          type="text"
+          class="form-input"
+          placeholder="ej: No está permitido usar ordenamiento incorporado. Debes programar tu propio algoritmo."
+          [(ngModel)]="newRule().message"
+        />
+      </div>
+
+      <div class="form-actions">
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="addRule()"
+          [disabled]="!newRule().pattern.trim()"
+        >
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Agregar Regla AST</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

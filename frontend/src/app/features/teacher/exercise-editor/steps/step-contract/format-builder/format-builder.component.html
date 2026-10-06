@@ -1,0 +1,337 @@
+<div class="format-builder-container">
+  <!-- 1. Barra de Presets Rápidos -->
+  <div class="presets-section">
+    <div class="presets-header">
+      <div class="header-title-row">
+        <svg lucideSparkles class="presets-icon"></svg>
+        <span class="presets-title">Plantillas de Formato (Presets)</span>
+      </div>
+      <span class="presets-hint">Selecciona una estructura estándar o personaliza las líneas debajo</span>
+    </div>
+
+    <div class="presets-grid">
+      @for (preset of presets; track preset.id) {
+        <preset-button 
+          [preset]="preset" 
+          [selected]="activePresetId() === preset.id"
+          (select)="applyPreset($event)"
+        />
+      }
+    </div>
+  </div>
+
+  <!-- 2. Editor Visual de Líneas de Formato -->
+  <div class="visual-editor-section">
+    <div class="editor-sub-header">
+      <div class="sub-header-left">
+        <svg lucideSliders class="section-icon"></svg>
+        <h4 class="sub-title">Estructura de Entrada Estándar (stdin)</h4>
+        <span class="lines-count font-mono" machineData>({{ lines().length }} líneas)</span>
+      </div>
+
+      <div class="sub-header-actions">
+        <button 
+          type="button" 
+          class="btn-outline toggle-json-btn"
+          [class.active]="showJsonEditor()"
+          (click)="toggleJsonView()"
+          title="Alternar vista de código JSON del contrato"
+        >
+          <svg lucideCode class="btn-icon"></svg>
+          <span>{{ showJsonEditor() ? 'Ocultar JSON' : 'Editar como JSON' }}</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-outline reset-btn"
+          (click)="resetToFreeText()"
+          title="Eliminar restricciones de contrato y volver a modo texto libre"
+        >
+          <span>Modo Libre (Sin Contrato)</span>
+        </button>
+
+        <button 
+          type="button" 
+          class="btn-primary add-line-btn"
+          (click)="addLine()"
+        >
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Agregar Línea</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Lista de Líneas -->
+    <div class="lines-list">
+      @for (line of lines(); track $index; let idx = $index) {
+        <div class="line-card" [class]="'type-' + line.type">
+          <!-- Cabecera de Fila: Índice e Identificador -->
+          <div class="line-row-main">
+            <span class="line-index-badge font-mono" machineData>#{{ idx + 1 }}</span>
+
+            <!-- Identificador de variable -->
+            <div class="field-item field-id">
+              <label [for]="'line-id-' + idx" class="field-label">Variable (id)</label>
+              <input 
+                [id]="'line-id-' + idx"
+                type="text" 
+                class="form-input id-input font-mono" 
+                placeholder="id"
+                [ngModel]="line.id"
+                (ngModelChange)="updateLineId(idx, $event)"
+              />
+            </div>
+
+            <!-- Tipo de Dato -->
+            <div class="field-item field-type">
+              <label [for]="'line-type-' + idx" class="field-label">Tipo de Línea</label>
+              <select 
+                [id]="'line-type-' + idx"
+                class="form-select type-select"
+                [ngModel]="line.type"
+                (ngModelChange)="updateLineType(idx, $event)"
+              >
+                <option value="int">Entero simple (int)</option>
+                <option value="ints">Arreglo de enteros (ints)</option>
+                <option value="matrix">Matriz 2D (matrix)</option>
+                <option value="edges">Grafo / Aristas (edges)</option>
+                <option value="string">Cadena / Texto (string)</option>
+                <option value="raw">Texto Libre sin Validar (raw)</option>
+              </select>
+            </div>
+
+            <!-- Parámetros específicos por tipo -->
+            <div class="line-parameters-grid">
+              <!-- CASO: int -->
+              @if (line.type === 'int') {
+                <div class="field-item">
+                  <label [for]="'int-min-' + idx" class="field-label">Mínimo</label>
+                  <input 
+                    [id]="'int-min-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="1"
+                    [ngModel]="line.min"
+                    (ngModelChange)="updateLineField(idx, 'min', $event)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'int-max-' + idx" class="field-label">Máximo</label>
+                  <input 
+                    [id]="'int-max-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="1000000"
+                    [ngModel]="line.max"
+                    (ngModelChange)="updateLineField(idx, 'max', $event)"
+                  />
+                </div>
+              }
+
+              <!-- CASO: ints -->
+              @if (line.type === 'ints') {
+                <div class="field-item">
+                  <label [for]="'ints-count-' + idx" class="field-label">Cantidad (count)</label>
+                  <input 
+                    [id]="'ints-count-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="=n o número"
+                    [ngModel]="line.count"
+                    (ngModelChange)="updateLineField(idx, 'count', $event)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'ints-item-min-' + idx" class="field-label">Elemento Mín.</label>
+                  <input 
+                    [id]="'ints-item-min-' + idx"
+                    type="number" 
+                    class="form-input param-input font-mono" 
+                    placeholder="-10^9"
+                    [ngModel]="line.item?.min"
+                    (ngModelChange)="updateItemBounds(idx, $event, line.item?.max)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'ints-item-max-' + idx" class="field-label">Elemento Máx.</label>
+                  <input 
+                    [id]="'ints-item-max-' + idx"
+                    type="number" 
+                    class="form-input param-input font-mono" 
+                    placeholder="10^9"
+                    [ngModel]="line.item?.max"
+                    (ngModelChange)="updateItemBounds(idx, line.item?.min, $event)"
+                  />
+                </div>
+              }
+
+              <!-- CASO: matrix -->
+              @if (line.type === 'matrix') {
+                <div class="field-item">
+                  <label [for]="'mat-rows-' + idx" class="field-label">Filas (rows)</label>
+                  <input 
+                    [id]="'mat-rows-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="=n"
+                    [ngModel]="line.rows"
+                    (ngModelChange)="updateLineField(idx, 'rows', $event)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'mat-cols-' + idx" class="field-label">Columnas (cols)</label>
+                  <input 
+                    [id]="'mat-cols-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="=m"
+                    [ngModel]="line.cols"
+                    (ngModelChange)="updateLineField(idx, 'cols', $event)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'mat-min-' + idx" class="field-label">Celda Mín.</label>
+                  <input 
+                    [id]="'mat-min-' + idx"
+                    type="number" 
+                    class="form-input param-input font-mono" 
+                    placeholder="0"
+                    [ngModel]="line.item?.min"
+                    (ngModelChange)="updateItemBounds(idx, $event, line.item?.max)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'mat-max-' + idx" class="field-label">Celda Máx.</label>
+                  <input 
+                    [id]="'mat-max-' + idx"
+                    type="number" 
+                    class="form-input param-input font-mono" 
+                    placeholder="10^6"
+                    [ngModel]="line.item?.max"
+                    (ngModelChange)="updateItemBounds(idx, line.item?.min, $event)"
+                  />
+                </div>
+              }
+
+              <!-- CASO: edges -->
+              @if (line.type === 'edges') {
+                <div class="field-item">
+                  <label [for]="'edges-count-' + idx" class="field-label">Cant. Aristas (count)</label>
+                  <input 
+                    [id]="'edges-count-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="=m o número"
+                    [ngModel]="line.count"
+                    (ngModelChange)="updateLineField(idx, 'count', $event)"
+                  />
+                </div>
+                <div class="field-item info-only">
+                  <span class="info-label">Formato de Arista:</span>
+                  <span class="info-val font-mono" machineData>u v (1-indexado)</span>
+                </div>
+              }
+
+              <!-- CASO: string -->
+              @if (line.type === 'string') {
+                <div class="field-item">
+                  <label [for]="'str-maxlen-' + idx" class="field-label">Longitud Máxima</label>
+                  <input 
+                    [id]="'str-maxlen-' + idx"
+                    type="number" 
+                    class="form-input param-input font-mono" 
+                    placeholder="1000"
+                    [ngModel]="line.max_len"
+                    (ngModelChange)="updateLineField(idx, 'max_len', $event)"
+                  />
+                </div>
+                <div class="field-item">
+                  <label [for]="'str-regex-' + idx" class="field-label">Regex (Opcional)</label>
+                  <input 
+                    [id]="'str-regex-' + idx"
+                    type="text" 
+                    class="form-input param-input font-mono" 
+                    placeholder="^[a-zA-Z]+$"
+                    [ngModel]="line.regex"
+                    (ngModelChange)="updateLineField(idx, 'regex', $event)"
+                  />
+                </div>
+              }
+
+              <!-- CASO: raw -->
+              @if (line.type === 'raw') {
+                <div class="field-item info-only full-span">
+                  <span class="info-label">Línea de escape libre:</span>
+                  <span class="info-val">Cualquier contenido sin validación rígida</span>
+                </div>
+              }
+            </div>
+
+            <!-- Botón Eliminar Línea -->
+            <button 
+              type="button" 
+              class="remove-line-btn"
+              (click)="removeLine(idx)"
+              title="Eliminar esta línea del contrato"
+            >
+              <svg lucideTrash2 class="trash-icon"></svg>
+            </button>
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-contract-state">
+          <p class="empty-text">
+            No has definido líneas de contrato. El ejercicio operará en modo texto libre.
+          </p>
+          <button type="button" class="btn-primary" (click)="applyPreset(presets[0])">
+            <svg lucideSparkles class="btn-icon"></svg>
+            <span>Cargar Plantilla Básica</span>
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- 3. Editor JSON Avanzado (Collapsible) -->
+  @if (showJsonEditor()) {
+    <div class="json-editor-section">
+      <div class="json-header">
+        <div class="title-row">
+          <svg lucideCode class="section-icon"></svg>
+          <h4 class="json-title">Editor JSON Avanzado del Contrato</h4>
+        </div>
+        <span class="json-hint">Los cambios en el JSON se reflejan automáticamente en el editor visual.</span>
+      </div>
+
+      <div class="json-wrapper">
+        <textarea 
+          class="json-textarea font-mono"
+          [ngModel]="jsonCode()"
+          (ngModelChange)="onJsonCodeChange($event)"
+          rows="10"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      @if (jsonError()) {
+        <div class="json-error-alert">
+          <svg lucideAlertCircle class="alert-icon"></svg>
+          <span>{{ jsonError() }}</span>
+        </div>
+      }
+    </div>
+  }
+
+  <!-- 4. Barra de Estado de Validación del Contrato -->
+  @if (backendValidation(); as val) {
+    <div class="contract-status-footer" [class.valid]="val.valid" [class.invalid]="!val.valid">
+      @if (val.valid) {
+        <svg lucideCheckCircle2 class="status-icon"></svg>
+        <span>Contrato estructuralmente válido y sincronizado con el backend</span>
+      } @else {
+        <svg lucideAlertCircle class="status-icon"></svg>
+        <span>{{ val.error || 'Estructura de contrato no compatible' }}</span>
+      }
+    </div>
+  }
+</div>

@@ -51,6 +51,7 @@ export class FuzzingModalComponent implements OnInit {
   @Input({ required: true }) exerciseId!: string;
   @Input() exerciseTitle: string = 'Laboratorio';
   @Input() language: string = 'python';
+  @Input() referenceSolution: string = '';
   @Output() close = new EventEmitter<void>();
   @Output() applied = new EventEmitter<number>();
 
@@ -136,6 +137,7 @@ export class FuzzingModalComponent implements OnInit {
       target_language: this.selectedLanguage(),
       parameter_types: this.selectedTypes(),
       categories: this.selectedCategories(),
+      reference_code: this.referenceSolution ? this.referenceSolution.trim() : undefined,
       count: 20
     };
 

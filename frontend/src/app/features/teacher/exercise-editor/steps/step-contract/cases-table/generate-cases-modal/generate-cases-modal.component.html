@@ -1,0 +1,132 @@
+@if (isOpen) {
+  <div class="modal-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
+    <div class="modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <!-- Header -->
+      <div class="modal-header">
+        <div class="header-info">
+          <div class="title-row">
+            <svg lucideSparkles class="modal-icon"></svg>
+            <h3 id="modal-title" class="modal-title">Generar Casos Aleatorios (Fuzzing Estructural)</h3>
+          </div>
+          <p class="modal-subtitle">
+            Genera automáticamente casos de prueba sintácticamente válidos utilizando las reglas del contrato declarativo.
+          </p>
+        </div>
+        <button type="button" class="close-btn" (click)="onClose()" aria-label="Cerrar modal">
+          <svg lucideX class="close-icon"></svg>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="modal-body">
+        @if (error()) {
+          <div class="modal-error-alert">
+            <span>{{ error() }}</span>
+          </div>
+        }
+
+        <div class="config-grid">
+          <!-- Cantidad de casos -->
+          <div class="form-group">
+            <label class="form-label" for="gen-count">Cantidad de casos (1 a 100)</label>
+            <input
+              id="gen-count"
+              type="number"
+              class="form-input font-mono"
+              [ngModel]="count()"
+              (ngModelChange)="onCountChange($event)"
+              min="1"
+              max="100"
+            />
+            <span class="field-hint">Se agregarán como casos ocultos con peso 1.0</span>
+          </div>
+
+          <!-- Semilla determinista (opcional) -->
+          <div class="form-group">
+            <label class="form-label" for="gen-seed">Semilla aleatoria (Opcional)</label>
+            <input
+              id="gen-seed"
+              type="number"
+              class="form-input font-mono"
+              [ngModel]="seed()"
+              (ngModelChange)="onSeedChange($event)"
+              placeholder="Vacío = aleatorio no determinista"
+            />
+            <span class="field-hint">Permite reproducir exactamente el mismo conjunto</span>
+          </div>
+        </div>
+
+        <!-- Sección de Vista Previa -->
+        <div class="preview-section">
+          <div class="preview-header">
+            <div class="preview-title-row">
+              <svg lucideEye class="preview-icon"></svg>
+              <h4 class="preview-title">Vista Previa de Generación (3 primeros casos)</h4>
+            </div>
+            <button
+              type="button"
+              class="btn-outline refresh-preview-btn"
+              (click)="fetchPreview()"
+              [disabled]="isLoadingPreview()"
+              title="Regenerar vista previa con nuevos valores"
+            >
+              <svg
+                lucideRefreshCw
+                class="refresh-icon"
+                [class.spin-icon]="isLoadingPreview()"
+              ></svg>
+              <span>Actualizar Preview</span>
+            </button>
+          </div>
+
+          <div class="preview-list">
+            @if (isLoadingPreview()) {
+              <div class="preview-loading">
+                <svg lucideRefreshCw class="spin-icon loading-icon"></svg>
+                <span>Generando casos de muestra según el contrato...</span>
+              </div>
+            } @else {
+              @for (c of previewCases(); track $index; let idx = $index) {
+                <div class="preview-card">
+                  <div class="card-num-bar">
+                    <span class="case-badge font-mono" machineData>Muestra #{{ idx + 1 }}</span>
+                    <span class="output-pending-tag">Salida: (pendiente de cálculo)</span>
+                  </div>
+                  <pre class="case-code font-mono">{{ c.input }}</pre>
+                </div>
+              } @empty {
+                <div class="empty-preview">
+                  <span>No hay datos de vista previa disponibles.</span>
+                </div>
+              }
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="modal-footer">
+        <div class="footer-info">
+          <span class="info-text">
+            Los casos generados se insertarán en la tabla de casos como <strong machineData>Ocultos</strong>.
+          </span>
+        </div>
+
+        <div class="footer-actions">
+          <button type="button" class="btn-outline" (click)="onClose()" [disabled]="isGenerating()">
+            Cancelar
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="onConfirm()"
+            [disabled]="isGenerating() || !contract"
+          >
+            <svg lucideSparkles class="btn-icon"></svg>
+            <span>{{ isGenerating() ? 'Generando...' : 'Generar ' + count() + ' Casos' }}</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+}

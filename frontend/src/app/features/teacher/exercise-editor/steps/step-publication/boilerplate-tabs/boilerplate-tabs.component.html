@@ -1,0 +1,70 @@
+<div class="boilerplate-container">
+  <div class="boilerplate-card">
+    <!-- Header -->
+    <div class="card-header">
+      <div class="header-left">
+        <div class="title-row">
+          <svg lucideCode2 class="card-icon"></svg>
+          <h4 class="card-title">Código Inicial (Boilerplate) para el Estudiante</h4>
+        </div>
+        <p class="card-hint">
+          Estructura o plantilla base que se cargará por defecto en el editor cuando el estudiante inicie el ejercicio.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button
+          type="button"
+          class="btn-outline reset-btn"
+          (click)="resetToDefault()"
+          title="Restablecer plantilla inicial estándar para este lenguaje"
+        >
+          <svg lucideRotateCcw class="btn-icon"></svg>
+          <span>Restablecer Plantilla</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Pestañas por lenguaje permitido -->
+    <div class="language-tabs">
+      @for (lang of availableLanguages(); track lang) {
+        <button
+          type="button"
+          class="tab-btn font-mono"
+          [class.active]="activeLanguage() === lang"
+          (click)="selectLanguage(lang)"
+        >
+          <svg lucideFileCode class="tab-icon"></svg>
+          <span machineData>{{ lang }}</span>
+        </button>
+      }
+    </div>
+
+    <!-- Editor de código multilínea -->
+    <div class="editor-area">
+      <textarea
+        class="boilerplate-textarea font-mono"
+        [ngModel]="currentCode()"
+        (ngModelChange)="onCodeChange($event)"
+        placeholder="Escribe el código inicial que verá el estudiante..."
+        spellcheck="false"
+        rows="12"
+      ></textarea>
+    </div>
+
+    <!-- Footer con estadísticas -->
+    <div class="editor-footer font-mono">
+      <span class="stat-item">
+        Lenguaje activo: <strong class="stat-val" machineData>{{ activeLanguage() }}</strong>
+      </span>
+      <span class="stat-sep">•</span>
+      <span class="stat-item">
+        Líneas: <strong class="stat-val" machineData>{{ lineCount() }}</strong>
+      </span>
+      <span class="stat-sep">•</span>
+      <span class="stat-item">
+        Caracteres: <strong class="stat-val" machineData>{{ charCount() }}</strong>
+      </span>
+    </div>
+  </div>
+</div>

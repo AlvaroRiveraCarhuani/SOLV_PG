@@ -64,6 +64,21 @@ export class TeacherCourseService {
     );
   }
 
+  getExercise(exerciseId: string): Observable<any> {
+    return this.http.get<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}`).pipe(
+      map(res => res.data)
+    );
+  }
+
+  validateInputFormat(contract: any, input: string): Observable<{ valid: boolean; error?: string }> {
+    return this.http.post<ApiResponse<{ valid: boolean; error?: string }>>('/api/v1/exercises/validate-input', {
+      contract,
+      input
+    }).pipe(
+      map(res => res.data)
+    );
+  }
+
   createExercise(dto: CreateExerciseRequestDTO): Observable<{ id: string }> {
     return this.http.post<ApiResponse<{ id: string }>>('/api/v1/exercises', dto).pipe(
       map(res => res.data)
@@ -93,6 +108,54 @@ export class TeacherCourseService {
       ? `/api/v1/exercises/${exerciseId}/dry-run/jobs/${jobId}`
       : `/api/v1/dry-run/jobs/${jobId}`;
     return this.http.get<ApiResponse<any>>(url).pipe(
+      map(res => res.data)
+    );
+  }
+
+  getExerciseChecklist(exerciseId: string, referenceSolution?: { code: string; language: string }): Observable<any> {
+    return this.http.post<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}/checklist`, {
+      reference_solution: referenceSolution
+    }).pipe(
+      map(res => res.data)
+    );
+  }
+
+  generateCases(contract: any, count: number, seed?: number): Observable<{ cases: Array<{ input: string; output: string | null }> }> {
+    return this.http.post<ApiResponse<{ cases: Array<{ input: string; output: string | null }> }>>('/api/v1/exercises/generate-cases', {
+      contract,
+      count,
+      seed: seed !== undefined && seed !== null && !isNaN(seed) ? Number(seed) : undefined
+    }).pipe(
+      map(res => res.data)
+    );
+  }
+
+  calculateOutputs(payload: {
+    language: string;
+    source_code: string;
+    inputs: string[];
+    time_limit_ms?: number;
+    memory_limit_mb?: number;
+  }): Observable<{
+    outputs: Array<{
+      index: number;
+      input: string;
+      expected_output: string;
+      status: string;
+      execution_time_ms: number;
+      error_details?: string;
+    }>;
+  }> {
+    return this.http.post<ApiResponse<{
+      outputs: Array<{
+        index: number;
+        input: string;
+        expected_output: string;
+        status: string;
+        execution_time_ms: number;
+        error_details?: string;
+      }>;
+    }>>('/api/v1/exercises/calculate-outputs', payload).pipe(
       map(res => res.data)
     );
   }

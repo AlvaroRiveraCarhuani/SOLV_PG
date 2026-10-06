@@ -1,0 +1,297 @@
+<div class="cases-table-container">
+  <!-- Header de la sección de casos -->
+  <div class="table-toolbar">
+    <div class="toolbar-left">
+      <div class="title-row">
+        <svg lucideLayers class="toolbar-icon"></svg>
+        <h4 class="toolbar-title">Casos de Prueba (<span machineData>{{ store.cases().length }}</span>)</h4>
+      </div>
+      <p class="toolbar-hint">
+        Configura los casos con visibilidad de 3 estados, pesos relativos y validación en tiempo real contra el contrato.
+      </p>
+    </div>
+
+    <div class="toolbar-actions">
+      <button
+        type="button"
+        class="btn-outline toolbar-btn"
+        (click)="openGenerateModal()"
+        [disabled]="!store.contract()"
+        [title]="store.contract() ? 'Generar casos aleatorios basados en el contrato' : 'Define primero el formato de entrada en el Paso 2'"
+      >
+        <svg lucideSparkles class="btn-icon"></svg>
+        <span>Generar Casos</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn-outline toolbar-btn"
+        (click)="normalizeWeights()"
+        title="Establecer peso 1.0 en todos los casos"
+        [disabled]="store.cases().length === 0"
+      >
+        <svg lucideScale class="btn-icon"></svg>
+        <span>Equiparar Pesos</span>
+      </button>
+
+      <button type="button" class="btn-primary toolbar-btn" (click)="addNewCase()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Agregar Caso</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Banner de Auto-Cálculo de Salidas con Solución de Referencia -->
+  @if (showAutoCalculatePrompt()) {
+    <div class="auto-calc-banner">
+      <div class="banner-left">
+        <svg lucideSparkles class="banner-icon"></svg>
+        <div class="banner-text">
+          <strong class="banner-title">Casos generados agregados con éxito</strong>
+          <p class="banner-desc">
+            Se agregaron <span class="font-mono" machineData>{{ lastGeneratedCount() }}</span> casos de prueba. ¿Deseas auto-calcular las salidas esperadas ejecutando tu solución de referencia?
+          </p>
+        </div>
+      </div>
+      <div class="banner-actions">
+        <button
+          type="button"
+          class="btn-calculate"
+          (click)="autoCalculateOutputs()"
+          [disabled]="isAutoCalculating()"
+        >
+          @if (isAutoCalculating()) {
+            <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+            <span>Calculando...</span>
+          } @else {
+            <svg lucidePlay class="btn-icon"></svg>
+            <span>Auto-calcular Salidas</span>
+          }
+        </button>
+        <button
+          type="button"
+          class="btn-dismiss"
+          (click)="dismissAutoCalculatePrompt()"
+          title="Descartar sugerencia"
+          aria-label="Descartar sugerencia"
+        >
+          <svg lucideX class="btn-icon"></svg>
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Contenedor responsivo de la tabla -->
+  <div class="table-wrapper">
+    <table class="cases-table">
+      <thead>
+        <tr>
+          <th class="col-num">#</th>
+          <th class="col-input">Entrada Estándar (stdin)</th>
+          <th class="col-output">Salida Esperada (stdout)</th>
+          <th class="col-vis">Visibilidad</th>
+          <th class="col-weight">Peso</th>
+          <th class="col-pct">%</th>
+          <th class="col-valid">Validez</th>
+          <th class="col-actions">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (tc of store.cases(); track $index; let idx = $index) {
+          <tr class="case-row" [class]="'row-' + (tc.visibility || 'public')">
+            <!-- Columna 1: Índice -->
+            <td class="col-num">
+              <span class="num-badge font-mono" machineData>{{ idx + 1 }}</span>
+            </td>
+
+            <!-- Columna 2: Entrada stdin -->
+            <td class="col-input">
+              <div class="cell-editor">
+                <textarea
+                  class="cell-textarea font-mono"
+                  placeholder="stdin..."
+                  [ngModel]="tc.input"
+                  (ngModelChange)="onInputChange(idx, $event)"
+                  rows="2"
+                  spellcheck="false"
+                ></textarea>
+                <button
+                  type="button"
+                  class="expand-cell-btn"
+                  (click)="openModal(idx, 'input')"
+                  title="Expandir editor multilínea para entrada"
+                  aria-label="Expandir entrada"
+                >
+                  <svg lucideMaximize2 class="expand-icon"></svg>
+                </button>
+              </div>
+            </td>
+
+            <!-- Columna 3: Salida stdout -->
+            <td class="col-output">
+              <div class="cell-editor">
+                <textarea
+                  class="cell-textarea font-mono"
+                  placeholder="stdout..."
+                  [ngModel]="tc.expected_output"
+                  (ngModelChange)="onOutputChange(idx, $event)"
+                  rows="2"
+                  spellcheck="false"
+                ></textarea>
+                <button
+                  type="button"
+                  class="expand-cell-btn"
+                  (click)="openModal(idx, 'expected_output')"
+                  title="Expandir editor multilínea para salida"
+                  aria-label="Expandir salida"
+                >
+                  <svg lucideMaximize2 class="expand-icon"></svg>
+                </button>
+              </div>
+            </td>
+
+            <!-- Columna 4: Visibilidad (3 Estados) -->
+            <td class="col-vis">
+              <div class="vis-selector-wrapper">
+                <select
+                  class="vis-select"
+                  [class]="'select-' + (tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public')))"
+                  [ngModel]="tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public'))"
+                  (ngModelChange)="onVisibilityChange(idx, $event)"
+                >
+                  <option value="example">🟢 Ejemplo</option>
+                  <option value="public">🔵 Público</option>
+                  <option value="hidden">🔴 Oculto</option>
+                </select>
+              </div>
+            </td>
+
+            <!-- Columna 5: Peso -->
+            <td class="col-weight">
+              <input
+                type="number"
+                class="weight-input font-mono"
+                [ngModel]="tc.weight ?? 1.0"
+                (ngModelChange)="onWeightChange(idx, $event)"
+                min="0"
+                step="0.5"
+              />
+            </td>
+
+            <!-- Columna 6: Porcentaje Relativo en Vivo -->
+            <td class="col-pct">
+              <span class="pct-pill font-mono" machineData>{{ getWeightPercentage(tc.weight) }}</span>
+            </td>
+
+            <!-- Columna 7: Validez contra el Contrato -->
+            <td class="col-valid">
+              @if (!store.contract()) {
+                <span class="valid-tag tag-neutral" title="No hay contrato de formato activo">
+                  <span class="tag-label">Sin contrato</span>
+                </span>
+              } @else if (validationResults()[idx]?.loading) {
+                <span class="valid-tag tag-loading" title="Validando contra input_format...">
+                  <svg lucideLoader2 class="tag-icon spin-icon"></svg>
+                  <span class="tag-label">Validando</span>
+                </span>
+              } @else if (validationResults()[idx]?.valid === false) {
+                <span
+                  class="valid-tag tag-invalid"
+                  [title]="validationResults()[idx]?.error || 'El caso no cumple con el contrato'"
+                >
+                  <svg lucideAlertCircle class="tag-icon"></svg>
+                  <span class="tag-label">Inválido</span>
+                  @if (validationResults()[idx]?.error) {
+                    <span class="error-tooltip">{{ validationResults()[idx]?.error }}</span>
+                  }
+                </span>
+              } @else {
+                <span class="valid-tag tag-valid" title="Cumple con el formato de entrada especificado">
+                  <svg lucideCheck class="tag-icon"></svg>
+                  <span class="tag-label">Válido</span>
+                </span>
+              }
+            </td>
+
+            <!-- Columna 8: Acciones -->
+            <td class="col-actions">
+              <div class="action-buttons-group">
+                <button
+                  type="button"
+                  class="row-btn"
+                  (click)="moveUp(idx)"
+                  [disabled]="idx === 0"
+                  title="Subir caso"
+                  aria-label="Subir caso"
+                >
+                  <svg lucideArrowUp class="row-icon"></svg>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn"
+                  (click)="moveDown(idx)"
+                  [disabled]="idx === store.cases().length - 1"
+                  title="Bajar caso"
+                  aria-label="Bajar caso"
+                >
+                  <svg lucideArrowDown class="row-icon"></svg>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn"
+                  (click)="duplicateCase(idx)"
+                  title="Duplicar este caso"
+                  aria-label="Duplicar caso"
+                >
+                  <svg lucideCopy class="row-icon"></svg>
+                </button>
+                <button
+                  type="button"
+                  class="row-btn btn-danger"
+                  (click)="removeCase(idx)"
+                  title="Eliminar este caso"
+                  aria-label="Eliminar caso"
+                >
+                  <svg lucideTrash2 class="row-icon"></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="8" class="empty-state-cell">
+              <div class="empty-content">
+                <p class="empty-title">Aún no hay casos de prueba registrados</p>
+                <p class="empty-subtitle">
+                  Agrega al menos un caso de prueba para verificar las entregas de los estudiantes.
+                </p>
+                <button type="button" class="btn-primary" (click)="addNewCase()">
+                  <svg lucidePlus class="btn-icon"></svg>
+                  <span>Agregar Primer Caso</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal Multilínea para Entrada o Salida -->
+  <case-edit-modal
+    [isOpen]="modalState().isOpen"
+    [title]="modalState().title"
+    [subtitle]="modalState().subtitle"
+    [value]="modalState().value"
+    (save)="onModalSave($event)"
+    (cancel)="closeModal()"
+  />
+
+  <!-- Modal para Generación Fuzzing de Casos -->
+  <generate-cases-modal
+    [isOpen]="isGenerateModalOpen()"
+    [contract]="store.contract()"
+    (casesGenerated)="onCasesGenerated($event)"
+    (cancel)="closeGenerateModal()"
+  />
+</div>

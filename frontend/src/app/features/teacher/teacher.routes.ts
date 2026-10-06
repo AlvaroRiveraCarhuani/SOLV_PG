@@ -17,6 +17,26 @@ export const TEACHER_ROUTES: Routes = [
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)
   },
   {
+    path: 'courses/:courseId/exercises/new',
+    loadComponent: () =>
+      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
+  },
+  {
+    path: 'courses/:courseId/exercises/:id/edit',
+    loadComponent: () =>
+      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
+  },
+  {
+    path: 'cursos/:courseId/ejercicios/nuevo',
+    loadComponent: () =>
+      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
+  },
+  {
+    path: 'cursos/:courseId/ejercicios/:id/editar',
+    loadComponent: () =>
+      import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
+  },
+  {
     path: 'revision/:submissionId',
     loadComponent: () =>
       import('./grading/speed-grader/speed-grader.component').then(m => m.SpeedGraderComponent)

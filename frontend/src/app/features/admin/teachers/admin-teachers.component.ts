@@ -7,7 +7,6 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
@@ -64,7 +63,6 @@ const ENGLISH_MONTH_INDEX: Record<string, number> = {
     ModalShellComponent,
     FormFieldComponent,
     MachineDataDirective,
-    DismissibleDirective,
     LucideUserPlus, 
     LucideLock, 
     LucideCheckCircle, 

@@ -40,7 +40,6 @@ import {
   imports: [
     CommonModule,
     FormsModule,
-    ModalShellComponent,
     FormFieldComponent,
     LucidePalette,
     LucideBuilding2,
@@ -48,10 +47,9 @@ import {
     LucideMail,
     LucideImage,
     LucideEye,
-    LucideInfo,  LucideCheckCircle2,
-  LucideAlertCircle,
-  LucideExternalLink,
-  LucideType
+    LucideCheckCircle2,
+    LucideAlertCircle,
+    LucideType
   ],
   templateUrl: './admin-config-identidad.component.html',
   styleUrls: ['./admin-config-identidad.component.scss']
