@@ -123,6 +123,7 @@ export interface TeacherSubmissionReviewDTO {
   execution_time_ms: number;
   memory_used_mb: number;
   ast_result?: unknown;
+  generated_cases?: TestCaseReview[] | unknown;
   test_cases: TestCaseReview[];
   comments: SubmissionComment[];
   next_submission_id?: string;

@@ -64,6 +64,7 @@ type TeacherSubmissionReviewDTO struct {
 	ExecutionTimeMS  int                 `json:"execution_time_ms" db:"execution_time_ms"`
 	MemoryUsedMB     int                 `json:"memory_used_mb" db:"memory_used_mb"`
 	ASTResult        json.RawMessage     `json:"ast_result" db:"ast_result"`
+	GeneratedCases   json.RawMessage     `json:"generated_cases,omitempty" db:"generated_cases"`
 	TestCases        []TestCaseReview    `json:"test_cases"`
 	Comments         []SubmissionComment `json:"comments"`
 	NextSubmissionID *string             `json:"next_submission_id,omitempty"`

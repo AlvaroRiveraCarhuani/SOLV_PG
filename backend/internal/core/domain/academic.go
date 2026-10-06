@@ -37,6 +37,7 @@ type Submission struct {
 	Code            string          `db:"code" json:"code"`
 	Verdict         string          `db:"verdict" json:"verdict"`
 	ASTResult       json.RawMessage `db:"ast_result" json:"ast_result"`
+	GeneratedCases  json.RawMessage `db:"generated_cases" json:"generated_cases,omitempty"`
 	ExecutionTimeMS int             `db:"execution_time_ms" json:"execution_time_ms"`
 	MemoryUsedMB    int             `db:"memory_used_mb" json:"memory_used_mb"`
 	ManualOverride  bool            `db:"manual_override" json:"manual_override"`

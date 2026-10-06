@@ -527,6 +527,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		ExecutionTimeMS int             `db:"execution_time_ms"`
 		MemoryUsedMB    int             `db:"memory_used_mb"`
 		ASTResult       []byte          `db:"ast_result"`
+		GeneratedCases  []byte          `db:"generated_cases"`
 		SubmittedAt     time.Time       `db:"submitted_at"`
 	}
 
@@ -537,7 +538,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       COALESCE(u.email, '') AS student_email,
 		       sub.code, sub.verdict, sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
-		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.submitted_at
+		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.generated_cases, sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
 		JOIN subjects s ON ex.subject_id = s.id
@@ -568,6 +569,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		ExecutionTimeMS: row.ExecutionTimeMS,
 		MemoryUsedMB:    row.MemoryUsedMB,
 		ASTResult:       row.ASTResult,
+		GeneratedCases:  row.GeneratedCases,
 		SubmittedAt:     row.SubmittedAt,
 		TestCases:       make([]domain.TestCaseReview, 0),
 		Comments:        make([]domain.SubmissionComment, 0),
@@ -588,8 +590,23 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		review.GradedByName = row.GradedByName.String
 	}
 
-	// Desenmascarar casos de prueba (públicos y privados) desde el exercise_config
-	if len(row.ExerciseConfig) > 0 {
+	// Si existen casos generados snapshot (examen con semilla), usarlos prioritariamente
+	if len(row.GeneratedCases) > 0 {
+		var genCases []domain.TestCase
+		if err := json.Unmarshal(row.GeneratedCases, &genCases); err == nil && len(genCases) > 0 {
+			for _, gc := range genCases {
+				review.TestCases = append(review.TestCases, domain.TestCaseReview{
+					Input:          gc.Input,
+					ExpectedOutput: gc.ExpectedOutput,
+					IsHidden:       gc.Visibility == domain.TestCaseVisibilityHidden || gc.IsHidden,
+					Passed:         (review.Verdict == "AC"),
+				})
+			}
+		}
+	}
+
+	// Si no hubo casos generados o test_cases sigue vacío, desenmascarar desde exercise_config
+	if len(review.TestCases) == 0 && len(row.ExerciseConfig) > 0 {
 		var cfg map[string]interface{}
 		if err := json.Unmarshal(row.ExerciseConfig, &cfg); err == nil {
 			var tcRaw []interface{}

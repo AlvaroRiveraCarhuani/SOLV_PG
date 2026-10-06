@@ -617,6 +617,36 @@
         font-size: var(--text-xs);
       }
 
+      .tc-header-right {
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
+      }
+
+      .btn-copy-input {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: 1px var(--space-2);
+        background-color: var(--bg-surface-subtle);
+        border: 1px solid var(--border-subtle);
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        font-size: var(--text-xs);
+        cursor: pointer;
+        transition: all 0.15s ease;
+
+        &:hover {
+          background-color: var(--bg-surface-hover);
+          color: var(--text-primary);
+        }
+
+        .copy-icon {
+          width: 12px;
+          height: 12px;
+        }
+      }
+
       .badge-hidden {
         font-size: var(--text-xs);
         padding: 1px var(--space-1);

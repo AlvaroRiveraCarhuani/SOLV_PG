@@ -45,11 +45,26 @@ func TestJudgeMigrationsExist(t *testing.T) {
 		"00014_migrate_jsonb_test_cases_to_table.sql",
 		"00015_cleanup_jsonb_test_cases.sql",
 		"00016_course_modules_and_prerequisites.sql",
+		"00017_exercise_submissions_generated_cases.sql",
 	}
 	for _, name := range files {
 		content := readJudgeMigration(t, dir, name)
 		if strings.TrimSpace(content) == "" {
 			t.Errorf("migration %s is empty", name)
+		}
+	}
+}
+
+func TestJudgeMigration0017GeneratedCases(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00017_exercise_submissions_generated_cases.sql")
+	for _, marker := range []string{
+		"ALTER TABLE submissions",
+		"generated_cases JSONB",
+		"+goose Down",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("migration 00017 lacks expected marker %q", marker)
 		}
 	}
 }

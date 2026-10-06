@@ -292,6 +292,7 @@ type EvaluationResult struct {
 	CaseResults  []CaseResult `json:"case_results,omitempty"`
 	ActualJSON   string       `json:"actual_json,omitempty"`
 	ExpectedJSON string       `json:"expected_json,omitempty"`
+	GeneratedCases []TestCase `json:"generated_cases,omitempty"`
 }
 
 // CaseResult es el resultado de un unico caso de prueba.

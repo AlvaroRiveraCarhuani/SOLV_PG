@@ -25,6 +25,7 @@ type CreateSubmissionDTO struct {
 	Code            string          `json:"code"`
 	Verdict         string          `json:"verdict"`
 	ASTResult       json.RawMessage `json:"ast_result"`
+	GeneratedCases  json.RawMessage `json:"generated_cases,omitempty"`
 	ExecutionTimeMS int             `json:"execution_time_ms"`
 	MemoryUsedMB    int             `json:"memory_used_mb"`
 }
@@ -45,6 +46,7 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		Code:            dto.Code,
 		Verdict:         dto.Verdict,
 		ASTResult:       dto.ASTResult,
+		GeneratedCases:  dto.GeneratedCases,
 		ExecutionTimeMS: dto.ExecutionTimeMS,
 		MemoryUsedMB:    dto.MemoryUsedMB,
 	}

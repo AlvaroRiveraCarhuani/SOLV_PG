@@ -15,7 +15,8 @@ import {
   LucideKeyboard,
   LucideGitCompare,
   LucideHistory,
-  LucideTrendingUp
+  LucideTrendingUp,
+  LucideCopy
 } from '@lucide/angular';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
@@ -50,6 +51,7 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideGitCompare,
     LucideHistory,
     LucideTrendingUp,
+    LucideCopy,
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
@@ -108,6 +110,20 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   isSubmittingOverride = signal<boolean>(false);
 
   showShadowTerminal = signal<boolean>(false);
+
+  copiedIndex = signal<number | null>(null);
+
+  copyCaseInput(input: string, index: number): void {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(input);
+      this.copiedIndex.set(index);
+      setTimeout(() => {
+        if (this.copiedIndex() === index) {
+          this.copiedIndex.set(null);
+        }
+      }, 2000);
+    }
+  }
 
   currentLiveSession = computed<LiveWorkspaceSession | null>(() => {
     const rev = this.review();

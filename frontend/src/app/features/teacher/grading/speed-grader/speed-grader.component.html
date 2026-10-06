@@ -298,15 +298,19 @@
           </div>
         }
 
-        <!-- Casos de Prueba (Públicos y Privados Desenmascarados) -->
+        <!-- Casos de Prueba (Públicos, Privados o Generados por Semilla) -->
         <div class="test-cases-panel">
           <h3 class="panel-section-title">
             Casos de Prueba ({{ r.test_cases.length }})
-            <span class="badge-unmasked">Desenmascarados para Docente</span>
+            @if (r.generated_cases) {
+              <span class="badge-unmasked">Snapshot Generado (Examen)</span>
+            } @else {
+              <span class="badge-unmasked">Desenmascarados para Docente</span>
+            }
           </h3>
 
           <div class="test-cases-scroll">
-            @for (tc of r.test_cases; track $index) {
+            @for (tc of r.test_cases; track $index; let cIdx = $index) {
               <div class="test-case-card" [class.tc-passed]="tc.passed" [class.tc-failed]="!tc.passed">
                 <div class="tc-header">
                   <div class="tc-title-box">
@@ -315,13 +319,24 @@
                     } @else {
                       <svg lucideXCircle class="tc-icon text-danger"></svg>
                     }
-                    <strong>Caso #{{ $index + 1 }}</strong>
+                    <strong>Caso #{{ cIdx + 1 }}</strong>
                   </div>
-                  @if (tc.is_hidden) {
-                    <span class="badge-hidden">Privado</span>
-                  } @else {
-                    <span class="badge-public">Público</span>
-                  }
+                  <div class="tc-header-right">
+                    @if (tc.is_hidden) {
+                      <span class="badge-hidden">Privado</span>
+                    } @else {
+                      <span class="badge-public">Público</span>
+                    }
+                    <button 
+                      type="button" 
+                      class="btn-copy-input" 
+                      (click)="copyCaseInput(tc.input, cIdx)" 
+                      title="Copiar entrada al portapapeles"
+                    >
+                      <svg lucideCopy class="copy-icon"></svg>
+                      <span>{{ copiedIndex() === cIdx ? '¡Copiado!' : 'Copiar' }}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div class="tc-body">

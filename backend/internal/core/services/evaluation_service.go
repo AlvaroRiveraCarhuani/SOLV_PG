@@ -2,7 +2,9 @@ package services
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -415,6 +417,12 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 	return s.evaluateAlgorithm(ctx, exercise, language, sourceCode)
 }
 
+// GenerateStudentSeed calcula una semilla pseudoaleatoria de 64 bits determinista por ejercicio y estudiante.
+func GenerateStudentSeed(exerciseID, studentID string) int64 {
+	h := sha256.Sum256([]byte(exerciseID + ":" + studentID))
+	return int64(binary.BigEndian.Uint64(h[:8]))
+}
+
 func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *domain.Exercise, language string, sourceCode string) (*domain.EvaluationResult, error) {
 	cfg := exercise.Config.Algorithm
 	if cfg == nil {
@@ -461,17 +469,88 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		}
 	}
 
-	// 2. Ejecución de casos de prueba: todos los casos sin detención
+	// 2.5 Generación de casos deterministas por estudiante en exámenes
+	testCasesToRun := cfg.TestCases
+	var generatedCases []domain.TestCase
+	isExamWithSeed := exercise.PerStudentSeed && exercise.Purpose == string(domain.ExercisePurposeExam)
+
+	if isExamWithSeed {
+		studentID := "anonymous"
+		if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
+			studentID = uid
+		}
+		seed := GenerateStudentSeed(exercise.ID, studentID)
+
+		var inputFormat json.RawMessage
+		if len(cfg.InputFormat) > 0 && string(cfg.InputFormat) != "null" {
+			inputFormat = cfg.InputFormat
+		} else if len(exercise.Config.InputFormat) > 0 && string(exercise.Config.InputFormat) != "null" {
+			inputFormat = exercise.Config.InputFormat
+		}
+
+		if len(inputFormat) > 0 && s.formatValidator != nil {
+			count := len(cfg.TestCases)
+			if count <= 0 {
+				count = 5
+			}
+			generatedCases = make([]domain.TestCase, 0, count)
+			for i := 0; i < count; i++ {
+				caseSeed := seed + int64(i*10007)
+				genInput, err := s.formatValidator.GenerateCase(inputFormat, caseSeed)
+				if err != nil {
+					return nil, fmt.Errorf("error generando caso determinista #%d: %w", i+1, err)
+				}
+
+				expectedOut := ""
+				if strings.TrimSpace(exercise.ReferenceSolution) != "" {
+					refRunConfig := domain.EvaluationRunConfig{
+						Language:      exercise.Language,
+						SourceCode:    exercise.ReferenceSolution,
+						MemoryLimitMB: cfg.MemoryLimitMB,
+						TimeLimitMS:   cfg.TimeLimitMS,
+						TestCase: domain.TestCase{
+							Input: genInput,
+						},
+						Comparator: cfg.Comparator,
+					}
+					refRes, refErr := s.runner.RunTestCase(ctx, refRunConfig)
+					if refErr == nil {
+						expectedOut = refRes.ActualOutput
+					}
+				}
+
+				tc := domain.TestCase{
+					ID:             fmt.Sprintf("gen-%d", i+1),
+					ExerciseID:     exercise.ID,
+					OrderIndex:     i + 1,
+					Input:          genInput,
+					ExpectedOutput: expectedOut,
+					Visibility:     domain.TestCaseVisibilityHidden,
+					Weight:         1.0,
+					IsHidden:       true,
+				}
+				if i < len(cfg.TestCases) {
+					tc.Weight = cfg.TestCases[i].Weight
+					tc.Visibility = cfg.TestCases[i].Visibility
+					tc.IsHidden = (tc.Visibility == domain.TestCaseVisibilityHidden || cfg.TestCases[i].IsHidden)
+				}
+				generatedCases = append(generatedCases, tc)
+			}
+			testCasesToRun = generatedCases
+		}
+	}
+
+	// 3. Ejecución de casos de prueba: todos los casos sin detención
 	// temprana (D-EJ-03, corrige DESVÍO-01). El veredicto global es el
 	// primer veredicto distinto de AC; el detalle por caso va en CaseResults.
 	var totalExecutionTime time.Duration
 	var maxMemoryUsedMB float64
-	caseResults := make([]domain.CaseResult, 0, len(cfg.TestCases))
+	caseResults := make([]domain.CaseResult, 0, len(testCasesToRun))
 	globalVerdict := domain.VerdictAC
 	var firstFailed *domain.TestCase
 	failCount := 0
 
-	for idx, tc := range cfg.TestCases {
+	for idx, tc := range testCasesToRun {
 		runConfig := domain.EvaluationRunConfig{
 			Language:      language,
 			SourceCode:    sourceCode,
@@ -493,9 +572,9 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			if globalVerdict == domain.VerdictAC {
 				globalVerdict = res.Verdict
 				failedTC := tc
-				if tc.Visibility == domain.TestCaseVisibilityHidden || (tc.Visibility == "" && tc.IsHidden) {
-					failedTC.Input = "[OCULTO]"
-					failedTC.ExpectedOutput = "[OCULTO]"
+				if isExamWithSeed || tc.Visibility == domain.TestCaseVisibilityHidden || (tc.Visibility == "" && tc.IsHidden) {
+					failedTC.Input = "[OCULTO POR EXAMEN]"
+					failedTC.ExpectedOutput = "[OCULTO POR EXAMEN]"
 				}
 				firstFailed = &failedTC
 			}
@@ -519,9 +598,10 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			Verdict:         globalVerdict,
 			ExecutionTimeMS: int(totalExecutionTime.Milliseconds()),
 			MemoryUsedMB:    maxMemoryUsedMB,
-			Message:         fmt.Sprintf("Fallaron %d de %d casos de prueba", failCount, len(cfg.TestCases)),
+			Message:         fmt.Sprintf("Fallaron %d de %d casos de prueba", failCount, len(testCasesToRun)),
 			FailedTestCase:  firstFailed,
 			CaseResults:     caseResults,
+			GeneratedCases:  generatedCases,
 		}, nil
 	}
 
@@ -531,6 +611,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		MemoryUsedMB:    maxMemoryUsedMB,
 		Message:         "¡Solución Aceptada! Todos los casos de prueba pasaron exitosamente.",
 		CaseResults:     caseResults,
+		GeneratedCases:  generatedCases,
 	}, nil
 }
 
