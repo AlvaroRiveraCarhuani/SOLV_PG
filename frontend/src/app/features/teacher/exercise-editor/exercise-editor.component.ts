@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input } from '@angular/core';
+import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import { 
@@ -6,7 +6,8 @@ import {
   LucideSave, 
   LucideChevronRight, 
   LucideChevronLeft, 
-  LucideCheck 
+  LucideCheck,
+  LucideEye
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepperNavComponent } from './shared/stepper-nav.component';
@@ -14,6 +15,7 @@ import { SummaryPanelComponent } from './shared/summary-panel.component';
 import { StepIdentityComponent } from './steps/step-identity/step-identity.component';
 import { StepContractComponent } from './steps/step-contract/step-contract.component';
 import { StepPublicationComponent } from './steps/step-publication/step-publication.component';
+import { StudentPreviewModalComponent } from './student-preview-modal/student-preview-modal.component';
 
 @Component({
   selector: 'exercise-editor',
@@ -26,11 +28,13 @@ import { StepPublicationComponent } from './steps/step-publication/step-publicat
     LucideChevronRight,
     LucideChevronLeft,
     LucideCheck,
+    LucideEye,
     StepperNavComponent,
     SummaryPanelComponent,
     StepIdentityComponent,
     StepContractComponent,
-    StepPublicationComponent
+    StepPublicationComponent,
+    StudentPreviewModalComponent
   ],
   template: `
     <div class="exercise-editor-page">
@@ -67,6 +71,16 @@ import { StepPublicationComponent } from './steps/step-publication/step-publicat
         </div>
 
         <div class="topbar-actions">
+          <button 
+            type="button" 
+            class="btn-outline preview-btn"
+            (click)="openStudentPreview()"
+            title="Ver exactamente cómo verá el estudiante el enunciado y editor"
+          >
+            <svg lucideEye class="btn-icon"></svg>
+            <span>Vista previa</span>
+          </button>
+
           <button 
             type="button" 
             class="btn-outline draft-btn"
@@ -135,6 +149,12 @@ import { StepPublicationComponent } from './steps/step-publication/step-publicat
           <summary-panel />
         </aside>
       </main>
+
+      <!-- Modal de Vista Previa del Estudiante -->
+      <student-preview-modal
+        [isOpen]="isPreviewModalOpen()"
+        (close)="closeStudentPreview()"
+      />
     </div>
   `,
   styleUrl: './exercise-editor.component.scss'
@@ -145,6 +165,16 @@ export class ExerciseEditorComponent implements OnInit {
 
   courseId = input<string>('');
   id = input<string | null>(null);
+
+  readonly isPreviewModalOpen = signal<boolean>(false);
+
+  openStudentPreview(): void {
+    this.isPreviewModalOpen.set(true);
+  }
+
+  closeStudentPreview(): void {
+    this.isPreviewModalOpen.set(false);
+  }
 
   prevStep() {
     const current = this.store.currentStep();

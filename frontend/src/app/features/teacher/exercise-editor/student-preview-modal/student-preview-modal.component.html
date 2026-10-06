@@ -1,0 +1,187 @@
+@if (isOpen) {
+  <div
+    class="student-preview-backdrop"
+    (click)="onBackdropClick($event)"
+    (keydown)="onKeyDown($event)"
+    tabindex="0"
+  >
+    <div class="student-preview-window" role="dialog" aria-modal="true" aria-labelledby="preview-modal-title">
+      <!-- Header Superior -->
+      <header class="preview-header">
+        <div class="header-left">
+          <div class="title-with-badge">
+            <svg lucideEye class="header-icon"></svg>
+            <h2 id="preview-modal-title" class="header-title">Vista Previa del Estudiante</h2>
+            <span class="preview-badge">Simulación</span>
+          </div>
+          <span class="exercise-name" machineData>
+            {{ store.metadata().title || 'Ejercicio sin título' }}
+          </span>
+        </div>
+
+        <div class="header-right">
+          <!-- Selector de Lenguaje -->
+          <div class="lang-selector-group">
+            <label for="preview-lang-select" class="lang-label">Lenguaje:</label>
+            <select
+              id="preview-lang-select"
+              class="lang-select font-mono"
+              [ngModel]="selectedLanguage()"
+              (ngModelChange)="onLanguageChange($event)"
+            >
+              @for (lang of allowedLanguages(); track lang) {
+                <option [value]="lang">{{ lang }}</option>
+              }
+            </select>
+          </div>
+
+          <button
+            type="button"
+            class="btn-close"
+            (click)="onClose()"
+            title="Cerrar vista previa"
+            aria-label="Cerrar vista previa"
+          >
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- Cuerpo Principal Dividido (Enunciado + Editor) -->
+      <div class="preview-workspace">
+        <!-- Panel Izquierdo: Enunciado del Problema -->
+        <section class="statement-column">
+          <div class="column-header">
+            <svg lucideFileText class="column-icon"></svg>
+            <h3 class="column-title">Enunciado</h3>
+          </div>
+
+          <div class="statement-scrollable">
+            <!-- Metadatos y Restricciones de Ejecución -->
+            <div class="exercise-specs-bar">
+              @if (store.metadata().difficulty) {
+                <span class="spec-pill difficulty-pill font-mono" machineData>
+                  {{ store.metadata().difficulty }}
+                </span>
+              }
+              <span class="spec-pill font-mono" machineData>
+                <svg lucideClock class="pill-icon"></svg>
+                <span>{{ store.metadata().time_limit_ms }} ms</span>
+              </span>
+              <span class="spec-pill font-mono" machineData>
+                <svg lucideCpu class="pill-icon"></svg>
+                <span>{{ store.metadata().memory_limit_mb }} MB</span>
+              </span>
+            </div>
+
+            <!-- Descripción Markdown Renderizada -->
+            <div class="statement-content" [innerHTML]="renderedDescription()"></div>
+
+            <!-- Especificación de Entrada -->
+            @if (renderedInputText()) {
+              <div class="statement-section">
+                <h4 class="section-heading">Formato de Entrada</h4>
+                <div class="section-body" [innerHTML]="renderedInputText()"></div>
+              </div>
+            }
+
+            <!-- Especificación de Salida -->
+            @if (renderedOutputText()) {
+              <div class="statement-section">
+                <h4 class="section-heading">Formato de Salida</h4>
+                <div class="section-body" [innerHTML]="renderedOutputText()"></div>
+              </div>
+            }
+
+            <!-- Restricciones -->
+            @if (renderedConstraints()) {
+              <div class="statement-section">
+                <h4 class="section-heading">Restricciones</h4>
+                <div class="section-body" [innerHTML]="renderedConstraints()"></div>
+              </div>
+            }
+
+            <!-- Casos de Ejemplo (Solo visibility === 'example') -->
+            <div class="example-cases-section">
+              <h4 class="section-heading">
+                <span>Casos de Ejemplo</span>
+                <span class="count-tag font-mono" machineData>({{ exampleCases().length }})</span>
+              </h4>
+
+              @if (exampleCases().length === 0) {
+                <p class="no-examples-notice">
+                  No hay casos de prueba marcados como "Ejemplo". El estudiante no verá muestras en el enunciado.
+                </p>
+              } @else {
+                <div class="examples-grid">
+                  @for (tc of exampleCases(); track $index; let idx = $index) {
+                    <div class="example-card">
+                      <div class="example-card-header">
+                        <span class="example-num font-mono" machineData>Ejemplo {{ idx + 1 }}</span>
+                      </div>
+                      <div class="example-card-body">
+                        <div class="example-block">
+                          <span class="block-label">Entrada (stdin):</span>
+                          <pre class="code-block font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
+                        </div>
+                        <div class="example-block">
+                          <span class="block-label">Salida esperada (stdout):</span>
+                          <pre class="code-block font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        </section>
+
+        <!-- Panel Derecho: Editor de Código + Consola Inferior -->
+        <section class="editor-column">
+          <!-- Editor de Código -->
+          <div class="code-panel">
+            <div class="column-header">
+              <div class="header-left">
+                <svg lucideCode class="column-icon"></svg>
+                <h3 class="column-title">Editor de Código</h3>
+                <span class="lang-tag font-mono" machineData>{{ selectedLanguage() }}</span>
+              </div>
+              <span class="readonly-badge">Solo lectura en vista previa</span>
+            </div>
+
+            <div class="editor-viewport">
+              <textarea
+                class="code-textarea font-mono"
+                [ngModel]="currentBoilerplate()"
+                readonly
+                spellcheck="false"
+                aria-label="Código de inicio para el estudiante"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Consola Terminal Inferior -->
+          <div class="console-panel">
+            <div class="console-header">
+              <div class="console-title-row">
+                <svg lucideTerminal class="console-icon"></svg>
+                <h4 class="console-title">Consola de Resultados</h4>
+              </div>
+              <span class="console-status-badge font-mono">STANDBY</span>
+            </div>
+
+            <div class="console-output font-mono">
+              <p class="console-line info-line" machineData>
+                [SIMULACIÓN] La ejecución de código no está activa en la vista previa del docente.
+              </p>
+              <p class="console-line dim-line" machineData>
+                El estudiante dispondrá de botones para correr pruebas locales y enviar al juez virtual.
+              </p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+}
