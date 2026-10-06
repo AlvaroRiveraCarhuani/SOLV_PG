@@ -371,6 +371,26 @@ func (s *TeacherService) GenerateFuzzCases(ctx context.Context, tenantID, teache
 
 	engine := NewFuzzingEngine()
 	report := engine.GenerateTestCases(req)
+
+	if strings.TrimSpace(req.ReferenceCode) != "" && s.evalService != nil && len(report.Cases) > 0 {
+		inputs := make([]string, len(report.Cases))
+		for i, c := range report.Cases {
+			inputs[i] = c.Input
+		}
+		calcResp, err := s.evalService.CalculateOutputs(ctx, CalculateOutputsRequest{
+			Language:   req.TargetLanguage,
+			SourceCode: req.ReferenceCode,
+			Inputs:     inputs,
+		})
+		if err == nil && calcResp != nil {
+			for _, out := range calcResp.Outputs {
+				if out.Index >= 0 && out.Index < len(report.Cases) && out.Status == "ok" {
+					report.Cases[out.Index].Expected = out.ExpectedOutput
+				}
+			}
+		}
+	}
+
 	return report, nil
 }
 

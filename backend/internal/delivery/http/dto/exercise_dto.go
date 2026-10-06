@@ -14,6 +14,9 @@ type ExercisePublicResponse struct {
 	Title           string           `json:"title"`
 	Description     string           `json:"description"`
 	Type            string           `json:"type"`
+	Difficulty      *string          `json:"difficulty,omitempty"`
+	Tags            []string         `json:"tags,omitempty"`
+	Purpose         string           `json:"purpose,omitempty"`
 	Language        string           `json:"language,omitempty"`
 	TimeLimitMs     int              `json:"time_limit_ms,omitempty"`
 	MemoryMB        int              `json:"memory_mb,omitempty"`
@@ -31,6 +34,9 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 		Title:       ex.Title,
 		Description: ex.Description,
 		Type:        string(ex.Type),
+		Difficulty:  ex.Difficulty,
+		Tags:        ex.Tags,
+		Purpose:     ex.Purpose,
 	}
 
 	if ex.Config.Algorithm != nil {
@@ -48,17 +54,17 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 			resp.Constraints = constraints
 		}
 
-		publicCases := make([]PublicTestCase, 0)
+		exampleCases := make([]PublicTestCase, 0)
 		for _, tc := range ex.Config.Algorithm.TestCases {
-			if !tc.IsHidden {
-				publicCases = append(publicCases, PublicTestCase{
+			if tc.Visibility == domain.TestCaseVisibilityExample || (tc.Visibility == "" && !tc.IsHidden) {
+				exampleCases = append(exampleCases, PublicTestCase{
 					Input:          tc.Input,
 					ExpectedOutput: tc.ExpectedOutput,
 				})
 			}
 		}
-		if len(publicCases) > 0 {
-			resp.PublicTestCases = publicCases
+		if len(exampleCases) > 0 {
+			resp.PublicTestCases = exampleCases
 		}
 	} else if ex.Config.Database != nil {
 		resp.Language = ex.Config.Database.Engine

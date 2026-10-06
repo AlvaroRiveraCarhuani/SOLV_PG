@@ -364,8 +364,15 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 
 		// Comparación vía registro PR2 (D-EJ-01/D-EJ-02): el recorte de bordes
 		// vive solo en el comparador exact (corrige DESVÍO-02).
+		spec := comparators.DefaultSpec()
+		if config.Comparator != nil && config.Comparator.ID != "" {
+			spec = comparators.Spec{
+				ID:     config.Comparator.ID,
+				Params: config.Comparator.Params,
+			}
+		}
 		cmp, cmpErr := comparators.Compare(
-			comparators.DefaultSpec(),
+			spec,
 			config.TestCase.ExpectedOutput,
 			stdoutBuf.String(),
 		)

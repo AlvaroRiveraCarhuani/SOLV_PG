@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"math/rand"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-playground/validator/v10"
 	"solv-backend/internal/core/domain"
@@ -110,6 +113,53 @@ func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Reque
 	SendJSON(w, http.StatusOK, publicResp, "Ejercicio obtenido exitosamente")
 }
 
+func isValidationError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, domain.ErrSeedRequiresExamPurpose) ||
+		errors.Is(err, domain.ErrInvalidVisibility) ||
+		errors.Is(err, domain.ErrInvalidWeight) ||
+		errors.Is(err, domain.ErrEmptyExpectedOutput) ||
+		errors.Is(err, domain.ErrTestCasesNotArray) ||
+		strings.Contains(err.Error(), "contrato de formato") ||
+		strings.Contains(err.Error(), "inválido según contrato") {
+		return true
+	}
+	return false
+}
+
+func normalizeExerciseConfig(body []byte, ex *domain.Exercise) {
+	var raw struct {
+		ASTRules   *domain.ASTRules         `json:"ast_rules"`
+		Comparator *domain.ComparatorConfig `json:"comparator"`
+		TestCases  []domain.TestCase        `json:"test_cases"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return
+	}
+	if ex.Type == domain.ExerciseTypeAlgorithm || ex.Type == "" {
+		if ex.Config.Algorithm == nil {
+			ex.Config.Algorithm = &domain.AlgorithmConfig{
+				TimeLimitMS:   ex.TimeLimitMS,
+				MemoryLimitMB: ex.MemoryLimitMB,
+			}
+		}
+		if raw.ASTRules != nil {
+			ex.Config.Algorithm.ASTRules = *raw.ASTRules
+		}
+		if raw.Comparator != nil {
+			ex.Config.Algorithm.Comparator = raw.Comparator
+		}
+		if len(raw.TestCases) > 0 && len(ex.Config.Algorithm.TestCases) == 0 {
+			for i := range raw.TestCases {
+				raw.TestCases[i].Normalize()
+			}
+			ex.Config.Algorithm.TestCases = raw.TestCases
+		}
+	}
+}
+
 func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
 	userRole := r.Header.Get("X-User-Role")
 	if userRole != "teacher" && userRole != "admin" {
@@ -122,11 +172,19 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 		tenantID = domain.DefaultTenantID
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid request body", "Error al leer el cuerpo de la petición")
+		return
+	}
+
 	var ex domain.Exercise
-	if err := json.NewDecoder(r.Body).Decode(&ex); err != nil {
+	if err := json.Unmarshal(bodyBytes, &ex); err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
 		return
 	}
+
+	normalizeExerciseConfig(bodyBytes, &ex)
 
 	if ex.Title == "" {
 		SendError(w, http.StatusBadRequest, "Title is required", "El título del ejercicio es obligatorio")
@@ -141,6 +199,10 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 	ex.TenantID = tenantID
 
 	if err := h.service.CreateExercise(r.Context(), &ex); err != nil {
+		if isValidationError(err) {
+			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al crear el ejercicio")
 		return
 	}
@@ -172,11 +234,19 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid request body", "Error al leer el cuerpo de la petición")
+		return
+	}
+
 	var ex domain.Exercise
-	if err := json.NewDecoder(r.Body).Decode(&ex); err != nil {
+	if err := json.Unmarshal(bodyBytes, &ex); err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
 		return
 	}
+
+	normalizeExerciseConfig(bodyBytes, &ex)
 
 	ex.ID = exerciseID
 	ex.TenantID = tenantID
@@ -185,6 +255,10 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := h.service.UpdateExercise(r.Context(), &ex); err != nil {
+		if isValidationError(err) {
+			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al actualizar el ejercicio")
 		return
 	}
@@ -262,12 +336,24 @@ func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request
 	} else {
 		// Formato JSON
 		if err := json.NewDecoder(r.Body).Decode(&testCases); err != nil {
-			SendError(w, 422, fmt.Sprintf("Invalid JSON test cases: %v", err), "Formato de casos de prueba inválido")
+			SendError(w, http.StatusUnprocessableEntity, fmt.Sprintf("Invalid JSON test cases: %v", err), "Formato de casos de prueba inválido")
+			return
+		}
+	}
+
+	for i := range testCases {
+		testCases[i].Normalize()
+		if err := testCases[i].Validate(); err != nil {
+			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
 			return
 		}
 	}
 
 	if err := h.service.BulkAddTestCases(r.Context(), exerciseID, tenantID, testCases); err != nil {
+		if isValidationError(err) {
+			SendError(w, http.StatusUnprocessableEntity, err.Error(), err.Error())
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al guardar casos de prueba")
 		return
 	}
@@ -373,6 +459,166 @@ func (h *EvaluationHandler) GetDryRunJob(w http.ResponseWriter, r *http.Request)
 	}
 
 	SendJSON(w, http.StatusOK, job, "Estado de trabajo dry-run obtenido exitosamente")
+}
+
+func (h *EvaluationHandler) CalculateOutputs(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para calcular salidas de prueba")
+		return
+	}
+
+	var req services.CalculateOutputsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
+		return
+	}
+
+	resp, err := h.service.CalculateOutputs(r.Context(), req)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), "Error al calcular salidas con la solución de referencia")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, resp, "Salidas calculadas exitosamente")
+}
+
+type ValidateInputRequestDTO struct {
+	Contract json.RawMessage `json:"contract"`
+	Input    string          `json:"input"`
+}
+
+type ValidateInputResponseDTO struct {
+	Valid bool   `json:"valid"`
+	Error string `json:"error,omitempty"`
+}
+
+func (h *EvaluationHandler) ValidateInputFormat(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para validar formato de entrada")
+		return
+	}
+
+	var req ValidateInputRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
+		return
+	}
+
+	validator := services.NewFormatValidator()
+	if err := validator.ValidateContract(req.Contract); err != nil {
+		SendJSON(w, http.StatusOK, ValidateInputResponseDTO{
+			Valid: false,
+			Error: err.Error(),
+		}, "Contrato de formato inválido")
+		return
+	}
+
+	valid, msg := validator.ValidateCase(req.Contract, req.Input)
+	SendJSON(w, http.StatusOK, ValidateInputResponseDTO{
+		Valid: valid,
+		Error: msg,
+	}, "Validación de entrada completada")
+}
+
+type ExerciseChecklistRequestDTO struct {
+	ReferenceSolution *domain.ReferenceSolutionInput `json:"reference_solution,omitempty"`
+}
+
+func (h *EvaluationHandler) GetExerciseChecklist(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para consultar el checklist de publicación")
+		return
+	}
+
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "MISSING_EXERCISE_ID", "ID de ejercicio faltante")
+		return
+	}
+
+	var req ExerciseChecklistRequestDTO
+	if r.Body != nil && r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	report, err := h.service.GenerateChecklist(r.Context(), exerciseID, req.ReferenceSolution)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al generar checklist de publicación")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, report, "Checklist de publicación generado exitosamente")
+}
+
+type GenerateCasesRequestDTO struct {
+	Contract json.RawMessage `json:"contract"`
+	Count    int             `json:"count"`
+	Seed     *int64          `json:"seed,omitempty"`
+}
+
+type GeneratedCaseItemDTO struct {
+	Input  string  `json:"input"`
+	Output *string `json:"output"`
+}
+
+type GenerateCasesResponseDTO struct {
+	Cases []GeneratedCaseItemDTO `json:"cases"`
+}
+
+func (h *EvaluationHandler) GenerateCases(w http.ResponseWriter, r *http.Request) {
+	userRole := r.Header.Get("X-User-Role")
+	if userRole != "teacher" && userRole != "admin" {
+		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para generar casos de prueba")
+		return
+	}
+
+	var req GenerateCasesRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición inválido")
+		return
+	}
+
+	if req.Count <= 0 {
+		req.Count = 10
+	}
+	if req.Count > 100 {
+		req.Count = 100
+	}
+
+	validator := services.NewFormatValidator()
+	if err := validator.ValidateContract(req.Contract); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), "El contrato de formato no es válido")
+		return
+	}
+
+	cases := make([]GeneratedCaseItemDTO, 0, req.Count)
+	baseSeed := time.Now().UnixNano()
+	if req.Seed != nil {
+		baseSeed = *req.Seed
+	}
+
+	for i := 0; i < req.Count; i++ {
+		caseSeed := baseSeed + int64(i*10007)
+		if req.Seed == nil {
+			caseSeed = time.Now().UnixNano() + int64(i*10007+rand.Intn(1000000))
+		}
+		generatedInput, err := validator.GenerateCase(req.Contract, caseSeed)
+		if err != nil {
+			SendError(w, http.StatusInternalServerError, err.Error(), fmt.Sprintf("Error generando caso #%d", i+1))
+			return
+		}
+		cases = append(cases, GeneratedCaseItemDTO{
+			Input:  generatedInput,
+			Output: nil,
+		})
+	}
+
+	SendJSON(w, http.StatusOK, GenerateCasesResponseDTO{
+		Cases: cases,
+	}, "Casos generados exitosamente")
 }
 
 

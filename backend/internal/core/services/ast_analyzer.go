@@ -17,19 +17,33 @@ func NewStaticASTAnalyzer() domain.ASTAnalyzer {
 func (a *StaticASTAnalyzer) ValidateCode(language string, sourceCode string, rules domain.ASTRules) (bool, string) {
 	lang := strings.ToLower(strings.TrimSpace(language))
 
+	// Expandir reglas automáticas cuando los switches pedagógicos están activos
+	effectiveRules := domain.ASTRules{
+		BlockNativeSort:    rules.BlockNativeSort,
+		BlockSystemModules: rules.BlockSystemModules,
+		ForbiddenImports:   append([]string{}, rules.ForbiddenImports...),
+		ForbiddenFunctions: append([]string{}, rules.ForbiddenFunctions...),
+	}
+	if rules.BlockNativeSort {
+		effectiveRules.ForbiddenFunctions = append(effectiveRules.ForbiddenFunctions, "sort", "sorted", "std::sort", "qsort", "Arrays.sort", "Collections.sort")
+	}
+	if rules.BlockSystemModules {
+		effectiveRules.ForbiddenImports = append(effectiveRules.ForbiddenImports, "os", "sys", "subprocess", "socket", "cstdlib", "unistd.h", "fs", "child_process")
+	}
+
 	switch lang {
 	case "python", "py":
-		return a.validatePython(sourceCode, rules)
+		return a.validatePython(sourceCode, effectiveRules)
 	case "cpp", "c++", "c":
-		return a.validateCpp(sourceCode, rules)
+		return a.validateCpp(sourceCode, effectiveRules)
 	case "csharp", "c#", "cs":
-		return a.validateCSharp(sourceCode, rules)
+		return a.validateCSharp(sourceCode, effectiveRules)
 	case "java":
-		return a.validateJava(sourceCode, rules)
+		return a.validateJava(sourceCode, effectiveRules)
 	case "javascript", "js", "node":
-		return a.validateJS(sourceCode, rules)
+		return a.validateJS(sourceCode, effectiveRules)
 	default:
-		return a.validateGeneric(sourceCode, rules)
+		return a.validateGeneric(sourceCode, effectiveRules)
 	}
 }
 

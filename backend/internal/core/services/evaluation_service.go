@@ -16,11 +16,12 @@ import (
 )
 
 type EvaluationService struct {
-	exerciseRepo domain.ExerciseRepository
-	astAnalyzer  domain.ASTAnalyzer
-	codeScanner  domain.CodeScanner
-	runner       domain.EvaluationRunner
-	metrics      RunMetricsRecorder
+	exerciseRepo    domain.ExerciseRepository
+	astAnalyzer     domain.ASTAnalyzer
+	codeScanner     domain.CodeScanner
+	runner          domain.EvaluationRunner
+	metrics         RunMetricsRecorder
+	formatValidator FormatValidator
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,
@@ -76,13 +77,47 @@ func NewEvaluationService(
 	runner domain.EvaluationRunner,
 ) *EvaluationService {
 	return &EvaluationService{
-		exerciseRepo: exerciseRepo,
-		astAnalyzer:  astAnalyzer,
-		codeScanner:  codeScanner,
-		runner:       runner,
+		exerciseRepo:    exerciseRepo,
+		astAnalyzer:     astAnalyzer,
+		codeScanner:     codeScanner,
+		runner:          runner,
+		formatValidator: NewFormatValidator(),
 	}
 }
 
+func (s *EvaluationService) SetFormatValidator(v FormatValidator) {
+	s.formatValidator = v
+}
+
+func (s *EvaluationService) validateExerciseInputFormat(ex *domain.Exercise) error {
+	if ex == nil || s.formatValidator == nil {
+		return nil
+	}
+	var inputFormat json.RawMessage
+	if ex.Config.Algorithm != nil && len(ex.Config.Algorithm.InputFormat) > 0 && string(ex.Config.Algorithm.InputFormat) != "null" {
+		inputFormat = ex.Config.Algorithm.InputFormat
+	} else if len(ex.Config.InputFormat) > 0 && string(ex.Config.InputFormat) != "null" {
+		inputFormat = ex.Config.InputFormat
+	}
+
+	if len(inputFormat) == 0 || string(inputFormat) == "null" || string(inputFormat) == "{}" {
+		return nil
+	}
+
+	if err := s.formatValidator.ValidateContract(inputFormat); err != nil {
+		return fmt.Errorf("contrato de formato inválido: %w", err)
+	}
+
+	if ex.Config.Algorithm != nil {
+		for idx, tc := range ex.Config.Algorithm.TestCases {
+			ok, msg := s.formatValidator.ValidateCase(inputFormat, tc.Input)
+			if !ok {
+				return fmt.Errorf("caso %d inválido según contrato de formato: %s", idx+1, msg)
+			}
+		}
+	}
+	return nil
+}
 
 func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
 	totalMB := 8192
@@ -106,6 +141,20 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 	if ex.ID == "" {
 		ex.ID = uuid.NewString()
 	}
+	if err := ex.Validate(); err != nil {
+		return err
+	}
+	if err := s.validateExerciseInputFormat(ex); err != nil {
+		return err
+	}
+	if ex.Config.Algorithm != nil {
+		for i := range ex.Config.Algorithm.TestCases {
+			ex.Config.Algorithm.TestCases[i].Normalize()
+			if err := ex.Config.Algorithm.TestCases[i].Validate(); err != nil {
+				return err
+			}
+		}
+	}
 	if ex.MemoryLimitMB > 0 {
 		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
 		if err := domain.ValidateRamAgainstHost(ex.MemoryLimitMB, maxAllowed); err != nil {
@@ -116,6 +165,20 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 }
 
 func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	if err := ex.Validate(); err != nil {
+		return err
+	}
+	if err := s.validateExerciseInputFormat(ex); err != nil {
+		return err
+	}
+	if ex.Config.Algorithm != nil {
+		for i := range ex.Config.Algorithm.TestCases {
+			ex.Config.Algorithm.TestCases[i].Normalize()
+			if err := ex.Config.Algorithm.TestCases[i].Validate(); err != nil {
+				return err
+			}
+		}
+	}
 	if ex.MemoryLimitMB > 0 {
 		maxAllowed := domain.CalculateHostMaxAllowedRAM(s.getHostTotalRAM(ctx))
 		if err := domain.ValidateRamAgainstHost(ex.MemoryLimitMB, maxAllowed); err != nil {
@@ -132,10 +195,22 @@ func (s *EvaluationService) BulkAddTestCases(ctx context.Context, exerciseID, te
 	}
 
 	if ex.Config.Algorithm == nil {
-		ex.Config.Algorithm = &domain.AlgorithmConfig{}
+		ex.Config.Algorithm = &domain.AlgorithmConfig{
+			TimeLimitMS:   ex.TimeLimitMS,
+			MemoryLimitMB: ex.MemoryLimitMB,
+		}
+	}
+	for i := range testCases {
+		testCases[i].Normalize()
+		if err := testCases[i].Validate(); err != nil {
+			return err
+		}
 	}
 	ex.Config.Algorithm.TestCases = append(ex.Config.Algorithm.TestCases, testCases...)
-	return s.exerciseRepo.UpdateConfig(ctx, exerciseID, tenantID, ex.Config)
+	if err := s.validateExerciseInputFormat(ex); err != nil {
+		return err
+	}
+	return s.exerciseRepo.Update(ctx, ex)
 }
 
 func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, tenantID string) (*domain.Exercise, error) {
@@ -147,8 +222,10 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 	if ex.Type == domain.ExerciseTypeAlgorithm {
 		publicCount := 0
 		if ex.Config.Algorithm != nil {
-			for _, tc := range ex.Config.Algorithm.TestCases {
-				if !tc.IsHidden {
+			for i := range ex.Config.Algorithm.TestCases {
+				tc := &ex.Config.Algorithm.TestCases[i]
+				tc.Normalize()
+				if tc.Visibility != domain.TestCaseVisibilityHidden {
 					publicCount++
 				}
 			}
@@ -243,6 +320,7 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 				MemoryLimitMB: cfg.MemoryLimitMB,
 				TimeLimitMS:   cfg.TimeLimitMS,
 				TestCase:      tc,
+				Comparator:    cfg.Comparator,
 			}
 			res, err := s.runner.RunTestCase(bgCtx, runCfg)
 			if err != nil {
@@ -380,6 +458,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			MemoryLimitMB: cfg.MemoryLimitMB,
 			TimeLimitMS:   cfg.TimeLimitMS,
 			TestCase:      tc,
+			Comparator:    cfg.Comparator,
 		}
 
 		res, err := s.runner.RunTestCase(ctx, runConfig)
@@ -394,7 +473,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			if globalVerdict == domain.VerdictAC {
 				globalVerdict = res.Verdict
 				failedTC := tc
-				if tc.IsHidden {
+				if tc.Visibility == domain.TestCaseVisibilityHidden || (tc.Visibility == "" && tc.IsHidden) {
 					failedTC.Input = "[OCULTO]"
 					failedTC.ExpectedOutput = "[OCULTO]"
 				}
@@ -536,5 +615,252 @@ func (s *EvaluationService) ExecuteDBDryRun(ctx context.Context, config domain.D
 		}
 	}
 	return s.runner.RunDBDryRun(ctx, config)
+}
+
+type CalculateOutputsRequest struct {
+	Language      string   `json:"language"`
+	SourceCode    string   `json:"source_code"`
+	Inputs        []string `json:"inputs"`
+	TimeLimitMS   int      `json:"time_limit_ms,omitempty"`
+	MemoryLimitMB int      `json:"memory_limit_mb,omitempty"`
+}
+
+type CalculatedOutputItem struct {
+	Index           int    `json:"index"`
+	Input           string `json:"input"`
+	ExpectedOutput  string `json:"expected_output"`
+	Status          string `json:"status"` // "ok", "error", "timeout"
+	ExecutionTimeMS int    `json:"execution_time_ms"`
+	ErrorDetails    string `json:"error_details,omitempty"`
+}
+
+type CalculateOutputsResponse struct {
+	Outputs []CalculatedOutputItem `json:"outputs"`
+}
+
+func (s *EvaluationService) CalculateOutputs(ctx context.Context, req CalculateOutputsRequest) (*CalculateOutputsResponse, error) {
+	if strings.TrimSpace(req.SourceCode) == "" {
+		return nil, errors.New("la solución de referencia es obligatoria")
+	}
+	if req.TimeLimitMS <= 0 {
+		req.TimeLimitMS = 2000
+	}
+	if req.MemoryLimitMB <= 0 {
+		req.MemoryLimitMB = 256
+	}
+	resp := &CalculateOutputsResponse{
+		Outputs: make([]CalculatedOutputItem, 0, len(req.Inputs)),
+	}
+	for i, inp := range req.Inputs {
+		runCfg := domain.EvaluationRunConfig{
+			Language:      req.Language,
+			SourceCode:    req.SourceCode,
+			MemoryLimitMB: req.MemoryLimitMB,
+			TimeLimitMS:   req.TimeLimitMS,
+			TestCase: domain.TestCase{
+				Input: inp,
+			},
+		}
+		res, err := s.runner.RunTestCase(ctx, runCfg)
+		if err != nil {
+			resp.Outputs = append(resp.Outputs, CalculatedOutputItem{
+				Index:        i,
+				Input:        inp,
+				Status:       "error",
+				ErrorDetails: err.Error(),
+			})
+			continue
+		}
+		status := "ok"
+		if res.Verdict == domain.VerdictTLE {
+			status = "timeout"
+		} else if res.Verdict == domain.VerdictRE || res.Verdict == domain.VerdictCE {
+			status = "error"
+		}
+		resp.Outputs = append(resp.Outputs, CalculatedOutputItem{
+			Index:           i,
+			Input:           inp,
+			ExpectedOutput:  res.ActualOutput,
+			Status:          status,
+			ExecutionTimeMS: int(res.ExecutionTime.Milliseconds()),
+			ErrorDetails:    res.ErrorDetails,
+		})
+	}
+	return resp, nil
+}
+
+func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID string, refInput *domain.ReferenceSolutionInput) (*domain.ChecklistReport, error) {
+	exercise, err := s.exerciseRepo.GetByID(ctx, exerciseID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener ejercicio: %w", err)
+	}
+
+	report := &domain.ChecklistReport{
+		Blockers:   make([]string, 0),
+		Warnings:   make([]string, 0),
+		Info:       make([]string, 0),
+		CanPublish: true,
+	}
+
+	if exercise.Config.Algorithm == nil {
+		report.Blockers = append(report.Blockers, "El ejercicio no tiene configuración de algoritmo válida.")
+		report.CanPublish = false
+		return report, nil
+	}
+
+	testCases := exercise.Config.Algorithm.TestCases
+	if len(testCases) == 0 {
+		report.Blockers = append(report.Blockers, "Debes incluir al menos un caso de prueba.")
+	}
+
+	for i, tc := range testCases {
+		if strings.TrimSpace(tc.ExpectedOutput) == "" {
+			report.Blockers = append(report.Blockers, fmt.Sprintf("El caso #%d tiene la salida esperada vacía.", i+1))
+		}
+	}
+
+	// Validar input_format si está presente
+	var inputFormat json.RawMessage
+	if len(exercise.Config.Algorithm.InputFormat) > 0 && string(exercise.Config.Algorithm.InputFormat) != "null" {
+		inputFormat = exercise.Config.Algorithm.InputFormat
+	} else if len(exercise.Config.InputFormat) > 0 && string(exercise.Config.InputFormat) != "null" {
+		inputFormat = exercise.Config.InputFormat
+	}
+
+	if len(inputFormat) > 0 && s.formatValidator != nil {
+		if err := s.formatValidator.ValidateContract(inputFormat); err != nil {
+			report.Blockers = append(report.Blockers, fmt.Sprintf("El contrato input_format tiene errores de estructura: %s", err.Error()))
+		} else {
+			for i, tc := range testCases {
+				valid, errMsg := s.formatValidator.ValidateCase(inputFormat, tc.Input)
+				if !valid {
+					report.Blockers = append(report.Blockers, fmt.Sprintf("Caso #%d no cumple con input_format: %s", i+1, errMsg))
+				}
+			}
+		}
+	}
+
+	if strings.TrimSpace(exercise.Language) == "" {
+		report.Blockers = append(report.Blockers, "No se ha definido el lenguaje del ejercicio.")
+	}
+
+	// Solución de referencia y dry-run
+	refCode := exercise.ReferenceSolution
+	refLang := exercise.Language
+	if refInput != nil && strings.TrimSpace(refInput.Code) != "" {
+		refCode = refInput.Code
+		if strings.TrimSpace(refInput.Language) != "" {
+			refLang = refInput.Language
+		}
+	}
+
+	var refExecutionTimeMS int = 0
+	if strings.TrimSpace(refCode) == "" {
+		report.Warnings = append(report.Warnings, "No se ha configurado la solución de referencia del docente.")
+	} else if len(testCases) > 0 && len(report.Blockers) == 0 && s.runner != nil {
+		dryRunPassed := true
+		var maxDurationMS int = 0
+		for i, tc := range testCases {
+			timeLimit := exercise.TimeLimitMS
+			if timeLimit <= 0 {
+				timeLimit = 2000
+			}
+			memLimit := exercise.MemoryLimitMB
+			if memLimit <= 0 {
+				memLimit = 256
+			}
+
+			runCfg := domain.EvaluationRunConfig{
+				Language:      refLang,
+				SourceCode:    refCode,
+				MemoryLimitMB: memLimit,
+				TimeLimitMS:   timeLimit,
+				TestCase: domain.TestCase{
+					Input:          tc.Input,
+					ExpectedOutput: tc.ExpectedOutput,
+				},
+			}
+			res, runErr := s.runner.RunTestCase(ctx, runCfg)
+			if runErr != nil || res.Verdict != domain.VerdictAC {
+				dryRunPassed = false
+				v := string(res.Verdict)
+				if v == "" {
+					v = "Error de ejecución"
+				}
+				if res.ErrorDetails != "" {
+					v += " (" + res.ErrorDetails + ")"
+				}
+				report.Blockers = append(report.Blockers, fmt.Sprintf("La solución de referencia no obtuvo AC en el caso #%d (Veredicto: %s).", i+1, v))
+				break
+			}
+			dur := int(res.ExecutionTime.Milliseconds())
+			if dur > maxDurationMS {
+				maxDurationMS = dur
+			}
+		}
+		if dryRunPassed {
+			refExecutionTimeMS = maxDurationMS
+			report.Info = append(report.Info, fmt.Sprintf("Solución de referencia validada con AC en todos los casos (%d ms máx).", refExecutionTimeMS))
+		}
+	}
+
+	// Estadísticas y advertencias
+	exampleCount := 0
+	publicCount := 0
+	hiddenCount := 0
+	visibleWeight := 0.0
+	hiddenWeight := 0.0
+
+	for _, tc := range testCases {
+		tc.Normalize()
+		switch tc.Visibility {
+		case domain.TestCaseVisibilityExample:
+			exampleCount++
+			visibleWeight += tc.Weight
+		case domain.TestCaseVisibilityPublic:
+			publicCount++
+			visibleWeight += tc.Weight
+		case domain.TestCaseVisibilityHidden:
+			hiddenCount++
+			hiddenWeight += tc.Weight
+		}
+	}
+
+	if hiddenCount == 0 {
+		report.Warnings = append(report.Warnings, "0 casos ocultos: un print fijo podría aprobar este ejercicio.")
+	}
+
+	hasBranchingTags := false
+	for _, t := range exercise.Tags {
+		tl := strings.ToLower(t)
+		if strings.Contains(tl, "condicional") || strings.Contains(tl, "ciclo") || strings.Contains(tl, "bucle") || strings.Contains(tl, "loop") {
+			hasBranchingTags = true
+			break
+		}
+	}
+	if hasBranchingTags && hiddenCount < 3 {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("El ejercicio tiene tags de lógica de control pero solo %d caso(s) oculto(s) (se recomiendan al menos 3).", hiddenCount))
+	}
+
+	if exampleCount == 0 {
+		report.Warnings = append(report.Warnings, "0 casos de ejemplo: el estudiante no verá casos ilustrativos en el enunciado.")
+	}
+
+	if exercise.PerStudentSeed && exercise.Purpose != string(domain.ExercisePurposeExam) {
+		report.Warnings = append(report.Warnings, "La semilla por estudiante está activa para una práctica regular (recomendada solo en exámenes).")
+	}
+
+	if visibleWeight > hiddenWeight && hiddenCount > 0 {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("El peso de casos visibles (%.1f) supera al de casos ocultos (%.1f).", visibleWeight, hiddenWeight))
+	}
+
+	if refExecutionTimeMS > 0 && exercise.TimeLimitMS > 0 && exercise.TimeLimitMS < (2*refExecutionTimeMS) {
+		report.Warnings = append(report.Warnings, fmt.Sprintf("Calibración de tiempo: el límite configurado (%d ms) es muy ajustado (< 2× el tiempo de referencia de %d ms).", exercise.TimeLimitMS, refExecutionTimeMS))
+	}
+
+	report.Info = append(report.Info, fmt.Sprintf("Distribución de casos: %d total (%d ejemplos, %d públicos, %d ocultos).", len(testCases), exampleCount, publicCount, hiddenCount))
+	report.CanPublish = len(report.Blockers) == 0
+
+	return report, nil
 }
 
