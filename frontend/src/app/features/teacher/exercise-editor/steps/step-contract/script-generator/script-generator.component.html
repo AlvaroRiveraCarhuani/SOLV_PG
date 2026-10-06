@@ -1,0 +1,148 @@
+<div class="script-generator-panel" [class.expanded]="isExpanded()">
+  <header class="panel-header" (click)="toggleExpand()">
+    <div class="header-left">
+      <svg lucideTerminal class="icon-primary"></svg>
+      <div>
+        <h3 class="panel-title">Generación masiva de casos por script (Python 3.11)</h3>
+        <p class="panel-subtitle">Ejecuta un script en sandbox aislada Docker y genera hasta <span machineData>100</span> casos parseando su stdout JSON</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <button type="button" class="btn-toggle" [attr.aria-label]="isExpanded() ? 'Colapsar panel' : 'Expandir panel'">
+        @if (isExpanded()) {
+          <svg lucideChevronUp></svg>
+        } @else {
+          <svg lucideChevronDown></svg>
+        }
+      </button>
+    </div>
+  </header>
+
+  @if (isExpanded()) {
+    <div class="panel-content">
+      @if (errorMessage()) {
+        <div class="alert alert-error">
+          <svg lucideAlertCircle></svg>
+          <span>{{ errorMessage() }}</span>
+        </div>
+      }
+
+      <div class="editor-section">
+        <div class="editor-header">
+          <span class="editor-label font-mono">script.py</span>
+          <button type="button" class="btn-link" (click)="loadTemplate()" [disabled]="isExecuting()">
+            Restaurar ejemplo de Python
+          </button>
+        </div>
+
+        <textarea
+          class="code-editor font-mono"
+          [(ngModel)]="scriptCode"
+          rows="12"
+          placeholder="Escribe tu script de Python que imprima a stdout un JSON array de objetos { input, expected_output }"
+          [disabled]="isExecuting() || isImporting()"
+        ></textarea>
+        
+        <div class="editor-footer">
+          <span class="text-muted">El script debe imprimir un array JSON a stdout. Sandbox: <code class="font-mono">--network none</code>, <code class="font-mono">256MB RAM</code>, <code class="font-mono">timeout 30s</code>.</span>
+          <button
+            type="button"
+            class="btn btn-primary"
+            (click)="executeScript()"
+            [disabled]="isExecuting() || !scriptCode().trim()"
+          >
+            @if (isExecuting()) {
+              <svg lucideRefreshCw class="spin-icon"></svg>
+              <span>Ejecutando en sandbox...</span>
+            } @else {
+              <svg lucidePlay></svg>
+              <span>Ejecutar y generar casos</span>
+            }
+          </button>
+        </div>
+      </div>
+
+      @if (previewResult(); as preview) {
+        <div class="preview-section">
+          <div class="preview-banner" [class.banner-success]="preview.can_import" [class.banner-error]="!preview.can_import">
+            <div class="banner-title">
+              @if (preview.can_import) {
+                <svg lucideCheckCircle2 class="icon-success"></svg>
+                <div>
+                  <strong>Previsualización completada en <span machineData>{{ preview.execution_time_ms }}</span> ms</strong>
+                  <p>Se generaron <span machineData>{{ preview.total_valid }}</span> casos válidos acordes al formato de entrada.</p>
+                </div>
+              } @else {
+                <svg lucideAlertTriangle class="icon-error"></svg>
+                <div>
+                  <strong>Error en la validación de casos generados</strong>
+                  <p><span machineData>{{ preview.total_invalid }}</span> de <span machineData>{{ preview.cases_count }}</span> casos no cumplen con el <code class="font-mono">input_format</code> del ejercicio.</p>
+                </div>
+              }
+            </div>
+
+            <div class="banner-actions">
+              @if (preview.can_import) {
+                <button
+                  type="button"
+                  class="btn btn-success"
+                  (click)="confirmAndAdd()"
+                  [disabled]="isImporting()"
+                >
+                  @if (isImporting()) {
+                    <svg lucideRefreshCw class="spin-icon"></svg>
+                    <span>Guardando casos...</span>
+                  } @else {
+                    <svg lucideCheck></svg>
+                    <span>Confirmar y agregar a la tabla (<span machineData>{{ preview.total_valid }}</span>)</span>
+                  }
+                </button>
+              }
+            </div>
+          </div>
+
+          <div class="table-container">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th class="col-index">#</th>
+                  <th>Input Generado</th>
+                  <th>Salida Esperada</th>
+                  <th class="col-status">Estado</th>
+                  <th>Detalle de Validación</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (c of preview.cases; track c.index) {
+                  <tr [class.row-invalid]="!c.valid">
+                    <td class="col-index font-mono" machineData>{{ c.index + 1 }}</td>
+                    <td class="col-input">
+                      <pre class="code-preview font-mono">{{ c.input }}</pre>
+                    </td>
+                    <td class="col-output">
+                      <pre class="code-preview font-mono">{{ c.expected_output }}</pre>
+                    </td>
+                    <td class="col-status">
+                      @if (c.valid) {
+                        <span class="chip chip-success">Válido</span>
+                      } @else {
+                        <span class="chip chip-error">Error</span>
+                      }
+                    </td>
+                    <td class="col-detail">
+                      @if (c.valid) {
+                        <span class="text-muted">Formato estructural correcto</span>
+                      } @else {
+                        <span class="text-error font-mono">{{ c.error }}</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</div>

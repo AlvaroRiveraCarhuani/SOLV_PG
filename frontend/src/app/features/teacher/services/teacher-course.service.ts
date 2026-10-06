@@ -14,7 +14,8 @@ import {
   CreateModuleDTO,
   UpdateModuleDTO,
   SetPrerequisitesDTO,
-  ExerciseImportResponse
+  ExerciseImportResponse,
+  ScriptGenerationResponse
 } from '../models/teacher.models';
 
 
@@ -268,6 +269,21 @@ export class TeacherCourseService {
     return this.http.post<ApiResponse<ExerciseImportResponse>>(
       `/api/v1/teacher/courses/${courseId}/exercises/import`,
       formData,
+      { params }
+    ).pipe(
+      map(res => res.data)
+    );
+  }
+
+  generateCasesFromScript(exerciseId: string, script: string, dryRun = true): Observable<ScriptGenerationResponse> {
+    let params = new HttpParams();
+    if (dryRun) {
+      params = params.set('dry_run', 'true');
+    }
+
+    return this.http.post<ApiResponse<ScriptGenerationResponse>>(
+      `/api/v1/teacher/exercises/${exerciseId}/generate-from-script`,
+      { script },
       { params }
     ).pipe(
       map(res => res.data)

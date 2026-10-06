@@ -525,6 +525,27 @@ export interface ExerciseImportResponse {
   imported_ids?: string[];
 }
 
+export interface ScriptCaseValidationItem {
+  index: number;
+  input: string;
+  expected_output: string;
+  valid: boolean;
+  error?: string;
+}
+
+export interface ScriptGenerationResponse {
+  mode: 'dry_run' | 'import';
+  execution_time_ms?: number;
+  cases_count?: number;
+  cases?: ScriptCaseValidationItem[];
+  can_import: boolean;
+  total_valid?: number;
+  total_invalid?: number;
+  imported_count?: number;
+  imported_case_ids?: string[];
+}
+
+
 
 
 

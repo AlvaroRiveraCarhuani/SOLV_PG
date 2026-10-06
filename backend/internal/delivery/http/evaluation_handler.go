@@ -690,5 +690,74 @@ func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Reque
 	SendJSON(w, http.StatusCreated, res, fmt.Sprintf("Se importaron %d ejercicios exitosamente", res.ImportedCount))
 }
 
+func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *http.Request) {
+	exerciseID := r.PathValue("exerciseId")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Exercise ID missing", "ID de ejercicio faltante")
+		return
+	}
+
+	tenantID := domain.GetTenantID(r.Context())
+	dryRun := r.URL.Query().Get("dry_run") == "true"
+
+	var scriptCode string
+	contentType := r.Header.Get("Content-Type")
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		err := r.ParseMultipartForm(10 << 20)
+		if err != nil {
+			SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el formulario")
+			return
+		}
+		scriptCode = r.FormValue("script")
+		if scriptCode == "" {
+			file, _, err := r.FormFile("script")
+			if err == nil {
+				defer file.Close()
+				buf, readErr := io.ReadAll(file)
+				if readErr == nil {
+					scriptCode = string(buf)
+				}
+			}
+		}
+	} else if strings.HasPrefix(contentType, "application/json") {
+		var req struct {
+			Script string `json:"script"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+			scriptCode = req.Script
+		}
+	} else {
+		buf, err := io.ReadAll(r.Body)
+		if err == nil {
+			scriptCode = string(buf)
+		}
+	}
+
+	if strings.TrimSpace(scriptCode) == "" {
+		SendError(w, http.StatusBadRequest, "Script is empty", "El código del script no puede estar vacío")
+		return
+	}
+
+	res, err := h.service.GenerateCasesFromScript(r.Context(), exerciseID, tenantID, scriptCode, dryRun)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), err.Error())
+		return
+	}
+
+	if !res.CanImport {
+		SendJSON(w, http.StatusUnprocessableEntity, res, "Se encontraron errores de validación en los casos generados por el script")
+		return
+	}
+
+	if dryRun {
+		SendJSON(w, http.StatusOK, res, "Previsualización de casos generados exitosamente")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, res, fmt.Sprintf("Se agregaron %d casos al ejercicio exitosamente", res.ImportedCount))
+}
+
+
 
 

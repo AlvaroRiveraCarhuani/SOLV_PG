@@ -68,6 +68,8 @@ func main() {
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
+	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
+	evaluationService.SetScriptSandboxRunner(scriptSandboxRunner)
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
 		WithProvisioning(subjectRepo, templateRepo, db.GetDB())

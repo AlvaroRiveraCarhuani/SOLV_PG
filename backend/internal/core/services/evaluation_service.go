@@ -25,6 +25,7 @@ type EvaluationService struct {
 	metrics         RunMetricsRecorder
 	formatValidator FormatValidator
 	moduleRepo      domain.CourseModuleRepository
+	scriptRunner    domain.ScriptSandboxRunner
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,

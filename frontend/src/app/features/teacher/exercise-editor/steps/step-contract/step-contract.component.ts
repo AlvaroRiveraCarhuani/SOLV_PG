@@ -5,6 +5,8 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 import { ReferenceEditorComponent } from './reference-editor.component';
 import { FormatBuilderComponent } from './format-builder/format-builder.component';
 import { CasesTableComponent } from './cases-table/cases-table.component';
+import { ScriptGeneratorComponent } from './script-generator/script-generator.component';
+import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.models';
 
 @Component({
   selector: 'step-contract',
@@ -14,7 +16,8 @@ import { CasesTableComponent } from './cases-table/cases-table.component';
     LucideFileCode2,
     ReferenceEditorComponent,
     FormatBuilderComponent,
-    CasesTableComponent
+    CasesTableComponent,
+    ScriptGeneratorComponent
   ],
   template: `
     <div class="step-contract-layout">
@@ -41,6 +44,14 @@ import { CasesTableComponent } from './cases-table/cases-table.component';
         <format-builder />
       </section>
 
+      <!-- Sección 1.5: Generación por Script Python (OA-18) -->
+      <section class="form-section">
+        <app-script-generator
+          [exerciseId]="store.exerciseId() || undefined"
+          (casesGenerated)="onCasesGenerated($event)"
+        />
+      </section>
+
       <!-- Sección 2: Casos de Prueba (OA-04) -->
       <section class="form-section">
         <cases-table />
@@ -56,4 +67,15 @@ import { CasesTableComponent } from './cases-table/cases-table.component';
 })
 export class StepContractComponent {
   readonly store = inject(ExerciseEditorStore);
+
+  onCasesGenerated(items: ScriptCaseValidationItem[]): void {
+    const newCases: TestCaseDTO[] = items.map((item, i) => ({
+      input: item.input,
+      expected_output: item.expected_output,
+      visibility: 'hidden',
+      weight: 1.0,
+      order_index: this.store.cases().length + i + 1
+    }));
+    this.store.addCases(newCases);
+  }
 }

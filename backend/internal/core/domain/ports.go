@@ -293,4 +293,9 @@ type CourseModuleRepository interface {
 	IsModuleLockedForStudent(ctx context.Context, tenantID, moduleID, studentID string) (bool, error)
 }
 
+// ScriptSandboxRunner ejecuta scripts de generación de casos en un contenedor efímero aislado
+type ScriptSandboxRunner interface {
+	RunPythonScript(ctx context.Context, scriptCode string, timeoutSec int) (stdout string, stderr string, err error)
+}
+
 
