@@ -7,6 +7,32 @@
 >
   <svg modal-icon lucideCode class="icon"></svg>
 
+  <!-- Banner de Deprecación (OA-07) -->
+  @if (showDeprecationBanner()) {
+    <div class="deprecation-banner">
+      <div class="banner-content">
+        <div class="banner-left">
+          <svg lucideAlertTriangle class="banner-icon"></svg>
+          <div class="banner-text-wrap">
+            <span class="banner-title">Editor en proceso de obsolescencia</span>
+            <span class="banner-desc">
+              Este editor modal está obsoleto. Te recomendamos usar el nuevo editor de 3 columnas con validación sintáctica en vivo y checklist de publicación.
+            </span>
+          </div>
+        </div>
+        <div class="banner-actions">
+          <button type="button" class="btn-migrate" (click)="migrateToNewEditor()">
+            <svg lucideArrowRight class="btn-icon"></svg>
+            <span>Migrar al nuevo editor</span>
+          </button>
+          <button type="button" class="btn-dismiss" (click)="dismissBanner()">
+            Continuar aquí
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
   <!-- Barra de Pasos del Wizard -->
   <div class="wizard-steps-nav">
     <button
@@ -72,6 +98,9 @@
         [labType]="labType() || 'ALGORITMO'"
         [(language)]="language"
         [(timeLimitMs)]="timeLimitMs"
+        [(referenceSolution)]="referenceSolution"
+        [(comparatorType)]="comparatorType"
+        [(comparatorTolerance)]="comparatorTolerance"
         [(testCases)]="testCases"
         [(csvError)]="csvError"
         [(templateId)]="templateId"
@@ -158,6 +187,8 @@
   <fuzzing-modal
     [exerciseId]="exerciseToEdit()?.id || 'new-fuzz'"
     [exerciseTitle]="title() || 'Laboratorio Nuevo'"
+    [language]="language()"
+    [referenceSolution]="referenceSolution()"
     (close)="showFuzzingModal.set(false)"
     (applied)="onFuzzCasesApplied($event)"
   />

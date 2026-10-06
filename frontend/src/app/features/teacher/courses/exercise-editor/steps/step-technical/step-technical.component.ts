@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, model, input, output, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, model, input, output, computed, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
@@ -10,11 +10,17 @@ import {
   LucideAlertTriangle, 
   LucideCheck, 
   LucideDatabase, 
-  LucideServer 
+  LucideServer,
+  LucidePlay,
+  LucideMaximize2,
+  LucideCode,
+  LucideSliders,
+  LucideX
 } from '@lucide/angular';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { TeacherCourseService } from '../../../../services/teacher-course.service';
 
 export interface TestCaseFormItem {
   input: string;
@@ -48,6 +54,11 @@ export interface WorkspaceTemplateOption {
     LucideCheck,
     LucideDatabase,
     LucideServer,
+    LucidePlay,
+    LucideMaximize2,
+    LucideCode,
+    LucideSliders,
+    LucideX,
     FormFieldComponent,
     MachineDataDirective,
     ComboboxComponent
@@ -57,6 +68,8 @@ export interface WorkspaceTemplateOption {
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class StepTechnicalComponent {
+  private courseService = inject(TeacherCourseService);
+
   labType = input.required<'ALGORITMO' | 'IDE_PERSISTENTE'>();
 
   readonly languageOptions: ComboboxOption[] = [
@@ -67,12 +80,31 @@ export class StepTechnicalComponent {
     { id: 'csharp', label: 'C# (.NET / Mono)', value: 'csharp' },
     { id: 'java', label: 'Java (OpenJDK 21)', value: 'java' }
   ];
+
+  readonly comparatorOptions: ComboboxOption[] = [
+    { id: 'exact', label: 'Exacto (Estricto estándar)', value: 'exact' },
+    { id: 'float', label: 'Tolerancia Flotante (Decimales)', value: 'float' },
+    { id: 'unordered', label: 'Salida Desordenada (Ignora orden de líneas)', value: 'unordered' }
+  ];
   
   // Algoritmo
   language = model.required<string>();
   timeLimitMs = model.required<number>();
+  referenceSolution = model.required<string>();
+  comparatorType = model.required<'exact' | 'float' | 'unordered' | 'custom'>();
+  comparatorTolerance = model<number>(0.000001);
   testCases = model.required<TestCaseFormItem[]>();
   csvError = model.required<string | null>();
+
+  // Estados de cálculo de salidas con Solución de Referencia
+  isCalculatingOutputs = signal<boolean>(false);
+  calcOutputsError = signal<string | null>(null);
+  calcOutputsSuccess = signal<string | null>(null);
+
+  // Editor Multilínea Modal (para matrices o textos grandes)
+  editingMultilineIndex = signal<number | null>(null);
+  editingMultilineField = signal<'input' | 'expected_output' | null>(null);
+  editingMultilineValue = signal<string>('');
 
   // Workspace
   templateId = model.required<string>();
@@ -100,6 +132,10 @@ export class StepTechnicalComponent {
     this.languageChanged.emit(lang);
   }
 
+  onComparatorSelect(type: string): void {
+    this.comparatorType.set(type as 'exact' | 'float' | 'unordered' | 'custom');
+  }
+
   addTestCase(): void {
     this.testCases.update(cases => [
       ...cases,
@@ -111,6 +147,98 @@ export class StepTechnicalComponent {
     this.testCases.update(cases => {
       if (cases.length <= 1) return cases;
       return cases.filter((_, i) => i !== index);
+    });
+  }
+
+  openMultilineModal(index: number, field: 'input' | 'expected_output'): void {
+    const current = this.testCases()[index];
+    if (!current) return;
+    this.editingMultilineIndex.set(index);
+    this.editingMultilineField.set(field);
+    this.editingMultilineValue.set(field === 'input' ? current.input : current.expected_output);
+  }
+
+  saveMultilineModal(): void {
+    const idx = this.editingMultilineIndex();
+    const field = this.editingMultilineField();
+    if (idx === null || field === null) return;
+
+    this.testCases.update(cases => {
+      return cases.map((c, i) => {
+        if (i === idx) {
+          return {
+            ...c,
+            [field]: this.editingMultilineValue()
+          };
+        }
+        return c;
+      });
+    });
+
+    this.closeMultilineModal();
+  }
+
+  closeMultilineModal(): void {
+    this.editingMultilineIndex.set(null);
+    this.editingMultilineField.set(null);
+    this.editingMultilineValue.set('');
+  }
+
+  calculateOutputsFromReference(): void {
+    this.calcOutputsError.set(null);
+    this.calcOutputsSuccess.set(null);
+
+    const refSol = this.referenceSolution().trim();
+    if (!refSol) {
+      this.calcOutputsError.set('Ingrese la solución de referencia arriba antes de calcular las salidas.');
+      return;
+    }
+
+    const currentCases = this.testCases();
+    const inputsToRun = currentCases.map(c => c.input);
+    if (inputsToRun.length === 0 || inputsToRun.every(i => !i.trim())) {
+      this.calcOutputsError.set('Debe ingresar al menos un valor de Entrada (Input) para calcular.');
+      return;
+    }
+
+    this.isCalculatingOutputs.set(true);
+
+    this.courseService.calculateOutputs({
+      language: this.language(),
+      source_code: refSol,
+      inputs: inputsToRun,
+      time_limit_ms: this.timeLimitMs()
+    }).subscribe({
+      next: (res) => {
+        this.isCalculatingOutputs.set(false);
+        const outputs = res.outputs || [];
+        let errorsCount = 0;
+
+        this.testCases.update(cases => {
+          return cases.map((c, idx) => {
+            const outItem = outputs.find(o => o.index === idx);
+            if (outItem) {
+              if (outItem.status === 'ok') {
+                return { ...c, expected_output: outItem.expected_output };
+              } else {
+                errorsCount++;
+                return { ...c, expected_output: outItem.error_details || 'Error de ejecución' };
+              }
+            }
+            return c;
+          });
+        });
+
+        if (errorsCount > 0) {
+          this.calcOutputsError.set(`La solución generó errores en ${errorsCount} caso(s). Revise el código.`);
+        } else {
+          this.calcOutputsSuccess.set(`¡Salidas calculadas para ${outputs.length} caso(s) de prueba!`);
+        }
+      },
+      error: (err) => {
+        this.isCalculatingOutputs.set(false);
+        this.calcOutputsError.set(err.error?.message || 'Error al ejecutar la solución de referencia en el backend.');
+      }
     });
   }
 
@@ -148,9 +276,11 @@ export class StepTechnicalComponent {
 
     for (let i = startIndex; i < lines.length; i++) {
       const line = lines[i];
-      const parts = line.split(';').map(p => p.trim());
+      // Soporta delimitador ';' o ','
+      const delimiter = line.includes(';') ? ';' : ',';
+      const parts = line.split(delimiter).map(p => p.trim().replace(/^"(.*)"$/, '$1'));
       if (parts.length < 2) {
-        errors.push(`Línea ${i + 1}: Formato inválido. Se espera "input;expected_output;is_hidden"`);
+        errors.push(`Línea ${i + 1}: Formato inválido. Se espera "input${delimiter}expected_output${delimiter}is_hidden"`);
         continue;
       }
 

@@ -31,6 +31,96 @@
       </form-field>
     </div>
 
+    <!-- Modo de Comparación (Comparators) -->
+    <div class="comparator-config-box">
+      <div class="comparator-header">
+        <label class="section-title">
+          <svg lucideSliders class="section-icon-inline"></svg>
+          <span>Modo de Comparación de Salida</span>
+        </label>
+        <p class="section-subtitle">
+          Define cómo el Juez Virtual valida la salida del estudiante frente a la salida esperada.
+        </p>
+      </div>
+
+      <div class="comparator-inputs-grid">
+        <form-field label="Estrategia de Comparación" for="compType">
+          <combobox
+            [options]="comparatorOptions"
+            [value]="comparatorType()"
+            (valueChange)="onComparatorSelect($event)"
+            [showSearchIcon]="false"
+            placeholder="Seleccionar comparador..."
+          />
+        </form-field>
+
+        @if (comparatorType() === 'float') {
+          <form-field label="Tolerancia Decimal (Épsilon)" for="compEps" hint="Margen de error admisible (|obtenido - esperado| <= eps)">
+            <input
+              id="compEps"
+              type="number"
+              min="0.000000000001"
+              max="0.01"
+              step="0.000001"
+              [ngModel]="comparatorTolerance()"
+              (ngModelChange)="comparatorTolerance.set($event)"
+              class="form-input font-mono"
+            />
+          </form-field>
+        }
+      </div>
+    </div>
+
+    <!-- Solución de Referencia del Docente (Reference Solution) -->
+    <div class="reference-solution-section">
+      <div class="ref-sol-header">
+        <div>
+          <label class="section-title">
+            <svg lucideCode class="section-icon-inline"></svg>
+            <span>Solución de Referencia (Docente)</span>
+          </label>
+          <p class="section-subtitle">
+            Escribe la solución correcta del algoritmo. Se usará para auto-calcular salidas y validar el ejercicio antes de publicarlo.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="btn-primary-sm btn-calc-outputs"
+          [disabled]="isCalculatingOutputs()"
+          (click)="calculateOutputsFromReference()"
+          title="Ejecutar la solución del docente para rellenar las salidas esperadas automáticamente"
+        >
+          <svg lucidePlay class="btn-icon-sm"></svg>
+          <span>{{ isCalculatingOutputs() ? 'Calculando...' : 'Auto-calcular Salidas' }}</span>
+        </button>
+      </div>
+
+      @if (calcOutputsSuccess()) {
+        <div class="calc-success-banner">
+          <svg lucideCheck class="alert-icon-sm"></svg>
+          <span>{{ calcOutputsSuccess() }}</span>
+        </div>
+      }
+
+      @if (calcOutputsError()) {
+        <div class="calc-error-banner">
+          <svg lucideAlertTriangle class="alert-icon-sm"></svg>
+          <span>{{ calcOutputsError() }}</span>
+        </div>
+      }
+
+      <div class="ref-code-editor-wrap">
+        <textarea
+          rows="6"
+          placeholder="# Escribe aquí la solución de referencia en {{ language() }}..."
+          [ngModel]="referenceSolution()"
+          (ngModelChange)="referenceSolution.set($event)"
+          class="form-textarea font-mono ref-code-textarea"
+        ></textarea>
+      </div>
+    </div>
+
     <!-- Tabla y Acciones de Casos de Prueba -->
     <div class="test-cases-section">
       <div class="cases-header-actions">
@@ -93,6 +183,14 @@
                   (ngModelChange)="tc.input = $event"
                   class="form-input form-input-sm font-mono"
                 />
+                <button
+                  type="button"
+                  class="btn-cell-expand"
+                  (click)="openMultilineModal($index, 'input')"
+                  title="Expandir / Editar entrada multilínea o matriz"
+                >
+                  <svg lucideMaximize2 class="icon-2xs"></svg>
+                </button>
               </div>
               <div class="case-input-cell">
                 <input
@@ -102,6 +200,14 @@
                   (ngModelChange)="tc.expected_output = $event"
                   class="form-input form-input-sm font-mono"
                 />
+                <button
+                  type="button"
+                  class="btn-cell-expand"
+                  (click)="openMultilineModal($index, 'expected_output')"
+                  title="Expandir / Editar salida multilínea o matriz"
+                >
+                  <svg lucideMaximize2 class="icon-2xs"></svg>
+                </button>
               </div>
               <div class="case-visibility-cell">
                 <label class="visibility-toggle" title="Los casos privados no muestran los datos al alumno en caso de fallo">
@@ -134,6 +240,42 @@
         <span>Añadir Caso Manual</span>
       </button>
     </div>
+
+    <!-- Modal Rápido de Edición Multilínea / Matrices -->
+    @if (editingMultilineIndex() !== null) {
+      <div class="multiline-modal-overlay" (click)="closeMultilineModal()">
+        <div class="multiline-modal-box" (click)="$event.stopPropagation()">
+          <div class="multiline-modal-header">
+            <h4 class="multiline-modal-title">
+              Editar {{ editingMultilineField() === 'input' ? 'Entrada (Input)' : 'Salida Esperada' }} - Caso #{{ editingMultilineIndex()! + 1 }}
+            </h4>
+            <button type="button" class="btn-close-modal" (click)="closeMultilineModal()">
+              <svg lucideX class="icon-xs"></svg>
+            </button>
+          </div>
+          <div class="multiline-modal-body">
+            <p class="multiline-modal-hint">
+              Puedes escribir o pegar texto con múltiples líneas, matrices (ej. filas separadas por Enter), cadenas JSON o estructuras complejas.
+            </p>
+            <textarea
+              rows="8"
+              class="form-textarea font-mono multiline-editor-textarea"
+              [ngModel]="editingMultilineValue()"
+              (ngModelChange)="editingMultilineValue.set($event)"
+              placeholder="Pega aquí la entrada o salida multilínea..."
+            ></textarea>
+          </div>
+          <div class="multiline-modal-footer">
+            <button type="button" class="btn-outline-sm" (click)="closeMultilineModal()">
+              Cancelar
+            </button>
+            <button type="button" class="btn-primary-sm" (click)="saveMultilineModal()">
+              Guardar en Caso
+            </button>
+          </div>
+        </div>
+      </div>
+    }
   }
 
   <!-- =================================================================== -->

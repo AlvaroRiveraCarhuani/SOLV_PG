@@ -1,11 +1,14 @@
 import { Component, input, output, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import { 
   LucideCode, 
   LucideCheck, 
   LucideChevronRight, 
-  LucideChevronLeft 
+  LucideChevronLeft,
+  LucideAlertTriangle,
+  LucideArrowRight
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { TeacherCourseService } from '../../services/teacher-course.service';
@@ -27,6 +30,8 @@ export type { TestCaseFormItem, WorkspaceTemplateOption };
     LucideCheck,
     LucideChevronRight,
     LucideChevronLeft,
+    LucideAlertTriangle,
+    LucideArrowRight,
     ModalShellComponent,
     FuzzingModalComponent,
     TemplateRequestModalComponent,
@@ -40,6 +45,9 @@ export type { TestCaseFormItem, WorkspaceTemplateOption };
 export class ExerciseEditorModalComponent implements OnInit {
   private courseService = inject(TeacherCourseService);
   private http = inject(HttpClient);
+  private router = inject(Router);
+
+  readonly showDeprecationBanner = signal<boolean>(true);
 
   subjectId = input.required<string>();
   subjectName = input<string>('');
@@ -67,6 +75,9 @@ export class ExerciseEditorModalComponent implements OnInit {
   // PASO 2A: Configuración Juez Virtual
   language = signal<string>('python');
   timeLimitMs = signal<number>(1000);
+  referenceSolution = signal<string>('');
+  comparatorType = signal<'exact' | 'float' | 'unordered' | 'custom'>('exact');
+  comparatorTolerance = signal<number>(0.000001);
   testCases = signal<TestCaseFormItem[]>([
     { input: '', expected_output: '', is_hidden: false }
   ]);
@@ -161,7 +172,39 @@ export class ExerciseEditorModalComponent implements OnInit {
   formError = signal<string | null>(null);
   isSubmitting = signal<boolean>(false);
 
+  migrateToNewEditor(): void {
+    const courseId = this.subjectId();
+    const ex = this.exerciseToEdit();
+    if (ex && ex.id) {
+      this.router.navigate(['/teacher/courses', courseId, 'exercises', ex.id, 'edit']);
+    } else {
+      this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new']);
+    }
+    this.close.emit();
+  }
+
+  dismissBanner(): void {
+    this.showDeprecationBanner.set(false);
+    try {
+      sessionStorage.setItem('dismiss_legacy_exercise_editor_banner', 'true');
+    } catch {}
+  }
+
   ngOnInit(): void {
+    try {
+      const dismissed = sessionStorage.getItem('dismiss_legacy_exercise_editor_banner') === 'true';
+      if (dismissed) {
+        this.showDeprecationBanner.set(false);
+      }
+    } catch {}
+
+    // Tracking de uso para medición de adopción
+    console.info('[AuditLog] exercise_editor_opened', {
+      editor_type: 'legacy_modal',
+      exercise_id: this.exerciseToEdit()?.id || null,
+      subject_id: this.subjectId()
+    });
+
     this.loadApprovedTemplates();
 
     const edit = this.exerciseToEdit();
@@ -343,6 +386,22 @@ export class ExerciseEditorModalComponent implements OnInit {
     const exerciseType = isWorkspace ? 'workspace' : 'algorithm';
     const tpl = this.selectedTemplate();
 
+    if (publish && !isWorkspace) {
+      if (!this.referenceSolution().trim()) {
+        this.formError.set('Para publicar el ejercicio es obligatorio definir una Solución de Referencia en el Paso 2.');
+        this.currentStep.set(2);
+        return;
+      }
+      const publicCases = this.testCases().filter(c => !c.is_hidden && c.input.trim() && c.expected_output.trim());
+      if (publicCases.length === 0) {
+        this.formError.set('Debe existir al menos un caso de prueba público para que el estudiante pueda verificar su sintaxis.');
+        this.currentStep.set(2);
+        return;
+      }
+    }
+
+    this.isSubmitting.set(true);
+
     const edit = this.exerciseToEdit();
     if (edit) {
       this.courseService.updateExercise(edit.id, {
@@ -351,6 +410,15 @@ export class ExerciseEditorModalComponent implements OnInit {
         type: exerciseType,
         language: isWorkspace ? undefined : this.language(),
         boilerplate: this.boilerplate().trim(),
+        reference_solution: isWorkspace ? undefined : this.referenceSolution().trim(),
+        ast_rules: isWorkspace ? undefined : {
+          block_native_sort: this.blockNativeSort(),
+          block_system_modules: this.blockSystemModules()
+        },
+        comparator: isWorkspace ? undefined : {
+          id: this.comparatorType(),
+          params: this.comparatorType() === 'float' ? { eps: this.comparatorTolerance(), mode: 'hybrid' } : {}
+        },
         template_id: isWorkspace ? tpl?.id : undefined,
         memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? undefined : this.timeLimitMs(),
@@ -358,18 +426,7 @@ export class ExerciseEditorModalComponent implements OnInit {
       }).subscribe({
         next: () => {
           if (publish) {
-            this.courseService.publishExercise(edit.id).subscribe({
-              next: () => {
-                this.isSubmitting.set(false);
-                this.saved.emit();
-                this.close.emit();
-              },
-              error: () => {
-                this.isSubmitting.set(false);
-                this.saved.emit();
-                this.close.emit();
-              }
-            });
+            this.verifyAndPublish(edit.id, isWorkspace);
           } else {
             this.isSubmitting.set(false);
             this.saved.emit();
@@ -389,6 +446,15 @@ export class ExerciseEditorModalComponent implements OnInit {
         type: exerciseType,
         language: isWorkspace ? 'workspace' : this.language(),
         boilerplate: this.boilerplate().trim(),
+        reference_solution: isWorkspace ? undefined : this.referenceSolution().trim(),
+        ast_rules: isWorkspace ? undefined : {
+          block_native_sort: this.blockNativeSort(),
+          block_system_modules: this.blockSystemModules()
+        },
+        comparator: isWorkspace ? undefined : {
+          id: this.comparatorType(),
+          params: this.comparatorType() === 'float' ? { eps: this.comparatorTolerance(), mode: 'hybrid' } : {}
+        },
         template_id: isWorkspace ? tpl?.id : undefined,
         memory_limit_mb: isWorkspace ? tpl?.base_ram_mb : 256,
         time_limit_ms: isWorkspace ? 0 : this.timeLimitMs(),
@@ -397,18 +463,7 @@ export class ExerciseEditorModalComponent implements OnInit {
         next: (created) => {
           const onFinish = () => {
             if (publish) {
-              this.courseService.publishExercise(created.id).subscribe({
-                next: () => {
-                  this.isSubmitting.set(false);
-                  this.saved.emit();
-                  this.close.emit();
-                },
-                error: () => {
-                  this.isSubmitting.set(false);
-                  this.saved.emit();
-                  this.close.emit();
-                }
-              });
+              this.verifyAndPublish(created.id, isWorkspace);
             } else {
               this.isSubmitting.set(false);
               this.saved.emit();
@@ -434,6 +489,88 @@ export class ExerciseEditorModalComponent implements OnInit {
         }
       });
     }
+  }
+
+  private verifyAndPublish(exerciseId: string, isWorkspace: boolean): void {
+    if (isWorkspace) {
+      this.courseService.publishExercise(exerciseId).subscribe({
+        next: () => {
+          this.isSubmitting.set(false);
+          this.saved.emit();
+          this.close.emit();
+        },
+        error: (err) => {
+          this.isSubmitting.set(false);
+          this.formError.set(err.error?.message || 'Error al publicar el laboratorio.');
+        }
+      });
+      return;
+    }
+
+    // Iniciar verificación previa con Dry-Run
+    this.courseService.startDryRun(exerciseId).subscribe({
+      next: (job) => {
+        if (job && job.id) {
+          this.pollDryRunAndPublish(job.id, exerciseId, 1);
+        } else {
+          // Si el endpoint devolvió directamente éxito
+          this.courseService.publishExercise(exerciseId).subscribe({
+            next: () => {
+              this.isSubmitting.set(false);
+              this.saved.emit();
+              this.close.emit();
+            },
+            error: (err) => {
+              this.isSubmitting.set(false);
+              this.formError.set(err.error?.message || 'Error al publicar el ejercicio.');
+            }
+          });
+        }
+      },
+      error: (err) => {
+        this.isSubmitting.set(false);
+        this.formError.set(err.error?.message || 'Error al iniciar la verificación previa con Dry-Run.');
+      }
+    });
+  }
+
+  private pollDryRunAndPublish(jobId: string, exerciseId: string, attempt: number): void {
+    if (attempt > 15) {
+      this.isSubmitting.set(false);
+      this.formError.set('Tiempo de espera agotado al verificar la solución de referencia.');
+      return;
+    }
+
+    this.courseService.getDryRunJob(jobId, exerciseId).subscribe({
+      next: (job) => {
+        if (job.status === 'done') {
+          this.courseService.publishExercise(exerciseId).subscribe({
+            next: () => {
+              this.isSubmitting.set(false);
+              this.saved.emit();
+              this.close.emit();
+            },
+            error: (err) => {
+              this.isSubmitting.set(false);
+              this.formError.set(err.error?.message || 'Error al publicar el ejercicio tras verificación.');
+            }
+          });
+        } else if (job.status === 'failed') {
+          this.isSubmitting.set(false);
+          const errorMsg = job.error || 'La solución de referencia no superó todos los casos de prueba con veredicto AC.';
+          this.formError.set(`Fallo en verificación previa: ${errorMsg}`);
+        } else {
+          // Estado queued o running -> esperar 600ms
+          setTimeout(() => {
+            this.pollDryRunAndPublish(jobId, exerciseId, attempt + 1);
+          }, 600);
+        }
+      },
+      error: (err) => {
+        this.isSubmitting.set(false);
+        this.formError.set(err.error?.message || 'Error al consultar el progreso del Dry-Run.');
+      }
+    });
   }
 
   private getDefaultBoilerplate(lang: string): string {
