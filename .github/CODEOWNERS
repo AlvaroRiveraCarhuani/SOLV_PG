@@ -1,0 +1,14 @@
+# CODEOWNERS — Asignación de Responsabilidades y Gobernanza del Código SOLV
+
+# Propietario global por defecto
+* @AlvaroRiveraCarhuani
+
+# Backend (Go 1.26 + Postgres 18 + Docker Engine)
+/backend/ @AlvaroRiveraCarhuani
+
+# Frontend (Angular 22 Standalone + Material + Lucide + SCSS Tokens)
+/frontend/ @AlvaroRiveraCarhuani
+
+# Infraestructura, CI/CD y Gobernanza
+/.github/ @AlvaroRiveraCarhuani
+/docs/ @AlvaroRiveraCarhuani

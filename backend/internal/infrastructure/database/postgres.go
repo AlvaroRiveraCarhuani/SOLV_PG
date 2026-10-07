@@ -51,3 +51,21 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 	return nil
 }
 
+// RunMigrationsDown revierte todas las migraciones en el directorio dado hasta 0 usando goose.
+func RunMigrationsDown(db *sql.DB, migrationsDir string) error {
+	_, errLock := db.Exec("SELECT pg_advisory_lock(1337)")
+	if errLock != nil {
+		log.Printf("Notice: could not acquire migration advisory lock: %v", errLock)
+	} else {
+		defer func() { _, _ = db.Exec("SELECT pg_advisory_unlock(1337)") }()
+	}
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("goose set dialect: %w", err)
+	}
+	if err := goose.DownTo(db, migrationsDir, 0); err != nil {
+		return fmt.Errorf("goose down: %w", err)
+	}
+	return nil
+}
+

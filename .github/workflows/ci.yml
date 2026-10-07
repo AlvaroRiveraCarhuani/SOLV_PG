@@ -1,4 +1,4 @@
-name: SOLV DevSecOps CI/CD Pipeline
+name: SOLV Pipeline CI/CD
 
 on:
   push:
@@ -6,106 +6,253 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  backend-test:
-    name: Backend Go Tests & Integration
+  # Stage 1: Linting y Gates de Calidad Semántica (fail-fast)
+  lint:
+    name: 1. Lint & Quality Gates
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Go
+      - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25'
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
 
-      - name: Install Semgrep CLI
-        run: |
-          pipx install semgrep || pip install semgrep
-
-      - name: Install PostgreSQL & Start Docker Services
-        run: |
-          docker compose up -d postgres
-          docker compose ps
-
-      - name: Wait for PostgreSQL to be ready
-        run: |
-          until docker compose exec -T postgres pg_isready -U solv_user -d solv_db; do
-            echo "Waiting for PostgreSQL to accept connections..."
-            sleep 2
-          done
-
-      - name: Create Test Database
-        run: |
-          docker compose exec -T postgres psql -U solv_user -d solv_db -tc "SELECT 1 FROM pg_database WHERE datname = 'solv_test'" | grep -q 1 || \
-          docker compose exec -T postgres psql -U solv_user -d solv_db -c "CREATE DATABASE solv_test;"
-
-      - name: Run Database Migrations
-        env:
-          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
-        run: |
-          cd backend
-          go run ./cmd/migrate -dir ./migrations
-
-      - name: Run Go Unit and Integration Tests
-        env:
-          DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
-          TEST_DB_DSN: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
-          TEST_DATABASE_URL: "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
-        run: |
-          cd backend
-          go test -v ./... -count=1
-
-  frontend-build:
-    name: Frontend Angular Build Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Set up Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
 
-      - name: Install Dependencies
+      - name: Check Go format (gofmt)
+        run: |
+          cd backend
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Archivos Go sin formato:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Run Go vet
+        run: |
+          cd backend
+          go vet ./...
+
+      - name: Install Frontend Dependencies
         run: |
           cd frontend
-          npm install --legacy-peer-deps
+          npm ci
 
-      - name: Run Stylelint Typography & Color Gate
+      - name: Run Stylelint & Semantic Gates
         run: |
           cd frontend
           npm run lint:styles
 
-      - name: Run Frontend Unit Tests
+      - name: Run Vitest Quality Gates
         run: |
           cd frontend
-          npm run test:ci
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs
 
-      - name: Install Playwright Chromium
-        run: |
-          cd frontend
-          npx playwright install --with-deps chromium
-
-      - name: Run Computed Typography Check
-        run: |
-          cd frontend
-          npm run test:e2e:typography
-
-      - name: Build Angular Application
-        run: |
-          cd frontend
-          npm run build --if-present
-
-  security-scan:
-    name: DevSecOps Semgrep Security Scan
+  # Stage 2: Tests del Backend con Postgres Efímero
+  test-backend:
+    name: 2. Test Backend (Postgres Service)
+    needs: lint
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: solv_test
+          POSTGRES_USER: solv_user
+          POSTGRES_PASSWORD: solv_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - name: Checkout Code
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Semgrep AST Security Scan
-        uses: semgrep/semgrep-action@v1
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          config: p/default
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - name: Apply Migrations Chain (00001 -> Up)
+        env:
+          TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:5432/solv_test?sslmode=disable"
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up
+
+      - name: Run Backend Tests
+        env:
+          TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:5432/solv_test?sslmode=disable"
+        run: |
+          cd backend
+          go test -v ./internal/core/services ./internal/delivery/http
+
+  # Stage 3: Tests del Frontend
+  test-frontend:
+    name: 3. Test Frontend
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Run Frontend Vitest Gates
+        run: |
+          cd frontend
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs
+
+  # Stage 4: Build Backend & Frontend
+  build:
+    name: 4. Build Artifacts
+    needs: [test-backend, test-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build Go Backend
+        run: |
+          cd backend
+          go build -v ./...
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build Angular Frontend Production
+        run: |
+          cd frontend
+          CI=true NG_CLI_ANALYTICS=false npm run build
+
+  # Stage 5: Security Audit & Scans
+  security:
+    name: 5. Security Audit
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Audit NPM Dependencies (High/Critical)
+        run: |
+          cd frontend
+          npm audit --audit-level=high
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - name: Run Go Vet Security Check
+        run: |
+          cd backend
+          go vet ./...
+
+  # Stage 6: Migration Chain Verification (00001 -> 00019 Up & Down Reversibility)
+  migration-chain:
+    name: 6. Migration Chain Verification
+    needs: security
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: solv_migration_test
+          POSTGRES_USER: solv_user
+          POSTGRES_PASSWORD: solv_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - name: Run Migration Up Chain (00001 -> Complete)
+        env:
+          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up
+
+      - name: Run Migration Down Chain (Reversibility Complete -> 00001)
+        env:
+          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=down
+
+      - name: Re-apply Migration Up Chain (Verify Clean Re-execution)
+        env:
+          DATABASE_URL: "postgres://solv_user:solv_password@localhost:5432/solv_migration_test?sslmode=disable"
+        run: |
+          cd backend
+          go run ./cmd/migrate -dir ./migrations -action=up

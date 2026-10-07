@@ -13,8 +13,10 @@ import (
 func main() {
 	var dsn string
 	var dir string
+	var action string
 	flag.StringVar(&dsn, "dsn", "", "database DSN")
 	flag.StringVar(&dir, "dir", "migrations", "migrations directory")
+	flag.StringVar(&action, "action", "up", "action to perform: up, down, reset")
 	flag.Parse()
 
 	if dsn == "" {
@@ -37,9 +39,29 @@ func main() {
 		log.Fatalf("Fatal: failed to ping database: %v", err)
 	}
 
-	log.Printf("Applying migrations from %s ...", dir)
-	if err := database.RunMigrations(db, dir); err != nil {
-		log.Fatalf("Fatal: migration failed: %v", err)
+	switch action {
+	case "down":
+		log.Printf("Reverting all migrations from %s ...", dir)
+		if err := database.RunMigrationsDown(db, dir); err != nil {
+			log.Fatalf("Fatal: migration down failed: %v", err)
+		}
+		log.Println("Migrations reverted successfully.")
+
+	case "reset":
+		log.Printf("Resetting (down then up) migrations from %s ...", dir)
+		if err := database.RunMigrationsDown(db, dir); err != nil {
+			log.Fatalf("Fatal: migration down failed: %v", err)
+		}
+		if err := database.RunMigrations(db, dir); err != nil {
+			log.Fatalf("Fatal: migration up failed: %v", err)
+		}
+		log.Println("Migration reset completed successfully.")
+
+	default:
+		log.Printf("Applying migrations from %s ...", dir)
+		if err := database.RunMigrations(db, dir); err != nil {
+			log.Fatalf("Fatal: migration failed: %v", err)
+		}
+		log.Println("Migrations applied successfully.")
 	}
-	log.Println("Migrations applied successfully.")
 }
