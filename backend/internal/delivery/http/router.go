@@ -216,7 +216,6 @@ func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/student/dashboard", tm(http.HandlerFunc(deps.StudentHandler.GetDashboard)))
 	mux.Handle("GET /api/v1/student/assignments/due", tm(http.HandlerFunc(deps.StudentHandler.GetDueAssignments)))
 	mux.Handle("GET /api/v1/student/courses/{id}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
-	mux.Handle("GET /api/v1/student/courses/{courseId}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
 }
 
 func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -424,21 +423,13 @@ func registerCourseModuleRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	// Teacher module routes
 	mux.Handle("POST /api/v1/teacher/courses/{id}/modules", am(tm(http.HandlerFunc(deps.CourseModuleHandler.CreateModule))))
-	mux.Handle("POST /api/v1/teacher/courses/{courseId}/modules", am(tm(http.HandlerFunc(deps.CourseModuleHandler.CreateModule))))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/modules", tm(http.HandlerFunc(deps.CourseModuleHandler.ListModules)))
-	mux.Handle("GET /api/v1/teacher/courses/{courseId}/modules", tm(http.HandlerFunc(deps.CourseModuleHandler.ListModules)))
 	mux.Handle("PUT /api/v1/teacher/modules/{id}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.UpdateModule))))
-	mux.Handle("PUT /api/v1/teacher/modules/{moduleId}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.UpdateModule))))
 	mux.Handle("DELETE /api/v1/teacher/modules/{id}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeleteModule))))
-	mux.Handle("DELETE /api/v1/teacher/modules/{moduleId}", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeleteModule))))
 	mux.Handle("POST /api/v1/teacher/modules/{id}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.SetPrerequisites))))
-	mux.Handle("POST /api/v1/teacher/modules/{moduleId}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.SetPrerequisites))))
 	mux.Handle("DELETE /api/v1/teacher/modules/{id}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeletePrerequisites))))
-	mux.Handle("DELETE /api/v1/teacher/modules/{moduleId}/prerequisites", am(tm(http.HandlerFunc(deps.CourseModuleHandler.DeletePrerequisites))))
 	mux.Handle("PUT /api/v1/teacher/exercises/{id}/module", am(tm(http.HandlerFunc(deps.CourseModuleHandler.AssignExerciseModule))))
-	mux.Handle("PUT /api/v1/teacher/exercises/{exerciseId}/module", am(tm(http.HandlerFunc(deps.CourseModuleHandler.AssignExerciseModule))))
 
 	// Student curricular map route
 	mux.Handle("GET /api/v1/student/courses/{id}/map", tm(http.HandlerFunc(deps.CourseModuleHandler.GetStudentCurricularMap)))
-	mux.Handle("GET /api/v1/student/courses/{courseId}/map", tm(http.HandlerFunc(deps.CourseModuleHandler.GetStudentCurricularMap)))
 }
