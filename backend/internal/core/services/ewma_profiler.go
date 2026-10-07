@@ -13,8 +13,8 @@ import (
 )
 
 type EWMAProfilerServiceImpl struct {
-	repo domain.LabTemplateRepository
-	mu   sync.Mutex
+	repo  domain.LabTemplateRepository
+	mu    sync.Mutex
 	locks map[string]*sync.Mutex
 }
 

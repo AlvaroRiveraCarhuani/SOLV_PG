@@ -19,8 +19,8 @@ const (
 	OOMCooldownDuration         = 5 * time.Minute
 
 	// Factor de suavizado EWMA (alpha = 0.2) y factor de margen (1.25 -> 25% headroom)
-	EWMAAlpha                 float64 = 0.2
-	EWMASafetyMarginFactor    float64 = 1.25
+	EWMAAlpha              float64 = 0.2
+	EWMASafetyMarginFactor float64 = 1.25
 )
 
 type WorkspaceInstance struct {

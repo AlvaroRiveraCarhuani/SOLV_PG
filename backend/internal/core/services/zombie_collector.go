@@ -11,11 +11,11 @@ import (
 )
 
 type ZombieCollectorWorker struct {
-	repo                   domain.WorkspaceRepository
-	orchestrator           domain.WorkspaceOrchestrator
-	interval               time.Duration
-	mu                     sync.Mutex
-	reclaimedCountAtomic   uint64
+	repo                 domain.WorkspaceRepository
+	orchestrator         domain.WorkspaceOrchestrator
+	interval             time.Duration
+	mu                   sync.Mutex
+	reclaimedCountAtomic uint64
 }
 
 func NewZombieCollectorWorker(repo domain.WorkspaceRepository, orchestrator domain.WorkspaceOrchestrator, interval time.Duration) *ZombieCollectorWorker {

@@ -11,11 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/delivery/http/middleware"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/storage/postgres"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 func TestSlice11OperabilityB2B(t *testing.T) {

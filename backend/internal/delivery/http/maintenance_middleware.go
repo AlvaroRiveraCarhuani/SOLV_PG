@@ -34,11 +34,11 @@ func MaintenanceMiddleware(tenantRepo domain.TenantRepository) func(http.Handler
 			}
 
 			// 4. Lazy auto-off: una vigencia vencida se persiste como off en la
-		// primera lectura (sin sweeper). El evento MAINTENANCE_AUTO_DISABLED
-		// se audita en GetMaintenanceStatus, que sí tiene auditLogRepo.
-		_, _ = services.NewMaintenanceService(tenantRepo).ClearExpiredMaintenance(r.Context(), tenantID)
+			// primera lectura (sin sweeper). El evento MAINTENANCE_AUTO_DISABLED
+			// se audita en GetMaintenanceStatus, que sí tiene auditLogRepo.
+			_, _ = services.NewMaintenanceService(tenantRepo).ClearExpiredMaintenance(r.Context(), tenantID)
 
-		// 5. Consultar estado de mantenimiento
+			// 5. Consultar estado de mantenimiento
 			status, err := tenantRepo.GetMaintenance(r.Context(), tenantID)
 			if err == nil && status != nil && status.MaintenanceMode {
 				// Verificar si la fecha límite sigue vigente

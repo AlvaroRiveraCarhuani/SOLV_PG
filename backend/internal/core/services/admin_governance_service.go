@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	ErrReasonTooShort        = errors.New("justification reason must have at least 10 characters")
-	ErrTeacherNotFoundOrRole = errors.New("assigned user does not exist or does not have teacher role")
+	ErrReasonTooShort               = errors.New("justification reason must have at least 10 characters")
+	ErrTeacherNotFoundOrRole        = errors.New("assigned user does not exist or does not have teacher role")
 	ErrEmergencyExecutorUnavailable = errors.New("emergency executor not configured in this deployment")
 )
 
@@ -150,7 +150,7 @@ func (s *AdminGovernanceService) ResetStudentOOM(
 }
 
 var (
-	ErrInvalidReviewStatus      = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
+	ErrInvalidReviewStatus     = errors.New("status must be 'approved', 'rejected', 'paused', 'suspended' or 'pending_audit'")
 	ErrRejectionReasonRequired = errors.New("rejection_reason is required when rejecting or suspending a template")
 )
 
@@ -202,7 +202,7 @@ func (s *AdminGovernanceService) getHostTotalRAM(ctx context.Context) int {
 }
 
 var (
-	dockerImageRegex = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$`)
+	dockerImageRegex      = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$`)
 	ErrInvalidDockerImage = errors.New("la imagen Docker debe tener formato válido repositorio:tag sin espacios (ej: python:3.12-slim)")
 	ErrLatestTagForbidden = errors.New("el tag :latest está prohibido en plantillas oficiales por reproducibilidad")
 )
@@ -317,7 +317,7 @@ var emergencyAuditActions = map[string]string{
 }
 
 var (
-	ErrUnknownEmergencyAction     = errors.New("unknown emergency action")
+	ErrUnknownEmergencyAction    = errors.New("unknown emergency action")
 	ErrInvalidConfirmationPhrase = errors.New("invalid confirmation phrase")
 )
 
@@ -558,12 +558,12 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 		},
 	}
 
-// editorBaseMB es la RAM mínima que consume el proceso del editor (OpenVSCode Server).
-// Constante de dominio: si se necesita hacer configurable, agregar al struct de Config del servicio.
-const editorBaseMB = 210
+	// editorBaseMB es la RAM mínima que consume el proceso del editor (OpenVSCode Server).
+	// Constante de dominio: si se necesita hacer configurable, agregar al struct de Config del servicio.
+	const editorBaseMB = 210
 
-// runtimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox del contenedor efímero).
-const runtimeBaseMB = 32
+	// runtimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox del contenedor efímero).
+	const runtimeBaseMB = 32
 
 	return &domain.RuntimeCapabilities{
 		HostMemory:        hostMem,
@@ -731,4 +731,3 @@ func (s *AdminGovernanceService) DeleteTemplateDraft(ctx context.Context, tenant
 func (s *AdminGovernanceService) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
 	return s.govRepo.GetImageUsageCounts(ctx, tenantID)
 }
-

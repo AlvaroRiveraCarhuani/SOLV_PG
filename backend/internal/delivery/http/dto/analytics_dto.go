@@ -23,9 +23,9 @@ type TimelineMetricDTO struct {
 }
 
 type CourseAnalyticsResponseDTO struct {
-	DifficultyDistribution         map[string]DifficultyMetricDTO `json:"difficulty_distribution"`
-	TopTags                        []TagMetricDTO                 `json:"top_tags"`
-	MostFailedCases                []FailedCaseMetricDTO          `json:"most_failed_cases"`
+	DifficultyDistribution        map[string]DifficultyMetricDTO `json:"difficulty_distribution"`
+	TopTags                       []TagMetricDTO                 `json:"top_tags"`
+	MostFailedCases               []FailedCaseMetricDTO          `json:"most_failed_cases"`
 	AvgResolutionTimeByDifficulty map[string]int                 `json:"avg_resolution_time_by_difficulty"`
-	SubmissionsTimeline            []TimelineMetricDTO            `json:"submissions_timeline"`
+	SubmissionsTimeline           []TimelineMetricDTO            `json:"submissions_timeline"`
 }

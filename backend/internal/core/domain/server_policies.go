@@ -4,9 +4,9 @@ package domain
 // institucional (ADR-014 / submódulo 14.6). Se persisten en tenants.config
 // bajo la clave "server_policies" y el worker QoS las recarga en cada ciclo.
 type ServerPolicies struct {
-	RAMLimitMB        int `json:"ram_limit_mb"`        // 256 | 512 | 1024
-	InactivityMinutes int `json:"inactivity_minutes"`  // 10 | 15 | 30
-	MaxContainers     int `json:"max_containers"`      // >= 1
+	RAMLimitMB        int    `json:"ram_limit_mb"`       // 256 | 512 | 1024
+	InactivityMinutes int    `json:"inactivity_minutes"` // 10 | 15 | 30
+	MaxContainers     int    `json:"max_containers"`     // >= 1
 	UpdatedAt         string `json:"updated_at,omitempty"`
 }
 

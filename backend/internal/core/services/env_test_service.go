@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	ErrJobNotFound = errors.New("job de prueba de entorno no encontrado")
+	ErrJobNotFound        = errors.New("job de prueba de entorno no encontrado")
 	ErrJobAlreadyFinished = errors.New("el job ya se encuentra en un estado terminal")
 )
 

@@ -224,29 +224,29 @@ type DryRunJob struct {
 }
 
 type Exercise struct {
-	ID                string          `json:"id" db:"id"`
-	SubjectID         *string         `json:"subject_id,omitempty" db:"subject_id"`
-	Title             string          `json:"title" db:"title"`
-	Description       string          `json:"description" db:"description"`
-	Type              ExerciseType    `json:"type" db:"type"`
-	Difficulty        *string         `json:"difficulty,omitempty" db:"difficulty"`
-	Tags              pq.StringArray  `json:"tags" db:"tags"`
-	Purpose           string          `json:"purpose" db:"purpose"` // class, exam
-	PerStudentSeed    bool            `json:"per_student_seed" db:"per_student_seed"`
-	DueDate           *time.Time      `json:"due_date,omitempty" db:"due_date"`
-	Boilerplate       string          `json:"boilerplate" db:"boilerplate"`
-	Status            string          `json:"status" db:"status"` // draft, published, closed
-	Language          string          `json:"language" db:"language"`
-	TimeLimitMS       int             `json:"time_limit_ms" db:"time_limit_ms"`
-	MemoryLimitMB     int             `json:"memory_limit_mb" db:"memory_limit_mb"`
-	ReferenceSolution string          `json:"reference_solution" db:"reference_solution"`
-	Stale             bool            `json:"stale" db:"stale"`
-	LastValidDryRunAt *time.Time      `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
-	ModuleID          *string         `json:"module_id,omitempty" db:"module_id"`
+	ID                 string         `json:"id" db:"id"`
+	SubjectID          *string        `json:"subject_id,omitempty" db:"subject_id"`
+	Title              string         `json:"title" db:"title"`
+	Description        string         `json:"description" db:"description"`
+	Type               ExerciseType   `json:"type" db:"type"`
+	Difficulty         *string        `json:"difficulty,omitempty" db:"difficulty"`
+	Tags               pq.StringArray `json:"tags" db:"tags"`
+	Purpose            string         `json:"purpose" db:"purpose"` // class, exam
+	PerStudentSeed     bool           `json:"per_student_seed" db:"per_student_seed"`
+	DueDate            *time.Time     `json:"due_date,omitempty" db:"due_date"`
+	Boilerplate        string         `json:"boilerplate" db:"boilerplate"`
+	Status             string         `json:"status" db:"status"` // draft, published, closed
+	Language           string         `json:"language" db:"language"`
+	TimeLimitMS        int            `json:"time_limit_ms" db:"time_limit_ms"`
+	MemoryLimitMB      int            `json:"memory_limit_mb" db:"memory_limit_mb"`
+	ReferenceSolution  string         `json:"reference_solution" db:"reference_solution"`
+	Stale              bool           `json:"stale" db:"stale"`
+	LastValidDryRunAt  *time.Time     `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	ModuleID           *string        `json:"module_id,omitempty" db:"module_id"`
 	ExpectedComplexity *string        `json:"expected_complexity,omitempty" db:"expected_complexity"`
-	Config            ExerciseConfig  `json:"config" db:"config"`
-	TenantID          string          `json:"tenant_id" db:"tenant_id"`
-	CreatedAt         time.Time       `json:"created_at" db:"created_at"`
+	Config             ExerciseConfig `json:"config" db:"config"`
+	TenantID           string         `json:"tenant_id" db:"tenant_id"`
+	CreatedAt          time.Time      `json:"created_at" db:"created_at"`
 }
 
 type ComplexityMeasurement struct {
@@ -303,7 +303,7 @@ type EvaluationResult struct {
 	FailedTestCase  *TestCase `json:"failed_test_case,omitempty"`
 	// CaseResults agrega el veredicto de cada caso evaluado. La evaluacion
 	// recorre todos los casos sin detencion temprana (D-EJ-03).
-	CaseResults  []CaseResult `json:"case_results,omitempty"`
+	CaseResults        []CaseResult        `json:"case_results,omitempty"`
 	ActualJSON         string              `json:"actual_json,omitempty"`
 	ExpectedJSON       string              `json:"expected_json,omitempty"`
 	GeneratedCases     []TestCase          `json:"generated_cases,omitempty"`

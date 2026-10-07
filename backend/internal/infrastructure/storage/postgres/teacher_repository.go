@@ -331,10 +331,10 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 
 	// Listar ejercicios del curso
 	type exRow struct {
-		ID      string         `db:"id"`
-		Title   string         `db:"title"`
-		Status  string         `db:"status"`
-		DueDate sql.NullTime   `db:"due_date"`
+		ID      string       `db:"id"`
+		Title   string       `db:"title"`
+		Status  string       `db:"status"`
+		DueDate sql.NullTime `db:"due_date"`
 	}
 	var exRows []exRow
 	exercisesQuery := `
@@ -508,22 +508,22 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 
 func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*domain.TeacherSubmissionReviewDTO, error) {
 	type subDetailRow struct {
-		ID              string          `db:"id"`
-		ExerciseID      string          `db:"exercise_id"`
-		ExerciseTitle   string          `db:"exercise_title"`
-		ExerciseConfig  []byte          `db:"exercise_config"`
-		SubjectID       string          `db:"subject_id"`
-		SubjectName     string          `db:"subject_name"`
-		StudentID       string          `db:"student_id"`
-		StudentName     string          `db:"student_name"`
-		StudentEmail    string          `db:"student_email"`
-		Code            string          `db:"code"`
-		Verdict         string          `db:"verdict"`
-		Score           sql.NullInt64   `db:"score"`
-		ManualOverride  sql.NullBool    `db:"manual_override"`
-		OverrideReason  sql.NullString  `db:"override_reason"`
-		GradedBy        sql.NullString  `db:"graded_by"`
-		GradedByName    sql.NullString  `db:"graded_by_name"`
+		ID                 string         `db:"id"`
+		ExerciseID         string         `db:"exercise_id"`
+		ExerciseTitle      string         `db:"exercise_title"`
+		ExerciseConfig     []byte         `db:"exercise_config"`
+		SubjectID          string         `db:"subject_id"`
+		SubjectName        string         `db:"subject_name"`
+		StudentID          string         `db:"student_id"`
+		StudentName        string         `db:"student_name"`
+		StudentEmail       string         `db:"student_email"`
+		Code               string         `db:"code"`
+		Verdict            string         `db:"verdict"`
+		Score              sql.NullInt64  `db:"score"`
+		ManualOverride     sql.NullBool   `db:"manual_override"`
+		OverrideReason     sql.NullString `db:"override_reason"`
+		GradedBy           sql.NullString `db:"graded_by"`
+		GradedByName       sql.NullString `db:"graded_by_name"`
 		ExecutionTimeMS    int            `db:"execution_time_ms"`
 		MemoryUsedMB       int            `db:"memory_used_mb"`
 		ASTResult          []byte         `db:"ast_result"`
@@ -965,11 +965,11 @@ func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Contex
 
 func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*domain.CourseAnalytics, error) {
 	analytics := &domain.CourseAnalytics{
-		DifficultyDistribution:         make(map[string]domain.DifficultyMetric),
-		TopTags:                        make([]domain.TagMetric, 0),
-		MostFailedCases:                make([]domain.FailedCaseMetric, 0),
+		DifficultyDistribution:        make(map[string]domain.DifficultyMetric),
+		TopTags:                       make([]domain.TagMetric, 0),
+		MostFailedCases:               make([]domain.FailedCaseMetric, 0),
 		AvgResolutionTimeByDifficulty: make(map[string]int),
-		SubmissionsTimeline:            make([]domain.TimelineMetric, 0),
+		SubmissionsTimeline:           make([]domain.TimelineMetric, 0),
 	}
 
 	// 1. Distribución por dificultad
@@ -1149,5 +1149,3 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 
 	return analytics, nil
 }
-
-

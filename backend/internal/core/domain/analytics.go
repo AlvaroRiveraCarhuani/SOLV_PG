@@ -28,9 +28,9 @@ type TimelineMetric struct {
 
 // CourseAnalytics reune las metricas academicas agregadas a nivel de curso/materia.
 type CourseAnalytics struct {
-	DifficultyDistribution         map[string]DifficultyMetric `json:"difficulty_distribution"`
-	TopTags                        []TagMetric                 `json:"top_tags"`
-	MostFailedCases                []FailedCaseMetric          `json:"most_failed_cases"`
+	DifficultyDistribution        map[string]DifficultyMetric `json:"difficulty_distribution"`
+	TopTags                       []TagMetric                 `json:"top_tags"`
+	MostFailedCases               []FailedCaseMetric          `json:"most_failed_cases"`
 	AvgResolutionTimeByDifficulty map[string]int              `json:"avg_resolution_time_by_difficulty"`
-	SubmissionsTimeline            []TimelineMetric            `json:"submissions_timeline"`
+	SubmissionsTimeline           []TimelineMetric            `json:"submissions_timeline"`
 }

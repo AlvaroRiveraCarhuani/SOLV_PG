@@ -74,4 +74,3 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 
 	return resp
 }
-

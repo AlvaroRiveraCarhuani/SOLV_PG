@@ -19,13 +19,13 @@ const (
 
 // Notification representa el modelo de datos de una notificación proactiva (ADR-034)
 type Notification struct {
-	ID              string          `db:"id" json:"id"`
-	TenantID        string          `db:"tenant_id" json:"tenant_id"`
-	RecipientUserID string          `db:"recipient_user_id" json:"recipient_user_id"`
-	Channel         string          `db:"channel" json:"channel"`
-	Severity        string          `db:"severity" json:"severity"`
-	Title           string          `db:"title" json:"title"`
-	Message         string          `db:"message" json:"message"`
+	ID              string     `db:"id" json:"id"`
+	TenantID        string     `db:"tenant_id" json:"tenant_id"`
+	RecipientUserID string     `db:"recipient_user_id" json:"recipient_user_id"`
+	Channel         string     `db:"channel" json:"channel"`
+	Severity        string     `db:"severity" json:"severity"`
+	Title           string     `db:"title" json:"title"`
+	Message         string     `db:"message" json:"message"`
 	EventType       string     `db:"event_type" json:"event_type"`
 	Metadata        []byte     `db:"metadata" json:"metadata,omitempty"`
 	IsRead          bool       `db:"is_read" json:"is_read"`

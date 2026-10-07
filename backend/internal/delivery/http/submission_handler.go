@@ -117,9 +117,9 @@ func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Req
 }
 
 type OverrideSubmissionDTO struct {
-	Verdict        string  `json:"verdict"`
-	OverrideReason string  `json:"override_reason"`
-	Score          *int    `json:"score,omitempty"`
+	Verdict        string `json:"verdict"`
+	OverrideReason string `json:"override_reason"`
+	Score          *int   `json:"score,omitempty"`
 }
 
 func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Request) {
@@ -206,5 +206,3 @@ func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.R
 		"events_count": count,
 	}, "Eventos de escritura registrados exitosamente")
 }
-
-

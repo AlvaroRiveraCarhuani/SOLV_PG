@@ -359,11 +359,11 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 
 	// 1. Rol student intenta crear ejercicio -> 403 Forbidden
 	studentPayload := domain.Exercise{
-		ID:          exerciseID,
-		Title:       "Ejercicio No Autorizado",
-		Type:        domain.ExerciseTypeAlgorithm,
-		Status:      "draft",
-		TenantID:    tenantA,
+		ID:       exerciseID,
+		Title:    "Ejercicio No Autorizado",
+		Type:     domain.ExerciseTypeAlgorithm,
+		Status:   "draft",
+		TenantID: tenantA,
 	}
 	stBytes, _ := json.Marshal(studentPayload)
 	reqStudent, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))

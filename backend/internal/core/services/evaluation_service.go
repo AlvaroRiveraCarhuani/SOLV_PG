@@ -647,12 +647,12 @@ func (s *EvaluationService) evaluateDatabase(ctx context.Context, exercise *doma
 	expectedJSON := strings.TrimSpace(cfg.ExpectedJSON)
 	if expectedJSON == "" {
 		dryRunJSON, err := s.ExecuteDBDryRun(ctx, domain.DBEvaluationRunConfig{
-			Engine:            cfg.Engine,
-			InitScript:        cfg.InitScript,
-			SolutionSQL:       cfg.ReferenceSolution,
-			ValidationQuery:   cfg.ValidationQuery,
-			TimeLimitMS:       cfg.TimeLimitMS,
-			MemoryLimitMB:     cfg.MemoryLimitMB,
+			Engine:          cfg.Engine,
+			InitScript:      cfg.InitScript,
+			SolutionSQL:     cfg.ReferenceSolution,
+			ValidationQuery: cfg.ValidationQuery,
+			TimeLimitMS:     cfg.TimeLimitMS,
+			MemoryLimitMB:   cfg.MemoryLimitMB,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("falló el Dry Run para generar expected_json: %w", err)
@@ -965,4 +965,3 @@ func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID st
 
 	return report, nil
 }
-

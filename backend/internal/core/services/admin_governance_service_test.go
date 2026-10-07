@@ -135,7 +135,6 @@ func (m *mockAdminGovernanceRepo) GetImageUsageCounts(ctx context.Context, tenan
 	}, nil
 }
 
-
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	mockRepo := &mockAdminGovernanceRepo{}
 	svc := services.NewAdminGovernanceService(nil, mockRepo)
@@ -550,6 +549,3 @@ func TestReviewTemplate_RamExceedsHost(t *testing.T) {
 		t.Fatalf("esperado ErrRamExceedsHostCapacity, obtenido: %v", err)
 	}
 }
-
-
-

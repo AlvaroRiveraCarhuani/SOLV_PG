@@ -757,7 +757,3 @@ func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *ht
 
 	SendJSON(w, http.StatusCreated, res, fmt.Sprintf("Se agregaron %d casos al ejercicio exitosamente", res.ImportedCount))
 }
-
-
-
-

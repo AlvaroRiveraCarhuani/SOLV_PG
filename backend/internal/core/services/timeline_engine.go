@@ -74,7 +74,7 @@ func (e *TimelineEngine) GenerateTimeline(submissionID, studentID, studentName, 
 			currentBuilder.WriteString(line)
 			currentBuilder.WriteString("\n")
 			currentOffset += 250 // Paste ocurre en < 300ms
-			totalKeystrokes += 2  // Ctrl+V
+			totalKeystrokes += 2 // Ctrl+V
 
 			keyframes = append(keyframes, domain.TimelineKeyframe{
 				OffsetMS:   currentOffset,

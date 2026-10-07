@@ -297,5 +297,3 @@ type CourseModuleRepository interface {
 type ScriptSandboxRunner interface {
 	RunPythonScript(ctx context.Context, scriptCode string, timeoutSec int) (stdout string, stderr string, err error)
 }
-
-

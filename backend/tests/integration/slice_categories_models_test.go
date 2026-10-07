@@ -676,4 +676,3 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 		}
 	}
 }
-

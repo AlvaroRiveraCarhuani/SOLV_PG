@@ -54,12 +54,12 @@ func (m *mockRegistry) PullImage(ctx context.Context, imageRef string, onProgres
 
 // Mock Runner
 type mockRunner struct {
-	mu         sync.Mutex
-	results    []domain.ToolResult
-	exitCode   int
-	err        error
-	runCalled  bool
-	delay      time.Duration
+	mu        sync.Mutex
+	results   []domain.ToolResult
+	exitCode  int
+	err       error
+	runCalled bool
+	delay     time.Duration
 }
 
 func (m *mockRunner) RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) ([]domain.ToolResult, int, error) {
@@ -352,4 +352,3 @@ func TestEnvTestService_StartJob_RamExceedsHost(t *testing.T) {
 		t.Errorf("expected error code ram_exceeds_host, got: %s", got.ErrorCode)
 	}
 }
-

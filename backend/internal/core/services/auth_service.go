@@ -20,9 +20,9 @@ import (
 )
 
 var (
-	ErrJWTExpired          = errors.New("jwt token has expired")
-	ErrJWTInvalid          = errors.New("jwt token signature or claims invalid")
-	ErrUnauthorizedDomain  = errors.New("unauthorized: email domain not allowed by any registered tenant")
+	ErrJWTExpired         = errors.New("jwt token has expired")
+	ErrJWTInvalid         = errors.New("jwt token signature or claims invalid")
+	ErrUnauthorizedDomain = errors.New("unauthorized: email domain not allowed by any registered tenant")
 )
 
 type AuthService struct {

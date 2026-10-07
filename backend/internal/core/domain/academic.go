@@ -29,23 +29,23 @@ type Enrollment struct {
 }
 
 type Submission struct {
-	ID              string          `db:"id" json:"id"`
-	TenantID        string          `db:"tenant_id" json:"tenant_id"`
-	ExerciseID      string          `db:"exercise_id" json:"exercise_id"`
-	StudentID       string          `db:"student_id" json:"student_id"`
-	WorkspaceID     *string         `db:"workspace_id" json:"workspace_id,omitempty"`
-	Code            string          `db:"code" json:"code"`
-	Verdict         string          `db:"verdict" json:"verdict"`
+	ID                 string          `db:"id" json:"id"`
+	TenantID           string          `db:"tenant_id" json:"tenant_id"`
+	ExerciseID         string          `db:"exercise_id" json:"exercise_id"`
+	StudentID          string          `db:"student_id" json:"student_id"`
+	WorkspaceID        *string         `db:"workspace_id" json:"workspace_id,omitempty"`
+	Code               string          `db:"code" json:"code"`
+	Verdict            string          `db:"verdict" json:"verdict"`
 	ASTResult          json.RawMessage `db:"ast_result" json:"ast_result"`
 	GeneratedCases     json.RawMessage `db:"generated_cases" json:"generated_cases,omitempty"`
 	ComplexityAnalysis json.RawMessage `db:"complexity_analysis" json:"complexity_analysis,omitempty"`
 	ExecutionTimeMS    int             `db:"execution_time_ms" json:"execution_time_ms"`
-	MemoryUsedMB    int             `db:"memory_used_mb" json:"memory_used_mb"`
-	ManualOverride  bool            `db:"manual_override" json:"manual_override"`
-	OverrideReason  string          `db:"override_reason" json:"override_reason"`
-	Score           *int            `db:"score" json:"score"`
-	GradedBy        *string         `db:"graded_by" json:"graded_by,omitempty"`
-	SubmittedAt     time.Time       `db:"submitted_at" json:"submitted_at"`
+	MemoryUsedMB       int             `db:"memory_used_mb" json:"memory_used_mb"`
+	ManualOverride     bool            `db:"manual_override" json:"manual_override"`
+	OverrideReason     string          `db:"override_reason" json:"override_reason"`
+	Score              *int            `db:"score" json:"score"`
+	GradedBy           *string         `db:"graded_by" json:"graded_by,omitempty"`
+	SubmittedAt        time.Time       `db:"submitted_at" json:"submitted_at"`
 }
 
 type TeacherInvitation struct {

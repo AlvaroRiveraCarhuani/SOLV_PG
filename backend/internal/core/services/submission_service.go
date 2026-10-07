@@ -46,13 +46,13 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 }
 
 type CreateSubmissionDTO struct {
-	ExerciseID      string          `json:"exercise_id"`
-	StudentID       string          `json:"student_id"`
-	WorkspaceID     *string         `json:"workspace_id,omitempty"`
-	Code            string          `json:"code"`
-	Verdict         string          `json:"verdict"`
-	ASTResult       json.RawMessage `json:"ast_result"`
-	GeneratedCases  json.RawMessage `json:"generated_cases,omitempty"`
+	ExerciseID         string          `json:"exercise_id"`
+	StudentID          string          `json:"student_id"`
+	WorkspaceID        *string         `json:"workspace_id,omitempty"`
+	Code               string          `json:"code"`
+	Verdict            string          `json:"verdict"`
+	ASTResult          json.RawMessage `json:"ast_result"`
+	GeneratedCases     json.RawMessage `json:"generated_cases,omitempty"`
 	ExecutionTimeMS    int             `json:"execution_time_ms"`
 	MemoryUsedMB       int             `json:"memory_used_mb"`
 	ComplexityAnalysis json.RawMessage `json:"complexity_analysis,omitempty"`
@@ -105,4 +105,3 @@ func (s *SubmissionService) OverrideSubmission(ctx context.Context, tenantID, id
 	}
 	return s.repo.UpdateOverride(ctx, tenantID, id, verdict, reason, score, gradedBy)
 }
-

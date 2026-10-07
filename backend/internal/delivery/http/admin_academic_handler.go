@@ -1,13 +1,13 @@
 package httpdelivery
 
 import (
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	_ "embed"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -42,8 +42,6 @@ func (h *AdminAcademicHandler) WithAuditLogRepo(auditLogRepo domain.AuditLogRepo
 	h.auditLogRepo = auditLogRepo
 	return h
 }
-
-
 
 // -----------------------------------------------------------------------------
 // Maintenance Endpoints (ADR-031)

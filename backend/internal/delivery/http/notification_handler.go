@@ -17,7 +17,6 @@ func NewNotificationHandler(service *services.NotificationService) *Notification
 	return &NotificationHandler{service: service}
 }
 
-
 func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
 	userID := getUserIDFromCtx(r)

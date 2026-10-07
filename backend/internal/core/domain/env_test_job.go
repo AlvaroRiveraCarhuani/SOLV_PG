@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	toolNameRegex = regexp.MustCompile(`^[a-zA-Z0-9._+-]+$`)
+	toolNameRegex      = regexp.MustCompile(`^[a-zA-Z0-9._+-]+$`)
 	ErrToolNameInvalid = errors.New("nombre de herramienta inválido: solo caracteres alfanuméricos, punto, guion y guion bajo")
 )
 
@@ -75,8 +75,8 @@ type EnvTestResult struct {
 
 // EnvTestJob entidad raíz del job de verificación asíncrona de entorno
 type EnvTestJob struct {
-	ID               string          `json:"id"`
-	Image            string          `json:"image"`
+	ID                string          `json:"id"`
+	Image             string          `json:"image"`
 	Tools             []string        `json:"tools"`
 	TargetEnvironment string          `json:"target_environment,omitempty"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"
 	Entrypoint        string          `json:"entrypoint,omitempty"`

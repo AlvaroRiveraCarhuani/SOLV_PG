@@ -609,4 +609,3 @@ func (c *Client) ExecuteCommandInBackground(ctx context.Context, containerID str
 	log.Printf("[Docker Exec] Background command started in container %s: %v", containerID, cmd)
 	return nil
 }
-

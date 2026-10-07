@@ -93,4 +93,3 @@ func TestAdminAcademicHandler_ListLocalImages(t *testing.T) {
 		t.Errorf("expected UsageMap to not be nil")
 	}
 }
-

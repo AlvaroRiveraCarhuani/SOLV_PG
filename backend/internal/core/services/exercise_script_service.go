@@ -35,7 +35,7 @@ type ScriptCaseValidationItem struct {
 
 type ScriptGenerationResponse struct {
 	Mode            string                     `json:"mode"`
-	ExecutionTimeMS  int64                      `json:"execution_time_ms,omitempty"`
+	ExecutionTimeMS int64                      `json:"execution_time_ms,omitempty"`
 	CasesCount      int                        `json:"cases_count,omitempty"`
 	Cases           []ScriptCaseValidationItem `json:"cases,omitempty"`
 	CanImport       bool                       `json:"can_import"`
@@ -119,7 +119,7 @@ func (s *EvaluationService) GenerateCasesFromScript(ctx context.Context, exercis
 	if dryRun {
 		return &ScriptGenerationResponse{
 			Mode:            "dry_run",
-			ExecutionTimeMS:  execTimeMS,
+			ExecutionTimeMS: execTimeMS,
 			CasesCount:      len(generatedCases),
 			Cases:           validationItems,
 			CanImport:       canImport,
@@ -131,7 +131,7 @@ func (s *EvaluationService) GenerateCasesFromScript(ctx context.Context, exercis
 	if !canImport {
 		return &ScriptGenerationResponse{
 			Mode:            "import",
-			ExecutionTimeMS:  execTimeMS,
+			ExecutionTimeMS: execTimeMS,
 			CasesCount:      len(generatedCases),
 			Cases:           validationItems,
 			CanImport:       false,
@@ -162,7 +162,7 @@ func (s *EvaluationService) GenerateCasesFromScript(ctx context.Context, exercis
 
 	return &ScriptGenerationResponse{
 		Mode:            "import",
-		ExecutionTimeMS:  execTimeMS,
+		ExecutionTimeMS: execTimeMS,
 		CasesCount:      len(generatedCases),
 		CanImport:       true,
 		TotalValid:      totalValid,

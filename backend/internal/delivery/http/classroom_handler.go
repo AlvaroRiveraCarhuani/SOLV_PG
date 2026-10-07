@@ -28,9 +28,9 @@ func (h *ClassroomHandler) ImportRosterManual(w http.ResponseWriter, r *http.Req
 
 	// Simulación estructurada según D6 (Importación manual unidireccional)
 	importedData := map[string]interface{}{
-		"tenant_id":        tenantID,
-		"course_id":        courseID,
-		"sync_type":        "unidirectional_manual_import",
+		"tenant_id": tenantID,
+		"course_id": courseID,
+		"sync_type": "unidirectional_manual_import",
 		"imported_students": []map[string]string{
 			{"email": "alumno1.classroom@uab.edu.bo", "name": "Alumno Classroom 1", "status": "imported"},
 			{"email": "alumno2.classroom@uab.edu.bo", "name": "Alumno Classroom 2", "status": "imported"},

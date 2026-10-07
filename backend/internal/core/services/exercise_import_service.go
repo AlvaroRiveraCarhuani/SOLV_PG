@@ -146,11 +146,11 @@ func (s *EvaluationService) ImportExercises(ctx context.Context, courseID string
 
 	if !canImport {
 		return &ExerciseImportResponse{
-			Mode:           "import",
-			CanImport:      false,
-			TotalValid:     totalValid,
-			TotalInvalid:   totalInvalid,
-			Exercises:      validationItems,
+			Mode:         "import",
+			CanImport:    false,
+			TotalValid:   totalValid,
+			TotalInvalid: totalInvalid,
+			Exercises:    validationItems,
 		}, nil
 	}
 

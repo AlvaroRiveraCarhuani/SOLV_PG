@@ -341,7 +341,7 @@ type RuntimeCapabilities struct {
 	MaxAllowedRamMB   int                          `json:"max_allowed_ram_mb"`
 	// EditorBaseMB es la RAM mínima que consume el proceso del editor (OpenVSCode Server).
 	// El frontend lo usa para calcular la RAM disponible para el programa del alumno.
-	EditorBaseMB  int `json:"editor_base_mb"`
+	EditorBaseMB int `json:"editor_base_mb"`
 	// RuntimeBaseMB es la RAM mínima reservada para el runtime del Juez (kernel + sandbox).
 	RuntimeBaseMB int `json:"runtime_base_mb"`
 }

@@ -17,15 +17,15 @@ type containerStatsHistory struct {
 }
 
 type QoSOrchestratorWorker struct {
-	repo               domain.WorkspaceRepository
-	docker             domain.WorkspaceOrchestrator
-	hostMonitor        domain.HostMonitor
-	inactivityTimeout  time.Duration
-	checkInterval      time.Duration
-	policiesProvider   func(ctx context.Context) (int, bool) // minutos de inactividad vigentes, opcional
-	history            map[string]*containerStatsHistory
-	mu                 sync.Mutex
-	stopChan           chan struct{}
+	repo              domain.WorkspaceRepository
+	docker            domain.WorkspaceOrchestrator
+	hostMonitor       domain.HostMonitor
+	inactivityTimeout time.Duration
+	checkInterval     time.Duration
+	policiesProvider  func(ctx context.Context) (int, bool) // minutos de inactividad vigentes, opcional
+	history           map[string]*containerStatsHistory
+	mu                sync.Mutex
+	stopChan          chan struct{}
 }
 
 func NewQoSOrchestratorWorker(

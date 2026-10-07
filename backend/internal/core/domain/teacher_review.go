@@ -20,19 +20,19 @@ type SubmissionComment struct {
 
 // SubmissionQueueItem representa un elemento en la cola de revisión del curso.
 type SubmissionQueueItem struct {
-	ID              string     `json:"id" db:"id"`
-	ExerciseID      string     `json:"exercise_id" db:"exercise_id"`
-	ExerciseTitle   string     `json:"exercise_title" db:"exercise_title"`
-	StudentID       string     `json:"student_id" db:"student_id"`
-	StudentName     string     `json:"student_name" db:"student_name"`
-	StudentEmail    string     `json:"student_email" db:"student_email"`
-	Verdict         string     `json:"verdict" db:"verdict"`
-	Score           *int       `json:"score,omitempty" db:"score"`
-	ManualOverride  bool       `json:"manual_override" db:"manual_override"`
-	ExecutionTimeMS int        `json:"execution_time_ms" db:"execution_time_ms"`
-	MemoryUsedMB    int        `json:"memory_used_mb" db:"memory_used_mb"`
-	SubmittedAt     time.Time  `json:"submitted_at" db:"submitted_at"`
-	CommentsCount   int        `json:"comments_count" db:"comments_count"`
+	ID              string    `json:"id" db:"id"`
+	ExerciseID      string    `json:"exercise_id" db:"exercise_id"`
+	ExerciseTitle   string    `json:"exercise_title" db:"exercise_title"`
+	StudentID       string    `json:"student_id" db:"student_id"`
+	StudentName     string    `json:"student_name" db:"student_name"`
+	StudentEmail    string    `json:"student_email" db:"student_email"`
+	Verdict         string    `json:"verdict" db:"verdict"`
+	Score           *int      `json:"score,omitempty" db:"score"`
+	ManualOverride  bool      `json:"manual_override" db:"manual_override"`
+	ExecutionTimeMS int       `json:"execution_time_ms" db:"execution_time_ms"`
+	MemoryUsedMB    int       `json:"memory_used_mb" db:"memory_used_mb"`
+	SubmittedAt     time.Time `json:"submitted_at" db:"submitted_at"`
+	CommentsCount   int       `json:"comments_count" db:"comments_count"`
 }
 
 // TestCaseReview representa un caso de prueba desenmascarado para la vista docente.
@@ -46,32 +46,32 @@ type TestCaseReview struct {
 
 // TeacherSubmissionReviewDTO representa el DTO completo de la vista SpeedGrader para el docente.
 type TeacherSubmissionReviewDTO struct {
-	ID               string              `json:"id" db:"id"`
-	ExerciseID       string              `json:"exercise_id" db:"exercise_id"`
-	ExerciseTitle    string              `json:"exercise_title" db:"exercise_title"`
-	SubjectID        string              `json:"subject_id" db:"subject_id"`
-	SubjectName      string              `json:"subject_name" db:"subject_name"`
-	StudentID        string              `json:"student_id" db:"student_id"`
-	StudentName      string              `json:"student_name" db:"student_name"`
-	StudentEmail     string              `json:"student_email" db:"student_email"`
-	Code             string              `json:"code" db:"code"`
-	Verdict          string              `json:"verdict" db:"verdict"`
-	Score            *int                `json:"score,omitempty" db:"score"`
-	ManualOverride   bool                `json:"manual_override" db:"manual_override"`
-	OverrideReason   string              `json:"override_reason,omitempty" db:"override_reason"`
-	GradedBy         *string             `json:"graded_by,omitempty" db:"graded_by"`
-	GradedByName     string              `json:"graded_by_name,omitempty" db:"graded_by_name"`
-	ExecutionTimeMS  int                 `json:"execution_time_ms" db:"execution_time_ms"`
-	MemoryUsedMB     int                 `json:"memory_used_mb" db:"memory_used_mb"`
+	ID                 string              `json:"id" db:"id"`
+	ExerciseID         string              `json:"exercise_id" db:"exercise_id"`
+	ExerciseTitle      string              `json:"exercise_title" db:"exercise_title"`
+	SubjectID          string              `json:"subject_id" db:"subject_id"`
+	SubjectName        string              `json:"subject_name" db:"subject_name"`
+	StudentID          string              `json:"student_id" db:"student_id"`
+	StudentName        string              `json:"student_name" db:"student_name"`
+	StudentEmail       string              `json:"student_email" db:"student_email"`
+	Code               string              `json:"code" db:"code"`
+	Verdict            string              `json:"verdict" db:"verdict"`
+	Score              *int                `json:"score,omitempty" db:"score"`
+	ManualOverride     bool                `json:"manual_override" db:"manual_override"`
+	OverrideReason     string              `json:"override_reason,omitempty" db:"override_reason"`
+	GradedBy           *string             `json:"graded_by,omitempty" db:"graded_by"`
+	GradedByName       string              `json:"graded_by_name,omitempty" db:"graded_by_name"`
+	ExecutionTimeMS    int                 `json:"execution_time_ms" db:"execution_time_ms"`
+	MemoryUsedMB       int                 `json:"memory_used_mb" db:"memory_used_mb"`
 	ASTResult          json.RawMessage     `json:"ast_result" db:"ast_result"`
 	GeneratedCases     json.RawMessage     `json:"generated_cases,omitempty" db:"generated_cases"`
 	ExpectedComplexity string              `json:"expected_complexity,omitempty" db:"expected_complexity"`
 	ComplexityAnalysis *ComplexityAnalysis `json:"complexity_analysis,omitempty" db:"complexity_analysis"`
 	TestCases          []TestCaseReview    `json:"test_cases"`
-	Comments         []SubmissionComment `json:"comments"`
-	NextSubmissionID *string             `json:"next_submission_id,omitempty"`
-	PrevSubmissionID *string             `json:"prev_submission_id,omitempty"`
-	SubmittedAt      time.Time           `json:"submitted_at" db:"submitted_at"`
+	Comments           []SubmissionComment `json:"comments"`
+	NextSubmissionID   *string             `json:"next_submission_id,omitempty"`
+	PrevSubmissionID   *string             `json:"prev_submission_id,omitempty"`
+	SubmittedAt        time.Time           `json:"submitted_at" db:"submitted_at"`
 }
 
 // OverrideRequestDTO payload para anular o convalidar manualmente una calificación.
@@ -259,4 +259,3 @@ type FuzzGenerationReport struct {
 type ApplyFuzzCasesRequest struct {
 	Cases []GeneratedFuzzCase `json:"cases"`
 }
-

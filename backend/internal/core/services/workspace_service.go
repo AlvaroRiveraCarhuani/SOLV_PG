@@ -171,7 +171,7 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	// prevalece cuando declara un requisito (BaseRamMB >= 256) y el exceso
 	// sobre la política queda registrado para visibilidad del admin.
 	ramLimitMB := int64(policies.RAMLimitMB)
-	imageName := domain.OpenVSCodeImage     // gitpod/openvscode-server:latest
+	imageName := domain.OpenVSCodeImage // gitpod/openvscode-server:latest
 	var templateIDStr *string
 	if template != nil {
 		templateIDStr = &template.ID
@@ -524,4 +524,3 @@ func (s *WorkspaceService) GetSemgrepAudit(ctx context.Context, workspaceID stri
 	}
 	return ws, nil
 }
-

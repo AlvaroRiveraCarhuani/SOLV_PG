@@ -31,7 +31,6 @@ func (h *TeacherHandler) SetAuthService(authService *services.AuthService) {
 	h.authService = authService
 }
 
-
 func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {
@@ -656,5 +655,3 @@ func (h *TeacherHandler) ApplyFuzzCases(w http.ResponseWriter, r *http.Request) 
 		"exercise_id": exerciseID,
 	}, "Casos de prueba incorporados exitosamente al ejercicio")
 }
-
-

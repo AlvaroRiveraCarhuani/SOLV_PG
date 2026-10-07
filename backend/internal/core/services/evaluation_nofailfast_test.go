@@ -56,7 +56,9 @@ func (s *stubExerciseRepo) UpdateConfig(_ context.Context, _, _ string, _ domain
 
 func (s *stubExerciseRepo) UpdateExpectedJSON(_ context.Context, _, _ string) error { return nil }
 
-func (s *stubExerciseRepo) MarkExerciseStale(_ context.Context, _, _ string, _ bool) error { return nil }
+func (s *stubExerciseRepo) MarkExerciseStale(_ context.Context, _, _ string, _ bool) error {
+	return nil
+}
 
 func (s *stubExerciseRepo) UpdateExerciseLastValidDryRun(_ context.Context, _, _ string, _ time.Time) error {
 	return nil
@@ -174,4 +176,3 @@ func TestEvaluateAlgorithm_TemplateLock(t *testing.T) {
 		t.Fatalf("expected verdict AC, got %s", res.Verdict)
 	}
 }
-

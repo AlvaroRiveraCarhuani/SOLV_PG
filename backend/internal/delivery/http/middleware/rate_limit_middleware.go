@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"solv-backend/internal/core/domain"
 	"golang.org/x/time/rate"
+	"solv-backend/internal/core/domain"
 )
 
 type userLimiterEntry struct {

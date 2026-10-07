@@ -10,7 +10,7 @@ import (
 )
 
 type mockSubjectTestRepo struct {
-	createdSubjects []*domain.Subject
+	createdSubjects  []*domain.Subject
 	templateStatuses map[string]string
 }
 

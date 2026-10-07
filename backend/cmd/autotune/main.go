@@ -39,14 +39,14 @@ type DensityMetrics struct {
 }
 
 type AutotuneReport struct {
-	Timestamp            string         `json:"timestamp"`
-	Hardware             HardwareStats  `json:"hardware"`
-	CircuitBreakerTrigger string        `json:"circuit_breaker_trigger"`
-	ThrashingSwapDeltaMB uint64         `json:"thrashing_swap_delta_mb"`
-	CalculatedOOMGuardMB uint64         `json:"calculated_oom_guard_mb"`
-	AllocatableRAMMB     uint64         `json:"allocatable_ram_mb"`
-	TheoreticalDensity   DensityMetrics `json:"theoretical_density"`
-	StepHistory          []StepMetric   `json:"step_history"`
+	Timestamp             string         `json:"timestamp"`
+	Hardware              HardwareStats  `json:"hardware"`
+	CircuitBreakerTrigger string         `json:"circuit_breaker_trigger"`
+	ThrashingSwapDeltaMB  uint64         `json:"thrashing_swap_delta_mb"`
+	CalculatedOOMGuardMB  uint64         `json:"calculated_oom_guard_mb"`
+	AllocatableRAMMB      uint64         `json:"allocatable_ram_mb"`
+	TheoreticalDensity    DensityMetrics `json:"theoretical_density"`
+	StepHistory           []StepMetric   `json:"step_history"`
 }
 
 const (
@@ -216,12 +216,12 @@ FinishTest:
 	peakDensity := int(math.Floor(float64(allocatableMB) / 2048.0))
 
 	report := AutotuneReport{
-		Timestamp:            time.Now().Format(time.RFC3339),
-		Hardware:             hw,
+		Timestamp:             time.Now().Format(time.RFC3339),
+		Hardware:              hw,
 		CircuitBreakerTrigger: circuitTrigger,
-		ThrashingSwapDeltaMB: thrashingSwapDelta,
-		CalculatedOOMGuardMB: oomGuardMB,
-		AllocatableRAMMB:     allocatableMB,
+		ThrashingSwapDeltaMB:  thrashingSwapDelta,
+		CalculatedOOMGuardMB:  oomGuardMB,
+		AllocatableRAMMB:      allocatableMB,
 		TheoreticalDensity: DensityMetrics{
 			MaxWorkspacesIdle256MB: idleDensity,
 			MaxWorkspacesPeak2GB:   peakDensity,

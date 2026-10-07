@@ -245,4 +245,3 @@ func (h *TeacherInvitationHandler) DeleteTeacher(w http.ResponseWriter, r *http.
 		"message": "Docente dado de baja exitosamente",
 	})
 }
-
