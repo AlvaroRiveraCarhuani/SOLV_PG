@@ -33,6 +33,7 @@ type Handlers struct {
 	TenantMiddleware         func(http.Handler) http.Handler
 	AuditMiddleware          func(http.Handler) http.Handler
 	RateLimitMiddleware      func(http.Handler) http.Handler
+	SubmissionRateLimitMiddleware func(http.Handler) http.Handler
 	MaintenanceMiddleware    func(http.Handler) http.Handler
 }
 
@@ -111,7 +112,11 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.SubmissionHandler != nil {
-		mux.Handle("POST /api/v1/submissions", am(tm(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission))))
+		srl := deps.SubmissionRateLimitMiddleware
+		if srl == nil {
+			srl = func(next http.Handler) http.Handler { return next }
+		}
+		mux.Handle("POST /api/v1/submissions", am(tm(srl(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission)))))
 		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
 		mux.Handle("GET /api/v1/submissions/{id}", tm(http.HandlerFunc(deps.SubmissionHandler.GetSubmissionByID)))
 		mux.Handle("POST /api/v1/submissions/{id}/override", am(tm(http.HandlerFunc(deps.SubmissionHandler.OverrideSubmission))))

@@ -209,39 +209,50 @@ func main() {
 	courseModuleHandler := httpdelivery.NewCourseModuleHandler(courseModuleService)
 	evaluationService.SetModuleRepository(courseModuleRepo)
 
+	rateLimiter := middleware.NewRateLimiter()
+
 	handlersStruct := httpdelivery.Handlers{
-		UserHandler:              httpdelivery.NewUserHandler(db, v),
-		TemplateHandler:          httpdelivery.NewTemplateHandler(db, v),
-		AuthHandler:              httpdelivery.NewAuthHandler(authService),
-		EvaluationHandler:        evalHandler,
-		LanguageProfileHandler:   langProfileHandler,
-		CourseModuleHandler:      courseModuleHandler,
-		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, v),
-		MetricsHandler:           httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
-		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),
-		SubjectHandler:           httpdelivery.NewSubjectHandler(subjectService),
-		SubmissionHandler:        subHandler,
-		TeacherInvitationHandler: httpdelivery.NewTeacherInvitationHandler(teacherInvService),
-		ClassroomHandler:         httpdelivery.NewClassroomHandler(),
-		AdminHandler:             adminHandler,
-		ServerPoliciesHandler:    serverPoliciesHandler,
-		TenantLogoHandler:        tenantLogoHandler,
-		AdminAcademicHandler:     adminAcademicHandler,
-		StudentHandler:           studentHandler,
-		TeacherHandler:           teacherHandler,
-		NotificationHandler:      notificationHandler,
-		BackupHandler:            backupHandler,
-		WebSocketHandler:         wsHandler,
-		EnvTestHandler:           envTestHandler,
-		TenantMiddleware:         tenantMiddleware,
-		MaintenanceMiddleware:    maintenanceMiddleware,
+		UserHandler:                   httpdelivery.NewUserHandler(db, v),
+		TemplateHandler:               httpdelivery.NewTemplateHandler(db, v),
+		AuthHandler:                   httpdelivery.NewAuthHandler(authService).WithRateLimiter(rateLimiter),
+		EvaluationHandler:             evalHandler,
+		LanguageProfileHandler:        langProfileHandler,
+		CourseModuleHandler:           courseModuleHandler,
+		WorkspaceHandler:              httpdelivery.NewWorkspaceHandler(workspaceService, v),
+		MetricsHandler:                httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
+		ConfigHandler:                 httpdelivery.NewConfigHandler(tenantRepo),
+		SubjectHandler:                httpdelivery.NewSubjectHandler(subjectService),
+		SubmissionHandler:             subHandler,
+		TeacherInvitationHandler:      httpdelivery.NewTeacherInvitationHandler(teacherInvService),
+		ClassroomHandler:              httpdelivery.NewClassroomHandler(),
+		AdminHandler:                  adminHandler,
+		ServerPoliciesHandler:         serverPoliciesHandler,
+		TenantLogoHandler:             tenantLogoHandler,
+		AdminAcademicHandler:          adminAcademicHandler,
+		StudentHandler:                studentHandler,
+		TeacherHandler:                teacherHandler,
+		NotificationHandler:           notificationHandler,
+		BackupHandler:                 backupHandler,
+		WebSocketHandler:              wsHandler,
+		EnvTestHandler:                envTestHandler,
+		TenantMiddleware:              tenantMiddleware,
+		MaintenanceMiddleware:         maintenanceMiddleware,
+		SubmissionRateLimitMiddleware: middleware.SubmissionRateLimitMiddleware(rateLimiter),
 	}
 
 	mux := http.NewServeMux()
 	httpdelivery.SetupRoutes(mux, &handlersStruct)
 
-	// Aplicar ObservabilityMiddleware, CORS y MaintenanceMiddleware
-	handler := middleware.ObservabilityMiddleware(httpdelivery.WithCORS(maintenanceMiddleware(mux)))
+	// Aplicar ObservabilityMiddleware, SecurityHeadersMiddleware, CORSMiddleware, GlobalRateLimitMiddleware y MaintenanceMiddleware
+	handler := middleware.ObservabilityMiddleware(
+		middleware.SecurityHeadersMiddleware(
+			middleware.CORSMiddleware(
+				middleware.GlobalRateLimitMiddleware(rateLimiter)(
+					maintenanceMiddleware(mux),
+				),
+			),
+		),
+	)
 
 	port := os.Getenv("PORT")
 	if port == "" {

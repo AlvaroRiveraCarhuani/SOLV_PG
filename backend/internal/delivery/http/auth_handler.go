@@ -12,14 +12,24 @@ import (
 	"solv-backend/internal/core/services"
 )
 
+type AuthFailureRecorder interface {
+	RecordAuthFailure(ip string) bool
+}
+
 type AuthHandler struct {
 	authService *services.AuthService
+	rateLimiter AuthFailureRecorder
 }
 
 func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 	return &AuthHandler{
 		authService: authService,
 	}
+}
+
+func (h *AuthHandler) WithRateLimiter(rl AuthFailureRecorder) *AuthHandler {
+	h.rateLimiter = rl
+	return h
 }
 
 func getCookieDomain(r *http.Request) string {
@@ -37,12 +47,14 @@ func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) 
 func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	code := r.URL.Query().Get("code")
 	if code == "" {
+		h.recordAuthFailure(r)
 		http.Error(w, "missing code parameter", http.StatusBadRequest)
 		return
 	}
 
 	token, err := h.authService.CallbackGoogle(r.Context(), code)
 	if err != nil {
+		h.recordAuthFailure(r)
 		if errors.Is(err, services.ErrUnauthorizedDomain) || strings.Contains(err.Error(), "unauthorized: email domain not allowed") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
@@ -157,3 +169,15 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "logged_out"}, "Sesión cerrada exitosamente")
 }
+
+func (h *AuthHandler) recordAuthFailure(r *http.Request) {
+	if h.rateLimiter == nil {
+		return
+	}
+	ip := r.RemoteAddr
+	if forward := r.Header.Get("X-Forwarded-For"); forward != "" {
+		ip = strings.TrimSpace(strings.Split(forward, ",")[0])
+	}
+	h.rateLimiter.RecordAuthFailure(ip)
+}
+
