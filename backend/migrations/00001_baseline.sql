@@ -615,5 +615,4 @@ END $$;
 -- +goose StatementEnd
 
 -- +goose Down
--- Down es no-op intencional: el baseline no se puede revertir sin perder datos.
-SELECT 1;
+DROP TABLE IF EXISTS submission_comments, backup_executions, backup_configs, notifications, audit_logs, teacher_invitations, submissions, enrollments, workspaces, subjects, academic_periods, exercises, lab_template_profiles, template_models, lab_templates, template_categories, users, tenants CASCADE;

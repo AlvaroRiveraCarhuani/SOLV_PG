@@ -11,14 +11,16 @@ import (
 )
 
 func main() {
-	var dsn string
-	var dir string
-	var action string
+	var dsn, dir, action, dbFlag string
 	flag.StringVar(&dsn, "dsn", "", "database DSN")
+	flag.StringVar(&dbFlag, "db", "", "database DSN (alias for -dsn)")
 	flag.StringVar(&dir, "dir", "migrations", "migrations directory")
 	flag.StringVar(&action, "action", "up", "action to perform: up, down, reset")
 	flag.Parse()
 
+	if dsn == "" && dbFlag != "" {
+		dsn = dbFlag
+	}
 	if dsn == "" {
 		dsn = os.Getenv("DATABASE_URL")
 	}

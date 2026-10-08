@@ -1,0 +1,2 @@
+# Cron job de backup diario para SOLV (3:00 AM)
+0 3 * * * root /home/alvarorivera/Documentos/Desarrollo/SOLV_PG/scripts/backup.sh >> /var/log/solv/backup.log 2>&1
