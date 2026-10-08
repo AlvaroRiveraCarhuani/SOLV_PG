@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v3/mem"
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/infrastructure/logging"
+	"solv-backend/internal/infrastructure/metrics"
 )
 
 type EvaluationService struct {
@@ -379,6 +382,21 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 }
 
 func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, language string, sourceCodeB64 string) (*domain.EvaluationResult, error) {
+	evalStart := time.Now()
+	metrics.EvaluatorQueueDepth.Inc()
+	defer metrics.EvaluatorQueueDepth.Dec()
+
+	studentID := ""
+	if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
+		studentID = uid
+	}
+
+	logging.FromContext(ctx).Info("evaluation started",
+		slog.String("exercise_id", exerciseID),
+		slog.String("student_id", studentID),
+		slog.String("language", language),
+	)
+
 	// 1. Decodificar Base64
 	decodedBytes, err := base64.StdEncoding.DecodeString(sourceCodeB64)
 	if err != nil {
@@ -397,10 +415,6 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 
 	// 2.5 Verificar si el módulo está bloqueado para el estudiante (fail-closed, salvaguarda de examen)
 	if exercise.ModuleID != nil && *exercise.ModuleID != "" && exercise.Purpose != string(domain.ExercisePurposeExam) && s.moduleRepo != nil {
-		studentID := ""
-		if uid, ok := ctx.Value(domain.UserIDKey).(string); ok && uid != "" {
-			studentID = uid
-		}
 		tenantID := domain.GetTenantID(ctx)
 		if studentID != "" {
 			isLocked, err := s.moduleRepo.IsModuleLockedForStudent(ctx, tenantID, *exercise.ModuleID, studentID)
@@ -411,11 +425,37 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 	}
 
 	// 3. Ramificar evaluación según el Tipo de Ejercicio
+	var result *domain.EvaluationResult
+	var evalErr error
 	if exercise.Type == domain.ExerciseTypeDatabase {
-		return s.evaluateDatabase(ctx, exercise, sourceCode)
+		result, evalErr = s.evaluateDatabase(ctx, exercise, sourceCode)
+	} else {
+		result, evalErr = s.evaluateAlgorithm(ctx, exercise, language, sourceCode)
 	}
 
-	return s.evaluateAlgorithm(ctx, exercise, language, sourceCode)
+	evalDuration := time.Since(evalStart)
+	if result != nil {
+		courseID := ""
+		if exercise.SubjectID != nil {
+			courseID = *exercise.SubjectID
+		}
+		verdict := string(result.Verdict)
+		metrics.SubmissionsTotal.WithLabelValues(courseID, language, verdict).Inc()
+		metrics.SubmissionDurationSeconds.WithLabelValues(language).Observe(evalDuration.Seconds())
+
+		logging.FromContext(ctx).Info("evaluation finished",
+			slog.String("exercise_id", exerciseID),
+			slog.String("course_id", courseID),
+			slog.String("student_id", studentID),
+			slog.String("language", language),
+			slog.String("verdict", verdict),
+			slog.Int("execution_time_ms", result.ExecutionTimeMS),
+			slog.Float64("memory_used_mb", result.MemoryUsedMB),
+			slog.Float64("duration_ms", float64(evalDuration.Microseconds())/1000.0),
+		)
+	}
+
+	return result, evalErr
 }
 
 // GenerateStudentSeed calcula una semilla pseudoaleatoria de 64 bits determinista por ejercicio y estudiante.

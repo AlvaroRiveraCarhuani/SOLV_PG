@@ -2,6 +2,8 @@ package httpdelivery
 
 import (
 	"net/http"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 type Handlers struct {
@@ -320,9 +322,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 }
 
 func registerMetricsRoutes(mux *http.ServeMux, h *MetricsHandler) {
-	if h != nil {
-		mux.HandleFunc("GET /metrics", h.HandleMetrics)
-	}
+	mux.Handle("GET /metrics", promhttp.Handler())
 }
 
 func registerConfigRoutes(mux *http.ServeMux, h *ConfigHandler) {

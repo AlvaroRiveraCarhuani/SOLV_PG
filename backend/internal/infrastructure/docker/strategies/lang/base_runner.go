@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -16,6 +17,8 @@ import (
 	"github.com/docker/docker/errdefs"
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services/comparators"
+	"solv-backend/internal/infrastructure/logging"
+	"solv-backend/internal/infrastructure/metrics"
 )
 
 // maxBuildStderr limita el stderr de compilación devuelto en un CE.
@@ -277,11 +280,13 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	// 4. Crear Contenedor Efímero
 	resp, err := cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
 	if err != nil {
+		metrics.DockerContainerFailuresTotal.WithLabelValues("create_failed").Inc()
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to create evaluation container: %w", err)
 	}
 	containerID := resp.ID
 
 	defer func() {
+		metrics.DockerContainersActive.Dec()
 		_ = cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
 	}()
 
@@ -293,6 +298,7 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 		Stream: true,
 	})
 	if err != nil {
+		metrics.DockerContainerFailuresTotal.WithLabelValues("attach_failed").Inc()
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to attach to container streams: %w", err)
 	}
 	defer attachResp.Close()
@@ -305,7 +311,9 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 
 	// 6. Iniciar Contenedor
 	startTime := time.Now()
+	metrics.DockerContainersActive.Inc()
 	if err := cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+		metrics.DockerContainerFailuresTotal.WithLabelValues("start_failed").Inc()
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to start evaluation container: %w", err)
 	}
 
@@ -332,6 +340,12 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	select {
 	case <-evalCtx.Done():
 		timeoutVal := 5
+		metrics.DockerContainerFailuresTotal.WithLabelValues("timeout").Inc()
+		logging.FromContext(ctx).Warn("Docker container timed out (TLE)",
+			slog.String("container_id", containerID),
+			slog.String("image", imageName),
+			slog.Int("limit_ms", timeLimitMS),
+		)
 		_ = cli.ContainerStop(context.Background(), containerID, container.StopOptions{Timeout: &timeoutVal})
 		return domain.TestCaseRunResult{
 			Verdict:       domain.VerdictTLE,
@@ -341,6 +355,7 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 
 	case err := <-errCh:
 		if err != nil {
+			metrics.DockerContainerFailuresTotal.WithLabelValues("wait_failed").Inc()
 			return domain.TestCaseRunResult{}, fmt.Errorf("container wait error: %w", err)
 		}
 
@@ -348,13 +363,26 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 		execTime := time.Since(startTime)
 		<-doneCopy
 
+		logging.FromContext(ctx).Info("Docker evaluation container finished",
+			slog.String("container_id", containerID),
+			slog.String("image", imageName),
+			slog.Int64("exit_code", status.StatusCode),
+			slog.Float64("exec_time_ms", float64(execTime.Microseconds())/1000.0),
+		)
+
 		if status.StatusCode != 0 {
+			isOOM := oomKilled(cli, containerID)
+			if isOOM {
+				metrics.DockerContainerFailuresTotal.WithLabelValues("oom").Inc()
+			} else {
+				metrics.DockerContainerFailuresTotal.WithLabelValues("runtime_error").Inc()
+			}
 			errStr := strings.Trim(stderrBuf.String(), asciiWhitespace)
 			if errStr == "" {
 				errStr = strings.Trim(stdoutBuf.String(), asciiWhitespace)
 			}
 			return domain.TestCaseRunResult{
-				Verdict:       resolveCrashVerdict(status.StatusCode, oomKilled(cli, containerID)),
+				Verdict:       resolveCrashVerdict(status.StatusCode, isOOM),
 				ExecutionTime: execTime,
 				StdErr:        errStr,
 				ErrorDetails:  fmt.Sprintf("Error de ejecución (Exit Code %d): %s", status.StatusCode, errStr),

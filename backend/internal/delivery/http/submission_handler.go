@@ -2,6 +2,7 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -191,12 +192,28 @@ func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.R
 	}
 
 	if len(req.Events) > 10000 {
-		SendError(w, http.StatusBadRequest, "Max events limit exceeded", "Máximo 10,000 eventos permitidos por lote")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "too_many_keystroke_events",
+			"message": "Máximo 10,000 eventos de escritura permitidos por submission",
+			"limit":   10000,
+		})
 		return
 	}
 
 	count, err := h.service.SaveKeystrokeEvents(r.Context(), tenantID, submissionID, req.Events)
 	if err != nil {
+		if errors.Is(err, domain.ErrTooManyKeystrokeEvents) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":   "too_many_keystroke_events",
+				"message": "Máximo 10,000 eventos de escritura permitidos por submission",
+				"limit":   10000,
+			})
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar eventos de escritura")
 		return
 	}

@@ -2,8 +2,11 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+var ErrTooManyKeystrokeEvents = errors.New("Máximo 10,000 eventos de escritura permitidos por submission")
 
 type KeystrokeEventType string
 

@@ -31,7 +31,7 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 		return 0, nil
 	}
 	if len(events) > 10000 {
-		return 0, errors.New("máximo 10,000 eventos permitidos por lote")
+		return 0, domain.ErrTooManyKeystrokeEvents
 	}
 	if s.keystrokeRepo == nil {
 		return len(events), nil

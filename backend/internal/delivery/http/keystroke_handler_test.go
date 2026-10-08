@@ -214,3 +214,58 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 		t.Errorf("expected PasteCount 1, got %d", resp.Data.PasteCount)
 	}
 }
+
+func TestSubmissionHandler_KeystrokesLimit_Returns413(t *testing.T) {
+	mockSubmissionRepo := newStubSubmissionRepoForHTTP()
+	subService := services.NewSubmissionService(mockSubmissionRepo)
+	subHandler := NewSubmissionHandler(subService)
+
+	mux := http.NewServeMux()
+	SetupRoutes(mux, &Handlers{
+		SubmissionHandler: subHandler,
+		TenantMiddleware:  func(next http.Handler) http.Handler { return next },
+	})
+
+	// Prepare payload with 10,001 events
+	events := make([]map[string]interface{}, 10001)
+	for i := 0; i < 10001; i++ {
+		events[i] = map[string]interface{}{
+			"timestamp_ms": int64(i * 10),
+			"event_type":   "insert",
+			"position":     i,
+			"content":      "a",
+		}
+	}
+
+	payload := map[string]interface{}{
+		"events": events,
+	}
+	payloadBytes, _ := json.Marshal(payload)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/submissions/sub-overflow/keystroke-events", bytes.NewReader(payloadBytes))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected status 413 Payload Too Large, got %d: %s", w.Code, w.Body.String())
+	}
+
+	var resp struct {
+		Error   string `json:"error"`
+		Message string `json:"message"`
+		Limit   int    `json:"limit"`
+	}
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+
+	if resp.Error != "too_many_keystroke_events" {
+		t.Errorf("expected error 'too_many_keystroke_events', got %q", resp.Error)
+	}
+	if resp.Limit != 10000 {
+		t.Errorf("expected limit 10000, got %d", resp.Limit)
+	}
+}
+

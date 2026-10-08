@@ -173,6 +173,30 @@
     justify-content: space-between;
     gap: var(--space-2);
 
+    .badges-left {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+    }
+
+    .card-optional-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.125rem var(--space-2);
+      border-radius: var(--radius-sm);
+      font-size: var(--text-xs);
+      font-weight: 500;
+      background-color: var(--bg-surface-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+
+      .badge-icon {
+        width: 0.75rem;
+        height: 0.75rem;
+      }
+    }
+
     .difficulty-badge {
       display: inline-flex;
       align-items: center;

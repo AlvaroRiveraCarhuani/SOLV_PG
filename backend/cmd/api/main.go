@@ -240,8 +240,8 @@ func main() {
 	mux := http.NewServeMux()
 	httpdelivery.SetupRoutes(mux, &handlersStruct)
 
-	// Aplicar MaintenanceMiddleware y CORS
-	handler := httpdelivery.WithCORS(maintenanceMiddleware(mux))
+	// Aplicar ObservabilityMiddleware, CORS y MaintenanceMiddleware
+	handler := middleware.ObservabilityMiddleware(httpdelivery.WithCORS(maintenanceMiddleware(mux)))
 
 	port := os.Getenv("PORT")
 	if port == "" {

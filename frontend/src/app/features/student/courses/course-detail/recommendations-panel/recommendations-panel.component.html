@@ -74,9 +74,15 @@
           @for (item of recommendations(); track item.exercise_id) {
             <article class="recommendation-card">
               <div class="card-header">
-                <span class="difficulty-badge" [ngClass]="getDifficultyClass(item.difficulty)">
-                  {{ getDifficultyLabel(item.difficulty) }}
-                </span>
+                <div class="badges-left">
+                  <span class="difficulty-badge" [ngClass]="getDifficultyClass(item.difficulty)">
+                    {{ getDifficultyLabel(item.difficulty) }}
+                  </span>
+                  <span class="card-optional-badge">
+                    <svg lucideInfo class="badge-icon"></svg>
+                    <span>Opcional</span>
+                  </span>
+                </div>
                 @if (item.matched_tag) {
                   <span class="matched-tag-badge">
                     <svg lucideTag class="tag-icon"></svg>
