@@ -268,4 +268,3 @@ func TestSubmissionHandler_KeystrokesLimit_Returns413(t *testing.T) {
 		t.Errorf("expected limit 10000, got %d", resp.Limit)
 	}
 }
-
