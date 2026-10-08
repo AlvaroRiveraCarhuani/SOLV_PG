@@ -7,34 +7,34 @@ import (
 )
 
 type Handlers struct {
-	ServerPoliciesHandler    *ServerPoliciesHandler
-	TenantLogoHandler        *TenantLogoHandler
-	UserHandler              *UserHandler
-	TemplateHandler          *TemplateHandler
-	AuthHandler              *AuthHandler
-	EvaluationHandler        *EvaluationHandler
-	WorkspaceHandler         *WorkspaceHandler
-	MetricsHandler           *MetricsHandler
-	ConfigHandler            *ConfigHandler
-	SubjectHandler           *SubjectHandler
-	SubmissionHandler        *SubmissionHandler
-	TeacherInvitationHandler *TeacherInvitationHandler
-	ClassroomHandler         *ClassroomHandler
-	AdminHandler             *AdminHandler
-	AdminAcademicHandler     *AdminAcademicHandler
-	StudentHandler           *StudentHandler
-	TeacherHandler           *TeacherHandler
-	NotificationHandler      *NotificationHandler
-	BackupHandler            *BackupHandler
-	WebSocketHandler         *WebSocketHandler
-	EnvTestHandler           *EnvTestHandler
-	LanguageProfileHandler   *LanguageProfileHandler
-	CourseModuleHandler      *CourseModuleHandler
-	TenantMiddleware         func(http.Handler) http.Handler
-	AuditMiddleware          func(http.Handler) http.Handler
-	RateLimitMiddleware      func(http.Handler) http.Handler
+	ServerPoliciesHandler         *ServerPoliciesHandler
+	TenantLogoHandler             *TenantLogoHandler
+	UserHandler                   *UserHandler
+	TemplateHandler               *TemplateHandler
+	AuthHandler                   *AuthHandler
+	EvaluationHandler             *EvaluationHandler
+	WorkspaceHandler              *WorkspaceHandler
+	MetricsHandler                *MetricsHandler
+	ConfigHandler                 *ConfigHandler
+	SubjectHandler                *SubjectHandler
+	SubmissionHandler             *SubmissionHandler
+	TeacherInvitationHandler      *TeacherInvitationHandler
+	ClassroomHandler              *ClassroomHandler
+	AdminHandler                  *AdminHandler
+	AdminAcademicHandler          *AdminAcademicHandler
+	StudentHandler                *StudentHandler
+	TeacherHandler                *TeacherHandler
+	NotificationHandler           *NotificationHandler
+	BackupHandler                 *BackupHandler
+	WebSocketHandler              *WebSocketHandler
+	EnvTestHandler                *EnvTestHandler
+	LanguageProfileHandler        *LanguageProfileHandler
+	CourseModuleHandler           *CourseModuleHandler
+	TenantMiddleware              func(http.Handler) http.Handler
+	AuditMiddleware               func(http.Handler) http.Handler
+	RateLimitMiddleware           func(http.Handler) http.Handler
 	SubmissionRateLimitMiddleware func(http.Handler) http.Handler
-	MaintenanceMiddleware    func(http.Handler) http.Handler
+	MaintenanceMiddleware         func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {

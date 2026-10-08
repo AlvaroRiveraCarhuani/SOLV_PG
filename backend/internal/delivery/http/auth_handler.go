@@ -180,4 +180,3 @@ func (h *AuthHandler) recordAuthFailure(r *http.Request) {
 	}
 	h.rateLimiter.RecordAuthFailure(ip)
 }
-
