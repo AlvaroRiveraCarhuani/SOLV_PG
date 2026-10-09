@@ -31,7 +31,8 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 	var args []interface{}
 	if tenantID != "" {
 		query = `
-			SELECT id, subject_id, title, description, type, difficulty, 
+			SELECT id, subject_id, title, description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+			       template_id, difficulty, 
 			       COALESCE(tags, '{}') AS tags,
 			       COALESCE(purpose, 'class') AS purpose,
 			       COALESCE(per_student_seed, false) AS per_student_seed,
@@ -51,7 +52,8 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 		args = []interface{}{id, tenantID}
 	} else {
 		query = `
-			SELECT id, subject_id, title, description, type, difficulty, 
+			SELECT id, subject_id, title, description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+			       template_id, difficulty, 
 			       COALESCE(tags, '{}') AS tags,
 			       COALESCE(purpose, 'class') AS purpose,
 			       COALESCE(per_student_seed, false) AS per_student_seed,
@@ -143,14 +145,18 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 	}
 	defer tx.Rollback()
 
+	if exercise.EnvironmentType == "" {
+		exercise.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
+	}
+
 	query := `
 		INSERT INTO exercises (
-			id, subject_id, title, description, type, difficulty, tags, purpose, per_student_seed,
+			id, subject_id, title, description, type, environment_type, template_id, difficulty, tags, purpose, per_student_seed,
 			due_date, boilerplate, status, language, time_limit_ms, memory_limit_mb,
 			reference_solution, stale, expected_complexity, config, tenant_id
 		)
 		VALUES (
-			:id, :subject_id, :title, :description, :type, :difficulty, :tags, :purpose, :per_student_seed,
+			:id, :subject_id, :title, :description, :type, :environment_type, :template_id, :difficulty, :tags, :purpose, :per_student_seed,
 			:due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb,
 			:reference_solution, :stale, :expected_complexity, :config, :tenant_id
 		)
@@ -191,6 +197,9 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	if exercise.Tags == nil {
 		exercise.Tags = pq.StringArray{}
 	}
+	if exercise.EnvironmentType == "" {
+		exercise.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
+	}
 
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -203,6 +212,9 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		SET title = :title,
 		    description = :description,
 		    subject_id = :subject_id,
+		    type = :type,
+		    environment_type = :environment_type,
+		    template_id = :template_id,
 		    difficulty = :difficulty,
 		    tags = :tags,
 		    purpose = :purpose,
@@ -452,7 +464,8 @@ func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenan
 
 func (r *PostgresExerciseRepository) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
 	query := `
-		SELECT id, subject_id, title, description, type, difficulty,
+		SELECT id, subject_id, title, description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+		       template_id, difficulty,
 		       COALESCE(tags, '{}') AS tags,
 		       COALESCE(purpose, 'class') AS purpose,
 		       COALESCE(per_student_seed, false) AS per_student_seed,

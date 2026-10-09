@@ -126,6 +126,9 @@ func isValidationError(err error) bool {
 		errors.Is(err, domain.ErrInvalidWeight) ||
 		errors.Is(err, domain.ErrEmptyExpectedOutput) ||
 		errors.Is(err, domain.ErrTestCasesNotArray) ||
+		errors.Is(err, domain.ErrMemoryGovernedByTemplate) ||
+		errors.Is(err, domain.ErrTemplateEnvironmentMismatch) ||
+		errors.Is(err, domain.ErrTemplateNotApproved) ||
 		strings.Contains(err.Error(), "contrato de formato") ||
 		strings.Contains(err.Error(), "inválido según contrato") {
 		return true
@@ -180,6 +183,14 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid request body", "Error al leer el cuerpo de la petición")
 		return
+	}
+
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &rawMap); err == nil {
+		if _, hasRam := rawMap["memory_limit_mb"]; hasRam {
+			SendError(w, http.StatusUnprocessableEntity, "memory_governed_by_template", domain.ErrMemoryGovernedByTemplate.Error())
+			return
+		}
 	}
 
 	var ex domain.Exercise
@@ -242,6 +253,14 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid request body", "Error al leer el cuerpo de la petición")
 		return
+	}
+
+	var rawMap map[string]interface{}
+	if err := json.Unmarshal(bodyBytes, &rawMap); err == nil {
+		if _, hasRam := rawMap["memory_limit_mb"]; hasRam {
+			SendError(w, http.StatusUnprocessableEntity, "memory_governed_by_template", domain.ErrMemoryGovernedByTemplate.Error())
+			return
+		}
 	}
 
 	var ex domain.Exercise

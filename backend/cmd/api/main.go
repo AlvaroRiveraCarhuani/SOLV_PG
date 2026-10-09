@@ -124,6 +124,7 @@ func main() {
 
 	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
+	evaluationService.SetAdminGovernanceRepository(govRepo)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.

@@ -134,6 +134,12 @@ func (m *mockAdminGovernanceRepo) GetImageUsageCounts(ctx context.Context, tenan
 		"node:20-bookworm-slim":     2,
 	}, nil
 }
+func (m *mockAdminGovernanceRepo) GetTemplateByID(ctx context.Context, id string) (*domain.AdminTemplateReviewItem, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*domain.AdminTemplateReviewItem, error) {
+	return nil, nil
+}
 
 func TestCreateOfficialTemplate_DynamicProportionalMQoS(t *testing.T) {
 	mockRepo := &mockAdminGovernanceRepo{}

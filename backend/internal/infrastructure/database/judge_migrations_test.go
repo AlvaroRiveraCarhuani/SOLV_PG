@@ -48,6 +48,7 @@ func TestJudgeMigrationsExist(t *testing.T) {
 		"00017_exercise_submissions_generated_cases.sql",
 		"00018_submission_keystroke_events.sql",
 		"00019_exercise_expected_complexity_and_submission_analysis.sql",
+		"00020_dual_modality_and_template_governance.sql",
 	}
 	for _, name := range files {
 		content := readJudgeMigration(t, dir, name)
@@ -254,3 +255,21 @@ func TestJudgeMigration0012MetricsJobs(t *testing.T) {
 		}
 	}
 }
+
+func TestJudgeMigration0020DualModality(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	content := readJudgeMigration(t, dir, "00020_dual_modality_and_template_governance.sql")
+	for _, marker := range []string{
+		"SYSTEM_SEED_RUNNER",
+		"environment_type",
+		"template_id",
+		"JUEZ_EFIMERO",
+		"IDE_PERSISTENTE",
+		"fk_exercises_template",
+	} {
+		if !strings.Contains(content, marker) {
+			t.Errorf("00020 missing marker %q", marker)
+		}
+	}
+}
+

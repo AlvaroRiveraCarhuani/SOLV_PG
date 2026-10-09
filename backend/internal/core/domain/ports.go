@@ -168,6 +168,8 @@ type AdminGovernanceRepository interface {
 	ResetStudentOOM(ctx context.Context, tenantID, studentID string) (int64, error)
 	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
 	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)
+	GetTemplateByID(ctx context.Context, id string) (*AdminTemplateReviewItem, error)
+	GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*AdminTemplateReviewItem, error)
 	ReviewTemplate(ctx context.Context, tenantID, templateID, adminID, status, rejectionReason string, baseRamMB *int) (*AdminTemplateReviewItem, error)
 	CreateOfficialTemplate(ctx context.Context, tenantID, adminID string, dto CreateOfficialTemplateDTO) (*AdminTemplateReviewItem, error)
 	ListPendingAuditTemplates(ctx context.Context) ([]*AdminTemplateReviewItem, error)

@@ -1577,3 +1577,135 @@ func (r *PostgresAdminGovernanceRepository) GetImageUsageCounts(ctx context.Cont
 	}
 	return usageMap, rows.Err()
 }
+
+func (r *PostgresAdminGovernanceRepository) GetTemplateByID(ctx context.Context, id string) (*domain.AdminTemplateReviewItem, error) {
+	query := `
+		SELECT lt.id, lt.tenant_id, lt.name, lt.docker_image, lt.base_ram_mb, lt.status, 
+		       COALESCE(lt.rejection_reason, '') AS rejection_reason, 
+		       lt.reviewed_by, lt.reviewed_at, lt.requested_by,
+		       COALESCE(u.first_name || ' ' || u.last_name, 'Docente') AS requested_by_name,
+		       COALESCE(lt.description, '') AS description,
+		       COALESCE(lt.target_environment, 'IDE_PERSISTENTE') AS target_environment,
+		       COALESCE(lt.entrypoint, '') AS entrypoint,
+		       COALESCE(lt.timeout_ms, 5000) AS timeout_ms,
+		       COALESCE(lt.sample_input, '') AS sample_input,
+		       lt.category_id,
+		       COALESCE(c.name, '') AS category_name,
+		       lt.model_id,
+		       COALESCE(lt.services_config, '{"services":[]}'::jsonb) AS services_config,
+		       COALESCE(lt.resource_profile, '{"min_mb":256,"high_mb":768,"max_mb":1024}'::jsonb) AS resource_profile,
+		       COALESCE(lt.setup_script, '') AS setup_script,
+		       COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
+		       COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
+		       COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
+		       COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
+		       COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+		       lt.security_audited_at,
+		       COALESCE(lt.eol_status, 'supported') AS eol_status,
+		       COALESCE(lt.eol_date, '') AS eol_date,
+		       COALESCE(lt.eol_message, '') AS eol_message,
+		       lt.eol_checked_at,
+		       lt.created_at
+		FROM lab_templates lt
+		LEFT JOIN users u ON u.id = lt.requested_by
+		LEFT JOIN template_categories c ON c.id = lt.category_id
+		WHERE lt.id = $1
+	`
+	var t domain.AdminTemplateReviewItem
+	err := r.db.GetContext(ctx, &t, query, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("template not found")
+		}
+		return nil, fmt.Errorf("failed to get template by id %s: %w", id, err)
+	}
+	return &t, nil
+}
+
+func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*domain.AdminTemplateReviewItem, error) {
+	langLower := strings.ToLower(strings.TrimSpace(language))
+	query := `
+		SELECT lt.id, lt.tenant_id, lt.name, lt.docker_image, lt.base_ram_mb, lt.status, 
+		       COALESCE(lt.rejection_reason, '') AS rejection_reason, 
+		       lt.reviewed_by, lt.reviewed_at, lt.requested_by,
+		       COALESCE(u.first_name || ' ' || u.last_name, 'Docente') AS requested_by_name,
+		       COALESCE(lt.description, '') AS description,
+		       COALESCE(lt.target_environment, 'IDE_PERSISTENTE') AS target_environment,
+		       COALESCE(lt.entrypoint, '') AS entrypoint,
+		       COALESCE(lt.timeout_ms, 5000) AS timeout_ms,
+		       COALESCE(lt.sample_input, '') AS sample_input,
+		       lt.category_id,
+		       COALESCE(c.name, '') AS category_name,
+		       lt.model_id,
+		       COALESCE(lt.services_config, '{"services":[]}'::jsonb) AS services_config,
+		       COALESCE(lt.resource_profile, '{"min_mb":256,"high_mb":768,"max_mb":1024}'::jsonb) AS resource_profile,
+		       COALESCE(lt.setup_script, '') AS setup_script,
+		       COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
+		       COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
+		       COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
+		       COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
+		       COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+		       lt.security_audited_at,
+		       COALESCE(lt.eol_status, 'supported') AS eol_status,
+		       COALESCE(lt.eol_date, '') AS eol_date,
+		       COALESCE(lt.eol_message, '') AS eol_message,
+		       lt.eol_checked_at,
+		       lt.created_at
+		FROM lab_templates lt
+		LEFT JOIN users u ON u.id = lt.requested_by
+		LEFT JOIN template_categories c ON c.id = lt.category_id
+		WHERE lt.target_environment = $1 AND lt.status = 'approved'
+		  AND (
+		    ( $2 IN ('python', 'python3') AND (lt.docker_image LIKE 'python%' OR LOWER(lt.name) LIKE '%python%') )
+		    OR ( $2 IN ('javascript', 'js', 'node') AND (lt.docker_image LIKE 'node%' OR LOWER(lt.name) LIKE '%node%' OR LOWER(lt.name) LIKE '%javascript%') )
+		    OR ( $2 IN ('cpp', 'c++', 'c') AND (lt.docker_image LIKE 'gcc%' OR LOWER(lt.name) LIKE '%c++%' OR LOWER(lt.name) LIKE '%gcc%') )
+		    OR ( $2 = 'java' AND (lt.docker_image LIKE 'eclipse-temurin%' OR lt.docker_image LIKE 'java%' OR LOWER(lt.name) LIKE '%java%') )
+		    OR ( $2 IN ('csharp', 'c#', 'cs') AND (lt.docker_image LIKE 'mono%' OR LOWER(lt.name) LIKE '%csharp%' OR LOWER(lt.name) LIKE '%mono%') )
+		    OR ( $2 IN ('go', 'golang') AND (lt.docker_image LIKE 'golang%' OR LOWER(lt.name) LIKE '%go%') )
+		  )
+		ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC, lt.created_at ASC
+		LIMIT 1
+	`
+	var t domain.AdminTemplateReviewItem
+	err := r.db.GetContext(ctx, &t, query, environmentType, langLower)
+	if err != nil {
+		fallbackQuery := `
+			SELECT lt.id, lt.tenant_id, lt.name, lt.docker_image, lt.base_ram_mb, lt.status, 
+			       COALESCE(lt.rejection_reason, '') AS rejection_reason, 
+			       lt.reviewed_by, lt.reviewed_at, lt.requested_by,
+			       COALESCE(u.first_name || ' ' || u.last_name, 'Docente') AS requested_by_name,
+			       COALESCE(lt.description, '') AS description,
+			       COALESCE(lt.target_environment, 'IDE_PERSISTENTE') AS target_environment,
+			       COALESCE(lt.entrypoint, '') AS entrypoint,
+			       COALESCE(lt.timeout_ms, 5000) AS timeout_ms,
+			       COALESCE(lt.sample_input, '') AS sample_input,
+			       lt.category_id,
+			       COALESCE(c.name, '') AS category_name,
+			       lt.model_id,
+			       COALESCE(lt.services_config, '{"services":[]}'::jsonb) AS services_config,
+			       COALESCE(lt.resource_profile, '{"min_mb":256,"high_mb":768,"max_mb":1024}'::jsonb) AS resource_profile,
+			       COALESCE(lt.setup_script, '') AS setup_script,
+			       COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
+			       COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
+			       COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
+			       COALESCE(lt.cve_critical_count, 0) AS cve_critical_count,
+			       COALESCE(lt.cve_high_count, 0) AS cve_high_count,
+			       lt.security_audited_at,
+			       COALESCE(lt.eol_status, 'supported') AS eol_status,
+			       COALESCE(lt.eol_date, '') AS eol_date,
+			       COALESCE(lt.eol_message, '') AS eol_message,
+			       lt.eol_checked_at,
+			       lt.created_at
+			FROM lab_templates lt
+			LEFT JOIN users u ON u.id = lt.requested_by
+			LEFT JOIN template_categories c ON c.id = lt.category_id
+			WHERE lt.target_environment = $1 AND lt.status = 'approved'
+			ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC, lt.created_at ASC
+			LIMIT 1
+		`
+		if fbErr := r.db.GetContext(ctx, &t, fallbackQuery, environmentType); fbErr != nil {
+			return nil, fmt.Errorf("failed to find approved template for environment %s and language %s: %w", environmentType, language, err)
+		}
+	}
+	return &t, nil
+}

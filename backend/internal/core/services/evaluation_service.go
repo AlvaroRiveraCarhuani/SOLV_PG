@@ -29,6 +29,11 @@ type EvaluationService struct {
 	formatValidator FormatValidator
 	moduleRepo      domain.CourseModuleRepository
 	scriptRunner    domain.ScriptSandboxRunner
+	adminGovRepo    domain.AdminGovernanceRepository
+}
+
+func (s *EvaluationService) SetAdminGovernanceRepository(repo domain.AdminGovernanceRepository) {
+	s.adminGovRepo = repo
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,
@@ -140,12 +145,87 @@ func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
 
 var ErrZeroPublicTestCases = fmt.Errorf("cannot publish exercise with 0 public test cases")
 
+func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *domain.Exercise) error {
+	if s.adminGovRepo == nil {
+		return nil
+	}
+	if ex.EnvironmentType == "" {
+		ex.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
+	}
+
+	var template *domain.AdminTemplateReviewItem
+	var err error
+
+	if ex.TemplateID != "" {
+		template, err = s.adminGovRepo.GetTemplateByID(ctx, ex.TemplateID)
+		if err != nil {
+			return fmt.Errorf("failed to resolve template %s: %w", ex.TemplateID, err)
+		}
+	} else if ex.Language != "" {
+		template, err = s.adminGovRepo.GetTemplateForLanguage(ctx, ex.EnvironmentType, ex.Language)
+		if err != nil {
+			return fmt.Errorf("failed to resolve default template for language %s: %w", ex.Language, err)
+		}
+	}
+
+	if template != nil {
+		if template.Status != "approved" {
+			return domain.ErrTemplateNotApproved
+		}
+		if template.TargetEnvironment != ex.EnvironmentType {
+			return domain.ErrTemplateEnvironmentMismatch
+		}
+
+		ex.TemplateID = template.ID
+		ex.MemoryLimitMB = template.BaseRamMB
+		if ex.Config.Algorithm != nil {
+			ex.Config.Algorithm.MemoryLimitMB = template.BaseRamMB
+		}
+		ex.Template = &domain.TemplateSummary{
+			ID:                template.ID,
+			Name:              template.Name,
+			DockerImage:       template.DockerImage,
+			BaseRamMB:         template.BaseRamMB,
+			TargetEnvironment: template.TargetEnvironment,
+			ServicesConfig:    template.ServicesConfig,
+		}
+	}
+	return nil
+}
+
+func (s *EvaluationService) attachTemplateSummary(ctx context.Context, ex *domain.Exercise) {
+	if s.adminGovRepo == nil || ex == nil || ex.TemplateID == "" {
+		return
+	}
+	tpl, err := s.adminGovRepo.GetTemplateByID(ctx, ex.TemplateID)
+	if err == nil && tpl != nil {
+		ex.Template = &domain.TemplateSummary{
+			ID:                tpl.ID,
+			Name:              tpl.Name,
+			DockerImage:       tpl.DockerImage,
+			BaseRamMB:         tpl.BaseRamMB,
+			TargetEnvironment: tpl.TargetEnvironment,
+			ServicesConfig:    tpl.ServicesConfig,
+		}
+	}
+}
+
 func (s *EvaluationService) GetExerciseByID(ctx context.Context, id string) (*domain.Exercise, error) {
-	return s.exerciseRepo.GetByID(ctx, id)
+	ex, err := s.exerciseRepo.GetByID(ctx, id)
+	if err != nil || ex == nil {
+		return ex, err
+	}
+	s.attachTemplateSummary(ctx, ex)
+	return ex, nil
 }
 
 func (s *EvaluationService) GetExerciseByIDAndTenant(ctx context.Context, id, tenantID string) (*domain.Exercise, error) {
-	return s.exerciseRepo.GetByIDAndTenant(ctx, id, tenantID)
+	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, id, tenantID)
+	if err != nil || ex == nil {
+		return ex, err
+	}
+	s.attachTemplateSummary(ctx, ex)
+	return ex, nil
 }
 
 func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exercise) error {
@@ -156,6 +236,9 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 		return err
 	}
 	if err := s.validateExerciseInputFormat(ex); err != nil {
+		return err
+	}
+	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
 		return err
 	}
 	if ex.Config.Algorithm != nil {
@@ -180,6 +263,9 @@ func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exerc
 		return err
 	}
 	if err := s.validateExerciseInputFormat(ex); err != nil {
+		return err
+	}
+	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
 		return err
 	}
 	if ex.Config.Algorithm != nil {
@@ -228,6 +314,10 @@ func (s *EvaluationService) PublishExercise(ctx context.Context, exerciseID, ten
 	ex, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("exercise not found: %w", err)
+	}
+
+	if err := s.resolveAndApplyTemplate(ctx, ex); err != nil {
+		return nil, err
 	}
 
 	if ex.Type == domain.ExerciseTypeAlgorithm {

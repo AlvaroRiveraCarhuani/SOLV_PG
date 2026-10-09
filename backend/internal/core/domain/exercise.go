@@ -15,6 +15,14 @@ type ExerciseType string
 const (
 	ExerciseTypeAlgorithm ExerciseType = "algorithm"
 	ExerciseTypeDatabase  ExerciseType = "database"
+	ExerciseTypeProject   ExerciseType = "project"
+)
+
+type EnvironmentType string
+
+const (
+	EnvironmentTypeJuezEfimero   EnvironmentType = "JUEZ_EFIMERO"
+	EnvironmentTypeIDEPersistente EnvironmentType = "IDE_PERSISTENTE"
 )
 
 type ExercisePurpose string
@@ -41,12 +49,14 @@ const (
 )
 
 var (
-	ErrSeedRequiresExamPurpose = errors.New("per_student_seed is only allowed when purpose is 'exam'")
-	ErrInvalidVisibility       = errors.New("invalid test case visibility: must be 'example', 'public', or 'hidden'")
-	ErrInvalidWeight           = errors.New("test case weight must be non-negative")
-	ErrEmptyExpectedOutput     = errors.New("test case expected_output cannot be empty")
-	ErrTestCasesNotArray       = errors.New("test_cases must be an array")
-	ErrModuleLocked            = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
+	ErrSeedRequiresExamPurpose      = errors.New("per_student_seed is only allowed when purpose is 'exam'")
+	ErrInvalidVisibility            = errors.New("invalid test case visibility: must be 'example', 'public', or 'hidden'")
+	ErrInvalidWeight                = errors.New("test case weight must be non-negative")
+	ErrEmptyExpectedOutput          = errors.New("test case expected_output cannot be empty")
+	ErrTestCasesNotArray            = errors.New("test_cases must be an array")
+	ErrModuleLocked                 = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
+	ErrMemoryGovernedByTemplate     = errors.New("memory_governed_by_template: la memoria RAM es gobernada por la plantilla homologada del administrador y no puede ser enviada por el docente")
+	ErrTemplateEnvironmentMismatch = errors.New("template_environment_mismatch: el tipo de entorno de la plantilla no coincide con el environment_type del ejercicio")
 )
 
 type Verdict string
@@ -223,30 +233,42 @@ type DryRunJob struct {
 	UpdatedAt       time.Time         `json:"updated_at" db:"updated_at"`
 }
 
+type TemplateSummary struct {
+	ID                string          `json:"id"`
+	Name              string          `json:"name"`
+	DockerImage       string          `json:"docker_image"`
+	BaseRamMB         int             `json:"base_ram_mb"`
+	TargetEnvironment string          `json:"target_environment"`
+	ServicesConfig    ServicesConfig  `json:"services_config"`
+}
+
 type Exercise struct {
-	ID                 string         `json:"id" db:"id"`
-	SubjectID          *string        `json:"subject_id,omitempty" db:"subject_id"`
-	Title              string         `json:"title" db:"title"`
-	Description        string         `json:"description" db:"description"`
-	Type               ExerciseType   `json:"type" db:"type"`
-	Difficulty         *string        `json:"difficulty,omitempty" db:"difficulty"`
-	Tags               pq.StringArray `json:"tags" db:"tags"`
-	Purpose            string         `json:"purpose" db:"purpose"` // class, exam
-	PerStudentSeed     bool           `json:"per_student_seed" db:"per_student_seed"`
-	DueDate            *time.Time     `json:"due_date,omitempty" db:"due_date"`
-	Boilerplate        string         `json:"boilerplate" db:"boilerplate"`
-	Status             string         `json:"status" db:"status"` // draft, published, closed
-	Language           string         `json:"language" db:"language"`
-	TimeLimitMS        int            `json:"time_limit_ms" db:"time_limit_ms"`
-	MemoryLimitMB      int            `json:"memory_limit_mb" db:"memory_limit_mb"`
-	ReferenceSolution  string         `json:"reference_solution" db:"reference_solution"`
-	Stale              bool           `json:"stale" db:"stale"`
-	LastValidDryRunAt  *time.Time     `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
-	ModuleID           *string        `json:"module_id,omitempty" db:"module_id"`
-	ExpectedComplexity *string        `json:"expected_complexity,omitempty" db:"expected_complexity"`
-	Config             ExerciseConfig `json:"config" db:"config"`
-	TenantID           string         `json:"tenant_id" db:"tenant_id"`
-	CreatedAt          time.Time      `json:"created_at" db:"created_at"`
+	ID                 string           `json:"id" db:"id"`
+	SubjectID          *string          `json:"subject_id,omitempty" db:"subject_id"`
+	Title              string           `json:"title" db:"title"`
+	Description        string           `json:"description" db:"description"`
+	Type               ExerciseType     `json:"type" db:"type"`
+	EnvironmentType    string           `json:"environment_type" db:"environment_type"`
+	TemplateID         string           `json:"template_id" db:"template_id"`
+	Difficulty         *string          `json:"difficulty,omitempty" db:"difficulty"`
+	Tags               pq.StringArray   `json:"tags" db:"tags"`
+	Purpose            string           `json:"purpose" db:"purpose"` // class, exam
+	PerStudentSeed     bool             `json:"per_student_seed" db:"per_student_seed"`
+	DueDate            *time.Time       `json:"due_date,omitempty" db:"due_date"`
+	Boilerplate        string           `json:"boilerplate" db:"boilerplate"`
+	Status             string           `json:"status" db:"status"` // draft, published, closed
+	Language           string           `json:"language" db:"language"`
+	TimeLimitMS        int              `json:"time_limit_ms" db:"time_limit_ms"`
+	MemoryLimitMB      int              `json:"memory_limit_mb" db:"memory_limit_mb"`
+	ReferenceSolution  string           `json:"reference_solution" db:"reference_solution"`
+	Stale              bool             `json:"stale" db:"stale"`
+	LastValidDryRunAt  *time.Time       `json:"last_valid_dry_run_at,omitempty" db:"last_valid_dry_run_at"`
+	ModuleID           *string          `json:"module_id,omitempty" db:"module_id"`
+	ExpectedComplexity *string          `json:"expected_complexity,omitempty" db:"expected_complexity"`
+	Config             ExerciseConfig   `json:"config" db:"config"`
+	TenantID           string           `json:"tenant_id" db:"tenant_id"`
+	Template           *TemplateSummary `json:"template,omitempty" db:"-"`
+	CreatedAt          time.Time        `json:"created_at" db:"created_at"`
 }
 
 type ComplexityMeasurement struct {

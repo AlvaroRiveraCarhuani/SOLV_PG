@@ -45,4 +45,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 038 | [Tipografía White-Label por Tenant con Catálogo Curado](ADR-038-tipografia-white-label-tenant.md) | Aprobado | Slice 14 (14.6) |
 | 039 | [Extracción Relacional de Casos de Prueba con Visibilidad de Tres Estados](ADR-039-extraccion-relacional-casos-prueba-visibilidad-tres-estados.md) | Aprobado | Slice 12 |
 | 040 | [Deprecación Planificada del Wizard Modal Antiguo de Ejercicios](ADR-040-deprecacion-wizard-modal.md) | Aprobado | Slice 12 |
-
+| 041 | [Generación Determinista de Casos de Exámenes](ADR-041-generacion-determinista-casos-examenes.md) | Aprobado | Core |
+| 042 | [Auditoría Forense Time-Travel](ADR-042-auditoria-forense-time-travel.md) | Aprobado | Core |
+| 043 | [Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas](ADR-043-modalidad-dual-y-gobernanza-de-recursos.md) | Aprobado | Core |
