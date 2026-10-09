@@ -173,7 +173,11 @@ export class ModalityPurposeCardsComponent {
   readonly store = inject(ExerciseEditorStore);
 
   selectModality(modality: 'judge' | 'workspace') {
-    this.store.updateMetadata({ modality });
+    if (modality === 'judge') {
+      this.store.updateMetadata({ modality, environment_type: 'JUEZ_EFIMERO' });
+    } else {
+      this.store.updateMetadata({ modality, environment_type: 'IDE_PERSISTENTE' });
+    }
   }
 
   selectPurpose(purpose: 'class' | 'exam') {

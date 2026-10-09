@@ -101,6 +101,33 @@
               </div>
             }
 
+            <!-- Rúbrica de Evaluación Cualitativa (IDE Persistente) -->
+            @if (store.metadata().environment_type === 'IDE_PERSISTENTE' && store.rubric(); as rub) {
+              <div class="statement-section rubric-preview-section">
+                <h4 class="section-heading">Criterios de Evaluación por Rúbrica</h4>
+                <div class="rubric-preview-list">
+                  @for (criterion of rub.criteria; track criterion.name) {
+                    <div class="rubric-criterion-card">
+                      <div class="criterion-header-row">
+                        <strong class="criterion-name">{{ criterion.name }}</strong>
+                        <span class="criterion-weight font-mono" machineData>{{ criterion.weight }}%</span>
+                      </div>
+                      <p class="criterion-desc">{{ criterion.description }}</p>
+
+                      <ul class="levels-preview-list">
+                        @for (level of criterion.levels; track level.name) {
+                          <li class="level-preview-item">
+                            <strong class="level-name font-mono">{{ level.name }} ({{ level.score }} pts):</strong>
+                            <span class="level-desc">{{ level.description }}</span>
+                          </li>
+                        }
+                      </ul>
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
             <!-- Casos de Ejemplo (Solo visibility === 'example') -->
             <div class="example-cases-section">
               <h4 class="section-heading">

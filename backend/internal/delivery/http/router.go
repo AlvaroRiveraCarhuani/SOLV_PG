@@ -30,6 +30,7 @@ type Handlers struct {
 	EnvTestHandler                *EnvTestHandler
 	LanguageProfileHandler        *LanguageProfileHandler
 	CourseModuleHandler           *CourseModuleHandler
+	RubricHandler                 *RubricHandler
 	TenantMiddleware              func(http.Handler) http.Handler
 	AuditMiddleware               func(http.Handler) http.Handler
 	RateLimitMiddleware           func(http.Handler) http.Handler
@@ -51,6 +52,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
 	registerCourseModuleRoutes(mux, deps)
+	registerRubricRoutes(mux, deps)
 	registerNotificationRoutes(mux, deps)
 	registerBackupRoutes(mux, deps)
 	registerServerPoliciesRoutes(mux, deps)
@@ -437,4 +439,22 @@ func registerCourseModuleRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	// Student curricular map route
 	mux.Handle("GET /api/v1/student/courses/{id}/map", tm(http.HandlerFunc(deps.CourseModuleHandler.GetStudentCurricularMap)))
+}
+
+func registerRubricRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.RubricHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/exercises/{id}/rubric", tm(http.HandlerFunc(deps.RubricHandler.GetRubric)))
+	mux.Handle("PUT /api/v1/exercises/{id}/rubric", am(tm(http.HandlerFunc(deps.RubricHandler.SaveRubric))))
+	mux.Handle("POST /api/v1/submissions/{id}/rubric-evaluation", am(tm(http.HandlerFunc(deps.RubricHandler.EvaluateSubmission))))
 }

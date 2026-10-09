@@ -12,12 +12,12 @@ import {
   LucideBadgeCheck,
   LucideSparkles
 } from '@lucide/angular';
+import { Router } from '@angular/router';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TemplateRequestModalComponent } from './template-request-modal/template-request-modal.component';
-import { ExerciseEditorModalComponent } from '../courses/exercise-editor/exercise-editor-modal.component';
 
 export interface PublishedTemplate {
   id: string;
@@ -56,8 +56,7 @@ interface ApiResponse<T> {
     MachineDataDirective,
     SkeletonLoaderComponent,
     ComboboxComponent,
-    TemplateRequestModalComponent,
-    ExerciseEditorModalComponent
+    TemplateRequestModalComponent
   ],
   templateUrl: './teacher-templates.component.html',
   styleUrl: './teacher-templates.component.scss'
@@ -65,6 +64,7 @@ interface ApiResponse<T> {
 export class TeacherTemplatesComponent implements OnInit {
   private http = inject(HttpClient);
   private dashboardService = inject(TeacherDashboardService);
+  private router = inject(Router);
 
   courses = this.dashboardService.courses;
   templates = signal<PublishedTemplate[]>([]);
@@ -215,8 +215,11 @@ export class TeacherTemplatesComponent implements OnInit {
   }
 
   createLabFromTemplate(template: PublishedTemplate): void {
-    this.selectedTemplateForExercise.set(template);
-    this.isExerciseModalOpen.set(true);
+    const coursesList = this.courses();
+    const courseId = coursesList.length > 0 ? coursesList[0].id : 'all';
+    this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new'], {
+      queryParams: { template_id: template.id }
+    });
   }
 
   closeExerciseModal(): void {

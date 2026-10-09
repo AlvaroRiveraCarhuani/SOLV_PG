@@ -415,14 +415,7 @@
   </div>
 }
 
-@if (showEditorModal()) {
-  <exercise-editor-modal
-    [subjectId]="subjectId()"
-    [exerciseToEdit]="selectedExerciseToEdit()"
-    (close)="closeEditorModal()"
-    (saved)="loadData()"
-  />
-}
+
 
 @if (showPauseConfirmModal()) {
   <confirm-modal

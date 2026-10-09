@@ -1,7 +1,7 @@
 # ADR-040: Deprecación del Asistente Modal de Ejercicios y Migración Guiada al Editor Completo
 
 ## Estado
-Aceptado
+Cerrado: migración completa a editor de 3 columnas (OA-25)
 
 ## Contexto
 El módulo docente de la plataforma coexistía con dos flujos de autoría y edición de ejercicios:

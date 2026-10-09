@@ -186,9 +186,16 @@ type DatabaseConfig struct {
 	MemoryLimitMB     int    `json:"memory_limit_mb"`
 }
 
+type IDEConfig struct {
+	AllowResubmit  bool   `json:"allow_resubmit"`
+	AutoCheckpoint bool   `json:"auto_checkpoint"`
+	DBInitScript   string `json:"db_init_script,omitempty"`
+}
+
 type ExerciseConfig struct {
 	Algorithm   *AlgorithmConfig `json:"algorithm,omitempty"`
 	Database    *DatabaseConfig  `json:"database,omitempty"`
+	IDE         *IDEConfig       `json:"ide,omitempty"`
 	InputFormat json.RawMessage  `json:"input_format,omitempty"`
 }
 
@@ -208,8 +215,9 @@ func (ec *ExerciseConfig) Scan(value interface{}) error {
 }
 
 var (
-	ErrMissingReferenceSolution = errors.New("el ejercicio requiere una solución de referencia antes de ser publicado")
-	ErrExerciseStale            = errors.New("el ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
+	ErrMissingReferenceSolution          = errors.New("el ejercicio requiere una solución de referencia antes de ser publicado")
+	ErrExerciseStale                     = errors.New("el ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
+	ErrPayloadMismatchForEnvironmentType = errors.New("payload_mismatch_for_environment_type: los campos del payload no coinciden con el tipo de entorno (environment_type) seleccionado")
 )
 
 type DryRunJobStatus string

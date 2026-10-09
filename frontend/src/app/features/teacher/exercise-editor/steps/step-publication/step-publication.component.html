@@ -1,37 +1,39 @@
 <div class="step-publication-layout">
-  <!-- Sección 1: Reglas AST Custom y Toggles Globales -->
-  <section class="form-section">
-    <div class="section-header">
-      <div class="header-left">
-        <div class="title-row">
-          <svg lucideShield class="section-icon"></svg>
-          <h3 class="section-title">1. Reglas de Análisis Estático (AST Rules)</h3>
+  @if (store.metadata().environment_type !== 'IDE_PERSISTENTE') {
+    <!-- Sección 1: Reglas AST Custom y Toggles Globales -->
+    <section class="form-section">
+      <div class="section-header">
+        <div class="header-left">
+          <div class="title-row">
+            <svg lucideShield class="section-icon"></svg>
+            <h3 class="section-title">1. Reglas de Análisis Estático (AST Rules)</h3>
+          </div>
+          <p class="section-desc">
+            Restricciones sintácticas y módulos prohibidos para garantizar el aprendizaje algorítmico genuino.
+          </p>
         </div>
-        <p class="section-desc">
-          Restricciones sintácticas y módulos prohibidos para garantizar el aprendizaje algorítmico genuino.
-        </p>
       </div>
-    </div>
 
-    <ast-rules-builder />
-  </section>
+      <ast-rules-builder />
+    </section>
 
-  <!-- Sección 2: Boilerplate por Lenguaje -->
-  <section class="form-section">
-    <div class="section-header">
-      <div class="header-left">
-        <div class="title-row">
-          <svg lucideCode2 class="section-icon"></svg>
-          <h3 class="section-title">2. Código Inicial (Boilerplate)</h3>
+    <!-- Sección 2: Boilerplate por Lenguaje -->
+    <section class="form-section">
+      <div class="section-header">
+        <div class="header-left">
+          <div class="title-row">
+            <svg lucideCode2 class="section-icon"></svg>
+            <h3 class="section-title">2. Código Inicial (Boilerplate)</h3>
+          </div>
+          <p class="section-desc">
+            Plantilla base por lenguaje permitido que se presentará al estudiante en el editor.
+          </p>
         </div>
-        <p class="section-desc">
-          Plantilla base por lenguaje permitido que se presentará al estudiante en el editor.
-        </p>
       </div>
-    </div>
 
-    <boilerplate-tabs />
-  </section>
+      <boilerplate-tabs />
+    </section>
+  }
 
   <!-- Sección 3: Checklist de Publicación -->
   <section class="form-section">
@@ -39,7 +41,7 @@
       <div class="header-left">
         <div class="title-row">
           <svg lucideCheckSquare class="section-icon"></svg>
-          <h3 class="section-title">3. Checklist y Auditoría de Publicación</h3>
+          <h3 class="section-title">Checklist y Auditoría de Publicación</h3>
         </div>
         <p class="section-desc">
           Verificación exhaustiva de bloqueantes, advertencias pedagógicas y calibración de límites.

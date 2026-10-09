@@ -1,14 +1,41 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { ASTRulesDTO, ASTCustomRuleDTO, ChecklistReportDTO, CreateExerciseRequestDTO, TestCaseDTO, UpdateExerciseRequestDTO } from '../models/teacher.models';
+
+export interface RubricLevelDTO {
+  name: string;
+  score: number;
+  description: string;
+}
+
+export interface RubricCriterionDTO {
+  id?: string;
+  name: string;
+  description: string;
+  weight: number;
+  levels: RubricLevelDTO[];
+}
+
+export interface RubricDTO {
+  id?: string;
+  exercise_id?: string;
+  criteria: RubricCriterionDTO[];
+}
 
 export interface ExerciseMetadata {
   title: string;
   difficulty: 'easy' | 'medium' | 'hard' | null;
   tags: string[];
   modality: 'judge' | 'workspace' | 'database';
+  environment_type: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
+  template_id: string | null;
+  template: any | null;
+  db_init_script: string;
+  allow_resubmit: boolean;
+  auto_checkpoint: boolean;
   purpose: 'class' | 'exam';
   per_student_seed: boolean;
   language: string;
@@ -32,6 +59,7 @@ export interface ExerciseStatement {
 export class ExerciseEditorStore {
   private courseService = inject(TeacherCourseService);
   private router = inject(Router);
+  private http = inject(HttpClient);
 
   // Context
   readonly courseId = signal<string>('');
@@ -42,12 +70,21 @@ export class ExerciseEditorStore {
   readonly lastSavedAt = signal<Date | null>(null);
   readonly currentStep = signal<1 | 2 | 3>(1);
 
+  // Rubrica (IDE Persistente)
+  readonly rubric = signal<RubricDTO | null>(null);
+
   // Paso 1: Identidad y Pedagogía
   readonly metadata = signal<ExerciseMetadata>({
     title: '',
     difficulty: null,
     tags: [],
     modality: 'judge',
+    environment_type: 'JUEZ_EFIMERO',
+    template_id: null,
+    template: null,
+    db_init_script: '',
+    allow_resubmit: true,
+    auto_checkpoint: true,
     purpose: 'class',
     per_student_seed: false,
     language: 'python',
@@ -149,22 +186,39 @@ export class ExerciseEditorStore {
   });
 
   readonly step2Validation = computed(() => {
-    const cs = this.cases();
-    const ref = this.referenceSolution();
+    const m = this.metadata();
+    const isIDE = m.environment_type === 'IDE_PERSISTENTE';
     const errors: string[] = [];
     const warnings: string[] = [];
 
-    if (cs.length === 0) {
-      errors.push('Debes incluir al menos un caso de prueba');
-    }
-    if (!ref.trim()) {
-      warnings.push('No has incluido la solución de referencia del docente');
-    }
-    if (this.exampleCasesCount() === 0) {
-      warnings.push('No hay casos marcados como "Ejemplo" para el enunciado');
-    }
-    if (this.hiddenCasesCount() === 0) {
-      warnings.push('No hay casos ocultos; un print estático podría aprobar');
+    if (isIDE) {
+      if (!m.template_id) {
+        errors.push('Debes seleccionar una plantilla aprobada del catálogo');
+      }
+      const rub = this.rubric();
+      if (!rub || !rub.criteria || rub.criteria.length === 0) {
+        warnings.push('No has definido los criterios de la rúbrica de evaluación');
+      } else {
+        const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          errors.push(`La suma de pesos de la rúbrica es ${totalWeight}%. Debe ser exactamente 100%`);
+        }
+      }
+    } else {
+      const cs = this.cases();
+      const ref = this.referenceSolution();
+      if (cs.length === 0) {
+        errors.push('Debes incluir al menos un caso de prueba');
+      }
+      if (!ref.trim()) {
+        warnings.push('No has incluido la solución de referencia del docente');
+      }
+      if (this.exampleCasesCount() === 0) {
+        warnings.push('No hay casos marcados como "Ejemplo" para el enunciado');
+      }
+      if (this.hiddenCasesCount() === 0) {
+        warnings.push('No hay casos ocultos; un print estático podría aprobar');
+      }
     }
 
     return {
@@ -232,8 +286,47 @@ export class ExerciseEditorStore {
 
   refreshChecklist() {
     const id = this.exerciseId();
+    const meta = this.metadata();
+    const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
+
+    if (isIDE) {
+      const errors: string[] = [];
+      const warnings: string[] = [];
+      const info: string[] = [];
+
+      if (!meta.template_id) {
+        errors.push('No se ha asignado una plantilla homologada del catálogo oficial.');
+      } else {
+        info.push(`Plantilla vinculada: ${meta.template?.name || meta.template_id}`);
+      }
+
+      const rub = this.rubric();
+      if (!rub || !rub.criteria || rub.criteria.length === 0) {
+        warnings.push('Rúbrica de evaluación no definida para este laboratorio de IDE Persistente.');
+      } else {
+        const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          errors.push(`La suma de pesos de la rúbrica es ${totalWeight}%. Debe ser exactamente 100%.`);
+        } else {
+          info.push(`Rúbrica configurada correctamente (${rub.criteria.length} criterios, 100% peso).`);
+        }
+      }
+
+      if (meta.db_init_script?.trim()) {
+        info.push('Script de inicialización DDL/DML configurado.');
+      }
+
+      this.checklistReport.set({
+        blockers: errors,
+        warnings,
+        info,
+        can_publish: errors.length === 0
+      });
+      return;
+    }
+
     if (!id) {
-      // Para ejercicios nuevos no persistidos aún, generar un checklist local
+      // Para ejercicios nuevos JUEZ_EFIMERO no persistidos aún
       const errors: string[] = [];
       const warnings: string[] = [];
       const info: string[] = [];
@@ -279,7 +372,10 @@ export class ExerciseEditorStore {
     });
   }
 
-  // Mutaciones
+  setRubric(rubric: RubricDTO | null) {
+    this.rubric.set(rubric);
+  }
+
   setCourseId(id: string) {
     this.courseId.set(id);
   }
@@ -385,17 +481,24 @@ export class ExerciseEditorStore {
       next: (ex: any) => {
         if (ex) {
           this.status.set(ex.status || 'draft');
+          const isIDE = ex.environment_type === 'IDE_PERSISTENTE' || ex.type === 'workspace' || ex.type === 'project';
           this.metadata.set({
             title: ex.title || '',
             difficulty: ex.difficulty || null,
             tags: ex.tags || [],
-            modality: ex.type || 'judge',
+            modality: isIDE ? 'workspace' : (ex.type || 'judge'),
+            environment_type: isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO',
+            template_id: ex.template_id || null,
+            template: ex.template || null,
+            db_init_script: ex.config?.ide?.db_init_script || ex.config?.database?.init_script || '',
+            allow_resubmit: ex.config?.ide?.allow_resubmit ?? true,
+            auto_checkpoint: ex.config?.ide?.auto_checkpoint ?? true,
             purpose: ex.purpose || 'class',
             per_student_seed: !!ex.per_student_seed,
             language: ex.language || 'python',
             allowed_languages: [ex.language || 'python'],
             time_limit_ms: ex.time_limit_ms || 1000,
-            memory_limit_mb: ex.memory_limit_mb || 128,
+            memory_limit_mb: ex.template?.base_ram_mb || ex.memory_limit_mb || 128,
             due_date: ex.due_date ? ex.due_date.substring(0, 16) : '',
             expected_complexity: ex.expected_complexity || undefined
           });
@@ -420,6 +523,19 @@ export class ExerciseEditorStore {
             this.contract.set(ex.config.algorithm.input_format || ex.config.input_format || null);
             this.cases.set(ex.config.algorithm.test_cases || []);
           }
+
+          if (isIDE && exerciseId) {
+            this.http.get<any>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
+              next: (res) => {
+                const data = res?.data || res;
+                if (data && data.criteria) {
+                  this.rubric.set(data);
+                }
+              },
+              error: () => {}
+            });
+          }
+
           this.initialSnapshot.set(this.serializeState());
         }
         this.isLoading.set(false);
@@ -439,32 +555,45 @@ export class ExerciseEditorStore {
 
     this.isSaving.set(true);
 
-    const payload: CreateExerciseRequestDTO | UpdateExerciseRequestDTO = {
+    const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
+
+    const payload: any = {
       subject_id: cId,
       title: meta.title || 'Borrador sin título',
       description: stat.description,
-      type: meta.modality === 'judge' ? 'algorithm' : meta.modality,
+      type: isIDE ? 'project' : (meta.modality === 'judge' ? 'algorithm' : meta.modality),
+      environment_type: meta.environment_type || (isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO'),
+      template_id: meta.template_id || undefined,
       difficulty: meta.difficulty || undefined,
       tags: meta.tags,
       purpose: meta.purpose,
       per_student_seed: meta.per_student_seed,
       language: meta.language,
       time_limit_ms: meta.time_limit_ms,
-      memory_limit_mb: meta.memory_limit_mb,
       due_date: meta.due_date ? new Date(meta.due_date).toISOString() : undefined,
       expected_complexity: meta.expected_complexity || undefined,
-      reference_solution: this.referenceSolution(),
-      boilerplate: this.boilerplate(),
       ast_rules: this.astRules(),
-      input_format: this.contract(),
-      test_cases: this.cases()
+      boilerplate: this.boilerplate()
     };
+
+    if (isIDE) {
+      payload.db_init_script = meta.db_init_script || undefined;
+      payload.allow_resubmit = meta.allow_resubmit;
+      payload.auto_checkpoint = meta.auto_checkpoint;
+    } else {
+      payload.reference_solution = this.referenceSolution();
+      payload.input_format = this.contract();
+      payload.test_cases = this.cases();
+    }
 
     if (id) {
       this.courseService.updateExercise(id, payload).subscribe({
         next: () => {
           this.isSaving.set(false);
           this.lastSavedAt.set(new Date());
+          if (isIDE && this.rubric()) {
+            this.http.put(`/api/v1/exercises/${id}/rubric`, this.rubric()).subscribe({ error: () => {} });
+          }
           this.initialSnapshot.set(this.serializeState());
         },
         error: () => {
@@ -472,10 +601,14 @@ export class ExerciseEditorStore {
         }
       });
     } else {
-      this.courseService.createExercise(payload as CreateExerciseRequestDTO).subscribe({
+      this.courseService.createExercise(payload as any).subscribe({
         next: (created: any) => {
           this.isSaving.set(false);
           this.lastSavedAt.set(new Date());
+          const newId = created?.id;
+          if (isIDE && this.rubric() && newId) {
+            this.http.put(`/api/v1/exercises/${newId}/rubric`, this.rubric()).subscribe({ error: () => {} });
+          }
           if (created?.id) {
             this.exerciseId.set(created.id);
             this.initialSnapshot.set(this.serializeState());

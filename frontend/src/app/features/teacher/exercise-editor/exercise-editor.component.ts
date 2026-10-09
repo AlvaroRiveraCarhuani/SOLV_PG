@@ -14,6 +14,7 @@ import { StepperNavComponent } from './shared/stepper-nav.component';
 import { SummaryPanelComponent } from './shared/summary-panel.component';
 import { StepIdentityComponent } from './steps/step-identity/step-identity.component';
 import { StepContractComponent } from './steps/step-contract/step-contract.component';
+import { StepIdeEnvironmentComponent } from './steps/step-ide-environment/step-ide-environment.component';
 import { StepPublicationComponent } from './steps/step-publication/step-publication.component';
 import { StudentPreviewModalComponent } from './student-preview-modal/student-preview-modal.component';
 
@@ -33,6 +34,7 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
     SummaryPanelComponent,
     StepIdentityComponent,
     StepContractComponent,
+    StepIdeEnvironmentComponent,
     StepPublicationComponent,
     StudentPreviewModalComponent
   ],
@@ -135,7 +137,11 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
                 <step-identity />
               }
               @case (2) {
-                <step-contract />
+                @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+                  <step-ide-environment />
+                } @else {
+                  <step-contract />
+                }
               }
               @case (3) {
                 <step-publication />

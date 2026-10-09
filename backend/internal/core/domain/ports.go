@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type LabContainerConfig struct {
@@ -298,4 +300,18 @@ type CourseModuleRepository interface {
 // ScriptSandboxRunner ejecuta scripts de generación de casos en un contenedor efímero aislado
 type ScriptSandboxRunner interface {
 	RunPythonScript(ctx context.Context, scriptCode string, timeoutSec int) (stdout string, stderr string, err error)
+}
+
+// RubricRepository gestiona la persistencia de rúbricas para ejercicios IDE Persistente
+type RubricRepository interface {
+	GetByExerciseID(ctx context.Context, exerciseID uuid.UUID) (*Rubric, error)
+	CreateOrUpdate(ctx context.Context, rubric *Rubric) error
+}
+
+// RubricService orquesta la creación, validación y evaluación de rúbricas
+type RubricService interface {
+	GetByExerciseID(ctx context.Context, exerciseID uuid.UUID) (*Rubric, error)
+	CreateOrUpdate(ctx context.Context, rubric *Rubric) error
+	CalculateScore(criteria []RubricCriterion, selections map[string]string) (float64, []CriterionBreakdown, error)
+	EvaluateSubmission(ctx context.Context, submissionID uuid.UUID, req RubricEvaluationRequest) (*RubricEvaluationResponse, error)
 }

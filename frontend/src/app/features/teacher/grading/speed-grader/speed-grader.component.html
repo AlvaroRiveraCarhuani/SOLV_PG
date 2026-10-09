@@ -231,6 +231,71 @@
 
       <!-- Panel Lateral de Juez y Casos de Prueba -->
       <aside class="evaluation-panel">
+        <!-- Panel de Evaluación por Rúbrica (IDE Persistente) -->
+        @if (rubric(); as rub) {
+          <div class="rubric-grader-box">
+            <div class="rubric-header">
+              <svg lucideClipboardList class="btn-icon-sm"></svg>
+              <span>Evaluación por Rúbrica</span>
+            </div>
+
+            @if (rubricSuccessMessage()) {
+              <div class="success-banner-sm">
+                <span>{{ rubricSuccessMessage() }}</span>
+              </div>
+            }
+
+            <div class="criteria-eval-list">
+              @for (criterion of rub.criteria; track criterion.id || $index) {
+                <div class="criterion-eval-card">
+                  <div class="criterion-eval-header">
+                    <span class="criterion-name">{{ criterion.name }}</span>
+                    <span class="criterion-weight font-mono" machineData>{{ criterion.weight }}%</span>
+                  </div>
+                  <p class="criterion-desc">{{ criterion.description }}</p>
+
+                  <select
+                    class="form-select level-select"
+                    [ngModel]="selections()[criterion.id || '']"
+                    (ngModelChange)="onLevelSelected(criterion.id || '', $event)"
+                  >
+                    @for (level of criterion.levels; track level.name) {
+                      <option [value]="level.name">
+                        {{ level.name }} ({{ level.score }} pts) — {{ level.description }}
+                      </option>
+                    }
+                  </select>
+                </div>
+              }
+            </div>
+
+            <div class="form-group margin-top-sm">
+              <label class="form-label">Comentarios Generales</label>
+              <textarea
+                class="form-textarea"
+                rows="2"
+                placeholder="Retroalimentación docente para la entrega..."
+                [ngModel]="rubricComments()"
+                (ngModelChange)="rubricComments.set($event)"
+              ></textarea>
+            </div>
+
+            <div class="score-summary-box">
+              <span>Score Ponderado:</span>
+              <strong class="score-val font-mono" machineData>{{ calculatedRubricScore() }} / 100 pts</strong>
+            </div>
+
+            <button
+              type="button"
+              class="btn-primary btn-save-rubric"
+              [disabled]="isSubmittingRubric()"
+              (click)="saveRubricEvaluation()"
+            >
+              <span>{{ isSubmittingRubric() ? 'Guardando...' : 'Guardar Calificación' }}</span>
+            </button>
+          </div>
+        }
+
         <!-- Veredicto General -->
         <div class="verdict-card" [class]="'card-' + r.verdict.toLowerCase().replace('_', '-')">
           <div class="verdict-header">

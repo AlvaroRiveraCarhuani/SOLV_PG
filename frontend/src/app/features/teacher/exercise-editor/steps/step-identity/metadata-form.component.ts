@@ -110,22 +110,18 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         <span class="field-hint">Tiempo máximo de ejecución para cada caso individual</span>
       </div>
 
-      <!-- Límite de Memoria RAM -->
+      <!-- Límite de Memoria RAM (Solo Lectura, Asignado por Plantilla) -->
       <div class="form-group">
-        <label for="memory-limit" class="form-label">
-          Memoria RAM máxima (MB)
+        <label for="memory-limit-display" class="form-label">
+          Memoria RAM asignada
         </label>
-        <input 
-          id="memory-limit"
-          type="number" 
-          class="form-input font-mono" 
-          [ngModel]="store.metadata().memory_limit_mb"
-          (ngModelChange)="onMemoryLimitChange($event)"
-          min="32"
-          max="1024"
-          step="32"
-        />
-        <span class="field-hint">Límite cgroup asignado al contenedor del runner</span>
+        <div class="ram-chip-display" id="memory-limit-display">
+          <span class="ram-badge font-mono" machineData>
+            {{ store.metadata().template?.base_ram_mb || store.metadata().memory_limit_mb || 128 }} MB
+          </span>
+          <span class="governance-tag">Asignada por plantilla admin</span>
+        </div>
+        <span class="field-hint">Gobernanza de recursos: la RAM la define el Administrador en la plantilla</span>
       </div>
 
       <!-- Fecha de Entrega / Límite -->

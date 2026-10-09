@@ -211,16 +211,7 @@
   }
 </div>
 
-<!-- Modal Asistente de Creación / Edición de Laboratorios -->
-@if (isEditorOpen()) {
-  <exercise-editor-modal
-    [subjectId]="editorSubjectId()"
-    [subjectName]="editorSubjectName()"
-    [exerciseToEdit]="exerciseToEdit()"
-    (close)="closeEditorModal()"
-    (saved)="onExerciseSaved()"
-  />
-}
+
 
 <!-- Modal de Fuzzing -->
 @if (isFuzzingOpen() && exerciseForFuzzing(); as lab) {

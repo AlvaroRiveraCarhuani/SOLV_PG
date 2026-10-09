@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { 
   LucideArrowLeft, 
   LucideChevronLeft, 
@@ -17,8 +18,10 @@ import {
   LucideHistory,
   LucideTrendingUp,
   LucideCopy,
-  LucideFilm
+  LucideFilm,
+  LucideClipboardList
 } from '@lucide/angular';
+import { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
 import { SubmissionComment, SubmissionTimeline, TimelineKeyframe, LiveWorkspaceSession, BenchmarkReport } from '../../models/teacher.models';
@@ -55,6 +58,7 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     LucideTrendingUp,
     LucideCopy,
     LucideFilm,
+    LucideClipboardList,
     DateTextPipe,
     MachineDataDirective,
     SkeletonLoaderComponent,
@@ -73,6 +77,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private gradingService = inject(TeacherGradingService);
   private hotkeysService = inject(HotkeysService);
+  private http = inject(HttpClient);
   private unregisterFns: Array<() => void> = [];
 
   readonly verdictOptions: ComboboxOption[] = [
@@ -88,6 +93,66 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   isLoading = this.gradingService.isLoading;
   isRunningEphemeral = this.gradingService.isRunningEphemeral;
   ephemeralResult = this.gradingService.ephemeralResult;
+
+  // Rubrica
+  rubric = signal<RubricDTO | null>(null);
+  selections = signal<Record<string, string>>({});
+  rubricComments = signal<string>('');
+  isSubmittingRubric = signal<boolean>(false);
+  rubricSuccessMessage = signal<string | null>(null);
+
+  calculatedRubricScore = computed(() => {
+    const rub = this.rubric();
+    if (!rub || !rub.criteria) return 0;
+    const sel = this.selections();
+    let total = 0;
+    for (const c of rub.criteria) {
+      const selectedName = sel[c.id || ''] || (c.levels[0] ? c.levels[0].name : '');
+      const lvl = c.levels.find(l => l.name === selectedName);
+      if (lvl) {
+        total += (c.weight / 100.0) * lvl.score;
+      }
+    }
+    return Math.round(total * 100) / 100;
+  });
+
+  onLevelSelected(criterionId: string, levelName: string): void {
+    this.selections.update(curr => ({ ...curr, [criterionId]: levelName }));
+  }
+
+  saveRubricEvaluation(): void {
+    const id = this.submissionId();
+    if (!id || !this.rubric()) return;
+
+    this.isSubmittingRubric.set(true);
+    this.rubricSuccessMessage.set(null);
+
+    const payload = {
+      selections: this.selections(),
+      comments: this.rubricComments()
+    };
+
+    this.http.post<any>(`/api/v1/submissions/${id}/rubric-evaluation`, payload).subscribe({
+      next: (res) => {
+        this.isSubmittingRubric.set(false);
+        const score = res?.data?.score ?? this.calculatedRubricScore();
+        this.rubricSuccessMessage.set(`Calificación guardada exitosamente (${score} / 100 pts)`);
+        const currentRev = this.review();
+        if (currentRev) {
+          this.gradingService.currentReview.set({
+            ...currentRev,
+            score: Math.round(score),
+            verdict: 'AC',
+            manual_override: true,
+            override_reason: 'Evaluado por rúbrica'
+          });
+        }
+      },
+      error: () => {
+        this.isSubmittingRubric.set(false);
+      }
+    });
+  }
 
   showDiffView = signal<boolean>(false);
   starterBoilerplate = signal<string>('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escribe tu solución aquí\n    return 0;\n}');
@@ -331,7 +396,37 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.newCommentText.set('');
     this.overrideError.set(null);
     this.timeline.set(null);
-    this.gradingService.getSubmissionReview(id).subscribe();
+    this.rubric.set(null);
+    this.selections.set({});
+    this.rubricComments.set('');
+    this.rubricSuccessMessage.set(null);
+
+    this.gradingService.getSubmissionReview(id).subscribe({
+      next: (rev) => {
+        if (rev && rev.exercise_id) {
+          this.loadRubric(rev.exercise_id);
+        }
+      }
+    });
+  }
+
+  loadRubric(exerciseId: string): void {
+    this.http.get<any>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
+      next: (res) => {
+        const data = res?.data || res;
+        if (data && data.criteria && data.criteria.length > 0) {
+          this.rubric.set(data);
+          const initialSel: Record<string, string> = {};
+          for (const c of data.criteria) {
+            if (c.id && c.levels && c.levels.length > 0) {
+              initialSel[c.id] = c.levels[0].name;
+            }
+          }
+          this.selections.set(initialSel);
+        }
+      },
+      error: () => {}
+    });
   }
 
   toggleReplay(): void {

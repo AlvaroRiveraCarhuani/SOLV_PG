@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   LucidePlus,
   LucideSearch,
@@ -22,7 +22,6 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { ExerciseEditorModalComponent } from '../courses/exercise-editor/exercise-editor-modal.component';
 import { FuzzingModalComponent } from '../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { forkJoin, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -55,7 +54,6 @@ export interface EnrichedLabItem extends TeacherLabStats {
     DateTextPipe,
     SkeletonLoaderComponent,
     ComboboxComponent,
-    ExerciseEditorModalComponent,
     FuzzingModalComponent
   ],
   templateUrl: './teacher-exercises.component.html',
@@ -64,6 +62,7 @@ export interface EnrichedLabItem extends TeacherLabStats {
 export class TeacherExercisesComponent implements OnInit {
   private dashboardService = inject(TeacherDashboardService);
   private courseService = inject(TeacherCourseService);
+  private router = inject(Router);
 
   courses = this.dashboardService.courses;
   isLoading = signal<boolean>(false);
@@ -228,25 +227,17 @@ export class TeacherExercisesComponent implements OnInit {
     });
   }
 
+
+
   openCreateModal(preselectedCourseId?: string): void {
     const coursesList = this.courses();
     const course = coursesList.find(c => c.id === preselectedCourseId) || coursesList[0];
-    if (course) {
-      this.editorSubjectId.set(course.id);
-      this.editorSubjectName.set(`${course.code} — ${course.name}`);
-    } else {
-      this.editorSubjectId.set('');
-      this.editorSubjectName.set('');
-    }
-    this.exerciseToEdit.set(null);
-    this.isEditorOpen.set(true);
+    const courseId = course ? course.id : 'all';
+    this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new']);
   }
 
   openEditModal(lab: EnrichedLabItem): void {
-    this.editorSubjectId.set(lab.subject_id);
-    this.editorSubjectName.set(`${lab.subject_code} — ${lab.subject_name}`);
-    this.exerciseToEdit.set(lab);
-    this.isEditorOpen.set(true);
+    this.router.navigate(['/teacher/courses', lab.subject_id, 'exercises', lab.id, 'edit']);
   }
 
   closeEditorModal(): void {

@@ -167,12 +167,4 @@
   />
 }
 
-<!-- Modal de Creación de Ejercicio desde Plantilla -->
-@if (isExerciseModalOpen() && courses().length > 0) {
-  <exercise-editor-modal
-    [subjectId]="courses()[0].id"
-    [subjectName]="courses()[0].code + ' — ' + courses()[0].name"
-    [initialTemplate]="selectedTemplateForExercise()"
-    (close)="closeExerciseModal()"
-  />
-}
+

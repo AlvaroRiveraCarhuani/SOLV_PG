@@ -1,6 +1,6 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { 
   LucideArrowLeft, 
@@ -28,7 +28,6 @@ import {
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { TeacherLabStats, TeacherCourseSummary, TeacherCourseModule } from '../../models/teacher.models';
-import { ExerciseEditorModalComponent } from '../exercise-editor/exercise-editor-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
@@ -67,7 +66,6 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     LucideLock,
     LucideTrash2,
     LucideUploadCloud,
-    ExerciseEditorModalComponent,
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
@@ -84,6 +82,7 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
 
 export class TeacherCourseDetailComponent implements OnInit {
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private courseService = inject(TeacherCourseService);
   private dashboardService = inject(TeacherDashboardService);
 
@@ -161,17 +160,14 @@ export class TeacherCourseDetailComponent implements OnInit {
   }
 
   openCreateExerciseModal(): void {
-    this.selectedExerciseToEdit.set(null);
-    this.showEditorModal.set(true);
+    this.router.navigate(['/teacher/courses', this.subjectId(), 'exercises', 'new']);
   }
 
   openEditExerciseModal(lab: TeacherLabStats): void {
-    this.selectedExerciseToEdit.set(lab);
-    this.showEditorModal.set(true);
+    this.router.navigate(['/teacher/courses', this.subjectId(), 'exercises', lab.id, 'edit']);
   }
 
   closeEditorModal(): void {
-    this.showEditorModal.set(false);
     this.selectedExerciseToEdit.set(null);
   }
 
