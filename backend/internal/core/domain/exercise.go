@@ -21,7 +21,7 @@ const (
 type EnvironmentType string
 
 const (
-	EnvironmentTypeJuezEfimero   EnvironmentType = "JUEZ_EFIMERO"
+	EnvironmentTypeJuezEfimero    EnvironmentType = "JUEZ_EFIMERO"
 	EnvironmentTypeIDEPersistente EnvironmentType = "IDE_PERSISTENTE"
 )
 
@@ -49,13 +49,13 @@ const (
 )
 
 var (
-	ErrSeedRequiresExamPurpose      = errors.New("per_student_seed is only allowed when purpose is 'exam'")
-	ErrInvalidVisibility            = errors.New("invalid test case visibility: must be 'example', 'public', or 'hidden'")
-	ErrInvalidWeight                = errors.New("test case weight must be non-negative")
-	ErrEmptyExpectedOutput          = errors.New("test case expected_output cannot be empty")
-	ErrTestCasesNotArray            = errors.New("test_cases must be an array")
-	ErrModuleLocked                 = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
-	ErrMemoryGovernedByTemplate     = errors.New("memory_governed_by_template: la memoria RAM es gobernada por la plantilla homologada del administrador y no puede ser enviada por el docente")
+	ErrSeedRequiresExamPurpose     = errors.New("per_student_seed is only allowed when purpose is 'exam'")
+	ErrInvalidVisibility           = errors.New("invalid test case visibility: must be 'example', 'public', or 'hidden'")
+	ErrInvalidWeight               = errors.New("test case weight must be non-negative")
+	ErrEmptyExpectedOutput         = errors.New("test case expected_output cannot be empty")
+	ErrTestCasesNotArray           = errors.New("test_cases must be an array")
+	ErrModuleLocked                = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
+	ErrMemoryGovernedByTemplate    = errors.New("memory_governed_by_template: la memoria RAM es gobernada por la plantilla homologada del administrador y no puede ser enviada por el docente")
 	ErrTemplateEnvironmentMismatch = errors.New("template_environment_mismatch: el tipo de entorno de la plantilla no coincide con el environment_type del ejercicio")
 )
 
@@ -242,12 +242,12 @@ type DryRunJob struct {
 }
 
 type TemplateSummary struct {
-	ID                string          `json:"id"`
-	Name              string          `json:"name"`
-	DockerImage       string          `json:"docker_image"`
-	BaseRamMB         int             `json:"base_ram_mb"`
-	TargetEnvironment string          `json:"target_environment"`
-	ServicesConfig    ServicesConfig  `json:"services_config"`
+	ID                string         `json:"id"`
+	Name              string         `json:"name"`
+	DockerImage       string         `json:"docker_image"`
+	BaseRamMB         int            `json:"base_ram_mb"`
+	TargetEnvironment string         `json:"target_environment"`
+	ServicesConfig    ServicesConfig `json:"services_config"`
 }
 
 type Exercise struct {

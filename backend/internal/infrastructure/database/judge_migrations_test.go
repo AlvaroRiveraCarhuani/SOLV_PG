@@ -272,4 +272,3 @@ func TestJudgeMigration0020DualModality(t *testing.T) {
 		}
 	}
 }
-

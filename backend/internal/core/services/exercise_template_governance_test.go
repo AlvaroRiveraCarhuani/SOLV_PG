@@ -137,16 +137,36 @@ func (m *mockExerciseRepoGov) UpdateStatus(ctx context.Context, id, tenantID, st
 	}
 	return nil
 }
-func (m *mockExerciseRepoGov) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error { return nil }
-func (m *mockExerciseRepoGov) UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error { return nil }
-func (m *mockExerciseRepoGov) MarkExerciseStale(ctx context.Context, exerciseID, tenantID string, stale bool) error { return nil }
-func (m *mockExerciseRepoGov) UpdateExerciseLastValidDryRun(ctx context.Context, exerciseID, tenantID string, dryRunAt time.Time) error { return nil }
-func (m *mockExerciseRepoGov) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error { return nil }
-func (m *mockExerciseRepoGov) GetDryRunJob(ctx context.Context, jobID string) (*domain.DryRunJob, error) { return nil, nil }
-func (m *mockExerciseRepoGov) UpdateDryRunJobProgress(ctx context.Context, jobID string, status domain.DryRunJobStatus, current, total int, result *domain.EvaluationResult, errMsg string) error { return nil }
-func (m *mockExerciseRepoGov) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) { return nil, nil }
-func (m *mockExerciseRepoGov) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) { return nil, nil }
-func (m *mockExerciseRepoGov) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) { return nil, nil }
+func (m *mockExerciseRepoGov) UpdateConfig(ctx context.Context, id, tenantID string, config domain.ExerciseConfig) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) UpdateExpectedJSON(ctx context.Context, id string, expectedJSON string) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) MarkExerciseStale(ctx context.Context, exerciseID, tenantID string, stale bool) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) UpdateExerciseLastValidDryRun(ctx context.Context, exerciseID, tenantID string, dryRunAt time.Time) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) GetDryRunJob(ctx context.Context, jobID string) (*domain.DryRunJob, error) {
+	return nil, nil
+}
+func (m *mockExerciseRepoGov) UpdateDryRunJobProgress(ctx context.Context, jobID string, status domain.DryRunJobStatus, current, total int, result *domain.EvaluationResult, errMsg string) error {
+	return nil
+}
+func (m *mockExerciseRepoGov) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
+	return nil, nil
+}
+func (m *mockExerciseRepoGov) ListBySubject(ctx context.Context, tenantID, subjectID string) ([]*domain.Exercise, error) {
+	return nil, nil
+}
+func (m *mockExerciseRepoGov) GetStudentRecommendations(ctx context.Context, tenantID, subjectID, studentID string) (*domain.StudentRecommendations, error) {
+	return nil, nil
+}
 
 func TestExerciseTemplateGovernance_Success(t *testing.T) {
 	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
