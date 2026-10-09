@@ -1,42 +1,43 @@
-# ADR-043: Dual Modality and Resource Governance via Template Catalog
+# ADR-043: Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas
 
-- **Status**: Approved
-- **Date**: 2026-10-09
-- **Author**: Platform Architecture Team
+## Estado
+Aprobado
 
-## Context
+## Fecha
+2026-10-09
 
-SOLV operates as a dual-runtime orchestration platform supporting both ephemeral judge evaluation (`JUEZ_EFIMERO`) and persistent OpenVSCode IDE environments (`IDE_PERSISTENTE`). 
+## Contexto
+SOLV es una plataforma de orquestación de laboratorios que soporta dos modalidades de ejecución en runtime: evaluación mediante juez virtual efímero (`JUEZ_EFIMERO`) y entornos interactivos persistentes OpenVSCode (`IDE_PERSISTENTE`).
 
-Prior to this decision:
-1. The `exercises` table did not explicitly differentiate the runtime environment modality (`environment_type`).
-2. There was no mandatory foreign key linking exercises to approved templates in `lab_templates`.
-3. The `memory_limit_mb` field was exposed in teacher API endpoints, allowing course instructors to specify arbitrary RAM allocations, which violated the administrative resource governance requirement.
+Previamente a esta decisión:
+1. La tabla `exercises` no discriminaba formalmente la modalidad de runtime del laboratorio (`environment_type`).
+2. No existía la obligatoriedad de vincular cada ejercicio a una plantilla homologada (`template_id`).
+3. El campo `memory_limit_mb` estaba expuesto en la API para los docentes, permitiéndoles especificar asignaciones de RAM arbitrarias. Esto violaba la regla de gobernanza donde la asignación de recursos es responsabilidad exclusiva del administrador técnico mediante el catálogo `lab_templates`.
 
-## Decision
+## Decisión
 
-We establish strict template-driven resource governance and dual modality classification:
+Establecer la gobernanza estricta de recursos y la clasificación de modalidad dual basada en plantillas:
 
-1. **Database Schema & Backfill Migration (`00020_dual_modality_and_template_governance.sql`)**:
-   - Add `environment_type VARCHAR(50) NOT NULL DEFAULT 'JUEZ_EFIMERO'` with check `CHECK (environment_type IN ('JUEZ_EFIMERO', 'IDE_PERSISTENTE'))`.
-   - Add `template_id UUID NOT NULL REFERENCES lab_templates(id) ON DELETE RESTRICT`.
-   - Seed system runner default templates (`target_environment='JUEZ_EFIMERO'`, `status='approved'`, `description='SYSTEM_SEED_RUNNER'`) for each supported programming language (python, java, cpp, go, javascript, csharp), dynamically computing `base_ram_mb` using the mode (`MODE()`) of existing exercise RAM configurations (defaulting to 128 MB).
-   - Backfill all existing exercises to `JUEZ_EFIMERO` linked to their respective language seed template.
+1. **Esquema de Base de Datos y Migración de Backfill (`00020_dual_modality_and_template_governance.sql`)**:
+   - Incorporación de `environment_type VARCHAR(50) NOT NULL DEFAULT 'JUEZ_EFIMERO'` con restricción `CHECK (environment_type IN ('JUEZ_EFIMERO', 'IDE_PERSISTENTE'))`.
+   - Incorporación de `template_id UUID NOT NULL REFERENCES lab_templates(id) ON DELETE RESTRICT`.
+   - Sembrado idempotente de plantillas runner base (`target_environment='JUEZ_EFIMERO'`, `status='approved'`, `description='SYSTEM_SEED_RUNNER'`) para cada lenguaje soportado (python, java, cpp, go, javascript, csharp), calculando `base_ram_mb` mediante la moda (`MODE()`) del historial de ejercicios (con fallback a 128 MB).
+   - Backfill de todos los ejercicios existentes a `JUEZ_EFIMERO` vinculados a la plantilla runner correspondiente de su lenguaje.
 
-2. **Domain & Application Layer Enforcement (`EvaluationService`)**:
-   - On Exercise Create, Update, and Publish: `EvaluationService` resolves the approved template (explicitly via `template_id` or implicitly via `language` for judge environments).
-   - Validates that `template.status == 'approved'` and `template.target_environment == exercise.environment_type`.
-   - Overwrites `exercise.MemoryLimitMB` with `template.BaseRamMB` prior to persistence.
-   - Attaches read-only `template` summary (`TemplateSummary`) to API responses.
+2. **Capa de Dominio y Aplicación (`EvaluationService`)**:
+   - En creación, edición y publicación de ejercicios: `EvaluationService` resuelve la plantilla homologada (vía `template_id` explícito o implícito por lenguaje para juez).
+   - Valida que `template.status == 'approved'` y `template.target_environment == exercise.environment_type`.
+   - Sobreescribe `exercise.MemoryLimitMB` con `template.BaseRamMB` antes de guardar.
+   - Adjunta la ficha de resumen (`TemplateSummary`) a la respuesta de la API.
 
-3. **HTTP Delivery API Contract**:
-   - If a request payload to create or update an exercise contains `memory_limit_mb`, the server rejects it with HTTP 422 (`memory_governed_by_template`).
+3. **Contrato de API HTTP (`EvaluationHandler`)**:
+   - Si una petición para crear o modificar un ejercicio contiene el campo `memory_limit_mb`, el servidor la rechaza inmediatamente con estado **HTTP 422 (`memory_governed_by_template`)**.
 
-## Status & Consequences
+## Consecuencias
 
-- **Positive**:
-  - Full administrative governance over server RAM allocation per template.
-  - Zero changes required in Docker execution engine or runner invocation.
-  - Clean separation of concern: Admins define resource envelopes; Teachers compose academic content.
-- **Negative**:
-  - Exercises require approved runner templates present in `lab_templates` for all supported languages.
+- **Positivas**:
+  - Control total y gobernanza del administrador sobre la RAM asignada a los entornos.
+  - Cero cambios requeridos en el motor de ejecución Docker ni en los comparadores.
+  - Separación clara de responsabilidades: los administradores gobiernan la infraestructura y los docentes componen el material académico.
+- **Negativas**:
+  - Todo ejercicio requiere de una plantilla aprobada disponible en `lab_templates` para su lenguaje.
