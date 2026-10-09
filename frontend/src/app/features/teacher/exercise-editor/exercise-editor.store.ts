@@ -312,6 +312,10 @@ export class ExerciseEditorStore {
         }
       }
 
+      if (!meta.due_date) {
+        warnings.push('No hay fecha límite de entrega configurada.');
+      }
+
       if (meta.db_init_script?.trim()) {
         info.push('Script de inicialización DDL/DML configurado.');
       }
