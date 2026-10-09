@@ -157,14 +157,20 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		t.Fatalf("Failed to insert test workspaces: %v", err)
 	}
 
+	var seedTemplateID string
+	err = db.GetDB().Get(&seedTemplateID, "SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' LIMIT 1")
+	if err != nil {
+		t.Fatalf("Failed to fetch seed template: %v", err)
+	}
+
 	// Crear Laboratorio 1 (con due_date a menos de 24h: 12h en el futuro)
 	now := time.Now()
 	lab1ID := uuid.NewString()
 	dueIn12h := now.Add(12 * time.Hour)
 	_, err = db.GetDB().Exec(`
-		INSERT INTO exercises (id, subject_id, title, description, type, status, due_date, config, tenant_id)
-		VALUES ($1, $2, 'Lab #01: Árboles AVL', 'Balanceo de árboles', 'algorithm', 'published', $3, '{}'::jsonb, $4)
-	`, lab1ID, subject1ID, dueIn12h, tenantID)
+		INSERT INTO exercises (id, subject_id, title, description, type, status, due_date, config, tenant_id, template_id, environment_type)
+		VALUES ($1, $2, 'Lab #01: Árboles AVL', 'Balanceo de árboles', 'algorithm', 'published', $3, '{}'::jsonb, $4, $5, 'JUEZ_EFIMERO')
+	`, lab1ID, subject1ID, dueIn12h, tenantID, seedTemplateID)
 	if err != nil {
 		t.Fatalf("Failed to create lab 1: %v", err)
 	}

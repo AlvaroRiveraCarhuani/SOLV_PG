@@ -125,10 +125,16 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		}
 	}`
 
+	var seedTemplateID string
+	err = db.GetDB().Get(&seedTemplateID, "SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' LIMIT 1")
+	if err != nil {
+		t.Fatalf("Failed to fetch seed template: %v", err)
+	}
+
 	_, err = db.GetDB().Exec(`
-		INSERT INTO exercises (id, subject_id, title, description, type, status, config, tenant_id)
-		VALUES ($1, $2, 'Lab #02: Factorial Recursivo', 'Calcular factorial', 'algorithm', 'published', $3::jsonb, $4)
-	`, exerciseID, subjectID, exConfigJSON, tenantID)
+		INSERT INTO exercises (id, subject_id, title, description, type, status, config, tenant_id, template_id, environment_type)
+		VALUES ($1, $2, 'Lab #02: Factorial Recursivo', 'Calcular factorial', 'algorithm', 'published', $3::jsonb, $4, $5, 'JUEZ_EFIMERO')
+	`, exerciseID, subjectID, exConfigJSON, tenantID, seedTemplateID)
 	if err != nil {
 		t.Fatalf("Failed to create exercise: %v", err)
 	}

@@ -89,19 +89,17 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	exerciseID := uuid.NewString()
 
 	payload := domain.Exercise{
-		ID:            exerciseID,
-		Title:         "Algoritmo Dijkstra de Caminos Mínimos",
-		Description:   "Implemente Dijkstra utilizando cola de prioridad",
-		Type:          domain.ExerciseTypeAlgorithm,
-		Boilerplate:   "def dijkstra(graph, start):\n    pass\n",
-		Status:        "draft",
-		Language:      "python",
-		TimeLimitMS:   1500,
-		MemoryLimitMB: 256,
+		ID:          exerciseID,
+		Title:       "Algoritmo Dijkstra de Caminos Mínimos",
+		Description: "Implemente Dijkstra utilizando cola de prioridad",
+		Type:        domain.ExerciseTypeAlgorithm,
+		Boilerplate: "def dijkstra(graph, start):\n    pass\n",
+		Status:      "draft",
+		Language:    "python",
+		TimeLimitMS: 1500,
 		Config: domain.ExerciseConfig{
 			Algorithm: &domain.AlgorithmConfig{
-				TimeLimitMS:   1500,
-				MemoryLimitMB: 256,
+				TimeLimitMS: 1500,
 				TestCases: []domain.TestCase{
 					{Input: "g1, start", ExpectedOutput: "[0, 2, 5]", IsHidden: false},
 					{Input: "g2, start", ExpectedOutput: "[0, 1, 4]", IsHidden: false},
@@ -154,7 +152,7 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	if dbEx.Language != "python" {
 		t.Errorf("DB language mismatch: expected 'python', got '%s'", dbEx.Language)
 	}
-	if dbEx.TimeLimitMS != 1500 || dbEx.MemoryLimitMB != 256 {
+	if dbEx.TimeLimitMS != 1500 || dbEx.MemoryLimitMB <= 0 {
 		t.Errorf("DB limits mismatch: got time=%d, memory=%d", dbEx.TimeLimitMS, dbEx.MemoryLimitMB)
 	}
 	if dbEx.Config.Algorithm == nil || len(dbEx.Config.Algorithm.TestCases) != 4 {

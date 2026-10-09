@@ -123,12 +123,18 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 	lab1ID := uuid.NewString()
 	lab2ID := uuid.NewString()
 
+	var seedTemplateID string
+	err = db.GetDB().Get(&seedTemplateID, "SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' LIMIT 1")
+	if err != nil {
+		t.Fatalf("Failed to fetch seed template: %v", err)
+	}
+
 	_, err = db.GetDB().Exec(`
-		INSERT INTO exercises (id, subject_id, title, description, type, status, created_at, config, tenant_id)
+		INSERT INTO exercises (id, subject_id, title, description, type, status, created_at, config, tenant_id, template_id, environment_type)
 		VALUES 
-			($1, $3, 'Lab 1: Sockets TCP', 'Comunicación cliente servidor', 'algorithm', 'published', NOW() - INTERVAL '2 days', '{}'::jsonb, $4),
-			($2, $3, 'Lab 2: RPC Concurrente', 'Llamadas a procedimiento remoto', 'algorithm', 'published', NOW() - INTERVAL '1 day', '{}'::jsonb, $4)
-	`, lab1ID, lab2ID, subjectID, tenantID)
+			($1, $3, 'Lab 1: Sockets TCP', 'Comunicación cliente servidor', 'algorithm', 'published', NOW() - INTERVAL '2 days', '{}'::jsonb, $4, $5, 'JUEZ_EFIMERO'),
+			($2, $3, 'Lab 2: RPC Concurrente', 'Llamadas a procedimiento remoto', 'algorithm', 'published', NOW() - INTERVAL '1 day', '{}'::jsonb, $4, $5, 'JUEZ_EFIMERO')
+	`, lab1ID, lab2ID, subjectID, tenantID, seedTemplateID)
 	if err != nil {
 		t.Fatalf("Failed to create exercises: %v", err)
 	}
