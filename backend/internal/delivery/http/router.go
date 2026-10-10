@@ -34,14 +34,16 @@ type Handlers struct {
 	TenantMiddleware              func(http.Handler) http.Handler
 	AuditMiddleware               func(http.Handler) http.Handler
 	RateLimitMiddleware           func(http.Handler) http.Handler
+	LoginRateLimitMiddleware      func(http.Handler) http.Handler
 	SubmissionRateLimitMiddleware func(http.Handler) http.Handler
+	KeystrokeRateLimitMiddleware  func(http.Handler) http.Handler
 	MaintenanceMiddleware         func(http.Handler) http.Handler
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerUserRoutes(mux, deps)
 	registerTemplateRoutes(mux, deps.TemplateHandler)
-	registerAuthRoutes(mux, deps.AuthHandler)
+	registerAuthRoutes(mux, deps)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
 	registerLanguageProfileRoutes(mux, deps)
 	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
@@ -118,11 +120,15 @@ func registerAcademicRoutes(mux *http.ServeMux, deps *Handlers) {
 		if srl == nil {
 			srl = func(next http.Handler) http.Handler { return next }
 		}
+		krl := deps.KeystrokeRateLimitMiddleware
+		if krl == nil {
+			krl = func(next http.Handler) http.Handler { return next }
+		}
 		mux.Handle("POST /api/v1/submissions", am(tm(srl(http.HandlerFunc(deps.SubmissionHandler.CreateSubmission)))))
 		mux.Handle("GET /api/v1/exercises/{id}/submissions", tm(http.HandlerFunc(deps.SubmissionHandler.ListSubmissionsByExercise)))
 		mux.Handle("GET /api/v1/submissions/{id}", tm(http.HandlerFunc(deps.SubmissionHandler.GetSubmissionByID)))
 		mux.Handle("POST /api/v1/submissions/{id}/override", am(tm(http.HandlerFunc(deps.SubmissionHandler.OverrideSubmission))))
-		mux.Handle("POST /api/v1/submissions/{id}/keystroke-events", tm(http.HandlerFunc(deps.SubmissionHandler.SaveKeystrokeEvents)))
+		mux.Handle("POST /api/v1/submissions/{id}/keystroke-events", tm(krl(http.HandlerFunc(deps.SubmissionHandler.SaveKeystrokeEvents))))
 	}
 
 	if deps.TeacherInvitationHandler != nil {
@@ -247,12 +253,17 @@ func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
 	}
 }
 
-func registerAuthRoutes(mux *http.ServeMux, h *AuthHandler) {
-	if h != nil {
-		mux.HandleFunc("GET /auth/google/login", h.HandleGoogleLogin)
-		mux.HandleFunc("GET /auth/google/callback", h.HandleGoogleCallback)
-		mux.HandleFunc("GET /api/v1/auth/verify", h.VerifyAuth)
-		mux.HandleFunc("POST /api/v1/auth/logout", h.HandleLogout)
+func registerAuthRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.AuthHandler != nil {
+		loginRL := deps.LoginRateLimitMiddleware
+		if loginRL == nil {
+			loginRL = func(next http.Handler) http.Handler { return next }
+		}
+		mux.Handle("POST /api/v1/auth/login", loginRL(http.HandlerFunc(deps.AuthHandler.HandleGoogleLogin)))
+		mux.Handle("GET /auth/google/login", loginRL(http.HandlerFunc(deps.AuthHandler.HandleGoogleLogin)))
+		mux.HandleFunc("GET /auth/google/callback", deps.AuthHandler.HandleGoogleCallback)
+		mux.HandleFunc("GET /api/v1/auth/verify", deps.AuthHandler.VerifyAuth)
+		mux.HandleFunc("POST /api/v1/auth/logout", deps.AuthHandler.HandleLogout)
 	}
 }
 

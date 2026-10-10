@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/time/rate"
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/infrastructure/metrics"
 )
 
 type userLimiterEntry struct {
@@ -29,7 +30,6 @@ func NewUserRateLimiter(reqsPerMinute int, burst int) *UserRateLimiter {
 		burst: burst,
 	}
 
-	// Routine periódica de limpieza de clientes inactivos por más de 10 minutos
 	go func() {
 		for {
 			time.Sleep(5 * time.Minute)
@@ -47,9 +47,9 @@ func NewUserRateLimiter(reqsPerMinute int, burst int) *UserRateLimiter {
 	return limiter
 }
 
-func (l *UserRateLimiter) getLimiter(userID string) *userLimiterEntry {
+func (l *UserRateLimiter) getLimiter(key string) *userLimiterEntry {
 	now := time.Now()
-	val, loaded := l.limiters.Load(userID)
+	val, loaded := l.limiters.Load(key)
 	if loaded {
 		entry := val.(*userLimiterEntry)
 		entry.lastSeen = now
@@ -60,20 +60,26 @@ func (l *UserRateLimiter) getLimiter(userID string) *userLimiterEntry {
 		limiter:  rate.NewLimiter(l.rate, l.burst),
 		lastSeen: now,
 	}
-	actual, _ := l.limiters.LoadOrStore(userID, newEntry)
+	actual, _ := l.limiters.LoadOrStore(key, newEntry)
 	return actual.(*userLimiterEntry)
 }
 
 func RateLimitMiddleware(limiter *UserRateLimiter) func(http.Handler) http.Handler {
+	return EndpointRateLimitMiddleware(limiter, "general")
+}
+
+func EndpointRateLimitMiddleware(limiter *UserRateLimiter, endpointName string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			userID := domain.GetUserID(r.Context())
-			if userID == "" {
-				// Fallback a IP si no hay userID en contexto
-				userID = r.RemoteAddr
+			key := domain.GetUserID(r.Context())
+			if key == "" {
+				key = r.Header.Get("X-User-Id")
+			}
+			if key == "" {
+				key = getClientIP(r)
 			}
 
-			entry := limiter.getLimiter(userID)
+			entry := limiter.getLimiter(key)
 			now := time.Now()
 			resetUnix := now.Add(60 * time.Second).Unix()
 
@@ -82,18 +88,18 @@ func RateLimitMiddleware(limiter *UserRateLimiter) func(http.Handler) http.Handl
 				tokensRemaining = 0
 			}
 
-			// Headers informativos obligatorios RFC 6585
 			w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", limiter.burst))
 			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", tokensRemaining))
 			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", resetUnix))
 
 			if !entry.limiter.Allow() {
+				metrics.RateLimitHitsTotal.WithLabelValues(endpointName).Inc()
 				w.Header().Set("X-RateLimit-Remaining", "0")
 				w.Header().Set("Retry-After", "60")
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusTooManyRequests)
 				_ = json.NewEncoder(w).Encode(map[string]string{
-					"error": "Rate limit exceeded. Please wait before starting another workspace.",
+					"error": "rate_limited",
 				})
 				return
 			}

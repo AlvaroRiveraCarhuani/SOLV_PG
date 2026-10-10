@@ -211,6 +211,9 @@ func main() {
 	evaluationService.SetModuleRepository(courseModuleRepo)
 
 	rateLimiter := middleware.NewRateLimiter()
+	loginLimiter := middleware.NewUserRateLimiter(5, 5)
+	submissionLimiter := middleware.NewUserRateLimiter(10, 10)
+	keystrokeLimiter := middleware.NewUserRateLimiter(30, 30)
 
 	handlersStruct := httpdelivery.Handlers{
 		UserHandler:                   httpdelivery.NewUserHandler(db, v),
@@ -238,7 +241,9 @@ func main() {
 		EnvTestHandler:                envTestHandler,
 		TenantMiddleware:              tenantMiddleware,
 		MaintenanceMiddleware:         maintenanceMiddleware,
-		SubmissionRateLimitMiddleware: middleware.SubmissionRateLimitMiddleware(rateLimiter),
+		LoginRateLimitMiddleware:      middleware.EndpointRateLimitMiddleware(loginLimiter, "login"),
+		SubmissionRateLimitMiddleware: middleware.EndpointRateLimitMiddleware(submissionLimiter, "submissions"),
+		KeystrokeRateLimitMiddleware:  middleware.EndpointRateLimitMiddleware(keystrokeLimiter, "keystroke_events"),
 	}
 
 	mux := http.NewServeMux()

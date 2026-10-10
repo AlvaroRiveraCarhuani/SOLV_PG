@@ -90,3 +90,34 @@ Daily backups are automated via system cron. The crontab configuration resides a
 # Executed daily at 03:00 AM local system time
 0 3 * * * root /opt/solv/scripts/backup.sh >> /var/log/solv/backup.log 2>&1
 ```
+
+---
+
+## 5. Rotación de JWT Secret
+
+En caso de sospecha de compromiso del secreto de firma JWT o mantenimiento de seguridad preventivo, ejecute el siguiente procedimiento de rotación:
+
+### Procedimiento de Rotación
+1. **Generar nuevo secreto aleatorio (32+ bytes base64/hex)**:
+   ```bash
+   NEW_JWT_SECRET=$(openssl rand -hex 32)
+   echo "Nuevo secreto generado: ${NEW_JWT_SECRET}"
+   ```
+
+2. **Ventana de Gracia (Grace Period de 1 Hora)**:
+   - Mantener temporalmente `JWT_OLD_SECRET=<secreto_anterior>` en el `.env` del servidor durante 60 minutos para permitir que las sesiones activas expiren o se renueven suavemente sin cerrar sesión abruptamente a los usuarios en uso activo.
+
+3. **Actualización de Configuración**:
+   ```bash
+   # Actualizar .env en el servidor
+   sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${NEW_JWT_SECRET}/" /etc/solv/.env
+   ```
+
+4. **Reinicio del Servicio API**:
+   ```bash
+   sudo systemctl restart solv-api
+   ```
+
+5. **Finalización del Grace Period**:
+   - Transcurrida 1 hora, eliminar `JWT_OLD_SECRET` del archivo `.env` y reiniciar el servicio nuevamente.
+

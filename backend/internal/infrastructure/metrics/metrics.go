@@ -68,4 +68,13 @@ var (
 		},
 		[]string{"method", "path"},
 	)
+
+	// RateLimitHitsTotal tracks rate limit breaches grouped by endpoint.
+	RateLimitHitsTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "solv_rate_limit_hits_total",
+			Help: "Total count of rate limit hits grouped by endpoint.",
+		},
+		[]string{"endpoint"},
+	)
 )

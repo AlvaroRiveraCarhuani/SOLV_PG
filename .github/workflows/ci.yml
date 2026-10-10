@@ -206,6 +206,11 @@ jobs:
           cd backend
           go vet ./...
 
+      - name: Audit Secrets & Config Check
+        run: |
+          chmod +x ./scripts/audit-secrets.sh
+          ./scripts/audit-secrets.sh
+
   # Stage 6: Migration Chain Verification (00001 -> 00019 Up & Down Reversibility)
   migration-chain:
     name: 6. Migration Chain Verification

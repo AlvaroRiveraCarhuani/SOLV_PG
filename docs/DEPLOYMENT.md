@@ -126,3 +126,29 @@ sudo chmod 660 /var/run/docker.sock
 
 > [!IMPORTANT]
 > En la cadena `DOCKER-USER` de `iptables`, asegúrese de mantener la regla Zero-Trust que impide que los contenedores de evaluación de estudiantes accedan a la red interna del servidor o a interfaces de administración.
+
+---
+
+## 7. Backup Automático
+
+Para asegurar la disponibilidad y recuperación ante desastres en producción (ADR-035), instale la tarea cron periódica desde el archivo de configuración provisto:
+
+### Instalación de la Tarea Cron
+```bash
+# Copiar el archivo de cron a la configuración de cron.d del sistema
+sudo cp scripts/solv-backup.cron /etc/cron.d/solv-backup
+sudo chmod 0644 /etc/cron.d/solv-backup
+
+# O registrar la tarea directamente en el crontab del usuario del sistema
+(crontab -l 2>/dev/null; cat scripts/solv-backup.cron) | crontab -
+```
+
+### Verificación de Ejecución
+```bash
+# Comprobar que el servicio de cron está activo
+systemctl status cron || systemctl status crond
+
+# Verificar en los logs del sistema la ejecución periódica
+grep CRON /var/log/syslog | grep solv-backup
+```
+

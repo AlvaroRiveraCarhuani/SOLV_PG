@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -148,13 +149,23 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 		}
 	}
 
+	jwtTTL := 24 * time.Hour
+	if ttlStr := strings.TrimSpace(os.Getenv("JWT_TTL_HOURS")); ttlStr != "" {
+		if hours, err := strconv.Atoi(ttlStr); err == nil && hours > 0 {
+			if hours > 24 {
+				hours = 24
+			}
+			jwtTTL = time.Duration(hours) * time.Hour
+		}
+	}
+
 	// Generate JWT token including tenant_id claim
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":   user.ID,
 		"email":     user.Email,
 		"role":      user.Role,
 		"tenant_id": user.TenantID,
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       time.Now().Add(jwtTTL).Unix(),
 	})
 
 	tokenString, err := jwtToken.SignedString(s.jwtSecret)
