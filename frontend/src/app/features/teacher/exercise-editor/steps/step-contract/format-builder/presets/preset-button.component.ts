@@ -6,7 +6,7 @@ import {
   LucideGrid, 
   LucideNetwork, 
   LucideType, 
-  LucideSparkles 
+  LucideLayoutTemplate 
 } from '@lucide/angular';
 import { FormatPreset } from '../format-builder.models';
 
@@ -20,7 +20,7 @@ import { FormatPreset } from '../format-builder.models';
     LucideGrid,
     LucideNetwork,
     LucideType,
-    LucideSparkles
+    LucideLayoutTemplate
   ],
   template: `
     <button 
@@ -48,7 +48,7 @@ import { FormatPreset } from '../format-builder.models';
             <svg lucideType class="icon"></svg>
           }
           @default {
-            <svg lucideSparkles class="icon"></svg>
+            <svg lucideLayoutTemplate class="icon"></svg>
           }
         }
       </div>

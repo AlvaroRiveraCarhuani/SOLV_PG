@@ -2,7 +2,7 @@ import { Component, EventEmitter, Input, Output, OnChanges, SimpleChanges, injec
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  LucideSparkles,
+  LucideLayers,
   LucideX,
   LucideRefreshCw,
   LucideEye
@@ -16,7 +16,7 @@ import { TeacherCourseService } from '../../../../../services/teacher-course.ser
   imports: [
     CommonModule,
     FormsModule,
-    LucideSparkles,
+    LucideLayers,
     LucideX,
     LucideRefreshCw,
     LucideEye,

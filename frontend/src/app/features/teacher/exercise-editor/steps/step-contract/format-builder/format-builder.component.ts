@@ -7,7 +7,7 @@ import {
   LucideCode, 
   LucideCheckCircle2, 
   LucideAlertCircle, 
-  LucideSparkles, 
+  LucideLayoutTemplate, 
   LucideSliders
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -27,7 +27,7 @@ import { PresetButtonComponent } from './presets/preset-button.component';
     LucideCode,
     LucideCheckCircle2,
     LucideAlertCircle,
-    LucideSparkles,
+    LucideLayoutTemplate,
     LucideSliders,
     MachineDataDirective,
     PresetButtonComponent

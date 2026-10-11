@@ -16,7 +16,6 @@ import {
   LucideScale,
   LucideLayers,
   LucideLoader2,
-  LucideSparkles,
   LucidePlay,
   LucideX
 } from '@lucide/angular';
@@ -50,7 +49,6 @@ export interface ValidationItem {
     LucideScale,
     LucideLayers,
     LucideLoader2,
-    LucideSparkles,
     LucidePlay,
     LucideX,
     MachineDataDirective,
