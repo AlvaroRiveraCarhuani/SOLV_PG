@@ -27,16 +27,16 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
           <div class="header-left">
             <div class="title-row">
               <svg lucideFileCode2 class="section-icon"></svg>
-              <h3 class="section-title">1. Contrato Declarativo de Formato (input_format)</h3>
+              <h3 class="section-title">1. Formato de Entrada Estándar</h3>
             </div>
             <p class="section-desc">
-              Define la gramática esperada de la entrada estándar. Permite validación sintáctica en tiempo real y fuzzing estructural.
+              Define la estructura esperada de los datos de entrada (stdin). Permite validación sintáctica automática y generación asistida de casos.
             </p>
           </div>
 
           <div class="header-right">
             <span class="contract-status-pill" [class.active]="store.contract() !== null">
-              {{ store.contract() ? 'Contrato Activo' : 'Modo Libre (Legacy)' }}
+              {{ store.contract() ? 'Formato Estructurado' : 'Texto Libre' }}
             </span>
           </div>
         </div>

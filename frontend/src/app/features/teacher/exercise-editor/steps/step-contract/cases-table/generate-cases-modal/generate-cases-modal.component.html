@@ -9,7 +9,7 @@
             <h3 id="modal-title" class="modal-title">Generar Casos Aleatorios (Fuzzing Estructural)</h3>
           </div>
           <p class="modal-subtitle">
-            Genera automáticamente casos de prueba sintácticamente válidos utilizando las reglas del contrato declarativo.
+            Genera automáticamente casos de prueba sintácticamente válidos utilizando la estructura del formato de entrada.
           </p>
         </div>
         <button type="button" class="close-btn" (click)="onClose()" aria-label="Cerrar modal">
@@ -83,7 +83,7 @@
             @if (isLoadingPreview()) {
               <div class="preview-loading">
                 <svg lucideRefreshCw class="spin-icon loading-icon"></svg>
-                <span>Generando casos de muestra según el contrato...</span>
+                <span>Generando casos de muestra según el formato de entrada...</span>
               </div>
             } @else {
               @for (c of previewCases(); track $index; let idx = $index) {

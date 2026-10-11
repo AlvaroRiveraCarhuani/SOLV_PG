@@ -35,7 +35,7 @@
           class="btn-outline toggle-json-btn"
           [class.active]="showJsonEditor()"
           (click)="toggleJsonView()"
-          title="Alternar vista de código JSON del contrato"
+          title="Alternar vista de código JSON del formato"
         >
           <svg lucideCode class="btn-icon"></svg>
           <span>{{ showJsonEditor() ? 'Ocultar JSON' : 'Editar como JSON' }}</span>
@@ -45,9 +45,9 @@
           type="button" 
           class="btn-outline reset-btn"
           (click)="resetToFreeText()"
-          title="Eliminar restricciones de contrato y volver a modo texto libre"
+          title="Eliminar reglas de formato y permitir entrada de texto libre"
         >
-          <span>Modo Libre (Sin Contrato)</span>
+          <span>Texto Libre (Sin Formato)</span>
         </button>
 
         <button 
@@ -272,7 +272,7 @@
               type="button" 
               class="remove-line-btn"
               (click)="removeLine(idx)"
-              title="Eliminar esta línea del contrato"
+              title="Eliminar esta línea del formato"
             >
               <svg lucideTrash2 class="trash-icon"></svg>
             </button>
@@ -281,7 +281,7 @@
       } @empty {
         <div class="empty-contract-state">
           <p class="empty-text">
-            No has definido líneas de contrato. El ejercicio operará en modo texto libre.
+            No has definido líneas de formato. El ejercicio operará con entrada de texto libre.
           </p>
           <button type="button" class="btn-primary" (click)="applyPreset(presets[0])">
             <svg lucideSparkles class="btn-icon"></svg>
@@ -298,7 +298,7 @@
       <div class="json-header">
         <div class="title-row">
           <svg lucideCode class="section-icon"></svg>
-          <h4 class="json-title">Editor JSON Avanzado del Contrato</h4>
+          <h4 class="json-title">Editor JSON del Formato de Entrada</h4>
         </div>
         <span class="json-hint">Los cambios en el JSON se reflejan automáticamente en el editor visual.</span>
       </div>
@@ -322,15 +322,15 @@
     </div>
   }
 
-  <!-- 4. Barra de Estado de Validación del Contrato -->
+  <!-- 4. Barra de Estado de Validación del Formato -->
   @if (backendValidation(); as val) {
     <div class="contract-status-footer" [class.valid]="val.valid" [class.invalid]="!val.valid">
       @if (val.valid) {
         <svg lucideCheckCircle2 class="status-icon"></svg>
-        <span>Contrato estructuralmente válido y sincronizado con el backend</span>
+        <span>Formato de entrada válido y sincronizado con el backend</span>
       } @else {
         <svg lucideAlertCircle class="status-icon"></svg>
-        <span>{{ val.error || 'Estructura de contrato no compatible' }}</span>
+        <span>{{ val.error || 'Estructura de formato no compatible' }}</span>
       }
     </div>
   }

@@ -64,6 +64,7 @@
   background-color: var(--bg-surface-subtle);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
+  white-space: nowrap;
 
   &.active {
     background-color: var(--tenant-primary-subtle);

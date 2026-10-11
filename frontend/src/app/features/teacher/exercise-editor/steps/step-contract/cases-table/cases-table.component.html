@@ -7,7 +7,7 @@
         <h4 class="toolbar-title">Casos de Prueba (<span machineData>{{ store.cases().length }}</span>)</h4>
       </div>
       <p class="toolbar-hint">
-        Configura los casos con visibilidad de 3 estados, pesos relativos y validación en tiempo real contra el contrato.
+        Configura los casos con visibilidad de 3 estados, pesos relativos y validación en tiempo real del formato de entrada.
       </p>
     </div>
 
@@ -17,7 +17,7 @@
         class="btn-outline toolbar-btn"
         (click)="openGenerateModal()"
         [disabled]="!store.contract()"
-        [title]="store.contract() ? 'Generar casos aleatorios basados en el contrato' : 'Define primero el formato de entrada en el Paso 2'"
+        [title]="store.contract() ? 'Generar casos aleatorios basados en el formato de entrada' : 'Define primero el formato de entrada en la sección superior'"
       >
         <svg lucideSparkles class="btn-icon"></svg>
         <span>Generar Casos</span>
@@ -183,21 +183,21 @@
               <span class="pct-pill font-mono" machineData>{{ getWeightPercentage(tc.weight) }}</span>
             </td>
 
-            <!-- Columna 7: Validez contra el Contrato -->
+            <!-- Columna 7: Validez contra el Formato de Entrada -->
             <td class="col-valid">
               @if (!store.contract()) {
-                <span class="valid-tag tag-neutral" title="No hay contrato de formato activo">
-                  <span class="tag-label">Sin contrato</span>
+                <span class="valid-tag tag-neutral" title="Entrada libre sin formato estructurado">
+                  <span class="tag-label">Texto libre</span>
                 </span>
               } @else if (validationResults()[idx]?.loading) {
-                <span class="valid-tag tag-loading" title="Validando contra input_format...">
+                <span class="valid-tag tag-loading" title="Validando contra el formato de entrada...">
                   <svg lucideLoader2 class="tag-icon spin-icon"></svg>
                   <span class="tag-label">Validando</span>
                 </span>
               } @else if (validationResults()[idx]?.valid === false) {
                 <span
                   class="valid-tag tag-invalid"
-                  [title]="validationResults()[idx]?.error || 'El caso no cumple con el contrato'"
+                  [title]="validationResults()[idx]?.error || 'El caso no cumple con el formato de entrada'"
                 >
                   <svg lucideAlertCircle class="tag-icon"></svg>
                   <span class="tag-label">Inválido</span>

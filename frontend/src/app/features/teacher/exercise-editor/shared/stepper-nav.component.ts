@@ -69,8 +69,13 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
           </div>
           <div class="step-content">
             <span class="step-number">Paso 2</span>
-            <span class="step-label">Contrato y Casos</span>
-            <span class="step-hint">Gramática, casos de prueba y solución</span>
+            @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+              <span class="step-label">Entorno y Entrega</span>
+              <span class="step-hint">Plantilla de catálogo, entrega y rúbrica</span>
+            } @else {
+              <span class="step-label">Formato y Casos</span>
+              <span class="step-hint">Formato de entrada, casos y solución</span>
+            }
           </div>
         </li>
 
