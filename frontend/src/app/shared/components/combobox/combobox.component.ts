@@ -354,6 +354,7 @@ export class ComboboxComponent {
 
   onInputFocus(): void {
     if (!this.disabled() && !this.suppressListbox()) {
+      this.visibleLimit.set(this.maxSuggestions() || 8);
       this.isOpen.set(true);
       this.inputEl()?.nativeElement.select();
     }
@@ -364,6 +365,7 @@ export class ComboboxComponent {
     if (this.isOpen()) {
       this.close();
     } else {
+      this.visibleLimit.set(this.maxSuggestions() || 8);
       this.isOpen.set(true);
       const el = this.inputEl()?.nativeElement;
       el?.focus();

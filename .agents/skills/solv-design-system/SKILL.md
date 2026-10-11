@@ -110,6 +110,10 @@ Visores de logs, auditoría dry-run y previsualizaciones usan la escala `--code-
   - Deben ser SIEMPRE color VERDE semántico (`#15803D` con texto blanco) para feedback positivo.
   - Toasts de error: SIEMPRE color ROJO semántico (`#DC2626` con texto blanco).
 
+- **REGLA DE VALIDACIÓN EN INPUTS Y CAMPOS DE FORMULARIO:**
+  - **Campos faltantes / vacíos obligatorios:** color AMARILLO/ÁMBAR (`var(--color-warning)`, fondo `var(--status-pending-bg)`, borde `var(--color-warning)`, input `.has-warning`). El aviso se presenta mediante `<field-message variant="warning">` debajo del control.
+  - **Errores lógicos o críticos:** (fallos de compilación, violaciones de AST, formato incompatible o reglas de negocio) color ROJO (`var(--color-error)`, fondo `var(--status-failed-bg)`, borde `var(--color-error)`, input `.has-error`). El error se presenta mediante `<field-message variant="error">` debajo del control o en el panel de validación.
+
 ## Semántica de Estados (Workspaces y Juez)
 - `running`: Success (Verde)
 - `pending`: Warning (Ámbar)

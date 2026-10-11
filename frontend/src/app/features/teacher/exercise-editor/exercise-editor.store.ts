@@ -87,8 +87,8 @@ export class ExerciseEditorStore {
     auto_checkpoint: true,
     purpose: 'class',
     per_student_seed: false,
-    language: 'python',
-    allowed_languages: ['python'],
+    language: '',
+    allowed_languages: [],
     time_limit_ms: 1000,
     memory_limit_mb: 128,
     due_date: ''
@@ -119,6 +119,7 @@ export class ExerciseEditorStore {
   readonly checklistReport = signal<ChecklistReportDTO | null>(null);
   readonly isChecklistLoading = signal<boolean>(false);
   readonly acceptedWarnings = signal<boolean>(false);
+  readonly stepAttempted = signal<boolean>(false);
 
   // Snapshot inicial para cálculo de dirty
   private initialSnapshot = signal<string>('');
@@ -169,6 +170,14 @@ export class ExerciseEditorStore {
     }
     if (m.per_student_seed && m.purpose !== 'exam') {
       errors.push('La semilla por estudiante solo está permitida en modalidad Examen');
+    }
+    if (m.environment_type === 'JUEZ_EFIMERO') {
+      if (!m.language) {
+        errors.push('Debes seleccionar un lenguaje de ejecución');
+      }
+      if (typeof m.time_limit_ms !== 'number' || isNaN(m.time_limit_ms) || m.time_limit_ms < 100 || m.time_limit_ms > 30000) {
+        errors.push('El tiempo límite debe ser un número entre 100 y 30.000 ms');
+      }
     }
     if (m.tags.length === 0) {
       warnings.push('Se recomienda agregar al menos una etiqueta temática (tag)');
@@ -386,6 +395,28 @@ export class ExerciseEditorStore {
 
   setStep(step: 1 | 2 | 3) {
     this.currentStep.set(step);
+    this.stepAttempted.set(false);
+  }
+
+  attemptNextStep(): boolean {
+    const current = this.currentStep();
+    if (current === 1) {
+      if (!this.step1Validation().isValid) {
+        this.stepAttempted.set(true);
+        return false;
+      }
+    } else if (current === 2) {
+      if (!this.step2Validation().isValid) {
+        this.stepAttempted.set(true);
+        return false;
+      }
+    }
+    this.stepAttempted.set(false);
+    if (current < 3) {
+      this.currentStep.set((current + 1) as 1 | 2 | 3);
+      return true;
+    }
+    return false;
   }
 
   updateMetadata(update: Partial<ExerciseMetadata>) {

@@ -1,12 +1,12 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { 
-  LucideCpu, 
-  LucideTerminal, 
-  LucideBookOpen, 
-  LucideGraduationCap, 
-  LucideDices, 
+import {
+  LucideCpu,
+  LucideTerminal,
+  LucideBookOpen,
+  LucideGraduationCap,
+  LucideDices,
   LucideAlertCircle
 } from '@lucide/angular';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
@@ -31,7 +31,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         <label class="block-title">Modalidad de Ejecución</label>
         <div class="cards-grid">
           <!-- Card: Juez Virtual -->
-          <div 
+          <div
             class="choice-card"
             [class.selected]="store.metadata().modality === 'judge'"
             (click)="selectModality('judge')"
@@ -55,7 +55,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           </div>
 
           <!-- Card: Workspace Docker -->
-          <div 
+          <div
             class="choice-card"
             [class.selected]="store.metadata().modality === 'workspace'"
             (click)="selectModality('workspace')"
@@ -73,7 +73,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
             <div class="card-text">
               <span class="card-name">Workspace Interactivo</span>
               <span class="card-desc">
-                Entorno persistente con OpenVSCode Server, Jupyter Notebook o bases de datos satélite.
+                Entorno persistente con OpenVSCode Server.
               </span>
             </div>
           </div>
@@ -85,7 +85,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         <label class="block-title">Propósito Pedagógico</label>
         <div class="cards-grid">
           <!-- Card: Clase / Práctica -->
-          <div 
+          <div
             class="choice-card"
             [class.selected]="store.metadata().purpose === 'class'"
             (click)="selectPurpose('class')"
@@ -109,7 +109,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           </div>
 
           <!-- Card: Examen / Sumativo -->
-          <div 
+          <div
             class="choice-card"
             [class.selected]="store.metadata().purpose === 'exam'"
             (click)="selectPurpose('exam')"
@@ -134,34 +134,36 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         </div>
       </div>
 
-      <!-- Toggle Avanzado: Semilla por Estudiante (solo en Examen) -->
-      <div class="seed-toggle-container" [class.disabled]="store.metadata().purpose !== 'exam'">
+      <!-- Toggle Avanzado: Semilla por Estudiante -->
+      <div
+        class="seed-toggle-container"
+        [class.disabled]="store.metadata().purpose !== 'exam'"
+        [class.active]="store.metadata().purpose === 'exam' && store.metadata().per_student_seed"
+        [class.inactive]="store.metadata().purpose !== 'exam' || !store.metadata().per_student_seed"
+        (click)="onSeedContainerClick()"
+        tabindex="0"
+        (keydown.enter)="onSeedContainerClick()"
+      >
         <div class="seed-toggle-header">
           <div class="seed-info">
             <div class="seed-title-row">
               <svg lucideDices class="seed-icon"></svg>
-              <span class="seed-title">Casos de prueba con semilla determinista por estudiante</span>
+              <span class="seed-title">Variantes automáticas por estudiante (Anti-copia)</span>
             </div>
             <span class="seed-description">
-              Genera variantes de datos personalizadas por estudiante derivadas de su ID único para evitar copia en exámenes.
+              Genera datos personalizados para cada estudiante a partir de su ID para evitar que se copien durante evaluaciones.
             </span>
           </div>
 
-          <label class="switch-toggle" [class.cursor-not-allowed]="store.metadata().purpose !== 'exam'">
-            <input 
-              type="checkbox"
-              [disabled]="store.metadata().purpose !== 'exam'"
-              [checked]="store.metadata().per_student_seed"
-              (change)="toggleSeed($event)"
-            />
+          <div class="switch-toggle" [class.checked]="store.metadata().per_student_seed">
             <span class="slider"></span>
-          </label>
+          </div>
         </div>
 
         @if (store.metadata().purpose !== 'exam') {
           <div class="seed-disabled-hint">
             <svg lucideAlertCircle class="hint-icon"></svg>
-            <span>Disponible únicamente cuando el propósito está configurado como <strong>Examen / Calificado</strong>.</span>
+            <span>Haz clic para activar el modo <strong>Examen / Calificado</strong> y habilitar esta opción.</span>
           </div>
         }
       </div>
@@ -191,5 +193,14 @@ export class ModalityPurposeCardsComponent {
   toggleSeed(event: Event) {
     const checked = (event.target as HTMLInputElement).checked;
     this.store.updateMetadata({ per_student_seed: checked });
+  }
+
+  onSeedContainerClick() {
+    if (this.store.metadata().purpose !== 'exam') {
+      this.store.updateMetadata({ purpose: 'exam', per_student_seed: true });
+    } else {
+      const current = this.store.metadata().per_student_seed;
+      this.store.updateMetadata({ per_student_seed: !current });
+    }
   }
 }

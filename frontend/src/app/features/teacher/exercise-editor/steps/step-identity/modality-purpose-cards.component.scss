@@ -125,11 +125,31 @@
   padding: var(--space-4);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
-  background-color: var(--bg-surface);
-  transition: opacity var(--transition-fast);
+  background-color: var(--bg-surface-subtle);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--border-strong);
+  }
+
+  &.active {
+    background-color: var(--tenant-primary-subtle);
+    border-color: var(--tenant-primary);
+    box-shadow: 0 0 0 1px var(--tenant-primary);
+
+    .seed-title {
+      color: var(--tenant-primary);
+    }
+  }
+
+  &.inactive {
+    background-color: var(--bg-surface-subtle);
+    border-color: var(--border-subtle);
+  }
 
   &.disabled {
-    opacity: 0.65;
+    opacity: 0.5;
     background-color: var(--bg-surface-subtle);
   }
 }
@@ -176,11 +196,17 @@
   align-items: center;
   gap: var(--space-2);
   font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--text-primary);
+  background-color: var(--color-warning-subtle);
+  border: 1px solid var(--color-warning-border);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-top: var(--space-2);
+  font-weight: 500;
 
   .hint-icon {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
     color: var(--color-warning);
     flex-shrink: 0;
   }
@@ -193,32 +219,10 @@
   width: 44px;
   height: 24px;
   flex-shrink: 0;
-
-  &.cursor-not-allowed {
-    cursor: not-allowed;
-  }
-
-  input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-
-    &:checked + .slider {
-      background-color: var(--tenant-primary);
-
-      &::before {
-        transform: translateX(20px);
-      }
-    }
-
-    &:focus-visible + .slider {
-      box-shadow: 0 0 0 2px var(--tenant-primary-border);
-    }
-  }
+  pointer-events: none;
 
   .slider {
     position: absolute;
-    cursor: pointer;
     inset: 0;
     background-color: var(--border-strong);
     transition: background-color var(--transition-fast);
@@ -234,6 +238,14 @@
       background-color: var(--bg-surface);
       transition: transform var(--transition-fast);
       border-radius: var(--radius-full);
+    }
+  }
+
+  &.checked .slider {
+    background-color: var(--tenant-primary);
+
+    &::before {
+      transform: translateX(20px);
     }
   }
 }

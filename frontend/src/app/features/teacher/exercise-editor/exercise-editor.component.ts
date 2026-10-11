@@ -1,11 +1,11 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
-import { 
-  LucideArrowLeft, 
-  LucideSave, 
-  LucideChevronRight, 
-  LucideChevronLeft, 
+import {
+  LucideArrowLeft,
+  LucideSave,
+  LucideChevronRight,
+  LucideChevronLeft,
   LucideCheck,
   LucideEye
 } from '@lucide/angular';
@@ -73,8 +73,8 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
         </div>
 
         <div class="topbar-actions">
-          <button 
-            type="button" 
+          <button
+            type="button"
             class="btn-outline preview-btn"
             (click)="openStudentPreview()"
             title="Ver exactamente cómo verá el estudiante el enunciado y editor"
@@ -83,8 +83,8 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
             <span>Vista previa</span>
           </button>
 
-          <button 
-            type="button" 
+          <button
+            type="button"
             class="btn-outline draft-btn"
             [disabled]="store.isSaving()"
             (click)="store.saveDraft()"
@@ -95,8 +95,8 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
 
           <!-- Botones de Navegación de Pasos -->
           @if (store.currentStep() > 1) {
-            <button 
-              type="button" 
+            <button
+              type="button"
               class="btn-outline step-btn"
               (click)="prevStep()"
             >
@@ -106,8 +106,8 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
           }
 
           @if (store.currentStep() < 3) {
-            <button 
-              type="button" 
+            <button
+              type="button"
               class="btn-primary step-btn"
               (click)="nextStep()"
             >
@@ -150,7 +150,7 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
           }
         </section>
 
-        <!-- Columna 3: Resumen en Vivo (320px) -->
+        <!-- Columna 3: Resumen (320px) -->
         <aside class="right-column">
           <summary-panel />
         </aside>
@@ -190,10 +190,7 @@ export class ExerciseEditorComponent implements OnInit {
   }
 
   nextStep() {
-    const current = this.store.currentStep();
-    if (current < 3) {
-      this.store.setStep((current + 1) as 1 | 2 | 3);
-    }
+    this.store.attemptNextStep();
   }
 
   ngOnInit() {
