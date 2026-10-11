@@ -11,8 +11,7 @@ import {
   LucideColumns,
   LucideSigma,
   LucideSquareCode,
-  LucideAlertCircle,
-  LucideHelpCircle
+  LucideAlertCircle
 } from '@lucide/angular';
 import { marked } from 'marked';
 import katex from 'katex';
@@ -33,8 +32,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     LucideColumns,
     LucideSigma,
     LucideSquareCode,
-    LucideAlertCircle,
-    LucideHelpCircle
+    LucideAlertCircle
   ],
   template: `
     <div class="statement-editor-container">

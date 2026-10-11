@@ -121,6 +121,9 @@ export class ExerciseEditorStore {
   readonly acceptedWarnings = signal<boolean>(false);
   readonly stepAttempted = signal<boolean>(false);
 
+  // Estado de plantillas runner para Juez Efímero
+  readonly runnerTemplates = signal<any[]>([]);
+
   // Snapshot inicial para cálculo de dirty
   private initialSnapshot = signal<string>('');
 
@@ -421,6 +424,69 @@ export class ExerciseEditorStore {
 
   updateMetadata(update: Partial<ExerciseMetadata>) {
     this.metadata.update(curr => ({ ...curr, ...update }));
+  }
+
+  loadRunnerTemplates(): void {
+    if (this.runnerTemplates().length > 0) return;
+
+    this.http.get<any>('/api/v1/templates?limit=50').subscribe({
+      next: (res) => {
+        let items: any[] = [];
+        if (Array.isArray(res)) items = res;
+        else if (Array.isArray(res?.data)) items = res.data;
+        else if (Array.isArray(res?.data?.data)) items = res.data.data;
+
+        const runners = items.filter(t =>
+          (t.target_environment === 'JUEZ_EFIMERO' || t.environment_type === 'JUEZ_EFIMERO') &&
+          (t.status === 'approved' || t.status === 'APROBADA' || !t.status)
+        );
+        this.runnerTemplates.set(runners);
+
+        const currentLang = this.metadata().language;
+        if (currentLang) {
+          this.syncLanguageWithTemplate(currentLang, runners);
+        }
+      },
+      error: () => {}
+    });
+  }
+
+  setLanguageAndSyncTemplate(language: string): void {
+    this.updateMetadata({
+      language,
+      allowed_languages: language ? [language] : []
+    });
+
+    if (language) {
+      this.syncLanguageWithTemplate(language);
+    }
+  }
+
+  private syncLanguageWithTemplate(lang: string, list?: any[]): void {
+    const templates = list || this.runnerTemplates();
+    const match = templates.find(r => this.deriveLanguageCode(r) === lang);
+    if (match) {
+      this.updateMetadata({
+        template_id: match.id,
+        template: match,
+        memory_limit_mb: match.base_ram_mb || 128
+      });
+    }
+  }
+
+  deriveLanguageCode(template: any): string {
+    const name = (template.name || '').toLowerCase();
+    const image = (template.docker_image || '').toLowerCase();
+    if (name.includes('python') || image.includes('python')) return 'python';
+    if (name.includes('typescript') || image.includes('typescript')) return 'typescript';
+    if (name.includes('javascript') || name.includes('node') || image.includes('node')) return 'javascript';
+    if (name.includes('c++') || name.includes('cpp')) return 'cpp';
+    if (name.includes('c/') || name === 'c' || image.includes('gcc')) return 'c';
+    if (name.includes('java') || image.includes('temurin') || image.includes('java')) return 'java';
+    if (name.includes('c#') || name.includes('csharp') || image.includes('mono')) return 'csharp';
+    if (name.includes('go') || image.includes('golang')) return 'go';
+    if (name.includes('rust') || image.includes('rust')) return 'rust';
+    return template.name.toLowerCase().replace(/\s+/g, '-');
   }
 
   updateStatement(update: Partial<ExerciseStatement>) {
