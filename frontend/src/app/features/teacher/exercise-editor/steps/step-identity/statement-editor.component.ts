@@ -1,17 +1,21 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, ViewChild, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { 
-  LucideEdit3, 
-  LucideEye, 
-  LucideCode, 
-  LucideBold, 
-  LucideItalic, 
-  LucideSparkles, 
-  LucideColumns, 
-  LucideSigma 
+import {
+  LucideEdit3,
+  LucideEye,
+  LucideCode,
+  LucideBold,
+  LucideItalic,
+  LucideListPlus,
+  LucideColumns,
+  LucideSigma,
+  LucideSquareCode,
+  LucideAlertCircle,
+  LucideHelpCircle
 } from '@lucide/angular';
 import { marked } from 'marked';
+import katex from 'katex';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
 
 @Component({
@@ -25,52 +29,58 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     LucideCode,
     LucideBold,
     LucideItalic,
-    LucideSparkles,
+    LucideListPlus,
     LucideColumns,
-    LucideSigma
+    LucideSigma,
+    LucideSquareCode,
+    LucideAlertCircle,
+    LucideHelpCircle
   ],
   template: `
     <div class="statement-editor-container">
       <div class="editor-header">
         <div class="header-left">
-          <label class="section-label">Enunciado del Ejercicio (Markdown)</label>
+          <label class="section-label">Enunciado del Ejercicio</label>
           <span class="section-hint">Describe el problema, especificaciones de entrada/salida y restricciones</span>
         </div>
 
         <div class="header-actions">
-          <button 
-            type="button" 
-            class="btn-outline example-btn"
-            (click)="insertExamplesFromCases()"
-            [disabled]="store.exampleCasesCount() === 0"
-            title="Inserta automáticamente los casos marcados como Ejemplo en el texto"
-          >
-            <svg lucideSparkles class="btn-icon"></svg>
-            <span>Insertar ejemplos de casos ({{ store.exampleCasesCount() }})</span>
-          </button>
+          @if (store.cases().length > 0) {
+            <button
+              type="button"
+              class="btn-outline example-btn"
+              (mousedown)="$event.preventDefault()"
+              (click)="insertExamplesFromCases()"
+              [disabled]="store.exampleCasesCount() === 0"
+              [title]="exampleCasesTooltip()"
+            >
+              <svg lucideListPlus class="btn-icon"></svg>
+              <span>Insertar ejemplos de casos ({{ store.exampleCasesCount() }})</span>
+            </button>
+          }
 
           <div class="view-toggle-group">
-            <button 
-              type="button" 
-              class="toggle-btn" 
+            <button
+              type="button"
+              class="toggle-btn"
               [class.active]="viewMode() === 'edit'"
               (click)="viewMode.set('edit')"
               title="Solo editor"
             >
               <svg lucideEdit3 class="toggle-icon"></svg>
             </button>
-            <button 
-              type="button" 
-              class="toggle-btn" 
+            <button
+              type="button"
+              class="toggle-btn"
               [class.active]="viewMode() === 'split'"
               (click)="viewMode.set('split')"
               title="Vista dividida (Editor + Previsualización)"
             >
               <svg lucideColumns class="toggle-icon"></svg>
             </button>
-            <button 
-              type="button" 
-              class="toggle-btn" 
+            <button
+              type="button"
+              class="toggle-btn"
               [class.active]="viewMode() === 'preview'"
               (click)="viewMode.set('preview')"
               title="Solo previsualización"
@@ -81,34 +91,40 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         </div>
       </div>
 
-      <!-- Barra de Herramientas de Formato Markdown -->
+      <!-- Barra de Herramientas de Formato Markdown a nivel de Componente -->
       @if (viewMode() !== 'preview') {
         <div class="formatting-toolbar">
-          <button type="button" class="tool-btn" (click)="wrapSelection('**', '**')" title="Negrita">
-            <svg lucideBold class="tool-icon"></svg>
-          </button>
-          <button type="button" class="tool-btn" (click)="wrapSelection('*', '*')" title="Cursiva">
-            <svg lucideItalic class="tool-icon"></svg>
-          </button>
-          <button type="button" class="tool-btn" (click)="wrapSelection('\`', '\`')" title="Código en línea">
-            <svg lucideCode class="tool-icon"></svg>
-          </button>
-          <button type="button" class="tool-btn" (click)="insertCodeBlock()" title="Bloque de código">
-            <span class="tool-text font-mono">&lt;/&gt;</span>
-          </button>
-          <button type="button" class="tool-btn" (click)="wrapSelection('$', '$')" title="Fórmula matemática (KaTeX)">
-            <svg lucideSigma class="tool-icon"></svg>
-          </button>
+          <div class="toolbar-group">
+            <button type="button" class="tool-btn" (mousedown)="$event.preventDefault()" (click)="wrapSelection('**', '**')" title="Negrita (Ctrl+B)">
+              <svg lucideBold class="tool-icon"></svg>
+            </button>
+            <button type="button" class="tool-btn" (mousedown)="$event.preventDefault()" (click)="wrapSelection('*', '*')" title="Cursiva (Ctrl+I)">
+              <svg lucideItalic class="tool-icon"></svg>
+            </button>
+            <button type="button" class="tool-btn" (mousedown)="$event.preventDefault()" (click)="wrapSelection('&#96;', '&#96;')" title="Código en línea">
+              <svg lucideCode class="tool-icon"></svg>
+            </button>
+            <button type="button" class="tool-btn" (mousedown)="$event.preventDefault()" (click)="insertCodeBlock()" title="Bloque de código (Ctrl+K)">
+              <svg lucideSquareCode class="tool-icon"></svg>
+            </button>
+            <button type="button" class="tool-btn" (mousedown)="$event.preventDefault()" (click)="wrapSelection('$', '$')" title="Fórmula matemática KaTeX ($fórmula$)">
+              <svg lucideSigma class="tool-icon"></svg>
+            </button>
+          </div>
+
           <div class="toolbar-divider"></div>
-          <button type="button" class="tool-btn text-tool" (click)="insertTemplateSection('input')" title="Sección Entrada">
-            + Entrada
-          </button>
-          <button type="button" class="tool-btn text-tool" (click)="insertTemplateSection('output')" title="Sección Salida">
-            + Salida
-          </button>
-          <button type="button" class="tool-btn text-tool" (click)="insertTemplateSection('constraints')" title="Sección Restricciones">
-            + Restricciones
-          </button>
+
+          <div class="toolbar-group sections-group">
+            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('input')" title="Insertar sección Entrada">
+              + Entrada
+            </button>
+            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('output')" title="Insertar sección Salida">
+              + Salida
+            </button>
+            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('constraints')" title="Insertar sección Restricciones">
+              + Restricciones
+            </button>
+          </div>
         </div>
       }
 
@@ -117,14 +133,23 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         <!-- Panel Editor -->
         @if (viewMode() === 'edit' || viewMode() === 'split') {
           <div class="editor-pane">
-            <textarea 
+            <textarea
               #editorTextarea
               class="statement-textarea font-mono"
-              placeholder="Escribe la descripción del problema en formato Markdown..."
+              placeholder="Escribe la descripción del problema en formato Markdown y fórmulas LaTeX ($x$)..."
               [ngModel]="store.statement().description"
               (ngModelChange)="onDescriptionChange($event)"
-              rows="16"
+              (blur)="isTouched.set(true)"
+              (keydown)="onTextareaKeyDown($event)"
+              (scroll)="onEditorScroll()"
+              rows="18"
             ></textarea>
+
+            <div class="editor-footer">
+              <span class="editor-stats">
+                {{ wordsCount() }} palabras · {{ charsCount() }} caracteres
+              </span>
+            </div>
           </div>
         }
 
@@ -132,15 +157,22 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         @if (viewMode() === 'preview' || viewMode() === 'split') {
           <div class="preview-pane">
             <div class="preview-header">
-              <span class="preview-title">Previsualización de Enunciado</span>
+              <span class="preview-title">Previsualización en tiempo real</span>
             </div>
-            <div class="rendered-markdown" [innerHTML]="renderedContent()"></div>
+            <div
+              #previewContainer
+              class="rendered-markdown"
+              [innerHTML]="renderedContent()"
+            ></div>
           </div>
         }
       </div>
 
-      @if (store.step1Validation().errors.includes('La descripción del enunciado es obligatoria')) {
-        <span class="field-error">La descripción del problema es obligatoria</span>
+      @if (showValidationError()) {
+        <div class="field-error-banner" role="alert">
+          <svg lucideAlertCircle class="error-icon"></svg>
+          <span>La descripción del problema es obligatoria</span>
+        </div>
       }
     </div>
   `,
@@ -149,15 +181,63 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 export class StatementEditorComponent {
   readonly store = inject(ExerciseEditorStore);
 
+  @ViewChild('editorTextarea') editorTextarea?: ElementRef<HTMLTextAreaElement>;
+  @ViewChild('previewContainer') previewContainer?: ElementRef<HTMLDivElement>;
+
   viewMode = signal<'edit' | 'split' | 'preview'>('split');
+  isTouched = signal<boolean>(false);
+
+  showValidationError = computed(() => {
+    const hasError = this.store.step1Validation().errors.includes('La descripción del enunciado es obligatoria');
+    const isEmpty = this.store.statement().description.trim() === '';
+    const shouldShow = this.isTouched() || this.store.stepAttempted();
+    return hasError && isEmpty && shouldShow;
+  });
+
+  wordsCount = computed(() => {
+    const text = this.store.statement().description.trim();
+    if (!text) return 0;
+    return text.split(/\s+/).filter(Boolean).length;
+  });
+
+  charsCount = computed(() => {
+    return this.store.statement().description.length;
+  });
+
+  exampleCasesTooltip = computed(() => {
+    const count = this.store.exampleCasesCount();
+    if (count === 0) {
+      return 'Se habilitará cuando definas casos marcados como "Ejemplo" en el Paso 2 (Contrato de E/S)';
+    }
+    return `Inserta automáticamente los ${count} caso(s) de ejemplo en el enunciado`;
+  });
 
   renderedContent = computed(() => {
     const raw = this.store.statement().description;
     if (!raw.trim()) {
-      return '<p class="empty-preview-text">El enunciado está vacío. Escribe algo en el editor para previsualizarlo.</p>';
+      return '<div class="empty-preview-placeholder"><span>Vista previa del enunciado</span></div>';
     }
+
+    // 1. Block math: $$ ... $$
+    let processed = raw.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
+      try {
+        return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
+      } catch {
+        return `<pre class="katex-error">${math}</pre>`;
+      }
+    });
+
+    // 2. Inline math: $ ... $
+    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+      try {
+        return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+      } catch {
+        return `<code>${math}</code>`;
+      }
+    });
+
     try {
-      return marked.parse(raw, { async: false }) as string;
+      return marked.parse(processed, { async: false }) as string;
     } catch {
       return `<pre class="fallback-preview">${raw}</pre>`;
     }
@@ -181,32 +261,152 @@ export class StatementEditorComponent {
       markdownExamples += `**Salida esperada:**\n\`\`\`text\n${tc.expected_output}\n\`\`\`\n\n`;
     });
 
-    const current = this.store.statement().description;
-    this.store.updateStatement({ description: current + markdownExamples });
+    this.insertAtCursor(markdownExamples);
   }
 
   wrapSelection(prefix: string, suffix: string) {
+    const textarea = this.editorTextarea?.nativeElement;
     const current = this.store.statement().description;
-    this.store.updateStatement({ description: current + ` ${prefix}texto${suffix} ` });
+
+    if (!textarea) {
+      this.store.updateStatement({ description: current + prefix + suffix });
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = current.substring(start, end);
+
+    const replacement = prefix + selectedText + suffix;
+    const updated = current.substring(0, start) + replacement + current.substring(end);
+    this.store.updateStatement({ description: updated });
+
+    setTimeout(() => {
+      textarea.focus();
+      if (selectedText.length > 0) {
+        textarea.setSelectionRange(start, start + replacement.length);
+      } else {
+        const cursorPosition = start + prefix.length;
+        textarea.setSelectionRange(cursorPosition, cursorPosition);
+      }
+    }, 0);
   }
 
   insertCodeBlock() {
-    const block = '\n```python\n# Escribe aquí el código de ejemplo\n```\n';
+    const textarea = this.editorTextarea?.nativeElement;
     const current = this.store.statement().description;
-    this.store.updateStatement({ description: current + block });
+
+    if (!textarea) {
+      const block = '\n```python\n# Código\n```\n';
+      this.store.updateStatement({ description: current + block });
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const selectedText = current.substring(start, end);
+
+    const codeContent = selectedText.length > 0 ? selectedText : '# Código de ejemplo';
+    const block = `\n\`\`\`python\n${codeContent}\n\`\`\`\n`;
+
+    const updated = current.substring(0, start) + block + current.substring(end);
+    this.store.updateStatement({ description: updated });
+
+    setTimeout(() => {
+      textarea.focus();
+      const codeStart = start + '\n```python\n'.length;
+      textarea.setSelectionRange(codeStart, codeStart + codeContent.length);
+    }, 0);
+  }
+
+  onTextareaKeyDown(event: KeyboardEvent) {
+    if (event.ctrlKey || event.metaKey) {
+      if (event.key.toLowerCase() === 'b') {
+        event.preventDefault();
+        this.wrapSelection('**', '**');
+      } else if (event.key.toLowerCase() === 'i') {
+        event.preventDefault();
+        this.wrapSelection('*', '*');
+      } else if (event.key.toLowerCase() === 'k') {
+        event.preventDefault();
+        this.insertCodeBlock();
+      }
+    } else if (event.key === 'Tab') {
+      event.preventDefault();
+      this.insertAtCursor('  ');
+    }
   }
 
   insertTemplateSection(type: 'input' | 'output' | 'constraints') {
-    let snippet = '';
+    let header = '';
     if (type === 'input') {
-      snippet = '\n\n### Formato de Entrada\n- La primera línea contiene un número entero $N$.\n- La segunda línea contiene $N$ enteros separados por espacios.\n';
+      header = '### Formato de Entrada';
     } else if (type === 'output') {
-      snippet = '\n\n### Formato de Salida\n- Imprime la respuesta solicitada en una sola línea.\n';
+      header = '### Formato de Salida';
     } else if (type === 'constraints') {
-      snippet = '\n\n### Restricciones\n- $1 \\le N \\le 10^5$\n- $-10^9 \\le A_i \\le 10^9$\n- Tiempo límite: 1.0s\n';
+      header = '### Restricciones';
     }
 
+    const textarea = this.editorTextarea?.nativeElement;
     const current = this.store.statement().description;
-    this.store.updateStatement({ description: current + snippet });
+
+    if (!textarea) {
+      this.store.updateStatement({ description: current + `\n\n${header}\n\n` });
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    // Prefijo inteligente: garantizar línea limpia antes del título
+    let prefix = '';
+    if (start > 0) {
+      if (current.charAt(start - 1) !== '\n') {
+        prefix = '\n\n';
+      } else if (start > 1 && current.charAt(start - 2) !== '\n') {
+        prefix = '\n';
+      }
+    }
+
+    const snippet = `${prefix}${header}\n`;
+    const updated = current.substring(0, start) + snippet + current.substring(end);
+    this.store.updateStatement({ description: updated });
+
+    setTimeout(() => {
+      textarea.focus();
+      const cursorTarget = start + snippet.length;
+      textarea.setSelectionRange(cursorTarget, cursorTarget);
+    }, 0);
+  }
+
+  private insertAtCursor(text: string) {
+    const textarea = this.editorTextarea?.nativeElement;
+    const current = this.store.statement().description;
+
+    if (!textarea) {
+      this.store.updateStatement({ description: current + text });
+      return;
+    }
+
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+
+    const updated = current.substring(0, start) + text + current.substring(end);
+    this.store.updateStatement({ description: updated });
+
+    setTimeout(() => {
+      textarea.focus();
+      const nextPos = start + text.length;
+      textarea.setSelectionRange(nextPos, nextPos);
+    }, 0);
+  }
+
+  onEditorScroll() {
+    const textarea = this.editorTextarea?.nativeElement;
+    const preview = this.previewContainer?.nativeElement;
+    if (!textarea || !preview || this.viewMode() !== 'split') return;
+
+    const scrollPercentage = textarea.scrollTop / (textarea.scrollHeight - textarea.clientHeight || 1);
+    preview.scrollTop = scrollPercentage * (preview.scrollHeight - preview.clientHeight);
   }
 }
