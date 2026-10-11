@@ -7,8 +7,10 @@ type CreateTemplateDTO struct {
 }
 
 type TemplateResponseDTO struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	DockerImage string `json:"docker_image"`
-	BaseRamMB   int    `json:"base_ram_mb"`
+	ID                string `json:"id"`
+	Name              string `json:"name"`
+	DockerImage       string `json:"docker_image"`
+	BaseRamMB         int    `json:"base_ram_mb"`
+	TargetEnvironment string `json:"target_environment"`
+	Status            string `json:"status"`
 }
