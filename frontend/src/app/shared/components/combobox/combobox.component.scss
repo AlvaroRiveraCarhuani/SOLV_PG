@@ -76,6 +76,16 @@
     }
   }
 
+  &.has-error .input-container {
+    border-color: var(--color-error);
+    background-color: var(--status-failed-bg);
+
+    &:focus-within {
+      border-color: var(--color-error);
+      box-shadow: 0 0 0 2px var(--status-failed-border);
+    }
+  }
+
   &.disabled {
     opacity: 0.6;
     pointer-events: none;

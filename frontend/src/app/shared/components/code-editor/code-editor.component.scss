@@ -1,0 +1,27 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.code-editor-root {
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  overflow: hidden;
+  transition: border-color 150ms ease;
+
+  &:focus-within {
+    border-color: var(--tenant-primary);
+  }
+
+  &.is-readonly {
+    background-color: var(--bg-surface-subtle);
+    opacity: 0.95;
+  }
+}
+
+.editor-surface {
+  width: 100%;
+  overflow: auto;
+}

@@ -39,6 +39,7 @@ export interface ComboboxGroup {
       [class.disabled]="disabled()"
       [class.compact]="compact()"
       [class.no-search-icon]="!showSearchIcon()"
+      [class.has-error]="hasError()"
     >
       <div class="input-container">
         @if (showSearchIcon()) {
@@ -189,6 +190,7 @@ export class ComboboxComponent {
   showSearchIcon = input<boolean>(true);
   inputAriaLabel = input<string>('Selector con búsqueda');
   suppressListbox = input<boolean>(false);
+  hasError = input<boolean>(false);
 
   valueChange = output<string>();
   optionSelected = output<ComboboxOption>();
