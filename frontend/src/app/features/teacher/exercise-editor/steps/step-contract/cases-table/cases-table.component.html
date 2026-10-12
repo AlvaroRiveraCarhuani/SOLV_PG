@@ -212,16 +212,14 @@
             <!-- Columna 4: Visibilidad (3 Estados) -->
             <td class="col-vis">
               <div class="vis-selector-wrapper">
-                <select
-                  class="vis-select"
-                  [class]="'select-' + (item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public')))"
-                  [ngModel]="item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public'))"
-                  (ngModelChange)="onVisibilityChange(item.originalIndex, $event)"
-                >
-                  <option value="example">Ejemplo</option>
-                  <option value="public">Público</option>
-                  <option value="hidden">Oculto</option>
-                </select>
+                <combobox
+                  [options]="visibilityOptions"
+                  [value]="item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public'))"
+                  [showSearchIcon]="false"
+                  [compact]="true"
+                  (optionSelected)="onVisibilityOptionSelected(item.originalIndex, $event)"
+                  inputAriaLabel="Visibilidad del caso de prueba"
+                />
               </div>
             </td>
 

@@ -155,18 +155,58 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
       }
 
 
-      <!-- Sección: Advertencias & Sugerencias -->
-      @if (allWarnings().length > 0) {
+      <!-- Sección: Advertencias & Sugerencias Contextuales (Pasos 1 y 2) -->
+      @if (store.currentStep() < 3 && contextualWarnings().length > 0) {
         <div class="summary-section warnings-box">
           <h4 class="section-heading warning-heading">
             <svg lucideAlertTriangle class="warning-icon"></svg>
             Sugerencias pedagógicas
           </h4>
           <ul class="warning-list">
-            @for (warn of allWarnings(); track $index) {
+            @for (warn of contextualWarnings(); track $index) {
               <li class="warning-item">{{ warn }}</li>
             }
           </ul>
+        </div>
+      }
+
+      <!-- Sección: Radiografía de Calidad (Paso 3) -->
+      @if (store.currentStep() === 3) {
+        <div class="summary-section health-audit-box">
+          <h4 class="section-heading">Auditoría Previa</h4>
+          <div class="summary-row">
+            <span class="row-label">Bloqueantes:</span>
+            <span
+              class="row-value font-mono"
+              [class.error-val]="blockersCount() > 0"
+              [class.valid-val]="blockersCount() === 0"
+              machineData
+            >
+              {{ blockersCount() }} pendiente{{ blockersCount() === 1 ? '' : 's' }}
+            </span>
+          </div>
+          <div class="summary-row">
+            <span class="row-label">Recomendaciones:</span>
+            <span
+              class="row-value font-mono"
+              [class.warning-val]="warningsCount() > 0"
+              machineData
+            >
+              {{ warningsCount() }}
+            </span>
+          </div>
+          <div class="summary-row">
+            <span class="row-label">Solución oficial:</span>
+            <span class="row-value" [class.valid-val]="hasReferenceSolution()">
+              {{ hasReferenceSolution() ? 'Registrada' : 'Sin registrar' }}
+            </span>
+          </div>
+          <div class="summary-row">
+            <span class="row-label">Reglas didácticas:</span>
+            <span class="row-value font-mono" machineData>
+              {{ store.astRules().custom_rules?.length || 0 }} activa{{ (store.astRules().custom_rules?.length || 0) === 1 ? '' : 's' }}
+            </span>
+          </div>
         </div>
       }
     </aside>
@@ -182,12 +222,27 @@ export class SummaryPanelComponent {
     return rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
   });
 
-  allWarnings() {
-    return [
-      ...this.store.step1Validation().warnings,
-      ...this.store.step2Validation().warnings,
-      ...this.store.step3Validation().warnings
-    ];
-  }
+  readonly contextualWarnings = computed<string[]>(() => {
+    const step = this.store.currentStep();
+    if (step === 1) {
+      return this.store.step1Validation().warnings;
+    }
+    if (step === 2) {
+      return this.store.step2Validation().warnings;
+    }
+    return [];
+  });
+
+  readonly blockersCount = computed<number>(() => {
+    return this.store.checklistReport()?.blockers?.length || 0;
+  });
+
+  readonly warningsCount = computed<number>(() => {
+    return this.store.checklistReport()?.warnings?.length || 0;
+  });
+
+  readonly hasReferenceSolution = computed<boolean>(() => {
+    return !!this.store.referenceSolution()?.trim();
+  });
 }
 

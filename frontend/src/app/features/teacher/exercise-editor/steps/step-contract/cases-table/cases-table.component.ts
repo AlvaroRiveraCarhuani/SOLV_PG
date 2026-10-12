@@ -20,6 +20,7 @@ import {
   LucideX
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
 import { TeacherCourseService } from '../../../../services/teacher-course.service';
 import { TestCaseDTO } from '../../../../models/teacher.models';
@@ -52,6 +53,7 @@ export interface ValidationItem {
     LucidePlay,
     LucideX,
     MachineDataDirective,
+    ComboboxComponent,
     CaseEditModalComponent,
     GenerateCasesModalComponent
   ],
@@ -88,6 +90,18 @@ export class CasesTableComponent implements OnInit {
         return vis === 'hidden';
       });
   });
+
+  // Opciones de visibilidad para Combobox reutilizable
+  readonly visibilityOptions: ComboboxOption<string>[] = [
+    { id: 'example', label: 'Ejemplo', value: 'example' },
+    { id: 'public', label: 'Público', value: 'public' },
+    { id: 'hidden', label: 'Oculto', value: 'hidden' }
+  ];
+
+  onVisibilityOptionSelected(index: number, option: ComboboxOption): void {
+    const val = option.value as 'example' | 'public' | 'hidden';
+    this.onVisibilityChange(index, val);
+  }
 
   readonly exampleCount = computed(() => {
     return this.store.cases().filter(tc => {
