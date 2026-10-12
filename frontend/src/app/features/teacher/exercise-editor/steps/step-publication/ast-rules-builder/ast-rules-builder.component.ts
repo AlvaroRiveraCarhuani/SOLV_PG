@@ -2,7 +2,6 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  LucideShieldAlert,
   LucidePlus,
   LucideTrash2,
   LucideLayers,
@@ -26,7 +25,6 @@ export interface PedagogicalPolicy {
   imports: [
     CommonModule,
     FormsModule,
-    LucideShieldAlert,
     LucidePlus,
     LucideTrash2,
     LucideLayers,
@@ -124,7 +122,8 @@ export class ASTRulesBuilderComponent {
       .map(t => t.trim())
       .filter(Boolean);
 
-    const existing = this.activeSpecificRules();
+    // use the correct computed selector (customSpecificRules) and call it to get the value
+    const existing = this.customSpecificRules();
     const lang = r.language || this.activeLanguage();
 
     for (const pattern of tokens) {
@@ -133,7 +132,9 @@ export class ASTRulesBuilderComponent {
 
       // Evitar duplicados del mismo patrón en el lenguaje
       const alreadyExists = existing.some(
-        existingRule => existingRule.pattern.toLowerCase() === pattern.toLowerCase() && existingRule.language === lang
+        (existingRule: ASTCustomRuleDTO) =>
+          existingRule.pattern.toLowerCase() === pattern.toLowerCase() &&
+          existingRule.language === lang
       );
       if (alreadyExists) continue;
 

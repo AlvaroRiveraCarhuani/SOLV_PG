@@ -5,7 +5,6 @@ import {
   LucideRotateCcw, 
   LucideFileCode, 
   LucideGitFork,
-  LucideFileQuestion,
   LucideCheck,
   LucideLayers
 } from '@lucide/angular';
@@ -139,7 +138,6 @@ function solve() {
     LucideRotateCcw,
     LucideFileCode,
     LucideGitFork,
-    LucideFileQuestion,
     LucideCheck,
     LucideLayers,
     MachineDataDirective
