@@ -1059,7 +1059,7 @@ func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID st
 	}
 
 	if hiddenCount == 0 {
-		report.Warnings = append(report.Warnings, "0 casos ocultos: un print fijo podría aprobar este ejercicio.")
+		report.Warnings = append(report.Warnings, "Sin casos ocultos: un alumno podría aprobar mostrando salidas fijas en consola.")
 	}
 
 	hasBranchingTags := false
