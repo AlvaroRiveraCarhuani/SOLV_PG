@@ -202,29 +202,76 @@
 
       .item-row {
         display: flex;
-        align-items: flex-start;
-        gap: var(--space-2);
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--space-3);
         font-size: var(--text-xs);
         line-height: 1.4;
+        padding: var(--space-1) 0;
 
-        .item-icon {
-          width: 14px;
-          height: 14px;
+        .item-main {
+          display: flex;
+          align-items: flex-start;
+          gap: var(--space-2);
+          flex: 1;
+
+          .item-icon {
+            width: 14px;
+            height: 14px;
+            flex-shrink: 0;
+            margin-top: 2px;
+          }
+
+          .item-text {
+            color: var(--text-primary);
+          }
+        }
+
+        .btn-item-jump {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 2px var(--space-2);
+          font-size: var(--text-xs);
+          font-weight: 600;
+          border-radius: var(--radius-sm);
+          border: 1px solid var(--border-subtle);
+          background-color: var(--bg-surface);
+          cursor: pointer;
           flex-shrink: 0;
-          margin-top: 2px;
+          transition: all 150ms ease;
+
+          .jump-icon {
+            width: 11px;
+            height: 11px;
+          }
+
+          &.btn-jump-danger {
+            color: var(--color-danger-text, var(--tenant-primary));
+            border-color: var(--color-danger-border, var(--border-subtle));
+
+            &:hover {
+              background-color: var(--color-danger-bg, var(--bg-surface-hover));
+            }
+          }
+
+          &.btn-jump-warning {
+            color: var(--color-warning-text, var(--tenant-primary));
+            border-color: var(--color-warning-border, var(--border-subtle));
+
+            &:hover {
+              background-color: var(--color-warning-bg, var(--bg-surface-hover));
+            }
+          }
         }
 
         &.item-danger {
-          color: var(--color-danger-text, var(--text-primary));
-
           .item-icon {
             color: var(--color-danger-text, var(--tenant-primary));
           }
         }
 
         &.item-warning {
-          color: var(--color-warning-text, var(--text-primary));
-
           .item-icon {
             color: var(--color-warning-text, var(--tenant-primary));
           }
@@ -238,6 +285,7 @@
           }
         }
       }
+
     }
 
     .empty-status {

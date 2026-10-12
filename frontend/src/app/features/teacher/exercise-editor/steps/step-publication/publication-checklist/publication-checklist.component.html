@@ -37,7 +37,7 @@
           @if (hasBlockers()) {
             <svg lucideAlertCircle class="status-icon icon-danger"></svg>
             <span class="section-name">Problemas Bloqueantes</span>
-            <span class="count-pill pill-danger font-mono" machineData>{{ blockers().length }}</span>
+            <span class="count-pill pill-danger font-mono" machineData>{{ structuredBlockers().length }}</span>
           } @else {
             <svg lucideCheckCircle2 class="status-icon icon-success"></svg>
             <span class="section-name">Sin Bloqueantes</span>
@@ -55,10 +55,21 @@
         <div class="section-content">
           @if (hasBlockers()) {
             <ul class="items-list">
-              @for (item of blockers(); track item) {
+              @for (item of structuredBlockers(); track item.id) {
                 <li class="item-row item-danger">
-                  <svg lucideAlertCircle class="item-icon"></svg>
-                  <span class="item-text">{{ item }}</span>
+                  <div class="item-main">
+                    <svg lucideAlertCircle class="item-icon"></svg>
+                    <span class="item-text">{{ item.message }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-item-jump btn-jump-danger"
+                    (click)="goToStep(item.stepTarget)"
+                    title="Navegar al paso correspondiente para resolver este problema"
+                  >
+                    <span>{{ item.actionLabel }}</span>
+                    <svg lucideArrowRight class="jump-icon"></svg>
+                  </button>
                 </li>
               }
             </ul>
@@ -79,7 +90,7 @@
           @if (hasWarnings()) {
             <svg lucideAlertTriangle class="status-icon icon-warning"></svg>
             <span class="section-name">Advertencias y Recomendaciones</span>
-            <span class="count-pill pill-warning font-mono" machineData>{{ warnings().length }}</span>
+            <span class="count-pill pill-warning font-mono" machineData>{{ structuredWarnings().length }}</span>
           } @else {
             <svg lucideCheckCircle2 class="status-icon icon-success"></svg>
             <span class="section-name">Sin Advertencias</span>
@@ -97,10 +108,21 @@
         <div class="section-content">
           @if (hasWarnings()) {
             <ul class="items-list">
-              @for (item of warnings(); track item) {
+              @for (item of structuredWarnings(); track item.id) {
                 <li class="item-row item-warning">
-                  <svg lucideAlertTriangle class="item-icon"></svg>
-                  <span class="item-text">{{ item }}</span>
+                  <div class="item-main">
+                    <svg lucideAlertTriangle class="item-icon"></svg>
+                    <span class="item-text">{{ item.message }}</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-item-jump btn-jump-warning"
+                    (click)="goToStep(item.stepTarget)"
+                    title="Navegar al paso para revisar esta recomendación"
+                  >
+                    <span>{{ item.actionLabel }}</span>
+                    <svg lucideArrowRight class="jump-icon"></svg>
+                  </button>
                 </li>
               }
             </ul>
@@ -128,6 +150,7 @@
         </div>
       }
     </div>
+
 
     <!-- Bloque 3: Información y Estadísticas (Gris / Info) -->
     <div class="checklist-section section-info" [class.collapsed]="!infoOpen()">
