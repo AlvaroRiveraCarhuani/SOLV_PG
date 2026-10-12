@@ -16,14 +16,16 @@ export interface RulePreset {
   id: string;
   name: string;
   description: string;
+  category: 'loops' | 'builtins' | 'libraries';
   rule: ASTCustomRuleDTO;
 }
 
-export const AST_PRESETS: RulePreset[] = [
+export const RESTRICTION_PRESETS: RulePreset[] = [
   {
     id: 'py_sort',
-    name: 'Python: Prohibir sort() / sorted()',
-    description: 'Bloquea el uso de ordenamiento incorporado de Python.',
+    name: 'Prohibir sort() / sorted()',
+    description: 'Obliga al estudiante a programar su propio algoritmo de ordenamiento manual.',
+    category: 'builtins',
     rule: {
       language: 'python',
       type: 'method',
@@ -32,9 +34,22 @@ export const AST_PRESETS: RulePreset[] = [
     }
   },
   {
+    id: 'py_loops',
+    name: 'Prohibir bucles (for / while)',
+    description: 'Fuerza a resolver el problema usando recursión pura.',
+    category: 'loops',
+    rule: {
+      language: 'python',
+      type: 'syntax',
+      pattern: 'for,while',
+      message: 'Este ejercicio debe resolverse mediante recursión. El uso de bucles for y while está restringido.'
+    }
+  },
+  {
     id: 'py_collections',
-    name: 'Python: Prohibir collections',
-    description: 'Bloquea estructuras avanzadas como Counter o deque.',
+    name: 'Prohibir librerías avanzadas (collections / math)',
+    description: 'Bloquea estructuras automáticas (Counter, deque) para exigir lógica base.',
+    category: 'libraries',
     rule: {
       language: 'python',
       type: 'module',
@@ -45,7 +60,8 @@ export const AST_PRESETS: RulePreset[] = [
   {
     id: 'cpp_sort',
     name: 'C++: Prohibir std::sort',
-    description: 'Bloquea std::sort de la librería <algorithm>.',
+    description: 'Bloquea std::sort de <algorithm> para evaluar ordenamiento propio.',
+    category: 'builtins',
     rule: {
       language: 'cpp',
       type: 'function',
@@ -55,8 +71,9 @@ export const AST_PRESETS: RulePreset[] = [
   },
   {
     id: 'java_sort',
-    name: 'Java: Prohibir Arrays.sort',
-    description: 'Bloquea métodos de ordenamiento estáticos de Java.',
+    name: 'Java: Prohibir Arrays.sort / Collections.sort',
+    description: 'Bloquea métodos utilitarios de ordenamiento en Java.',
+    category: 'builtins',
     rule: {
       language: 'java',
       type: 'method',
@@ -84,7 +101,7 @@ export const AST_PRESETS: RulePreset[] = [
 })
 export class ASTRulesBuilderComponent {
   readonly store = inject(ExerciseEditorStore);
-  readonly presets = AST_PRESETS;
+  readonly presets = RESTRICTION_PRESETS;
 
   readonly newRule = signal<ASTCustomRuleDTO>({
     language: 'python',
