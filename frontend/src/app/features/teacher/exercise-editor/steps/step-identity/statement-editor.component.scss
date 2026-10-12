@@ -260,8 +260,10 @@
 
     .preview-title {
       font-size: var(--text-xs);
-      font-weight: 600;
+      font-weight: 500;
       color: var(--text-muted);
+      letter-spacing: 0.02em;
+      opacity: 0.85;
     }
   }
 

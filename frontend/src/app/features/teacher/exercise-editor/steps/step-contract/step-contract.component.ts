@@ -32,7 +32,7 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
   template: `
     <div class="step-contract-layout">
       <!-- 1. PRIMER PLANO: Solución Oficial de Referencia (Docente) -->
-      <section class="form-section highlight-section">
+      <section class="form-section highlight-section" id="reference-solution-section">
         <div class="section-header">
           <div class="header-left">
             <div class="title-row">
@@ -49,7 +49,7 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
       </section>
 
       <!-- 2. NÚCLEO: Casos de Prueba (Públicos y Ocultos) -->
-      <section class="form-section">
+      <section class="form-section" id="cases-table-section">
         <cases-table />
       </section>
 

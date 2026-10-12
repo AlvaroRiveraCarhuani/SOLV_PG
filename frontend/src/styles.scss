@@ -1123,5 +1123,22 @@ h4, .subsection-title {
   }
 }
 
+// Animación de enfoque asistido para campos de diagnóstico y auditoría
+.highlight-target-pulse {
+  outline: 2px solid var(--tenant-primary);
+  outline-offset: 3px;
+  border-radius: var(--radius-md);
+  animation: pulseTarget 1400ms ease-out;
+}
 
-
+@keyframes pulseTarget {
+  0% {
+    box-shadow: 0 0 0 0 var(--border-focus);
+  }
+  70% {
+    box-shadow: 0 0 0 8px transparent;
+  }
+  100% {
+    box-shadow: none;
+  }
+}

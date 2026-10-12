@@ -31,7 +31,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           id="exercise-title"
           type="text" 
           class="form-input" 
-          [class.has-warning]="showTitleError()"
+          [class.has-error]="showTitleError()"
           placeholder="Ej: Suma de Dos Números, Inversión de Matrices..."
           [ngModel]="store.metadata().title"
           (ngModelChange)="onTitleChange($event)"
@@ -40,12 +40,12 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           required
         />
         @if (showTitleError()) {
-          <field-message variant="warning" [message]="'El título del ejercicio es obligatorio'"></field-message>
+          <field-message variant="error" [message]="'El título del ejercicio es obligatorio'"></field-message>
         }
       </div>
 
       <!-- Dificultad sugerida (Opcional) -->
-      <div class="form-group">
+      <div class="form-group" id="exercise-difficulty">
         <label class="form-label">Dificultad sugerida <span class="optional-label">(opcional)</span></label>
         <combobox
           [options]="difficultyOptions"
@@ -60,7 +60,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 
       @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
         <!-- Complejidad Esperada (Opcional) -->
-        <div class="form-group">
+        <div class="form-group" id="exercise-complexity">
           <label class="form-label">Complejidad esperada <span class="optional-label">(opcional)</span></label>
           <combobox
             [options]="complexityOptions"
@@ -75,7 +75,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         </div>
 
         <!-- Lenguaje de ejecución -->
-        <div class="form-group">
+        <div class="form-group" id="exercise-language">
           <label class="form-label">
             Lenguaje de ejecución <span class="required">*</span>
           </label>
@@ -86,11 +86,12 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
             [placeholder]="'Seleccionar lenguaje...'"
             [showSearchIcon]="true"
             [compact]="true"
+            [hasError]="showLanguageError()"
             (optionSelected)="onLanguageSelect($event)"
             inputAriaLabel="Lenguaje de ejecución"
           />
           @if (showLanguageError()) {
-            <field-message variant="warning" [message]="'Debes seleccionar un lenguaje de ejecución'"></field-message>
+            <field-message variant="error" [message]="'Debes seleccionar un lenguaje de ejecución'"></field-message>
           } @else {
             <span class="field-hint">Lenguaje en el que los estudiantes escribirán y probarán su código</span>
           }

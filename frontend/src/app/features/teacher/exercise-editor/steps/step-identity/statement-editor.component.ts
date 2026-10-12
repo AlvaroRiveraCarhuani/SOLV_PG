@@ -35,7 +35,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     LucideAlertCircle
   ],
   template: `
-    <div class="statement-editor-container">
+    <div class="statement-editor-container" id="statement-editor-section">
       <div class="editor-header">
         <div class="header-left">
           <label class="section-label">Enunciado del Ejercicio</label>
@@ -133,6 +133,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           <div class="editor-pane">
             <textarea
               #editorTextarea
+              id="statement-description"
               class="statement-textarea font-mono"
               placeholder="Escribe la descripción del problema en formato Markdown y fórmulas LaTeX ($x$)..."
               [ngModel]="store.statement().description"

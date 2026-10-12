@@ -22,6 +22,7 @@ export interface PreFlightItem {
   id: string;
   message: string;
   stepTarget: 1 | 2;
+  targetElementId?: string;
   actionLabel: string;
   severity: 'blocker' | 'warning' | 'info';
 }
@@ -55,12 +56,11 @@ export class PublicationChecklistComponent {
     this.store.setStudentPreviewOpen(true);
   }
 
-
   readonly blockersOpen = signal<boolean>(true);
   readonly warningsOpen = signal<boolean>(true);
   readonly infoOpen = signal<boolean>(true);
 
-  // Mapeo estructurado para salto directo con diagnóstico preciso
+  // Mapeo estructurado para salto directo con diagnóstico preciso y foco en el campo
   readonly structuredBlockers = computed<PreFlightItem[]>(() => {
     const raw = this.store.checklistReport()?.blockers || [];
     const meta = this.store.metadata();
@@ -68,22 +68,59 @@ export class PublicationChecklistComponent {
 
     return raw.map((msg, idx) => {
       let stepTarget: 1 | 2 = 1;
+      let targetElementId = 'exercise-title';
       let actionLabel = 'Corregir en Paso 1';
 
       if (isIDE) {
-        if (msg.includes('plantilla') || msg.includes('rúbrica') || msg.includes('rubric') || msg.includes('peso')) {
+        if (msg.includes('plantilla')) {
           stepTarget = 2;
-          actionLabel = msg.includes('plantilla') ? 'Seleccionar Plantilla (Paso 2)' : 'Ajustar Rúbrica (Paso 2)';
+          targetElementId = 'template-section';
+          actionLabel = 'Seleccionar Plantilla (Paso 2)';
+        } else if (msg.includes('rúbrica') || msg.includes('rubric') || msg.includes('peso')) {
+          stepTarget = 2;
+          targetElementId = 'rubric-section';
+          actionLabel = 'Ajustar Rúbrica (Paso 2)';
+        } else if (msg.includes('título') || msg.includes('titulo')) {
+          stepTarget = 1;
+          targetElementId = 'exercise-title';
+          actionLabel = 'Definir Título (Paso 1)';
+        } else if (msg.includes('enunciado') || msg.includes('descripción')) {
+          stepTarget = 1;
+          targetElementId = 'statement-description';
+          actionLabel = 'Redactar Enunciado (Paso 1)';
         } else {
           stepTarget = 1;
+          targetElementId = 'exercise-title';
           actionLabel = 'Editar Identidad (Paso 1)';
         }
       } else {
-        if (msg.includes('caso') || msg.includes('solución') || msg.includes('referencia')) {
+        if (msg.includes('caso')) {
           stepTarget = 2;
-          actionLabel = msg.includes('caso') ? 'Gestionar Casos (Paso 2)' : 'Definir Solución (Paso 2)';
+          targetElementId = 'cases-table-section';
+          actionLabel = 'Gestionar Casos (Paso 2)';
+        } else if (msg.includes('solución') || msg.includes('referencia') || msg.includes('formato') || msg.includes('input_format')) {
+          stepTarget = 2;
+          targetElementId = 'reference-solution-section';
+          actionLabel = 'Definir Solución (Paso 2)';
+        } else if (msg.includes('título') || msg.includes('titulo')) {
+          stepTarget = 1;
+          targetElementId = 'exercise-title';
+          actionLabel = 'Definir Título (Paso 1)';
+        } else if (msg.includes('lenguaje')) {
+          stepTarget = 1;
+          targetElementId = 'exercise-language';
+          actionLabel = 'Elegir Lenguaje (Paso 1)';
+        } else if (msg.includes('enunciado') || msg.includes('descripción')) {
+          stepTarget = 1;
+          targetElementId = 'statement-description';
+          actionLabel = 'Redactar Enunciado (Paso 1)';
+        } else if (msg.includes('tiempo')) {
+          stepTarget = 1;
+          targetElementId = 'time-limit';
+          actionLabel = 'Ajustar Tiempo Límite (Paso 1)';
         } else {
           stepTarget = 1;
+          targetElementId = 'exercise-title';
           actionLabel = 'Editar Identidad (Paso 1)';
         }
       }
@@ -92,6 +129,7 @@ export class PublicationChecklistComponent {
         id: `blocker-${idx}`,
         message: msg,
         stepTarget,
+        targetElementId,
         actionLabel,
         severity: 'blocker'
       };
@@ -105,25 +143,43 @@ export class PublicationChecklistComponent {
 
     return raw.map((msg, idx) => {
       let stepTarget: 1 | 2 = 2;
+      let targetElementId = 'cases-table-section';
       let actionLabel = 'Revisar en Paso 2';
 
       if (isIDE) {
         if (msg.includes('fecha') || msg.includes('entrega')) {
           stepTarget = 2;
+          targetElementId = 'due-date-section';
           actionLabel = 'Fijar Fecha (Paso 2)';
         } else if (msg.includes('rúbrica')) {
           stepTarget = 2;
+          targetElementId = 'rubric-section';
           actionLabel = 'Definir Rúbrica (Paso 2)';
         } else {
           stepTarget = 1;
+          targetElementId = 'exercise-title';
           actionLabel = 'Revisar Paso 1';
         }
       } else {
-        if (msg.includes('caso') || msg.includes('oculto') || msg.includes('ejemplo') || msg.includes('referencia')) {
+        if (msg.includes('referencia') || msg.includes('solución')) {
           stepTarget = 2;
-          actionLabel = msg.includes('referencia') ? 'Ver Solución (Paso 2)' : 'Balancear Casos (Paso 2)';
+          targetElementId = 'reference-solution-section';
+          actionLabel = 'Ver Solución (Paso 2)';
+        } else if (msg.includes('caso') || msg.includes('oculto') || msg.includes('ejemplo')) {
+          stepTarget = 2;
+          targetElementId = 'cases-table-section';
+          actionLabel = 'Balancear Casos (Paso 2)';
+        } else if (msg.includes('dificultad')) {
+          stepTarget = 1;
+          targetElementId = 'exercise-difficulty';
+          actionLabel = 'Definir Dificultad (Paso 1)';
+        } else if (msg.includes('etiqueta') || msg.includes('tag')) {
+          stepTarget = 1;
+          targetElementId = 'exercise-tag-input';
+          actionLabel = 'Agregar Etiquetas (Paso 1)';
         } else {
           stepTarget = 1;
+          targetElementId = 'exercise-title';
           actionLabel = 'Revisar Paso 1';
         }
       }
@@ -132,6 +188,7 @@ export class PublicationChecklistComponent {
         id: `warning-${idx}`,
         message: msg,
         stepTarget,
+        targetElementId,
         actionLabel,
         severity: 'warning'
       };
@@ -157,6 +214,29 @@ export class PublicationChecklistComponent {
 
   refreshChecklist(): void {
     this.store.refreshChecklist();
+  }
+
+  navigateToItem(item: PreFlightItem): void {
+    this.store.setStep(item.stepTarget);
+    if (!item.targetElementId) return;
+
+    // Desplazamiento suave y enfoque tras la transición de vista de Angular
+    setTimeout(() => {
+      const target = document.getElementById(item.targetElementId!);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+          target.focus();
+        } else {
+          const innerFocusable = target.querySelector('input, textarea, button') as HTMLElement | null;
+          if (innerFocusable) {
+            innerFocusable.focus();
+          }
+        }
+        target.classList.add('highlight-target-pulse');
+        setTimeout(() => target.classList.remove('highlight-target-pulse'), 1800);
+      }
+    }, 120);
   }
 
   goToStep(step: 1 | 2): void {

@@ -8,22 +8,12 @@
         </span>
       </div>
 
-      <div class="header-actions">
-        <button
-          type="button"
-          class="btn-outline refresh-btn"
-          (click)="refreshChecklist()"
-          [disabled]="store.isChecklistLoading()"
-          title="Re-ejecutar análisis de publicación"
-        >
-          <svg
-            lucideRefreshCw
-            class="btn-icon"
-            [class.spin-icon]="store.isChecklistLoading()"
-          ></svg>
-          <span>{{ store.isChecklistLoading() ? 'Analizando...' : 'Re-analizar Ejercicio' }}</span>
-        </button>
-      </div>
+      @if (store.isChecklistLoading()) {
+        <div class="header-analyzing-tag">
+          <svg lucideRefreshCw class="btn-icon spin-icon"></svg>
+          <span>Analizando...</span>
+        </div>
+      }
     </div>
 
     <!-- Bloque 1: Problemas Bloqueantes (Rojo) -->
@@ -60,8 +50,8 @@
                   <button
                     type="button"
                     class="btn-item-jump btn-jump-danger"
-                    (click)="goToStep(item.stepTarget)"
-                    title="Navegar al paso correspondiente para resolver este problema"
+                    (click)="navigateToItem(item)"
+                    title="Navegar al campo correspondiente para resolver este problema"
                   >
                     <span>{{ item.actionLabel }}</span>
                     <svg lucideArrowRight class="jump-icon"></svg>
@@ -113,8 +103,8 @@
                   <button
                     type="button"
                     class="btn-item-jump btn-jump-warning"
-                    (click)="goToStep(item.stepTarget)"
-                    title="Navegar al paso para revisar esta recomendación"
+                    (click)="navigateToItem(item)"
+                    title="Navegar al campo para revisar esta recomendación"
                   >
                     <span>{{ item.actionLabel }}</span>
                     <svg lucideArrowRight class="jump-icon"></svg>

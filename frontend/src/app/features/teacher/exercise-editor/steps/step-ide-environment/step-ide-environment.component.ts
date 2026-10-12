@@ -14,6 +14,7 @@ import {
 } from '@lucide/angular';
 import { ExerciseEditorStore, RubricCriterionDTO, RubricLevelDTO } from '../../exercise-editor.store';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TemplateRequestModalComponent } from '../../../templates/template-request-modal/template-request-modal.component';
 import { RUBRIC_PRESETS } from '@shared/rubric-presets';
 
@@ -48,6 +49,7 @@ export interface ApprovedTemplate {
     LucideAlertTriangle,
     LucideCheckCircle2,
     MachineDataDirective,
+    ComboboxComponent,
     TemplateRequestModalComponent
   ],
   template: `
@@ -60,7 +62,7 @@ export interface ApprovedTemplate {
       </header>
 
       <!-- Ficha de Selección de Plantilla del Catálogo -->
-      <section class="card-section">
+      <section class="card-section" id="template-section">
         <div class="section-header-row">
           <div class="title-with-icon">
             <svg lucideServer class="header-icon"></svg>
@@ -73,22 +75,18 @@ export interface ApprovedTemplate {
         </div>
 
         <div class="form-group">
-          <label for="template-select" class="form-label">
+          <label class="form-label">
             Seleccionar plantilla aprobada <span class="required">*</span>
           </label>
-          <select
-            id="template-select"
-            class="form-select"
-            [ngModel]="store.metadata().template_id"
-            (ngModelChange)="onTemplateSelected($event)"
-          >
-            <option [ngValue]="null">-- Seleccionar plantilla homologada --</option>
-            @for (t of approvedTemplates(); track t.id) {
-              <option [value]="t.id">
-                {{ t.name }} ({{ t.docker_image }} — {{ t.base_ram_mb }} MB RAM)
-              </option>
-            }
-          </select>
+          <combobox
+            [options]="templateOptions()"
+            [value]="store.metadata().template_id || ''"
+            [placeholder]="'Buscar o seleccionar plantilla homologada...'"
+            [showSearchIcon]="true"
+            [compact]="false"
+            (optionSelected)="onTemplateOptionSelected($event)"
+            inputAriaLabel="Seleccionar plantilla aprobada"
+          />
         </div>
 
         <!-- Ficha de la Plantilla Seleccionada -->
@@ -197,19 +195,21 @@ export interface ApprovedTemplate {
       </section>
 
       <!-- Rúbrica de Evaluación Cualitativa -->
-      <section class="card-section rubric-section">
+      <section class="card-section rubric-section" id="rubric-section">
         <div class="section-header-row">
           <div class="title-with-icon">
             <svg lucideClipboardList class="header-icon"></svg>
             <h3 class="card-title">Rúbrica de Evaluación Cualitativa</h3>
           </div>
           <div class="rubric-header-actions">
-            <select class="form-select preset-select" #presetSelect (change)="applyRubricPreset(presetSelect.value); presetSelect.value = ''">
-              <option value="">-- Usar plantilla de rúbrica --</option>
-              <option value="api-rest">Plantilla: API REST Backend</option>
-              <option value="full-stack">Plantilla: Aplicación Full-Stack</option>
-              <option value="proyecto-integrador">Plantilla: Proyecto Integrador</option>
-            </select>
+            <combobox
+              [options]="rubricPresetOptions"
+              [placeholder]="'Cargar plantilla de rúbrica...'"
+              [compact]="true"
+              [showSearchIcon]="false"
+              (optionSelected)="onRubricPresetOptionSelected($event)"
+              inputAriaLabel="Cargar plantilla de rúbrica"
+            />
             <button type="button" class="btn-primary btn-sm" (click)="addCriterion()">
               <svg lucidePlus class="btn-icon"></svg>
               <span>Agregar criterio</span>
@@ -368,6 +368,34 @@ export class StepIdeEnvironmentComponent implements OnInit {
     const tpl = this.selectedTemplate();
     return !!(tpl && tpl.services_config && tpl.services_config.database && tpl.services_config.database.enabled);
   });
+
+  readonly templateOptions = computed<ComboboxOption[]>(() => {
+    return this.approvedTemplates().map(t => ({
+      id: t.id,
+      label: t.name,
+      value: t.id,
+      badge: `${t.base_ram_mb} MB`,
+      description: `${t.docker_image}${t.services_config?.database?.enabled ? ' • BD ' + (t.services_config.database.engine || 'SQL') : ''}`
+    }));
+  });
+
+  readonly rubricPresetOptions: ComboboxOption[] = [
+    { id: 'api-rest', label: 'API REST Backend', value: 'api-rest', description: 'Endpoints, HTTP y persistencia' },
+    { id: 'full-stack', label: 'Aplicación Full-Stack', value: 'full-stack', description: 'Frontend, backend y base de datos' },
+    { id: 'proyecto-integrador', label: 'Proyecto Integrador', value: 'proyecto-integrador', description: 'Arquitectura, testing y docs' }
+  ];
+
+  onTemplateOptionSelected(option: ComboboxOption): void {
+    if (option) {
+      this.onTemplateSelected(option.value);
+    }
+  }
+
+  onRubricPresetOptionSelected(option: ComboboxOption): void {
+    if (option?.value) {
+      this.applyRubricPreset(option.value);
+    }
+  }
 
   ngOnInit(): void {
     this.loadTemplates();
