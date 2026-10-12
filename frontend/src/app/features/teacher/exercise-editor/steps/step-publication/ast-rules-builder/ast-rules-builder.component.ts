@@ -1,11 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   LucideShieldAlert,
   LucidePlus,
   LucideTrash2,
-  LucideSparkles,
+  LucideBookOpen,
   LucideLayers
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -21,6 +21,7 @@ export interface RulePreset {
 }
 
 export const RESTRICTION_PRESETS: RulePreset[] = [
+  // Python
   {
     id: 'py_sort',
     name: 'Prohibir sort() / sorted()',
@@ -57,9 +58,11 @@ export const RESTRICTION_PRESETS: RulePreset[] = [
       message: 'El módulo collections está restringido para este ejercicio. Utiliza tipos y estructuras básicas.'
     }
   },
+
+  // C++
   {
     id: 'cpp_sort',
-    name: 'C++: Prohibir std::sort',
+    name: 'Prohibir std::sort',
     description: 'Bloquea std::sort de <algorithm> para evaluar ordenamiento propio.',
     category: 'builtins',
     rule: {
@@ -70,8 +73,22 @@ export const RESTRICTION_PRESETS: RulePreset[] = [
     }
   },
   {
+    id: 'cpp_loops',
+    name: 'Prohibir bucles (for / while / do)',
+    description: 'Fuerza a estructurar la solución con llamadas recursivas.',
+    category: 'loops',
+    rule: {
+      language: 'cpp',
+      type: 'syntax',
+      pattern: 'for,while,do',
+      message: 'El uso de estructuras de iteración repetitiva (for, while, do) no está permitido. Usa recursión.'
+    }
+  },
+
+  // Java
+  {
     id: 'java_sort',
-    name: 'Java: Prohibir Arrays.sort / Collections.sort',
+    name: 'Prohibir Arrays.sort / Collections.sort',
     description: 'Bloquea métodos utilitarios de ordenamiento en Java.',
     category: 'builtins',
     rule: {
@@ -79,6 +96,58 @@ export const RESTRICTION_PRESETS: RulePreset[] = [
       type: 'method',
       pattern: 'Arrays.sort',
       message: 'El uso de Arrays.sort o Collections.sort no está permitido para este ejercicio.'
+    }
+  },
+  {
+    id: 'java_loops',
+    name: 'Prohibir bucles (for / while / do)',
+    description: 'Fuerza a resolver el ejercicio con recursión en Java.',
+    category: 'loops',
+    rule: {
+      language: 'java',
+      type: 'syntax',
+      pattern: 'for,while,do',
+      message: 'Este ejercicio requiere solución recursiva. Los bucles for y while están bloqueados.'
+    }
+  },
+
+  // JavaScript / TypeScript
+  {
+    id: 'js_sort',
+    name: 'Prohibir Array.prototype.sort',
+    description: 'Impide el uso del método sort() nativo de arrays.',
+    category: 'builtins',
+    rule: {
+      language: 'javascript',
+      type: 'method',
+      pattern: '.sort',
+      message: 'El uso del método sort() está restringido. Implementa tu propio algoritmo de ordenamiento.'
+    }
+  },
+  {
+    id: 'js_loops',
+    name: 'Prohibir bucles (for / while / forEach)',
+    description: 'Fuerza a implementar recursión pura en JavaScript.',
+    category: 'loops',
+    rule: {
+      language: 'javascript',
+      type: 'syntax',
+      pattern: 'for,while,forEach',
+      message: 'No está permitido el uso de bucles. Resuelve el problema mediante recursión.'
+    }
+  },
+
+  // C#
+  {
+    id: 'csharp_sort',
+    name: 'Prohibir Array.Sort / LINQ OrderBy',
+    description: 'Bloquea métodos utilitarios de ordenamiento en C#.',
+    category: 'builtins',
+    rule: {
+      language: 'csharp',
+      type: 'method',
+      pattern: 'Array.Sort',
+      message: 'El uso de Array.Sort o LINQ OrderBy no está permitido para este ejercicio.'
     }
   }
 ];
@@ -92,7 +161,7 @@ export const RESTRICTION_PRESETS: RulePreset[] = [
     LucideShieldAlert,
     LucidePlus,
     LucideTrash2,
-    LucideSparkles,
+    LucideBookOpen,
     LucideLayers,
     MachineDataDirective
   ],
@@ -101,7 +170,22 @@ export const RESTRICTION_PRESETS: RulePreset[] = [
 })
 export class ASTRulesBuilderComponent {
   readonly store = inject(ExerciseEditorStore);
-  readonly presets = RESTRICTION_PRESETS;
+
+  // Filtro reactivo según los lenguajes configurados para el ejercicio
+  readonly relevantPresets = computed(() => {
+    const meta = this.store.metadata();
+    const activeLangs = new Set<string>();
+    if (meta.language) activeLangs.add(meta.language.toLowerCase());
+    for (const l of (meta.allowed_languages || [])) {
+      activeLangs.add(l.toLowerCase());
+    }
+
+    if (activeLangs.size === 0) {
+      return RESTRICTION_PRESETS;
+    }
+
+    return RESTRICTION_PRESETS.filter(p => activeLangs.has(p.rule.language.toLowerCase()));
+  });
 
   readonly newRule = signal<ASTCustomRuleDTO>({
     language: 'python',
@@ -109,6 +193,7 @@ export class ASTRulesBuilderComponent {
     pattern: '',
     message: ''
   });
+
 
   onToggleNativeSort(enabled: boolean): void {
     this.store.updateAstRules({ block_native_sort: enabled });

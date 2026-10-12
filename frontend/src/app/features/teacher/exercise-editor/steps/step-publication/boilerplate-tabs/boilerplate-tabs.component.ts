@@ -5,13 +5,14 @@ import {
   LucideCode2, 
   LucideRotateCcw, 
   LucideFileCode, 
-  LucideSparkles,
+  LucideGitFork,
   LucideFileQuestion,
   LucideCheck,
   LucideLayers
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
+
 
 export const STANDARD_IO_BOILERPLATES: Record<string, string> = {
   python: `# Lectura de entrada estándar (stdin) y salida (stdout)
@@ -139,12 +140,13 @@ function solve() {
     LucideCode2,
     LucideRotateCcw,
     LucideFileCode,
-    LucideSparkles,
+    LucideGitFork,
     LucideFileQuestion,
     LucideCheck,
     LucideLayers,
     MachineDataDirective
   ],
+
   templateUrl: './boilerplate-tabs.component.html',
   styleUrl: './boilerplate-tabs.component.scss'
 })

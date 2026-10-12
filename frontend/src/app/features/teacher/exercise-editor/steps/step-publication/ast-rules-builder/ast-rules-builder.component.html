@@ -44,21 +44,21 @@
   <div class="rules-card">
     <div class="card-header">
       <div class="title-row">
-        <svg lucideSparkles class="card-icon"></svg>
+        <svg lucideBookOpen class="card-icon"></svg>
         <h4 class="card-title">Restricciones Frecuentes de Aprendizaje (Presets)</h4>
       </div>
       <p class="card-hint">
-        Añade reglas comunes de cátedra (ej. forzar recursión o prohibir librerías) en un solo clic.
+        Reglas pedagógicas habituales filtradas para los lenguajes permitidos en este ejercicio.
       </p>
     </div>
 
     <div class="presets-list">
-      @for (preset of presets; track preset.id) {
+      @for (preset of relevantPresets(); track preset.id) {
         <button
           type="button"
           class="preset-card-btn"
           (click)="applyPreset(preset)"
-          title="Haga clic para agregar esta restricción didáctica al ejercicio"
+          title="Agregar esta restricción didáctica al ejercicio"
         >
           <div class="preset-top">
             <span class="preset-name">{{ preset.name }}</span>
@@ -66,9 +66,14 @@
           </div>
           <p class="preset-desc">{{ preset.description }}</p>
         </button>
+      } @empty {
+        <div class="empty-rules">
+          <p class="empty-text">No hay presets predefinidos para los lenguajes configurados. Puedes agregar una restricción personalizada abajo.</p>
+        </div>
       }
     </div>
   </div>
+
 
   <!-- Lista de Restricciones Específicas y Formulario -->
   <div class="rules-card">
