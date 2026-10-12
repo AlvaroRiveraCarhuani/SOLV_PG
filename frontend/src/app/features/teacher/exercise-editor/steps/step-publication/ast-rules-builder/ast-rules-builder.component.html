@@ -1,95 +1,50 @@
 <div class="ast-rules-container">
-  <!-- Reglas Globales / Toggles Estándar -->
+  <!-- Políticas Pedagógicas Principales (Estilo CodeGrade) -->
   <div class="rules-card">
     <div class="card-header">
       <div class="title-row">
-        <svg lucideShieldAlert class="card-icon"></svg>
-        <h4 class="card-title">Protecciones y Buenas Prácticas Generales</h4>
+        <svg lucideSlidersHorizontal class="card-icon"></svg>
+        <h4 class="card-title">Políticas Didácticas de Código</h4>
+        <span class="lang-indicator font-mono" machineData>{{ activeLanguage() }}</span>
       </div>
       <p class="card-hint">
-        Restricciones de integridad que se aplican automáticamente antes de ejecutar el código del alumno.
+        Directivas pedagógicas comunes aplicadas al lenguaje activo del ejercicio. Si el estudiante las infringe, el juez detiene la evaluación y muestra una explicación orientadora.
       </p>
     </div>
 
-    <div class="toggles-grid">
-      <label class="toggle-card">
-        <div class="toggle-info">
-          <span class="toggle-title">Bloquear Ordenamiento Nativo Automático</span>
-          <span class="toggle-desc">Impide llamadas a sort() o sorted() nativos en todos los lenguajes principales.</span>
-        </div>
-        <input
-          type="checkbox"
-          class="toggle-checkbox"
-          [ngModel]="store.astRules().block_native_sort"
-          (ngModelChange)="onToggleNativeSort($event)"
-        />
-      </label>
-
-      <label class="toggle-card">
-        <div class="toggle-info">
-          <span class="toggle-title">Bloquear Módulos del Sistema Operativo</span>
-          <span class="toggle-desc">Impide el uso de librerías como os, sys, subprocess o socket para evitar trampas.</span>
-        </div>
-        <input
-          type="checkbox"
-          class="toggle-checkbox"
-          [ngModel]="store.astRules().block_system_modules"
-          (ngModelChange)="onToggleSystemModules($event)"
-        />
-      </label>
-    </div>
-  </div>
-
-  <!-- Presets Rápidos Didácticos -->
-  <div class="rules-card">
-    <div class="card-header">
-      <div class="title-row">
-        <svg lucideBookOpen class="card-icon"></svg>
-        <h4 class="card-title">Restricciones Frecuentes de Aprendizaje (Presets)</h4>
-      </div>
-      <p class="card-hint">
-        Reglas pedagógicas habituales filtradas para los lenguajes permitidos en este ejercicio.
-      </p>
-    </div>
-
-    <div class="presets-list">
-      @for (preset of relevantPresets(); track preset.id) {
-        <button
-          type="button"
-          class="preset-card-btn"
-          (click)="applyPreset(preset)"
-          title="Agregar esta restricción didáctica al ejercicio"
-        >
-          <div class="preset-top">
-            <span class="preset-name">{{ preset.name }}</span>
-            <span class="preset-badge font-mono" machineData>{{ preset.rule.language }}</span>
+    <div class="policies-grid">
+      @for (policy of policies(); track policy.key) {
+        <label class="policy-card" [class.active]="policy.isApplied()">
+          <div class="policy-main">
+            <span class="policy-title">{{ policy.title }}</span>
+            <p class="policy-desc">{{ policy.description }}</p>
           </div>
-          <p class="preset-desc">{{ preset.description }}</p>
-        </button>
-      } @empty {
-        <div class="empty-rules">
-          <p class="empty-text">No hay presets predefinidos para los lenguajes configurados. Puedes agregar una restricción personalizada abajo.</p>
-        </div>
+          <input
+            type="checkbox"
+            class="policy-checkbox"
+            [checked]="policy.isApplied()"
+            (change)="policy.toggle($any($event.target).checked)"
+          />
+        </label>
       }
     </div>
   </div>
 
-
-  <!-- Lista de Restricciones Específicas y Formulario -->
+  <!-- Restricciones Didácticas Adicionales (Personalizadas) -->
   <div class="rules-card">
     <div class="card-header">
       <div class="title-row">
         <svg lucideLayers class="card-icon"></svg>
-        <h4 class="card-title">Restricciones de Código Activas (<span machineData>{{ (store.astRules().custom_rules || []).length }}</span>)</h4>
+        <h4 class="card-title">Restricciones Específicas Adicionales (<span machineData>{{ customSpecificRules().length }}</span>)</h4>
       </div>
       <p class="card-hint">
-        Si el estudiante utiliza alguna de estas funciones o librerías, el sistema detendrá la ejecución y le mostrará el mensaje explicativo indicado.
+        Define funciones, métodos o librerías particulares que desees bloquear para este problema (ej: funciones auxiliares o librerías de estructuras de datos).
       </p>
     </div>
 
-    <!-- Reglas existentes -->
+    <!-- Lista de reglas específicas añadidas -->
     <div class="rules-list">
-      @for (r of store.astRules().custom_rules || []; track $index; let idx = $index) {
+      @for (r of customSpecificRules(); track r.pattern) {
         <div class="rule-item">
           <div class="rule-meta">
             <span class="lang-tag font-mono" machineData>{{ r.language }}</span>
@@ -107,64 +62,53 @@
           <button
             type="button"
             class="delete-rule-btn"
-            (click)="removeRule(idx)"
-            title="Eliminar regla personalizada"
-            aria-label="Eliminar regla"
+            (click)="removeSpecificRule(r)"
+            title="Eliminar restricción"
+            aria-label="Eliminar restricción"
           >
             <svg lucideTrash2 class="trash-icon"></svg>
           </button>
         </div>
       } @empty {
         <div class="empty-rules">
-          <p class="empty-text">No hay restricciones específicas configuradas. Los estudiantes podrán usar cualquier librería estándar.</p>
+          <p class="empty-text">No hay restricciones particulares adicionales. Las políticas marcadas arriba están activas.</p>
         </div>
       }
     </div>
 
-    <!-- Formulario para agregar regla -->
+    <!-- Formulario para agregar regla puntual -->
     <div class="add-rule-form">
-      <h5 class="form-title">+ Agregar Nueva Restricción</h5>
+      <h5 class="form-title">+ Agregar Restricción Específica</h5>
       <div class="form-grid">
         <div class="form-group">
-          <label class="form-label" for="rule-lang">Lenguaje</label>
-          <select id="rule-lang" class="form-select font-mono" [(ngModel)]="newRule().language">
-            <option value="python">python</option>
-            <option value="cpp">cpp (C++)</option>
-            <option value="java">java</option>
-            <option value="csharp">csharp (C#)</option>
-            <option value="javascript">javascript</option>
-          </select>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label" for="rule-type">Tipo de Elemento</label>
+          <label class="form-label" for="rule-type">Tipo</label>
           <select id="rule-type" class="form-select" [(ngModel)]="newRule().type">
-            <option value="method">Método / Invocación (ej. sort)</option>
+            <option value="method">Método / Invocación (ej. sort, reverse)</option>
             <option value="function">Función Global</option>
-            <option value="module">Módulo / Librería (ej. math)</option>
-            <option value="syntax">Palabra Clave (ej. for, while)</option>
+            <option value="module">Módulo / Librería (ej. math, collections)</option>
+            <option value="syntax">Palabra Clave</option>
           </select>
         </div>
 
         <div class="form-group form-group-pattern">
-          <label class="form-label" for="rule-pattern">Función o Palabra Prohibida</label>
+          <label class="form-label" for="rule-pattern">Función o Identificador Prohibido</label>
           <input
             id="rule-pattern"
             type="text"
             class="form-input font-mono"
-            placeholder="ej: sort, collections, std::sort, pop"
+            placeholder="ej: pop, reverse, deque, sort"
             [(ngModel)]="newRule().pattern"
           />
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="rule-msg">Mensaje Educativo para el Estudiante</label>
+        <label class="form-label" for="rule-msg">Mensaje Orientador al Estudiante</label>
         <input
           id="rule-msg"
           type="text"
           class="form-input"
-          placeholder="ej: No está permitido usar librerías automáticas. Debes programar tu propio algoritmo."
+          placeholder="ej: Debes implementar tu propia lógica sin usar estructuras automáticas."
           [(ngModel)]="newRule().message"
         />
       </div>
@@ -173,7 +117,7 @@
         <button
           type="button"
           class="btn-primary"
-          (click)="addRule()"
+          (click)="addSpecificRule()"
           [disabled]="!newRule().pattern.trim()"
         >
           <svg lucidePlus class="btn-icon"></svg>
