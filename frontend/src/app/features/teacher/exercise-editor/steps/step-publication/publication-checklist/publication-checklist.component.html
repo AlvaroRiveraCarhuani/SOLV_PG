@@ -207,13 +207,25 @@
         </div>
       } @else {
         <div class="status-box box-success">
-          <svg lucideShieldCheck class="box-icon"></svg>
-          <div class="box-content">
-            <span class="box-title">Ejercicio Listo para Publicar</span>
-            <span class="box-desc">Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.</span>
+          <div class="status-box-main">
+            <svg lucideShieldCheck class="box-icon"></svg>
+            <div class="box-content">
+              <span class="box-title">Ejercicio Listo para Publicar</span>
+              <span class="box-desc">Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.</span>
+            </div>
           </div>
+          <button
+            type="button"
+            class="btn-simulate"
+            (click)="openStudentPreview()"
+            title="Abrir simulación interactiva con el enunciado y editor del estudiante"
+          >
+            <svg lucideEye class="btn-icon"></svg>
+            <span>Simular como Estudiante</span>
+          </button>
         </div>
       }
     </div>
   </div>
 </div>
+

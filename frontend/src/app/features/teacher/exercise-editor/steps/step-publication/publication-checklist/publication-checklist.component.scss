@@ -388,11 +388,44 @@
       background-color: var(--color-success-bg, var(--bg-surface-subtle));
       border: 1px solid var(--color-success-border, var(--border-subtle));
       color: var(--color-success-text, var(--text-primary));
+      justify-content: space-between;
+
+      .status-box-main {
+        display: flex;
+        align-items: center;
+        gap: var(--space-3);
+      }
 
       .box-icon {
         color: var(--color-success-text, var(--tenant-primary));
       }
+
+      .btn-simulate {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--space-1);
+        padding: var(--space-2) var(--space-3);
+        font-size: var(--text-xs);
+        font-weight: 600;
+        background-color: var(--bg-surface);
+        border: 1px solid var(--color-success-border, var(--border-subtle));
+        border-radius: var(--radius-sm);
+        color: var(--color-success-text, var(--tenant-primary));
+        cursor: pointer;
+        transition: all 150ms ease;
+
+        &:hover {
+          background-color: var(--color-success-bg, var(--bg-surface-hover));
+          color: var(--color-success-text, var(--tenant-primary));
+        }
+
+        .btn-icon {
+          width: 13px;
+          height: 13px;
+        }
+      }
     }
+
   }
 }
 

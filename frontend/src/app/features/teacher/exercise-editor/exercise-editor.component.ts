@@ -76,7 +76,7 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
           <button
             type="button"
             class="btn-outline preview-btn"
-            (click)="openStudentPreview()"
+            (click)="store.setStudentPreviewOpen(true)"
             title="Ver exactamente cómo verá el estudiante el enunciado y editor"
           >
             <svg lucideEye class="btn-icon"></svg>
@@ -158,8 +158,8 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
 
       <!-- Modal de Vista Previa del Estudiante -->
       <student-preview-modal
-        [isOpen]="isPreviewModalOpen()"
-        (close)="closeStudentPreview()"
+        [isOpen]="store.studentPreviewOpen()"
+        (close)="store.setStudentPreviewOpen(false)"
       />
     </div>
   `,
@@ -172,16 +172,6 @@ export class ExerciseEditorComponent implements OnInit {
   courseId = input<string>('');
   id = input<string | null>(null);
 
-  readonly isPreviewModalOpen = signal<boolean>(false);
-
-  openStudentPreview(): void {
-    this.isPreviewModalOpen.set(true);
-  }
-
-  closeStudentPreview(): void {
-    this.isPreviewModalOpen.set(false);
-  }
-
   prevStep() {
     const current = this.store.currentStep();
     if (current > 1) {
@@ -192,6 +182,7 @@ export class ExerciseEditorComponent implements OnInit {
   nextStep() {
     this.store.attemptNextStep();
   }
+
 
   ngOnInit() {
     const cId = this.courseId() || this.route.snapshot.paramMap.get('courseId') || '';

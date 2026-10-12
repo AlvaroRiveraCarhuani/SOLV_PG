@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -8,7 +8,12 @@ import {
   LucideTerminal,
   LucideFileText,
   LucideClock,
-  LucideCpu
+  LucideCpu,
+  LucideShieldAlert,
+  LucideServer,
+  LucideExternalLink,
+  LucideDatabase,
+  LucideCalendar
 } from '@lucide/angular';
 import { marked } from 'marked';
 import katex from 'katex';
@@ -59,6 +64,11 @@ function renderMarkdownWithKatex(raw: string): string {
     LucideFileText,
     LucideClock,
     LucideCpu,
+    LucideShieldAlert,
+    LucideServer,
+    LucideExternalLink,
+    LucideDatabase,
+    LucideCalendar,
     MachineDataDirective
   ],
   templateUrl: './student-preview-modal.component.html',
@@ -80,6 +90,10 @@ export class StudentPreviewModalComponent {
     return [meta.language || 'python'];
   });
 
+  readonly isIDEEnvironment = computed(() => {
+    return this.store.metadata().environment_type === 'IDE_PERSISTENTE';
+  });
+
   readonly currentBoilerplate = computed(() => {
     const lang = this.selectedLanguage();
     const map = this.store.boilerplates();
@@ -90,6 +104,29 @@ export class StudentPreviewModalComponent {
       return this.store.boilerplate();
     }
     return this.getDefaultBoilerplate(lang);
+  });
+
+  readonly activeRestrictions = computed(() => {
+    const rules = this.store.astRules();
+    const list: { pattern: string; message?: string }[] = [];
+
+    if (rules.block_native_sort) {
+      list.push({ pattern: 'Ordenamiento nativo prohibido', message: 'Debes implementar tu propio algoritmo de ordenamiento.' });
+    }
+    if (rules.block_system_modules) {
+      list.push({ pattern: 'Módulos del sistema restringidos', message: 'No se permite acceso a librerías de sistema operativo.' });
+    }
+    for (const imp of (rules.forbidden_imports || [])) {
+      list.push({ pattern: `Módulo prohibido: ${imp}`, message: 'Uso no permitido en este ejercicio.' });
+    }
+    for (const fn of (rules.forbidden_functions || [])) {
+      list.push({ pattern: `Función prohibida: ${fn}`, message: 'Uso no permitido en este ejercicio.' });
+    }
+    for (const custom of (rules.custom_rules || [])) {
+      list.push({ pattern: custom.pattern, message: custom.message });
+    }
+
+    return list;
   });
 
   readonly exampleCases = computed(() => {
@@ -121,11 +158,16 @@ export class StudentPreviewModalComponent {
   });
 
   constructor() {
-    // Si cambia allowedLanguages o se inicializa, sincronizar el lenguaje seleccionado
-    const langs = this.allowedLanguages();
-    if (langs.length > 0) {
-      this.selectedLanguage.set(langs[0]);
-    }
+    // Sincronización reactiva del lenguaje
+    effect(() => {
+      const defaultLang = this.store.metadata().language || 'python';
+      const allowed = this.allowedLanguages();
+      if (allowed.includes(defaultLang)) {
+        this.selectedLanguage.set(defaultLang);
+      } else if (allowed.length > 0) {
+        this.selectedLanguage.set(allowed[0]);
+      }
+    });
   }
 
   onLanguageChange(lang: string): void {
@@ -165,3 +207,4 @@ export class StudentPreviewModalComponent {
     }
   }
 }
+

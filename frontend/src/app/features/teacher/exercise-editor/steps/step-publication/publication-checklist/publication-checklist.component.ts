@@ -11,8 +11,10 @@ import {
   LucideChevronUp,
   LucideShieldCheck,
   LucideShieldX,
-  LucideArrowRight
+  LucideArrowRight,
+  LucideEye
 } from '@lucide/angular';
+
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
 
@@ -40,6 +42,7 @@ export interface PreFlightItem {
     LucideShieldCheck,
     LucideShieldX,
     LucideArrowRight,
+    LucideEye,
     MachineDataDirective
   ],
   templateUrl: './publication-checklist.component.html',
@@ -47,6 +50,11 @@ export interface PreFlightItem {
 })
 export class PublicationChecklistComponent {
   readonly store = inject(ExerciseEditorStore);
+
+  openStudentPreview(): void {
+    this.store.setStudentPreviewOpen(true);
+  }
+
 
   readonly blockersOpen = signal<boolean>(true);
   readonly warningsOpen = signal<boolean>(true);

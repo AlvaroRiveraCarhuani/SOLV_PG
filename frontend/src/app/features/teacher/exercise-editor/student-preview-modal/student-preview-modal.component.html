@@ -101,6 +101,26 @@
               </div>
             }
 
+            <!-- Reglas y Restricciones de Código Activas -->
+            @if (activeRestrictions().length > 0) {
+              <div class="statement-section restrictions-preview-section">
+                <div class="restrictions-header">
+                  <svg lucideShieldAlert class="restrictions-icon"></svg>
+                  <h4 class="section-heading">Restricciones de Código para el Estudiante</h4>
+                </div>
+                <div class="restrictions-list">
+                  @for (r of activeRestrictions(); track r.pattern) {
+                    <div class="restriction-preview-badge">
+                      <span class="restriction-pattern font-mono" machineData>{{ r.pattern }}</span>
+                      @if (r.message) {
+                        <span class="restriction-hint">{{ r.message }}</span>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            }
+
             <!-- Rúbrica de Evaluación Cualitativa (IDE Persistente) -->
             @if (store.metadata().environment_type === 'IDE_PERSISTENTE' && store.rubric(); as rub) {
               <div class="statement-section rubric-preview-section">
@@ -129,85 +149,159 @@
             }
 
             <!-- Casos de Ejemplo (Solo visibility === 'example') -->
-            <div class="example-cases-section">
-              <h4 class="section-heading">
-                <span>Casos de Ejemplo</span>
-                <span class="count-tag font-mono" machineData>({{ exampleCases().length }})</span>
-              </h4>
+            @if (!isIDEEnvironment()) {
+              <div class="example-cases-section">
+                <h4 class="section-heading">
+                  <span>Casos de Ejemplo</span>
+                  <span class="count-tag font-mono" machineData>({{ exampleCases().length }})</span>
+                </h4>
 
-              @if (exampleCases().length === 0) {
-                <p class="no-examples-notice">
-                  No hay casos de prueba marcados como "Ejemplo". El estudiante no verá muestras en el enunciado.
-                </p>
-              } @else {
-                <div class="examples-grid">
-                  @for (tc of exampleCases(); track $index; let idx = $index) {
-                    <div class="example-card">
-                      <div class="example-card-header">
-                        <span class="example-num font-mono" machineData>Ejemplo {{ idx + 1 }}</span>
-                      </div>
-                      <div class="example-card-body">
-                        <div class="example-block">
-                          <span class="block-label">Entrada (stdin):</span>
-                          <pre class="code-block font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
+                @if (exampleCases().length === 0) {
+                  <p class="no-examples-notice">
+                    No hay casos de prueba marcados como "Ejemplo". El estudiante no verá muestras en el enunciado.
+                  </p>
+                } @else {
+                  <div class="examples-grid">
+                    @for (tc of exampleCases(); track $index; let idx = $index) {
+                      <div class="example-card">
+                        <div class="example-card-header">
+                          <span class="example-num font-mono" machineData>Ejemplo {{ idx + 1 }}</span>
                         </div>
-                        <div class="example-block">
-                          <span class="block-label">Salida esperada (stdout):</span>
-                          <pre class="code-block font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
+                        <div class="example-card-body">
+                          <div class="example-block">
+                            <span class="block-label">Entrada (stdin):</span>
+                            <pre class="code-block font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
+                          </div>
+                          <div class="example-block">
+                            <span class="block-label">Salida esperada (stdout):</span>
+                            <pre class="code-block font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
+                          </div>
                         </div>
                       </div>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Panel Derecho Según Modalidad -->
+        @if (isIDEEnvironment()) {
+          <!-- Simulación Entorno OpenVSCode Server (IDE Persistente) -->
+          <section class="editor-column ide-preview-column">
+            <div class="ide-workspace-card">
+              <div class="column-header">
+                <div class="header-left">
+                  <svg lucideServer class="column-icon"></svg>
+                  <h3 class="column-title">Entorno Interactivo OpenVSCode</h3>
+                </div>
+                <span class="status-pill status-ready font-mono" machineData>READY</span>
+              </div>
+
+              <div class="ide-workspace-body">
+                <div class="workspace-info-banner">
+                  <svg lucideServer class="banner-icon"></svg>
+                  <div class="banner-text">
+                    <span class="banner-title">Espacio de Trabajo del Laboratorio</span>
+                    <p class="banner-desc">
+                      El estudiante accederá a un contenedor OpenVSCode dedicado con terminal bash, extensiones de desarrollo y almacenamiento persistente.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="specs-grid">
+                  <div class="spec-row">
+                    <span class="spec-label">Plantilla vinculada:</span>
+                    <strong class="spec-value" machineData>{{ store.metadata().template?.name || store.metadata().template_id || 'Plantilla Oficial' }}</strong>
+                  </div>
+                  <div class="spec-row">
+                    <span class="spec-label">Imagen Docker:</span>
+                    <code class="spec-code font-mono" machineData>{{ store.metadata().template?.docker_image || 'solv-runner:latest' }}</code>
+                  </div>
+                  <div class="spec-row">
+                    <span class="spec-label">Memoria RAM:</span>
+                    <span class="spec-value font-mono" machineData>{{ store.metadata().memory_limit_mb }} MB</span>
+                  </div>
+                  @if (store.metadata().db_init_script) {
+                    <div class="spec-row">
+                      <span class="spec-label">Servicio satélite:</span>
+                      <span class="satellite-pill">
+                        <svg lucideDatabase class="pill-icon"></svg>
+                        <span>Base de datos con DDL/DML precargado</span>
+                      </span>
+                    </div>
+                  }
+                  @if (store.metadata().due_date) {
+                    <div class="spec-row">
+                      <span class="spec-label">Fecha límite:</span>
+                      <span class="spec-value font-mono" machineData>
+                        <svg lucideCalendar class="inline-icon"></svg>
+                        {{ store.metadata().due_date | slice:0:16 }}
+                      </span>
                     </div>
                   }
                 </div>
-              }
-            </div>
-          </div>
-        </section>
 
-        <!-- Panel Derecho: Editor de Código + Consola Inferior -->
-        <section class="editor-column">
-          <!-- Editor de Código -->
-          <div class="code-panel">
-            <div class="column-header">
-              <div class="header-left">
-                <svg lucideCode class="column-icon"></svg>
-                <h3 class="column-title">Editor de Código</h3>
-                <span class="lang-tag font-mono" machineData>{{ selectedLanguage() }}</span>
+                <div class="ide-action-preview">
+                  <button type="button" class="btn-launch-sim" disabled title="Botón simulado en vista previa del docente">
+                    <svg lucideExternalLink class="btn-icon"></svg>
+                    <span>Abrir Sesión OpenVSCode (Simulado)</span>
+                  </button>
+                  <span class="sim-note">
+                    Durante la sesión del estudiante, este botón desplegará el contenedor e iniciará el túnel seguro.
+                  </span>
+                </div>
               </div>
-              <span class="readonly-badge">Solo lectura en vista previa</span>
             </div>
-
-            <div class="editor-viewport">
-              <textarea
-                class="code-textarea font-mono"
-                [ngModel]="currentBoilerplate()"
-                readonly
-                spellcheck="false"
-                aria-label="Código de inicio para el estudiante"
-              ></textarea>
-            </div>
-          </div>
-
-          <!-- Consola Terminal Inferior -->
-          <div class="console-panel">
-            <div class="console-header">
-              <div class="console-title-row">
-                <svg lucideTerminal class="console-icon"></svg>
-                <h4 class="console-title">Consola de Resultados</h4>
+          </section>
+        } @else {
+          <!-- Panel Derecho: Editor de Código + Consola Inferior (Juez Virtual) -->
+          <section class="editor-column">
+            <!-- Editor de Código -->
+            <div class="code-panel">
+              <div class="column-header">
+                <div class="header-left">
+                  <svg lucideCode class="column-icon"></svg>
+                  <h3 class="column-title">Editor de Código</h3>
+                  <span class="lang-tag font-mono" machineData>{{ selectedLanguage() }}</span>
+                </div>
+                <span class="readonly-badge">Solo lectura en vista previa</span>
               </div>
-              <span class="console-status-badge font-mono">STANDBY</span>
+
+              <div class="editor-viewport">
+                <textarea
+                  class="code-textarea font-mono"
+                  [ngModel]="currentBoilerplate()"
+                  readonly
+                  spellcheck="false"
+                  aria-label="Código de inicio para el estudiante"
+                ></textarea>
+              </div>
             </div>
 
-            <div class="console-output font-mono">
-              <p class="console-line info-line" machineData>
-                [SIMULACIÓN] La ejecución de código no está activa en la vista previa del docente.
-              </p>
-              <p class="console-line dim-line" machineData>
-                El estudiante dispondrá de botones para correr pruebas locales y enviar al juez virtual.
-              </p>
+            <!-- Consola Terminal Inferior -->
+            <div class="console-panel">
+              <div class="console-header">
+                <div class="console-title-row">
+                  <svg lucideTerminal class="console-icon"></svg>
+                  <h4 class="console-title">Consola de Resultados</h4>
+                </div>
+                <span class="console-status-badge font-mono">STANDBY</span>
+              </div>
+
+              <div class="console-output font-mono">
+                <p class="console-line info-line" machineData>
+                  [SIMULACIÓN] La ejecución de código no está activa en la vista previa del docente.
+                </p>
+                <p class="console-line dim-line" machineData>
+                  El estudiante dispondrá de botones para correr pruebas locales y enviar al juez virtual.
+                </p>
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        }
+
       </div>
     </div>
   </div>

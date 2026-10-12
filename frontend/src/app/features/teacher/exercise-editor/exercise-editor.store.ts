@@ -69,8 +69,10 @@ export class ExerciseEditorStore {
   readonly isLoading = signal<boolean>(false);
   readonly lastSavedAt = signal<Date | null>(null);
   readonly currentStep = signal<1 | 2 | 3>(1);
+  readonly studentPreviewOpen = signal<boolean>(false);
 
   // Rubrica (IDE Persistente)
+
   readonly rubric = signal<RubricDTO | null>(null);
 
   // Paso 1: Identidad y Pedagogía
@@ -274,6 +276,11 @@ export class ExerciseEditorStore {
   setAcceptedWarnings(val: boolean) {
     this.acceptedWarnings.set(val);
   }
+
+  setStudentPreviewOpen(open: boolean) {
+    this.studentPreviewOpen.set(open);
+  }
+
 
   setBoilerplateForLanguage(lang: string, code: string) {
     this.boilerplates.update(curr => ({ ...curr, [lang]: code }));
