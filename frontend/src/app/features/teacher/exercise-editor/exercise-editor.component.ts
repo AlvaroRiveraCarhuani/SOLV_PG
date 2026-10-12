@@ -1,13 +1,13 @@
 import { Component, OnInit, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink, ActivatedRoute } from '@angular/router';
+import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import {
   LucideArrowLeft,
-  LucideSave,
   LucideChevronRight,
   LucideChevronLeft,
   LucideCheck,
-  LucideEye
+  LucideEye,
+  LucideTrash2
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepperNavComponent } from './shared/stepper-nav.component';
@@ -17,6 +17,7 @@ import { StepContractComponent } from './steps/step-contract/step-contract.compo
 import { StepIdeEnvironmentComponent } from './steps/step-ide-environment/step-ide-environment.component';
 import { StepPublicationComponent } from './steps/step-publication/step-publication.component';
 import { StudentPreviewModalComponent } from './student-preview-modal/student-preview-modal.component';
+import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 
 @Component({
   selector: 'exercise-editor',
@@ -25,18 +26,19 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
     CommonModule,
     RouterLink,
     LucideArrowLeft,
-    LucideSave,
     LucideChevronRight,
     LucideChevronLeft,
     LucideCheck,
     LucideEye,
+    LucideTrash2,
     StepperNavComponent,
     SummaryPanelComponent,
     StepIdentityComponent,
     StepContractComponent,
     StepIdeEnvironmentComponent,
     StepPublicationComponent,
-    StudentPreviewModalComponent
+    StudentPreviewModalComponent,
+    ConfirmModalComponent
   ],
   template: `
     <div class="exercise-editor-page">
@@ -85,12 +87,12 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
 
           <button
             type="button"
-            class="btn-outline draft-btn"
-            [disabled]="store.isSaving()"
-            (click)="store.saveDraft()"
+            class="btn-outline delete-draft-btn"
+            (click)="confirmDeleteDraft()"
+            title="Descartar y borrar los cambios no guardados del borrador"
           >
-            <svg lucideSave class="btn-icon"></svg>
-            <span>{{ store.isSaving() ? 'Guardando...' : 'Guardar borrador' }}</span>
+            <svg lucideTrash2 class="btn-icon"></svg>
+            <span>Eliminar borrador</span>
           </button>
 
           <!-- Botones de Navegación de Pasos -->
@@ -161,6 +163,27 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
         [isOpen]="store.studentPreviewOpen()"
         (close)="store.setStudentPreviewOpen(false)"
       />
+
+      <!-- Modal de Confirmación para Borrar Borrador -->
+      @if (showDeleteModal()) {
+        <confirm-modal
+          title="¿Eliminar borrador?"
+          message="Se descartarán todos los datos y cambios de este ejercicio. Esta acción no se puede deshacer."
+          confirmText="Sí, borrar borrador"
+          cancelText="Cancelar"
+          type="danger"
+          (confirm)="onDeleteDraftConfirmed()"
+          (cancel)="showDeleteModal.set(false)"
+        />
+      }
+
+      <!-- Toast de Confirmación -->
+      @if (toastMessage(); as msg) {
+        <div class="toast-notification animate-fade" role="status">
+          <svg lucideCheck class="toast-icon"></svg>
+          <span>{{ msg }}</span>
+        </div>
+      }
     </div>
   `,
   styleUrl: './exercise-editor.component.scss'
@@ -168,9 +191,14 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
 export class ExerciseEditorComponent implements OnInit {
   readonly store = inject(ExerciseEditorStore);
   private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
   courseId = input<string>('');
   id = input<string | null>(null);
+
+  showDeleteModal = signal<boolean>(false);
+  toastMessage = signal<string | null>(null);
+  private toastTimer: any = null;
 
   prevStep() {
     const current = this.store.currentStep();
@@ -183,6 +211,33 @@ export class ExerciseEditorComponent implements OnInit {
     this.store.attemptNextStep();
   }
 
+  confirmDeleteDraft() {
+    this.showDeleteModal.set(true);
+  }
+
+  onDeleteDraftConfirmed() {
+    this.showDeleteModal.set(false);
+    this.store.resetDraft();
+    this.showToast('Borrador eliminado correctamente.');
+    const cId = this.courseId() || this.route.snapshot.paramMap.get('courseId') || '';
+    setTimeout(() => {
+      if (cId) {
+        this.router.navigate(['/teacher/cursos', cId]);
+      } else {
+        this.router.navigate(['/teacher/cursos']);
+      }
+    }, 800);
+  }
+
+  private showToast(message: string) {
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    this.toastMessage.set(message);
+    this.toastTimer = setTimeout(() => {
+      this.toastMessage.set(null);
+    }, 3000);
+  }
 
   ngOnInit() {
     const cId = this.courseId() || this.route.snapshot.paramMap.get('courseId') || '';

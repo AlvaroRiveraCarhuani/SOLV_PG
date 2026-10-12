@@ -231,7 +231,7 @@ export class ExerciseEditorStore {
         warnings.push('No hay casos marcados como "Ejemplo" para el enunciado');
       }
       if (this.hiddenCasesCount() === 0) {
-        warnings.push('No hay casos ocultos; un print estático podría aprobar');
+        warnings.push('No hay casos ocultos; un alumno podría aprobar mostrando respuestas fijas');
       }
     }
 
@@ -309,8 +309,9 @@ export class ExerciseEditorStore {
     const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
 
     if (isIDE) {
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const s1 = this.step1Validation();
+      const errors: string[] = [...s1.errors];
+      const warnings: string[] = [...s1.warnings];
       const info: string[] = [];
 
       if (!meta.template_id) {
@@ -350,15 +351,16 @@ export class ExerciseEditorStore {
 
     if (!id) {
       // Para ejercicios nuevos JUEZ_EFIMERO no persistidos aún
-      const errors: string[] = [];
-      const warnings: string[] = [];
+      const s1 = this.step1Validation();
+      const errors: string[] = [...s1.errors];
+      const warnings: string[] = [...s1.warnings];
       const info: string[] = [];
 
       if (this.cases().length === 0) {
         errors.push('Debes incluir al menos un caso de prueba.');
       }
       if (this.hiddenCasesCount() === 0) {
-        warnings.push('0 casos ocultos: un print fijo podría aprobar este ejercicio.');
+        warnings.push('Sin casos ocultos: un alumno podría aprobar mostrando salidas fijas en consola.');
       }
       if (this.exampleCasesCount() === 0) {
         warnings.push('0 casos de ejemplo: el estudiante no verá casos ilustrativos en el enunciado.');
@@ -386,7 +388,16 @@ export class ExerciseEditorStore {
 
     this.courseService.getExerciseChecklist(id, refSol).subscribe({
       next: (report: ChecklistReportDTO) => {
-        this.checklistReport.set(report);
+        const s1 = this.step1Validation();
+        const mergedBlockers = Array.from(new Set([...s1.errors, ...(report.blockers || [])]));
+        const mergedWarnings = Array.from(new Set([...s1.warnings, ...(report.warnings || [])]));
+
+        this.checklistReport.set({
+          ...report,
+          blockers: mergedBlockers,
+          warnings: mergedWarnings,
+          can_publish: mergedBlockers.length === 0
+        });
         this.isChecklistLoading.set(false);
       },
       error: () => {
@@ -410,20 +421,9 @@ export class ExerciseEditorStore {
 
   attemptNextStep(): boolean {
     const current = this.currentStep();
-    if (current === 1) {
-      if (!this.step1Validation().isValid) {
-        this.stepAttempted.set(true);
-        return false;
-      }
-    } else if (current === 2) {
-      if (!this.step2Validation().isValid) {
-        this.stepAttempted.set(true);
-        return false;
-      }
-    }
-    this.stepAttempted.set(false);
     if (current < 3) {
       this.currentStep.set((current + 1) as 1 | 2 | 3);
+      this.stepAttempted.set(false);
       return true;
     }
     return false;
@@ -730,6 +730,51 @@ export class ExerciseEditorStore {
         }
       });
     }
+  }
+
+  resetDraft() {
+    this.metadata.set({
+      title: '',
+      difficulty: null,
+      tags: [],
+      modality: 'judge',
+      environment_type: 'JUEZ_EFIMERO',
+      template_id: null,
+      template: null,
+      db_init_script: '',
+      allow_resubmit: true,
+      auto_checkpoint: true,
+      purpose: 'class',
+      per_student_seed: false,
+      language: '',
+      allowed_languages: [],
+      time_limit_ms: 1000,
+      memory_limit_mb: 128,
+      due_date: ''
+    });
+    this.statement.set({
+      description: '',
+      input_text: '',
+      output_text: '',
+      constraints: ''
+    });
+    this.contract.set(null);
+    this.cases.set([]);
+    this.referenceSolution.set('');
+    this.astRules.set({
+      block_native_sort: false,
+      block_system_modules: false,
+      forbidden_imports: [],
+      forbidden_functions: [],
+      custom_rules: []
+    });
+    this.boilerplate.set('');
+    this.boilerplates.set({});
+    this.checklistReport.set(null);
+    this.acceptedWarnings.set(false);
+    this.stepAttempted.set(false);
+    this.currentStep.set(1);
+    this.initialSnapshot.set(this.serializeState());
   }
 
   private serializeState(): string {
