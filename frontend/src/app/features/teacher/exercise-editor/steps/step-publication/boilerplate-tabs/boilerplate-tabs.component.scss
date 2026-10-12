@@ -154,28 +154,6 @@
 .editor-area {
   width: 100%;
   display: flex;
-
-  .boilerplate-textarea {
-    width: 100%;
-    min-height: 220px;
-    padding: var(--space-3);
-    font-size: var(--text-xs);
-    line-height: 1.5;
-    color: var(--text-primary);
-    background-color: var(--bg-surface);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-md);
-    resize: vertical;
-    white-space: pre;
-    overflow-x: auto;
-    tab-size: 2;
-
-    &:focus {
-      outline: none;
-      border-color: var(--tenant-primary);
-      box-shadow: 0 0 0 1px var(--tenant-primary);
-    }
-  }
 }
 
 .editor-footer {

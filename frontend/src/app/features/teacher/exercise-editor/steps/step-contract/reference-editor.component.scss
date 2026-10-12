@@ -49,27 +49,7 @@
 }
 
 .code-editor-wrapper {
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background-color: var(--code-bg, var(--bg-surface));
-  overflow: hidden;
-
-  .code-textarea {
-    width: 100%;
-    min-height: 280px;
-    padding: var(--space-3);
-    background-color: transparent;
-    color: var(--code-text, var(--text-primary));
-    border: none;
-    font-size: var(--text-sm);
-    line-height: var(--leading-relaxed);
-    tab-size: 4;
-    resize: vertical;
-
-    &:focus {
-      outline: none;
-    }
-  }
+  width: 100%;
 }
 
 .editor-footer {

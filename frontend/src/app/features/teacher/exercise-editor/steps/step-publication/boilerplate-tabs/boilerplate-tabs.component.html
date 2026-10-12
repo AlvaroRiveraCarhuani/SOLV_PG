@@ -28,21 +28,21 @@
           type="button"
           class="btn-action"
           (click)="applyStandardIO()"
-          title="Plantilla optimizada para lectura de stdin y escritura a stdout"
+          title="Plantilla básica para lectura de entrada estándar y escritura de salida"
         >
           <svg lucideLayers class="btn-icon"></svg>
-          <span>Esqueleto I/O</span>
+          <span>Entrada y Salida estándar</span>
         </button>
 
-        <!-- Plantilla Firma Función -->
+        <!-- Plantilla Función con retorno -->
         <button
           type="button"
           class="btn-action"
           (click)="applyFunctionSignature()"
-          title="Firma de función limpia para ejercicios tipo LeetCode"
+          title="Estructura de función con parámetros y retorno de resultado"
         >
           <svg lucideFileCode class="btn-icon"></svg>
-          <span>Firma Función</span>
+          <span>Función con retorno</span>
         </button>
 
         <!-- Lienzo en blanco -->
@@ -81,16 +81,14 @@
       }
     </div>
 
-    <!-- Editor de código multilínea -->
+    <!-- Editor de código multilínea con CodeMirror 6 -->
     <div class="editor-area">
-      <textarea
-        class="boilerplate-textarea font-mono"
-        [ngModel]="currentCode()"
-        (ngModelChange)="onCodeChange($event)"
-        placeholder="Escribe el código inicial que verá el estudiante..."
-        spellcheck="false"
-        rows="12"
-      ></textarea>
+      <code-editor
+        [value]="currentCode()"
+        [language]="activeLanguage()"
+        (valueChange)="onCodeChange($event)"
+        minHeight="260px"
+      />
     </div>
 
     <!-- Footer con estadísticas -->

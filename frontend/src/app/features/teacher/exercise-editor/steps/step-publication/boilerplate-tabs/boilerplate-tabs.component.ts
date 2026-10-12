@@ -9,6 +9,7 @@ import {
   LucideLayers
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
 
 
@@ -16,7 +17,7 @@ export const STANDARD_IO_BOILERPLATES: Record<string, string> = {
   python: `# Lectura de entrada estándar (stdin) y salida (stdout)
 import sys
 
-def solve():
+def solucion():
     # Lee todos los datos de entrada
     lines = sys.stdin.read().splitlines()
     if not lines:
@@ -27,7 +28,7 @@ def solve():
     # print(resultado)
 
 if __name__ == '__main__':
-    solve()
+    solucion()
 `,
   cpp: `#include <iostream>
 #include <vector>
@@ -67,50 +68,50 @@ class Program {
 `,
   javascript: `const fs = require('fs');
 
-function solve() {
+function solucion() {
     const input = fs.readFileSync(0, 'utf-8').trim();
     if (!input) return;
 
     // TODO: Procesa la entrada y usa console.log para el resultado
 }
 
-solve();
+solucion();
 `,
   typescript: `import * as fs from 'fs';
 
-function solve(): void {
+function solucion(): void {
     const input = fs.readFileSync(0, 'utf-8').trim();
     if (!input) return;
 
     // TODO: Procesa la entrada y muestra el resultado con console.log
 }
 
-solve();
+solucion();
 `
 };
 
 export const FUNCTION_SIGNATURE_BOILERPLATES: Record<string, string> = {
-  python: `def solve(*args):
+  python: `def solucion(*args):
     """
     TODO: Implementa la solución al problema.
     """
     pass
 `,
   cpp: `// Completa la función solicitada
-int solve() {
+int solucion() {
     // TODO: Escribe tu lógica aquí
     return 0;
 }
 `,
   java: `public class Solution {
-    public int solve() {
+    public int solucion() {
         // TODO: Escribe tu lógica aquí
         return 0;
     }
 }
 `,
   csharp: `public class Solution {
-    public int Solve() {
+    public int Solucion() {
         // TODO: Escribe tu lógica aquí
         return 0;
     }
@@ -119,11 +120,11 @@ int solve() {
   javascript: `/**
  * @return {any}
  */
-function solve() {
+function solucion() {
     // TODO: Escribe tu lógica aquí
 }
 `,
-  typescript: `function solve(): any {
+  typescript: `function solucion(): any {
     // TODO: Escribe tu lógica aquí
 }
 `
@@ -140,7 +141,8 @@ function solve() {
     LucideGitFork,
     LucideCheck,
     LucideLayers,
-    MachineDataDirective
+    MachineDataDirective,
+    CodeEditorComponent
   ],
 
   templateUrl: './boilerplate-tabs.component.html',

@@ -22,17 +22,15 @@
         <div class="header-right">
           <!-- Selector de Lenguaje -->
           <div class="lang-selector-group">
-            <label for="preview-lang-select" class="lang-label">Lenguaje:</label>
-            <select
-              id="preview-lang-select"
-              class="lang-select font-mono"
-              [ngModel]="selectedLanguage()"
-              (ngModelChange)="onLanguageChange($event)"
-            >
-              @for (lang of allowedLanguages(); track lang) {
-                <option [value]="lang">{{ lang }}</option>
-              }
-            </select>
+            <span class="lang-label">Lenguaje:</span>
+            <combobox
+              [options]="languageOptions()"
+              [value]="selectedLanguage()"
+              [compact]="true"
+              [showSearchIcon]="false"
+              (optionSelected)="onLanguageChange($event.value)"
+              inputAriaLabel="Seleccionar lenguaje"
+            />
           </div>
 
           <button
@@ -270,13 +268,12 @@
               </div>
 
               <div class="editor-viewport">
-                <textarea
-                  class="code-textarea font-mono"
-                  [ngModel]="currentBoilerplate()"
-                  readonly
-                  spellcheck="false"
-                  aria-label="Código de inicio para el estudiante"
-                ></textarea>
+                <code-editor
+                  [value]="currentBoilerplate()"
+                  [language]="selectedLanguage()"
+                  [readonly]="true"
+                  minHeight="320px"
+                />
               </div>
             </div>
 

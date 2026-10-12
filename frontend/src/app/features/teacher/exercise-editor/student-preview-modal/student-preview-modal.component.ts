@@ -18,6 +18,8 @@ import {
 import { marked } from 'marked';
 import katex from 'katex';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ExerciseEditorStore } from '../exercise-editor.store';
 import { TestCaseDTO } from '../../models/teacher.models';
 
@@ -69,7 +71,9 @@ function renderMarkdownWithKatex(raw: string): string {
     LucideExternalLink,
     LucideDatabase,
     LucideCalendar,
-    MachineDataDirective
+    MachineDataDirective,
+    CodeEditorComponent,
+    ComboboxComponent
   ],
   templateUrl: './student-preview-modal.component.html',
   styleUrl: './student-preview-modal.component.scss'
@@ -88,6 +92,14 @@ export class StudentPreviewModalComponent {
       return meta.allowed_languages;
     }
     return [meta.language || 'python'];
+  });
+
+  readonly languageOptions = computed<ComboboxOption[]>(() => {
+    return this.allowedLanguages().map(lang => ({
+      id: lang,
+      label: lang.toUpperCase(),
+      value: lang
+    }));
   });
 
   readonly isIDEEnvironment = computed(() => {

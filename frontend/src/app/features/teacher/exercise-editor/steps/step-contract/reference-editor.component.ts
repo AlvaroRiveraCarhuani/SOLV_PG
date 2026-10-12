@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideCheckCircle2 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
 
 @Component({
@@ -12,7 +13,8 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     CommonModule,
     FormsModule,
     LucideCheckCircle2,
-    MachineDataDirective
+    MachineDataDirective,
+    CodeEditorComponent
   ],
   template: `
     <div class="reference-editor-container">
@@ -28,14 +30,12 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
       </div>
 
       <div class="code-editor-wrapper">
-        <textarea
-          class="code-textarea font-mono"
-          placeholder="# Escribe aquí la solución óptima y completa."
-          [ngModel]="store.referenceSolution()"
-          (ngModelChange)="onCodeChange($event)"
-          rows="14"
-          spellcheck="false"
-        ></textarea>
+        <code-editor
+          [value]="store.referenceSolution()"
+          [language]="store.metadata().language"
+          (valueChange)="onCodeChange($event)"
+          minHeight="280px"
+        />
       </div>
 
       <div class="editor-footer">
