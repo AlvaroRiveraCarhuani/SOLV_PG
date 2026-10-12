@@ -115,22 +115,44 @@ export class ASTRulesBuilderComponent {
 
   addSpecificRule(): void {
     const r = this.newRule();
-    if (!r.pattern.trim()) return;
+    const raw = r.pattern.trim();
+    if (!raw) return;
 
-    this.store.addCustomAstRule({
-      language: r.language || this.activeLanguage(),
-      type: r.type,
-      pattern: r.pattern.trim(),
-      message: r.message.trim() || `El uso del identificador "${r.pattern.trim()}" está restringido en este ejercicio.`
-    });
+    // Permitir ingresar múltiples funciones/métodos separados por comas (ej. pop, reverse, math)
+    const tokens = raw
+      .split(',')
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const existing = this.activeSpecificRules();
+    const lang = r.language || this.activeLanguage();
+
+    for (const pattern of tokens) {
+      // Inferencia simple: si contiene puntos es método/módulo, si no función
+      const inferredType = pattern.includes('.') ? 'method' : 'function';
+
+      // Evitar duplicados del mismo patrón en el lenguaje
+      const alreadyExists = existing.some(
+        existingRule => existingRule.pattern.toLowerCase() === pattern.toLowerCase() && existingRule.language === lang
+      );
+      if (alreadyExists) continue;
+
+      this.store.addCustomAstRule({
+        language: lang,
+        type: inferredType,
+        pattern,
+        message: r.message.trim() || `El uso de "${pattern}" no está permitido para este ejercicio.`
+      });
+    }
 
     this.newRule.set({
       language: this.activeLanguage(),
-      type: 'method',
+      type: 'function',
       pattern: '',
       message: ''
     });
   }
+
 
   removeSpecificRule(targetRule: ASTCustomRuleDTO): void {
     const all = this.store.astRules().custom_rules || [];

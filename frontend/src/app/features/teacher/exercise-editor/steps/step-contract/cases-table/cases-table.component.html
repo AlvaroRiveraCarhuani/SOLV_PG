@@ -117,7 +117,7 @@
       (click)="setFilterTab('hidden')"
       title="Casos secretos utilizados para calificar sin fugas de información"
     >
-      <span>Casos de Evaluación 🔒</span>
+      <span>Casos de Evaluación</span>
       <span class="tab-count font-mono" machineData>{{ hiddenCount() }}</span>
     </button>
   </div>
@@ -218,9 +218,9 @@
                   [ngModel]="item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public'))"
                   (ngModelChange)="onVisibilityChange(item.originalIndex, $event)"
                 >
-                  <option value="example">🟢 Ejemplo</option>
-                  <option value="public">🔵 Público</option>
-                  <option value="hidden">🔴 Oculto</option>
+                  <option value="example">Ejemplo</option>
+                  <option value="public">Público</option>
+                  <option value="hidden">Oculto</option>
                 </select>
               </div>
             </td>

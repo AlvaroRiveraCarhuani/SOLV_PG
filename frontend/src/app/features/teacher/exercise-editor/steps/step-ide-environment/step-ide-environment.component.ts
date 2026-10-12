@@ -9,7 +9,6 @@ import {
   LucideCalendar,
   LucideClipboardList,
   LucideTrash2,
-  LucideSparkles,
   LucideAlertTriangle,
   LucideCheckCircle2
 } from '@lucide/angular';
@@ -46,7 +45,6 @@ export interface ApprovedTemplate {
     LucideCalendar,
     LucideClipboardList,
     LucideTrash2,
-    LucideSparkles,
     LucideAlertTriangle,
     LucideCheckCircle2,
     MachineDataDirective,
@@ -239,7 +237,7 @@ export interface ApprovedTemplate {
             <svg lucideClipboardList class="empty-icon"></svg>
             <p>No se han agregado criterios a la rúbrica.</p>
             <button type="button" class="btn-outline btn-sm" (click)="applyRubricPreset('api-rest')">
-              <svg lucideSparkles class="btn-icon"></svg>
+              <svg lucideClipboardList class="btn-icon"></svg>
               <span>Cargar Plantilla API REST</span>
             </button>
           </div>

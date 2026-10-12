@@ -1,7 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideCode, LucideCheckCircle2 } from '@lucide/angular';
+import { LucideCheckCircle2 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
 
@@ -11,7 +11,6 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
   imports: [
     CommonModule,
     FormsModule,
-    LucideCode,
     LucideCheckCircle2,
     MachineDataDirective
   ],
@@ -19,13 +18,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     <div class="reference-editor-container">
       <div class="editor-header">
         <div class="header-info">
-          <div class="title-row">
-            <svg lucideCode class="header-icon"></svg>
-            <span class="editor-title">Solución Oficial de Referencia (Docente)</span>
-          </div>
-          <span class="editor-subtitle">
-            Código canónico del docente utilizado para validar casos de prueba, generar salidas automáticas y fuzzing.
-          </span>
+          <span class="editor-label">Código Canónico</span>
         </div>
 
         <div class="language-badge">

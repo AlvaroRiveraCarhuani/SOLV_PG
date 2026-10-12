@@ -79,51 +79,45 @@
     <!-- Formulario para agregar regla puntual -->
     <div class="add-rule-form">
       <h5 class="form-title">+ Agregar Restricción Específica</h5>
-      <div class="form-grid">
-        <div class="form-group">
-          <label class="form-label" for="rule-type">Tipo</label>
-          <select id="rule-type" class="form-select" [(ngModel)]="newRule().type">
-            <option value="method">Método / Invocación (ej. sort, reverse)</option>
-            <option value="function">Función Global</option>
-            <option value="module">Módulo / Librería (ej. math, collections)</option>
-            <option value="syntax">Palabra Clave</option>
-          </select>
-        </div>
-
-        <div class="form-group form-group-pattern">
-          <label class="form-label" for="rule-pattern">Función o Identificador Prohibido</label>
+      <div class="form-grid-simplified">
+        <div class="form-group form-group-term">
+          <label class="form-label" for="rule-pattern">
+            Funciones, métodos o módulos a prohibir
+            <span class="label-hint">(separar por comas para agregar varias)</span>
+          </label>
           <input
             id="rule-pattern"
             type="text"
             class="form-input font-mono"
-            placeholder="ej: pop, reverse, deque, sort"
+            placeholder="ej: pop, reverse, math, sort"
             [(ngModel)]="newRule().pattern"
           />
         </div>
-      </div>
 
-      <div class="form-group">
-        <label class="form-label" for="rule-msg">Mensaje Orientador al Estudiante</label>
-        <input
-          id="rule-msg"
-          type="text"
-          class="form-input"
-          placeholder="ej: Debes implementar tu propia lógica sin usar estructuras automáticas."
-          [(ngModel)]="newRule().message"
-        />
-      </div>
+        <div class="form-group form-group-message">
+          <label class="form-label" for="rule-msg">Mensaje para el estudiante (opcional)</label>
+          <input
+            id="rule-msg"
+            type="text"
+            class="form-input"
+            placeholder="ej: Debes implementar tu propia lógica sin usar esta función."
+            [(ngModel)]="newRule().message"
+          />
+        </div>
 
-      <div class="form-actions">
-        <button
-          type="button"
-          class="btn-primary"
-          (click)="addSpecificRule()"
-          [disabled]="!newRule().pattern.trim()"
-        >
-          <svg lucidePlus class="btn-icon"></svg>
-          <span>Guardar Restricción</span>
-        </button>
+        <div class="form-actions-inline">
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="addSpecificRule()"
+            [disabled]="!newRule().pattern.trim()"
+          >
+            <svg lucidePlus class="btn-icon"></svg>
+            <span>Prohibir</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
 </div>
+

@@ -13,30 +13,14 @@
 
   .header-info {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
 
-    .title-row {
-      display: flex;
-      align-items: center;
-      gap: var(--space-2);
-
-      .header-icon {
-        width: 16px;
-        height: 16px;
-        color: var(--tenant-primary);
-      }
-
-      .editor-title {
-        font-size: var(--text-sm);
-        font-weight: 600;
-        color: var(--text-primary);
-      }
-    }
-
-    .editor-subtitle {
+    .editor-label {
       font-size: var(--text-xs);
-      color: var(--text-muted);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
   }
 
