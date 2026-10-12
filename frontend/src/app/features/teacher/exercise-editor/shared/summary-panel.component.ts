@@ -4,6 +4,7 @@ import {
   LucideClock,
   LucideCpu,
   LucideAlertTriangle,
+  LucideAlertCircle,
   LucideLayers
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -17,6 +18,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
     LucideClock,
     LucideCpu,
     LucideAlertTriangle,
+    LucideAlertCircle,
     LucideLayers,
     MachineDataDirective
   ],
@@ -155,6 +157,21 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
       }
 
 
+      <!-- Sección: Requisitos Obligatorios del Paso (Pasos 1 y 2) -->
+      @if (store.currentStep() < 3 && contextualErrors().length > 0) {
+        <div class="summary-section errors-box">
+          <h4 class="section-heading error-heading">
+            <svg lucideAlertCircle class="error-icon"></svg>
+            Requisitos obligatorios
+          </h4>
+          <ul class="error-list">
+            @for (err of contextualErrors(); track $index) {
+              <li class="error-item">{{ err }}</li>
+            }
+          </ul>
+        </div>
+      }
+
       <!-- Sección: Advertencias & Sugerencias Contextuales (Pasos 1 y 2) -->
       @if (store.currentStep() < 3 && contextualWarnings().length > 0) {
         <div class="summary-section warnings-box">
@@ -220,6 +237,17 @@ export class SummaryPanelComponent {
     const rub = this.store.rubric();
     if (!rub || !rub.criteria) return 0;
     return rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
+  });
+
+  readonly contextualErrors = computed<string[]>(() => {
+    const step = this.store.currentStep();
+    if (step === 1) {
+      return this.store.step1Validation().errors;
+    }
+    if (step === 2) {
+      return this.store.step2Validation().errors;
+    }
+    return [];
   });
 
   readonly contextualWarnings = computed<string[]>(() => {
