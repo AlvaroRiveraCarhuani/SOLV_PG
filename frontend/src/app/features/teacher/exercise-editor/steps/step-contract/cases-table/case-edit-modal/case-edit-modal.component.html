@@ -6,40 +6,80 @@
         <div class="header-info">
           <div class="title-row">
             <svg lucideFileText class="modal-icon"></svg>
-            <h3 id="modal-title" class="modal-title">{{ title }}</h3>
+            <h3 id="modal-title" class="modal-title">Editar Caso #{{ caseNumber }} (Vista en Paralelo)</h3>
           </div>
-          @if (subtitle) {
-            <p class="modal-subtitle">{{ subtitle }}</p>
-          }
+          <p class="modal-subtitle">
+            Edita la entrada estándar y la salida esperada en paralelo. Los saltos de línea se normalizan a formato POSIX (\n).
+          </p>
         </div>
         <button type="button" class="close-btn" (click)="onCancel()" aria-label="Cerrar modal">
           <svg lucideX class="close-icon"></svg>
         </button>
       </div>
 
-      <!-- Body / Textarea -->
+      <!-- Body / Side-by-Side Grid -->
       <div class="modal-body">
-        <div class="editor-wrapper">
-          <textarea
-            class="modal-textarea font-mono"
-            [ngModel]="currentValue()"
-            (ngModelChange)="onTextChange($event)"
-            [placeholder]="placeholder"
-            spellcheck="false"
-            autofocus
-          ></textarea>
+        <div class="side-by-side-grid">
+          <!-- Columna Izquierda: stdin -->
+          <div class="side-col">
+            <div class="col-header">
+              <span class="col-title">Entrada Estándar (stdin)</span>
+              <span class="col-lines font-mono" machineData>{{ inputLines() }} líneas</span>
+            </div>
+            <div class="editor-wrapper">
+              <textarea
+                class="modal-textarea font-mono"
+                [ngModel]="currentInput()"
+                (ngModelChange)="onInputChange($event)"
+                placeholder="Escribe o pega la entrada del caso..."
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- Columna Derecha: stdout -->
+          <div class="side-col">
+            <div class="col-header">
+              <span class="col-title">Salida Esperada (stdout)</span>
+              <div class="col-actions-header">
+                @if (hasReferenceSolution) {
+                  <button 
+                    type="button" 
+                    class="btn-calc-single"
+                    (click)="onTriggerCalculate()"
+                    [disabled]="isCalculating || !currentInput().trim()"
+                    title="Calcular salida ejecutando la solución de referencia"
+                  >
+                    @if (isCalculating) {
+                      <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                      <span>Calculando...</span>
+                    } @else {
+                      <svg lucidePlay class="btn-icon"></svg>
+                      <span>Calcular desde Solución</span>
+                    }
+                  </button>
+                }
+                <span class="col-lines font-mono" machineData>{{ outputLines() }} líneas</span>
+              </div>
+            </div>
+            <div class="editor-wrapper">
+              <textarea
+                class="modal-textarea font-mono"
+                [ngModel]="currentOutput()"
+                (ngModelChange)="onOutputChange($event)"
+                placeholder="Escribe o calcula la salida esperada..."
+                spellcheck="false"
+              ></textarea>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Footer -->
       <div class="modal-footer">
         <div class="stats-info font-mono">
-          <span class="stat-item">
-            Líneas: <span class="stat-value" machineData>{{ lineCount() }}</span>
-          </span>
-          <span class="stat-divider">•</span>
-          <span class="stat-item">
-            Caracteres: <span class="stat-value" machineData>{{ charCount() }}</span>
+          <span class="stat-item text-muted">
+            Normalización automática POSIX (LF) activa
           </span>
         </div>
 

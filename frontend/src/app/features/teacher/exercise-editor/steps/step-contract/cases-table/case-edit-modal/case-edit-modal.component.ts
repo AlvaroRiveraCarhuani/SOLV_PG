@@ -1,8 +1,19 @@
 import { Component, EventEmitter, Input, Output, computed, signal, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { LucideX, LucideCheck, LucideFileText } from '@lucide/angular';
+import { 
+  LucideX, 
+  LucideCheck, 
+  LucideFileText, 
+  LucidePlay, 
+  LucideLoader2
+} from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+
+export interface CaseEditSavePayload {
+  input: string;
+  expected_output: string;
+}
 
 @Component({
   selector: 'case-edit-modal',
@@ -13,6 +24,8 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     LucideX,
     LucideCheck,
     LucideFileText,
+    LucidePlay,
+    LucideLoader2,
     MachineDataDirective
   ],
   templateUrl: './case-edit-modal.component.html',
@@ -20,43 +33,69 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 })
 export class CaseEditModalComponent implements OnChanges {
   @Input() isOpen = false;
-  @Input() title = 'Editar contenido';
-  @Input() subtitle = '';
-  @Input() value = '';
-  @Input() placeholder = 'Escribe o pega el contenido multilínea...';
+  @Input() caseNumber = 1;
+  @Input() inputVal = '';
+  @Input() outputVal = '';
+  @Input() hasReferenceSolution = false;
+  @Input() isCalculating = false;
 
-  @Output() save = new EventEmitter<string>();
+  @Output() save = new EventEmitter<CaseEditSavePayload>();
   @Output() cancel = new EventEmitter<void>();
+  @Output() calculateOutput = new EventEmitter<string>();
 
-  readonly currentValue = signal<string>('');
+  readonly currentInput = signal<string>('');
+  readonly currentOutput = signal<string>('');
 
-  readonly lineCount = computed(() => {
-    const val = this.currentValue();
-    if (!val) return 0;
-    return val.split('\n').length;
+  readonly inputLines = computed(() => {
+    const val = this.currentInput();
+    return val ? val.split('\n').length : 0;
   });
 
-  readonly charCount = computed(() => this.currentValue().length);
+  readonly outputLines = computed(() => {
+    const val = this.currentOutput();
+    return val ? val.split('\n').length : 0;
+  });
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['value'] && this.isOpen) {
-      this.currentValue.set(this.value || '');
-    }
     if (changes['isOpen'] && this.isOpen) {
-      this.currentValue.set(this.value || '');
+      this.currentInput.set(this.normalizePosix(this.inputVal || ''));
+      this.currentOutput.set(this.normalizePosix(this.outputVal || ''));
+    } else {
+      if (changes['inputVal'] && this.inputVal !== undefined) {
+        this.currentInput.set(this.normalizePosix(this.inputVal));
+      }
+      if (changes['outputVal'] && this.outputVal !== undefined) {
+        this.currentOutput.set(this.normalizePosix(this.outputVal));
+      }
     }
   }
 
-  onTextChange(val: string): void {
-    this.currentValue.set(val);
+  onInputChange(val: string): void {
+    this.currentInput.set(val);
+  }
+
+  onOutputChange(val: string): void {
+    this.currentOutput.set(val);
+  }
+
+  onTriggerCalculate(): void {
+    this.calculateOutput.emit(this.normalizePosix(this.currentInput()));
   }
 
   onSave(): void {
-    this.save.emit(this.currentValue());
+    this.save.emit({
+      input: this.normalizePosix(this.currentInput()),
+      expected_output: this.normalizePosix(this.currentOutput())
+    });
   }
 
   onCancel(): void {
     this.cancel.emit();
+  }
+
+  private normalizePosix(text: string): string {
+    if (!text) return '';
+    return text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   }
 
   onBackdropClick(event: MouseEvent): void {

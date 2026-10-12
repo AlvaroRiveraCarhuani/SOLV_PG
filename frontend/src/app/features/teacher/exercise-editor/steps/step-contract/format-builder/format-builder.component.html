@@ -5,9 +5,40 @@
       <div class="header-title-row">
         <svg lucideLayoutTemplate class="presets-icon"></svg>
         <span class="presets-title">Plantillas de Formato (Presets)</span>
+        <button 
+          type="button" 
+          class="btn-help-trigger"
+          (click)="toggleHelpPopover()"
+          [attr.aria-expanded]="showHelpPopover()"
+          title="¿Qué son estas plantillas y para qué sirven?"
+        >
+          <svg lucideHelpCircle class="help-icon"></svg>
+        </button>
       </div>
       <span class="presets-hint">Selecciona una estructura estándar o personaliza las líneas debajo</span>
     </div>
+
+    <!-- Popover Explicativo del Concepto (Patrón Admin) -->
+    @if (showHelpPopover()) {
+      <div class="help-popover animate-fade">
+        <div class="popover-header">
+          <strong class="popover-title">¿Para qué sirven las Plantillas de Formato?</strong>
+          <button type="button" class="btn-popover-close" (click)="closeHelpPopover()" aria-label="Cerrar ayuda">
+            <svg lucideX class="close-icon"></svg>
+          </button>
+        </div>
+        <div class="popover-body">
+          <p class="popover-text">
+            Son <strong>esqueletos preconfigurados</strong> para indicarle al sistema cómo leerá los datos el programa del estudiante por consola (<code>stdin</code>).
+          </p>
+          <ul class="popover-list">
+            <li><strong>Ahorro de tiempo:</strong> Al elegir una plantilla, el sistema ya sabe la estructura y puede <em>generar casos de prueba automáticamente</em>.</li>
+            <li><strong>Casos enlazados:</strong> En estructuras como arreglos o matrices, enlaza automáticamente las dimensiones con la cantidad de datos (ej. <code>=n</code>).</li>
+            <li><strong>Opcional:</strong> Si prefieres pegar datos en texto crudo sin validación automática, puedes usar el botón <em>Texto Libre</em>.</li>
+          </ul>
+        </div>
+      </div>
+    }
 
     <div class="presets-grid">
       @for (preset of presets; track preset.id) {
@@ -18,6 +49,18 @@
         />
       }
     </div>
+
+    <!-- Caja de Ejemplo Visual de Entrada (stdin) en Tiempo Real -->
+    @if (selectedPreset(); as curPreset) {
+      <div class="preset-preview-box">
+        <div class="preview-box-header">
+          <svg lucideTerminal class="preview-icon"></svg>
+          <span class="preview-title">Ejemplo de entrada (stdin) para "{{ curPreset.label }}":</span>
+          <span class="preview-note">Así recibirá los datos el código del alumno</span>
+        </div>
+        <pre class="preview-code font-mono" machineData>{{ curPreset.previewExample }}</pre>
+      </div>
+    }
   </div>
 
   <!-- 2. Editor Visual de Líneas de Formato -->
@@ -71,7 +114,9 @@
 
             <!-- Identificador de variable -->
             <div class="field-item field-id">
-              <label [for]="'line-id-' + idx" class="field-label">Variable (id)</label>
+              <label [for]="'line-id-' + idx" class="field-label" title="Nombre simbólico de la variable para referenciar en otras líneas (ej: n, m)">
+                Variable (id)
+              </label>
               <input 
                 [id]="'line-id-' + idx"
                 type="text" 
@@ -84,7 +129,9 @@
 
             <!-- Tipo de Dato -->
             <div class="field-item field-type">
-              <label [for]="'line-type-' + idx" class="field-label">Tipo de Línea</label>
+              <label [for]="'line-type-' + idx" class="field-label" title="Estructura de datos para esta línea de entrada">
+                Tipo de Línea
+              </label>
               <select 
                 [id]="'line-type-' + idx"
                 class="form-select type-select"
@@ -105,7 +152,7 @@
               <!-- CASO: int -->
               @if (line.type === 'int') {
                 <div class="field-item">
-                  <label [for]="'int-min-' + idx" class="field-label">Mínimo</label>
+                  <label [for]="'int-min-' + idx" class="field-label" title="Valor mínimo permitido para este número">Mínimo</label>
                   <input 
                     [id]="'int-min-' + idx"
                     type="text" 
@@ -116,7 +163,7 @@
                   />
                 </div>
                 <div class="field-item">
-                  <label [for]="'int-max-' + idx" class="field-label">Máximo</label>
+                  <label [for]="'int-max-' + idx" class="field-label" title="Valor máximo permitido para este número">Máximo</label>
                   <input 
                     [id]="'int-max-' + idx"
                     type="text" 
@@ -131,7 +178,9 @@
               <!-- CASO: ints -->
               @if (line.type === 'ints') {
                 <div class="field-item">
-                  <label [for]="'ints-count-' + idx" class="field-label">Cantidad (count)</label>
+                  <label [for]="'ints-count-' + idx" class="field-label" title="Usa =n para indicar que la cantidad depende del valor de la variable n">
+                    Cantidad (count)
+                  </label>
                   <input 
                     [id]="'ints-count-' + idx"
                     type="text" 
@@ -168,7 +217,9 @@
               <!-- CASO: matrix -->
               @if (line.type === 'matrix') {
                 <div class="field-item">
-                  <label [for]="'mat-rows-' + idx" class="field-label">Filas (rows)</label>
+                  <label [for]="'mat-rows-' + idx" class="field-label" title="Cantidad de filas de la matriz (usa =n para enlazar con variable de línea anterior)">
+                    Filas (rows)
+                  </label>
                   <input 
                     [id]="'mat-rows-' + idx"
                     type="text" 
@@ -179,7 +230,9 @@
                   />
                 </div>
                 <div class="field-item">
-                  <label [for]="'mat-cols-' + idx" class="field-label">Columnas (cols)</label>
+                  <label [for]="'mat-cols-' + idx" class="field-label" title="Cantidad de columnas de la matriz (usa =m para enlazar con variable de línea anterior)">
+                    Columnas (cols)
+                  </label>
                   <input 
                     [id]="'mat-cols-' + idx"
                     type="text" 

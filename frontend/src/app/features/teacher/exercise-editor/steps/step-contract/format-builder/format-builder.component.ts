@@ -8,7 +8,10 @@ import {
   LucideCheckCircle2, 
   LucideAlertCircle, 
   LucideLayoutTemplate, 
-  LucideSliders
+  LucideSliders,
+  LucideHelpCircle,
+  LucideX,
+  LucideTerminal
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
@@ -29,6 +32,9 @@ import { PresetButtonComponent } from './presets/preset-button.component';
     LucideAlertCircle,
     LucideLayoutTemplate,
     LucideSliders,
+    LucideHelpCircle,
+    LucideX,
+    LucideTerminal,
     MachineDataDirective,
     PresetButtonComponent
   ],
@@ -44,6 +50,15 @@ export class FormatBuilderComponent implements OnInit {
   // Estado del editor visual
   lines = signal<FormatLine[]>([]);
   activePresetId = signal<string | null>(null);
+
+  // Ayuda contextual (Popover similar al modal del admin)
+  showHelpPopover = signal<boolean>(false);
+
+  // Preset actualmente activo
+  readonly selectedPreset = computed(() => {
+    const id = this.activePresetId();
+    return this.presets.find(p => p.id === id) || null;
+  });
 
   // Modo JSON
   showJsonEditor = signal<boolean>(false);
@@ -259,6 +274,14 @@ export class FormatBuilderComponent implements OnInit {
     } catch (e: any) {
       this.jsonError.set(`Error de sintaxis JSON: ${e.message}`);
     }
+  }
+
+  toggleHelpPopover() {
+    this.showHelpPopover.update(v => !v);
+  }
+
+  closeHelpPopover() {
+    this.showHelpPopover.set(false);
   }
 
   toggleJsonView() {

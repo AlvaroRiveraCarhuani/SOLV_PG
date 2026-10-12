@@ -35,9 +35,9 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
       </div>
 
       <div class="code-editor-wrapper">
-        <textarea 
+        <textarea
           class="code-textarea font-mono"
-          placeholder="# Escribe aquí la solución óptima y completa del docente..."
+          placeholder="# Escribe aquí la solución óptima y completa."
           [ngModel]="store.referenceSolution()"
           (ngModelChange)="onCodeChange($event)"
           rows="14"

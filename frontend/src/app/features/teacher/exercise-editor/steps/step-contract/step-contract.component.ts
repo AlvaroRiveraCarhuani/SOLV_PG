@@ -1,6 +1,12 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideFileCode2 } from '@lucide/angular';
+import { 
+  LucideFileCode2, 
+  LucideCode, 
+  LucideSliders, 
+  LucideChevronDown, 
+  LucideChevronUp
+} from '@lucide/angular';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
 import { ReferenceEditorComponent } from './reference-editor.component';
 import { FormatBuilderComponent } from './format-builder/format-builder.component';
@@ -14,6 +20,10 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
   imports: [
     CommonModule,
     LucideFileCode2,
+    LucideCode,
+    LucideSliders,
+    LucideChevronDown,
+    LucideChevronUp,
     ReferenceEditorComponent,
     FormatBuilderComponent,
     CasesTableComponent,
@@ -21,45 +31,73 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
   ],
   template: `
     <div class="step-contract-layout">
-      <!-- Sección 1: Contrato de Formato de Entrada (OA-02 / OA-05) -->
-      <section class="form-section">
+      <!-- 1. PRIMER PLANO: Solución Oficial de Referencia (Docente) -->
+      <section class="form-section highlight-section">
         <div class="section-header">
           <div class="header-left">
             <div class="title-row">
-              <svg lucideFileCode2 class="section-icon"></svg>
-              <h3 class="section-title">1. Formato de Entrada Estándar</h3>
+              <svg lucideCode class="section-icon"></svg>
+              <h3 class="section-title">1. Solución Oficial de Referencia</h3>
             </div>
             <p class="section-desc">
-              Define la estructura esperada de los datos de entrada (stdin). Permite validación sintáctica automática y generación asistida de casos.
+              Escribe o pega la solución óptima del ejercicio. El juez la utilizará para calcular automáticamente las salidas de tus casos de prueba y garantizar cero errores humanos.
             </p>
-          </div>
-
-          <div class="header-right">
-            <span class="contract-status-pill" [class.active]="store.contract() !== null">
-              {{ store.contract() ? 'Formato Estructurado' : 'Texto Libre' }}
-            </span>
           </div>
         </div>
 
-        <format-builder />
+        <reference-editor />
       </section>
 
-      <!-- Sección 1.5: Generación por Script Python (OA-18) -->
-      <section class="form-section">
-        <app-script-generator
-          [exerciseId]="store.exerciseId() || undefined"
-          (casesGenerated)="onCasesGenerated($event)"
-        />
-      </section>
-
-      <!-- Sección 2: Casos de Prueba (OA-04) -->
+      <!-- 2. NÚCLEO: Casos de Prueba (Públicos y Ocultos) -->
       <section class="form-section">
         <cases-table />
       </section>
 
-      <!-- Sección 3: Solución de Referencia -->
-      <section class="form-section">
-        <reference-editor />
+      <!-- 3. CAPA AVANZADA (Divulgación Progresiva): Generación Asistida y Fuzzing -->
+      <section class="form-section advanced-section">
+        <div class="advanced-toggle-bar" (click)="toggleAdvanced()" (keydown.enter)="toggleAdvanced()" tabindex="0" role="button" [attr.aria-expanded]="showAdvanced()">
+          <div class="toggle-left">
+            <div class="title-row">
+              <svg lucideSliders class="section-icon text-muted"></svg>
+              <h4 class="advanced-title">Herramientas Avanzadas de Generación y Fuzzing</h4>
+              <span class="advanced-badge">Opcional</span>
+            </div>
+            <p class="advanced-desc">
+              Crea lotes masivos de pruebas utilizando plantillas de formato o scripts generadores en Python para torneos o exámenes de alto estrés.
+            </p>
+          </div>
+
+          <div class="toggle-right">
+            <button type="button" class="btn-toggle-icon" aria-label="Alternar panel avanzado">
+              @if (showAdvanced()) {
+                <svg lucideChevronUp class="chevron-icon"></svg>
+              } @else {
+                <svg lucideChevronDown class="chevron-icon"></svg>
+              }
+            </button>
+          </div>
+        </div>
+
+        @if (showAdvanced()) {
+          <div class="advanced-content animate-fade">
+            <!-- Pestaña / Subsección: Esquema de Formato de Entrada -->
+            <div class="advanced-block">
+              <div class="block-header">
+                <svg lucideFileCode2 class="block-icon"></svg>
+                <h5 class="block-title">Esquema Estructural de Entrada (stdin)</h5>
+              </div>
+              <format-builder />
+            </div>
+
+            <!-- Subsección: Generación por Script Python -->
+            <div class="advanced-block mt-4">
+              <app-script-generator
+                [exerciseId]="store.exerciseId() || undefined"
+                (casesGenerated)="onCasesGenerated($event)"
+              />
+            </div>
+          </div>
+        }
       </section>
     </div>
   `,
@@ -67,6 +105,11 @@ import { ScriptCaseValidationItem, TestCaseDTO } from '../../../models/teacher.m
 })
 export class StepContractComponent {
   readonly store = inject(ExerciseEditorStore);
+  readonly showAdvanced = signal<boolean>(false);
+
+  toggleAdvanced(): void {
+    this.showAdvanced.update(v => !v);
+  }
 
   onCasesGenerated(items: ScriptCaseValidationItem[]): void {
     const newCases: TestCaseDTO[] = items.map((item, i) => ({

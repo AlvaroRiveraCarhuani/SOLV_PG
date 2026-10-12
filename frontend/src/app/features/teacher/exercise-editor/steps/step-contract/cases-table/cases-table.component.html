@@ -12,15 +12,21 @@
     </div>
 
     <div class="toolbar-actions">
+      <!-- Botón Estrella: Calcular Salidas desde Solución de Referencia -->
       <button
         type="button"
-        class="btn-outline toolbar-btn"
-        (click)="openGenerateModal()"
-        [disabled]="!store.contract()"
-        [title]="store.contract() ? 'Generar casos aleatorios basados en el formato de entrada' : 'Define primero el formato de entrada en la sección superior'"
+        class="btn-outline toolbar-btn btn-calc-toolbar"
+        (click)="autoCalculateOutputs()"
+        [disabled]="isAutoCalculating() || !store.referenceSolution().trim() || store.cases().length === 0"
+        title="Ejecutar la solución de referencia en el contenedor para autocompletar las salidas esperadas"
       >
-        <svg lucideLayers class="btn-icon"></svg>
-        <span>Generar Casos</span>
+        @if (isAutoCalculating()) {
+          <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+          <span>Calculando...</span>
+        } @else {
+          <svg lucidePlay class="btn-icon"></svg>
+          <span>Calcular Salidas</span>
+        }
       </button>
 
       <button
@@ -81,6 +87,41 @@
     </div>
   }
 
+  <!-- Barra de Pestañas de Filtro (Divulgación Progresiva: Ejemplos vs Ocultos) -->
+  <div class="cases-filter-tabs">
+    <button
+      type="button"
+      class="filter-tab-btn"
+      [class.active]="activeFilterTab() === 'all'"
+      (click)="setFilterTab('all')"
+    >
+      <span>Todos los casos</span>
+      <span class="tab-count font-mono" machineData>{{ store.cases().length }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="filter-tab-btn"
+      [class.active]="activeFilterTab() === 'example'"
+      (click)="setFilterTab('example')"
+      title="Casos públicos visibles en el enunciado del estudiante"
+    >
+      <span>Ejemplos Públicos</span>
+      <span class="tab-count font-mono" machineData>{{ exampleCount() }}</span>
+    </button>
+
+    <button
+      type="button"
+      class="filter-tab-btn"
+      [class.active]="activeFilterTab() === 'hidden'"
+      (click)="setFilterTab('hidden')"
+      title="Casos secretos utilizados para calificar sin fugas de información"
+    >
+      <span>Casos de Evaluación 🔒</span>
+      <span class="tab-count font-mono" machineData>{{ hiddenCount() }}</span>
+    </button>
+  </div>
+
   <!-- Contenedor responsivo de la tabla -->
   <div class="table-wrapper">
     <table class="cases-table">
@@ -97,11 +138,11 @@
         </tr>
       </thead>
       <tbody>
-        @for (tc of store.cases(); track $index; let idx = $index) {
-          <tr class="case-row" [class]="'row-' + (tc.visibility || 'public')">
+        @for (item of filteredCases(); track item.originalIndex; let i = $index) {
+          <tr class="case-row" [class]="'row-' + (item.tc.visibility || 'public')">
             <!-- Columna 1: Índice -->
             <td class="col-num">
-              <span class="num-badge font-mono" machineData>{{ idx + 1 }}</span>
+              <span class="num-badge font-mono" machineData>{{ item.originalIndex + 1 }}</span>
             </td>
 
             <!-- Columna 2: Entrada stdin -->
@@ -110,17 +151,17 @@
                 <textarea
                   class="cell-textarea font-mono"
                   placeholder="stdin..."
-                  [ngModel]="tc.input"
-                  (ngModelChange)="onInputChange(idx, $event)"
+                  [ngModel]="item.tc.input"
+                  (ngModelChange)="onInputChange(item.originalIndex, $event)"
                   rows="2"
                   spellcheck="false"
                 ></textarea>
                 <button
                   type="button"
                   class="expand-cell-btn"
-                  (click)="openModal(idx, 'input')"
-                  title="Expandir editor multilínea para entrada"
-                  aria-label="Expandir entrada"
+                  (click)="openSideBySideModal(item.originalIndex)"
+                  title="Expandir vista en paralelo (stdin y stdout)"
+                  aria-label="Expandir caso en paralelo"
                 >
                   <svg lucideMaximize2 class="expand-icon"></svg>
                 </button>
@@ -133,20 +174,38 @@
                 <textarea
                   class="cell-textarea font-mono"
                   placeholder="stdout..."
-                  [ngModel]="tc.expected_output"
-                  (ngModelChange)="onOutputChange(idx, $event)"
+                  [ngModel]="item.tc.expected_output"
+                  (ngModelChange)="onOutputChange(item.originalIndex, $event)"
                   rows="2"
                   spellcheck="false"
                 ></textarea>
-                <button
-                  type="button"
-                  class="expand-cell-btn"
-                  (click)="openModal(idx, 'expected_output')"
-                  title="Expandir editor multilínea para salida"
-                  aria-label="Expandir salida"
-                >
-                  <svg lucideMaximize2 class="expand-icon"></svg>
-                </button>
+                <div class="cell-actions-stack">
+                  @if (hasReferenceSolution()) {
+                    <button
+                      type="button"
+                      class="row-calc-btn"
+                      (click)="calculateSingleRow(item.originalIndex)"
+                      [disabled]="rowCalculating()[item.originalIndex] || !item.tc.input.trim()"
+                      title="Calcular salida de esta fila ejecutando la solución de referencia"
+                      aria-label="Calcular salida de esta fila"
+                    >
+                      @if (rowCalculating()[item.originalIndex]) {
+                        <svg lucideLoader2 class="row-icon spin-icon"></svg>
+                      } @else {
+                        <svg lucidePlay class="row-icon"></svg>
+                      }
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="expand-cell-btn"
+                    (click)="openSideBySideModal(item.originalIndex)"
+                    title="Expandir vista en paralelo (stdin y stdout)"
+                    aria-label="Expandir caso en paralelo"
+                  >
+                    <svg lucideMaximize2 class="expand-icon"></svg>
+                  </button>
+                </div>
               </div>
             </td>
 
@@ -155,9 +214,9 @@
               <div class="vis-selector-wrapper">
                 <select
                   class="vis-select"
-                  [class]="'select-' + (tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public')))"
-                  [ngModel]="tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public'))"
-                  (ngModelChange)="onVisibilityChange(idx, $event)"
+                  [class]="'select-' + (item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public')))"
+                  [ngModel]="item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public'))"
+                  (ngModelChange)="onVisibilityChange(item.originalIndex, $event)"
                 >
                   <option value="example">🟢 Ejemplo</option>
                   <option value="public">🔵 Público</option>
@@ -171,8 +230,8 @@
               <input
                 type="number"
                 class="weight-input font-mono"
-                [ngModel]="tc.weight ?? 1.0"
-                (ngModelChange)="onWeightChange(idx, $event)"
+                [ngModel]="item.tc.weight ?? 1.0"
+                (ngModelChange)="onWeightChange(item.originalIndex, $event)"
                 min="0"
                 step="0.5"
               />
@@ -180,7 +239,7 @@
 
             <!-- Columna 6: Porcentaje Relativo en Vivo -->
             <td class="col-pct">
-              <span class="pct-pill font-mono" machineData>{{ getWeightPercentage(tc.weight) }}</span>
+              <span class="pct-pill font-mono" machineData>{{ getWeightPercentage(item.tc.weight) }}</span>
             </td>
 
             <!-- Columna 7: Validez contra el Formato de Entrada -->
@@ -189,20 +248,20 @@
                 <span class="valid-tag tag-neutral" title="Entrada libre sin formato estructurado">
                   <span class="tag-label">Texto libre</span>
                 </span>
-              } @else if (validationResults()[idx]?.loading) {
+              } @else if (validationResults()[item.originalIndex]?.loading) {
                 <span class="valid-tag tag-loading" title="Validando contra el formato de entrada...">
                   <svg lucideLoader2 class="tag-icon spin-icon"></svg>
                   <span class="tag-label">Validando</span>
                 </span>
-              } @else if (validationResults()[idx]?.valid === false) {
+              } @else if (validationResults()[item.originalIndex]?.valid === false) {
                 <span
                   class="valid-tag tag-invalid"
-                  [title]="validationResults()[idx]?.error || 'El caso no cumple con el formato de entrada'"
+                  [title]="validationResults()[item.originalIndex]?.error || 'El caso no cumple con el formato de entrada'"
                 >
                   <svg lucideAlertCircle class="tag-icon"></svg>
                   <span class="tag-label">Inválido</span>
-                  @if (validationResults()[idx]?.error) {
-                    <span class="error-tooltip">{{ validationResults()[idx]?.error }}</span>
+                  @if (validationResults()[item.originalIndex]?.error) {
+                    <span class="error-tooltip">{{ validationResults()[item.originalIndex]?.error }}</span>
                   }
                 </span>
               } @else {
@@ -219,8 +278,8 @@
                 <button
                   type="button"
                   class="row-btn"
-                  (click)="moveUp(idx)"
-                  [disabled]="idx === 0"
+                  (click)="moveUp(item.originalIndex)"
+                  [disabled]="item.originalIndex === 0"
                   title="Subir caso"
                   aria-label="Subir caso"
                 >
@@ -229,8 +288,8 @@
                 <button
                   type="button"
                   class="row-btn"
-                  (click)="moveDown(idx)"
-                  [disabled]="idx === store.cases().length - 1"
+                  (click)="moveDown(item.originalIndex)"
+                  [disabled]="item.originalIndex === store.cases().length - 1"
                   title="Bajar caso"
                   aria-label="Bajar caso"
                 >
@@ -239,7 +298,7 @@
                 <button
                   type="button"
                   class="row-btn"
-                  (click)="duplicateCase(idx)"
+                  (click)="duplicateCase(item.originalIndex)"
                   title="Duplicar este caso"
                   aria-label="Duplicar caso"
                 >
@@ -248,7 +307,7 @@
                 <button
                   type="button"
                   class="row-btn btn-danger"
-                  (click)="removeCase(idx)"
+                  (click)="removeCase(item.originalIndex)"
                   title="Eliminar este caso"
                   aria-label="Eliminar caso"
                 >
@@ -277,12 +336,15 @@
     </table>
   </div>
 
-  <!-- Modal Multilínea para Entrada o Salida -->
+  <!-- Modal Side-by-Side para Entrada y Salida (Estándar 2024-2026) -->
   <case-edit-modal
     [isOpen]="modalState().isOpen"
-    [title]="modalState().title"
-    [subtitle]="modalState().subtitle"
-    [value]="modalState().value"
+    [caseNumber]="modalState().caseIndex + 1"
+    [inputVal]="modalState().input"
+    [outputVal]="modalState().expected_output"
+    [hasReferenceSolution]="hasReferenceSolution()"
+    [isCalculating]="isModalCalculating()"
+    (calculateOutput)="onModalCalculateOutput($event)"
     (save)="onModalSave($event)"
     (cancel)="closeModal()"
   />

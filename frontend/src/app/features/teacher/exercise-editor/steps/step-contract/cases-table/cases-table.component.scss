@@ -204,6 +204,55 @@
   }
 }
 
+.cases-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: var(--space-2);
+
+  .filter-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    color: var(--text-muted);
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-full);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+
+    &:hover {
+      color: var(--text-primary);
+      background-color: var(--bg-surface-subtle);
+    }
+
+    &.active {
+      color: var(--tenant-primary);
+      background-color: var(--tenant-primary-subtle);
+      border-color: var(--tenant-primary-border);
+      font-weight: 600;
+
+      .tab-count {
+        background-color: var(--tenant-primary);
+        color: var(--text-inverse, var(--bg-surface));
+      }
+    }
+
+    .tab-count {
+      font-size: var(--text-xs);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      background-color: var(--bg-surface-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-muted);
+    }
+  }
+}
+
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
@@ -313,6 +362,52 @@
         outline: none;
         border-color: var(--tenant-primary);
         box-shadow: 0 0 0 1px var(--tenant-primary);
+      }
+    }
+
+    .cell-actions-stack {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+
+      .row-calc-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 20px;
+        height: 20px;
+        background: var(--tenant-primary-subtle);
+        border: 1px solid var(--tenant-primary);
+        border-radius: var(--radius-sm);
+        color: var(--tenant-primary);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+
+        &:hover:not(:disabled) {
+          background-color: var(--tenant-primary);
+          color: var(--text-inverse, var(--bg-surface));
+        }
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
+        .row-icon {
+          width: 10px;
+          height: 10px;
+        }
+
+        .spin-icon {
+          animation: spin 1s linear infinite;
+        }
+      }
+
+      .expand-cell-btn {
+        position: static;
       }
     }
 

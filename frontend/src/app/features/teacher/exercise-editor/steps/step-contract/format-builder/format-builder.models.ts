@@ -29,6 +29,8 @@ export interface FormatPreset {
   label: string;
   description: string;
   iconName: string;
+  lineCountText: string;
+  previewExample: string;
   contract: ExerciseContract;
 }
 
@@ -38,6 +40,8 @@ export const FORMAT_PRESETS: FormatPreset[] = [
     label: 'Un entero N',
     description: 'Una sola línea con un número entero',
     iconName: 'hash',
+    lineCountText: '1 línea',
+    previewExample: '42',
     contract: {
       version: 1,
       input: {
@@ -52,6 +56,8 @@ export const FORMAT_PRESETS: FormatPreset[] = [
     label: 'N y luego N enteros',
     description: 'Línea con N, seguida de N enteros en una sola línea',
     iconName: 'list-ordered',
+    lineCountText: '2 líneas',
+    previewExample: '5\n10 20 -5 8 100',
     contract: {
       version: 1,
       input: {
@@ -67,6 +73,8 @@ export const FORMAT_PRESETS: FormatPreset[] = [
     label: 'Matriz N×M',
     description: 'Dimensiones N y M, seguidas de una matriz de N filas y M columnas',
     iconName: 'grid',
+    lineCountText: '3 líneas',
+    previewExample: '3 4\n1 0 1 0\n0 2 3 1\n5 6 7 8',
     contract: {
       version: 1,
       input: {
@@ -83,6 +91,8 @@ export const FORMAT_PRESETS: FormatPreset[] = [
     label: 'Grafo con aristas',
     description: 'N nodos, M aristas y luego lista de M pares (u, v)',
     iconName: 'network',
+    lineCountText: '3 líneas',
+    previewExample: '4 3\n1 2\n2 3\n3 4',
     contract: {
       version: 1,
       input: {
@@ -99,6 +109,8 @@ export const FORMAT_PRESETS: FormatPreset[] = [
     label: 'Una cadena',
     description: 'Una línea con texto o cadena alfanumérica',
     iconName: 'type',
+    lineCountText: '1 línea',
+    previewExample: 'hola_mundo',
     contract: {
       version: 1,
       input: {

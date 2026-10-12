@@ -9,6 +9,7 @@ import {
   LucideLayoutTemplate 
 } from '@lucide/angular';
 import { FormatPreset } from '../format-builder.models';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
 @Component({
   selector: 'preset-button',
@@ -20,7 +21,8 @@ import { FormatPreset } from '../format-builder.models';
     LucideGrid,
     LucideNetwork,
     LucideType,
-    LucideLayoutTemplate
+    LucideLayoutTemplate,
+    MachineDataDirective
   ],
   template: `
     <button 
@@ -53,7 +55,10 @@ import { FormatPreset } from '../format-builder.models';
         }
       </div>
       <div class="preset-info">
-        <span class="preset-label">{{ preset().label }}</span>
+        <div class="preset-label-row">
+          <span class="preset-label">{{ preset().label }}</span>
+          <span class="preset-badge font-mono" machineData>{{ preset().lineCountText }}</span>
+        </div>
         <span class="preset-desc">{{ preset().description }}</span>
       </div>
     </button>

@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, effect, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -69,20 +69,38 @@ export class CasesTableComponent implements OnInit {
   readonly isAutoCalculating = signal<boolean>(false);
   readonly lastGeneratedCount = signal<number>(0);
 
-  readonly modalState = signal<{
-    isOpen: boolean;
-    title: string;
-    subtitle: string;
-    field: 'input' | 'expected_output';
-    caseIndex: number;
-    value: string;
-  }>({
-    isOpen: false,
-    title: '',
-    subtitle: '',
-    field: 'input',
-    caseIndex: 0,
-    value: ''
+  // Filtro de Pestañas (Todos / Ejemplos / Ocultos)
+  readonly activeFilterTab = signal<'all' | 'example' | 'hidden'>('all');
+
+  // Mapa de índices en cálculo individual
+  readonly rowCalculating = signal<Record<number, boolean>>({});
+
+  // Casos filtrados con su índice original
+  readonly filteredCases = computed(() => {
+    const tab = this.activeFilterTab();
+    const all = this.store.cases();
+    return all
+      .map((tc, originalIndex) => ({ tc, originalIndex }))
+      .filter(({ tc }) => {
+        if (tab === 'all') return true;
+        const vis = tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public'));
+        if (tab === 'example') return vis === 'example' || vis === 'public';
+        return vis === 'hidden';
+      });
+  });
+
+  readonly exampleCount = computed(() => {
+    return this.store.cases().filter(tc => {
+      const vis = tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public'));
+      return vis === 'example' || vis === 'public';
+    }).length;
+  });
+
+  readonly hiddenCount = computed(() => {
+    return this.store.cases().filter(tc => {
+      const vis = tc.visibility || (tc.is_hidden ? 'hidden' : (tc.is_sample ? 'example' : 'public'));
+      return vis === 'hidden';
+    }).length;
   });
 
   private validateSubject = new Subject<{ index: number; input: string }>();
@@ -137,8 +155,9 @@ export class CasesTableComponent implements OnInit {
   }
 
   onInputChange(index: number, value: string): void {
-    this.store.updateCase(index, { input: value });
-    this.validateCase(index, value);
+    const normalized = value ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : '';
+    this.store.updateCase(index, { input: normalized });
+    this.validateCase(index, normalized);
   }
 
   private validateCase(index: number, input: string): void {
@@ -153,7 +172,8 @@ export class CasesTableComponent implements OnInit {
   }
 
   onOutputChange(index: number, value: string): void {
-    this.store.updateCase(index, { expected_output: value });
+    const normalized = value ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : '';
+    this.store.updateCase(index, { expected_output: normalized });
   }
 
   onVisibilityChange(index: number, visibility: 'example' | 'public' | 'hidden'): void {
@@ -169,6 +189,21 @@ export class CasesTableComponent implements OnInit {
     this.store.updateCase(index, { weight: w });
   }
 
+  hasReferenceSolution = computed(() => !!this.store.referenceSolution()?.trim());
+  readonly isModalCalculating = signal<boolean>(false);
+
+  readonly modalState = signal<{
+    isOpen: boolean;
+    caseIndex: number;
+    input: string;
+    expected_output: string;
+  }>({
+    isOpen: false,
+    caseIndex: 0,
+    input: '',
+    expected_output: ''
+  });
+
   getWeightPercentage(weight?: number): string {
     const total = this.store.totalWeight();
     const w = weight ?? 1.0;
@@ -177,40 +212,84 @@ export class CasesTableComponent implements OnInit {
     return `${pct.toFixed(1)}%`;
   }
 
-  openModal(index: number, field: 'input' | 'expected_output'): void {
+  setFilterTab(tab: 'all' | 'example' | 'hidden'): void {
+    this.activeFilterTab.set(tab);
+  }
+
+  calculateSingleRow(index: number): void {
+    const ref = this.store.referenceSolution()?.trim();
+    const lang = this.store.metadata().language || 'python';
+    const tc = this.store.cases()[index];
+    if (!ref || !tc || !tc.input.trim()) return;
+
+    this.rowCalculating.update(m => ({ ...m, [index]: true }));
+    this.courseService
+      .calculateOutputs({
+        language: lang,
+        source_code: ref,
+        inputs: [tc.input]
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: res => {
+          this.rowCalculating.update(m => ({ ...m, [index]: false }));
+          if (res.outputs && res.outputs.length > 0) {
+            const out = res.outputs[0].expected_output || '';
+            this.store.updateCase(index, { expected_output: out });
+          }
+        },
+        error: () => {
+          this.rowCalculating.update(m => ({ ...m, [index]: false }));
+        }
+      });
+  }
+
+  openSideBySideModal(index: number): void {
     const cases = this.store.cases();
     if (index < 0 || index >= cases.length) return;
     const tc = cases[index];
-    const val = field === 'input' ? tc.input : tc.expected_output;
-    const title =
-      field === 'input'
-        ? 'Editar Entrada Estándar (stdin)'
-        : 'Editar Salida Esperada (stdout)';
-    const visLabels: Record<string, string> = {
-      example: 'Ejemplo',
-      public: 'Público',
-      hidden: 'Oculto'
-    };
-    const vis = tc.visibility || (tc.is_hidden ? 'hidden' : tc.is_sample ? 'example' : 'public');
-    const subtitle = `Caso #${index + 1} • Visibilidad: ${visLabels[vis] || vis}`;
 
     this.modalState.set({
       isOpen: true,
-      title,
-      subtitle,
-      field,
       caseIndex: index,
-      value: val || ''
+      input: tc.input || '',
+      expected_output: tc.expected_output || ''
     });
   }
 
-  onModalSave(newValue: string): void {
-    const { field, caseIndex } = this.modalState();
-    if (field === 'input') {
-      this.onInputChange(caseIndex, newValue);
-    } else {
-      this.onOutputChange(caseIndex, newValue);
-    }
+  onModalCalculateOutput(currentInput: string): void {
+    const ref = this.store.referenceSolution()?.trim();
+    const lang = this.store.metadata().language || 'python';
+    if (!ref || !currentInput.trim()) return;
+
+    this.isModalCalculating.set(true);
+    this.courseService
+      .calculateOutputs({
+        language: lang,
+        source_code: ref,
+        inputs: [currentInput]
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: res => {
+          this.isModalCalculating.set(false);
+          if (res.outputs && res.outputs.length > 0) {
+            const out = res.outputs[0].expected_output || '';
+            this.modalState.update(s => ({ ...s, input: currentInput, expected_output: out }));
+          }
+        },
+        error: () => {
+          this.isModalCalculating.set(false);
+        }
+      });
+  }
+
+  onModalSave(payload: { input: string; expected_output: string }): void {
+    const { caseIndex } = this.modalState();
+    this.store.updateCase(caseIndex, {
+      input: payload.input,
+      expected_output: payload.expected_output
+    });
     this.closeModal();
   }
 
