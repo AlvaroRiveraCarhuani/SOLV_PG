@@ -3,6 +3,7 @@ import { TeacherTemplatesComponent, PublishedTemplate } from './teacher-template
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
 import { RouterTestingModule } from '@angular/router/testing';
+import { Router } from '@angular/router';
 import { signal } from '@angular/core';
 import { TeacherCourseSummary } from '../models/teacher.models';
 
@@ -113,14 +114,15 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.isRequestModalOpen()).toBe(false);
   });
 
-  it('should open and close exercise creation modal from template', () => {
-    component.createLabFromTemplate(mockTemplates[0]);
-    expect(component.isExerciseModalOpen()).toBe(true);
-    expect(component.selectedTemplateForExercise()?.id).toBe('tpl-1');
+  it('should navigate to exercise creation route from template', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
-    component.closeExerciseModal();
-    expect(component.isExerciseModalOpen()).toBe(false);
-    expect(component.selectedTemplateForExercise()).toBeNull();
+    component.createLabFromTemplate(mockTemplates[0]);
+    expect(navSpy).toHaveBeenCalledWith(
+      ['/teacher/courses', 'course-1', 'exercises', 'new'],
+      { queryParams: { template_id: 'tpl-1' } }
+    );
   });
 
   it('should correctly parse nested paginated data responses', () => {

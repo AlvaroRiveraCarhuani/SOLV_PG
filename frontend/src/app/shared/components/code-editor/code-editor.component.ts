@@ -4,6 +4,7 @@ import {
   OnDestroy,
   OnInit,
   ViewChild,
+  computed,
   effect,
   input,
   model
@@ -21,7 +22,7 @@ import { javascript } from '@codemirror/lang-javascript';
 const solvEditorTheme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: 'var(--text-sm)',
+    fontSize: 'var(--code-editor-font-size, var(--text-sm))',
     fontFamily: 'var(--font-mono)',
     backgroundColor: 'transparent',
     color: 'var(--text-primary)'
@@ -69,6 +70,7 @@ const solvEditorTheme = EditorView.theme({
     <div
       class="code-editor-root"
       [class.is-readonly]="readonly()"
+      [style.--code-editor-font-size]="computedFontSize()"
     >
       <div
         #editorContainer
@@ -86,6 +88,13 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   readonly readonly = input<boolean>(false);
   readonly minHeight = input<string>('240px');
   readonly maxHeight = input<string>('600px');
+  readonly fontSize = input<number | string | null>(null);
+
+  readonly computedFontSize = computed(() => {
+    const sz = this.fontSize();
+    if (!sz) return null;
+    return typeof sz === 'number' ? `${sz}px` : sz;
+  });
 
   @ViewChild('editorContainer', { static: true })
   private readonly editorContainerRef!: ElementRef<HTMLDivElement>;

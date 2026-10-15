@@ -225,6 +225,7 @@ export interface TestCaseDTO {
   weight?: number;
   is_hidden?: boolean;
   is_sample?: boolean;
+  description?: string;
 }
 
 export interface CreateExerciseRequestDTO {

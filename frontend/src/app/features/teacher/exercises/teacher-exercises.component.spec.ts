@@ -3,6 +3,7 @@ import { TeacherExercisesComponent } from './teacher-exercises.component';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { RouterTestingModule } from '@angular/router/testing';
+import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
 import { TeacherCourseSummary, TeacherLabStats } from '../models/teacher.models';
@@ -150,17 +151,15 @@ describe('TeacherExercisesComponent', () => {
     expect(component.filteredExercises()[0].id).toBe('lab-1');
   });
 
-  it('should open and close create and edit modals correctly', () => {
-    component.openCreateModal();
-    expect(component.isEditorOpen()).toBe(true);
-    expect(component.exerciseToEdit()).toBeNull();
+  it('should navigate to create and edit routes correctly', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
 
-    component.closeEditorModal();
-    expect(component.isEditorOpen()).toBe(false);
+    component.openCreateModal();
+    expect(navSpy).toHaveBeenCalledWith(['/teacher/courses', 'course-1', 'exercises', 'new']);
 
     component.openEditModal(component.allExercises()[0]);
-    expect(component.isEditorOpen()).toBe(true);
-    expect(component.exerciseToEdit()?.id).toBe('lab-1');
+    expect(navSpy).toHaveBeenCalledWith(['/teacher/courses', 'course-1', 'exercises', 'lab-1', 'edit']);
   });
 
   it('should open and close fuzzing modal correctly', () => {

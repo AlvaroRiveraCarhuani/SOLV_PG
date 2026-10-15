@@ -23,7 +23,9 @@ import {
   LucideLayers,
   LucideLock,
   LucideTrash2,
-  LucideUploadCloud
+  LucideUploadCloud,
+  LucideLoader2,
+  LucideCheck
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
@@ -66,6 +68,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     LucideLock,
     LucideTrash2,
     LucideUploadCloud,
+    LucideLoader2,
+    LucideCheck,
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
@@ -87,12 +91,12 @@ export class TeacherCourseDetailComponent implements OnInit {
   private dashboardService = inject(TeacherDashboardService);
 
   readonly verdictOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos', value: 'all' },
-    { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
-    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
-    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
-    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'AST Bloqueado', value: 'AST_BLOCKED' }
+    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'AC', label: 'Aceptado (AC)', value: 'AC' },
+    { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
+    { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
+    { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
+    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' }
   ];
 
   subjectId = signal<string>('');
@@ -116,6 +120,9 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   verdictFilter = signal<string>('all');
   publishError = signal<string | null>(null);
+  publishSuccessMessage = signal<string | null>(null);
+  selectedLabToPublish = signal<TeacherLabStats | null>(null);
+  isPublishingLab = signal<boolean>(false);
   showExportModal = signal<boolean>(false);
   isExporting = signal<boolean>(false);
   showImportModal = signal<boolean>(false);
@@ -171,16 +178,39 @@ export class TeacherCourseDetailComponent implements OnInit {
     this.selectedExerciseToEdit.set(null);
   }
 
-  publishExercise(lab: TeacherLabStats): void {
+  requestPublishExercise(lab: TeacherLabStats): void {
+    this.publishError.set(null);
+    this.selectedLabToPublish.set(lab);
+  }
+
+  cancelPublishLab(): void {
+    this.selectedLabToPublish.set(null);
+  }
+
+  confirmPublishLab(): void {
+    const lab = this.selectedLabToPublish();
+    if (!lab) return;
+
+    this.isPublishingLab.set(true);
     this.publishError.set(null);
     this.courseService.publishExercise(lab.id).subscribe({
       next: () => {
+        this.isPublishingLab.set(false);
+        this.selectedLabToPublish.set(null);
+        this.publishSuccessMessage.set(`«${lab.title}» publicado con éxito.`);
+        setTimeout(() => this.publishSuccessMessage.set(null), 4000);
         this.loadData();
       },
       error: (err) => {
+        this.isPublishingLab.set(false);
+        this.selectedLabToPublish.set(null);
         this.publishError.set(err.error?.message || 'No se puede publicar el ejercicio sin al menos un caso de prueba público.');
       }
     });
+  }
+
+  publishExercise(lab: TeacherLabStats): void {
+    this.requestPublishExercise(lab);
   }
 
   exportGrades(): void {
@@ -231,7 +261,8 @@ export class TeacherCourseDetailComponent implements OnInit {
   }
 
   openLabEnvironment(lab: TeacherLabStats): void {
-    window.open(`/student/workspace?exercise_id=${lab.id}&mode=teacher_preview`, '_blank');
+    const courseId = this.subjectId();
+    this.router.navigate(['/teacher/courses', courseId, 'exercises', lab.id, 'preview']);
   }
 
   onFuzzCasesApplied(count: number): void {

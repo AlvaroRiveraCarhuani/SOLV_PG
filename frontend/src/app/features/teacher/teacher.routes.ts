@@ -17,6 +17,10 @@ export const TEACHER_ROUTES: Routes = [
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)
   },
   {
+    path: 'courses/:id',
+    redirectTo: 'cursos/:id'
+  },
+  {
     path: 'courses/:courseId/analytics',
     loadComponent: () =>
       import('./courses/analytics/analytics-dashboard.component').then(m => m.AnalyticsDashboardComponent)
@@ -37,6 +41,11 @@ export const TEACHER_ROUTES: Routes = [
       import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
   },
   {
+    path: 'courses/:courseId/exercises/:id/preview',
+    loadComponent: () =>
+      import('./exercise-preview/exercise-preview.component').then(m => m.ExercisePreviewComponent)
+  },
+  {
     path: 'cursos/:courseId/ejercicios/nuevo',
     loadComponent: () =>
       import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
@@ -45,6 +54,11 @@ export const TEACHER_ROUTES: Routes = [
     path: 'cursos/:courseId/ejercicios/:id/editar',
     loadComponent: () =>
       import('./exercise-editor/exercise-editor.component').then(m => m.ExerciseEditorComponent)
+  },
+  {
+    path: 'cursos/:courseId/ejercicios/:id/probar',
+    loadComponent: () =>
+      import('./exercise-preview/exercise-preview.component').then(m => m.ExercisePreviewComponent)
   },
   {
     path: 'revision/:submissionId',

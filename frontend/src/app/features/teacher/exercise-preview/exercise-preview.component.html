@@ -1,0 +1,418 @@
+<div class="preview-page-container">
+  <!-- Barra de Navegación y Herramientas Superior -->
+  <header class="preview-topbar">
+    <div class="topbar-left">
+      <a [routerLink]="['/teacher/cursos', courseId()]" class="btn-back" title="Volver al curso">
+        <svg lucideArrowLeft class="topbar-icon"></svg>
+        <span>Volver a la Materia</span>
+      </a>
+
+      <div class="title-meta">
+        <div class="title-row">
+          <h1 class="page-title">{{ store.metadata().title || 'Cargando ejercicio...' }}</h1>
+          <span class="mode-badge">
+            <svg lucideTerminal class="badge-icon"></svg>
+            <span>Modo Proyección & Prueba Docente</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <!-- Selector de Modo de Visualización -->
+      <div class="view-mode-group">
+        <button
+          type="button"
+          class="btn-mode-toggle"
+          [class.active]="viewMode() === 'both'"
+          (click)="viewMode.set('both')"
+          title="Ver consigna y editor simultáneamente"
+        >
+          <span>Dividido</span>
+        </button>
+        <button
+          type="button"
+          class="btn-mode-toggle"
+          [class.active]="viewMode() === 'statement'"
+          (click)="viewMode.set('statement')"
+          title="Solo consigna y casos de ejemplo"
+        >
+          <span>Consigna</span>
+        </button>
+        <button
+          type="button"
+          class="btn-mode-toggle"
+          [class.active]="viewMode() === 'simulation'"
+          (click)="viewMode.set('simulation')"
+          title="Solo editor de código y simulación"
+        >
+          <span>Simulador</span>
+        </button>
+      </div>
+
+      <!-- Control de Tamaño de Fuente (Zoom para Aula/Proyector) -->
+      <div class="font-zoom-group" title="Tamaño de tipografía para proyector">
+        <button
+          type="button"
+          class="btn-zoom"
+          (click)="decreaseFontSize()"
+          [disabled]="editorFontSize() <= 12"
+          aria-label="Reducir fuente"
+        >
+          <svg lucideZoomOut class="zoom-icon"></svg>
+        </button>
+        <span class="zoom-value font-mono" machineData>{{ editorFontSize() }}px</span>
+        <button
+          type="button"
+          class="btn-zoom"
+          (click)="increaseFontSize()"
+          [disabled]="editorFontSize() >= 24"
+          aria-label="Aumentar fuente"
+        >
+          <svg lucideZoomIn class="zoom-icon"></svg>
+        </button>
+      </div>
+
+      <!-- Selector de Lenguaje -->
+      <div class="lang-selector-group">
+        <span class="lang-label">Lenguaje:</span>
+        <combobox
+          [options]="languageOptions()"
+          [value]="selectedLanguage()"
+          [compact]="true"
+          [showSearchIcon]="false"
+          (optionSelected)="onLanguageChange($event.value)"
+          inputAriaLabel="Seleccionar lenguaje"
+        />
+      </div>
+    </div>
+  </header>
+
+  <!-- Cuerpo Principal Dividido (Split Layout) -->
+  <main class="preview-layout" [class]="'layout-' + viewMode()" [style.--statement-col-width.%]="splitRatio()">
+    <!-- Columna Izquierda: Consigna, Metadatos y Casos de Ejemplo -->
+    @if (viewMode() === 'both' || viewMode() === 'statement') {
+      <section class="statement-column" [style.fontSize.px]="editorFontSize()">
+        <!-- Ficha de Metadatos Técnicos -->
+        <div class="meta-card">
+          <div class="meta-item">
+            <span class="meta-label">Dificultad:</span>
+            <span class="meta-val capitalize" machineData>{{ store.metadata().difficulty || 'Media' }}</span>
+          </div>
+          <div class="meta-item">
+            <svg lucideClock class="meta-icon"></svg>
+            <span class="meta-label">Tiempo límite:</span>
+            <span class="meta-val font-mono" machineData>{{ store.metadata().time_limit_ms }} ms</span>
+          </div>
+          <div class="meta-item">
+            <svg lucideCpu class="meta-icon"></svg>
+            <span class="meta-label">Memoria:</span>
+            <span class="meta-val font-mono" machineData>{{ store.metadata().memory_limit_mb }} MB</span>
+          </div>
+          @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+            <div class="meta-item meta-item-ide">
+              <svg lucideServer class="meta-icon"></svg>
+              <span class="meta-label">Entorno:</span>
+              <span class="meta-val font-mono" machineData>IDE_PERSISTENTE</span>
+            </div>
+          }
+        </div>
+
+        <!-- Enunciado del Problema con MathJax / KaTeX -->
+        <article class="statement-content">
+          <div class="section-title-row">
+            <svg lucideFileText class="section-icon"></svg>
+            <h2 class="section-title">Descripción del Problema</h2>
+          </div>
+          <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
+
+          <!-- Restricciones del Ejercicio -->
+          @if (renderedConstraints(); as constraints) {
+            <div class="constraints-box">
+              <h3 class="constraints-title">Restricciones Académicas</h3>
+              <div class="markdown-body" [innerHTML]="constraints"></div>
+            </div>
+          }
+        </article>
+
+        <!-- Casos de Ejemplo Públicos -->
+        <div class="examples-section">
+          <div class="section-title-row">
+            <svg lucideLayers class="section-icon"></svg>
+            <h2 class="section-title">Casos de Ejemplo (<span machineData>{{ exampleCases().length }}</span>)</h2>
+          </div>
+
+          @for (ex of exampleCases(); track $index) {
+            <div class="example-card">
+              <div class="example-header">
+                <span class="example-number font-mono" machineData>Ejemplo #{{ $index + 1 }}</span>
+                @if (ex.description) {
+                  <span class="example-desc">{{ ex.description }}</span>
+                }
+              </div>
+
+              <div class="example-io-grid">
+                <div class="io-block">
+                  <div class="io-header">
+                    <span class="io-label">Entrada (STDIN)</span>
+                    <button
+                      type="button"
+                      class="btn-copy"
+                      (click)="copyExampleInput(ex.input, $index)"
+                      title="Copiar entrada al portapapeles"
+                    >
+                      @if (copiedCaseIndex() === $index) {
+                        <svg lucideCheck class="copy-icon text-success"></svg>
+                        <span class="text-success">Copiado</span>
+                      } @else {
+                        <svg lucideCopy class="copy-icon"></svg>
+                        <span>Copiar</span>
+                      }
+                    </button>
+                  </div>
+                  <pre class="io-content font-mono" machineData>{{ ex.input || '(vacío)' }}</pre>
+                </div>
+
+                <div class="io-block">
+                  <div class="io-header">
+                    <span class="io-label">Salida Esperada (STDOUT)</span>
+                  </div>
+                  <pre class="io-content font-mono" machineData>{{ ex.expected_output || '(vacío)' }}</pre>
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-examples-note">
+              <p>Este ejercicio no tiene casos configurados con visibilidad de ejemplo.</p>
+            </div>
+          }
+        </div>
+      </section>
+    }
+
+    <!-- Divisor Redimensionable de Columnas -->
+    @if (viewMode() === 'both') {
+      <div
+        class="layout-splitter"
+        [class.is-dragging]="isDraggingSplitter()"
+        (mousedown)="onSplitterMouseDown($event)"
+        title="Arrastra para redimensionar las columnas"
+      >
+        <div class="splitter-line"></div>
+      </div>
+    }
+
+    <!-- Columna Derecha: Editor de Código y Simulador Interactivo -->
+    @if (viewMode() === 'both' || viewMode() === 'simulation') {
+      <section class="simulation-column">
+        @if (isIDEEnvironment()) {
+          <!-- Entorno IDE Persistente -->
+          <div class="ide-notice-card">
+            <div class="ide-notice-header">
+              <svg lucideServer class="notice-icon"></svg>
+              <h3>Entorno de Laboratorio OpenVSCode</h3>
+            </div>
+            <div class="ide-notice-body">
+              <p>Este laboratorio utiliza un contenedor interactivo con Visual Studio Code en el navegador.</p>
+              <div class="specs-grid">
+                <div class="spec-row">
+                  <span class="spec-label">Plantilla vinculada:</span>
+                  <span class="spec-val" machineData>{{ store.metadata().template?.name || store.metadata().template_id || 'Plantilla Oficial' }}</span>
+                </div>
+                <div class="spec-row">
+                  <span class="spec-label">Imagen Docker:</span>
+                  <code class="font-mono" machineData>{{ store.metadata().template?.docker_image || 'solv-runner:latest' }}</code>
+                </div>
+                <div class="spec-row">
+                  <span class="spec-label">RAM asignada:</span>
+                  <span class="font-mono" machineData>{{ store.metadata().memory_limit_mb }} MB</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        } @else {
+          <!-- Entorno Juez Virtual (CodeMirror + Simulación) -->
+          <div class="editor-surface-card">
+            <div class="editor-toolbar">
+              <div class="toolbar-left">
+                <svg lucideFileCode class="toolbar-icon"></svg>
+                <span class="file-name font-mono" machineData>solucion.{{ selectedLanguage() }}</span>
+              </div>
+
+              <div class="toolbar-actions">
+                <button
+                  type="button"
+                  class="btn-tool"
+                  (click)="loadBoilerplate()"
+                  title="Cargar código inicial del estudiante"
+                >
+                  <svg lucideRotateCcw class="tool-icon"></svg>
+                  <span>Código Inicial</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-tool"
+                  (click)="loadReferenceSolution()"
+                  title="Cargar solución oficial de referencia para probarla"
+                >
+                  <svg lucideFileCode class="tool-icon"></svg>
+                  <span>Solución Canónica</span>
+                </button>
+
+                <button
+                  type="button"
+                  class="btn-run"
+                  (click)="runSimulation()"
+                  [disabled]="isExecuting()"
+                  title="Ejecutar contra todos los casos de prueba"
+                >
+                  @if (isExecuting()) {
+                    <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                    <span>Ejecutando...</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Ejecutar Simulación</span>
+                  }
+                </button>
+              </div>
+            </div>
+
+            <!-- Editor de Código -->
+            <div class="editor-viewport">
+              <code-editor
+                [value]="simulationCode()"
+                [language]="selectedLanguage()"
+                [fontSize]="editorFontSize()"
+                (valueChange)="simulationCode.set($event)"
+              />
+            </div>
+          </div>
+
+          <!-- Panel de Diagnósticos y Resultados de Simulación -->
+          @if (executionResults(); as res) {
+            <div class="results-console-card">
+              <!-- Header de Resultados -->
+              <div class="results-header" [class.all-passed]="res.allPassed" [class.has-failures]="!res.allPassed">
+                <div class="status-summary">
+                  @if (res.allPassed) {
+                    <svg lucideCheckCircle2 class="status-icon text-success"></svg>
+                    <span class="status-text">Todos los casos verificados con éxito (<span machineData>{{ res.passedCount }}/{{ res.totalCount }}</span>)</span>
+                  } @else {
+                    <svg lucideAlertTriangle class="status-icon text-danger"></svg>
+                    <span class="status-text">Se encontraron fallos en la evaluación (<span machineData>{{ res.passedCount }}/{{ res.totalCount }}</span> superados)</span>
+                  }
+                </div>
+
+                <!-- Tabs de Casos de Prueba -->
+                <div class="case-tabs-nav">
+                  @for (c of res.cases; track c.caseNumber) {
+                    <button
+                      type="button"
+                      class="case-tab-btn"
+                      [class.active]="activeCaseTab() === $index"
+                      [class.is-pass]="c.verdict === 'AC'"
+                      [class.is-fail]="c.verdict !== 'AC'"
+                      (click)="activeCaseTab.set($index)"
+                    >
+                      <span class="tab-label font-mono" machineData>#{{ c.caseNumber }}</span>
+                      <span class="tab-verdict font-mono" machineData>{{ c.verdict }}</span>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              <!-- Detalle del Caso Seleccionado -->
+              @if (activeCase(); as currentCase) {
+                <div class="case-detail-body">
+                  <div class="case-meta-row">
+                    <div class="meta-group">
+                      <span class="meta-label">Veredicto:</span>
+                      <verdict-badge [verdict]="currentCase.verdict" size="sm" />
+                    </div>
+                    <div class="meta-group">
+                      <span class="meta-label">Tiempo de ejecución:</span>
+                      <span class="meta-val font-mono" machineData>{{ currentCase.executionTimeMs }} ms</span>
+                    </div>
+                    @if (currentCase.description) {
+                      <div class="meta-group desc-group">
+                        <span class="meta-label">Propósito pedagógico:</span>
+                        <span class="case-desc-tag">{{ currentCase.description }}</span>
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Diagnóstico What-Where-Why si hubo fallo -->
+                  @if (currentCase.verdict !== 'AC' && currentCase.diagnostic?.hasError) {
+                    <div class="diagnostic-banner">
+                      <div class="diag-header">
+                        <svg lucideAlertTriangle class="diag-icon"></svg>
+                        <span class="diag-title">Diagnóstico Didáctico de Ejecución</span>
+                        @if (currentCase.diagnostic!.where) {
+                          <span class="diag-location font-mono" machineData>
+                            {{ currentCase.diagnostic!.where!.rawLocation || ('Línea ' + currentCase.diagnostic!.where!.line) }}
+                          </span>
+                        }
+                      </div>
+                      <div class="diag-body">
+                        <div class="diag-line">
+                          <strong class="diag-label">Qué ocurrió (What):</strong>
+                          <span class="diag-desc">{{ currentCase.diagnostic!.what }}</span>
+                        </div>
+                        @if (currentCase.diagnostic!.why) {
+                          <div class="diag-tip">
+                            <strong>Causa probable (Why):</strong>
+                            <span>{{ currentCase.diagnostic!.why }}</span>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Comparativa STDIN / STDOUT -->
+                  <div class="io-comparison-grid">
+                    <div class="io-box">
+                      <span class="io-title">Entrada (STDIN)</span>
+                      <pre class="io-stream font-mono" machineData>{{ currentCase.input || '(vacío)' }}</pre>
+                    </div>
+
+                    <div class="io-box">
+                      <span class="io-title">Salida Esperada (STDOUT)</span>
+                      <pre class="io-stream font-mono" machineData>{{ currentCase.expectedOutput || '(vacío)' }}</pre>
+                    </div>
+
+                    <div class="io-box" [class.mismatch]="currentCase.verdict !== 'AC'">
+                      <span class="io-title">Salida Obtenida</span>
+                      <pre class="io-stream font-mono" machineData>{{ currentCase.actualOutput || '(sin salida)' }}</pre>
+                    </div>
+                  </div>
+
+                  <!-- Advertencia por discrepancia de saltos de línea / espacios -->
+                  @if (currentCase.isFormatDiscrepancy) {
+                    <div class="format-warning-alert">
+                      <svg lucideAlertTriangle class="warn-icon"></svg>
+                      <p>Atención: La salida difiere únicamente por espacios en blanco o saltos de línea finales.</p>
+                    </div>
+                  }
+
+                  <!-- Traza cruda de error / stderr si existe -->
+                  @if (currentCase.errorDetails) {
+                    <div class="trace-box">
+                      <span class="trace-title">Salida de error del compilador / runtime (stderr):</span>
+                      <pre class="trace-code font-mono" machineData>{{ currentCase.errorDetails }}</pre>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else if (executionErrorMessage()) {
+            <div class="error-banner">
+              <svg lucideAlertTriangle class="error-icon"></svg>
+              <span>{{ executionErrorMessage() }}</span>
+            </div>
+          }
+        }
+      </section>
+    }
+  </main>
+</div>

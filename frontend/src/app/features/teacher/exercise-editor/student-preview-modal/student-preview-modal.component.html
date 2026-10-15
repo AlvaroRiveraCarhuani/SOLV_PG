@@ -10,9 +10,15 @@
       <header class="preview-header">
         <div class="header-left">
           <div class="title-with-badge">
-            <svg lucideEye class="header-icon"></svg>
-            <h2 id="preview-modal-title" class="header-title">Vista Previa del Estudiante</h2>
-            <span class="preview-badge">Simulación</span>
+            @if (isSimulationMode()) {
+              <svg lucideTerminal class="header-icon"></svg>
+              <h2 id="preview-modal-title" class="header-title">Simulador de Estudiante</h2>
+              <span class="preview-badge simulation-badge">Simulación Activa</span>
+            } @else {
+              <svg lucideEye class="header-icon"></svg>
+              <h2 id="preview-modal-title" class="header-title">Vista Previa del Estudiante</h2>
+              <span class="preview-badge">Inspección</span>
+            }
           </div>
           <span class="exercise-name" machineData>
             {{ store.metadata().title || 'Ejercicio sin título' }}
@@ -264,37 +270,230 @@
                   <h3 class="column-title">Editor de Código</h3>
                   <span class="lang-tag font-mono" machineData>{{ selectedLanguage() }}</span>
                 </div>
-                <span class="readonly-badge">Solo lectura en vista previa</span>
+
+                @if (isSimulationMode()) {
+                  <div class="editor-header-actions">
+                    <button
+                      type="button"
+                      class="btn-editor-helper"
+                      (click)="loadBoilerplate()"
+                      title="Restablecer al código inicial del estudiante"
+                    >
+                      <svg lucideRotateCcw class="helper-icon"></svg>
+                      <span>Código Inicial</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn-editor-helper"
+                      (click)="loadReferenceSolution()"
+                      title="Cargar la solución canónica oficial para probarla en vivo"
+                    >
+                      <svg lucideFileCode class="helper-icon"></svg>
+                      <span>Solución Canónica</span>
+                    </button>
+                  </div>
+                } @else {
+                  <span class="readonly-badge">Solo lectura en vista previa</span>
+                }
               </div>
 
               <div class="editor-viewport">
                 <code-editor
-                  [value]="currentBoilerplate()"
+                  [value]="isSimulationMode() ? simulationCode() : currentBoilerplate()"
                   [language]="selectedLanguage()"
-                  [readonly]="true"
+                  [readonly]="!isSimulationMode()"
+                  (valueChange)="onCodeChange($event)"
                   minHeight="320px"
                 />
               </div>
             </div>
 
             <!-- Consola Terminal Inferior -->
-            <div class="console-panel">
+            <div class="console-panel" [class.simulation-console]="isSimulationMode()">
               <div class="console-header">
                 <div class="console-title-row">
                   <svg lucideTerminal class="console-icon"></svg>
-                  <h4 class="console-title">Consola de Resultados</h4>
+                  <h4 class="console-title">
+                    {{ isSimulationMode() ? 'Consola del Juez Virtual' : 'Consola de Resultados' }}
+                  </h4>
+                  @if (isSimulationMode() && executionResults()) {
+                    <div class="sim-verdict-summary-wrap">
+                      <verdict-badge
+                        [verdict]="executionResults()!.allPassed ? 'AC' : 'WA'"
+                        size="sm"
+                      />
+                      <span class="summary-count font-mono" machineData>
+                        {{ executionResults()!.passedCount }}/{{ executionResults()!.totalCount }} casos
+                      </span>
+                    </div>
+                  }
                 </div>
-                <span class="console-status-badge font-mono">STANDBY</span>
+
+                <div class="console-header-actions">
+                  @if (isSimulationMode()) {
+                    <button
+                      type="button"
+                      class="btn-run-simulation"
+                      (click)="runSimulation()"
+                      [disabled]="isExecuting() || !simulationCode().trim()"
+                      title="Ejecutar el código en un contenedor Docker efímero del juez"
+                    >
+                      @if (isExecuting()) {
+                        <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                        <span>Evaluando...</span>
+                      } @else {
+                        <svg lucidePlay class="btn-icon"></svg>
+                        <span>Correr Pruebas</span>
+                      }
+                    </button>
+                  } @else {
+                    <span class="console-status-badge font-mono">STANDBY</span>
+                  }
+                </div>
               </div>
 
-              <div class="console-output font-mono">
-                <p class="console-line info-line" machineData>
-                  [SIMULACIÓN] La ejecución de código no está activa en la vista previa del docente.
-                </p>
-                <p class="console-line dim-line" machineData>
-                  El estudiante dispondrá de botones para correr pruebas locales y enviar al juez virtual.
-                </p>
-              </div>
+              <!-- Salida de la Consola -->
+              @if (!isSimulationMode()) {
+                <div class="console-output font-mono">
+                  <p class="console-line info-line" machineData>
+                    [VISTA PREVIA] Modo de inspección visual del enunciado y código starter.
+                  </p>
+                  <p class="console-line dim-line" machineData>
+                    Para simular la evaluación interactiva con el juez Docker, utiliza "Simular como Estudiante" desde el Paso 3.
+                  </p>
+                </div>
+              } @else if (isExecuting()) {
+                <div class="console-output font-mono console-executing">
+                  <div class="executing-spinner-row">
+                    <svg lucideLoader2 class="executing-spin spin-icon"></svg>
+                    <span>Evaluando en contenedor Docker efímero (Límite: <span class="font-mono" machineData>{{ store.metadata().time_limit_ms || 1000 }} ms</span>)...</span>
+                  </div>
+                </div>
+              } @else if (executionErrorMessage()) {
+                <div class="console-output font-mono console-error">
+                  <p class="console-line error-line" machineData>
+                    {{ executionErrorMessage() }}
+                  </p>
+                </div>
+              } @else if (executionResults()) {
+                <div class="console-sim-results">
+                  <!-- Barra de Pestañas de Casos Evaluados -->
+                  <div class="sim-cases-tabs">
+                    @for (tc of executionResults()!.cases; track tc.caseNumber; let idx = $index) {
+                      <button
+                        type="button"
+                        class="sim-case-tab"
+                        [class.active]="activeCaseTab() === idx"
+                        [class.tab-ac]="tc.verdict === 'AC'"
+                        [class.tab-wa]="tc.verdict !== 'AC'"
+                        (click)="activeCaseTab.set(idx)"
+                      >
+                        <verdict-badge [verdict]="tc.verdict" [showHumanLabel]="false" size="sm" />
+                        <span class="tab-label">
+                          {{ tc.description ? tc.description : ('Caso ' + tc.caseNumber) }}
+                        </span>
+                        <span class="tab-time font-mono" machineData>{{ tc.executionTimeMs }} ms</span>
+                      </button>
+                    }
+                  </div>
+
+                  <!-- Detalle del Caso Seleccionado -->
+                  @if (executionResults()!.cases[activeCaseTab()]; as activeCase) {
+                    <div class="sim-case-details font-mono">
+                      <!-- Encabezado del caso activo con veredicto humanizado y nombre pedagógico -->
+                      <div class="active-case-meta font-sans">
+                        <div class="meta-left">
+                          <verdict-badge [verdict]="activeCase.verdict" size="md" />
+                          @if (activeCase.description) {
+                            <span class="case-pedagogical-title">{{ activeCase.description }}</span>
+                          }
+                        </div>
+                        <span class="case-runtime-tag font-mono" machineData>
+                          <svg lucideClock class="tag-icon"></svg>
+                          <span>{{ activeCase.executionTimeMs }} ms</span>
+                        </span>
+                      </div>
+
+                      <!-- Alerta de Discrepancia de Formato (Whitespace / Newlines) -->
+                      @if (activeCase.isFormatDiscrepancy) {
+                        <div class="format-discrepancy-card font-sans">
+                          <svg lucideAlertTriangle class="format-icon"></svg>
+                          <div class="format-body">
+                            <span class="format-title">Discrepancia únicamente en formato o caracteres invisibles</span>
+                            <span class="format-desc">El contenido lógico de la respuesta coincide, pero difiere en espacios en blanco o terminadores de línea (\r\n vs \n).</span>
+                          </div>
+                        </div>
+                      }
+
+                      <!-- Diagnóstico What-Where-Why para errores de ejecución -->
+                      @if (activeCase.diagnostic?.hasError) {
+                        <div class="diagnostic-card font-sans">
+                          <div class="diagnostic-header">
+                            <svg lucideAlertTriangle class="diagnostic-icon"></svg>
+                            <span class="diagnostic-title">Diagnóstico de Ejecución</span>
+                          </div>
+                          <div class="diagnostic-body">
+                            <div class="diag-item">
+                              <span class="diag-label">Qué ocurrió (What):</span>
+                              <span class="diag-value font-semibold">{{ activeCase.diagnostic!.what }}</span>
+                            </div>
+                            @if (activeCase.diagnostic!.where) {
+                              <div class="diag-item">
+                                <span class="diag-label">Ubicación (Where):</span>
+                                <span class="diag-value font-mono" machineData>
+                                  {{ activeCase.diagnostic!.where!.rawLocation || ('Línea ' + activeCase.diagnostic!.where!.line) }}
+                                </span>
+                              </div>
+                            }
+                            <div class="diag-item">
+                              <span class="diag-label">Causa probable (Why):</span>
+                              <span class="diag-value diag-why">{{ activeCase.diagnostic!.why }}</span>
+                            </div>
+                          </div>
+
+                          <details class="raw-trace-collapsible">
+                            <summary class="raw-trace-summary">Ver traza técnica cruda (stderr)</summary>
+                            <pre class="raw-trace-code font-mono" machineData>{{ activeCase.errorDetails }}</pre>
+                          </details>
+                        </div>
+                      } @else if (activeCase.errorDetails) {
+                        <div class="case-detail-row">
+                          <span class="detail-label error-label">Detalles de error / stderr:</span>
+                          <pre class="detail-code error-code font-mono" machineData>{{ activeCase.errorDetails }}</pre>
+                        </div>
+                      }
+
+                      <div class="case-detail-row">
+                        <span class="detail-label">Entrada (stdin):</span>
+                        <pre class="detail-code font-mono" machineData>{{ activeCase.input || '(vacío)' }}</pre>
+                      </div>
+
+                      <div class="case-detail-row">
+                        <span class="detail-label">Salida obtenida (stdout):</span>
+                        <pre
+                          class="detail-code font-mono"
+                          [class.code-error]="activeCase.verdict !== 'AC'"
+                          machineData
+                        >{{ activeCase.actualOutput || '(sin salida)' }}</pre>
+                      </div>
+
+                      <div class="case-detail-row">
+                        <span class="detail-label">Salida esperada (stdout):</span>
+                        <pre class="detail-code font-mono" machineData>{{ activeCase.expectedOutput || '(vacío)' }}</pre>
+                      </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <div class="console-output font-mono">
+                  <p class="console-line info-line" machineData>
+                    [SIMULACIÓN ACTIVA] El editor superior es interactivo. Puedes escribir o modificar tu código libremente.
+                  </p>
+                  <p class="console-line dim-line" machineData>
+                    Haz clic en "Correr Pruebas" para ejecutar la solución en un contenedor Docker y verificar el veredicto en tiempo real.
+                  </p>
+                </div>
+              }
             </div>
           </section>
         }

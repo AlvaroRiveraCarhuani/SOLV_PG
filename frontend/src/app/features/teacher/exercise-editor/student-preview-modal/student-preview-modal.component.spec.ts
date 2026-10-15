@@ -44,7 +44,8 @@ describe('StudentPreviewModalComponent', () => {
   });
 
   it('debe actualizar el boilerplate al cambiar de lenguaje', () => {
-    store.metadata.set({
+    store.metadata.update(m => ({
+      ...m,
       title: 'Prueba',
       difficulty: 'easy',
       tags: [],
@@ -56,7 +57,7 @@ describe('StudentPreviewModalComponent', () => {
       time_limit_ms: 1000,
       memory_limit_mb: 128,
       due_date: ''
-    });
+    }));
 
     store.setBoilerplateForLanguage('python', 'def main(): pass');
     store.setBoilerplateForLanguage('cpp', 'int main() { return 0; }');
@@ -76,5 +77,18 @@ describe('StudentPreviewModalComponent', () => {
 
     component.onClose();
     expect(closed).toBe(true);
+  });
+
+  it('debe reflejar el modo de simulación y permitir cargar la solución canónica', () => {
+    store.setStudentPreviewOpen(true, 'simulation');
+    store.referenceSolution.set('def canonical(): return 42');
+
+    expect(component.isSimulationMode()).toBe(true);
+
+    component.loadReferenceSolution();
+    expect(component.simulationCode()).toBe('def canonical(): return 42');
+
+    component.loadBoilerplate();
+    expect(component.simulationCode()).toBe(component.currentBoilerplate());
   });
 });

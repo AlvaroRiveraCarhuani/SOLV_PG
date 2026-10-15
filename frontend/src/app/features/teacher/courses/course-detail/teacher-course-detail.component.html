@@ -69,8 +69,15 @@
     </div>
   }
 
+  @if (publishSuccessMessage()) {
+    <div class="success-banner animate-fade">
+      <svg lucideCheck class="success-icon"></svg>
+      <span>{{ publishSuccessMessage() }}</span>
+    </div>
+  }
+
   @if (publishError()) {
-    <div class="error-banner">
+    <div class="error-banner animate-fade">
       <svg lucideAlertTriangle class="error-icon"></svg>
       <span>{{ publishError() }}</span>
     </div>
@@ -155,15 +162,29 @@
 
               <div class="lab-actions">
                 @if (lab.status === 'draft') {
-                  <button class="btn-publish" (click)="publishExercise(lab)" title="Publicar para los estudiantes">
-                    <svg lucideGlobe class="btn-icon-sm"></svg>
-                    <span>Publicar</span>
+                  <button
+                    class="btn-publish"
+                    (click)="requestPublishExercise(lab)"
+                    [disabled]="isPublishingLab() && selectedLabToPublish()?.id === lab.id"
+                    title="Publicar para los estudiantes"
+                  >
+                    @if (isPublishingLab() && selectedLabToPublish()?.id === lab.id) {
+                      <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+                      <span>Publicando...</span>
+                    } @else {
+                      <svg lucideGlobe class="btn-icon-sm"></svg>
+                      <span>Publicar</span>
+                    }
                   </button>
                 }
-                <button class="btn-outline btn-open-lab" (click)="openLabEnvironment(lab)" title="Abrir y probar el entorno de este laboratorio como docente">
+                <a
+                  class="btn-outline btn-open-lab"
+                  [routerLink]="['/teacher/courses', subjectId(), 'exercises', lab.id, 'preview']"
+                  title="Abrir entorno de prueba y proyección para este laboratorio"
+                >
                   <svg lucideLaptop class="btn-icon-sm"></svg>
                   <span>Probar Entorno</span>
-                </button>
+                </a>
                 <button class="btn-fuzz" (click)="openFuzzingModal(lab.id, lab.title)" title="Generar casos de prueba y fuzzing">
                   <svg lucideSparkles class="btn-icon-sm"></svg>
                   <span>Fuzzing</span>
@@ -426,6 +447,19 @@
     type="danger"
     (confirm)="confirmPauseAllEnvironments()"
     (cancel)="closePauseConfirmModal()"
+  />
+}
+
+@if (selectedLabToPublish(); as lab) {
+  <confirm-modal
+    title="Publicar Ejercicio"
+    [message]="'¿Confirmas publicar «' + lab.title + '»? Quedará disponible inmediatamente para todos los estudiantes inscritos en el curso.'"
+    confirmText="Publicar ahora"
+    cancelText="Cancelar"
+    type="primary"
+    [isLoading]="isPublishingLab()"
+    (confirm)="confirmPublishLab()"
+    (cancel)="cancelPublishLab()"
   />
 }
 

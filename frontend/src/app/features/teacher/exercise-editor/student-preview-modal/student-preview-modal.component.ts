@@ -1,6 +1,7 @@
-import { Component, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
+import { Component, DestroyRef, EventEmitter, Input, Output, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideEye,
   LucideX,
@@ -13,15 +14,43 @@ import {
   LucideServer,
   LucideExternalLink,
   LucideDatabase,
-  LucideCalendar
+  LucideCalendar,
+  LucidePlay,
+  LucideLoader2,
+  LucideRotateCcw,
+  LucideFileCode,
+  LucideAlertTriangle
 } from '@lucide/angular';
 import { marked } from 'marked';
 import katex from 'katex';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { ErrorDiagnostic, parseErrorDiagnostic, detectWhitespaceDiscrepancy } from '@core/utils/error-diagnostic.util';
 import { ExerciseEditorStore } from '../exercise-editor.store';
 import { TestCaseDTO } from '../../models/teacher.models';
+import { TeacherCourseService } from '../../services/teacher-course.service';
+
+export interface TestCaseSimResult {
+  caseNumber: number;
+  description?: string;
+  input: string;
+  expectedOutput: string;
+  actualOutput: string;
+  verdict: 'AC' | 'WA' | 'TLE' | 'RE';
+  executionTimeMs: number;
+  errorDetails?: string;
+  diagnostic?: ErrorDiagnostic;
+  isFormatDiscrepancy?: boolean;
+}
+
+export interface SimulationRunResult {
+  passedCount: number;
+  totalCount: number;
+  allPassed: boolean;
+  cases: TestCaseSimResult[];
+}
 
 function renderMarkdownWithKatex(raw: string): string {
   if (!raw || !raw.trim()) {
@@ -31,7 +60,7 @@ function renderMarkdownWithKatex(raw: string): string {
   // 1. Block math: $$ ... $$
   let processed = raw.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
     try {
-      return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
+      return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false, output: 'mathml' })}</div>`;
     } catch {
       return `<pre class="katex-error">${math}</pre>`;
     }
@@ -40,7 +69,7 @@ function renderMarkdownWithKatex(raw: string): string {
   // 2. Inline math: $ ... $
   processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
     try {
-      return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+      return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false, output: 'mathml' });
     } catch {
       return `<code>${math}</code>`;
     }
@@ -71,20 +100,35 @@ function renderMarkdownWithKatex(raw: string): string {
     LucideExternalLink,
     LucideDatabase,
     LucideCalendar,
+    LucidePlay,
+    LucideLoader2,
+    LucideRotateCcw,
+    LucideFileCode,
+    LucideAlertTriangle,
     MachineDataDirective,
     CodeEditorComponent,
-    ComboboxComponent
+    ComboboxComponent,
+    VerdictBadgeComponent
   ],
   templateUrl: './student-preview-modal.component.html',
   styleUrl: './student-preview-modal.component.scss'
 })
 export class StudentPreviewModalComponent {
   readonly store = inject(ExerciseEditorStore);
+  private courseService = inject(TeacherCourseService);
+  private destroyRef = inject(DestroyRef);
 
   @Input() isOpen = false;
   @Output() close = new EventEmitter<void>();
 
   readonly selectedLanguage = signal<string>('python');
+  readonly isSimulationMode = computed(() => this.store.studentPreviewMode() === 'simulation');
+
+  readonly simulationCode = signal<string>('');
+  readonly isExecuting = signal<boolean>(false);
+  readonly executionResults = signal<SimulationRunResult | null>(null);
+  readonly executionErrorMessage = signal<string | null>(null);
+  readonly activeCaseTab = signal<number>(0);
 
   readonly allowedLanguages = computed(() => {
     const meta = this.store.metadata();
@@ -148,7 +192,9 @@ export class StudentPreviewModalComponent {
   });
 
   readonly renderedDescription = computed(() => {
-    return renderMarkdownWithKatex(this.store.statement().description);
+    let raw = this.store.statement().description || '';
+    raw = raw.replace(/^##?\s*Descripción del Problema\s*\n+/i, '');
+    return renderMarkdownWithKatex(raw);
   });
 
   readonly renderedInputText = computed(() => {
@@ -180,6 +226,128 @@ export class StudentPreviewModalComponent {
         this.selectedLanguage.set(allowed[0]);
       }
     });
+
+    // Inicializar código al abrir o cambiar lenguaje en modo simulación
+    effect(() => {
+      const bp = this.currentBoilerplate();
+      const isSim = this.isSimulationMode();
+      if (isSim && !this.simulationCode()) {
+        this.simulationCode.set(bp);
+      }
+    });
+  }
+
+  onCodeChange(newCode: string): void {
+    this.simulationCode.set(newCode);
+  }
+
+  loadBoilerplate(): void {
+    this.simulationCode.set(this.currentBoilerplate());
+    this.executionResults.set(null);
+    this.executionErrorMessage.set(null);
+  }
+
+  loadReferenceSolution(): void {
+    const ref = this.store.referenceSolution();
+    if (ref && ref.trim()) {
+      this.simulationCode.set(ref);
+    } else {
+      this.simulationCode.set(this.currentBoilerplate());
+    }
+    this.executionResults.set(null);
+    this.executionErrorMessage.set(null);
+  }
+
+  runSimulation(): void {
+    const code = this.simulationCode().trim() || this.currentBoilerplate().trim();
+    if (!code) return;
+
+    // Tomar casos de ejemplo y públicos (como los vería el estudiante al probar localmente)
+    let cases = this.store.cases().filter(
+      (c: TestCaseDTO) => c.visibility === 'example' || c.visibility === 'public' || (!c.visibility && c.is_sample)
+    );
+
+    // Fallback: si no hay casos públicos, tomar todos los casos existentes
+    if (cases.length === 0) {
+      cases = this.store.cases();
+    }
+
+    if (cases.length === 0) {
+      this.executionErrorMessage.set('No hay casos de prueba configurados para ejecutar.');
+      return;
+    }
+
+    this.isExecuting.set(true);
+    this.executionErrorMessage.set(null);
+
+    const inputs = cases.map(c => c.input || '');
+    const timeLimit = this.store.metadata().time_limit_ms || 1000;
+    const memoryLimit = this.store.metadata().memory_limit_mb || 128;
+
+    this.courseService
+      .calculateOutputs({
+        language: this.selectedLanguage(),
+        source_code: code,
+        inputs,
+        time_limit_ms: timeLimit,
+        memory_limit_mb: memoryLimit
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe({
+        next: (res) => {
+          let passed = 0;
+          const caseResults: TestCaseSimResult[] = cases.map((tc, idx) => {
+            const out = res.outputs?.[idx];
+            const rawActual = out?.expected_output || '';
+            const rawExpected = tc.expected_output || '';
+            const actual = rawActual.trim();
+            const expected = rawExpected.trim();
+            let verdict: 'AC' | 'WA' | 'TLE' | 'RE' = 'WA';
+
+            if (out?.status === 'timeout') {
+              verdict = 'TLE';
+            } else if (out?.status === 'error') {
+              verdict = 'RE';
+            } else if (actual === expected) {
+              verdict = 'AC';
+              passed++;
+            } else {
+              verdict = 'WA';
+            }
+
+            const errorDetails = out?.error_details;
+            const diagnostic = errorDetails ? parseErrorDiagnostic(errorDetails, this.selectedLanguage()) : undefined;
+            const isFormatDiscrepancy = (verdict === 'WA') && detectWhitespaceDiscrepancy(rawActual, rawExpected);
+
+            return {
+              caseNumber: idx + 1,
+              description: tc.description,
+              input: tc.input || '',
+              expectedOutput: expected,
+              actualOutput: actual,
+              verdict,
+              executionTimeMs: out?.execution_time_ms || 0,
+              errorDetails,
+              diagnostic,
+              isFormatDiscrepancy
+            };
+          });
+
+          this.executionResults.set({
+            passedCount: passed,
+            totalCount: cases.length,
+            allPassed: passed === cases.length,
+            cases: caseResults
+          });
+          this.activeCaseTab.set(0);
+          this.isExecuting.set(false);
+        },
+        error: (err) => {
+          this.isExecuting.set(false);
+          const msg = err?.error?.message || err?.error?.error || 'Error al conectar con el motor de ejecución en Docker';
+          this.executionErrorMessage.set(msg);
+        }
+      });
   }
 
   onLanguageChange(lang: string): void {

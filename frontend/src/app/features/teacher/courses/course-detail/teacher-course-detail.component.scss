@@ -306,9 +306,18 @@
       font-weight: 600;
       cursor: pointer;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background-color: var(--color-success);
         color: var(--text-inverse);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      .spin-icon {
+        animation: spin 1s linear infinite;
       }
     }
 
