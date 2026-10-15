@@ -18,6 +18,7 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { TeacherLabStats, SubmissionQueueItem } from '../models/teacher.models';
 
 export interface EvaluationRow {
@@ -52,7 +53,8 @@ export interface EnrichedQueueItem extends SubmissionQueueItem {
     DateTextPipe,
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
-    ComboboxComponent
+    ComboboxComponent,
+    VerdictBadgeComponent
   ],
   templateUrl: './teacher-evaluations.component.html',
   styleUrl: './teacher-evaluations.component.scss'
@@ -88,12 +90,12 @@ export class TeacherEvaluationsComponent implements OnInit {
   ]);
 
   readonly verdictFilterOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos', value: 'all' },
-    { id: 'AC', label: 'AC (Aceptado)', value: 'AC' },
-    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
-    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' },
-    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'AST Bloqueado', value: 'AST_BLOCKED' }
+    { id: 'all', label: 'Todos los veredictos', value: 'all' },
+    { id: 'AC', label: 'Aceptado (AC)', value: 'AC' },
+    { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
+    { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
+    { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
+    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' }
   ];
 
   readonly statusFilterOptions: ComboboxOption<'all' | 'pending' | 'graded'>[] = [

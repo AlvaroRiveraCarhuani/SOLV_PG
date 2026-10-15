@@ -9,7 +9,7 @@
     <div class="header-actions">
       <button type="button" class="btn btn-danger-outline" (click)="openPlagiarismModal()">
         <svg lucideShieldAlert class="btn-icon"></svg>
-        <span>Auditoría Anti-Plagio AST</span>
+        <span>Control de Plagio</span>
       </button>
       <button type="button" class="btn btn-primary" (click)="exportGradesCSV()">
         <svg lucideDownload class="btn-icon"></svg>
@@ -62,7 +62,7 @@
           <span class="kpi-val text-success" machineData>{{ kpiStats().graded }}</span>
         </div>
         <div class="kpi-box">
-          <span class="kpi-label">En Riesgo (Fallas / AST)</span>
+          <span class="kpi-label">En Riesgo (Fallas / Restricciones)</span>
           <span class="kpi-val text-danger" machineData>{{ kpiStats().atRisk }}</span>
         </div>
       </div>
@@ -163,17 +163,7 @@
                     </time>
                   </td>
                   <td>
-                    <span
-                      class="verdict-tag"
-                      [class.verdict-ac]="item.verdict === 'AC'"
-                      [class.verdict-wa]="item.verdict === 'WA'"
-                      [class.verdict-tle]="item.verdict === 'TLE'"
-                      [class.verdict-re]="item.verdict === 'RE'"
-                      [class.verdict-ast]="item.verdict === 'AST_BLOCKED'"
-                      machineData
-                    >
-                      {{ item.verdict }}
-                    </span>
+                    <verdict-badge [verdict]="item.verdict" size="sm" />
                   </td>
                   <td>
                     @if (item.score !== undefined && item.score !== null) {
