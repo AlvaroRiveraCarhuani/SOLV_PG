@@ -82,6 +82,9 @@ func WithAuth(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, domain.UserIDKey, userID)
 		r.Header.Set("X-User-Id", userID)
 
+		if email, ok := claims["email"].(string); ok && email != "" {
+			r.Header.Set("X-User-Email", email)
+		}
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {
 			ctx = context.WithValue(ctx, domain.TenantIDKey, tenantID)
 			r.Header.Set("X-Tenant-Id", tenantID)

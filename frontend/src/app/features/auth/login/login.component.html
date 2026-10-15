@@ -45,6 +45,21 @@
         </div>
       }
 
+      <!-- Notificación de Invitación Docente -->
+      @if (inviteToken()) {
+        <div class="invitation-notice" role="status">
+          <svg class="notice-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <polyline points="16 11 18 13 22 9"></polyline>
+          </svg>
+          <div class="notice-content">
+            <span class="notice-title">Invitación docente detectada</span>
+            <p class="notice-desc">Iniciá sesión con tu cuenta institucional para activar tu rol docente.</p>
+          </div>
+        </div>
+      }
+
       <!-- Acciones de Autenticación -->
       <section class="card-actions">
         <button

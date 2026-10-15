@@ -16,12 +16,19 @@ export const authGuard: CanActivateFn = async (route, state) => {
 
   // 2. Si ya tenemos el usuario en memoria
   if (authService.isAuthenticated()) {
+    const user = authService.currentUser();
+    if (user?.role === 'teacher' && state.url.startsWith('/student')) {
+      return router.createUrlTree(['/teacher']);
+    }
     return true;
   }
 
   // 3. Si no está en memoria, intentar resolver vía Bearer / cookie
   const user = await firstValueFrom(authService.resolveCurrentUser());
   if (user) {
+    if (user.role === 'teacher' && state.url.startsWith('/student')) {
+      return router.createUrlTree(['/teacher']);
+    }
     return true;
   }
 

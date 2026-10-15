@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
+	"strings"
 
 	"solv-backend/internal/core/services"
 )
@@ -68,12 +71,7 @@ func (h *TeacherInvitationHandler) CreateInvitation(w http.ResponseWriter, r *ht
 		return
 	}
 
-	host := r.Host
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	inviteURL := fmt.Sprintf("%s://%s/login?invite=%s", scheme, host, inv.Token)
+	inviteURL := h.buildInviteURL(r, inv.Token)
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -104,12 +102,7 @@ func (h *TeacherInvitationHandler) ResendInvitation(w http.ResponseWriter, r *ht
 		return
 	}
 
-	host := r.Host
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	inviteURL := fmt.Sprintf("%s://%s/login?invite=%s", scheme, host, inv.Token)
+	inviteURL := h.buildInviteURL(r, inv.Token)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -137,12 +130,7 @@ func (h *TeacherInvitationHandler) RenewInvitation(w http.ResponseWriter, r *htt
 		return
 	}
 
-	host := r.Host
-	scheme := "http"
-	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-		scheme = "https"
-	}
-	inviteURL := fmt.Sprintf("%s://%s/login?invite=%s", scheme, host, inv.Token)
+	inviteURL := h.buildInviteURL(r, inv.Token)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -153,6 +141,37 @@ func (h *TeacherInvitationHandler) RenewInvitation(w http.ResponseWriter, r *htt
 		"expires_at": inv.ExpiresAt,
 		"message":    "Invitación renovada por 72h con nuevo token transaccional",
 	})
+}
+
+func (h *TeacherInvitationHandler) buildInviteURL(r *http.Request, token string) string {
+	// 1. Origen reportado por el frontend del navegador
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		return fmt.Sprintf("%s/login?invite=%s", strings.TrimRight(origin, "/"), token)
+	}
+
+	// 2. Referer del cliente
+	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
+		if u, err := url.Parse(referer); err == nil && u.Host != "" {
+			return fmt.Sprintf("%s://%s/login?invite=%s", u.Scheme, u.Host, token)
+		}
+	}
+
+	// 3. Variable de entorno explícita para la URL base del frontend
+	if fe := strings.TrimSpace(os.Getenv("FRONTEND_URL")); fe != "" {
+		return fmt.Sprintf("%s/login?invite=%s", strings.TrimRight(fe, "/"), token)
+	}
+
+	// 4. En desarrollo local, Angular corre en el puerto 4200
+	if strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1") {
+		return fmt.Sprintf("http://localhost:4200/login?invite=%s", token)
+	}
+
+	// 5. Host directo (producción con reverse proxy Traefik unificado)
+	scheme := "http"
+	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s/login?invite=%s", scheme, r.Host, token)
 }
 
 func (h *TeacherInvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {

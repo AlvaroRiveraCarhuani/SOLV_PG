@@ -96,6 +96,42 @@
   }
 }
 
+.invitation-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--status-running-bg);
+  border: 1px solid var(--status-running-border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--status-running-color);
+  text-align: left;
+
+  .notice-icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .notice-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .notice-title {
+    font-weight: 600;
+    color: var(--status-running-color);
+  }
+
+  .notice-desc {
+    color: var(--text-secondary);
+    margin: 0;
+  }
+}
+
 // Acciones de Autenticación
 .card-actions {
   display: flex;

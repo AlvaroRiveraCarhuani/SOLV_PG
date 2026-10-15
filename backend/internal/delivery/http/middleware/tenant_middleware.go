@@ -83,6 +83,9 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 			r.Header.Set("X-User-Id", userID)
 			r.Header.Set("X-Tenant-Id", tenantID)
 
+			if userEmail, _ := claims["email"].(string); userEmail != "" {
+				r.Header.Set("X-User-Email", userEmail)
+			}
 			if userRole, _ := claims["role"].(string); userRole != "" {
 				ctx = context.WithValue(ctx, domain.UserRoleKey, userRole)
 				r.Header.Set("X-User-Role", userRole)

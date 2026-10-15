@@ -108,7 +108,14 @@ func (r *PostgresTeacherInvitationRepository) AcceptInvitationTx(ctx context.Con
 		return errors.New("invitation token has expired")
 	}
 
-	if inv.Email != userEmail {
+	if userEmail == "" {
+		var resolvedEmail string
+		if err := tx.GetContext(ctx, &resolvedEmail, "SELECT email FROM users WHERE tenant_id = $1 AND id = $2", tenantID, userID); err == nil {
+			userEmail = resolvedEmail
+		}
+	}
+
+	if !strings.EqualFold(strings.TrimSpace(inv.Email), strings.TrimSpace(userEmail)) {
 		return fmt.Errorf("email mismatch: invitation issued for %s, but logged in as %s", inv.Email, userEmail)
 	}
 

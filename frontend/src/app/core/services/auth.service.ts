@@ -1,7 +1,7 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, catchError, of } from 'rxjs';
+import { Observable, tap, catchError, of, switchMap, map } from 'rxjs';
 import { User, UserRole } from '@core/models/user.model';
 import { TenantService } from '@core/services/tenant.service';
 
@@ -38,8 +38,20 @@ export class AuthService {
   }
 
   /**
+   * Canjea un token transaccional de invitación docente (ADR-025).
+   */
+  acceptTeacherInvitation(token: string): Observable<{ status: string; message: string }> {
+    return this.http.post<{ status: string; message: string }>(
+      '/api/v1/invitations/teachers/accept',
+      { token },
+      { withCredentials: true }
+    );
+  }
+
+  /**
    * Resuelve la identidad del usuario actual vía GET /api/v1/users/me.
    * El backend lee la cookie 'solv_session' o el header ForwardAuth.
+   * Si existe una invitación pendiente en la sesión, la canjea automáticamente.
    */
   resolveCurrentUser(): Observable<User | null> {
     if (typeof window !== 'undefined') {
@@ -50,12 +62,35 @@ export class AuthService {
         const cleanUrl = window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
       }
+      const inviteToken = params.get('invite');
+      if (inviteToken) {
+        sessionStorage.setItem('solv_invite_token', inviteToken);
+      }
     }
 
     this.isLoading.set(true);
     return this.http.get<any>('/api/v1/users/me', { withCredentials: true }).pipe(
-      tap((resp) => {
-        const user = resp?.data || resp;
+      switchMap((resp) => {
+        const user: User = resp?.data || resp;
+        const pendingInvite = typeof window !== 'undefined' ? sessionStorage.getItem('solv_invite_token') : null;
+        if (pendingInvite && user) {
+          return this.acceptTeacherInvitation(pendingInvite).pipe(
+            switchMap(() => {
+              sessionStorage.removeItem('solv_invite_token');
+              return this.http.get<any>('/api/v1/users/me', { withCredentials: true }).pipe(
+                map((uResp) => (uResp?.data || uResp) as User)
+              );
+            }),
+            catchError((err) => {
+              console.warn('[AuthService] No se pudo canjear la invitación docente:', err);
+              sessionStorage.removeItem('solv_invite_token');
+              return of(user);
+            })
+          );
+        }
+        return of(user);
+      }),
+      tap((user) => {
         this.currentUser.set(user);
         this.isLoading.set(false);
       }),

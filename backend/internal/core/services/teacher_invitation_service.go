@@ -101,8 +101,8 @@ func (s *TeacherInvitationService) RenewInvitation(ctx context.Context, tenantID
 }
 
 func (s *TeacherInvitationService) AcceptInvitation(ctx context.Context, tenantID, token, userID, userEmail string) error {
-	if token == "" || userID == "" || userEmail == "" {
-		return errors.New("token, userID and userEmail are required")
+	if token == "" || userID == "" {
+		return errors.New("token and userID are required")
 	}
 	return s.repo.AcceptInvitationTx(ctx, tenantID, token, userID, userEmail)
 }
