@@ -80,10 +80,11 @@ export interface ComboboxGroup {
           role="listbox"
           tabindex="-1"
         >
-          <div class="combobox-header">
-            <span class="header-count">{{ headerCountText() }}</span>
-            @if (availableGroups().length > 1) {
-              <div class="combobox-group-chips">
+          @if (showHeader()) {
+            <div class="combobox-header">
+              <span class="header-count">{{ headerCountText() }}</span>
+              @if (availableGroups().length > 1) {
+                <div class="combobox-group-chips">
                 <button 
                   type="button" 
                   class="group-chip"
@@ -105,6 +106,7 @@ export interface ComboboxGroup {
               </div>
             }
           </div>
+        }
 
           <div class="options-scroll-container">
             @if (groupedOptions().length === 0) {
@@ -191,6 +193,7 @@ export class ComboboxComponent {
   inputAriaLabel = input<string>('Selector con búsqueda');
   suppressListbox = input<boolean>(false);
   hasError = input<boolean>(false);
+  showHeader = input<boolean>(true);
 
   valueChange = output<string>();
   optionSelected = output<ComboboxOption>();

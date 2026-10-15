@@ -66,10 +66,15 @@ export class ExerciseEditorStore {
   readonly exerciseId = signal<string | null>(null);
   readonly status = signal<'draft' | 'published'>('draft');
   readonly isSaving = signal<boolean>(false);
+  readonly isPublishing = signal<boolean>(false);
+  readonly showPublishConfirmModal = signal<boolean>(false);
+  readonly publishError = signal<string | null>(null);
+  readonly publishSuccess = signal<boolean>(false);
   readonly isLoading = signal<boolean>(false);
   readonly lastSavedAt = signal<Date | null>(null);
   readonly currentStep = signal<1 | 2 | 3>(1);
   readonly studentPreviewOpen = signal<boolean>(false);
+  readonly studentPreviewMode = signal<'preview' | 'simulation'>('preview');
 
   // Rubrica (IDE Persistente)
 
@@ -122,17 +127,84 @@ export class ExerciseEditorStore {
   readonly isChecklistLoading = signal<boolean>(false);
   readonly acceptedWarnings = signal<boolean>(false);
   readonly stepAttempted = signal<boolean>(false);
+  readonly hasInteracted = signal<boolean>(false);
+  readonly touchedFields = signal<Set<string>>(new Set<string>());
 
   // Estado de plantillas runner para Juez Efímero
   readonly runnerTemplates = signal<any[]>([]);
 
   // Snapshot inicial para cálculo de dirty
   private initialSnapshot = signal<string>('');
+  private autoSaveTimeout: any = null;
+
+  constructor() {
+    this.initialSnapshot.set(this.serializeState());
+  }
 
   readonly dirty = computed(() => {
     const current = this.serializeState();
     return this.initialSnapshot() !== '' && current !== this.initialSnapshot();
   });
+
+  private getDraftStorageKey(): string {
+    const exId = this.exerciseId();
+    const cId = this.courseId();
+    if (exId) {
+      return `solv_draft_${cId}_${exId}`;
+    }
+    return `solv_draft_${cId}_new`;
+  }
+
+  saveDraftToStorage() {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      const state = this.serializeState();
+      localStorage.setItem(this.getDraftStorageKey(), state);
+    } catch {
+      // Ignorar errores de quota en localStorage
+    }
+  }
+
+  restoreDraftFromStorage(): boolean {
+    if (typeof localStorage === 'undefined') return false;
+    try {
+      const raw = localStorage.getItem(this.getDraftStorageKey());
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (parsed.meta) this.metadata.set(parsed.meta);
+      if (parsed.stat) this.statement.set(parsed.stat);
+      if (parsed.contract) this.contract.set(parsed.contract);
+      if (Array.isArray(parsed.cases)) this.cases.set(parsed.cases);
+      if (parsed.ref !== undefined) this.referenceSolution.set(parsed.ref);
+      if (parsed.ast) this.astRules.set(parsed.ast);
+      if (parsed.bp !== undefined) this.boilerplate.set(parsed.bp);
+      this.hasInteracted.set(true);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  clearLocalDraft() {
+    if (typeof localStorage === 'undefined') return;
+    try {
+      localStorage.removeItem(this.getDraftStorageKey());
+    } catch {}
+  }
+
+  scheduleAutoSave() {
+    this.saveDraftToStorage();
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+    }
+    this.autoSaveTimeout = setTimeout(() => {
+      // Si ya tiene un título o contenido mínimo, auto-guardar en backend
+      const title = this.metadata().title.trim();
+      if (title && this.dirty() && !this.isSaving()) {
+        this.saveDraft();
+      }
+    }, 1500);
+  }
 
   // Métricas de casos
   readonly totalCasesCount = computed(() => this.cases().length);
@@ -199,6 +271,31 @@ export class ExerciseEditorStore {
     };
   });
 
+  readonly touchedStep1Errors = computed(() => {
+    const m = this.metadata();
+    const s = this.statement();
+    const errors: string[] = [];
+
+    if (this.isFieldTouched('title') && !m.title.trim()) {
+      errors.push('El título del ejercicio es obligatorio');
+    }
+    if (this.isFieldTouched('description') && !s.description.trim()) {
+      errors.push('La descripción del enunciado es obligatoria');
+    }
+    if (this.isFieldTouched('seed') && m.per_student_seed && m.purpose !== 'exam') {
+      errors.push('La semilla por estudiante solo está permitida en modalidad Examen');
+    }
+    if (m.environment_type === 'JUEZ_EFIMERO') {
+      if (this.isFieldTouched('language') && !m.language) {
+        errors.push('Debes seleccionar un lenguaje de ejecución');
+      }
+      if (this.isFieldTouched('time_limit') && (typeof m.time_limit_ms !== 'number' || isNaN(m.time_limit_ms) || m.time_limit_ms < 100 || m.time_limit_ms > 30000)) {
+        errors.push('El tiempo límite debe ser un número entre 100 y 30.000 ms');
+      }
+    }
+    return errors;
+  });
+
   readonly step2Validation = computed(() => {
     const m = this.metadata();
     const isIDE = m.environment_type === 'IDE_PERSISTENTE';
@@ -243,6 +340,31 @@ export class ExerciseEditorStore {
     };
   });
 
+  readonly touchedStep2Errors = computed(() => {
+    const m = this.metadata();
+    const isIDE = m.environment_type === 'IDE_PERSISTENTE';
+    const errors: string[] = [];
+
+    if (isIDE) {
+      if (this.isFieldTouched('template') && !m.template_id) {
+        errors.push('Debes seleccionar una plantilla aprobada del catálogo');
+      }
+      const rub = this.rubric();
+      if (this.isFieldTouched('rubric') && rub && rub.criteria && rub.criteria.length > 0) {
+        const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          errors.push(`La suma de pesos de la rúbrica es ${totalWeight}%. Debe ser exactamente 100%`);
+        }
+      }
+    } else {
+      const cs = this.cases();
+      if (this.isFieldTouched('cases') && cs.length === 0) {
+        errors.push('Debes incluir al menos un caso de prueba');
+      }
+    }
+    return errors;
+  });
+
   readonly step3Validation = computed(() => {
     const cl = this.checklistReport();
     const errors: string[] = cl ? [...cl.blockers] : [];
@@ -277,8 +399,9 @@ export class ExerciseEditorStore {
     this.acceptedWarnings.set(val);
   }
 
-  setStudentPreviewOpen(open: boolean) {
+  setStudentPreviewOpen(open: boolean, mode: 'preview' | 'simulation' = 'preview') {
     this.studentPreviewOpen.set(open);
+    this.studentPreviewMode.set(mode);
   }
 
 
@@ -419,6 +542,18 @@ export class ExerciseEditorStore {
     this.stepAttempted.set(false);
   }
 
+  markFieldTouched(fieldName: string) {
+    this.touchedFields.update(curr => {
+      const next = new Set(curr);
+      next.add(fieldName);
+      return next;
+    });
+  }
+
+  isFieldTouched(fieldName: string): boolean {
+    return this.touchedFields().has(fieldName) || this.stepAttempted() || this.exerciseId() !== null;
+  }
+
   attemptNextStep(): boolean {
     const current = this.currentStep();
     if (current < 3) {
@@ -430,7 +565,9 @@ export class ExerciseEditorStore {
   }
 
   updateMetadata(update: Partial<ExerciseMetadata>) {
+    this.hasInteracted.set(true);
     this.metadata.update(curr => ({ ...curr, ...update }));
+    this.scheduleAutoSave();
   }
 
   loadRunnerTemplates(): void {
@@ -497,35 +634,44 @@ export class ExerciseEditorStore {
   }
 
   updateStatement(update: Partial<ExerciseStatement>) {
+    this.hasInteracted.set(true);
     this.statement.update(curr => ({ ...curr, ...update }));
+    this.scheduleAutoSave();
   }
 
   updateAstRules(update: Partial<ASTRulesDTO>) {
     this.astRules.update(curr => ({ ...curr, ...update }));
+    this.scheduleAutoSave();
   }
 
   setBoilerplate(code: string) {
     this.boilerplate.set(code);
+    this.scheduleAutoSave();
   }
 
   setReferenceSolution(code: string) {
     this.referenceSolution.set(code);
+    this.scheduleAutoSave();
   }
 
   setContract(contract: any) {
     this.contract.set(contract);
+    this.scheduleAutoSave();
   }
 
   setCases(cases: TestCaseDTO[]) {
     this.cases.set(cases);
+    this.scheduleAutoSave();
   }
 
   addCase(tc: TestCaseDTO) {
     this.cases.update(curr => [...curr, tc]);
+    this.scheduleAutoSave();
   }
 
   addCases(tcs: TestCaseDTO[]) {
     this.cases.update(curr => [...curr, ...tcs]);
+    this.scheduleAutoSave();
   }
 
   updateCase(index: number, update: Partial<TestCaseDTO>) {
@@ -536,10 +682,12 @@ export class ExerciseEditorStore {
       }
       return copy;
     });
+    this.scheduleAutoSave();
   }
 
   removeCase(index: number) {
     this.cases.update(curr => curr.filter((_, i) => i !== index));
+    this.scheduleAutoSave();
   }
 
   duplicateCase(index: number) {
@@ -583,6 +731,7 @@ export class ExerciseEditorStore {
   loadExercise(exerciseId: string, courseId: string) {
     this.exerciseId.set(exerciseId);
     this.courseId.set(courseId);
+    this.hasInteracted.set(true);
     this.isLoading.set(true);
 
     this.courseService.getExercise(exerciseId).subscribe({
@@ -732,6 +881,108 @@ export class ExerciseEditorStore {
     }
   }
 
+  executePublish(onSuccess?: () => void, onError?: (err: any) => void): void {
+    const meta = this.metadata();
+    const stat = this.statement();
+    const id = this.exerciseId();
+    const cId = this.courseId();
+
+    this.isPublishing.set(true);
+    this.publishError.set(null);
+
+    const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
+    const payload: any = {
+      subject_id: cId,
+      title: meta.title || 'Borrador sin título',
+      description: stat.description,
+      type: isIDE ? 'project' : (meta.modality === 'judge' ? 'algorithm' : meta.modality),
+      environment_type: meta.environment_type || (isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO'),
+      template_id: meta.template_id || undefined,
+      difficulty: meta.difficulty || undefined,
+      tags: meta.tags,
+      purpose: meta.purpose,
+      per_student_seed: meta.per_student_seed,
+      language: meta.language,
+      time_limit_ms: meta.time_limit_ms,
+      due_date: meta.due_date ? new Date(meta.due_date).toISOString() : undefined,
+      expected_complexity: meta.expected_complexity || undefined,
+      ast_rules: this.astRules(),
+      boilerplate: this.boilerplate()
+    };
+
+    if (isIDE) {
+      payload.db_init_script = meta.db_init_script || undefined;
+      payload.allow_resubmit = meta.allow_resubmit;
+      payload.auto_checkpoint = meta.auto_checkpoint;
+    } else {
+      payload.reference_solution = this.referenceSolution();
+      payload.input_format = this.contract();
+      payload.test_cases = this.cases();
+    }
+
+    const doPublish = (exerciseIdToPublish: string) => {
+      this.courseService.publishExercise(exerciseIdToPublish).subscribe({
+        next: () => {
+          this.isPublishing.set(false);
+          this.status.set('published');
+          this.publishSuccess.set(true);
+          this.showPublishConfirmModal.set(false);
+          this.initialSnapshot.set(this.serializeState());
+          if (onSuccess) onSuccess();
+        },
+        error: (err: any) => {
+          this.isPublishing.set(false);
+          this.showPublishConfirmModal.set(false);
+          const msg = err.error?.message || err.message || 'No se pudo publicar el ejercicio.';
+          this.publishError.set(msg);
+          if (onError) onError(err);
+        }
+      });
+    };
+
+    if (id) {
+      this.courseService.updateExercise(id, payload).subscribe({
+        next: () => {
+          this.lastSavedAt.set(new Date());
+          if (isIDE && this.rubric()) {
+            this.http.put(`/api/v1/exercises/${id}/rubric`, this.rubric()).subscribe({ error: () => {} });
+          }
+          doPublish(id);
+        },
+        error: (err: any) => {
+          this.isPublishing.set(false);
+          this.showPublishConfirmModal.set(false);
+          this.publishError.set(err.error?.message || 'Error al guardar los cambios antes de publicar.');
+          if (onError) onError(err);
+        }
+      });
+    } else {
+      this.courseService.createExercise(payload).subscribe({
+        next: (created: any) => {
+          this.lastSavedAt.set(new Date());
+          const newId = created?.id;
+          if (newId) {
+            this.exerciseId.set(newId);
+            if (isIDE && this.rubric()) {
+              this.http.put(`/api/v1/exercises/${newId}/rubric`, this.rubric()).subscribe({ error: () => {} });
+            }
+            doPublish(newId);
+          } else {
+            this.isPublishing.set(false);
+            this.showPublishConfirmModal.set(false);
+            this.publishError.set('No se pudo obtener el identificador del ejercicio creado.');
+          }
+        },
+        error: (err: any) => {
+          this.isPublishing.set(false);
+          this.showPublishConfirmModal.set(false);
+          this.publishError.set(err.error?.message || 'Error al crear el ejercicio antes de publicar.');
+          if (onError) onError(err);
+        }
+      });
+    }
+  }
+
   resetDraft() {
     this.metadata.set({
       title: '',
@@ -772,7 +1023,11 @@ export class ExerciseEditorStore {
     this.boilerplates.set({});
     this.checklistReport.set(null);
     this.acceptedWarnings.set(false);
-    this.stepAttempted.set(false);
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+      this.autoSaveTimeout = null;
+    }
+    this.clearLocalDraft();
     this.currentStep.set(1);
     this.initialSnapshot.set(this.serializeState());
   }

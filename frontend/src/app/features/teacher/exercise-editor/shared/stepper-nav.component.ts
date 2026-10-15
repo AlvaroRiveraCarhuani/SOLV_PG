@@ -100,7 +100,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
           <div class="step-content">
             <span class="step-number">Paso 3</span>
             <span class="step-label">Reglas y Publicación</span>
-            <span class="step-hint">AST rules, boilerplate y checklist</span>
+            <span class="step-hint">Restricciones, código inicial y verificación</span>
           </div>
         </li>
       </ul>

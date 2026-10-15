@@ -12,7 +12,9 @@ import {
   LucideShieldCheck,
   LucideShieldX,
   LucideArrowRight,
-  LucideEye
+  LucideEye,
+  LucideGlobe,
+  LucideLoader2
 } from '@lucide/angular';
 
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -44,6 +46,8 @@ export interface PreFlightItem {
     LucideShieldX,
     LucideArrowRight,
     LucideEye,
+    LucideGlobe,
+    LucideLoader2,
     MachineDataDirective
   ],
   templateUrl: './publication-checklist.component.html',
@@ -53,7 +57,7 @@ export class PublicationChecklistComponent {
   readonly store = inject(ExerciseEditorStore);
 
   openStudentPreview(): void {
-    this.store.setStudentPreviewOpen(true);
+    this.store.setStudentPreviewOpen(true, 'simulation');
   }
 
   readonly blockersOpen = signal<boolean>(true);
@@ -94,7 +98,11 @@ export class PublicationChecklistComponent {
           actionLabel = 'Editar Identidad (Paso 1)';
         }
       } else {
-        if (msg.includes('caso')) {
+        if (msg.includes('tiempo')) {
+          stepTarget = 1;
+          targetElementId = 'time-limit';
+          actionLabel = 'Ajustar Tiempo Límite (Paso 1)';
+        } else if (msg.includes('caso')) {
           stepTarget = 2;
           targetElementId = 'cases-table-section';
           actionLabel = 'Gestionar Casos (Paso 2)';
@@ -114,10 +122,6 @@ export class PublicationChecklistComponent {
           stepTarget = 1;
           targetElementId = 'statement-description';
           actionLabel = 'Redactar Enunciado (Paso 1)';
-        } else if (msg.includes('tiempo')) {
-          stepTarget = 1;
-          targetElementId = 'time-limit';
-          actionLabel = 'Ajustar Tiempo Límite (Paso 1)';
         } else {
           stepTarget = 1;
           targetElementId = 'exercise-title';
@@ -161,7 +165,15 @@ export class PublicationChecklistComponent {
           actionLabel = 'Revisar Paso 1';
         }
       } else {
-        if (msg.includes('referencia') || msg.includes('solución')) {
+        if (msg.includes('tiempo') || msg.includes('calibración') || msg.includes('calibracion')) {
+          stepTarget = 1;
+          targetElementId = 'time-limit';
+          actionLabel = 'Ajustar Tiempo (Paso 1)';
+        } else if (msg.includes('semilla')) {
+          stepTarget = 1;
+          targetElementId = 'student-seed-toggle';
+          actionLabel = 'Configurar Semilla (Paso 1)';
+        } else if (msg.includes('referencia') || msg.includes('solución') || msg.includes('solucion')) {
           stepTarget = 2;
           targetElementId = 'reference-solution-section';
           actionLabel = 'Ver Solución (Paso 2)';

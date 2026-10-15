@@ -7,7 +7,7 @@ import { ExerciseImportResponse } from '../../../models/teacher.models';
 describe('ImportExercisesModalComponent', () => {
   let component: ImportExercisesModalComponent;
   let fixture: ComponentFixture<ImportExercisesModalComponent>;
-  let mockTeacherCourseService: jasmine.SpyObj<TeacherCourseService>;
+  let mockTeacherCourseService: { importExercises: ReturnType<typeof vi.fn> };
 
   const mockPreviewResponse: ExerciseImportResponse = {
     mode: 'dry_run',
@@ -26,8 +26,9 @@ describe('ImportExercisesModalComponent', () => {
   };
 
   beforeEach(async () => {
-    mockTeacherCourseService = jasmine.createSpyObj('TeacherCourseService', ['importExercises']);
-    mockTeacherCourseService.importExercises.and.returnValue(of(mockPreviewResponse));
+    mockTeacherCourseService = {
+      importExercises: vi.fn().mockReturnValue(of(mockPreviewResponse))
+    };
 
     await TestBed.configureTestingModule({
       imports: [ImportExercisesModalComponent],
@@ -77,15 +78,15 @@ describe('ImportExercisesModalComponent', () => {
       can_import: true,
       imported_count: 1
     };
-    mockTeacherCourseService.importExercises.and.returnValue(of(actualResponse));
+    mockTeacherCourseService.importExercises.mockReturnValue(of(actualResponse));
 
-    spyOn(component.imported, 'emit');
-    spyOn(component.closed, 'emit');
+    const emitImportedSpy = vi.spyOn(component.imported, 'emit');
+    const emitClosedSpy = vi.spyOn(component.closed, 'emit');
 
     component.confirmImport();
 
     expect(mockTeacherCourseService.importExercises).toHaveBeenCalledWith('course-123', file, false);
-    expect(component.imported.emit).toHaveBeenCalledWith(1);
-    expect(component.closed.emit).toHaveBeenCalled();
+    expect(emitImportedSpy).toHaveBeenCalledWith(1);
+    expect(emitClosedSpy).toHaveBeenCalled();
   });
 });

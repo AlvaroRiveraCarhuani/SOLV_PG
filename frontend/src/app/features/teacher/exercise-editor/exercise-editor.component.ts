@@ -7,7 +7,9 @@ import {
   LucideChevronLeft,
   LucideCheck,
   LucideEye,
-  LucideTrash2
+  LucideTrash2,
+  LucideGlobe,
+  LucideLoader2
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepperNavComponent } from './shared/stepper-nav.component';
@@ -31,6 +33,8 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
     LucideCheck,
     LucideEye,
     LucideTrash2,
+    LucideGlobe,
+    LucideLoader2,
     StepperNavComponent,
     SummaryPanelComponent,
     StepIdentityComponent,
@@ -78,7 +82,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
           <button
             type="button"
             class="btn-outline preview-btn"
-            (click)="store.setStudentPreviewOpen(true)"
+            (click)="store.setStudentPreviewOpen(true, 'preview')"
             title="Ver exactamente cómo verá el estudiante el enunciado y editor"
           >
             <svg lucideEye class="btn-icon"></svg>
@@ -116,6 +120,29 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
               <span>Siguiente</span>
               <svg lucideChevronRight class="btn-icon"></svg>
             </button>
+          } @else {
+            @if (store.status() === 'published') {
+              <div class="published-pill">
+                <svg lucideCheck class="btn-icon"></svg>
+                <span>Publicado</span>
+              </div>
+            } @else {
+              <button
+                type="button"
+                class="btn-primary btn-publish-step"
+                [disabled]="!store.canPublish() || store.isPublishing()"
+                (click)="store.showPublishConfirmModal.set(true)"
+                [title]="store.canPublish() ? 'Publicar ejercicio para los estudiantes' : 'Resuelve los requisitos bloqueantes para publicar'"
+              >
+                @if (store.isPublishing()) {
+                  <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                  <span>Publicando...</span>
+                } @else {
+                  <svg lucideGlobe class="btn-icon"></svg>
+                  <span>Publicar</span>
+                }
+              </button>
+            }
           }
         </div>
       </header>
@@ -177,6 +204,20 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
         />
       }
 
+      <!-- Modal de Confirmación para Publicar Ejercicio -->
+      @if (store.showPublishConfirmModal()) {
+        <confirm-modal
+          title="Publicar Ejercicio"
+          [message]="'¿Confirmas publicar «' + (store.metadata().title || 'este ejercicio') + '»? Quedará visible inmediatamente para todos los estudiantes inscritos en el curso.'"
+          confirmText="Publicar ahora"
+          cancelText="Cancelar"
+          type="primary"
+          [isLoading]="store.isPublishing()"
+          (confirm)="onPublishConfirmed()"
+          (cancel)="store.showPublishConfirmModal.set(false)"
+        />
+      }
+
       <!-- Toast de Confirmación -->
       @if (toastMessage(); as msg) {
         <div class="toast-notification animate-fade" role="status">
@@ -218,15 +259,18 @@ export class ExerciseEditorComponent implements OnInit {
   onDeleteDraftConfirmed() {
     this.showDeleteModal.set(false);
     this.store.resetDraft();
-    this.showToast('Borrador eliminado correctamente.');
-    const cId = this.courseId() || this.route.snapshot.paramMap.get('courseId') || '';
-    setTimeout(() => {
-      if (cId) {
-        this.router.navigate(['/teacher/cursos', cId]);
-      } else {
-        this.router.navigate(['/teacher/cursos']);
+    this.showToast('Borrador restablecido correctamente.');
+  }
+
+  onPublishConfirmed() {
+    this.store.executePublish(
+      () => {
+        this.showToast('¡Ejercicio publicado con éxito!');
+      },
+      (err) => {
+        this.showToast(this.store.publishError() || 'Error al publicar el ejercicio.');
       }
-    }, 800);
+    );
   }
 
   private showToast(message: string) {
@@ -256,6 +300,9 @@ export class ExerciseEditorComponent implements OnInit {
 
     if (exId) {
       this.store.loadExercise(exId, cId);
+    } else {
+      // Si es nuevo ejercicio, recuperar borrador local persistido automáticamente si existe
+      this.store.restoreDraftFromStorage();
     }
   }
 }

@@ -138,7 +138,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
               placeholder="Escribe la descripción del problema en formato Markdown y fórmulas LaTeX ($x$)..."
               [ngModel]="store.statement().description"
               (ngModelChange)="onDescriptionChange($event)"
-              (blur)="isTouched.set(true)"
+              (blur)="onDescriptionBlur()"
               (keydown)="onTextareaKeyDown($event)"
               (scroll)="onEditorScroll()"
               rows="18"
@@ -220,7 +220,7 @@ export class StatementEditorComponent {
     // 1. Block math: $$ ... $$
     let processed = raw.replace(/\$\$([\s\S]+?)\$\$/g, (_, math) => {
       try {
-        return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false })}</div>`;
+        return `<div class="katex-block-wrapper">${katex.renderToString(math.trim(), { displayMode: true, throwOnError: false, output: 'mathml' })}</div>`;
       } catch {
         return `<pre class="katex-error">${math}</pre>`;
       }
@@ -229,7 +229,7 @@ export class StatementEditorComponent {
     // 2. Inline math: $ ... $
     processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
       try {
-        return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
+        return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false, output: 'mathml' });
       } catch {
         return `<code>${math}</code>`;
       }
@@ -241,6 +241,11 @@ export class StatementEditorComponent {
       return `<pre class="fallback-preview">${raw}</pre>`;
     }
   });
+
+  onDescriptionBlur() {
+    this.isTouched.set(true);
+    this.store.markFieldTouched('description');
+  }
 
   onDescriptionChange(description: string) {
     this.store.updateStatement({ description });

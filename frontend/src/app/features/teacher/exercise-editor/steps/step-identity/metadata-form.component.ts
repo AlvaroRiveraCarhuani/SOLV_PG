@@ -35,7 +35,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           placeholder="Ej: Suma de Dos Números, Inversión de Matrices..."
           [ngModel]="store.metadata().title"
           (ngModelChange)="onTitleChange($event)"
-          (blur)="titleTouched.set(true)"
+          (blur)="onTitleBlur()"
           maxlength="200"
           required
         />
@@ -109,7 +109,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
             [class.has-error]="showTimeLimitError()"
             [value]="rawTimeLimit()"
             (input)="onTimeLimitInput($event)"
-            (blur)="timeLimitTouched.set(true)"
+            (blur)="onTimeLimitBlur()"
             placeholder="Ej: 1000"
             maxlength="7"
           />
@@ -271,6 +271,16 @@ export class MetadataFormComponent implements OnInit {
 
   ngOnInit(): void {
     this.store.loadRunnerTemplates();
+  }
+
+  onTitleBlur() {
+    this.titleTouched.set(true);
+    this.store.markFieldTouched('title');
+  }
+
+  onTimeLimitBlur() {
+    this.timeLimitTouched.set(true);
+    this.store.markFieldTouched('time_limit');
   }
 
   onTitleChange(title: string) {

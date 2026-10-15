@@ -1,11 +1,11 @@
 import { Component, EventEmitter, Input, Output, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideAlertTriangle, LucideHelpCircle, LucideX } from '@lucide/angular';
+import { LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX } from '@lucide/angular';
 
 @Component({
   selector: 'confirm-modal',
   standalone: true,
-  imports: [CommonModule, LucideAlertTriangle, LucideHelpCircle, LucideX],
+  imports: [CommonModule, LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX],
   template: `
     <div class="modal-backdrop" (click)="onCancel()">
       <div class="modal-card confirm-modal-card" (click)="$event.stopPropagation()">
@@ -33,14 +33,18 @@ import { LucideAlertTriangle, LucideHelpCircle, LucideX } from '@lucide/angular'
         </div>
 
         <div class="modal-footer">
-          <button class="btn-outline" (click)="onCancel()">
+          <button class="btn-outline" (click)="onCancel()" [disabled]="isLoading">
             {{ cancelText }}
           </button>
           <button 
             class="btn-confirm-action" 
             [class.btn-danger]="type === 'danger'"
             [class.btn-primary]="type !== 'danger'"
+            [disabled]="isLoading"
             (click)="onConfirm()">
+            @if (isLoading) {
+              <svg lucideLoader2 class="spin-icon"></svg>
+            }
             {{ confirmText }}
           </button>
         </div>
@@ -55,6 +59,7 @@ export class ConfirmModalComponent {
   @Input() confirmText = 'Confirmar';
   @Input() cancelText = 'Cancelar';
   @Input() type: 'danger' | 'primary' = 'primary';
+  @Input() isLoading = false;
 
   @Output() confirm = new EventEmitter<void>();
   @Output() cancel = new EventEmitter<void>();

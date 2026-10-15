@@ -37,4 +37,15 @@
     background-color: var(--color-error);
     &:hover { background-color: var(--verdict-ast-color); }
   }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+
+  .spin-icon {
+    width: 14px;
+    height: 14px;
+    animation: spin 1s linear infinite;
+  }
 }

@@ -4,7 +4,7 @@
     <div class="card-header">
       <div class="header-left">
         <span class="card-hint">
-          Evaluación estructural automática de integridad algorítmica y calibración de límites:
+          Comprobación automática de requisitos antes de publicar el ejercicio:
         </span>
       </div>
 
@@ -159,13 +159,16 @@
             <ul class="items-list">
               @for (item of infoItems(); track item) {
                 <li class="item-row item-info">
-                  <svg lucideInfo class="item-icon"></svg>
-                  <span class="item-text">{{ item }}</span>
+                  <div class="item-main">
+                    <svg lucideInfo class="item-icon"></svg>
+                    <span class="item-text">{{ item }}</span>
+                  </div>
                 </li>
               }
             </ul>
           } @else {
             <div class="empty-status">
+              <svg lucideInfo class="empty-icon icon-info"></svg>
               <span class="empty-text">Guarda un borrador para obtener telemetría de ejecución.</span>
             </div>
           }
@@ -177,38 +180,84 @@
     <div class="publication-status-banner">
       @if (hasBlockers()) {
         <div class="status-box box-danger">
-          <svg lucideShieldX class="box-icon"></svg>
-          <div class="box-content">
-            <span class="box-title">Publicación Bloqueada</span>
-            <span class="box-desc">Debes corregir los problemas bloqueantes antes de publicar este ejercicio.</span>
+          <div class="status-box-main">
+            <svg lucideShieldX class="box-icon"></svg>
+            <div class="box-content">
+              <span class="box-title">Publicación Bloqueada</span>
+              <span class="box-desc">Debes corregir los problemas bloqueantes antes de publicar este ejercicio.</span>
+            </div>
           </div>
+          <button
+            type="button"
+            class="btn-publish-action disabled"
+            disabled
+            title="Debes resolver los problemas bloqueantes antes de publicar"
+          >
+            <svg lucideGlobe class="btn-icon"></svg>
+            <span>Publicar Ejercicio</span>
+          </button>
         </div>
       } @else if (hasWarnings() && !store.acceptedWarnings()) {
         <div class="status-box box-warning">
-          <svg lucideAlertTriangle class="box-icon"></svg>
-          <div class="box-content">
-            <span class="box-title">Requiere Confirmación</span>
-            <span class="box-desc">Marca la casilla de confirmación de advertencias para habilitar el botón de publicación.</span>
+          <div class="status-box-main">
+            <svg lucideAlertTriangle class="box-icon"></svg>
+            <div class="box-content">
+              <span class="box-title">Requiere Confirmación</span>
+              <span class="box-desc">Marca la casilla de confirmación de advertencias para habilitar el botón de publicación.</span>
+            </div>
           </div>
+          <button
+            type="button"
+            class="btn-publish-action disabled"
+            disabled
+            title="Confirma la revisión de advertencias arriba para habilitar la publicación"
+          >
+            <svg lucideGlobe class="btn-icon"></svg>
+            <span>Publicar Ejercicio</span>
+          </button>
         </div>
       } @else {
         <div class="status-box box-success">
           <div class="status-box-main">
             <svg lucideShieldCheck class="box-icon"></svg>
             <div class="box-content">
-              <span class="box-title">Ejercicio Listo para Publicar</span>
-              <span class="box-desc">Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.</span>
+              <span class="box-title">
+                {{ store.status() === 'published' ? 'Ejercicio Publicado' : 'Ejercicio Listo para Publicar' }}
+              </span>
+              <span class="box-desc">
+                {{ store.status() === 'published' ? 'El ejercicio está activo y disponible para los estudiantes.' : 'Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.' }}
+              </span>
             </div>
           </div>
-          <button
-            type="button"
-            class="btn-simulate"
-            (click)="openStudentPreview()"
-            title="Abrir simulación interactiva con el enunciado y editor del estudiante"
-          >
-            <svg lucideEye class="btn-icon"></svg>
-            <span>Simular como Estudiante</span>
-          </button>
+          <div class="box-actions">
+            <button
+              type="button"
+              class="btn-simulate"
+              (click)="openStudentPreview()"
+              title="Abrir simulación interactiva con el enunciado y editor del estudiante"
+            >
+              <svg lucideEye class="btn-icon"></svg>
+              <span>Simular como Estudiante</span>
+            </button>
+
+            @if (store.status() !== 'published') {
+              <button
+                type="button"
+                class="btn-publish-action"
+                [disabled]="store.isPublishing()"
+                (click)="store.showPublishConfirmModal.set(true)"
+                title="Publicar este ejercicio para los estudiantes"
+              >
+                @if (store.isPublishing()) {
+                  <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                  <span>Publicando...</span>
+                } @else {
+                  <svg lucideGlobe class="btn-icon"></svg>
+                  <span>Publicar Ejercicio</span>
+                }
+              </button>
+            }
+          </div>
         </div>
       }
     </div>

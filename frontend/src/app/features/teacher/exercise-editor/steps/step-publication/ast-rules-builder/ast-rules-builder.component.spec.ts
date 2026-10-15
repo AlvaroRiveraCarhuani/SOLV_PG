@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { ASTRulesBuilderComponent, AST_PRESETS } from './ast-rules-builder.component';
+import { ASTRulesBuilderComponent } from './ast-rules-builder.component';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
 
 describe('ASTRulesBuilderComponent', () => {
@@ -29,30 +29,32 @@ describe('ASTRulesBuilderComponent', () => {
     expect(component).toBeTruthy();
   });
 
-  it('debe aplicar un preset rápido de reglas AST', () => {
-    const preset = AST_PRESETS[0];
-    component.applyPreset(preset);
+  it('debe alternar la política pedagógica de ordenamiento nativo', () => {
+    const sortPolicy = component.policies().find(p => p.key === 'sort');
+    expect(sortPolicy).toBeDefined();
 
-    const rules = store.astRules().custom_rules || [];
-    expect(rules.length).toBe(1);
-    expect(rules[0].pattern).toBe(preset.rule.pattern);
+    sortPolicy?.toggle(true);
+    expect(store.astRules().block_native_sort).toBe(true);
+
+    sortPolicy?.toggle(false);
+    expect(store.astRules().block_native_sort).toBe(false);
   });
 
-  it('debe permitir agregar y eliminar reglas personalizadas', () => {
+  it('debe permitir agregar y eliminar reglas específicas de restricción', () => {
     component.newRule.set({
       language: 'python',
-      type: 'method',
+      type: 'function',
       pattern: 'pop',
       message: 'No usar pop'
     });
-    component.addRule();
+    component.addSpecificRule();
 
-    let rules = store.astRules().custom_rules || [];
+    let rules = component.customSpecificRules();
     expect(rules.length).toBe(1);
     expect(rules[0].pattern).toBe('pop');
 
-    component.removeRule(0);
-    rules = store.astRules().custom_rules || [];
+    component.removeSpecificRule(rules[0]);
+    rules = component.customSpecificRules();
     expect(rules.length).toBe(0);
   });
 });

@@ -5,7 +5,8 @@ import {
   LucideCpu,
   LucideAlertTriangle,
   LucideAlertCircle,
-  LucideLayers
+  LucideLayers,
+  LucideCheck
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../exercise-editor.store';
@@ -20,6 +21,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
     LucideAlertTriangle,
     LucideAlertCircle,
     LucideLayers,
+    LucideCheck,
     MachineDataDirective
   ],
   template: `
@@ -187,6 +189,19 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
         </div>
       }
 
+      <!-- Estado de los requisitos del paso actual (Pasos 1 y 2) -->
+      @if (store.currentStep() < 3 && contextualErrors().length === 0 && contextualWarnings().length === 0) {
+        <div class="summary-section step-status-box valid-status">
+          <div class="status-header">
+            <svg lucideCheck class="status-icon-valid"></svg>
+            <span class="status-title">Requisitos obligatorios al día</span>
+          </div>
+          <p class="status-desc">
+            La auditoría integral de calidad y pre-vuelo se evalúa en el Paso 3 antes de publicar.
+          </p>
+        </div>
+      }
+
       <!-- Sección: Radiografía de Calidad (Paso 3) -->
       @if (store.currentStep() === 3) {
         <div class="summary-section health-audit-box">
@@ -242,10 +257,10 @@ export class SummaryPanelComponent {
   readonly contextualErrors = computed<string[]>(() => {
     const step = this.store.currentStep();
     if (step === 1) {
-      return this.store.step1Validation().errors;
+      return this.store.touchedStep1Errors();
     }
     if (step === 2) {
-      return this.store.step2Validation().errors;
+      return this.store.touchedStep2Errors();
     }
     return [];
   });

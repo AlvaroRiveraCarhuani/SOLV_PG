@@ -39,7 +39,7 @@ describe('PublicationChecklistComponent', () => {
     fixture.detectChanges();
 
     expect(component.hasBlockers()).toBe(true);
-    expect(component.blockers().length).toBe(1);
+    expect(component.structuredBlockers().length).toBe(1);
   });
 
   it('debe permitir aceptar advertencias pedagógicas', () => {

@@ -136,6 +136,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 
       <!-- Toggle Avanzado: Semilla por Estudiante -->
       <div
+        id="student-seed-toggle"
         class="seed-toggle-container"
         [class.disabled]="store.metadata().purpose !== 'exam'"
         [class.active]="store.metadata().purpose === 'exam' && store.metadata().per_student_seed"

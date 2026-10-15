@@ -3,7 +3,7 @@ schema: spec-driven
 context: |
   Backend: Go 1.25 + net/http.ServeMux (no Gin) + sqlx + PostgreSQL; hexagonal (core/domain, core/services, infrastructure/, delivery/http); goose migrations.
   Frontend: Angular 22 standalone zoneless (Signals only, @if/@for/@switch, inject(), loadComponent); Material 3 + Lucide + SCSS tokens; selector prefix `app`, `solv-` banned; Tailwind banned.
-  Testing: backend `go test ./...` unit + integration (needs TEST_DB_DSN); frontend `ng test` (vitest + jsdom); stylelint gate `npm run lint:styles`; Semgrep in CI.
+  Testing: backend `go test ./...` unit + integration (needs TEST_DB_DSN); frontend `ng test` (vitest + jsdom); build check `CI=true npm run build` (ngtsc template validation); stylelint gate `npm run lint:styles`; Semgrep in CI.
   Style: Conventional Commits with Que/Por que/Como/Impacto body; no emojis; ADRs tracked in docs/ARQUITECTURA/ADR/INDEX.md.
 
 rules:
@@ -27,7 +27,8 @@ rules:
     test_command: "cd backend && go test ./... -count=1"
   verify:
     test_command: "cd backend && go test ./... -count=1"
-    build_command: "cd frontend && npm run build"
+    build_command: "cd frontend && CI=true npm run build"
+    lint_command: "cd frontend && npm run lint:styles"
     coverage_threshold: 0
   archive:
     - Warn before merging destructive deltas
@@ -37,6 +38,7 @@ testing:
   backend_runner: "cd backend && go test ./... -count=1"
   backend_integration_env: "TEST_DB_DSN=postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
   frontend_runner: "cd frontend && npx ng test"
+  frontend_build: "cd frontend && CI=true npm run build"
   coverage_backend: "cd backend && go test -cover ./..."
   coverage_frontend: "cd frontend && npx ng test --coverage"
   lint_styles: "cd frontend && npm run lint:styles"
