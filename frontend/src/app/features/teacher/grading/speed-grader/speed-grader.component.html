@@ -80,12 +80,12 @@
           title="Alternar comparación de código (D)"
         >
           <svg lucideGitCompare class="btn-icon-sm"></svg>
-          <span>{{ showDiffView() ? 'Código Completo' : 'Diff vs Base' }} <kbd>D</kbd></span>
+          <span>{{ showDiffView() ? 'Código Completo' : 'Comparar con Código Inicial' }} <kbd>D</kbd></span>
         </button>
 
         <button class="btn-outline" [disabled]="isRunningEphemeral()" (click)="runEphemeralSandbox()">
           <svg lucidePlay class="btn-icon-sm"></svg>
-          <span>{{ isRunningEphemeral() ? 'Ejecutando...' : 'Re-ejecutar Sandbox' }}</span>
+          <span>{{ isRunningEphemeral() ? 'Ejecutando...' : 'Re-ejecutar Prueba' }}</span>
         </button>
 
         <button 
@@ -300,9 +300,7 @@
         <div class="verdict-card" [class]="'card-' + r.verdict.toLowerCase().replace('_', '-')">
           <div class="verdict-header">
             <span class="verdict-title">Veredicto Oficial</span>
-            <span class="verdict-pill">
-              <code class="font-mono">{{ r.verdict }}</code>
-            </span>
+            <verdict-badge [verdict]="r.verdict" size="md" />
           </div>
 
           <div class="verdict-meta">
@@ -384,13 +382,13 @@
           </div>
         }
 
-        <!-- Panel de Violaciones AST / Semgrep (ADR-005) -->
+        <!-- Panel de Infracción de Restricciones de Código -->
         @if (r.verdict === 'AST_BLOCKED' || r.ast_result) {
           <div class="ast-violations-box">
             <div class="ast-header">
               <svg lucideAlertTriangle class="btn-icon-sm text-danger"></svg>
-              <span>Auditoría AST / Semgrep (ADR-005)</span>
-              <span class="ast-badge-blocked">Bloqueo Estático</span>
+              <span>Infracción de Restricciones de Código</span>
+              <span class="ast-badge-blocked">Regla no cumplida</span>
             </div>
             <div class="ast-body">
               <p class="ast-desc">El código enviado infringió las restricciones estáticas de seguridad o sintaxis definidas para este laboratorio.</p>
@@ -405,17 +403,17 @@
           </div>
         }
 
-        <!-- Resultado de Ejecución Efímera en Sandbox (si existe) -->
+        <!-- Resultado de Prueba Rápida en Contenedor (si existe) -->
         @if (ephemeralResult(); as eph) {
           <div class="ephemeral-result-box">
             <div class="eph-header">
               <svg lucideTerminal class="btn-icon-sm"></svg>
-              <span>Ejecución Efímera (Sandbox)</span>
+              <span>Prueba Rápida en Contenedor</span>
             </div>
             <div class="eph-body">
               <div class="meta-row">
                 <span>Veredicto:</span>
-                <code class="font-mono">{{ eph.verdict }}</code>
+                <verdict-badge [verdict]="eph.verdict" size="sm" />
               </div>
               <div class="meta-row">
                 <span>Tiempo:</span>

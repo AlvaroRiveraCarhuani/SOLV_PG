@@ -2,8 +2,8 @@
   <!-- Header Principal -->
   <header class="plagiarism-header">
     <div class="header-titles">
-      <h1 class="page-title">Auditoría Global Anti-Plagio (AST & Semgrep)</h1>
-      <p class="page-subtitle">Detección de similitud estructural en árboles sintácticos y análisis cruzado de entregas.</p>
+      <h1 class="page-title">Control de Plagio y Similitud de Código</h1>
+      <p class="page-subtitle">Detección de similitud estructural y análisis cruzado de entregas entre estudiantes.</p>
     </div>
 
     <div class="header-actions">
@@ -14,7 +14,7 @@
         (click)="runScan()"
       >
         <svg lucideRefreshCw class="btn-icon" [class.spin-animate]="isScanning()"></svg>
-        <span>{{ isScanning() ? 'Analizando AST...' : 'Re-escanear Materia' }}</span>
+        <span>{{ isScanning() ? 'Analizando entregas...' : 'Re-escanear Materia' }}</span>
       </button>
     </div>
   </header>
@@ -96,7 +96,7 @@
       <!-- Columna Izquierda: Lista de Pares -->
       <aside class="matches-list-panel">
         <div class="panel-header">
-          <h2 class="panel-title">Pares con Similitud AST ({{ filteredMatches().length }})</h2>
+          <h2 class="panel-title">Entregas con alta similitud ({{ filteredMatches().length }})</h2>
         </div>
 
         <div class="matches-list">
@@ -110,12 +110,11 @@
             >
               <div class="match-item-header">
                 <span
-                  class="risk-badge font-mono"
+                  class="risk-badge"
                   [class.risk-critical]="match.risk_level === 'critical'"
                   [class.risk-warning]="match.risk_level === 'warning'"
-                  machineData
                 >
-                  {{ match.similarity }}% AST
+                  <span class="font-mono" machineData>{{ match.similarity }}%</span> similitud
                 </span>
                 <span class="exercise-name">{{ match.exercise_title }}</span>
               </div>
@@ -172,18 +171,18 @@
               </div>
             </div>
 
-            <!-- Métricas Técnicas del AST -->
+            <!-- Métricas Técnicas de Similitud -->
             <div class="ast-metrics-grid">
               <div class="ast-metric-box">
-                <span class="ast-metric-label">Tokens Coincidentes</span>
+                <span class="ast-metric-label">Elementos coincidentes</span>
                 <span class="ast-metric-val font-mono" machineData>{{ match.matching_tokens }}</span>
               </div>
               <div class="ast-metric-box">
-                <span class="ast-metric-label">Tokens Estudiante A</span>
+                <span class="ast-metric-label">Total elementos Estudiante A</span>
                 <span class="ast-metric-val font-mono" machineData>{{ match.total_tokens_a }}</span>
               </div>
               <div class="ast-metric-box">
-                <span class="ast-metric-label">Tokens Estudiante B</span>
+                <span class="ast-metric-label">Total elementos Estudiante B</span>
                 <span class="ast-metric-val font-mono" machineData>{{ match.total_tokens_b }}</span>
               </div>
             </div>
@@ -193,7 +192,7 @@
               <div class="structures-section">
                 <h4 class="section-title">
                   <svg lucideCode class="section-icon"></svg>
-                  <span>Nodos y Subárboles AST Idénticos</span>
+                  <span>Estructuras y Bloques de Código Idénticos</span>
                 </h4>
                 <div class="structures-tags">
                   @for (st of match.common_structures; track st) {
@@ -206,13 +205,13 @@
             <!-- Nota Explicativa -->
             <div class="info-alert">
               <svg lucideInfo class="info-icon"></svg>
-              <p>El motor de análisis AST normaliza nombres de variables, funciones y comentarios, comparando únicamente la lógica algorítmica y la estructura de control de flujo.</p>
+              <p>El análisis de similitud estructural normaliza nombres de variables, funciones y comentarios, comparando la lógica algorítmica y la estructura del código.</p>
             </div>
           </div>
         } @else {
           <div class="empty-selection">
             <svg lucideGitCompare class="empty-icon"></svg>
-            <p>Seleccioná un par de la lista izquierda para inspeccionar los nodos AST coincidentes.</p>
+            <p>Seleccioná un par de la lista izquierda para inspeccionar los bloques de código coincidentes.</p>
           </div>
         }
       </main>

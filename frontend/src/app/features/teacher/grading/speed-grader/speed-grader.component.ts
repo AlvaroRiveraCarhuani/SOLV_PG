@@ -34,6 +34,7 @@ import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay
 import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
 
 @Component({
@@ -67,7 +68,8 @@ import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
     TimeTravelReplayComponent,
     ComplexityBenchmarkComponent,
     KeystrokeReplayModalComponent,
-    ComboboxComponent
+    ComboboxComponent,
+    VerdictBadgeComponent
   ],
   templateUrl: './speed-grader.component.html',
   styleUrl: './speed-grader.component.scss'

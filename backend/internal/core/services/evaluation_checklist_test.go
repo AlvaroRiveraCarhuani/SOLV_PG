@@ -103,8 +103,8 @@ func TestGenerateChecklist_BlockersAndWarnings(t *testing.T) {
 		}
 		if len(report.Warnings) == 0 {
 			t.Errorf("expected at least 1 warning, got 0")
-		} else if !strings.Contains(report.Warnings[0], "0 casos ocultos") {
-			t.Errorf("expected warning message to contain '0 casos ocultos', got %q", report.Warnings[0])
+		} else if !strings.Contains(report.Warnings[0], "Sin casos ocultos") {
+			t.Errorf("expected warning message to contain 'Sin casos ocultos', got %q", report.Warnings[0])
 		}
 	})
 
@@ -146,8 +146,8 @@ func TestGenerateChecklist_BlockersAndWarnings(t *testing.T) {
 		}
 		if len(report.Blockers) == 0 {
 			t.Errorf("expected at least 1 blocker, got 0")
-		} else if !strings.Contains(report.Blockers[0], "La solución de referencia no obtuvo AC") {
-			t.Errorf("expected blocker message to contain 'La solución de referencia no obtuvo AC', got %q", report.Blockers[0])
+		} else if !strings.Contains(report.Blockers[0], "La solución de referencia falló en el caso") {
+			t.Errorf("expected blocker message to contain 'La solución de referencia falló en el caso', got %q", report.Blockers[0])
 		}
 	})
 }

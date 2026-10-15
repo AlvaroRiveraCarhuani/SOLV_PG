@@ -25,7 +25,7 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
   {
     title: 'SUPERVISIÓN',
     items: [
-      { label: 'Anti-Plagio AST', route: '/teacher/anti-plagio', iconName: 'shield-alert' }
+      { label: 'Control de Plagio', route: '/teacher/anti-plagio', iconName: 'shield-alert' }
     ]
   }
 ];

@@ -1022,7 +1022,7 @@ func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID st
 				if res.ErrorDetails != "" {
 					v += " (" + res.ErrorDetails + ")"
 				}
-				report.Blockers = append(report.Blockers, fmt.Sprintf("La solución de referencia no obtuvo AC en el caso #%d (Veredicto: %s).", i+1, v))
+				report.Blockers = append(report.Blockers, fmt.Sprintf("La solución de referencia falló en el caso #%d (Resultado: %s).", i+1, v))
 				break
 			}
 			dur := int(res.ExecutionTime.Milliseconds())
@@ -1032,7 +1032,7 @@ func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID st
 		}
 		if dryRunPassed {
 			refExecutionTimeMS = maxDurationMS
-			report.Info = append(report.Info, fmt.Sprintf("Solución de referencia validada con AC en todos los casos (%d ms máx).", refExecutionTimeMS))
+			report.Info = append(report.Info, fmt.Sprintf("Solución de referencia verificada con éxito en todos los casos (%d ms máx).", refExecutionTimeMS))
 		}
 	}
 
