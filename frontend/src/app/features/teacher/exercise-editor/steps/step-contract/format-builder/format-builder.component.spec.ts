@@ -26,9 +26,10 @@ describe('FormatBuilderComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe inicializarse y cargar el preset inicial', () => {
+  it('debe inicializarse por defecto en modo sin contrato estricto', () => {
     expect(component).toBeTruthy();
-    expect(component.lines().length).toBeGreaterThan(0);
+    expect(component.isContractEnabled()).toBe(false);
+    expect(component.lines().length).toBe(0);
   });
 
   it('debe aplicar un preset seleccionado y sincronizar con el store', () => {

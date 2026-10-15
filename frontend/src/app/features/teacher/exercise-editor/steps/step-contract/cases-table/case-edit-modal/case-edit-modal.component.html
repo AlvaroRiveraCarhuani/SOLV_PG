@@ -19,6 +19,20 @@
 
       <!-- Body / Side-by-Side Grid -->
       <div class="modal-body">
+        <div class="desc-field-group">
+          <label class="desc-label" for="case-description-input">
+            Descripción Pedagógica (opcional)
+          </label>
+          <input
+            id="case-description-input"
+            type="text"
+            class="modal-desc-input font-sans"
+            [ngModel]="currentDescription()"
+            (ngModelChange)="currentDescription.set($event)"
+            placeholder="Ej: Caso borde: lista vacía, números negativos, matriz 1x1..."
+          />
+        </div>
+
         <div class="side-by-side-grid">
           <!-- Columna Izquierda: stdin -->
           <div class="side-col">
@@ -77,9 +91,9 @@
 
       <!-- Footer -->
       <div class="modal-footer">
-        <div class="stats-info font-mono">
+        <div class="stats-info">
           <span class="stat-item text-muted">
-            Normalización automática POSIX (LF) activa
+            Saltos de línea normalizados automáticamente
           </span>
         </div>
 

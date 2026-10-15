@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Subject, of } from 'rxjs';
-import { debounceTime, switchMap, map, catchError } from 'rxjs/operators';
+import { debounceTime, mergeMap, map, catchError } from 'rxjs/operators';
 import {
   LucidePlus,
   LucideTrash2,
@@ -17,7 +17,8 @@ import {
   LucideLayers,
   LucideLoader2,
   LucidePlay,
-  LucideX
+  LucideX,
+  LucideCode
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -52,6 +53,7 @@ export interface ValidationItem {
     LucideLoader2,
     LucidePlay,
     LucideX,
+    LucideCode,
     MachineDataDirective,
     ComboboxComponent,
     CaseEditModalComponent,
@@ -69,6 +71,10 @@ export class CasesTableComponent implements OnInit {
   readonly isGenerateModalOpen = signal<boolean>(false);
   readonly showAutoCalculatePrompt = signal<boolean>(false);
   readonly isAutoCalculating = signal<boolean>(false);
+  readonly isNormalizingWeights = signal<boolean>(false);
+  readonly weightsNormalizedSuccess = signal<boolean>(false);
+  readonly calculationError = signal<string | null>(null);
+  readonly errorCopied = signal<boolean>(false);
   readonly lastGeneratedCount = signal<number>(0);
 
   // Filtro de Pestañas (Todos / Ejemplos / Ocultos)
@@ -76,6 +82,7 @@ export class CasesTableComponent implements OnInit {
 
   // Mapa de índices en cálculo individual
   readonly rowCalculating = signal<Record<number, boolean>>({});
+  readonly rowCalculatedSuccess = signal<Record<number, boolean>>({});
 
   // Casos filtrados con su índice original
   readonly filteredCases = computed(() => {
@@ -136,12 +143,35 @@ export class CasesTableComponent implements OnInit {
         }
       });
     });
+
+    // Auto-limpiar error al modificar la solución de referencia
+    effect(() => {
+      this.store.referenceSolution();
+      this.calculationError.set(null);
+    });
+  }
+
+  scrollToReferenceEditor(): void {
+    const el = document.getElementById('reference-solution-section');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  copyErrorToClipboard(): void {
+    const errorText = this.calculationError();
+    if (!errorText) return;
+    navigator.clipboard.writeText(errorText).then(() => {
+      this.errorCopied.set(true);
+      setTimeout(() => this.errorCopied.set(false), 2000);
+    }).catch(() => {
+      // Ignorar fallo de portapapeles si los permisos están denegados
+    });
   }
 
   ngOnInit(): void {
     this.validateSubject.pipe(
-      debounceTime(300),
-      switchMap(({ index, input }) => {
+      mergeMap(({ index, input }) => {
         const contract = this.store.contract();
         if (!contract) {
           return of({ index, result: { valid: true, error: undefined as string | undefined } });
@@ -203,6 +233,10 @@ export class CasesTableComponent implements OnInit {
     this.store.updateCase(index, { weight: w });
   }
 
+  onDescriptionChange(index: number, description: string): void {
+    this.store.updateCase(index, { description });
+  }
+
   hasReferenceSolution = computed(() => !!this.store.referenceSolution()?.trim());
   readonly isModalCalculating = signal<boolean>(false);
 
@@ -211,11 +245,13 @@ export class CasesTableComponent implements OnInit {
     caseIndex: number;
     input: string;
     expected_output: string;
+    description: string;
   }>({
     isOpen: false,
     caseIndex: 0,
     input: '',
-    expected_output: ''
+    expected_output: '',
+    description: ''
   });
 
   getWeightPercentage(weight?: number): string {
@@ -250,6 +286,10 @@ export class CasesTableComponent implements OnInit {
           if (res.outputs && res.outputs.length > 0) {
             const out = res.outputs[0].expected_output || '';
             this.store.updateCase(index, { expected_output: out });
+            this.rowCalculatedSuccess.update(m => ({ ...m, [index]: true }));
+            setTimeout(() => {
+              this.rowCalculatedSuccess.update(m => ({ ...m, [index]: false }));
+            }, 1800);
           }
         },
         error: () => {
@@ -267,7 +307,8 @@ export class CasesTableComponent implements OnInit {
       isOpen: true,
       caseIndex: index,
       input: tc.input || '',
-      expected_output: tc.expected_output || ''
+      expected_output: tc.expected_output || '',
+      description: tc.description || ''
     });
   }
 
@@ -298,11 +339,12 @@ export class CasesTableComponent implements OnInit {
       });
   }
 
-  onModalSave(payload: { input: string; expected_output: string }): void {
+  onModalSave(payload: { input: string; expected_output: string; description?: string }): void {
     const { caseIndex } = this.modalState();
     this.store.updateCase(caseIndex, {
       input: payload.input,
-      expected_output: payload.expected_output
+      expected_output: payload.expected_output,
+      description: payload.description
     });
     this.closeModal();
   }
@@ -359,7 +401,15 @@ export class CasesTableComponent implements OnInit {
   }
 
   normalizeWeights(): void {
-    this.store.normalizeWeights();
+    if (this.isNormalizingWeights()) return;
+    this.isNormalizingWeights.set(true);
+
+    setTimeout(() => {
+      this.store.normalizeWeights();
+      this.isNormalizingWeights.set(false);
+      this.weightsNormalizedSuccess.set(true);
+      setTimeout(() => this.weightsNormalizedSuccess.set(false), 1500);
+    }, 400);
   }
 
   openGenerateModal(): void {
@@ -370,13 +420,14 @@ export class CasesTableComponent implements OnInit {
     this.isGenerateModalOpen.set(false);
   }
 
-  onCasesGenerated(newCases: Array<{ input: string; output?: string | null }>): void {
+  onCasesGenerated(newCases: Array<{ input: string; output?: string | null; description?: string }>): void {
     if (!newCases || newCases.length === 0) return;
 
     const currentLength = this.store.cases().length;
     const dtos: TestCaseDTO[] = newCases.map((c, i) => ({
       input: c.input,
       expected_output: c.output || '',
+      description: c.description || `Caso de prueba #${currentLength + i + 1}`,
       visibility: 'hidden',
       weight: 1.0,
       is_hidden: true,
@@ -405,12 +456,13 @@ export class CasesTableComponent implements OnInit {
     if (!ref) return;
 
     const allCases = this.store.cases();
-    const emptyOutputIndices: number[] = [];
+    const targetIndices: number[] = [];
     const inputsToCalculate: string[] = [];
 
+    // Recalcular para todos los casos que tengan entrada definida
     allCases.forEach((tc, idx) => {
-      if (!tc.expected_output || tc.expected_output.trim() === '') {
-        emptyOutputIndices.push(idx);
+      if (tc.input && tc.input.trim() !== '') {
+        targetIndices.push(idx);
         inputsToCalculate.push(tc.input);
       }
     });
@@ -421,6 +473,8 @@ export class CasesTableComponent implements OnInit {
     }
 
     this.isAutoCalculating.set(true);
+    this.calculationError.set(null);
+
     this.courseService
       .calculateOutputs({
         language: lang,
@@ -430,19 +484,36 @@ export class CasesTableComponent implements OnInit {
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: res => {
+          let hasErrors = false;
+          let errorMessage = '';
+
           res.outputs?.forEach((out, localIdx) => {
-            const targetIndex = emptyOutputIndices[localIdx];
+            const targetIndex = targetIndices[localIdx];
             if (targetIndex !== undefined) {
-              this.store.updateCase(targetIndex, {
-                expected_output: out.expected_output
-              });
+              if (out.expected_output && out.expected_output.trim() !== '') {
+                this.store.updateCase(targetIndex, {
+                  expected_output: out.expected_output.trim()
+                });
+              } else if (out.status === 'error' || out.status === 'timeout') {
+                hasErrors = true;
+                errorMessage = out.error_details || 'Error al ejecutar la solución de referencia en el contenedor';
+              }
             }
           });
+
           this.isAutoCalculating.set(false);
           this.showAutoCalculatePrompt.set(false);
+
+          if (hasErrors) {
+            this.calculationError.set(errorMessage);
+          } else {
+            this.calculationError.set(null);
+          }
         },
-        error: () => {
+        error: (err) => {
           this.isAutoCalculating.set(false);
+          const msg = err?.error?.message || err?.error?.error || 'Error al conectar con el motor de cálculo';
+          this.calculationError.set(msg);
         }
       });
   }

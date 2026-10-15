@@ -13,6 +13,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 export interface CaseEditSavePayload {
   input: string;
   expected_output: string;
+  description?: string;
 }
 
 @Component({
@@ -36,6 +37,7 @@ export class CaseEditModalComponent implements OnChanges {
   @Input() caseNumber = 1;
   @Input() inputVal = '';
   @Input() outputVal = '';
+  @Input() descriptionVal = '';
   @Input() hasReferenceSolution = false;
   @Input() isCalculating = false;
 
@@ -45,6 +47,7 @@ export class CaseEditModalComponent implements OnChanges {
 
   readonly currentInput = signal<string>('');
   readonly currentOutput = signal<string>('');
+  readonly currentDescription = signal<string>('');
 
   readonly inputLines = computed(() => {
     const val = this.currentInput();
@@ -60,12 +63,16 @@ export class CaseEditModalComponent implements OnChanges {
     if (changes['isOpen'] && this.isOpen) {
       this.currentInput.set(this.normalizePosix(this.inputVal || ''));
       this.currentOutput.set(this.normalizePosix(this.outputVal || ''));
+      this.currentDescription.set((this.descriptionVal || '').trim());
     } else {
       if (changes['inputVal'] && this.inputVal !== undefined) {
         this.currentInput.set(this.normalizePosix(this.inputVal));
       }
       if (changes['outputVal'] && this.outputVal !== undefined) {
         this.currentOutput.set(this.normalizePosix(this.outputVal));
+      }
+      if (changes['descriptionVal'] && this.descriptionVal !== undefined) {
+        this.currentDescription.set((this.descriptionVal || '').trim());
       }
     }
   }
@@ -85,7 +92,8 @@ export class CaseEditModalComponent implements OnChanges {
   onSave(): void {
     this.save.emit({
       input: this.normalizePosix(this.currentInput()),
-      expected_output: this.normalizePosix(this.currentOutput())
+      expected_output: this.normalizePosix(this.currentOutput()),
+      description: this.currentDescription().trim()
     });
   }
 

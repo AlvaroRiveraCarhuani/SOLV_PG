@@ -1,10 +1,62 @@
 <div class="format-builder-container">
-  <!-- 1. Barra de Presets Rápidos -->
-  <div class="presets-section">
-    <div class="presets-header">
-      <div class="header-title-row">
-        <svg lucideLayoutTemplate class="presets-icon"></svg>
-        <span class="presets-title">Plantillas de Formato (Presets)</span>
+  <!-- Interruptor Maestro: Validación Estructural de Entrada -->
+  <div class="contract-master-toggle-card" [class.enabled]="isContractEnabled()">
+    <div class="toggle-card-left">
+      <div class="toggle-card-icon-box">
+        @if (isContractEnabled()) {
+          <svg lucideShieldCheck class="toggle-card-icon active"></svg>
+        } @else {
+          <svg lucideSliders class="toggle-card-icon text-muted"></svg>
+        }
+      </div>
+      <div class="toggle-card-info">
+        <div class="toggle-card-title-row">
+          <strong class="toggle-card-title">Validación Estructural de Entrada</strong>
+          <span class="toggle-card-badge" [class.active]="isContractEnabled()">
+            {{ isContractEnabled() ? 'Activada' : 'Desactivada (Texto libre)' }}
+          </span>
+        </div>
+        <p class="toggle-card-desc">
+          @if (isContractEnabled()) {
+            El formato está activo. Cada caso de prueba se valida contra las reglas de abajo y la tabla audita el formato en tiempo real.
+          } @else {
+            Modo texto libre por defecto. Tus casos aceptan cualquier formato sin restricciones sintácticas. Activá esta opción solo si requerís validar estructuras formales (enteros, matrices o grafos).
+          }
+        </p>
+      </div>
+    </div>
+
+    <div class="toggle-card-right">
+      @if (isContractEnabled()) {
+        <button
+          type="button"
+          class="btn-toggle-switch active"
+          (click)="disableContractValidation()"
+          title="Desactivar esquema y volver a texto libre"
+        >
+          <svg lucideCheck class="switch-icon"></svg>
+          <span>Activo</span>
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn-toggle-switch inactive"
+          (click)="enableContractValidation()"
+          title="Activar validación estructural y elegir plantilla"
+        >
+          <span>Activar Esquema</span>
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (isContractEnabled()) {
+    <!-- 1. Barra de Presets Rápidos -->
+    <div class="presets-section animate-fade">
+      <div class="presets-header">
+        <div class="header-title-row">
+          <svg lucideLayoutTemplate class="presets-icon"></svg>
+          <span class="presets-title">Plantillas de Formato (Presets)</span>
         <button 
           type="button" 
           class="btn-help-trigger"
@@ -375,16 +427,17 @@
     </div>
   }
 
-  <!-- 4. Barra de Estado de Validación del Formato -->
-  @if (backendValidation(); as val) {
-    <div class="contract-status-footer" [class.valid]="val.valid" [class.invalid]="!val.valid">
-      @if (val.valid) {
-        <svg lucideCheckCircle2 class="status-icon"></svg>
-        <span>Formato de entrada válido y sincronizado con el backend</span>
-      } @else {
-        <svg lucideAlertCircle class="status-icon"></svg>
-        <span>{{ val.error || 'Estructura de formato no compatible' }}</span>
-      }
-    </div>
+    <!-- 4. Barra de Estado de Validación del Formato -->
+    @if (backendValidation(); as val) {
+      <div class="contract-status-footer" [class.valid]="val.valid" [class.invalid]="!val.valid">
+        @if (val.valid) {
+          <svg lucideCheckCircle2 class="status-icon"></svg>
+          <span>Formato de entrada válido y sincronizado con el backend</span>
+        } @else {
+          <svg lucideAlertCircle class="status-icon"></svg>
+          <span>{{ val.error || 'Estructura de formato no compatible' }}</span>
+        }
+      </div>
+    }
   }
 </div>

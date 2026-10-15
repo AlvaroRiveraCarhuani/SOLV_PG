@@ -7,7 +7,7 @@ import { ScriptGenerationResponse } from '../../../../models/teacher.models';
 describe('ScriptGeneratorComponent', () => {
   let component: ScriptGeneratorComponent;
   let fixture: ComponentFixture<ScriptGeneratorComponent>;
-  let mockTeacherCourseService: jasmine.SpyObj<TeacherCourseService>;
+  let mockTeacherCourseService: { generateCasesFromScript: ReturnType<typeof vi.fn> };
 
   const mockResponse: ScriptGenerationResponse = {
     mode: 'dry_run',
@@ -27,8 +27,9 @@ describe('ScriptGeneratorComponent', () => {
   };
 
   beforeEach(async () => {
-    mockTeacherCourseService = jasmine.createSpyObj('TeacherCourseService', ['generateCasesFromScript']);
-    mockTeacherCourseService.generateCasesFromScript.and.returnValue(of(mockResponse));
+    mockTeacherCourseService = {
+      generateCasesFromScript: vi.fn().mockReturnValue(of(mockResponse))
+    };
 
     await TestBed.configureTestingModule({
       imports: [ScriptGeneratorComponent],
@@ -48,9 +49,9 @@ describe('ScriptGeneratorComponent', () => {
   });
 
   it('should toggle expand state', () => {
-    expect(component.isExpanded()).toBeFalse();
+    expect(component.isExpanded()).toBe(false);
     component.toggleExpand();
-    expect(component.isExpanded()).toBeTrue();
+    expect(component.isExpanded()).toBe(true);
   });
 
   it('should execute script in dry run mode', () => {
@@ -60,21 +61,13 @@ describe('ScriptGeneratorComponent', () => {
     expect(component.previewResult()).toEqual(mockResponse);
   });
 
-  it('should confirm and emit generated cases', () => {
+  it('should emit casesGenerated and reset on confirm', () => {
     component.previewResult.set(mockResponse);
-
-    const actualResponse: ScriptGenerationResponse = {
-      mode: 'import',
-      can_import: true,
-      imported_count: 1
-    };
-    mockTeacherCourseService.generateCasesFromScript.and.returnValue(of(actualResponse));
-
-    spyOn(component.casesGenerated, 'emit');
+    const emitSpy = vi.spyOn(component.casesGenerated, 'emit');
 
     component.confirmAndAdd();
 
-    expect(mockTeacherCourseService.generateCasesFromScript).toHaveBeenCalledWith('ex-123', component.scriptCode(), false);
-    expect(component.casesGenerated.emit).toHaveBeenCalled();
+    expect(emitSpy).toHaveBeenCalledWith(mockResponse.cases);
+    expect(component.previewResult()).toBeNull();
   });
 });

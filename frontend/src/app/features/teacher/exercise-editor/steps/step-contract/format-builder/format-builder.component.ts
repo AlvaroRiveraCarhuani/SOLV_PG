@@ -11,7 +11,9 @@ import {
   LucideSliders,
   LucideHelpCircle,
   LucideX,
-  LucideTerminal
+  LucideTerminal,
+  LucideCheck,
+  LucideShieldCheck
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ExerciseEditorStore } from '../../../exercise-editor.store';
@@ -35,6 +37,8 @@ import { PresetButtonComponent } from './presets/preset-button.component';
     LucideHelpCircle,
     LucideX,
     LucideTerminal,
+    LucideCheck,
+    LucideShieldCheck,
     MachineDataDirective,
     PresetButtonComponent
   ],
@@ -69,6 +73,21 @@ export class FormatBuilderComponent implements OnInit {
   isValidating = signal<boolean>(false);
   backendValidation = signal<{ valid: boolean; error?: string } | null>(null);
 
+  // Estado del interruptor maestro de validación
+  readonly isContractEnabled = computed<boolean>(() => {
+    const c = this.store.contract();
+    return !!(c && c.input?.lines && c.input.lines.length > 0);
+  });
+
+  enableContractValidation() {
+    // Si no había líneas previas, activamos con el preset de cadena por defecto (o vacío)
+    this.applyPreset(this.presets[4] || this.presets[0]); // 'single_string'
+  }
+
+  disableContractValidation() {
+    this.resetToFreeText();
+  }
+
   constructor() {
     // Sincronizar desde store al iniciar o cuando store cambia externamente
     effect(() => {
@@ -88,19 +107,27 @@ export class FormatBuilderComponent implements OnInit {
 
   ngOnInit() {
     const existing = this.store.contract();
-    if (existing?.input?.lines) {
+    if (existing?.input?.lines && existing.input.lines.length > 0) {
       this.lines.set(JSON.parse(JSON.stringify(existing.input.lines)));
       this.jsonCode.set(JSON.stringify(existing, null, 2));
       this.matchPreset(existing);
       this.validateWithBackend(existing);
     } else {
-      // Default: cargar preset "Un entero N"
-      this.applyPreset(this.presets[0]);
+      // Por defecto: sin contrato activo (Texto libre)
+      this.lines.set([]);
+      this.activePresetId.set(null);
+      this.jsonCode.set('');
     }
   }
 
-  // Selección de Preset
+  // Selección / Deselección de Preset
   applyPreset(preset: FormatPreset) {
+    if (this.activePresetId() === preset.id) {
+      // Si ya estaba seleccionado, deseleccionar y volver a Texto Libre
+      this.resetToFreeText();
+      return;
+    }
+
     this.activePresetId.set(preset.id);
     const cloned = JSON.parse(JSON.stringify(preset.contract)) as ExerciseContract;
     this.lines.set(cloned.input.lines);

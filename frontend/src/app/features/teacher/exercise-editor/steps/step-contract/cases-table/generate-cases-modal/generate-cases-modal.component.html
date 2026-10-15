@@ -6,12 +6,35 @@
         <div class="header-info">
           <div class="title-row">
             <svg lucideLayers class="modal-icon"></svg>
-            <h3 id="modal-title" class="modal-title">Generar Casos Aleatorios (Fuzzing Estructural)</h3>
+            <h3 id="modal-title" class="modal-title">Generar Casos de Prueba</h3>
           </div>
           <p class="modal-subtitle">
-            Genera automáticamente casos de prueba sintácticamente válidos utilizando la estructura del formato de entrada.
+            Crea casos de prueba automáticamente mediante plantillas de formato o con un script personalizado.
           </p>
+
+          <!-- Tab Switcher -->
+          <div class="tabs-nav">
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="activeTab() === 'presets'"
+              (click)="setTab('presets')"
+            >
+              <svg lucideSliders class="tab-icon"></svg>
+              <span>Plantillas Estructuradas</span>
+            </button>
+            <button
+              type="button"
+              class="tab-btn"
+              [class.active]="activeTab() === 'script'"
+              (click)="setTab('script')"
+            >
+              <svg lucideTerminal class="tab-icon"></svg>
+              <span>Script Python</span>
+            </button>
+          </div>
         </div>
+
         <button type="button" class="close-btn" (click)="onClose()" aria-label="Cerrar modal">
           <svg lucideX class="close-icon"></svg>
         </button>
@@ -19,112 +42,423 @@
 
       <!-- Body -->
       <div class="modal-body">
-        @if (error()) {
-          <div class="modal-error-alert">
-            <span>{{ error() }}</span>
+        <!-- PESTAÑA 1: PLANTILLAS ESTRUCTURADAS -->
+        @if (activeTab() === 'presets') {
+          @if (error()) {
+            <div class="modal-error-alert">
+              <span>{{ error() }}</span>
+            </div>
+          }
+
+          <!-- Selección de Estructura de Entrada (Presets) -->
+          <div class="form-group">
+            <label class="form-label">Estructura del formato de entrada</label>
+            <div class="presets-grid-modal">
+              @for (p of presets; track p.id) {
+                <preset-button
+                  [preset]="p"
+                  [selected]="activePresetId() === p.id"
+                  (select)="selectPreset($event)"
+                />
+              }
+            </div>
+          </div>
+
+          <!-- Parámetros Personalizables de la Plantilla -->
+          <div class="preset-params-card">
+            <span class="params-card-title">Rango y Parámetros de la Plantilla</span>
+
+            @if (activePresetId() === 'single_int') {
+              <div class="params-row">
+                <div class="param-field">
+                  <label class="param-label" for="int-min">Valor Mínimo</label>
+                  <input
+                    id="int-min"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="intMin()"
+                    (ngModelChange)="intMin.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="int-max">Valor Máximo</label>
+                  <input
+                    id="int-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="intMax()"
+                    (ngModelChange)="intMax.set($event); onParamChange()"
+                  />
+                </div>
+              </div>
+            }
+
+            @if (activePresetId() === 'n_and_ints') {
+              <div class="params-row">
+                <div class="param-field">
+                  <label class="param-label" for="arr-n-min">Cantidad N (Mín.)</label>
+                  <input
+                    id="arr-n-min"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="arrNMin()"
+                    (ngModelChange)="arrNMin.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="arr-n-max">Cantidad N (Máx.)</label>
+                  <input
+                    id="arr-n-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="arrNMax()"
+                    (ngModelChange)="arrNMax.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="arr-elem-min">Elemento Mín.</label>
+                  <input
+                    id="arr-elem-min"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="arrElemMin()"
+                    (ngModelChange)="arrElemMin.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="arr-elem-max">Elemento Máx.</label>
+                  <input
+                    id="arr-elem-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="arrElemMax()"
+                    (ngModelChange)="arrElemMax.set($event); onParamChange()"
+                  />
+                </div>
+              </div>
+            }
+
+            @if (activePresetId() === 'matrix_nm') {
+              <div class="params-row">
+                <div class="param-field">
+                  <label class="param-label" for="mat-n-max">Filas N (Máx.)</label>
+                  <input
+                    id="mat-n-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="matNMax()"
+                    (ngModelChange)="matNMax.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="mat-m-max">Columnas M (Máx.)</label>
+                  <input
+                    id="mat-m-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="matMMax()"
+                    (ngModelChange)="matMMax.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="mat-elem-min">Elemento Mín.</label>
+                  <input
+                    id="mat-elem-min"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="matElemMin()"
+                    (ngModelChange)="matElemMin.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="mat-elem-max">Elemento Máx.</label>
+                  <input
+                    id="mat-elem-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="matElemMax()"
+                    (ngModelChange)="matElemMax.set($event); onParamChange()"
+                  />
+                </div>
+              </div>
+            }
+
+            @if (activePresetId() === 'graph_edges') {
+              <div class="params-row">
+                <div class="param-field">
+                  <label class="param-label" for="graph-n-max">Nodos N (Máx.)</label>
+                  <input
+                    id="graph-n-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="graphNMax()"
+                    (ngModelChange)="graphNMax.set($event); onParamChange()"
+                  />
+                </div>
+                <div class="param-field">
+                  <label class="param-label" for="graph-m-max">Aristas M (Máx.)</label>
+                  <input
+                    id="graph-m-max"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="graphMMax()"
+                    (ngModelChange)="graphMMax.set($event); onParamChange()"
+                  />
+                </div>
+              </div>
+            }
+
+            @if (activePresetId() === 'single_string') {
+              <div class="params-row">
+                <div class="param-field">
+                  <label class="param-label" for="string-max-len">Longitud Máxima</label>
+                  <input
+                    id="string-max-len"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="stringMaxLen()"
+                    (ngModelChange)="stringMaxLen.set($event); onParamChange()"
+                  />
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Configuración de Cantidad y Semilla -->
+          <div class="config-grid">
+            <div class="form-group">
+              <label class="form-label" for="gen-count">Cantidad de casos (1 a 100)</label>
+              <input
+                id="gen-count"
+                type="number"
+                class="form-input font-mono"
+                [ngModel]="count()"
+                (ngModelChange)="onCountChange($event)"
+                min="1"
+                max="100"
+              />
+              <span class="field-hint">Se agregarán como casos ocultos con peso 1.0</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="gen-seed">Semilla aleatoria (Opcional)</label>
+              <input
+                id="gen-seed"
+                type="number"
+                class="form-input font-mono"
+                [ngModel]="seed()"
+                (ngModelChange)="onSeedChange($event)"
+                placeholder="Vacío = aleatorio"
+              />
+              <span class="field-hint">Permite reproducir exactamente el mismo conjunto</span>
+            </div>
+          </div>
+
+          <!-- Vista Previa de Presets -->
+          <div class="preview-section">
+            <div class="preview-header">
+              <div class="preview-title-row">
+                <svg lucideEye class="preview-icon"></svg>
+                <h4 class="preview-title">Vista Previa de Generación (3 primeros casos)</h4>
+              </div>
+              <button
+                type="button"
+                class="btn-outline refresh-preview-btn"
+                (click)="fetchPreview()"
+                [disabled]="isLoadingPreview()"
+                title="Regenerar vista previa con nuevos valores"
+              >
+                <svg
+                  lucideRefreshCw
+                  class="refresh-icon"
+                  [class.spin-icon]="isLoadingPreview()"
+                ></svg>
+                <span>Actualizar Preview</span>
+              </button>
+            </div>
+
+            <div class="preview-list">
+              @if (isLoadingPreview()) {
+                <div class="preview-loading">
+                  <svg lucideRefreshCw class="spin-icon loading-icon"></svg>
+                  <span>Generando casos de muestra según el formato...</span>
+                </div>
+              } @else {
+                @for (c of previewCases(); track $index; let idx = $index) {
+                  <div class="preview-card">
+                    <div class="card-num-bar">
+                      <span class="case-badge font-mono" machineData>Muestra #{{ idx + 1 }}</span>
+                      <span class="output-pending-tag">Salida: (pendiente de cálculo)</span>
+                    </div>
+                    <pre class="case-code font-mono">{{ c.input }}</pre>
+                  </div>
+                } @empty {
+                  <div class="empty-preview">
+                    <span>No hay datos de vista previa disponibles.</span>
+                  </div>
+                }
+              }
+            </div>
           </div>
         }
 
-        <div class="config-grid">
-          <!-- Cantidad de casos -->
-          <div class="form-group">
-            <label class="form-label" for="gen-count">Cantidad de casos (1 a 100)</label>
-            <input
-              id="gen-count"
-              type="number"
-              class="form-input font-mono"
-              [ngModel]="count()"
-              (ngModelChange)="onCountChange($event)"
-              min="1"
-              max="100"
-            />
-            <span class="field-hint">Se agregarán como casos ocultos con peso 1.0</span>
-          </div>
-
-          <!-- Semilla determinista (opcional) -->
-          <div class="form-group">
-            <label class="form-label" for="gen-seed">Semilla aleatoria (Opcional)</label>
-            <input
-              id="gen-seed"
-              type="number"
-              class="form-input font-mono"
-              [ngModel]="seed()"
-              (ngModelChange)="onSeedChange($event)"
-              placeholder="Vacío = aleatorio no determinista"
-            />
-            <span class="field-hint">Permite reproducir exactamente el mismo conjunto</span>
-          </div>
-        </div>
-
-        <!-- Sección de Vista Previa -->
-        <div class="preview-section">
-          <div class="preview-header">
-            <div class="preview-title-row">
-              <svg lucideEye class="preview-icon"></svg>
-              <h4 class="preview-title">Vista Previa de Generación (3 primeros casos)</h4>
+        <!-- PESTAÑA 2: SCRIPT PYTHON -->
+        @if (activeTab() === 'script') {
+          @if (scriptError()) {
+            <div class="modal-error-alert">
+              <div class="error-header-row">
+                <svg lucideAlertCircle class="error-icon"></svg>
+                <span>Error en la ejecución del script:</span>
+              </div>
+              <pre class="error-trace font-mono">{{ scriptError() }}</pre>
             </div>
+          }
+
+          <div class="script-toolbar">
+            <p class="script-instruction">
+              El script debe imprimir un array JSON con los casos generados.
+            </p>
             <button
               type="button"
-              class="btn-outline refresh-preview-btn"
-              (click)="fetchPreview()"
-              [disabled]="isLoadingPreview()"
-              title="Regenerar vista previa con nuevos valores"
+              class="btn-text-action"
+              (click)="resetScriptTemplate()"
+              title="Restaurar código de ejemplo en Python"
             >
-              <svg
-                lucideRefreshCw
-                class="refresh-icon"
-                [class.spin-icon]="isLoadingPreview()"
-              ></svg>
-              <span>Actualizar Preview</span>
+              <svg lucideRotateCcw class="action-icon"></svg>
+              <span>Restaurar Ejemplo</span>
             </button>
           </div>
 
-          <div class="preview-list">
-            @if (isLoadingPreview()) {
-              <div class="preview-loading">
-                <svg lucideRefreshCw class="spin-icon loading-icon"></svg>
-                <span>Generando casos de muestra según el formato de entrada...</span>
-              </div>
-            } @else {
-              @for (c of previewCases(); track $index; let idx = $index) {
-                <div class="preview-card">
-                  <div class="card-num-bar">
-                    <span class="case-badge font-mono" machineData>Muestra #{{ idx + 1 }}</span>
-                    <span class="output-pending-tag">Salida: (pendiente de cálculo)</span>
-                  </div>
-                  <pre class="case-code font-mono">{{ c.input }}</pre>
+          <!-- CodeMirror Editor -->
+          <div class="code-editor-container">
+            <code-editor
+              [value]="scriptCode()"
+              [language]="'python'"
+              (valueChange)="onScriptCodeChange($event)"
+              minHeight="180px"
+              maxHeight="240px"
+            />
+          </div>
+
+          <!-- Botón de Ejecutar Script -->
+          <div class="script-run-bar">
+            <button
+              type="button"
+              class="btn-run-script"
+              (click)="executeScript()"
+              [disabled]="isExecutingScript() || !scriptCode().trim()"
+            >
+              @if (isExecutingScript()) {
+                <svg lucideRefreshCw class="spin-icon btn-icon"></svg>
+                <span>Ejecutando en sandbox...</span>
+              } @else {
+                <svg lucidePlay class="btn-icon"></svg>
+                <span>Ejecutar Script y Previsualizar</span>
+              }
+            </button>
+          </div>
+
+          <!-- Resultados de Ejecución del Script -->
+          @if (scriptResult(); as res) {
+            <div class="script-results-card">
+              <div class="results-header">
+                <div class="badge-status-row">
+                  <span class="badge-count font-mono" machineData>
+                    {{ res.cases_count || 0 }} casos generados
+                  </span>
+                  @if (res.total_valid) {
+                    <span class="badge-valid font-mono" machineData>
+                      {{ res.total_valid }} válidos
+                    </span>
+                  }
+                  @if (res.total_invalid) {
+                    <span class="badge-invalid font-mono" machineData>
+                      {{ res.total_invalid }} con errores
+                    </span>
+                  }
                 </div>
-              } @empty {
-                <div class="empty-preview">
-                  <span>No hay datos de vista previa disponibles.</span>
+              </div>
+
+              @if (res.cases && res.cases.length > 0) {
+                <div class="script-preview-list">
+                  @for (c of res.cases.slice(0, 3); track c.index) {
+                    <div class="preview-case-row" [class.has-error]="!c.valid">
+                      <div class="row-header">
+                        <span class="case-idx font-mono" machineData>Caso #{{ c.index + 1 }}</span>
+                        @if (!c.valid) {
+                          <span class="case-err-badge font-mono">{{ c.error }}</span>
+                        }
+                      </div>
+                      <div class="case-io-split">
+                        <div class="io-col">
+                          <span class="io-label">Entrada:</span>
+                          <pre class="io-pre font-mono">{{ c.input }}</pre>
+                        </div>
+                        <div class="io-col">
+                          <span class="io-label">Salida Esperada:</span>
+                          <pre class="io-pre font-mono">{{ c.expected_output }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  }
                 </div>
               }
-            }
-          </div>
-        </div>
+            </div>
+          }
+        }
       </div>
 
       <!-- Footer -->
       <div class="modal-footer">
         <div class="footer-info">
-          <span class="info-text">
-            Los casos generados se insertarán en la tabla de casos como <strong machineData>Ocultos</strong>.
-          </span>
+          @if (activeTab() === 'presets') {
+            <span class="info-text">
+              Los casos generados se insertarán en la tabla de casos como <strong machineData>Ocultos</strong>.
+            </span>
+          } @else {
+            <span class="info-text">
+              Los casos generados se insertarán con sus entradas y salidas esperadas.
+            </span>
+          }
         </div>
 
         <div class="footer-actions">
-          <button type="button" class="btn-outline" (click)="onClose()" [disabled]="isGenerating()">
-            Cancelar
-          </button>
           <button
             type="button"
-            class="btn-primary"
-            (click)="onConfirm()"
-            [disabled]="isGenerating() || !contract"
+            class="btn-outline"
+            (click)="onClose()"
+            [disabled]="isGenerating() || isExecutingScript()"
           >
-            <svg lucideLayers class="btn-icon"></svg>
-            <span>{{ isGenerating() ? 'Generando...' : 'Generar ' + count() + ' Casos' }}</span>
+            Cancelar
           </button>
+
+          @if (activeTab() === 'presets') {
+            <button
+              type="button"
+              class="btn-primary"
+              (click)="onConfirm()"
+              [disabled]="isGenerating()"
+            >
+              <svg lucideLayers class="btn-icon"></svg>
+              <span>{{ isGenerating() ? 'Generando...' : 'Generar ' + count() + ' Casos' }}</span>
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="btn-primary"
+              (click)="confirmScriptCases()"
+              [disabled]="isExecutingScript() || !scriptResult() || !scriptResult()?.can_import"
+            >
+              <svg lucideCheck class="btn-icon"></svg>
+              <span>
+                {{
+                  scriptResult() && scriptResult()?.can_import
+                    ? 'Agregar ' + scriptResult()?.total_valid + ' Casos a la Tabla'
+                    : 'Ejecutar script para continuar'
+                }}
+              </span>
+            </button>
+          }
         </div>
       </div>
     </div>

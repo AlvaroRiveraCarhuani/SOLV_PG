@@ -79,26 +79,31 @@ describe('CasesTableComponent', () => {
   });
 
   it('debe equiparar pesos de todos los casos a 1.0', () => {
+    vi.useFakeTimers();
     store.setCases([
       { input: '1', expected_output: '1', visibility: 'public', weight: 0.5 },
       { input: '2', expected_output: '2', visibility: 'hidden', weight: 2.5 }
     ]);
     component.normalizeWeights();
+    vi.advanceTimersByTime(500);
     expect(store.cases()[0].weight).toBe(1.0);
     expect(store.cases()[1].weight).toBe(1.0);
+    vi.useRealTimers();
   });
 
   it('debe abrir y guardar en el modal multilínea', () => {
     store.setCases([
       { input: '1 2 3', expected_output: '6', visibility: 'public', weight: 1.0 }
     ]);
-    component.openModal(0, 'input');
+    component.openSideBySideModal(0);
     expect(component.modalState().isOpen).toBe(true);
-    expect(component.modalState().value).toBe('1 2 3');
+    expect(component.modalState().input).toBe('1 2 3');
 
-    component.onModalSave('1 2 3 4 5');
+    component.onModalSave({ input: '1 2 3 4 5', expected_output: '15', description: 'Caso con 5 números' });
     expect(component.modalState().isOpen).toBe(false);
     expect(store.cases()[0].input).toBe('1 2 3 4 5');
+    expect(store.cases()[0].expected_output).toBe('15');
+    expect(store.cases()[0].description).toBe('Caso con 5 números');
   });
 
   it('debe abrir y cerrar el modal de generación de casos', () => {

@@ -32,12 +32,31 @@
       <button
         type="button"
         class="btn-outline toolbar-btn"
+        [class.btn-success-state]="weightsNormalizedSuccess()"
         (click)="normalizeWeights()"
         title="Establecer peso 1.0 en todos los casos"
-        [disabled]="store.cases().length === 0"
+        [disabled]="store.cases().length === 0 || isNormalizingWeights()"
       >
-        <svg lucideScale class="btn-icon"></svg>
-        <span>Equiparar Pesos</span>
+        @if (isNormalizingWeights()) {
+          <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+          <span>Equiparando...</span>
+        } @else if (weightsNormalizedSuccess()) {
+          <svg lucideCheck class="btn-icon"></svg>
+          <span>Equiparados</span>
+        } @else {
+          <svg lucideScale class="btn-icon"></svg>
+          <span>Equiparar Pesos</span>
+        }
+      </button>
+
+      <button
+        type="button"
+        class="btn-outline toolbar-btn"
+        (click)="openGenerateModal()"
+        title="Generar casos de prueba automáticamente con asistente"
+      >
+        <svg lucideLayers class="btn-icon"></svg>
+        <span>Generar Casos</span>
       </button>
 
       <button type="button" class="btn-primary toolbar-btn" (click)="addNewCase()">
@@ -46,6 +65,57 @@
       </button>
     </div>
   </div>
+
+  <!-- Banner de Error en Solución Canónica (Diseño Integrado Claro) -->
+  @if (calculationError()) {
+    <div class="table-error-banner animate-fade" role="alert">
+      <div class="banner-left">
+        <svg lucideAlertCircle class="banner-icon"></svg>
+        <div class="banner-body">
+          <div class="banner-header-row">
+            <div class="banner-title-group">
+              <strong class="banner-title">Error al ejecutar la solución de referencia</strong>
+              <span class="banner-badge font-mono">Docker Runtime</span>
+            </div>
+            <div class="banner-actions">
+              <button
+                type="button"
+                class="btn-banner-action"
+                (click)="copyErrorToClipboard()"
+                [title]="errorCopied() ? 'Copiado al portapapeles' : 'Copiar salida de error'"
+              >
+                @if (errorCopied()) {
+                  <svg lucideCheck class="action-icon success-icon"></svg>
+                  <span>Copiado</span>
+                } @else {
+                  <svg lucideCopy class="action-icon"></svg>
+                  <span>Copiar</span>
+                }
+              </button>
+              <button
+                type="button"
+                class="btn-banner-action btn-action-primary"
+                (click)="scrollToReferenceEditor()"
+                title="Ir a editar la solución de referencia"
+              >
+                <svg lucideCode class="action-icon"></svg>
+                <span>Corregir en Editor</span>
+              </button>
+            </div>
+          </div>
+          <pre class="banner-error-details font-mono">{{ calculationError() }}</pre>
+        </div>
+      </div>
+      <button
+        type="button"
+        class="btn-dismiss"
+        (click)="calculationError.set(null)"
+        aria-label="Cerrar advertencia de error"
+      >
+        <svg lucideX class="dismiss-icon"></svg>
+      </button>
+    </div>
+  }
 
   <!-- Banner de Auto-Cálculo de Salidas con Solución de Referencia -->
   @if (showAutoCalculatePrompt()) {
@@ -127,22 +197,35 @@
     <table class="cases-table">
       <thead>
         <tr>
-          <th class="col-num">#</th>
+          <th class="col-case">#</th>
           <th class="col-input">Entrada Estándar (stdin)</th>
           <th class="col-output">Salida Esperada (stdout)</th>
           <th class="col-vis">Visibilidad</th>
           <th class="col-weight">Peso</th>
           <th class="col-pct">%</th>
-          <th class="col-valid">Validez</th>
+          @if (store.contract()) {
+            <th class="col-valid">Validez</th>
+          }
           <th class="col-actions">Acciones</th>
         </tr>
       </thead>
       <tbody>
         @for (item of filteredCases(); track item.originalIndex; let i = $index) {
           <tr class="case-row" [class]="'row-' + (item.tc.visibility || 'public')">
-            <!-- Columna 1: Índice -->
-            <td class="col-num">
-              <span class="num-badge font-mono" machineData>{{ item.originalIndex + 1 }}</span>
+            <!-- Columna 1: Índice y Tag Pedagógico Opcional -->
+            <td class="col-case">
+              <div class="case-meta-cell">
+                <span class="num-badge font-mono" machineData>{{ item.originalIndex + 1 }}</span>
+                @if (item.tc.description) {
+                  <span
+                    class="case-desc-tag font-sans"
+                    [title]="item.tc.description"
+                    (click)="openSideBySideModal(item.originalIndex)"
+                  >
+                    {{ item.tc.description }}
+                  </span>
+                }
+              </div>
             </td>
 
             <!-- Columna 2: Entrada stdin -->
@@ -184,6 +267,7 @@
                     <button
                       type="button"
                       class="row-calc-btn"
+                      [class.calc-success]="rowCalculatedSuccess()[item.originalIndex]"
                       (click)="calculateSingleRow(item.originalIndex)"
                       [disabled]="rowCalculating()[item.originalIndex] || !item.tc.input.trim()"
                       title="Calcular salida de esta fila ejecutando la solución de referencia"
@@ -191,6 +275,8 @@
                     >
                       @if (rowCalculating()[item.originalIndex]) {
                         <svg lucideLoader2 class="row-icon spin-icon"></svg>
+                      } @else if (rowCalculatedSuccess()[item.originalIndex]) {
+                        <svg lucideCheck class="row-icon success-icon"></svg>
                       } @else {
                         <svg lucidePlay class="row-icon"></svg>
                       }
@@ -217,6 +303,7 @@
                   [value]="item.tc.visibility || (item.tc.is_hidden ? 'hidden' : (item.tc.is_sample ? 'example' : 'public'))"
                   [showSearchIcon]="false"
                   [compact]="true"
+                  [showHeader]="false"
                   (optionSelected)="onVisibilityOptionSelected(item.originalIndex, $event)"
                   inputAriaLabel="Visibilidad del caso de prueba"
                 />
@@ -240,35 +327,33 @@
               <span class="pct-pill font-mono" machineData>{{ getWeightPercentage(item.tc.weight) }}</span>
             </td>
 
-            <!-- Columna 7: Validez contra el Formato de Entrada -->
-            <td class="col-valid">
-              @if (!store.contract()) {
-                <span class="valid-tag tag-neutral" title="Entrada libre sin formato estructurado">
-                  <span class="tag-label">Texto libre</span>
-                </span>
-              } @else if (validationResults()[item.originalIndex]?.loading) {
-                <span class="valid-tag tag-loading" title="Validando contra el formato de entrada...">
-                  <svg lucideLoader2 class="tag-icon spin-icon"></svg>
-                  <span class="tag-label">Validando</span>
-                </span>
-              } @else if (validationResults()[item.originalIndex]?.valid === false) {
-                <span
-                  class="valid-tag tag-invalid"
-                  [title]="validationResults()[item.originalIndex]?.error || 'El caso no cumple con el formato de entrada'"
-                >
-                  <svg lucideAlertCircle class="tag-icon"></svg>
-                  <span class="tag-label">Inválido</span>
-                  @if (validationResults()[item.originalIndex]?.error) {
-                    <span class="error-tooltip">{{ validationResults()[item.originalIndex]?.error }}</span>
-                  }
-                </span>
-              } @else {
-                <span class="valid-tag tag-valid" title="Cumple con el formato de entrada especificado">
-                  <svg lucideCheck class="tag-icon"></svg>
-                  <span class="tag-label">Válido</span>
-                </span>
-              }
-            </td>
+            <!-- Columna 7: Validez contra el Formato de Entrada (Solo cuando hay contrato activo) -->
+            @if (store.contract()) {
+              <td class="col-valid">
+                @if (validationResults()[item.originalIndex]?.loading) {
+                  <span class="valid-tag tag-loading" title="Validando contra el formato de entrada...">
+                    <svg lucideLoader2 class="tag-icon spin-icon"></svg>
+                    <span class="tag-label">Validando</span>
+                  </span>
+                } @else if (validationResults()[item.originalIndex]?.valid === false) {
+                  <span
+                    class="valid-tag tag-invalid"
+                    [title]="validationResults()[item.originalIndex]?.error || 'El caso no cumple con el formato de entrada'"
+                  >
+                    <svg lucideAlertCircle class="tag-icon"></svg>
+                    <span class="tag-label">Inválido</span>
+                    @if (validationResults()[item.originalIndex]?.error) {
+                      <span class="error-tooltip">{{ validationResults()[item.originalIndex]?.error }}</span>
+                    }
+                  </span>
+                } @else {
+                  <span class="valid-tag tag-valid" title="Cumple con el formato de entrada especificado">
+                    <svg lucideCheck class="tag-icon"></svg>
+                    <span class="tag-label">Válido</span>
+                  </span>
+                }
+              </td>
+            }
 
             <!-- Columna 8: Acciones -->
             <td class="col-actions">
@@ -340,6 +425,7 @@
     [caseNumber]="modalState().caseIndex + 1"
     [inputVal]="modalState().input"
     [outputVal]="modalState().expected_output"
+    [descriptionVal]="modalState().description"
     [hasReferenceSolution]="hasReferenceSolution()"
     [isCalculating]="isModalCalculating()"
     (calculateOutput)="onModalCalculateOutput($event)"
@@ -351,6 +437,7 @@
   <generate-cases-modal
     [isOpen]="isGenerateModalOpen()"
     [contract]="store.contract()"
+    [exerciseId]="store.exerciseId()"
     (casesGenerated)="onCasesGenerated($event)"
     (cancel)="closeGenerateModal()"
   />
