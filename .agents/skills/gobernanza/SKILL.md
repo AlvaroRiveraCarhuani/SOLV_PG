@@ -26,3 +26,4 @@ Esta skill define las reglas obligatorias de gobernanza y trazabilidad para cual
 
 - **Actualización de ADRs**: Todo ADR nuevo o cambio de estado debe reflejarse en `docs/ARQUITECTURA/ADR/INDEX.md` en el mismo commit.
 - **Trazabilidad de Slices**: Cambios en arquitectura o base de datos deben registrarse en la carpeta del Slice correspondiente (`docs/SLICES/SLICE_N/`).
+- **Documentación en Cambios Relevantes**: Cada modificación estructural, adición de capacidades (ej. soporte SQLite / optimizaciones de BD) o ajuste de contratos debe documentarse en la carpeta correspondiente (`docs/ARQUITECTURA/`, `docs/SLICES/` o especificaciones activas) antes de dar por cerrada la tarea.

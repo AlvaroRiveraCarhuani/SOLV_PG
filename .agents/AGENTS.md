@@ -26,6 +26,7 @@ Para cualquier sesión que modifique el frontend o arquitectura, deben consultar
 - Migraciones idempotentes en postgres.go
 - Tests de integración en backend/tests/integration/
 - Commits Conventional Commits con cuerpo: Qué/Por qué/Cómo/Impacto
+- Desarrollo indivisible de la documentación: Todo cambio importante (arquitectura, modelos, infraestructura, configuración de bases de datos o rediseño de flujos) debe acompañarse obligatoriamente de su documentación técnica correspondiente o actualización de ADR/especificación. No se considera terminado ningún desarrollo sin su documento o sección actualizada.
 
 ## PROHIBIDO
 
