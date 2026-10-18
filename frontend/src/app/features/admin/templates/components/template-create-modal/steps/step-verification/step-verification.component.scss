@@ -193,9 +193,12 @@
           background-color: var(--tenant-primary-hover);
         }
 
-        &:disabled {
-          opacity: 0.65;
+        &:disabled,
+        &.btn-disabled {
+          opacity: 0.5;
           cursor: not-allowed;
+          filter: grayscale(0.2);
+          box-shadow: none;
         }
       }
 
@@ -216,6 +219,67 @@
           background-color: var(--bg-surface-active);
           border-color: var(--color-gray-400);
           color: var(--text-primary);
+        }
+      }
+    }
+  }
+
+  // Banner orientativo de requisitos pendientes
+  .prerequisites-warning-box {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.75rem;
+    background-color: var(--status-pending-bg);
+    border: 1px solid var(--status-pending-border);
+    border-radius: var(--radius-sm);
+
+    .prerequisites-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
+
+      .prerequisites-title {
+        font-size: var(--text-xs);
+        font-weight: 600;
+        color: var(--status-pending-color);
+      }
+    }
+
+    .prerequisites-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+
+      .prerequisite-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        font-size: var(--text-xs);
+        color: var(--status-pending-color);
+
+        .prerequisite-desc {
+          flex: 1;
+        }
+
+        .btn-link-jump {
+          background: none;
+          border: none;
+          padding: 0;
+          font-size: var(--text-xs);
+          font-weight: 600;
+          color: var(--tenant-primary);
+          text-decoration: underline;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: color 150ms ease;
+
+          &:hover {
+            color: var(--tenant-primary-hover);
+          }
         }
       }
     }

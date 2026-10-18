@@ -164,6 +164,19 @@ func main() {
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
 	templateAuditWorker.Start(ctx)
 
+	// Auto-recuperación y verificación de disponibilidad de entornos en segundo plano al arrancar el servidor
+	go func() {
+		warmCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		summary, err := templateCacheService.WarmAllActiveTemplates(warmCtx, "")
+		if err != nil {
+			log.Printf("[TemplateCache] Advertencia en auto-recuperación de entornos: %v", err)
+			return
+		}
+		log.Printf("[TemplateCache] Disponibilidad de entornos verificada: %d listos, %d descargados, %d con error (total: %d)",
+			summary.AlreadyWarm, summary.WarmedCount, summary.FailedCount, summary.TotalChecked)
+	}()
+
 	// Worker cron cada 24h para archivado automático de periodos expirados
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)

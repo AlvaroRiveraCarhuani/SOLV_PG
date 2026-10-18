@@ -260,7 +260,7 @@ describe('AdminTemplatesComponent Spec', () => {
 
     expect(mockTemplatesService.warmTemplate).toHaveBeenCalledWith('tpl-2');
     expect(component.toast()?.type).toBe('success');
-    expect(component.toast()?.message).toContain('Imagen precargada en disco');
+    expect(component.toast()?.message).toContain('Entorno listo en el servidor');
   });
 
   it('permite ejecutar calentamiento masivo de caché pre-clase', () => {
@@ -268,7 +268,7 @@ describe('AdminTemplatesComponent Spec', () => {
 
     expect(mockTemplatesService.warmAllTemplates).toHaveBeenCalled();
     expect(component.toast()?.type).toBe('success');
-    expect(component.toast()?.message).toContain('Caché actualizada');
+    expect(component.toast()?.message).toContain('Entornos preparados');
   });
 });
 

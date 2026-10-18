@@ -115,6 +115,38 @@ export class StepVerificationComponent {
     return job !== null && (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending');
   });
 
+  missingPrerequisites = computed<{ section: WizardSection; label: string; description: string }[]>(() => {
+    const list: { section: WizardSection; label: string; description: string }[] = [];
+    const img = this.dockerImage().trim();
+    if (!img) {
+      list.push({
+        section: 'image',
+        label: 'Paso 3 (Imagen)',
+        description: 'Ingrese la imagen Docker a utilizar.'
+      });
+    } else if (img.toLowerCase().endsWith(':latest')) {
+      list.push({
+        section: 'image',
+        label: 'Paso 3 (Imagen)',
+        description: 'Especifique una etiqueta de versión fija (el tag :latest no está permitido).'
+      });
+    }
+
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
+      list.push({
+        section: 'execution',
+        label: 'Paso 4 (Ejecución)',
+        description: 'Defina el comando de compilación y ejecución para el sandbox de evaluación.'
+      });
+    }
+
+    return list;
+  });
+
+  canTriggerTest = computed<boolean>(() => {
+    return this.missingPrerequisites().length === 0 && !this.isTestRunning();
+  });
+
   hasFailedTest = computed<boolean>(() => {
     const job = this.activeEnvTestJob();
     return job !== null && job.status === 'failed';

@@ -62,8 +62,10 @@
         <button 
           type="button" 
           class="btn-integrity-primary" 
-          [disabled]="isTestRunning()" 
+          [disabled]="!canTriggerTest()" 
+          [class.btn-disabled]="!canTriggerTest()"
           (click)="handleRetry()"
+          [title]="!canTriggerTest() && missingPrerequisites().length > 0 ? 'Complete los requisitos de configuración previos para habilitar la prueba' : ''"
         >
           <svg *ngIf="!isTestRunning() && !hasFailedTest()" lucidePlay class="w-4 h-4 mr-1.5"></svg>
           <svg *ngIf="!isTestRunning() && hasFailedTest()" lucideRotateCw class="w-4 h-4 mr-1.5"></svg>
@@ -82,6 +84,30 @@
         </button>
       </div>
     </div>
+
+    <!-- Banner orientativo cuando faltan requisitos previos para probar -->
+    @if (missingPrerequisites().length > 0) {
+      <div class="prerequisites-warning-box">
+        <div class="prerequisites-header">
+          <svg lucideAlertCircle class="w-4 h-4 text-warning shrink-0"></svg>
+          <span class="prerequisites-title">Requisitos pendientes para habilitar la prueba</span>
+        </div>
+        <ul class="prerequisites-list">
+          @for (item of missingPrerequisites(); track item.section) {
+            <li class="prerequisite-item">
+              <span class="prerequisite-desc">{{ item.description }}</span>
+              <button 
+                type="button" 
+                class="btn-link-jump" 
+                (click)="jumpToSection.emit(item.section)"
+              >
+                Completar en {{ item.label }} &rarr;
+              </button>
+            </li>
+          }
+        </ul>
+      </div>
+    }
 
     <!-- Barra informativa de imagen y caché host -->
     <div class="registry-info-bar">

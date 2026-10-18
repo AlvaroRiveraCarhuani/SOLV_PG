@@ -698,7 +698,7 @@ export class AdminTemplatesComponent implements OnInit {
           next.set(id, status);
           return next;
         });
-        this.showToast(`Imagen precargada en disco: ${template.name}`, 'success');
+        this.showToast(`Entorno listo en el servidor: ${template.name}`, 'success');
       },
       error: () => {
         this.warmingTemplateIds.update(set => {
@@ -706,7 +706,7 @@ export class AdminTemplatesComponent implements OnInit {
           next.delete(id);
           return next;
         });
-        this.showToast(`Error al precargar la imagen de ${template.name}`, 'error');
+        this.showToast(`No se pudo preparar el entorno de ${template.name}`, 'error');
       }
     });
   }
@@ -718,13 +718,13 @@ export class AdminTemplatesComponent implements OnInit {
         this.isWarmingAll.set(false);
         this.loadCacheStatuses();
         this.showToast(
-          `Caché actualizada: ${summary.warmed_count} descargadas, ${summary.already_warm} ya en disco`,
+          `Entornos preparados: ${summary.warmed_count} descargados, ${summary.already_warm} ya listos`,
           'success'
         );
       },
       error: () => {
         this.isWarmingAll.set(false);
-        this.showToast('Error al ejecutar el precalentamiento masivo', 'error');
+        this.showToast('No se pudieron preparar los entornos del servidor', 'error');
       }
     });
   }

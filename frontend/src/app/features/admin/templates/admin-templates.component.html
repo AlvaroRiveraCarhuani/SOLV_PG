@@ -28,13 +28,13 @@
         class="btn-secondary" 
         (click)="warmAllTemplates()" 
         [disabled]="isWarmingAll()"
-        title="Descarga al host las imágenes de plantillas activas para evitar demoras y límite 429 pre-clase">
+        title="Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase">
         @if (isWarmingAll()) {
           <svg lucideRefreshCw class="btn-icon spin"></svg>
-          <span>Calentando Caché...</span>
+          <span>Preparando entornos...</span>
         } @else {
-          <svg lucideFlame class="btn-icon"></svg>
-          <span>Calentar Caché</span>
+          <svg lucideDownloadCloud class="btn-icon"></svg>
+          <span>Preparar entornos</span>
         }
       </button>
       <button type="button" class="btn-primary" (click)="openCreateModal()">
