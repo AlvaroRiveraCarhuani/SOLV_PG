@@ -46,6 +46,7 @@ import { LucideBookOpen, LucideX, LucideExternalLink } from '@lucide/angular';
         <div class="drawer-footer">
           <a 
             routerLink="/admin/manual" 
+            [fragment]="manualFragment() || undefined"
             target="_blank" 
             rel="noopener noreferrer" 
             class="manual-link"
@@ -64,6 +65,7 @@ export class HelpDrawerComponent {
   title = input<string>('Ayuda Contextual');
   stepNumber = input<number | null>(null);
   manualLinkText = input<string>('Ver manual completo de administración');
+  manualFragment = input<string | null>(null);
 
   closed = output<void>();
 

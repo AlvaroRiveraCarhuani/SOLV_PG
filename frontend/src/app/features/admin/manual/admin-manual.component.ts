@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import {
@@ -74,6 +74,7 @@ export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
   private http = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
   private elementRef = inject(ElementRef);
+  private route = inject(ActivatedRoute);
 
   loading = signal<boolean>(true);
   error = signal<string | null>(null);
@@ -264,6 +265,10 @@ export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
       this.setupScrollSpy();
       this.renderMermaidDiagrams();
       this.attachHeadingAnchors();
+      const fragment = this.route.snapshot.fragment || window.location.hash?.replace('#', '');
+      if (fragment) {
+        setTimeout(() => this.scrollToSection(fragment), 150);
+      }
     }, 100);
   }
 

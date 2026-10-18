@@ -8,7 +8,10 @@ import {
   HostListener, 
   inject, 
   OnInit, 
-  OnDestroy 
+  OnDestroy,
+  AfterViewInit,
+  ElementRef,
+  viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -46,11 +49,13 @@ import {
   LucideLayers, 
   LucideAlertCircle,
   LucideHelpCircle,
-  LucideSparkles,
+  LucideCheckCircle2,
   LucideSend,
   LucideRotateCw,
   LucideArrowLeft,
-  LucideArrowRight
+  LucideArrowRight,
+  LucideChevronLeft,
+  LucideChevronRight
 } from '@lucide/angular';
 
 export interface ImageSuggestion {
@@ -96,11 +101,13 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
     LucideLayers, 
     LucideAlertCircle,
     LucideHelpCircle,
-    LucideSparkles,
+    LucideCheckCircle2,
     LucideSend,
     LucideRotateCw,
     LucideArrowLeft,
     LucideArrowRight,
+    LucideChevronLeft,
+    LucideChevronRight,
     StepPurposeComponent,
     StepIdentityComponent,
     StepImageComponent,
@@ -112,7 +119,7 @@ export type WizardSection = 'purpose' | 'identity' | 'image' | 'execution' | 're
   templateUrl: './template-create-modal.component.html',
   styleUrls: ['./template-create-modal.component.scss']
 })
-export class TemplateCreateModalComponent implements OnInit, OnDestroy {
+export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterViewInit {
   private templatesService = inject(AdminTemplatesService);
   private router = inject(Router);
 
@@ -122,6 +129,10 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   // Navegación modular de 6 pasos
   readonly WIZARD_SECTIONS: WizardSection[] = ['purpose', 'identity', 'image', 'execution', 'resources', 'verification'];
   activeSection = signal<WizardSection>('purpose');
+
+  tabsContainer = viewChild<ElementRef<HTMLDivElement>>('tabsContainer');
+  canScrollLeft = signal<boolean>(false);
+  canScrollRight = signal<boolean>(false);
 
   // Paso 1: Propósito del Entorno (IDE vs Juez)
   targetEnvironment = signal<'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'>('IDE_PERSISTENTE');
@@ -428,6 +439,17 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
   drawerStepNumber = computed<number | null>(() => {
     const idx = this.WIZARD_SECTIONS.indexOf(this.activeDrawerStep());
     return idx >= 0 ? idx + 1 : null;
+  });
+
+  drawerManualFragment = computed<string | null>(() => {
+    switch (this.activeDrawerStep()) {
+      case 'purpose': return '2-1-comparativa-tecnica-de-entornos';
+      case 'identity': return '3-2-ciclo-de-vida-y-gobernanza-de-plantillas';
+      case 'image': return '3-1-requisitos-de-imagenes-docker';
+      case 'execution': return '2-entornos-de-laboratorio-y-evaluacion';
+      case 'resources': return '2-2-politicas-de-memoria-y-derivacion-automatica';
+      default: return null;
+    }
   });
 
   runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
@@ -914,6 +936,44 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     });
   }
 
+  ngAfterViewInit(): void {
+    setTimeout(() => this.updateTabsScrollState(), 100);
+  }
+
+  @HostListener('window:resize')
+  onWindowResize(): void {
+    this.updateTabsScrollState();
+  }
+
+  scrollTabs(direction: 'left' | 'right'): void {
+    const el = this.tabsContainer()?.nativeElement;
+    if (!el) return;
+    const amount = 220;
+    el.scrollBy({ left: direction === 'left' ? -amount : amount, behavior: 'smooth' });
+    setTimeout(() => this.updateTabsScrollState(), 250);
+  }
+
+  onTabsScroll(): void {
+    this.updateTabsScrollState();
+  }
+
+  onTabsWheel(event: WheelEvent): void {
+    const el = this.tabsContainer()?.nativeElement;
+    if (!el) return;
+    if (event.deltaY !== 0) {
+      event.preventDefault();
+      el.scrollLeft += event.deltaY;
+      this.updateTabsScrollState();
+    }
+  }
+
+  updateTabsScrollState(): void {
+    const el = this.tabsContainer()?.nativeElement;
+    if (!el) return;
+    this.canScrollLeft.set(el.scrollLeft > 4);
+    this.canScrollRight.set(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }
+
   // Navegación modular por pasos
   setSection(section: WizardSection): void {
     this.activeSection.set(section);
@@ -922,7 +982,10 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.saveDraftToStorage();
     setTimeout(() => {
       document.getElementById(`step-title-${section}`)?.focus();
-    }, 50);
+      const activeEl = this.tabsContainer()?.nativeElement.querySelector('.tab-btn.active');
+      activeEl?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      this.updateTabsScrollState();
+    }, 60);
   }
 
   toggleHelpDrawer(step?: WizardSection): void {
@@ -1091,7 +1154,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy {
     this.saveDraftToStorage();
     this.isDraftSaved.set(true);
 
-    const msg = $localize`:@@ST-14:Modelo ${model.name}:name: aplicado. Edite lo que necesite.`;
+    const msg = $localize`:@@ST-14:Preconfigurado ${model.name}:name: aplicado. Edite lo que necesite.`;
     this.showToast(msg);
   }
 

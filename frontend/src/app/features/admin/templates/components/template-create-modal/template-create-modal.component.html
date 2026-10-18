@@ -18,7 +18,19 @@
     </div>
 
     <!-- Navegación de 6 Secciones del Asistente (PU-01, PU-18 a PU-21) -->
-    <div class="wizard-nav-tabs">
+    <div class="wizard-nav-container">
+      <button 
+        type="button" 
+        class="nav-scroll-btn left" 
+        [class.visible]="canScrollLeft()"
+        [disabled]="!canScrollLeft()" 
+        (click)="scrollTabs('left')"
+        aria-label="Desplazar fases a la izquierda"
+      >
+        <svg lucideChevronLeft class="w-4 h-4"></svg>
+      </button>
+
+      <div class="wizard-nav-tabs" #tabsContainer (scroll)="onTabsScroll()" (wheel)="onTabsWheel($event)">
       <button 
         type="button" 
         class="tab-btn" 
@@ -116,29 +128,41 @@
           }
         </span>
       </button>
+      </div>
+
+      <button 
+        type="button" 
+        class="nav-scroll-btn right" 
+        [class.visible]="canScrollRight()"
+        [disabled]="!canScrollRight()" 
+        (click)="scrollTabs('right')"
+        aria-label="Desplazar fases a la derecha"
+      >
+        <svg lucideChevronRight class="w-4 h-4"></svg>
+      </button>
     </div>
 
     <!-- Body con Pasos -->
     <div class="modal-body">
-
-      <!-- Banner de Reanudación de Borrador (UX-13, ST-09) -->
-      @if (hasDraftToResume()) {
-        <div class="draft-resume-banner animate-fade">
-          <div class="resume-info">
-            <svg lucideRotateCw class="w-4 h-4 text-primary"></svg>
-            <span i18n="@@ST-09">Continuar borrador anterior (guardado recientemente).</span>
-          </div>
-          <div class="resume-actions">
-            <button type="button" class="btn-primary-sm" (click)="resumeDraft()">
-              Reanudar borrador
-            </button>
-            <button type="button" class="btn-resume-action btn-discard-resume" (click)="discardDraft()">
-              Descartar
-            </button>
-          </div>
-        </div>
-      }
       <div class="modal-form-content">
+        <!-- Banner de Reanudación de Borrador (UX-13, ST-09) -->
+        @if (hasDraftToResume()) {
+          <div class="draft-resume-banner animate-fade">
+            <div class="resume-info">
+              <svg lucideRotateCw class="w-4 h-4 text-primary"></svg>
+              <span i18n="@@ST-09">Continuar borrador anterior (guardado recientemente).</span>
+            </div>
+            <div class="resume-actions">
+              <button type="button" class="btn-primary-sm" (click)="resumeDraft()">
+                Reanudar borrador
+              </button>
+              <button type="button" class="btn-resume-action btn-discard-resume" (click)="discardDraft()">
+                Descartar
+              </button>
+            </div>
+          </div>
+        }
+
         <!-- PASO 1: PROPÓSITO DEL ENTORNO (PU-01 a PU-05, AY-01, AY-02) -->
         @if (activeSection() === 'purpose') {
           <div class="section-container animate-fade">
@@ -287,6 +311,7 @@
         [isOpen]="isHelpDrawerOpen()"
         [title]="drawerTitle()"
         [stepNumber]="drawerStepNumber()"
+        [manualFragment]="drawerManualFragment()"
         (closed)="closeHelpDrawer()"
       >
         @switch (activeDrawerStep()) {
@@ -585,8 +610,8 @@ pip install pandas</code></pre>
 
     <!-- Toast de Notificación Interno del Modal (ST-08, ST-14, ST-16) -->
     @if (toastMessage(); as msg) {
-      <div class="modal-toast-float animate-fade">
-        <svg lucideSparkles class="w-4 h-4 text-warning"></svg>
+      <div class="modal-toast-float animate-fade" role="status">
+        <svg lucideCheckCircle2 class="toast-icon" aria-hidden="true"></svg>
         <span>{{ msg }}</span>
       </div>
     }

@@ -25,7 +25,7 @@
     <div class="header-actions">
       <button type="button" class="btn-primary" (click)="openCreateModal()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Nueva Plantilla Oficial</span>
+        <span>Nueva Plantilla</span>
       </button>
     </div>
   </header>
@@ -33,9 +33,9 @@
   <!-- Grilla de KPIs de Gobernanza Docker -->
   <kpi-grid [columns]="5">
     <kpi-card
-      label="Total en Catálogo"
+      label="Total Catálogo"
       [value]="catalogCount()"
-      detail="Plantillas institucionales"
+      detail="Plantillas del catálogo"
       variant="primary"
     >
       <svg lucideLayers icon></svg>
@@ -44,7 +44,7 @@
     <kpi-card
       label="Pendientes"
       [value]="pendingCount()"
-      [detail]="pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión administrativa'"
+      [detail]="pendingCount() === 0 ? 'Bandeja al día' : 'Requieren revisión'"
       [variant]="pendingCount() > 0 ? 'warning' : 'running'"
     >
       @if (pendingCount() > 0) {
@@ -55,9 +55,9 @@
     </kpi-card>
 
     <kpi-card
-      label="Activas en catálogo"
+      label="Activas"
       [value]="activeCount()"
-      detail="Disponibles para laboratorios"
+      detail="Listas para uso"
       variant="running"
     >
       <svg lucideCheckCircle2 icon></svg>
@@ -66,7 +66,7 @@
     <kpi-card
       label="Pausadas"
       [value]="pausedCount()"
-      detail="En mantenimiento temporal"
+      detail="En mantenimiento"
       variant="default"
     >
       <svg lucidePause icon></svg>
@@ -75,7 +75,7 @@
     <kpi-card
       label="RAM Promedio"
       [value]="averageRam() + ' MB'"
-      detail="Cuota media por entorno"
+      detail="Consumo por entorno"
       variant="purple"
     >
       <svg lucideHardDrive icon></svg>
@@ -105,9 +105,9 @@
     <!-- Chips Dinámicos por Tecnología (Calculados Reactivamente desde la BD) -->
     @if (availableTechs().length > 0) {
       <div class="tech-chips-bar" role="group" aria-label="Filtro por tecnología">
-        <button 
-          type="button" 
-          class="tech-chip" 
+        <button
+          type="button"
+          class="tech-chip"
           [class.active]="selectedTech() === 'all'"
           (click)="setTechFilter('all')">
           <span>Todas</span>
@@ -115,9 +115,9 @@
         </button>
 
         @for (tech of topTechs(); track tech.meta.id) {
-          <button 
-            type="button" 
-            class="tech-chip" 
+          <button
+            type="button"
+            class="tech-chip"
             [class.active]="selectedTech() === tech.meta.id"
             (click)="setTechFilter(tech.meta.id)">
             <tech-logo [iconType]="tech.meta.iconType" [size]="16" />
@@ -128,9 +128,9 @@
 
         @if (extraTechs().length > 0) {
           <div class="tech-chip-select-wrapper" [class.active]="isExtraSelected()">
-            <select 
-              class="tech-chip-select" 
-              [value]="isExtraSelected() ? selectedTech() : ''" 
+            <select
+              class="tech-chip-select"
+              [value]="isExtraSelected() ? selectedTech() : ''"
               (change)="onSelectExtraTech($event)"
               aria-label="Más tecnologías">
               <option value="" disabled [selected]="!isExtraSelected()">
@@ -215,10 +215,10 @@
                 <span class="docker-label">Imagen:</span>
                 <div class="docker-tag-wrapper">
                   <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button 
-                    type="button" 
-                    class="btn-copy-tag" 
-                    (click)="copyDockerTag(item.docker_image, $event)" 
+                  <button
+                    type="button"
+                    class="btn-copy-tag"
+                    (click)="copyDockerTag(item.docker_image, $event)"
                     [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                     @if (copiedTag() === item.docker_image) {
                       <svg lucideCheck class="copy-icon text-success"></svg>
@@ -271,10 +271,10 @@
                         <div class="cell-main-title font-semibold">{{ item.name }}</div>
                         <div class="docker-copy-inline">
                           <code class="cell-code">{{ item.docker_image }}</code>
-                          <button 
-                            type="button" 
-                            class="btn-copy-tag" 
-                            (click)="copyDockerTag(item.docker_image, $event)" 
+                          <button
+                            type="button"
+                            class="btn-copy-tag"
+                            (click)="copyDockerTag(item.docker_image, $event)"
                             [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                             @if (copiedTag() === item.docker_image) {
                               <svg lucideCheck class="copy-icon text-success"></svg>
@@ -395,10 +395,10 @@
                 <span class="docker-label">Imagen Base:</span>
                 <div class="docker-tag-wrapper">
                   <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button 
-                    type="button" 
-                    class="btn-copy-tag" 
-                    (click)="copyDockerTag(item.docker_image, $event)" 
+                  <button
+                    type="button"
+                    class="btn-copy-tag"
+                    (click)="copyDockerTag(item.docker_image, $event)"
                     [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                     @if (copiedTag() === item.docker_image) {
                       <svg lucideCheck class="copy-icon text-success"></svg>
@@ -489,10 +489,10 @@
                   <td>
                     <div class="docker-copy-inline">
                       <code class="cell-code">{{ item.docker_image }}</code>
-                      <button 
-                        type="button" 
-                        class="btn-copy-tag" 
-                        (click)="copyDockerTag(item.docker_image, $event)" 
+                      <button
+                        type="button"
+                        class="btn-copy-tag"
+                        (click)="copyDockerTag(item.docker_image, $event)"
                         [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                         @if (copiedTag() === item.docker_image) {
                           <svg lucideCheck class="copy-icon text-success"></svg>
@@ -677,10 +677,10 @@
                 <span class="docker-label">Imagen Solicitada:</span>
                 <div class="docker-tag-wrapper">
                   <code class="docker-tag">{{ item.docker_image }}</code>
-                  <button 
-                    type="button" 
-                    class="btn-copy-tag" 
-                    (click)="copyDockerTag(item.docker_image, $event)" 
+                  <button
+                    type="button"
+                    class="btn-copy-tag"
+                    (click)="copyDockerTag(item.docker_image, $event)"
                     [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                     @if (copiedTag() === item.docker_image) {
                       <svg lucideCheck class="copy-icon text-success"></svg>
@@ -722,10 +722,10 @@
                         <div class="cell-main-title font-semibold">{{ item.name }}</div>
                         <div class="docker-copy-inline">
                           <code class="cell-code">{{ item.docker_image }}</code>
-                          <button 
-                            type="button" 
-                            class="btn-copy-tag" 
-                            (click)="copyDockerTag(item.docker_image, $event)" 
+                          <button
+                            type="button"
+                            class="btn-copy-tag"
+                            (click)="copyDockerTag(item.docker_image, $event)"
                             [title]="copiedTag() === item.docker_image ? '¡Copiado!' : 'Copiar tag'">
                             @if (copiedTag() === item.docker_image) {
                               <svg lucideCheck class="copy-icon text-success"></svg>
@@ -771,29 +771,29 @@
 
   <!-- Modales -->
   @if (selectedTemplateForReview(); as tpl) {
-    <template-review-modal 
-      [template]="tpl" 
-      (approved)="handleApprove($event)" 
+    <template-review-modal
+      [template]="tpl"
+      (approved)="handleApprove($event)"
       (closed)="closeReviewModal()" />
   }
 
   @if (selectedTemplateForReject(); as tpl) {
-    <template-reject-modal 
-      [template]="tpl" 
-      (rejected)="handleReject($event)" 
+    <template-reject-modal
+      [template]="tpl"
+      (rejected)="handleReject($event)"
       (closed)="closeRejectModal()" />
   }
 
   @if (selectedTemplateForEdit(); as tpl) {
-    <template-edit-modal 
-      [template]="tpl" 
-      (saved)="handleSaveEdit($event)" 
+    <template-edit-modal
+      [template]="tpl"
+      (saved)="handleSaveEdit($event)"
       (closed)="closeEditModal()" />
   }
 
   @if (showCreateModal()) {
-    <template-create-modal 
-      (created)="handleCreateOfficial($event)" 
+    <template-create-modal
+      (created)="handleCreateOfficial($event)"
       (closed)="closeCreateModal()" />
   }
 
