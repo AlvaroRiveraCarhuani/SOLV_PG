@@ -713,7 +713,7 @@ export class AdminTemplatesComponent implements OnInit {
 
   warmAllTemplates(): void {
     if (this.activeCount() === 0) {
-      this.showToast('No hay plantillas activas en el catálogo para preparar.', 'info');
+      this.showToast('No hay plantillas activas en el catálogo para preparar.', 'success');
       return;
     }
     this.isWarmingAll.set(true);
@@ -722,7 +722,7 @@ export class AdminTemplatesComponent implements OnInit {
         this.isWarmingAll.set(false);
         this.loadCacheStatuses();
         if (summary.total_checked === 0) {
-          this.showToast('No hay entornos activos para preparar en el catálogo.', 'info');
+          this.showToast('No hay entornos activos para preparar en el catálogo.', 'success');
         } else {
           this.showToast(
             `Entornos preparados: ${summary.warmed_count} descargados, ${summary.already_warm} ya listos`,
@@ -737,7 +737,7 @@ export class AdminTemplatesComponent implements OnInit {
     });
   }
 
-  showToast(message: string, type: 'success' | 'error' = 'success'): void {
+  showToast(message: string, type: 'success' | 'error' | 'info' = 'success'): void {
     this.toast.set({ message, type });
     setTimeout(() => {
       this.toast.set(null);
