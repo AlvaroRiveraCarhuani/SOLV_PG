@@ -62,6 +62,32 @@ This document details standard operational procedures for incident response, dat
 
 ---
 
+### Scenario 4: Image Pull Latency or Docker Hub Rate Limit (HTTP 429)
+1. **Symptoms**:
+   - Workspace creation times out (>30s) or student requests fail during morning peak.
+   - Docker daemon logs report `toomanyrequests: You have reached your unauthenticated pull rate limit`.
+2. **Immediate Remediation (Host Cache Pre-warming)**:
+   - Trigger mass warming from Admin UI (*Calentar Caché* button) or via terminal on the Asus host:
+   ```bash
+   curl -X POST "http://localhost:3000/api/v1/admin/templates/warm-all" \
+        -H "X-User-Id: <admin_uuid>" \
+        -H "X-User-Role: admin"
+   ```
+3. **Inspect Cache Status**:
+   ```bash
+   curl -s -X GET "http://localhost:3000/api/v1/admin/templates/cache-status" \
+        -H "X-User-Id: <admin_uuid>" \
+        -H "X-User-Role: admin" | jq .
+   ```
+4. **Verify Local Storage Footprint**:
+   ```bash
+   docker system df
+   ```
+   Ensure SSD usage for Docker images does not exceed 80% of `/mnt/ssd`.
+
+
+---
+
 ## 2. Post-Restore Validation Checklist
 
 - [ ] Backend API health check responds `200 OK` on `http://localhost:3000/metrics` or `/api/v1/config/public`.

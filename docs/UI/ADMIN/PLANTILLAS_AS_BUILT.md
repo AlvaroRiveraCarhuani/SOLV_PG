@@ -259,11 +259,24 @@ stateDiagram-v2
   * Creación con `category_id`, `model_id` y `sample_input`.
 * [`template-review-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-review-modal/template-review-modal.component.ts): Sin tests unitarios propios (usa `getRuntimeCapabilities`).
 * [`template-reject-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-reject-modal/template-reject-modal.component.ts): Sin tests unitarios propios (probado vía integración backend).
-* [`admin-templates.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/admin-templates.component.ts): Sin tests unitarios frontend.
+* [`admin-templates.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/admin-templates.component.ts): **9 tests unitarios pasando**.
+  * Carga inicial y lectura de estado de caché (`adminTemplatesService.getCacheStatus`).
+  * Renderizado del botón "Calentar Caché" en el header de administración.
+  * Badges semánticos "En disco (X MB)" y "Sin caché" para plantillas oficiales.
+  * Disparo de precalentamiento individual y masivo (`warmTemplate`, `warmAllTemplates`).
 
 ---
 
-## 10. Tabla Final de Desvíos Contra Especificación
+## 10. Invariantes de Caché y Diagnóstico de Imágenes en Host
+
+1. **Diagnóstico Taxativo de Docker SDK:** La verificación e inspección de imágenes clasifica y distingue de forma determinista los estados de fallo:
+   - `not_found_remote`: La imagen no existe en el registro Docker Hub ni localmente.
+   - `network_failure`: Imposibilidad de contactar al registro por problemas de conectividad o DNS.
+   - `degraded_offline`: El host opera en modo desconectado utilizando únicamente imágenes en caché local.
+2. **Invariante Golden Image en Creación:** Al certificar y guardar una plantilla oficial (`CreateOfficialTemplate`), el backend exige y verifica la presencia física local de la imagen (`InspectLocalImage == true`), realizando el *pull* previo en disco para garantizar que ninguna sesión de clase falle por descargas en tiempo de ejecución.
+3. **Deduplicación Single-Flight:** Todo *pull* o inspección a través de `DockerClient` está protegido por `singleflight.Group`, agrupando solicitudes concurrentes idénticas para proteger el bus del daemon Docker y evitar límites de descarga (HTTP 429).
+4. **Desacople de Borradores:** La persistencia temporal de borradores de plantillas en frontend y backend no impone validación previa de presencia en Docker Hub, permitiendo guardar estados incompletos de configuración pedagógica.
+
 
 | ID / Requisito | Estado en Código As-Built | Evidencia en Código y Descripción del Desvío |
 | :--- | :--- | :--- |

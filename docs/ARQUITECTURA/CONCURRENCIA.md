@@ -28,3 +28,7 @@
 1. **Hibernación Dual:** Liberación de memoria física cuando la inactividad supera el umbral configurado (`DefaultInactivityTimeout = 500ms` en tests / 15min en producción).
 2. **QoS Host Admission Control:** Inspección de la memoria disponible física (`GetHostMemoryStats`). Si la RAM libre cae por debajo del margen de resguardo OOM Guard (15% RAM / 1408 MB), el backend rechaza nuevas solicitudes con HTTP 503 evitando caídas del sistema.
 3. **Observabilidad Físico-Arquitectónica:** Exposición de métricas Prometheus (`solv_active_workspaces_total`, `solv_host_available_memory_bytes`, `solv_host_oom_guard_bytes`, `solv_orphan_containers_reclaimed_total`, `solv_cert_expiry_days`) visualizadas en tableros de Grafana.
+4. **Protección Single-Flight contra Oleadas de Inicio (Thundering Herd):**
+   - Cuando múltiples alumnos inician simultáneamente laboratorios al comenzar la clase (pico de las 8:00 AM), las solicitudes concurrentes para descargar o verificar una misma imagen Docker se unifican mediante el grupo `singleflight.Group` en la capa de infraestructura Docker.
+   - Solo se despacha una única llamada a la API del daemon Docker por cada referencia de imagen; las demás peticiones esperan el mismo canal sin saturar el bus del Docker daemon ni provocar caídas por límite de descargas (HTTP 429 en Docker Hub).
+

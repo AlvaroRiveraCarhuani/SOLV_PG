@@ -1066,3 +1066,95 @@ Transmite el flujo binario del archivo `.dump.gz` al cliente con cabeceras `Cont
   - `200 OK`: Flujo binario con `Content-Type: application/gzip` y `Content-Disposition: attachment; filename="..."`.
   - `404 Not Found`: Si el archivo no se encuentra en el almacenamiento local.
   - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+## Gestión de Caché y Precalentamiento de Plantillas Docker (Rol Administrador)
+
+### 1. Estado de Caché Local de Plantillas (`GET /api/v1/admin/templates/cache-status`)
+
+Inspecciona la presencia de las imágenes Docker de todas las plantillas del tenant en el almacenamiento local del host Docker (`InspectLocalImage`), indicando si residen en disco o requieren descarga remota.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/templates/cache-status`
+- **Headers Requeridos:**
+  - `X-User-Id: <admin_uuid>`
+  - `X-User-Role: admin`
+  - `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "items": [
+    {
+      "template_id": "77777777-7777-4777-a777-777777777777",
+      "template_name": "Python Data Science",
+      "docker_image": "python:3.11-slim",
+      "cached": true,
+      "size_mb": 145,
+      "local_image_id": "sha256:d8f2..."
+    },
+    {
+      "template_id": "88888888-8888-4888-a888-888888888888",
+      "template_name": "Rust 1.80 Systems",
+      "docker_image": "rust:1.80-slim",
+      "cached": false,
+      "size_mb": 0,
+      "local_image_id": ""
+    }
+  ]
+}
+```
+  - `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 2. Calentamiento Bajo Demanda de Plantilla Individual (`POST /api/v1/admin/templates/{id}/warm`)
+
+Descarga y almacena localmente la imagen OCI de una plantilla específica mediante *single-flight deduplication* en el Docker Engine del host, garantizando que futuras solicitudes no bloqueen ni compitan por ancho de banda.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/templates/{id}/warm`
+- **Headers Requeridos:**
+  - `X-User-Id: <admin_uuid>`
+  - `X-User-Role: admin`
+  - `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "template_id": "88888888-8888-4888-a888-888888888888",
+  "template_name": "Rust 1.80 Systems",
+  "docker_image": "rust:1.80-slim",
+  "cached": true,
+  "size_mb": 312,
+  "local_image_id": "sha256:a1b2..."
+}
+```
+  - `404 Not Found`: Si la plantilla no existe en el tenant.
+  - `502 Bad Gateway`: Si ocurre un error de red o la imagen no existe en el registro remoto (`not_found_remote` o `network_failure`).
+
+---
+
+### 3. Calentamiento Masivo Pre-Clase (`POST /api/v1/admin/templates/warm-all`)
+
+Ejecuta el precalentamiento secuencial seguro de todas las plantillas registradas del tenant para asegurar la invariante *Golden Image* antes del inicio de clases presenciales.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/templates/warm-all`
+- **Headers Requeridos:**
+  - `X-User-Id: <admin_uuid>`
+  - `X-User-Role: admin`
+  - `X-Tenant-Id: <tenant_uuid>`
+- **Respuestas:**
+  - `200 OK`:
+```json
+{
+  "total_templates": 6,
+  "pulled": 2,
+  "already_cached": 4,
+  "failed": 0
+}
+```
+  - `403 Forbidden`: Si el rol no es `admin`.
+

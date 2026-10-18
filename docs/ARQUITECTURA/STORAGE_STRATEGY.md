@@ -45,3 +45,14 @@ Para garantizar que el motor Docker Engine utilice por defecto la unidad SSD com
    sudo rsync -aP /var/lib/docker/ /mnt/ssd/docker/
    sudo systemctl start docker
    ```
+
+---
+
+## Invariante de Plantilla Base (Golden Image Invariant)
+
+Para erradicar la contención de ancho de banda y fallas en el inicio de laboratorios en aulas de cómputo, SOLV adopta la **invariante de imagen base local**:
+
+1. **Pre-almacenamiento en SSD (`overlay2`):** Toda plantilla aprobada o creada como oficial por el administrador debe residir en las capas locales de Docker (`InspectLocalImage == true`). Al momento de certificar una plantilla, el backend fuerza la descarga previa antes de consolidar el registro en la base de datos.
+2. **Cero Pull en Tiempo de Clase:** El inicio de un workspace de estudiante asume y verifica la presencia en disco SSD. Se precalientan las imágenes del día con el endpoint `/api/v1/admin/templates/warm-all` o el botón *Calentar Caché* del panel administrativo.
+3. **Aislamiento Offline:** Si la red institucional sufre microcortes o lentitud durante una sesión presencial, los laboratorios arrancan en menos de 2 segundos a partir del almacenamiento local NVMe/SSD sin depender de Docker Hub.
+

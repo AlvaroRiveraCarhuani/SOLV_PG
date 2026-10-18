@@ -146,4 +146,37 @@ export interface TeacherInvitation {
   used: boolean;
   expires_at: string;
 }
+
+export interface TemplateCacheStatus {
+  template_id: string;
+  template_name: string;
+  docker_image: string;
+  cached: boolean;
+  size_mb: number;
+  local_image_id: string;
+}
+
+export interface WarmAllSummary {
+  total_templates: number;
+  pulled: number;
+  already_cached: number;
+  failed: number;
+}
 ```
+
+---
+
+## 5. Plantillas Docker y Caché del Host (`/api/v1/admin/templates`)
+
+### 5.1 `GET /api/v1/admin/templates/cache-status`
+* **Propósito:** Inspeccionar el estado de presencia en disco local (`InspectLocalImage`) para cada plantilla homologada en el nodo Docker host.
+* **Respuesta 200 OK:** `{"items": [TemplateCacheStatus, ...]}`
+
+### 5.2 `POST /api/v1/admin/templates/{id}/warm`
+* **Propósito:** Descarga forzada (*pull*) y certificación de presencia local bajo demanda con deduplicación *single-flight*.
+* **Respuesta 200 OK:** Retorna el `TemplateCacheStatus` actualizado con `cached: true` y `size_mb`.
+
+### 5.3 `POST /api/v1/admin/templates/warm-all`
+* **Propósito:** Precalentamiento masivo pre-clase de todas las plantillas activas para evitar contención de red y saturación de Docker Hub (HTTP 429).
+* **Respuesta 200 OK:** Retorna `WarmAllSummary` con el total de plantillas procesadas y descargadas.
+
