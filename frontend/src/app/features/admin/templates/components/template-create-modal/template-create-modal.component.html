@@ -504,6 +504,15 @@ pip install pandas</code></pre>
         <button type="button" class="btn btn-secondary" (click)="closeModal()" [disabled]="isSubmitting()">
           Cancelar
         </button>
+        <button 
+          type="button" 
+          class="btn btn-outline-secondary" 
+          (click)="saveDraftAndClose()" 
+          [disabled]="isSubmitting()"
+          title="Guarda la configuración actual en el navegador y cierra el asistente"
+        >
+          Guardar borrador y salir
+        </button>
         <span class="autosave-status-badge font-mono" [class.saving]="autosaveStatus() === 'saving'">
           {{ autosaveIndicator() }}
         </span>

@@ -41,6 +41,7 @@ export interface EnvTestJob {
   error_code?: string;
   error_message?: string;
   digest_unverified: boolean;
+  is_local_image?: boolean;
   created_at: string;
   updated_at: string;
   finished_at?: string;

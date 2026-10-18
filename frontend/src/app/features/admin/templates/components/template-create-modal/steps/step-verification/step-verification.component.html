@@ -144,13 +144,13 @@
                 <div class="mt-2.5">
                   <button type="button" class="btn-bypass-link" (click)="requestBypass.emit()">
                     <svg lucideAlertTriangle class="w-3.5 h-3.5 mr-1.5 shrink-0"></svg>
-                    <span>Continuar de todos modos (Modo On-Premise / Servidor sin acceso a Docker Hub)</span>
+                    <span>Continuar de todos modos (Modo On-Premise / Imagen local presente)</span>
                   </button>
                 </div>
               } @else if (isBypassed()) {
                 <div class="mt-2 text-warning flex items-center gap-1.5 font-medium">
                   <svg lucideCheck class="w-3.5 h-3.5 text-success shrink-0"></svg>
-                  <span>Bypass activado: la plantilla podrá ser publicada con advertencia de imagen no comprobada.</span>
+                  <span>Bypass de red local activado: imagen local verificada para despliegue en LAN.</span>
                 </div>
               }
             </div>

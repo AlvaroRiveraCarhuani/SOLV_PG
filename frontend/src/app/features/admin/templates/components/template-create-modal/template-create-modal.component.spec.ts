@@ -623,14 +623,15 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(component.activeEnvTestJob()).toEqual(progressJob);
     });
 
-    it('onRequestBypass debe permitir publicar la plantilla ante un fallo de registro en modo On-Premise', () => {
+    it('onRequestBypass debe permitir publicar la plantilla cuando la imagen es local y hay desconexión OCI', () => {
       component.name.set('Java Spring Boot On-Prem');
-      component.dockerImage.set('eclipse-temurin:21-jdk-bookworm');
+      component.dockerImage.set('eclipse-temurin:21-jdk-alpine');
       component.baseRamMB.set(2048);
       component.activeEnvTestJob.set({
         id: 'job-fail-net',
         status: 'failed',
-        error_code: 'registry_unreachable'
+        error_code: 'registry_unreachable',
+        is_local_image: true
       } as any);
 
       expect(component.footerActionState()).toBe('publish_disabled');
@@ -638,6 +639,31 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       component.onRequestBypass();
       expect(component.isOfflineBypass()).toBe(true);
       expect(component.footerActionState()).toBe('publish_ready');
+    });
+
+    it('onRequestBypass debe rechazar el bypass si la imagen es not_found_remote (Error 404)', () => {
+      component.name.set('Plantilla 404');
+      component.dockerImage.set('eclipse-temurin:21-jdk-bookworm');
+      component.baseRamMB.set(1024);
+      component.activeEnvTestJob.set({
+        id: 'job-404',
+        status: 'failed',
+        error_code: 'not_found_remote',
+        is_local_image: false
+      } as any);
+
+      component.onRequestBypass();
+      expect(component.isOfflineBypass()).toBe(false);
+      expect(component.footerActionState()).toBe('publish_disabled');
+    });
+
+    it('saveDraftAndClose debe guardar el borrador en storage y cerrar el modal', () => {
+      const saveSpy = vi.spyOn<any, any>(component, 'saveDraftToStorage');
+      const closeSpy = vi.spyOn(component, 'closeModal');
+
+      component.saveDraftAndClose();
+      expect(saveSpy).toHaveBeenCalled();
+      expect(closeSpy).toHaveBeenCalled();
     });
   });
 });

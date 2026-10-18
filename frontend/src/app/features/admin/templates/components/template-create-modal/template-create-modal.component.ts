@@ -361,7 +361,11 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
     if (!job && !this.isOfflineBypass()) {
       reasons.push('Prueba de entorno no ejecutada');
     } else if (job?.status === 'failed' && !this.isOfflineBypass()) {
-      reasons.push('La prueba de entorno falló');
+      if (job.error_code === 'not_found_remote') {
+        reasons.push('La imagen o el tag no existen en el registro');
+      } else {
+        reasons.push('La prueba de entorno falló');
+      }
     } else if (job && (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending')) {
       reasons.push('Prueba de entorno en curso');
     }
@@ -1203,8 +1207,23 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
   }
 
   onRequestBypass(): void {
+    const job = this.activeEnvTestJob();
+    if (job && job.error_code === 'not_found_remote') {
+      this.showToast('No es posible activar bypass: la imagen o el tag no existen en el registro.');
+      return;
+    }
+    if (job && !job.is_local_image) {
+      this.showToast('No es posible activar bypass: la imagen no se encuentra en el disco local del servidor.');
+      return;
+    }
     this.isOfflineBypass.set(true);
-    this.showToast('Bypass On-Premise activado: podrá publicar la plantilla bajo advertencia.');
+    this.showToast('Bypass de red local activado: podrá publicar la plantilla bajo advertencia.');
+  }
+
+  saveDraftAndClose(): void {
+    this.saveDraftToStorage();
+    this.showToast('Borrador guardado. Podrá reanudar la configuración en cualquier momento.');
+    this.closeModal();
   }
 
   onSetupScriptChange(script: string): void {

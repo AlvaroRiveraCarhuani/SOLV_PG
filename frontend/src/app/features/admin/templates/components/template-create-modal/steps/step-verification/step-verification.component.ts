@@ -122,12 +122,18 @@ export class StepVerificationComponent {
 
   canBypass = computed<boolean>(() => {
     const job = this.activeEnvTestJob();
-    return job !== null && job.status === 'failed' && (
-      job.error_code === 'registry_unreachable' || 
-      job.error_code === 'pull_timeout' || 
-      job.error_code === 'pull_stalled' ||
-      job.error_code === 'start_failed'
-    );
+    if (!job || job.status !== 'failed') return false;
+    // Si la imagen o tag no existen (404), o faltan herramientas/crashea/OOM, el bypass está estrictamente prohibido
+    if (
+      job.error_code === 'not_found_remote' ||
+      job.error_code === 'tool_missing' ||
+      job.error_code === 'test_oom' ||
+      job.error_code === 'test_crash'
+    ) {
+      return false;
+    }
+    // Solo se permite bypass si la imagen reside físicamente en el host local y el fallo fue exclusivamente de conectividad WAN
+    return !!job.is_local_image;
   });
 
   serviceNames = computed<string[]>(() => {
@@ -146,7 +152,7 @@ export class StepVerificationComponent {
       return job.error_message;
     }
     if (job.status === 'failed') {
-      return 'No es posible acceder al registro de imágenes para verificar el manifiesto. (HTTP 404 Manifest Unknown)';
+      return 'La comprobación del contenedor falló durante la ejecución.';
     }
     return 'Comprobación de integridad completada con éxito.';
   });
@@ -165,6 +171,18 @@ export class StepVerificationComponent {
     }
 
     switch (job.error_code) {
+      case 'not_found_remote':
+        return {
+          text: 'Error 404: La imagen o el tag ingresado no existen en el registro público ni en el host local. Corrija el nombre o tag en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
+      case 'network_failure':
+        return {
+          text: 'Fallo de red o DNS del host: el servidor no tiene salida a internet y la imagen no está en disco. Conéctese a internet o elija una imagen local en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
       case 'registry_unreachable':
         return {
           text: 'El servidor no pudo conectarse al registro OCI público para validar el manifiesto. Verifique la conexión a internet y DNS del nodo host, o elija una imagen local en el',

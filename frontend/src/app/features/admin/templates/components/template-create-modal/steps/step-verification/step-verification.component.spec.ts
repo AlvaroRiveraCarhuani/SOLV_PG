@@ -226,11 +226,12 @@ describe('StepVerificationComponent', () => {
     expect(idBadge).toBeNull();
   });
 
-  it('debe habilitar bypass y emitir requestBypass ante registry_unreachable', () => {
+  it('debe habilitar bypass y emitir requestBypass cuando la imagen es local y hay desconexión OCI', () => {
     fixture.componentRef.setInput('activeEnvTestJob', {
       id: 'job-err',
       status: 'failed',
-      error_code: 'registry_unreachable'
+      error_code: 'registry_unreachable',
+      is_local_image: true
     } as any);
     fixture.detectChanges();
 
@@ -245,5 +246,33 @@ describe('StepVerificationComponent', () => {
     expect(bypassBtn).toBeTruthy();
     bypassBtn.click();
     expect(bypassEmitted).toBe(true);
+  });
+
+  it('debe PROHIBIR bypass cuando el error es not_found_remote (Error 404)', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-404',
+      status: 'failed',
+      error_code: 'not_found_remote',
+      is_local_image: false
+    } as any);
+    fixture.detectChanges();
+
+    expect(component.canBypass()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.btn-bypass-link')).toBeNull();
+    expect(component.diagnosticAction().text).toContain('Error 404');
+    expect(component.diagnosticAction().jumpSection).toBe('image');
+  });
+
+  it('debe PROHIBIR bypass cuando la imagen no reside físicamente en el disco local', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-net-fail',
+      status: 'failed',
+      error_code: 'network_failure',
+      is_local_image: false
+    } as any);
+    fixture.detectChanges();
+
+    expect(component.canBypass()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.btn-bypass-link')).toBeNull();
   });
 });
