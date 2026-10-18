@@ -264,3 +264,97 @@ func (h *TeacherInvitationHandler) DeleteTeacher(w http.ResponseWriter, r *http.
 		"message": "Docente dado de baja exitosamente",
 	})
 }
+
+func (h *TeacherInvitationHandler) RegisterDirectTeacher(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+
+	var req struct {
+		Email            string `json:"email"`
+		FirstName        string `json:"first_name"`
+		LastName         string `json:"last_name"`
+		SendNotification bool   `json:"send_notification"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid request payload", "Cuerpo de solicitud inválido")
+		return
+	}
+	if strings.TrimSpace(req.Email) == "" {
+		SendError(w, http.StatusBadRequest, "Email is required", "El correo institucional es obligatorio")
+		return
+	}
+
+	loginURL := h.buildInviteURL(r, "")
+	loginURL = strings.TrimSuffix(loginURL, "?invite=")
+
+	teacher, err := h.service.RegisterDirectTeacher(r.Context(), tenantID, req.Email, req.FirstName, req.LastName, req.SendNotification, loginURL, "Universidad Adventista de Bolivia")
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar al docente")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"data":     teacher,
+		"notified": req.SendNotification,
+		"message":  "Docente registrado exitosamente con rol docente activo",
+	})
+}
+
+func (h *TeacherInvitationHandler) ParseRoster(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el archivo subido")
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		SendError(w, http.StatusBadRequest, "Missing file parameter", "Archivo de nómina requerido")
+		return
+	}
+	defer file.Close()
+
+	result, err := h.service.ParseRoster(file, header.Filename)
+	if err != nil {
+		SendError(w, http.StatusBadRequest, err.Error(), "Error al analizar el contenido del archivo")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}
+
+func (h *TeacherInvitationHandler) BatchRegisterTeachers(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+
+	var req struct {
+		Emails           []string `json:"emails"`
+		SendNotification bool     `json:"send_notification"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid request payload", "Cuerpo de solicitud inválido")
+		return
+	}
+	if len(req.Emails) == 0 {
+		SendError(w, http.StatusBadRequest, "Empty emails list", "Debe incluir al menos un correo")
+		return
+	}
+
+	loginURL := h.buildInviteURL(r, "")
+	loginURL = strings.TrimSuffix(loginURL, "?invite=")
+
+	count, err := h.service.BatchRegisterTeachers(r.Context(), tenantID, req.Emails, req.SendNotification, loginURL, "Universidad Adventista de Bolivia")
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al procesar el alta masiva")
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"total_processed":  len(req.Emails),
+		"registered_count": count,
+		"notified":         req.SendNotification,
+		"message":          fmt.Sprintf("%d docentes dados de alta exitosamente", count),
+	})
+}

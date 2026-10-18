@@ -19,6 +19,7 @@ import (
 	"solv-backend/internal/delivery/http/middleware"
 	"solv-backend/internal/infrastructure/database"
 	"solv-backend/internal/infrastructure/docker"
+	"solv-backend/internal/infrastructure/mailer"
 	"solv-backend/internal/infrastructure/storage/memory"
 	"solv-backend/internal/infrastructure/storage/postgres"
 	"solv-backend/internal/infrastructure/system"
@@ -62,7 +63,7 @@ func main() {
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 
-	authService := services.NewAuthService(db, tenantRepo)
+	authService := services.NewAuthService(db, tenantRepo).WithTeacherInvitationRepo(teacherInvRepo)
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
@@ -77,7 +78,9 @@ func main() {
 	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
 	submissionService := services.NewSubmissionService(submissionRepo)
 	submissionService.SetKeystrokeRepository(keystrokeRepo)
-	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
+	smtpMailer := mailer.NewSMTPMailerFromEnv()
+	defer smtpMailer.Close()
+	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo, smtpMailer)
 
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
 

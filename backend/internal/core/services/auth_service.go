@@ -27,10 +27,11 @@ var (
 )
 
 type AuthService struct {
-	repo        domain.UserRepository
-	tenantRepo  coredomain.TenantRepository
-	oauthConfig *oauth2.Config
-	jwtSecret   []byte
+	repo           domain.UserRepository
+	tenantRepo     coredomain.TenantRepository
+	teacherInvRepo coredomain.TeacherInvitationRepository
+	oauthConfig    *oauth2.Config
+	jwtSecret      []byte
 }
 
 func NewAuthService(repo domain.UserRepository, tenantRepo coredomain.TenantRepository) *AuthService {
@@ -64,6 +65,11 @@ func NewAuthService(repo domain.UserRepository, tenantRepo coredomain.TenantRepo
 		oauthConfig: config,
 		jwtSecret:   []byte(jwtSecret),
 	}
+}
+
+func (s *AuthService) WithTeacherInvitationRepo(repo coredomain.TeacherInvitationRepository) *AuthService {
+	s.teacherInvRepo = repo
+	return s
 }
 
 func (s *AuthService) GetLoginURL() string {
@@ -127,15 +133,27 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 		return "", ErrUnauthorizedDomain
 	}
 
+	// Verificar si el correo tiene una invitación docente activa y consumirla
+	hasTeacherInvite := false
+	if s.teacherInvRepo != nil {
+		if invited, err := s.teacherInvRepo.CheckAndConsumeInvitation(ctx, matchedTenant.ID, googleUser.Email); err == nil && invited {
+			hasTeacherInvite = true
+		}
+	}
+
 	user, err := s.repo.GetUserByEmail(ctx, googleUser.Email)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || strings.Contains(err.Error(), "no rows") {
+			targetRole := "student"
+			if hasTeacherInvite {
+				targetRole = "teacher"
+			}
 			// Create user
 			newUser := &domain.User{
 				FirstName: googleUser.GivenName,
 				LastName:  googleUser.FamilyName,
 				Email:     googleUser.Email,
-				Role:      "student", // Default role
+				Role:      targetRole,
 				TenantID:  matchedTenant.ID,
 			}
 			id, createErr := s.repo.CreateUserFromSSO(ctx, newUser)
@@ -146,6 +164,11 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 			user = newUser
 		} else {
 			return "", fmt.Errorf("failed to fetch user: %w", err)
+		}
+	} else if hasTeacherInvite && user.Role == "student" {
+		// Promover a docente si era estudiante previo pero fue formalmente invitado como docente
+		if err := s.repo.UpdateUserRole(ctx, user.ID, "teacher"); err == nil {
+			user.Role = "teacher"
 		}
 	}
 

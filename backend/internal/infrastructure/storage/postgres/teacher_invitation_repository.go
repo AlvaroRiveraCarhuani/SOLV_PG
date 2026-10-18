@@ -10,6 +10,7 @@ import (
 
 	"solv-backend/internal/core/domain"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -369,3 +370,131 @@ func (r *PostgresTeacherInvitationRepository) DeleteTeacher(ctx context.Context,
 
 	return tx.Commit()
 }
+
+func (r *PostgresTeacherInvitationRepository) UpsertDirectTeacher(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.TeacherListItem, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	firstName = strings.TrimSpace(firstName)
+	lastName = strings.TrimSpace(lastName)
+	newID := uuid.New().String()
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, origin, created_at)
+		VALUES ($1, $2, $3, $4, $5, 'teacher', 'manual', NOW())
+		ON CONFLICT (email) DO UPDATE
+		SET role = 'teacher',
+		    tenant_id = EXCLUDED.tenant_id,
+		    first_name = CASE WHEN users.first_name = '' THEN EXCLUDED.first_name ELSE users.first_name END,
+		    last_name = CASE WHEN users.last_name = '' THEN EXCLUDED.last_name ELSE users.last_name END
+		RETURNING id, first_name, last_name, email, created_at
+	`
+
+	var row struct {
+		ID        string    `db:"id"`
+		FirstName string    `db:"first_name"`
+		LastName  string    `db:"last_name"`
+		Email     string    `db:"email"`
+		CreatedAt time.Time `db:"created_at"`
+	}
+
+	if err := tx.GetContext(ctx, &row, query, newID, tenantID, email, firstName, lastName); err != nil {
+		return nil, fmt.Errorf("failed to upsert direct teacher: %w", err)
+	}
+
+	// Invalidar o marcar como usada cualquier invitación pendiente previa para este correo
+	_, _ = tx.ExecContext(ctx, `UPDATE teacher_invitations SET used = TRUE WHERE tenant_id = $1 AND email = $2`, tenantID, email)
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit direct teacher: %w", err)
+	}
+
+	fullName := strings.TrimSpace(row.FirstName + " " + row.LastName)
+	if fullName == "" {
+		fullName = strings.Split(row.Email, "@")[0]
+	}
+
+	return &domain.TeacherListItem{
+		ID:            row.ID,
+		FullName:      fullName,
+		Email:         row.Email,
+		Origin:        "manual",
+		Status:        "active",
+		RoleType:      "titular",
+		InvitedAt:     row.CreatedAt.Format("02-Jan-2006"),
+		ActiveCourses: 0,
+	}, nil
+}
+
+func (r *PostgresTeacherInvitationRepository) BatchUpsertDirectTeachers(ctx context.Context, tenantID string, emails []string) (int, error) {
+	if len(emails) == 0 {
+		return 0, nil
+	}
+
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin batch transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	upsertStmt, err := tx.PrepareContext(ctx, `
+		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, origin, created_at)
+		VALUES ($1, $2, $3, '', '', 'teacher', 'bulk_import', NOW())
+		ON CONFLICT (email) DO UPDATE
+		SET role = 'teacher',
+		    tenant_id = EXCLUDED.tenant_id
+	`)
+	if err != nil {
+		return 0, fmt.Errorf("failed to prepare upsert: %w", err)
+	}
+	defer upsertStmt.Close()
+
+	count := 0
+	for _, rawEmail := range emails {
+		email := strings.ToLower(strings.TrimSpace(rawEmail))
+		if email == "" {
+			continue
+		}
+		newID := uuid.New().String()
+		if _, err := upsertStmt.ExecContext(ctx, newID, tenantID, email); err != nil {
+			return count, fmt.Errorf("failed to upsert %s: %w", email, err)
+		}
+		// Invalidar invitaciones pendientes
+		_, _ = tx.ExecContext(ctx, `UPDATE teacher_invitations SET used = TRUE WHERE tenant_id = $1 AND email = $2`, tenantID, email)
+		count++
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("failed to commit batch upsert: %w", err)
+	}
+	return count, nil
+}
+
+func (r *PostgresTeacherInvitationRepository) CheckAndConsumeInvitation(ctx context.Context, tenantID, email string) (bool, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+	query := `
+		UPDATE teacher_invitations
+		SET used = TRUE
+		WHERE id = (
+			SELECT id FROM teacher_invitations
+			WHERE tenant_id = $1 AND LOWER(email) = $2 AND used = FALSE AND expires_at > NOW()
+			ORDER BY created_at DESC
+			LIMIT 1
+		)
+		RETURNING id
+	`
+	var id string
+	err := r.db.QueryRowContext(ctx, query, tenantID, email).Scan(&id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+

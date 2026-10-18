@@ -73,3 +73,13 @@ func (db *Database) CreateUserFromSSO(ctx context.Context, user *domain.User) (s
 	}
 	return id, nil
 }
+
+func (db *Database) UpdateUserRole(ctx context.Context, id, role string) error {
+	query := `UPDATE users SET role = $1 WHERE id = $2`
+	_, err := db.db.ExecContext(ctx, query, role, id)
+	if err != nil {
+		return fmt.Errorf("failed to update user role: %w", err)
+	}
+	return nil
+}
+

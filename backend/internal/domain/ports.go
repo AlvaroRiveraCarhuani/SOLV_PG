@@ -7,6 +7,7 @@ type UserRepository interface {
 	GetUserByID(ctx context.Context, id string) (UserResponseDTO, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	CreateUserFromSSO(ctx context.Context, user *User) (string, error)
+	UpdateUserRole(ctx context.Context, id, role string) error
 }
 
 type TemplateRepository interface {

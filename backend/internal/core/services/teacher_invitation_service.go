@@ -6,19 +6,36 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
+	"strings"
 	"time"
 
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/infrastructure/mailer"
 
 	"github.com/google/uuid"
 )
 
 type TeacherInvitationService struct {
-	repo domain.TeacherInvitationRepository
+	repo         domain.TeacherInvitationRepository
+	mailer       domain.Mailer
+	rosterParser *RosterParser
 }
 
-func NewTeacherInvitationService(repo domain.TeacherInvitationRepository) *TeacherInvitationService {
-	return &TeacherInvitationService{repo: repo}
+func NewTeacherInvitationService(repo domain.TeacherInvitationRepository, mailer ...domain.Mailer) *TeacherInvitationService {
+	var m domain.Mailer
+	if len(mailer) > 0 {
+		m = mailer[0]
+	}
+	return &TeacherInvitationService{
+		repo:         repo,
+		mailer:       m,
+		rosterParser: NewRosterParser(),
+	}
+}
+
+func (s *TeacherInvitationService) SetMailer(m domain.Mailer) {
+	s.mailer = m
 }
 
 func (s *TeacherInvitationService) CreateInvitation(ctx context.Context, tenantID, email, origin, roleType string, durationHours int) (*domain.TeacherInvitation, error) {
@@ -118,3 +135,66 @@ func (s *TeacherInvitationService) DeleteInvitation(ctx context.Context, tenantI
 func (s *TeacherInvitationService) DeleteTeacher(ctx context.Context, tenantID, id string) error {
 	return s.repo.DeleteTeacher(ctx, tenantID, id)
 }
+
+func (s *TeacherInvitationService) ParseRoster(r io.Reader, filename string) (*ParsedRosterResult, error) {
+	return s.rosterParser.Parse(r, filename)
+}
+
+func (s *TeacherInvitationService) RegisterDirectTeacher(ctx context.Context, tenantID, email, firstName, lastName string, sendNotification bool, loginURL, institutionName string) (*domain.TeacherListItem, error) {
+	if strings.TrimSpace(email) == "" {
+		return nil, errors.New("email is required")
+	}
+
+	teacher, err := s.repo.UpsertDirectTeacher(ctx, tenantID, email, firstName, lastName)
+	if err != nil {
+		return nil, err
+	}
+
+	if sendNotification && s.mailer != nil {
+		if institutionName == "" {
+			institutionName = "SOLV"
+		}
+		htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(institutionName, teacher.FullName, loginURL)
+		s.mailer.SendAsync(&domain.EmailMessage{
+			To:       teacher.Email,
+			Subject:  fmt.Sprintf("Bienvenido a SOLV — %s", institutionName),
+			HTMLBody: htmlBody,
+			TextBody: textBody,
+		})
+	}
+
+	return teacher, nil
+}
+
+func (s *TeacherInvitationService) BatchRegisterTeachers(ctx context.Context, tenantID string, emails []string, sendNotification bool, loginURL, institutionName string) (int, error) {
+	if len(emails) == 0 {
+		return 0, nil
+	}
+
+	count, err := s.repo.BatchUpsertDirectTeachers(ctx, tenantID, emails)
+	if err != nil {
+		return 0, err
+	}
+
+	if sendNotification && s.mailer != nil {
+		if institutionName == "" {
+			institutionName = "SOLV"
+		}
+		for _, em := range emails {
+			cleanEmail := strings.TrimSpace(em)
+			if cleanEmail == "" {
+				continue
+			}
+			htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(institutionName, "", loginURL)
+			s.mailer.SendAsync(&domain.EmailMessage{
+				To:       cleanEmail,
+				Subject:  fmt.Sprintf("Bienvenido a SOLV — %s", institutionName),
+				HTMLBody: htmlBody,
+				TextBody: textBody,
+			})
+		}
+	}
+
+	return count, nil
+}
+

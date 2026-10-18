@@ -214,6 +214,9 @@ type TeacherInvitationRepository interface {
 	GetTeacherCourses(ctx context.Context, tenantID, teacherID string) ([]*TeacherCourseItem, error)
 	DeleteInvitation(ctx context.Context, tenantID, id string) error
 	DeleteTeacher(ctx context.Context, tenantID, teacherID string) error
+	UpsertDirectTeacher(ctx context.Context, tenantID, email, firstName, lastName string) (*TeacherListItem, error)
+	BatchUpsertDirectTeachers(ctx context.Context, tenantID string, emails []string) (int, error)
+	CheckAndConsumeInvitation(ctx context.Context, tenantID, email string) (bool, error)
 }
 
 type TeacherRepository interface {
@@ -315,3 +318,19 @@ type RubricService interface {
 	CalculateScore(criteria []RubricCriterion, selections map[string]string) (float64, []CriterionBreakdown, error)
 	EvaluateSubmission(ctx context.Context, submissionID uuid.UUID, req RubricEvaluationRequest) (*RubricEvaluationResponse, error)
 }
+
+// EmailMessage representa el contenido de un correo transaccional
+type EmailMessage struct {
+	To       string
+	Subject  string
+	HTMLBody string
+	TextBody string
+}
+
+// Mailer define el contrato para el despacho de correos transaccionales
+type Mailer interface {
+	Send(ctx context.Context, msg *EmailMessage) error
+	SendAsync(msg *EmailMessage)
+	Close() error
+}
+
