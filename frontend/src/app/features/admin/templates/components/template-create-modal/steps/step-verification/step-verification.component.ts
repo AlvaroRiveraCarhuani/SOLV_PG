@@ -117,6 +117,17 @@ export class StepVerificationComponent {
 
   missingPrerequisites = computed<{ section: WizardSection; label: string; description: string }[]>(() => {
     const list: { section: WizardSection; label: string; description: string }[] = [];
+    
+    // Paso 2: Identidad (Nombre requerido >= 3 caracteres)
+    if (this.name().trim().length < 3) {
+      list.push({
+        section: 'identity',
+        label: 'Paso 2 (Identidad)',
+        description: 'Defina el nombre de la plantilla (mínimo 3 caracteres).'
+      });
+    }
+
+    // Paso 3: Imagen Docker
     const img = this.dockerImage().trim();
     if (!img) {
       list.push({
@@ -132,6 +143,7 @@ export class StepVerificationComponent {
       });
     }
 
+    // Paso 4: Ejecución (solo Juez Efímero)
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
       list.push({
         section: 'execution',

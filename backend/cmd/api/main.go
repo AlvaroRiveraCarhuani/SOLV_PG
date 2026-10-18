@@ -202,6 +202,7 @@ func main() {
 	notificationService := services.NewNotificationService(notificationRepo, 256)
 	defer notificationService.Stop()
 	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)
+	adminAcademicHandler.WithNotificationService(notificationService)
 
 	// Slice 16: Backups Configurables y Retención (ADR-035)
 	backupRepo := postgres.NewPostgresBackupRepository(db.GetDB())

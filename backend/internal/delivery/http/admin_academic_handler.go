@@ -4,6 +4,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
@@ -20,6 +21,7 @@ type AdminAcademicHandler struct {
 	imageService       *services.ImageVerificationService
 	auditLogRepo       domain.AuditLogRepository
 	cacheService       *services.TemplateCacheService
+	notificationService *services.NotificationService
 }
 
 func NewAdminAcademicHandler(
@@ -46,6 +48,11 @@ func (h *AdminAcademicHandler) WithAuditLogRepo(auditLogRepo domain.AuditLogRepo
 
 func (h *AdminAcademicHandler) WithCacheService(cacheService *services.TemplateCacheService) *AdminAcademicHandler {
 	h.cacheService = cacheService
+	return h
+}
+
+func (h *AdminAcademicHandler) WithNotificationService(notificationService *services.NotificationService) *AdminAcademicHandler {
+	h.notificationService = notificationService
 	return h
 }
 
@@ -780,7 +787,30 @@ func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	SendJSON(w, http.StatusOK, summary, "Precalentamiento masivo completado")
+	// Notificación proactiva in-app al administrador
+	if h.notificationService != nil {
+		adminID := getUserIDFromCtx(r)
+		if adminID == "" {
+			adminID = r.Header.Get("X-User-Id")
+		}
+		if adminID != "" {
+			msg := fmt.Sprintf("Entornos preparados: %d descargados, %d ya listos en el servidor.", summary.WarmedCount, summary.AlreadyWarm)
+			if summary.FailedCount > 0 {
+				msg += fmt.Sprintf(" %d presentaron error.", summary.FailedCount)
+			}
+			h.notificationService.NotifyAsync(tenantID, domain.CreateNotificationDTO{
+				RecipientUserID: adminID,
+				Title:           "Preparación de entornos completada",
+				Message:         msg,
+				Severity:        domain.NotificationSeverityInfo,
+				Channel:         domain.NotificationChannelInApp,
+				EventType:       "TEMPLATE_WARMING_COMPLETED",
+				Link:            "/admin/plantillas",
+			})
+		}
+	}
+
+	SendJSON(w, http.StatusOK, summary, "Entornos preparados exitosamente")
 }
 
 func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.Request) {
