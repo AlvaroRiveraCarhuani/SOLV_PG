@@ -20,11 +20,15 @@ const (
 
 // Códigos de error estructurados (DA-04)
 const (
+	EnvTestErrNotFoundRemote  = "not_found_remote"
+	EnvTestErrNetworkFailure  = "network_failure"
+	EnvTestErrDegradedOffline = "degraded_offline"
 	EnvTestErrPullStalled     = "pull_stalled"
 	EnvTestErrPullTimeout     = "pull_timeout"
 	EnvTestErrRegistryUnreach = "registry_unreachable"
 	EnvTestErrTestOOM         = "test_oom"
 	EnvTestErrTestCrash       = "test_crash"
+	EnvTestErrToolMissing     = "tool_missing"
 	EnvTestErrInternal        = "internal"
 )
 
@@ -88,6 +92,7 @@ type EnvTestJob struct {
 	ErrorCode         string          `json:"error_code,omitempty"`
 	ErrorMessage      string          `json:"error_message,omitempty"`
 	DigestUnverified  bool            `json:"digest_unverified"`
+	IsLocalImage      bool            `json:"is_local_image"`
 	CreatedAt         time.Time       `json:"created_at"`
 	UpdatedAt         time.Time       `json:"updated_at"`
 	FinishedAt        *time.Time      `json:"finished_at,omitempty"`

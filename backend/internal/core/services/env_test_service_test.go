@@ -245,6 +245,71 @@ func TestEnvTestService_DigestDegradation_OfflineRemoteFail(t *testing.T) {
 	}
 }
 
+func TestEnvTestService_NotFoundRemote(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{
+		isLocal:   false,
+		remoteErr: errors.New("Error response from daemon: manifest unknown: not found"),
+	}
+	run := &mockRunner{}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, _ := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image: "eclipse-temurin:21-jdk-bookworm",
+		Tools: []string{"java"},
+	})
+
+	var finishedJob *domain.EnvTestJob
+	for i := 0; i < 20; i++ {
+		time.Sleep(20 * time.Millisecond)
+		finishedJob, _ = svc.GetJob(context.Background(), job.ID)
+		if finishedJob != nil && finishedJob.IsTerminal() {
+			break
+		}
+	}
+
+	if finishedJob == nil || finishedJob.Status != domain.EnvTestStatusFailed {
+		t.Fatalf("expected failed status, got: %+v", finishedJob)
+	}
+	if finishedJob.ErrorCode != domain.EnvTestErrNotFoundRemote {
+		t.Errorf("expected error code %q, got %q", domain.EnvTestErrNotFoundRemote, finishedJob.ErrorCode)
+	}
+	if finishedJob.IsLocalImage {
+		t.Errorf("expected IsLocalImage to be false")
+	}
+}
+
+func TestEnvTestService_NetworkFailure(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{
+		isLocal:   false,
+		remoteErr: errors.New("dial tcp: lookup registry-1.docker.io: no such host"),
+	}
+	run := &mockRunner{}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, _ := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image: "python:3.12-slim",
+		Tools: []string{"python3"},
+	})
+
+	var finishedJob *domain.EnvTestJob
+	for i := 0; i < 20; i++ {
+		time.Sleep(20 * time.Millisecond)
+		finishedJob, _ = svc.GetJob(context.Background(), job.ID)
+		if finishedJob != nil && finishedJob.IsTerminal() {
+			break
+		}
+	}
+
+	if finishedJob == nil || finishedJob.Status != domain.EnvTestStatusFailed {
+		t.Fatalf("expected failed status, got: %+v", finishedJob)
+	}
+	if finishedJob.ErrorCode != domain.EnvTestErrNetworkFailure {
+		t.Errorf("expected error code %q, got %q", domain.EnvTestErrNetworkFailure, finishedJob.ErrorCode)
+	}
+}
+
 func TestEnvTestService_OOM_Detection(t *testing.T) {
 	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
 	reg := &mockRegistry{isLocal: true}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"sync"
 	"time"
@@ -149,6 +150,43 @@ func (s *EnvTestService) CancelJob(ctx context.Context, jobID string) error {
 	return s.repo.Cancel(ctx, jobID)
 }
 
+// isNotFoundError verifica si el error indica que la imagen o tag no existen en el registro
+func isNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "manifest unknown") ||
+		strings.Contains(msg, "name unknown") ||
+		strings.Contains(msg, "404")
+}
+
+// isNetworkOrDNSError verifica si el error se debe a problemas de red, DNS o socket
+func isNetworkOrDNSError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return true
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "no such host") ||
+		strings.Contains(msg, "connection refused") ||
+		strings.Contains(msg, "i/o timeout") ||
+		strings.Contains(msg, "network is unreachable") ||
+		strings.Contains(msg, "temporary failure in name resolution")
+}
+
 // executeJob maneja el ciclo de vida, semáforo y lógica de degradación de la prueba
 func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string, tools []string, targetEnv, entrypoint, sampleInput string, timeoutMS int, baseRamMB int) {
 	// Limpieza de función cancel al terminar
@@ -190,6 +228,12 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string,
 		return
 	}
 
+	job, _ := s.repo.GetByID(context.Background(), jobID)
+	if job != nil {
+		job.IsLocalImage = isLocal
+		_ = s.repo.Save(context.Background(), job)
+	}
+
 	remoteDigest, distErr := s.registry.InspectRemoteDigest(ctx, imageRef)
 
 	digestUnverified := false
@@ -197,12 +241,18 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string,
 
 	if distErr != nil {
 		if isLocal {
-			// Nivel B: Fallo de red/registro pero existe imagen local -> proceder con advertencia
+			// Nivel B: Fallo de red/registro pero existe imagen local -> proceder con advertencia en modo degradado
 			digestUnverified = true
 			needPull = false
 		} else {
-			// Nivel C: Fallo de red/registro y no está local -> Error terminal
-			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrRegistryUnreach, "No es posible acceder al registro de imágenes para verificar el manifiesto")
+			// Nivel C: Fallo de red/registro y no está local -> Error terminal taxativo
+			if isNotFoundError(distErr) {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNotFoundRemote, "Error 404: La imagen o el tag no existen en el registro remoto")
+			} else if isNetworkOrDNSError(distErr) {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNetworkFailure, "Fallo de red o DNS: no es posible alcanzar el registro remoto y la imagen no está en disco")
+			} else {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrRegistryUnreach, fmt.Sprintf("No es posible acceder al registro de imágenes para verificar el manifiesto: %v", distErr))
+			}
 			return
 		}
 	} else {

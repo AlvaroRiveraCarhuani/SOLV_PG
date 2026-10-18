@@ -247,7 +247,16 @@ func (s *ImageVerificationService) VerifyImage(ctx context.Context, imageRef str
 	dist, distErr := s.dockerCli.DistributionInspect(ctx, imageRef, "")
 	if distErr != nil {
 		result.Exists = false
-		result.ErrorMessage = fmt.Sprintf("Imagen no encontrada en el registro o inaccesible: %v", distErr)
+		if isNotFoundError(distErr) {
+			result.ErrorCode = domain.EnvTestErrNotFoundRemote
+			result.ErrorMessage = fmt.Sprintf("Error 404: La imagen o el tag '%s' no existen en el registro público ni en el host local", imageRef)
+		} else if isNetworkOrDNSError(distErr) {
+			result.ErrorCode = domain.EnvTestErrNetworkFailure
+			result.ErrorMessage = "Fallo de red o DNS del host: no es posible contactar al registro público de imágenes"
+		} else {
+			result.ErrorCode = domain.EnvTestErrRegistryUnreach
+			result.ErrorMessage = fmt.Sprintf("Imagen no encontrada en el registro o inaccesible: %v", distErr)
+		}
 		result.StorageStatus = domain.StorageStatusWarning
 		result.StorageMessage = "No se pudo verificar el tamaño en el registro público"
 		s.storeCache(imageRef, result, 5*time.Minute)

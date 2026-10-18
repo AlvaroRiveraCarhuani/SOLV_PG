@@ -38,6 +38,7 @@ type ImageVerificationResult struct {
 	StorageMessage          string                   `json:"storage_message"`
 	CapabilitiesProbe       *CapabilitiesProbeResult `json:"capabilities_probe,omitempty"`
 	BuildxSuggestion        string                   `json:"buildx_suggestion,omitempty"`
+	ErrorCode               string                   `json:"error_code,omitempty"`
 	ErrorMessage            string                   `json:"error_message,omitempty"`
 	Cached                  bool                     `json:"cached"`
 	FromCache               bool                     `json:"from_cache"`
