@@ -446,12 +446,23 @@ export class AdminTemplatesService {
     return [
       {
         category: 'database',
+        engine: 'sqlite',
+        label: 'SQLite3 (Nativo)',
+        version: '3.x',
+        description: 'Base de datos embebida en archivo local (/home/workspace). Consumo nulo (+0 MB RAM), ideal para materias iniciales y SQL básico.',
+        envVar: 'SQLITE_PATH',
+        isAvailable: true,
+        base_ram_mb: 0
+      },
+      {
+        category: 'database',
         engine: 'postgres',
-        label: 'PostgreSQL',
+        label: 'PostgreSQL (Aula)',
         version: '16',
-        description: 'Base de datos relacional PostgreSQL aislada por estudiante y materia',
+        description: 'Perfil sintonizado para laboratorio (~50 MB RAM) con corte de consultas largas (5s), transaccionalidad completa y aislamiento por estudiante.',
         envVar: 'DATABASE_URL',
-        isAvailable: true
+        isAvailable: true,
+        base_ram_mb: 50
       },
       {
         category: 'database',
@@ -460,7 +471,8 @@ export class AdminTemplatesService {
         version: '8.4',
         description: 'Base de datos relacional MySQL para ejercicios de SQL',
         envVar: 'DATABASE_URL',
-        isAvailable: true
+        isAvailable: true,
+        base_ram_mb: 128
       },
       {
         category: 'database',
@@ -469,7 +481,8 @@ export class AdminTemplatesService {
         version: '7.0',
         description: 'Base de datos de documentos NoSQL para proyectos web',
         envVar: 'MONGODB_URI',
-        isAvailable: false
+        isAvailable: false,
+        base_ram_mb: 128
       },
       {
         category: 'cache',
@@ -478,7 +491,8 @@ export class AdminTemplatesService {
         version: '7.2',
         description: 'Almacén en memoria y caché clave-valor',
         envVar: 'REDIS_URL',
-        isAvailable: false
+        isAvailable: false,
+        base_ram_mb: 64
       }
     ];
   }

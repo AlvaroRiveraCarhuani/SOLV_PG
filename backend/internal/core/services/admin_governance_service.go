@@ -539,13 +539,23 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 	satellites := []domain.SatelliteServiceCapability{
 		{
 			Category:    "database",
+			Engine:      "sqlite",
+			Label:       "SQLite3 (Nativo)",
+			Version:     "3.x",
+			Description: "Base de datos embebida en archivo local (/home/workspace). Consumo nulo (+0 MB RAM), ideal para materias iniciales y SQL básico.",
+			EnvVar:      "SQLITE_PATH",
+			IsAvailable: true,
+			BaseRAMMB:   0,
+		},
+		{
+			Category:    "database",
 			Engine:      "postgres",
-			Label:       "PostgreSQL",
+			Label:       "PostgreSQL (Aula)",
 			Version:     "16",
-			Description: "Base de datos relacional aislada por estudiante y materia",
+			Description: "Perfil sintonizado para laboratorio (~50 MB RAM) con corte de consultas largas (5s), transaccionalidad completa y aislamiento por estudiante.",
 			EnvVar:      "DATABASE_URL",
 			IsAvailable: true,
-			BaseRAMMB:   128,
+			BaseRAMMB:   50,
 		},
 		{
 			Category:    "database",

@@ -23,10 +23,11 @@ export interface RamPreset {
 }
 
 export const RAM_PRESETS_IDE: RamPreset[] = [
-  { mb: 512, label: '512 MB', desc: 'Ligera (C/Go)' },
-  { mb: 1024, label: '1 GB', desc: 'Estándar (Web/Python)' },
-  { mb: 2048, label: '2 GB', desc: 'Intensiva (Java/ML)' },
-  { mb: 4096, label: '4 GB', desc: 'Datos & IA' }
+  { mb: 384, label: '384 MB', desc: 'Inicial (C/SQLite)' },
+  { mb: 512, label: '512 MB', desc: 'Ligera (Python/Go)' },
+  { mb: 768, label: '768 MB', desc: 'PostgreSQL Aula' },
+  { mb: 1024, label: '1 GB', desc: 'Fullstack / Web' },
+  { mb: 2048, label: '2 GB', desc: 'Intensiva (Java/JVM)' }
 ];
 
 export const RAM_PRESETS_JUDGE: RamPreset[] = [
@@ -210,7 +211,9 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
                 <p class="service-desc">{{ svc.description }}</p>
                 <div class="service-footer">
                   <span class="badge-tag">v<span machineData>{{ svc.version || '16' }}</span></span>
-                  <span class="badge-ram">{{ svc.category }}</span>
+                  <span class="badge-ram font-mono">
+                    {{ svc.engine === 'sqlite' ? '+0 MB RAM' : svc.engine === 'postgres' ? '~50 MB RAM' : svc.base_ram_mb ? '+' + svc.base_ram_mb + ' MB RAM' : svc.category }}
+                  </span>
                 </div>
               </div>
             }
@@ -227,9 +230,10 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
   styleUrls: ['./step-resources.component.scss']
 })
 export class StepResourcesComponent {
-  readonly RELATIONAL_ENGINES = ['postgres', 'mysql'];
+  readonly RELATIONAL_ENGINES = ['postgres', 'mysql', 'sqlite'];
   readonly SATELLITE_BASE_RAM: Record<string, number> = {
-    postgres: 128,
+    sqlite: 0,
+    postgres: 50,
     mysql: 128,
     mongodb: 128,
     redis: 64
@@ -273,11 +277,17 @@ export class StepResourcesComponent {
     if (this.targetEnvironment() === 'JUEZ_EFIMERO') return [];
     return this.selectedServices().map(s => {
       const match = this.availableServices().find(a => a.engine === s.engine);
-      const label = match?.label ?? (s.engine === 'postgres' ? 'PostgreSQL' : s.engine === 'mysql' ? 'MySQL' : s.engine === 'mongodb' ? 'MongoDB' : s.engine === 'redis' ? 'Redis' : s.engine);
+      const label = match?.label ?? (
+        s.engine === 'sqlite' ? 'SQLite3' :
+        s.engine === 'postgres' ? 'PostgreSQL' : 
+        s.engine === 'mysql' ? 'MySQL' : 
+        s.engine === 'mongodb' ? 'MongoDB' : 
+        s.engine === 'redis' ? 'Redis' : s.engine
+      );
       return {
         engine: s.engine,
         label,
-        baseMB: match?.base_ram_mb ?? this.SATELLITE_BASE_RAM[s.engine] ?? 128
+        baseMB: match?.base_ram_mb ?? this.SATELLITE_BASE_RAM[s.engine] ?? 0
       };
     });
   });
