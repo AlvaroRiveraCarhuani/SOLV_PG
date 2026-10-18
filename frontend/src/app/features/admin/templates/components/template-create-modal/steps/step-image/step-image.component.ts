@@ -85,10 +85,24 @@ const UNIVERSAL_TOOLS = new Set([
   ],
   template: `
     <div class="form-group">
+      <!-- Tarjeta explicativa sobre el modelo Fullstack de SOLV -->
+      <div class="fullstack-concept-banner mb-3">
+        <div class="concept-icon-wrap">
+          <svg lucideHelpCircle class="w-4 h-4 text-primary"></svg>
+        </div>
+        <div class="concept-text-wrap">
+          <strong class="concept-title">Entorno de Programación Integral (Fullstack)</strong>
+          <p class="concept-desc">
+            Esta imagen proporciona la "caja de herramientas" (compiladores, servidores y runtime) donde correrá el laboratorio. 
+            El estudiante podrá desarrollar y ejecutar simultáneamente su <strong>backend</strong> (ej. puerto 8080) y su <strong>frontend</strong> (ej. puerto 5173), previsualizándolos en vivo en su navegador.
+          </p>
+        </div>
+      </div>
+
       <div class="label-row-between">
         <div class="label-with-help">
           <label class="form-label font-semibold">
-            Imagen Docker (Repositorio:Tag): <span class="text-danger">*</span>
+            Software base y herramientas (Imagen Docker): <span class="text-danger">*</span>
           </label>
           <button 
             type="button" 

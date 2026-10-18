@@ -55,7 +55,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
   template: `
     <div class="step-header-with-help mb-3">
       <h4 class="step-section-title" id="step-title-identity" tabindex="-1" i18n="@@ST-01-HEADING">
-        Identidad de la plantilla
+        Datos generales del laboratorio
       </h4>
       <button 
         type="button" 
@@ -280,19 +280,19 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     <!-- Formulario de Identidad -->
     <div class="form-group mt-4">
       <label class="form-label font-semibold" for="template-name-input">
-        Nombre de la plantilla: <span class="text-danger">*</span>
+        Nombre del laboratorio / entorno: <span class="text-danger">*</span>
       </label>
       <input 
         #nameInput
         id="template-name-input"
         type="text" 
         class="form-control" 
-        placeholder="Ej: Programación Web con Node 20" 
+        placeholder="Ej: Desarrollo Web Fullstack Node.js + Vite" 
         [ngModel]="name()" 
         (ngModelChange)="nameChange.emit($event)"
         (keydown.enter)="onNameEnter()"
       />
-      <small class="form-hint">Nombre descriptivo que verán los docentes y estudiantes en el catálogo.</small>
+      <small class="form-hint">Nombre claro y descriptivo que verán los docentes al asignar sus prácticas.</small>
     </div>
 
     <!-- Categoría Académica con Combobox Buscable y Creación Inline -->

@@ -38,7 +38,7 @@ export interface EntrypointExample {
     <div class="execution-step-container">
       <div class="step-header-with-help mb-3">
         <h4 class="step-section-title" id="step-title-execution" tabindex="-1" i18n="@@PU-08-HEADING">
-          Parámetros de ejecución
+          Comandos y servicios de ejecución
         </h4>
         <button 
           type="button" 
@@ -163,18 +163,18 @@ export interface EntrypointExample {
         <!-- Configuración de Laboratorio Interactivo -->
         <div class="form-group">
           <div class="label-with-popover-row">
-            <label class="form-label font-semibold">
-              Script de Inicialización al Despliegue (Opcional):
+            <label class="form-label font-semibold" for="setup-script-textarea">
+              Comandos de primer arranque del laboratorio (Opcional):
             </label>
             <button 
               type="button" 
               class="btn-contract-info" 
               (click)="toggleContractPopover()"
               [attr.aria-expanded]="showContractPopover()"
-              aria-label="Ver contrato de ejecución del script de inicialización"
+              aria-label="Ver detalles de los comandos de inicialización"
             >
               <svg lucideHelpCircle class="w-3.5 h-3.5 mr-1"></svg>
-              <span>Contrato del script (?)</span>
+              <span>¿Cómo funciona? (?)</span>
             </button>
           </div>
 
@@ -182,17 +182,16 @@ export interface EntrypointExample {
           @if (showContractPopover()) {
             <div class="contract-popover animate-fade">
               <div class="popover-header">
-                <strong class="popover-title" i18n="@@AY-22">Contrato de ejecución del script de inicialización</strong>
+                <strong class="popover-title" i18n="@@AY-22">Comandos de inicialización del entorno</strong>
                 <button type="button" class="btn-popover-close" (click)="closeContractPopover()" aria-label="Cerrar">
                   <svg lucideX class="w-3.5 h-3.5"></svg>
                 </button>
               </div>
               <ul class="contract-list">
-                <li><strong>Intérprete:</strong> Ejecutado con <code>/bin/sh -c</code> dentro de <code>/home/workspace</code>.</li>
-                <li><strong>Momento de ejecución:</strong> En segundo plano 1 segundo después del arranque activo (no bloquea el editor).</li>
-                <li><strong>Permisos:</strong> Usuario no-root por defecto (<code>workspace</code>).</li>
-                <li><strong>Comportamiento ante fallo:</strong> Timeout máximo de 5 minutos. Errores y salida se redirigen a <code>/home/workspace/.solv_setup.log</code>. El fallo no interrumpe ni reinicia el contenedor.</li>
-                <li><strong>Regla de idempotencia:</strong> Debe ser idempotente frente a reinicios (verificar si las rutas o paquetes ya existen antes de crearlos).</li>
+                <li><strong>Momento de ejecución:</strong> Se ejecutan en segundo plano una sola vez cuando el alumno abre su laboratorio por primera vez.</li>
+                <li><strong>Sin interrupción:</strong> El editor web abre de inmediato sin demoras; los comandos corren en segundo plano.</li>
+                <li><strong>Ubicación:</strong> Se aplican en la carpeta de trabajo del alumno (<code>/home/workspace</code>).</li>
+                <li><strong>Idempotencia:</strong> Escriba comandos que puedan re-ejecutarse con seguridad (ej. <code>mkdir -p</code> o comprobar si el archivo ya existe).</li>
               </ul>
             </div>
           }
@@ -201,9 +200,9 @@ export interface EntrypointExample {
             <textarea 
               id="setup-script-textarea"
               class="form-control font-mono text-area-sm" 
-              rows="5" 
+              rows="4" 
               spellcheck="false"
-              placeholder="#!/bin/bash&#10;echo 'Iniciando entorno'..." 
+              placeholder="# Comandos opcionales (ej: crear carpetas o instalar librerías)..." 
               [ngModel]="setupScript()" 
               (ngModelChange)="setupScriptChange.emit($event)"
             ></textarea>
@@ -215,7 +214,7 @@ export interface EntrypointExample {
             }
           </div>
           <small class="form-hint" i18n="@@AY-21">
-            Se ejecuta en segundo plano una sola vez al aprovisionar el volumen, como usuario no-root en /home/workspace. Timeout: 5 minutos. Logs en /.solv_setup.log.
+            Comandos opcionales para preparar carpetas de trabajo o dependencias la primera vez que inicia el alumno.
           </small>
 
           <!-- Ejemplos rápidos recomendados para IDE -->

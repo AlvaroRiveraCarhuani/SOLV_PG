@@ -118,36 +118,36 @@ export class StepVerificationComponent {
   missingPrerequisites = computed<{ section: WizardSection; label: string; description: string }[]>(() => {
     const list: { section: WizardSection; label: string; description: string }[] = [];
     
-    // Paso 2: Identidad (Nombre requerido >= 3 caracteres)
+    // Paso 2: Datos del Laboratorio (Nombre requerido >= 3 caracteres)
     if (this.name().trim().length < 3) {
       list.push({
         section: 'identity',
-        label: 'Paso 2 (Identidad)',
-        description: 'Defina el nombre de la plantilla (mínimo 3 caracteres).'
+        label: 'Paso 2 (Datos del Laboratorio)',
+        description: 'Defina el nombre del laboratorio o entorno (mínimo 3 caracteres).'
       });
     }
 
-    // Paso 3: Imagen Docker
+    // Paso 3: Software y Lenguajes
     const img = this.dockerImage().trim();
     if (!img) {
       list.push({
         section: 'image',
-        label: 'Paso 3 (Imagen)',
-        description: 'Ingrese la imagen Docker a utilizar.'
+        label: 'Paso 3 (Software y Lenguajes)',
+        description: 'Ingrese la imagen Docker con el software base a utilizar.'
       });
     } else if (img.toLowerCase().endsWith(':latest')) {
       list.push({
         section: 'image',
-        label: 'Paso 3 (Imagen)',
+        label: 'Paso 3 (Software y Lenguajes)',
         description: 'Especifique una etiqueta de versión fija (el tag :latest no está permitido).'
       });
     }
 
-    // Paso 4: Ejecución (solo Juez Efímero)
+    // Paso 4: Comandos y Servicios (solo Juez Efímero)
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' && !this.entrypoint().trim()) {
       list.push({
         section: 'execution',
-        label: 'Paso 4 (Ejecución)',
+        label: 'Paso 4 (Comandos y Servicios)',
         description: 'Defina el comando de compilación y ejecución para el sandbox de evaluación.'
       });
     }

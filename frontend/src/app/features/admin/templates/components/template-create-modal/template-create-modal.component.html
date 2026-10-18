@@ -38,7 +38,7 @@
         (click)="setSection('purpose')"
       >
         <span class="tab-number">1</span>
-        <span class="tab-title" i18n="@@PU-18">Propósito</span>
+        <span class="tab-title" i18n="@@PU-18">Tipo de Entorno</span>
         <span class="status-chip chip-complete">
           <span i18n="@@ST-04">COMPLETO</span>
         </span>
@@ -51,7 +51,7 @@
         (click)="setSection('identity')"
       >
         <span class="tab-number">2</span>
-        <span class="tab-title" i18n="@@ST-01">Identidad</span>
+        <span class="tab-title" i18n="@@ST-01">Datos del Laboratorio</span>
         <span class="status-chip" [class]="'chip-' + identityStatus()">
           @if (identityStatus() === 'complete') {
             <span i18n="@@ST-04">COMPLETO</span>
@@ -68,7 +68,7 @@
         (click)="setSection('image')"
       >
         <span class="tab-number">3</span>
-        <span class="tab-title" i18n="@@PU-19">Imagen</span>
+        <span class="tab-title" i18n="@@PU-19">Software y Lenguajes</span>
         <span class="status-chip" [class]="'chip-' + imageStatus()">
           @switch (imageStatus()) {
             @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
@@ -85,7 +85,7 @@
         (click)="setSection('execution')"
       >
         <span class="tab-number">4</span>
-        <span class="tab-title" i18n="@@PU-20">Ejecución</span>
+        <span class="tab-title" i18n="@@PU-20">Comandos y Servicios</span>
         <span class="status-chip" [class]="'chip-' + executionStatus()">
           @if (executionStatus() === 'complete') {
             <span i18n="@@ST-04">COMPLETO</span>
@@ -102,7 +102,7 @@
         (click)="setSection('resources')"
       >
         <span class="tab-number">5</span>
-        <span class="tab-title" i18n="@@ST-03">Recursos</span>
+        <span class="tab-title" i18n="@@ST-03">Memoria y Recursos</span>
         <span class="status-chip" [class]="'chip-' + resourcesStatus()">
           @switch (resourcesStatus()) {
             @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
@@ -119,7 +119,7 @@
         (click)="setSection('verification')"
       >
         <span class="tab-number">6</span>
-        <span class="tab-title" i18n="@@PU-21">Verificación</span>
+        <span class="tab-title" i18n="@@PU-21">Prueba y Validación</span>
         <span class="status-chip" [class]="'chip-' + verificationStatus()">
           @switch (verificationStatus()) {
             @case ('complete') { <span i18n="@@ST-04">COMPLETO</span> }
