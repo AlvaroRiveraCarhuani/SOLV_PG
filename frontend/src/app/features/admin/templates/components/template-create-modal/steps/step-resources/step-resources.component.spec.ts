@@ -279,4 +279,13 @@ describe('StepResourcesComponent', () => {
     expect(component.totalSatelliteBaseMB()).toBe(256);
     expect(component.minimumFloorMB()).toBe(466);
   });
+
+  it('debe rotular el segmento utilizable de la barra como "Disponible para código"', () => {
+    fixture.componentRef.setInput('baseRamMB', 1024);
+    fixture.detectChanges();
+
+    const usableSegment = fixture.nativeElement.querySelector('.bar-usable');
+    expect(usableSegment).toBeTruthy();
+    expect(usableSegment.textContent).toContain('Disponible para código');
+  });
 });

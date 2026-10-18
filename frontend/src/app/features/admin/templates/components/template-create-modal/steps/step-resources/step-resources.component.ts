@@ -165,7 +165,7 @@ export const RAM_PRESETS_JUDGE: RamPreset[] = [
               [style.flex-grow]="resourceProfilePreview().usable" 
               title="Disponible para compilación / ejecución"
             >
-              <span>Libre ({{ resourceProfilePreview().usable | number }} MB)</span>
+              <span>Disponible para código ({{ resourceProfilePreview().usable | number }} MB)</span>
             </div>
           }
         </div>
