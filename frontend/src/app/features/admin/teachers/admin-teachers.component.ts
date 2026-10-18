@@ -13,7 +13,12 @@ import { SearchBarComponent } from '@shared/components/search-bar/search-bar.com
 import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
-import { TeacherItem, TeacherInvitationPayload } from '@core/models/admin.model';
+import { 
+  TeacherItem, 
+  TeacherInvitationPayload, 
+  DirectTeacherPayload, 
+  BatchDirectTeacherPayload 
+} from '@core/models/admin.model';
 import { 
   LucideUserPlus, 
   LucideLock, 
@@ -434,6 +439,30 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
           email: res.email,
           inviteUrl: res.invite_url
         });
+      }
+    });
+  }
+
+  onDirectTeacherSubmitted(payload: DirectTeacherPayload): void {
+    this.teachersService.directRegisterTeacher(payload).subscribe(res => {
+      this.showInviteModal.set(false);
+      if (res) {
+        this.showToast(`Docente ${payload.email} registrado exitosamente`);
+        this.loadTeachers();
+      } else {
+        this.showToast('No se pudo completar el registro del docente', true);
+      }
+    });
+  }
+
+  onBatchTeachersSubmitted(payload: BatchDirectTeacherPayload): void {
+    this.teachersService.batchDirectRegister(payload).subscribe(res => {
+      this.showInviteModal.set(false);
+      if (res) {
+        this.showToast(`${res.created_count} docentes registrados exitosamente`);
+        this.loadTeachers();
+      } else {
+        this.showToast('No se pudo procesar la importación masiva', true);
       }
     });
   }

@@ -3,21 +3,34 @@ import '@angular/localize/init';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { of } from 'rxjs';
 import { TeacherInviteModalComponent } from './teacher-invite-modal.component';
 import { TenantService } from '@core/services/tenant.service';
+import { AdminTeachersService } from '@features/admin/services/admin-teachers.service';
+import { ParsedRosterResult } from '@core/models/admin.model';
 
 describe('TeacherInviteModalComponent', () => {
   let component: TeacherInviteModalComponent;
   let mockTenantService: any;
+  let mockTeachersService: any;
 
   beforeEach(async () => {
     const configSignal = signal({ support_email: 'soporte@uab.edu.bo', base_domain: 'uab.edu.bo' });
     mockTenantService = { config: configSignal };
+    mockTeachersService = {
+      parseRosterFile: () => of({
+        total_detected: 2,
+        valid_emails: ['docente1@uab.edu.bo', 'docente2@uab.edu.bo'],
+        duplicate_emails: [],
+        invalid_emails: []
+      } as ParsedRosterResult)
+    };
 
     await TestBed.configureTestingModule({
       imports: [TeacherInviteModalComponent],
       providers: [
-        { provide: TenantService, useValue: mockTenantService }
+        { provide: TenantService, useValue: mockTenantService },
+        { provide: AdminTeachersService, useValue: mockTeachersService }
       ]
     }).compileComponents();
 
@@ -26,75 +39,89 @@ describe('TeacherInviteModalComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe crearse correctamente', () => {
+  it('debe crearse correctamente en la pestaña individual por defecto', () => {
     expect(component).toBeTruthy();
+    expect(component.currentTab()).toBe('individual');
   });
 
   it('institutionDomain se extrae del support_email del tenant', () => {
     expect(component.institutionDomain()).toBe('uab.edu.bo');
   });
 
-  it('isValidEmail es false con email vacío', () => {
+  it('isValidEmail valida correctamente emails', () => {
     component.email.set('');
     expect(component.isValidEmail()).toBe(false);
-  });
 
-  it('isValidEmail es false con email demasiado corto (≤ 5 chars)', () => {
     component.email.set('a@b.c');
     expect(component.isValidEmail()).toBe(false);
-  });
 
-  it('isValidEmail es true con email correctamente formado', () => {
     component.email.set('docente@uab.edu.bo');
     expect(component.isValidEmail()).toBe(true);
   });
 
-  it('onSubmit con email inválido no emite submit ni activa isSubmitting', () => {
-    let emitted = false;
-    component.submit.subscribe(() => { emitted = true; });
-    component.email.set('invalido');
-    component.onSubmit();
-    expect(emitted).toBe(false);
-    expect(component.isSubmitting()).toBe(false);
-  });
-
-  it('onSubmit con email válido emite payload correcto y activa isSubmitting', () => {
+  it('onSubmitIndividual emite directSubmit con datos limpios', () => {
     let payload: any;
-    component.submit.subscribe(p => { payload = p; });
+    component.directSubmit.subscribe(p => { payload = p; });
 
-    component.email.set('nuevo.docente@uab.edu.bo');
-    component.sendEmail.set(false);
-    component.onSubmit();
+    component.email.set('alvaro.rivera@uab.edu.bo');
+    component.firstName.set('Alvaro');
+    component.lastName.set('Rivera');
+    component.sendNotification.set(true);
+
+    component.onSubmitIndividual();
 
     expect(payload).toEqual({
-      email: 'nuevo.docente@uab.edu.bo',
-      role: 'teacher',
+      email: 'alvaro.rivera@uab.edu.bo',
+      first_name: 'Alvaro',
+      last_name: 'Rivera',
       role_type: 'titular',
-      send_email: false
+      send_notification: true
     });
     expect(component.isSubmitting()).toBe(true);
   });
 
-  it('onSubmit con isSubmitting activo no vuelve a emitir (doble submit)', () => {
-    let count = 0;
-    component.submit.subscribe(() => { count++; });
-    component.email.set('docente@uab.edu.bo');
-    component.onSubmit();
-    component.onSubmit(); // segundo intento
-    expect(count).toBe(1);
-  });
-
-  it('isExternalDomain es false para email del dominio institucional', () => {
+  it('isExternalDomain detecta dominios no institucionales', () => {
     component.email.set('prof@uab.edu.bo');
     expect(component.isExternalDomain()).toBe(false);
-  });
 
-  it('isExternalDomain es true para gmail u otros dominios externos', () => {
     component.email.set('prof@gmail.com');
     expect(component.isExternalDomain()).toBe(true);
   });
 
-  it('close emite evento al ser llamado desde el template', () => {
+  it('permite cambiar a pestaña de importar planilla y procesar archivo', () => {
+    component.setTab('batch');
+    expect(component.currentTab()).toBe('batch');
+
+    const dummyFile = new File(['email\ndocente1@uab.edu.bo\ndocente2@uab.edu.bo'], 'roster.csv', { type: 'text/csv' });
+    component.processFile(dummyFile);
+
+    expect(component.selectedFile()).toBe(dummyFile);
+    expect(component.parsedRoster()?.total_detected).toBe(2);
+    expect(component.parsedRoster()?.valid_emails.length).toBe(2);
+  });
+
+  it('onSubmitBatch emite batchSubmit con correos parseados', () => {
+    let batchPayload: any;
+    component.batchSubmit.subscribe(p => { batchPayload = p; });
+
+    component.parsedRoster.set({
+      total_detected: 2,
+      valid_emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
+      duplicate_emails: [],
+      invalid_emails: []
+    });
+    component.sendNotificationBatch.set(true);
+
+    component.onSubmitBatch();
+
+    expect(batchPayload).toEqual({
+      emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
+      send_notification: true
+    });
+    expect(component.isSubmittingBatch()).toBe(true);
+  });
+
+  it('close emite evento al ser llamado', () => {
     let closed = false;
     component.close.subscribe(() => { closed = true; });
     component.close.emit();

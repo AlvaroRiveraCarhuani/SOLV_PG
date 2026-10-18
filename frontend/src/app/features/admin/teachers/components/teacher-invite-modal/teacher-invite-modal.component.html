@@ -1,72 +1,267 @@
 <modal-shell
-  title="Invitar Nuevo Docente"
-  subtitle="Emisión de token transaccional de un solo uso con vigencia de 72 horas."
+  title="Registrar Docente"
+  subtitle="Habilita el acceso docente de forma individual o importa una lista desde un archivo Excel o CSV."
+  maxWidth="620px"
   (close)="close.emit()"
 >
   <svg modal-icon lucideUserPlus class="icon"></svg>
 
-  <form-field
-    label="Correo Institucional del Docente"
-    for="teacher-email"
-    [required]="true"
-    [hint]="isExternalDomain() ? '' : 'El profesor completará su alta mediante Google Workspace SSO con esta cuenta institucional.'"
-  >
-    <div class="input-with-icon">
-      <svg lucideMail class="field-icon"></svg>
-      <input
-        id="teacher-email"
-        type="email"
-        [placeholder]="institutionDomain() ? ('profesor@' + institutionDomain()) : 'profesor@institucion.edu'"
-        [ngModel]="email()"
-        (ngModelChange)="email.set($event)"
-        class="form-input with-icon"
-        autofocus
-        autocomplete="email"
-      />
-    </div>
+  <!-- Selector de Modo Simple: Individual vs Importar Planilla -->
+  <div class="modal-nav-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="currentTab() === 'individual'"
+      (click)="setTab('individual')"
+    >
+      <svg lucideUserCheck class="tab-icon"></svg>
+      <span>Registro Individual</span>
+    </button>
 
-    @if (isExternalDomain()) {
-      <div class="domain-warning-box">
-        <svg lucideAlertTriangle class="warning-icon"></svg>
-        <div class="warning-content">
-          <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
-          <p class="warning-text">
-            El correo no coincide con el dominio oficial ({{ institutionDomain() }}). Si la institución restringe el acceso con Google Workspace institucional, el docente no podrá completar su registro.
-          </p>
-        </div>
-      </div>
-    }
-  </form-field>
-
-  <div class="checkbox-group">
-    <label class="checkbox-label">
-      <input
-        type="checkbox"
-        [checked]="sendEmail()"
-        (change)="sendEmail.set(!sendEmail())"
-      />
-      <span class="checkbox-text">
-        Enviar enlace de acceso directo por correo electrónico (Token expira en 72 horas)
-      </span>
-    </label>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="currentTab() === 'batch'"
+      (click)="setTab('batch')"
+    >
+      <svg lucideFileSpreadsheet class="tab-icon"></svg>
+      <span>Importar Planilla</span>
+    </button>
   </div>
+
+  <!-- PESTAÑA 1: REGISTRO INDIVIDUAL -->
+  @if (currentTab() === 'individual') {
+    <div class="tab-panel">
+      <form-field
+        label="Correo Institucional del Docente"
+        for="teacher-email-input"
+        [required]="true"
+        [hint]="isExternalDomain() ? '' : 'El docente podrá ingresar directamente con su cuenta institucional de Google.'"
+      >
+        <div class="input-with-icon">
+          <svg lucideMail class="field-icon"></svg>
+          <input
+            id="teacher-email-input"
+            type="email"
+            [placeholder]="institutionDomain() ? ('profesor@' + institutionDomain()) : 'profesor@institucion.edu'"
+            [ngModel]="email()"
+            (ngModelChange)="email.set($event)"
+            class="form-input with-icon"
+            autofocus
+            autocomplete="email"
+          />
+        </div>
+
+        @if (isExternalDomain()) {
+          <div class="domain-warning-box">
+            <svg lucideAlertTriangle class="warning-icon"></svg>
+            <div class="warning-content">
+              <span class="warning-title">Dominio externo detectado (<span machineData>{{ enteredDomain() }}</span>)</span>
+              <p class="warning-text">
+                El correo no coincide con el dominio oficial (<span machineData>{{ institutionDomain() }}</span>). Si la institución restringe el acceso con Google Workspace, el docente no podrá iniciar sesión.
+              </p>
+            </div>
+          </div>
+        }
+      </form-field>
+
+      <div class="form-row">
+        <form-field label="Nombres (opcional)" for="teacher-first-name" hint="Se completarán automáticamente al primer inicio de sesión">
+          <input
+            id="teacher-first-name"
+            type="text"
+            placeholder="Ej. Roberto"
+            [ngModel]="firstName()"
+            (ngModelChange)="firstName.set($event)"
+            class="form-input"
+          />
+        </form-field>
+
+        <form-field label="Apellidos (opcional)" for="teacher-last-name">
+          <input
+            id="teacher-last-name"
+            type="text"
+            placeholder="Ej. Gómez Bolaños"
+            [ngModel]="lastName()"
+            (ngModelChange)="lastName.set($event)"
+            class="form-input"
+          />
+        </form-field>
+      </div>
+
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            [checked]="sendNotification()"
+            (change)="sendNotification.set(!sendNotification())"
+          />
+          <span class="checkbox-text">
+            Enviar correo de bienvenida con las instrucciones de acceso
+          </span>
+        </label>
+      </div>
+    </div>
+  }
+
+  <!-- PESTAÑA 2: IMPORTAR PLANILLA (EXCEL / CSV) -->
+  @if (currentTab() === 'batch') {
+    <div class="tab-panel">
+      @if (!parsedRoster()) {
+        <div 
+          class="dropzone-box"
+          [class.dragging]="isDragging()"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
+          <input 
+            type="file" 
+            #fileInput 
+            accept=".xlsx,.csv" 
+            class="file-hidden-input" 
+            (change)="onFileInputChange($event)"
+          />
+          
+          @if (isParsing()) {
+            <div class="dropzone-loading">
+              <div class="tenant-spinner-md"></div>
+              <p class="loading-text">Leyendo planilla y buscando correos...</p>
+            </div>
+          } @else {
+            <div class="dropzone-content" (click)="fileInput.click()">
+              <svg lucideUpload class="dropzone-icon"></svg>
+              <p class="dropzone-title">Haz clic o arrastra tu archivo aquí</p>
+              <p class="dropzone-subtitle">Archivos admitidos: <span machineData>.xlsx</span> y <span machineData>.csv</span></p>
+              <p class="dropzone-hint">
+                El sistema detecta automáticamente los correos sin importar el nombre o el orden de las columnas.
+              </p>
+            </div>
+          }
+        </div>
+
+        @if (parseError()) {
+          <div class="parse-error-box">
+            <svg lucideAlertTriangle class="error-icon"></svg>
+            <p class="error-text">{{ parseError() }}</p>
+          </div>
+        }
+      } @else {
+        <!-- Previsualización de Planilla -->
+        <div class="preview-panel">
+          <div class="preview-header">
+            <div class="file-info">
+              <svg lucideFileCheck class="file-icon"></svg>
+              <span class="file-name" machineData>{{ selectedFile()?.name }}</span>
+            </div>
+            <button type="button" class="btn-outline-sm" (click)="resetBatchFile()">
+              <span>Elegir otro archivo</span>
+            </button>
+          </div>
+
+          <!-- Métricas de Detección -->
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <span class="metric-label">Detectados</span>
+              <span class="metric-val" machineData>{{ parsedRoster()?.total_detected }}</span>
+            </div>
+
+            <div class="metric-card metric-valid">
+              <span class="metric-label">Listos para registrar</span>
+              <span class="metric-val text-success" machineData>{{ parsedRoster()?.valid_emails?.length }}</span>
+            </div>
+
+            @if ((parsedRoster()?.duplicate_emails?.length ?? 0) > 0) {
+              <div class="metric-card metric-duplicate">
+                <span class="metric-label">Ya registrados</span>
+                <span class="metric-val text-warning" machineData>{{ parsedRoster()?.duplicate_emails?.length }}</span>
+              </div>
+            }
+
+            @if ((parsedRoster()?.invalid_emails?.length ?? 0) > 0) {
+              <div class="metric-card metric-invalid">
+                <span class="metric-label">No institucionales</span>
+                <span class="metric-val text-error" machineData>{{ parsedRoster()?.invalid_emails?.length }}</span>
+              </div>
+            }
+          </div>
+
+          <!-- Lista Previsualizada de Correos Válidos -->
+          @if ((parsedRoster()?.valid_emails?.length ?? 0) > 0) {
+            <div class="emails-preview-box">
+              <label class="preview-box-label">Correos que se registrarán como docentes:</label>
+              <div class="emails-scroll-list">
+                @for (emailItem of parsedRoster()?.valid_emails; track emailItem) {
+                  <div class="email-row">
+                    <svg lucideCheckCircle2 class="row-icon text-success"></svg>
+                    <span class="row-email" machineData>{{ emailItem }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+          } @else {
+            <div class="no-valid-alert">
+              <svg lucideAlertTriangle class="alert-icon"></svg>
+              <p class="alert-text">
+                No hay correos nuevos para registrar en esta planilla. Todos los correos detectados ya se encuentran registrados o pertenecen a dominios no institucionales.
+              </p>
+            </div>
+          }
+
+          <div class="checkbox-group">
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                [checked]="sendNotificationBatch()"
+                (change)="sendNotificationBatch.set(!sendNotificationBatch())"
+              />
+              <span class="checkbox-text">
+                Enviar correo de bienvenida a los docentes registrados
+              </span>
+            </label>
+          </div>
+        </div>
+      }
+    </div>
+  }
 
   <ng-container modal-footer>
     <button class="btn-outline" (click)="close.emit()">
       <span>Cancelar</span>
     </button>
-    <button
-      class="btn-primary"
-      [disabled]="!isValidEmail() || isSubmitting()"
-      (click)="onSubmit()"
-    >
-      @if (isSubmitting()) {
-        <div class="tenant-spinner-sm"></div>
-        <span>Generando...</span>
-      } @else {
-        <svg lucideShieldCheck class="btn-icon"></svg>
-        <span>Generar Token e Invitar</span>
-      }
-    </button>
+
+    @if (currentTab() === 'individual') {
+      <button
+        class="btn-primary"
+        [disabled]="!isValidEmail() || isSubmitting()"
+        (click)="onSubmitIndividual()"
+      >
+        @if (isSubmitting()) {
+          <div class="tenant-spinner-sm"></div>
+          <span>Registrando...</span>
+        } @else {
+          <svg lucideUserCheck class="btn-icon"></svg>
+          <span>Registrar Docente</span>
+        }
+      </button>
+    }
+
+    @if (currentTab() === 'batch') {
+      <button
+        class="btn-primary"
+        [disabled]="!parsedRoster() || (parsedRoster()?.valid_emails?.length ?? 0) === 0 || isSubmittingBatch()"
+        (click)="onSubmitBatch()"
+      >
+        @if (isSubmittingBatch()) {
+          <div class="tenant-spinner-sm"></div>
+          <span>Importando...</span>
+        } @else {
+          <svg lucideUpload class="btn-icon"></svg>
+          <span>Registrar {{ parsedRoster()?.valid_emails?.length ?? 0 }} Docentes</span>
+        }
+      </button>
+    }
   </ng-container>
 </modal-shell>

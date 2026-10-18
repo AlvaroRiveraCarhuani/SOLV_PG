@@ -151,4 +151,34 @@ describe('AdminTeachersComponent Unit Tests', () => {
     component.goToPage(1);
     expect(component.currentPage()).toBe(1);
   });
+
+  it('onDirectTeacherSubmitted llama a directRegisterTeacher y recarga docentes', () => {
+    mockTeachersService.directRegisterTeacher = vi.fn().mockReturnValue(of({ message: 'Docente registrado', teacher: {} }));
+    component.onDirectTeacherSubmitted({
+      email: 'nuevo@uab.edu.bo',
+      first_name: 'Nuevo',
+      last_name: 'Docente',
+      send_notification: true
+    });
+    expect(mockTeachersService.directRegisterTeacher).toHaveBeenCalledWith({
+      email: 'nuevo@uab.edu.bo',
+      first_name: 'Nuevo',
+      last_name: 'Docente',
+      send_notification: true
+    });
+    expect(component.toastMessage()?.text).toContain('nuevo@uab.edu.bo');
+  });
+
+  it('onBatchTeachersSubmitted llama a batchDirectRegister y muestra toast con conteo', () => {
+    mockTeachersService.batchDirectRegister = vi.fn().mockReturnValue(of({ message: 'Registrados', created_count: 5 }));
+    component.onBatchTeachersSubmitted({
+      emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
+      send_notification: true
+    });
+    expect(mockTeachersService.batchDirectRegister).toHaveBeenCalledWith({
+      emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
+      send_notification: true
+    });
+    expect(component.toastMessage()?.text).toContain('5 docentes registrados');
+  });
 });

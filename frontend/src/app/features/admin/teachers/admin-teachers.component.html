@@ -21,7 +21,7 @@
     <div class="header-actions">
       <button class="btn-primary" (click)="openInviteModal()">
         <svg lucideUserPlus class="btn-icon"></svg>
-        <span>Invitar Docente</span>
+        <span>Registrar Docente</span>
       </button>
     </div>
   </header>
@@ -252,11 +252,12 @@
     />
   </div>
 
-  <!-- Modal de Invitación -->
+  <!-- Modal de Registro de Docentes -->
   @if (showInviteModal()) {
     <teacher-invite-modal 
       (close)="showInviteModal.set(false)"
-      (submit)="onInviteSubmitted($event)"
+      (directSubmit)="onDirectTeacherSubmitted($event)"
+      (batchSubmit)="onBatchTeachersSubmitted($event)"
     />
   }
 

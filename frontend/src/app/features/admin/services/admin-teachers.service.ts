@@ -1,6 +1,13 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { TeacherItem, TeacherInvitationPayload } from '@core/models/admin.model';
+import { 
+  TeacherItem, 
+  TeacherInvitationPayload, 
+  DirectTeacherPayload, 
+  ParsedRosterResult, 
+  BatchDirectTeacherPayload, 
+  BatchDirectTeacherResponse 
+} from '@core/models/admin.model';
 import { Observable, catchError, map, of, tap } from 'rxjs';
 
 export interface InvitationResponse {
@@ -170,6 +177,45 @@ export class AdminTeachersService {
           }));
         }),
         catchError(() => of([]))
+      );
+  }
+
+  directRegisterTeacher(payload: DirectTeacherPayload): Observable<{ message: string; teacher?: any } | null> {
+    this.isLoading.set(true);
+    return this.http.post<{ message: string; teacher?: any }>('/api/v1/teachers/direct', payload)
+      .pipe(
+        tap(() => {
+          this.fetchTeachers();
+          this.isLoading.set(false);
+        }),
+        catchError(() => {
+          this.isLoading.set(false);
+          return of(null);
+        })
+      );
+  }
+
+  parseRosterFile(file: File): Observable<ParsedRosterResult | null> {
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<ParsedRosterResult>('/api/v1/teachers/parse-roster', formData)
+      .pipe(
+        catchError(() => of(null))
+      );
+  }
+
+  batchDirectRegister(payload: BatchDirectTeacherPayload): Observable<BatchDirectTeacherResponse | null> {
+    this.isLoading.set(true);
+    return this.http.post<BatchDirectTeacherResponse>('/api/v1/teachers/direct-batch', payload)
+      .pipe(
+        tap(() => {
+          this.fetchTeachers();
+          this.isLoading.set(false);
+        }),
+        catchError(() => {
+          this.isLoading.set(false);
+          return of(null);
+        })
       );
   }
 
