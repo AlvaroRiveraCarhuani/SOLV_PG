@@ -63,6 +63,9 @@ describe('AdminTemplatesComponent Spec', () => {
     getAvailableSatelliteServices: any;
     getLocalImages: any;
     getDraft: any;
+    getTemplatesCacheStatus: any;
+    warmTemplate: any;
+    warmAllTemplates: any;
   };
 
   let routerMock: { navigate: any };
@@ -89,7 +92,31 @@ describe('AdminTemplatesComponent Spec', () => {
       getModels: vi.fn().mockReturnValue(of([])),
       getAvailableSatelliteServices: vi.fn().mockReturnValue([]),
       getLocalImages: vi.fn().mockReturnValue(of({ images: [], usage_map: {} })),
-      getDraft: vi.fn().mockReturnValue(of(null))
+      getDraft: vi.fn().mockReturnValue(of(null)),
+      getTemplatesCacheStatus: vi.fn().mockReturnValue(of([
+        {
+          template_id: 'tpl-1',
+          template_name: 'Python 3 Data Science',
+          docker_image: 'python:3.12-slim',
+          is_cached: true,
+          size_bytes: 125000000,
+          status: 'cached'
+        }
+      ])),
+      warmTemplate: vi.fn().mockImplementation((id: string) => of({
+        template_id: id,
+        template_name: 'Template ' + id,
+        docker_image: 'img:1.0',
+        is_cached: true,
+        size_bytes: 250000000,
+        status: 'cached'
+      })),
+      warmAllTemplates: vi.fn().mockReturnValue(of({
+        total_checked: 2,
+        already_warm: 1,
+        warmed_count: 1,
+        failed_count: 0
+      }))
     };
 
     await TestBed.configureTestingModule({
@@ -219,4 +246,29 @@ describe('AdminTemplatesComponent Spec', () => {
     const compiled = fixture.nativeElement as HTMLElement;
     expect(compiled.querySelector('template-create-modal')).not.toBeNull();
   });
+
+  it('carga los estados de caché de las plantillas y los formatea correctamente', () => {
+    const status = component.getCacheStatus('tpl-1');
+    expect(status).toBeDefined();
+    expect(status?.is_cached).toBe(true);
+    expect(component.formatBytes(status?.size_bytes || 0)).toBe('119.2 MB');
+  });
+
+  it('permite calentar una plantilla individual y dispara notificación', () => {
+    const target = mockTemplates[1]; // tpl-2
+    component.warmTemplate(target);
+
+    expect(mockTemplatesService.warmTemplate).toHaveBeenCalledWith('tpl-2');
+    expect(component.toast()?.type).toBe('success');
+    expect(component.toast()?.message).toContain('Imagen precargada en disco');
+  });
+
+  it('permite ejecutar calentamiento masivo de caché pre-clase', () => {
+    component.warmAllTemplates();
+
+    expect(mockTemplatesService.warmAllTemplates).toHaveBeenCalled();
+    expect(component.toast()?.type).toBe('success');
+    expect(component.toast()?.message).toContain('Caché actualizada');
+  });
 });
+

@@ -9,7 +9,8 @@ import {
   AdminTemplateItem, 
   ReviewTemplateDTO, 
   CreateOfficialTemplateDTO,
-  TemplateCategory
+  TemplateCategory,
+  TemplateCacheStatus
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
 import { TemplateRejectModalComponent } from './components/template-reject-modal/template-reject-modal.component';
@@ -33,7 +34,8 @@ import {
   LucideCheck,
   LucideChevronDown,
   LucideBadgeCheck,
-  LucideMoreVertical
+  LucideMoreVertical,
+  LucideFlame
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
@@ -120,7 +122,8 @@ export interface ToastNotification {
     LucideCheck,
     LucideChevronDown,
     LucideBadgeCheck,
-    LucideMoreVertical
+    LucideMoreVertical,
+    LucideFlame
   ],
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
@@ -138,6 +141,11 @@ export class AdminTemplatesComponent implements OnInit {
   copiedTag = signal<string | null>(null);
   isLoading = signal<boolean>(false);
   openMenuId = signal<string | null>(null);
+
+  // Cache warming state
+  cacheStatuses = signal<Map<string, TemplateCacheStatus>>(new Map());
+  isWarmingAll = signal<boolean>(false);
+  warmingTemplateIds = signal<Set<string>>(new Set());
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
@@ -371,6 +379,7 @@ export class AdminTemplatesComponent implements OnInit {
       next: (data) => {
         this.allTemplates.set(data);
         this.isLoading.set(false);
+        this.loadCacheStatuses();
       },
       error: (err) => {
         this.isLoading.set(false);
@@ -634,6 +643,89 @@ export class AdminTemplatesComponent implements OnInit {
           this.copiedTag.set(null);
         }
       }, 2000);
+    });
+  }
+
+  loadCacheStatuses(): void {
+    if (!this.templatesService.getTemplatesCacheStatus) {
+      return;
+    }
+    this.templatesService.getTemplatesCacheStatus().subscribe({
+      next: (statuses) => {
+        const map = new Map<string, TemplateCacheStatus>();
+        for (const s of statuses) {
+          map.set(s.template_id, s);
+        }
+        this.cacheStatuses.set(map);
+      },
+      error: () => {}
+    });
+  }
+
+  getCacheStatus(templateId: string): TemplateCacheStatus | undefined {
+    return this.cacheStatuses().get(templateId);
+  }
+
+  formatBytes(bytes: number): string {
+    if (!bytes || bytes <= 0) return '0 B';
+    const k = 1024;
+    const dm = 1;
+    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+  }
+
+  warmTemplate(template: AdminTemplateItem, event?: MouseEvent): void {
+    if (event) {
+      event.stopPropagation();
+    }
+    const id = template.id;
+    this.warmingTemplateIds.update(set => {
+      const next = new Set(set);
+      next.add(id);
+      return next;
+    });
+
+    this.templatesService.warmTemplate(id).subscribe({
+      next: (status) => {
+        this.warmingTemplateIds.update(set => {
+          const next = new Set(set);
+          next.delete(id);
+          return next;
+        });
+        this.cacheStatuses.update(map => {
+          const next = new Map(map);
+          next.set(id, status);
+          return next;
+        });
+        this.showToast(`Imagen precargada en disco: ${template.name}`, 'success');
+      },
+      error: () => {
+        this.warmingTemplateIds.update(set => {
+          const next = new Set(set);
+          next.delete(id);
+          return next;
+        });
+        this.showToast(`Error al precargar la imagen de ${template.name}`, 'error');
+      }
+    });
+  }
+
+  warmAllTemplates(): void {
+    this.isWarmingAll.set(true);
+    this.templatesService.warmAllTemplates().subscribe({
+      next: (summary) => {
+        this.isWarmingAll.set(false);
+        this.loadCacheStatuses();
+        this.showToast(
+          `Caché actualizada: ${summary.warmed_count} descargadas, ${summary.already_warm} ya en disco`,
+          'success'
+        );
+      },
+      error: () => {
+        this.isWarmingAll.set(false);
+        this.showToast('Error al ejecutar el precalentamiento masivo', 'error');
+      }
     });
   }
 

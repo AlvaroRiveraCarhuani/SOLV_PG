@@ -23,6 +23,20 @@
       </p>
     </div>
     <div class="header-actions">
+      <button 
+        type="button" 
+        class="btn-secondary" 
+        (click)="warmAllTemplates()" 
+        [disabled]="isWarmingAll()"
+        title="Descarga al host las imágenes de plantillas activas para evitar demoras y límite 429 pre-clase">
+        @if (isWarmingAll()) {
+          <svg lucideRefreshCw class="btn-icon spin"></svg>
+          <span>Calentando Caché...</span>
+        } @else {
+          <svg lucideFlame class="btn-icon"></svg>
+          <span>Calentar Caché</span>
+        }
+      </button>
       <button type="button" class="btn-primary" (click)="openCreateModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nueva Plantilla</span>
@@ -386,6 +400,28 @@
                           {{ srv.engine }}
                         </span>
                       }
+                      @if (getCacheStatus(item.id); as cache) {
+                        @if (warmingTemplateIds().has(item.id)) {
+                          <span class="badge-cache-warming">
+                            <svg lucideRefreshCw class="badge-icon spin"></svg>
+                            Descargando...
+                          </span>
+                        } @else if (cache.is_cached) {
+                          <span class="badge-cache-cached" [title]="'Imagen en disco host (' + formatBytes(cache.size_bytes) + ')'">
+                            <svg lucideHardDrive class="badge-icon"></svg>
+                            En disco ({{ formatBytes(cache.size_bytes) }})
+                          </span>
+                        } @else {
+                          <button
+                            type="button"
+                            class="badge-cache-missing-btn"
+                            (click)="warmTemplate(item, $event)"
+                            title="Precalentar imagen en host">
+                            <svg lucideFlame class="badge-icon"></svg>
+                            Sin caché
+                          </button>
+                        }
+                      }
                     </div>
                   </div>
                 </div>
@@ -436,6 +472,21 @@
                   <span>Duplicar</span>
                 </button>
 
+                <button
+                  type="button"
+                  class="btn-outline-secondary"
+                  (click)="warmTemplate(item, $event)"
+                  [disabled]="warmingTemplateIds().has(item.id)"
+                  title="Asegurar descarga en el disco del host">
+                  @if (warmingTemplateIds().has(item.id)) {
+                    <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+                    <span>Calentando...</span>
+                  } @else {
+                    <svg lucideFlame class="btn-icon-xs text-warning"></svg>
+                    <span>Calentar</span>
+                  }
+                </button>
+
                                 @if (item.status === 'approved' || item.status === 'APROBADA') {
                   <button type="button" class="btn-promote-icon" (click)="promoteToModel(item)" title="Promover a modelo de plantilla">
                     <svg lucideBadgeCheck class="btn-icon-xs"></svg>
@@ -469,6 +520,7 @@
                 <th>RAM Asignada</th>
                 <th>Fecha Aprobación</th>
                 <th>Estado</th>
+                <th>Caché Local</th>
                 <th class="text-right">Acciones</th>
               </tr>
             </thead>
@@ -544,6 +596,32 @@
                       </span>
                     }
                   </td>
+                  <td>
+                    @if (getCacheStatus(item.id); as cache) {
+                      @if (warmingTemplateIds().has(item.id)) {
+                        <span class="badge-cache-warming">
+                          <svg lucideRefreshCw class="badge-icon spin"></svg>
+                          Descargando...
+                        </span>
+                      } @else if (cache.is_cached) {
+                        <span class="badge-cache-cached" [title]="'Presente en host overlay2 (' + formatBytes(cache.size_bytes) + ')'">
+                          <svg lucideHardDrive class="badge-icon"></svg>
+                          En disco ({{ formatBytes(cache.size_bytes) }})
+                        </span>
+                      } @else {
+                        <button
+                          type="button"
+                          class="badge-cache-missing-btn"
+                          (click)="warmTemplate(item, $event)"
+                          title="Precalentar imagen en host">
+                          <svg lucideFlame class="badge-icon"></svg>
+                          Sin caché
+                        </button>
+                      }
+                    } @else {
+                      <span class="cell-text text-secondary font-mono">-</span>
+                    }
+                  </td>
                   <td class="text-right">
                     <div class="row-menu-anchor">
                       <button
@@ -559,6 +637,11 @@
 
                       @if (openMenuId() === item.id) {
                         <div class="row-actions-menu" role="menu">
+                          <button type="button" class="menu-item" role="menuitem" (click)="warmTemplate(item); openMenuId.set(null)">
+                            <svg lucideFlame class="menu-item-icon text-warning"></svg>
+                            <span>Precalentar en Host</span>
+                          </button>
+
                           <button type="button" class="menu-item" role="menuitem" (click)="openEditModal(item); openMenuId.set(null)">
                             <svg lucidePencil class="menu-item-icon"></svg>
                             <span>Editar / Ajustar Cuota</span>

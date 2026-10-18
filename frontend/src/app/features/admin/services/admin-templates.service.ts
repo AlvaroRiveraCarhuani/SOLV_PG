@@ -138,6 +138,24 @@ export interface CapabilitiesProbeResult {
   output?: string;
 }
 
+export interface TemplateCacheStatus {
+  template_id: string;
+  template_name: string;
+  docker_image: string;
+  is_cached: boolean;
+  size_bytes: number;
+  status: 'cached' | 'missing' | 'warming' | 'failed';
+  error_message?: string;
+}
+
+export interface WarmAllSummary {
+  total_checked: number;
+  already_warm: number;
+  warmed_count: number;
+  failed_count: number;
+}
+
+
 export interface ImageVerificationResult {
   image_ref: string;
   is_local: boolean;
@@ -464,4 +482,23 @@ export class AdminTemplatesService {
       }
     ];
   }
+
+  getTemplatesCacheStatus(): Observable<TemplateCacheStatus[]> {
+    return this.http.get<ApiResponse<TemplateCacheStatus[]>>(`${this.apiUrl}/cache-status`).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  warmTemplate(id: string): Observable<TemplateCacheStatus> {
+    return this.http.post<ApiResponse<TemplateCacheStatus>>(`${this.apiUrl}/${id}/warm`, {}).pipe(
+      map(res => res.data)
+    );
+  }
+
+  warmAllTemplates(): Observable<WarmAllSummary> {
+    return this.http.post<ApiResponse<WarmAllSummary>>(`${this.apiUrl}/warm-all`, {}).pipe(
+      map(res => res.data)
+    );
+  }
 }
+
