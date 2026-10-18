@@ -136,15 +136,39 @@ describe('StepIdentityComponent', () => {
     expect(component.filteredModels()[0].name).toBe('NestJS Microservices');
   });
 
-  it('no debe ofrecer opción fantasma de categoría; vacío equivale a sin categoría', () => {
+  it('debe ofrecer la opción explícita "Sin categoría" y emitir null al seleccionarla', () => {
     const opts = component.categoryComboboxOptions();
-    expect(opts.some(o => o.id === '__none__')).toBe(false);
-    expect(opts.some(o => (o.label || '').includes('Sin categoría'))).toBe(false);
+    const noneOpt = opts.find(o => o.id === '__none__');
+    expect(noneOpt).toBeDefined();
+    expect(noneOpt?.label).toContain('Sin categoría');
+    expect(noneOpt?.value).toBeNull();
     expect(opts[opts.length - 1].id).toBe('__new__');
+
+    let emittedCategory: string | null = 'init';
+    component.categorySelected.subscribe(val => (emittedCategory = val));
+
+    component.onCategoryOptionSelected(noneOpt!);
+    expect(emittedCategory).toBeNull();
 
     fixture.componentRef.setInput('selectedCategoryId', null);
     fixture.detectChanges();
     expect(component.selectedCategoryLabel()).toBe('');
+  });
+
+  it('debe emitir null cuando se dispara onCategoryCleared o se vacía la búsqueda', () => {
+    fixture.componentRef.setInput('selectedCategoryId', 'cat-1');
+    fixture.detectChanges();
+
+    let emittedCategory: string | null = 'init';
+    component.categorySelected.subscribe(val => (emittedCategory = val));
+
+    component.onCategoryCleared();
+    expect(emittedCategory).toBeNull();
+
+    // Probamos también al borrar el texto del input
+    emittedCategory = 'init';
+    component.onCategorySearchChange('');
+    expect(emittedCategory).toBeNull();
   });
 
   it('debe mostrar la línea informativa de descubribilidad de promoción con enlace al manual', () => {
@@ -153,10 +177,10 @@ describe('StepIdentityComponent', () => {
 
     const banner = fixture.nativeElement.querySelector('.models-promotion-banner');
     expect(banner).toBeTruthy();
-    expect(banner.textContent).toContain('Los modelos se originan a partir de plantillas aprobadas');
+    expect(banner.textContent).toContain('Los entornos preconfigurados se originan a partir de plantillas aprobadas');
 
     const link = banner.querySelector('a.banner-link');
     expect(link).toBeTruthy();
-    expect(link.getAttribute('href')).toBe('/admin/manual');
+    expect(link.getAttribute('href')).toBe('/admin/manual#3-2-ciclo-de-vida-y-gobernanza-de-plantillas');
   });
 });

@@ -12,9 +12,9 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { 
-  LucideSparkles, 
+  LucideBoxes, 
   LucideSearch, 
-  LucideRotateCw, 
+  LucideLayers, 
   LucideCopy, 
   LucideHelpCircle,
   LucideCheck,
@@ -42,9 +42,9 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     MachineDataDirective,
     FormsModule, 
     RouterModule,
-    LucideSparkles, 
+    LucideBoxes, 
     LucideSearch, 
-    LucideRotateCw, 
+    LucideLayers, 
     LucideCopy, 
     LucideHelpCircle,
     LucideCheck,
@@ -89,7 +89,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
           [class.active]="creationMode() === 'recipe'"
           (click)="setCreationMode('recipe')"
         >
-          <span i18n="@@ST-12">Desde modelo</span>
+          <span i18n="@@ST-12">Preconfigurado</span>
         </button>
         <button 
           type="button" 
@@ -102,14 +102,14 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
       </div>
     </div>
 
-    <!-- Puerta: Desde modelo de plantilla -->
+    <!-- Puerta: Preconfigurado -->
     @if (creationMode() === 'recipe') {
       <div class="models-shelf-section">
         <div class="models-shelf-header">
           <div class="models-title-wrap">
-            <svg lucideSparkles class="w-4 h-4 text-warning mr-1.5"></svg>
-            <span class="models-shelf-title" i18n="@@MO-01">Modelos de plantilla</span>
-            <span class="models-shelf-sub" i18n="@@MO-02">Entornos preconfigurados listos para usar o personalizar</span>
+            <svg lucideBoxes class="w-4 h-4 text-primary mr-1.5"></svg>
+            <span class="models-shelf-title" i18n="@@MO-01">Entornos preconfigurados</span>
+            <span class="models-shelf-sub" i18n="@@MO-02">Recetas base listas para usar o personalizar</span>
           </div>
           @if (templateModels().length > 4 || modelsSearch()) {
             <div class="models-search-bar">
@@ -119,83 +119,104 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
                 class="models-search-input" 
                 [ngModel]="modelsSearch()"
                 (ngModelChange)="onSearchChange($event)"
-                placeholder="Buscar modelos..."
+                placeholder="Buscar preconfigurados..."
                 i18n-placeholder="@@MO-03"
               />
             </div>
           }
         </div>
 
-        <!-- Línea informativa de descubribilidad de promoción -->
+        <!-- Línea informativa de descubribilidad de modelos -->
         <div class="models-promotion-banner">
           <div class="banner-content">
             <svg lucideInfo class="w-4 h-4 text-info mr-2 flex-shrink-0"></svg>
-            <span class="banner-text" i18n="@@AY-19">
-              Los modelos se originan a partir de plantillas aprobadas promovidas desde el catálogo o de configuraciones base institucionales.
+            <span class="banner-text">
+              Los entornos preconfigurados se originan a partir de plantillas aprobadas en el catálogo o recetas base institucionales.
             </span>
           </div>
-          <a routerLink="/admin/manual" class="banner-link" target="_blank" rel="noopener noreferrer" i18n="@@AY-20">
-            Ver manual de promoción
+          <a routerLink="/admin/manual" fragment="3-2-ciclo-de-vida-y-gobernanza-de-plantillas" class="banner-link" target="_blank" rel="noopener noreferrer">
+            Ver guía en el manual
           </a>
         </div>
 
-        <!-- Fila de chips de filtro por categoría (dato real de BD) -->
+        <!-- Fila de chips o selector de filtro por categoría -->
         @if (categoryFilterChips().length > 1) {
-          <div class="models-category-chips-row">
-            @for (chip of categoryFilterChips(); track chip.id) {
-              <button 
-                type="button" 
-                class="cat-filter-chip" 
-                [class.active]="selectedCategoryFilter() === chip.id"
-                (click)="selectCategoryFilter(chip.id)"
-              >
-                {{ chip.label }}
-              </button>
-            }
-          </div>
+          @if (categories().length <= 5) {
+            <div class="models-category-chips-row">
+              @for (chip of categoryFilterChips(); track chip.id) {
+                <button 
+                  type="button" 
+                  class="cat-filter-chip" 
+                  [class.active]="selectedCategoryFilter() === chip.id"
+                  (click)="selectCategoryFilter(chip.id)"
+                >
+                  {{ chip.label }}
+                </button>
+              }
+            </div>
+          } @else {
+            <div class="models-category-filter-select-row">
+              <span class="cat-select-label">Filtrar por categoría:</span>
+              <div class="cat-select-combobox">
+                <combobox
+                  [value]="selectedCategoryFilterLabel()"
+                  [options]="categoryFilterComboboxOptions()"
+                  placeholder="Todas las categorías"
+                  inputAriaLabel="Filtrar preconfigurados por categoría"
+                  (optionSelected)="onCategoryFilterOptionSelected($event)"
+                ></combobox>
+              </div>
+              @if (selectedCategoryFilter() !== null) {
+                <button 
+                  type="button" 
+                  class="btn-clear-cat-filter" 
+                  (click)="selectCategoryFilter(null)"
+                  title="Mostrar todas las categorías"
+                >
+                  <svg lucideX class="w-3.5 h-3.5 mr-1"></svg>
+                  <span>Ver todas</span>
+                </button>
+              }
+            </div>
+          }
         }
 
         @if (filteredModels().length === 0) {
           <div class="models-empty-state">
             @if (targetEnvironment() === 'JUEZ_EFIMERO') {
-              <p i18n="@@PU-12">No hay modelos de juez registrados todavía. Puede comenzar con una plantilla en blanco.</p>
+              <p i18n="@@PU-12">No hay entornos de juez preconfigurados todavía. Puede comenzar con una plantilla en blanco.</p>
             } @else {
-              <span i18n="@@MO-07">No se encontraron modelos para la búsqueda</span>
+              <span i18n="@@MO-07">No se encontraron entornos preconfigurados para la búsqueda</span>
             }
             <button type="button" class="btn btn-sm btn-outline-primary mt-2" (click)="setCreationMode('blank')">
               Comenzar en blanco
             </button>
           </div>
         } @else {
-          <div class="disciplines-container">
-            @for (group of visibleGroups(); track group.categoryName) {
-              <div class="discipline-group">
-                <div class="discipline-badge">{{ group.categoryName }}</div>
-                <div class="models-grid">
-                  @for (model of group.models; track model.id) {
-                    <div class="model-card" [class.selected]="recipeUsed() === model.id">
-                      <div class="model-card-header">
-                        <span class="model-card-title">{{ model.name }}</span>
-                        <span class="model-usage-badge" [title]="'Usado ' + model.usage_count + ' veces'">
-                          <svg lucideRotateCw class="w-3 h-3 mr-1"></svg>
-                          <span i18n="@@MO-05">{{ model.usage_count }} plantillas basadas en este modelo</span>
-                        </span>
-                      </div>
-                      <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
-                      <div class="model-card-tools">
-                        <span class="tools-label">Imagen: </span>
-                        <span class="tools-val"><span machineData>{{ model.docker_image }}</span> (<span machineData>{{ model.base_ram_mb }} MB</span>)</span>
-                      </div>
-                      <button 
-                        type="button" 
-                        class="btn btn-sm btn-outline-primary mt-2 w-full"
-                        (click)="applyModel.emit(model)"
-                      >
-                        <span i18n="@@MO-06">Usar este modelo</span>
-                      </button>
-                    </div>
-                  }
+          <div class="models-grid">
+            @for (model of visibleModels(); track model.id) {
+              <div class="model-card" [class.selected]="recipeUsed() === model.id">
+                <div class="model-card-header">
+                  <span class="model-card-title">{{ model.name }}</span>
+                  <span class="discipline-badge">{{ getCategoryName(model) }}</span>
                 </div>
+                <div class="model-usage-row">
+                  <span class="model-usage-badge" [title]="'Plantillas creadas con esta receta: ' + model.usage_count">
+                    {{ model.usage_count }} plantillas derivadas
+                  </span>
+                </div>
+                <p class="model-card-desc">{{ model.description || 'Sin descripción adicional' }}</p>
+                <div class="model-card-tools">
+                  <span class="tools-label">Imagen: </span>
+                  <span class="tools-val"><span machineData>{{ model.docker_image }}</span> (<span machineData>{{ model.base_ram_mb }} MB</span>)</span>
+                </div>
+                <button 
+                  type="button" 
+                  class="btn btn-sm btn-outline-primary mt-2 w-full"
+                  (click)="applyModel.emit(model)"
+                >
+                  <span i18n="@@MO-06">Usar preconfigurado</span>
+                </button>
               </div>
             }
           </div>
@@ -284,10 +305,12 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
         <combobox
           [value]="selectedCategoryLabel()"
           [options]="categoryComboboxOptions()"
+          [allowClear]="true"
           placeholder="Seleccione o busque una categoría..."
           inputAriaLabel="Categoría académica"
           (optionSelected)="onCategoryOptionSelected($event)"
           (valueChange)="onCategorySearchChange($event)"
+          (cleared)="onCategoryCleared()"
         ></combobox>
       } @else {
         <div class="inline-category-row">
@@ -328,7 +351,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
     <!-- Descripción opcional -->
     <div class="form-group">
       <label class="form-label font-semibold" for="template-desc-input">
-        Descripción:
+        Descripción (opcional):
       </label>
       <textarea
         id="template-desc-input"
@@ -455,7 +478,9 @@ export class StepIdentityComponent {
 
   categoryComboboxOptions = computed<ComboboxOption[]>(() => {
     const cats = this.categories();
-    const opts: ComboboxOption[] = [];
+    const opts: ComboboxOption[] = [
+      { id: '__none__', label: 'Sin categoría (ninguna)', value: null, meta: 'Opcional' }
+    ];
     for (const c of cats) {
       opts.push({ id: c.id, label: c.name, value: c.id });
     }
@@ -468,6 +493,32 @@ export class StepIdentityComponent {
     });
     return opts;
   });
+
+  categoryFilterComboboxOptions = computed<ComboboxOption[]>(() => {
+    const cats = this.categories();
+    const opts: ComboboxOption[] = [
+      { id: '__all__', label: 'Todas las categorías', value: null }
+    ];
+    for (const c of cats) {
+      opts.push({ id: c.id, label: c.name, value: c.id });
+    }
+    return opts;
+  });
+
+  selectedCategoryFilterLabel = computed<string>(() => {
+    const id = this.selectedCategoryFilter();
+    if (!id) return 'Todas las categorías';
+    const found = this.categories().find(c => c.id === id);
+    return found ? found.name : 'Todas las categorías';
+  });
+
+  onCategoryFilterOptionSelected(opt: ComboboxOption): void {
+    if (opt.id === '__all__' || !opt.value) {
+      this.selectCategoryFilter(null);
+    } else {
+      this.selectCategoryFilter(opt.value);
+    }
+  }
 
   selectedCategoryLabel = computed<string>(() => {
     const id = this.selectedCategoryId();
@@ -490,13 +541,23 @@ export class StepIdentityComponent {
       this.isCreatingCategoryInline.set(true);
       this.inlineCategoryName.set('');
       setTimeout(() => this.newCatInput()?.nativeElement.focus(), 50);
+    } else if (opt.id === '__none__' || opt.value === null) {
+      this.categorySelected.emit(null);
     } else {
       this.categorySelected.emit(opt.value);
     }
   }
 
   onCategorySearchChange(query: string): void {
-    // Si el usuario escribe y no existe, se mantiene la búsqueda interna de combobox
+    if (query.trim() === '' && this.selectedCategoryId() !== null) {
+      this.categorySelected.emit(null);
+    }
+  }
+
+  onCategoryCleared(): void {
+    if (this.selectedCategoryId() !== null) {
+      this.categorySelected.emit(null);
+    }
   }
 
   createCategoryInline(): void {
