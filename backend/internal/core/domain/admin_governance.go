@@ -373,3 +373,23 @@ type DraftResponse struct {
 	FormData  json.RawMessage `json:"form_data"`
 	UpdatedAt time.Time       `json:"updated_at"`
 }
+
+// TemplateCacheStatus representa el estado de presencia física de la imagen en el host Docker
+type TemplateCacheStatus struct {
+	TemplateID   string `json:"template_id"`
+	TemplateName string `json:"template_name"`
+	DockerImage  string `json:"docker_image"`
+	IsCached     bool   `json:"is_cached"`
+	SizeBytes    int64  `json:"size_bytes"`
+	Status       string `json:"status"` // "cached", "missing", "warming", "failed"
+	ErrorMessage string `json:"error_message,omitempty"`
+}
+
+// WarmAllSummary resume el resultado de calentamiento de caché masivo
+type WarmAllSummary struct {
+	TotalChecked int `json:"total_checked"`
+	AlreadyWarm  int `json:"already_warm"`
+	WarmedCount  int `json:"warmed_count"`
+	FailedCount  int `json:"failed_count"`
+}
+

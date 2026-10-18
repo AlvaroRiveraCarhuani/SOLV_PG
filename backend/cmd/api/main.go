@@ -153,9 +153,12 @@ func main() {
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 	imageVerificationService := services.NewImageVerificationService(cli)
+	templateCacheService := services.NewTemplateCacheService(govRepo, dockerClient)
+	govService.SetCacheService(templateCacheService)
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService).
 		WithImageService(imageVerificationService).
-		WithAuditLogRepo(auditLogRepo)
+		WithAuditLogRepo(auditLogRepo).
+		WithCacheService(templateCacheService)
 	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
 
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)

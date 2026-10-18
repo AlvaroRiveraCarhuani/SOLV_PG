@@ -15,13 +15,15 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
+	"golang.org/x/sync/singleflight"
 
 	"solv-backend/internal/core/domain"
 )
 
 // Client implementa la interfaz domain.ContainerOrchestrator y domain.WorkspaceOrchestrator
 type Client struct {
-	cli *client.Client
+	cli       *client.Client
+	pullGroup singleflight.Group
 }
 
 func NewClient() (*Client, error) {
@@ -102,20 +104,16 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	}
 
 	networkingConfig := &network.NetworkingConfig{}
-	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
-	if err != nil {
-		if errdefs.IsNotFound(err) {
-			log.Printf("Image %q not found locally. Pulling from registry (this may take a while)...", config.Image)
-			out, pullErr := c.cli.ImagePull(ctx, config.Image, image.PullOptions{})
-			if pullErr != nil {
-				return "", fmt.Errorf("failed to pull image %q: %w", config.Image, pullErr)
-			}
-			defer out.Close()
-			_, _ = io.Copy(io.Discard, out)
-			log.Printf("Image %q pulled successfully.", config.Image)
-		} else {
-			return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, err)
+	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)
+	if inspectErr != nil {
+		return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, inspectErr)
+	}
+	if !cached {
+		log.Printf("[SingleFlight] Image %q not found locally. Initiating single-flight pull...", config.Image)
+		if err := c.PullImage(ctx, config.Image); err != nil {
+			return "", err
 		}
+		log.Printf("Image %q pulled successfully.", config.Image)
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkingConfig, nil, config.ContainerName)
@@ -174,19 +172,16 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		Cmd:    []string{"--without-connection-token", "--host", "0.0.0.0"},
 	}
 
-	_, _, err := c.cli.ImageInspectWithRaw(ctx, config.Image)
-	if err != nil {
-		if errdefs.IsNotFound(err) {
-			log.Printf("Image %q not found. Pulling...", config.Image)
-			out, pullErr := c.cli.ImagePull(ctx, config.Image, image.PullOptions{})
-			if pullErr != nil {
-				return "", fmt.Errorf("failed to pull image %q: %w", config.Image, pullErr)
-			}
-			defer out.Close()
-			_, _ = io.Copy(io.Discard, out)
-		} else {
-			return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, err)
+	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)
+	if inspectErr != nil {
+		return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, inspectErr)
+	}
+	if !cached {
+		log.Printf("[SingleFlight] Image %q not found locally. Initiating single-flight pull...", config.Image)
+		if err := c.PullImage(ctx, config.Image); err != nil {
+			return "", err
 		}
+		log.Printf("Image %q pulled successfully.", config.Image)
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, config.ContainerName)
@@ -609,3 +604,30 @@ func (c *Client) ExecuteCommandInBackground(ctx context.Context, containerID str
 	log.Printf("[Docker Exec] Background command started in container %s: %v", containerID, cmd)
 	return nil
 }
+
+// InspectLocalImage comprueba si una imagen reside físicamente en el almacenamiento local del host Docker
+func (c *Client) InspectLocalImage(ctx context.Context, imageRef string) (bool, int64, error) {
+	inspect, _, err := c.cli.ImageInspectWithRaw(ctx, imageRef)
+	if err != nil {
+		if errdefs.IsNotFound(err) {
+			return false, 0, nil
+		}
+		return false, 0, err
+	}
+	return true, inspect.Size, nil
+}
+
+// PullImage descarga una imagen con deduplicación single-flight para evitar peticiones concurrentes duplicadas
+func (c *Client) PullImage(ctx context.Context, imageRef string) error {
+	_, err, _ := c.pullGroup.Do(imageRef, func() (interface{}, error) {
+		out, pullErr := c.cli.ImagePull(ctx, imageRef, image.PullOptions{})
+		if pullErr != nil {
+			return nil, fmt.Errorf("failed to pull image %q: %w", imageRef, pullErr)
+		}
+		defer out.Close()
+		_, _ = io.Copy(io.Discard, out)
+		return nil, nil
+	})
+	return err
+}
+

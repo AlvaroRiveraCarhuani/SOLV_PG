@@ -19,6 +19,7 @@ type AdminAcademicHandler struct {
 	govService         *services.AdminGovernanceService
 	imageService       *services.ImageVerificationService
 	auditLogRepo       domain.AuditLogRepository
+	cacheService       *services.TemplateCacheService
 }
 
 func NewAdminAcademicHandler(
@@ -40,6 +41,11 @@ func (h *AdminAcademicHandler) WithImageService(imageService *services.ImageVeri
 
 func (h *AdminAcademicHandler) WithAuditLogRepo(auditLogRepo domain.AuditLogRepository) *AdminAcademicHandler {
 	h.auditLogRepo = auditLogRepo
+	return h
+}
+
+func (h *AdminAcademicHandler) WithCacheService(cacheService *services.TemplateCacheService) *AdminAcademicHandler {
+	h.cacheService = cacheService
 	return h
 }
 
@@ -714,6 +720,67 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 	}
 
 	SendJSON(w, http.StatusCreated, item, "Plantilla oficial registrada exitosamente")
+}
+
+// GetTemplatesCacheStatus retorna el estado de presencia en disco de todas las plantillas activas
+func (h *AdminAcademicHandler) GetTemplatesCacheStatus(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	if h.cacheService == nil {
+		SendError(w, http.StatusServiceUnavailable, "service_unavailable", "servicio de calentamiento de caché no configurado")
+		return
+	}
+
+	statuses, err := h.cacheService.GetTemplatesCacheStatus(r.Context(), tenantID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "internal_error", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, statuses, "Estados de caché obtenidos exitosamente")
+}
+
+// WarmTemplate precalienta una plantilla individual
+func (h *AdminAcademicHandler) WarmTemplate(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	templateID := r.PathValue("id")
+	if templateID == "" {
+		SendError(w, http.StatusBadRequest, "invalid_id", "ID de plantilla requerido")
+		return
+	}
+
+	if h.cacheService == nil {
+		SendError(w, http.StatusServiceUnavailable, "service_unavailable", "servicio de calentamiento de caché no configurado")
+		return
+	}
+
+	status, err := h.cacheService.WarmTemplate(r.Context(), tenantID, templateID)
+	if err != nil {
+		if errors.Is(err, services.ErrTemplateNotFound) {
+			SendError(w, http.StatusNotFound, "template_not_found", "plantilla no encontrada")
+			return
+		}
+		SendError(w, http.StatusInternalServerError, "warming_failed", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, status, "Plantilla precalentada exitosamente")
+}
+
+// WarmAllTemplates precalienta secuencialmente todas las plantillas activas que no se encuentren en disco
+func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.Request) {
+	tenantID := getTenantFromCtx(r)
+	if h.cacheService == nil {
+		SendError(w, http.StatusServiceUnavailable, "service_unavailable", "servicio de calentamiento de caché no configurado")
+		return
+	}
+
+	summary, err := h.cacheService.WarmAllActiveTemplates(r.Context(), tenantID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, "warming_failed", err.Error())
+		return
+	}
+
+	SendJSON(w, http.StatusOK, summary, "Precalentamiento masivo completado")
 }
 
 func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.Request) {

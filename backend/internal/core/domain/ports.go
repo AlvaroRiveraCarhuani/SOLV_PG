@@ -126,6 +126,8 @@ type WorkspaceOrchestrator interface {
 	RunSemgrepScanOnVolume(ctx context.Context, volumeName string) ([]byte, error)
 	GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error)
 	ExecuteCommandInBackground(ctx context.Context, containerID string, workDir string, cmd []string) error
+	InspectLocalImage(ctx context.Context, imageRef string) (bool, int64, error)
+	PullImage(ctx context.Context, imageRef string) error
 }
 
 type TenantRepository interface {

@@ -143,6 +143,15 @@ func (m *mockOrchestrator) ExecuteCommandInBackground(ctx context.Context, conta
 	return nil
 }
 
+func (m *mockOrchestrator) InspectLocalImage(ctx context.Context, imageRef string) (bool, int64, error) {
+	return true, 1000000, nil
+}
+
+func (m *mockOrchestrator) PullImage(ctx context.Context, imageRef string) error {
+	return nil
+}
+
+
 type mockHostMonitor struct{}
 
 func (m *mockHostMonitor) CanAllocateMemory(mb int64) bool {

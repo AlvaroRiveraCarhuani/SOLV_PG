@@ -8,6 +8,7 @@ import (
 	"log"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -30,6 +31,7 @@ type AdminGovernanceService struct {
 	// pool de conexiones (ADR-032, acciones docker-prune y reset-pools).
 	dockerPruner func(ctx context.Context) (containersPruned int64, spaceReclaimedMB int64, err error)
 	poolResetter func(ctx context.Context) (connectionsRecycled int64, err error)
+	cacheService *TemplateCacheService
 }
 
 func NewAdminGovernanceService(
@@ -40,6 +42,11 @@ func NewAdminGovernanceService(
 		subjectRepo: subjectRepo,
 		govRepo:     govRepo,
 	}
+}
+
+func (s *AdminGovernanceService) SetCacheService(cache *TemplateCacheService) *AdminGovernanceService {
+	s.cacheService = cache
+	return s
 }
 
 func (s *AdminGovernanceService) SetAuditRepo(repo domain.AuditLogRepository) {
@@ -260,8 +267,22 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 	// Derivación obligatoria del perfil cgroups v2: min = base/2, high = base*1.5, max = base*2
 	derived := domain.DeriveResourceProfile(dto.BaseRamMB)
 	dto.ResourceProfile = &derived
+	created, err := s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
+	if err != nil {
+		return nil, err
+	}
 
-	return s.govRepo.CreateOfficialTemplate(ctx, tenantID, adminID, dto)
+	// Golden Image Invariant (Solución 4): Precalentamiento asíncrono en background
+	if s.cacheService != nil && created != nil {
+		go func(tid, tmplID, img string) {
+			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+			defer cancel()
+			log.Printf("[GoldenImage] Pre-warming image %q for official template %s...", img, tmplID)
+			_, _ = s.cacheService.WarmTemplate(bgCtx, tid, tmplID)
+		}(tenantID, created.ID, created.DockerImage)
+	}
+
+	return created, nil
 }
 
 func (s *AdminGovernanceService) DuplicateTemplate(
