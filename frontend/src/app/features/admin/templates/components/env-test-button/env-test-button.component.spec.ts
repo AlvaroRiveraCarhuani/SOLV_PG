@@ -137,4 +137,19 @@ describe('EnvTestButtonComponent - Botón deshabilitado con razón visible', () 
     const btn = fixture.nativeElement.querySelector('.btn-env-test');
     expect(btn.disabled).toBe(false);
   });
+
+  it('debe emitir jobProgress al iniciar el trabajo y al recibir actualizaciones', () => {
+    const mockJobResult = { id: 'job-999', status: 'pulling' } as any;
+    mockEnvTestJobService.startJob = () => of(mockJobResult);
+    mockEnvTestJobService.pollJob = () => of(mockJobResult);
+
+    let emitted: any = null;
+    component.jobProgress.subscribe(j => emitted = j);
+
+    fixture.componentRef.setInput('image', 'python:3.11-slim');
+    fixture.detectChanges();
+
+    component.startTest();
+    expect(emitted).toEqual(mockJobResult);
+  });
 });

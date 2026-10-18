@@ -78,6 +78,7 @@ export class EnvTestButtonComponent implements OnDestroy {
   // Outputs con signals nativos de Angular 22
   testCompleted = output<EnvTestJob>();
   stateChange = output<ButtonVisualState>();
+  jobProgress = output<EnvTestJob>();
 
   // Estado interno reactivo
   visualState = signal<ButtonVisualState>('idle');
@@ -178,6 +179,7 @@ export class EnvTestButtonComponent implements OnDestroy {
     this.envTestService.startJob(req).subscribe({
       next: (job) => {
         this.activeJob.set(job);
+        this.jobProgress.emit(job);
         this.pollJob(job.id);
       },
       error: (err) => {
@@ -221,6 +223,7 @@ export class EnvTestButtonComponent implements OnDestroy {
     this.pollSub = this.envTestService.pollJob(id, 1500).subscribe({
       next: (job) => {
         this.activeJob.set(job);
+        this.jobProgress.emit(job);
         if (job.status === 'success') {
           this.visualState.set('ok');
           this.stateChange.emit('ok');
