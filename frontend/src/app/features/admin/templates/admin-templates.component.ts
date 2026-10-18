@@ -35,7 +35,7 @@ import {
   LucideChevronDown,
   LucideBadgeCheck,
   LucideMoreVertical,
-  LucideFlame
+  LucideDownloadCloud
 } from '@lucide/angular';
 import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
@@ -123,7 +123,7 @@ export interface ToastNotification {
     LucideChevronDown,
     LucideBadgeCheck,
     LucideMoreVertical,
-    LucideFlame
+    LucideDownloadCloud
   ],
   templateUrl: './admin-templates.component.html',
   styleUrls: ['./admin-templates.component.scss']
@@ -712,15 +712,23 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   warmAllTemplates(): void {
+    if (this.activeCount() === 0) {
+      this.showToast('No hay plantillas activas en el catálogo para preparar.', 'info');
+      return;
+    }
     this.isWarmingAll.set(true);
     this.templatesService.warmAllTemplates().subscribe({
       next: (summary) => {
         this.isWarmingAll.set(false);
         this.loadCacheStatuses();
-        this.showToast(
-          `Entornos preparados: ${summary.warmed_count} descargados, ${summary.already_warm} ya listos`,
-          'success'
-        );
+        if (summary.total_checked === 0) {
+          this.showToast('No hay entornos activos para preparar en el catálogo.', 'info');
+        } else {
+          this.showToast(
+            `Entornos preparados: ${summary.warmed_count} descargados, ${summary.already_warm} ya listos`,
+            'success'
+          );
+        }
       },
       error: () => {
         this.isWarmingAll.set(false);

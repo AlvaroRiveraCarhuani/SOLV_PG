@@ -27,8 +27,8 @@
         type="button" 
         class="btn-secondary" 
         (click)="warmAllTemplates()" 
-        [disabled]="isWarmingAll()"
-        title="Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase">
+        [disabled]="isWarmingAll() || activeCount() === 0"
+        [title]="activeCount() === 0 ? 'No hay plantillas activas en el catálogo para preparar' : 'Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase'">
         @if (isWarmingAll()) {
           <svg lucideRefreshCw class="btn-icon spin"></svg>
           <span>Preparando entornos...</span>
