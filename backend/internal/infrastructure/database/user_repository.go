@@ -82,4 +82,3 @@ func (db *Database) UpdateUserRole(ctx context.Context, id, role string) error {
 	}
 	return nil
 }
-

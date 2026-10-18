@@ -497,4 +497,3 @@ func (r *PostgresTeacherInvitationRepository) CheckAndConsumeInvitation(ctx cont
 	}
 	return true, nil
 }
-

@@ -197,4 +197,3 @@ func (s *TeacherInvitationService) BatchRegisterTeachers(ctx context.Context, te
 
 	return count, nil
 }
-

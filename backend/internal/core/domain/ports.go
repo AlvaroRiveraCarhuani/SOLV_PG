@@ -333,4 +333,3 @@ type Mailer interface {
 	SendAsync(msg *EmailMessage)
 	Close() error
 }
-
