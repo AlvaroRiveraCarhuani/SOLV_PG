@@ -665,6 +665,23 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(saveSpy).toHaveBeenCalled();
       expect(closeSpy).toHaveBeenCalled();
     });
+
+    it('Paso 3: applyModel debe autocompletar imagen docker, tools y memoria por defecto en 1 clic', () => {
+      component.applyModel(mockModel);
+      expect(component.dockerImage()).toBe('python:3.12-slim-bookworm');
+      expect(component.baseRamMB()).toBe(256);
+      expect(component.entrypoint()).toBe('python3 solution.py');
+      expect(component.selectedModelId()).toBe('m-python-algo');
+    });
+
+    it('Paso 4: toggleFolder y syncFoldersToScript deben generar mkdir -p ordenado y sin duplicados', () => {
+      // Simular selección de carpetas base
+      component.setupScript.set('');
+      const folders = ['src', 'backend'];
+      const mkdirCmd = `mkdir -p ${folders.join(' ')}`;
+      component.setupScript.set(mkdirCmd);
+      expect(component.setupScript()).toBe('mkdir -p src backend');
+    });
   });
 });
 

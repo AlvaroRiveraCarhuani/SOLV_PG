@@ -223,6 +223,7 @@
               [dockerImage]="dockerImage()"
               [toolsDeclared]="toolsDeclared()"
               [targetEnvironment]="targetEnvironment()"
+              [templateModels]="filteredModels()"
               [localImages]="localImages()"
               [curatedImages]="curatedOfficialImages"
               [usageMap]="usageMap()"
@@ -234,6 +235,7 @@
               (dockerImageChange)="onImageInputChange($event)"
               (toolsDeclaredChange)="toolsDeclared.set($event)"
               (imageSelected)="onImageSelected($event)"
+              (modelSelected)="applyModel($event)"
               (reverify)="reverify()"
             ></step-image>
           </div>

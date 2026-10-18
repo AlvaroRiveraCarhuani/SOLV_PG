@@ -8,7 +8,8 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
-  LucideHelpCircle 
+  LucideHelpCircle,
+  LucideChevronDown
 } from '@lucide/angular';
 import { 
   ComboboxComponent, 
@@ -20,7 +21,8 @@ import {
 import { 
   LocalImageItem, 
   ImageSuggestion,
-  TargetEnvironment
+  TargetEnvironment,
+  TemplateModelItem
 } from '../../../../../services/admin-templates.service';
 
 interface ToolEcosystem {
@@ -80,6 +82,7 @@ const UNIVERSAL_TOOLS = new Set([
     CommonModule, 
     FormsModule, 
     LucideHelpCircle,
+    LucideChevronDown,
     ComboboxComponent,
     FieldMessageComponent
   ],
@@ -99,61 +102,107 @@ const UNIVERSAL_TOOLS = new Set([
         </div>
       </div>
 
-      <div class="label-row-between">
-        <div class="label-with-help">
+      <!-- Selector Visual de Pilas Tecnológicas en 1 Clic (Alimentado por template_models) -->
+      @if (templateModels().length > 0) {
+        <div class="models-selection-block mb-4">
           <label class="form-label font-semibold">
-            Software base y herramientas (Imagen Docker): <span class="text-danger">*</span>
+            Entornos y lenguajes recomendados (Seleccione uno):
           </label>
-          <button 
-            type="button" 
-            class="btn-help-inline" 
-            (click)="showImagePopover.set(!showImagePopover())" 
-            title="Anatomía de una referencia de imagen"
-            aria-label="Anatomía de una referencia de imagen"
-          >
-            <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Popover anatómico OCI -->
-      @if (showImagePopover()) {
-        <div class="image-popover-box animate-fade">
-          <div class="popover-header">
-            <h6 class="popover-title" i18n="@@AY-13">Anatomía de una referencia de imagen Docker</h6>
-            <button 
-              type="button" 
-              class="btn-close-popover" 
-              (click)="showImagePopover.set(false)" 
-              aria-label="Cerrar"
-            >×</button>
-          </div>
-          <div class="popover-content">
-            <div class="image-anatomy-breakdown">
-              <div class="anatomy-part"><span class="part-label">Registro:</span> <code class="part-code">docker.io/</code></div>
-              <div class="anatomy-part"><span class="part-label">Namespace:</span> <code class="part-code">library/</code></div>
-              <div class="anatomy-part"><span class="part-label">Repositorio:</span> <code class="part-code font-bold">python</code></div>
-              <div class="anatomy-part"><span class="part-label">Tag fijado:</span> <code class="part-code tag-code">:3.12-slim-bookworm</code></div>
-            </div>
-            <p class="popover-warning" i18n="@@AY-14">
-              El tag :latest está prohibido por reproducibilidad académica y gobernanza institucional.
-            </p>
+          <div class="models-cards-grid">
+            @for (m of templateModels(); track m.id) {
+              <div 
+                class="model-select-card"
+                [class.selected]="dockerImage() === m.docker_image"
+                (click)="selectModelStack(m)"
+                [attr.aria-selected]="dockerImage() === m.docker_image"
+              >
+                <div class="card-top-row">
+                  <strong class="card-model-name">{{ m.name }}</strong>
+                  @if (dockerImage() === m.docker_image) {
+                    <span class="card-check-badge">Seleccionado</span>
+                  }
+                </div>
+                <p class="card-model-desc">{{ m.description }}</p>
+                <div class="card-tech-footer">
+                  <span class="card-tech-tag font-mono">{{ m.docker_image }}</span>
+                </div>
+              </div>
+            }
           </div>
         </div>
       }
 
-      <!-- Combobox de imagen (solo filtra) -->
-      <combobox
-        [value]="dockerImage()"
-        [options]="comboboxOptions()"
-        [maxSuggestions]="8"
-        [totalAvailableCount]="totalImagesCount()"
-        [suppressListbox]="isInvalidFormat() || isLatestImage()"
-        placeholder="Ej: python:3.12-slim-bookworm"
-        inputAriaLabel="Imagen Docker"
-        (valueChange)="onImageChange($event)"
-        (optionSelected)="onImageOptionSelected($event)"
-      ></combobox>
+      <div class="advanced-docker-toggle-row mb-2">
+        <button 
+          type="button" 
+          class="btn-toggle-advanced"
+          (click)="showAdvancedImage.set(!showAdvancedImage())"
+          [attr.aria-expanded]="showAdvancedImage()"
+        >
+          <svg lucideChevronDown class="w-3.5 h-3.5 mr-1" [class.rotated]="showAdvancedImage()"></svg>
+          <span>{{ showAdvancedImage() ? 'Ocultar configuración manual de imagen Docker' : 'Configurar imagen Docker personalizada (Avanzado)' }}</span>
+        </button>
+      </div>
+
+      @if (showAdvancedImage() || templateModels().length === 0) {
+        <div class="advanced-image-panel animate-fade mb-3">
+          <div class="label-row-between">
+            <div class="label-with-help">
+              <label class="form-label font-semibold">
+                Software base y herramientas (Imagen Docker): <span class="text-danger">*</span>
+              </label>
+              <button 
+                type="button" 
+                class="btn-help-inline" 
+                (click)="showImagePopover.set(!showImagePopover())" 
+                title="Anatomía de una referencia de imagen"
+                aria-label="Anatomía de una referencia de imagen"
+              >
+                <svg lucideHelpCircle class="w-3.5 h-3.5 text-primary"></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Popover anatómico OCI -->
+          @if (showImagePopover()) {
+            <div class="image-popover-box animate-fade">
+              <div class="popover-header">
+                <h6 class="popover-title" i18n="@@AY-13">Anatomía de una referencia de imagen Docker</h6>
+                <button 
+                  type="button" 
+                  class="btn-close-popover" 
+                  (click)="showImagePopover.set(false)" 
+                  aria-label="Cerrar"
+                >×</button>
+              </div>
+              <div class="popover-content">
+                <div class="image-anatomy-breakdown">
+                  <div class="anatomy-part"><span class="part-label">Registro:</span> <code class="part-code">docker.io/</code></div>
+                  <div class="anatomy-part"><span class="part-label">Namespace:</span> <code class="part-code">library/</code></div>
+                  <div class="anatomy-part"><span class="part-label">Repositorio:</span> <code class="part-code font-bold">python</code></div>
+                  <div class="anatomy-part"><span class="part-label">Tag fijado:</span> <code class="part-code tag-code">:3.12-slim-bookworm</code></div>
+                </div>
+                <p class="popover-warning" i18n="@@AY-14">
+                  El tag :latest está prohibido por reproducibilidad académica y gobernanza institucional.
+                </p>
+              </div>
+            </div>
+          }
+
+          <!-- Combobox de imagen (solo filtra) -->
+          <combobox
+            [value]="dockerImage()"
+            [options]="comboboxOptions()"
+            [maxSuggestions]="8"
+            [totalAvailableCount]="totalImagesCount()"
+            [suppressListbox]="isInvalidFormat() || isLatestImage()"
+            placeholder="Ej: python:3.12-slim-bookworm"
+            inputAriaLabel="Imagen Docker"
+            (valueChange)="onImageChange($event)"
+            (optionSelected)="onImageOptionSelected($event)"
+          ></combobox>
+        </div>
+      }
 
       <!-- Mensajes de verificación y validación con semántica de color (separados del listbox) -->
       @if (isLatestImage()) {
@@ -256,6 +305,7 @@ export class StepImageComponent {
   dockerImage = input<string>('');
   toolsDeclared = input<string>('');
   targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
+  templateModels = input<TemplateModelItem[]>([]);
   localImages = input<LocalImageItem[]>([]);
   curatedImages = input<ImageSuggestion[]>([]);
   usageMap = input<Record<string, number>>({});
@@ -268,9 +318,27 @@ export class StepImageComponent {
   dockerImageChange = output<string>();
   toolsDeclaredChange = output<string>();
   imageSelected = output<string>();
+  modelSelected = output<TemplateModelItem>();
   reverify = output<void>();
 
   showImagePopover = signal<boolean>(false);
+  showAdvancedImage = signal<boolean>(false);
+
+  selectModelStack(model: TemplateModelItem): void {
+    this.dockerImageChange.emit(model.docker_image);
+    this.imageSelected.emit(model.docker_image);
+    this.modelSelected.emit(model);
+
+    // Auto-completar herramientas sugeridas según la imagen del modelo
+    const keywords = model.docker_image.toLowerCase();
+    for (const eco of TOOL_ECOSYSTEMS) {
+      if (eco.imageKeywords.some(kw => keywords.includes(kw))) {
+        const topTools = eco.tools.slice(0, 3).join(', ');
+        this.toolsDeclaredChange.emit(topTools);
+        break;
+      }
+    }
+  }
 
   private dockerRegex = /^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:\/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$/;
 

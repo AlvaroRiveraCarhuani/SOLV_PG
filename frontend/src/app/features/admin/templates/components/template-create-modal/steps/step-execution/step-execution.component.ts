@@ -6,7 +6,9 @@ import {
   LucideInfo, 
   LucideX, 
   LucideCode,
-  LucideAlertCircle
+  LucideAlertCircle,
+  LucideFolder,
+  LucideChevronDown
 } from '@lucide/angular';
 import { TargetEnvironment } from '../../../../../services/admin-templates.service';
 
@@ -32,7 +34,9 @@ export interface EntrypointExample {
     LucideInfo, 
     LucideX, 
     LucideCode,
-    LucideAlertCircle
+    LucideAlertCircle,
+    LucideFolder,
+    LucideChevronDown
   ],
   template: `
     <div class="execution-step-container">
@@ -160,87 +164,98 @@ export interface EntrypointExample {
           </div>
         </div>
       } @else {
-        <!-- Configuración de Laboratorio Interactivo -->
-        <div class="form-group">
-          <div class="label-with-popover-row">
-            <label class="form-label font-semibold" for="setup-script-textarea">
-              Comandos de primer arranque del laboratorio (Opcional):
-            </label>
-            <button 
-              type="button" 
-              class="btn-contract-info" 
-              (click)="toggleContractPopover()"
-              [attr.aria-expanded]="showContractPopover()"
-              aria-label="Ver detalles de los comandos de inicialización"
-            >
-              <svg lucideHelpCircle class="w-3.5 h-3.5 mr-1"></svg>
-              <span>¿Cómo funciona? (?)</span>
-            </button>
-          </div>
-
-          <!-- Popover del Contrato de Inicialización para IDE -->
-          @if (showContractPopover()) {
-            <div class="contract-popover animate-fade">
-              <div class="popover-header">
-                <strong class="popover-title" i18n="@@AY-22">Comandos de inicialización del entorno</strong>
-                <button type="button" class="btn-popover-close" (click)="closeContractPopover()" aria-label="Cerrar">
-                  <svg lucideX class="w-3.5 h-3.5"></svg>
-                </button>
-              </div>
-              <ul class="contract-list">
-                <li><strong>Momento de ejecución:</strong> Se ejecutan en segundo plano una sola vez cuando el alumno abre su laboratorio por primera vez.</li>
-                <li><strong>Sin interrupción:</strong> El editor web abre de inmediato sin demoras; los comandos corren en segundo plano.</li>
-                <li><strong>Ubicación:</strong> Se aplican en la carpeta de trabajo del alumno (<code>/home/workspace</code>).</li>
-                <li><strong>Idempotencia:</strong> Escriba comandos que puedan re-ejecutarse con seguridad (ej. <code>mkdir -p</code> o comprobar si el archivo ya existe).</li>
-              </ul>
-            </div>
-          }
-
-          <div class="textarea-wrapper">
-            <textarea 
-              id="setup-script-textarea"
-              class="form-control font-mono text-area-sm" 
-              rows="4" 
-              spellcheck="false"
-              placeholder="# Comandos opcionales (ej: crear carpetas o instalar librerías)..." 
-              [ngModel]="setupScript()" 
-              (ngModelChange)="setupScriptChange.emit($event)"
-            ></textarea>
-            @if (toastWarning(); as warn) {
-              <div class="inline-toast-warning animate-fade" role="alert">
-                <svg lucideAlertCircle class="w-3.5 h-3.5 mr-1.5 shrink-0"></svg>
-                <span i18n="@@AY-24">{{ warn }}</span>
-              </div>
+        <!-- Configuración de Laboratorio Interactivo: Estructura de Directorios y Comandos -->
+        <div class="form-group mb-4">
+          <label class="form-label font-semibold">
+            Estructura inicial de carpetas en el laboratorio:
+          </label>
+          <div class="directory-chips-selector">
+            @for (dir of commonFolders; track dir) {
+              <button 
+                type="button" 
+                class="dir-chip-btn" 
+                [class.active]="selectedFolders().includes(dir)"
+                (click)="toggleFolder(dir)"
+              >
+                <svg lucideFolder class="w-3.5 h-3.5 mr-1.5"></svg>
+                <span>{{ dir }}</span>
+                <span class="chip-status-mark">{{ selectedFolders().includes(dir) ? '✓' : '+' }}</span>
+              </button>
             }
           </div>
-          <small class="form-hint" i18n="@@AY-21">
-            Comandos opcionales para preparar carpetas de trabajo o dependencias la primera vez que inicia el alumno.
+          <small class="form-hint">
+            Carpetas que se crearán de forma automática en <code>/home/workspace</code> cuando el alumno inicie por primera vez.
           </small>
+        </div>
 
-          <!-- Ejemplos rápidos recomendados para IDE -->
-          <div class="quick-examples-box mt-3">
-            <span class="examples-header-label" i18n="@@AY-23">
-              <svg lucideCode class="w-3.5 h-3.5 mr-1 text-primary"></svg>
-              Plantillas de script recomendadas:
-            </span>
-            <div class="examples-chips-row">
-              @for (ex of ideExamples; track ex.label) {
-                <button 
-                  type="button" 
-                  class="chip-example-btn" 
-                  [class.chip-applied]="appliedIdeChip() === ex.label"
-                  (click)="applyScriptExample(ex)"
-                  [attr.aria-label]="ex.label + ': ' + ex.desc + ' · Clic para insertar al final'"
-                >
-                  <span class="chip-label">{{ ex.label }}</span>
-                  @if (appliedIdeChip() === ex.label) {
-                    <span class="chip-badge-inserted">Agregado</span>
-                  }
-                </button>
+        <!-- Modo Avanzado: Scripts adicionales de arranque -->
+        <div class="advanced-script-toggle-row mb-2">
+          <button 
+            type="button" 
+            class="btn-toggle-advanced-script"
+            (click)="showAdvancedScript.set(!showAdvancedScript())"
+            [attr.aria-expanded]="showAdvancedScript()"
+          >
+            <svg lucideChevronDown class="w-3.5 h-3.5 mr-1" [class.rotated]="showAdvancedScript()"></svg>
+            <span>{{ showAdvancedScript() ? 'Ocultar comandos de terminal de arranque' : 'Comandos de arranque del sistema (Opcional - Avanzado)' }}</span>
+          </button>
+        </div>
+
+        @if (showAdvancedScript()) {
+          <div class="advanced-script-panel animate-fade">
+            <div class="label-with-popover-row">
+              <label class="form-label font-semibold" for="setup-script-textarea">
+                Script de inicialización adicional (Bash):
+              </label>
+              <button 
+                type="button" 
+                class="btn-contract-info" 
+                (click)="toggleContractPopover()"
+                [attr.aria-expanded]="showContractPopover()"
+                aria-label="Ver detalles de los comandos de inicialización"
+              >
+                <svg lucideHelpCircle class="w-3.5 h-3.5 mr-1"></svg>
+                <span>¿Cómo funciona?</span>
+              </button>
+            </div>
+
+            <!-- Popover del Contrato de Inicialización para IDE -->
+            @if (showContractPopover()) {
+              <div class="contract-popover animate-fade">
+                <div class="popover-header">
+                  <strong class="popover-title" i18n="@@AY-22">Comandos de inicialización del entorno</strong>
+                  <button type="button" class="btn-popover-close" (click)="closeContractPopover()" aria-label="Cerrar">
+                    <svg lucideX class="w-3.5 h-3.5"></svg>
+                  </button>
+                </div>
+                <ul class="contract-list">
+                  <li><strong>Momento de ejecución:</strong> Se ejecutan en segundo plano una sola vez cuando el alumno abre su laboratorio por primera vez.</li>
+                  <li><strong>Sin interrupción:</strong> El editor web abre de inmediato sin demoras; los comandos corren en segundo plano.</li>
+                  <li><strong>Ubicación:</strong> Se aplican en la carpeta de trabajo del alumno (<code>/home/workspace</code>).</li>
+                  <li><strong>Idempotencia:</strong> Escriba comandos que puedan re-ejecutarse con seguridad (ej. <code>mkdir -p</code> o comprobar si el archivo ya existe).</li>
+                </ul>
+              </div>
+            }
+
+            <div class="textarea-wrapper">
+              <textarea 
+                id="setup-script-textarea"
+                class="form-control font-mono text-area-sm" 
+                rows="4" 
+                spellcheck="false"
+                placeholder="# Comandos bash opcionales de sistema..." 
+                [ngModel]="setupScript()" 
+                (ngModelChange)="setupScriptChange.emit($event)"
+              ></textarea>
+              @if (toastWarning(); as warn) {
+                <div class="inline-toast-warning animate-fade" role="alert">
+                  <svg lucideAlertCircle class="w-3.5 h-3.5 mr-1.5 shrink-0"></svg>
+                  <span i18n="@@AY-24">{{ warn }}</span>
+                </div>
               }
             </div>
           </div>
-        </div>
+        }
       }
     </div>
   `,
@@ -261,6 +276,7 @@ export class StepExecutionComponent {
   advance = output<void>();
 
   showContractPopover = signal<boolean>(false);
+  showAdvancedScript = signal<boolean>(false);
   hoveredIdeExample = signal<ScriptExample | null>(null);
   hoveredJudgeExample = signal<EntrypointExample | null>(null);
   appliedIdeChip = signal<string | null>(null);
@@ -269,6 +285,37 @@ export class StepExecutionComponent {
   private warningTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private appliedIdeTimeoutId: ReturnType<typeof setTimeout> | null = null;
   private appliedJudgeTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  commonFolders: string[] = ['src', 'backend', 'frontend', 'data', 'docs', 'tests'];
+  selectedFolders = signal<string[]>([]);
+
+  toggleFolder(folder: string): void {
+    const current = this.selectedFolders();
+    const updated = current.includes(folder) 
+      ? current.filter(f => f !== folder)
+      : [...current, folder];
+    this.selectedFolders.set(updated);
+    this.syncFoldersToScript(updated);
+  }
+
+  private syncFoldersToScript(folders: string[]): void {
+    const currentScript = this.setupScript();
+    const cleanLines = currentScript
+      .split('\n')
+      .filter(line => !line.startsWith('mkdir -p /home/workspace/'))
+      .join('\n')
+      .trim();
+
+    if (folders.length === 0) {
+      this.setupScriptChange.emit(cleanLines);
+      return;
+    }
+
+    const paths = folders.map(f => `/home/workspace/${f}`).join(' ');
+    const mkdirCommand = `mkdir -p ${paths}`;
+    const newScript = cleanLines ? `${mkdirCommand}\n${cleanLines}` : mkdirCommand;
+    this.setupScriptChange.emit(newScript);
+  }
 
   ideExamples: ScriptExample[] = [
     {
