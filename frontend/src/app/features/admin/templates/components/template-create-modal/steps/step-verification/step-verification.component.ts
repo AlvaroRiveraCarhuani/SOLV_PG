@@ -21,7 +21,8 @@ import {
   ServiceRequirement
 } from '../../../../../services/admin-templates.service';
 import { 
-  EnvTestButtonComponent 
+  EnvTestButtonComponent,
+  ButtonVisualState
 } from '../../../env-test-button/env-test-button.component';
 import { 
   EnvTestJob 
@@ -84,9 +85,12 @@ export class StepVerificationComponent {
   smokeTestOutput = input<string>('');
   isRamExceedingHost = input<boolean>(false);
   maxAllowedRamMB = input<number>(0);
+  isBypassed = input<boolean>(false);
 
   testCompleted = output<EnvTestJob>();
+  jobProgress = output<EnvTestJob>();
   retryTest = output<void>();
+  requestBypass = output<void>();
   helpRequested = output<void>();
   advance = output<void>();
   jumpToSection = output<WizardSection>();
@@ -96,6 +100,7 @@ export class StepVerificationComponent {
   copyImageSuccess = signal<boolean>(false);
   searchQuery = signal<string>('');
   autoScrollLogs = signal<boolean>(true);
+  isTesting = signal<boolean>(false);
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
@@ -105,17 +110,24 @@ export class StepVerificationComponent {
   }
 
   isTestRunning = computed<boolean>(() => {
+    if (this.isTesting()) return true;
     const job = this.activeEnvTestJob();
     return job !== null && (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending');
   });
 
-  templateShortId = computed<string>(() => {
+  hasFailedTest = computed<boolean>(() => {
     const job = this.activeEnvTestJob();
-    if (job?.id) {
-      const clean = job.id.replace(/[^a-zA-Z0-9]/g, '');
-      return clean.substring(0, 8).toUpperCase();
-    }
-    return 'TMPL-9678D03D';
+    return job !== null && job.status === 'failed';
+  });
+
+  canBypass = computed<boolean>(() => {
+    const job = this.activeEnvTestJob();
+    return job !== null && job.status === 'failed' && (
+      job.error_code === 'registry_unreachable' || 
+      job.error_code === 'pull_timeout' || 
+      job.error_code === 'pull_stalled' ||
+      job.error_code === 'start_failed'
+    );
   });
 
   serviceNames = computed<string[]>(() => {
@@ -137,6 +149,60 @@ export class StepVerificationComponent {
       return 'No es posible acceder al registro de imágenes para verificar el manifiesto. (HTTP 404 Manifest Unknown)';
     }
     return 'Comprobación de integridad completada con éxito.';
+  });
+
+  diagnosticAction = computed<{ text: string; jumpSection?: WizardSection; jumpLabel?: string }>(() => {
+    const job = this.activeEnvTestJob();
+    if (this.isEnvTestStale()) {
+      return {
+        text: 'Vuelva a presionar "Reintentar prueba" para validar los nuevos parámetros con Docker.'
+      };
+    }
+    if (!job || job.status !== 'failed') {
+      return {
+        text: 'Presione "Probar entorno" para verificar la integridad del contenedor antes de publicar.'
+      };
+    }
+
+    switch (job.error_code) {
+      case 'registry_unreachable':
+        return {
+          text: 'El servidor no pudo conectarse al registro OCI público para validar el manifiesto. Verifique la conexión a internet y DNS del nodo host, o elija una imagen local en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
+      case 'test_oom':
+        return {
+          text: 'El contenedor superó el límite de memoria asignado durante la prueba. Aumente la memoria RAM base en el',
+          jumpSection: 'resources',
+          jumpLabel: 'Paso 5'
+        };
+      case 'tool_missing':
+        return {
+          text: 'Una o más herramientas requeridas no fueron detectadas en la imagen. Verifique la imagen en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
+      case 'test_crash':
+        return {
+          text: 'El contenedor falló al inicializarse en el host. Revise el comando o script de inicio en el',
+          jumpSection: 'execution',
+          jumpLabel: 'Paso 4'
+        };
+      case 'pull_timeout':
+      case 'pull_stalled':
+        return {
+          text: 'La descarga de capas de la imagen se detuvo o excedió el tiempo límite. Compruebe la conectividad de red del host antes de reintentar o elija otra imagen en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
+      default:
+        return {
+          text: 'Revise la configuración de la imagen en el',
+          jumpSection: 'image',
+          jumpLabel: 'Paso 3'
+        };
+    }
   });
 
   summaryWarningBadges = computed<string[]>(() => {
@@ -311,7 +377,9 @@ export class StepVerificationComponent {
   });
 
   handleRetry(): void {
-    if (this.envTestButton) {
+    if (this.isTestRunning()) return;
+    if (this.envTestButton?.canTrigger()) {
+      this.isTesting.set(true);
       this.envTestButton.startTest();
     }
     this.retryTest.emit();
@@ -392,7 +460,16 @@ export class StepVerificationComponent {
     }, 50);
   }
 
+  onButtonStateChange(state: ButtonVisualState): void {
+    this.isTesting.set(state === 'running');
+  }
+
+  onJobProgress(job: EnvTestJob): void {
+    this.jobProgress.emit(job);
+  }
+
   onTestCompleted(job: EnvTestJob): void {
+    this.isTesting.set(false);
     this.testCompleted.emit(job);
   }
 }

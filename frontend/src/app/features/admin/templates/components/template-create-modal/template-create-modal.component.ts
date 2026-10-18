@@ -320,9 +320,11 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
     return false;
   });
 
+  isOfflineBypass = signal<boolean>(false);
+
   footerActionState = computed<'publish_disabled' | 'publish_ready'>(() => {
     const job = this.activeEnvTestJob();
-    const isVerified = job !== null && job.status === 'success';
+    const isVerified = (job !== null && job.status === 'success') || this.isOfflineBypass();
     if (!isVerified || this.isInvalidFormat() || this.isLatestImage() || this.isEnvTestStale() || this.isRamExceedingHost() || this.isRamTooLow()) {
       return 'publish_disabled';
     }
@@ -356,11 +358,11 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
       reasons.push('Comando de ejecución requerido para juez');
     }
     const job = this.activeEnvTestJob();
-    if (!job) {
+    if (!job && !this.isOfflineBypass()) {
       reasons.push('Prueba de entorno no ejecutada');
-    } else if (job.status === 'failed') {
+    } else if (job?.status === 'failed' && !this.isOfflineBypass()) {
       reasons.push('La prueba de entorno falló');
-    } else if (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending') {
+    } else if (job && (job.status === 'pulling' || job.status === 'testing' || job.status === 'pending')) {
       reasons.push('Prueba de entorno en curso');
     }
     if (this.isEnvTestStale()) {
@@ -494,6 +496,9 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
   imageStatus = computed<'complete' | 'warning' | 'pending'>(() => {
     if (!this.dockerImage().trim()) return 'pending';
     if (this.isLatestImage() || this.isInvalidFormat() || this.isStorageBlocked() || this.isArchIncompatible()) {
+      return 'warning';
+    }
+    if (this.verificationState() === 'error' || (this.verificationState() as string) === 'failed') {
       return 'warning';
     }
     return 'complete';
@@ -1177,6 +1182,10 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
     this.showToast(`Plantilla "${template.name}" duplicada. Ajuste la configuración.`);
   }
 
+  onEnvTestProgress(job: EnvTestJob): void {
+    this.activeEnvTestJob.set(job);
+  }
+
   onEnvTestCompleted(job: EnvTestJob): void {
     this.activeEnvTestJob.set(job);
     this.envTestRan.set(true);
@@ -1191,6 +1200,11 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
     }
     this.saveDraftToStorage();
     this.emitTelemetry('test_env_run', { status: job.status, duration_ms: job.result?.duration_ms });
+  }
+
+  onRequestBypass(): void {
+    this.isOfflineBypass.set(true);
+    this.showToast('Bypass On-Premise activado: podrá publicar la plantilla bajo advertencia.');
   }
 
   onSetupScriptChange(script: string): void {

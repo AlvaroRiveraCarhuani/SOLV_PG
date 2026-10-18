@@ -65,9 +65,10 @@
           [disabled]="isTestRunning()" 
           (click)="handleRetry()"
         >
-          <svg *ngIf="!isTestRunning()" lucidePlay class="w-4 h-4 mr-1.5"></svg>
+          <svg *ngIf="!isTestRunning() && !hasFailedTest()" lucidePlay class="w-4 h-4 mr-1.5"></svg>
+          <svg *ngIf="!isTestRunning() && hasFailedTest()" lucideRotateCw class="w-4 h-4 mr-1.5"></svg>
           <svg *ngIf="isTestRunning()" lucideLoader2 class="w-4 h-4 mr-1.5 spin-icon"></svg>
-          <span>{{ isTestRunning() ? 'Probando...' : 'Probar entorno' }}</span>
+          <span>{{ isTestRunning() ? 'Probando...' : (hasFailedTest() ? 'Reintentar prueba' : 'Probar entorno') }}</span>
         </button>
 
         <button 
@@ -78,16 +79,6 @@
         >
           <svg lucideTerminal class="w-3.5 h-3.5 mr-1.5 text-primary"></svg>
           <span>Ver registro de prueba</span>
-        </button>
-
-        <button 
-          type="button" 
-          class="btn-integrity-icon" 
-          (click)="handleRetry()" 
-          [disabled]="isTestRunning()"
-          aria-label="Reintentar prueba"
-        >
-          <svg lucideRotateCw class="w-4 h-4"></svg>
         </button>
       </div>
     </div>
@@ -113,7 +104,9 @@
         [sampleInput]="sampleInput()"
         [isLocal]="isLocalImage()"
         [imageSizeMB]="imageSizeMB()"
+        (stateChange)="onButtonStateChange($event)"
         (testCompleted)="onTestCompleted($event)"
+        (jobProgress)="onJobProgress($event)"
       ></env-test-button>
     </div>
 
@@ -140,11 +133,26 @@
           <div class="diagnostic-item">
             <span class="diagnostic-prop">Próxima acción:</span>
             <div class="diagnostic-val diagnostic-action-text">
-              Revise las herramientas declaradas en el 
-              <button type="button" class="btn-step-jump-link" (click)="jumpToSection.emit('image')">Paso 3</button>
-              o corrija los parámetros en el 
-              <button type="button" class="btn-step-jump-link" (click)="jumpToSection.emit('execution')">Paso 4</button>
-              antes de reintentar.
+              <span>{{ diagnosticAction().text }} </span>
+              @if (diagnosticAction().jumpSection) {
+                <button type="button" class="btn-step-jump-link" (click)="jumpToSection.emit(diagnosticAction().jumpSection!)">
+                  {{ diagnosticAction().jumpLabel }}
+                </button>
+                <span> antes de reintentar.</span>
+              }
+              @if (canBypass() && !isBypassed()) {
+                <div class="mt-2.5">
+                  <button type="button" class="btn-bypass-link" (click)="requestBypass.emit()">
+                    <svg lucideAlertTriangle class="w-3.5 h-3.5 mr-1.5 shrink-0"></svg>
+                    <span>Continuar de todos modos (Modo On-Premise / Servidor sin acceso a Docker Hub)</span>
+                  </button>
+                </div>
+              } @else if (isBypassed()) {
+                <div class="mt-2 text-warning flex items-center gap-1.5 font-medium">
+                  <svg lucideCheck class="w-3.5 h-3.5 text-success shrink-0"></svg>
+                  <span>Bypass activado: la plantilla podrá ser publicada con advertencia de imagen no comprobada.</span>
+                </div>
+              }
             </div>
           </div>
         </div>
@@ -156,7 +164,6 @@
   <div class="technical-summary-card mt-4">
     <div class="tech-summary-header">
       <span class="tech-summary-title">RESUMEN TÉCNICO DE LA PLANTILLA</span>
-      <span class="tech-summary-id font-mono">ID: #{{ templateShortId() }}</span>
     </div>
 
     <div class="tech-summary-grid">
@@ -285,17 +292,17 @@
         <!-- Footer -->
         <div class="audit-modal-footer">
           <div class="audit-footer-left">
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="copyLogs()">
+            <button type="button" class="btn-terminal-action" (click)="copyLogs()">
               <svg *ngIf="!copySuccess()" lucideCopy class="w-3.5 h-3.5 mr-1"></svg>
               <svg *ngIf="copySuccess()" lucideCheck class="w-3.5 h-3.5 mr-1 text-success"></svg>
               <span>{{ copySuccess() ? '¡Copiado!' : 'Copiar log' }}</span>
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="downloadLogs()">
+            <button type="button" class="btn-terminal-action" (click)="downloadLogs()">
               <svg lucideDownload class="w-3.5 h-3.5 mr-1"></svg>
               <span>Descargar log (.txt)</span>
             </button>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm" (click)="closeFullLogsModal()">
+          <button type="button" class="btn-terminal-close" (click)="closeFullLogsModal()">
             Cerrar
           </button>
         </div>

@@ -134,22 +134,29 @@ describe('StepVerificationComponent', () => {
       image: 'python:3.12-slim-bookworm',
       tools: ['pytest'],
       status: 'failed',
-      error_message: 'MISSING:pytest'
+      error_code: 'tool_missing'
     } as any);
     fixture.detectChanges();
 
     let jumpedTo: string = '';
     component.jumpToSection.subscribe((step: any) => jumpedTo = step);
 
-    const jumpButtons = fixture.nativeElement.querySelectorAll('.btn-step-jump-link');
-    expect(jumpButtons.length).toBe(2);
-
-    // Clic en Paso 3
-    jumpButtons[0].click();
+    const jumpButton = fixture.nativeElement.querySelector('.btn-step-jump-link');
+    expect(jumpButton).toBeTruthy();
+    jumpButton.click();
     expect(jumpedTo).toBe('image');
 
-    // Clic en Paso 4
-    jumpButtons[1].click();
+    // Ahora ante fallo de inicio/crash, debe apuntar a execution (Paso 4)
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-crash',
+      status: 'failed',
+      error_code: 'test_crash'
+    } as any);
+    fixture.detectChanges();
+
+    const jumpButtonExecution = fixture.nativeElement.querySelector('.btn-step-jump-link');
+    expect(jumpButtonExecution).toBeTruthy();
+    jumpButtonExecution.click();
     expect(jumpedTo).toBe('execution');
   });
 
@@ -171,5 +178,72 @@ describe('StepVerificationComponent', () => {
     helpBtn.click();
 
     expect(emitted).toBe(true);
+  });
+
+  it('debe reflejar estado de carga y deshabilitar el botón principal cuando isTesting es true, sin botón circular duplicado', () => {
+    component.onButtonStateChange('running');
+    fixture.detectChanges();
+
+    expect(component.isTestRunning()).toBe(true);
+
+    const primaryBtn = fixture.nativeElement.querySelector('.btn-integrity-primary');
+    expect(primaryBtn.disabled).toBe(true);
+    expect(primaryBtn.textContent).toContain('Probando...');
+
+    const iconBtn = fixture.nativeElement.querySelector('.btn-integrity-icon');
+    expect(iconBtn).toBeNull();
+
+    component.onButtonStateChange('idle');
+    fixture.detectChanges();
+    expect(component.isTestRunning()).toBe(false);
+    expect(primaryBtn.disabled).toBe(false);
+    expect(primaryBtn.textContent).toContain('Probar entorno');
+  });
+
+  it('debe cambiar el texto a "Reintentar prueba" cuando la prueba anterior falló', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-fail',
+      status: 'failed',
+      error_code: 'registry_unreachable'
+    } as any);
+    fixture.detectChanges();
+
+    expect(component.hasFailedTest()).toBe(true);
+    const primaryBtn = fixture.nativeElement.querySelector('.btn-integrity-primary');
+    expect(primaryBtn.textContent).toContain('Reintentar prueba');
+  });
+
+  it('debe emitir jobProgress cuando el runner secundario reporta avance', () => {
+    let emittedJob: EnvTestJob | null = null;
+    component.jobProgress.subscribe((job) => emittedJob = job);
+
+    component.onJobProgress(mockJob);
+    expect(emittedJob).toEqual(mockJob);
+  });
+
+  it('debe no tener badge de ID ficticio en la tarjeta de resumen técnico', () => {
+    const idBadge = fixture.nativeElement.querySelector('.tech-summary-id');
+    expect(idBadge).toBeNull();
+  });
+
+  it('debe habilitar bypass y emitir requestBypass ante registry_unreachable', () => {
+    fixture.componentRef.setInput('activeEnvTestJob', {
+      id: 'job-err',
+      status: 'failed',
+      error_code: 'registry_unreachable'
+    } as any);
+    fixture.detectChanges();
+
+    expect(component.canBypass()).toBe(true);
+    expect(component.diagnosticAction().jumpSection).toBe('image');
+    expect(component.diagnosticAction().jumpLabel).toBe('Paso 3');
+
+    let bypassEmitted = false;
+    component.requestBypass.subscribe(() => bypassEmitted = true);
+
+    const bypassBtn = fixture.nativeElement.querySelector('.btn-bypass-link');
+    expect(bypassBtn).toBeTruthy();
+    bypassBtn.click();
+    expect(bypassEmitted).toBe(true);
   });
 });

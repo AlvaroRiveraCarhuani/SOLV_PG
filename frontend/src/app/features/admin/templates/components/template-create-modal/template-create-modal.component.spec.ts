@@ -600,6 +600,45 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
       expect(component.dockerImage()).toBe('');
       expect(component.hasDraftToResume()).toBe(false);
     });
+
+    it('imageStatus debe ser warning cuando la verificación de la imagen falla', () => {
+      component.dockerImage.set('eclipse-temurin:21-jdk');
+      expect(component.imageStatus()).toBe('complete');
+
+      component.verificationState.set('error');
+      expect(component.imageStatus()).toBe('warning');
+
+      component.verificationState.set('verified');
+      expect(component.imageStatus()).toBe('complete');
+    });
+
+    it('onEnvTestProgress debe actualizar activeEnvTestJob reactivamente', () => {
+      const progressJob: any = {
+        id: 'job-progress-1',
+        image: 'python:3.12-slim-bookworm',
+        tools: ['python3'],
+        status: 'pulling' as const
+      };
+      component.onEnvTestProgress(progressJob);
+      expect(component.activeEnvTestJob()).toEqual(progressJob);
+    });
+
+    it('onRequestBypass debe permitir publicar la plantilla ante un fallo de registro en modo On-Premise', () => {
+      component.name.set('Java Spring Boot On-Prem');
+      component.dockerImage.set('eclipse-temurin:21-jdk-bookworm');
+      component.baseRamMB.set(2048);
+      component.activeEnvTestJob.set({
+        id: 'job-fail-net',
+        status: 'failed',
+        error_code: 'registry_unreachable'
+      } as any);
+
+      expect(component.footerActionState()).toBe('publish_disabled');
+
+      component.onRequestBypass();
+      expect(component.isOfflineBypass()).toBe(true);
+      expect(component.footerActionState()).toBe('publish_ready');
+    });
   });
 });
 
