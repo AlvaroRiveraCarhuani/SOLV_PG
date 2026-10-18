@@ -491,6 +491,7 @@
   background-color: var(--bg-surface-subtle);
   border-top: 1px solid var(--border-subtle);
   flex-shrink: 0;
+  font-family: var(--font-sans);
 
   .footer-left {
     display: flex;
@@ -518,7 +519,7 @@
       border: none;
       padding: 2px 6px;
       font-size: var(--text-xs);
-      font-family: inherit;
+      font-family: var(--font-sans);
       color: var(--color-error);
       cursor: pointer;
       text-decoration: underline;
@@ -622,6 +623,7 @@
   gap: 6px;
   cursor: pointer;
   transition: all 120ms ease;
+  font-family: var(--font-sans);
 }
 
 // Primary action uses the global .btn-primary from styles.scss.
@@ -634,7 +636,7 @@
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  font-family: inherit;
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
 
@@ -655,7 +657,7 @@
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  font-family: inherit;
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
   font-weight: 500;
 
