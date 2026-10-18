@@ -1,10 +1,11 @@
-import { Component, input, output, signal, inject, effect, OnInit } from '@angular/core';
+import { Component, input, output, signal, computed, inject, effect, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CourseLoadSummary, DockerContainerSummary } from '@core/models/admin.model';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
 
@@ -16,6 +17,7 @@ import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@luc
     FormsModule,
     StatusBadgeComponent,
     ModalShellComponent,
+    ComboboxComponent,
     MachineDataDirective,
     LucideSearch,
     LucideRotateCcw,
@@ -39,6 +41,19 @@ export class CourseWorkspacesModalComponent implements OnInit {
   statusFilter = signal<string>('all');
   workspaces = signal<DockerContainerSummary[]>([]);
   isLoading = signal<boolean>(false);
+
+  readonly statusOptions: ComboboxOption[] = [
+    { id: 'all', label: 'Todos los estados', value: 'all' },
+    { id: 'running', label: 'En ejecución', value: 'running' },
+    { id: 'failed', label: 'Con fallos (OOM)', value: 'failed' },
+    { id: 'hibernated', label: 'En reposo (Hibernado)', value: 'hibernated' }
+  ];
+
+  selectedStatusLabel = computed<string>(() => {
+    const val = this.statusFilter();
+    const match = this.statusOptions.find(o => o.value === val);
+    return match ? match.label : 'Todos los estados';
+  });
 
   private searchDebounceTimer?: ReturnType<typeof setTimeout>;
 
@@ -97,6 +112,10 @@ export class CourseWorkspacesModalComponent implements OnInit {
   onStatusChange(status: string): void {
     this.statusFilter.set(status);
     this.fetchWorkspaces();
+  }
+
+  onStatusSelected(opt: ComboboxOption): void {
+    this.onStatusChange(opt.value || 'all');
   }
 
   getMemoryPercent(ws: DockerContainerSummary): number {

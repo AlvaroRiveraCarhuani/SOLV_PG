@@ -83,31 +83,15 @@
 .filter-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
+  min-width: 210px;
 }
 
 .filter-label {
   font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-secondary);
-}
-
-.filter-select {
-  font-size: var(--text-xs);
-  padding: 6px 12px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background-color: var(--bg-surface);
-  outline: none;
-  color: var(--text-primary);
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color 150ms ease;
-
-  &:focus {
-    border-color: var(--tenant-primary);
-    box-shadow: 0 0 0 3px hsla(var(--tenant-primary-h), var(--tenant-primary-s, 83%), var(--tenant-primary-l, 53%), 0.15);
-  }
+  white-space: nowrap;
 }
 
 .modal-table-wrapper {
@@ -224,6 +208,13 @@
 .student-email {
   font-size: var(--text-xs);
   color: var(--text-muted);
+}
+
+.student-ws-id {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  opacity: 0.75;
 }
 
 /* Medidor Dinámico de Memoria */

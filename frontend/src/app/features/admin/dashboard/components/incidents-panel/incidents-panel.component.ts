@@ -65,14 +65,14 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
           }
         </div>
 
-        <!-- Widget Contextual de Políticas QoS del Host -->
+        <!-- Widget de Protección Automática de Memoria -->
         <div class="qos-widget">
           <div class="qos-header">
             <svg lucideInfo class="qos-icon"></svg>
-            <span class="qos-title">Umbral de Recursos y Políticas QoS</span>
+            <span class="qos-title">Protección Automática de Memoria</span>
           </div>
           <p class="qos-text">
-            El servicio QoS del host supervisa la inactividad de red y consola. Si la ocupación de RAM excede el 85%, se pausarán instancias inactivas tras 15 minutos.
+            Si el uso de memoria RAM del servidor supera el 85%, el sistema pausará automáticamente los laboratorios que lleven más de 15 minutos sin actividad para evitar saturaciones.
           </p>
         </div>
       </div>

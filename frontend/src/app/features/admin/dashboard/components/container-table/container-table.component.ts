@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DockerContainerSummary } from '@core/models/admin.model';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
+import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from '@lucide/angular';
 
@@ -13,6 +14,7 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
     CommonModule, 
     FormsModule, 
     StatusBadgeComponent,
+    ComboboxComponent,
     MachineDataDirective,
     LucideSearch, 
     LucidePower, 
@@ -27,11 +29,20 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
           <span class="count-badge">{{ filteredContainers().length }} instancias</span>
         </div>
         <div class="toolbar-right">
+          <div class="course-filter-box">
+            <combobox
+              [compact]="true"
+              [value]="selectedCourseLabel()"
+              [options]="courseFilterOptions()"
+              placeholder="Todos los cursos"
+              (optionSelected)="onCourseFilterSelected($event)"
+            ></combobox>
+          </div>
           <div class="search-box">
             <svg lucideSearch class="search-icon"></svg>
             <input 
               type="text" 
-              placeholder="Filtrar por estudiante, curso o imagen..." 
+              placeholder="Filtrar por estudiante, curso o entorno..." 
               [ngModel]="searchTerm()" 
               (ngModelChange)="onSearchChange($event)"
               class="search-input"
@@ -46,9 +57,9 @@ import { LucideSearch, LucidePower, LucideChevronLeft, LucideChevronRight } from
             <tr>
               <th>ESTUDIANTE</th>
               <th>CURSO</th>
-              <th>IMAGEN DOCKER</th>
+              <th>ENTORNO</th>
               <th>RAM</th>
-              <th>TTL RESTANTE</th>
+              <th>TIEMPO RESTANTE</th>
               <th>ESTADO</th>
               <th class="text-right">ACCIONES</th>
             </tr>
@@ -135,18 +146,54 @@ export class ContainerTableComponent {
   stopContainer = output<DockerContainerSummary>();
 
   searchTerm = signal<string>('');
+  courseFilter = signal<string>('all');
   pageSize = signal<number>(8);
   currentPage = signal<number>(1);
 
+  courseFilterOptions = computed<ComboboxOption[]>(() => {
+    const list = this.containers();
+    const uniqueCourses = Array.from(new Set(list.map(c => c.course_name).filter(Boolean))).sort();
+    return [
+      { id: 'all', label: 'Todos los cursos', value: 'all' },
+      ...uniqueCourses.map(name => ({ id: name, label: name, value: name }))
+    ];
+  });
+
+  selectedCourseLabel = computed<string>(() => {
+    const val = this.courseFilter();
+    const match = this.courseFilterOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos los cursos';
+  });
+
+  onCourseFilterSelected(opt: ComboboxOption): void {
+    this.courseFilter.set(opt.value || 'all');
+    this.currentPage.set(1);
+  }
+
   filteredContainers = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    if (!term) return this.containers();
-    return this.containers().filter(c => 
-      c.student_name.toLowerCase().includes(term) ||
-      c.student_email.toLowerCase().includes(term) ||
-      c.course_name.toLowerCase().includes(term) ||
-      c.image_tag.toLowerCase().includes(term)
-    );
+    const course = this.courseFilter();
+    let list = this.containers();
+
+    if (course !== 'all') {
+      list = list.filter(c => c.course_name.toLowerCase() === course.toLowerCase());
+    }
+
+    if (term) {
+      list = list.filter(c => 
+        c.student_name.toLowerCase().includes(term) ||
+        c.student_email.toLowerCase().includes(term) ||
+        c.course_name.toLowerCase().includes(term) ||
+        c.image_tag.toLowerCase().includes(term)
+      );
+    }
+
+    // Orden jerárquico natural: 1º por Curso alfabéticamente, 2º por Estudiante
+    return [...list].sort((a, b) => {
+      const courseComp = a.course_name.localeCompare(b.course_name, 'es', { sensitivity: 'base' });
+      if (courseComp !== 0) return courseComp;
+      return a.student_name.localeCompare(b.student_name, 'es', { sensitivity: 'base' });
+    });
   });
 
   totalPages = computed(() => Math.max(1, Math.ceil(this.filteredContainers().length / this.pageSize())));

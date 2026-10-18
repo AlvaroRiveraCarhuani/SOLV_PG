@@ -94,3 +94,28 @@ export interface TeacherInvitationPayload {
   role_type: TeacherRoleType;
   send_email?: boolean;
 }
+
+export interface DirectTeacherPayload {
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  role_type?: TeacherRoleType;
+  send_notification?: boolean;
+}
+
+export interface ParsedRosterResult {
+  total_detected: number;
+  valid_emails: string[];
+  duplicate_emails: string[];
+  invalid_emails: string[];
+}
+
+export interface BatchDirectTeacherPayload {
+  emails: string[];
+  send_notification?: boolean;
+}
+
+export interface BatchDirectTeacherResponse {
+  message: string;
+  created_count: number;
+}

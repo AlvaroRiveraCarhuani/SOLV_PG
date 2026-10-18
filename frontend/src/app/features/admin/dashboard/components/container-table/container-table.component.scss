@@ -39,9 +39,20 @@
   border-radius: var(--radius-full);
 }
 
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.course-filter-box {
+  width: 200px;
+}
+
 .search-box {
   position: relative;
-  width: 280px;
+  width: 260px;
 }
 
 .search-icon {
