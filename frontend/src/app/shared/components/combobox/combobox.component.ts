@@ -10,7 +10,7 @@ import {
   DestroyRef
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { LucideSearch, LucideChevronDown, LucideCheck } from '@lucide/angular';
+import { LucideSearch, LucideChevronDown, LucideCheck, LucideX } from '@lucide/angular';
 
 export interface ComboboxOption<T = any> {
   id: string;
@@ -31,7 +31,7 @@ export interface ComboboxGroup {
 @Component({
   selector: 'combobox',
   standalone: true,
-  imports: [CommonModule, LucideSearch, LucideChevronDown, LucideCheck],
+  imports: [CommonModule, LucideSearch, LucideChevronDown, LucideCheck, LucideX],
   template: `
     <div 
       class="combobox-wrapper" 
@@ -41,7 +41,10 @@ export interface ComboboxGroup {
       [class.no-search-icon]="!showSearchIcon()"
       [class.has-error]="hasError()"
     >
-      <div class="input-container">
+      <div 
+        class="input-container"
+        [class.has-clear]="allowClear() && !!displayValue() && !disabled()"
+      >
         @if (showSearchIcon()) {
           <svg lucideSearch class="search-icon" aria-hidden="true"></svg>
         }
@@ -62,15 +65,28 @@ export interface ComboboxGroup {
           (focus)="onInputFocus()"
           (keydown)="onKeydown($event)"
         />
-        <button 
-          type="button" 
-          class="toggle-btn" 
-          tabindex="-1"
-          (click)="toggleDropdown()"
-          [attr.aria-label]="isOpen() ? 'Cerrar opciones' : 'Abrir opciones'"
-        >
-          <svg lucideChevronDown class="chevron-icon" [class.rotated]="isOpen()"></svg>
-        </button>
+        <div class="input-actions">
+          @if (allowClear() && displayValue() && !disabled()) {
+            <button 
+              type="button" 
+              class="clear-btn" 
+              tabindex="-1"
+              (click)="clearSelection($event)"
+              aria-label="Limpiar selección"
+            >
+              <svg lucideX class="clear-icon" aria-hidden="true"></svg>
+            </button>
+          }
+          <button 
+            type="button" 
+            class="toggle-btn" 
+            tabindex="-1"
+            (click)="toggleDropdown()"
+            [attr.aria-label]="isOpen() ? 'Cerrar opciones' : 'Abrir opciones'"
+          >
+            <svg lucideChevronDown class="chevron-icon" [class.rotated]="isOpen()"></svg>
+          </button>
+        </div>
       </div>
 
       @if (isOpen() && !suppressListbox()) {
@@ -194,9 +210,11 @@ export class ComboboxComponent {
   suppressListbox = input<boolean>(false);
   hasError = input<boolean>(false);
   showHeader = input<boolean>(true);
+  allowClear = input<boolean>(false);
 
   valueChange = output<string>();
   optionSelected = output<ComboboxOption>();
+  cleared = output<void>();
   closed = output<void>();
 
   isOpen = signal<boolean>(false);
@@ -346,10 +364,22 @@ export class ComboboxComponent {
     this.activeFlatIndex.set(-1);
   }
 
+  clearSelection(event: MouseEvent): void {
+    event.stopPropagation();
+    event.preventDefault();
+    this.searchQuery.set(null);
+    this.valueChange.emit('');
+    this.cleared.emit();
+    this.inputEl()?.nativeElement.focus();
+  }
+
   onInputChange(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.searchQuery.set(val);
     this.valueChange.emit(val);
+    if (val === '') {
+      this.cleared.emit();
+    }
     if (!this.isOpen()) {
       this.isOpen.set(true);
     }

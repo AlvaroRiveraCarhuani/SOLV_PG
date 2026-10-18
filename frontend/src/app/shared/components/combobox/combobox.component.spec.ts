@@ -191,4 +191,58 @@ describe('ComboboxComponent', () => {
 
     expect(component.displayValue()).toBe('Todos');
   });
+
+  it('debe mostrar el botón de limpiar cuando allowClear es true y hay un valor seleccionado', () => {
+    fixture.componentRef.setInput('allowClear', true);
+    fixture.componentRef.setInput('value', 'python:3.12-slim');
+    fixture.detectChanges();
+
+    const clearBtn = fixture.nativeElement.querySelector('.clear-btn');
+    expect(clearBtn).toBeTruthy();
+  });
+
+  it('no debe mostrar el botón de limpiar cuando no hay valor seleccionado o allowClear es false', () => {
+    fixture.componentRef.setInput('allowClear', false);
+    fixture.componentRef.setInput('value', 'python:3.12-slim');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.clear-btn')).toBeNull();
+
+    fixture.componentRef.setInput('allowClear', true);
+    fixture.componentRef.setInput('value', '');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.clear-btn')).toBeNull();
+  });
+
+  it('al pulsar el botón de limpiar debe emitir valueChange vacío y evento cleared', () => {
+    fixture.componentRef.setInput('allowClear', true);
+    fixture.componentRef.setInput('value', 'python:3.12-slim');
+    fixture.detectChanges();
+
+    let emittedVal: string | null = null;
+    let clearedCalled = false;
+    component.valueChange.subscribe(val => (emittedVal = val));
+    component.cleared.subscribe(() => (clearedCalled = true));
+
+    const clearBtn = fixture.nativeElement.querySelector('.clear-btn') as HTMLButtonElement;
+    clearBtn.click();
+    fixture.detectChanges();
+
+    expect(emittedVal).toBe('');
+    expect(clearedCalled).toBe(true);
+  });
+
+  it('al vaciar manualmente el input con Backspace debe emitir cleared', () => {
+    fixture.componentRef.setInput('value', 'python');
+    fixture.detectChanges();
+
+    let clearedCalled = false;
+    component.cleared.subscribe(() => (clearedCalled = true));
+
+    const input = fixture.nativeElement.querySelector('input') as HTMLInputElement;
+    input.value = '';
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+
+    expect(clearedCalled).toBe(true);
+  });
 });

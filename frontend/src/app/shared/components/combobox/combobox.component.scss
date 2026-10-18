@@ -47,26 +47,42 @@
       }
     }
 
-    .toggle-btn {
+    &.has-clear .combobox-input {
+      padding-right: 3.75rem;
+    }
+
+    .input-actions {
       position: absolute;
-      right: 0.5rem;
+      right: 0.375rem;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
-      background: transparent;
-      border: none;
-      color: var(--text-muted);
-      cursor: pointer;
-      padding: 0.25rem;
-      border-radius: 4px;
+      gap: 0.125rem;
 
-      &:hover {
-        background-color: var(--bg-surface-active);
+      .clear-btn,
+      .toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+
+        &:hover {
+          background-color: var(--bg-surface-active);
+          color: var(--text-primary);
+        }
       }
 
+      .clear-icon,
       .chevron-icon {
         width: 16px;
         height: 16px;
+      }
+
+      .chevron-icon {
         transition: transform 0.2s ease;
 
         &.rotated {
@@ -97,6 +113,20 @@
         height: 34px;
         font-size: var(--text-xs);
         padding-left: 2rem;
+      }
+
+      &.has-clear .combobox-input {
+        padding-right: 3.25rem;
+      }
+
+      .input-actions {
+        right: 0.25rem;
+
+        .clear-icon,
+        .chevron-icon {
+          width: 14px;
+          height: 14px;
+        }
       }
 
       .search-icon {
