@@ -301,3 +301,12 @@ stateDiagram-v2
 | **ST-15 ("Promover a modelo")** | **Implementado** | Endpoint backend `POST /templates/{id}/promote-to-model` con guarda `APROBADA`, audit log y modal en frontend. |
 | **PB-01 a PB-41 (Pre-flight dialog)** | **Implementado** | [`publish-dialog.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/publish-dialog/publish-dialog.component.ts): Validación pre-publicación con comprobaciones duras y advertencias. |
 | **TE-01 a TE-77 (Botón prueba asíncrona)** | **Implementado** | [`env-test-button.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/env-test-button/env-test-button.component.ts): Máquina de estados E0-E3 y 6 códigos de error de máquina con tests unitarios. |
+| **ADR-045 (Persistencia Dual & Perfil BD)** | **Implementado** | Enfoque dual: SQLite3 nativo (+0 MB RAM) para materias iniciales y PostgreSQL optimizado para aula (~50 MB RSS con `statement_timeout=5000ms`, `max_connections=10`, `synchronous_commit=off`). Piso y visualización viva en Paso 5. |
+
+---
+
+## 11. Gobernanza de Bases de Datos Satélite (ADR-045)
+
+En cumplimiento de la investigación técnica sobre densidad de entornos en servidores con recursos acotados (nodo piloto de 12 GB de RAM), se adopta la segmentación curricular:
+1. **SQLite3 (Motor de Archivo Embebido)**: No levanta demonios de fondo ni consume sockets TCP. Aporte de RAM en reposo: 0 MB. Ideal para asignaturas iniciales y evaluación determinista por jueces virtuales (`file:test.db?mode=ro`).
+2. **PostgreSQL Optimizado para Aula**: Configurado para operar en 40-60 MB de memoria residente (frente a los 150-200 MB por defecto), implementando salvaguardas automáticas contra consultas lentas (`statement_timeout = 5s`), límites de archivos temporales (`temp_file_limit = 20MB`) y descarte de conexiones ociosas.

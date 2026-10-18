@@ -47,3 +47,6 @@
 - [ADR-040: Deprecación del Wizard Modal Antiguo](./ADR-040-deprecacion-wizard-modal.md)
 - [ADR-041: Generación Determinista de Casos por Estudiante en Exámenes](./ADR-041-generacion-determinista-casos-examenes.md)
 - [ADR-042: Auditoría Forense con Time-Travel Replay y Benchmark O(N)](./ADR-042-auditoria-forense-time-travel.md)
+- [ADR-043: Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas](./ADR-043-modalidad-dual-y-gobernanza-de-recursos.md)
+- [ADR-044: Piloto con Usuarios Reales](./ADR-044-piloto-con-usuarios-reales.md)
+- [ADR-045: Estrategia Dual de Persistencia y Perfil Académico de Base de Datos](./ADR-045-estrategia-persistencia-dual-sqlite-postgres-sintonizado.md)
