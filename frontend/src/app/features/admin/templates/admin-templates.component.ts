@@ -418,6 +418,14 @@ export class AdminTemplatesComponent implements OnInit {
     this.showCreateModal.set(true);
   }
 
+  navigateToCreateStudio(): void {
+    this.router.navigate(['/admin/plantillas/nueva']);
+  }
+
+  navigateToEditStudio(template: AdminTemplateItem): void {
+    this.router.navigate(['/admin/plantillas', template.id, 'editar']);
+  }
+
   closeCreateModal(): void {
     this.showCreateModal.set(false);
   }

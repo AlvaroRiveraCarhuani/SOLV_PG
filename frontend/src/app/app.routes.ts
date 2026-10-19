@@ -73,6 +73,16 @@ export const routes: Routes = [
           import('@features/admin/students/admin-students.component').then((m) => m.AdminStudentsComponent)
       },
       {
+        path: 'plantillas/nueva',
+        loadComponent: () =>
+          import('@features/admin/templates/studio/template-studio.component').then((m) => m.TemplateStudioComponent)
+      },
+      {
+        path: 'plantillas/:id/editar',
+        loadComponent: () =>
+          import('@features/admin/templates/studio/template-studio.component').then((m) => m.TemplateStudioComponent)
+      },
+      {
         path: 'plantillas',
         loadComponent: () =>
           import('@features/admin/templates/admin-templates.component').then((m) => m.AdminTemplatesComponent)

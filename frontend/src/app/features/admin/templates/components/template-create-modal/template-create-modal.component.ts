@@ -460,9 +460,7 @@ export class TemplateCreateModalComponent implements OnInit, OnDestroy, AfterVie
 
   runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
 
-  availableServices = signal<AvailableSatelliteService[]>(
-    this.templatesService.getAvailableSatelliteServices()
-  );
+  availableServices = signal<AvailableSatelliteService[]>([]);
   selectedServices = signal<ServiceRequirement[]>([]);
 
   // Array reactivo de herramientas declaradas

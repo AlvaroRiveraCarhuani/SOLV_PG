@@ -11,7 +11,7 @@
   <div class="steps-progress">
     <div class="step-indicator" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
       <span class="step-num">1</span>
-      <span class="step-label">Perfil de Carga</span>
+      <span class="step-label">Selección de Tecnologías</span>
     </div>
     <div class="step-connector"></div>
     <div class="step-indicator" [class.active]="currentStep() === 2">
@@ -35,11 +35,33 @@
   }
 
   <div class="modal-form-body">
-    <!-- PASO 1: Perfil de Carga Pedagógica -->
+    <!-- PASO 1: Selección de Tecnologías y Perfil de Carga -->
     @if (currentStep() === 1) {
       <div class="step-section">
         <p class="section-intro">
-          Selecciona la intensidad de cómputo estimada para las prácticas de tu materia:
+          1. Elige las tecnologías principales que necesitas para tu práctica:
+        </p>
+
+        <div class="profile-cards">
+          @for (rt of backendRuntimes(); track rt.id) {
+            <div
+              class="profile-card"
+              [class.selected]="selectedRuntimeId() === rt.id || selectedRuntimeId() === rt.slug"
+              (click)="selectRuntime(rt.id)"
+            >
+              <tech-logo [iconType]="rt.icon_key" [size]="28" />
+              <div class="card-info">
+                <div class="card-header">
+                  <span class="card-title">{{ rt.name }}</span>
+                </div>
+                <p class="card-desc">{{ rt.description }}</p>
+              </div>
+            </div>
+          }
+        </div>
+
+        <p class="section-intro">
+          2. Selecciona la capacidad estimada para tus estudiantes:
         </p>
 
         <div class="profile-cards">

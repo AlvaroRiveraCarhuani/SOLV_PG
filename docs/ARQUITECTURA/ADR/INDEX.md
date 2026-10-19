@@ -50,4 +50,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 043 | [Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas](ADR-043-modalidad-dual-y-gobernanza-de-recursos.md) | Aprobado | Core |
 | 044 | [Piloto con Usuarios Reales](ADR-044-piloto-con-usuarios-reales.md) | Aprobado | Piloto |
 | 045 | [Estrategia Dual de Persistencia y Perfil Académico de Base de Datos](ADR-045-estrategia-persistencia-dual-sqlite-postgres-sintonizado.md) | Aprobado | Core |
+| 046 | [Constructor de Entornos Componibles por Catálogo de Tecnologías y Construcción Local Determinista de Imágenes (`solv-local/stack:<sha256>`)](ADR-046-estudio-plantillas-componentes-construccion-local.md) | Aprobado | Core |
+
 

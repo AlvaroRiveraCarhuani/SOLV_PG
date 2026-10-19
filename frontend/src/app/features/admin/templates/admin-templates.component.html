@@ -37,7 +37,7 @@
           <span>Preparar entornos</span>
         }
       </button>
-      <button type="button" class="btn-primary" (click)="openCreateModal()">
+      <button type="button" class="btn-primary" (click)="navigateToCreateStudio()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nueva Plantilla</span>
       </button>
@@ -462,6 +462,11 @@
               </div>
 
               <div class="card-actions">
+                <button type="button" class="btn-outline-secondary" (click)="navigateToEditStudio(item)">
+                  <svg lucidePencil class="btn-icon-xs"></svg>
+                  <span>Editar en Constructor</span>
+                </button>
+
                 <button type="button" class="btn-outline-secondary" (click)="openEditModal(item)">
                   <svg lucidePencil class="btn-icon-xs"></svg>
                   <span>Ajustar Cuota</span>
@@ -642,9 +647,14 @@
                             <span>Precalentar en Host</span>
                           </button>
 
+                          <button type="button" class="menu-item" role="menuitem" (click)="navigateToEditStudio(item); openMenuId.set(null)">
+                            <svg lucidePencil class="menu-item-icon"></svg>
+                            <span>Editar en Constructor</span>
+                          </button>
+
                           <button type="button" class="menu-item" role="menuitem" (click)="openEditModal(item); openMenuId.set(null)">
                             <svg lucidePencil class="menu-item-icon"></svg>
-                            <span>Editar / Ajustar Cuota</span>
+                            <span>Ajustar Cuota</span>
                           </button>
 
                           <button type="button" class="menu-item" role="menuitem" (click)="duplicateTemplate(item); openMenuId.set(null)">

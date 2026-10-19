@@ -1,0 +1,695 @@
+<div class="studio-page-container">
+  @if (toast(); as t) {
+    <div class="studio-toast" [class.toast-error]="t.type === 'error'">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  <!-- Cabecera de Pantalla Dedicada -->
+  <header class="studio-header">
+    <div class="header-left">
+      <button type="button" class="btn-back-link" (click)="goBack()">
+        <svg lucideArrowLeft class="back-icon"></svg>
+        <span>Volver al Catálogo de Plantillas</span>
+      </button>
+      <div class="title-row">
+        <h1 class="page-title">
+          {{ isEditMode() ? 'Editar Plantilla Oficial' : 'Registrar Nueva Plantilla Oficial' }}
+        </h1>
+        <span class="studio-badge">Constructor de Entornos</span>
+      </div>
+      <p class="page-subtitle">
+        Seleccione las tecnologías y complementos que necesita para la materia o edite el manifiesto técnico directamente.
+      </p>
+    </div>
+
+    <div class="header-actions">
+      <button type="button" class="btn-outline" (click)="openNewComponentModal('addon')">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Registrar Nueva Tecnología</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Layout de 2 Paneles: Izquierda (Configuración) + Derecha (Resumen del Entorno en Vivo) -->
+  <div class="studio-grid">
+
+    <!-- PANEL IZQUIERDO: LIENZO DE CONFIGURACIÓN -->
+    <div class="studio-left-column">
+
+      <!-- BLOQUE 1: PROPÓSITO E IDENTIDAD ACADÉMICA -->
+      <section class="studio-card">
+        <div class="card-section-header">
+          <div>
+            <h2 class="section-title">1. Propósito y Datos del Entorno</h2>
+            <p class="section-subtitle">Elija el modo de trabajo y asigne un nombre claro para los docentes.</p>
+          </div>
+        </div>
+
+        <div class="purpose-selector-grid">
+          <button
+            type="button"
+            class="purpose-option-card"
+            [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
+            (click)="setTargetEnvironment('IDE_PERSISTENTE')"
+          >
+            <div class="purpose-top">
+              <strong class="purpose-title">Laboratorio de Práctica (Con Editor Visual)</strong>
+              @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                <span class="status-pill-active">Seleccionado</span>
+              }
+            </div>
+            <p class="purpose-desc">
+              El estudiante programa en un editor completo en el navegador, con terminal, carpetas persistentes y base de datos lista para conectar.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            class="purpose-option-card"
+            [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
+            (click)="setTargetEnvironment('JUEZ_EFIMERO')"
+          >
+            <div class="purpose-top">
+              <strong class="purpose-title">Evaluador Automático de Ejercicios</strong>
+              @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+                <span class="status-pill-active">Seleccionado</span>
+              }
+            </div>
+            <p class="purpose-desc">
+              Califica entregas de código automáticamente contra casos de prueba en pocos segundos, sin interfaz gráfica.
+            </p>
+          </button>
+        </div>
+
+        <div class="identity-fields-grid">
+          <div class="field-group">
+            <label class="form-label" for="studio-tpl-name">
+              Nombre del Entorno * <span class="hint-inline">(Se sugiere automáticamente según las tecnologías elegidas)</span>
+            </label>
+            <input
+              id="studio-tpl-name"
+              type="text"
+              class="form-input"
+              placeholder="Ej: Laboratorio: Python 3.12 + Angular + MySQL"
+              [ngModel]="name()"
+              (ngModelChange)="onNameInput($event)"
+            />
+          </div>
+
+          <div class="field-group">
+            <label class="form-label" for="studio-tpl-category">Categoría Académica</label>
+            <select
+              id="studio-tpl-category"
+              class="form-select"
+              [ngModel]="selectedCategoryId()"
+              (ngModelChange)="selectedCategoryId.set($event)"
+            >
+              <option [ngValue]="null" disabled>Seleccione una categoría...</option>
+              @for (cat of categories(); track cat.id) {
+                <option [ngValue]="cat.id">{{ cat.name }}</option>
+              }
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="form-label" for="studio-tpl-desc">Descripción Pedagógica (Opcional)</label>
+          <input
+            id="studio-tpl-desc"
+            type="text"
+            class="form-input"
+            placeholder="Indique qué programas o librerías incluye para orientar a otros docentes..."
+            [ngModel]="description()"
+            (ngModelChange)="description.set($event)"
+          />
+        </div>
+      </section>
+
+      <!-- BLOQUE 2: ARQUITECTURA Y TECNOLOGÍAS DEL ENTORNO (MODO VISUAL <-> MODO AVANZADO) -->
+      <section class="studio-card">
+        <div class="card-section-header">
+          <div>
+            <h2 class="section-title">2. Arquitectura y Tecnologías del Entorno</h2>
+            <p class="section-subtitle">
+              Combine el lenguaje principal, la interfaz web, los complementos y la base de datos. Ambos modos se mantienen sincronizados.
+            </p>
+          </div>
+
+          <div class="mode-toggle-group" role="tablist">
+            <button
+              type="button"
+              class="mode-switch-btn"
+              [class.active]="studioMode() === 'visual'"
+              (click)="setStudioMode('visual')"
+            >
+              <svg lucideLayers class="btn-icon-xs"></svg>
+              <span>Modo Visual</span>
+            </button>
+            <button
+              type="button"
+              class="mode-switch-btn"
+              [class.active]="studioMode() === 'code'"
+              (click)="setStudioMode('code')"
+            >
+              <svg lucideCode class="btn-icon-xs"></svg>
+              <span>Modo Avanzado (Dockerfile / Scripts)</span>
+            </button>
+          </div>
+        </div>
+
+        @if (studioMode() === 'visual') {
+          <!-- LAS 3 COLUMNAS DEL CONSTRUCTOR DE ENTORNOS -->
+          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
+
+            <!-- COLUMNA 1: TECNOLOGÍA PRINCIPAL + PLATAFORMA WEB -->
+            <div class="studio-column">
+              <div class="column-header">
+                <div>
+                  <span class="column-step">Columna 1 · Principal</span>
+                  <h3 class="column-title">Lenguaje y Web</h3>
+                </div>
+                <button
+                  type="button"
+                  class="btn-inline-new"
+                  (click)="openNewComponentModal('runtime')"
+                >
+                  + Nuevo
+                </button>
+              </div>
+
+              <div class="column-body">
+                <span class="sub-group-label">Lenguaje Principal (Elija 1)</span>
+                @for (rt of backendRuntimes(); track rt.id) {
+                  <button
+                    type="button"
+                    class="tech-component-card"
+                    [class.selected]="selectedRuntimeComponent()?.id === rt.id"
+                    (click)="selectRuntime(rt.id)"
+                  >
+                    <div class="comp-main">
+                      <tech-logo [iconType]="rt.icon_key" [size]="30" />
+                      <div class="comp-text">
+                        <strong class="comp-name">{{ rt.name }}</strong>
+                        <span class="comp-desc">{{ rt.description }}</span>
+                      </div>
+                    </div>
+                  </button>
+                }
+
+                @if (targetEnvironment() === 'IDE_PERSISTENTE' && webPlatforms().length > 0) {
+                  <span class="sub-group-label mt-group">Interfaz Web / Frontend (Opcional)</span>
+                  @for (web of webPlatforms(); track web.id) {
+                    <button
+                      type="button"
+                      class="tech-component-card"
+                      [class.selected]="selectedWebComponent()?.id === web.id"
+                      (click)="selectWebPlatform(web.id)"
+                    >
+                      <div class="comp-main">
+                        <tech-logo [iconType]="web.icon_key" [size]="30" />
+                        <div class="comp-text">
+                          <strong class="comp-name">{{ web.name }}</strong>
+                          <span class="comp-desc">{{ web.description }}</span>
+                        </div>
+                      </div>
+                    </button>
+                  }
+                }
+              </div>
+            </div>
+
+            <!-- COLUMNA 2: COMPLEMENTOS Y FRAMEWORKS COMPATIBLES -->
+            <div class="studio-column">
+              <div class="column-header">
+                <div>
+                  <span class="column-step">Columna 2 · Opcional (Múltiple)</span>
+                  <h3 class="column-title">Complementos Compatibles</h3>
+                </div>
+                <button
+                  type="button"
+                  class="btn-inline-new"
+                  (click)="openNewComponentModal('addon')"
+                >
+                  + Nuevo
+                </button>
+              </div>
+
+              <div class="column-body">
+                @if (selectedRuntimeComponent(); as rt) {
+                  <span class="sub-group-label">
+                    Filtrados para {{ rt.name }}
+                    @if (selectedWebComponent(); as w) {
+                      <span> + {{ w.name }}</span>
+                    }
+                  </span>
+
+                  @for (addon of compatibleAddons(); track addon.id) {
+                    <button
+                      type="button"
+                      class="tech-component-card"
+                      [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                      (click)="toggleAddon(addon.id)"
+                    >
+                      <div class="comp-main">
+                        <tech-logo [iconType]="addon.icon_key" [size]="30" />
+                        <div class="comp-text">
+                          <strong class="comp-name">{{ addon.name }}</strong>
+                          <span class="comp-desc">{{ addon.description }}</span>
+                        </div>
+                      </div>
+                    </button>
+                  } @empty {
+                    <p class="empty-col-hint">
+                      No hay complementos adicionales registrados para esta tecnología. Puede agregar uno con "+ Nuevo".
+                    </p>
+                  }
+                } @else {
+                  <p class="empty-col-hint">
+                    Seleccione primero un lenguaje principal en la Columna 1 para ver sus complementos compatibles.
+                  </p>
+                }
+              </div>
+            </div>
+
+            <!-- COLUMNA 3: BASE DE DATOS (Solo en Laboratorio con Editor — Gobernada por Capacidades del Nodo) -->
+            @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              <div class="studio-column">
+                <div class="column-header">
+                  <div>
+                    <span class="column-step">Columna 3 · Servicio del Nodo</span>
+                    <h3 class="column-title">Base de Datos</h3>
+                  </div>
+                </div>
+
+                <div class="column-body">
+                  <span class="sub-group-label">Motores aprovisionados en el servidor</span>
+                  @for (db of databaseOptions(); track db.id) {
+                    <button
+                      type="button"
+                      class="tech-component-card"
+                      [class.selected]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
+                      [class.disabled]="!db.is_available"
+                      [disabled]="!db.is_available"
+                      (click)="selectDatabase(db.id)"
+                    >
+                      <div class="comp-main">
+                        <tech-logo [iconType]="db.icon_key" [size]="30" />
+                        <div class="comp-text">
+                          <div class="comp-title-row">
+                            <strong class="comp-name">{{ db.name }}</strong>
+                            @if (db.service_engine !== 'none') {
+                              <span class="comp-ram-badge" machineData>
+                                {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
+                              </span>
+                            }
+                          </div>
+                          <span class="comp-desc">{{ db.description }}</span>
+                          @if (!db.is_available) {
+                            <span class="comp-unavailable-badge">No habilitado en este nodo</span>
+                          }
+                        </div>
+                      </div>
+                    </button>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <!-- MODO CÓDIGO / AVANZADO (SINCRONIZADO BIDIRECCIONALMENTE) -->
+          <div class="code-mode-panel">
+            <div class="identity-fields-grid">
+              <div class="field-group">
+                <label class="form-label" for="code-img-input">Referencia de Imagen (Local o Registro Oficial) *</label>
+                <input
+                  id="code-img-input"
+                  type="text"
+                  class="form-input font-mono"
+                  [ngModel]="dockerImage()"
+                  (ngModelChange)="dockerImage.set($event)"
+                />
+              </div>
+
+              <div class="field-group">
+                <label class="form-label" for="code-tools-input">Programas verificados al iniciar (separados por coma)</label>
+                <input
+                  id="code-tools-input"
+                  type="text"
+                  class="form-input font-mono"
+                  [ngModel]="toolsDeclared()"
+                  (ngModelChange)="toolsDeclared.set($event)"
+                />
+              </div>
+            </div>
+
+            @if (needsLocalBuild()) {
+              <div class="field-group">
+                <label class="form-label" for="code-dockerfile-area">
+                  Dockerfile Generado (Imagen Local) (<span machineData>{{ dockerImage() }}</span>)
+                </label>
+                <textarea
+                  id="code-dockerfile-area"
+                  class="form-textarea code-surface font-mono"
+                  rows="5"
+                  [ngModel]="dockerfileContent()"
+                  (ngModelChange)="dockerfileContent.set($event)"
+                ></textarea>
+              </div>
+            }
+
+            @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              <div class="field-group">
+                <label class="form-label" for="code-setup-area">Comandos de preparación en la carpeta del alumno</label>
+                <textarea
+                  id="code-setup-area"
+                  class="form-textarea code-surface font-mono"
+                  rows="5"
+                  [ngModel]="setupScript()"
+                  (ngModelChange)="setupScript.set($event)"
+                ></textarea>
+              </div>
+            } @else {
+              <div class="identity-fields-grid">
+                <div class="field-group">
+                  <label class="form-label" for="code-entrypoint-input">Comando de compilación y ejecución *</label>
+                  <input
+                    id="code-entrypoint-input"
+                    type="text"
+                    class="form-input font-mono"
+                    [ngModel]="entrypoint()"
+                    (ngModelChange)="entrypoint.set($event)"
+                  />
+                </div>
+                <div class="field-group">
+                  <label class="form-label" for="code-timeout-input">Tiempo máximo por entrega (ms)</label>
+                  <input
+                    id="code-timeout-input"
+                    type="number"
+                    class="form-input font-mono"
+                    [ngModel]="timeoutMS()"
+                    (ngModelChange)="timeoutMS.set($event)"
+                  />
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- BLOQUE 3: CAPACIDAD DEL LABORATORIO Y ALUMNOS SIMULTÁNEOS -->
+      <section class="studio-card">
+        <div class="card-section-header">
+          <div>
+            <h2 class="section-title">3. Capacidad del Entorno y Alumnos Simultáneos</h2>
+            <p class="section-subtitle">
+              El modelo de memoria calcula los procesos residentes activos sin inflar la cuota por librerías instaladas en disco. Con esta capacidad el servidor soporta aproximadamente
+              <strong><span machineData>{{ estimatedConcurrentStudents() }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones concurrentes' : 'alumnos trabajando al mismo tiempo' }}</strong>.
+            </p>
+          </div>
+        </div>
+
+        <div class="capacity-grid">
+          @for (opt of capacityOptions(); track opt.mb) {
+            <button
+              type="button"
+              class="capacity-card"
+              [class.selected]="baseRamMB() === opt.mb"
+              (click)="selectRamPreset(opt.mb)"
+            >
+              <div class="cap-header-row">
+                <strong class="cap-title">{{ opt.title }}</strong>
+                @if (isRecommendedPreset(opt.mb)) {
+                  <span class="cap-recommended-badge">Sugerido</span>
+                }
+              </div>
+              <span class="cap-desc">{{ opt.desc }}</span>
+              <span class="cap-students">
+                ~<span machineData>{{ estimateStudentsForPreset(opt.mb) }}</span>
+                {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+              </span>
+            </button>
+          }
+        </div>
+
+        <div class="custom-ram-row">
+          <div class="field-group custom-ram-field">
+            <label class="form-label" for="studio-custom-ram">Ajuste personalizado (MB)</label>
+            <input
+              id="studio-custom-ram"
+              type="number"
+              class="form-input font-mono"
+              [class.has-error]="isRamBelowFloor() || isRamExceedingHost()"
+              [ngModel]="baseRamMB()"
+              (ngModelChange)="onCustomRamChange($event)"
+              min="64"
+              step="64"
+            />
+          </div>
+          <span class="custom-ram-hint">
+            Nivel recomendado para la selección actual: <strong machineData>{{ recommendedRamMB() }} MB</strong> · Techo del servidor: <strong machineData>{{ maxAllowedRamMB() }} MB</strong>
+          </span>
+        </div>
+
+        @if (isRamBelowFloor()) {
+          <div class="ram-lock-alert alert-error" role="alert">
+            <svg lucideAlertCircle class="alert-icon"></svg>
+            <div>
+              <strong>Hecho:</strong> Asignación actual (<span machineData>{{ baseRamMB() }} MB</span>) inferior al piso vital requerido (<span machineData>{{ minimumFloorMB() }} MB</span>).
+              <strong>Causa:</strong> {{ floorAlertCause() }}
+              <strong>Acción:</strong> {{ floorAlertAction() }}
+            </div>
+          </div>
+        }
+
+        @if (isRamExceedingHost()) {
+          <div class="ram-lock-alert alert-error" role="alert">
+            <svg lucideAlertCircle class="alert-icon"></svg>
+            <div>
+              <strong>Hecho:</strong> La memoria configurada (<span machineData>{{ baseRamMB() }} MB</span>) supera el techo de seguridad del servidor (<span machineData>{{ maxAllowedRamMB() }} MB</span>) en <span machineData>{{ ramExcessMB() }} MB</span>.
+              <strong>Causa:</strong> El nodo reserva el 25% de la memoria física para el sistema operativo y servicios base.
+              <strong>Acción:</strong> Reduzca la asignación a un valor igual o menor a <span machineData>{{ maxAllowedRamMB() }} MB</span>.
+            </div>
+          </div>
+        } @else if (isRamExceedingCurrentFree()) {
+          <div class="ram-lock-alert alert-warning" role="status">
+            <svg lucideAlertCircle class="alert-icon"></svg>
+            <div>
+              <strong>Aviso de concurrencia:</strong> La asignación (<span machineData>{{ baseRamMB() }} MB</span>) supera la memoria libre actual del servidor (<span machineData>{{ hostFreeRamMB() }} MB</span>). La plantilla es válida, pero el arranque simultáneo dependerá de la memoria libre en horario de clase.
+            </div>
+          </div>
+        }
+
+        <!-- Barra Gráfica Segmentada de Distribución de Memoria en el Contenedor -->
+        <div class="resource-profile-card">
+          <div class="profile-header">
+            <div class="profile-header-left">
+              <span class="profile-title">Distribución de Memoria en el Contenedor</span>
+              <span class="badge-floor" [class.badge-floor-alert]="isRamBelowFloor()">
+                Piso vital: <span machineData>{{ minimumFloorMB() }} MB</span> ({{ floorReason() }})
+              </span>
+            </div>
+            <span class="profile-capacity">
+              Capacidad estimada del servidor: ~<strong machineData>{{ estimatedConcurrentStudents() }}</strong>
+              {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones concurrentes' : 'alumnos simultáneos' }}
+            </span>
+          </div>
+
+          <div class="memory-bar" [class.bar-overflow]="isRamExceedingHost()">
+            @if (isRamExceedingHost()) {
+              <div class="bar-segment bar-segment-overflow">
+                <span>
+                  Excede el techo del servidor en <span machineData>{{ ramExcessMB() }} MB</span> (máximo permitido: <span machineData>{{ maxAllowedRamMB() }} MB</span>)
+                </span>
+              </div>
+            } @else {
+              <div
+                class="bar-segment bar-editor"
+                [style.flex-grow]="resourceBreakdown().editorBaseMB"
+              >
+                <span>
+                  {{ resourceBreakdown().isJudge ? 'Sandbox Juez' : 'IDE Web' }} (<span machineData>{{ resourceBreakdown().editorBaseMB }} MB</span>)
+                </span>
+              </div>
+
+              @if (resourceBreakdown().satelliteMB > 0) {
+                <div
+                  class="bar-segment bar-satellite"
+                  [style.flex-grow]="resourceBreakdown().satelliteMB"
+                >
+                  <span>
+                    {{ selectedDatabaseOption()?.name }} (<span machineData>{{ resourceBreakdown().satelliteMB }} MB</span>)
+                  </span>
+                </div>
+              }
+
+              <div
+                class="bar-segment bar-usable"
+                [style.flex-grow]="resourceBreakdown().usableMB"
+              >
+                <span>
+                  Libre para compilación y código del alumno (<span machineData>{{ resourceBreakdown().usableMB }} MB</span>)
+                </span>
+              </div>
+            }
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- PANEL DERECHO FIJO: RESUMEN DEL ENTORNO (ESPECIFICACIÓN EN VIVO) -->
+    <aside class="blueprint-sidebar" aria-label="Resumen en vivo del entorno">
+      <div class="blueprint-card">
+        <div class="blueprint-header">
+          <span class="blueprint-heading">Resumen del Entorno</span>
+          <div class="blueprint-tabs">
+            <button
+              type="button"
+              class="bp-tab-btn"
+              [class.active]="blueprintTab() === 'human'"
+              (click)="blueprintTab.set('human')"
+            >
+              Resumen
+            </button>
+            <button
+              type="button"
+              class="bp-tab-btn"
+              [class.active]="blueprintTab() === 'manifest'"
+              (click)="blueprintTab.set('manifest')"
+            >
+              &lt;/&gt; Manifiesto
+            </button>
+          </div>
+        </div>
+
+        @if (blueprintTab() === 'human') {
+          <div class="blueprint-body">
+            <div class="bp-block">
+              <span class="bp-label">Nombre del Entorno</span>
+              <strong class="bp-env-name">{{ name() || 'Sin nombre definido' }}</strong>
+              <span class="bp-meta-pill">
+                {{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Laboratorio con Editor' : 'Evaluador Automático' }}
+              </span>
+            </div>
+
+            <div class="bp-block">
+              <span class="bp-label">Tecnologías Seleccionadas ({{ selectedStackComponents().length }})</span>
+              <div class="bp-stack-list">
+                @for (comp of selectedStackComponents(); track comp.id) {
+                  <div class="bp-stack-item">
+                    <div class="bp-stack-left">
+                      <tech-logo [iconType]="comp.icon_key" [size]="22" />
+                      <span class="bp-comp-name">{{ comp.name }}</span>
+                    </div>
+                    <span class="bp-comp-role">
+                      {{ comp.layer === 'runtime' ? (comp.sub_category === 'web' ? 'Web' : 'Base') : comp.layer === 'addon' ? 'Complemento' : 'Datos' }}
+                    </span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <div class="bp-block">
+              <div class="bp-row-between">
+                <span class="bp-label">Capacidad por Estudiante</span>
+                <strong class="bp-ram-val" machineData>{{ baseRamMB() }} MB</strong>
+              </div>
+              <p class="bp-capacity-note">
+                Soporta ~<strong machineData>{{ estimatedConcurrentStudents() }}</strong> estudiantes simultáneos en este servidor.
+              </p>
+            </div>
+
+            <div class="bp-block">
+              <span class="bp-label">Programas Incluidos</span>
+              <div class="bp-tools-chips">
+                @for (tool of toolsList(); track tool) {
+                  <span class="bp-tool-tag" machineData>✓ {{ tool }}</span>
+                }
+              </div>
+            </div>
+
+            <!-- Estado de Verificación en Vivo -->
+            @if (activeEnvTestJob(); as job) {
+              <div
+                class="verification-status-box"
+                [class.status-ok]="job.status === 'success'"
+                [class.status-err]="job.status === 'failed'"
+              >
+                @if (job.status === 'success') {
+                  <div class="verif-row">
+                    <svg lucideCheckCircle2 class="verif-icon"></svg>
+                    <div>
+                      <strong>¡Todo listo para usar en clase!</strong>
+                      <p>Todas las tecnologías respondieron correctamente.</p>
+                    </div>
+                  </div>
+                } @else if (job.status === 'failed') {
+                  <div class="verif-row">
+                    <svg lucideAlertCircle class="verif-icon"></svg>
+                    <div>
+                      <strong>Atención en la comprobación</strong>
+                      <p>{{ job.error_message || 'Uno de los programas no respondió como se esperaba.' }}</p>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="verif-row">
+                    <svg lucideRefreshCw class="verif-icon spin"></svg>
+                    <div>
+                      <strong>Preparando y comprobando tecnologías...</strong>
+                      <p>{{ job.progress.current_action || 'Verificando programas incluidos...' }}</p>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="blueprint-body">
+            <span class="bp-label">Contrato Técnico Generado</span>
+            <pre class="manifest-pre font-mono">{{ liveManifestJson() }}</pre>
+          </div>
+        }
+
+        <div class="blueprint-footer">
+          <button
+            type="button"
+            class="btn-outline w-full"
+            [disabled]="isVerifying() || isSubmitting() || isRamBelowFloor() || isRamExceedingHost()"
+            (click)="runVerificationTest()"
+          >
+            <svg lucidePlay class="btn-icon-xs"></svg>
+            <span>{{ isVerifying() ? 'Comprobando funcionamiento...' : 'Comprobar funcionamiento' }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="btn-primary w-full"
+            [disabled]="isSubmitting() || !name().trim() || isRamBelowFloor() || isRamExceedingHost()"
+            (click)="publishTemplate()"
+          >
+            <svg lucideSend class="btn-icon-xs"></svg>
+            <span>
+              {{ isSubmitting() ? 'Guardando...' : isEditMode() ? 'Guardar Cambios de Plantilla' : 'Publicar Plantilla Oficial' }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- Modal Asistido para Registrar Nueva Tecnología en el Catálogo sin salir del Constructor -->
+  @if (showComponentModal()) {
+    <component-form-modal
+      [defaultLayer]="modalDefaultLayer()"
+      (closed)="showComponentModal.set(false)"
+      (saved)="handleNewComponentSaved($event)"
+    />
+  }
+</div>

@@ -34,7 +34,6 @@ describe('TemplateCreateModalComponent Unit Tests', () => {
     getTemplates: () => of([]),
     getLocalImages: () => of({ images: [], usage_map: {} }),
     getRuntimeCapabilities: () => of(null),
-    getAvailableSatelliteServices: () => [],
     getDraft: () => of(null),
     saveDraft: () => of({} as any),
     deleteDraft: () => of(void 0),

@@ -109,7 +109,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
           <div class="models-title-wrap">
             <svg lucideBoxes class="w-4 h-4 text-primary mr-1.5"></svg>
             <span class="models-shelf-title" i18n="@@MO-01">Entornos preconfigurados</span>
-            <span class="models-shelf-sub" i18n="@@MO-02">Recetas base listas para usar o personalizar</span>
+            <span class="models-shelf-sub" i18n="@@MO-02">Modelos base listos para usar o personalizar</span>
           </div>
           @if (templateModels().length > 4 || modelsSearch()) {
             <div class="models-search-bar">
@@ -131,7 +131,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
           <div class="banner-content">
             <svg lucideInfo class="w-4 h-4 text-info mr-2 flex-shrink-0"></svg>
             <span class="banner-text">
-              Los entornos preconfigurados se originan a partir de plantillas aprobadas en el catálogo o recetas base institucionales.
+              Los entornos preconfigurados se originan a partir de plantillas aprobadas en el catálogo o modelos base institucionales.
             </span>
           </div>
           <a routerLink="/admin/manual" fragment="3-2-ciclo-de-vida-y-gobernanza-de-plantillas" class="banner-link" target="_blank" rel="noopener noreferrer">
@@ -201,7 +201,7 @@ export type CreationMode = 'blank' | 'recipe' | 'duplicate';
                   <span class="discipline-badge">{{ getCategoryName(model) }}</span>
                 </div>
                 <div class="model-usage-row">
-                  <span class="model-usage-badge" [title]="'Plantillas creadas con esta receta: ' + model.usage_count">
+                  <span class="model-usage-badge" [title]="'Plantillas creadas con este modelo: ' + model.usage_count">
                     {{ model.usage_count }} plantillas derivadas
                   </span>
                 </div>

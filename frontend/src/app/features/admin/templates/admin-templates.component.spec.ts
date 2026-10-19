@@ -60,7 +60,6 @@ describe('AdminTemplatesComponent Spec', () => {
     promoteToModel: any;
     duplicateTemplate: any;
     getModels: any;
-    getAvailableSatelliteServices: any;
     getLocalImages: any;
     getDraft: any;
     getTemplatesCacheStatus: any;
@@ -90,7 +89,6 @@ describe('AdminTemplatesComponent Spec', () => {
       promoteToModel: vi.fn().mockReturnValue(of({ id: 'm-1' })),
       duplicateTemplate: vi.fn().mockReturnValue(of({ ...mockTemplates[0], id: 'dup-1', name: '(Copia) ' + mockTemplates[0].name })),
       getModels: vi.fn().mockReturnValue(of([])),
-      getAvailableSatelliteServices: vi.fn().mockReturnValue([]),
       getLocalImages: vi.fn().mockReturnValue(of({ images: [], usage_map: {} })),
       getDraft: vi.fn().mockReturnValue(of(null)),
       getTemplatesCacheStatus: vi.fn().mockReturnValue(of([
