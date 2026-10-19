@@ -31,6 +31,10 @@ El desarrollo en SOLV no se realiza mediante tareas genéricas, sino mediante **
 - **Tests:**
   - Pruebas unitarias en `*_test.go` utilizando mocks de repositorio.
   - Pruebas de integración HTTP usando `httptest.NewServer` o `httptest.NewRecorder`.
+- **Lint (obligatorio antes de commitear):**
+  - `make lint:backend` ejecuta `golangci-lint` (v2, config en `backend/.golangci.yml`): errcheck, govet, staticcheck, gosec, errorlint, noctx, bodyclose, misspell.
+  - Instalar con: `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest`.
+  - Estado actual: existe un backlog preexistente de findings report-only (gosec + deprecaciones del SDK de Docker); no agregar nuevos.
 
 ### Frontend (Angular 22 Standalone & Signals)
 - **Estándares:**
@@ -40,6 +44,9 @@ El desarrollo en SOLV no se realiza mediante tareas genéricas, sino mediante **
   - PROHIBIDO literales hex (colores `#...`) o fallbacks rem en CSS/SCSS de componentes.
   - Usar tokens semánticos: `var(--tenant-primary)`, `var(--color-text-primary)`, `var(--border-color)`.
   - Gate de estilo `npm run lint:styles` exigido en CI.
+- **Lint de código (obligatorio antes de commitear):**
+  - `npm run lint:ts` ejecuta ESLint con `typescript-eslint` + `angular-eslint` (config en `frontend/eslint.config.mjs`).
+  - Estado actual: existe un backlog preexistente de findings report-only (`no-explicit-any`, `no-output-native`, `prefer-control-flow`); no agregar nuevos.
 - **Formateo de Fechas y Datos Técnicos:**
   - Toda fecha o timestamp se renderiza obligatoriamente con el pipe compartido `dateText` dentro de un `<time>` semántico.
   - Valores técnicos (códigos, IDs, métricas, tags, veredictos) usan el atributo `[machineData]` o la clase `font-mono`.

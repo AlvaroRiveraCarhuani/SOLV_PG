@@ -47,10 +47,25 @@ jobs:
           cd backend
           go vet ./...
 
+      # TODO(lint-harness): temporal no bloqueante — pasar a bloqueante
+      # cuando el backlog preexistente (gosec + SA1019) esté triageado.
+      - name: Run golangci-lint (non-blocking until backlog cleanup)
+        continue-on-error: true
+        run: |
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+          cd backend
+          "$(go env GOPATH)/bin/golangci-lint" run --max-issues-per-linter=0 --max-same-issues=0 ./...
+
       - name: Install Frontend Dependencies
         run: |
           cd frontend
           npm ci
+
+      - name: Run ESLint (non-blocking until backlog cleanup)
+        continue-on-error: true
+        run: |
+          cd frontend
+          npm run lint:ts
 
       - name: Run Stylelint & Semantic Gates
         run: |
