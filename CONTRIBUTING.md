@@ -55,17 +55,9 @@ El desarrollo en SOLV no se realiza mediante tareas genéricas, sino mediante **
 
 ## 3. Estándar de Commits (Conventional Commits)
 
-Los mensajes de commit deben seguir la especificación **Conventional Commits**:
-```txt
-<tipo>(<alcance>): <descripción corta en minúsculas>
+El estándar completo de commits vive en la skill `gobernanza` (`.agents/skills/gobernanza/SKILL.md`): formato, cuerpo obligatorio (Qué/Por qué/Cómo/Impacto), footers (`Slice: N`, `ADRs:`), tono y prohibiciones. Cargarla antes de escribir commits; este documento no duplica esas reglas.
 
-<cuerpo obligatorio de 1 a 2 líneas explicando Qué, Por qué, Cómo e Impacto>
-```
-
-### Reglas para mensajes de commit:
-- Usar primera persona del plural o impersonal técnico: `"Se agregó X"`, `"Agregamos X"`.
-- **PROHIBIDO** incluir atribución de IA (ej: `Co-Authored-By: AI...`).
-- **PROHIBIDO** incluir etiquetas de coordinación interna (`OA-XX`, `cajones`, `slices`). Usar lenguaje de dominio puro (ej. `feat(exercises): implementar importacion masiva`).
+Reglas de workflow sí viven acá: sin atribución de IA (`Co-Authored-By`), lenguaje de dominio puro en mensajes, sin etiquetas de coordinación interna.
 
 ---
 

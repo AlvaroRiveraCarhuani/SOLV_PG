@@ -1,6 +1,6 @@
 ---
 name: solv-design-system
-description: Sistema de diseño, tokens, tipografía, paleta semántica y componentes de UI para SOLV.
+description: Sistema de diseño, tokens, tipografía, paleta semántica y componentes de UI para SOLV. Trigger: ONLY when the work touches styles, CSS/Tailwind, design tokens, typography, color palette, UI components, layout, or visual styling. Do NOT load for general frontend code, renaming, logic, services, or audits.
 ---
 
 # SOLV — Sistema de Diseño de UI

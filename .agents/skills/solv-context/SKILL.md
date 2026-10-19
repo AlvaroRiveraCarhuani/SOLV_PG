@@ -1,3 +1,8 @@
+---
+name: solv-context
+description: Core SOLV project context: architecture decisions D1-D6 (ForwardAuth, multi-tenancy), roles, and non-negotiable rules. Trigger: ONLY when the work touches authentication, sessions, tenancy/tenant_id, roles/permissions, or architectural decisions.
+---
+
 # SOLV — Contexto del Proyecto y Reglas Core
 
 ## Qué es SOLV
