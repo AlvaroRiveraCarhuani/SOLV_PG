@@ -13,7 +13,6 @@ describe('TeacherDashboardComponent', () => {
   let component: TeacherDashboardComponent;
   let fixture: ComponentFixture<TeacherDashboardComponent>;
   let layoutService: DashboardLayoutService;
-  let courseColorService: CourseColorService;
 
   beforeEach(async () => {
     localStorage.clear();
@@ -59,7 +58,6 @@ describe('TeacherDashboardComponent', () => {
     fixture = TestBed.createComponent(TeacherDashboardComponent);
     component = fixture.componentInstance;
     layoutService = TestBed.inject(DashboardLayoutService);
-    courseColorService = TestBed.inject(CourseColorService);
     fixture.detectChanges();
   });
 

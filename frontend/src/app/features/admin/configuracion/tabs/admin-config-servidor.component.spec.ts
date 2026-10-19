@@ -1,9 +1,9 @@
 import '@angular/compiler';
 import '@angular/localize/init';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { AdminConfigServidorComponent } from './admin-config-servidor.component';
 import {
   AdminConfigServidorService,

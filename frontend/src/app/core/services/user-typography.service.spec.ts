@@ -6,7 +6,6 @@ import { TenantService } from './tenant.service';
 
 describe('UserTypographyService', () => {
   let service: UserTypographyService;
-  let tenantService: TenantService;
 
   beforeEach(() => {
     localStorage.clear();
@@ -20,7 +19,6 @@ describe('UserTypographyService', () => {
     });
 
     service = TestBed.inject(UserTypographyService);
-    tenantService = TestBed.inject(TenantService);
   });
 
   afterEach(() => {

@@ -64,7 +64,9 @@ export class DashboardTelemetryWidgetComponent {
       const mode = this.liveViewMode();
       try {
         localStorage.setItem('solv_teacher_live_view_mode', mode);
-      } catch {}
+      } catch {
+        // Storage unavailable: ignore.
+      }
     });
   }
 

@@ -77,7 +77,9 @@ export class DashboardLayoutService {
       if (typeof window !== 'undefined' && window.localStorage) {
         localStorage.removeItem(storageKey);
       }
-    } catch {}
+    } catch {
+      // Storage unavailable: fall back to defaults.
+    }
     return defaults.map(d => ({ ...d }));
   }
 }

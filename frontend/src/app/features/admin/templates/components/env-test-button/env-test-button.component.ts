@@ -14,8 +14,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { Subscription } from 'rxjs';
 import { 
   EnvTestJobService, 
-  EnvTestJob, 
-  ToolResult 
+  EnvTestJob
 } from '../../../services/env-test-job.service';
 import { 
   LucidePlay, 

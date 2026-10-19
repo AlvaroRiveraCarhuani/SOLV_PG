@@ -267,7 +267,7 @@ export class ExerciseEditorComponent implements OnInit {
       () => {
         this.showToast('¡Ejercicio publicado con éxito!');
       },
-      (err) => {
+      () => {
         this.showToast(this.store.publishError() || 'Error al publicar el ejercicio.');
       }
     );

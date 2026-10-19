@@ -13,7 +13,6 @@ import {
   TeacherCourseModule,
   CreateModuleDTO,
   UpdateModuleDTO,
-  SetPrerequisitesDTO,
   ExerciseImportResponse,
   ScriptGenerationResponse
 } from '../models/teacher.models';

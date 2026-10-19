@@ -67,7 +67,7 @@ function renderMarkdownWithKatex(raw: string): string {
   });
 
   // 2. Inline math: $ ... $
-  processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+  processed = processed.replace(/\$([^$\n]+?)\$/g, (_, math) => {
     try {
       return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false, output: 'mathml' });
     } catch {
@@ -302,7 +302,7 @@ export class StudentPreviewModalComponent {
             const rawExpected = tc.expected_output || '';
             const actual = rawActual.trim();
             const expected = rawExpected.trim();
-            let verdict: 'AC' | 'WA' | 'TLE' | 'RE' = 'WA';
+            let verdict: 'AC' | 'WA' | 'TLE' | 'RE';
 
             if (out?.status === 'timeout') {
               verdict = 'TLE';

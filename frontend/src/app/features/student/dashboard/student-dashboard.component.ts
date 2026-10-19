@@ -4,7 +4,7 @@ import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AuthService } from '@core/services/auth.service';
-import { StudentService, StudentSubjectItem, DueAssignment } from '@core/services/student.service';
+import { StudentService, StudentSubjectItem } from '@core/services/student.service';
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
 import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';

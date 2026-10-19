@@ -6,7 +6,7 @@ import {
   LucideCode
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { StudentService, StudentSubjectItem } from '@core/services/student.service';
+import { StudentService } from '@core/services/student.service';
 import { RecommendationsPanelComponent } from './recommendations-panel/recommendations-panel.component';
 import { CurricularMapComponent } from './curricular-map/curricular-map.component';
 

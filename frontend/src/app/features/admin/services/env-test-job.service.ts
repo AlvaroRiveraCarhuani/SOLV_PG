@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, timer } from 'rxjs';
-import { map, switchMap, takeWhile, catchError } from 'rxjs/operators';
+import { map, switchMap, takeWhile } from 'rxjs/operators';
 
 export type EnvTestStatus = 'pending' | 'pulling' | 'testing' | 'success' | 'failed' | 'canceled';
 

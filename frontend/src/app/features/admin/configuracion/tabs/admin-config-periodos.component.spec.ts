@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import '@angular/localize/init';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
@@ -8,8 +8,7 @@ import { of, throwError } from 'rxjs';
 import { AdminConfigPeriodosComponent } from './admin-config-periodos.component';
 import {
   AdminConfigPeriodosService,
-  AcademicPeriodConfig,
-  periodLifecycle
+  AcademicPeriodConfig
 } from '../admin-config-periodos.service';
 
 const makePeriod = (overrides: Partial<AcademicPeriodConfig> = {}): AcademicPeriodConfig => ({

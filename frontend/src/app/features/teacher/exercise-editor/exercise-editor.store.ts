@@ -3,7 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { TeacherCourseService } from '../services/teacher-course.service';
-import { ASTRulesDTO, ASTCustomRuleDTO, ChecklistReportDTO, CreateExerciseRequestDTO, TestCaseDTO, UpdateExerciseRequestDTO } from '../models/teacher.models';
+import { ASTRulesDTO, ASTCustomRuleDTO, ChecklistReportDTO, TestCaseDTO } from '../models/teacher.models';
 
 export interface RubricLevelDTO {
   name: string;
@@ -189,7 +189,9 @@ export class ExerciseEditorStore {
     if (typeof localStorage === 'undefined') return;
     try {
       localStorage.removeItem(this.getDraftStorageKey());
-    } catch {}
+    } catch {
+      // Storage unavailable: ignore.
+    }
   }
 
   scheduleAutoSave() {

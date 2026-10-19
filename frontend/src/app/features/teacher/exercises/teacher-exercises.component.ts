@@ -17,7 +17,7 @@ import {
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
-import { TeacherLabStats, TeacherCourseSummary } from '../models/teacher.models';
+import { TeacherLabStats } from '../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';

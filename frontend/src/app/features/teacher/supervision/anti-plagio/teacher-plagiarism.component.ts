@@ -12,7 +12,7 @@ import {
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { PlagiarismReport, PlagiarismMatch, TeacherLabStats, TeacherCourseSummary } from '../../models/teacher.models';
+import { PlagiarismReport, PlagiarismMatch, TeacherLabStats } from '../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';

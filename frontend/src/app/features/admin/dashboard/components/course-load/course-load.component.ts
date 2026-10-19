@@ -170,7 +170,7 @@ export class CourseLoadComponent {
 
   filteredCourses = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
-    let list = [...this.courses()];
+    const list = [...this.courses()];
 
     // Orden prioritario: Materias con alumnos activos o consumo de RAM primero
     list.sort((a, b) => {

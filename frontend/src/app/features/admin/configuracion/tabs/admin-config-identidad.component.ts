@@ -8,13 +8,12 @@ import {
 } from '../admin-config-identidad.service';
 import { TenantService } from '@core/services/tenant.service';
 import { TenantConfig } from '@core/models/tenant.model';
-import { ModalShellComponent, ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
+import { ModalIntent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import {
   CURATED_FONTS,
   DEFAULT_SANS_SLUG,
   DEFAULT_MONO_SLUG,
-  findCuratedFont,
   fontValueToFamily,
   fontValueToStack,
   fontValueToMonoStack,
@@ -27,10 +26,8 @@ import {
   LucideMail,
   LucideImage,
   LucideEye,
-  LucideInfo,
   LucideCheckCircle2,
   LucideAlertCircle,
-  LucideExternalLink,
   LucideType
 } from '@lucide/angular';
 

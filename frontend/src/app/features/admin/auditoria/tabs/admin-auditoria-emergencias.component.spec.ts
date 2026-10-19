@@ -5,7 +5,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { signal } from '@angular/core';
 import { AdminAuditoriaEmergenciasComponent } from './admin-auditoria-emergencias.component';
-import { AdminAuditoriaService, EMERGENCY_ACTIONS, EmergencyActionResult } from '../admin-auditoria.service';
+import { AdminAuditoriaService, EmergencyActionResult } from '../admin-auditoria.service';
 import { AdminMetricsService } from '@features/admin/services/admin-metrics.service';
 
 const EMPTY_LIST = { tenant_id: 't', limit: 10, offset: 0, total: 0, data: [] };

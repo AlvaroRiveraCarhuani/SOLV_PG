@@ -171,7 +171,7 @@ export class StudentService {
           }
         ]);
       }
-    } catch (err: any) {
+    } catch {
       this.error.set('No se pudo sincronizar el estado académico');
     } finally {
       this.loading.set(false);

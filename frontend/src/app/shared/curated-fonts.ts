@@ -83,7 +83,7 @@ export function validateCustomFontUrl(raw: string): FontUrlCheck {
   if (!url || !url.startsWith('https://')) {
     return { ok: false, issue: 'https', message: 'La URL de la fuente debe iniciar con https://.' };
   }
-  let host = '';
+  let host: string;
   try {
     host = new URL(url).host;
   } catch {

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
-import { Observable, forkJoin, map, catchError, of } from 'rxjs';
+import { Observable, map, catchError, of } from 'rxjs';
 import {
   AdminConfigPeriodosService,
   AcademicPeriodConfig,

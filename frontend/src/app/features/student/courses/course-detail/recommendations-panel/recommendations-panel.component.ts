@@ -14,9 +14,7 @@ import {
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   StudentService,
-  StudentRecommendationsDTO,
-  RecommendationItem,
-  WeakTag
+  StudentRecommendationsDTO
 } from '@core/services/student.service';
 
 @Component({

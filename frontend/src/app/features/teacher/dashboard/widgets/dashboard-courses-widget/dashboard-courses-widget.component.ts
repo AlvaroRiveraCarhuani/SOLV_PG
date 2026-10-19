@@ -47,7 +47,9 @@ export class DashboardCoursesWidgetComponent {
       const mode = this.viewMode();
       try {
         localStorage.setItem('solv_teacher_view_mode', mode);
-      } catch {}
+      } catch {
+        // Storage unavailable: ignore.
+      }
     });
   }
 

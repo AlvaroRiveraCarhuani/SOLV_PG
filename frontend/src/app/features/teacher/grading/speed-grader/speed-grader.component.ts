@@ -24,7 +24,7 @@ import {
 import { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { SubmissionComment, SubmissionTimeline, TimelineKeyframe, LiveWorkspaceSession, BenchmarkReport } from '../../models/teacher.models';
+import { SubmissionComment, SubmissionTimeline, LiveWorkspaceSession } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -474,7 +474,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     const id = this.submissionId();
     if (!id) return;
     this.gradingService.runComplexityBenchmark(id, { submission_id: id, preset }).subscribe({
-      error: (err) => {
+      error: () => {
         // Mock fallback report for interactive frontend exploration if backend endpoint is unavailable
         this.gradingService.benchmarkReport.set({
           submission_id: id,

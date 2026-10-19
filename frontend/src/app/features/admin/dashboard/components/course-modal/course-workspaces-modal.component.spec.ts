@@ -2,7 +2,6 @@ import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
-import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import { CourseWorkspacesModalComponent } from './course-workspaces-modal.component';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';

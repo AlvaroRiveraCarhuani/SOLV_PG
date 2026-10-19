@@ -33,12 +33,6 @@ export interface PublishedTemplate {
   ports?: string;
 }
 
-interface ApiResponse<T> {
-  data: T;
-  error?: string;
-  message?: string;
-}
-
 @Component({
   selector: 'teacher-templates',
   standalone: true,

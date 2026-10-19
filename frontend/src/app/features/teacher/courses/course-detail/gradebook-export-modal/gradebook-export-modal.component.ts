@@ -25,10 +25,10 @@ import {
   LucideRotateCcw
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../../services/teacher-course.service';
-import { CourseGradesMatrix, CourseExerciseHeader, StudentGradesRow } from '../../../models/teacher.models';
+import { CourseGradesMatrix, StudentGradesRow } from '../../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
-import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 
 
 export interface ColumnExportConfig {

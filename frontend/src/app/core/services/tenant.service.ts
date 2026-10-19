@@ -59,7 +59,7 @@ export class TenantService {
       this.applyBranding(remoteConfig);
       this.saveToStorage(cacheKey, remoteConfig);
       this.error.set(null);
-    } catch (err: any) {
+    } catch {
       // Si la red falla pero teníamos caché, se mantiene el branding existente
       if (!this.config()) {
         const fallbackConfig: TenantConfig = {
@@ -219,15 +219,15 @@ export class TenantService {
       return defaultHSL;
     }
 
-    let r = parseInt(hex.substring(1, 3), 16) / 255;
-    let g = parseInt(hex.substring(3, 5), 16) / 255;
-    let b = parseInt(hex.substring(5, 7), 16) / 255;
+    const r = parseInt(hex.substring(1, 3), 16) / 255;
+    const g = parseInt(hex.substring(3, 5), 16) / 255;
+    const b = parseInt(hex.substring(5, 7), 16) / 255;
 
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     let h = 0;
     let s = 0;
-    let l = (max + min) / 2;
+    const l = (max + min) / 2;
 
     if (max !== min) {
       const d = max - min;

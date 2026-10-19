@@ -1,6 +1,6 @@
 import '@angular/compiler';
 import '@angular/localize/init';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { TemplateRejectModalComponent } from './template-reject-modal.component';
 import { AdminTemplateItem } from '../../../services/admin-templates.service';

@@ -208,7 +208,9 @@ export class TopbarComponent {
     try {
       localStorage.setItem('solv_notif_1_read', 'true');
       localStorage.setItem('solv_notif_2_read', 'true');
-    } catch (_) {}
+    } catch {
+      // Storage unavailable: ignore.
+    }
   }
 
   closeAllMenus(): void {
@@ -222,7 +224,9 @@ export class TopbarComponent {
       localStorage.setItem('solv_notifs_cleared', 'true');
       localStorage.setItem('solv_notif_1_read', 'true');
       localStorage.setItem('solv_notif_2_read', 'true');
-    } catch (_) {}
+    } catch {
+      // Storage unavailable: ignore.
+    }
   }
 
   formatTitleCase(text?: string | null): string {

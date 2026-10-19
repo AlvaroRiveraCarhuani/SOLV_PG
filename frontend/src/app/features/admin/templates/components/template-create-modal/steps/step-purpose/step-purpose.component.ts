@@ -117,7 +117,7 @@ export class StepPurposeComponent {
     }
   }
 
-  onKeydown(event: KeyboardEvent, current: TargetEnvironment): void {
+  onKeydown(event: KeyboardEvent): void {
     if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
       event.preventDefault();
       this.selectEnvironment('JUEZ_EFIMERO');

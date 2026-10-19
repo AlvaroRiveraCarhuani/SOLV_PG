@@ -71,9 +71,9 @@ export class PublicationChecklistComponent {
     const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
 
     return raw.map((msg, idx) => {
-      let stepTarget: 1 | 2 = 1;
-      let targetElementId = 'exercise-title';
-      let actionLabel = 'Corregir en Paso 1';
+      let stepTarget: 1 | 2;
+      let targetElementId: string;
+      let actionLabel: string;
 
       if (isIDE) {
         if (msg.includes('plantilla')) {
@@ -146,9 +146,9 @@ export class PublicationChecklistComponent {
     const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
 
     return raw.map((msg, idx) => {
-      let stepTarget: 1 | 2 = 2;
-      let targetElementId = 'cases-table-section';
-      let actionLabel = 'Revisar en Paso 2';
+      let stepTarget: 1 | 2;
+      let targetElementId: string;
+      let actionLabel: string;
 
       if (isIDE) {
         if (msg.includes('fecha') || msg.includes('entrega')) {

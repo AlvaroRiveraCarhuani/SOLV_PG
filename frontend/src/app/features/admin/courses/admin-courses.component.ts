@@ -3,9 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { 
   AdminCoursesService, 
-  AdminCourseItem, 
-  AcademicPeriod, 
-  DockerTemplateItem 
+  AdminCourseItem
 } from '../services/admin-courses.service';
 import { CourseCreateModalComponent } from './components/course-create-modal/course-create-modal.component';
 import { CourseReassignModalComponent } from './components/course-reassign-modal/course-reassign-modal.component';
@@ -26,11 +24,9 @@ import {
   LucideLayers, 
   LucideArrowRightLeft, 
   LucideArchive, 
-  LucideArchiveRestore, 
-  LucideRefreshCw,
+  LucideArchiveRestore,
   LucideAlertTriangle,
-  LucidePencil,
-  LucideX
+  LucidePencil
 } from '@lucide/angular';
 
 interface ToastState {
@@ -168,7 +164,7 @@ export class AdminCoursesComponent implements OnInit {
     const maxVisible = 5;
 
     let start = Math.max(1, current - Math.floor(maxVisible / 2));
-    let end = Math.min(total, start + maxVisible - 1);
+    const end = Math.min(total, start + maxVisible - 1);
     if (end - start + 1 < maxVisible) {
       start = Math.max(1, end - maxVisible + 1);
     }

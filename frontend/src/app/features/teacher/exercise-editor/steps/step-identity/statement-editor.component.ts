@@ -227,7 +227,7 @@ export class StatementEditorComponent {
     });
 
     // 2. Inline math: $ ... $
-    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    processed = processed.replace(/\$([^$\n]+?)\$/g, (_, math) => {
       try {
         return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false, output: 'mathml' });
       } catch {

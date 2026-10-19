@@ -3,9 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   AdminConfigServidorService,
-  ServerPolicies,
-  BackupExecutionItem,
-  VerifyBackupResult
+  BackupExecutionItem
 } from '../admin-config-servidor.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';

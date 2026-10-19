@@ -21,7 +21,7 @@ import {
   LucideX,
   LucideZap
 } from '@lucide/angular';
-import { BenchmarkReport, BenchmarkSample, ComplexityClass } from '../../../features/teacher/models/teacher.models';
+import { BenchmarkReport, BenchmarkSample } from '../../../features/teacher/models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
 interface ChartPoint {
@@ -102,8 +102,8 @@ export class ComplexityBenchmarkComponent {
 
     return list.map(s => {
       const valY = isTime ? s.execution_time_ms : s.memory_used_kb;
-      let normX = 0;
-      let normY = 0;
+      let normX: number;
+      let normY: number;
 
       if (isLog) {
         const logMinX = Math.log10(Math.max(1, minX));
@@ -161,7 +161,6 @@ export class ComplexityBenchmarkComponent {
 
     const plotW = this.chartWidth - this.padding.left - this.padding.right;
     const plotH = this.chartHeight - this.padding.top - this.padding.bottom;
-    const bottomY = this.chartHeight - this.padding.bottom;
 
     const nValues = this.samples().map(s => s.input_size);
     const nMax = Math.max(...nValues);

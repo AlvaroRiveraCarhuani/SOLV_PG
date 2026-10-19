@@ -9,7 +9,6 @@ import {
   AdminTemplateItem, 
   ReviewTemplateDTO, 
   CreateOfficialTemplateDTO,
-  TemplateCategory,
   TemplateCacheStatus
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
@@ -381,7 +380,7 @@ export class AdminTemplatesComponent implements OnInit {
         this.isLoading.set(false);
         this.loadCacheStatuses();
       },
-      error: (err) => {
+      error: () => {
         this.isLoading.set(false);
         this.showToast('Error al cargar las plantillas de entornos.', 'error');
       }
@@ -459,7 +458,7 @@ export class AdminTemplatesComponent implements OnInit {
     this.templateToPromote.set(null);
   }
 
-  handlePromoted(_event: { id: string; name: string }): void {
+  handlePromoted(): void {
     this.closePromoteModal();
     const msg = $localize`:@@ST-16:Plantilla promovida a modelo institucional.`;
     this.showToast(msg, 'success');

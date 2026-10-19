@@ -4,8 +4,7 @@ import {
   Output,
   EventEmitter,
   inject,
-  signal,
-  computed
+  signal
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -120,7 +119,7 @@ export class ScriptGeneratorComponent {
     this.errorMessage.set(null);
 
     this.teacherCourseService.generateCasesFromScript(targetId, code, false).subscribe({
-      next: (res) => {
+      next: () => {
         this.isImporting.set(false);
         if (preview.cases) {
           this.casesGenerated.emit(preview.cases);

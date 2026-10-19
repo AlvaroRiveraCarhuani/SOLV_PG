@@ -14,7 +14,7 @@ import {
   LucideSparkles,
   LucideLayers
 } from '@lucide/angular';
-import { StudentService, CourseCurricularMap, CurricularModuleMap, CurricularExercise } from '@core/services/student.service';
+import { StudentService, CourseCurricularMap, CurricularModuleMap } from '@core/services/student.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
 @Component({

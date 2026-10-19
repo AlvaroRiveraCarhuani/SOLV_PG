@@ -6,7 +6,6 @@ import { CourseColorService } from '@core/services/course-color.service';
 describe('DashboardCoursesWidgetComponent', () => {
   let component: DashboardCoursesWidgetComponent;
   let fixture: ComponentFixture<DashboardCoursesWidgetComponent>;
-  let colorService: CourseColorService;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -19,7 +18,6 @@ describe('DashboardCoursesWidgetComponent', () => {
 
     fixture = TestBed.createComponent(DashboardCoursesWidgetComponent);
     component = fixture.componentInstance;
-    colorService = TestBed.inject(CourseColorService);
     fixture.componentRef.setInput('courses', [
       { id: 'c1', name: 'Algoritmos y Estructuras', code: 'CS101', students_count: 30, active_now: 8, pending_review: 4, at_risk: 1 }
     ]);

@@ -2,7 +2,6 @@ import {
   Component,
   OnInit,
   AfterViewInit,
-  OnDestroy,
   inject,
   signal,
   computed,
@@ -70,7 +69,7 @@ export interface TocItem {
   templateUrl: './admin-manual.component.html',
   styleUrls: ['./admin-manual.component.scss']
 })
-export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
+export class AdminManualComponent implements OnInit, AfterViewInit {
   private http = inject(HttpClient);
   private sanitizer = inject(DomSanitizer);
   private elementRef = inject(ElementRef);
@@ -147,7 +146,8 @@ export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     effect(() => {
-      const _ = this.renderedContent();
+      // Read tracked by the effect so content changes re-run the rendering pass.
+      this.renderedContent();
       setTimeout(() => {
         this.renderMermaidDiagrams();
         this.attachHeadingAnchors();
@@ -162,10 +162,6 @@ export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     this.setupScrollSpy();
     this.renderMermaidDiagrams();
-  }
-
-  ngOnDestroy(): void {
-    // nothing to clean up
   }
 
   toggleToc(): void {
@@ -389,7 +385,7 @@ export class AdminManualComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     // Inline KaTeX $...$
-    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    processed = processed.replace(/\$([^$\n]+?)\$/g, (_, math) => {
       try {
         return katex.renderToString(math.trim(), { displayMode: false, throwOnError: false });
       } catch {
