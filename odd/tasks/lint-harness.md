@@ -14,6 +14,8 @@ S5: Ambos linters documentados en CONTRIBUTING.md como comando local obligatorio
 - T2 (S3, delegated frontend): ESLint 10.13 + typescript-eslint + angular-eslint 22.6 + frontend/eslint.config.mjs + npm run lint:ts — HECHO (parcial). 297→205 hallazgos (172 no-explicit-any, 24 no-output-native, 8 prefer-control-flow, 1 no-input-rename). tsc app+spec exit 0. Sin reglas desactivadas.
 - T3 (S4-S5, inline): wiring CI + docs — HECHO. ci.yml: pasos golangci-lint y lint:ts con continue-on-error (decisión usuario: no bloqueante temporal). CONTRIBUTING.md: comandos locales documentados. YAML validado.
 - Commits work-unit en feat/lint-harness: backend / frontend / CI+docs (ver git log).
+- RDD: assessment high_risk; review nativo intentado (feature completo y slice backend) → `lens_context_budget_exceeded` en ambos (sin autoridad creada). Decisión del usuario (2026-10-19): omitir review de este candidato, entrega bajo política ordinaria; reservar review nativo para el triage de seguridad del backlog.
+- Cierre: 3 commits work-unit en feat/lint-harness; riesgo = item 3 parcial (fixes de manejo de errores en handlers compartidos; verificado con go build/vet, golangci-lint, tsc app+spec; tests de integración corren en CI).
 - Próximo (fuera de este feature): triage del backlog — 59 gosec (prioridad: G124 cookies, G402 InsecureSkipVerify, G120 multipart), migración Docker SDK SA1019 (requiere go.mod), 172 any (activar strict en tsconfig incremental), 24 no-output-native + 8 prefer-control-flow (refactor de API de componentes).
 
 ## Log
