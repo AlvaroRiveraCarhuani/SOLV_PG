@@ -114,4 +114,5 @@ type StartEnvTestRequest struct {
 	TimeoutMS         int      `json:"timeout_ms,omitempty"`
 	SampleInput       string   `json:"sample_input,omitempty"`
 	BaseRamMB         int      `json:"base_ram_mb,omitempty"`
+	DockerfileContent string   `json:"dockerfile_content,omitempty"`
 }

@@ -32,11 +32,23 @@ type EnvTestService struct {
 	repo     domain.EnvTestJobRepository
 	registry domain.ImageRegistryPort
 	runner   domain.ContainerRunnerPort
+	builder  domain.ImageBuilderPort
 	config   EnvTestConfig
 
 	sem         chan struct{}
 	cancelMu    sync.Mutex
 	cancelFuncs map[string]context.CancelFunc
+}
+
+func (s *EnvTestService) SetImageBuilder(builder domain.ImageBuilderPort) {
+	s.builder = builder
+}
+
+func (s *EnvTestService) PruneOrphanStackImages(ctx context.Context, activeTags map[string]bool) ([]string, error) {
+	if s.builder == nil {
+		return nil, nil
+	}
+	return s.builder.PruneOrphanStackImages(ctx, activeTags)
 }
 
 // NewEnvTestService crea una nueva instancia del servicio de prueba de entorno
@@ -127,7 +139,7 @@ func (s *EnvTestService) StartJob(ctx context.Context, req domain.StartEnvTestRe
 	s.cancelMu.Unlock()
 
 	// Lanzar ejecución asíncrona
-	go s.executeJob(jobCtx, jobID, imageRef, cleanTools, targetEnv, strings.TrimSpace(req.Entrypoint), req.SampleInput, timeoutMS, req.BaseRamMB)
+	go s.executeJob(jobCtx, jobID, imageRef, strings.TrimSpace(req.DockerfileContent), cleanTools, targetEnv, strings.TrimSpace(req.Entrypoint), req.SampleInput, timeoutMS, req.BaseRamMB)
 
 	return job, nil
 }
@@ -188,7 +200,7 @@ func isNetworkOrDNSError(err error) bool {
 }
 
 // executeJob maneja el ciclo de vida, semáforo y lógica de degradación de la prueba
-func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string, tools []string, targetEnv, entrypoint, sampleInput string, timeoutMS int, baseRamMB int) {
+func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, dockerfileContent string, tools []string, targetEnv, entrypoint, sampleInput string, timeoutMS int, baseRamMB int) {
 	// Limpieza de función cancel al terminar
 	defer func() {
 		s.cancelMu.Lock()
@@ -221,84 +233,117 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef string,
 		return
 	}
 
-	// 1. Degradación de Digest en 3 niveles (DA-03)
+	// 1. Degradación de Digest en 3 niveles (DA-03) o Construcción Local Determinista si es una pila compuesta
 	isLocal, _, localDigest, err := s.registry.InspectLocal(ctx, imageRef)
 	if err != nil && ctx.Err() != nil {
 		_ = s.repo.Cancel(context.Background(), jobID)
 		return
 	}
 
-	job, _ := s.repo.GetByID(context.Background(), jobID)
-	if job != nil {
-		job.IsLocalImage = isLocal
-		_ = s.repo.Save(context.Background(), job)
-	}
-
-	remoteDigest, distErr := s.registry.InspectRemoteDigest(ctx, imageRef)
-
 	digestUnverified := false
-	needPull := false
-
-	if distErr != nil {
-		if isLocal {
-			// Nivel B: Fallo de red/registro pero existe imagen local -> proceder con advertencia en modo degradado
-			digestUnverified = true
-			needPull = false
-		} else {
-			// Nivel C: Fallo de red/registro y no está local -> Error terminal taxativo
-			if isNotFoundError(distErr) {
-				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNotFoundRemote, "Error 404: La imagen o el tag no existen en el registro remoto")
-			} else if isNetworkOrDNSError(distErr) {
-				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNetworkFailure, "Fallo de red o DNS: no es posible alcanzar el registro remoto y la imagen no está en disco")
-			} else {
-				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrRegistryUnreach, fmt.Sprintf("No es posible acceder al registro de imágenes para verificar el manifiesto: %v", distErr))
-			}
-			return
-		}
-	} else {
-		// Nivel A: Registro accesible
+	if domain.IsBuiltStackImageTag(imageRef) {
 		if !isLocal {
-			needPull = true
-		} else if localDigest != "" && remoteDigest != "" && localDigest != remoteDigest {
-			needPull = true
-		}
-	}
-
-	// 2. Descarga si es requerida
-	if needPull {
-		_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
-			CurrentAction: "Iniciando descarga de capas...",
-		})
-
-		pullErr := s.registry.PullImage(ctx, imageRef, func(doneBytes, totalBytes int64, currentLayer, totalLayers int, action string) {
-			var pct float64
-			if totalBytes > 0 {
-				pct = float64(doneBytes) / float64(totalBytes) * 100
-				if pct > 100 {
-					pct = 100
-				}
+			if s.builder == nil || dockerfileContent == "" {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrInternal, "No se pudo construir el entorno compuesto: definición de Dockerfile no disponible")
+				return
 			}
 			_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
-				BytesDone:     doneBytes,
-				BytesTotal:    totalBytes,
-				LayerCurrent:  currentLayer,
-				LayersTotal:   totalLayers,
-				Percent:       pct,
-				CurrentAction: action,
+				Percent:       25,
+				CurrentAction: "Integrando tecnologías seleccionadas en el servidor...",
 			})
-		})
+			buildErr := s.builder.BuildLocalStackImage(ctx, imageRef, dockerfileContent, func(action string) {
+				_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+					Percent:       50,
+					CurrentAction: action,
+				})
+			})
+			if buildErr != nil {
+				if errors.Is(buildErr, context.Canceled) {
+					_ = s.repo.Cancel(context.Background(), jobID)
+					return
+				}
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Fallo al construir las capas del entorno: %v", buildErr))
+				return
+			}
+			isLocal = true
+		}
+		job, _ := s.repo.GetByID(context.Background(), jobID)
+		if job != nil {
+			job.IsLocalImage = true
+			_ = s.repo.Save(context.Background(), job)
+		}
+	} else {
+		job, _ := s.repo.GetByID(context.Background(), jobID)
+		if job != nil {
+			job.IsLocalImage = isLocal
+			_ = s.repo.Save(context.Background(), job)
+		}
 
-		if pullErr != nil {
-			if errors.Is(pullErr, context.Canceled) {
-				_ = s.repo.Cancel(context.Background(), jobID)
+		remoteDigest, distErr := s.registry.InspectRemoteDigest(ctx, imageRef)
+
+		needPull := false
+
+		if distErr != nil {
+			if isLocal {
+				// Nivel B: Fallo de red/registro pero existe imagen local -> proceder con advertencia en modo degradado
+				digestUnverified = true
+				needPull = false
+			} else {
+				// Nivel C: Fallo de red/registro y no está local -> Error terminal taxativo
+				if isNotFoundError(distErr) {
+					_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNotFoundRemote, "Error 404: La imagen o el tag no existen en el registro remoto")
+				} else if isNetworkOrDNSError(distErr) {
+					_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrNetworkFailure, "Fallo de red o DNS: no es posible alcanzar el registro remoto y la imagen no está en disco")
+				} else {
+					_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrRegistryUnreach, fmt.Sprintf("No es posible acceder al registro de imágenes para verificar el manifiesto: %v", distErr))
+				}
 				return
 			}
-			if strings.Contains(pullErr.Error(), domain.EnvTestErrPullStalled) {
-				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrPullStalled, "Descarga detenida: sin actividad de red por más de 60 segundos")
+		} else {
+			// Nivel A: Registro accesible
+			if !isLocal {
+				needPull = true
+			} else if localDigest != "" && remoteDigest != "" && localDigest != remoteDigest {
+				needPull = true
+			}
+		}
+
+		// 2. Descarga si es requerida
+		if needPull {
+			_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+				CurrentAction: "Iniciando descarga de capas...",
+			})
+
+			pullErr := s.registry.PullImage(ctx, imageRef, func(doneBytes, totalBytes int64, currentLayer, totalLayers int, action string) {
+				var pct float64
+				if totalBytes > 0 {
+					pct = float64(doneBytes) / float64(totalBytes) * 100
+					if pct > 100 {
+						pct = 100
+					}
+				}
+				_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+					BytesDone:     doneBytes,
+					BytesTotal:    totalBytes,
+					LayerCurrent:  currentLayer,
+					LayersTotal:   totalLayers,
+					Percent:       pct,
+					CurrentAction: action,
+				})
+			})
+
+			if pullErr != nil {
+				if errors.Is(pullErr, context.Canceled) {
+					_ = s.repo.Cancel(context.Background(), jobID)
+					return
+				}
+				if strings.Contains(pullErr.Error(), domain.EnvTestErrPullStalled) {
+					_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrPullStalled, "Descarga detenida: sin actividad de red por más de 60 segundos")
+					return
+				}
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrPullTimeout, fmt.Sprintf("Error durante la descarga de la imagen: %v", pullErr))
 				return
 			}
-			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrPullTimeout, fmt.Sprintf("Error durante la descarga de la imagen: %v", pullErr))
-			return
 		}
 	}
 

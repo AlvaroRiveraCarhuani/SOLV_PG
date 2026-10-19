@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"archive/tar"
 	"bufio"
 	"bytes"
 	"context"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/client"
@@ -424,4 +426,74 @@ func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef s
 	}
 
 	return output, durationMs, exitCode, nil
+}
+
+// BuildLocalStackImage construye una imagen local inmutable a partir de un Dockerfile en memoria (ImageBuilderPort)
+func (a *EnvTestDockerAdapter) BuildLocalStackImage(ctx context.Context, tag string, dockerfileContent string, onProgress func(action string)) error {
+	var tarBuf bytes.Buffer
+	tw := tar.NewWriter(&tarBuf)
+	dfBytes := []byte(dockerfileContent)
+	hdr := &tar.Header{
+		Name: "Dockerfile",
+		Mode: 0600,
+		Size: int64(len(dfBytes)),
+	}
+	if err := tw.WriteHeader(hdr); err != nil {
+		return fmt.Errorf("error preparando contexto tar de Dockerfile: %w", err)
+	}
+	if _, err := tw.Write(dfBytes); err != nil {
+		return fmt.Errorf("error escribiendo Dockerfile en contexto tar: %w", err)
+	}
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("error cerrando contexto tar: %w", err)
+	}
+
+	resp, err := a.cli.ImageBuild(ctx, &tarBuf, types.ImageBuildOptions{
+		Tags:        []string{tag},
+		Dockerfile:  "Dockerfile",
+		Remove:      true,
+		ForceRemove: true,
+	})
+	if err != nil {
+		return fmt.Errorf("error iniciando construcción de imagen local %s: %w", tag, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	type buildStreamMsg struct {
+		Stream string `json:"stream"`
+		Error  string `json:"error"`
+	}
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		var msg buildStreamMsg
+		if err := json.Unmarshal(scanner.Bytes(), &msg); err == nil {
+			if msg.Error != "" {
+				return fmt.Errorf("error en capa de construcción: %s", strings.TrimSpace(msg.Error))
+			}
+			line := strings.TrimSpace(msg.Stream)
+			if strings.HasPrefix(line, "Step ") && onProgress != nil {
+				onProgress("Construyendo entorno: " + line)
+			}
+		}
+	}
+	return scanner.Err()
+}
+
+// PruneOrphanStackImages elimina del daemon local las imágenes solv-local/stack:* que no estén en activeTags
+func (a *EnvTestDockerAdapter) PruneOrphanStackImages(ctx context.Context, activeTags map[string]bool) ([]string, error) {
+	imgs, err := a.cli.ImageList(ctx, image.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+	var pruned []string
+	for _, img := range imgs {
+		for _, repoTag := range img.RepoTags {
+			if domain.IsBuiltStackImageTag(repoTag) && !activeTags[repoTag] {
+				if _, errRm := a.cli.ImageRemove(ctx, repoTag, image.RemoveOptions{Force: false, PruneChildren: true}); errRm == nil {
+					pruned = append(pruned, repoTag)
+				}
+			}
+		}
+	}
+	return pruned, nil
 }

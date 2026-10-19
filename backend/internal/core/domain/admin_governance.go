@@ -187,6 +187,24 @@ type CreateOfficialTemplateDTO struct {
 	ResourceProfile   *TemplateResourceProfile `json:"resource_profile,omitempty"`
 	SetupScript       string                   `json:"setup_script,omitempty"`
 	ToolsDeclared     []string                 `json:"tools_declared,omitempty"`
+	StackConfig       *StackConfig             `json:"stack_config,omitempty"`
+}
+
+// UpdateOfficialTemplateDTO DTO para actualizar una plantilla existente con versionado sin corte
+type UpdateOfficialTemplateDTO struct {
+	Name              string          `json:"name" validate:"required"`
+	DockerImage       string          `json:"docker_image" validate:"required"`
+	BaseRamMB         int             `json:"base_ram_mb" validate:"required,gt=0"`
+	Description       string          `json:"description"`
+	TargetEnvironment string          `json:"target_environment"`
+	CategoryID        *string         `json:"category_id,omitempty"`
+	Entrypoint        string          `json:"entrypoint,omitempty"`
+	TimeoutMS         int             `json:"timeout_ms,omitempty"`
+	SampleInput       string          `json:"sample_input,omitempty"`
+	ServicesConfig    *ServicesConfig `json:"services_config,omitempty"`
+	SetupScript       string          `json:"setup_script,omitempty"`
+	ToolsDeclared     []string        `json:"tools_declared,omitempty"`
+	StackConfig       *StackConfig    `json:"stack_config,omitempty"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)
@@ -214,6 +232,7 @@ type AdminTemplateReviewItem struct {
 	ResourceProfile     TemplateResourceProfile `db:"resource_profile" json:"resource_profile"`
 	SetupScript         string                  `db:"setup_script" json:"setup_script"`
 	ToolsDeclared       []string                `db:"-" json:"tools_declared"`
+	StackConfig         StackConfig             `db:"stack_config" json:"stack_config"`
 	SmokeTestStatus     string                  `db:"smoke_test_status" json:"smoke_test_status"`
 	SmokeTestOutput     string                  `db:"smoke_test_output" json:"smoke_test_output"`
 	SecurityAuditStatus string                  `db:"security_audit_status" json:"security_audit_status"`
@@ -272,8 +291,9 @@ type TemplateModelItemDTO struct {
 	TargetEnvironment string    `db:"target_environment" json:"target_environment"`
 	Entrypoint        string    `db:"entrypoint" json:"entrypoint"`
 	TimeoutMS         int       `db:"timeout_ms" json:"timeout_ms"`
-	SampleInput       string    `db:"sample_input" json:"sample_input"`
-	UsageCount        int       `db:"usage_count" json:"usage_count"`
+	SampleInput       string      `db:"sample_input" json:"sample_input"`
+	StackConfig       StackConfig `db:"stack_config" json:"stack_config"`
+	UsageCount        int         `db:"usage_count" json:"usage_count"`
 	IsActive          bool      `db:"is_active" json:"is_active"`
 	SortOrder         int       `db:"sort_order" json:"sort_order"`
 	CreatedAt         time.Time `db:"created_at" json:"created_at"`

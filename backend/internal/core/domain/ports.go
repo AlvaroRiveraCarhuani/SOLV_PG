@@ -197,6 +197,20 @@ type AdminGovernanceRepository interface {
 	GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error)
 }
 
+// PostgresVersionProbe permite consultar en vivo la versión mayor del motor PostgreSQL del nodo.
+type PostgresVersionProbe interface {
+	GetServerMajorVersion(ctx context.Context) (string, error)
+}
+
+type TemplateComponentRepository interface {
+	UpdateOfficialTemplate(ctx context.Context, tenantID, templateID, adminID string, dto UpdateOfficialTemplateDTO) (*AdminTemplateReviewItem, error)
+	ListTemplateComponents(ctx context.Context, tenantID, layer string, includeInactive bool) ([]*TemplateComponent, error)
+	GetTemplateComponentByIDOrSlug(ctx context.Context, tenantID, idOrSlug string) (*TemplateComponent, error)
+	CreateTemplateComponent(ctx context.Context, tenantID string, comp *TemplateComponent) (*TemplateComponent, error)
+	UpdateTemplateComponent(ctx context.Context, tenantID, id string, dto UpdateTemplateComponentDTO, synthesizedLayer string) (*TemplateComponent, error)
+	DeleteTemplateComponent(ctx context.Context, tenantID, id string) error
+}
+
 type SubmissionRepository interface {
 	Create(ctx context.Context, submission *Submission) error
 	GetByID(ctx context.Context, tenantID, id string) (*Submission, error)
@@ -278,6 +292,12 @@ type ImageRegistryPort interface {
 type ContainerRunnerPort interface {
 	RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) (results []ToolResult, exitCode int, err error)
 	RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (output string, durationMs int64, exitCode int, err error)
+}
+
+// ImageBuilderPort abstrae la construcción local determinista de imágenes compuestas y la poda de imágenes huérfanas.
+type ImageBuilderPort interface {
+	BuildLocalStackImage(ctx context.Context, tag string, dockerfileContent string, onProgress func(action string)) error
+	PruneOrphanStackImages(ctx context.Context, activeTags map[string]bool) ([]string, error)
 }
 
 // LanguageProfileRepository gestiona la persistencia de perfiles de lenguaje y su auditoría.

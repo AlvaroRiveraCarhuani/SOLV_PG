@@ -14,6 +14,11 @@ type mockAdminGovernanceRepo struct {
 	lastCreatedDTO      *domain.CreateOfficialTemplateDTO
 	lastReviewedStatus  string
 	lastRejectionReason string
+	serverMajorVersion  string
+}
+
+func (m *mockAdminGovernanceRepo) GetServerMajorVersion(ctx context.Context) (string, error) {
+	return m.serverMajorVersion, nil
 }
 
 func (m *mockAdminGovernanceRepo) ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*domain.AdminStudentDirectoryItem, error) {
@@ -430,7 +435,8 @@ func TestReviewTemplate_SuspendedSuccess(t *testing.T) {
 }
 
 func TestGetRuntimeCapabilities(t *testing.T) {
-	svc := services.NewAdminGovernanceService(nil, nil)
+	mockRepo := &mockAdminGovernanceRepo{serverMajorVersion: "18"}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
 
 	caps, err := svc.GetRuntimeCapabilities(context.Background())
 	if err != nil {
@@ -449,20 +455,39 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 		t.Error("debe reportar catálogo de servicios satélite")
 	}
 
+	foundSQLite := false
 	foundPostgres := false
 	for _, s := range caps.SatelliteServices {
-		if s.BaseRAMMB <= 0 {
-			t.Errorf("BaseRAMMB de %s debe ser mayor a 0, obtenido: %d", s.Engine, s.BaseRAMMB)
+		if s.BaseRAMMB < 0 {
+			t.Errorf("BaseRAMMB de %s no puede ser negativo, obtenido: %d", s.Engine, s.BaseRAMMB)
+		}
+		if s.Engine == "sqlite" {
+			foundSQLite = true
+			if !s.IsAvailable {
+				t.Error("SQLite debe estar disponible en las capacidades")
+			}
+			if s.BaseRAMMB != 0 {
+				t.Errorf("BaseRAMMB de sqlite debe ser 0 según ADR-045, obtenido: %d", s.BaseRAMMB)
+			}
 		}
 		if s.Engine == "postgres" && s.IsAvailable {
 			foundPostgres = true
 			if s.Description == "" {
 				t.Error("descripción de postgres no debe estar vacía")
 			}
-			if s.BaseRAMMB != 128 {
-				t.Errorf("BaseRAMMB de postgres debe ser 128, obtenido: %d", s.BaseRAMMB)
+			if s.BaseRAMMB != 50 {
+				t.Errorf("BaseRAMMB de postgres debe ser 50 según ADR-045, obtenido: %d", s.BaseRAMMB)
+			}
+			if s.Version != "18" {
+				t.Errorf("versión de postgres debe ser 18 (resuelta en vivo), obtenido: %s", s.Version)
 			}
 		}
+		if s.Engine == "mysql" && s.IsAvailable {
+			t.Error("MySQL no debe figurar disponible por defecto cuando MYSQL_SATELLITE_HOST no está configurado")
+		}
+	}
+	if !foundSQLite {
+		t.Error("SQLite debe estar presente en las capacidades")
 	}
 	if !foundPostgres {
 		t.Error("PostgreSQL debe estar disponible en las capacidades")
@@ -553,5 +578,48 @@ func TestReviewTemplate_RamExceedsHost(t *testing.T) {
 	}
 	if !errors.Is(err, domain.ErrRamExceedsHostCapacity) {
 		t.Fatalf("esperado ErrRamExceedsHostCapacity, obtenido: %v", err)
+	}
+}
+
+func TestCreateOfficialTemplate_RamBelowVitalFloor(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	// 1. IDE_PERSISTENTE por debajo de 210 MB (OpenVSCode Server) -> error
+	dtoIDE := domain.CreateOfficialTemplateDTO{
+		Name:              "IDE Bajo Piso Vital",
+		DockerImage:       "python:3.12-slim",
+		BaseRamMB:         128,
+		TargetEnvironment: "IDE_PERSISTENTE",
+	}
+	if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoIDE); !errors.Is(err, services.ErrRamBelowVitalFloor) {
+		t.Fatalf("esperado ErrRamBelowVitalFloor para IDE con 128 MB, obtenido: %v", err)
+	}
+
+	// 2. IDE_PERSISTENTE con PostgreSQL (210 + 50 = 260 MB) usando 240 MB -> error
+	dtoIDEPg := domain.CreateOfficialTemplateDTO{
+		Name:              "IDE Postgres Bajo Piso Vital",
+		DockerImage:       "python:3.12-slim",
+		BaseRamMB:         240,
+		TargetEnvironment: "IDE_PERSISTENTE",
+		ServicesConfig: &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{
+				{Category: "database", Engine: "postgres"},
+			},
+		},
+	}
+	if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoIDEPg); !errors.Is(err, services.ErrRamBelowVitalFloor) {
+		t.Fatalf("esperado ErrRamBelowVitalFloor para IDE + Postgres con 240 MB (piso 260 MB), obtenido: %v", err)
+	}
+
+	// 3. JUEZ_EFIMERO por debajo de 64 MB -> error
+	dtoJudge := domain.CreateOfficialTemplateDTO{
+		Name:              "Juez Bajo Piso Vital",
+		DockerImage:       "gcc:13.2-bookworm",
+		BaseRamMB:         32,
+		TargetEnvironment: "JUEZ_EFIMERO",
+	}
+	if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoJudge); !errors.Is(err, services.ErrRamBelowVitalFloor) {
+		t.Fatalf("esperado ErrRamBelowVitalFloor para Juez con 32 MB (piso 64 MB), obtenido: %v", err)
 	}
 }

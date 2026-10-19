@@ -409,6 +409,7 @@ type adminTemplateRow struct {
 	ResourceProfile     []byte     `db:"resource_profile"`
 	SetupScript         string     `db:"setup_script"`
 	ToolsDeclared       []byte     `db:"tools_declared"`
+	StackConfig         []byte     `db:"stack_config"`
 	SmokeTestStatus     string     `db:"smoke_test_status"`
 	SmokeTestOutput     string     `db:"smoke_test_output"`
 	SecurityAuditStatus string     `db:"security_audit_status"`
@@ -466,6 +467,9 @@ func (row *adminTemplateRow) toDomain() *domain.AdminTemplateReviewItem {
 	if len(row.ToolsDeclared) > 0 {
 		_ = json.Unmarshal(row.ToolsDeclared, &item.ToolsDeclared)
 	}
+	if len(row.StackConfig) > 0 {
+		_ = json.Unmarshal(row.StackConfig, &item.StackConfig)
+	}
 	return item
 }
 
@@ -498,6 +502,7 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 			COALESCE(lt.resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(lt.setup_script, '') AS setup_script,
 			COALESCE(lt.tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(lt.stack_config, '{}'::jsonb) AS stack_config,
 			COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
 			COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
 			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
@@ -592,6 +597,7 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(setup_script, '') AS setup_script,
 			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(stack_config, '{}'::jsonb) AS stack_config,
 			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
 			COALESCE(smoke_test_output, '') AS smoke_test_output,
 			COALESCE(security_audit_status, 'pending') AS security_audit_status,
@@ -637,6 +643,7 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 		&row.ResourceProfile,
 		&row.SetupScript,
 		&row.ToolsDeclared,
+		&row.StackConfig,
 		&row.SmokeTestStatus,
 		&row.SmokeTestOutput,
 		&row.SecurityAuditStatus,
@@ -677,6 +684,12 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 	if err != nil || len(dto.ToolsDeclared) == 0 {
 		toolsDeclaredJSON = []byte(`[]`)
 	}
+	stackConfigJSON := []byte(`{}`)
+	if dto.StackConfig != nil {
+		if b, errM := json.Marshal(dto.StackConfig); errM == nil {
+			stackConfigJSON = b
+		}
+	}
 
 	targetEnv := dto.TargetEnvironment
 	if targetEnv == "" {
@@ -692,14 +705,14 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
 			target_environment, entrypoint, timeout_ms, sample_input, category_id, model_id,
 			services_config, resource_profile, setup_script,
-			tools_declared, smoke_test_status, smoke_test_output, security_audit_status,
+			tools_declared, stack_config, smoke_test_status, smoke_test_output, security_audit_status,
 			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message, reviewed_by, reviewed_at
 		) VALUES (
 			gen_random_uuid(), $1, $2, $3, $4, 'PENDIENTE_AUDITORIA', $5,
 			$6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
 			$12, $13, $14,
-			$15, 'pending', '', 'pending',
-			0, 0, 'supported', '', '', NULLIF($16, '')::uuid, NOW()
+			$15, $16, 'pending', '', 'pending',
+			0, 0, 'supported', '', '', NULLIF($17, '')::uuid, NOW()
 		)
 		ON CONFLICT (tenant_id, name) DO NOTHING
 		RETURNING 
@@ -724,6 +737,7 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(setup_script, '') AS setup_script,
 			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(stack_config, '{}'::jsonb) AS stack_config,
 			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
 			COALESCE(smoke_test_output, '') AS smoke_test_output,
 			COALESCE(security_audit_status, 'pending') AS security_audit_status,
@@ -756,6 +770,7 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		resourceProfileJSON,
 		dto.SetupScript,
 		toolsDeclaredJSON,
+		stackConfigJSON,
 		adminID,
 	).Scan(
 		&row.ID,
@@ -779,6 +794,7 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		&row.ResourceProfile,
 		&row.SetupScript,
 		&row.ToolsDeclared,
+		&row.StackConfig,
 		&row.SmokeTestStatus,
 		&row.SmokeTestOutput,
 		&row.SecurityAuditStatus,
@@ -826,6 +842,7 @@ func (r *PostgresAdminGovernanceRepository) ListPendingAuditTemplates(ctx contex
 			COALESCE(lt.resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(lt.setup_script, '') AS setup_script,
 			COALESCE(lt.tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(lt.stack_config, '{}'::jsonb) AS stack_config,
 			COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
 			COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
 			COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
@@ -868,7 +885,8 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		       COALESCE(services_config, '{"services": []}'::jsonb) AS services_config,
 		       COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 		       COALESCE(setup_script, '') AS setup_script,
-		       COALESCE(tools_declared, '[]'::jsonb) AS tools_declared
+		       COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+		       COALESCE(stack_config, '{}'::jsonb) AS stack_config
 		FROM lab_templates
 		WHERE id = $1 AND (tenant_id = $2 OR tenant_id IS NULL)
 	`
@@ -876,12 +894,12 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		origName, dockerImg, desc, targetEnv, entrypoint, sampleInput, setupScript string
 		baseRam, timeoutMS                                                         int
 		catID, modelID                                                             *string
-		servicesJSON, profileJSON, toolsJSON                                       []byte
+		servicesJSON, profileJSON, toolsJSON, stackJSON                            []byte
 	)
 	err := r.db.QueryRowContext(ctx, origQuery, templateID, tenantID).Scan(
 		&origName, &dockerImg, &baseRam, &desc, &targetEnv, &entrypoint, &timeoutMS,
 		&sampleInput, &catID, &modelID,
-		&servicesJSON, &profileJSON, &setupScript, &toolsJSON,
+		&servicesJSON, &profileJSON, &setupScript, &toolsJSON, &stackJSON,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -948,16 +966,16 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 			id, tenant_id, name, docker_image, base_ram_mb, status, description, 
 			target_environment, entrypoint, timeout_ms, sample_input, category_id, model_id,
 			services_config, resource_profile, setup_script,
-			tools_declared, smoke_test_status, smoke_test_output, security_audit_status,
+			tools_declared, stack_config, smoke_test_status, smoke_test_output, security_audit_status,
 			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message,
 			reviewed_by, reviewed_at
 		) VALUES (
 			gen_random_uuid(), $1, $2, $3, $4, 'PENDIENTE_AUDITORIA', $5,
 			$6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
 			$12, $13, $14,
-			$15, 'pending', '', 'pending',
+			$15, $16, 'pending', '', 'pending',
 			0, 0, 'supported', '', '',
-			NULLIF($16, '')::uuid, NOW()
+			NULLIF($17, '')::uuid, NOW()
 		)
 		RETURNING 
 			id, tenant_id, name, docker_image, base_ram_mb, status, rejection_reason,
@@ -972,6 +990,7 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 			COALESCE(resource_profile, '{"min_mb": 256, "high_mb": 768, "max_mb": 1024}'::jsonb) AS resource_profile,
 			COALESCE(setup_script, '') AS setup_script,
 			COALESCE(tools_declared, '[]'::jsonb) AS tools_declared,
+			COALESCE(stack_config, '{}'::jsonb) AS stack_config,
 			COALESCE(smoke_test_status, 'pending') AS smoke_test_status,
 			COALESCE(smoke_test_output, '') AS smoke_test_output,
 			COALESCE(security_audit_status, 'pending') AS security_audit_status,
@@ -997,14 +1016,14 @@ func (r *PostgresAdminGovernanceRepository) DuplicateTemplate(
 		ctx, insertQuery,
 		tenantID, candidateName, dockerImg, baseRam, desc,
 		targetEnv, entrypoint, timeoutMS, sampleInput, catParam, modParam,
-		servicesJSON, profileJSON, setupScript, toolsJSON,
+		servicesJSON, profileJSON, setupScript, toolsJSON, stackJSON,
 		adminID,
 	).Scan(
 		&row.ID, &row.TenantID, &row.Name, &row.DockerImage, &row.BaseRamMB, &row.Status, &row.RejectionReason,
 		&row.ReviewedBy, &row.ReviewedAt, &row.RequestedBy,
 		&row.Description, &row.TargetEnvironment, &row.Entrypoint, &row.TimeoutMS, &row.SampleInput,
 		&row.CategoryID, &row.ModelID,
-		&row.ServicesConfig, &row.ResourceProfile, &row.SetupScript, &row.ToolsDeclared,
+		&row.ServicesConfig, &row.ResourceProfile, &row.SetupScript, &row.ToolsDeclared, &row.StackConfig,
 		&row.SmokeTestStatus, &row.SmokeTestOutput, &row.SecurityAuditStatus,
 		&row.CVECriticalCount, &row.CVEHighCount,
 		&row.EOLStatus, &row.EOLDate, &row.EOLMessage,
@@ -1593,6 +1612,7 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateByID(ctx context.Context,
 		       COALESCE(lt.services_config, '{"services":[]}'::jsonb) AS services_config,
 		       COALESCE(lt.resource_profile, '{"min_mb":256,"high_mb":768,"max_mb":1024}'::jsonb) AS resource_profile,
 		       COALESCE(lt.setup_script, '') AS setup_script,
+		       COALESCE(lt.stack_config, '{}'::jsonb) AS stack_config,
 		       COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
 		       COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
 		       COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
@@ -1638,6 +1658,7 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 		       COALESCE(lt.services_config, '{"services":[]}'::jsonb) AS services_config,
 		       COALESCE(lt.resource_profile, '{"min_mb":256,"high_mb":768,"max_mb":1024}'::jsonb) AS resource_profile,
 		       COALESCE(lt.setup_script, '') AS setup_script,
+		       COALESCE(lt.stack_config, '{}'::jsonb) AS stack_config,
 		       COALESCE(lt.smoke_test_status, 'pending') AS smoke_test_status,
 		       COALESCE(lt.smoke_test_output, '') AS smoke_test_output,
 		       COALESCE(lt.security_audit_status, 'pending') AS security_audit_status,
@@ -1706,4 +1727,23 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 		}
 	}
 	return &t, nil
+}
+
+// GetServerMajorVersion consulta SHOW server_version en el motor PostgreSQL activo y extrae la versión mayor.
+func (r *PostgresAdminGovernanceRepository) GetServerMajorVersion(ctx context.Context) (string, error) {
+	if r == nil || r.db == nil {
+		return "", errors.New("conexión a base de datos no inicializada")
+	}
+	var rawVersion string
+	if err := r.db.QueryRowContext(ctx, `SHOW server_version;`).Scan(&rawVersion); err != nil {
+		return "", fmt.Errorf("error consultando versión de PostgreSQL: %w", err)
+	}
+	rawVersion = strings.TrimSpace(rawVersion)
+	if rawVersion == "" {
+		return "", nil
+	}
+	fields := strings.Fields(rawVersion)
+	versionToken := fields[0]
+	major := strings.Split(versionToken, ".")[0]
+	return strings.TrimSpace(major), nil
 }

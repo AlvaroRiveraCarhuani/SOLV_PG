@@ -217,6 +217,7 @@ func main() {
 		TotalJobTimeout:   15 * time.Minute,
 		MemoryLimitMB:     256,
 	})
+	envTestService.SetImageBuilder(envTestAdapter)
 	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService)
 
 	// Juez de ejercicios: perfiles de lenguaje versionados y auditoría

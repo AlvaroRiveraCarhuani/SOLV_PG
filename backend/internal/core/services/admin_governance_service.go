@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -213,7 +214,29 @@ var (
 	dockerImageRegex      = regexp.MustCompile(`^[a-z0-9]+(?:[._-][a-z0-9]+)*(?:/[a-z0-9]+(?:[._-][a-z0-9]+)*)*:[a-zA-Z0-9_.-]+$`)
 	ErrInvalidDockerImage = errors.New("la imagen Docker debe tener formato válido repositorio:tag sin espacios (ej: python:3.12-slim)")
 	ErrLatestTagForbidden = errors.New("el tag :latest está prohibido en plantillas oficiales por reproducibilidad")
+	ErrRamBelowVitalFloor = errors.New("la memoria asignada es inferior al piso vital requerido por el entorno")
 )
+
+func calculateMinimumVitalFloorMB(targetEnvironment string, servicesCfg *domain.ServicesConfig) int {
+	env := strings.TrimSpace(targetEnvironment)
+	if env == "JUEZ_EFIMERO" || env == "JUEZ_VIRTUAL" {
+		return 64
+	}
+	floorMB := 210
+	if servicesCfg != nil {
+		for _, svc := range servicesCfg.Services {
+			switch strings.ToLower(strings.TrimSpace(svc.Engine)) {
+			case "postgres":
+				floorMB += 50
+			case "mysql", "mongodb":
+				floorMB += 128
+			case "redis":
+				floorMB += 64
+			}
+		}
+	}
+	return floorMB
+}
 
 func (s *AdminGovernanceService) CreateOfficialTemplate(
 	ctx context.Context,
@@ -247,22 +270,25 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		dto.TargetEnvironment = "IDE_PERSISTENTE"
 	}
 
+	if dto.ServicesConfig == nil {
+		dto.ServicesConfig = &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{},
+		}
+	}
+
 	if dto.BaseRamMB <= 0 {
 		dto.BaseRamMB = 512
-	} else if dto.BaseRamMB < 256 {
-		dto.BaseRamMB = 256
+	} else {
+		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment, dto.ServicesConfig)
+		if dto.BaseRamMB < minFloorMB {
+			return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, dto.BaseRamMB, minFloorMB)
+		}
 	}
 
 	totalHostMB := s.getHostTotalRAM(ctx)
 	maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
 	if err := domain.ValidateRamAgainstHost(dto.BaseRamMB, maxAllowedRAM); err != nil {
 		return nil, err
-	}
-
-	if dto.ServicesConfig == nil {
-		dto.ServicesConfig = &domain.ServicesConfig{
-			Services: []domain.ServiceRequirement{},
-		}
 	}
 
 	// Derivación obligatoria del perfil cgroups v2: min = base/2, high = base*1.5, max = base*2
@@ -536,7 +562,19 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 		maxAllowedRAM = 512
 	}
 
-	// 3. Catálogo real de servicios satélite soportados en la plataforma
+	// 3. Catálogo real de servicios satélite soportados en la plataforma (ADR-045)
+	pgVersion := strings.TrimSpace(os.Getenv("POSTGRES_VERSION"))
+	if s.govRepo != nil {
+		if probe, ok := s.govRepo.(domain.PostgresVersionProbe); ok {
+			if liveVer, err := probe.GetServerMajorVersion(ctx); err == nil && strings.TrimSpace(liveVer) != "" {
+				pgVersion = strings.TrimSpace(liveVer)
+			}
+		}
+	}
+	if pgVersion == "" {
+		pgVersion = "18"
+	}
+
 	satellites := []domain.SatelliteServiceCapability{
 		{
 			Category:    "database",
@@ -552,7 +590,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Category:    "database",
 			Engine:      "postgres",
 			Label:       "PostgreSQL (Aula)",
-			Version:     "16",
+			Version:     pgVersion,
 			Description: "Perfil sintonizado para laboratorio (~50 MB RAM) con corte de consultas largas (5s), transaccionalidad completa y aislamiento por estudiante.",
 			EnvVar:      "DATABASE_URL",
 			IsAvailable: true,
@@ -565,7 +603,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Version:     "8.4",
 			Description: "Base de datos relacional MySQL para ejercicios de SQL",
 			EnvVar:      "DATABASE_URL",
-			IsAvailable: true,
+			IsAvailable: strings.TrimSpace(os.Getenv("MYSQL_SATELLITE_HOST")) != "",
 			BaseRAMMB:   128,
 		},
 		{
@@ -575,7 +613,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Version:     "7.0",
 			Description: "Base de datos de documentos NoSQL para proyectos web",
 			EnvVar:      "MONGODB_URI",
-			IsAvailable: false,
+			IsAvailable: strings.TrimSpace(os.Getenv("MONGODB_SATELLITE_HOST")) != "",
 			BaseRAMMB:   128,
 		},
 		{
@@ -585,7 +623,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Version:     "7.2",
 			Description: "Almacén en memoria y caché clave-valor",
 			EnvVar:      "REDIS_URL",
-			IsAvailable: false,
+			IsAvailable: strings.TrimSpace(os.Getenv("REDIS_SATELLITE_HOST")) != "",
 			BaseRAMMB:   64,
 		},
 	}
@@ -763,3 +801,147 @@ func (s *AdminGovernanceService) DeleteTemplateDraft(ctx context.Context, tenant
 func (s *AdminGovernanceService) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
 	return s.govRepo.GetImageUsageCounts(ctx, tenantID)
 }
+
+func (s *AdminGovernanceService) componentRepo() (domain.TemplateComponentRepository, error) {
+	if repo, ok := s.govRepo.(domain.TemplateComponentRepository); ok {
+		return repo, nil
+	}
+	return nil, errors.New("el repositorio actual no soporta gestión de componentes tecnológicos")
+}
+
+func (s *AdminGovernanceService) ListTemplateComponents(ctx context.Context, tenantID, layer string, includeInactive bool) ([]*domain.TemplateComponent, error) {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return nil, err
+	}
+	return repo.ListTemplateComponents(ctx, tenantID, layer, includeInactive)
+}
+
+func (s *AdminGovernanceService) CreateTemplateComponent(ctx context.Context, tenantID, adminID string, dto domain.CreateTemplateComponentDTO) (*domain.TemplateComponent, error) {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(dto.Name)
+	if len(name) < 2 {
+		return nil, errors.New("el nombre del componente tecnológico debe tener al menos 2 caracteres")
+	}
+	if dto.Layer != domain.ComponentLayerRuntime && dto.Layer != domain.ComponentLayerAddon && dto.Layer != domain.ComponentLayerDatabase {
+		return nil, errors.New("capa de componente inválida: debe ser runtime, addon o database")
+	}
+	if dto.Layer == domain.ComponentLayerRuntime && strings.TrimSpace(dto.BaseImage) == "" {
+		return nil, errors.New("la imagen base es obligatoria para componentes de tipo runtime")
+	}
+	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(dto.BaseImage)), ":latest") {
+		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
+	}
+
+	synthesizedLayer, errSynth := domain.SynthesizeAssistedBuildLayer(dto.InstallMode, dto.PackageNames, dto.BuildLayerSnippet)
+	if errSynth != nil {
+		return nil, errSynth
+	}
+
+	comp := &domain.TemplateComponent{
+		TenantID:           tenantID,
+		Slug:               strings.TrimSpace(dto.Slug),
+		Layer:              dto.Layer,
+		SubCategory:        strings.TrimSpace(dto.SubCategory),
+		Name:               name,
+		Description:        strings.TrimSpace(dto.Description),
+		IconKey:            strings.TrimSpace(dto.IconKey),
+		BaseImage:          strings.TrimSpace(dto.BaseImage),
+		CompatibleRuntimes: dto.CompatibleRuntimes,
+		InstallMode:        dto.InstallMode,
+		PackageNames:       dto.PackageNames,
+		BuildLayerSnippet:  synthesizedLayer,
+		SetupSnippet:       strings.TrimSpace(dto.SetupSnippet),
+		JudgeEntrypoint:    strings.TrimSpace(dto.JudgeEntrypoint),
+		ToolsProvided:      dto.ToolsProvided,
+		ServiceEngine:      strings.TrimSpace(dto.ServiceEngine),
+		RamDeltaMB:         dto.RamDeltaMB,
+		SortOrder:          dto.SortOrder,
+	}
+
+	created, err := repo.CreateTemplateComponent(ctx, tenantID, comp)
+	if err != nil {
+		return nil, err
+	}
+	if s.auditRepo != nil && adminID != "" {
+		_ = s.auditRepo.Create(ctx, &domain.AuditLog{
+			TenantID:     tenantID,
+			ActorID:      adminID,
+			Action:       "TEMPLATE_COMPONENT_CREATED",
+			ResourceType: "template_component",
+			ResourceID:   &created.ID,
+			StatusCode:   201,
+		})
+	}
+	return created, nil
+}
+
+func (s *AdminGovernanceService) UpdateTemplateComponent(ctx context.Context, tenantID, componentID, adminID string, dto domain.UpdateTemplateComponentDTO) (*domain.TemplateComponent, error) {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return nil, err
+	}
+	var synthesized string
+	if strings.TrimSpace(dto.InstallMode) != "" {
+		mode := domain.InstallMode(strings.TrimSpace(dto.InstallMode))
+		if mode != domain.InstallModeNone {
+			sLayer, errSynth := domain.SynthesizeAssistedBuildLayer(mode, dto.PackageNames, dto.BuildLayerSnippet)
+			if errSynth != nil {
+				return nil, errSynth
+			}
+			synthesized = sLayer
+		}
+	}
+	return repo.UpdateTemplateComponent(ctx, tenantID, componentID, dto, synthesized)
+}
+
+func (s *AdminGovernanceService) DeleteTemplateComponent(ctx context.Context, tenantID, componentID string) error {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return err
+	}
+	return repo.DeleteTemplateComponent(ctx, tenantID, componentID)
+}
+
+func (s *AdminGovernanceService) ComposeTemplatePreview(
+	ctx context.Context,
+	tenantID, targetEnvironment string,
+	cfg domain.StackConfig,
+) (*domain.ComposedTemplatePlan, error) {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return nil, err
+	}
+	composer := NewTemplateComposerServiceFromRepo(repo)
+	return composer.Compose(ctx, tenantID, targetEnvironment, cfg)
+}
+
+func (s *AdminGovernanceService) UpdateOfficialTemplate(
+	ctx context.Context,
+	tenantID, templateID, adminID string,
+	dto domain.UpdateOfficialTemplateDTO,
+) (*domain.AdminTemplateReviewItem, error) {
+	repo, err := s.componentRepo()
+	if err != nil {
+		return nil, err
+	}
+	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(dto.DockerImage)), ":latest") {
+		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
+	}
+	if dto.BaseRamMB > 0 {
+		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment, dto.ServicesConfig)
+		if dto.BaseRamMB < minFloorMB {
+			return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, dto.BaseRamMB, minFloorMB)
+		}
+		totalHostMB := s.getHostTotalRAM(ctx)
+		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
+		if err := domain.ValidateRamAgainstHost(dto.BaseRamMB, maxAllowedRAM); err != nil {
+			return nil, err
+		}
+	}
+	return repo.UpdateOfficialTemplate(ctx, tenantID, templateID, adminID, dto)
+}
+
