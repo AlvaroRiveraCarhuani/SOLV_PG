@@ -458,7 +458,7 @@ export class AdminTemplatesComponent implements OnInit {
     this.templateToPromote.set(null);
   }
 
-  handlePromoted(): void {
+  handlePromoted(_event: { id: string; name: string }): void {
     this.closePromoteModal();
     const msg = $localize`:@@ST-16:Plantilla promovida a modelo institucional.`;
     this.showToast(msg, 'success');

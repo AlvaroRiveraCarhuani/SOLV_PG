@@ -265,7 +265,7 @@ export class TeacherCourseDetailComponent implements OnInit {
     this.router.navigate(['/teacher/courses', courseId, 'exercises', lab.id, 'preview']);
   }
 
-  onFuzzCasesApplied(): void {
+  onFuzzCasesApplied(_count: number): void {
     const id = this.subjectId();
     if (id) {
       this.courseService.getCourseLabs(id).subscribe();
@@ -387,7 +387,7 @@ export class TeacherCourseDetailComponent implements OnInit {
     this.showImportModal.set(false);
   }
 
-  onExercisesImported(): void {
+  onExercisesImported(_count: number): void {
     this.loadData();
   }
 }

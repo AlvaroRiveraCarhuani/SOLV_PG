@@ -299,19 +299,19 @@ export class ModelLibraryComponent implements OnInit {
     this.router.navigate(['/admin/plantillas'], { queryParams: { nueva: '1' } });
   }
 
-  handleModelPromoted(): void {
+  handleModelPromoted(_event: { id: string; name: string }): void {
     this.closeNewModelModal();
     this.showToast('Plantilla promovida a modelo oficial exitosamente.', 'success');
     this.loadData();
   }
 
-  handleModelSaved(): void {
+  handleModelSaved(_event: { id: string; title: string }): void {
     this.closeModelModal();
     this.showToast('Modelo actualizado exitosamente.', 'success');
     this.loadData();
   }
 
-  handleCategorySaved(): void {
+  handleCategorySaved(_event: { id: string; name: string }): void {
     const isEdit = !!this.editingCategory();
     this.closeCategoryModal();
     this.showToast(isEdit ? 'Categoría actualizada.' : 'Categoría creada exitosamente.', 'success');
@@ -533,7 +533,7 @@ export class ModelLibraryComponent implements OnInit {
     this.draggedCategoryIndex = index;
   }
 
-  onDragOver(event: DragEvent): void {
+  onDragOver(event: DragEvent, _index: number): void {
     event.preventDefault();
   }
 

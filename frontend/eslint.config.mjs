@@ -26,7 +26,19 @@ export default tseslint.config(
       ...angular.configs.tsRecommended,
     ],
     processor: angular.processInlineTemplates,
-    rules: {},
+    rules: {
+      // Params intentionally unused by the body but bound positionally from
+      // templates keep the leading-underscore convention (Angular template
+      // bindings are positional, so renaming is safe and lint-clean).
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+    },
   },
   {
     files: ['**/*.html'],
