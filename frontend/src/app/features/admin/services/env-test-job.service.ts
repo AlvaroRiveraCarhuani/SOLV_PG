@@ -54,6 +54,8 @@ export interface StartEnvTestRequest {
   entrypoint?: string;
   timeout_ms?: number;
   sample_input?: string;
+  base_ram_mb?: number;
+  dockerfile_content?: string;
 }
 
 interface ApiResponse<T> {

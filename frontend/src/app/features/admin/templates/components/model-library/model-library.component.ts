@@ -11,7 +11,9 @@ import {
   UpdateTemplateModelDTO,
   CreateCategoryDTO,
   UpdateCategoryDTO,
-  ReorderCategoryItem
+  ReorderCategoryItem,
+  TemplateComponent,
+  ComponentLayer
 } from '../../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '../../../../../shared/components/search-bar/search-bar.component';
@@ -21,6 +23,8 @@ import { ModelNewModalComponent } from './components/model-new-modal/model-new-m
 import { ModelEditModalComponent } from './components/model-edit-modal/model-edit-modal.component';
 import { CategoryFormModalComponent } from './components/category-form-modal/category-form-modal.component';
 import { CategoryDeleteModalComponent } from './components/category-delete-modal/category-delete-modal.component';
+import { ComponentFormModalComponent } from './components/component-form-modal/component-form-modal.component';
+import { TechLogoComponent } from '../tech-logo/tech-logo.component';
 import {
   LucideBoxes,
   LucideTag,
@@ -55,6 +59,8 @@ import {
     ModelEditModalComponent,
     CategoryFormModalComponent,
     CategoryDeleteModalComponent,
+    ComponentFormModalComponent,
+    TechLogoComponent,
     LucideBoxes,
     LucideTag,
     LucidePlus,
@@ -78,13 +84,16 @@ export class ModelLibraryComponent implements OnInit {
   private readonly router = inject(Router);
 
   // Tabs y Vista
-  readonly activeTab = signal<'models' | 'categories'>('models');
+  readonly activeTab = signal<'models' | 'components' | 'categories'>('models');
   readonly viewMode = signal<'cards' | 'table'>('table');
   readonly isLoading = signal<boolean>(false);
 
   // Data
   readonly models = signal<TemplateModelItem[]>([]);
   readonly categories = signal<TemplateCategory[]>([]);
+  readonly techComponents = signal<TemplateComponent[]>([]);
+  readonly showComponentModal = signal<boolean>(false);
+  readonly defaultComponentLayer = signal<ComponentLayer>('addon');
 
   // KPIs
   readonly totalModelsCount = computed(() => this.models().length);
@@ -92,6 +101,7 @@ export class ModelLibraryComponent implements OnInit {
   readonly ideModelsCount = computed(() => this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE').length);
   readonly judgeModelsCount = computed(() => this.models().filter(m => m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO').length);
   readonly categoriesCount = computed(() => this.categories().length);
+  readonly techComponentsCount = computed(() => this.techComponents().length);
 
   // Filtros Modelos
   readonly searchQuery = signal<string>('');
@@ -188,7 +198,7 @@ export class ModelLibraryComponent implements OnInit {
   // Feedback Toast
   readonly toastMessage = signal<string | null>(null);
   readonly toastType = signal<'success' | 'error'>('success');
-  private toastTimer: any = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Drag and drop state
   draggedCategoryIndex: number | null = null;
@@ -261,11 +271,59 @@ export class ModelLibraryComponent implements OnInit {
     this.templatesService.getCategories().subscribe({
       next: (cats) => {
         this.categories.set(cats);
-        this.isLoading.set(false);
+        this.loadTechComponents();
       },
       error: (err) => {
         this.isLoading.set(false);
         this.showToast('Error al cargar categorías: ' + (err.message || 'Error de conexión'), 'error');
+      }
+    });
+  }
+
+  loadTechComponents(): void {
+    if (typeof this.templatesService.getTechCatalog !== 'function') {
+      this.isLoading.set(false);
+      return;
+    }
+    this.templatesService.getTechCatalog(undefined, true).subscribe({
+      next: (items) => {
+        this.techComponents.set(items);
+        this.isLoading.set(false);
+      },
+      error: () => {
+        this.isLoading.set(false);
+      }
+    });
+  }
+
+  openNewComponentModal(layer: ComponentLayer = 'addon'): void {
+    this.defaultComponentLayer.set(layer);
+    this.showComponentModal.set(true);
+  }
+
+  closeComponentModal(): void {
+    this.showComponentModal.set(false);
+  }
+
+  handleComponentSaved(created: TemplateComponent): void {
+    this.showComponentModal.set(false);
+    this.showToast(`Tecnología "${created.name}" registrada en el catálogo de tecnologías.`, 'success');
+    this.loadTechComponents();
+  }
+
+  deleteTechComponent(item: TemplateComponent): void {
+    if (item.is_system) {
+      this.showToast('Las tecnologías base del sistema no se pueden eliminar.', 'error');
+      return;
+    }
+    this.templatesService.deleteTechCatalogItem(item.id).subscribe({
+      next: () => {
+        this.showToast(`Tecnología "${item.name}" eliminada.`, 'success');
+        this.loadTechComponents();
+      },
+      error: (err) => {
+        const msg = err.error?.error?.message || 'Error al eliminar tecnología';
+        this.showToast(msg, 'error');
       }
     });
   }
@@ -296,7 +354,7 @@ export class ModelLibraryComponent implements OnInit {
 
   navigateToTemplatesWizard(): void {
     this.closeNewModelModal();
-    this.router.navigate(['/admin/plantillas'], { queryParams: { nueva: '1' } });
+    this.router.navigate(['/admin/plantillas/nueva']);
   }
 
   handleModelPromoted(_event: { id: string; name: string }): void {

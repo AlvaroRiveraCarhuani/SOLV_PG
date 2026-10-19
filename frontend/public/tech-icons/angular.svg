@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="ng-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E40035"/>
+      <stop offset="50%" stop-color="#F60A48"/>
+      <stop offset="100%" stop-color="#9717E7"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#ng-grad)" d="M64 10L14 27.8l7.8 66.4L64 118l42.2-23.8 7.8-66.4L64 10z"/>
+  <path fill="#B52E31" opacity=".28" d="M64 10v108l42.2-23.8 7.8-66.4L64 10z"/>
+  <path fill="#FFFFFF" d="M64 24.5L32.8 94h11.8l6.3-15.8h26.2L83.4 94h11.8L64 24.5zm9.1 43.7H54.9L64 45.4l9.1 22.8z"/>
+</svg>

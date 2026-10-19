@@ -2,12 +2,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  padding: 4px;
+  border-radius: var(--radius-md);
+  padding: var(--space-1);
   flex-shrink: 0;
-  background-color: var(--color-gray-50);
+  background-color: var(--bg-surface);
   border: 1px solid var(--border-subtle);
-  transition: transform 150ms ease;
+  transition: transform var(--transition-fast);
+  overflow: hidden;
 
   &.logo-python { background-color: var(--color-blue-50); border-color: var(--color-sky-100); }
   &.logo-rust { background-color: var(--color-orange-100); border-color: var(--color-orange-200); }
@@ -17,4 +18,26 @@
   &.logo-cpp { background-color: var(--color-blue-50); border-color: var(--color-blue-200); }
   &.logo-db { background-color: var(--color-blue-50); border-color: var(--color-sky-100); }
   &.logo-docker { background-color: var(--color-blue-50); border-color: var(--color-blue-200); }
+
+  &.is-monogram {
+    background-color: var(--color-gray-700);
+    border-color: var(--color-gray-700);
+  }
+}
+
+.tech-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.tech-logo-monogram {
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-inverse);
+  letter-spacing: 0.02em;
+  user-select: none;
 }

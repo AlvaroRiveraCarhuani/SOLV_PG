@@ -189,12 +189,21 @@ describe('ModelLibraryComponent Spec', () => {
     expect(filterOpts.some(o => (o.label || '').includes('Sin categoría'))).toBe(false);
   });
 
-  it('navega al wizard de plantillas pidiendo apertura de la creación al llegar', () => {
+  it('navega al estudio dedicado de plantillas al pedir creación', () => {
     const router = TestBed.inject(Router);
     const navigateSpy = vi.spyOn(router, 'navigate');
     component.showNewModelModal.set(true);
     component.navigateToTemplatesWizard();
     expect(component.showNewModelModal()).toBe(false);
-    expect(navigateSpy).toHaveBeenCalledWith(['/admin/plantillas'], { queryParams: { nueva: '1' } });
+    expect(navigateSpy).toHaveBeenCalledWith(['/admin/plantillas/nueva']);
+  });
+
+  it('debe abrir el modal de registro de tecnología desde la pestaña Catálogo de Tecnologías', () => {
+    const text = (fixture.nativeElement as HTMLElement).textContent || '';
+    expect(text).toContain('Catálogo de Tecnologías');
+    component.activeTab.set('components');
+    component.openNewComponentModal('addon');
+    expect(component.showComponentModal()).toBe(true);
+    expect(component.defaultComponentLayer()).toBe('addon');
   });
 });

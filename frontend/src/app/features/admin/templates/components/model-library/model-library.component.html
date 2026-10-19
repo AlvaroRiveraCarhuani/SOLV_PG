@@ -26,6 +26,14 @@
           <svg lucidePlus class="btn-icon"></svg>
           <span>Nuevo Modelo Oficial</span>
         </button>
+      } @else if (activeTab() === 'components') {
+        <button 
+          type="button" 
+          class="btn-primary" 
+          (click)="openNewComponentModal('addon')">
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Registrar Nueva Tecnología</span>
+        </button>
       } @else {
         <button 
           type="button" 
@@ -43,7 +51,7 @@
     <kpi-card
       label="Total Modelos"
       [value]="totalModelsCount()"
-      detail="Recetas institucionales"
+      detail="Plantillas base institucionales"
       variant="primary"
     >
       <svg lucideBoxes icon></svg>
@@ -97,6 +105,15 @@
         <svg lucideBoxes class="tab-icon"></svg>
         <span>Modelos Oficiales</span>
         <span class="tab-badge" [class.neutral]="activeTab() === 'models'">{{ totalModelsCount() }}</span>
+      </button>
+      <button 
+        type="button" 
+        class="tab-btn" 
+        [class.active]="activeTab() === 'components'" 
+        (click)="activeTab.set('components')">
+        <svg lucideCode class="tab-icon"></svg>
+        <span>Catálogo de Tecnologías</span>
+        <span class="tab-badge" [class.neutral]="activeTab() === 'components'">{{ techComponentsCount() }}</span>
       </button>
       <button 
         type="button" 
@@ -264,7 +281,9 @@
                   <td class="col-main">
                     <div class="model-info">
                       <span class="model-title">{{ m.name || m.title }}</span>
-                      <span class="model-desc" *ngIf="m.description">{{ m.description }}</span>
+                      @if (m.description) {
+                        <span class="model-desc">{{ m.description }}</span>
+                      }
                       <code class="docker-badge">{{ m.docker_image }}</code>
                     </div>
                   </td>
@@ -349,6 +368,75 @@
           </table>
         </div>
       }
+    </section>
+  }
+
+  <!-- Contenido TAB: CATÁLOGO DE TECNOLOGÍAS -->
+  @if (activeTab() === 'components') {
+    <section class="tab-content">
+      <div class="table-card">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Tecnología</th>
+              <th>Capa en el Constructor</th>
+              <th>Programas / Paquetes</th>
+              <th>Memoria Sugerida</th>
+              <th>Origen</th>
+              <th class="text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (comp of techComponents(); track comp.id) {
+              <tr>
+                <td>
+                  <div class="category-name-cell">
+                    <tech-logo [iconType]="comp.icon_key" [size]="28" />
+                    <div>
+                      <strong class="model-title">{{ comp.name }}</strong>
+                      @if (comp.description) {
+                        <span class="model-desc">{{ comp.description }}</span>
+                      }
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="category-badge">
+                    {{ comp.layer === 'runtime' ? '1. Tecnología Principal' : comp.layer === 'addon' ? '2. Complemento' : '3. Base de Datos' }}
+                  </span>
+                </td>
+                <td>
+                  @if (comp.tools_provided.length > 0) {
+                    <code class="docker-badge">{{ comp.tools_provided.join(', ') }}</code>
+                  } @else {
+                    <span class="text-muted text-xs">Automático</span>
+                  }
+                </td>
+                <td>
+                  <span class="ram-badge"><span machineData>+{{ comp.ram_delta_mb }} MB</span></span>
+                </td>
+                <td>
+                  <span class="text-muted text-xs">{{ comp.is_system ? 'Catálogo Oficial' : 'Creado por Admin' }}</span>
+                </td>
+                <td class="text-right">
+                  @if (!comp.is_system) {
+                    <button
+                      type="button"
+                      class="btn-action-icon action-delete"
+                      (click)="deleteTechComponent(comp)"
+                      title="Eliminar tecnología"
+                    >
+                      <svg lucideTrash2 class="action-icon"></svg>
+                    </button>
+                  } @else {
+                    <span class="text-muted text-xs">Base</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
     </section>
   }
 
@@ -491,6 +579,15 @@
       [category]="cat"
       (cancelled)="cancelDeleteCategory()"
       (deleted)="handleCategoryDeleted($event)"
+    />
+  }
+
+  <!-- Modal Registrar Nueva Tecnología del Catálogo -->
+  @if (showComponentModal()) {
+    <component-form-modal
+      [defaultLayer]="defaultComponentLayer()"
+      (closed)="closeComponentModal()"
+      (saved)="handleComponentSaved($event)"
     />
   }
 </div>

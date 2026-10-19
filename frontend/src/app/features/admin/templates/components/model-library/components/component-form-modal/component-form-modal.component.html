@@ -1,0 +1,263 @@
+<modal-shell
+  title="Registrar Nueva Tecnología en el Catálogo"
+  subtitle="Componente del catálogo disponible al configurar entornos y plantillas"
+  maxWidth="620px"
+  (close)="onClose()"
+>
+  <svg modal-icon lucideBoxes class="icon"></svg>
+
+  @if (errorMessage()) {
+    <div class="field-error-alert">
+      <svg lucideAlertTriangle class="alert-icon"></svg>
+      <span>{{ errorMessage() }}</span>
+    </div>
+  }
+
+  <div class="form-row">
+    <form-field
+      label="Clasificación del Componente del Catálogo"
+      for="comp-layer"
+      [required]="true"
+      hint="Los motores de base de datos son gobernados por las capacidades del nodo. Los clientes u ORMs (Prisma, SQLAlchemy, TypeORM) se registran como Complemento / Framework."
+    >
+      <select
+        id="comp-layer"
+        class="form-select"
+        [ngModel]="layer()"
+        (ngModelChange)="setLayerDefaults($event)"
+      >
+        <option value="runtime">1. Tecnología Principal o Interfaz Web</option>
+        <option value="addon">2. Complemento / Framework / Librería</option>
+      </select>
+    </form-field>
+
+    <form-field label="Nombre Visible" for="comp-name" [required]="true">
+      <input
+        id="comp-name"
+        type="text"
+        class="form-input"
+        placeholder="Ej: Django 5 LTS / Bun / Laravel"
+        [ngModel]="name()"
+        (ngModelChange)="onNameChange($event)"
+      />
+    </form-field>
+  </div>
+
+  <form-field label="Descripción breve para docentes y administradores" for="comp-desc">
+    <input
+      id="comp-desc"
+      type="text"
+      class="form-input"
+      placeholder="Ej: Framework web completo con ORM integrado"
+      [ngModel]="description()"
+      (ngModelChange)="description.set($event)"
+    />
+  </form-field>
+
+  <div class="icon-selector-section">
+    <span class="form-label">Icono Oficial de la Herramienta</span>
+    <div class="icons-grid">
+      @for (ic of curatedIcons; track ic.key) {
+        <button
+          type="button"
+          class="icon-option-btn"
+          [class.selected]="!customIconUrl().trim() && iconKey() === ic.key"
+          (click)="selectCuratedIcon(ic.key)"
+        >
+          <tech-logo [iconType]="ic.key" [size]="24" />
+          <span class="icon-label">{{ ic.label }}</span>
+        </button>
+      }
+    </div>
+
+    <div class="custom-icon-row">
+      <div class="custom-icon-input-wrap">
+        <form-field
+          label="O usar URL / ruta de icono propio (.svg) o clave personalizada"
+          for="comp-custom-icon"
+          hint="Opcional: pegue una ruta /tech-icons/mi-icono.svg, URL https://... o clave de monograma"
+        >
+          <input
+            id="comp-custom-icon"
+            type="text"
+            class="form-input font-mono"
+            placeholder="Ej: /tech-icons/custom.svg o https://.../logo.svg"
+            [ngModel]="customIconUrl()"
+            (ngModelChange)="customIconUrl.set($event)"
+          />
+        </form-field>
+      </div>
+      <div class="custom-icon-preview" title="Vista previa del icono">
+        <span class="preview-caption">Vista previa</span>
+        <tech-logo [iconType]="effectiveIconKey()" [size]="32" />
+      </div>
+    </div>
+  </div>
+
+  @if (layer() === 'runtime') {
+    <div class="form-row">
+      <form-field label="Rol en la Columna 1" for="comp-subcat">
+        <select
+          id="comp-subcat"
+          class="form-select"
+          [ngModel]="subCategory()"
+          (ngModelChange)="subCategory.set($event)"
+        >
+          <option value="backend">Lenguaje Principal (Backend / General)</option>
+          <option value="web">Plataforma Web / Frontend</option>
+        </select>
+      </form-field>
+
+      <form-field label="Imagen Base Oficial (sin :latest)" for="comp-base-image" [required]="true">
+        <input
+          id="comp-base-image"
+          type="text"
+          class="form-input font-mono"
+          placeholder="Ej: python:3.12-slim-bookworm"
+          [ngModel]="baseImage()"
+          (ngModelChange)="baseImage.set($event)"
+        />
+      </form-field>
+    </div>
+  }
+
+  @if (layer() === 'addon') {
+    <div class="form-row">
+      <form-field label="Compatible con la tecnología" for="comp-compat" [required]="true">
+        <select
+          id="comp-compat"
+          class="form-select"
+          [ngModel]="compatibleRuntime()"
+          (ngModelChange)="compatibleRuntime.set($event)"
+        >
+          <option value="" disabled>Seleccione el lenguaje compatible...</option>
+          <option value="python">Python</option>
+          <option value="node">Node.js / Web (Angular, React, Vue)</option>
+          <option value="java">Java</option>
+          <option value="go">Go</option>
+          <option value="cpp">C / C++</option>
+          <option value="universal">Todas las tecnologías (Universal)</option>
+        </select>
+      </form-field>
+
+      <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode">
+        <select
+          id="comp-install-mode"
+          class="form-select"
+          [ngModel]="installMode()"
+          (ngModelChange)="installMode.set($event)"
+        >
+          <option value="pip">Automático: Paquete de Python (pip)</option>
+          <option value="npm">Automático: Paquete de Node.js (npm)</option>
+          <option value="apt">Automático: Programa del Sistema (apt)</option>
+          <option value="custom">Avanzado: Instrucción personalizada</option>
+        </select>
+      </form-field>
+    </div>
+
+    @if (installMode() !== 'custom') {
+      <form-field
+        label="Nombre del paquete o librería a instalar"
+        for="comp-pkgs"
+        hint="Escriba solo el nombre del paquete (ej: django djangorestframework). El sistema genera la instalación segura automáticamente."
+        [required]="true"
+      >
+        <input
+          id="comp-pkgs"
+          type="text"
+          class="form-input font-mono"
+          placeholder="Ej: fastapi uvicorn"
+          [ngModel]="packageNamesInput()"
+          (ngModelChange)="packageNamesInput.set($event)"
+        />
+      </form-field>
+    } @else {
+      <form-field label="Instrucción de construcción personalizada (RUN)" for="comp-custom-run">
+        <input
+          id="comp-custom-run"
+          type="text"
+          class="form-input font-mono"
+          placeholder="Ej: RUN pip install --no-cache-dir mi-libreria"
+          [ngModel]="customBuildSnippet()"
+          (ngModelChange)="customBuildSnippet.set($event)"
+        />
+      </form-field>
+    }
+  }
+
+  @if (layer() === 'database') {
+    <form-field label="Motor de conexión" for="comp-db-engine">
+      <select
+        id="comp-db-engine"
+        class="form-select"
+        [ngModel]="serviceEngine()"
+        (ngModelChange)="serviceEngine.set($event)"
+      >
+        <option value="postgres">PostgreSQL</option>
+        <option value="mysql">MySQL / MariaDB</option>
+        <option value="sqlite">SQLite (Archivo local)</option>
+        <option value="mongodb">MongoDB</option>
+        <option value="redis">Redis (Caché)</option>
+      </select>
+    </form-field>
+  }
+
+  <div class="form-row">
+    <form-field
+      label="Programa a comprobar al iniciar (Opcional)"
+      for="comp-tools"
+      hint="Ej: python3, ng, pytest"
+    >
+      <input
+        id="comp-tools"
+        type="text"
+        class="form-input font-mono"
+        placeholder="Ej: python3"
+        [ngModel]="toolsProvidedInput()"
+        (ngModelChange)="toolsProvidedInput.set($event)"
+      />
+    </form-field>
+
+    @if (layer() === 'addon') {
+      <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
+        <select
+          id="comp-memory-profile"
+          class="form-select"
+          [ngModel]="memoryProfile()"
+          (ngModelChange)="setMemoryProfile($event)"
+        >
+          <option value="library">Librería o paquete en disco (0 MB residentes extra — solo ocupa disco)</option>
+          <option value="devserver">Servidor de desarrollo activo en segundo plano (ej. Vite, Webpack, CLI en vivo)</option>
+          <option value="heavy">Motor pesado en memoria (ej. Ciencia de Datos / Machine Learning / JVM)</option>
+        </select>
+      </form-field>
+    } @else if (layer() === 'runtime') {
+      <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
+        <select
+          id="comp-memory-profile"
+          class="form-select"
+          [ngModel]="memoryProfile()"
+          (ngModelChange)="setMemoryProfile($event)"
+        >
+          <option value="light">Ligero — Compilador nativo o consola (ej. C, C++, Bash)</option>
+          <option value="standard">Estándar — Lenguaje interpretado o compilado moderno (ej. Python, Go, PHP, Node)</option>
+          <option value="heavy">Intensivo — Máquina Virtual o SDK pesado (ej. Java JVM, .NET)</option>
+        </select>
+      </form-field>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    <button type="button" class="btn-outline" (click)="onClose()" [disabled]="isSubmitting()">
+      Cancelar
+    </button>
+    <button
+      type="button"
+      class="btn-primary"
+      (click)="onSave()"
+      [disabled]="isSubmitting() || !name().trim()"
+    >
+      <span>{{ isSubmitting() ? 'Guardando...' : 'Guardar Tecnología' }}</span>
+    </button>
+  </ng-container>
+</modal-shell>
