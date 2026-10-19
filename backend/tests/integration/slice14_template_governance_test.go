@@ -128,7 +128,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	// =========================================================================
 	t.Run("1. Listado de Plantillas - Consulta Completa, Filtros por Estado y Seguridad", func(t *testing.T) {
 		// 1.1 Listar todas las plantillas
-		reqAll, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/templates", nil)
+		reqAll, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates", nil)
 		reqAll.Header.Set("X-User-Role", "admin")
 		reqAll.Header.Set("X-Tenant-Id", tenantID)
 
@@ -136,27 +136,29 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed list all templates request: %v", err)
 		}
+		defer func() { _ = respAll.Body.Close() }()
 		if respAll.StatusCode != http.StatusOK {
 			var errBody map[string]interface{}
-			json.NewDecoder(respAll.Body).Decode(&errBody)
+			_ = json.NewDecoder(respAll.Body).Decode(&errBody)
 			t.Fatalf("Expected 200 OK listing templates, got %d. Body: %v", respAll.StatusCode, errBody)
 		}
 
 		var bodyAll map[string]interface{}
-		json.NewDecoder(respAll.Body).Decode(&bodyAll)
+		_ = json.NewDecoder(respAll.Body).Decode(&bodyAll)
 		items := bodyAll["data"].([]interface{})
 		if len(items) < 3 {
 			t.Fatalf("Expected at least 3 templates, got %d", len(items))
 		}
 
 		// 1.2 Filtro status=pending
-		reqPending, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/templates?status=pending", nil)
+		reqPending, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates?status=pending", nil)
 		reqPending.Header.Set("X-User-Role", "admin")
 		reqPending.Header.Set("X-Tenant-Id", tenantID)
 
 		respPending, _ := client.Do(reqPending)
+		defer func() { _ = respPending.Body.Close() }()
 		var bodyPending map[string]interface{}
-		json.NewDecoder(respPending.Body).Decode(&bodyPending)
+		_ = json.NewDecoder(respPending.Body).Decode(&bodyPending)
 		pendingItems := bodyPending["data"].([]interface{})
 		for _, item := range pendingItems {
 			pMap := item.(map[string]interface{})
@@ -166,9 +168,10 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		}
 
 		// 1.3 Seguridad: Estudiante no puede consultar endpoint administrativo
-		reqStudent, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/templates", nil)
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates", nil)
 		reqStudent.Header.Set("X-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student, got %d", respStudent.StatusCode)
 		}
@@ -185,7 +188,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		}
 		reviewBytes, _ := json.Marshal(reviewDTO)
 
-		reqApprove, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplPendingID), bytes.NewBuffer(reviewBytes))
+		reqApprove, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplPendingID), bytes.NewBuffer(reviewBytes))
 		reqApprove.Header.Set("Content-Type", "application/json")
 		reqApprove.Header.Set("X-User-Role", "admin")
 		reqApprove.Header.Set("X-User-Id", adminID)
@@ -195,12 +198,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed approve request: %v", err)
 		}
+		defer func() { _ = respApprove.Body.Close() }()
 		if respApprove.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK approving template, got %d", respApprove.StatusCode)
 		}
 
 		var approveBody map[string]interface{}
-		json.NewDecoder(respApprove.Body).Decode(&approveBody)
+		_ = json.NewDecoder(respApprove.Body).Decode(&approveBody)
 		data := approveBody["data"].(map[string]interface{})
 		if data["status"] != "approved" {
 			t.Errorf("Expected status = approved, got %v", data["status"])
@@ -236,30 +240,32 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	// =========================================================================
 	t.Run("3. Rechazo de Plantilla - Validación de Motivo Obligatorio y Persistencia", func(t *testing.T) {
 		// 3.1 Status inválido -> 422
-		reqInvalid, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "unknown"}`)))
+		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "unknown"}`)))
 		reqInvalid.Header.Set("Content-Type", "application/json")
 		reqInvalid.Header.Set("X-User-Role", "admin")
 		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
+		defer func() { _ = respInvalid.Body.Close() }()
 		if respInvalid.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 for invalid status, got %d", respInvalid.StatusCode)
 		}
 
 		// 3.2 Rechazar sin motivo -> 422 Unprocessable Entity
-		reqNoReason, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "rejected", "rejection_reason": ""}`)))
+		reqNoReason, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "rejected", "rejection_reason": ""}`)))
 		reqNoReason.Header.Set("Content-Type", "application/json")
 		reqNoReason.Header.Set("X-User-Role", "admin")
 		reqNoReason.Header.Set("X-Tenant-Id", tenantID)
 
 		respNoReason, _ := client.Do(reqNoReason)
+		defer func() { _ = respNoReason.Body.Close() }()
 		if respNoReason.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 for rejection without reason, got %d", respNoReason.StatusCode)
 		}
 
 		// 3.3 Rechazar con motivo válido -> 200 OK
 		rejectionPayload := []byte(`{"status": "rejected", "rejection_reason": "La imagen Docker no cumple con las políticas de seguridad institucional"}`)
-		reqReject, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer(rejectionPayload))
+		reqReject, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer(rejectionPayload))
 		reqReject.Header.Set("Content-Type", "application/json")
 		reqReject.Header.Set("X-User-Role", "admin")
 		reqReject.Header.Set("X-User-Id", adminID)
@@ -269,6 +275,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed rejection request: %v", err)
 		}
+		defer func() { _ = respReject.Body.Close() }()
 		if respReject.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK rejecting template with reason, got %d", respReject.StatusCode)
 		}
@@ -296,7 +303,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 			"description": "Entorno oficial institucional para análisis de datos"
 		}`)
 
-		reqCreate, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewBuffer(createPayload))
+		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewBuffer(createPayload))
 		reqCreate.Header.Set("Content-Type", "application/json")
 		reqCreate.Header.Set("X-User-Role", "admin")
 		reqCreate.Header.Set("X-User-Id", adminID)
@@ -306,12 +313,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed create official template request: %v", err)
 		}
+		defer func() { _ = respCreate.Body.Close() }()
 		if respCreate.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created registering official template, got %d", respCreate.StatusCode)
 		}
 
 		var createBody map[string]interface{}
-		json.NewDecoder(respCreate.Body).Decode(&createBody)
+		_ = json.NewDecoder(respCreate.Body).Decode(&createBody)
 		createdData := createBody["data"].(map[string]interface{})
 		if createdData["status"] != "PENDIENTE_AUDITORIA" && createdData["status"] != "approved" {
 			t.Errorf("Expected created template status to be PENDIENTE_AUDITORIA or approved, got %v", createdData["status"])
@@ -327,7 +335,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	t.Run("5. Ciclo de Vida - Pausar y Reactivar Plantilla en Catálogo", func(t *testing.T) {
 		// Pausar
 		pausePayload := []byte(`{"status": "paused"}`)
-		reqPause, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplApprovedID), bytes.NewBuffer(pausePayload))
+		reqPause, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplApprovedID), bytes.NewBuffer(pausePayload))
 		reqPause.Header.Set("Content-Type", "application/json")
 		reqPause.Header.Set("X-User-Role", "admin")
 		reqPause.Header.Set("X-User-Id", adminID)
@@ -337,12 +345,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed pause request: %v", err)
 		}
+		defer func() { _ = respPause.Body.Close() }()
 		if respPause.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK pausing template, got %d", respPause.StatusCode)
 		}
 
 		var pauseBody map[string]interface{}
-		json.NewDecoder(respPause.Body).Decode(&pauseBody)
+		_ = json.NewDecoder(respPause.Body).Decode(&pauseBody)
 		data := pauseBody["data"].(map[string]interface{})
 		if data["status"] != "paused" {
 			t.Errorf("Expected status = paused, got %v", data["status"])
@@ -353,7 +362,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	// 6. TEST Duplicación de Plantilla
 	// =========================================================================
 	t.Run("6. Duplicación de Plantilla en Catálogo", func(t *testing.T) {
-		reqDup, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplApprovedID), nil)
+		reqDup, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplApprovedID), nil)
 		reqDup.Header.Set("X-User-Role", "admin")
 		reqDup.Header.Set("X-User-Id", adminID)
 		reqDup.Header.Set("X-Tenant-Id", tenantID)
@@ -362,12 +371,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed duplicate request: %v", err)
 		}
+		defer func() { _ = respDup.Body.Close() }()
 		if respDup.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created duplicating template, got %d", respDup.StatusCode)
 		}
 
 		var dupBody map[string]interface{}
-		json.NewDecoder(respDup.Body).Decode(&dupBody)
+		_ = json.NewDecoder(respDup.Body).Decode(&dupBody)
 		data := dupBody["data"].(map[string]interface{})
 		if data["status"] != "PENDIENTE_AUDITORIA" {
 			t.Errorf("Expected duplicated status = PENDIENTE_AUDITORIA, got %v", data["status"])
@@ -399,7 +409,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 			"target_environment": "IDE_PERSISTENTE",
 		}
 		bodyBytes, _ := json.Marshal(createPayload)
-		reqCreate, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates", server.URL), bytes.NewBuffer(bodyBytes))
+		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates", server.URL), bytes.NewBuffer(bodyBytes))
 		reqCreate.Header.Set("Content-Type", "application/json")
 		reqCreate.Header.Set("X-User-Role", "admin")
 		reqCreate.Header.Set("X-User-Id", adminID)
@@ -409,12 +419,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed create template: %v", err)
 		}
+		defer func() { _ = respCreate.Body.Close() }()
 		if respCreate.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created, got %d", respCreate.StatusCode)
 		}
 
 		var createResp map[string]interface{}
-		json.NewDecoder(respCreate.Body).Decode(&createResp)
+		_ = json.NewDecoder(respCreate.Body).Decode(&createResp)
 		createdData := createResp["data"].(map[string]interface{})
 		createdID := createdData["id"].(string)
 
@@ -432,7 +443,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 			"base_ram_mb": 2048,
 		}
 		reviewBytes, _ := json.Marshal(reviewPayload)
-		reqReview, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, createdID), bytes.NewBuffer(reviewBytes))
+		reqReview, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, createdID), bytes.NewBuffer(reviewBytes))
 		reqReview.Header.Set("Content-Type", "application/json")
 		reqReview.Header.Set("X-User-Role", "admin")
 		reqReview.Header.Set("X-User-Id", adminID)
@@ -442,12 +453,13 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed review template: %v", err)
 		}
+		defer func() { _ = respReview.Body.Close() }()
 		if respReview.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK on review, got %d", respReview.StatusCode)
 		}
 
 		var reviewResp map[string]interface{}
-		json.NewDecoder(respReview.Body).Decode(&reviewResp)
+		_ = json.NewDecoder(respReview.Body).Decode(&reviewResp)
 		reviewedData := reviewResp["data"].(map[string]interface{})
 
 		profReviewed, ok := reviewedData["resource_profile"].(map[string]interface{})

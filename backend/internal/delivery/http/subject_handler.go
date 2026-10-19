@@ -40,13 +40,13 @@ func (h *SubjectHandler) CreateSubject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(subject)
+	_ = json.NewEncoder(w).Encode(subject)
 }
 
 func (h *SubjectHandler) ArchiveSubject(w http.ResponseWriter, r *http.Request) {
@@ -73,13 +73,13 @@ func (h *SubjectHandler) ArchiveSubject(w http.ResponseWriter, r *http.Request) 
 	if err := h.service.ArchiveSubject(r.Context(), tenantID, id, req.IsArchived); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]bool{"is_archived": req.IsArchived})
+	_ = json.NewEncoder(w).Encode(map[string]bool{"is_archived": req.IsArchived})
 }
 
 func (h *SubjectHandler) UpdateSubject(w http.ResponseWriter, r *http.Request) {
@@ -107,13 +107,13 @@ func (h *SubjectHandler) UpdateSubject(w http.ResponseWriter, r *http.Request) {
 	if err := h.service.UpdateSubject(r.Context(), tenantID, id, req.Name, req.Code); err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "updated",
 		"message": "Materia actualizada exitosamente",
 	})
@@ -133,7 +133,7 @@ func (h *SubjectHandler) ListSubjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data": list,
 	})
 }
@@ -163,13 +163,13 @@ func (h *SubjectHandler) EnrollStudent(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(enrollment)
+	_ = json.NewEncoder(w).Encode(enrollment)
 }
 
 func (h *SubjectHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +192,7 @@ func (h *SubjectHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"subject_id": subjectID,
 		"students":   students,
 	})

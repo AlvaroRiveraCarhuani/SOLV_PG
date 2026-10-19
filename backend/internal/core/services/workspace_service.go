@@ -98,7 +98,7 @@ func sanitizeIDForDB(id string) string {
 
 func ensureSatellitePostgresDatabase(ctx context.Context, db *sqlx.DB, dbName string) error {
 	for _, ch := range dbName {
-		if !(ch >= 'a' && ch <= 'z' || ch >= '0' && ch <= '9' || ch == '_') {
+		if (ch < 'a' || ch > 'z') && (ch < '0' || ch > '9') && ch != '_' {
 			return fmt.Errorf("invalid characters in database name: %s", dbName)
 		}
 	}

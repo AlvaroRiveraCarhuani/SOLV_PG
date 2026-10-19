@@ -167,17 +167,17 @@ func (m *SMTPMailer) Send(ctx context.Context, msg *domain.EmailMessage) error {
 		tlsConfig := &tls.Config{
 			ServerName: m.cfg.Host,
 		}
-		conn, err := tls.Dial("tcp", addr, tlsConfig)
+		conn, err := (&tls.Dialer{Config: tlsConfig}).DialContext(context.Background(), "tcp", addr)
 		if err != nil {
 			return fmt.Errorf("error al conectar TLS con servidor SMTP: %w", err)
 		}
-		defer conn.Close()
+		defer func() { _ = conn.Close() }()
 
 		client, err := smtp.NewClient(conn, m.cfg.Host)
 		if err != nil {
 			return fmt.Errorf("error creando cliente SMTP TLS: %w", err)
 		}
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		if m.cfg.User != "" && m.cfg.Password != "" {
 			auth := smtp.PlainAuth("", m.cfg.User, m.cfg.Password, m.cfg.Host)
@@ -229,14 +229,14 @@ func (m *SMTPMailer) buildMIMEMessage(msg *domain.EmailMessage) []byte {
 	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(msg.Subject)))
 
 	var b bytes.Buffer
-	b.WriteString(fmt.Sprintf("From: %s\r\n", m.cfg.From))
-	b.WriteString(fmt.Sprintf("To: %s\r\n", msg.To))
-	b.WriteString(fmt.Sprintf("Subject: %s\r\n", encodedSubject))
+	fmt.Fprintf(&b, "From: %s\r\n", m.cfg.From)
+	fmt.Fprintf(&b, "To: %s\r\n", msg.To)
+	fmt.Fprintf(&b, "Subject: %s\r\n", encodedSubject)
 	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString(fmt.Sprintf("Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary))
+	fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary)
 
 	// Parte Texto Plano
-	b.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+	fmt.Fprintf(&b, "--%s\r\n", boundary)
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
 	b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.TextBody)))
@@ -244,14 +244,14 @@ func (m *SMTPMailer) buildMIMEMessage(msg *domain.EmailMessage) []byte {
 
 	// Parte HTML
 	if msg.HTMLBody != "" {
-		b.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		fmt.Fprintf(&b, "--%s\r\n", boundary)
 		b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 		b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
 		b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.HTMLBody)))
 		b.WriteString("\r\n\r\n")
 	}
 
-	b.WriteString(fmt.Sprintf("--%s--\r\n", boundary))
+	fmt.Fprintf(&b, "--%s--\r\n", boundary)
 	return b.Bytes()
 }
 

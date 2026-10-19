@@ -26,7 +26,7 @@ func (r *PostgresKeystrokeRepository) SaveBatch(ctx context.Context, submissionI
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		INSERT INTO submission_keystroke_events (id, submission_id, timestamp_ms, event_type, position, content, paste_source_detected, created_at)
@@ -37,7 +37,7 @@ func (r *PostgresKeystrokeRepository) SaveBatch(ctx context.Context, submissionI
 	if err != nil {
 		return fmt.Errorf("failed to prepare statement: %w", err)
 	}
-	defer stmt.Close()
+	defer func() { _ = stmt.Close() }()
 
 	for _, ev := range events {
 		id := ev.ID

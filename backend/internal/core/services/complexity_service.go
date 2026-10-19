@@ -134,7 +134,7 @@ func AnalyzeComplexity(measurements []domain.ComplexityMeasurement) *domain.Comp
 	}
 
 	spaceComplexity := "O(1)"
-	var minM, maxM float64 = m[0], m[0]
+	var minM, maxM = m[0], m[0]
 	for _, val := range m {
 		if val < minM {
 			minM = val

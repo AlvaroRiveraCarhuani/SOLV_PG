@@ -196,7 +196,7 @@ func (h *AdminHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"tenant_id": tenantID,
 		"limit":     limit,
 		"offset":    offset,
@@ -233,7 +233,7 @@ func (h *AdminHandler) GetActorTimeline(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"tenant_id": tenantID,
 		"actor_id":  actorID,
 		"count":     len(logs),
@@ -311,7 +311,7 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 		if !brandingHexPattern.MatchString(strings.TrimSpace(dto.TenantPrimaryColor)) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error":   "color_invalid",
 				"message": "tenant_primary_color debe usar el formato #RRGGBB (ej. #2563EB).",
 			})
@@ -327,7 +327,7 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 			if email != "" && !strings.Contains(email, "@") {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				json.NewEncoder(w).Encode(map[string]string{
+				_ = json.NewEncoder(w).Encode(map[string]string{
 					"error":   "email_invalid",
 					"message": "support_email no tiene un formato válido.",
 				})
@@ -346,7 +346,7 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 		if fontErr != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"error":   fontErr.Code,
 				"message": fontErr.Message,
 			})
@@ -372,7 +372,7 @@ func (h *AdminHandler) UpdateBranding(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":  "updated",
 		"message": "Branding configuration updated successfully",
 		"config":  currentConfig,
@@ -421,10 +421,11 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 
 	for _, ws := range allRunning {
 		if ws.TenantID == tenantID {
-			if ws.Status == "running" {
+			switch ws.Status {
+			case "running":
 				runningCount++
 				totalRAM += ws.MemoryLimitMB
-			} else if ws.Status == "hibernated" {
+			case "hibernated":
 				hibernatedCount++
 			}
 			if ws.Status == "failed" || ws.Status == "oom_killed" || ws.OOMStrikeCount > 0 {
@@ -485,7 +486,7 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(resp)
+	_ = json.NewEncoder(w).Encode(resp)
 }
 
 type CourseLoadDTO struct {
@@ -522,10 +523,11 @@ func (h *AdminHandler) GetCoursesLoad(w http.ResponseWriter, r *http.Request) {
 
 		for _, ws := range allWorkspaces {
 			if ws.SubjectID == sub.ID {
-				if ws.Status == "running" {
+				switch ws.Status {
+				case "running":
 					activeCount++
 					ramTotalMB += ws.MemoryLimitMB
-				} else if ws.Status == "hibernated" {
+				case "hibernated":
 					hibernatedCount++
 				}
 			}
@@ -553,7 +555,7 @@ func (h *AdminHandler) GetCoursesLoad(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(res)
+	_ = json.NewEncoder(w).Encode(res)
 }
 
 type TechnicalIncidentDTO struct {
@@ -605,7 +607,7 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(incidents)
+	_ = json.NewEncoder(w).Encode(incidents)
 }
 
 type DockerContainerDTO struct {
@@ -664,7 +666,7 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(containers)
+	_ = json.NewEncoder(w).Encode(containers)
 }
 
 func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Request) {
@@ -751,7 +753,7 @@ func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(containers)
+	_ = json.NewEncoder(w).Encode(containers)
 }
 
 func (h *AdminHandler) GetWorkspaceLogs(w http.ResponseWriter, r *http.Request) {
@@ -770,7 +772,7 @@ func (h *AdminHandler) GetWorkspaceLogs(w http.ResponseWriter, r *http.Request) 
 	ws, err := h.workspaceRepo.GetByID(r.Context(), workspaceID)
 	if err != nil || ws == nil {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"workspace_id": workspaceID,
 			"status":       "not_found",
 			"logs":         fmt.Sprintf("[%s] [solv:audit] No se encontraron registros para la instancia %s en la base de datos.", time.Now().Format("2006-01-02 15:04:05.000"), workspaceID),
@@ -802,7 +804,7 @@ func (h *AdminHandler) GetWorkspaceLogs(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"workspace_id": ws.ID,
 		"container_id": containerID,
 		"student_id":   ws.StudentID,
@@ -834,7 +836,7 @@ func (h *AdminHandler) ResolveIncident(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "resolved",
 		"workspace_id": workspaceID,
 		"message":      "Incidencia técnica resuelta y contadores OOM normalizados.",

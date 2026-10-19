@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -43,7 +44,7 @@ func (r *PostgresLabTemplateRepository) GetBySignatureHash(ctx context.Context, 
 
 	var row labTemplateProfileRow
 	if err := r.db.GetContext(ctx, &row, query, signatureHash, tenantID); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("failed to get lab template profile by hash: %w", err)
@@ -105,7 +106,7 @@ func (r *PostgresLabTemplateRepository) UpdateProfileAtomic(ctx context.Context,
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin tx for EWMA atomic update: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {

@@ -37,7 +37,7 @@ func (r *DockerScriptSandboxRunner) RunPythonScript(ctx context.Context, scriptC
 	if err != nil {
 		return "", "", fmt.Errorf("failed to create temp dir for script: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	scriptFile := filepath.Join(tmpDir, "generate.py")
 	if err := os.WriteFile(scriptFile, []byte(scriptCode), 0644); err != nil {
@@ -102,7 +102,7 @@ func (r *DockerScriptSandboxRunner) RunPythonScript(ctx context.Context, scriptC
 			var outBuf, errBuf bytes.Buffer
 			if logsReader != nil {
 				_, _ = stdcopy.StdCopy(&outBuf, &errBuf, logsReader)
-				logsReader.Close()
+				_ = logsReader.Close()
 			}
 			return outBuf.String(), errBuf.String(), fmt.Errorf("script exited with non-zero code %d: %s", waitStatus.StatusCode, errBuf.String())
 		}
@@ -114,7 +114,7 @@ func (r *DockerScriptSandboxRunner) RunPythonScript(ctx context.Context, scriptC
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read script logs: %w", err)
 	}
-	defer logsReader.Close()
+	defer func() { _ = logsReader.Close() }()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)

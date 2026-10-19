@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
@@ -46,7 +47,7 @@ func (r *PostgresAcademicPeriodRepository) GetByID(ctx context.Context, tenantID
 	var p domain.AcademicPeriod
 	err := r.db.GetContext(ctx, &p, query, tenantID, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("academic period not found")
 		}
 		return nil, fmt.Errorf("error querying academic period: %w", err)

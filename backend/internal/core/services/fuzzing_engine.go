@@ -295,7 +295,7 @@ func generateDescendingArray(size int) string {
 	var sb strings.Builder
 	sb.WriteString("[")
 	for i := size; i >= 1; i-- {
-		sb.WriteString(fmt.Sprintf("%d", i))
+		fmt.Fprintf(&sb, "%d", i)
 		if i > 1 {
 			sb.WriteString(",")
 		}

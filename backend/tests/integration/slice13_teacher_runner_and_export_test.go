@@ -171,7 +171,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		_ = db.GetDB().Get(&countBefore, "SELECT COUNT(*) FROM submissions")
 
 		payload := []byte(`{"code": "def solution(): return 42", "language": "python"}`)
-		req, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
+		req, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
@@ -181,12 +181,13 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for ephemeral run, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 
 		if data["submission_id"] != sub1ID {
@@ -204,9 +205,10 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		}
 
 		// Seguridad: Estudiante no puede ejecutar runner efímero
-		reqStudent, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
 		reqStudent.Header.Set("X-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student ephemeral run, got %d", respStudent.StatusCode)
 		}
@@ -216,7 +218,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 	// 2. TEST Exportación CSV de Calificaciones (GET /api/v1/teacher/courses/{id}/grades/export?format=csv)
 	// =========================================================================
 	t.Run("2. Exportación de Calificaciones CSV - Matriz, Headers y UTF-8 BOM", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -225,6 +227,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for CSV export, got %d", resp.StatusCode)
 		}
@@ -305,9 +308,10 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		}
 
 		// 2.3 Seguridad: Estudiante intentando exportar notas -> 403 Forbidden
-		reqStudent, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
 		reqStudent.Header.Set("X-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student CSV export, got %d", respStudent.StatusCode)
 		}

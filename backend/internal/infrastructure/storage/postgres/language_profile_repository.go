@@ -59,7 +59,7 @@ func (r *PostgresLanguageProfileRepository) UpdateProfile(ctx context.Context, p
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction for language profile update: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	updateQuery := `
 		UPDATE language_profiles

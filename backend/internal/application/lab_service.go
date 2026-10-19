@@ -62,7 +62,7 @@ func (s *LabService) StartLab(ctx context.Context, userID, templateID string) (d
 	if err != nil {
 		rollbackErr := s.db.UpdateInstanceStatus(ctx, instanceID, "failed")
 		if rollbackErr != nil {
-			return domain.CreateInstanceDTO{}, fmt.Errorf("CRITICAL: failed to start docker container (%v) AND failed to update instance status to failed (%v)", err, rollbackErr)
+			return domain.CreateInstanceDTO{}, fmt.Errorf("CRITICAL: failed to start docker container (%w) AND failed to update instance status to failed (%w)", err, rollbackErr)
 		}
 		return domain.CreateInstanceDTO{}, fmt.Errorf("failed to start docker container: %w", err)
 	}

@@ -44,7 +44,7 @@ func (s *PostgresStrategy) ExecuteEvaluation(ctx context.Context, config domain.
 			return domain.DBEvaluationResult{}, fmt.Errorf("failed to pull image %s: %w", imageName, pullErr)
 		}
 		_, _ = io.Copy(io.Discard, out)
-		out.Close()
+		_ = out.Close()
 	}
 
 	memLimit := int64(config.MemoryLimitMB)
@@ -225,7 +225,7 @@ func (s *PostgresStrategy) execPSQL(ctx context.Context, containerID string, sql
 		if errStr == "" {
 			errStr = strings.TrimSpace(stdoutBuf.String())
 		}
-		lastErr = fmt.Errorf("Postgres Exit Code %d: %s", inspect.ExitCode, errStr)
+		lastErr = fmt.Errorf("postgres Exit Code %d: %s", inspect.ExitCode, errStr)
 		if strings.Contains(errStr, "could not connect to server") || strings.Contains(errStr, "starting up") {
 			time.Sleep(500 * time.Millisecond)
 			continue

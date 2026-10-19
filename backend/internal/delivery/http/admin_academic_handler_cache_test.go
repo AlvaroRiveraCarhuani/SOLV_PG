@@ -176,7 +176,7 @@ func TestAdminAcademicHandler_CacheEndpoints(t *testing.T) {
 	handler := NewAdminAcademicHandler(nil, nil, nil).WithCacheService(cacheSvc)
 
 	t.Run("GetTemplatesCacheStatus returns 200 with list", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/templates/cache-status", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/templates/cache-status", nil)
 		w := httptest.NewRecorder()
 
 		handler.GetTemplatesCacheStatus(w, req)
@@ -201,7 +201,7 @@ func TestAdminAcademicHandler_CacheEndpoints(t *testing.T) {
 	})
 
 	t.Run("WarmTemplate returns 200", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/tmpl-1/warm", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/templates/tmpl-1/warm", nil)
 		req.SetPathValue("id", "tmpl-1")
 		w := httptest.NewRecorder()
 
@@ -213,7 +213,7 @@ func TestAdminAcademicHandler_CacheEndpoints(t *testing.T) {
 	})
 
 	t.Run("WarmAllTemplates returns 200 with summary", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/warm-all", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/templates/warm-all", nil)
 		w := httptest.NewRecorder()
 
 		handler.WarmAllTemplates(w, req)

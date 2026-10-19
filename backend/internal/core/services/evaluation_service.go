@@ -425,7 +425,6 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 			}
 			res, err := s.runner.RunTestCase(bgCtx, runCfg)
 			if err != nil {
-				allAC = false
 				_ = s.exerciseRepo.UpdateDryRunJobProgress(bgCtx, jID, domain.DryRunJobStatusFailed, idx+1, totalCases, nil, err.Error())
 				return
 			}
@@ -904,9 +903,10 @@ func (s *EvaluationService) CalculateOutputs(ctx context.Context, req CalculateO
 			continue
 		}
 		status := "ok"
-		if res.Verdict == domain.VerdictTLE {
+		switch res.Verdict {
+		case domain.VerdictTLE:
 			status = "timeout"
-		} else if res.Verdict == domain.VerdictRE || res.Verdict == domain.VerdictCE {
+		case domain.VerdictRE, domain.VerdictCE:
 			status = "error"
 		}
 		resp.Outputs = append(resp.Outputs, CalculatedOutputItem{
@@ -986,12 +986,12 @@ func (s *EvaluationService) GenerateChecklist(ctx context.Context, exerciseID st
 		}
 	}
 
-	var refExecutionTimeMS int = 0
+	var refExecutionTimeMS = 0
 	if strings.TrimSpace(refCode) == "" {
 		report.Warnings = append(report.Warnings, "No se ha configurado la solución de referencia del docente.")
 	} else if len(testCases) > 0 && len(report.Blockers) == 0 && s.runner != nil {
 		dryRunPassed := true
-		var maxDurationMS int = 0
+		var maxDurationMS = 0
 		for i, tc := range testCases {
 			timeLimit := exercise.TimeLimitMS
 			if timeLimit <= 0 {

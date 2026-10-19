@@ -121,10 +121,10 @@ func TestImportExercisesHTTP(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to create form file: %v", err)
 		}
-		part.Write([]byte(validJSON))
-		writer.Close()
+		_, _ = part.Write([]byte(validJSON))
+		_ = writer.Close()
 
-		req := httptest.NewRequest("POST", "/api/v1/teacher/courses/course-999/exercises/import?dry_run=true", body)
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/teacher/courses/course-999/exercises/import?dry_run=true", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		w := httptest.NewRecorder()
@@ -156,10 +156,10 @@ func TestImportExercisesHTTP(t *testing.T) {
 		body := &bytes.Buffer{}
 		writer := multipart.NewWriter(body)
 		part, _ := writer.CreateFormFile("file", "exercises.json")
-		part.Write([]byte(validJSON))
-		writer.Close()
+		_, _ = part.Write([]byte(validJSON))
+		_ = writer.Close()
 
-		req := httptest.NewRequest("POST", "/api/v1/teacher/courses/course-999/exercises/import", body)
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/teacher/courses/course-999/exercises/import", body)
 		req.Header.Set("Content-Type", writer.FormDataContentType())
 
 		w := httptest.NewRecorder()

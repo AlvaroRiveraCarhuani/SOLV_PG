@@ -44,7 +44,7 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 			return domain.DBEvaluationResult{}, fmt.Errorf("failed to pull image %s: %w", imageName, pullErr)
 		}
 		_, _ = io.Copy(io.Discard, out)
-		out.Close()
+		_ = out.Close()
 	}
 
 	memLimit := int64(config.MemoryLimitMB)
@@ -96,7 +96,7 @@ func (s *MongoStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 		if err == nil {
 			var logBuf bytes.Buffer
 			_, _ = io.Copy(&logBuf, logReader)
-			logReader.Close()
+			_ = logReader.Close()
 			if strings.Contains(logBuf.String(), "Waiting for connections") ||
 				strings.Contains(logBuf.String(), "waiting for connections") {
 				ready = true

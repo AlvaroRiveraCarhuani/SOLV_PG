@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang-jwt/jwt/v5"
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/delivery/http/middleware"
 	"solv-backend/internal/infrastructure/database"
@@ -31,7 +30,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 
 		// Enviar 5 requests permitidos
 		for i := 1; i <= 5; i++ {
-			req := httptest.NewRequest("POST", "/api/v1/workspaces/start", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/workspaces/start", nil)
 			ctx := context.WithValue(req.Context(), domain.UserIDKey, userID)
 			req = req.WithContext(ctx)
 
@@ -51,7 +50,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 		}
 
 		// El 6to request DEBE ser rechazado con 429
-		req6 := httptest.NewRequest("POST", "/api/v1/workspaces/start", nil)
+		req6 := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/workspaces/start", nil)
 		ctx6 := context.WithValue(req6.Context(), domain.UserIDKey, userID)
 		req6 = req6.WithContext(ctx6)
 
@@ -96,7 +95,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 		tenantID := domain.DefaultTenantID
 
 		reqBody := bytes.NewBufferString(`{"name":"Sistemas Operativos","code":"SO-2026"}`)
-		req := httptest.NewRequest("POST", "/api/v1/subjects", reqBody)
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/subjects", reqBody)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("User-Agent", "SOLV-IntegrationTest/1.0")
 
@@ -170,18 +169,6 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 
 		t.Logf("PASS: Concurrent RunMigrations executed cleanly with pg_advisory_lock(1337)!")
 	})
-}
-
-func generateTestJWT(userID, tenantID, role string) string {
-	claims := jwt.MapClaims{
-		"user_id":   userID,
-		"tenant_id": tenantID,
-		"role":      role,
-		"exp":       time.Now().Add(time.Hour).Unix(),
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, _ := token.SignedString([]byte("una_cadena_aleatoria_y_muy_larga_para_solv"))
-	return tokenStr
 }
 
 func setupTestDB() (*database.Database, error) {

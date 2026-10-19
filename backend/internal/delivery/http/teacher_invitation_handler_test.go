@@ -85,7 +85,7 @@ func TestTeacherInvitationHandler_RegisterDirectTeacher(t *testing.T) {
 		"send_notification": false,
 	})
 
-	req := httptest.NewRequest("POST", "/api/v1/teachers/direct", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/teachers/direct", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -116,10 +116,10 @@ func TestTeacherInvitationHandler_ParseRoster(t *testing.T) {
 		t.Fatalf("Failed to create form file: %v", err)
 	}
 	csvData := "Docente,Correo\nProfesor Uno,profesor1@uab.edu.bo\nProfesor Dos,profesor2@uab.edu.bo\n"
-	part.Write([]byte(csvData))
-	w.Close()
+	_, _ = part.Write([]byte(csvData))
+	_ = w.Close()
 
-	req := httptest.NewRequest("POST", "/api/v1/teachers/parse-roster", &b)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/teachers/parse-roster", &b)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 	rr := httptest.NewRecorder()
 
@@ -148,7 +148,7 @@ func TestTeacherInvitationHandler_BatchRegisterTeachers(t *testing.T) {
 		"send_notification": false,
 	})
 
-	req := httptest.NewRequest("POST", "/api/v1/teachers/direct-batch", bytes.NewReader(body))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/teachers/direct-batch", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -159,7 +159,7 @@ func TestTeacherInvitationHandler_BatchRegisterTeachers(t *testing.T) {
 	}
 
 	var res map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&res)
+	_ = json.NewDecoder(w.Body).Decode(&res)
 	if res["registered_count"] != float64(2) {
 		t.Errorf("Expected 2 registered, got %v", res["registered_count"])
 	}

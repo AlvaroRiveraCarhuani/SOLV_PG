@@ -94,7 +94,7 @@ func (a *EnvTestDockerAdapter) PullImage(ctx context.Context, imageRef string, o
 	if err != nil {
 		return err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	type layerStats struct {
 		current int64
@@ -139,7 +139,7 @@ func (a *EnvTestDockerAdapter) PullImage(ctx context.Context, imageRef string, o
 			return ErrPullStalled
 
 		case err := <-readErrCh:
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -275,7 +275,7 @@ func (a *EnvTestDockerAdapter) RunSmokeTest(ctx context.Context, imageRef string
 	if err != nil {
 		return nil, exitCode, fmt.Errorf("error al obtener logs del contenedor: %w", err)
 	}
-	defer logsReader.Close()
+	defer func() { _ = logsReader.Close() }()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
@@ -411,7 +411,7 @@ func (a *EnvTestDockerAdapter) RunJudgeSmokeTest(ctx context.Context, imageRef s
 	logsReader, err := a.cli.ContainerLogs(context.Background(), containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	output := ""
 	if err == nil {
-		defer logsReader.Close()
+		defer func() { _ = logsReader.Close() }()
 		var stdoutBuf, stderrBuf bytes.Buffer
 		_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
 		output = strings.TrimSpace(stdoutBuf.String())

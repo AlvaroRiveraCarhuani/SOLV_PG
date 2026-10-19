@@ -17,7 +17,7 @@ func TestSMTPMailer_MockMode(t *testing.T) {
 	}
 
 	m := NewSMTPMailer(cfg, 10, 1)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	msg := &domain.EmailMessage{
 		To:       "profesor.prueba@uab.edu.bo",
@@ -41,7 +41,7 @@ func TestSMTPMailer_AsyncQueue(t *testing.T) {
 	}
 
 	m := NewSMTPMailer(cfg, 50, 2)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	for i := 0; i < 5; i++ {
 		m.SendAsync(&domain.EmailMessage{
@@ -62,7 +62,7 @@ func TestSMTPMailer_BuildMIME(t *testing.T) {
 		From: "no-reply@uab.edu.bo",
 	}
 	m := NewSMTPMailer(cfg, 1, 1)
-	defer m.Close()
+	defer func() { _ = m.Close() }()
 
 	msg := &domain.EmailMessage{
 		To:       "test@uab.edu.bo",

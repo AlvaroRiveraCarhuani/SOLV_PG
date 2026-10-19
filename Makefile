@@ -15,3 +15,8 @@ build:
 dev:
 	@./dev.sh
 
+.PHONY: lint\:backend
+lint\:backend:
+	@echo "=>  golangci-lint (backend)..."
+	@cd backend && PATH="$$(go env GOPATH)/bin:$$PATH" golangci-lint run ./...
+

@@ -79,7 +79,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 	mux, _ := setupTestMux()
 
 	// 1. GET /api/v1/judge/profiles -> 200 OK
-	req := httptest.NewRequest("GET", "/api/v1/judge/profiles", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/judge/profiles", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -87,7 +87,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 	}
 
 	// 2. GET /api/v1/judge/profiles/c++ -> 400 Bad Request (rechazo de alias no canónico)
-	req = httptest.NewRequest("GET", "/api/v1/judge/profiles/c++", nil)
+	req = httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/judge/profiles/c++", nil)
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusBadRequest {
@@ -99,7 +99,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 		"default_memory_mb": 512,
 		"reason":            "test",
 	})
-	req = httptest.NewRequest("PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
+	req = httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
 	req.Header.Set("X-User-Role", "teacher")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -108,7 +108,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 	}
 
 	// 4. PUT /api/v1/admin/judge/profiles/python con admin -> 200 OK
-	req = httptest.NewRequest("PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
+	req = httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
 	req.Header.Set("X-User-Role", "admin")
 	req.Header.Set("X-User-Id", "admin-user-1")
 	rec = httptest.NewRecorder()

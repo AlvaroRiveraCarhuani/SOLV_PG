@@ -35,7 +35,7 @@ type WebSocketClient struct {
 func (c *WebSocketClient) readPump() {
 	defer func() {
 		c.hub.Unregister(c)
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -71,7 +71,7 @@ func (c *WebSocketClient) writePump() {
 	ticker := time.NewTicker(25 * time.Second)
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		_ = c.conn.Close()
 	}()
 
 	for {

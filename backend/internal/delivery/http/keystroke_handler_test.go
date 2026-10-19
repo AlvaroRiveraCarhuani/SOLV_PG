@@ -165,7 +165,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/submissions/sub-http-1/keystroke-events", bytes.NewReader(payloadBytes))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/submissions/sub-http-1/keystroke-events", bytes.NewReader(payloadBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "student")
 	w := httptest.NewRecorder()
@@ -177,7 +177,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	}
 
 	// 2. Query as student -> must be Forbidden (403)
-	getReqStudent := httptest.NewRequest(http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
+	getReqStudent := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
 	getReqStudent.Header.Set("X-User-Role", "student")
 	wStudent := httptest.NewRecorder()
 
@@ -187,7 +187,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	}
 
 	// 3. Query as teacher -> must be 200 OK with report
-	getReqTeacher := httptest.NewRequest(http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
+	getReqTeacher := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
 	getReqTeacher.Header.Set("X-User-Role", "teacher")
 	getReqTeacher.Header.Set("X-User-Id", "teacher-1")
 	wTeacher := httptest.NewRecorder()
@@ -242,7 +242,7 @@ func TestSubmissionHandler_KeystrokesLimit_Returns413(t *testing.T) {
 	}
 	payloadBytes, _ := json.Marshal(payload)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/submissions/sub-overflow/keystroke-events", bytes.NewReader(payloadBytes))
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/submissions/sub-overflow/keystroke-events", bytes.NewReader(payloadBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 

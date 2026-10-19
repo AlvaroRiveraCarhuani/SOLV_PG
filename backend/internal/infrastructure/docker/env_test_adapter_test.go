@@ -74,7 +74,7 @@ func parseDockerPullStream(
 			return docker.ErrPullStalled
 
 		case err := <-readErrCh:
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
@@ -170,9 +170,9 @@ func TestDockerPullParser_GoldenStream(t *testing.T) {
 
 // Bloqueo / corte a la mitad de la red que dispara ErrPullStalled (DA-02, C3)
 type blockingReader struct {
-	data     []byte
-	hasSent  bool
-	blockSec time.Duration
+	data          []byte
+	hasSent       bool
+	blockDuration time.Duration
 }
 
 func (b *blockingReader) Read(p []byte) (n int, err error) {
@@ -182,7 +182,7 @@ func (b *blockingReader) Read(p []byte) (n int, err error) {
 		return n, nil
 	}
 	// Pausa prolongada simulando corte de red
-	time.Sleep(b.blockSec)
+	time.Sleep(b.blockDuration)
 	return 0, io.EOF
 }
 
@@ -192,8 +192,8 @@ func TestDockerPullParser_InactivityDeadlineExceeded(t *testing.T) {
 `
 	// El reader envía el primer chunk y luego se congela 500ms
 	br := &blockingReader{
-		data:     []byte(initialChunk),
-		blockSec: 500 * time.Millisecond,
+		data:          []byte(initialChunk),
+		blockDuration: 500 * time.Millisecond,
 	}
 
 	// Deadline de 50ms (expira rápidamente ante inactividad)

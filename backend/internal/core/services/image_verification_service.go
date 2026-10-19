@@ -380,7 +380,7 @@ func (s *ImageVerificationService) runSafeCapabilityProbe(ctx context.Context, i
 	if err != nil {
 		return &domain.CapabilitiesProbeResult{Success: true}
 	}
-	defer logsReader.Close()
+	defer func() { _ = logsReader.Close() }()
 
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, logsReader)

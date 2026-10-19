@@ -185,7 +185,7 @@ func TestDryRunAndPublishHTTPContracts(t *testing.T) {
 	httpdelivery.SetupRoutes(mux, deps)
 
 	// 1. Publicar ejercicio stale -> 409 Conflict (EXERCISE_STALE)
-	req := httptest.NewRequest("POST", "/api/v1/exercises/ex-stale/publish", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/ex-stale/publish", nil)
 	req.Header.Set("X-User-Role", "teacher")
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -194,7 +194,7 @@ func TestDryRunAndPublishHTTPContracts(t *testing.T) {
 	}
 
 	// 2. Publicar ejercicio sin referencia -> 409 Conflict (REFERENCE_REQUIRED)
-	req = httptest.NewRequest("POST", "/api/v1/exercises/ex-no-ref/publish", nil)
+	req = httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/ex-no-ref/publish", nil)
 	req.Header.Set("X-User-Role", "teacher")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
@@ -203,7 +203,7 @@ func TestDryRunAndPublishHTTPContracts(t *testing.T) {
 	}
 
 	// 3. Iniciar Dry-Run -> 202 Accepted
-	req = httptest.NewRequest("POST", "/api/v1/exercises/ex-stale/dry-run", nil)
+	req = httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/ex-stale/dry-run", nil)
 	req.Header.Set("X-User-Role", "teacher")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)

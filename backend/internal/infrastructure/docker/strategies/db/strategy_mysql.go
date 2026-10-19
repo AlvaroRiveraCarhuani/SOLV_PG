@@ -46,7 +46,7 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 			return domain.DBEvaluationResult{}, fmt.Errorf("failed to pull image %s: %w", imageName, pullErr)
 		}
 		_, _ = io.Copy(io.Discard, out)
-		out.Close()
+		_ = out.Close()
 	}
 
 	memLimit := int64(config.MemoryLimitMB)

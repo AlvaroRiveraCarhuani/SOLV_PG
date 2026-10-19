@@ -722,7 +722,7 @@ func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusBadRequest, err.Error(), "Archivo 'file' no encontrado en el formulario")
 			return
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 
 		fileName = header.Filename
 		var readErr error
@@ -786,7 +786,7 @@ func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *ht
 		if scriptCode == "" {
 			file, _, err := r.FormFile("script")
 			if err == nil {
-				defer file.Close()
+				defer func() { _ = file.Close() }()
 				buf, readErr := io.ReadAll(file)
 				if readErr == nil {
 					scriptCode = string(buf)

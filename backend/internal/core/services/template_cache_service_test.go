@@ -208,11 +208,12 @@ func TestTemplateCacheService_GetTemplatesCacheStatus(t *testing.T) {
 	}
 
 	for _, s := range statuses {
-		if s.DockerImage == "python:3.12-slim" {
+		switch s.DockerImage {
+		case "python:3.12-slim":
 			if !s.IsCached || s.Status != "cached" || s.SizeBytes != 125000000 {
 				t.Errorf("expected python to be cached with size 125MB, got: %+v", s)
 			}
-		} else if s.DockerImage == "node:20-alpine" {
+		case "node:20-alpine":
 			if s.IsCached || s.Status != "missing" {
 				t.Errorf("expected node to be missing, got: %+v", s)
 			}

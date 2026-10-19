@@ -104,7 +104,6 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 	if subjectID != "" {
 		baseQuery += fmt.Sprintf(` AND u.id IN (SELECT student_id FROM enrollments WHERE tenant_id = $1 AND subject_id = $%d)`, argIdx)
 		args = append(args, subjectID)
-		argIdx++
 	}
 
 	if status != "" {
@@ -532,7 +531,6 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 		searchPattern := "%" + strings.ToLower(search) + "%"
 		baseQuery += fmt.Sprintf(` AND (LOWER(lt.name) LIKE $%d OR LOWER(lt.docker_image) LIKE $%d OR LOWER(u.first_name) LIKE $%d OR LOWER(u.last_name) LIKE $%d)`, argIdx, argIdx, argIdx, argIdx)
 		args = append(args, searchPattern)
-		argIdx++
 	}
 
 	baseQuery += ` ORDER BY lt.created_at DESC`
@@ -1164,7 +1162,7 @@ func (r *PostgresAdminGovernanceRepository) ReorderTemplateCategories(ctx contex
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `UPDATE template_categories SET sort_order = $1, updated_at = NOW() WHERE id = $2 AND (tenant_id = $3 OR tenant_id IS NULL)`
 	for _, item := range items {
@@ -1466,7 +1464,7 @@ func (r *PostgresAdminGovernanceRepository) SaveDraft(ctx context.Context, tenan
 	if err != nil {
 		return nil, fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		INSERT INTO template_drafts (tenant_id, user_id, form_data, template_id, updated_at)
@@ -1542,7 +1540,7 @@ func (r *PostgresAdminGovernanceRepository) DeleteDraft(ctx context.Context, ten
 	if err != nil {
 		return fmt.Errorf("begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `DELETE FROM template_drafts WHERE tenant_id = $1 AND user_id = $2`
 	if _, err := tx.ExecContext(ctx, query, tenantID, userID); err != nil {
@@ -1564,7 +1562,7 @@ func (r *PostgresAdminGovernanceRepository) GetImageUsageCounts(ctx context.Cont
 	if err != nil {
 		return nil, fmt.Errorf("error querying image usage counts: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	usageMap := make(map[string]int)
 	for rows.Next() {

@@ -105,7 +105,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.action, func(t *testing.T) {
 			payload := fmt.Sprintf(`{"confirmation_phrase": %q, "reason": %q}`, tc.phrase, reason)
-			req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/"+tc.action, bytes.NewBufferString(payload))
+			req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/"+tc.action, bytes.NewBufferString(payload))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-User-Role", "admin")
 			req.Header.Set("X-Tenant-Id", tenantID)
@@ -114,7 +114,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Failed to call %s: %v", tc.action, err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("Expected 200 OK for %s with exact phrase, got %d", tc.action, resp.StatusCode)
@@ -152,7 +152,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	pruneEventsBefore, _ := auditRepo.ListFiltered(ctx, tenantID, "", "EMERGENCY_PRUNE_DOCKER", 10, 0)
 
 	badPayload := `{"confirmation_phrase": "por favor borrar todo", "reason": "prueba de frase invalida"}`
-	reqBad, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/docker_prune", bytes.NewBufferString(badPayload))
+	reqBad, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/docker_prune", bytes.NewBufferString(badPayload))
 	reqBad.Header.Set("Content-Type", "application/json")
 	reqBad.Header.Set("X-User-Role", "admin")
 	reqBad.Header.Set("X-Tenant-Id", tenantID)
@@ -161,7 +161,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to call docker_prune with invalid phrase: %v", err)
 	}
-	defer respBad.Body.Close()
+	defer func() { _ = respBad.Body.Close() }()
 	if respBad.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("Expected 422 for invalid confirmation phrase, got %d", respBad.StatusCode)
 	}
@@ -173,7 +173,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 
 	// Acción desconocida: 422.
 	unknownPayload := `{"confirmation_phrase": "ACCION_INEXISTENTE"}`
-	reqUnknown, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBufferString(unknownPayload))
+	reqUnknown, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBufferString(unknownPayload))
 	reqUnknown.Header.Set("Content-Type", "application/json")
 	reqUnknown.Header.Set("X-User-Role", "admin")
 	reqUnknown.Header.Set("X-Tenant-Id", tenantID)
@@ -182,7 +182,7 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to call unknown action: %v", err)
 	}
-	defer respUnknown.Body.Close()
+	defer func() { _ = respUnknown.Body.Close() }()
 	if respUnknown.StatusCode != http.StatusUnprocessableEntity {
 		t.Errorf("Expected 422 for unknown emergency action, got %d", respUnknown.StatusCode)
 	}

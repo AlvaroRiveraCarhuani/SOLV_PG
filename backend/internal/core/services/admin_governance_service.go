@@ -183,9 +183,10 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	}
 
 	dbStatus := dto.Status
-	if status == "suspended" {
+	switch status {
+	case "suspended":
 		dbStatus = "SUSPENDIDA"
-	} else if status == "pending_audit" {
+	case "pending_audit":
 		dbStatus = "PENDIENTE_AUDITORIA"
 	}
 

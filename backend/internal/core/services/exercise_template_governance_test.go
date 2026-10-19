@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
@@ -235,7 +236,7 @@ func TestExerciseTemplateGovernance_TemplateNotApproved(t *testing.T) {
 	}
 
 	err := svc.CreateExercise(context.Background(), ex)
-	if err != domain.ErrTemplateNotApproved {
+	if !errors.Is(err, domain.ErrTemplateNotApproved) {
 		t.Fatalf("expected ErrTemplateNotApproved, got %v", err)
 	}
 }
@@ -264,7 +265,7 @@ func TestExerciseTemplateGovernance_EnvironmentMismatch(t *testing.T) {
 	}
 
 	err := svc.CreateExercise(context.Background(), ex)
-	if err != domain.ErrTemplateEnvironmentMismatch {
+	if !errors.Is(err, domain.ErrTemplateEnvironmentMismatch) {
 		t.Fatalf("expected ErrTemplateEnvironmentMismatch, got %v", err)
 	}
 }

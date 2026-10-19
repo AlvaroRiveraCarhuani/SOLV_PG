@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -65,39 +66,45 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	fmt.Fprintf(w, "# HELP solv_active_workspaces_total Total number of active running/pending student workspaces\n")
-	fmt.Fprintf(w, "# TYPE solv_active_workspaces_total gauge\n")
-	fmt.Fprintf(w, "solv_active_workspaces_total %d\n\n", activeCount)
+	_, _ = fmt.Fprintf(w, "# HELP solv_active_workspaces_total Total number of active running/pending student workspaces\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_active_workspaces_total gauge\n")
+	_, _ = fmt.Fprintf(w, "solv_active_workspaces_total %d\n\n", activeCount)
 
-	fmt.Fprintf(w, "# HELP solv_host_available_memory_bytes Physical host available RAM in bytes\n")
-	fmt.Fprintf(w, "# TYPE solv_host_available_memory_bytes gauge\n")
-	fmt.Fprintf(w, "solv_host_available_memory_bytes %d\n\n", availBytes)
+	_, _ = fmt.Fprintf(w, "# HELP solv_host_available_memory_bytes Physical host available RAM in bytes\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_host_available_memory_bytes gauge\n")
+	_, _ = fmt.Fprintf(w, "solv_host_available_memory_bytes %d\n\n", availBytes)
 
-	fmt.Fprintf(w, "# HELP solv_host_oom_guard_bytes Calibrated Node Allocatable OOM Guard threshold in bytes\n")
-	fmt.Fprintf(w, "# TYPE solv_host_oom_guard_bytes gauge\n")
-	fmt.Fprintf(w, "solv_host_oom_guard_bytes %d\n\n", oomGuardBytes)
+	_, _ = fmt.Fprintf(w, "# HELP solv_host_oom_guard_bytes Calibrated Node Allocatable OOM Guard threshold in bytes\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_host_oom_guard_bytes gauge\n")
+	_, _ = fmt.Fprintf(w, "solv_host_oom_guard_bytes %d\n\n", oomGuardBytes)
 
-	fmt.Fprintf(w, "# HELP solv_orphan_containers_reclaimed_total Total number of orphan/zombie containers reclaimed by collector\n")
-	fmt.Fprintf(w, "# TYPE solv_orphan_containers_reclaimed_total counter\n")
-	fmt.Fprintf(w, "solv_orphan_containers_reclaimed_total %d\n\n", reclaimedCount)
+	_, _ = fmt.Fprintf(w, "# HELP solv_orphan_containers_reclaimed_total Total number of orphan/zombie containers reclaimed by collector\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_orphan_containers_reclaimed_total counter\n")
+	_, _ = fmt.Fprintf(w, "solv_orphan_containers_reclaimed_total %d\n\n", reclaimedCount)
 
-	fmt.Fprintf(w, "# HELP solv_cert_expiry_days Remaining validity of wildcard TLS certificate in days\n")
-	fmt.Fprintf(w, "# TYPE solv_cert_expiry_days gauge\n")
-	fmt.Fprintf(w, "solv_cert_expiry_days %.2f\n", certExpiryDays)
+	_, _ = fmt.Fprintf(w, "# HELP solv_cert_expiry_days Remaining validity of wildcard TLS certificate in days\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_cert_expiry_days gauge\n")
+	_, _ = fmt.Fprintf(w, "solv_cert_expiry_days %.2f\n", certExpiryDays)
 }
 
 func getCertExpiryDays() float64 {
 	dialer := &net.Dialer{Timeout: 2 * time.Second}
-	conn, err := tls.DialWithDialer(dialer, "tcp", "127.0.0.1:443", &tls.Config{
-		InsecureSkipVerify: true,
-	})
+	tlsDialer := &tls.Dialer{
+		NetDialer: dialer,
+		Config: &tls.Config{
+			InsecureSkipVerify: true,
+		},
+	}
+	conn, err := tlsDialer.DialContext(context.Background(), "tcp", "127.0.0.1:443")
 	if err == nil {
-		defer conn.Close()
-		certs := conn.ConnectionState().PeerCertificates
-		if len(certs) > 0 {
-			days := time.Until(certs[0].NotAfter).Hours() / 24.0
-			if days > 0 {
-				return days
+		defer func() { _ = conn.Close() }()
+		if tlsConn, ok := conn.(*tls.Conn); ok {
+			certs := tlsConn.ConnectionState().PeerCertificates
+			if len(certs) > 0 {
+				days := time.Until(certs[0].NotAfter).Hours() / 24.0
+				if days > 0 {
+					return days
+				}
 			}
 		}
 	}

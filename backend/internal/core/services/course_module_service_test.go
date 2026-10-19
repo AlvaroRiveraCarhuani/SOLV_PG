@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"solv-backend/internal/core/domain"
@@ -122,7 +123,7 @@ func TestCourseModuleService_PrerequisitesValidation(t *testing.T) {
 
 	t.Run("Self-prerequisite is rejected", func(t *testing.T) {
 		err := svc.SetPrerequisites(ctx, "m1", []string{"m1"})
-		if err != domain.ErrSelfPrerequisite {
+		if !errors.Is(err, domain.ErrSelfPrerequisite) {
 			t.Fatalf("expected ErrSelfPrerequisite, got %v", err)
 		}
 	})
@@ -131,7 +132,7 @@ func TestCourseModuleService_PrerequisitesValidation(t *testing.T) {
 		// Module in another subject
 		repo.modules["m-other"] = &domain.CourseModule{ID: "m-other", SubjectID: "other-subj", Title: "Other", OrderIndex: 1}
 		err := svc.SetPrerequisites(ctx, "m1", []string{"m-other"})
-		if err != domain.ErrPrerequisiteCrossCourse {
+		if !errors.Is(err, domain.ErrPrerequisiteCrossCourse) {
 			t.Fatalf("expected ErrPrerequisiteCrossCourse, got %v", err)
 		}
 	})
@@ -145,7 +146,7 @@ func TestCourseModuleService_PrerequisitesValidation(t *testing.T) {
 
 	t.Run("Cyclic prerequisite M1 -> M2 when M2 -> M1 is rejected", func(t *testing.T) {
 		err := svc.SetPrerequisites(ctx, "m1", []string{"m2"})
-		if err != domain.ErrCyclicPrerequisite {
+		if !errors.Is(err, domain.ErrCyclicPrerequisite) {
 			t.Fatalf("expected ErrCyclicPrerequisite, got %v", err)
 		}
 	})

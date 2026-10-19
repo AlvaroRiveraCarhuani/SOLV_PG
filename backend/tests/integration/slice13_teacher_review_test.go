@@ -169,7 +169,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("1. GET /api/v1/teacher/courses/{id}/submissions - Cola con Filtros", func(t *testing.T) {
 		// 1.1 Listar todas las entregas del curso
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions", server.URL, subjectID), nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions", server.URL, subjectID), nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -178,26 +178,28 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		items := body["data"].([]interface{})
 		if len(items) != 3 {
 			t.Fatalf("Expected 3 submissions in course queue, got %d", len(items))
 		}
 
 		// 1.2 Filtrar por verdict=WA (debe retornar exactamente 2 entregas)
-		reqWA, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions?verdict=WA", server.URL, subjectID), nil)
+		reqWA, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions?verdict=WA", server.URL, subjectID), nil)
 		reqWA.Header.Set("X-User-Id", teacherID)
 		reqWA.Header.Set("X-User-Role", "teacher")
 		reqWA.Header.Set("X-Tenant-Id", tenantID)
 
 		respWA, _ := client.Do(reqWA)
+		defer func() { _ = respWA.Body.Close() }()
 		var bodyWA map[string]interface{}
-		json.NewDecoder(respWA.Body).Decode(&bodyWA)
+		_ = json.NewDecoder(respWA.Body).Decode(&bodyWA)
 		itemsWA := bodyWA["data"].([]interface{})
 		if len(itemsWA) != 2 {
 			t.Fatalf("Expected 2 submissions with WA verdict, got %d", len(itemsWA))
@@ -209,7 +211,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("2. GET /api/v1/teacher/submissions/{id}/review - Desenmascaramiento y Punteros SpeedGrader", func(t *testing.T) {
 		// 2.1 Consulta por docente para Sub 2 (intermedia en tiempo)
-		req, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -218,12 +220,13 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		review := body["data"].(map[string]interface{})
 
 		// Verificar que se desenmascararon los 4 casos de prueba (incluyendo los 2 privados)
@@ -256,9 +259,10 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		}
 
 		// 2.2 Seguridad: Estudiante intentando acceder a review docente -> 403 Forbidden
-		reqStudent, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
 		reqStudent.Header.Set("X-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student accessing teacher review, got %d", respStudent.StatusCode)
 		}
@@ -270,29 +274,31 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	t.Run("3. POST /api/v1/submissions/{id}/override - Convalidación Docente y Validación 422", func(t *testing.T) {
 		// 3.1 Frontera 422: Justificación demasiado corta (< 10 caracteres)
 		shortPayload := []byte(`{"verdict": "AC", "override_reason": "ok", "score": 100}`)
-		reqShort, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
+		reqShort, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
 		reqShort.Header.Set("Content-Type", "application/json")
 		reqShort.Header.Set("X-User-Id", teacherID)
 		reqShort.Header.Set("X-User-Role", "teacher")
 		reqShort.Header.Set("X-Tenant-Id", tenantID)
 
 		respShort, _ := client.Do(reqShort)
+		defer func() { _ = respShort.Body.Close() }()
 		if respShort.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 Unprocessable Entity for short reason, got %d", respShort.StatusCode)
 		}
 
 		// 3.2 Seguridad: Estudiante intentando hacer override -> 403 Forbidden
-		reqStuOverride, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
+		reqStuOverride, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
 		reqStuOverride.Header.Set("Content-Type", "application/json")
 		reqStuOverride.Header.Set("X-User-Role", "student")
 		respStuOverride, _ := client.Do(reqStuOverride)
+		defer func() { _ = respStuOverride.Body.Close() }()
 		if respStuOverride.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student override attempt, got %d", respStuOverride.StatusCode)
 		}
 
 		// 3.3 Override Exitoso (>= 10 caracteres)
 		validPayload := []byte(`{"verdict": "AC", "override_reason": "Solución correcta, contempló caso borde correctamente.", "score": 95}`)
-		reqValid, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(validPayload))
+		reqValid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(validPayload))
 		reqValid.Header.Set("Content-Type", "application/json")
 		reqValid.Header.Set("X-User-Id", teacherID)
 		reqValid.Header.Set("X-User-Role", "teacher")
@@ -302,6 +308,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = respValid.Body.Close() }()
 		if respValid.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for valid override, got %d", respValid.StatusCode)
 		}
@@ -342,7 +349,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	t.Run("4. Comentarios In-line Anclados a Líneas de Código", func(t *testing.T) {
 		// 4.1 Docente agrega comentario en línea 15
 		c1Payload := []byte(`{"line_number": 15, "comment": "Ojo con el caso base cuando n == 0"}`)
-		reqC1, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c1Payload))
+		reqC1, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c1Payload))
 		reqC1.Header.Set("Content-Type", "application/json")
 		reqC1.Header.Set("X-User-Id", teacherID)
 		reqC1.Header.Set("X-User-Role", "teacher")
@@ -352,34 +359,37 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = respC1.Body.Close() }()
 		if respC1.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created for comment 1, got %d", respC1.StatusCode)
 		}
 
 		// 4.2 Docente agrega comentario en línea 28
 		c2Payload := []byte(`{"line_number": 28, "comment": "Excelente optimización de memoria"}`)
-		reqC2, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c2Payload))
+		reqC2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c2Payload))
 		reqC2.Header.Set("Content-Type", "application/json")
 		reqC2.Header.Set("X-User-Id", teacherID)
 		reqC2.Header.Set("X-User-Role", "teacher")
 		reqC2.Header.Set("X-Tenant-Id", tenantID)
 
 		respC2, _ := client.Do(reqC2)
+		defer func() { _ = respC2.Body.Close() }()
 		if respC2.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created for comment 2, got %d", respC2.StatusCode)
 		}
 
 		// 4.3 Consultar comentarios de la entrega
-		reqList, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), nil)
+		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), nil)
 		reqList.Header.Set("X-Tenant-Id", tenantID)
 
 		respList, _ := client.Do(reqList)
+		defer func() { _ = respList.Body.Close() }()
 		if respList.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for comments list, got %d", respList.StatusCode)
 		}
 
 		var bodyList map[string]interface{}
-		json.NewDecoder(respList.Body).Decode(&bodyList)
+		_ = json.NewDecoder(respList.Body).Decode(&bodyList)
 		comments := bodyList["data"].([]interface{})
 		if len(comments) != 2 {
 			t.Fatalf("Expected exactly 2 comments, got %d", len(comments))

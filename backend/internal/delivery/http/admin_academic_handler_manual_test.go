@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,7 +12,7 @@ func TestGetAdminManual(t *testing.T) {
 	handler := &AdminAcademicHandler{}
 
 	t.Run("GET method returns embedded markdown with 200 OK", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/manual", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/manual", nil)
 		w := httptest.NewRecorder()
 
 		handler.GetAdminManual(w, req)
@@ -36,7 +37,7 @@ func TestGetAdminManual(t *testing.T) {
 	})
 
 	t.Run("Non-GET method returns 405 Method Not Allowed", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/manual", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/manual", nil)
 		w := httptest.NewRecorder()
 
 		handler.GetAdminManual(w, req)

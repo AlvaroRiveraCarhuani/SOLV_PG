@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var ErrTooManyKeystrokeEvents = errors.New("Máximo 10,000 eventos de escritura permitidos por submission")
+var ErrTooManyKeystrokeEvents = errors.New("máximo 10,000 eventos de escritura permitidos por submission")
 
 type KeystrokeEventType string
 

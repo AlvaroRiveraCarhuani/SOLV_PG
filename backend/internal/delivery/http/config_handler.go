@@ -42,7 +42,7 @@ func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) 
 		entry := val.(cacheEntry)
 		if time.Now().Before(entry.expiresAt) {
 			w.Header().Set("Content-Type", "application/json")
-			w.Write(entry.data)
+			_, _ = w.Write(entry.data)
 			return
 		}
 	}
@@ -90,5 +90,5 @@ func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) 
 	})
 
 	w.Header().Set("Content-Type", "application/json")
-	w.Write(data)
+	_, _ = w.Write(data)
 }

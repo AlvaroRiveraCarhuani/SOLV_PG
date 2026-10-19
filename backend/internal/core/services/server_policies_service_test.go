@@ -88,7 +88,11 @@ func TestServerPolicies_UpdateWithValidation(t *testing.T) {
 	// Fuera de rango: rechazado sin persistir
 	if _, err := svc.Update(ctx, "t-1", domain.UpdateServerPoliciesDTO{RAMLimitMB: policiesIntPtr(9999)}); err == nil {
 		t.Fatal("expected ram_limit_invalid error")
-	} else if code := err.(*services.PoliciesValidationError).Code; code != "ram_limit_invalid" {
+	} else if code := func() *services.PoliciesValidationError {
+		target := &services.PoliciesValidationError{}
+		_ = errors.As(err, &target)
+		return target
+	}().Code; code != "ram_limit_invalid" {
 		t.Fatalf("expected ram_limit_invalid, got %s", code)
 	}
 

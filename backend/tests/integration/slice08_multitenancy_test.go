@@ -194,7 +194,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 	// 1. Test ConfigHandler /api/v1/config/public (Test 5 del enunciado)
 	t.Run("Endpoint /api/v1/config/public returns default tenant UAB config", func(t *testing.T) {
 		h := httpdelivery.NewConfigHandler(tenantRepo)
-		req := httptest.NewRequest("GET", "/api/v1/config/public", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/config/public", nil)
 		rec := httptest.NewRecorder()
 		h.GetPublicConfig(rec, req)
 
@@ -215,7 +215,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		}
 
 		// Test por slug explícito UAB
-		reqSlug := httptest.NewRequest("GET", "/api/v1/config/public?slug=uab", nil)
+		reqSlug := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/config/public?slug=uab", nil)
 		recSlug := httptest.NewRecorder()
 		h.GetPublicConfig(recSlug, reqSlug)
 		if recSlug.Code != http.StatusOK {
@@ -223,20 +223,20 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		}
 
 		// Test por slug explícito de OTRA universidad (UMSA)
-		reqUMSA := httptest.NewRequest("GET", "/api/v1/config/public?slug=umsa", nil)
+		reqUMSA := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/config/public?slug=umsa", nil)
 		recUMSA := httptest.NewRecorder()
 		h.GetPublicConfig(recUMSA, reqUMSA)
 		if recUMSA.Code != http.StatusOK {
 			t.Errorf("Expected 200 OK for ?slug=umsa, got %d", recUMSA.Code)
 		}
 		var cfgUMSA map[string]interface{}
-		json.Unmarshal(recUMSA.Body.Bytes(), &cfgUMSA)
+		_ = json.Unmarshal(recUMSA.Body.Bytes(), &cfgUMSA)
 		if cfgUMSA["institution_name"] != "Universidad Mayor de San Andrés" {
 			t.Errorf("Expected UMSA configuration, got %v", cfgUMSA["institution_name"])
 		}
 
 		// Test por slug inexistente -> 404 Not Found
-		reqInvalid := httptest.NewRequest("GET", "/api/v1/config/public?slug=inexistente", nil)
+		reqInvalid := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/config/public?slug=inexistente", nil)
 		recInvalid := httptest.NewRecorder()
 		h.GetPublicConfig(recInvalid, reqInvalid)
 		if recInvalid.Code != http.StatusNotFound {
@@ -262,10 +262,10 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tenantMiddleware := middleware.WithTenant(tenantRepo, jwtSecret)
 		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			tenantID := coredomain.GetTenantID(r.Context())
-			w.Write([]byte(tenantID))
+			_, _ = w.Write([]byte(tenantID))
 		})
 
-		reqUAB := httptest.NewRequest("GET", "/api/v1/workspaces/ws-uab-1", nil)
+		reqUAB := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-uab-1", nil)
 		reqUAB.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		recUAB := httptest.NewRecorder()
 
@@ -288,7 +288,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenUMSA := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsUMSA)
 		tokenStrUMSA, _ := tokenUMSA.SignedString(jwtSecret)
 
-		reqUMSA := httptest.NewRequest("GET", "/api/v1/workspaces/ws-umsa-1", nil)
+		reqUMSA := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-umsa-1", nil)
 		reqUMSA.Header.Set("Authorization", "Bearer "+tokenStrUMSA)
 		recUMSA := httptest.NewRecorder()
 
@@ -310,7 +310,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenInvalid := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsInvalid)
 		tokenStrInvalid, _ := tokenInvalid.SignedString(jwtSecret)
 
-		reqInvalid := httptest.NewRequest("GET", "/api/v1/workspaces/ws-uab-1", nil)
+		reqInvalid := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-uab-1", nil)
 		reqInvalid.Header.Set("Authorization", "Bearer "+tokenStrInvalid)
 		recInvalid := httptest.NewRecorder()
 
@@ -327,7 +327,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		// Test 3: Consultar workspaces de UAB como usuario UAB sólo retorna UAB
 		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			list, _ := workspaceRepo.GetActiveWorkspaces(r.Context())
-			json.NewEncoder(w).Encode(list)
+			_ = json.NewEncoder(w).Encode(list)
 		})
 
 		claimsUAB := jwt.MapClaims{
@@ -340,14 +340,14 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenUAB := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsUAB)
 		tokenStrUAB, _ := tokenUAB.SignedString(jwtSecret)
 
-		req := httptest.NewRequest("GET", "/api/v1/workspaces", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces", nil)
 		req.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		rec := httptest.NewRecorder()
 
 		tenantMiddleware(nextHandler).ServeHTTP(rec, req)
 
 		var res []*coredomain.WorkspaceInstance
-		json.Unmarshal(rec.Body.Bytes(), &res)
+		_ = json.Unmarshal(rec.Body.Bytes(), &res)
 
 		if len(res) != 1 || res[0].ID != "ws-uab-1" {
 			t.Errorf("Data leakage: returned workspaces from another tenant!")
@@ -361,10 +361,10 @@ func TestMultiTenancyIsolation(t *testing.T) {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
 			}
-			w.Write([]byte("OK"))
+			_, _ = w.Write([]byte("OK"))
 		})
 
-		reqSingle := httptest.NewRequest("GET", "/api/v1/workspaces/ws-umsa-1", nil)
+		reqSingle := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-umsa-1", nil)
 		reqSingle.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		recSingle := httptest.NewRecorder()
 

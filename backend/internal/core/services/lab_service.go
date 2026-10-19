@@ -78,13 +78,13 @@ func (s *LabService) StartLab(ctx context.Context, userID string, templateID str
 	}
 
 	if err := s.docker.EnsureVolumeExists(ctx, config.VolumeName); err != nil {
-		s.repo.UpdateStatus(ctx, id, "failed")
+		_ = s.repo.UpdateStatus(ctx, id, "failed")
 		return nil, fmt.Errorf("failed to ensure volume: %w", err)
 	}
 
 	containerID, err := s.docker.StartContainer(ctx, config)
 	if err != nil {
-		s.repo.UpdateStatus(ctx, id, "failed")
+		_ = s.repo.UpdateStatus(ctx, id, "failed")
 		return nil, fmt.Errorf("docker start failed: %w", err)
 	}
 

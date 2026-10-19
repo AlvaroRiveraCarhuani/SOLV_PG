@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -11,12 +12,11 @@ import (
 )
 
 type mockMaintenanceTenantRepo struct {
-	status        *domain.MaintenanceStatus
-	setCalls      int
-	lastEnabled   bool
-	lastUntil     *time.Time
-	lastReason    string
-	allowNotFound bool
+	status      *domain.MaintenanceStatus
+	setCalls    int
+	lastEnabled bool
+	lastUntil   *time.Time
+	lastReason  string
 }
 
 func (m *mockMaintenanceTenantRepo) GetByID(ctx context.Context, id string) (*domain.Tenant, error) {
@@ -91,7 +91,8 @@ func TestMaintenanceService_EnableValidation(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected MaintenanceValidationError, got nil")
 			}
-			vErr, ok := err.(*services.MaintenanceValidationError)
+			vErr := &services.MaintenanceValidationError{}
+			ok := errors.As(err, &vErr)
 			if !ok {
 				t.Fatalf("expected *MaintenanceValidationError, got %T (%v)", err, err)
 			}

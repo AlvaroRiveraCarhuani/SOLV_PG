@@ -21,7 +21,8 @@ func (db *Database) CreateUser(ctx context.Context, dto domain.CreateUserDTO) (s
 	var id string
 	err := db.db.QueryRowContext(ctx, query, dto.FirstName, dto.LastName, dto.Email, tenantID).Scan(&id)
 	if err != nil {
-		if pqErr, ok := err.(*pq.Error); ok {
+		pqErr := &pq.Error{}
+		if errors.As(err, &pqErr) {
 			if pqErr.Code == "23505" { // unique_violation
 				return "", errors.New("email already exists")
 			}

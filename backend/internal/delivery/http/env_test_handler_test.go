@@ -55,7 +55,7 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 
 	// 1. Iniciar Job
 	reqBody := []byte(`{"image":"python:3.12-slim","tools":["python","pip"]}`)
-	req := httptest.NewRequest("POST", "/api/v1/jobs/env-test", bytes.NewBuffer(reqBody))
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/jobs/env-test", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
@@ -78,7 +78,7 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 	}
 
 	// 2. Consultar Job
-	getReq := httptest.NewRequest("GET", "/api/v1/jobs/env-test/"+jobID, nil)
+	getReq := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/jobs/env-test/"+jobID, nil)
 	getW := httptest.NewRecorder()
 	mux.ServeHTTP(getW, getReq)
 
@@ -87,7 +87,7 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 	}
 
 	// 3. Cancelar Job
-	cancelReq := httptest.NewRequest("POST", "/api/v1/jobs/env-test/"+jobID+"/cancel", nil)
+	cancelReq := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/jobs/env-test/"+jobID+"/cancel", nil)
 	cancelW := httptest.NewRecorder()
 	mux.ServeHTTP(cancelW, cancelReq)
 

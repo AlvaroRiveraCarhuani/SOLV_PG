@@ -63,7 +63,7 @@ func (h *TenantLogoHandler) UploadLogo(w http.ResponseWriter, r *http.Request) {
 		SendError(w, http.StatusBadRequest, "missing_file", "Campo multipart \"logo\" requerido")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	ext := strings.ToLower(filepath.Ext(header.Filename))
 	if _, allowed := allowedLogoExtensions[ext]; !allowed {
@@ -80,7 +80,7 @@ func (h *TenantLogoHandler) UploadLogo(w http.ResponseWriter, r *http.Request) {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al almacenar el logo")
 		return
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, file); err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al escribir el logo")

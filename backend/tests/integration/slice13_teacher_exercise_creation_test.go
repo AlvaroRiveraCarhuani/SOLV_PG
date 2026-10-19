@@ -115,7 +115,7 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	}
 
 	jsonBytes, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(jsonBytes))
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "teacher")
 	req.Header.Set("X-Tenant-Id", tenantID)
@@ -124,11 +124,11 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST /api/v1/exercises failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated {
 		var buf bytes.Buffer
-		buf.ReadFrom(resp.Body)
+		_, _ = buf.ReadFrom(resp.Body)
 		t.Fatalf("Expected status 201 Created, got %d. Body: %s", resp.StatusCode, buf.String())
 	}
 
@@ -187,22 +187,22 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 		},
 	}
 	createJSON, _ := json.Marshal(zeroPubExercise)
-	req1, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(createJSON))
+	req1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(createJSON))
 	req1.Header.Set("Content-Type", "application/json")
 	req1.Header.Set("X-User-Role", "teacher")
 	req1.Header.Set("X-Tenant-Id", tenantID)
 	resp1, _ := http.DefaultClient.Do(req1)
-	resp1.Body.Close()
+	_ = resp1.Body.Close()
 
 	// Intentar publicar ejercicio con 0 casos públicos -> DEBE RETORNAR 422
-	pubReq1, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises/"+exZeroPublicID+"/publish", nil)
+	pubReq1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exZeroPublicID+"/publish", nil)
 	pubReq1.Header.Set("X-User-Role", "teacher")
 	pubReq1.Header.Set("X-Tenant-Id", tenantID)
 	pubResp1, err := http.DefaultClient.Do(pubReq1)
 	if err != nil {
 		t.Fatalf("POST /publish failed: %v", err)
 	}
-	defer pubResp1.Body.Close()
+	defer func() { _ = pubResp1.Body.Close() }()
 
 	if pubResp1.StatusCode != 422 {
 		t.Fatalf("Expected status 422 Unprocessable Entity for 0 public test cases, got %d", pubResp1.StatusCode)
@@ -228,22 +228,22 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 		},
 	}
 	validJSON, _ := json.Marshal(validExercise)
-	req2, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(validJSON))
+	req2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(validJSON))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("X-User-Role", "teacher")
 	req2.Header.Set("X-Tenant-Id", tenantID)
 	resp2, _ := http.DefaultClient.Do(req2)
-	resp2.Body.Close()
+	_ = resp2.Body.Close()
 
 	// Publicar ejercicio válido -> DEBE RETORNAR 200 OK
-	pubReq2, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises/"+validExID+"/publish", nil)
+	pubReq2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+validExID+"/publish", nil)
 	pubReq2.Header.Set("X-User-Role", "teacher")
 	pubReq2.Header.Set("X-Tenant-Id", tenantID)
 	pubResp2, err := http.DefaultClient.Do(pubReq2)
 	if err != nil {
 		t.Fatalf("POST /publish failed: %v", err)
 	}
-	defer pubResp2.Body.Close()
+	defer func() { _ = pubResp2.Body.Close() }()
 
 	if pubResp2.StatusCode != http.StatusOK {
 		t.Fatalf("Expected status 200 OK for valid publish, got %d", pubResp2.StatusCode)
@@ -275,12 +275,12 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 		TenantID:    tenantID,
 	}
 	exBytes, _ := json.Marshal(ex)
-	reqInit, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(exBytes))
+	reqInit, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(exBytes))
 	reqInit.Header.Set("Content-Type", "application/json")
 	reqInit.Header.Set("X-User-Role", "teacher")
 	reqInit.Header.Set("X-Tenant-Id", tenantID)
 	respInit, _ := http.DefaultClient.Do(reqInit)
-	respInit.Body.Close()
+	_ = respInit.Body.Close()
 
 	// 1. Enviar CSV con fila malformada (línea 4 solo tiene 1 columna)
 	csvMalformed := "input,expected_output,is_hidden\r\n" +
@@ -288,7 +288,7 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 		"\"Árbol de Decisión, Raíz\",\"Nodo Principal\",true\r\n" +
 		"FilaInválidaSinSalida\r\n"
 
-	reqBad, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvMalformed))
+	reqBad, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvMalformed))
 	reqBad.Header.Set("Content-Type", "text/csv")
 	reqBad.Header.Set("X-User-Role", "teacher")
 	reqBad.Header.Set("X-Tenant-Id", tenantID)
@@ -297,7 +297,7 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST bulk CSV failed: %v", err)
 	}
-	defer respBad.Body.Close()
+	defer func() { _ = respBad.Body.Close() }()
 
 	if respBad.StatusCode != 422 {
 		t.Fatalf("Expected status 422 Unprocessable Entity for malformed CSV, got %d", respBad.StatusCode)
@@ -309,7 +309,7 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 		"\"Árbol de Decisión, Raíz\",\"Nodo Principal con éxito\",true\r\n" +
 		"\"Entrada Simple\",\"Salida Simple\",false\r\n"
 
-	reqGood, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvValid))
+	reqGood, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvValid))
 	reqGood.Header.Set("Content-Type", "text/csv")
 	reqGood.Header.Set("X-User-Role", "teacher")
 	reqGood.Header.Set("X-Tenant-Id", tenantID)
@@ -318,7 +318,7 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("POST bulk CSV valid failed: %v", err)
 	}
-	defer respGood.Body.Close()
+	defer func() { _ = respGood.Body.Close() }()
 
 	if respGood.StatusCode != http.StatusOK {
 		t.Fatalf("Expected status 200 OK for valid CSV, got %d", respGood.StatusCode)
@@ -364,7 +364,7 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 		TenantID: tenantA,
 	}
 	stBytes, _ := json.Marshal(studentPayload)
-	reqStudent, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
+	reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
 	reqStudent.Header.Set("Content-Type", "application/json")
 	reqStudent.Header.Set("X-User-Role", "student") // ROL STUDENT
 	reqStudent.Header.Set("X-Tenant-Id", tenantA)
@@ -373,26 +373,26 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Student request failed: %v", err)
 	}
-	defer respStudent.Body.Close()
+	defer func() { _ = respStudent.Body.Close() }()
 
 	if respStudent.StatusCode != http.StatusForbidden {
 		t.Fatalf("Expected status 403 Forbidden for student role, got %d", respStudent.StatusCode)
 	}
 
 	// 2. Docente de Tenant A crea el ejercicio exitosamente
-	reqTeacher, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
+	reqTeacher, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
 	reqTeacher.Header.Set("Content-Type", "application/json")
 	reqTeacher.Header.Set("X-User-Role", "teacher")
 	reqTeacher.Header.Set("X-Tenant-Id", tenantA)
 	respTeacher, _ := http.DefaultClient.Do(reqTeacher)
-	respTeacher.Body.Close()
+	_ = respTeacher.Body.Close()
 
 	// 3. Docente de Tenant B intenta modificar el ejercicio de Tenant A -> 404 Not Found
 	updatePayload := domain.Exercise{
 		Title: "Intento de modificación Cross-Tenant",
 	}
 	upBytes, _ := json.Marshal(updatePayload)
-	reqCross, _ := http.NewRequest("PUT", ts.URL+"/api/v1/exercises/"+exerciseID, bytes.NewBuffer(upBytes))
+	reqCross, _ := http.NewRequestWithContext(context.Background(), "PUT", ts.URL+"/api/v1/exercises/"+exerciseID, bytes.NewBuffer(upBytes))
 	reqCross.Header.Set("Content-Type", "application/json")
 	reqCross.Header.Set("X-User-Role", "teacher")
 	reqCross.Header.Set("X-Tenant-Id", tenantB) // TENANT B
@@ -401,14 +401,14 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cross-tenant request failed: %v", err)
 	}
-	defer respCross.Body.Close()
+	defer func() { _ = respCross.Body.Close() }()
 
 	if respCross.StatusCode != http.StatusNotFound {
 		t.Fatalf("Expected status 404 Not Found for cross-tenant update, got %d", respCross.StatusCode)
 	}
 
 	// 4. Docente de Tenant B intenta publicar ejercicio de Tenant A -> 404 Not Found
-	reqPubCross, _ := http.NewRequest("POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/publish", nil)
+	reqPubCross, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/publish", nil)
 	reqPubCross.Header.Set("X-User-Role", "teacher")
 	reqPubCross.Header.Set("X-Tenant-Id", tenantB) // TENANT B
 
@@ -416,7 +416,7 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cross-tenant publish request failed: %v", err)
 	}
-	defer respPubCross.Body.Close()
+	defer func() { _ = respPubCross.Body.Close() }()
 
 	if respPubCross.StatusCode != http.StatusNotFound {
 		t.Fatalf("Expected status 404 Not Found for cross-tenant publish, got %d", respPubCross.StatusCode)

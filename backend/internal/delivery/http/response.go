@@ -16,7 +16,7 @@ type GlobalResponse struct {
 func SendJSON(w http.ResponseWriter, status int, data any, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(GlobalResponse{
+	_ = json.NewEncoder(w).Encode(GlobalResponse{
 		Data:    data,
 		Error:   "",
 		Message: msg,
@@ -26,7 +26,7 @@ func SendJSON(w http.ResponseWriter, status int, data any, msg string) {
 func SendError(w http.ResponseWriter, status int, err string, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(GlobalResponse{
+	_ = json.NewEncoder(w).Encode(GlobalResponse{
 		Data:    nil,
 		Error:   err,
 		Message: msg,

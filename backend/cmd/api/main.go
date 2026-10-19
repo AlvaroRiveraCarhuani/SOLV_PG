@@ -79,7 +79,7 @@ func main() {
 	submissionService := services.NewSubmissionService(submissionRepo)
 	submissionService.SetKeystrokeRepository(keystrokeRepo)
 	smtpMailer := mailer.NewSMTPMailerFromEnv()
-	defer smtpMailer.Close()
+	defer func() { _ = smtpMailer.Close() }()
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo, smtpMailer)
 
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)

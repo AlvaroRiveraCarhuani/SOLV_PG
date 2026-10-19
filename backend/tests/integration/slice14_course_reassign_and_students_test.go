@@ -107,19 +107,20 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 	t.Run("1. Reasignación de Materia - Validación de Rol Docente, 422 y Cambio en BD", func(t *testing.T) {
 		// 1.1 Intentar reasignar a un usuario que es rol student -> 422 Unprocessable Entity
 		payloadStudent := []byte(fmt.Sprintf(`{"new_teacher_id": "%s", "reason": "Intento invalido"}`, notATeacherID))
-		reqInvalid, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadStudent))
+		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadStudent))
 		reqInvalid.Header.Set("Content-Type", "application/json")
 		reqInvalid.Header.Set("X-User-Role", "admin")
 		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
+		defer func() { _ = respInvalid.Body.Close() }()
 		if respInvalid.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 Unprocessable Entity when assigning non-teacher, got %d", respInvalid.StatusCode)
 		}
 
 		// 1.2 Reasignar exitosamente a Docente B -> 200 OK
 		payloadValid := []byte(fmt.Sprintf(`{"new_teacher_id": "%s", "reason": "Cambio de titular por inicio de semestre"}`, teacherB_ID))
-		reqValid, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
+		reqValid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
 		reqValid.Header.Set("Content-Type", "application/json")
 		reqValid.Header.Set("X-User-Role", "admin")
 		reqValid.Header.Set("X-Tenant-Id", tenantID)
@@ -128,6 +129,7 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed reassign request: %v", err)
 		}
+		defer func() { _ = respValid.Body.Close() }()
 		if respValid.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for valid course reassignment, got %d", respValid.StatusCode)
 		}
@@ -140,9 +142,10 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		}
 
 		// 1.4 Seguridad: Estudiante intentando reasignar curso -> 403 Forbidden
-		reqStudent, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
 		reqStudent.Header.Set("X-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student course reassign, got %d", respStudent.StatusCode)
 		}
@@ -204,7 +207,7 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		`, ws2ID, stu2ID, subjectID, tenantID)
 
 		// 2.1 Consultar directorio completo -> 200 OK
-		reqDir, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/students", nil)
+		reqDir, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/students", nil)
 		reqDir.Header.Set("X-User-Role", "admin")
 		reqDir.Header.Set("X-Tenant-Id", tenantID)
 
@@ -212,12 +215,13 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed student directory request: %v", err)
 		}
+		defer func() { _ = respDir.Body.Close() }()
 		if respDir.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for student directory, got %d", respDir.StatusCode)
 		}
 
 		var dirBody map[string]interface{}
-		json.NewDecoder(respDir.Body).Decode(&dirBody)
+		_ = json.NewDecoder(respDir.Body).Decode(&dirBody)
 		students := dirBody["data"].([]interface{})
 		if len(students) < 2 {
 			t.Fatalf("Expected at least 2 students in directory, got %d", len(students))
@@ -246,26 +250,28 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		}
 
 		// 2.2 Filtro de Búsqueda: search=uniqueLastName -> Solo Maria GomezUniq
-		reqSearch, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/admin/students?search=%s", server.URL, uniqueLastName), nil)
+		reqSearch, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/admin/students?search=%s", server.URL, uniqueLastName), nil)
 		reqSearch.Header.Set("X-User-Role", "admin")
 		reqSearch.Header.Set("X-Tenant-Id", tenantID)
 
 		respSearch, _ := client.Do(reqSearch)
+		defer func() { _ = respSearch.Body.Close() }()
 		var searchBody map[string]interface{}
-		json.NewDecoder(respSearch.Body).Decode(&searchBody)
+		_ = json.NewDecoder(respSearch.Body).Decode(&searchBody)
 		searchList := searchBody["data"].([]interface{})
 		if len(searchList) != 1 {
 			t.Errorf("Expected 1 student for search=%s, got %d", uniqueLastName, len(searchList))
 		}
 
 		// 2.3 Filtro de Estado: status=strikes -> Devuelve a Maria Gomez (strike count > 0)
-		reqStrikes, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/students?status=strikes", nil)
+		reqStrikes, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/students?status=strikes", nil)
 		reqStrikes.Header.Set("X-User-Role", "admin")
 		reqStrikes.Header.Set("X-Tenant-Id", tenantID)
 
 		respStrikes, _ := client.Do(reqStrikes)
+		defer func() { _ = respStrikes.Body.Close() }()
 		var strikesBody map[string]interface{}
-		json.NewDecoder(respStrikes.Body).Decode(&strikesBody)
+		_ = json.NewDecoder(respStrikes.Body).Decode(&strikesBody)
 		strikesList := strikesBody["data"].([]interface{})
 		foundMaria := false
 		for _, s := range strikesList {
@@ -286,19 +292,20 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		// =====================================================================
 		// Justificación menor a 10 caracteres -> 422
 		payloadShort := []byte(`{"reason": "perdon"}`)
-		reqShort, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadShort))
+		reqShort, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadShort))
 		reqShort.Header.Set("Content-Type", "application/json")
 		reqShort.Header.Set("X-User-Role", "admin")
 		reqShort.Header.Set("X-Tenant-Id", tenantID)
 
 		respShort, _ := client.Do(reqShort)
+		defer func() { _ = respShort.Body.Close() }()
 		if respShort.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 for reason < 10 chars, got %d", respShort.StatusCode)
 		}
 
 		// Justificación válida >= 10 caracteres -> 200 OK
 		payloadReset := []byte(`{"reason": "El alumno solucionó la fuga de memoria en sus punteros C++"}`)
-		reqReset, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadReset))
+		reqReset, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadReset))
 		reqReset.Header.Set("Content-Type", "application/json")
 		reqReset.Header.Set("X-User-Role", "admin")
 		reqReset.Header.Set("X-Tenant-Id", tenantID)
@@ -307,12 +314,13 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed reset oom request: %v", err)
 		}
+		defer func() { _ = respReset.Body.Close() }()
 		if respReset.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK resetting OOM strikes, got %d", respReset.StatusCode)
 		}
 
 		var resetBody map[string]interface{}
-		json.NewDecoder(respReset.Body).Decode(&resetBody)
+		_ = json.NewDecoder(respReset.Body).Decode(&resetBody)
 		resetData := resetBody["data"].(map[string]interface{})
 		if int(resetData["workspaces_reset_count"].(float64)) != 1 {
 			t.Errorf("Expected 1 workspace reset, got %v", resetData["workspaces_reset_count"])

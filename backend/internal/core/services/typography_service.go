@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -147,14 +148,21 @@ func validateCustomFontURL(rawURL string) *FontValidationError {
 	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(rawURL)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, rawURL, nil)
 	if err != nil {
 		return &FontValidationError{
 			Code:    "font_url_unreachable",
 			Message: "No se pudo alcanzar la URL de la fuente. Verifica que esté disponible e inténtalo de nuevo.",
 		}
 	}
-	defer resp.Body.Close()
+	resp, err := client.Do(req)
+	if err != nil {
+		return &FontValidationError{
+			Code:    "font_url_unreachable",
+			Message: "No se pudo alcanzar la URL de la fuente. Verifica que esté disponible e inténtalo de nuevo.",
+		}
+	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return &FontValidationError{
 			Code:    "font_url_unreachable",

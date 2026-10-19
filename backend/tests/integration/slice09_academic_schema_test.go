@@ -32,13 +32,13 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 	sqlDB := db.GetDB()
 
 	// 1. Limpieza de datos de prueba previos
-	sqlDB.Exec("DELETE FROM submissions")
-	sqlDB.Exec("DELETE FROM enrollments")
-	sqlDB.Exec("DELETE FROM workspaces")
-	sqlDB.Exec("DELETE FROM subjects")
-	sqlDB.Exec("DELETE FROM teacher_invitations")
-	sqlDB.Exec("DELETE FROM users WHERE email LIKE '%@test-academic.edu.bo'")
-	sqlDB.Exec("DELETE FROM tenants WHERE slug LIKE 'academic-tenant-%'")
+	_, _ = sqlDB.Exec("DELETE FROM submissions")
+	_, _ = sqlDB.Exec("DELETE FROM enrollments")
+	_, _ = sqlDB.Exec("DELETE FROM workspaces")
+	_, _ = sqlDB.Exec("DELETE FROM subjects")
+	_, _ = sqlDB.Exec("DELETE FROM teacher_invitations")
+	_, _ = sqlDB.Exec("DELETE FROM users WHERE email LIKE '%@test-academic.edu.bo'")
+	_, _ = sqlDB.Exec("DELETE FROM tenants WHERE slug LIKE 'academic-tenant-%'")
 
 	// 2. Crear 2 Tenants de prueba para verificar aislamiento
 	tenantA := &domain.Tenant{
@@ -65,9 +65,9 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 	teacherID := "a0000000-0000-0000-0000-000000000003"
 
 	userQuery := `INSERT INTO users (id, tenant_id, email, first_name, last_name, role) VALUES ($1, $2, $3, $4, $5, $6)`
-	sqlDB.Exec(userQuery, student1ID, tenantA.ID, "student1@test-academic.edu.bo", "Estudiante", "Uno", "student")
-	sqlDB.Exec(userQuery, student2ID, tenantA.ID, "student2@test-academic.edu.bo", "Estudiante", "Dos", "student")
-	sqlDB.Exec(userQuery, teacherID, tenantA.ID, "teacher@test-academic.edu.bo", "Docente", "Candidato", "student")
+	_, _ = sqlDB.Exec(userQuery, student1ID, tenantA.ID, "student1@test-academic.edu.bo", "Estudiante", "Uno", "student")
+	_, _ = sqlDB.Exec(userQuery, student2ID, tenantA.ID, "student2@test-academic.edu.bo", "Estudiante", "Dos", "student")
+	_, _ = sqlDB.Exec(userQuery, teacherID, tenantA.ID, "teacher@test-academic.edu.bo", "Docente", "Candidato", "student")
 
 	subjectRepo := postgres.NewPostgresSubjectRepository(sqlDB)
 	submissionRepo := postgres.NewPostgresSubmissionRepository(sqlDB)
@@ -244,7 +244,7 @@ func TestAcademicHTTPAPIEndToEnd(t *testing.T) {
 	}
 
 	// Test GET /api/v1/classroom/import
-	req, _ := http.NewRequest("GET", "/api/v1/classroom/import?course_id=course123", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", "/api/v1/classroom/import?course_id=course123", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenString)
 	rr := httptest.NewRecorder()
 

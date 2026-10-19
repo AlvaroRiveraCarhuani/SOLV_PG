@@ -64,7 +64,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Fatal: failed to initialize Docker client: %v", err)
 	}
-	defer cli.Close()
+	defer func() { _ = cli.Close() }()
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -120,7 +120,7 @@ func main() {
 		out, pErr := cli.ImagePull(ctx, imageName, image.PullOptions{})
 		if pErr == nil {
 			_, _ = io.Copy(io.Discard, out)
-			out.Close()
+			_ = out.Close()
 		}
 	}
 

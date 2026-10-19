@@ -544,7 +544,7 @@ func (h *TeacherHandler) HandleTerminalWebSocket(w http.ResponseWriter, r *http.
 		log.Printf("[TerminalMirror] Upgrade failed: %v", err)
 		return
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// 1. Enviar frame inicial de bienvenida y buffer reciente
 	initBuffer, _ := h.service.GetInitialTerminalBuffer(r.Context(), containerID, 100)

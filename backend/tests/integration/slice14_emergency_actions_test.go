@@ -103,36 +103,39 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 	t.Run("1. Validaciones - Frase Errónea, Acción Inexistente y Control de Rol", func(t *testing.T) {
 		// 1.1 Frase de confirmación errónea -> 422 Unprocessable Entity
 		payloadWrong := []byte(`{"confirmation_phrase": "terminar todo por favor", "reason": "emergencia"}`)
-		reqWrong, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadWrong))
+		reqWrong, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadWrong))
 		reqWrong.Header.Set("Content-Type", "application/json")
 		reqWrong.Header.Set("X-User-Role", "admin")
 		reqWrong.Header.Set("X-Tenant-Id", tenantID)
 
 		respWrong, _ := client.Do(reqWrong)
+		defer func() { _ = respWrong.Body.Close() }()
 		if respWrong.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 for incorrect confirmation phrase, got %d", respWrong.StatusCode)
 		}
 
 		// 1.2 Acción desconocida -> 422 Unprocessable Entity
 		payloadUnknown := []byte(`{"confirmation_phrase": "ACCION_INEXISTENTE"}`)
-		reqUnknown, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBuffer(payloadUnknown))
+		reqUnknown, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBuffer(payloadUnknown))
 		reqUnknown.Header.Set("Content-Type", "application/json")
 		reqUnknown.Header.Set("X-User-Role", "admin")
 		reqUnknown.Header.Set("X-Tenant-Id", tenantID)
 
 		respUnknown, _ := client.Do(reqUnknown)
+		defer func() { _ = respUnknown.Body.Close() }()
 		if respUnknown.StatusCode != http.StatusUnprocessableEntity {
 			t.Errorf("Expected 422 for unknown emergency action, got %d", respUnknown.StatusCode)
 		}
 
 		// 1.3 Seguridad: Estudiante o docente intentando acción de pánico -> 403 Forbidden
 		payloadValid := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES"}`)
-		reqStudent, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadValid))
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadValid))
 		reqStudent.Header.Set("Content-Type", "application/json")
 		reqStudent.Header.Set("X-User-Role", "student")
 		reqStudent.Header.Set("X-Tenant-Id", tenantID)
 
 		respStudent, _ := client.Do(reqStudent)
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student, got %d", respStudent.StatusCode)
 		}
@@ -154,7 +157,7 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		`, ws1, ws2, stuID, subID, tenantID)
 
 		payloadTerm := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES", "reason": "Saturación crítica de memoria en host"}`)
-		reqTerm, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadTerm))
+		reqTerm, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadTerm))
 		reqTerm.Header.Set("Content-Type", "application/json")
 		reqTerm.Header.Set("X-User-Role", "admin")
 		reqTerm.Header.Set("X-User-Id", adminID)
@@ -164,12 +167,13 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed terminate all request: %v", err)
 		}
+		defer func() { _ = respTerm.Body.Close() }()
 		if respTerm.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK executing terminate_all_workspaces, got %d", respTerm.StatusCode)
 		}
 
 		var bodyTerm map[string]interface{}
-		json.NewDecoder(respTerm.Body).Decode(&bodyTerm)
+		_ = json.NewDecoder(respTerm.Body).Decode(&bodyTerm)
 		data := bodyTerm["data"].(map[string]interface{})
 		if int(data["affected_count"].(float64)) < 2 {
 			t.Errorf("Expected at least 2 affected workspaces, got %v", data["affected_count"])
@@ -198,12 +202,13 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 
 		// 3.1 Hibernar todos
 		payloadHib := []byte(`{"confirmation_phrase": "HIBERNAR TODOS LOS WORKSPACES"}`)
-		reqHib, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/hibernate_all_workspaces", bytes.NewBuffer(payloadHib))
+		reqHib, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/hibernate_all_workspaces", bytes.NewBuffer(payloadHib))
 		reqHib.Header.Set("Content-Type", "application/json")
 		reqHib.Header.Set("X-User-Role", "admin")
 		reqHib.Header.Set("X-Tenant-Id", tenantID)
 
 		respHib, _ := client.Do(reqHib)
+		defer func() { _ = respHib.Body.Close() }()
 		if respHib.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK executing hibernate_all_workspaces, got %d", respHib.StatusCode)
 		}
@@ -216,12 +221,13 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 
 		// 3.2 Limpieza de Zombies
 		payloadZombies := []byte(`{"confirmation_phrase": "LIMPIAR ZOMBIES DOCKER"}`)
-		reqZombies, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/emergency/kill_zombies", bytes.NewBuffer(payloadZombies))
+		reqZombies, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/kill_zombies", bytes.NewBuffer(payloadZombies))
 		reqZombies.Header.Set("Content-Type", "application/json")
 		reqZombies.Header.Set("X-User-Role", "admin")
 		reqZombies.Header.Set("X-Tenant-Id", tenantID)
 
 		respZombies, _ := client.Do(reqZombies)
+		defer func() { _ = respZombies.Body.Close() }()
 		if respZombies.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK executing kill_zombies, got %d", respZombies.StatusCode)
 		}

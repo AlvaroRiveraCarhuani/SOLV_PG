@@ -109,7 +109,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 	// 1. GET sin borrador retorna 404
 	t.Run("1. GET sin borrador retorna 404", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
 		req.Header.Set("X-Tenant-Id", tenantID)
 		req.Header.Set("X-User-Id", userA)
 		req.Header.Set("X-User-Role", "admin")
@@ -118,7 +118,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed GET /drafts: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected 404 for non-existent draft, got %d", resp.StatusCode)
@@ -138,7 +138,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		}
 		bodyBytes, _ := json.Marshal(payload)
 
-		req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Tenant-Id", tenantID)
 		req.Header.Set("X-User-Id", userA)
@@ -148,7 +148,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed POST /drafts: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -156,7 +156,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		}
 
 		// Leer borrador con GET
-		getReq, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
+		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
 		getReq.Header.Set("X-Tenant-Id", tenantID)
 		getReq.Header.Set("X-User-Id", userA)
 		getReq.Header.Set("X-User-Role", "admin")
@@ -165,7 +165,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed GET /drafts: %v", err)
 		}
-		defer getResp.Body.Close()
+		defer func() { _ = getResp.Body.Close() }()
 
 		if getResp.StatusCode != http.StatusOK {
 			t.Fatalf("expected 200 on GetDraftByUser, got %d", getResp.StatusCode)
@@ -197,7 +197,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 	// 3. Usuario B no puede leer borrador de Usuario A (aislamiento por user_id)
 	t.Run("3. Usuario B no puede leer borrador de Usuario A", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
 		req.Header.Set("X-Tenant-Id", tenantID)
 		req.Header.Set("X-User-Id", userB)
 		req.Header.Set("X-User-Role", "admin")
@@ -206,7 +206,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed GET /drafts as User B: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected 404 for User B, got %d", resp.StatusCode)
@@ -215,7 +215,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 	// 4. Borrar borrador y volver a leer retorna 404
 	t.Run("4. DELETE borrador y posterior GET retorna 404", func(t *testing.T) {
-		delReq, _ := http.NewRequest(http.MethodDelete, server.URL+"/api/v1/admin/templates/drafts", nil)
+		delReq, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, server.URL+"/api/v1/admin/templates/drafts", nil)
 		delReq.Header.Set("X-Tenant-Id", tenantID)
 		delReq.Header.Set("X-User-Id", userA)
 		delReq.Header.Set("X-User-Role", "admin")
@@ -224,14 +224,14 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed DELETE /drafts: %v", err)
 		}
-		defer delResp.Body.Close()
+		defer func() { _ = delResp.Body.Close() }()
 
 		if delResp.StatusCode != http.StatusOK {
 			t.Fatalf("expected 200 on DELETE /drafts, got %d", delResp.StatusCode)
 		}
 
 		// Verificar que ya no existe
-		getReq, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
+		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
 		getReq.Header.Set("X-Tenant-Id", tenantID)
 		getReq.Header.Set("X-User-Id", userA)
 		getReq.Header.Set("X-User-Role", "admin")
@@ -240,7 +240,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed GET /drafts after delete: %v", err)
 		}
-		defer getResp.Body.Close()
+		defer func() { _ = getResp.Body.Close() }()
 
 		if getResp.StatusCode != http.StatusNotFound {
 			t.Fatalf("expected 404 after delete, got %d", getResp.StatusCode)
@@ -252,7 +252,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		payload := map[string]interface{}{}
 		bodyBytes, _ := json.Marshal(payload)
 
-		req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
+		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-Tenant-Id", tenantID)
 		req.Header.Set("X-User-Id", userB)
@@ -262,7 +262,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed POST /drafts with empty body: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(resp.Body)
@@ -270,7 +270,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		}
 
 		// Leer borrador de User B
-		getReq, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
+		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
 		getReq.Header.Set("X-Tenant-Id", tenantID)
 		getReq.Header.Set("X-User-Id", userB)
 		getReq.Header.Set("X-User-Role", "admin")
@@ -279,7 +279,7 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed GET /drafts for User B: %v", err)
 		}
-		defer getResp.Body.Close()
+		defer func() { _ = getResp.Body.Close() }()
 
 		if getResp.StatusCode != http.StatusOK {
 			t.Fatalf("expected 200 on GetDraftByUser for User B, got %d", getResp.StatusCode)

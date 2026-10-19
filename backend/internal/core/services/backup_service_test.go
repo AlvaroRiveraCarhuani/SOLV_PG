@@ -100,7 +100,8 @@ func TestBackupService_UpdateConfig_FrequencyEdges(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected BackupValidationError for freq %d, got nil", tc.freq)
 			}
-			vErr, ok := err.(*services.BackupValidationError)
+			vErr := &services.BackupValidationError{}
+			ok := errors.As(err, &vErr)
 			if !ok {
 				t.Fatalf("expected *BackupValidationError, got %T (%v)", err, err)
 			}
@@ -141,7 +142,8 @@ func TestBackupService_UpdateConfig_RetentionEdges(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected BackupValidationError for retention %d, got nil", tc.retention)
 			}
-			vErr, ok := err.(*services.BackupValidationError)
+			vErr := &services.BackupValidationError{}
+			ok := errors.As(err, &vErr)
 			if !ok {
 				t.Fatalf("expected *BackupValidationError, got %T (%v)", err, err)
 			}

@@ -224,10 +224,10 @@ func TestSemgrepPrecheckSuite(t *testing.T) {
 		subID := "90000000-0000-0000-0000-000000000004"
 
 		// Clean up previous test entries
-		sqlDB.Exec("DELETE FROM submissions WHERE id = $1", subID)
-		sqlDB.Exec("DELETE FROM exercises WHERE id = $1", exerciseID)
-		sqlDB.Exec("DELETE FROM users WHERE id = $1", studentID)
-		sqlDB.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
+		_, _ = sqlDB.Exec("DELETE FROM submissions WHERE id = $1", subID)
+		_, _ = sqlDB.Exec("DELETE FROM exercises WHERE id = $1", exerciseID)
+		_, _ = sqlDB.Exec("DELETE FROM users WHERE id = $1", studentID)
+		_, _ = sqlDB.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
 
 		// Insert required FK records
 		if _, err := sqlDB.Exec("INSERT INTO tenants (id, name, slug) VALUES ($1, $2, $3) ON CONFLICT (id) DO NOTHING", tenantID, "Semgrep Test Tenant", "semgrep-test-tenant"); err != nil {
@@ -293,9 +293,9 @@ func TestSemgrepPrecheckSuite(t *testing.T) {
 		}
 
 		// Clean up
-		sqlDB.Exec("DELETE FROM submissions WHERE id = $1", subID)
-		sqlDB.Exec("DELETE FROM exercises WHERE id = $1", exerciseID)
-		sqlDB.Exec("DELETE FROM users WHERE id = $1", studentID)
-		sqlDB.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
+		_, _ = sqlDB.Exec("DELETE FROM submissions WHERE id = $1", subID)
+		_, _ = sqlDB.Exec("DELETE FROM exercises WHERE id = $1", exerciseID)
+		_, _ = sqlDB.Exec("DELETE FROM users WHERE id = $1", studentID)
+		_, _ = sqlDB.Exec("DELETE FROM tenants WHERE id = $1", tenantID)
 	})
 }

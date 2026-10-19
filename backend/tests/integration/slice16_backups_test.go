@@ -89,7 +89,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	}
 	defer server.Close()
 	defer notifService.Stop()
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tenantID := uuid.NewString()
 	adminID := uuid.NewString()
@@ -124,7 +124,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("1. Configuración de Políticas - Consulta y Modificación de Retención", func(t *testing.T) {
 		// 1.1 GET Config inicial por defecto
-		reqGet, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/backups/config", nil)
+		reqGet, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/backups/config", nil)
 		reqGet.Header.Set("X-User-Id", adminID)
 		reqGet.Header.Set("X-User-Role", "admin")
 		reqGet.Header.Set("X-Tenant-Id", tenantID)
@@ -133,9 +133,10 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respGet.StatusCode != http.StatusOK {
 			t.Fatalf("Failed GET backup config: status=%d, err=%v", respGet.StatusCode, err)
 		}
+		defer func() { _ = respGet.Body.Close() }()
 
 		var getBody map[string]interface{}
-		json.NewDecoder(respGet.Body).Decode(&getBody)
+		_ = json.NewDecoder(respGet.Body).Decode(&getBody)
 		data := getBody["data"].(map[string]interface{})
 		if int(data["local_frequency_hours"].(float64)) != 6 {
 			t.Errorf("Expected default local_frequency_hours=6, got %v", data["local_frequency_hours"])
@@ -154,7 +155,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		}
 		raw, _ := json.Marshal(updateDTO)
 
-		reqPut, _ := http.NewRequest("PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
+		reqPut, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
 		reqPut.Header.Set("X-User-Id", adminID)
 		reqPut.Header.Set("X-User-Role", "admin")
 		reqPut.Header.Set("X-Tenant-Id", tenantID)
@@ -164,13 +165,14 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respPut.StatusCode != http.StatusOK {
 			var errBody map[string]interface{}
 			if respPut != nil {
-				json.NewDecoder(respPut.Body).Decode(&errBody)
+				_ = json.NewDecoder(respPut.Body).Decode(&errBody)
 			}
 			t.Fatalf("Failed PUT backup config: status=%d, err=%v, body=%v", respPut.StatusCode, err, errBody)
 		}
+		defer func() { _ = respPut.Body.Close() }()
 
 		var putBody map[string]interface{}
-		json.NewDecoder(respPut.Body).Decode(&putBody)
+		_ = json.NewDecoder(respPut.Body).Decode(&putBody)
 		putData := putBody["data"].(map[string]interface{})
 		if int(putData["local_frequency_hours"].(float64)) != 12 {
 			t.Errorf("Expected updated local_frequency_hours=12, got %v", putData["local_frequency_hours"])
@@ -187,7 +189,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// 2. TEST Disparo Manual de Respaldo con Checksum SHA-256 (POST /trigger)
 	// =========================================================================
 	t.Run("2. Ejecución Manual de Respaldo - Generación Gzip y Checksum SHA-256", func(t *testing.T) {
-		reqTrigger, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/backups/trigger", nil)
+		reqTrigger, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/backups/trigger", nil)
 		reqTrigger.Header.Set("X-User-Id", adminID)
 		reqTrigger.Header.Set("X-User-Role", "admin")
 		reqTrigger.Header.Set("X-Tenant-Id", tenantID)
@@ -196,9 +198,10 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respTrigger.StatusCode != http.StatusCreated {
 			t.Fatalf("Failed trigger backup: status=%d, err=%v", respTrigger.StatusCode, err)
 		}
+		defer func() { _ = respTrigger.Body.Close() }()
 
 		var body map[string]interface{}
-		json.NewDecoder(respTrigger.Body).Decode(&body)
+		_ = json.NewDecoder(respTrigger.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 
 		createdExecutionID = data["id"].(string)
@@ -229,17 +232,22 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		var items []interface{}
 		for attempt := 0; attempt < 10; attempt++ {
 			time.Sleep(50 * time.Millisecond)
-			reqNotif, _ := http.NewRequest("GET", server.URL+"/api/v1/notifications?limit=5", nil)
+			reqNotif, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications?limit=5", nil)
 			reqNotif.Header.Set("X-User-Id", adminID)
 			reqNotif.Header.Set("X-Tenant-Id", tenantID)
 
 			respNotif, err := client.Do(reqNotif)
-			if err == nil && respNotif.StatusCode == http.StatusOK {
-				var body map[string]interface{}
-				json.NewDecoder(respNotif.Body).Decode(&body)
-				if rawItems, ok := body["data"].([]interface{}); ok && len(rawItems) > 0 {
-					items = rawItems
-					break
+			if err == nil {
+				if respNotif.StatusCode == http.StatusOK {
+					var body map[string]interface{}
+					_ = json.NewDecoder(respNotif.Body).Decode(&body)
+					_ = respNotif.Body.Close()
+					if rawItems, ok := body["data"].([]interface{}); ok && len(rawItems) > 0 {
+						items = rawItems
+						break
+					}
+				} else {
+					_ = respNotif.Body.Close()
 				}
 			}
 		}
@@ -258,7 +266,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// 4. TEST Historial de Respaldos (GET /api/v1/admin/backups)
 	// =========================================================================
 	t.Run("4. Historial de Respaldos - Listado Cronológico y Totalizador", func(t *testing.T) {
-		reqList, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/backups?page=1&limit=10", nil)
+		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/backups?page=1&limit=10", nil)
 		reqList.Header.Set("X-User-Id", adminID)
 		reqList.Header.Set("X-User-Role", "admin")
 		reqList.Header.Set("X-Tenant-Id", tenantID)
@@ -267,9 +275,10 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respList.StatusCode != http.StatusOK {
 			t.Fatalf("Failed listing backups: status=%d, err=%v", respList.StatusCode, err)
 		}
+		defer func() { _ = respList.Body.Close() }()
 
 		var body map[string]interface{}
-		json.NewDecoder(respList.Body).Decode(&body)
+		_ = json.NewDecoder(respList.Body).Decode(&body)
 		items := body["data"].([]interface{})
 		if len(items) == 0 {
 			t.Fatalf("Expected at least 1 backup in history")
@@ -284,7 +293,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// 5. TEST Verificación Criptográfica de Integridad (POST /verify)
 	// =========================================================================
 	t.Run("5. Verificación Criptográfica - Recálculo de SHA-256 contra Archivo en Disco", func(t *testing.T) {
-		reqVerify, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/backups/%s/verify", server.URL, createdExecutionID), nil)
+		reqVerify, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/backups/%s/verify", server.URL, createdExecutionID), nil)
 		reqVerify.Header.Set("X-User-Id", adminID)
 		reqVerify.Header.Set("X-User-Role", "admin")
 		reqVerify.Header.Set("X-Tenant-Id", tenantID)
@@ -293,9 +302,10 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respVerify.StatusCode != http.StatusOK {
 			t.Fatalf("Failed verifying backup: status=%d, err=%v", respVerify.StatusCode, err)
 		}
+		defer func() { _ = respVerify.Body.Close() }()
 
 		var body map[string]interface{}
-		json.NewDecoder(respVerify.Body).Decode(&body)
+		_ = json.NewDecoder(respVerify.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 
 		if data["is_valid"] != true {
@@ -310,7 +320,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// 6. TEST Descarga de Archivo Comprimido (GET /download)
 	// =========================================================================
 	t.Run("6. Descarga Directa - Headers de Attachment y Stream Gzip", func(t *testing.T) {
-		reqDown, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/admin/backups/%s/download", server.URL, createdExecutionID), nil)
+		reqDown, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/admin/backups/%s/download", server.URL, createdExecutionID), nil)
 		reqDown.Header.Set("X-User-Id", adminID)
 		reqDown.Header.Set("X-User-Role", "admin")
 		reqDown.Header.Set("X-Tenant-Id", tenantID)
@@ -319,6 +329,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respDown.StatusCode != http.StatusOK {
 			t.Fatalf("Failed downloading backup: status=%d, err=%v", respDown.StatusCode, err)
 		}
+		defer func() { _ = respDown.Body.Close() }()
 
 		if respDown.Header.Get("Content-Type") != "application/gzip" {
 			t.Errorf("Expected Content-Type 'application/gzip', got %s", respDown.Header.Get("Content-Type"))
@@ -337,7 +348,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// 7. TEST Seguridad y Autorización (403 Forbidden para Alumnos/Docentes)
 	// =========================================================================
 	t.Run("7. Control de Acceso por Rol - 403 Forbidden para No Administradores", func(t *testing.T) {
-		reqNoAuth, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/backups/trigger", nil)
+		reqNoAuth, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/backups/trigger", nil)
 		reqNoAuth.Header.Set("X-User-Id", studentID)
 		reqNoAuth.Header.Set("X-User-Role", "student") // Rol estudiante
 		reqNoAuth.Header.Set("X-Tenant-Id", tenantID)
@@ -346,6 +357,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		if err != nil || respNoAuth.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for non-admin user, got %d", respNoAuth.StatusCode)
 		}
+		defer func() { _ = respNoAuth.Body.Close() }()
 	})
 
 	// =========================================================================
@@ -355,7 +367,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		putConfig := func(freq, retention int) (int, map[string]interface{}) {
 			dto := domain.UpdateBackupConfigDTO{LocalFrequencyHours: freq, LocalRetentionDays: retention}
 			raw, _ := json.Marshal(dto)
-			req, _ := http.NewRequest("PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
+			req, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
 			req.Header.Set("X-User-Id", adminID)
 			req.Header.Set("X-User-Role", "admin")
 			req.Header.Set("X-Tenant-Id", tenantID)
@@ -364,7 +376,7 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 			if err != nil {
 				t.Fatalf("PUT backup config failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			var body map[string]interface{}
 			_ = json.NewDecoder(resp.Body).Decode(&body)
 			return resp.StatusCode, body
@@ -400,7 +412,7 @@ func TestSlice16_Backups_VerifyPersistence(t *testing.T) {
 		return
 	}
 	defer server.Close()
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	tenantID := uuid.NewString()
 	adminID := uuid.NewString()
@@ -422,7 +434,7 @@ func TestSlice16_Backups_VerifyPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 	do := func(method, path string, want int) json.RawMessage {
-		req, _ := http.NewRequest(method, server.URL+path, nil)
+		req, _ := http.NewRequestWithContext(context.Background(), method, server.URL+path, nil)
 		req.Header.Set("X-User-Id", adminID)
 		req.Header.Set("X-User-Role", "admin")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -430,7 +442,7 @@ func TestSlice16_Backups_VerifyPersistence(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != want {
 			t.Fatalf("%s %s: got status %d, want %d", method, path, resp.StatusCode, want)
 		}

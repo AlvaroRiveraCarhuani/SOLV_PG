@@ -113,7 +113,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"confirm_phrase": "MANTENIMIENTO"
 		}`, untilTime))
 
-		req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBuffer(enablePayload))
+		req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBuffer(enablePayload))
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("X-User-Role", "admin")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -122,12 +122,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to enable maintenance: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK enabling maintenance, got %d", resp.StatusCode)
 		}
 
 		// 1.2 Petición de estudiante a ruta no-admin -> 503 Service Unavailable
-		reqStudent, _ := http.NewRequest("GET", server.URL+"/api/v1/student/dashboard", nil)
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/dashboard", nil)
 		reqStudent.Header.Set("X-User-Id", studentID)
 		reqStudent.Header.Set("X-User-Role", "student")
 		reqStudent.Header.Set("X-Tenant-Id", tenantID)
@@ -136,18 +137,19 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed student request during maintenance: %v", err)
 		}
+		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusServiceUnavailable {
 			t.Errorf("Expected 503 Service Unavailable for student during maintenance, got %d", respStudent.StatusCode)
 		}
 
 		var maintResp map[string]interface{}
-		json.NewDecoder(respStudent.Body).Decode(&maintResp)
+		_ = json.NewDecoder(respStudent.Body).Decode(&maintResp)
 		if maintResp["error"] != "maintenance_mode" {
 			t.Errorf("Expected error 'maintenance_mode', got %v", maintResp["error"])
 		}
 
 		// 1.3 Bypass: Petición a ruta administrativa -> 200 OK
-		reqAdminStatus, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/maintenance/status", nil)
+		reqAdminStatus, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/maintenance/status", nil)
 		reqAdminStatus.Header.Set("X-User-Role", "admin")
 		reqAdminStatus.Header.Set("X-Tenant-Id", tenantID)
 
@@ -155,33 +157,37 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed admin status request: %v", err)
 		}
+		defer func() { _ = respAdminStatus.Body.Close() }()
 		if respAdminStatus.StatusCode != http.StatusOK {
 			t.Errorf("Expected 200 OK for admin bypass during maintenance, got %d", respAdminStatus.StatusCode)
 		}
 
 		// 1.4 Bypass: Admin accediendo a ruta protegida no-admin -> Pasa el middleware
-		reqAdminOnStudent, _ := http.NewRequest("GET", server.URL+"/api/v1/student/dashboard", nil)
+		reqAdminOnStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/dashboard", nil)
 		reqAdminOnStudent.Header.Set("X-User-Id", studentID)
 		reqAdminOnStudent.Header.Set("X-User-Role", "admin")
 		reqAdminOnStudent.Header.Set("X-Tenant-Id", tenantID)
 
 		respAdminOnStudent, _ := client.Do(reqAdminOnStudent)
+		defer func() { _ = respAdminOnStudent.Body.Close() }()
 		if respAdminOnStudent.StatusCode == http.StatusServiceUnavailable {
 			t.Errorf("Admin user role must bypass 503 maintenance mode!")
 		}
 
 		// 1.5 Desactivar mantenimiento
-		reqDisable, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/maintenance/disable", nil)
+		reqDisable, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/disable", nil)
 		reqDisable.Header.Set("X-User-Role", "admin")
 		reqDisable.Header.Set("X-Tenant-Id", tenantID)
 
 		respDisable, _ := client.Do(reqDisable)
+		defer func() { _ = respDisable.Body.Close() }()
 		if respDisable.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK disabling maintenance, got %d", respDisable.StatusCode)
 		}
 
 		// 1.6 Estudiante vuelve a acceder normalmente (no da 503)
 		respStudentAfter, _ := client.Do(reqStudent)
+		defer func() { _ = respStudentAfter.Body.Close() }()
 		if respStudentAfter.StatusCode == http.StatusServiceUnavailable {
 			t.Errorf("Student should not receive 503 after maintenance is disabled")
 		}
@@ -192,6 +198,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		_, _ = db.GetDB().Exec(`UPDATE tenants SET maintenance_mode = true, maintenance_until = $1, maintenance_reason = 'Ventana vencida seed' WHERE id = $2`, pastUntil, tenantID)
 
 		respExpired, _ := client.Do(reqStudent)
+		defer func() { _ = respExpired.Body.Close() }()
 		if respExpired.StatusCode == http.StatusServiceUnavailable {
 			t.Errorf("Expired maintenance until should not block requests!")
 		}
@@ -221,12 +228,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"start_date": "2026-08-01",
 			"end_date": "2026-02-01"
 		}`)
-		reqInvalid, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(invalidPayload))
+		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(invalidPayload))
 		reqInvalid.Header.Set("Content-Type", "application/json")
 		reqInvalid.Header.Set("X-User-Role", "admin")
 		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
+		defer func() { _ = respInvalid.Body.Close() }()
 		if respInvalid.StatusCode != http.StatusUnprocessableEntity {
 			t.Fatalf("Expected 422 Unprocessable Entity for invalid date range, got %d", respInvalid.StatusCode)
 		}
@@ -239,7 +247,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"end_date": "2026-06-30",
 			"is_active": true
 		}`)
-		reqCreate, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(validPayload))
+		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(validPayload))
 		reqCreate.Header.Set("Content-Type", "application/json")
 		reqCreate.Header.Set("X-User-Role", "admin")
 		reqCreate.Header.Set("X-Tenant-Id", tenantID)
@@ -248,12 +256,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create academic period: %v", err)
 		}
+		defer func() { _ = respCreate.Body.Close() }()
 		if respCreate.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created for academic period, got %d", respCreate.StatusCode)
 		}
 
 		var createResp map[string]interface{}
-		json.NewDecoder(respCreate.Body).Decode(&createResp)
+		_ = json.NewDecoder(respCreate.Body).Decode(&createResp)
 		periodData := createResp["data"].(map[string]interface{})
 		archivedPeriodID := periodData["id"].(string)
 
@@ -267,7 +276,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"end_date": "2027-06-30",
 			"is_active": true
 		}`)
-		reqCreateFuture, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(futurePayload))
+		reqCreateFuture, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(futurePayload))
 		reqCreateFuture.Header.Set("Content-Type", "application/json")
 		reqCreateFuture.Header.Set("X-User-Role", "admin")
 		reqCreateFuture.Header.Set("X-Tenant-Id", tenantID)
@@ -276,40 +285,43 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to create future academic period: %v", err)
 		}
+		defer func() { _ = respCreateFuture.Body.Close() }()
 		if respCreateFuture.StatusCode != http.StatusCreated {
 			t.Fatalf("Expected 201 Created for future academic period, got %d", respCreateFuture.StatusCode)
 		}
 
 		var createFutureResp map[string]interface{}
-		json.NewDecoder(respCreateFuture.Body).Decode(&createFutureResp)
+		_ = json.NewDecoder(respCreateFuture.Body).Decode(&createFutureResp)
 		futureData := createFutureResp["data"].(map[string]interface{})
 		periodID := futureData["id"].(string)
 
 		// 2.3 Listar periodos -> 200 OK
-		reqList, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/academic-periods", nil)
+		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/academic-periods", nil)
 		reqList.Header.Set("X-User-Role", "admin")
 		reqList.Header.Set("X-Tenant-Id", tenantID)
 
 		respList, _ := client.Do(reqList)
+		defer func() { _ = respList.Body.Close() }()
 		if respList.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK listing periods, got %d", respList.StatusCode)
 		}
 
 		var listResp map[string]interface{}
-		json.NewDecoder(respList.Body).Decode(&listResp)
+		_ = json.NewDecoder(respList.Body).Decode(&listResp)
 		periods := listResp["data"].([]interface{})
 		if len(periods) == 0 {
 			t.Fatalf("Expected at least 1 academic period in list")
 		}
 
 		// 2.4 Aislamiento Cross-Tenant: Admin de Tenant B no ve el periodo de Tenant A
-		reqListB, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/academic-periods", nil)
+		reqListB, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/academic-periods", nil)
 		reqListB.Header.Set("X-User-Role", "admin")
 		reqListB.Header.Set("X-Tenant-Id", tenantB)
 
 		respListB, _ := client.Do(reqListB)
+		defer func() { _ = respListB.Body.Close() }()
 		var listRespB map[string]interface{}
-		json.NewDecoder(respListB.Body).Decode(&listRespB)
+		_ = json.NewDecoder(respListB.Body).Decode(&listRespB)
 		periodsB := listRespB["data"].([]interface{})
 		for _, p := range periodsB {
 			pMap := p.(map[string]interface{})
@@ -327,12 +339,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"end_date": "2026-07-15",
 			"is_active": true
 		}`)
-		reqUpdateArchived, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, archivedPeriodID), bytes.NewBuffer(updatePayload))
+		reqUpdateArchived, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, archivedPeriodID), bytes.NewBuffer(updatePayload))
 		reqUpdateArchived.Header.Set("Content-Type", "application/json")
 		reqUpdateArchived.Header.Set("X-User-Role", "admin")
 		reqUpdateArchived.Header.Set("X-Tenant-Id", tenantID)
 
 		respUpdateArchived, _ := client.Do(reqUpdateArchived)
+		defer func() { _ = respUpdateArchived.Body.Close() }()
 		if respUpdateArchived.StatusCode != http.StatusConflict {
 			t.Errorf("Expected 409 Conflict updating an archived (expired) academic period, got %d", respUpdateArchived.StatusCode)
 		}
@@ -345,12 +358,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			"end_date": "2027-07-15",
 			"is_active": true
 		}`)
-		reqUpdate, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), bytes.NewBuffer(updatePayload))
+		reqUpdate, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), bytes.NewBuffer(updatePayload))
 		reqUpdate.Header.Set("Content-Type", "application/json")
 		reqUpdate.Header.Set("X-User-Role", "admin")
 		reqUpdate.Header.Set("X-Tenant-Id", tenantID)
 
 		respUpdate, _ := client.Do(reqUpdate)
+		defer func() { _ = respUpdate.Body.Close() }()
 		if respUpdate.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK updating academic period, got %d", respUpdate.StatusCode)
 		}
@@ -362,11 +376,12 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			VALUES ($1, $2, 'Redes Avanzadas', 'SIS-405', $3)
 		`, subjectID, tenantID, periodID)
 
-		reqDeleteConflict, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
+		reqDeleteConflict, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
 		reqDeleteConflict.Header.Set("X-User-Role", "admin")
 		reqDeleteConflict.Header.Set("X-Tenant-Id", tenantID)
 
 		respDeleteConflict, _ := client.Do(reqDeleteConflict)
+		defer func() { _ = respDeleteConflict.Body.Close() }()
 		if respDeleteConflict.StatusCode != http.StatusConflict {
 			t.Errorf("Expected 409 Conflict when deleting academic period with linked subjects, got %d", respDeleteConflict.StatusCode)
 		}
@@ -374,11 +389,12 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		// 2.8 Desvincular materia y eliminar -> 204 No Content
 		_, _ = db.GetDB().Exec(`DELETE FROM subjects WHERE id = $1`, subjectID)
 
-		reqDeleteSuccess, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
+		reqDeleteSuccess, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
 		reqDeleteSuccess.Header.Set("X-User-Role", "admin")
 		reqDeleteSuccess.Header.Set("X-Tenant-Id", tenantID)
 
 		respDeleteSuccess, _ := client.Do(reqDeleteSuccess)
+		defer func() { _ = respDeleteSuccess.Body.Close() }()
 		if respDeleteSuccess.StatusCode != http.StatusNoContent {
 			t.Errorf("Expected 204 No Content deleting unlinked academic period, got %d", respDeleteSuccess.StatusCode)
 		}
@@ -437,7 +453,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 	// =========================================================================
 	t.Run("4. Hardening Mantenimiento - 422, auditoría verbatim y lectura expirada", func(t *testing.T) {
 		postEnable := func(payload string) (int, map[string]interface{}) {
-			req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBufferString(payload))
+			req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBufferString(payload))
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("X-User-Role", "admin")
 			req.Header.Set("X-Tenant-Id", tenantID)
@@ -445,7 +461,7 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Enable request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			var body map[string]interface{}
 			_ = json.NewDecoder(resp.Body).Decode(&body)
 			return resp.StatusCode, body
@@ -479,13 +495,13 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// Vigencia vencida: la lectura la apaga (lazy-clear) y reporta off.
 		_, _ = db.GetDB().Exec(`UPDATE tenants SET maintenance_mode = true, maintenance_until = $1 WHERE id = $2`, past, tenantID)
-		reqStatus, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/maintenance/status", nil)
+		reqStatus, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/maintenance/status", nil)
 		reqStatus.Header.Set("X-User-Role", "admin")
 		reqStatus.Header.Set("X-Tenant-Id", tenantID)
 		respStatus, _ := client.Do(reqStatus)
 		var statusBody map[string]interface{}
 		_ = json.NewDecoder(respStatus.Body).Decode(&statusBody)
-		respStatus.Body.Close()
+		_ = respStatus.Body.Close()
 		if data, ok := statusBody["data"].(map[string]interface{}); !ok || data["maintenance_mode"] != false {
 			t.Errorf("Expected expired maintenance to read as off, got %v", statusBody)
 		}

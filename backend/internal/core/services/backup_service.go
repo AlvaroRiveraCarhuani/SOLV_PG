@@ -354,7 +354,7 @@ func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID 
 			Message:          fmt.Sprintf("Archivo físico no encontrado en disco: %v", err),
 		}, nil
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
@@ -369,9 +369,8 @@ func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID 
 	now := time.Now().UTC()
 	exec.LastVerifyOK = &verifyOK
 	exec.LastVerifyAt = &now
-	if err := s.repo.UpdateExecutionVerifyColumns(ctx, exec); err != nil {
-		// Persist failure must not flip is_valid — verify is a read path
-	}
+	// Persist failure must not flip is_valid — verify is a read path
+	_ = s.repo.UpdateExecutionVerifyColumns(ctx, exec)
 
 	msg := "Integridad criptográfica verificada: el archivo no está corrupto ni alterado"
 	if !isValid {

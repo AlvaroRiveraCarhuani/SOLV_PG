@@ -90,7 +90,7 @@ func TestGetStudentRecommendationsEndpoint(t *testing.T) {
 	router.HandleFunc("GET /api/v1/student/courses/{id}/recommendations", handler.GetRecommendations)
 
 	t.Run("Student receives recommendations when weak tags exist", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/student/courses/subj-123/recommendations", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/courses/subj-123/recommendations", nil)
 		req.Header.Set("X-Tenant-Id", "tenant-test")
 		req.Header.Set("X-User-Id", "student-user-1")
 
@@ -121,7 +121,7 @@ func TestGetStudentRecommendationsEndpoint(t *testing.T) {
 	})
 
 	t.Run("Missing auth headers returns 401", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/student/courses/subj-123/recommendations", nil)
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/courses/subj-123/recommendations", nil)
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)
 

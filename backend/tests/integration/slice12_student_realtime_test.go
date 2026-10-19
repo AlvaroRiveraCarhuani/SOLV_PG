@@ -58,6 +58,12 @@ func (m *mockSlice12Docker) GetContainerLogs(ctx context.Context, containerID st
 func (m *mockSlice12Docker) ExecuteCommandInBackground(ctx context.Context, containerID string, workDir string, cmd []string) error {
 	return nil
 }
+func (m *mockSlice12Docker) InspectLocalImage(ctx context.Context, imageRef string) (bool, int64, error) {
+	return true, 1000000, nil
+}
+func (m *mockSlice12Docker) PullImage(ctx context.Context, imageRef string) error {
+	return nil
+}
 
 type mockSlice12HostMonitor struct{}
 
@@ -179,29 +185,31 @@ func TestSlice12_GetMeEndpoint(t *testing.T) {
 	`, userID, tenantID)
 
 	// 1. Petición sin X-User-Id -> 401 Unauthorized
-	req, _ := http.NewRequest("GET", server.URL+"/api/v1/users/me", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/users/me", nil)
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Errorf("Expected 401 Unauthorized without header, got %d", resp.StatusCode)
 	}
 
 	// 2. Petición con X-User-Id válido -> 200 OK
-	req, _ = http.NewRequest("GET", server.URL+"/api/v1/users/me", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/users/me", nil)
 	req.Header.Set("X-User-Id", userID)
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 	}
 
 	var body map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&body)
+	_ = json.NewDecoder(resp.Body).Decode(&body)
 	data, ok := body["data"].(map[string]interface{})
 	if !ok {
 		t.Fatalf("Expected JSON with data payload, got %v", body)
@@ -252,7 +260,7 @@ func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 		ON CONFLICT (id) DO UPDATE SET due_date = $3, subject_id = $2;
 	`, exerciseID, subjectID, futureDue, tenantID)
 
-	req, _ := http.NewRequest("GET", server.URL+"/api/v1/student/assignments/due", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/assignments/due", nil)
 	req.Header.Set("X-User-Id", studentID)
 
 	client := &http.Client{}
@@ -260,12 +268,13 @@ func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 	}
 
 	var body map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&body)
+	_ = json.NewDecoder(resp.Body).Decode(&body)
 	dataList, ok := body["data"].([]interface{})
 	if !ok || len(dataList) == 0 {
 		t.Fatalf("Expected non-empty data list of assignments, got %v", body)
@@ -310,7 +319,7 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	}
 
 	// 1. Intento por usuario no autorizado -> 403 Forbidden
-	req, _ := http.NewRequest("POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
 	req.Header.Set("X-User-Id", "intruder-id-123")
 	req.Header.Set("X-User-Role", "student")
 
@@ -319,12 +328,13 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Errorf("Expected 403 Forbidden for unauthorized user, got %d", resp.StatusCode)
 	}
 
 	// 2. Intento por el estudiante dueño -> 200 OK
-	req, _ = http.NewRequest("POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
 	req.Header.Set("X-User-Id", studentID)
 	req.Header.Set("X-User-Role", "student")
 
@@ -332,12 +342,13 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 	}
 
 	var body map[string]interface{}
-	json.NewDecoder(resp.Body).Decode(&body)
+	_ = json.NewDecoder(resp.Body).Decode(&body)
 	data := body["data"].(map[string]interface{})
 	if data["status"] != "hibernated" {
 		t.Errorf("Expected workspace status to be 'hibernated', got %v", data["status"])
@@ -361,7 +372,8 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to connect to WebSocket: %v, resp: %v", err, resp)
 	}
-	defer wsConn.Close()
+	defer func() { _ = resp.Body.Close() }()
+	defer func() { _ = wsConn.Close() }()
 
 	// 1. Leer mensaje inicial de bienvenida
 	var initMsg httpdelivery.WebSocketMessage
@@ -394,7 +406,7 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	}
 	subJSON, _ := json.Marshal(subReqBody)
 
-	req, _ := http.NewRequest("POST", server.URL+"/api/v1/submissions", bytes.NewReader(subJSON))
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/submissions", bytes.NewReader(subJSON))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-Tenant-Id", tenantID)
 
@@ -403,6 +415,7 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create submission: %v", err)
 	}
+	defer func() { _ = httpResp.Body.Close() }()
 	if httpResp.StatusCode != http.StatusCreated {
 		t.Fatalf("Expected 201 Created from submission API, got %d", httpResp.StatusCode)
 	}

@@ -130,7 +130,7 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to call timeline endpoint: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK from timeline endpoint, got %d", resp.StatusCode)
@@ -237,7 +237,7 @@ func TestSlice147_AuditUnifiedSearchAndCount(t *testing.T) {
 			Data  []domain.AuditLog `json:"data"`
 		}
 		decodeErr := json.NewDecoder(response.Body).Decode(&body)
-		response.Body.Close()
+		_ = response.Body.Close()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK from audit log endpoint, got %d", response.StatusCode)
 		}

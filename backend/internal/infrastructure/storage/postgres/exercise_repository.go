@@ -143,7 +143,7 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 	if err != nil {
 		return fmt.Errorf("failed to begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	if exercise.EnvironmentType == "" {
 		exercise.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
@@ -205,7 +205,7 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 	if err != nil {
 		return fmt.Errorf("failed to begin tx: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		UPDATE exercises

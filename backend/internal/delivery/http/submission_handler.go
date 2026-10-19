@@ -41,7 +41,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -56,7 +56,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(sub)
+	_ = json.NewEncoder(w).Encode(sub)
 }
 
 func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +88,7 @@ func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"exercise_id": exerciseID,
 		"data":        list,
 	})
@@ -114,7 +114,7 @@ func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Req
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(sub)
+	_ = json.NewEncoder(w).Encode(sub)
 }
 
 type OverrideSubmissionDTO struct {

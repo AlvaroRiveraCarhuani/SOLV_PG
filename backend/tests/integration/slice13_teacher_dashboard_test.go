@@ -106,7 +106,6 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 
 	// Crear 6 estudiantes por materia (Total 12 estudiantes)
 	var studentsSub1 []string
-	var studentsSub2 []string
 
 	for i := 1; i <= 6; i++ {
 		sID := uuid.NewString()
@@ -124,7 +123,6 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 
 	for i := 1; i <= 6; i++ {
 		sID := uuid.NewString()
-		studentsSub2 = append(studentsSub2, sID)
 		_, _ = db.GetDB().Exec(`
 			INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
 			VALUES ($1, $2, 'Estudiante', $3, 'student', $4)
@@ -204,7 +202,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// 1. TEST GET /api/v1/teacher/courses
 	// =========================================================================
 	t.Run("1. GET /api/v1/teacher/courses - Metricas Agregadas Exactas", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/teacher/courses", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -213,12 +211,13 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		data, ok := body["data"].([]interface{})
 		if !ok || len(data) != 2 {
 			t.Fatalf("Expected exactly 2 courses for teacher, got %v", body)
@@ -258,7 +257,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// 2. TEST GET /api/v1/teacher/attention
 	// =========================================================================
 	t.Run("2. GET /api/v1/teacher/attention - Clasificación por Severidad", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/teacher/attention", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/attention", nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -267,12 +266,13 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 
 		critical := data["critical"].([]interface{})
@@ -315,7 +315,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// 3. TEST GET /api/v1/teacher/courses/{id}/labs
 	// =========================================================================
 	t.Run("3. GET /api/v1/teacher/courses/{id}/labs - Desglose de Laboratorio", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
@@ -324,12 +324,13 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		labs := body["data"].([]interface{})
 		if len(labs) != 1 {
 			t.Fatalf("Expected exactly 1 lab for Subject 1, got %d", len(labs))
@@ -375,49 +376,53 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("4. Casos Negativos y Frontera - Permisos, Tenant y Vacíos", func(t *testing.T) {
 		// 4.1 Rol student -> 403 Forbidden
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/teacher/courses", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
 		req.Header.Set("X-User-Role", "student")
 		resp, _ := client.Do(req)
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusForbidden {
 			t.Errorf("Expected 403 Forbidden for student role, got %d", resp.StatusCode)
 		}
 
 		// 4.2 Docente sin materias -> Array vacío [] (no 500 ni null)
-		req, _ = http.NewRequest("GET", server.URL+"/api/v1/teacher/courses", nil)
+		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
 		req.Header.Set("X-User-Id", otherTeacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		resp, _ = client.Do(req)
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for empty teacher courses, got %d", resp.StatusCode)
 		}
 		var emptyBody map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&emptyBody)
+		_ = json.NewDecoder(resp.Body).Decode(&emptyBody)
 		emptyCourses, ok := emptyBody["data"].([]interface{})
 		if !ok || len(emptyCourses) != 0 {
 			t.Errorf("Expected empty courses array [], got %v", emptyBody["data"])
 		}
 
 		// 4.3 Aislamiento Cross-Tenant: Docente en Tenant B consultando materia de Tenant A -> 404
-		req, _ = http.NewRequest("GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
+		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantB)
 		resp, _ = client.Do(req)
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 Not Found for cross-tenant course lookup, got %d", resp.StatusCode)
 		}
 
 		// 4.4 Materia 2 (sin laboratorios) -> Array vacío [] (no null)
-		req, _ = http.NewRequest("GET", server.URL+"/api/v1/teacher/courses/"+subject2ID+"/labs", nil)
+		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject2ID+"/labs", nil)
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("X-Tenant-Id", tenantID)
 		resp, _ = client.Do(req)
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK for empty labs subject, got %d", resp.StatusCode)
 		}
 		var emptyLabsBody map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&emptyLabsBody)
+		_ = json.NewDecoder(resp.Body).Decode(&emptyLabsBody)
 		emptyLabs, ok := emptyLabsBody["data"].([]interface{})
 		if !ok || len(emptyLabs) != 0 {
 			t.Errorf("Expected empty labs array [], got %v", emptyLabsBody["data"])

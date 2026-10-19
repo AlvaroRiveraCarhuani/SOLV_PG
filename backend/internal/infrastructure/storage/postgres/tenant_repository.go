@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -24,7 +25,7 @@ func (r *PostgresTenantRepository) GetByID(ctx context.Context, id string) (*dom
 	var t domain.Tenant
 	err := r.db.GetContext(ctx, &t, query, id)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("tenant not found")
 		}
 		return nil, fmt.Errorf("error querying tenant by id: %w", err)
@@ -37,7 +38,7 @@ func (r *PostgresTenantRepository) GetBySlug(ctx context.Context, slug string) (
 	var t domain.Tenant
 	err := r.db.GetContext(ctx, &t, query, slug)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("tenant not found")
 		}
 		return nil, fmt.Errorf("error querying tenant by slug: %w", err)
@@ -90,7 +91,7 @@ func (r *PostgresTenantRepository) GetMaintenance(ctx context.Context, tenantID 
 	}
 	err := r.db.GetContext(ctx, &row, query, tenantID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("tenant not found")
 		}
 		return nil, fmt.Errorf("error querying maintenance status: %w", err)

@@ -86,9 +86,10 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	var notifIDs []string
 	for i := 1; i <= 5; i++ {
 		severity := domain.NotificationSeverityInfo
-		if i == 4 {
+		switch i {
+		case 4:
 			severity = domain.NotificationSeverityWarning
-		} else if i == 5 {
+		case 5:
 			severity = domain.NotificationSeverityCritical
 		}
 
@@ -111,7 +112,7 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// 1. TEST Paginación y Orden Temporal (GET /api/v1/notifications)
 	// =========================================================================
 	t.Run("1. Paginación y Orden Temporal - Consulta Paginada y Metadatos", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/notifications?page=1&limit=2", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications?page=1&limit=2", nil)
 		req.Header.Set("X-User-Id", userA_ID)
 		req.Header.Set("X-Tenant-Id", tenantID)
 
@@ -119,14 +120,15 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed list notifications request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			var errBody map[string]interface{}
-			json.NewDecoder(resp.Body).Decode(&errBody)
+			_ = json.NewDecoder(resp.Body).Decode(&errBody)
 			t.Fatalf("Expected 200 OK, got %d. Body: %v", resp.StatusCode, errBody)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 
 		items := body["data"].([]interface{})
 		if len(items) != 2 {
@@ -151,7 +153,7 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// 2. TEST Contador de la Campana (GET /api/v1/notifications/unread-count)
 	// =========================================================================
 	t.Run("2. Contador Ultraliviano de No Leídas para Campana UI", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", server.URL+"/api/v1/notifications/unread-count", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications/unread-count", nil)
 		req.Header.Set("X-User-Id", userA_ID)
 		req.Header.Set("X-Tenant-Id", tenantID)
 
@@ -159,12 +161,13 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed unread count request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 		if int(data["unread_count"].(float64)) != 5 {
 			t.Errorf("Expected unread_count = 5, got %v", data["unread_count"])
@@ -178,17 +181,18 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		targetID := notifIDs[4] // Notificación 5
 
 		// 3.1 Usuario B intenta marcar como leída la notificación de Usuario A -> 404 Not Found
-		reqCross, _ := http.NewRequest("PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
+		reqCross, _ := http.NewRequestWithContext(context.Background(), "PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
 		reqCross.Header.Set("X-User-Id", userB_ID) // Usuario incorrecto
 		reqCross.Header.Set("X-Tenant-Id", tenantID)
 
 		respCross, _ := client.Do(reqCross)
+		defer func() { _ = respCross.Body.Close() }()
 		if respCross.StatusCode != http.StatusNotFound {
 			t.Errorf("Expected 404 Not Found for cross-user notification read, got %d", respCross.StatusCode)
 		}
 
 		// 3.2 Usuario A marca su propia notificación -> 200 OK
-		reqValid, _ := http.NewRequest("PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
+		reqValid, _ := http.NewRequestWithContext(context.Background(), "PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
 		reqValid.Header.Set("X-User-Id", userA_ID)
 		reqValid.Header.Set("X-Tenant-Id", tenantID)
 
@@ -196,6 +200,7 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed mark read request: %v", err)
 		}
+		defer func() { _ = respValid.Body.Close() }()
 		if respValid.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK marking read, got %d", respValid.StatusCode)
 		}
@@ -222,7 +227,7 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// 4. TEST Lectura Masiva (POST /api/v1/notifications/mark-all-read)
 	// =========================================================================
 	t.Run("4. Lectura Masiva - Marcar Todas como Leídas en Una Sola Operación", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", server.URL+"/api/v1/notifications/mark-all-read", nil)
+		req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/notifications/mark-all-read", nil)
 		req.Header.Set("X-User-Id", userA_ID)
 		req.Header.Set("X-Tenant-Id", tenantID)
 
@@ -230,12 +235,13 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed mark all read request: %v", err)
 		}
+		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("Expected 200 OK marking all read, got %d", resp.StatusCode)
 		}
 
 		var body map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&body)
+		_ = json.NewDecoder(resp.Body).Decode(&body)
 		data := body["data"].(map[string]interface{})
 		if int(data["marked_count"].(float64)) != 4 {
 			t.Errorf("Expected 4 notifications marked as read, got %v", data["marked_count"])

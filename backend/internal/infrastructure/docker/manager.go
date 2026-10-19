@@ -31,9 +31,9 @@ func (m *Manager) StartTestContainer(ctx context.Context) error {
 	imageName := "nginx:alpine"
 	reader, err := m.cli.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrImagePullFailed, err)
+		return fmt.Errorf("%w: %w", ErrImagePullFailed, err)
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	_, _ = io.Copy(io.Discard, reader)
 	labels := m.buildDockerLabels()
 
@@ -53,10 +53,10 @@ func (m *Manager) StartTestContainer(ctx context.Context) error {
 	}
 	resp, err := m.cli.ContainerCreate(ctx, containerConfig, hostConfig, networkConfig, nil, "")
 	if err != nil {
-		return fmt.Errorf("%w: %v", ErrContainerCreate, err)
+		return fmt.Errorf("%w: %w", ErrContainerCreate, err)
 	}
 	if err := m.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return fmt.Errorf("%w: %v", ErrContainerStart, err)
+		return fmt.Errorf("%w: %w", ErrContainerStart, err)
 	}
 
 	return nil

@@ -33,7 +33,7 @@ func (h *TeacherInvitationHandler) ListTeachers(w http.ResponseWriter, r *http.R
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data":    teachers,
 		"total":   len(teachers),
 		"message": "Docentes obtenidos exitosamente",
@@ -75,7 +75,7 @@ func (h *TeacherInvitationHandler) CreateInvitation(w http.ResponseWriter, r *ht
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":         inv.ID,
 		"email":      inv.Email,
 		"token":      inv.Token,
@@ -105,7 +105,7 @@ func (h *TeacherInvitationHandler) ResendInvitation(w http.ResponseWriter, r *ht
 	inviteURL := h.buildInviteURL(r, inv.Token)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":         inv.ID,
 		"email":      inv.Email,
 		"token":      inv.Token,
@@ -133,7 +133,7 @@ func (h *TeacherInvitationHandler) RenewInvitation(w http.ResponseWriter, r *htt
 	inviteURL := h.buildInviteURL(r, inv.Token)
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":         inv.ID,
 		"email":      inv.Email,
 		"token":      inv.Token,
@@ -194,7 +194,7 @@ func (h *TeacherInvitationHandler) AcceptInvitation(w http.ResponseWriter, r *ht
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "accepted",
 		"message": "Rol actualizado a docente exitosamente",
 	})
@@ -216,7 +216,7 @@ func (h *TeacherInvitationHandler) GetTeacherCourses(w http.ResponseWriter, r *h
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data":    courses,
 		"total":   len(courses),
 		"message": "Materias del docente obtenidas exitosamente",
@@ -238,7 +238,7 @@ func (h *TeacherInvitationHandler) DeleteInvitation(w http.ResponseWriter, r *ht
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "deleted",
 		"message": "Invitación revocada exitosamente",
 	})
@@ -259,7 +259,7 @@ func (h *TeacherInvitationHandler) DeleteTeacher(w http.ResponseWriter, r *http.
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(map[string]string{
 		"status":  "deleted",
 		"message": "Docente dado de baja exitosamente",
 	})
@@ -294,7 +294,7 @@ func (h *TeacherInvitationHandler) RegisterDirectTeacher(w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"data":     teacher,
 		"notified": req.SendNotification,
 		"message":  "Docente registrado exitosamente con rol docente activo",
@@ -312,7 +312,7 @@ func (h *TeacherInvitationHandler) ParseRoster(w http.ResponseWriter, r *http.Re
 		SendError(w, http.StatusBadRequest, "Missing file parameter", "Archivo de nómina requerido")
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	result, err := h.service.ParseRoster(file, header.Filename)
 	if err != nil {
@@ -321,7 +321,7 @@ func (h *TeacherInvitationHandler) ParseRoster(w http.ResponseWriter, r *http.Re
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(result)
+	_ = json.NewEncoder(w).Encode(result)
 }
 
 func (h *TeacherInvitationHandler) BatchRegisterTeachers(w http.ResponseWriter, r *http.Request) {
@@ -351,7 +351,7 @@ func (h *TeacherInvitationHandler) BatchRegisterTeachers(w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"total_processed":  len(req.Emails),
 		"registered_count": count,
 		"notified":         req.SendNotification,

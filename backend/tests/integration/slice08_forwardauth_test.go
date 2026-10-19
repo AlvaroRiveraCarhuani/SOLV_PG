@@ -31,11 +31,11 @@ type domainUserPlaceholder struct {
 }
 
 func setupForwardAuthTestServer(t *testing.T, jwtSecret string) (*http.ServeMux, *services.AuthService) {
-	os.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
-	os.Setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
-	os.Setenv("GOOGLE_REDIRECT_URL", "http://localhost:3000/auth/callback")
-	os.Setenv("JWT_SECRET", jwtSecret)
-	os.Setenv("COOKIE_DOMAIN", ".solv.uab.edu.bo")
+	_ = os.Setenv("GOOGLE_CLIENT_ID", "test-client-id")
+	_ = os.Setenv("GOOGLE_CLIENT_SECRET", "test-client-secret")
+	_ = os.Setenv("GOOGLE_REDIRECT_URL", "http://localhost:3000/auth/callback")
+	_ = os.Setenv("JWT_SECRET", jwtSecret)
+	_ = os.Setenv("COOKIE_DOMAIN", ".solv.uab.edu.bo")
 
 	authService := services.NewAuthService(nil, nil)
 	authHandler := httpdelivery.NewAuthHandler(authService)
@@ -97,7 +97,7 @@ func TestCRIT05ForwardAuthVerification(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/api/v1/auth/verify", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/verify", nil)
 			if tt.cookieValue != "" {
 				req.AddCookie(&http.Cookie{
 					Name:  "solv_session",
@@ -129,7 +129,7 @@ func TestCRIT05ForwardAuthVerification(t *testing.T) {
 func TestCRIT05LogoutClearsSessionCookie(t *testing.T) {
 	mux, _ := setupForwardAuthTestServer(t, "test-super-secret-key-1234567890")
 
-	req := httptest.NewRequest("POST", "/api/v1/auth/logout", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/auth/logout", nil)
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)

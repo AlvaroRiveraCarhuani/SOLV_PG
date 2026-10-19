@@ -119,7 +119,7 @@ func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 		OrderIndex: 1,
 		PassScore:  60,
 	})
-	req1 := httptest.NewRequest(http.MethodPost, "/api/v1/courses/course-123/modules", bytes.NewReader(body1))
+	req1 := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/courses/course-123/modules", bytes.NewReader(body1))
 	req1.SetPathValue("id", "course-123")
 	w1 := httptest.NewRecorder()
 	handler.CreateModule(w1, req1)
@@ -142,7 +142,7 @@ func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 		OrderIndex: 2,
 		PassScore:  70,
 	})
-	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/courses/course-123/modules", bytes.NewReader(body2))
+	req2 := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/courses/course-123/modules", bytes.NewReader(body2))
 	req2.SetPathValue("id", "course-123")
 	w2 := httptest.NewRecorder()
 	handler.CreateModule(w2, req2)
@@ -161,7 +161,7 @@ func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 	bodyPrereqValid, _ := json.Marshal(dto.SetPrerequisitesRequest{
 		PrerequisiteModuleIDs: []string{created1.ID},
 	})
-	reqPrereq1 := httptest.NewRequest(http.MethodPut, "/api/v1/courses/course-123/modules/"+created2.ID+"/prerequisites", bytes.NewReader(bodyPrereqValid))
+	reqPrereq1 := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/courses/course-123/modules/"+created2.ID+"/prerequisites", bytes.NewReader(bodyPrereqValid))
 	reqPrereq1.SetPathValue("id", "course-123")
 	reqPrereq1.SetPathValue("moduleId", created2.ID)
 	wPrereq1 := httptest.NewRecorder()
@@ -175,7 +175,7 @@ func TestCourseModuleHandler_CreateAndSetPrerequisites(t *testing.T) {
 	bodyPrereqCycle, _ := json.Marshal(dto.SetPrerequisitesRequest{
 		PrerequisiteModuleIDs: []string{created2.ID},
 	})
-	reqPrereqCycle := httptest.NewRequest(http.MethodPut, "/api/v1/courses/course-123/modules/"+created1.ID+"/prerequisites", bytes.NewReader(bodyPrereqCycle))
+	reqPrereqCycle := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/courses/course-123/modules/"+created1.ID+"/prerequisites", bytes.NewReader(bodyPrereqCycle))
 	reqPrereqCycle.SetPathValue("id", "course-123")
 	reqPrereqCycle.SetPathValue("moduleId", created1.ID)
 	wPrereqCycle := httptest.NewRecorder()
@@ -214,7 +214,7 @@ func TestCourseModuleHandler_StudentCurricularMap(t *testing.T) {
 	svc := services.NewCourseModuleService(repo, exRepo)
 	handler := httpdelivery.NewCourseModuleHandler(svc)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/student/courses/course-1/map", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/courses/course-1/map", nil)
 	req.SetPathValue("id", "course-1")
 	req.Header.Set("X-Tenant-Id", "tenant-test")
 	req.Header.Set("X-User-Id", "student-test")

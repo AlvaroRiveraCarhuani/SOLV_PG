@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"solv-backend/internal/core/domain"
@@ -53,7 +54,7 @@ func TestImageVerification_ValidationErrors(t *testing.T) {
 			if err == nil {
 				t.Fatalf("expected error for %q, got nil result: %+v", tt.imageRef, res)
 			}
-			if tt.expectErr == ErrLatestTagForbiddenVerif && err != ErrLatestTagForbiddenVerif {
+			if errors.Is(tt.expectErr, ErrLatestTagForbiddenVerif) && !errors.Is(err, ErrLatestTagForbiddenVerif) {
 				t.Fatalf("expected %v, got %v", ErrLatestTagForbiddenVerif, err)
 			}
 		})

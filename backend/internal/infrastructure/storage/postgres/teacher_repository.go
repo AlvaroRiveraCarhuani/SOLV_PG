@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -551,7 +552,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	`
 	var row subDetailRow
 	if err := r.db.GetContext(ctx, &row, query, submissionID, tenantID); err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get submission review: %w", err)

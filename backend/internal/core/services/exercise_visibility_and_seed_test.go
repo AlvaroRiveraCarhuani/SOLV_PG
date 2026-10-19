@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -103,7 +104,7 @@ func TestExerciseValidation_PerStudentSeedRequiresExam(t *testing.T) {
 		if err == nil {
 			t.Fatalf("expected error when per_student_seed is true with purpose class, got nil")
 		}
-		if err != domain.ErrSeedRequiresExamPurpose {
+		if !errors.Is(err, domain.ErrSeedRequiresExamPurpose) {
 			t.Errorf("expected ErrSeedRequiresExamPurpose, got %v", err)
 		}
 	})

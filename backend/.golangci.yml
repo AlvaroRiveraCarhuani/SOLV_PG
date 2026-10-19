@@ -1,0 +1,61 @@
+version: "2"
+
+linters:
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gosec
+    - misspell
+    - noctx
+  exclusions:
+    paths:
+      - '_gen\.go$'
+      - '\.pb\.go$'
+      - 'mocks/'
+  settings:
+    misspell:
+      # The codebase is written in Spanish (comments, messages, domain
+      # identifiers like IDE_PERSISTENTE). These dictionary rules are
+      # false positives that map valid Spanish words to English ones.
+      # The linter stays enabled for genuine English misspellings.
+      ignore-rules:
+        - academicas
+        - administrativo
+        - algoritmos
+        - asume
+        - balanceada
+        - calcular
+        - circuitos
+        - columnas
+        - comando
+        - comandos
+        - conceptos
+        - condicional
+        - configuracion
+        - correctivo
+        - corrupto
+        - definitivo
+        - emergencias
+        - evaluacion
+        - inspeccion
+        - integracion
+        - interactivo
+        - materias
+        - metricas
+        - operativos
+        - parametros
+        - patrones
+        - periodos
+        - persistente
+        - previos
+        - problemas
+        - proceder
+        - profesor
+        - recorre
+        - secretos
+        - semestre
+        - terminales
+        - terminaron
+        - vectores
+        - verificacion

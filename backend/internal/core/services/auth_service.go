@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -83,11 +84,15 @@ func (s *AuthService) CallbackGoogle(ctx context.Context, code string) (string, 
 	}
 
 	client := s.oauthConfig.Client(ctx, token)
-	resp, err := client.Get("https://www.googleapis.com/oauth2/v2/userinfo")
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, "https://www.googleapis.com/oauth2/v2/userinfo", nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to get user info: %w", err)
 	}
-	defer resp.Body.Close()
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to get user info: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {

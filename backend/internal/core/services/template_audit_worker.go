@@ -329,7 +329,7 @@ func (w *TemplateAuditWorker) runSmokeTest(ctx context.Context, item *domain.Adm
 		}
 		return "failed", "Fallo al verificar herramientas declaradas"
 	}
-	defer logsReader.Close()
+	defer func() { _ = logsReader.Close() }()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
@@ -359,7 +359,7 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 			log.Printf("[TemplateAuditWorker] Error descargando Trivy: %v", pullErr)
 			return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "no se pudo descargar imagen de auditoría: %s"}`, pullErr.Error()))
 		}
-		defer out.Close()
+		defer func() { _ = out.Close() }()
 		_, _ = io.Copy(io.Discard, out)
 	}
 
@@ -422,7 +422,7 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	if err != nil {
 		return "failed", 0, 0, []byte(fmt.Sprintf(`{"error": "no se pudo leer salida de auditoría: %s"}`, err.Error()))
 	}
-	defer logsReader.Close()
+	defer func() { _ = logsReader.Close() }()
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	_, _ = stdcopy.StdCopy(&stdoutBuf, &stderrBuf, logsReader)
@@ -443,9 +443,10 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	for _, res := range report.Results {
 		for _, vuln := range res.Vulnerabilities {
 			sev := strings.ToUpper(vuln.Severity)
-			if sev == "CRITICAL" {
+			switch sev {
+			case "CRITICAL":
 				criticalCount++
-			} else if sev == "HIGH" {
+			case "HIGH":
 				highCount++
 			}
 		}
@@ -599,7 +600,16 @@ func checkEOL(imageRef string) (string, string, string) {
 	}
 
 	url := fmt.Sprintf("https://endoflife.date/api/%s/%s.json", product, cycle)
-	resp, err := eolHTTPClient.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		res := EOLResult{
+			Status:  "supported",
+			Date:    "",
+			Message: "Ciclo de vida activo o no indexado",
+		}
+		return res.Status, res.Date, res.Message
+	}
+	resp, err := eolHTTPClient.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if resp != nil {
 			_ = resp.Body.Close()
@@ -611,7 +621,7 @@ func checkEOL(imageRef string) (string, string, string) {
 		}
 		return res.Status, res.Date, res.Message
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var payload struct {
 		Cycle string          `json:"cycle"`
@@ -627,19 +637,20 @@ func checkEOL(imageRef string) (string, string, string) {
 	now := time.Now()
 	var res EOLResult
 
-	if rawEOL == "true" {
+	switch rawEOL {
+	case "true":
 		res = EOLResult{
 			Status:  "eol",
 			Date:    "",
 			Message: fmt.Sprintf("Versión %s %s sin soporte oficial (fin de ciclo de vida)", product, cycle),
 		}
-	} else if rawEOL == "false" || rawEOL == "" {
+	case "false", "":
 		res = EOLResult{
 			Status:  "supported",
 			Date:    "",
 			Message: fmt.Sprintf("Versión %s %s con soporte oficial activo", product, cycle),
 		}
-	} else {
+	default:
 		parsedDate, parseErr := time.Parse("2006-01-02", rawEOL)
 		if parseErr != nil {
 			res = EOLResult{

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"solv-backend/internal/core/domain"
 
@@ -45,7 +46,7 @@ func (r *PostgresCourseModuleRepository) GetModuleByID(ctx context.Context, modu
 	`
 	err := r.db.GetContext(ctx, &module, query, moduleID)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, domain.ErrModuleNotFound
 		}
 		return nil, fmt.Errorf("failed to get course module: %w", err)
@@ -106,7 +107,7 @@ func (r *PostgresCourseModuleRepository) SetPrerequisites(ctx context.Context, m
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// 1. Eliminar prerrequisitos actuales
 	if _, err := tx.ExecContext(ctx, "DELETE FROM module_prerequisites WHERE module_id = $1", moduleID); err != nil {

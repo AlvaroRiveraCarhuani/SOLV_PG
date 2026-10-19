@@ -81,7 +81,7 @@ func (p *RosterParser) parseXLSX(r io.Reader) ([][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	sheets := f.GetSheetList()
 	if len(sheets) == 0 {
@@ -141,9 +141,7 @@ func (p *RosterParser) processRows(rows [][]string) *ParsedRosterResult {
 					continue
 				}
 				matches := emailRegex.FindAllString(val, -1)
-				for _, match := range matches {
-					rawCandidates = append(rawCandidates, match)
-				}
+				rawCandidates = append(rawCandidates, matches...)
 			}
 		}
 	}

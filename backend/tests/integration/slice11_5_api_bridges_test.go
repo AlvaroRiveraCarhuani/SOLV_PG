@@ -85,7 +85,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 			"support_email": "soporte@uab.edu.bo"
 		}`)
 
-		req := httptest.NewRequest("PUT", "/api/v1/admin/branding", bytes.NewReader(brandingPayload))
+		req := httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/branding", bytes.NewReader(brandingPayload))
 		req.Header.Set("X-User-Role", "admin")
 
 		rr := httptest.NewRecorder()
@@ -101,7 +101,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var cfg map[string]interface{}
-		json.Unmarshal(tenant.Config, &cfg)
+		_ = json.Unmarshal(tenant.Config, &cfg)
 		if cfg["tenant_primary_color"] != "#1E40AF" {
 			t.Errorf("Expected primary color #1E40AF, got %v", cfg["tenant_primary_color"])
 		}
@@ -124,7 +124,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 			t.Fatalf("Failed to insert test audit log: %v", err)
 		}
 
-		req := httptest.NewRequest("GET", "/api/v1/admin/audit-logs?action=CREATE_SUBJECT", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/admin/audit-logs?action=CREATE_SUBJECT", nil)
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -134,7 +134,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var resp map[string]interface{}
-		json.Unmarshal(rr.Body.Bytes(), &resp)
+		_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 		dataList := resp["data"].([]interface{})
 		if len(dataList) == 0 {
 			t.Fatalf("Expected at least 1 audit log record, got 0")
@@ -143,7 +143,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 
 	// 3. Test Admin Health Metrics
 	t.Run("3. Admin Health Metrics Calculation", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/v1/admin/metrics/health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/admin/metrics/health", nil)
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -153,7 +153,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var health httpdelivery.HealthMetricsResponse
-		json.Unmarshal(rr.Body.Bytes(), &health)
+		_ = json.Unmarshal(rr.Body.Bytes(), &health)
 		if health.TenantID != tenantID {
 			t.Errorf("Expected tenant ID %s, got %s", tenantID, health.TenantID)
 		}
@@ -184,7 +184,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 			}
 		}`, freshExID))
 
-		req := httptest.NewRequest("POST", "/api/v1/exercises", bytes.NewReader(exercisePayload))
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises", bytes.NewReader(exercisePayload))
 		req.Header.Set("X-User-Role", "teacher")
 
 		rr := httptest.NewRecorder()
@@ -195,14 +195,14 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var resp map[string]interface{}
-		json.Unmarshal(rr.Body.Bytes(), &resp)
+		_ = json.Unmarshal(rr.Body.Bytes(), &resp)
 		created := resp["data"].(map[string]interface{})
 		createdExerciseID = created["id"].(string)
 	})
 
 	// 5. Test Public DTO with Public Test Cases for Student
 	t.Run("5. Student Public Exercise DTO with Public Test Cases", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/v1/exercises/"+createdExerciseID, nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/exercises/"+createdExerciseID, nil)
 		req.Header.Set("X-User-Role", "student")
 
 		rr := httptest.NewRecorder()
@@ -213,7 +213,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var publicResp map[string]interface{}
-		json.Unmarshal(rr.Body.Bytes(), &publicResp)
+		_ = json.Unmarshal(rr.Body.Bytes(), &publicResp)
 
 		data := publicResp["data"].(map[string]interface{})
 		publicCases, ok := data["public_test_cases"].([]interface{})
@@ -248,7 +248,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 			"score": 90
 		}`)
 
-		req := httptest.NewRequest("POST", "/api/v1/submissions/"+sampleSubID+"/override", bytes.NewReader(overridePayload))
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions/"+sampleSubID+"/override", bytes.NewReader(overridePayload))
 		req.Header.Set("X-User-Id", teacherID)
 		req.Header.Set("X-User-Role", "teacher")
 
@@ -260,7 +260,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		// Fetch detail
-		reqGet := httptest.NewRequest("GET", "/api/v1/submissions/"+sampleSubID, nil)
+		reqGet := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/submissions/"+sampleSubID, nil)
 
 		rrGet := httptest.NewRecorder()
 		mux.ServeHTTP(rrGet, reqGet)
@@ -270,7 +270,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var updatedSub domain.Submission
-		json.Unmarshal(rrGet.Body.Bytes(), &updatedSub)
+		_ = json.Unmarshal(rrGet.Body.Bytes(), &updatedSub)
 		if updatedSub.Verdict != "AC" || !updatedSub.ManualOverride || *updatedSub.Score != 90 {
 			t.Errorf("Override failed: %+v", updatedSub)
 		}
@@ -278,7 +278,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 
 	// 7. Test Student Consolidated Dashboard
 	t.Run("7. Student Consolidated Dashboard", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/api/v1/student/dashboard", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/student/dashboard", nil)
 		req.Header.Set("X-User-Id", studentID)
 
 		rr := httptest.NewRecorder()
@@ -289,7 +289,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		var dash httpdelivery.StudentDashboardResponse
-		json.Unmarshal(rr.Body.Bytes(), &dash)
+		_ = json.Unmarshal(rr.Body.Bytes(), &dash)
 		if dash.StudentID != studentID {
 			t.Errorf("Expected student ID %s, got %s", studentID, dash.StudentID)
 		}

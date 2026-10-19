@@ -88,7 +88,7 @@ func (r *PostgresTeacherInvitationRepository) AcceptInvitationTx(ctx context.Con
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	var inv domain.TeacherInvitation
 	getInvQuery := `
@@ -342,7 +342,7 @@ func (r *PostgresTeacherInvitationRepository) DeleteTeacher(ctx context.Context,
 	if err != nil {
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	// 1. Desasignar materias donde el usuario era docente titular
 	unassignQuery := `UPDATE subjects SET teacher_id = NULL, updated_at = NOW() WHERE tenant_id = $1 AND teacher_id = $2`
@@ -381,7 +381,7 @@ func (r *PostgresTeacherInvitationRepository) UpsertDirectTeacher(ctx context.Co
 	if err != nil {
 		return nil, fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	query := `
 		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, origin, created_at)
@@ -439,7 +439,7 @@ func (r *PostgresTeacherInvitationRepository) BatchUpsertDirectTeachers(ctx cont
 	if err != nil {
 		return 0, fmt.Errorf("failed to begin batch transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer func() { _ = tx.Rollback() }()
 
 	upsertStmt, err := tx.PrepareContext(ctx, `
 		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, origin, created_at)
@@ -451,7 +451,7 @@ func (r *PostgresTeacherInvitationRepository) BatchUpsertDirectTeachers(ctx cont
 	if err != nil {
 		return 0, fmt.Errorf("failed to prepare upsert: %w", err)
 	}
-	defer upsertStmt.Close()
+	defer func() { _ = upsertStmt.Close() }()
 
 	count := 0
 	for _, rawEmail := range emails {

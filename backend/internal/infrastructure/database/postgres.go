@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
@@ -20,7 +21,7 @@ func NewPostgresDB(dsn string) (*Database, error) {
 		return nil, fmt.Errorf("unable to connect to database: %w", err)
 	}
 
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(context.Background()); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 
@@ -35,11 +36,11 @@ func (d *Database) GetDB() *sqlx.DB {
 // usando goose. Adquiere el advisory lock 1337 antes de correr para garantizar
 // que solo un proceso aplica migraciones a la vez en entornos multi-réplica.
 func RunMigrations(db *sql.DB, migrationsDir string) error {
-	_, errLock := db.Exec("SELECT pg_advisory_lock(1337)")
+	_, errLock := db.ExecContext(context.Background(), "SELECT pg_advisory_lock(1337)")
 	if errLock != nil {
 		log.Printf("Notice: could not acquire migration advisory lock: %v", errLock)
 	} else {
-		defer func() { _, _ = db.Exec("SELECT pg_advisory_unlock(1337)") }()
+		defer func() { _, _ = db.ExecContext(context.Background(), "SELECT pg_advisory_unlock(1337)") }()
 	}
 
 	if err := goose.SetDialect("postgres"); err != nil {
@@ -53,11 +54,11 @@ func RunMigrations(db *sql.DB, migrationsDir string) error {
 
 // RunMigrationsDown revierte todas las migraciones en el directorio dado hasta 0 usando goose.
 func RunMigrationsDown(db *sql.DB, migrationsDir string) error {
-	_, errLock := db.Exec("SELECT pg_advisory_lock(1337)")
+	_, errLock := db.ExecContext(context.Background(), "SELECT pg_advisory_lock(1337)")
 	if errLock != nil {
 		log.Printf("Notice: could not acquire migration advisory lock: %v", errLock)
 	} else {
-		defer func() { _, _ = db.Exec("SELECT pg_advisory_unlock(1337)") }()
+		defer func() { _, _ = db.ExecContext(context.Background(), "SELECT pg_advisory_unlock(1337)") }()
 	}
 
 	if err := goose.SetDialect("postgres"); err != nil {

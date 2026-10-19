@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ func TestRateLimiter_GlobalIPLimit(t *testing.T) {
 
 	// Enviar peticiones dentro del burst (burst = 20)
 	for i := 0; i < 20; i++ {
-		req := httptest.NewRequest("GET", "/api/v1/health", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/health", nil)
 		req.RemoteAddr = "192.168.1.10:12345"
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -25,7 +26,7 @@ func TestRateLimiter_GlobalIPLimit(t *testing.T) {
 	}
 
 	// La peticion 21 debe ser rechazada con 429 Too Many Requests
-	req := httptest.NewRequest("GET", "/api/v1/health", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/health", nil)
 	req.RemoteAddr = "192.168.1.10:12345"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -71,7 +72,7 @@ func TestRateLimiter_AuthFailureBlocking(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	req := httptest.NewRequest("GET", "/api/v1/public", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/public", nil)
 	req.RemoteAddr = ip + ":54321"
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
@@ -95,7 +96,7 @@ func TestRateLimiter_SubmissionRateLimit(t *testing.T) {
 
 	// Burst = 5
 	for i := 0; i < 5; i++ {
-		req := httptest.NewRequest("POST", "/api/v1/submissions", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions", nil)
 		req.Header.Set("X-User-Id", studentID)
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
@@ -106,7 +107,7 @@ func TestRateLimiter_SubmissionRateLimit(t *testing.T) {
 	}
 
 	// La peticion 6 debe fallar con 429
-	req := httptest.NewRequest("POST", "/api/v1/submissions", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions", nil)
 	req.Header.Set("X-User-Id", studentID)
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)

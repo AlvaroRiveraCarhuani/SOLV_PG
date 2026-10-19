@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -86,7 +87,7 @@ func (w *SemgrepWorker) ScanCode(code string, language string) (*domain.ScanResu
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temp file for semgrep scan: %w", err)
 	}
-	defer os.Remove(tmpFile.Name())
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
 
 	if _, err := tmpFile.WriteString(code); err != nil {
 		_ = tmpFile.Close()
@@ -104,8 +105,9 @@ func (w *SemgrepWorker) ScanCode(code string, language string) (*domain.ScanResu
 		// Semgrep devuelve exit code 1 si hay hallazgos o errores, pero la salida JSON se escribe a stdout.
 		// Si outBytes tiene contenido, intentamos parsear.
 		if len(outBytes) == 0 {
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				return nil, fmt.Errorf("semgrep execution error: %s (stderr: %s)", err, string(exitErr.Stderr))
+			exitErr := &exec.ExitError{}
+			if errors.As(err, &exitErr) {
+				return nil, fmt.Errorf("semgrep execution error: %w (stderr: %s)", err, string(exitErr.Stderr))
 			}
 			return nil, fmt.Errorf("semgrep execution error: %w", err)
 		}

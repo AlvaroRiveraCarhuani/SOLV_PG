@@ -159,7 +159,7 @@ func TestSlice6PrometheusMetricsEndpoint(t *testing.T) {
 
 	metricsHandler := httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieWorker)
 
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequestWithContext(context.Background(), "GET", "/metrics", nil)
 	rr := httptest.NewRecorder()
 
 	metricsHandler.HandleMetrics(rr, req)

@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -17,7 +18,7 @@ func TestAdminAcademicHandler_VerifyImage_Validation(t *testing.T) {
 
 	t.Run("Rejects latest tag with 422", func(t *testing.T) {
 		body := `{"image": "python:latest", "force": false}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -30,7 +31,7 @@ func TestAdminAcademicHandler_VerifyImage_Validation(t *testing.T) {
 
 	t.Run("Rejects invalid format with 422", func(t *testing.T) {
 		body := `{"image": "invalid format with spaces", "force": false}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -43,7 +44,7 @@ func TestAdminAcademicHandler_VerifyImage_Validation(t *testing.T) {
 
 	t.Run("Valid image returns 200 with result", func(t *testing.T) {
 		body := `{"image": "python:3.11-slim", "force": false}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/templates/verify-image", strings.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 
@@ -71,7 +72,7 @@ func TestAdminAcademicHandler_ListLocalImages(t *testing.T) {
 	imageService := services.NewImageVerificationService(nil)
 	handler := NewAdminAcademicHandler(nil, nil, nil).WithImageService(imageService)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/templates/local-images", nil)
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/templates/local-images", nil)
 	w := httptest.NewRecorder()
 
 	handler.ListLocalImages(w, req)

@@ -98,7 +98,7 @@ func RunBuildPhase(ctx context.Context, cli *client.Client, imageName, fileName,
 	if err != nil {
 		return BuildResult{}, fmt.Errorf("failed to create temp dir for build: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	if err := os.WriteFile(filepath.Join(tmpDir, fileName), []byte(sourceCode), 0644); err != nil {
 		return BuildResult{}, fmt.Errorf("failed to write solution file: %w", err)
@@ -163,10 +163,10 @@ func RunBuildPhase(ctx context.Context, cli *client.Client, imageName, fileName,
 	statusCh, errCh := cli.ContainerWait(buildCtx, containerID, container.WaitConditionNotRunning)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	doneCopy := make(chan error, 1)
+	doneCopy := make(chan struct{}, 1)
 	go func() {
-		_, err := stdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
-		doneCopy <- err
+		_, _ = stdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
+		doneCopy <- struct{}{}
 	}()
 
 	select {
@@ -221,7 +221,7 @@ func ensureImage(ctx context.Context, cli *client.Client, imageName string) {
 			return
 		}
 		_, _ = io.Copy(io.Discard, out)
-		out.Close()
+		_ = out.Close()
 	}
 }
 
@@ -231,7 +231,7 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	if err != nil {
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to create temp dir for evaluation: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	filePath := filepath.Join(tmpDir, fileName)
 	if err := os.WriteFile(filePath, []byte(config.SourceCode), 0644); err != nil {
@@ -246,7 +246,7 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 			return domain.TestCaseRunResult{}, fmt.Errorf("failed to pull image %s: %w", imageName, pullErr)
 		}
 		_, _ = io.Copy(io.Discard, out)
-		out.Close()
+		_ = out.Close()
 	}
 
 	// 3. Aislamiento Estricto (NetworkMode: "none", RAM Limit, :ro)
@@ -330,11 +330,11 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	statusCh, errCh := cli.ContainerWait(evalCtx, containerID, container.WaitConditionNotRunning)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
-	doneCopy := make(chan error, 1)
+	doneCopy := make(chan struct{}, 1)
 
 	go func() {
-		_, err := stdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
-		doneCopy <- err
+		_, _ = stdCopy(&stdoutBuf, &stderrBuf, attachResp.Reader)
+		doneCopy <- struct{}{}
 	}()
 
 	select {

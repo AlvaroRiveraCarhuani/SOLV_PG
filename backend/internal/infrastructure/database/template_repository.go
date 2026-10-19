@@ -29,7 +29,7 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 	if err != nil {
 		return nil, fmt.Errorf("failed to query lab templates: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var templates []domain.TemplateResponseDTO
 	for rows.Next() {

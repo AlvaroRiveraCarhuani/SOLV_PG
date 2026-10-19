@@ -95,7 +95,7 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "admin")
 	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -104,6 +104,7 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create template: %v", err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusCreated {
 		var errRes map[string]any
 		_ = json.NewDecoder(resp.Body).Decode(&errRes)
@@ -111,7 +112,7 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	}
 
 	// Segundo intento con el MISMO nombre: debe retornar 409 Conflict, nunca sobreescribir silenciosamente
-	req2, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
+	req2, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("X-User-Role", "admin")
 	req2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -120,6 +121,7 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to execute second create: %v", err)
 	}
+	defer func() { _ = resp2.Body.Close() }()
 	if resp2.StatusCode != http.StatusConflict {
 		t.Fatalf("Expected 409 Conflict on duplicate name, got: %d", resp2.StatusCode)
 	}
@@ -146,7 +148,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	}
 
 	body, _ := json.Marshal(payload)
-	req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "admin")
 	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -155,6 +157,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create template to duplicate: status %d, err %v", resp.StatusCode, err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var createdRes struct {
 		Data domain.AdminTemplateReviewItem `json:"data"`
@@ -163,7 +166,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	tplID := createdRes.Data.ID
 
 	// Primera duplicación -> (Copia) uniqueName
-	dupReq1, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
+	dupReq1, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
 	dupReq1.Header.Set("X-User-Role", "admin")
 	dupReq1.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
@@ -171,9 +174,10 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	if err != nil || dupResp1.StatusCode != http.StatusCreated {
 		t.Fatalf("First duplication failed: status %d, err %v", dupResp1.StatusCode, err)
 	}
+	defer func() { _ = dupResp1.Body.Close() }()
 
 	// Segunda duplicación -> (Copia 2) uniqueName (no debe fallar con 500)
-	dupReq2, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
+	dupReq2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
 	dupReq2.Header.Set("X-User-Role", "admin")
 	dupReq2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
@@ -181,6 +185,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	if err != nil || dupResp2.StatusCode != http.StatusCreated {
 		t.Fatalf("Second duplication failed with status %d (wanted 201 without 500 collision)", dupResp2.StatusCode)
 	}
+	defer func() { _ = dupResp2.Body.Close() }()
 
 	// Tercera duplicación con plantilla de nombre muy largo (95 caracteres): no debe violar VARCHAR(100)
 	longName := "Template With Very Long Name Designed To Test Varchar 100 Limits On Duplicate " + uuid.New().String()[:15]
@@ -191,7 +196,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 		TargetEnvironment: "IDE_PERSISTENTE",
 	}
 	longBody, _ := json.Marshal(longPayload)
-	longReq, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(longBody))
+	longReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(longBody))
 	longReq.Header.Set("Content-Type", "application/json")
 	longReq.Header.Set("X-User-Role", "admin")
 	longReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -199,6 +204,7 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	if err != nil || longResp.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create long name template: %v", err)
 	}
+	defer func() { _ = longResp.Body.Close() }()
 	var longRes struct {
 		Data domain.AdminTemplateReviewItem `json:"data"`
 	}
@@ -207,13 +213,14 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	// Duplicar la de nombre largo 3 veces sucesivas
 	currID := longRes.Data.ID
 	for d := 1; d <= 3; d++ {
-		dReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, currID), nil)
+		dReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, currID), nil)
 		dReq.Header.Set("X-User-Role", "admin")
 		dReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 		dResp, err := http.DefaultClient.Do(dReq)
 		if err != nil || dResp.StatusCode != http.StatusCreated {
 			t.Fatalf("Duplication %d of long name template failed: status %d", d, dResp.StatusCode)
 		}
+		defer func() { _ = dResp.Body.Close() }()
 		var dRes struct {
 			Data domain.AdminTemplateReviewItem `json:"data"`
 		}
@@ -243,7 +250,7 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 		Description: "Descripción para test",
 	}
 	catBody, _ := json.Marshal(catPayload)
-	req, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(catBody))
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(catBody))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "admin")
 	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -252,6 +259,7 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	if err != nil || resp.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create category: status %d, err %v", resp.StatusCode, err)
 	}
+	defer func() { _ = resp.Body.Close() }()
 
 	var catRes struct {
 		Data domain.TemplateCategory `json:"data"`
@@ -268,7 +276,7 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 		TargetEnvironment: "IDE_PERSISTENTE",
 	}
 	tplBody, _ := json.Marshal(tplPayload)
-	tplReq, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
+	tplReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
 	tplReq.Header.Set("Content-Type", "application/json")
 	tplReq.Header.Set("X-User-Role", "admin")
 	tplReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -277,9 +285,10 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	if err != nil || tplResp.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create template with category: status %d", tplResp.StatusCode)
 	}
+	defer func() { _ = tplResp.Body.Close() }()
 
 	// 3. Intentar eliminar categoría en uso -> debe retornar 409 Conflict
-	delReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, catID), nil)
+	delReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, catID), nil)
 	delReq.Header.Set("X-User-Role", "admin")
 	delReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
@@ -287,29 +296,32 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	if err != nil || delResp.StatusCode != http.StatusConflict {
 		t.Fatalf("Expected 409 Conflict when deleting category in use, got: %d", delResp.StatusCode)
 	}
+	defer func() { _ = delResp.Body.Close() }()
 
 	// 4. Crear categoría huérfana y eliminarla exitosamente -> debe registrar audit log
 	orphanPayload := domain.CreateCategoryDTO{
 		Name: fmt.Sprintf("Orphan Cat %s", uuid.New().String()[:8]),
 	}
 	orphanBody, _ := json.Marshal(orphanPayload)
-	oReq, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(orphanBody))
+	oReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(orphanBody))
 	oReq.Header.Set("Content-Type", "application/json")
 	oReq.Header.Set("X-User-Role", "admin")
 	oReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	oResp, _ := http.DefaultClient.Do(oReq)
+	defer func() { _ = oResp.Body.Close() }()
 	var oRes struct {
 		Data domain.TemplateCategory `json:"data"`
 	}
 	_ = json.NewDecoder(oResp.Body).Decode(&oRes)
 
-	delOrphanReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, oRes.Data.ID), nil)
+	delOrphanReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, oRes.Data.ID), nil)
 	delOrphanReq.Header.Set("X-User-Role", "admin")
 	delOrphanReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	delOrphanResp, err := http.DefaultClient.Do(delOrphanReq)
 	if err != nil || delOrphanResp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK deleting unused category, got: %d", delOrphanResp.StatusCode)
 	}
+	defer func() { _ = delOrphanResp.Body.Close() }()
 
 	// Verificar audit log
 	if auditRepo != nil {
@@ -340,12 +352,13 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 		SampleInput:       "echo 42",
 	}
 	tplBody, _ := json.Marshal(tplPayload)
-	tplReq, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
+	tplReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
 	tplReq.Header.Set("Content-Type", "application/json")
 	tplReq.Header.Set("X-User-Role", "admin")
 	tplReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	tplResp, _ := http.DefaultClient.Do(tplReq)
+	defer func() { _ = tplResp.Body.Close() }()
 	var tplRes struct {
 		Data domain.AdminTemplateReviewItem `json:"data"`
 	}
@@ -359,12 +372,13 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 		Description: "Modelo promovido para test",
 	}
 	pBody, _ := json.Marshal(promotePayload)
-	pReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
+	pReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
 	pReq.Header.Set("Content-Type", "application/json")
 	pReq.Header.Set("X-User-Role", "admin")
 	pReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	pResp, _ := http.DefaultClient.Do(pReq)
+	defer func() { _ = pResp.Body.Close() }()
 	if pResp.StatusCode != http.StatusUnprocessableEntity {
 		t.Fatalf("Expected 422 Unprocessable when promoting unapproved template, got: %d", pResp.StatusCode)
 	}
@@ -376,7 +390,7 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	}
 
 	// 4. Promover ahora -> debe responder 201 Created y retornar el modelo
-	pReq2, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
+	pReq2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
 	pReq2.Header.Set("Content-Type", "application/json")
 	pReq2.Header.Set("X-User-Role", "admin")
 	pReq2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
@@ -385,14 +399,16 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	if err != nil || pResp2.StatusCode != http.StatusCreated {
 		t.Fatalf("Expected 201 Created when promoting approved template, got %d, err: %v", pResp2.StatusCode, err)
 	}
+	defer func() { _ = pResp2.Body.Close() }()
 
 	// 5. Consultar GET /api/v1/admin/template-models y validar que el modelo aparece con usage_count >= 1
-	mReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models", nil)
+	mReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
 	mReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	mResp, err := http.DefaultClient.Do(mReq)
 	if err != nil || mResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list template models: %v", err)
 	}
+	defer func() { _ = mResp.Body.Close() }()
 
 	var mListRes struct {
 		Data []*domain.TemplateModelItemDTO `json:"data"`
@@ -441,25 +457,27 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 
 	c1Payload := domain.CreateCategoryDTO{Name: catName1, Description: "Cat A"}
 	b1, _ := json.Marshal(c1Payload)
-	req1, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b1))
+	req1, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b1))
 	req1.Header.Set("Content-Type", "application/json")
 	req1.Header.Set("X-User-Role", "admin")
 	resp1, err := http.DefaultClient.Do(req1)
 	if err != nil || resp1.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create cat A: %v", err)
 	}
+	defer func() { _ = resp1.Body.Close() }()
 	var res1 struct{ Data domain.TemplateCategory }
 	_ = json.NewDecoder(resp1.Body).Decode(&res1)
 
 	c2Payload := domain.CreateCategoryDTO{Name: catName2, Description: "Cat B"}
 	b2, _ := json.Marshal(c2Payload)
-	req2, _ := http.NewRequest("POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b2))
+	req2, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b2))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("X-User-Role", "admin")
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil || resp2.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create cat B: %v", err)
 	}
+	defer func() { _ = resp2.Body.Close() }()
 	var res2 struct{ Data domain.TemplateCategory }
 	_ = json.NewDecoder(resp2.Body).Decode(&res2)
 
@@ -469,20 +487,22 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 		{ID: res1.Data.ID, SortOrder: 5},
 	}
 	reorderBody, _ := json.Marshal(reorderItems)
-	rReq, _ := http.NewRequest("PUT", server.URL+"/api/v1/admin/template-categories/reorder", bytes.NewReader(reorderBody))
+	rReq, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/template-categories/reorder", bytes.NewReader(reorderBody))
 	rReq.Header.Set("Content-Type", "application/json")
 	rReq.Header.Set("X-User-Role", "admin")
 	rResp, err := http.DefaultClient.Do(rReq)
 	if err != nil || rResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to reorder categories: status %d, err %v", rResp.StatusCode, err)
 	}
+	defer func() { _ = rResp.Body.Close() }()
 
 	// 3. Listar categorías y verificar persistencia del sort_order
-	listReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-categories", nil)
+	listReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-categories", nil)
 	listResp, err := http.DefaultClient.Do(listReq)
 	if err != nil || listResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list categories: %v", err)
 	}
+	defer func() { _ = listResp.Body.Close() }()
 	var catListRes struct {
 		Data []*domain.TemplateCategory `json:"data"`
 	}
@@ -514,12 +534,13 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 		t.Fatalf("Failed to insert template model: %v", err)
 	}
 
-	delReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, res2.Data.ID), nil)
+	delReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, res2.Data.ID), nil)
 	delReq.Header.Set("X-User-Role", "admin")
 	delResp, err := http.DefaultClient.Do(delReq)
 	if err != nil || delResp.StatusCode != http.StatusConflict {
 		t.Fatalf("Expected 409 Conflict when deleting category with models, got status: %d", delResp.StatusCode)
 	}
+	defer func() { _ = delResp.Body.Close() }()
 }
 
 func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
@@ -567,28 +588,31 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 		CategoryID:  "c0000000-0000-0000-0000-000000000002",
 	}
 	upBody, _ := json.Marshal(upPayload)
-	upReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/v1/admin/template-models/%s", server.URL, modelID), bytes.NewReader(upBody))
+	upReq, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/template-models/%s", server.URL, modelID), bytes.NewReader(upBody))
 	upReq.Header.Set("Content-Type", "application/json")
 	upReq.Header.Set("X-User-Role", "admin")
 	upResp, err := http.DefaultClient.Do(upReq)
 	if err != nil || upResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to update template model: status %d, err %v", upResp.StatusCode, err)
 	}
+	defer func() { _ = upResp.Body.Close() }()
 
 	// 4. POST /api/v1/admin/template-models/{id}/deactivate
-	deactReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/deactivate", server.URL, modelID), nil)
+	deactReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/deactivate", server.URL, modelID), nil)
 	deactReq.Header.Set("X-User-Role", "admin")
 	deactResp, err := http.DefaultClient.Do(deactReq)
 	if err != nil || deactResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to deactivate template model: status %d, err %v", deactResp.StatusCode, err)
 	}
+	defer func() { _ = deactResp.Body.Close() }()
 
 	// 5. GET /api/v1/admin/template-models (default: include_inactive=false) -> no debe incluir el modelo desactivado
-	listActiveReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models", nil)
+	listActiveReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
 	listActiveResp, err := http.DefaultClient.Do(listActiveReq)
 	if err != nil || listActiveResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list active models: %v", err)
 	}
+	defer func() { _ = listActiveResp.Body.Close() }()
 	var activeListRes struct {
 		Data []*domain.TemplateModelItemDTO `json:"data"`
 	}
@@ -600,11 +624,12 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 	}
 
 	// 6. GET /api/v1/admin/template-models?include_inactive=true -> debe incluir el modelo con is_active = false
-	listAllReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models?include_inactive=true", nil)
+	listAllReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models?include_inactive=true", nil)
 	listAllResp, err := http.DefaultClient.Do(listAllReq)
 	if err != nil || listAllResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list all models: %v", err)
 	}
+	defer func() { _ = listAllResp.Body.Close() }()
 	var allListRes struct {
 		Data []*domain.TemplateModelItemDTO `json:"data"`
 	}
@@ -637,19 +662,21 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 	}
 
 	// 8. POST /api/v1/admin/template-models/{id}/reactivate
-	reactReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/reactivate", server.URL, modelID), nil)
+	reactReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/reactivate", server.URL, modelID), nil)
 	reactReq.Header.Set("X-User-Role", "admin")
 	reactResp, err := http.DefaultClient.Do(reactReq)
 	if err != nil || reactResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to reactivate template model: status %d, err %v", reactResp.StatusCode, err)
 	}
+	defer func() { _ = reactResp.Body.Close() }()
 
 	// 9. Verificar que vuelve a aparecer en la lista activa
-	listAgainReq, _ := http.NewRequest("GET", server.URL+"/api/v1/admin/template-models", nil)
+	listAgainReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
 	listAgainResp, err := http.DefaultClient.Do(listAgainReq)
 	if err != nil || listAgainResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list active models after reactivation: %v", err)
 	}
+	defer func() { _ = listAgainResp.Body.Close() }()
 	var activeListAgainRes struct {
 		Data []*domain.TemplateModelItemDTO `json:"data"`
 	}

@@ -485,7 +485,7 @@ func (v *DefaultFormatValidator) GenerateCase(contract json.RawMessage, seed int
 			if line.ID != "" {
 				ctx[line.ID] = val
 			}
-			sb.WriteString(fmt.Sprintf("%d\n", val))
+			fmt.Fprintf(&sb, "%d\n", val)
 
 		case "ints":
 			count, _ := evalDynamicInt(line.Count, ctx, 5)

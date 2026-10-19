@@ -233,7 +233,7 @@ func (c *Client) GetContainerMetrics(ctx context.Context, containerID string) (*
 	if err != nil {
 		return metrics, nil
 	}
-	defer stats.Body.Close()
+	defer func() { _ = stats.Body.Close() }()
 
 	var s container.StatsResponse
 	if err := json.NewDecoder(stats.Body).Decode(&s); err != nil {
@@ -355,7 +355,7 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	if err != nil {
 		return 0, fmt.Errorf("dry-run stats failed: %w", err)
 	}
-	defer stats.Body.Close()
+	defer func() { _ = stats.Body.Close() }()
 
 	decoder := json.NewDecoder(stats.Body)
 	var maxRAM int64
@@ -461,7 +461,7 @@ func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) 
 			if pullErr != nil {
 				return nil, fmt.Errorf("failed to pull semgrep image: %w", pullErr)
 			}
-			defer out.Close()
+			defer func() { _ = out.Close() }()
 			_, _ = io.Copy(io.Discard, out)
 		}
 	}
@@ -512,7 +512,7 @@ func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) 
 	if err != nil {
 		return nil, fmt.Errorf("failed to read semgrep container logs: %w", err)
 	}
-	defer outStream.Close()
+	defer func() { _ = outStream.Close() }()
 
 	outputBytes, err := io.ReadAll(outStream)
 	if err != nil {
@@ -546,7 +546,7 @@ func (c *Client) GetContainerLogs(ctx context.Context, containerID string, tailL
 	if err != nil {
 		return "", fmt.Errorf("failed to retrieve docker container logs for %s: %w", containerID, err)
 	}
-	defer outStream.Close()
+	defer func() { _ = outStream.Close() }()
 
 	outputBytes, err := io.ReadAll(outStream)
 	if err != nil {
@@ -624,10 +624,9 @@ func (c *Client) PullImage(ctx context.Context, imageRef string) error {
 		if pullErr != nil {
 			return nil, fmt.Errorf("failed to pull image %q: %w", imageRef, pullErr)
 		}
-		defer out.Close()
+		defer func() { _ = out.Close() }()
 		_, _ = io.Copy(io.Discard, out)
 		return nil, nil
 	})
 	return err
 }
-

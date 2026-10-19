@@ -126,7 +126,7 @@ func TestValidateInputEndpoint(t *testing.T) {
 			"input": "3\n10 20 30",
 		}
 		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/exercises/validate-input", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/exercises/validate-input", bytes.NewReader(body))
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -165,7 +165,7 @@ func TestValidateInputEndpoint(t *testing.T) {
 			"input": "3\n10 20",
 		}
 		body, _ := json.Marshal(payload)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/exercises/validate-input", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/exercises/validate-input", bytes.NewReader(body))
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -221,7 +221,7 @@ func TestValidateInputEndpoint(t *testing.T) {
 		}
 
 		body, _ := json.Marshal(ex)
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/exercises", bytes.NewReader(body))
+		req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/exercises", bytes.NewReader(body))
 		req.Header.Set("X-User-Role", "teacher")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()

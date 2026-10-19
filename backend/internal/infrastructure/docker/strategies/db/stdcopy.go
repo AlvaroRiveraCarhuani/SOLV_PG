@@ -1,6 +1,7 @@
 package db
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -13,7 +14,7 @@ func stdCopy(dstOut, dstErr io.Writer, src io.Reader) (int64, error) {
 	for {
 		_, err := io.ReadFull(src, header)
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
+			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				break
 			}
 			return written, err
