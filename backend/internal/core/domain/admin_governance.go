@@ -278,25 +278,25 @@ type ReorderCategoryItemDTO struct {
 
 // TemplateModelItemDTO modelo oficial preconfigurado para creación rápida
 type TemplateModelItemDTO struct {
-	ID                string    `db:"id" json:"id"`
-	TenantID          string    `db:"tenant_id" json:"tenant_id"`
-	CategoryID        string    `db:"category_id" json:"category_id"`
-	CategoryName      string    `db:"category_name" json:"category_name"`
-	SourceTemplateID  *string   `db:"source_template_id" json:"source_template_id,omitempty"`
-	Title             string    `db:"title" json:"title"`
-	Description       string    `db:"description" json:"description"`
-	DockerImage       string    `db:"docker_image" json:"docker_image"`
-	BaseRamMB         int       `db:"base_ram_mb" json:"base_ram_mb"`
-	Tools             []string  `db:"-" json:"tools"`
-	TargetEnvironment string    `db:"target_environment" json:"target_environment"`
-	Entrypoint        string    `db:"entrypoint" json:"entrypoint"`
-	TimeoutMS         int       `db:"timeout_ms" json:"timeout_ms"`
+	ID                string      `db:"id" json:"id"`
+	TenantID          string      `db:"tenant_id" json:"tenant_id"`
+	CategoryID        string      `db:"category_id" json:"category_id"`
+	CategoryName      string      `db:"category_name" json:"category_name"`
+	SourceTemplateID  *string     `db:"source_template_id" json:"source_template_id,omitempty"`
+	Title             string      `db:"title" json:"title"`
+	Description       string      `db:"description" json:"description"`
+	DockerImage       string      `db:"docker_image" json:"docker_image"`
+	BaseRamMB         int         `db:"base_ram_mb" json:"base_ram_mb"`
+	Tools             []string    `db:"-" json:"tools"`
+	TargetEnvironment string      `db:"target_environment" json:"target_environment"`
+	Entrypoint        string      `db:"entrypoint" json:"entrypoint"`
+	TimeoutMS         int         `db:"timeout_ms" json:"timeout_ms"`
 	SampleInput       string      `db:"sample_input" json:"sample_input"`
 	StackConfig       StackConfig `db:"stack_config" json:"stack_config"`
 	UsageCount        int         `db:"usage_count" json:"usage_count"`
-	IsActive          bool      `db:"is_active" json:"is_active"`
-	SortOrder         int       `db:"sort_order" json:"sort_order"`
-	CreatedAt         time.Time `db:"created_at" json:"created_at"`
+	IsActive          bool        `db:"is_active" json:"is_active"`
+	SortOrder         int         `db:"sort_order" json:"sort_order"`
+	CreatedAt         time.Time   `db:"created_at" json:"created_at"`
 }
 
 type UpdateTemplateModelDTO struct {
@@ -412,4 +412,3 @@ type WarmAllSummary struct {
 	WarmedCount  int `json:"warmed_count"`
 	FailedCount  int `json:"failed_count"`
 }
-

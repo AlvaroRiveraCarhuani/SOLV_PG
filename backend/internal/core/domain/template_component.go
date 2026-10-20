@@ -31,10 +31,10 @@ const (
 )
 
 var (
-	ErrComponentNotFound     = errors.New("template component not found")
-	ErrComponentSlugConflict = errors.New("a technology component with this slug or name already exists")
-	ErrComponentSystemLocked = errors.New("system technology components cannot be deleted")
-	ErrInvalidPackageName    = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
+	ErrComponentNotFound      = errors.New("template component not found")
+	ErrComponentSlugConflict  = errors.New("a technology component with this slug or name already exists")
+	ErrComponentSystemLocked  = errors.New("system technology components cannot be deleted")
+	ErrInvalidPackageName     = errors.New("invalid package name: only alphanumeric characters and @_./=->< are allowed")
 	packageNameAllowlistRegex = regexp.MustCompile(`^[a-zA-Z0-9@_./=<>-]+$`)
 )
 
@@ -107,13 +107,13 @@ type UpdateTemplateComponentDTO struct {
 
 // StackConfig configuración de componentes tecnológicos persistida junto con la plantilla o modelo.
 type StackConfig struct {
-	Mode             string   `json:"mode,omitempty"`              // "visual" | "code"
-	RuntimeID        string   `json:"runtime_id,omitempty"`        // ID o slug del lenguaje principal
-	WebPlatformID    string   `json:"web_platform_id,omitempty"`   // ID o slug del framework web opcional (Angular/React/Vue)
-	AddonIDs         []string `json:"addon_ids,omitempty"`         // IDs o slugs de los complementos seleccionados
-	DatabaseID       string   `json:"database_id,omitempty"`       // ID o slug del servicio de base de datos acoplado
-	WorkspaceFolders []string `json:"workspace_folders,omitempty"` // Carpetas iniciales en /home/workspace
-	DockerfileContent string  `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
+	Mode              string   `json:"mode,omitempty"`               // "visual" | "code"
+	RuntimeID         string   `json:"runtime_id,omitempty"`         // ID o slug del lenguaje principal
+	WebPlatformID     string   `json:"web_platform_id,omitempty"`    // ID o slug del framework web opcional (Angular/React/Vue)
+	AddonIDs          []string `json:"addon_ids,omitempty"`          // IDs o slugs de los complementos seleccionados
+	DatabaseID        string   `json:"database_id,omitempty"`        // ID o slug del servicio de base de datos acoplado
+	WorkspaceFolders  []string `json:"workspace_folders,omitempty"`  // Carpetas iniciales en /home/workspace
+	DockerfileContent string   `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
 func (sc StackConfig) Value() (driver.Value, error) {

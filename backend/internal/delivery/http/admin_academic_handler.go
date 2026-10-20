@@ -15,12 +15,12 @@ import (
 )
 
 type AdminAcademicHandler struct {
-	periodService      *services.AcademicPeriodService
-	maintenanceService *services.MaintenanceService
-	govService         *services.AdminGovernanceService
-	imageService       *services.ImageVerificationService
-	auditLogRepo       domain.AuditLogRepository
-	cacheService       *services.TemplateCacheService
+	periodService       *services.AcademicPeriodService
+	maintenanceService  *services.MaintenanceService
+	govService          *services.AdminGovernanceService
+	imageService        *services.ImageVerificationService
+	auditLogRepo        domain.AuditLogRepository
+	cacheService        *services.TemplateCacheService
 	notificationService *services.NotificationService
 }
 
@@ -1592,4 +1592,3 @@ func (h *AdminAcademicHandler) UpdateOfficialTemplate(w http.ResponseWriter, r *
 	}
 	SendJSON(w, http.StatusOK, updated, "Plantilla actualizada sin interrumpir contenedores en ejecución")
 }
-
