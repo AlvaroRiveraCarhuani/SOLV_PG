@@ -8,12 +8,10 @@ import {
   AdminTemplatesService, 
   AdminTemplateItem, 
   ReviewTemplateDTO, 
-  CreateOfficialTemplateDTO,
   TemplateCacheStatus
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
 import { TemplateRejectModalComponent } from './components/template-reject-modal/template-reject-modal.component';
-import { TemplateCreateModalComponent } from './components/template-create-modal/template-create-modal.component';
 import { TemplateEditModalComponent } from './components/template-edit-modal/template-edit-modal.component';
 import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
 import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
@@ -95,7 +93,6 @@ export interface ToastNotification {
     DateTextPipe,
     TemplateReviewModalComponent,
     TemplateRejectModalComponent,
-    TemplateCreateModalComponent,
     TemplateEditModalComponent,
     TemplateStatusModalComponent,
     TemplatePromoteModalComponent,
@@ -175,7 +172,6 @@ export class AdminTemplatesComponent implements OnInit {
   selectedTemplateForReject = signal<AdminTemplateItem | null>(null);
   selectedTemplateForEdit = signal<AdminTemplateItem | null>(null);
   templateToToggleStatus = signal<AdminTemplateItem | null>(null);
-  showCreateModal = signal<boolean>(false);
 
   // Toast feedback
   toast = signal<ToastNotification | null>(null);
@@ -363,12 +359,7 @@ export class AdminTemplatesComponent implements OnInit {
   ngOnInit(): void {
     this.loadTemplates();
     if (this.route.snapshot.queryParamMap.get('nueva') === '1') {
-      this.openCreateModal();
-      void this.router.navigate([], {
-        queryParams: { nueva: null },
-        queryParamsHandling: 'merge',
-        replaceUrl: true
-      });
+      this.navigateToCreateStudio();
     }
   }
 
@@ -414,20 +405,12 @@ export class AdminTemplatesComponent implements OnInit {
     this.selectedTemplateForReject.set(null);
   }
 
-  openCreateModal(): void {
-    this.showCreateModal.set(true);
-  }
-
   navigateToCreateStudio(): void {
     this.router.navigate(['/admin/plantillas/nueva']);
   }
 
   navigateToEditStudio(template: AdminTemplateItem): void {
     this.router.navigate(['/admin/plantillas', template.id, 'editar']);
-  }
-
-  closeCreateModal(): void {
-    this.showCreateModal.set(false);
   }
 
   handleApprove(event: { id: string; base_ram_mb: number }): void {
@@ -498,19 +481,6 @@ export class AdminTemplatesComponent implements OnInit {
     });
   }
 
-  handleCreateOfficial(dto: CreateOfficialTemplateDTO): void {
-    this.templatesService.createOfficialTemplate(dto).subscribe({
-      next: (created) => {
-        this.allTemplates.update(list => [created, ...list]);
-        this.closeCreateModal();
-        this.showToast(`Plantilla oficial "${created.name}" creada y disponible en el catálogo.`, 'success');
-      },
-      error: (err) => {
-        const msg = err.error?.message || err.error?.error || 'No se pudo crear la plantilla oficial.';
-        this.showToast(msg, 'error');
-      }
-    });
-  }
 
   toggleStatusReason = signal<string>('');
 

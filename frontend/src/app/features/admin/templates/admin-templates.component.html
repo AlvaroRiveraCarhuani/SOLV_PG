@@ -884,12 +884,6 @@
       (closed)="closeEditModal()" />
   }
 
-  @if (showCreateModal()) {
-    <template-create-modal
-      (created)="handleCreateOfficial($event)"
-      (closed)="closeCreateModal()" />
-  }
-
   <!-- Modal de Suspensión / Reactivación -->
   @if (templateToToggleStatus(); as tpl) {
     <template-status-modal

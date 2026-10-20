@@ -224,25 +224,18 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(component.averageRam()).toBe(1024);
   });
 
-  it('no abre el modal de creación al cargar sin el parámetro nueva', () => {
-    expect(component.showCreateModal()).toBe(false);
+  it('no redirige al constructor al cargar sin el parámetro nueva', () => {
     expect(routerMock.navigate).not.toHaveBeenCalled();
   });
 
-  it('abre el wizard de creación al llegar con ?nueva=1 y luego limpia el parámetro', async () => {
+  it('redirige al constructor de plantillas al llegar con ?nueva=1', async () => {
     queryParamNueva = '1';
     TestBed.resetTestingModule();
     await createFixture();
 
-    expect(component.showCreateModal()).toBe(true);
-    expect(routerMock.navigate).toHaveBeenCalledWith([], {
-      queryParams: { nueva: null },
-      queryParamsHandling: 'merge',
-      replaceUrl: true
-    });
-
+    expect(routerMock.navigate).toHaveBeenCalledWith(['/admin/plantillas/nueva']);
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.querySelector('template-create-modal')).not.toBeNull();
+    expect(compiled.querySelector('template-create-modal')).toBeNull();
   });
 
   it('carga los estados de caché de las plantillas y los formatea correctamente', () => {
