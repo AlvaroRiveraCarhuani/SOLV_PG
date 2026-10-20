@@ -16,9 +16,10 @@ var (
 )
 
 type TemplateCacheService struct {
-	govRepo domain.AdminGovernanceRepository
-	docker  domain.WorkspaceOrchestrator
-	warmMu  sync.Mutex
+	govRepo      domain.AdminGovernanceRepository
+	docker       domain.WorkspaceOrchestrator
+	imageBuilder domain.ImageBuilderPort
+	warmMu       sync.Mutex
 }
 
 func NewTemplateCacheService(govRepo domain.AdminGovernanceRepository, docker domain.WorkspaceOrchestrator) *TemplateCacheService {
@@ -26,6 +27,11 @@ func NewTemplateCacheService(govRepo domain.AdminGovernanceRepository, docker do
 		govRepo: govRepo,
 		docker:  docker,
 	}
+}
+
+// SetImageBuilder configura el puerto de construcción de imágenes locales para autorreparación (self-healing).
+func (s *TemplateCacheService) SetImageBuilder(builder domain.ImageBuilderPort) {
+	s.imageBuilder = builder
 }
 
 // GetTemplatesCacheStatus retorna el estado de presencia física en el almacenamiento local del host de todas las plantillas activas
@@ -99,16 +105,39 @@ func (s *TemplateCacheService) WarmTemplate(ctx context.Context, tenantID, templ
 		return status, nil
 	}
 
-	// 2. Descargar imagen con deduplicación single-flight
-	log.Printf("[CacheWarmer] Warming image %q for template %q (%s)...", template.DockerImage, template.Name, template.ID)
-	pullCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-	defer cancel()
+	// 2. Si es una imagen construida localmente (solv-local/stack:*), reconstruirla con ImageBuilder si está disponible
+	if domain.IsBuiltStackImageTag(template.DockerImage) {
+		if s.imageBuilder != nil && template.StackConfig.DockerfileContent != "" {
+			log.Printf("[CacheWarmer] Rebuilding local stack image %q for template %q (%s)...", template.DockerImage, template.Name, template.ID)
+			buildCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			defer cancel()
+			if err := s.imageBuilder.BuildLocalStackImage(buildCtx, template.DockerImage, template.StackConfig.DockerfileContent, func(action string) {
+				log.Printf("[CacheWarmer] Building local stack image %s: %s", template.DockerImage, action)
+			}); err != nil {
+				status.IsCached = false
+				status.Status = "failed"
+				status.ErrorMessage = err.Error()
+				return status, fmt.Errorf("failed to rebuild local stack image %q: %w", template.DockerImage, err)
+			}
+		} else {
+			status.IsCached = false
+			status.Status = "failed"
+			status.ErrorMessage = "local stack image missing on host and cannot be rebuilt (no builder or no dockerfile_content)"
+			log.Printf("[CacheWarmer] %s for template %q", status.ErrorMessage, template.Name)
+			return status, errors.New(status.ErrorMessage)
+		}
+	} else {
+		// Descargar imagen remota con deduplicación single-flight
+		log.Printf("[CacheWarmer] Warming image %q for template %q (%s)...", template.DockerImage, template.Name, template.ID)
+		pullCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
 
-	if err := s.docker.PullImage(pullCtx, template.DockerImage); err != nil {
-		status.IsCached = false
-		status.Status = "failed"
-		status.ErrorMessage = err.Error()
-		return status, fmt.Errorf("failed to warm image %q: %w", template.DockerImage, err)
+		if err := s.docker.PullImage(pullCtx, template.DockerImage); err != nil {
+			status.IsCached = false
+			status.Status = "failed"
+			status.ErrorMessage = err.Error()
+			return status, fmt.Errorf("failed to warm image %q: %w", template.DockerImage, err)
+		}
 	}
 
 	// 3. Reinspeccionar imagen para confirmar presencia y tamaño
@@ -116,7 +145,7 @@ func (s *TemplateCacheService) WarmTemplate(ctx context.Context, tenantID, templ
 	if err != nil || !isCached {
 		status.IsCached = false
 		status.Status = "failed"
-		return status, errors.New("image pulled but inspection failed")
+		return status, errors.New("image warmed/built but inspection failed")
 	}
 
 	status.IsCached = true
@@ -156,16 +185,35 @@ func (s *TemplateCacheService) WarmAllActiveTemplates(ctx context.Context, tenan
 			continue
 		}
 
-		log.Printf("[CacheWarmer] Warming template %q (image: %s)...", t.Name, t.DockerImage)
-		pullCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		pullErr := s.docker.PullImage(pullCtx, t.DockerImage)
-		cancel()
+		if domain.IsBuiltStackImageTag(t.DockerImage) {
+			if s.imageBuilder != nil && t.StackConfig.DockerfileContent != "" {
+				log.Printf("[CacheWarmer] Rebuilding local stack template %q (image: %s)...", t.Name, t.DockerImage)
+				buildCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+				buildErr := s.imageBuilder.BuildLocalStackImage(buildCtx, t.DockerImage, t.StackConfig.DockerfileContent, nil)
+				cancel()
 
-		if pullErr != nil {
-			log.Printf("[CacheWarmer] Failed to warm %s: %v", t.DockerImage, pullErr)
-			summary.FailedCount++
+				if buildErr != nil {
+					log.Printf("[CacheWarmer] Failed to rebuild local stack image %s: %v", t.DockerImage, buildErr)
+					summary.FailedCount++
+				} else {
+					summary.WarmedCount++
+				}
+			} else {
+				log.Printf("[CacheWarmer] Local stack image %q missing on disk and cannot be rebuilt (no builder or no dockerfile_content)", t.DockerImage)
+				summary.FailedCount++
+			}
 		} else {
-			summary.WarmedCount++
+			log.Printf("[CacheWarmer] Warming template %q (image: %s)...", t.Name, t.DockerImage)
+			pullCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+			pullErr := s.docker.PullImage(pullCtx, t.DockerImage)
+			cancel()
+
+			if pullErr != nil {
+				log.Printf("[CacheWarmer] Failed to warm %s: %v", t.DockerImage, pullErr)
+				summary.FailedCount++
+			} else {
+				summary.WarmedCount++
+			}
 		}
 	}
 

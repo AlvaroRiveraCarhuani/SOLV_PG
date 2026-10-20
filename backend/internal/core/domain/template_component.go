@@ -113,6 +113,7 @@ type StackConfig struct {
 	AddonIDs         []string `json:"addon_ids,omitempty"`         // IDs o slugs de los complementos seleccionados
 	DatabaseID       string   `json:"database_id,omitempty"`       // ID o slug del servicio de base de datos acoplado
 	WorkspaceFolders []string `json:"workspace_folders,omitempty"` // Carpetas iniciales en /home/workspace
+	DockerfileContent string  `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
 func (sc StackConfig) Value() (driver.Value, error) {

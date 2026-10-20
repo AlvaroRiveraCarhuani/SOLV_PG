@@ -149,11 +149,16 @@ func main() {
 		return idle, nil
 	})
 
+	// Prueba asíncrona de entorno para plantillas (DA-01, DA-06) y constructor de imágenes
+	envTestJobRepo := memory.NewEnvTestJobMemoryRepository(2 * time.Hour)
+	envTestAdapter := docker.NewEnvTestDockerAdapter(cli, 60*time.Second)
+
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	academicPeriodService := services.NewAcademicPeriodService(academicPeriodRepo)
 	maintenanceService := services.NewMaintenanceService(tenantRepo)
 	imageVerificationService := services.NewImageVerificationService(cli)
 	templateCacheService := services.NewTemplateCacheService(govRepo, dockerClient)
+	templateCacheService.SetImageBuilder(envTestAdapter)
 	govService.SetCacheService(templateCacheService)
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService).
 		WithImageService(imageVerificationService).
@@ -209,9 +214,6 @@ func main() {
 	backupService := services.NewBackupService(backupRepo, notificationService, "")
 	backupHandler := httpdelivery.NewBackupHandler(backupService)
 
-	// Prueba asíncrona de entorno para plantillas (DA-01, DA-06)
-	envTestJobRepo := memory.NewEnvTestJobMemoryRepository(2 * time.Hour)
-	envTestAdapter := docker.NewEnvTestDockerAdapter(cli, 60*time.Second)
 	envTestService := services.NewEnvTestService(envTestJobRepo, envTestAdapter, envTestAdapter, services.EnvTestConfig{
 		MaxConcurrentJobs: 2,
 		TotalJobTimeout:   15 * time.Minute,

@@ -110,7 +110,7 @@ func (s *TemplateComposerService) Compose(
 			nameParts = append(nameParts, webComp.Name)
 			// Si la imagen base no es Node, asegurar que Node/npm estén instalados antes de la capa web
 			if !strings.Contains(strings.ToLower(baseImage), "node") {
-				nodeBootstrap := "RUN apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*"
+				nodeBootstrap := "RUN (command -v apk >/dev/null 2>&1 && apk add --no-cache nodejs npm) || (apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*)"
 				buildLayers = append(buildLayers, nodeBootstrap)
 			}
 			if strings.TrimSpace(webComp.BuildLayerSnippet) != "" {
