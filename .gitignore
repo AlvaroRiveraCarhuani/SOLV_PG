@@ -16,3 +16,7 @@ coverage/
 /especificaciones
 .freebuff
 *.dump
+
+# OpenCode configuration and storage
+.opencode/
+opencode.json
