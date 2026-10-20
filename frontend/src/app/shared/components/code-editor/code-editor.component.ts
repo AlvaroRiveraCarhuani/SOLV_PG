@@ -18,6 +18,30 @@ import { python } from '@codemirror/lang-python';
 import { cpp } from '@codemirror/lang-cpp';
 import { java } from '@codemirror/lang-java';
 import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
+import { StreamLanguage, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { tags as t } from '@lezer/highlight';
+import { dockerFile } from '@codemirror/legacy-modes/mode/dockerfile';
+import { shell } from '@codemirror/legacy-modes/mode/shell';
+
+export const solvHighlightStyle = HighlightStyle.define([
+  { tag: t.keyword, color: 'var(--tenant-primary)', fontWeight: '600' },
+  { tag: [t.name, t.deleted, t.character, t.propertyName, t.macroName], color: 'var(--text-primary)' },
+  { tag: [t.function(t.variableName), t.labelName], color: 'var(--tenant-primary)' },
+  { tag: [t.color, t.constant(t.name), t.standard(t.name)], color: 'var(--tenant-primary)' },
+  { tag: [t.definition(t.name), t.separator], color: 'var(--text-primary)' },
+  { tag: [t.typeName, t.className, t.number, t.changed, t.annotation, t.modifier, t.self, t.namespace], color: 'var(--tenant-primary)' },
+  { tag: [t.operator, t.operatorKeyword, t.url, t.escape, t.regexp, t.link, t.special(t.string)], color: 'var(--tenant-primary)' },
+  { tag: [t.meta, t.comment], color: 'var(--text-muted)', fontStyle: 'italic' },
+  { tag: t.strong, fontWeight: 'bold' },
+  { tag: t.emphasis, fontStyle: 'italic' },
+  { tag: t.strikethrough, textDecoration: 'line-through' },
+  { tag: t.link, color: 'var(--tenant-primary)', textDecoration: 'underline' },
+  { tag: t.heading, fontWeight: 'bold', color: 'var(--text-primary)' },
+  { tag: [t.atom, t.bool, t.special(t.variableName)], color: 'var(--tenant-primary)' },
+  { tag: [t.processingInstruction, t.string, t.inserted], color: 'var(--color-success-dark, var(--color-success))' },
+  { tag: t.invalid, color: 'var(--color-error)' }
+]);
 
 const solvEditorTheme = EditorView.theme({
   '&': {
@@ -159,6 +183,7 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
       extensions: [
         basicSetup,
         solvEditorTheme,
+        syntaxHighlighting(solvHighlightStyle),
         keymap.of([indentWithTab, ...defaultKeymap]),
         this.langCompartment.of(this.getLanguageExtension(this.language())),
         this.readOnlyCompartment.of(EditorState.readOnly.of(this.readonly())),
@@ -197,6 +222,14 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
       case 'js':
       case 'ts':
         return javascript({ typescript: normalized.includes('ts') });
+      case 'json':
+        return json();
+      case 'dockerfile':
+        return StreamLanguage.define(dockerFile);
+      case 'shell':
+      case 'sh':
+      case 'bash':
+        return StreamLanguage.define(shell);
       default:
         return [];
     }

@@ -198,6 +198,7 @@ export interface StackConfig {
   addon_ids?: string[];
   database_id?: string;
   workspace_folders?: string[];
+  dockerfile_content?: string;
 }
 
 export interface ComposedTemplatePlan {

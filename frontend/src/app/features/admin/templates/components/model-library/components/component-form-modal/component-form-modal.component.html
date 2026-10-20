@@ -20,15 +20,15 @@
       [required]="true"
       hint="Los motores de base de datos son gobernados por las capacidades del nodo. Los clientes u ORMs (Prisma, SQLAlchemy, TypeORM) se registran como Complemento / Framework."
     >
-      <select
+      <combobox
         id="comp-layer"
-        class="form-select"
-        [ngModel]="layer()"
-        (ngModelChange)="setLayerDefaults($event)"
-      >
-        <option value="runtime">1. Tecnología Principal o Interfaz Web</option>
-        <option value="addon">2. Complemento / Framework / Librería</option>
-      </select>
+        [options]="layerOptions"
+        [value]="layer()"
+        [showSearchIcon]="false"
+        [showHeader]="false"
+        [allowClear]="false"
+        (valueChange)="setLayerDefaults($any($event))"
+      />
     </form-field>
 
     <form-field label="Nombre Visible" for="comp-name" [required]="true">
@@ -97,15 +97,15 @@
   @if (layer() === 'runtime') {
     <div class="form-row">
       <form-field label="Rol en la Columna 1" for="comp-subcat">
-        <select
+        <combobox
           id="comp-subcat"
-          class="form-select"
-          [ngModel]="subCategory()"
-          (ngModelChange)="subCategory.set($event)"
-        >
-          <option value="backend">Lenguaje Principal (Backend / General)</option>
-          <option value="web">Plataforma Web / Frontend</option>
-        </select>
+          [options]="subCategoryOptions"
+          [value]="subCategory()"
+          [showSearchIcon]="false"
+          [showHeader]="false"
+          [allowClear]="false"
+          (valueChange)="subCategory.set($event)"
+        />
       </form-field>
 
       <form-field label="Imagen Base Oficial (sin :latest)" for="comp-base-image" [required]="true">
@@ -124,38 +124,32 @@
   @if (layer() === 'addon') {
     <div class="form-row">
       <form-field label="Compatible con la tecnología" for="comp-compat" [required]="true">
-        <select
+        <combobox
           id="comp-compat"
-          class="form-select"
-          [ngModel]="compatibleRuntime()"
-          (ngModelChange)="compatibleRuntime.set($event)"
-        >
-          <option value="" disabled>Seleccione el lenguaje compatible...</option>
-          <option value="python">Python</option>
-          <option value="node">Node.js / Web (Angular, React, Vue)</option>
-          <option value="java">Java</option>
-          <option value="go">Go</option>
-          <option value="cpp">C / C++</option>
-          <option value="universal">Todas las tecnologías (Universal)</option>
-        </select>
+          [options]="compatibleRuntimeOptions()"
+          [value]="compatibleRuntime()"
+          [placeholder]="'Seleccione el lenguaje compatible...'"
+          [showSearchIcon]="false"
+          [showHeader]="false"
+          [allowClear]="false"
+          (valueChange)="compatibleRuntime.set($event)"
+        />
       </form-field>
 
       <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode">
-        <select
+        <combobox
           id="comp-install-mode"
-          class="form-select"
-          [ngModel]="installMode()"
-          (ngModelChange)="installMode.set($event)"
-        >
-          <option value="pip">Automático: Paquete de Python (pip)</option>
-          <option value="npm">Automático: Paquete de Node.js (npm)</option>
-          <option value="apt">Automático: Programa del Sistema (apt)</option>
-          <option value="custom">Avanzado: Instrucción personalizada</option>
-        </select>
+          [options]="installPresetOptions"
+          [value]="installPreset()"
+          [showSearchIcon]="false"
+          [showHeader]="false"
+          [allowClear]="false"
+          (valueChange)="installPreset.set($event)"
+        />
       </form-field>
     </div>
 
-    @if (installMode() !== 'custom') {
+    @if (installPreset() !== 'custom') {
       <form-field
         label="Nombre del paquete o librería a instalar"
         for="comp-pkgs"
@@ -187,18 +181,15 @@
 
   @if (layer() === 'database') {
     <form-field label="Motor de conexión" for="comp-db-engine">
-      <select
+      <combobox
         id="comp-db-engine"
-        class="form-select"
-        [ngModel]="serviceEngine()"
-        (ngModelChange)="serviceEngine.set($event)"
-      >
-        <option value="postgres">PostgreSQL</option>
-        <option value="mysql">MySQL / MariaDB</option>
-        <option value="sqlite">SQLite (Archivo local)</option>
-        <option value="mongodb">MongoDB</option>
-        <option value="redis">Redis (Caché)</option>
-      </select>
+        [options]="databaseEngineOptions"
+        [value]="serviceEngine()"
+        [showSearchIcon]="false"
+        [showHeader]="false"
+        [allowClear]="false"
+        (valueChange)="serviceEngine.set($event)"
+      />
     </form-field>
   }
 
@@ -220,29 +211,27 @@
 
     @if (layer() === 'addon') {
       <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
-        <select
+        <combobox
           id="comp-memory-profile"
-          class="form-select"
-          [ngModel]="memoryProfile()"
-          (ngModelChange)="setMemoryProfile($event)"
-        >
-          <option value="library">Librería o paquete en disco (0 MB residentes extra — solo ocupa disco)</option>
-          <option value="devserver">Servidor de desarrollo activo en segundo plano (ej. Vite, Webpack, CLI en vivo)</option>
-          <option value="heavy">Motor pesado en memoria (ej. Ciencia de Datos / Machine Learning / JVM)</option>
-        </select>
+          [options]="addonMemoryProfileOptions"
+          [value]="memoryProfile()"
+          [showSearchIcon]="false"
+          [showHeader]="false"
+          [allowClear]="false"
+          (valueChange)="setMemoryProfile($any($event))"
+        />
       </form-field>
     } @else if (layer() === 'runtime') {
       <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
-        <select
+        <combobox
           id="comp-memory-profile"
-          class="form-select"
-          [ngModel]="memoryProfile()"
-          (ngModelChange)="setMemoryProfile($event)"
-        >
-          <option value="light">Ligero — Compilador nativo o consola (ej. C, C++, Bash)</option>
-          <option value="standard">Estándar — Lenguaje interpretado o compilado moderno (ej. Python, Go, PHP, Node)</option>
-          <option value="heavy">Intensivo — Máquina Virtual o SDK pesado (ej. Java JVM, .NET)</option>
-        </select>
+          [options]="runtimeMemoryProfileOptions"
+          [value]="memoryProfile()"
+          [showSearchIcon]="false"
+          [showHeader]="false"
+          [allowClear]="false"
+          (valueChange)="setMemoryProfile($any($event))"
+        />
       </form-field>
     }
   </div>
