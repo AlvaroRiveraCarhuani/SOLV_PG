@@ -35,7 +35,8 @@ import {
   LucideRotateCcw,
   LucideAlertTriangle,
   LucideCopy,
-  LucideXCircle
+  LucideXCircle,
+  LucidePencil
 } from '@lucide/angular';
 import {
   analyzeDockerfile,
@@ -54,6 +55,11 @@ export interface CapacityOption {
 export interface StudioDatabaseOption extends TemplateComponent {
   is_available: boolean;
   version?: string;
+}
+
+export interface StudioActionBlocker {
+  reason: string;
+  tone: 'neutral' | 'warning' | 'error';
 }
 
 @Component({
@@ -80,7 +86,8 @@ export interface StudioDatabaseOption extends TemplateComponent {
     LucideRotateCcw,
     LucideAlertTriangle,
     LucideCopy,
-    LucideXCircle
+    LucideXCircle,
+    LucidePencil
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
@@ -134,7 +141,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly baseRamMB = signal<number>(512);
   readonly isRamManuallyEdited = signal<boolean>(false);
   readonly hasSelectedStack = computed<boolean>(() =>
-    this.selectedRuntimeComponent() !== null || this.dockerImage().trim().length > 0
+    this.effectivePrimaryComponent() !== null || this.dockerImage().trim().length > 0
   );
   readonly showManualRamInput = signal<boolean>(false);
 
@@ -188,17 +195,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   // Modal para registrar una nueva tecnología en el catálogo
   readonly showComponentModal = signal<boolean>(false);
   readonly modalDefaultLayer = signal<ComponentLayer>('addon');
+  readonly modalDefaultSubCategory = signal<'backend' | 'web'>('backend');
   readonly modalDefaultCompatibleRuntime = computed<string>(() => {
-    const rt = this.selectedRuntimeComponent();
+    const rt = this.effectivePrimaryComponent();
     if (!rt) return '';
-    const name = (rt.icon_key || rt.slug || rt.name).toLowerCase();
-    if (name.includes('python')) return 'python';
-    if (name.includes('node') || name.includes('javascript') || name.includes('typescript')) return 'node';
-    if (name.includes('java')) return 'java';
-    if (name.includes('go')) return 'go';
-    if (name.includes('c++') || name.includes('cpp')) return 'cpp';
-    if (name.includes('rust')) return 'rust';
-    return rt.icon_key || 'universal';
+    return (rt.slug || rt.icon_key || rt.name).toLowerCase();
   });
 
   // Columnas computadas del Constructor de Entornos
@@ -212,19 +213,30 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly compatibleAddons = computed<TemplateComponent[]>(() => {
     const rt = this.selectedRuntimeComponent();
-    if (!rt) {
+    const web = this.selectedWebComponent();
+    if (!rt && !web) {
       return [];
     }
-    const web = this.selectedWebComponent();
     const activeFamilies = new Set<string>(['universal']);
 
-    for (const fam of rt.compatible_runtimes || []) {
-      activeFamilies.add(fam.toLowerCase());
+    if (rt) {
+      if (rt.slug) activeFamilies.add(rt.slug.toLowerCase());
+      if (rt.id) activeFamilies.add(rt.id.toLowerCase());
+      if (rt.icon_key) activeFamilies.add(rt.icon_key.toLowerCase());
+      for (const fam of rt.compatible_runtimes || []) {
+        activeFamilies.add(fam.toLowerCase());
+      }
     }
-    if (rt.icon_key) activeFamilies.add(rt.icon_key.toLowerCase());
+
     if (web && this.targetEnvironment() === 'IDE_PERSISTENTE') {
       activeFamilies.add('node');
       activeFamilies.add('web');
+      if (web.slug) activeFamilies.add(web.slug.toLowerCase());
+      if (web.id) activeFamilies.add(web.id.toLowerCase());
+      if (web.icon_key) activeFamilies.add(web.icon_key.toLowerCase());
+      for (const fam of web.compatible_runtimes || []) {
+        activeFamilies.add(fam.toLowerCase());
+      }
     }
 
     return this.techComponents().filter(i => {
@@ -232,6 +244,66 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       const compat = i.compatible_runtimes || [];
       if (compat.length === 0) return true;
       return compat.some(c => activeFamilies.has(c.toLowerCase()));
+    });
+  });
+
+  readonly col1SearchQuery = signal<string>('');
+  readonly col2SearchQuery = signal<string>('');
+
+  readonly filteredBackendRuntimes = computed<TemplateComponent[]>(() => {
+    const query = this.col1SearchQuery().trim().toLowerCase();
+    const selectedId = this.selectedRuntimeComponent()?.id;
+    const list = this.backendRuntimes().filter(item => {
+      if (!query) return true;
+      return (
+        item.name.toLowerCase().includes(query) ||
+        (item.description && item.description.toLowerCase().includes(query)) ||
+        (item.slug && item.slug.toLowerCase().includes(query))
+      );
+    });
+    if (!selectedId) return list;
+    return [...list].sort((a, b) => {
+      if (a.id === selectedId) return -1;
+      if (b.id === selectedId) return 1;
+      return 0;
+    });
+  });
+
+  readonly filteredWebPlatforms = computed<TemplateComponent[]>(() => {
+    const query = this.col1SearchQuery().trim().toLowerCase();
+    const selectedId = this.selectedWebComponent()?.id;
+    const list = this.webPlatforms().filter(item => {
+      if (!query) return true;
+      return (
+        item.name.toLowerCase().includes(query) ||
+        (item.description && item.description.toLowerCase().includes(query)) ||
+        (item.slug && item.slug.toLowerCase().includes(query))
+      );
+    });
+    if (!selectedId) return list;
+    return [...list].sort((a, b) => {
+      if (a.id === selectedId) return -1;
+      if (b.id === selectedId) return 1;
+      return 0;
+    });
+  });
+
+  readonly filteredCompatibleAddons = computed<TemplateComponent[]>(() => {
+    const query = this.col2SearchQuery().trim().toLowerCase();
+    const list = this.compatibleAddons().filter(item => {
+      if (!query) return true;
+      const nameMatch = item.name.toLowerCase().includes(query);
+      const descMatch = !!item.description && item.description.toLowerCase().includes(query);
+      const slugMatch = !!item.slug && item.slug.toLowerCase().includes(query);
+      const pkgsMatch = (item.package_names || []).some(pkg => pkg.toLowerCase().includes(query));
+      return nameMatch || descMatch || slugMatch || pkgsMatch;
+    });
+    return [...list].sort((a, b) => {
+      const aSel = this.isAddonSelected(a.id) || this.isAddonSelected(a.slug);
+      const bSel = this.isAddonSelected(b.id) || this.isAddonSelected(b.slug);
+      if (aSel && !bSel) return -1;
+      if (!aSel && bSel) return 1;
+      return 0;
     });
   });
 
@@ -321,11 +393,15 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly selectedWebComponent = computed<TemplateComponent | null>(() => {
-    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return null;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
     const id = this.selectedWebPlatformId();
     if (!id) return null;
     return this.techComponents().find(i => i.id === id || i.slug === id) || null;
   });
+
+  readonly effectivePrimaryComponent = computed<TemplateComponent | null>(() =>
+    this.selectedRuntimeComponent() || this.selectedWebComponent()
+  );
 
   readonly selectedAddonComponents = computed<TemplateComponent[]>(() => {
     const ids = new Set(this.selectedAddonIds());
@@ -334,7 +410,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly selectedDatabaseOption = computed<StudioDatabaseOption | null>(() => {
-    if (this.targetEnvironment() === 'JUEZ_EFIMERO') return null;
+    if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
     const id = this.selectedDatabaseId();
     if (!id || id === 'db-none' || id === 'none') return null;
     return (
@@ -364,18 +440,65 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   );
 
 
-  private isCppRuntime(rt: TemplateComponent | null): boolean {
+  private isLightRuntime(rt: TemplateComponent | null): boolean {
     if (!rt) return false;
+    if (rt.ram_delta_mb > 0) return rt.ram_delta_mb <= 384;
     if ((rt.icon_key || '').toLowerCase() === 'cpp') return true;
     if ((rt.compatible_runtimes || []).some(c => c.toLowerCase() === 'cpp')) return true;
-    return rt.ram_delta_mb > 0 && rt.ram_delta_mb <= 384;
+    return false;
   }
 
-  private isJavaRuntime(rt: TemplateComponent | null): boolean {
+  private isHeavyRuntime(rt: TemplateComponent | null): boolean {
     if (!rt) return false;
+    if (rt.ram_delta_mb > 0) return rt.ram_delta_mb >= 1024;
     if ((rt.icon_key || '').toLowerCase() === 'java') return true;
-    if ((rt.compatible_runtimes || []).some(c => c.toLowerCase() === 'java')) return true;
-    return rt.ram_delta_mb >= 1024;
+    if ((rt.compatible_runtimes || []).some(c => c.toLowerCase() === 'java' || c.toLowerCase() === 'dotnet')) return true;
+    return false;
+  }
+
+  private resolveDefaultJudgeEntrypoint(rt: TemplateComponent | null): string {
+    if (!rt) return '';
+    const entry = (rt.judge_entrypoint || '').trim();
+    if (entry) return entry;
+
+    const baseImg = (rt.base_image || '').toLowerCase();
+    const icon = (rt.icon_key || '').toLowerCase();
+    const slug = (rt.slug || '').toLowerCase();
+    const name = (rt.name || '').toLowerCase();
+
+    const matches = (token: string): boolean =>
+      baseImg.includes(token) || icon.includes(token) || slug.includes(token) || name.includes(token);
+
+    if (matches('python')) {
+      return 'python3 solution.py';
+    }
+    if (matches('cpp') || matches('gcc') || matches('clang') || matches('c++')) {
+      return 'g++ -O2 solution.cpp -o solution && ./solution';
+    }
+    if (matches('java') || matches('temurin') || matches('openjdk')) {
+      return 'javac Main.java && java Main';
+    }
+    if (matches('rust')) {
+      return 'rustc -O solution.rs -o solution && ./solution';
+    }
+    if (matches('go') || matches('golang')) {
+      return 'go run solution.go';
+    }
+    if (matches('node')) {
+      return 'node solution.js';
+    }
+    if (matches('php')) {
+      return 'php solution.php';
+    }
+
+    if (rt.tools_provided && rt.tools_provided.length > 0) {
+      const tool = rt.tools_provided[0].trim();
+      if (tool) {
+        return `${tool} solution`;
+      }
+    }
+
+    return '';
   }
 
   private isResidentAddon(addon: TemplateComponent): boolean {
@@ -405,9 +528,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       if (!rt) return 256;
       const runtimeBaseMB = caps?.runtime_base_mb ?? 32;
       let processFootprintMB = 224;
-      if (this.isJavaRuntime(rt)) {
+      if (this.isHeavyRuntime(rt)) {
         processFootprintMB = 480;
-      } else if (this.isCppRuntime(rt)) {
+      } else if (this.isLightRuntime(rt)) {
         processFootprintMB = 96;
       }
       for (const a of addons) {
@@ -424,15 +547,15 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     const editorBaseMB = caps?.editor_base_mb ?? 210;
     const satelliteBaseMB = db?.ram_delta_mb || 0;
-    if (!rt) {
+    if (!rt && !web) {
       return satelliteBaseMB > 0 ? 768 : 512;
     }
 
     let activeProcessFootprintMB = 256;
-    if (this.isCppRuntime(rt)) {
+    if (this.isLightRuntime(rt)) {
       activeProcessFootprintMB = 128;
     }
-    if (this.isJavaRuntime(rt)) {
+    if (this.isHeavyRuntime(rt)) {
       activeProcessFootprintMB = web || addons.length > 0 || satelliteBaseMB > 0 ? 1280 : 640;
     }
     if (web) {
@@ -444,7 +567,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       if ((a.sub_category || '').toLowerCase() === 'heavy' || a.ram_delta_mb >= 384) {
         activeProcessFootprintMB = Math.max(
           activeProcessFootprintMB,
-          web || this.isJavaRuntime(rt) ? 1280 : 512
+          web || this.isHeavyRuntime(rt) ? 1280 : 512
         );
       } else {
         activeProcessFootprintMB = Math.max(activeProcessFootprintMB, 384);
@@ -464,7 +587,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
     const rt = this.selectedRuntimeComponent();
     if (isJudge) {
-      return this.isJavaRuntime(rt) ? 128 : 64;
+      return this.isHeavyRuntime(rt) ? 128 : 64;
     }
     const editorBase = this.runtimeCapabilities()?.editor_base_mb ?? 210;
     const satelliteMB = this.selectedDatabaseOption()?.ram_delta_mb || 0;
@@ -473,7 +596,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     let minRuntimeProcessMB = 0;
     if (rt) {
-      minRuntimeProcessMB = this.isJavaRuntime(rt) ? 500 : this.isCppRuntime(rt) ? 128 : 174;
+      minRuntimeProcessMB = this.isHeavyRuntime(rt) ? 500 : this.isLightRuntime(rt) ? 128 : 174;
     }
     if (web || addons.some(a => this.isResidentAddon(a))) {
       minRuntimeProcessMB = Math.max(minRuntimeProcessMB, 300);
@@ -505,6 +628,91 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (this.isRamExceedingHost()) return false;
     return this.baseRamMB() > this.hostFreeRamMB();
   });
+
+  readonly verificationBlocker = computed<StudioActionBlocker | null>(() => {
+    if (this.hasBlockingDockerfileError()) {
+      return {
+        reason: 'Corrija los errores del Dockerfile antes de comprobar o publicar el entorno.',
+        tone: 'error'
+      };
+    }
+
+    if (this.studioMode() === 'visual') {
+      if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.selectedRuntimeComponent()) {
+        return {
+          reason: 'Seleccione un Lenguaje Principal en la Columna 1 para configurar el Evaluador Automático.',
+          tone: 'neutral'
+        };
+      }
+      if (!this.effectivePrimaryComponent()) {
+        return {
+          reason: 'Seleccione una tecnología principal en el Paso 2 para habilitar la comprobación y publicación.',
+          tone: 'neutral'
+        };
+      }
+    }
+
+    if (!this.dockerImage().trim()) {
+      return {
+        reason: 'Indique una imagen Docker base válida en el Paso 2.',
+        tone: 'warning'
+      };
+    }
+
+    if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.entrypoint().trim()) {
+      return {
+        reason: 'Indique el comando de compilación y ejecución del Evaluador Automático.',
+        tone: 'warning'
+      };
+    }
+
+    if (this.isRamBelowFloor() || this.isRamExceedingHost()) {
+      return {
+        reason: 'Ajuste la memoria RAM dentro de los límites permitidos en el Paso 3.',
+        tone: 'error'
+      };
+    }
+
+    return null;
+  });
+
+  readonly publishBlocker = computed<StudioActionBlocker | null>(() => {
+    const vBlocker = this.verificationBlocker();
+    if (vBlocker) {
+      return vBlocker;
+    }
+
+    if (this.name().trim().length < 3) {
+      return {
+        reason: 'Complete el nombre de la plantilla (mínimo 3 caracteres) en el Paso 1 para habilitar la publicación.',
+        tone: 'neutral'
+      };
+    }
+
+    if (this.isConfigModifiedAfterVerification()) {
+      return {
+        reason: 'La configuración cambió después de la verificación. Compruebe el funcionamiento para habilitar la publicación.',
+        tone: 'warning'
+      };
+    }
+
+    if (this.requiresVerificationBeforePublish()) {
+      return {
+        reason: 'Esta combinación construye una imagen local a medida. Ejecute primero «Comprobar funcionamiento» para construirla y habilitar su publicación.',
+        tone: 'neutral'
+      };
+    }
+
+    return null;
+  });
+
+  readonly canRunVerification = computed<boolean>(
+    () => !this.isVerifying() && !this.isSubmitting() && this.verificationBlocker() === null
+  );
+
+  readonly canPublishTemplate = computed<boolean>(
+    () => !this.isVerifying() && !this.isSubmitting() && this.publishBlocker() === null
+  );
 
   readonly intensiveRamMB = computed<number>(() => {
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
@@ -550,9 +758,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly stackSummaryLabel = computed<string>(() => {
     const rt = this.selectedRuntimeComponent();
-    if (!rt) return 'Ninguna';
-    const parts: string[] = [rt.name];
     const web = this.selectedWebComponent();
+    if (!rt && !web) return 'Ninguna';
+    const parts: string[] = [];
+    if (rt) parts.push(rt.name);
     if (web) parts.push(web.name);
     for (const a of this.selectedAddonComponents()) {
       parts.push(a.name.split(' ')[0]);
@@ -675,8 +884,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.studioMode.set(cfg.mode);
     }
 
-    if (cfg && cfg.runtime_id) {
-      this.selectedRuntimeId.set(cfg.runtime_id);
+    if (cfg && (cfg.runtime_id || cfg.web_platform_id)) {
+      this.selectedRuntimeId.set(cfg.runtime_id || null);
       this.selectedWebPlatformId.set(cfg.web_platform_id || null);
       this.selectedAddonIds.set(cfg.addon_ids || []);
       this.selectedDatabaseId.set(cfg.database_id || 'db-none');
@@ -724,7 +933,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   setTargetEnvironment(env: TargetEnvironment): void {
     this.targetEnvironment.set(env);
-    if (env === 'JUEZ_EFIMERO') {
+    if (env === 'JUEZ_EFIMERO' || env === 'AMBOS') {
       this.selectedWebPlatformId.set(null);
       this.selectedDatabaseId.set('db-none');
     }
@@ -738,7 +947,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   selectRuntime(id: string): void {
     this.hasCustomDockerfile.set(false);
-    this.selectedRuntimeId.set(id);
+    this.col2SearchQuery.set('');
+    const next = this.selectedRuntimeId() === id ? null : id;
+    this.selectedRuntimeId.set(next);
     // Conservar únicamente los complementos que sigan siendo compatibles
     const validIds = new Set(this.compatibleAddons().map(a => a.id));
     const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
@@ -843,8 +1054,14 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   selectWebPlatform(id: string | null): void {
+    this.hasCustomDockerfile.set(false);
+    this.col2SearchQuery.set('');
     const next = this.selectedWebPlatformId() === id ? null : id;
     this.selectedWebPlatformId.set(next);
+    // Conservar únicamente los complementos que sigan siendo compatibles
+    const validIds = new Set(this.compatibleAddons().map(a => a.id));
+    const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
+    this.selectedAddonIds.update(curr => curr.filter(x => validIds.has(x) || validSlugs.has(x)));
     this.recalculateFromVisualSelection();
   }
 
@@ -896,7 +1113,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   recalculateFromVisualSelection(): void {
     const rt = this.selectedRuntimeComponent();
-    if (!rt) {
+    const web = this.selectedWebComponent();
+    if (!rt && !web) {
       if (!this.isNameManuallyEdited()) {
         this.name.set('');
       }
@@ -914,36 +1132,60 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     }
 
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const web = this.selectedWebComponent();
+    const isDual = this.targetEnvironment() === 'AMBOS';
     const addons = this.selectedAddonComponents();
     const db = this.selectedDatabaseOption();
 
     // 1. Nombre sugerido automáticamente
     if (!this.isNameManuallyEdited()) {
-      const parts = [rt.name];
+      const parts: string[] = [];
+      if (rt) parts.push(rt.name);
       if (web) parts.push(web.name);
       for (const a of addons) {
         parts.push(a.name.split(' ')[0]);
       }
       if (db) parts.push(db.name.split(' ')[0]);
-      const prefix = isJudge ? 'Evaluador: ' : 'Laboratorio: ';
+      let prefix = 'Laboratorio: ';
+      if (isDual) {
+        prefix = 'Entorno Dual: ';
+      } else if (isJudge) {
+        prefix = 'Evaluador: ';
+      }
       this.name.set(prefix + parts.join(' + '));
     }
 
     // 2. Capas de construcción y resolución determinista de imagen
-    const baseImage = rt.base_image || '';
     const buildLayers: string[] = [];
-    if (rt.build_layer_snippet) {
-      buildLayers.push(rt.build_layer_snippet);
-    }
-    if (web && !isJudge) {
-      if (!baseImage.toLowerCase().includes('node')) {
-        buildLayers.push('RUN (command -v apk >/dev/null 2>&1 && apk add --no-cache nodejs npm) || (apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*)');
+    let baseImage = '';
+
+    if (rt) {
+      baseImage = rt.base_image || '';
+      if (rt.build_layer_snippet) {
+        buildLayers.push(rt.build_layer_snippet);
       }
+      if (web && !isJudge && !isDual) {
+        if (!baseImage.toLowerCase().includes('node')) {
+          const nodeSourceImage =
+            web.base_image && web.base_image.includes('node')
+              ? web.base_image
+              : 'node:20-bookworm-slim';
+          if (baseImage.toLowerCase().includes('alpine')) {
+            buildLayers.push('RUN apk add --no-cache nodejs npm');
+          } else {
+            buildLayers.push(`COPY --from=${nodeSourceImage} /usr/local /usr/local`);
+          }
+        }
+        if (web.build_layer_snippet) {
+          buildLayers.push(web.build_layer_snippet);
+        }
+      }
+    } else if (web && !isJudge && !isDual) {
+      baseImage = web.base_image || 'node:20-bookworm-slim';
       if (web.build_layer_snippet) {
         buildLayers.push(web.build_layer_snippet);
       }
     }
+
     for (const addon of addons) {
       if (addon.build_layer_snippet) {
         buildLayers.push(addon.build_layer_snippet);
@@ -957,39 +1199,52 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         const canonical = `FROM ${baseImage}\n${buildLayers.join('\n')}`;
         const hash = fnv1aHex(canonical);
         this.dockerImage.set(`solv-local/stack:${hash}`);
-        this.dockerfileContent.set(`# Generado automáticamente por el Constructor de Entornos SOLV\nFROM ${baseImage}\n${buildLayers.join('\n')}`);
+        this.dockerfileContent.set(
+          `# Generado automáticamente por el Constructor de Entornos SOLV\nFROM ${baseImage}\n${buildLayers.join('\n')}`
+        );
       } else {
         this.dockerImage.set(baseImage);
         this.dockerfileContent.set(baseImage ? `FROM ${baseImage}` : '');
       }
     }
 
-    // 3. Unión de programas verificables
-    const toolsSet = new Set<string>(rt.tools_provided || []);
-    if (!isJudge) toolsSet.add('git');
-    if (web && !isJudge) {
+    // 3. Unión de programas verificables (R4: sin git fantasma)
+    const toolsSet = new Set<string>();
+    if (rt) {
+      for (const t of rt.tools_provided || []) toolsSet.add(t);
+    }
+    if (web && !isJudge && !isDual) {
       for (const t of web.tools_provided || []) toolsSet.add(t);
     }
     for (const a of addons) {
       for (const t of a.tools_provided || []) toolsSet.add(t);
     }
-    if (db && !isJudge) {
+    if (db && !isJudge && !isDual) {
       for (const t of db.tools_provided || []) toolsSet.add(t);
     }
     this.toolsDeclared.set(Array.from(toolsSet).join(', '));
 
-    // 4. Script de inicialización opcional definido por los componentes tecnológicos
-    if (!isJudge) {
+    // 4. Script de inicialización opcional y comando de evaluación
+    if (isDual) {
       const lines: string[] = [];
-      if (rt.setup_snippet) lines.push(rt.setup_snippet);
+      if (rt?.setup_snippet) lines.push(rt.setup_snippet);
+      for (const a of addons) {
+        if (a.setup_snippet) lines.push(a.setup_snippet);
+      }
+      this.setupScript.set(lines.join('\n'));
+      this.entrypoint.set(this.resolveDefaultJudgeEntrypoint(rt));
+    } else if (!isJudge) {
+      const lines: string[] = [];
+      if (rt?.setup_snippet) lines.push(rt.setup_snippet);
       if (web?.setup_snippet) lines.push(web.setup_snippet);
       for (const a of addons) {
         if (a.setup_snippet) lines.push(a.setup_snippet);
       }
       this.setupScript.set(lines.join('\n'));
+      this.entrypoint.set('');
     } else {
       this.setupScript.set('');
-      this.entrypoint.set(rt.judge_entrypoint || '');
+      this.entrypoint.set(this.resolveDefaultJudgeEntrypoint(rt));
     }
 
     // 5. Memoria recomendada basada en la selección tecnológica
@@ -999,45 +1254,75 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     }
   }
 
-  openNewComponentModal(layer: ComponentLayer): void {
+  readonly editingComponent = signal<TemplateComponent | null>(null);
+
+  openNewComponentModal(layer: ComponentLayer, subCategory: 'backend' | 'web' = 'backend'): void {
+    this.editingComponent.set(null);
     this.modalDefaultLayer.set(layer);
+    this.modalDefaultSubCategory.set(subCategory);
     this.showComponentModal.set(true);
   }
 
-  handleNewComponentSaved(created: TemplateComponent): void {
+  openEditComponentModal(comp: TemplateComponent): void {
+    this.editingComponent.set(comp);
+    this.modalDefaultLayer.set(comp.layer);
+    this.modalDefaultSubCategory.set(comp.sub_category === 'web' ? 'web' : 'backend');
+    this.showComponentModal.set(true);
+  }
+
+  handleModalClosed(): void {
     this.showComponentModal.set(false);
-    this.techComponents.update(list => [...list, created]);
-    if (created.layer === 'runtime') {
-      if (created.sub_category === 'web') {
-        this.selectWebPlatform(created.id);
-      } else {
-        this.selectRuntime(created.id);
-      }
-    } else if (created.layer === 'addon') {
-      this.toggleAddon(created.id);
-    } else {
-      this.selectDatabase(created.id);
+    this.editingComponent.set(null);
+  }
+
+  handleModalComponentSaved(saved: TemplateComponent): void {
+    this.showComponentModal.set(false);
+    if (saved.layer === 'runtime') {
+      this.col1SearchQuery.set('');
+    } else if (saved.layer === 'addon') {
+      this.col2SearchQuery.set('');
     }
-    this.showToast(`Tecnología "${created.name}" agregada y seleccionada.`);
+    const editing = this.editingComponent();
+
+    if (editing) {
+      this.techComponents.update(list =>
+        list.map(item => (item.id === saved.id || item.slug === saved.slug ? saved : item))
+      );
+      const isSelectedRuntime = this.selectedRuntimeId() === saved.id || this.selectedRuntimeId() === saved.slug;
+      const isSelectedWeb = this.selectedWebPlatformId() === saved.id || this.selectedWebPlatformId() === saved.slug;
+      const isSelectedAddon = this.selectedAddonIds().includes(saved.id) || this.selectedAddonIds().includes(saved.slug);
+      const isSelectedDb = this.selectedDatabaseId() === saved.id || this.selectedDatabaseId() === saved.slug;
+
+      if (isSelectedRuntime || isSelectedWeb || isSelectedAddon || isSelectedDb) {
+        this.recalculateFromVisualSelection();
+      }
+      this.editingComponent.set(null);
+      this.showToast(`Tecnología "${saved.name}" actualizada.`);
+    } else {
+      this.techComponents.update(list => [...list, saved]);
+      if (saved.layer === 'runtime') {
+        if (saved.sub_category === 'web') {
+          this.selectWebPlatform(saved.id);
+        } else {
+          this.selectRuntime(saved.id);
+        }
+      } else if (saved.layer === 'addon') {
+        this.toggleAddon(saved.id);
+      } else {
+        this.selectDatabase(saved.id);
+      }
+      this.showToast(`Tecnología "${saved.name}" agregada y seleccionada.`);
+    }
+  }
+
+  handleNewComponentSaved(created: TemplateComponent): void {
+    this.handleModalComponentSaved(created);
   }
 
   runVerificationTest(): void {
-    const hasPrimaryRuntime =
-      this.studioMode() === 'visual'
-        ? !!this.selectedRuntimeComponent()
-        : this.dockerImage().trim().length > 0;
-    if (!hasPrimaryRuntime || !this.dockerImage().trim()) {
-      this.showToast('Seleccione un lenguaje principal o indique una imagen base antes de comprobar el entorno.', 'error');
-      return;
-    }
-
-    if (this.hasBlockingDockerfileError()) {
-      this.showToast('Corrija los errores del Dockerfile antes de comprobar el entorno.', 'error');
-      return;
-    }
-
-    if (this.isRamBelowFloor() || this.isRamExceedingHost()) {
-      this.showToast('Ajuste la memoria RAM dentro de los límites permitidos antes de comprobar el entorno.', 'error');
+    const blocker = this.verificationBlocker();
+    if (blocker) {
+      this.showToast(blocker.reason, 'error');
       return;
     }
 
@@ -1118,37 +1403,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   publishTemplate(): void {
-    const hasPrimaryRuntime =
-      this.studioMode() === 'visual'
-        ? !!this.selectedRuntimeComponent()
-        : this.dockerImage().trim().length > 0;
-    if (!hasPrimaryRuntime || !this.dockerImage().trim()) {
-      this.showToast('Seleccione un lenguaje principal o indique una imagen base antes de publicar la plantilla.', 'error');
-      return;
-    }
-
-    if (this.hasBlockingDockerfileError()) {
-      this.showToast('Corrija los errores del Dockerfile antes de publicar la plantilla.', 'error');
-      return;
-    }
-
-    if (this.requiresVerificationBeforePublish()) {
-      this.showToast('Esta combinación construye una imagen local a medida. Ejecute primero «Comprobar funcionamiento» para construirla y habilitar su publicación.', 'error');
-      return;
-    }
-
-    if (this.isConfigModifiedAfterVerification()) {
-      this.showToast('La configuración del entorno cambió después de la verificación. Compruebe el funcionamiento nuevamente antes de publicar.', 'error');
-      return;
-    }
-
-    if (this.name().trim().length < 3) {
-      this.showToast('El nombre del entorno debe tener al menos 3 caracteres.', 'error');
-      return;
-    }
-
-    if (this.isRamBelowFloor() || this.isRamExceedingHost()) {
-      this.showToast('La memoria RAM configurada viola los límites de seguridad del contenedor o del servidor.', 'error');
+    const blocker = this.publishBlocker();
+    if (blocker) {
+      this.showToast(blocker.reason, 'error');
       return;
     }
 
@@ -1163,7 +1420,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     obs$.subscribe({
       next: () => {
         this.isSubmitting.set(false);
-        this.router.navigate(['/admin/plantillas']);
+        this.router.navigate(['/admin/plantillas'], { queryParams: { tab: 'catalog' } });
       },
       error: (err) => {
         this.isSubmitting.set(false);

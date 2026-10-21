@@ -65,6 +65,7 @@ describe('AdminTemplatesComponent Spec', () => {
     getTemplatesCacheStatus: any;
     warmTemplate: any;
     warmAllTemplates: any;
+    updateOfficialTemplate: any;
   };
 
   let routerMock: { navigate: any };
@@ -72,6 +73,10 @@ describe('AdminTemplatesComponent Spec', () => {
 
   async function createFixture(): Promise<void> {
     mockTemplatesService = {
+      updateOfficialTemplate: vi.fn().mockImplementation((id: string, dto: any) => of({
+        ...mockTemplates.find(t => t.id === id),
+        ...dto
+      })),
       getTemplates: vi.fn().mockReturnValue(of([...mockTemplates])),
       getCategories: vi.fn().mockReturnValue(of([])),
       getRuntimeCapabilities: vi.fn().mockReturnValue(of({
@@ -260,6 +265,116 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(mockTemplatesService.warmAllTemplates).toHaveBeenCalled();
     expect(component.toast()?.type).toBe('success');
     expect(component.toast()?.message).toContain('Entornos preparados');
+  });
+
+  it('getPurposeBadge retorna la etiqueta y variante correcta para cada propósito', () => {
+    expect(component.getPurposeBadge('IDE_PERSISTENTE')).toEqual({
+      label: 'Laboratorio IDE',
+      shortLabel: 'LAB IDE',
+      variant: 'ide'
+    });
+    expect(component.getPurposeBadge('JUEZ_EFIMERO')).toEqual({
+      label: 'Evaluador Juez',
+      shortLabel: 'JUEZ',
+      variant: 'judge'
+    });
+    expect(component.getPurposeBadge('AMBOS')).toEqual({
+      label: 'Dual: Lab + Juez',
+      shortLabel: 'DUAL',
+      variant: 'dual'
+    });
+    expect(component.getPurposeBadge()).toEqual({
+      label: 'Laboratorio IDE',
+      shortLabel: 'LAB IDE',
+      variant: 'ide'
+    });
+  });
+
+  it('el filtro de propósito restringe las plantillas mostradas según el target_environment', () => {
+    // Agregamos plantillas con distintos propósitos a allTemplates
+    const dualTemplate: AdminTemplateItem = {
+      id: 'tpl-dual',
+      name: 'Entorno Dual Python',
+      docker_image: 'python:3.12-slim',
+      base_ram_mb: 1024,
+      status: 'APROBADA',
+      target_environment: 'AMBOS',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+    const judgeTemplate: AdminTemplateItem = {
+      id: 'tpl-judge',
+      name: 'Evaluador Python',
+      docker_image: 'python:3.12-slim',
+      base_ram_mb: 256,
+      status: 'APROBADA',
+      target_environment: 'JUEZ_EFIMERO',
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    component.allTemplates.set([...mockTemplates, dualTemplate, judgeTemplate]);
+
+    // Con filtro 'ALL', el catálogo incluye todas las aprobadas/pausadas (tpl-1, tpl-4, tpl-dual, tpl-judge)
+    component.selectedPurpose.set('ALL');
+    expect(component.catalogTemplates().length).toBe(4);
+
+    // Con filtro 'AMBOS', solo devuelve la plantilla dual
+    component.selectedPurpose.set('AMBOS');
+    expect(component.catalogTemplates().length).toBe(1);
+    expect(component.catalogTemplates()[0].id).toBe('tpl-dual');
+
+    // Con filtro 'JUEZ_EFIMERO', solo devuelve el evaluador
+    component.selectedPurpose.set('JUEZ_EFIMERO');
+    expect(component.catalogTemplates().length).toBe(1);
+    expect(component.catalogTemplates()[0].id).toBe('tpl-judge');
+
+    // Con filtro 'IDE_PERSISTENTE', devuelve tpl-1 y tpl-4
+    component.selectedPurpose.set('IDE_PERSISTENTE');
+    expect(component.catalogTemplates().length).toBe(2);
+  });
+
+  it('detectTemplateTech prioriza stack_config.runtime_id y web_platform_id sobre el nombre genérico', () => {
+    const itemWithConfig: AdminTemplateItem = {
+      id: 'tpl-custom',
+      name: 'Laboratorio Especializado de Algoritmos',
+      docker_image: 'custom/runner:1.0',
+      base_ram_mb: 512,
+      status: 'APROBADA',
+      stack_config: {
+        runtime_id: 'rust-178'
+      },
+      created_at: '2026-09-23T00:00:00Z'
+    };
+
+    const tech = component.getTemplateTech(itemWithConfig);
+    expect(tech.iconType).toBe('rust');
+    expect(tech.name).toBe('Rust');
+  });
+
+  it('handleSaveEdit persiste vía updateOfficialTemplate enviando el DTO completo y actualiza el estado local', () => {
+    const target = mockTemplates[0]; // tpl-1 (APROBADA, 1024 MB)
+    component.openEditModal(target);
+    expect(component.selectedTemplateForEdit()).toEqual(target);
+
+    component.handleSaveEdit({
+      id: target.id,
+      base_ram_mb: 2048,
+      description: 'Descripción actualizada con cuotas ampliadas'
+    });
+
+    expect(mockTemplatesService.updateOfficialTemplate).toHaveBeenCalledWith(
+      target.id,
+      expect.objectContaining({
+        name: target.name,
+        docker_image: target.docker_image,
+        base_ram_mb: 2048,
+        description: 'Descripción actualizada con cuotas ampliadas'
+      })
+    );
+
+    // Modal cerrado y toast disparado
+    expect(component.selectedTemplateForEdit()).toBeNull();
+    expect(component.toast()?.type).toBe('success');
+    expect(component.toast()?.message).toContain('actualizadas');
   });
 });
 

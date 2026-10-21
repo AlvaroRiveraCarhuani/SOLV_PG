@@ -179,4 +179,10 @@
     border: 1px solid var(--status-pending-border);
     color: var(--status-pending-color);
   }
+
+  &.alert-info {
+    background-color: var(--tenant-primary-subtle);
+    border: 1px solid var(--tenant-primary-border);
+    color: var(--tenant-primary-hover);
+  }
 }

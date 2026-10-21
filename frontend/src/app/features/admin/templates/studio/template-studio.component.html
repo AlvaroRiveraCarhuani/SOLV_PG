@@ -78,6 +78,23 @@
               Califica entregas de código automáticamente contra casos de prueba en pocos segundos, sin interfaz gráfica.
             </p>
           </button>
+
+          <button
+            type="button"
+            class="purpose-option-card"
+            [class.selected]="targetEnvironment() === 'AMBOS'"
+            (click)="setTargetEnvironment('AMBOS')"
+          >
+            <div class="purpose-top">
+              <strong class="purpose-title">Laboratorio + Evaluador</strong>
+              @if (targetEnvironment() === 'AMBOS') {
+                <span class="status-pill-active">Seleccionado</span>
+              }
+            </div>
+            <p class="purpose-desc">
+              Un único entorno oficial para prácticas con editor visual y corrección automática de ejercicios.
+            </p>
+          </button>
         </div>
 
         <div class="identity-fields-grid">
@@ -158,32 +175,49 @@
 
         @if (studioMode() === 'visual') {
           <!-- LAS 3 COLUMNAS DEL CONSTRUCTOR DE ENTORNOS -->
-          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
+          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS'">
 
             <!-- COLUMNA 1: TECNOLOGÍA PRINCIPAL + PLATAFORMA WEB -->
             <div class="studio-column">
               <div class="column-header">
                 <div>
                   <span class="column-step">Columna 1 · Principal</span>
-                  <h3 class="column-title">Lenguaje y Web</h3>
+                  <h3 class="column-title">{{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Lenguaje y Web' : 'Lenguaje Principal' }}</h3>
                 </div>
-                <button
-                  type="button"
-                  class="btn-inline-new"
-                  (click)="openNewComponentModal('runtime')"
-                >
-                  + Nuevo
-                </button>
               </div>
 
+              @if (backendRuntimes().length + webPlatforms().length > 4 || col1SearchQuery().trim().length > 0) {
+                <div class="column-search-wrap">
+                  <input
+                    type="text"
+                    class="column-search-input"
+                    placeholder="Buscar lenguaje o plataforma web..."
+                    [ngModel]="col1SearchQuery()"
+                    (ngModelChange)="col1SearchQuery.set($event)"
+                  />
+                </div>
+              }
+
               <div class="column-body">
-                <span class="sub-group-label">Lenguaje Principal (Elija 1)</span>
-                @for (rt of backendRuntimes(); track rt.id) {
+                <div class="sub-group-header">
+                  <span class="sub-group-label">Lenguaje Principal (Elija 1)</span>
                   <button
                     type="button"
+                    class="btn-inline-new"
+                    (click)="openNewComponentModal('runtime', 'backend')"
+                  >
+                    + Nuevo lenguaje
+                  </button>
+                </div>
+                @for (rt of filteredBackendRuntimes(); track rt.id) {
+                  <div
                     class="tech-component-card"
+                    role="button"
+                    tabindex="0"
                     [class.selected]="selectedRuntimeComponent()?.id === rt.id"
                     (click)="selectRuntime(rt.id)"
+                    (keydown.enter)="selectRuntime(rt.id)"
+                    (keydown.space)="selectRuntime(rt.id); $event.preventDefault()"
                   >
                     <div class="comp-main">
                       <tech-logo [iconType]="rt.icon_key" [size]="30" />
@@ -191,18 +225,42 @@
                         <strong class="comp-name">{{ rt.name }}</strong>
                         <span class="comp-desc">{{ rt.description }}</span>
                       </div>
+                      <button
+                        type="button"
+                        class="comp-edit-btn"
+                        title="Editar tecnología"
+                        (click)="$event.stopPropagation(); openEditComponentModal(rt)"
+                      >
+                        <svg lucidePencil class="comp-edit-icon"></svg>
+                      </button>
                     </div>
-                  </button>
+                  </div>
+                } @empty {
+                  <p class="empty-col-hint">
+                    {{ col1SearchQuery().trim() ? 'No hay lenguajes que coincidan con la búsqueda.' : 'No hay lenguajes principales registrados. Puede agregar uno con "+ Nuevo lenguaje".' }}
+                  </p>
                 }
 
-                @if (targetEnvironment() === 'IDE_PERSISTENTE' && webPlatforms().length > 0) {
-                  <span class="sub-group-label mt-group">Interfaz Web / Frontend (Opcional)</span>
-                  @for (web of webPlatforms(); track web.id) {
+                @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                  <div class="sub-group-header mt-group">
+                    <span class="sub-group-label">Interfaz Web / Frontend (Opcional)</span>
                     <button
                       type="button"
+                      class="btn-inline-new"
+                      (click)="openNewComponentModal('runtime', 'web')"
+                    >
+                      + Nueva web
+                    </button>
+                  </div>
+                  @for (web of filteredWebPlatforms(); track web.id) {
+                    <div
                       class="tech-component-card"
+                      role="button"
+                      tabindex="0"
                       [class.selected]="selectedWebComponent()?.id === web.id"
                       (click)="selectWebPlatform(web.id)"
+                      (keydown.enter)="selectWebPlatform(web.id)"
+                      (keydown.space)="selectWebPlatform(web.id); $event.preventDefault()"
                     >
                       <div class="comp-main">
                         <tech-logo [iconType]="web.icon_key" [size]="30" />
@@ -210,8 +268,20 @@
                           <strong class="comp-name">{{ web.name }}</strong>
                           <span class="comp-desc">{{ web.description }}</span>
                         </div>
+                        <button
+                          type="button"
+                          class="comp-edit-btn"
+                          title="Editar tecnología"
+                          (click)="$event.stopPropagation(); openEditComponentModal(web)"
+                        >
+                          <svg lucidePencil class="comp-edit-icon"></svg>
+                        </button>
                       </div>
-                    </button>
+                    </div>
+                  } @empty {
+                    <p class="empty-col-hint">
+                      {{ col1SearchQuery().trim() ? 'No hay plataformas web que coincidan con la búsqueda.' : 'No hay plataformas web registradas. Puede agregar una con \'+ Nueva web\'.' }}
+                    </p>
                   }
                 }
               </div>
@@ -222,7 +292,12 @@
               <div class="column-header">
                 <div>
                   <span class="column-step">Columna 2 · Opcional (Múltiple)</span>
-                  <h3 class="column-title">Complementos Compatibles</h3>
+                  <div class="title-with-badge">
+                    <h3 class="column-title">Complementos Compatibles</h3>
+                    @if (selectedAddonComponents().length > 0) {
+                      <span class="selected-count-badge">{{ selectedAddonComponents().length }} seleccionados</span>
+                    }
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -233,21 +308,40 @@
                 </button>
               </div>
 
+              @if (compatibleAddons().length > 4 || col2SearchQuery().trim().length > 0) {
+                <div class="column-search-wrap">
+                  <input
+                    type="text"
+                    class="column-search-input"
+                    placeholder="Filtrar complementos compatibles..."
+                    [ngModel]="col2SearchQuery()"
+                    (ngModelChange)="col2SearchQuery.set($event)"
+                  />
+                </div>
+              }
+
               <div class="column-body">
-                @if (selectedRuntimeComponent(); as rt) {
+                @if (effectivePrimaryComponent(); as primary) {
                   <span class="sub-group-label">
-                    Filtrados para {{ rt.name }}
-                    @if (selectedWebComponent(); as w) {
-                      <span> + {{ w.name }}</span>
+                    @if (selectedRuntimeComponent(); as rt) {
+                      Filtrados para {{ rt.name }}
+                      @if (selectedWebComponent(); as w) {
+                        <span> + {{ w.name }}</span>
+                      }
+                    } @else if (selectedWebComponent(); as w) {
+                      Filtrados para {{ w.name }}
                     }
                   </span>
 
-                  @for (addon of compatibleAddons(); track addon.id) {
-                    <button
-                      type="button"
+                  @for (addon of filteredCompatibleAddons(); track addon.id) {
+                    <div
                       class="tech-component-card"
+                      role="button"
+                      tabindex="0"
                       [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
                       (click)="toggleAddon(addon.id)"
+                      (keydown.enter)="toggleAddon(addon.id)"
+                      (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
                     >
                       <div class="comp-main">
                         <tech-logo [iconType]="addon.icon_key" [size]="30" />
@@ -255,11 +349,19 @@
                           <strong class="comp-name">{{ addon.name }}</strong>
                           <span class="comp-desc">{{ addon.description }}</span>
                         </div>
+                        <button
+                          type="button"
+                          class="comp-edit-btn"
+                          title="Editar tecnología"
+                          (click)="$event.stopPropagation(); openEditComponentModal(addon)"
+                        >
+                          <svg lucidePencil class="comp-edit-icon"></svg>
+                        </button>
                       </div>
-                    </button>
+                    </div>
                   } @empty {
                     <p class="empty-col-hint">
-                      No hay complementos adicionales registrados para esta tecnología. Puede agregar uno con "+ Nuevo".
+                      {{ col2SearchQuery().trim() ? 'No hay complementos que coincidan con la búsqueda.' : 'No hay complementos adicionales registrados para esta tecnología. Puede agregar uno con "+ Nuevo".' }}
                     </p>
                   }
                 } @else {
@@ -309,6 +411,24 @@
               </div>
             }
           </div>
+
+          @if ((targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') && selectedRuntimeComponent()) {
+            <div class="judge-visual-config-bar">
+              <div class="field-group">
+                <label class="form-label" for="visual-judge-entrypoint">
+                  Comando de compilación y ejecución del Evaluador *
+                </label>
+                <input
+                  id="visual-judge-entrypoint"
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="Ej: python3 solution.py o g++ -O2 solution.cpp -o solution && ./solution"
+                  [ngModel]="entrypoint()"
+                  (ngModelChange)="entrypoint.set($event)"
+                />
+              </div>
+            </div>
+          }
         } @else {
           <!-- MODO CÓDIGO / AVANZADO (SINCRONIZADO BIDIRECCIONALMENTE) -->
           <div class="code-mode-panel">
@@ -409,7 +529,7 @@
               }
             </div>
 
-            @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+            @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
               <div class="field-group">
                 <div class="editor-header-bar">
                   <label class="form-label mb-0" for="code-setup-editor">
@@ -444,7 +564,9 @@
                   maxHeight="280px"
                 />
               </div>
-            } @else {
+            }
+
+            @if (targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') {
               <div class="identity-fields-grid">
                 <div class="field-group">
                   <label class="form-label" for="code-entrypoint-input">Comando de compilación y ejecución *</label>
@@ -664,7 +786,13 @@
               <span class="bp-label">Nombre del Entorno</span>
               <strong class="bp-env-name">{{ name() || 'Sin nombre definido' }}</strong>
               <span class="bp-meta-pill">
-                {{ targetEnvironment() === 'IDE_PERSISTENTE' ? 'Laboratorio con Editor' : 'Evaluador Automático' }}
+                @if (targetEnvironment() === 'AMBOS') {
+                  Laboratorio + Evaluador
+                } @else if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                  Laboratorio con Editor
+                } @else {
+                  Evaluador Automático
+                }
               </span>
             </div>
 
@@ -685,8 +813,8 @@
               </div>
             </div>
 
-            <!-- Bloque de Parámetros de Evaluación (Solo para Juez) -->
-            @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+            <!-- Bloque de Parámetros de Evaluación (Para Juez y Entorno Dual) -->
+            @if (targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') {
               <div class="bp-block">
                 <span class="bp-label">Parámetros de Evaluación</span>
                 <div class="bp-judge-params">
@@ -863,24 +991,20 @@
         }
 
         <div class="blueprint-footer">
-          @if (isConfigModifiedAfterVerification()) {
-            <p class="publish-block-note warning">
-              La configuración cambió después de la verificación. Compruebe el funcionamiento para habilitar la publicación.
-            </p>
-          } @else if (requiresVerificationBeforePublish()) {
-            <p class="publish-block-note">
-              Esta combinación construye una imagen local a medida. Ejecute primero «Comprobar funcionamiento» para construirla y habilitar su publicación.
-            </p>
-          } @else if (hasBlockingDockerfileError()) {
-            <p class="publish-block-note error">
-              Corrija los errores del Dockerfile antes de publicar la plantilla.
+          @if (publishBlocker(); as blocker) {
+            <p
+              class="publish-block-note"
+              [class.warning]="blocker.tone === 'warning'"
+              [class.error]="blocker.tone === 'error'"
+            >
+              {{ blocker.reason }}
             </p>
           }
 
           <button
             type="button"
             class="btn-outline w-full"
-            [disabled]="isVerifying() || isSubmitting() || isRamBelowFloor() || isRamExceedingHost() || hasBlockingDockerfileError()"
+            [disabled]="!canRunVerification()"
             (click)="runVerificationTest()"
           >
             <svg lucidePlay class="btn-icon-xs" [class.spin]="isVerifying()"></svg>
@@ -890,7 +1014,7 @@
           <button
             type="button"
             class="btn-primary w-full"
-            [disabled]="isSubmitting() || !name().trim() || isRamBelowFloor() || isRamExceedingHost() || requiresVerificationBeforePublish() || isConfigModifiedAfterVerification() || hasBlockingDockerfileError()"
+            [disabled]="!canPublishTemplate()"
             (click)="publishTemplate()"
           >
             <svg lucideSend class="btn-icon-xs"></svg>
@@ -908,10 +1032,13 @@
   @if (showComponentModal()) {
     <component-form-modal
       [defaultLayer]="modalDefaultLayer()"
+      [defaultSubCategory]="modalDefaultSubCategory()"
       [defaultCompatibleRuntime]="modalDefaultCompatibleRuntime()"
-      [availableRuntimes]="backendRuntimes()"
-      (closed)="showComponentModal.set(false)"
-      (saved)="handleNewComponentSaved($event)"
+      [availableRuntimes]="techComponents()"
+      [editingComponent]="editingComponent()"
+      [lockContext]="true"
+      (closed)="handleModalClosed()"
+      (saved)="handleModalComponentSaved($event)"
     />
   }
 </div>

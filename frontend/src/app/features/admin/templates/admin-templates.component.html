@@ -116,6 +116,38 @@
       />
     </div>
 
+    <!-- Selector Rápido de Propósito Operativo -->
+    <div class="purpose-chips-bar" role="group" aria-label="Filtro por propósito de plantilla">
+      <button
+        type="button"
+        class="purpose-chip"
+        [class.active]="selectedPurpose() === 'ALL'"
+        (click)="selectedPurpose.set('ALL')">
+        Todos
+      </button>
+      <button
+        type="button"
+        class="purpose-chip"
+        [class.active]="selectedPurpose() === 'IDE_PERSISTENTE'"
+        (click)="selectedPurpose.set('IDE_PERSISTENTE')">
+        Laboratorio IDE
+      </button>
+      <button
+        type="button"
+        class="purpose-chip"
+        [class.active]="selectedPurpose() === 'JUEZ_EFIMERO'"
+        (click)="selectedPurpose.set('JUEZ_EFIMERO')">
+        Evaluador Juez
+      </button>
+      <button
+        type="button"
+        class="purpose-chip"
+        [class.active]="selectedPurpose() === 'AMBOS'"
+        (click)="selectedPurpose.set('AMBOS')">
+        Dual (Lab + Juez)
+      </button>
+    </div>
+
     <!-- Chips Dinámicos por Tecnología (Calculados Reactivamente desde la BD) -->
     @if (availableTechs().length > 0) {
       <div class="tech-chips-bar" role="group" aria-label="Filtro por tecnología">
@@ -188,10 +220,17 @@
             <div class="template-card">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
+                      @let pBadge = getPurposeBadge(item.target_environment);
+                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                        {{ pBadge.shortLabel }}
+                      </span>
+                      @if (item.category_name) {
+                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
+                      }
                       @if (item.status === 'PENDIENTE_AUDITORIA') {
                         <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
                           <span class="status-dot amber"></span>
@@ -243,6 +282,13 @@
                 </div>
               </div>
 
+              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                <div class="judge-entrypoint-box">
+                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                </div>
+              }
+
               <div class="pedagogical-justification-box">
                 <span class="justification-title">Justificación pedagógica:</span>
                 <p class="justification-text">
@@ -250,14 +296,20 @@
                 </p>
               </div>
 
-              <div class="card-actions">
-                <button type="button" class="btn-outline-danger" (click)="openRejectModal(item)">
-                  Rechazar
-                </button>
-                <button type="button" class="btn-primary" (click)="openReviewModal(item)">
-                  Revisar y Aprobar
-                </button>
-              </div>
+              @if (item.status !== 'PENDIENTE_AUDITORIA') {
+                <div class="card-actions">
+                  <button type="button" class="btn-outline-danger" (click)="openRejectModal(item)">
+                    Rechazar
+                  </button>
+                  <button type="button" class="btn-primary" (click)="openReviewModal(item)">
+                    Revisar y Aprobar
+                  </button>
+                </div>
+              } @else {
+                <div class="card-actions">
+                  <span class="meta-text text-tertiary">Auditoría automática de contenedor en curso...</span>
+                </div>
+              }
             </div>
           }
         </div>
@@ -280,9 +332,24 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
                       <div>
-                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        <div class="cell-title-badges">
+                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
+                          @let pBadge = getPurposeBadge(item.target_environment);
+                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                            {{ pBadge.shortLabel }}
+                          </span>
+                          @if (item.category_name) {
+                            <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                          <div class="judge-entrypoint-subtle">
+                            <span class="judge-label">Juez:</span>
+                            <code machineData>{{ item.entrypoint }}</code>
+                          </div>
+                        }
                         <div class="docker-copy-inline">
                           <code class="cell-code">{{ item.docker_image }}</code>
                           <button
@@ -355,13 +422,20 @@
         <!-- Catálogo en Tarjetas (Paginado) -->
         <div class="cards-grid">
           @for (item of paginatedCatalogTemplates(); track item.id) {
-            <div class="template-card" [class.card-paused]="item.status === 'paused'">
+            <div class="template-card" [class.card-paused]="isPausedStatus(item.status)">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
+                      @let pBadge = getPurposeBadge(item.target_environment);
+                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                        {{ pBadge.shortLabel }}
+                      </span>
+                      @if (item.category_name) {
+                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
+                      }
                       @if (item.status === 'PENDIENTE_AUDITORIA') {
                         <span class="badge-status-audit-pending" title="Auditoría de seguridad y prueba de arranque en curso">
                           <span class="status-dot amber"></span>
@@ -444,6 +518,13 @@
                   </button>
                 </div>
               </div>
+
+              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                <div class="judge-entrypoint-box">
+                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                </div>
+              }
 
               @if (item.description) {
                 <div class="pedagogical-justification-box">
@@ -531,12 +612,27 @@
             </thead>
             <tbody>
               @for (item of paginatedCatalogTemplates(); track item.id) {
-                <tr [class.row-paused]="item.status === 'paused'">
+                <tr [class.row-paused]="isPausedStatus(item.status)">
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
                       <div>
-                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        <div class="cell-title-badges">
+                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
+                          @let pBadge = getPurposeBadge(item.target_environment);
+                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                            {{ pBadge.shortLabel }}
+                          </span>
+                          @if (item.category_name) {
+                            <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                          <div class="judge-entrypoint-subtle">
+                            <span class="judge-label">Juez:</span>
+                            <code machineData>{{ item.entrypoint }}</code>
+                          </div>
+                        }
                         @if (item.description) {
                           <div class="cell-desc-subtle">{{ item.description }}</div>
                         }
@@ -738,10 +834,17 @@
             <div class="template-card card-rejected">
               <div class="card-header">
                 <div class="card-title-group">
-                  <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="36" />
+                  <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="36" />
                   <div>
                     <h3 class="card-title">{{ item.name }}</h3>
                     <div class="card-badges">
+                      @let pBadge = getPurposeBadge(item.target_environment);
+                      <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                        {{ pBadge.shortLabel }}
+                      </span>
+                      @if (item.category_name) {
+                        <span class="badge-category" title="Categoría">{{ item.category_name }}</span>
+                      }
                       <span class="badge-status-rejected">Rechazada</span>
                       <span class="badge-profile">RAM: <span machineData>{{ item.base_ram_mb }} MB</span></span>
                       @for (srv of item.services_config?.services; track srv.engine) {
@@ -784,10 +887,17 @@
                 </div>
               </div>
 
+              @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                <div class="judge-entrypoint-box">
+                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
+                </div>
+              }
+
               <div class="rejection-box">
                 <span class="rejection-label">Motivo Técnico de Rechazo:</span>
                 <p class="rejection-reason-text">
-                  {{ item.rejection_reason || 'Sin motivo especificado' }}
+                  {{ item.rejection_reason || item.smoke_test_output || 'Sin motivo especificado' }}
                 </p>
               </div>
             </div>
@@ -810,9 +920,24 @@
                 <tr>
                   <td>
                     <div class="cell-entity-group">
-                      <tech-logo [iconType]="getTech(item.name, item.docker_image).iconType" [size]="28" />
+                      <tech-logo [iconType]="getTemplateTech(item).iconType" [size]="28" />
                       <div>
-                        <div class="cell-main-title font-semibold">{{ item.name }}</div>
+                        <div class="cell-title-badges">
+                          <span class="cell-main-title font-semibold">{{ item.name }}</span>
+                          @let pBadge = getPurposeBadge(item.target_environment);
+                          <span [class]="'badge-purpose badge-purpose-' + pBadge.variant" [title]="pBadge.label">
+                            {{ pBadge.shortLabel }}
+                          </span>
+                          @if (item.category_name) {
+                            <span class="badge-category">{{ item.category_name }}</span>
+                          }
+                        </div>
+                        @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
+                          <div class="judge-entrypoint-subtle">
+                            <span class="judge-label">Juez:</span>
+                            <code machineData>{{ item.entrypoint }}</code>
+                          </div>
+                        }
                         <div class="docker-copy-inline">
                           <code class="cell-code">{{ item.docker_image }}</code>
                           <button

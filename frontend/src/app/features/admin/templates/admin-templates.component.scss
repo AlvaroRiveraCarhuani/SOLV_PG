@@ -90,6 +90,42 @@
   }
 }
 
+.purpose-chips-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.purpose-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  font-family: var(--font-sans);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 150ms ease;
+
+  &:hover {
+    background-color: var(--bg-surface-active);
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background-color: var(--tenant-primary-subtle);
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary-hover);
+    font-weight: 600;
+    box-shadow: var(--shadow-card);
+  }
+}
+
 .tech-chips-bar {
   display: flex;
   align-items: center;
@@ -298,6 +334,100 @@
   color: var(--tenant-primary);
   border: 1px solid var(--tenant-primary-border);
   text-transform: capitalize;
+}
+
+.badge-purpose {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  display: inline-flex;
+  align-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+
+  &-ide {
+    background-color: var(--tenant-primary-subtle);
+    color: var(--tenant-primary);
+    border: 1px solid var(--tenant-primary-border);
+  }
+
+  &-judge {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+    border: 1px solid var(--status-pending-border);
+  }
+
+  &-dual {
+    background-color: var(--tenant-primary-subtle);
+    color: var(--tenant-primary-hover);
+    border: 1px solid var(--tenant-primary-border);
+  }
+}
+
+.badge-category {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+}
+
+.judge-entrypoint-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  margin-top: 2px;
+
+  .judge-entrypoint-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .judge-entrypoint-tag {
+    font-family: var(--font-mono);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-primary);
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
+    border: 1px solid var(--border-strong);
+  }
+}
+
+.cell-title-badges {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.judge-entrypoint-subtle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 2px;
+  font-size: var(--text-xs);
+
+  .judge-label {
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    background-color: var(--bg-surface-subtle);
+    color: var(--text-secondary);
+    padding: 1px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+  }
 }
 
 .card-meta {

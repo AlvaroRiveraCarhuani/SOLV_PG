@@ -89,4 +89,42 @@ describe('TemplateEditModalComponent', () => {
     component.closeModal();
     expect(closed).toBe(false);
   });
+
+  it('calcula minimumFloorMB dinámicamente según ADR-045 (210 MB base, 260 MB con Postgres, 64 MB para juez)', () => {
+    // 1. IDE base sin servicios: 210 MB
+    expect(component.minimumFloorMB()).toBe(210);
+
+    // 2. IDE con Postgres: 210 + 50 = 260 MB
+    component.template = {
+      ...mockTemplate,
+      services_config: {
+        services: [{ category: 'database', engine: 'postgres', version: '16' }]
+      }
+    };
+    expect(component.minimumFloorMB()).toBe(260);
+
+    // 3. Juez efímero: 64 MB
+    component.template = {
+      ...mockTemplate,
+      target_environment: 'JUEZ_EFIMERO'
+    };
+    expect(component.minimumFloorMB()).toBe(64);
+  });
+
+  it('identifica modo AMBOS (isDual) y deriva la cuota de RAM del juez efímero (128 MB / 256 MB)', () => {
+    component.template = {
+      ...mockTemplate,
+      target_environment: 'AMBOS'
+    };
+    expect(component.isDual()).toBe(true);
+
+    component.setRam(512);
+    expect(component.derivedJudgeRamMB()).toBe(128);
+
+    component.setRam(1024);
+    expect(component.derivedJudgeRamMB()).toBe(256);
+
+    component.setRam(2048);
+    expect(component.derivedJudgeRamMB()).toBe(256);
+  });
 });

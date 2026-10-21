@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output, signal, computed, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminTemplateItem, AdminTemplatesService, RamPresetSuggestion, RuntimeCapabilities } from '../../../services/admin-templates.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -17,6 +18,7 @@ import {
   imports: [
     CommonModule,
     FormsModule,
+    MachineDataDirective,
     ModalShellComponent,
     FormFieldComponent,
     LucideHardDrive,
@@ -30,7 +32,15 @@ import {
 export class TemplateEditModalComponent implements OnInit {
   private templatesService = inject(AdminTemplatesService, { optional: true });
 
-  @Input({ required: true }) template!: AdminTemplateItem;
+  readonly templateItem = signal<AdminTemplateItem | null>(null);
+
+  @Input({ required: true })
+  set template(value: AdminTemplateItem) {
+    this.templateItem.set(value);
+  }
+  get template(): AdminTemplateItem {
+    return this.templateItem()!;
+  }
   @Output() saved = new EventEmitter<{ id: string; base_ram_mb: number; description?: string }>();
   @Output() closed = new EventEmitter<void>();
 
@@ -41,8 +51,17 @@ export class TemplateEditModalComponent implements OnInit {
   runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
   ramPresets = signal<RamPresetSuggestion[]>([]);
 
+  isDual = computed<boolean>(() => {
+    return this.templateItem()?.target_environment === 'AMBOS';
+  });
+
   isJudge = computed<boolean>(() => {
-    return (this.template?.target_environment || 'IDE_PERSISTENTE') === 'JUEZ_EFIMERO';
+    const env = this.templateItem()?.target_environment;
+    return env === 'JUEZ_EFIMERO' || env === 'JUEZ_VIRTUAL';
+  });
+
+  derivedJudgeRamMB = computed<number>(() => {
+    return this.selectedRam() >= 1024 ? 256 : 128;
   });
 
   maxAllowedRamMB = computed<number>(() => {
@@ -61,7 +80,19 @@ export class TemplateEditModalComponent implements OnInit {
 
   minimumFloorMB = computed<number>(() => {
     if (this.isJudge()) return 64;
-    return this.runtimeCapabilities()?.editor_base_mb ?? 256;
+    let floor = this.runtimeCapabilities()?.editor_base_mb ?? 210;
+    const services = this.templateItem()?.services_config?.services || [];
+    for (const svc of services) {
+      const engine = (svc.engine || '').toLowerCase().trim();
+      if (engine === 'postgres') {
+        floor += 50;
+      } else if (engine === 'mysql' || engine === 'mongodb') {
+        floor += 128;
+      } else if (engine === 'redis') {
+        floor += 64;
+      }
+    }
+    return floor;
   });
 
   isRamBelowFloor = computed<boolean>(() => {
@@ -108,7 +139,7 @@ export class TemplateEditModalComponent implements OnInit {
       this.selectedRam.set(this.template.base_ram_mb || 512);
       this.description.set(this.template.description || '');
     }
-    const judge = (this.template?.target_environment || 'IDE_PERSISTENTE') === 'JUEZ_EFIMERO';
+    const judge = this.isJudge();
     this.ramPresets.set(this.getDefaultPresets(judge));
     this.templatesService?.getRuntimeCapabilities().subscribe({
       next: (caps) => {

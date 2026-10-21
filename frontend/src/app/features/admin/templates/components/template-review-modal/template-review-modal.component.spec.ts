@@ -104,4 +104,46 @@ describe('TemplateReviewModalComponent Spec', () => {
     component.closeModal();
     expect(closedEmitted).toBe(true);
   });
+
+  it('calcula el piso vital dinámico según el propósito y satélites (ADR-045)', () => {
+    // 1. IDE sin satélites: 210 MB
+    expect(component.minimumFloorMB()).toBe(210);
+
+    // 2. IDE con PostgreSQL: 210 + 50 = 260 MB
+    component.template = {
+      ...mockTemplate,
+      services_config: { services: [{ category: 'database', engine: 'postgres' }] }
+    };
+    expect(component.minimumFloorMB()).toBe(260);
+
+    // 3. Juez efímero: 64 MB
+    component.template = {
+      ...mockTemplate,
+      target_environment: 'JUEZ_EFIMERO'
+    };
+    expect(component.minimumFloorMB()).toBe(64);
+  });
+
+  it('canApprove bloquea la aprobación si la RAM es menor al piso vital o supera la memoria host', () => {
+    // template IDE base -> piso vital 210 MB, host 16384 MB
+    component.template = { ...mockTemplate };
+    
+    // RAM válida
+    component.setRam(512);
+    expect(component.canApprove()).toBe(true);
+
+    // RAM por debajo del piso
+    component.setRam(128);
+    expect(component.canApprove()).toBe(false);
+
+    // Si se intenta confirmar con RAM menor al piso, no emite
+    let emitted = false;
+    component.approved.subscribe(() => { emitted = true; });
+    component.confirmApprove();
+    expect(emitted).toBe(false);
+
+    // RAM que supera la capacidad física del host
+    component.setRam(32768);
+    expect(component.canApprove()).toBe(false);
+  });
 });

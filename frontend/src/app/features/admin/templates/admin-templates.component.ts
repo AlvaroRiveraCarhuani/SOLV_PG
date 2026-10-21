@@ -7,6 +7,7 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { 
   AdminTemplatesService, 
   AdminTemplateItem, 
+  CreateOfficialTemplateDTO,
   ReviewTemplateDTO, 
   TemplateCacheStatus
 } from '../services/admin-templates.service';
@@ -34,7 +35,7 @@ import {
   LucideMoreVertical,
   LucideDownloadCloud
 } from '@lucide/angular';
-import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
+import { CURATED_TECH_ICONS, TechIconKey, TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
@@ -45,22 +46,72 @@ export interface TechMeta {
   id: string;
   name: string;
   badgeClass: string;
-  iconType: 'python' | 'rust' | 'node' | 'go' | 'java' | 'cpp' | 'db' | 'docker';
+  iconType: TechIconKey;
 }
 
-export function detectTech(name: string, image: string): TechMeta {
+export function detectTemplateTech(item: Pick<AdminTemplateItem, 'name' | 'docker_image' | 'stack_config'>): TechMeta {
+  const runtimeId = (item.stack_config?.runtime_id || '').toLowerCase().trim();
+  const webId = (item.stack_config?.web_platform_id || '').toLowerCase().trim();
+
+  const matchCuratedId = (id: string): TechMeta | null => {
+    if (!id) return null;
+    const direct = CURATED_TECH_ICONS.find(c => c.key.toLowerCase() === id && c.key !== 'docker');
+    if (direct) {
+      return { id: direct.key, name: direct.label, badgeClass: `tech-${direct.key}`, iconType: direct.key as TechIconKey };
+    }
+    for (const c of CURATED_TECH_ICONS) {
+      if (c.key === 'docker') continue;
+      const key = c.key.toLowerCase();
+      const re = new RegExp(`(^|[^a-z0-9])${key}([^a-z0-9]|$)`, 'i');
+      if (re.test(id)) {
+        return { id: c.key, name: c.label, badgeClass: `tech-${c.key}`, iconType: c.key as TechIconKey };
+      }
+    }
+    return null;
+  };
+
+  if (runtimeId) {
+    const matched = matchCuratedId(runtimeId);
+    if (matched) return matched;
+  }
+
+  if (webId) {
+    const matched = matchCuratedId(webId);
+    if (matched) return matched;
+  }
+
+  const name = item.name || '';
+  const image = item.docker_image || '';
   const text = `${name} ${image}`.toLowerCase();
 
-  if (text.includes('python') || text.includes('django') || text.includes('flask') || text.includes('fastapi') || text.includes('pandas') || text.includes('numpy') || text.includes('ds')) {
+  if (text.includes('python') || text.includes('django') || text.includes('flask') || text.includes('fastapi') || text.includes('pandas') || text.includes('numpy') || text.includes('streamlit') || text.includes(' ds')) {
     return { id: 'python', name: 'Python', badgeClass: 'tech-python', iconType: 'python' };
   }
   if (text.includes('rust') || text.includes('cargo') || text.includes('actix') || text.includes('tokio')) {
     return { id: 'rust', name: 'Rust', badgeClass: 'tech-rust', iconType: 'rust' };
   }
-  if (text.includes('node') || text.includes('javascript') || text.includes('typescript') || text.includes('express') || text.includes('nest') || text.includes('react') || text.includes('angular') || text.includes('vue') || text.includes('next')) {
+  if (text.includes('typescript') || text.includes('ts-node')) {
+    return { id: 'typescript', name: 'TypeScript', badgeClass: 'tech-typescript', iconType: 'typescript' };
+  }
+  if (text.includes('angular')) {
+    return { id: 'angular', name: 'Angular', badgeClass: 'tech-angular', iconType: 'angular' };
+  }
+  if (text.includes('react') || text.includes('next')) {
+    return { id: 'react', name: 'React', badgeClass: 'tech-react', iconType: 'react' };
+  }
+  if (text.includes('vue') || text.includes('vite')) {
+    return { id: 'vue', name: 'Vue', badgeClass: 'tech-vue', iconType: 'vue' };
+  }
+  if (text.includes('node') || text.includes('javascript') || text.includes('express') || text.includes('nest') || text.includes('bun') || text.includes('deno')) {
     return { id: 'node', name: 'Node.js', badgeClass: 'tech-node', iconType: 'node' };
   }
-  if (text.includes('golang') || text.includes('go:') || text.includes('go-') || text.includes('/go') || text.includes('gin') || text.includes('fiber')) {
+  if (text.includes('php') || text.includes('laravel')) {
+    return { id: 'php', name: 'PHP', badgeClass: 'tech-php', iconType: 'php' };
+  }
+  if (text.includes('dotnet') || text.includes('c#') || text.includes('.net') || text.includes('csharp')) {
+    return { id: 'dotnet', name: '.NET / C#', badgeClass: 'tech-dotnet', iconType: 'dotnet' };
+  }
+  if (text.includes('golang') || text.includes('go:') || text.includes('go-') || text.includes('/go') || text.includes('gin') || text.includes('fiber') || /\bgo\b/.test(text)) {
     return { id: 'go', name: 'Go', badgeClass: 'tech-go', iconType: 'go' };
   }
   if (text.includes('java') || text.includes('spring') || text.includes('kotlin') || text.includes('maven') || text.includes('gradle')) {
@@ -72,7 +123,19 @@ export function detectTech(name: string, image: string): TechMeta {
   if (text.includes('postgres') || text.includes('mysql') || text.includes('sql') || text.includes('redis') || text.includes('mongo') || text.includes('mariadb')) {
     return { id: 'db', name: 'Bases de Datos', badgeClass: 'tech-db', iconType: 'db' };
   }
+
+  for (const curated of CURATED_TECH_ICONS) {
+    if (curated.key === 'docker' || curated.key === 'go') continue;
+    if (text.includes(curated.key)) {
+      return { id: curated.key, name: curated.label, badgeClass: `tech-${curated.key}`, iconType: curated.key as TechIconKey };
+    }
+  }
+
   return { id: 'docker', name: 'Docker Base', badgeClass: 'tech-docker', iconType: 'docker' };
+}
+
+export function detectTech(name: string, image: string): TechMeta {
+  return detectTemplateTech({ name, docker_image: image });
 }
 
 export type TabType = 'pending' | 'catalog' | 'rejected';
@@ -134,9 +197,14 @@ export class AdminTemplatesComponent implements OnInit {
   viewMode = signal<ViewMode>('cards');
   searchTerm = signal<string>('');
   selectedTech = signal<string>('all');
+  selectedPurpose = signal<'ALL' | 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS'>('ALL');
   copiedTag = signal<string | null>(null);
   isLoading = signal<boolean>(false);
   openMenuId = signal<string | null>(null);
+
+  isPausedStatus(status?: string): boolean {
+    return status === 'paused' || status === 'suspended' || status === 'SUSPENDIDA';
+  }
 
   // Cache warming state
   cacheStatuses = signal<Map<string, TemplateCacheStatus>>(new Map());
@@ -184,7 +252,7 @@ export class AdminTemplatesComponent implements OnInit {
       return all.filter(t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA');
     }
     if (tab === 'catalog') {
-      return all.filter(t => t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused');
+      return all.filter(t => t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status));
     }
     return all.filter(t => t.status === 'rejected' || t.status === 'RECHAZADA');
   });
@@ -193,7 +261,7 @@ export class AdminTemplatesComponent implements OnInit {
   availableTechs = computed(() => {
     const counts: Record<string, { meta: TechMeta; count: number }> = {};
     for (const t of this.currentTabTemplates()) {
-      const meta = detectTech(t.name, t.docker_image);
+      const meta = detectTemplateTech(t);
       if (!counts[meta.id]) {
         counts[meta.id] = { meta, count: 0 };
       }
@@ -217,15 +285,22 @@ export class AdminTemplatesComponent implements OnInit {
     return this.extraTechs().some(t => t.meta.id === selected);
   });
 
-  // Computed lists con filtro de búsqueda y tecnología
+  // Computed lists con filtro de búsqueda, propósito y tecnología
   pendingTemplates = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
+    const purpose = this.selectedPurpose();
     return this.allTemplates().filter(t => {
       const isPending = t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA';
       if (!isPending) return false;
+      if (purpose !== 'ALL') {
+        const env = t.target_environment || 'IDE_PERSISTENTE';
+        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
+        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
+        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
+      }
       if (tech !== 'all') {
-        const itemTech = detectTech(t.name, t.docker_image);
+        const itemTech = detectTemplateTech(t);
         if (itemTech.id !== tech) return false;
       }
       if (!term) return true;
@@ -241,11 +316,18 @@ export class AdminTemplatesComponent implements OnInit {
   catalogTemplates = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
+    const purpose = this.selectedPurpose();
     return this.allTemplates().filter(t => {
-      const isCatalog = t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused';
+      const isCatalog = t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status);
       if (!isCatalog) return false;
+      if (purpose !== 'ALL') {
+        const env = t.target_environment || 'IDE_PERSISTENTE';
+        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
+        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
+        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
+      }
       if (tech !== 'all') {
-        const itemTech = detectTech(t.name, t.docker_image);
+        const itemTech = detectTemplateTech(t);
         if (itemTech.id !== tech) return false;
       }
       if (!term) return true;
@@ -273,11 +355,18 @@ export class AdminTemplatesComponent implements OnInit {
   rejectedTemplates = computed(() => {
     const term = this.searchTerm().toLowerCase().trim();
     const tech = this.selectedTech();
+    const purpose = this.selectedPurpose();
     return this.allTemplates().filter(t => {
       const isRejected = t.status === 'rejected' || t.status === 'RECHAZADA';
       if (!isRejected) return false;
+      if (purpose !== 'ALL') {
+        const env = t.target_environment || 'IDE_PERSISTENTE';
+        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
+        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
+        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
+      }
       if (tech !== 'all') {
-        const itemTech = detectTech(t.name, t.docker_image);
+        const itemTech = detectTemplateTech(t);
         if (itemTech.id !== tech) return false;
       }
       if (!term) return true;
@@ -309,7 +398,7 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   catalogCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA' || t.status === 'paused').length;
+    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status)).length;
   });
 
   activeCount = computed(() => {
@@ -317,7 +406,7 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   pausedCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'paused').length;
+    return this.allTemplates().filter(t => this.isPausedStatus(t.status)).length;
   });
 
   rejectedCount = computed(() => {
@@ -357,6 +446,10 @@ export class AdminTemplatesComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    const tabParam = this.route.snapshot.queryParamMap.get('tab');
+    if (tabParam === 'catalog' || tabParam === 'pending' || tabParam === 'rejected') {
+      this.activeTab.set(tabParam);
+    }
     this.loadTemplates();
     if (this.route.snapshot.queryParamMap.get('nueva') === '1') {
       this.navigateToCreateStudio();
@@ -368,6 +461,10 @@ export class AdminTemplatesComponent implements OnInit {
     this.templatesService.getTemplates('all').subscribe({
       next: (data) => {
         this.allTemplates.set(data);
+        const requestedTab = this.route.snapshot.queryParamMap.get('tab');
+        if (!requestedTab && this.activeTab() === 'pending' && this.pendingCount() === 0 && this.catalogCount() > 0) {
+          this.activeTab.set('catalog');
+        }
         this.isLoading.set(false);
         this.loadCacheStatuses();
       },
@@ -556,13 +653,35 @@ export class AdminTemplatesComponent implements OnInit {
 
   handleSaveEdit(event: { id: string; base_ram_mb: number; description?: string }): void {
     const current = this.selectedTemplateForEdit();
-    const targetStatus: 'approved' | 'paused' = current?.status === 'paused' ? 'paused' : 'approved';
-    const dto: ReviewTemplateDTO = {
+    if (!current) return;
+
+    const updateDto: CreateOfficialTemplateDTO = {
+      name: current.name,
+      docker_image: current.docker_image,
+      base_ram_mb: event.base_ram_mb,
+      description: event.description !== undefined ? event.description : (current.description || ''),
+      target_environment: current.target_environment || 'IDE_PERSISTENTE',
+      category_id: current.category_id || undefined,
+      entrypoint: current.entrypoint || undefined,
+      timeout_ms: current.timeout_ms || undefined,
+      sample_input: current.sample_input || undefined,
+      services_config: current.services_config,
+      setup_script: current.setup_script || undefined,
+      tools_declared: current.tools_declared,
+      stack_config: current.stack_config
+    };
+
+    const targetStatus: 'approved' | 'paused' = this.isPausedStatus(current.status) ? 'paused' : 'approved';
+    const fallbackDto: ReviewTemplateDTO = {
       status: targetStatus,
       base_ram_mb: event.base_ram_mb
     };
 
-    this.templatesService.reviewTemplate(event.id, dto).subscribe({
+    const save$ = (typeof this.templatesService.updateOfficialTemplate === 'function')
+      ? this.templatesService.updateOfficialTemplate(event.id, updateDto)
+      : this.templatesService.reviewTemplate(event.id, fallbackDto);
+
+    save$.subscribe({
       next: (updated) => {
         if (event.description !== undefined) {
           updated.description = event.description;
@@ -580,8 +699,22 @@ export class AdminTemplatesComponent implements OnInit {
     });
   }
 
+  getTemplateTech(item: AdminTemplateItem): TechMeta {
+    return detectTemplateTech(item);
+  }
+
   getTech(name: string, image: string): TechMeta {
     return detectTech(name, image);
+  }
+
+  getPurposeBadge(targetEnv?: string): { label: string; shortLabel: string; variant: 'ide' | 'judge' | 'dual' } {
+    if (targetEnv === 'AMBOS') {
+      return { label: 'Dual: Lab + Juez', shortLabel: 'DUAL', variant: 'dual' };
+    }
+    if (targetEnv === 'JUEZ_EFIMERO' || targetEnv === 'JUEZ_VIRTUAL') {
+      return { label: 'Evaluador Juez', shortLabel: 'JUEZ', variant: 'judge' };
+    }
+    return { label: 'Laboratorio IDE', shortLabel: 'LAB IDE', variant: 'ide' };
   }
 
   setTechFilter(techId: string): void {

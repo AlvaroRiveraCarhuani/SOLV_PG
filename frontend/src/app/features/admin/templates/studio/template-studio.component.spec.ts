@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
@@ -6,6 +7,7 @@ import { TemplateStudioComponent } from './template-studio.component';
 import { AdminTemplatesService } from '../../services/admin-templates.service';
 import { AdminTemplateItem, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJobService } from '../../services/env-test-job.service';
+import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
 
 const MOCK_CATALOG_ITEMS: TemplateComponent[] = [
   {
@@ -708,11 +710,12 @@ describe('TemplateStudioComponent', () => {
     expect(component.requiresVerificationBeforePublish()).toBe(false);
   });
 
-  it('should generate multi-distro nodejs/npm snippet when web platform is added to non-Node runtime', () => {
+  it('should inject multi-stage official Node.js LTS when web platform is added to non-Node runtime', () => {
     component.selectRuntime('rt-python-312');
     component.selectWebPlatform('web-angular');
 
-    expect(component.dockerfileContent()).toContain('(command -v apk >/dev/null 2>&1 && apk add --no-cache nodejs npm) || (apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*)');
+    expect(component.dockerfileContent()).toContain('COPY --from=node:20-bookworm-slim /usr/local /usr/local');
+    expect(component.dockerfileContent()).not.toContain('apt-get install -y --no-install-recommends nodejs npm');
   });
 
   it('should detect configuration modifications after successful verification and block publication', () => {
@@ -943,4 +946,641 @@ describe('TemplateStudioComponent', () => {
     expect(component.toolsDeclared()).toContain('flake8');
     expect(component.baseRamMB()).toBe(1024);
   });
+
+  it('should support Solo Frontend composition with 1024 MB RAM, web base image, and verification enabled', () => {
+    // Solo seleccionar plataforma web (sin runtime backend)
+    component.selectWebPlatform('web-angular');
+
+    expect(component.selectedRuntimeComponent()).toBeNull();
+    expect(component.selectedWebComponent()?.id).toBe('web-angular');
+    expect(component.effectivePrimaryComponent()?.id).toBe('web-angular');
+    expect(component.hasSelectedStack()).toBe(true);
+
+    // RAM recomendada: 640 MB proceso activo + 210 MB base editor = 850 MB -> 1024 MB tier
+    expect(component.recommendedRamMB()).toBe(1024);
+    expect(component.baseRamMB()).toBe(1024);
+
+    // Dockerfile usa la imagen base de la web y su capa de build sin inyección redundante de Node
+    expect(component.dockerfileContent()).toContain('FROM node:20-bookworm-slim');
+    expect(component.dockerfileContent()).toContain('RUN npm install -g --no-audit --no-fund @angular/cli');
+    expect(component.dockerfileContent()).not.toContain('COPY --from=');
+    expect(component.dockerfileContent()).not.toContain('apt-get');
+
+    // Nombre sugerido automático
+    expect(component.name()).toBe('Laboratorio: Angular');
+    expect(component.stackSummaryLabel()).toBe('Angular');
+
+    // Herramientas declaradas coinciden con web (sin git fantasma)
+    expect(component.toolsDeclared()).toBe('node, npm, ng');
+
+    // Complementos compatibles habilitados para web/node
+    const addons = component.compatibleAddons();
+    expect(addons.some(a => a.id === 'ad-typescript')).toBe(true);
+
+    // Verificación habilitada sin error de "seleccione un lenguaje principal"
+    const envSvc = TestBed.inject(EnvTestJobService);
+    const soloJob = {
+      id: 'job-solo-front',
+      image: component.dockerImage(),
+      tools: component.toolsList(),
+      target_environment: 'IDE_PERSISTENTE' as const,
+      base_ram_mb: 1024,
+      status: 'pending' as const,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      digest_unverified: false,
+      progress: {
+        percent: 0,
+        current_action: 'Iniciando',
+        bytes_done: 0,
+        bytes_total: 0,
+        layer_current: 0,
+        layers_total: 0
+      }
+    };
+    const startJobSpy = vi.spyOn(envSvc, 'startJob').mockReturnValue(of(soloJob));
+    vi.spyOn(envSvc, 'pollJob').mockReturnValue(of(soloJob));
+
+    component.runVerificationTest();
+    expect(startJobSpy).toHaveBeenCalled();
+    expect(component.toast()?.type).not.toBe('error');
+  });
+
+  it('should support toggling runtime selection on and off', () => {
+    // 1. Seleccionar runtime
+    component.selectRuntime('rt-python-312');
+    expect(component.selectedRuntimeId()).toBe('rt-python-312');
+    expect(component.selectedRuntimeComponent()?.id).toBe('rt-python-312');
+
+    // 2. Hacer toggle (clic sobre el mismo runtime lo deselecciona)
+    component.selectRuntime('rt-python-312');
+    expect(component.selectedRuntimeId()).toBeNull();
+    expect(component.selectedRuntimeComponent()).toBeNull();
+    expect(component.hasSelectedStack()).toBe(false);
+
+    // 3. Con web seleccionada, deseleccionar runtime transiciona limpiamente a Solo Frontend
+    component.selectRuntime('rt-python-312');
+    component.selectWebPlatform('web-angular');
+    expect(component.effectivePrimaryComponent()?.id).toBe('rt-python-312');
+
+    // Deseleccionar runtime
+    component.selectRuntime('rt-python-312');
+    expect(component.selectedRuntimeId()).toBeNull();
+    expect(component.effectivePrimaryComponent()?.id).toBe('web-angular');
+    expect(component.baseRamMB()).toBe(1024);
+    expect(component.name()).toBe('Laboratorio: Angular');
+  });
+
+  it('should not contain ghost git in toolsDeclared when not declared by components', () => {
+    component.selectRuntime('rt-python-312');
+    // rt-python-312 declara ['python3', 'pip']
+    expect(component.toolsDeclared()).toBe('python3, pip');
+    expect(component.toolsList()).toEqual(['python3', 'pip']);
+    expect(component.toolsList()).not.toContain('git');
+  });
+
+  it('should support hot-editing tech components in studio and recalculate active selection', () => {
+    component.selectRuntime('rt-python-312');
+    expect(component.name()).toBe('Laboratorio: Python 3.12');
+    expect(component.baseRamMB()).toBe(512);
+
+    // Abrir modal de edición
+    const currentComp = component.selectedRuntimeComponent()!;
+    component.openEditComponentModal(currentComp);
+    expect(component.editingComponent()?.id).toBe('rt-python-312');
+    expect(component.showComponentModal()).toBe(true);
+
+    // Guardar componente modificado
+    const modifiedComp: TemplateComponent = {
+      ...currentComp,
+      name: 'Python 3.12 Actualizado',
+      tools_provided: ['python3', 'pip', 'poetry']
+    };
+
+    component.handleModalComponentSaved(modifiedComp);
+
+    // Modal se cierra y editingComponent se resetea
+    expect(component.showComponentModal()).toBe(false);
+    expect(component.editingComponent()).toBeNull();
+
+    // Catálogo en memoria se actualizó
+    const updatedInCatalog = component.techComponents().find(c => c.id === 'rt-python-312');
+    expect(updatedInCatalog?.name).toBe('Python 3.12 Actualizado');
+
+    // Selección activa y estudio se recalcularon automáticamente
+    expect(component.name()).toBe('Laboratorio: Python 3.12 Actualizado');
+    expect(component.toolsDeclared()).toBe('python3, pip, poetry');
+  });
+
+  it('should restore Solo Frontend template correctly in applyTemplateToStudio', () => {
+    const soloFrontTemplate: AdminTemplateItem = {
+      id: 'tpl-solo-frontend',
+      name: 'Solo Angular Lab',
+      docker_image: 'solv-local/stack:angular123',
+      base_ram_mb: 1024,
+      status: 'approved',
+      created_at: new Date().toISOString(),
+      target_environment: 'IDE_PERSISTENTE',
+      setup_script: '',
+      tools_declared: ['node', 'npm', 'ng'],
+      stack_config: {
+        mode: 'visual',
+        web_platform_id: 'web-angular',
+        addon_ids: []
+      }
+    };
+
+    (component as unknown as { applyTemplateToStudio: (tpl: AdminTemplateItem, dup: boolean) => void })
+      .applyTemplateToStudio(soloFrontTemplate, false);
+
+    expect(component.selectedRuntimeId()).toBeNull();
+    expect(component.selectedWebPlatformId()).toBe('web-angular');
+    expect(component.effectivePrimaryComponent()?.id).toBe('web-angular');
+    expect(component.baseRamMB()).toBe(1024);
+  });
+
+  it('should use RUN apk add nodejs npm when web platform is added to alpine runtime', () => {
+    const alpineRt: TemplateComponent = {
+      id: 'rt-alpine-python',
+      slug: 'alpine-python',
+      layer: 'runtime',
+      sub_category: 'backend',
+      name: 'Python Alpine',
+      description: 'Alpine python',
+      icon_key: 'python',
+      base_image: 'python:3.12-alpine',
+      compatible_runtimes: ['python'],
+      install_mode: 'none',
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: ['python3'],
+      service_engine: '',
+      ram_delta_mb: 256,
+      is_system: true,
+      is_active: true,
+      sort_order: 12
+    };
+
+    component.techComponents.update(list => [...list, alpineRt]);
+    component.selectRuntime('rt-alpine-python');
+    component.selectWebPlatform('web-angular');
+
+    expect(component.dockerfileContent()).toContain('RUN apk add --no-cache nodejs npm');
+    expect(component.dockerfileContent()).toContain('RUN npm install -g --no-audit --no-fund @angular/cli');
+  });
+
+  it('should pass techComponents to component-form-modal and preselect web component key in Solo Frontend stack', () => {
+    // 1. Initially nothing selected -> empty key
+    expect(component.modalDefaultCompatibleRuntime()).toBe('');
+
+    // 2. Select Solo Frontend stack (Angular, no backend runtime)
+    component.selectedRuntimeId.set(null);
+    component.selectWebPlatform('web-angular');
+    expect(component.selectedRuntimeComponent()).toBeNull();
+    expect(component.selectedWebComponent()?.id).toBe('web-angular');
+    expect(component.effectivePrimaryComponent()?.id).toBe('web-angular');
+
+    // modalDefaultCompatibleRuntime() must return web component's key: (rt.slug || rt.icon_key || rt.name).toLowerCase()
+    // For web-angular, slug is 'angular-web'
+    expect(component.modalDefaultCompatibleRuntime()).toBe('angular-web');
+
+    // 3. Open modal to register a new addon technology
+    component.openNewComponentModal('addon');
+    expect(component.showComponentModal()).toBe(true);
+    fixture.detectChanges();
+
+    // 4. Assert component-form-modal receives all techComponents (not just backendRuntimes)
+    const modalDebugEl = fixture.debugElement.query(By.directive(ComponentFormModalComponent));
+    expect(modalDebugEl).toBeTruthy();
+    const modalComp = modalDebugEl.componentInstance as ComponentFormModalComponent;
+
+    expect(modalComp.availableRuntimes).toEqual(component.techComponents());
+    expect(modalComp.defaultCompatibleRuntime).toBe('angular-web');
+
+    // Verify compatibleRuntimeOptions includes the web component and universal
+    const options = modalComp.compatibleRuntimeOptions();
+    expect(options.some(opt => opt.id === 'angular-web' && opt.label === 'Angular')).toBe(true);
+    expect(options.some(opt => opt.id === 'universal')).toBe(true);
+
+    // 5. When selecting a backend runtime, it returns backend runtime key
+    component.selectRuntime('rt-python-312');
+    expect(component.modalDefaultCompatibleRuntime()).toBe('python-312');
+  });
+
+  it('should set modalDefaultSubCategory and pass it to component-form-modal', () => {
+    // Default openNewComponentModal with backend
+    component.openNewComponentModal('runtime', 'backend');
+    expect(component.modalDefaultLayer()).toBe('runtime');
+    expect(component.modalDefaultSubCategory()).toBe('backend');
+    expect(component.showComponentModal()).toBe(true);
+    fixture.detectChanges();
+
+    let modalDebugEl = fixture.debugElement.query(By.directive(ComponentFormModalComponent));
+    expect(modalDebugEl).toBeTruthy();
+    let modalComp = modalDebugEl.componentInstance as ComponentFormModalComponent;
+    expect(modalComp.defaultSubCategory).toBe('backend');
+
+    component.handleModalClosed();
+    fixture.detectChanges();
+
+    // Open from web button
+    component.openNewComponentModal('runtime', 'web');
+    expect(component.modalDefaultLayer()).toBe('runtime');
+    expect(component.modalDefaultSubCategory()).toBe('web');
+    expect(component.showComponentModal()).toBe(true);
+    fixture.detectChanges();
+
+    modalDebugEl = fixture.debugElement.query(By.directive(ComponentFormModalComponent));
+    expect(modalDebugEl).toBeTruthy();
+    modalComp = modalDebugEl.componentInstance as ComponentFormModalComponent;
+    expect(modalComp.defaultSubCategory).toBe('web');
+  });
+
+  it('should permanently render web platforms subsection with empty hint when empty in IDE_PERSISTENTE', () => {
+    // Clear web platforms
+    component.techComponents.set(
+      MOCK_CATALOG_ITEMS.filter(c => !(c.layer === 'runtime' && c.sub_category === 'web'))
+    );
+    component.targetEnvironment.set('IDE_PERSISTENTE');
+    fixture.detectChanges();
+
+    expect(component.webPlatforms().length).toBe(0);
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.textContent).toContain('Interfaz Web / Frontend (Opcional)');
+    expect(compiled.textContent).toContain("No hay plataformas web registradas. Puede agregar una con '+ Nueva web'.");
+  });
+
+  it('should disable canRunVerification and canPublishTemplate when 0 technologies are selected, even if template name is provided', () => {
+    // 0 technologies selected in Step 2, but name is typed in Step 1
+    component.selectedRuntimeId.set(null);
+    component.selectedWebPlatformId.set(null);
+    component.selectedAddonIds.set([]);
+    component.dockerImage.set('');
+    component.name.set('Plantilla sin tecnologías');
+    fixture.detectChanges();
+
+    expect(component.canRunVerification()).toBe(false);
+    expect(component.canPublishTemplate()).toBe(false);
+
+    const vBlocker = component.verificationBlocker();
+    expect(vBlocker).not.toBeNull();
+    expect(vBlocker?.tone).toBe('neutral');
+    expect(vBlocker?.reason).toBe(
+      'Seleccione una tecnología principal en el Paso 2 para habilitar la comprobación y publicación.'
+    );
+
+    const pBlocker = component.publishBlocker();
+    expect(pBlocker).toEqual(vBlocker);
+
+    // Verify DOM: both buttons are disabled and the blocker note is rendered
+    const buttons = fixture.debugElement.queryAll(By.css('.blueprint-footer button'));
+    expect(buttons.length).toBe(2);
+    expect(buttons[0].nativeElement.disabled).toBe(true);
+    expect(buttons[1].nativeElement.disabled).toBe(true);
+
+    const note = fixture.debugElement.query(By.css('.blueprint-footer .publish-block-note'));
+    expect(note).toBeTruthy();
+    expect(note.nativeElement.textContent).toContain(
+      'Seleccione una tecnología principal en el Paso 2 para habilitar la comprobación y publicación.'
+    );
+  });
+
+  it('should require judge entrypoint and render judge-visual-config-bar in JUEZ_EFIMERO visual mode', () => {
+    component.targetEnvironment.set('JUEZ_EFIMERO');
+    component.selectedRuntimeId.set(null);
+    component.dockerImage.set('');
+    fixture.detectChanges();
+
+    // 1. Without runtime selected, blocker specifies selecting runtime in Column 1
+    expect(component.verificationBlocker()?.reason).toBe(
+      'Seleccione un Lenguaje Principal en la Columna 1 para configurar el Evaluador Automático.'
+    );
+    expect(component.verificationBlocker()?.tone).toBe('neutral');
+    expect(component.canRunVerification()).toBe(false);
+
+    // 2. Select Python runtime
+    component.selectRuntime('rt-python-312');
+    fixture.detectChanges();
+
+    // Entrypoint bar should be visible in visual mode
+    const visualBar = fixture.debugElement.query(By.css('.judge-visual-config-bar'));
+    expect(visualBar).toBeTruthy();
+    const entrypointInput = fixture.debugElement.query(By.css('#visual-judge-entrypoint'));
+    expect(entrypointInput).toBeTruthy();
+    expect(component.entrypoint()).toBe('python3 solution.py');
+    expect(component.verificationBlocker()).toBeNull();
+    expect(component.canRunVerification()).toBe(true);
+
+    // 3. Clear entrypoint: should trigger warning blocker
+    component.entrypoint.set('   ');
+    expect(component.verificationBlocker()?.reason).toBe(
+      'Indique el comando de compilación y ejecución del Evaluador Automático.'
+    );
+    expect(component.verificationBlocker()?.tone).toBe('warning');
+    expect(component.canRunVerification()).toBe(false);
+
+    // 4. Restore valid entrypoint
+    component.entrypoint.set('python3 solution.py');
+    expect(component.verificationBlocker()).toBeNull();
+    expect(component.canRunVerification()).toBe(true);
+  });
+
+  it('should prevent execution in runVerificationTest and publishTemplate when blockers are active', () => {
+    component.selectedRuntimeId.set(null);
+    component.selectedWebPlatformId.set(null);
+    component.dockerImage.set('');
+    component.name.set('Plantilla Bloqueada');
+
+    const envService = TestBed.inject(EnvTestJobService);
+    const startJobSpy = vi.spyOn(envService, 'startJob');
+    const tplService = TestBed.inject(AdminTemplatesService);
+    const createSpy = vi.spyOn(tplService, 'createOfficialTemplate');
+
+    component.runVerificationTest();
+    expect(startJobSpy).not.toHaveBeenCalled();
+    expect(component.toast()?.type).toBe('error');
+    expect(component.toast()?.message).toBe(
+      'Seleccione una tecnología principal en el Paso 2 para habilitar la comprobación y publicación.'
+    );
+
+    component.publishTemplate();
+    expect(createSpy).not.toHaveBeenCalled();
+    expect(component.toast()?.type).toBe('error');
+    expect(component.toast()?.message).toBe(
+      'Seleccione una tecnología principal en el Paso 2 para habilitar la comprobación y publicación.'
+    );
+  });
+
+  it('should handle targetEnvironment AMBOS: strips web/database, populates both setupScript and judge entrypoint, and prefixes name with Entorno Dual', () => {
+    component.techComponents.update(list => [
+      ...list,
+      {
+        id: 'addon-custom-snippet',
+        slug: 'custom-snippet',
+        layer: 'addon',
+        sub_category: 'library',
+        name: 'Custom Library',
+        description: 'Test snippet',
+        icon_key: 'python',
+        base_image: '',
+        compatible_runtimes: ['python'],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: 'echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc',
+        judge_entrypoint: '',
+        tools_provided: ['custom'],
+        service_engine: '',
+        ram_delta_mb: 0,
+        is_system: false,
+        is_active: true,
+        sort_order: 99
+      }
+    ]);
+
+    component.selectRuntime('rt-python-312');
+    component.toggleAddon('addon-custom-snippet');
+    component.selectWebPlatform('web-angular');
+    component.selectDatabase('db-postgres');
+
+    component.setTargetEnvironment('AMBOS');
+    expect(component.targetEnvironment()).toBe('AMBOS');
+    expect(component.selectedWebPlatformId()).toBeNull();
+    expect(component.selectedDatabaseId()).toBe('db-none');
+    expect(component.selectedWebComponent()).toBeNull();
+    expect(component.selectedDatabaseOption()).toBeNull();
+    expect(component.name()).toContain('Entorno Dual: ');
+    expect(component.entrypoint()).toBe('python3 solution.py');
+    expect(component.setupScript()).toBe('echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc');
+  });
+
+  it('should require selectedRuntimeComponent and entrypoint for AMBOS in verificationBlocker', () => {
+    component.selectedRuntimeId.set(null);
+    component.setTargetEnvironment('AMBOS');
+    expect(component.verificationBlocker()?.reason).toContain('Seleccione un Lenguaje Principal');
+
+    component.selectRuntime('rt-python-312');
+    component.entrypoint.set('');
+    expect(component.verificationBlocker()?.reason).toContain('Indique el comando de compilación');
+
+    component.entrypoint.set('python3 solution.py');
+    expect(component.verificationBlocker()).toBeNull();
+  });
+
+  it('should sync modalDefaultSubCategory when opening edit modal for backend or web components', () => {
+    const backendComp = component.techComponents().find(c => c.id === 'rt-python-312')!;
+    component.openEditComponentModal(backendComp);
+    expect(component.modalDefaultSubCategory()).toBe('backend');
+
+    const webComp = component.techComponents().find(c => c.id === 'web-angular')!;
+    component.openEditComponentModal(webComp);
+    expect(component.modalDefaultSubCategory()).toBe('web');
+  });
+
+  describe('Column Search and Selected Item Prioritization', () => {
+    it('should filter backend runtimes and prioritize selected runtime at the top', () => {
+      component.selectRuntime('rt-python-312');
+
+      component.col1SearchQuery.set('python');
+      const filtered = component.filteredBackendRuntimes();
+      expect(filtered.length).toBeGreaterThan(0);
+      expect(filtered[0].id).toBe('rt-python-312');
+
+      component.col1SearchQuery.set('');
+      const allRuntimes = component.filteredBackendRuntimes();
+      expect(allRuntimes[0].id).toBe('rt-python-312');
+    });
+
+    it('should filter web platforms by col1SearchQuery and prioritize selected web platform', () => {
+      component.selectWebPlatform('web-angular');
+
+      component.col1SearchQuery.set('angular');
+      const filtered = component.filteredWebPlatforms();
+      expect(filtered.length).toBeGreaterThan(0);
+      expect(filtered[0].id).toBe('web-angular');
+    });
+
+    it('should filter compatible addons by name, slug, description, or packages and prioritize selected addons', () => {
+      component.selectRuntime('rt-python-312');
+      component.toggleAddon('ad-fastapi');
+
+      component.col2SearchQuery.set('fastapi');
+      const filtered = component.filteredCompatibleAddons();
+      expect(filtered.length).toBeGreaterThan(0);
+      expect(filtered[0].id).toBe('ad-fastapi');
+
+      component.col2SearchQuery.set('');
+      const allAddons = component.filteredCompatibleAddons();
+      expect(allAddons[0].id).toBe('ad-fastapi');
+    });
+
+    it('should render selected-count-badge when addons are selected', () => {
+      component.selectRuntime('rt-python-312');
+      component.toggleAddon('ad-fastapi');
+      fixture.detectChanges();
+
+      const badge = fixture.nativeElement.querySelector('.selected-count-badge');
+      expect(badge).toBeTruthy();
+      expect(badge.textContent).toContain('1 seleccionados');
+    });
+
+    it('should reset search queries on runtime/web selection and modal save', () => {
+      component.col2SearchQuery.set('prev-search');
+      component.selectRuntime('rt-python-312');
+      expect(component.col2SearchQuery()).toBe('');
+
+      component.col2SearchQuery.set('prev-web-search');
+      component.selectWebPlatform('web-angular');
+      expect(component.col2SearchQuery()).toBe('');
+
+      component.col1SearchQuery.set('search-rt');
+      component.handleModalComponentSaved(MOCK_CATALOG_ITEMS[0]);
+      expect(component.col1SearchQuery()).toBe('');
+
+      component.col2SearchQuery.set('search-addon');
+      const addonComp: TemplateComponent = {
+        ...MOCK_CATALOG_ITEMS[0],
+        id: 'ad-mock',
+        layer: 'addon'
+      };
+      component.handleModalComponentSaved(addonComp);
+      expect(component.col2SearchQuery()).toBe('');
+    });
+  });
+
+  describe('Data-Driven Profiles and Entrypoint Fallbacks', () => {
+    it('should infer entrypoint in JUEZ_EFIMERO and AMBOS when runtime has no explicit entrypoint', () => {
+      const gccRuntime: TemplateComponent = {
+        id: 'rt-gcc-no-entry',
+        slug: 'custom-gcc',
+        layer: 'runtime',
+        sub_category: 'backend',
+        name: 'Custom GCC',
+        description: '',
+        icon_key: 'custom',
+        base_image: 'gcc:13-bookworm',
+        compatible_runtimes: [],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['g++', 'gcc'],
+        service_engine: '',
+        ram_delta_mb: 384,
+        is_system: false,
+        is_active: true,
+        sort_order: 1
+      };
+
+      component.techComponents.set([...MOCK_CATALOG_ITEMS, gccRuntime]);
+      component.setTargetEnvironment('JUEZ_EFIMERO');
+      component.selectRuntime('rt-gcc-no-entry');
+
+      expect(component.entrypoint()).toBe('g++ -O2 solution.cpp -o solution && ./solution');
+
+      component.setTargetEnvironment('AMBOS');
+      expect(component.entrypoint()).toBe('g++ -O2 solution.cpp -o solution && ./solution');
+    });
+
+    it('should infer entrypoint from tools_provided for unfamiliar runtimes without known presets', () => {
+      const rubyRuntime: TemplateComponent = {
+        id: 'rt-ruby',
+        slug: 'ruby-lang',
+        layer: 'runtime',
+        sub_category: 'backend',
+        name: 'Ruby Language',
+        description: '',
+        icon_key: 'docker',
+        base_image: 'custom-ruby:3.2',
+        compatible_runtimes: [],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['ruby', 'gem'],
+        service_engine: '',
+        ram_delta_mb: 512,
+        is_system: false,
+        is_active: true,
+        sort_order: 1
+      };
+
+      component.techComponents.set([...MOCK_CATALOG_ITEMS, rubyRuntime]);
+      component.setTargetEnvironment('AMBOS');
+      component.selectRuntime('rt-ruby');
+
+      expect(component.entrypoint()).toBe('ruby solution');
+    });
+
+    it('should calculate data-driven RAM based on ram_delta_mb for light and heavy runtimes', () => {
+      const lightRuntime: TemplateComponent = {
+        id: 'rt-lua',
+        slug: 'lua-vm',
+        layer: 'runtime',
+        sub_category: 'backend',
+        name: 'Lua VM',
+        description: '',
+        icon_key: 'docker',
+        base_image: 'lua:5.4',
+        compatible_runtimes: [],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['lua'],
+        service_engine: '',
+        ram_delta_mb: 384,
+        is_system: false,
+        is_active: true,
+        sort_order: 1
+      };
+
+      const heavyRuntime: TemplateComponent = {
+        id: 'rt-julia',
+        slug: 'julia-vm',
+        layer: 'runtime',
+        sub_category: 'backend',
+        name: 'Julia VM',
+        description: '',
+        icon_key: 'docker',
+        base_image: 'julia:1.10',
+        compatible_runtimes: [],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['julia'],
+        service_engine: '',
+        ram_delta_mb: 1024,
+        is_system: false,
+        is_active: true,
+        sort_order: 2
+      };
+
+      component.techComponents.set([...MOCK_CATALOG_ITEMS, lightRuntime, heavyRuntime]);
+
+      // Lua en Juez -> 128 MB
+      component.setTargetEnvironment('JUEZ_EFIMERO');
+      component.selectRuntime('rt-lua');
+      expect(component.recommendedRamMB()).toBe(128);
+
+      // Julia en Juez -> 512 MB
+      component.selectRuntime('rt-julia');
+      expect(component.recommendedRamMB()).toBe(512);
+
+      // Julia en IDE -> 1024 MB
+      component.setTargetEnvironment('IDE_PERSISTENTE');
+      expect(component.recommendedRamMB()).toBe(1024);
+    });
+  });
 });
+
+
+
