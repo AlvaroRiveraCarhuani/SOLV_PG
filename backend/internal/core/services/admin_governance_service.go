@@ -192,6 +192,15 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	}
 
 	if dto.BaseRamMB != nil && *dto.BaseRamMB > 0 {
+		if status == "approved" || status == "pending_audit" || status == "paused" {
+			if existing, err := s.govRepo.GetTemplateByID(ctx, templateID); err == nil && existing != nil {
+				minFloorMB := calculateMinimumVitalFloorMB(existing.TargetEnvironment, &existing.ServicesConfig)
+				if *dto.BaseRamMB < minFloorMB {
+					return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, *dto.BaseRamMB, minFloorMB)
+				}
+			}
+		}
+
 		totalHostMB := s.getHostTotalRAM(ctx)
 		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
 		if err := domain.ValidateRamAgainstHost(*dto.BaseRamMB, maxAllowedRAM); err != nil {
@@ -270,7 +279,14 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		dto.TargetEnvironment = "IDE_PERSISTENTE"
 	}
 
-	if dto.ServicesConfig == nil {
+	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
+		dto.ServicesConfig = &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{},
+		}
+		if strings.TrimSpace(dto.Entrypoint) == "" {
+			return nil, errors.New("el comando de ejecución (entrypoint) es obligatorio para entornos con evaluador automático")
+		}
+	} else if dto.ServicesConfig == nil {
 		dto.ServicesConfig = &domain.ServicesConfig{
 			Services: []domain.ServiceRequirement{},
 		}
@@ -836,6 +852,8 @@ func (s *AdminGovernanceService) CreateTemplateComponent(ctx context.Context, te
 		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
 	}
 
+	dto = domain.NormalizeCreateComponentDTO(dto)
+
 	synthesizedLayer, errSynth := domain.SynthesizeAssistedBuildLayer(dto.InstallMode, dto.PackageNames, dto.BuildLayerSnippet)
 	if errSynth != nil {
 		return nil, errSynth
@@ -884,6 +902,13 @@ func (s *AdminGovernanceService) UpdateTemplateComponent(ctx context.Context, te
 	if err != nil {
 		return nil, err
 	}
+	name := strings.TrimSpace(dto.Name)
+	if len(name) < 2 {
+		return nil, errors.New("el nombre del componente tecnológico debe tener al menos 2 caracteres")
+	}
+	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(dto.BaseImage)), ":latest") {
+		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
+	}
 	var synthesized string
 	if strings.TrimSpace(dto.InstallMode) != "" {
 		mode := domain.InstallMode(strings.TrimSpace(dto.InstallMode))
@@ -893,6 +918,8 @@ func (s *AdminGovernanceService) UpdateTemplateComponent(ctx context.Context, te
 				return nil, errSynth
 			}
 			synthesized = sLayer
+		} else if strings.TrimSpace(dto.BuildLayerSnippet) == "" {
+			dto.BuildLayerSnippet = ""
 		}
 	}
 	return repo.UpdateTemplateComponent(ctx, tenantID, componentID, dto, synthesized)
@@ -928,9 +955,42 @@ func (s *AdminGovernanceService) UpdateOfficialTemplate(
 	if err != nil {
 		return nil, err
 	}
-	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(dto.DockerImage)), ":latest") {
-		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
+
+	dto.Name = strings.TrimSpace(dto.Name)
+	if dto.Name == "" {
+		return nil, errors.New("el nombre de la plantilla es requerido")
 	}
+
+	dto.DockerImage = strings.TrimSpace(dto.DockerImage)
+	if dto.DockerImage == "" {
+		return nil, errors.New("la imagen Docker es requerida")
+	}
+
+	if strings.HasSuffix(strings.ToLower(dto.DockerImage), ":latest") {
+		return nil, ErrLatestTagForbidden
+	}
+
+	if !dockerImageRegex.MatchString(dto.DockerImage) {
+		return nil, ErrInvalidDockerImage
+	}
+
+	if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
+		return nil, err
+	}
+
+	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
+		dto.ServicesConfig = &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{},
+		}
+		if strings.TrimSpace(dto.Entrypoint) == "" {
+			return nil, errors.New("el comando de ejecución (entrypoint) es obligatorio para entornos con evaluador automático")
+		}
+	} else if dto.ServicesConfig == nil {
+		dto.ServicesConfig = &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{},
+		}
+	}
+
 	if dto.BaseRamMB > 0 {
 		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment, dto.ServicesConfig)
 		if dto.BaseRamMB < minFloorMB {

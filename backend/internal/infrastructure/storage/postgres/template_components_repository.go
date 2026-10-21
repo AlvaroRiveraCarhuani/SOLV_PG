@@ -294,8 +294,11 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	if strings.TrimSpace(dto.IconKey) != "" {
 		existing.IconKey = strings.TrimSpace(dto.IconKey)
 	}
-	if strings.TrimSpace(dto.BaseImage) != "" || existing.Layer == domain.ComponentLayerRuntime {
+	if strings.TrimSpace(dto.BaseImage) != "" {
 		existing.BaseImage = strings.TrimSpace(dto.BaseImage)
+	}
+	if existing.Layer == domain.ComponentLayerRuntime && strings.TrimSpace(existing.BaseImage) == "" {
+		return nil, errors.New("la imagen base es obligatoria para componentes de tipo runtime")
 	}
 	if dto.CompatibleRuntimes != nil {
 		existing.CompatibleRuntimes = dto.CompatibleRuntimes
@@ -306,10 +309,12 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	if dto.PackageNames != nil {
 		existing.PackageNames = dto.PackageNames
 	}
-	if synthesizedLayer != "" || existing.InstallMode == domain.InstallModeNone {
+	if synthesizedLayer != "" {
 		existing.BuildLayerSnippet = synthesizedLayer
 	} else if strings.TrimSpace(dto.BuildLayerSnippet) != "" {
 		existing.BuildLayerSnippet = strings.TrimSpace(dto.BuildLayerSnippet)
+	} else if existing.InstallMode == domain.InstallModeNone {
+		existing.BuildLayerSnippet = ""
 	}
 	existing.SetupSnippet = strings.TrimSpace(dto.SetupSnippet)
 	existing.JudgeEntrypoint = strings.TrimSpace(dto.JudgeEntrypoint)
@@ -324,6 +329,9 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 	}
 	if dto.IsActive != nil {
 		existing.IsActive = *dto.IsActive
+	}
+	if strings.TrimSpace(dto.SubCategory) != "" {
+		existing.SubCategory = strings.TrimSpace(dto.SubCategory)
 	}
 	if dto.SortOrder != nil {
 		existing.SortOrder = *dto.SortOrder
@@ -351,15 +359,16 @@ func (r *PostgresAdminGovernanceRepository) UpdateTemplateComponent(
 			ram_delta_mb = $13,
 			is_active = $14,
 			sort_order = $15,
+			sub_category = $16,
 			updated_at = NOW()
-		WHERE id::text = $16 AND (tenant_id::text = $17 OR tenant_id = '00000000-0000-0000-0000-000000000001')
+		WHERE id::text = $17 AND (tenant_id::text = $18 OR tenant_id = '00000000-0000-0000-0000-000000000001')
 	`
 	_, err = r.db.ExecContext(
 		ctx, query,
 		existing.Name, existing.Description, existing.IconKey, existing.BaseImage,
 		compatJSON, string(existing.InstallMode), pkgsJSON, existing.BuildLayerSnippet,
 		existing.SetupSnippet, existing.JudgeEntrypoint, toolsJSON, existing.ServiceEngine,
-		existing.RamDeltaMB, existing.IsActive, existing.SortOrder, existing.ID, tenantID,
+		existing.RamDeltaMB, existing.IsActive, existing.SortOrder, existing.SubCategory, existing.ID, tenantID,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("error updating template component: %w", err)

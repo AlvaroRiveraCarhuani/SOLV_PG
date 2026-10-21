@@ -199,13 +199,15 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 	secStatus, cveCritical, cveHigh, reportJSON := w.runTrivyScan(ctx, item.DockerImage)
 
 	// Paso 3: Resolución de máquina de estados
-	// Si hay vulnerabilidades críticas o falló el smoke test -> RECHAZADA
+	// Solo se rechaza automáticamente cuando falla el smoke test funcional (salvo que ya haya sido aprobada desde el Constructor).
+	// Los hallazgos de Trivy (CVEs del sistema base) se registran como telemetría ("warning" / conteos) sin auto-rechazar imágenes oficiales.
+	alreadyApproved := strings.EqualFold(item.Status, "APROBADA") || strings.EqualFold(item.Status, "approved")
 	finalStatus := "APROBADA"
-	if cveCritical > 0 || smokeStatus == "failed" || secStatus == "failed" {
+	if smokeStatus == "failed" && !alreadyApproved {
 		finalStatus = "RECHAZADA"
-		if secStatus != "failed" && cveCritical > 0 {
-			secStatus = "failed"
-		}
+	}
+	if cveCritical > 0 && secStatus != "failed" {
+		secStatus = "warning"
 	}
 
 	// Paso 4: Persistir resultados en la base de datos

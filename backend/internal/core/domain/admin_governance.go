@@ -15,6 +15,28 @@ var (
 	ErrTemplateNotApproved  = errors.New("only approved templates can be promoted to models")
 )
 
+const (
+	TargetEnvironmentIDEPersistente = "IDE_PERSISTENTE"
+	TargetEnvironmentJuezEfimero    = "JUEZ_EFIMERO"
+	TargetEnvironmentAmbos          = "AMBOS"
+)
+
+// TemplateSupportsEnvironment verifica si la plantilla puede satisfacer el entorno solicitado
+func TemplateSupportsEnvironment(templateTargetEnv, requestedEnv string) bool {
+	if templateTargetEnv == TargetEnvironmentAmbos {
+		return requestedEnv == TargetEnvironmentIDEPersistente || requestedEnv == TargetEnvironmentJuezEfimero
+	}
+	return templateTargetEnv == requestedEnv
+}
+
+// ResolveJudgeRamMB resuelve un límite seguro de memoria para ejecuciones de Juez Efímero sobre plantillas duales.
+func ResolveJudgeRamMB(baseRamMB int) int {
+	if baseRamMB >= 1024 {
+		return 256
+	}
+	return 128
+}
+
 // ServiceRequirement requerimiento de un servicio satélite complementario (BD, cache, message broker, etc.)
 type ServiceRequirement struct {
 	Category string `json:"category"` // "database", "cache", "message_broker", "storage", etc.

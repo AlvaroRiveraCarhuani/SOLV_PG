@@ -685,10 +685,16 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		toolsDeclaredJSON = []byte(`[]`)
 	}
 	stackConfigJSON := []byte(`{}`)
+	initialStatus := "PENDIENTE_AUDITORIA"
+	initialSmokeStatus := "pending"
+	initialSmokeOutput := ""
 	if dto.StackConfig != nil {
 		if b, errM := json.Marshal(dto.StackConfig); errM == nil {
 			stackConfigJSON = b
 		}
+		initialStatus = "APROBADA"
+		initialSmokeStatus = "passed"
+		initialSmokeOutput = "Verificado en Constructor de Entornos"
 	}
 
 	targetEnv := dto.TargetEnvironment
@@ -708,10 +714,10 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 			tools_declared, stack_config, smoke_test_status, smoke_test_output, security_audit_status,
 			cve_critical_count, cve_high_count, eol_status, eol_date, eol_message, reviewed_by, reviewed_at
 		) VALUES (
-			gen_random_uuid(), $1, $2, $3, $4, 'PENDIENTE_AUDITORIA', $5,
+			gen_random_uuid(), $1, $2, $3, $4, $18, $5,
 			$6, $7, $8, $9, NULLIF($10, '')::uuid, NULLIF($11, '')::uuid,
 			$12, $13, $14,
-			$15, $16, 'pending', '', 'pending',
+			$15, $16, $19, $20, 'pending',
 			0, 0, 'supported', '', '', NULLIF($17, '')::uuid, NOW()
 		)
 		ON CONFLICT (tenant_id, name) DO NOTHING
@@ -772,6 +778,9 @@ func (r *PostgresAdminGovernanceRepository) CreateOfficialTemplate(
 		toolsDeclaredJSON,
 		stackConfigJSON,
 		adminID,
+		initialStatus,
+		initialSmokeStatus,
+		initialSmokeOutput,
 	).Scan(
 		&row.ID,
 		&row.TenantID,
@@ -1080,6 +1089,10 @@ func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
 			security_audit_report = $6,
 			security_audited_at = NOW(),
 			status = $7,
+			rejection_reason = CASE
+				WHEN $7 = 'RECHAZADA' AND COALESCE(rejection_reason, '') = '' THEN COALESCE(NULLIF($2, ''), 'Auditoría técnica de seguridad no superada')
+				ELSE rejection_reason
+			END,
 			updated_at = NOW()
 		WHERE id = $8
 	`
@@ -1269,7 +1282,7 @@ func (r *PostgresAdminGovernanceRepository) ListTemplateModels(ctx context.Conte
 		FROM template_models tm
 		LEFT JOIN template_categories tc ON tc.id = tm.category_id
 		WHERE (tm.tenant_id = $1 OR tm.tenant_id IS NULL)
-		  AND ($2 = '' OR tm.target_environment = $2)
+		  AND ($2 = '' OR tm.target_environment = $2 OR tm.target_environment = 'AMBOS')
 		  AND ($3 = '' OR tm.category_id::text = $3)
 		  AND ($4 = true OR COALESCE(tm.is_active, true) = true)
 		ORDER BY COALESCE(tc.sort_order, 0) ASC, tc.name ASC, COALESCE(tm.sort_order, 0) ASC, tm.title ASC
@@ -1673,7 +1686,7 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
 		LEFT JOIN template_categories c ON c.id = lt.category_id
-		WHERE lt.target_environment = $1 AND lt.status = 'approved'
+		WHERE (lt.target_environment = $1 OR lt.target_environment = 'AMBOS') AND LOWER(lt.status) IN ('approved', 'aprobada')
 		  AND (
 		    ( $2 IN ('python', 'python3') AND (lt.docker_image LIKE 'python%' OR LOWER(lt.name) LIKE '%python%') )
 		    OR ( $2 IN ('javascript', 'js', 'node') AND (lt.docker_image LIKE 'node%' OR LOWER(lt.name) LIKE '%node%' OR LOWER(lt.name) LIKE '%javascript%') )
@@ -1681,6 +1694,8 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 		    OR ( $2 = 'java' AND (lt.docker_image LIKE 'eclipse-temurin%' OR lt.docker_image LIKE 'java%' OR LOWER(lt.name) LIKE '%java%') )
 		    OR ( $2 IN ('csharp', 'c#', 'cs') AND (lt.docker_image LIKE 'mono%' OR LOWER(lt.name) LIKE '%csharp%' OR LOWER(lt.name) LIKE '%mono%') )
 		    OR ( $2 IN ('go', 'golang') AND (lt.docker_image LIKE 'golang%' OR LOWER(lt.name) LIKE '%go%') )
+		    OR ( $2 IN ('rust', 'rs') AND (lt.docker_image LIKE 'rust%' OR LOWER(lt.name) LIKE '%rust%') )
+		    OR ( LOWER(lt.docker_image) LIKE '%' || $2 || '%' OR LOWER(lt.name) LIKE '%' || $2 || '%' )
 		  )
 		ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC, lt.created_at ASC
 		LIMIT 1
@@ -1718,7 +1733,7 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.C
 			FROM lab_templates lt
 			LEFT JOIN users u ON u.id = lt.requested_by
 			LEFT JOIN template_categories c ON c.id = lt.category_id
-			WHERE lt.target_environment = $1 AND lt.status = 'approved'
+			WHERE (lt.target_environment = $1 OR lt.target_environment = 'AMBOS') AND LOWER(lt.status) IN ('approved', 'aprobada')
 			ORDER BY (lt.description = 'SYSTEM_SEED_RUNNER') DESC, lt.created_at ASC
 			LIMIT 1
 		`

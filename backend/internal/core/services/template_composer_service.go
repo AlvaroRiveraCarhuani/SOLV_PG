@@ -43,16 +43,27 @@ func (s *TemplateComposerService) Compose(
 	tenantID, targetEnvironment string,
 	cfg domain.StackConfig,
 ) (*domain.ComposedTemplatePlan, error) {
-	if strings.TrimSpace(cfg.RuntimeID) == "" {
+	env := strings.TrimSpace(targetEnvironment)
+	isJudge := env == "JUEZ_EFIMERO" || env == "JUEZ_VIRTUAL"
+	isDual := env == "AMBOS"
+	requiresJudge := isJudge || isDual
+
+	runtimeID := strings.TrimSpace(cfg.RuntimeID)
+	webID := strings.TrimSpace(cfg.WebPlatformID)
+
+	primaryID := runtimeID
+	if primaryID == "" && !requiresJudge && webID != "" {
+		primaryID = webID
+	}
+
+	if primaryID == "" {
 		return nil, fmt.Errorf("runtime_id is required to compose a template")
 	}
 
-	rt, err := s.lookup.GetComponent(ctx, tenantID, strings.TrimSpace(cfg.RuntimeID))
+	rt, err := s.lookup.GetComponent(ctx, tenantID, primaryID)
 	if err != nil {
 		return nil, fmt.Errorf("primary runtime component not found: %w", err)
 	}
-
-	isJudge := strings.TrimSpace(targetEnvironment) == "JUEZ_EFIMERO" || strings.TrimSpace(targetEnvironment) == "JUEZ_VIRTUAL"
 
 	baseImage := strings.TrimSpace(rt.BaseImage)
 	if baseImage == "" {
@@ -97,21 +108,25 @@ func (s *TemplateComposerService) Compose(
 	for _, t := range rt.ToolsProvided {
 		addTool(t)
 	}
-	if !isJudge {
-		addTool("git")
-	}
 
 	var webComp *domain.TemplateComponent
-	// 2. Plataforma Web opcional (Solo para entornos IDE interactivos)
-	if !isJudge && strings.TrimSpace(cfg.WebPlatformID) != "" && cfg.WebPlatformID != cfg.RuntimeID {
-		resolvedWeb, errWeb := s.lookup.GetComponent(ctx, tenantID, strings.TrimSpace(cfg.WebPlatformID))
+	// 2. Plataforma Web opcional (Solo para entornos IDE interactivos y si no es la tecnología primaria)
+	if !requiresJudge && webID != "" && webID != primaryID {
+		resolvedWeb, errWeb := s.lookup.GetComponent(ctx, tenantID, webID)
 		if errWeb == nil && resolvedWeb != nil {
 			webComp = resolvedWeb
 			nameParts = append(nameParts, webComp.Name)
-			// Si la imagen base no es Node, asegurar que Node/npm estén instalados antes de la capa web
+			// R2: Inyección multi-stage determinista de Node.js LTS en Full-Stack
 			if !strings.Contains(strings.ToLower(baseImage), "node") {
-				nodeBootstrap := "RUN (command -v apk >/dev/null 2>&1 && apk add --no-cache nodejs npm) || (apt-get update && apt-get install -y --no-install-recommends nodejs npm && rm -rf /var/lib/apt/lists/*)"
-				buildLayers = append(buildLayers, nodeBootstrap)
+				nodeSourceImage := "node:20-bookworm-slim"
+				if strings.Contains(strings.ToLower(webComp.BaseImage), "node") && strings.TrimSpace(webComp.BaseImage) != "" {
+					nodeSourceImage = strings.TrimSpace(webComp.BaseImage)
+				}
+				if strings.Contains(strings.ToLower(baseImage), "alpine") {
+					buildLayers = append(buildLayers, "RUN apk add --no-cache nodejs npm")
+				} else {
+					buildLayers = append(buildLayers, fmt.Sprintf("COPY --from=%s /usr/local /usr/local", nodeSourceImage))
+				}
 			}
 			if strings.TrimSpace(webComp.BuildLayerSnippet) != "" {
 				buildLayers = append(buildLayers, strings.TrimSpace(webComp.BuildLayerSnippet))
@@ -159,7 +174,7 @@ func (s *TemplateComposerService) Compose(
 	// 4. Base de datos acoplada (Solo para entornos IDE interactivos)
 	var dbComp *domain.TemplateComponent
 	servicesCfg := domain.ServicesConfig{Services: []domain.ServiceRequirement{}}
-	if !isJudge && strings.TrimSpace(cfg.DatabaseID) != "" && cfg.DatabaseID != "none" {
+	if !requiresJudge && strings.TrimSpace(cfg.DatabaseID) != "" && cfg.DatabaseID != "none" {
 		resolvedDB, errDB := s.lookup.GetComponent(ctx, tenantID, strings.TrimSpace(cfg.DatabaseID))
 		if errDB == nil && resolvedDB != nil && resolvedDB.ServiceEngine != "" && resolvedDB.ServiceEngine != "none" {
 			dbComp = resolvedDB
@@ -196,16 +211,27 @@ func (s *TemplateComposerService) Compose(
 	}
 
 	prefix := "Laboratorio: "
-	if isJudge {
+	if isDual {
+		prefix = "Entorno Dual: "
+	} else if isJudge {
 		prefix = "Evaluador: "
 	}
 	suggestedName := prefix + strings.Join(nameParts, " + ")
 
 	defaultEntrypoint := ""
-	if isJudge {
+	if requiresJudge {
 		defaultEntrypoint = strings.TrimSpace(rt.JudgeEntrypoint)
 		if defaultEntrypoint == "" {
+			defaultEntrypoint = domain.InferRuntimeJudgeEntrypoint(rt.Name, rt.Slug, rt.IconKey, baseImage)
+		}
+		if defaultEntrypoint == "" {
 			defaultEntrypoint = inferJudgeEntrypoint(baseImage)
+		}
+		if defaultEntrypoint == "" && len(rt.ToolsProvided) > 0 && strings.TrimSpace(rt.ToolsProvided[0]) != "" {
+			defaultEntrypoint = strings.TrimSpace(rt.ToolsProvided[0]) + " solution"
+		}
+		if defaultEntrypoint == "" {
+			defaultEntrypoint = "sh solution.sh"
 		}
 	}
 
@@ -224,34 +250,42 @@ func (s *TemplateComposerService) Compose(
 	}, nil
 }
 
-func isCppRuntime(rt *domain.TemplateComponent) bool {
+func isLightRuntime(rt *domain.TemplateComponent) bool {
 	if rt == nil {
 		return false
 	}
-	if strings.EqualFold(strings.TrimSpace(rt.IconKey), "cpp") {
+	if rt.RamDeltaMB > 0 {
+		return rt.RamDeltaMB <= 384
+	}
+	icon := strings.ToLower(strings.TrimSpace(rt.IconKey))
+	if icon == "cpp" || icon == "c" {
 		return true
 	}
 	for _, fam := range rt.CompatibleRuntimes {
-		if strings.EqualFold(strings.TrimSpace(fam), "cpp") {
+		f := strings.ToLower(strings.TrimSpace(fam))
+		if f == "cpp" || f == "c" {
 			return true
 		}
 	}
-	return rt.RamDeltaMB > 0 && rt.RamDeltaMB <= 384
+	return false
 }
 
-func isJavaRuntime(rt *domain.TemplateComponent) bool {
+func isHeavyRuntime(rt *domain.TemplateComponent) bool {
 	if rt == nil {
 		return false
+	}
+	if rt.RamDeltaMB > 0 {
+		return rt.RamDeltaMB >= 1024
 	}
 	if strings.EqualFold(strings.TrimSpace(rt.IconKey), "java") {
 		return true
 	}
 	for _, fam := range rt.CompatibleRuntimes {
-		if strings.EqualFold(strings.TrimSpace(fam), "java") {
+		if strings.EqualFold(strings.TrimSpace(fam), "java") || strings.EqualFold(strings.TrimSpace(fam), "dotnet") {
 			return true
 		}
 	}
-	return rt.RamDeltaMB >= 1024
+	return false
 }
 
 func isResidentAddon(addon *domain.TemplateComponent) bool {
@@ -276,9 +310,9 @@ func calculateResidentRecommendedRAM(
 	if isJudge {
 		const runtimeBaseMB = 32
 		processFootprintMB := 224
-		if isJavaRuntime(rt) {
+		if isHeavyRuntime(rt) {
 			processFootprintMB = 480
-		} else if isCppRuntime(rt) {
+		} else if isLightRuntime(rt) {
 			processFootprintMB = 96
 		}
 		for _, a := range addons {
@@ -303,17 +337,18 @@ func calculateResidentRecommendedRAM(
 	}
 
 	activeProcessFootprintMB := 256
-	if isCppRuntime(rt) {
+	if isLightRuntime(rt) {
 		activeProcessFootprintMB = 128
 	}
-	if isJavaRuntime(rt) {
+	if isHeavyRuntime(rt) {
 		if webComp != nil || len(addons) > 0 || satelliteBaseMB > 0 {
 			activeProcessFootprintMB = 1280
 		} else {
 			activeProcessFootprintMB = 640
 		}
 	}
-	if webComp != nil && activeProcessFootprintMB < 640 {
+	isWebActive := webComp != nil || (rt != nil && strings.EqualFold(strings.TrimSpace(rt.SubCategory), "web"))
+	if isWebActive && activeProcessFootprintMB < 640 {
 		activeProcessFootprintMB = 640
 	}
 
@@ -322,7 +357,7 @@ func calculateResidentRecommendedRAM(
 			continue
 		}
 		if strings.EqualFold(strings.TrimSpace(a.SubCategory), "heavy") || a.RamDeltaMB >= 384 {
-			if webComp != nil || isJavaRuntime(rt) {
+			if isWebActive || isHeavyRuntime(rt) {
 				if activeProcessFootprintMB < 1280 {
 					activeProcessFootprintMB = 1280
 				}
@@ -368,7 +403,7 @@ func inferJudgeEntrypoint(image string) string {
 	switch {
 	case strings.Contains(lower, "python"):
 		return "python3 solution.py"
-	case strings.Contains(lower, "gcc") || strings.Contains(lower, "clang"):
+	case strings.Contains(lower, "gcc") || strings.Contains(lower, "clang") || strings.Contains(lower, "cpp"):
 		return "gcc -O2 solution.c -o solution && ./solution"
 	case strings.Contains(lower, "java") || strings.Contains(lower, "temurin") || strings.Contains(lower, "openjdk"):
 		return "javac Solution.java && java -Xmx256m Solution"
@@ -378,7 +413,9 @@ func inferJudgeEntrypoint(image string) string {
 		return "node solution.js"
 	case strings.Contains(lower, "rust"):
 		return "rustc -O solution.rs -o solution && ./solution"
+	case strings.Contains(lower, "php"):
+		return "php solution.php"
 	default:
-		return "sh solution.sh"
+		return ""
 	}
 }

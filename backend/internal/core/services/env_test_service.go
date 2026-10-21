@@ -358,6 +358,31 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 	}
 
 	if targetEnv == "JUEZ_EFIMERO" {
+		var toolResults []domain.ToolResult
+		if len(tools) > 0 {
+			tRes, tExit, tErr := s.runner.RunSmokeTest(ctx, imageRef, tools, memLimitMB)
+			if tErr == nil {
+				toolResults = append(toolResults, tRes...)
+				for _, tr := range tRes {
+					if !tr.Present || tExit != 0 {
+						testResult := &domain.EnvTestResult{
+							Tools:      toolResults,
+							ExitCode:   tExit,
+							DurationMs: 0,
+						}
+						_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, "Una o más herramientas requeridas no se encuentran instaladas en la imagen")
+						job, _ := s.repo.GetByID(context.Background(), jobID)
+						if job != nil {
+							job.Result = testResult
+							job.DigestUnverified = digestUnverified
+							_ = s.repo.Save(context.Background(), job)
+						}
+						return
+					}
+				}
+			}
+		}
+
 		output, durationMs, exitCode, runnerErr := s.runner.RunJudgeSmokeTest(ctx, imageRef, entrypoint, sampleInput, timeoutMS, memLimitMB)
 		if runnerErr != nil {
 			if errors.Is(runnerErr, context.Canceled) {
@@ -372,8 +397,9 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 			return
 		}
 
+		toolResults = append(toolResults, domain.ToolResult{Name: "entrypoint", Present: exitCode == 0, Path: entrypoint, Version: output})
 		testResult := &domain.EnvTestResult{
-			Tools:      []domain.ToolResult{{Name: "entrypoint", Present: exitCode == 0, Path: entrypoint, Version: output}},
+			Tools:      toolResults,
 			ExitCode:   exitCode,
 			DurationMs: durationMs,
 		}
@@ -443,6 +469,47 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 			_ = s.repo.Save(context.Background(), job)
 		}
 		return
+	}
+
+	// Si el entorno es AMBOS y se especificó comando de evaluador, ejecutar también la prueba de humo de juez
+	if targetEnv == domain.TargetEnvironmentAmbos && strings.TrimSpace(entrypoint) != "" {
+		_ = s.repo.UpdateProgress(context.Background(), jobID, domain.EnvTestProgress{
+			CurrentAction: "Ejecutando prueba de comando de evaluación para entorno dual...",
+		})
+
+		judgeOutput, judgeDurationMs, judgeExitCode, judgeErr := s.runner.RunJudgeSmokeTest(ctx, imageRef, entrypoint, sampleInput, timeoutMS, memLimitMB)
+		if judgeErr != nil {
+			if errors.Is(judgeErr, context.Canceled) {
+				_ = s.repo.Cancel(context.Background(), jobID)
+				return
+			}
+			if strings.Contains(judgeErr.Error(), "timeout") || judgeExitCode == 124 {
+				_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Tiempo límite de ejecución excedido (%d ms)", timeoutMS))
+				return
+			}
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Fallo en ejecución de juez: %v", judgeErr))
+			return
+		}
+
+		testResult.Tools = append(testResult.Tools, domain.ToolResult{
+			Name:    "entrypoint",
+			Present: judgeExitCode == 0,
+			Path:    entrypoint,
+			Version: judgeOutput,
+		})
+		testResult.DurationMs += judgeDurationMs
+
+		if judgeExitCode != 0 {
+			testResult.ExitCode = judgeExitCode
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("El comando de juez finalizó con código de salida %d: %s", judgeExitCode, judgeOutput))
+			job, _ := s.repo.GetByID(context.Background(), jobID)
+			if job != nil {
+				job.Result = testResult
+				job.DigestUnverified = digestUnverified
+				_ = s.repo.Save(context.Background(), job)
+			}
+			return
+		}
 	}
 
 	// Éxito completo

@@ -417,3 +417,52 @@ func TestEnvTestService_StartJob_RamExceedsHost(t *testing.T) {
 		t.Errorf("expected error code ram_exceeds_host, got: %s", got.ErrorCode)
 	}
 }
+
+func TestEnvTestService_StartJob_DualExecution(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	run := &mockRunner{
+		results: []domain.ToolResult{
+			{Name: "python3", Present: true, Path: "/usr/bin/python3", Version: "Python 3.12.0"},
+		},
+		exitCode: 0,
+	}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:             "python:3.12-slim",
+		Tools:             []string{"python3"},
+		TargetEnvironment: domain.TargetEnvironmentAmbos,
+		Entrypoint:        "python3 solution.py",
+		TimeoutMS:         2000,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error starting dual job: %v", err)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	got, _ := svc.GetJob(context.Background(), job.ID)
+	if got.Status != domain.EnvTestStatusSuccess {
+		t.Fatalf("expected dual test status success, got: %v (%s)", got.Status, got.ErrorMessage)
+	}
+	if got.Result == nil || len(got.Result.Tools) < 2 {
+		t.Fatalf("expected at least 2 tool results (tools + entrypoint), got: %+v", got.Result)
+	}
+
+	foundEntrypoint := false
+	foundTool := false
+	for _, tool := range got.Result.Tools {
+		if tool.Name == "entrypoint" && tool.Present {
+			foundEntrypoint = true
+		}
+		if tool.Name == "python3" && tool.Present {
+			foundTool = true
+		}
+	}
+	if !foundEntrypoint {
+		t.Errorf("expected entrypoint smoke test result in dual test, got: %+v", got.Result.Tools)
+	}
+	if !foundTool {
+		t.Errorf("expected python3 tool result in dual test, got: %+v", got.Result.Tools)
+	}
+}

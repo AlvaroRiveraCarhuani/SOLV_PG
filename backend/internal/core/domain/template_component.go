@@ -23,11 +23,19 @@ const (
 type InstallMode string
 
 const (
-	InstallModeNone   InstallMode = "none"
-	InstallModePip    InstallMode = "pip"
-	InstallModeNpm    InstallMode = "npm"
-	InstallModeApt    InstallMode = "apt"
-	InstallModeCustom InstallMode = "custom"
+	InstallModeNone     InstallMode = "none"
+	InstallModePip      InstallMode = "pip"
+	InstallModeUv       InstallMode = "uv"
+	InstallModeNpm      InstallMode = "npm"
+	InstallModePnpm     InstallMode = "pnpm"
+	InstallModeYarn     InstallMode = "yarn"
+	InstallModeBun      InstallMode = "bun"
+	InstallModeApt      InstallMode = "apt"
+	InstallModeCargo    InstallMode = "cargo"
+	InstallModeGo       InstallMode = "go"
+	InstallModeComposer InstallMode = "composer"
+	InstallModeDotnet   InstallMode = "dotnet"
+	InstallModeCustom   InstallMode = "custom"
 )
 
 var (
@@ -89,6 +97,7 @@ type CreateTemplateComponentDTO struct {
 // UpdateTemplateComponentDTO DTO para actualizar un componente tecnológico existente.
 type UpdateTemplateComponentDTO struct {
 	Name               string   `json:"name" validate:"required,min=2,max=120"`
+	SubCategory        string   `json:"sub_category,omitempty"`
 	Description        string   `json:"description,omitempty"`
 	IconKey            string   `json:"icon_key,omitempty"`
 	BaseImage          string   `json:"base_image,omitempty"`
@@ -178,7 +187,7 @@ func SynthesizeAssistedBuildLayer(mode InstallMode, pkgs []string, customSnippet
 		return "", nil
 	case InstallModeCustom:
 		return strings.TrimSpace(customSnippet), nil
-	case InstallModePip, InstallModeNpm, InstallModeApt:
+	case InstallModePip, InstallModeUv, InstallModeNpm, InstallModePnpm, InstallModeYarn, InstallModeBun, InstallModeApt, InstallModeCargo, InstallModeGo, InstallModeComposer, InstallModeDotnet:
 		if err := ValidatePackageNames(pkgs); err != nil {
 			return "", err
 		}
@@ -190,10 +199,26 @@ func SynthesizeAssistedBuildLayer(mode InstallMode, pkgs []string, customSnippet
 		switch mode {
 		case InstallModePip:
 			return "RUN pip install --no-cache-dir " + joined, nil
+		case InstallModeUv:
+			return "RUN uv pip install --system --no-cache " + joined, nil
 		case InstallModeNpm:
 			return "RUN npm install -g --no-audit --no-fund " + joined, nil
+		case InstallModePnpm:
+			return "RUN corepack enable && pnpm add -g " + joined, nil
+		case InstallModeYarn:
+			return "RUN corepack enable && yarn global add " + joined, nil
+		case InstallModeBun:
+			return "RUN bun add -g " + joined, nil
 		case InstallModeApt:
 			return "RUN apt-get update && apt-get install -y --no-install-recommends " + joined + " && rm -rf /var/lib/apt/lists/*", nil
+		case InstallModeCargo:
+			return "RUN cargo install " + joined, nil
+		case InstallModeGo:
+			return "RUN go install " + joined, nil
+		case InstallModeComposer:
+			return "RUN composer global require " + joined, nil
+		case InstallModeDotnet:
+			return "RUN dotnet tool install -g " + joined, nil
 		}
 	}
 	return "", fmt.Errorf("unsupported install mode: %s", mode)
@@ -222,4 +247,143 @@ func FormatBuiltStackImageTag(signatureHash string) string {
 // IsBuiltStackImageTag indica si una referencia de imagen pertenece al espacio de imágenes construidas localmente por SOLV.
 func IsBuiltStackImageTag(imageRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(imageRef), "solv-local/stack:")
+}
+
+// NormalizeCreateComponentDTO completa metadatos técnicos omitidos por el administrador (entrypoint, binarios verificables y huella de memoria) a partir de la familia tecnológica.
+func NormalizeCreateComponentDTO(dto CreateTemplateComponentDTO) CreateTemplateComponentDTO {
+	if dto.Layer == ComponentLayerRuntime {
+		if strings.TrimSpace(dto.JudgeEntrypoint) == "" && strings.TrimSpace(dto.SubCategory) != "web" {
+			dto.JudgeEntrypoint = InferRuntimeJudgeEntrypoint(dto.Name, dto.Slug, dto.IconKey, dto.BaseImage)
+		}
+		if len(dto.ToolsProvided) == 0 {
+			dto.ToolsProvided = InferRuntimeTools(dto.Name, dto.Slug, dto.IconKey, dto.BaseImage)
+		}
+		if dto.RamDeltaMB <= 0 {
+			dto.RamDeltaMB = InferRuntimeRamDeltaMB(dto.Name, dto.Slug, dto.IconKey, dto.BaseImage, dto.SubCategory)
+		}
+	}
+
+	if len(dto.ToolsProvided) == 0 && dto.InstallMode == InstallModeApt && len(dto.PackageNames) > 0 {
+		dto.ToolsProvided = InferAptVerifiableTools(dto.PackageNames)
+	}
+
+	return dto
+}
+
+// InferRuntimeJudgeEntrypoint resuelve el comando de evaluación del Juez Virtual diferenciando C puro de C++ y otros lenguajes estándar.
+func InferRuntimeJudgeEntrypoint(name, slug, iconKey, baseImage string) string {
+	combined := strings.ToLower(strings.TrimSpace(name + " " + slug + " " + iconKey))
+	imgLower := strings.ToLower(strings.TrimSpace(baseImage))
+
+	if strings.Contains(combined, "c++") || strings.Contains(combined, "g++") || strings.Contains(combined, "cpp") {
+		return "g++ -O2 solution.cpp -o solution && ./solution"
+	}
+	if iconKey == "c" || strings.HasPrefix(slug, "c-gcc") || strings.HasPrefix(slug, "c-clang") || strings.Contains(combined, "lenguaje c") || strings.HasPrefix(strings.ToLower(strings.TrimSpace(name)), "c (") {
+		return "gcc -O2 solution.c -o solution && ./solution"
+	}
+
+	switch {
+	case strings.Contains(imgLower, "python") || strings.Contains(combined, "python"):
+		return "python3 solution.py"
+	case strings.Contains(imgLower, "gcc") || strings.Contains(imgLower, "clang"):
+		return "gcc -O2 solution.c -o solution && ./solution"
+	case strings.Contains(imgLower, "java") || strings.Contains(imgLower, "temurin") || strings.Contains(imgLower, "openjdk"):
+		return "javac Solution.java && java -Xmx256m Solution"
+	case strings.Contains(imgLower, "golang") || strings.HasPrefix(imgLower, "go:") || iconKey == "go":
+		return "go run main.go"
+	case strings.Contains(imgLower, "node") || iconKey == "node":
+		return "node solution.js"
+	case strings.Contains(imgLower, "rust") || iconKey == "rust":
+		return "rustc -O solution.rs -o solution && ./solution"
+	case strings.Contains(imgLower, "php") || iconKey == "php":
+		return "php solution.php"
+	case strings.Contains(imgLower, "dotnet") || strings.Contains(combined, ".net") || strings.Contains(combined, "c#"):
+		return "dotnet run"
+	case strings.Contains(imgLower, "ruby") || strings.Contains(combined, "ruby"):
+		return "ruby solution.rb"
+	case strings.Contains(imgLower, "r-base") || iconKey == "r":
+		return "Rscript solution.R"
+	default:
+		return ""
+	}
+}
+
+// InferRuntimeTools deduce los binarios de verificación de arranque para un lenguaje principal cuando no se indicaron manualmente.
+func InferRuntimeTools(name, slug, iconKey, baseImage string) []string {
+	combined := strings.ToLower(strings.TrimSpace(name + " " + slug + " " + iconKey))
+	imgLower := strings.ToLower(strings.TrimSpace(baseImage))
+
+	if strings.Contains(combined, "c++") || strings.Contains(combined, "g++") || strings.Contains(combined, "cpp") {
+		return []string{"g++", "gcc", "make"}
+	}
+	if iconKey == "c" || strings.HasPrefix(slug, "c-gcc") || strings.Contains(imgLower, "gcc") {
+		return []string{"gcc", "make"}
+	}
+	switch {
+	case strings.Contains(imgLower, "python"):
+		return []string{"python3", "pip"}
+	case strings.Contains(imgLower, "node"):
+		return []string{"node", "npm"}
+	case strings.Contains(imgLower, "temurin") || strings.Contains(imgLower, "openjdk") || strings.Contains(imgLower, "java"):
+		return []string{"java", "javac"}
+	case strings.Contains(imgLower, "golang"):
+		return []string{"go", "gofmt"}
+	case strings.Contains(imgLower, "rust"):
+		return []string{"rustc", "cargo"}
+	case strings.Contains(imgLower, "php"):
+		return []string{"php"}
+	case strings.Contains(imgLower, "dotnet"):
+		return []string{"dotnet"}
+	case strings.Contains(imgLower, "ruby"):
+		return []string{"ruby", "gem"}
+	case strings.Contains(imgLower, "r-base"):
+		return []string{"R", "Rscript"}
+	default:
+		return nil
+	}
+}
+
+// InferRuntimeRamDeltaMB determina la huella base de memoria del runtime según su arquitectura sin requerir configuración manual.
+func InferRuntimeRamDeltaMB(name, slug, iconKey, baseImage, subCategory string) int {
+	if strings.EqualFold(strings.TrimSpace(subCategory), "web") {
+		return 256
+	}
+	combined := strings.ToLower(strings.TrimSpace(name + " " + slug + " " + iconKey + " " + baseImage))
+	if strings.Contains(combined, "gcc") || strings.Contains(combined, "clang") || strings.Contains(combined, "c++") || iconKey == "c" || iconKey == "cpp" || strings.Contains(combined, "lua") || strings.Contains(combined, "alpine") {
+		return 384
+	}
+	if strings.Contains(combined, "java") || strings.Contains(combined, "temurin") || strings.Contains(combined, "openjdk") || strings.Contains(combined, "dotnet") || strings.Contains(combined, "kotlin") || strings.Contains(combined, "julia") {
+		return 1024
+	}
+	return 512
+}
+
+// InferAptVerifiableTools sincroniza los paquetes de sistema (apt/apk) hacia la lista de verificación del Smoke Test.
+func InferAptVerifiableTools(pkgs []string) []string {
+	seen := make(map[string]bool)
+	var out []string
+	add := func(t string) {
+		clean := strings.TrimSpace(t)
+		if clean != "" && !seen[clean] {
+			seen[clean] = true
+			out = append(out, clean)
+		}
+	}
+	for _, raw := range pkgs {
+		pkg := strings.TrimSpace(raw)
+		if pkg == "" {
+			continue
+		}
+		switch pkg {
+		case "build-essential":
+			add("gcc")
+			add("g++")
+			add("make")
+		case "ninja-build":
+			add("ninja")
+		default:
+			add(pkg)
+		}
+	}
+	return out
 }
