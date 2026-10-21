@@ -225,7 +225,84 @@ func ensureImage(ctx context.Context, cli *client.Client, imageName string) {
 	}
 }
 
+func inferSolutionFileName(language, entrypoint string) string {
+	ep := strings.TrimSpace(entrypoint)
+	for _, candidate := range []string{
+		"Solution.java", "solution.py", "solution.cpp", "solution.c",
+		"solution.rs", "main.go", "solution.go", "solution.js",
+		"solution.ts", "solution.cs", "solution.php", "solution.rb",
+		"solution.jl", "solution.lua", "solution.R", "solution.sh",
+	} {
+		if strings.Contains(ep, candidate) {
+			return candidate
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(language)) {
+	case "python", "py", "python3":
+		return "solution.py"
+	case "cpp", "c++":
+		return "solution.cpp"
+	case "c":
+		return "solution.c"
+	case "java":
+		return "Solution.java"
+	case "javascript", "js", "node":
+		return "solution.js"
+	case "typescript", "ts":
+		return "solution.ts"
+	case "csharp", "c#", "cs":
+		return "solution.cs"
+	case "rust", "rs":
+		return "solution.rs"
+	case "go", "golang":
+		return "main.go"
+	case "php":
+		return "solution.php"
+	default:
+		return "solution"
+	}
+}
+
+type TemplateCommandStrategy struct {
+	cli          *client.Client
+	defaultImage string
+	defaultCmd   string
+}
+
+func NewTemplateCommandStrategy(cli *client.Client, defaultImage, defaultCmd string) domain.LanguageStrategy {
+	return &TemplateCommandStrategy{
+		cli:          cli,
+		defaultImage: defaultImage,
+		defaultCmd:   defaultCmd,
+	}
+}
+
+func (s *TemplateCommandStrategy) ExecuteTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {
+	img := strings.TrimSpace(config.DockerImage)
+	if img == "" {
+		img = s.defaultImage
+	}
+	ep := strings.TrimSpace(config.Entrypoint)
+	if ep == "" {
+		ep = s.defaultCmd
+	}
+	if img == "" || ep == "" {
+		return domain.TestCaseRunResult{}, fmt.Errorf("missing docker image or entrypoint for language %q", config.Language)
+	}
+	fileName := inferSolutionFileName(config.Language, ep)
+	cmd := []string{"sh", "-c", fmt.Sprintf("cp /runner/* /tmp/ 2>/dev/null || true; cd /tmp && (%s)", ep)}
+	return runContainerExecution(ctx, s.cli, img, fileName, cmd, config)
+}
+
 func runContainerExecution(ctx context.Context, cli *client.Client, imageName string, fileName string, cmd []string, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {
+	if customImg := strings.TrimSpace(config.DockerImage); customImg != "" {
+		imageName = customImg
+	}
+	if customEp := strings.TrimSpace(config.Entrypoint); customEp != "" {
+		fileName = inferSolutionFileName(config.Language, customEp)
+		cmd = []string{"sh", "-c", fmt.Sprintf("cp /runner/* /tmp/ 2>/dev/null || true; cd /tmp && (%s)", customEp)}
+	}
+
 	// 1. Crear directorio temporal en el host para montaje solo lectura (:ro)
 	tmpDir, err := os.MkdirTemp("", "solv-eval-*")
 	if err != nil {

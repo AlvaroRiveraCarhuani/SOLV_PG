@@ -22,7 +22,7 @@ func NewDockerEvaluationRunner(cli *client.Client) domain.EvaluationRunner {
 }
 
 func (r *DockerEvaluationRunner) RunTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {
-	strategy, err := r.langFactory.Get(config.Language)
+	strategy, err := r.langFactory.GetForConfig(config)
 	if err != nil {
 		return domain.TestCaseRunResult{}, err
 	}

@@ -406,8 +406,8 @@ export class StepIdeEnvironmentComponent implements OnInit {
       next: (res) => {
         const list: ApprovedTemplate[] = Array.isArray(res) ? res : res?.data || [];
         const filtered = list.filter(t => 
-          (t.status === 'approved' || t.status === 'published' || !t.status) &&
-          (t.target_environment === 'IDE_PERSISTENTE' || !t.target_environment)
+          (t.status === 'approved' || t.status === 'APROBADA' || t.status === 'published' || !t.status) &&
+          (t.target_environment === 'IDE_PERSISTENTE' || t.target_environment === 'AMBOS' || !t.target_environment)
         );
         this.approvedTemplates.set(filtered);
 

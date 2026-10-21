@@ -41,6 +41,7 @@ func (f *DBStrategyFactory) Get(engine string) (domain.DBEngineStrategy, error) 
 }
 
 type LanguageStrategyFactory struct {
+	cli        *client.Client
 	strategies map[string]domain.LanguageStrategy
 }
 
@@ -51,11 +52,16 @@ func NewLanguageStrategyFactory(cli *client.Client) *LanguageStrategyFactory {
 	cs := langstrategy.NewCSharpStrategy(cli)
 	java := langstrategy.NewJavaStrategy(cli)
 	js := langstrategy.NewJavaScriptStrategy(cli)
+	golang := langstrategy.NewTemplateCommandStrategy(cli, "golang:1.22-bookworm", "go run main.go")
+	rust := langstrategy.NewTemplateCommandStrategy(cli, "rust:1.81-slim-bookworm", "rustc -O solution.rs -o solution && ./solution")
+	php := langstrategy.NewTemplateCommandStrategy(cli, "php:8.3-cli-bookworm", "php solution.php")
 
 	return &LanguageStrategyFactory{
+		cli: cli,
 		strategies: map[string]domain.LanguageStrategy{
 			"python":     py,
 			"py":         py,
+			"python3":    py,
 			"c":          c,
 			"cpp":        cpp,
 			"c++":        cpp,
@@ -66,6 +72,11 @@ func NewLanguageStrategyFactory(cli *client.Client) *LanguageStrategyFactory {
 			"javascript": js,
 			"js":         js,
 			"node":       js,
+			"go":         golang,
+			"golang":     golang,
+			"rust":       rust,
+			"rs":         rust,
+			"php":        php,
 		},
 	}
 }
@@ -77,4 +88,15 @@ func (f *LanguageStrategyFactory) Get(language string) (domain.LanguageStrategy,
 		return nil, fmt.Errorf("unsupported programming language strategy: %q", language)
 	}
 	return strategy, nil
+}
+
+func (f *LanguageStrategyFactory) GetForConfig(config domain.EvaluationRunConfig) (domain.LanguageStrategy, error) {
+	key := strings.ToLower(strings.TrimSpace(config.Language))
+	if strategy, ok := f.strategies[key]; ok {
+		return strategy, nil
+	}
+	if strings.TrimSpace(config.DockerImage) != "" && strings.TrimSpace(config.Entrypoint) != "" {
+		return langstrategy.NewTemplateCommandStrategy(f.cli, config.DockerImage, config.Entrypoint), nil
+	}
+	return nil, fmt.Errorf("unsupported programming language strategy: %q", config.Language)
 }

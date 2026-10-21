@@ -582,10 +582,12 @@ export class ExerciseEditorStore {
         else if (Array.isArray(res?.data)) items = res.data;
         else if (Array.isArray(res?.data?.data)) items = res.data.data;
 
-        const runners = items.filter(t =>
-          (t.target_environment === 'JUEZ_EFIMERO' || t.environment_type === 'JUEZ_EFIMERO') &&
-          (t.status === 'approved' || t.status === 'APROBADA' || !t.status)
-        );
+        const runners = items.filter(t => {
+          const env = t.target_environment || t.environment_type || '';
+          const isJudgeCompatible = env === 'JUEZ_EFIMERO' || env === 'JUEZ_VIRTUAL' || env === 'AMBOS';
+          const isApproved = t.status === 'approved' || t.status === 'APROBADA' || !t.status;
+          return isJudgeCompatible && isApproved;
+        });
         this.runnerTemplates.set(runners);
 
         const currentLang = this.metadata().language;
@@ -612,10 +614,13 @@ export class ExerciseEditorStore {
     const templates = list || this.runnerTemplates();
     const match = templates.find(r => this.deriveLanguageCode(r) === lang);
     if (match) {
+      const baseRam = match.base_ram_mb || 128;
+      const isDual = (match.target_environment || match.environment_type) === 'AMBOS';
+      const resolvedRam = isDual ? (baseRam <= 384 ? 128 : 256) : baseRam;
       this.updateMetadata({
         template_id: match.id,
         template: match,
-        memory_limit_mb: match.base_ram_mb || 128
+        memory_limit_mb: resolvedRam
       });
     }
   }

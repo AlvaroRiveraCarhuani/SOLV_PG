@@ -169,22 +169,27 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 	}
 
 	if template != nil {
-		if template.Status != "approved" {
+		if !strings.EqualFold(template.Status, "approved") && !strings.EqualFold(template.Status, "APROBADA") {
 			return domain.ErrTemplateNotApproved
 		}
-		if template.TargetEnvironment != ex.EnvironmentType {
+		if !domain.TemplateSupportsEnvironment(template.TargetEnvironment, ex.EnvironmentType) {
 			return domain.ErrTemplateEnvironmentMismatch
 		}
 
 		ex.TemplateID = template.ID
-		ex.MemoryLimitMB = template.BaseRamMB
+		ramMB := template.BaseRamMB
+		if template.TargetEnvironment == domain.TargetEnvironmentAmbos && ex.EnvironmentType == domain.TargetEnvironmentJuezEfimero {
+			ramMB = domain.ResolveJudgeRamMB(template.BaseRamMB)
+		}
+		ex.MemoryLimitMB = ramMB
 		if ex.Config.Algorithm != nil {
-			ex.Config.Algorithm.MemoryLimitMB = template.BaseRamMB
+			ex.Config.Algorithm.MemoryLimitMB = ramMB
 		}
 		ex.Template = &domain.TemplateSummary{
 			ID:                template.ID,
 			Name:              template.Name,
 			DockerImage:       template.DockerImage,
+			Entrypoint:        template.Entrypoint,
 			BaseRamMB:         template.BaseRamMB,
 			TargetEnvironment: template.TargetEnvironment,
 			ServicesConfig:    template.ServicesConfig,
@@ -194,15 +199,26 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 }
 
 func (s *EvaluationService) attachTemplateSummary(ctx context.Context, ex *domain.Exercise) {
-	if s.adminGovRepo == nil || ex == nil || ex.TemplateID == "" {
+	if s.adminGovRepo == nil || ex == nil {
 		return
 	}
-	tpl, err := s.adminGovRepo.GetTemplateByID(ctx, ex.TemplateID)
+	var tpl *domain.AdminTemplateReviewItem
+	var err error
+	if ex.TemplateID != "" {
+		tpl, err = s.adminGovRepo.GetTemplateByID(ctx, ex.TemplateID)
+	} else if ex.Language != "" {
+		envType := ex.EnvironmentType
+		if envType == "" {
+			envType = string(domain.EnvironmentTypeJuezEfimero)
+		}
+		tpl, err = s.adminGovRepo.GetTemplateForLanguage(ctx, envType, ex.Language)
+	}
 	if err == nil && tpl != nil {
 		ex.Template = &domain.TemplateSummary{
 			ID:                tpl.ID,
 			Name:              tpl.Name,
 			DockerImage:       tpl.DockerImage,
+			Entrypoint:        tpl.Entrypoint,
 			BaseRamMB:         tpl.BaseRamMB,
 			TargetEnvironment: tpl.TargetEnvironment,
 			ServicesConfig:    tpl.ServicesConfig,
@@ -400,8 +416,17 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 	}
 
 	// Ejecución asíncrona del Dry-Run con progreso por caso
+	s.attachTemplateSummary(ctx, ex)
 	go func(jID, eID, tID string, exerciseCopy domain.Exercise) {
 		bgCtx := context.Background()
+		if exerciseCopy.Template == nil {
+			s.attachTemplateSummary(bgCtx, &exerciseCopy)
+		}
+		var tplImage, tplEntrypoint string
+		if exerciseCopy.Template != nil {
+			tplImage = exerciseCopy.Template.DockerImage
+			tplEntrypoint = exerciseCopy.Template.Entrypoint
+		}
 		_ = s.exerciseRepo.UpdateDryRunJobProgress(bgCtx, jID, domain.DryRunJobStatusRunning, 0, totalCases, nil, "")
 
 		cfg := exerciseCopy.Config.Algorithm
@@ -422,6 +447,8 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 				TimeLimitMS:   cfg.TimeLimitMS,
 				TestCase:      tc,
 				Comparator:    cfg.Comparator,
+				DockerImage:   tplImage,
+				Entrypoint:    tplEntrypoint,
 			}
 			res, err := s.runner.RunTestCase(bgCtx, runCfg)
 			if err != nil {
@@ -558,6 +585,14 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 	if cfg == nil {
 		return nil, fmt.Errorf("configuración de algoritmia faltante para el ejercicio %s", exercise.ID)
 	}
+	if exercise.Template == nil {
+		s.attachTemplateSummary(ctx, exercise)
+	}
+	var tplImage, tplEntrypoint string
+	if exercise.Template != nil {
+		tplImage = exercise.Template.DockerImage
+		tplEntrypoint = exercise.Template.Entrypoint
+	}
 
 	// 0. Frontera ValidateRamAgainstHost para evaluación
 	if cfg.MemoryLimitMB > 0 {
@@ -641,7 +676,9 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 						TestCase: domain.TestCase{
 							Input: genInput,
 						},
-						Comparator: cfg.Comparator,
+						Comparator:  cfg.Comparator,
+						DockerImage: tplImage,
+						Entrypoint:  tplEntrypoint,
 					}
 					refRes, refErr := s.runner.RunTestCase(ctx, refRunConfig)
 					if refErr == nil {
@@ -688,6 +725,8 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			TimeLimitMS:   cfg.TimeLimitMS,
 			TestCase:      tc,
 			Comparator:    cfg.Comparator,
+			DockerImage:   tplImage,
+			Entrypoint:    tplEntrypoint,
 		}
 
 		res, err := s.runner.RunTestCase(ctx, runConfig)

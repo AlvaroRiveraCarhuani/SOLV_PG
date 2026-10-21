@@ -245,6 +245,7 @@ type TemplateSummary struct {
 	ID                string         `json:"id"`
 	Name              string         `json:"name"`
 	DockerImage       string         `json:"docker_image"`
+	Entrypoint        string         `json:"entrypoint,omitempty"`
 	BaseRamMB         int            `json:"base_ram_mb"`
 	TargetEnvironment string         `json:"target_environment"`
 	ServicesConfig    ServicesConfig `json:"services_config"`
@@ -366,6 +367,8 @@ type EvaluationRunConfig struct {
 	TimeLimitMS   int
 	TestCase      TestCase
 	Comparator    *ComparatorConfig
+	DockerImage   string
+	Entrypoint    string
 }
 
 type TestCaseRunResult struct {

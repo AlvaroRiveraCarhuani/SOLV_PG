@@ -269,3 +269,162 @@ func TestExerciseTemplateGovernance_EnvironmentMismatch(t *testing.T) {
 		t.Fatalf("expected ErrTemplateEnvironmentMismatch, got %v", err)
 	}
 }
+
+func TestExerciseTemplateGovernance_DualTemplate_JudgeResolution(t *testing.T) {
+	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
+	govRepo := &mockGovRepoForTemplate{
+		templates: map[string]*domain.AdminTemplateReviewItem{
+			"tpl-dual": {
+				ID:                "tpl-dual",
+				Name:              "Dual Python Template",
+				Status:            "approved",
+				TargetEnvironment: domain.TargetEnvironmentAmbos,
+				BaseRamMB:         1024,
+			},
+		},
+	}
+
+	svc := services.NewEvaluationService(exRepo, nil, nil, nil)
+	svc.SetAdminGovernanceRepository(govRepo)
+
+	ex := &domain.Exercise{
+		Title:           "Algoritmos de Grafos",
+		EnvironmentType: domain.TargetEnvironmentJuezEfimero,
+		TemplateID:      "tpl-dual",
+	}
+
+	err := svc.CreateExercise(context.Background(), ex)
+	if err != nil {
+		t.Fatalf("unexpected error creating exercise with dual template: %v", err)
+	}
+
+	if ex.MemoryLimitMB != 256 {
+		t.Errorf("expected MemoryLimitMB resolved to 256 for judge with baseRamMB=1024, got %d", ex.MemoryLimitMB)
+	}
+	if ex.Template == nil || ex.Template.TargetEnvironment != domain.TargetEnvironmentAmbos {
+		t.Errorf("expected template summary targetEnvironment AMBOS, got %+v", ex.Template)
+	}
+}
+
+func TestExerciseTemplateGovernance_DualTemplate_IDEResolution(t *testing.T) {
+	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
+	govRepo := &mockGovRepoForTemplate{
+		templates: map[string]*domain.AdminTemplateReviewItem{
+			"tpl-dual": {
+				ID:                "tpl-dual",
+				Name:              "Dual Python Template",
+				Status:            "approved",
+				TargetEnvironment: domain.TargetEnvironmentAmbos,
+				BaseRamMB:         1024,
+			},
+		},
+	}
+
+	svc := services.NewEvaluationService(exRepo, nil, nil, nil)
+	svc.SetAdminGovernanceRepository(govRepo)
+
+	ex := &domain.Exercise{
+		Title:           "Laboratorio Python",
+		EnvironmentType: domain.TargetEnvironmentIDEPersistente,
+		TemplateID:      "tpl-dual",
+	}
+
+	err := svc.CreateExercise(context.Background(), ex)
+	if err != nil {
+		t.Fatalf("unexpected error creating exercise with dual template: %v", err)
+	}
+
+	if ex.MemoryLimitMB != 1024 {
+		t.Errorf("expected MemoryLimitMB to retain full 1024 for IDE, got %d", ex.MemoryLimitMB)
+	}
+}
+
+type capturingEvaluationRunner struct {
+	lastConfig domain.EvaluationRunConfig
+}
+
+func (r *capturingEvaluationRunner) RunTestCase(ctx context.Context, config domain.EvaluationRunConfig) (domain.TestCaseRunResult, error) {
+	r.lastConfig = config
+	return domain.TestCaseRunResult{
+		Verdict:       domain.VerdictAC,
+		ExecutionTime: 15 * time.Millisecond,
+		ActualOutput:  "42\n",
+	}, nil
+}
+
+func (r *capturingEvaluationRunner) RunDBDryRun(ctx context.Context, config domain.DBEvaluationRunConfig) (string, error) {
+	return "[]", nil
+}
+
+func (r *capturingEvaluationRunner) RunDBEvaluation(ctx context.Context, config domain.DBEvaluationRunConfig) (domain.DBEvaluationResult, error) {
+	return domain.DBEvaluationResult{Verdict: domain.VerdictAC}, nil
+}
+
+type noopASTAnalyzer struct{}
+
+func (a *noopASTAnalyzer) ValidateCode(language, code string, rules domain.ASTRules) (bool, string) {
+	return true, ""
+}
+
+func TestExerciseTemplateGovernance_AprobadaStatusAndRunnerPropagation(t *testing.T) {
+	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
+	govRepo := &mockGovRepoForTemplate{
+		templates: map[string]*domain.AdminTemplateReviewItem{
+			"tpl-rust-dual": {
+				ID:                "tpl-rust-dual",
+				Name:              "Entorno Dual: Rust 1.81",
+				DockerImage:       "rust:1.81-slim-bookworm",
+				Entrypoint:        "rustc -O solution.rs -o solution && ./solution",
+				Status:            "APROBADA",
+				TargetEnvironment: domain.TargetEnvironmentAmbos,
+				BaseRamMB:         512,
+			},
+		},
+	}
+	runner := &capturingEvaluationRunner{}
+	svc := services.NewEvaluationService(exRepo, &noopASTAnalyzer{}, nil, runner)
+	svc.SetAdminGovernanceRepository(govRepo)
+
+	ex := &domain.Exercise{
+		ID:              "ex-rust-1",
+		Title:           " Suma en Rust ",
+		Language:        "rust",
+		Type:            domain.ExerciseTypeAlgorithm,
+		EnvironmentType: domain.TargetEnvironmentJuezEfimero,
+		TemplateID:      "tpl-rust-dual",
+		Config: domain.ExerciseConfig{
+			Algorithm: &domain.AlgorithmConfig{
+				TimeLimitMS: 1500,
+				TestCases: []domain.TestCase{
+					{Input: "20 22\n", ExpectedOutput: "42\n", Visibility: domain.TestCaseVisibilityPublic},
+				},
+			},
+		},
+	}
+
+	if err := svc.CreateExercise(context.Background(), ex); err != nil {
+		t.Fatalf("expected status 'APROBADA' to be accepted by CreateExercise, got error: %v", err)
+	}
+	if ex.Template == nil || ex.Template.Entrypoint != "rustc -O solution.rs -o solution && ./solution" {
+		t.Fatalf("expected ex.Template.Entrypoint to be populated, got %+v", ex.Template)
+	}
+
+	// Simulate Evaluate reading from repo (where ex.Template is not persisted in DB column)
+	stored := *ex
+	stored.Template = nil
+	exRepo.exercises[ex.ID] = &stored
+
+	res, err := svc.Evaluate(context.Background(), ex.ID, "rust", "Zm4gbWFpbigpIHt9")
+	if err != nil {
+		t.Fatalf("unexpected error evaluating exercise: %v", err)
+	}
+	if res.Verdict != domain.VerdictAC {
+		t.Fatalf("expected verdict AC, got %s", res.Verdict)
+	}
+	if runner.lastConfig.DockerImage != "rust:1.81-slim-bookworm" {
+		t.Errorf("expected runner DockerImage='rust:1.81-slim-bookworm', got %q", runner.lastConfig.DockerImage)
+	}
+	if runner.lastConfig.Entrypoint != "rustc -O solution.rs -o solution && ./solution" {
+		t.Errorf("expected runner Entrypoint='rustc -O solution.rs -o solution && ./solution', got %q", runner.lastConfig.Entrypoint)
+	}
+}
