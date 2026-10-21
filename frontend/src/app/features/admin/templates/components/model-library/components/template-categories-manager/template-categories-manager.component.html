@@ -1,0 +1,104 @@
+<section class="tab-content">
+  <div class="categories-toolbar">
+    <div class="toolbar-info">
+      <p class="info-text">
+        Arrastra las categorías o utiliza las flechas para reorganizar el orden en el que se muestran en el catálogo y formularios docentes.
+      </p>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th class="w-12">Orden</th>
+          <th>Nombre de Categoría</th>
+          <th>Descripción</th>
+          <th>Modelos Asociados</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (cat of categories(); track cat.id; let i = $index) {
+          <tr
+            draggable="true"
+            (dragstart)="dragStartIndex.emit(i)"
+            (dragover)="onDragOver($event)"
+            (drop)="dropIndex.emit(i)"
+            class="draggable-row"
+          >
+            <td class="col-drag">
+              <div class="order-controls">
+                <svg lucideGripVertical class="grip-icon" title="Arrastrar para reordenar"></svg>
+                <div class="arrows-wrap">
+                  <button
+                    type="button"
+                    class="btn-arrow"
+                    [disabled]="i === 0"
+                    (click)="moveUp.emit(i)"
+                    title="Mover arriba"
+                  >
+                    <svg lucideChevronUp class="arrow-icon"></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn-arrow"
+                    [disabled]="i === categories().length - 1"
+                    (click)="moveDown.emit(i)"
+                    title="Mover abajo"
+                  >
+                    <svg lucideChevronDown class="arrow-icon"></svg>
+                  </button>
+                </div>
+                <span class="order-number">#{{ i + 1 }}</span>
+              </div>
+            </td>
+            <td class="font-medium">
+              <div class="category-name-cell">
+                <svg lucideTag class="cell-tag-icon"></svg>
+                <span>{{ cat.name }}</span>
+              </div>
+            </td>
+            <td class="text-muted">
+              {{ cat.description || 'Sin descripción adicional' }}
+            </td>
+            <td>
+              <span class="badge-count" [class.badge-count-active]="getCategoryModelCount(cat.id) > 0">
+                {{ getCategoryModelCount(cat.id) }} modelos
+              </span>
+            </td>
+            <td class="text-right">
+              <div class="actions-group">
+                <button
+                  type="button"
+                  class="btn-action-icon action-edit"
+                  (click)="editCategory.emit(cat)"
+                  title="Editar categoría"
+                >
+                  <svg lucidePencil class="action-icon"></svg>
+                </button>
+                <button
+                  type="button"
+                  class="btn-action-icon action-delete"
+                  (click)="deleteCategory.emit(cat)"
+                  title="Eliminar categoría"
+                >
+                  <svg lucideTrash2 class="action-icon"></svg>
+                </button>
+              </div>
+            </td>
+          </tr>
+        } @empty {
+          <tr>
+            <td colspan="5" class="empty-cell">
+              <div class="empty-state">
+                <svg lucideTag class="empty-icon"></svg>
+                <p class="empty-text">No hay categorías registradas en el sistema.</p>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>

@@ -1,0 +1,256 @@
+<section class="tab-content">
+  <div class="filters-bar">
+    <search-bar
+      [query]="searchQuery()"
+      (queryChange)="searchQueryChange.emit($event)"
+      placeholder="Buscar por nombre, descripción o imagen Docker..."
+    />
+
+    <div class="filter-controls">
+      <div class="select-wrap">
+        <label class="filter-label">Propósito:</label>
+        <combobox
+          [compact]="true"
+          [value]="selectedPurposeFilterLabel()"
+          [options]="purposeFilterOptions()"
+          placeholder="Propósito..."
+          (optionSelected)="purposeFilterSelect.emit($event)"
+        ></combobox>
+      </div>
+
+      <div class="select-wrap">
+        <label class="filter-label">Categoría:</label>
+        <combobox
+          [compact]="true"
+          [value]="selectedCategoryFilterLabel()"
+          [options]="categoryFilterOptions()"
+          placeholder="Categoría..."
+          (optionSelected)="categoryFilterSelect.emit($event)"
+        ></combobox>
+      </div>
+
+      <div class="select-wrap">
+        <label class="filter-label">Estado:</label>
+        <combobox
+          [compact]="true"
+          [value]="selectedStatusFilterLabel()"
+          [options]="statusFilterOptions()"
+          placeholder="Estado..."
+          (optionSelected)="statusFilterSelect.emit($event)"
+        ></combobox>
+      </div>
+    </div>
+  </div>
+
+  @if (viewMode() === 'cards') {
+    <div class="cards-grid">
+      @for (m of filteredModels(); track m.id) {
+        <div class="model-card" [class.card-inactive]="m.is_active === false">
+          <div class="card-header">
+            <div class="card-title-group">
+              <h3 class="card-title">{{ m.name || m.title }}</h3>
+              <div class="card-badges">
+                @if (m.is_active !== false) {
+                  <span class="status-badge status-active">Activo</span>
+                } @else {
+                  <span class="status-badge status-inactive">Inactivo</span>
+                }
+
+                <span class="category-badge">
+                  <svg lucideTag class="badge-icon"></svg>
+                  {{ getCategoryName(m.category_id) }}
+                </span>
+
+                <span
+                  class="purpose-badge"
+                  [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
+                  [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
+                  [class.purpose-both]="m.target_environment === 'AMBOS'"
+                >
+                  @if (m.target_environment === 'AMBOS') {
+                    DUAL
+                  } @else if (m.target_environment === 'IDE_PERSISTENTE') {
+                    IDE
+                  } @else {
+                    JUEZ
+                  }
+                </span>
+
+                <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <p class="model-desc">{{ m.description || 'Sin descripción detallada.' }}</p>
+            <div class="docker-image-box">
+              <code class="docker-badge">{{ m.docker_image }}</code>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <div class="card-meta">
+              <span class="usage-badge" [class.has-usage]="m.usage_count > 0">
+                <strong><span machineData>{{ m.usage_count }}</span></strong> plantillas asociadas
+              </span>
+            </div>
+            <div class="actions-group">
+              <button
+                type="button"
+                class="btn-action-icon action-edit"
+                (click)="editModel.emit(m)"
+                title="Editar metadatos"
+              >
+                <svg lucidePencil class="action-icon"></svg>
+              </button>
+
+              @if (m.is_active !== false) {
+                <button
+                  type="button"
+                  class="btn-action-icon action-deactivate"
+                  (click)="toggleModelActive.emit(m)"
+                  title="Desactivar del catálogo"
+                >
+                  <svg lucidePower class="action-icon"></svg>
+                </button>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-action-icon action-reactivate"
+                  (click)="toggleModelActive.emit(m)"
+                  title="Reactivar en el catálogo"
+                >
+                  <svg lucideCheck class="action-icon"></svg>
+                </button>
+              }
+            </div>
+          </div>
+        </div>
+      } @empty {
+        <div class="empty-state-card">
+          <svg lucideBoxes class="empty-icon"></svg>
+          <h4 class="empty-title">No se encontraron modelos oficiales</h4>
+          <p class="empty-text">Ajuste los filtros de búsqueda o registre un nuevo modelo oficial institucional.</p>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="table-card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Modelo & Tecnología</th>
+            <th>Categoría</th>
+            <th>Propósito</th>
+            <th>RAM Base</th>
+            <th>Uso en Plantillas</th>
+            <th>Procedencia</th>
+            <th>Estado</th>
+            <th class="text-right">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (m of filteredModels(); track m.id) {
+            <tr [class.row-inactive]="m.is_active === false">
+              <td class="col-main">
+                <div class="model-info">
+                  <span class="model-title">{{ m.name || m.title }}</span>
+                  @if (m.description) {
+                    <span class="model-desc">{{ m.description }}</span>
+                  }
+                  <code class="docker-badge">{{ m.docker_image }}</code>
+                </div>
+              </td>
+              <td>
+                <span class="category-badge">
+                  <svg lucideTag class="badge-icon"></svg>
+                  {{ getCategoryName(m.category_id) }}
+                </span>
+              </td>
+              <td>
+                <span
+                  class="purpose-badge"
+                  [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
+                  [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
+                  [class.purpose-both]="m.target_environment === 'AMBOS'"
+                >
+                  @if (m.target_environment === 'AMBOS') {
+                    Laboratorio + Evaluador
+                  } @else if (m.target_environment === 'IDE_PERSISTENTE') {
+                    IDE Persistente
+                  } @else {
+                    Juez Virtual
+                  }
+                </span>
+              </td>
+              <td>
+                <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
+              </td>
+              <td>
+                <span class="usage-badge" [class.has-usage]="m.usage_count > 0">
+                  <strong><span machineData>{{ m.usage_count }}</span></strong> plantillas
+                </span>
+              </td>
+              <td>
+                @if (m.source_template_id) {
+                  <span class="provenance-tag" title="Origen: {{ m.source_template_id }}">
+                    Plantilla <span machineData>{{ m.source_template_id | slice:0:8 }}</span>
+                  </span>
+                } @else {
+                  <span class="text-muted text-xs">Semilla base</span>
+                }
+              </td>
+              <td>
+                @if (m.is_active !== false) {
+                  <span class="status-badge status-active">Activo</span>
+                } @else {
+                  <span class="status-badge status-inactive">Inactivo</span>
+                }
+              </td>
+              <td class="text-right">
+                <div class="actions-group">
+                  <button
+                    type="button"
+                    class="btn-action-icon action-edit"
+                    (click)="editModel.emit(m)"
+                    title="Editar metadatos"
+                  >
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+                  @if (m.is_active !== false) {
+                    <button
+                      type="button"
+                      class="btn-action-icon action-deactivate"
+                      (click)="toggleModelActive.emit(m)"
+                      title="Desactivar del catálogo"
+                    >
+                      <svg lucidePower class="action-icon"></svg>
+                    </button>
+                  } @else {
+                    <button
+                      type="button"
+                      class="btn-action-icon action-reactivate"
+                      (click)="toggleModelActive.emit(m)"
+                      title="Reactivar en el catálogo"
+                    >
+                      <svg lucideCheck class="action-icon"></svg>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="8" class="empty-cell">
+                <div class="empty-state">
+                  <svg lucideBoxes class="empty-icon"></svg>
+                  <p class="empty-text">No se encontraron modelos oficiales con los filtros seleccionados.</p>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+</section>

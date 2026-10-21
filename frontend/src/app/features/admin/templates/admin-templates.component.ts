@@ -4,11 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { 
-  AdminTemplatesService, 
-  AdminTemplateItem, 
+import {
+  AdminTemplatesService,
+  AdminTemplateItem,
   CreateOfficialTemplateDTO,
-  ReviewTemplateDTO, 
+  ReviewTemplateDTO,
   TemplateCacheStatus
 } from '../services/admin-templates.service';
 import { TemplateReviewModalComponent } from './components/template-review-modal/template-review-modal.component';
@@ -16,15 +16,15 @@ import { TemplateRejectModalComponent } from './components/template-reject-modal
 import { TemplateEditModalComponent } from './components/template-edit-modal/template-edit-modal.component';
 import { TemplateStatusModalComponent } from './components/template-status-modal/template-status-modal.component';
 import { TemplatePromoteModalComponent } from './components/template-promote-modal/template-promote-modal.component';
-import { 
-  LucideLayers, 
-  LucideBox, 
-  LucideRefreshCw, 
-  LucidePlus, 
-  LucideClock, 
-  LucideCheckCircle2, 
-  LucidePause, 
-  LucidePlay, 
+import {
+  LucideLayers,
+  LucideBox,
+  LucideRefreshCw,
+  LucidePlus,
+  LucideClock,
+  LucideCheckCircle2,
+  LucidePause,
+  LucidePlay,
   LucideAlertCircle,
   LucidePencil,
   LucideHardDrive,
@@ -35,108 +35,24 @@ import {
   LucideMoreVertical,
   LucideDownloadCloud
 } from '@lucide/angular';
-import { CURATED_TECH_ICONS, TechIconKey, TechLogoComponent } from './components/tech-logo/tech-logo.component';
+import { TechLogoComponent } from './components/tech-logo/tech-logo.component';
 import { SearchBarComponent } from '../../../shared/components/search-bar/search-bar.component';
 import { KpiCardComponent, KpiGridComponent } from '../../../shared/components/kpi-card/kpi-card.component';
 import { PaginationBarComponent } from '../../../shared/components/pagination-bar/pagination-bar.component';
 import { ViewSwitcherComponent } from '../../../shared/components/view-switcher/view-switcher.component';
 import { StatusTabsComponent, StatusTabItem } from '../../../shared/components/status-tabs/status-tabs.component';
+import {
+  detectTech,
+  detectTemplateTech,
+  filterAdminTemplatesForView,
+  formatByteSize,
+  getTemplatePurposeBadge,
+  isPausedTemplateStatus,
+  TechMeta
+} from './template-tech-detector.utils';
 
-export interface TechMeta {
-  id: string;
-  name: string;
-  badgeClass: string;
-  iconType: TechIconKey;
-}
-
-export function detectTemplateTech(item: Pick<AdminTemplateItem, 'name' | 'docker_image' | 'stack_config'>): TechMeta {
-  const runtimeId = (item.stack_config?.runtime_id || '').toLowerCase().trim();
-  const webId = (item.stack_config?.web_platform_id || '').toLowerCase().trim();
-
-  const matchCuratedId = (id: string): TechMeta | null => {
-    if (!id) return null;
-    const direct = CURATED_TECH_ICONS.find(c => c.key.toLowerCase() === id && c.key !== 'docker');
-    if (direct) {
-      return { id: direct.key, name: direct.label, badgeClass: `tech-${direct.key}`, iconType: direct.key as TechIconKey };
-    }
-    for (const c of CURATED_TECH_ICONS) {
-      if (c.key === 'docker') continue;
-      const key = c.key.toLowerCase();
-      const re = new RegExp(`(^|[^a-z0-9])${key}([^a-z0-9]|$)`, 'i');
-      if (re.test(id)) {
-        return { id: c.key, name: c.label, badgeClass: `tech-${c.key}`, iconType: c.key as TechIconKey };
-      }
-    }
-    return null;
-  };
-
-  if (runtimeId) {
-    const matched = matchCuratedId(runtimeId);
-    if (matched) return matched;
-  }
-
-  if (webId) {
-    const matched = matchCuratedId(webId);
-    if (matched) return matched;
-  }
-
-  const name = item.name || '';
-  const image = item.docker_image || '';
-  const text = `${name} ${image}`.toLowerCase();
-
-  if (text.includes('python') || text.includes('django') || text.includes('flask') || text.includes('fastapi') || text.includes('pandas') || text.includes('numpy') || text.includes('streamlit') || text.includes(' ds')) {
-    return { id: 'python', name: 'Python', badgeClass: 'tech-python', iconType: 'python' };
-  }
-  if (text.includes('rust') || text.includes('cargo') || text.includes('actix') || text.includes('tokio')) {
-    return { id: 'rust', name: 'Rust', badgeClass: 'tech-rust', iconType: 'rust' };
-  }
-  if (text.includes('typescript') || text.includes('ts-node')) {
-    return { id: 'typescript', name: 'TypeScript', badgeClass: 'tech-typescript', iconType: 'typescript' };
-  }
-  if (text.includes('angular')) {
-    return { id: 'angular', name: 'Angular', badgeClass: 'tech-angular', iconType: 'angular' };
-  }
-  if (text.includes('react') || text.includes('next')) {
-    return { id: 'react', name: 'React', badgeClass: 'tech-react', iconType: 'react' };
-  }
-  if (text.includes('vue') || text.includes('vite')) {
-    return { id: 'vue', name: 'Vue', badgeClass: 'tech-vue', iconType: 'vue' };
-  }
-  if (text.includes('node') || text.includes('javascript') || text.includes('express') || text.includes('nest') || text.includes('bun') || text.includes('deno')) {
-    return { id: 'node', name: 'Node.js', badgeClass: 'tech-node', iconType: 'node' };
-  }
-  if (text.includes('php') || text.includes('laravel')) {
-    return { id: 'php', name: 'PHP', badgeClass: 'tech-php', iconType: 'php' };
-  }
-  if (text.includes('dotnet') || text.includes('c#') || text.includes('.net') || text.includes('csharp')) {
-    return { id: 'dotnet', name: '.NET / C#', badgeClass: 'tech-dotnet', iconType: 'dotnet' };
-  }
-  if (text.includes('golang') || text.includes('go:') || text.includes('go-') || text.includes('/go') || text.includes('gin') || text.includes('fiber') || /\bgo\b/.test(text)) {
-    return { id: 'go', name: 'Go', badgeClass: 'tech-go', iconType: 'go' };
-  }
-  if (text.includes('java') || text.includes('spring') || text.includes('kotlin') || text.includes('maven') || text.includes('gradle')) {
-    return { id: 'java', name: 'Java', badgeClass: 'tech-java', iconType: 'java' };
-  }
-  if (text.includes('c++') || text.includes('cpp') || text.includes('clang') || text.includes('gcc') || text.includes('g++') || text.includes('cmake')) {
-    return { id: 'cpp', name: 'C / C++', badgeClass: 'tech-cpp', iconType: 'cpp' };
-  }
-  if (text.includes('postgres') || text.includes('mysql') || text.includes('sql') || text.includes('redis') || text.includes('mongo') || text.includes('mariadb')) {
-    return { id: 'db', name: 'Bases de Datos', badgeClass: 'tech-db', iconType: 'db' };
-  }
-
-  for (const curated of CURATED_TECH_ICONS) {
-    if (curated.key === 'docker' || curated.key === 'go') continue;
-    if (text.includes(curated.key)) {
-      return { id: curated.key, name: curated.label, badgeClass: `tech-${curated.key}`, iconType: curated.key as TechIconKey };
-    }
-  }
-
-  return { id: 'docker', name: 'Docker Base', badgeClass: 'tech-docker', iconType: 'docker' };
-}
-
-export function detectTech(name: string, image: string): TechMeta {
-  return detectTemplateTech({ name, docker_image: image });
-}
+export type { TechMeta };
+export { detectTech, detectTemplateTech };
 
 export type TabType = 'pending' | 'catalog' | 'rejected';
 export type ViewMode = 'cards' | 'table';
@@ -192,7 +108,6 @@ export class AdminTemplatesComponent implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
 
-  // States
   activeTab = signal<TabType>('pending');
   viewMode = signal<ViewMode>('cards');
   searchTerm = signal<string>('');
@@ -203,10 +118,9 @@ export class AdminTemplatesComponent implements OnInit {
   openMenuId = signal<string | null>(null);
 
   isPausedStatus(status?: string): boolean {
-    return status === 'paused' || status === 'suspended' || status === 'SUSPENDIDA';
+    return isPausedTemplateStatus(status);
   }
 
-  // Cache warming state
   cacheStatuses = signal<Map<string, TemplateCacheStatus>>(new Map());
   isWarmingAll = signal<boolean>(false);
   warmingTemplateIds = signal<Set<string>>(new Set());
@@ -221,30 +135,23 @@ export class AdminTemplatesComponent implements OnInit {
 
   toggleRowMenu(id: string, event: MouseEvent): void {
     event.stopPropagation();
-    this.openMenuId.update((current) => (current === id ? null : id));
+    this.openMenuId.update(current => (current === id ? null : id));
   }
 
-  // Paginación Catálogo
   catalogPage = signal<number>(1);
   pageSize = signal<number>(8);
-
-  // Paginación Rechazadas
   rejectedPage = signal<number>(1);
   rejectedPageSize = signal<number>(8);
 
-  // Data
   allTemplates = signal<AdminTemplateItem[]>([]);
 
-  // Modals state
   selectedTemplateForReview = signal<AdminTemplateItem | null>(null);
   selectedTemplateForReject = signal<AdminTemplateItem | null>(null);
   selectedTemplateForEdit = signal<AdminTemplateItem | null>(null);
   templateToToggleStatus = signal<AdminTemplateItem | null>(null);
 
-  // Toast feedback
   toast = signal<ToastNotification | null>(null);
 
-  // Plantillas base de la pestaña activa (para calcular chips contextuales)
   currentTabTemplates = computed(() => {
     const tab = this.activeTab();
     const all = this.allTemplates();
@@ -257,7 +164,6 @@ export class AdminTemplatesComponent implements OnInit {
     return all.filter(t => t.status === 'rejected' || t.status === 'RECHAZADA');
   });
 
-  // Tecnologías disponibles dinámicas (calculadas reactivamente según la pestaña activa)
   availableTechs = computed(() => {
     const counts: Record<string, { meta: TechMeta; count: number }> = {};
     for (const t of this.currentTabTemplates()) {
@@ -270,14 +176,8 @@ export class AdminTemplatesComponent implements OnInit {
     return Object.values(counts).sort((a, b) => b.count - a.count);
   });
 
-  // Top 4 tecnologías más usadas + extras para agrupar en dropdown
-  topTechs = computed(() => {
-    return this.availableTechs().slice(0, 4);
-  });
-
-  extraTechs = computed(() => {
-    return this.availableTechs().slice(4);
-  });
+  topTechs = computed(() => this.availableTechs().slice(0, 4));
+  extraTechs = computed(() => this.availableTechs().slice(4));
 
   isExtraSelected = computed(() => {
     const selected = this.selectedTech();
@@ -285,133 +185,72 @@ export class AdminTemplatesComponent implements OnInit {
     return this.extraTechs().some(t => t.meta.id === selected);
   });
 
-  // Computed lists con filtro de búsqueda, propósito y tecnología
-  pendingTemplates = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
-    const tech = this.selectedTech();
-    const purpose = this.selectedPurpose();
-    return this.allTemplates().filter(t => {
-      const isPending = t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA';
-      if (!isPending) return false;
-      if (purpose !== 'ALL') {
-        const env = t.target_environment || 'IDE_PERSISTENTE';
-        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
-        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
-        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
-      }
-      if (tech !== 'all') {
-        const itemTech = detectTemplateTech(t);
-        if (itemTech.id !== tech) return false;
-      }
-      if (!term) return true;
-      return (
-        t.name.toLowerCase().includes(term) ||
-        t.docker_image.toLowerCase().includes(term) ||
-        (t.requested_by_name && t.requested_by_name.toLowerCase().includes(term)) ||
-        (t.description && t.description.toLowerCase().includes(term))
-      );
-    });
-  });
+  pendingTemplates = computed(() =>
+    filterAdminTemplatesForView({
+      templates: this.allTemplates(),
+      statusPredicate: t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA',
+      purpose: this.selectedPurpose(),
+      tech: this.selectedTech(),
+      searchTerm: this.searchTerm(),
+      includeRequestedBy: true
+    })
+  );
 
-  catalogTemplates = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
-    const tech = this.selectedTech();
-    const purpose = this.selectedPurpose();
-    return this.allTemplates().filter(t => {
-      const isCatalog = t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status);
-      if (!isCatalog) return false;
-      if (purpose !== 'ALL') {
-        const env = t.target_environment || 'IDE_PERSISTENTE';
-        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
-        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
-        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
-      }
-      if (tech !== 'all') {
-        const itemTech = detectTemplateTech(t);
-        if (itemTech.id !== tech) return false;
-      }
-      if (!term) return true;
-      return (
-        t.name.toLowerCase().includes(term) ||
-        t.docker_image.toLowerCase().includes(term) ||
-        (t.description && t.description.toLowerCase().includes(term))
-      );
-    });
-  });
+  catalogTemplates = computed(() =>
+    filterAdminTemplatesForView({
+      templates: this.allTemplates(),
+      statusPredicate: t => t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status),
+      purpose: this.selectedPurpose(),
+      tech: this.selectedTech(),
+      searchTerm: this.searchTerm()
+    })
+  );
 
-  totalCatalogPages = computed(() => {
-    const total = this.catalogTemplates().length;
-    return Math.max(1, Math.ceil(total / this.pageSize()));
-  });
+  totalCatalogPages = computed(() => Math.max(1, Math.ceil(this.catalogTemplates().length / this.pageSize())));
 
   paginatedCatalogTemplates = computed(() => {
     const list = this.catalogTemplates();
-    const page = this.catalogPage();
-    const size = this.pageSize();
-    const start = (page - 1) * size;
-    return list.slice(start, start + size);
+    const start = (this.catalogPage() - 1) * this.pageSize();
+    return list.slice(start, start + this.pageSize());
   });
 
-  rejectedTemplates = computed(() => {
-    const term = this.searchTerm().toLowerCase().trim();
-    const tech = this.selectedTech();
-    const purpose = this.selectedPurpose();
-    return this.allTemplates().filter(t => {
-      const isRejected = t.status === 'rejected' || t.status === 'RECHAZADA';
-      if (!isRejected) return false;
-      if (purpose !== 'ALL') {
-        const env = t.target_environment || 'IDE_PERSISTENTE';
-        if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
-        if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
-        if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
-      }
-      if (tech !== 'all') {
-        const itemTech = detectTemplateTech(t);
-        if (itemTech.id !== tech) return false;
-      }
-      if (!term) return true;
-      return (
-        t.name.toLowerCase().includes(term) ||
-        t.docker_image.toLowerCase().includes(term) ||
-        (t.requested_by_name && t.requested_by_name.toLowerCase().includes(term)) ||
-        (t.rejection_reason && t.rejection_reason.toLowerCase().includes(term)) ||
-        (t.description && t.description.toLowerCase().includes(term))
-      );
-    });
-  });
+  rejectedTemplates = computed(() =>
+    filterAdminTemplatesForView({
+      templates: this.allTemplates(),
+      statusPredicate: t => t.status === 'rejected' || t.status === 'RECHAZADA',
+      purpose: this.selectedPurpose(),
+      tech: this.selectedTech(),
+      searchTerm: this.searchTerm(),
+      includeRequestedBy: true,
+      includeRejectionReason: true
+    })
+  );
 
-  totalRejectedPages = computed(() => {
-    const total = this.rejectedTemplates().length;
-    return Math.max(1, Math.ceil(total / this.rejectedPageSize()));
-  });
+  totalRejectedPages = computed(() => Math.max(1, Math.ceil(this.rejectedTemplates().length / this.rejectedPageSize())));
 
   paginatedRejectedTemplates = computed(() => {
     const list = this.rejectedTemplates();
-    const page = this.rejectedPage();
-    const size = this.rejectedPageSize();
-    const start = (page - 1) * size;
-    return list.slice(start, start + size);
+    const start = (this.rejectedPage() - 1) * this.rejectedPageSize();
+    return list.slice(start, start + this.rejectedPageSize());
   });
 
-  pendingCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA').length;
-  });
+  pendingCount = computed(() =>
+    this.allTemplates().filter(t => t.status === 'pending' || t.status === 'PENDIENTE_AUDITORIA').length
+  );
 
-  catalogCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status)).length;
-  });
+  catalogCount = computed(() =>
+    this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA' || this.isPausedStatus(t.status)).length
+  );
 
-  activeCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA').length;
-  });
+  activeCount = computed(() =>
+    this.allTemplates().filter(t => t.status === 'approved' || t.status === 'APROBADA').length
+  );
 
-  pausedCount = computed(() => {
-    return this.allTemplates().filter(t => this.isPausedStatus(t.status)).length;
-  });
+  pausedCount = computed(() => this.allTemplates().filter(t => this.isPausedStatus(t.status)).length);
 
-  rejectedCount = computed(() => {
-    return this.allTemplates().filter(t => t.status === 'rejected' || t.status === 'RECHAZADA').length;
-  });
+  rejectedCount = computed(() =>
+    this.allTemplates().filter(t => t.status === 'rejected' || t.status === 'RECHAZADA').length
+  );
 
   templateTabs = computed<StatusTabItem[]>(() => [
     {
@@ -459,7 +298,7 @@ export class AdminTemplatesComponent implements OnInit {
   loadTemplates(): void {
     this.isLoading.set(true);
     this.templatesService.getTemplates('all').subscribe({
-      next: (data) => {
+      next: data => {
         this.allTemplates.set(data);
         const requestedTab = this.route.snapshot.queryParamMap.get('tab');
         if (!requestedTab && this.activeTab() === 'pending' && this.pendingCount() === 0 && this.catalogCount() > 0) {
@@ -511,22 +350,16 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   handleApprove(event: { id: string; base_ram_mb: number }): void {
-    const dto: ReviewTemplateDTO = {
-      status: 'pending_audit',
-      base_ram_mb: event.base_ram_mb
-    };
+    const dto: ReviewTemplateDTO = { status: 'pending_audit', base_ram_mb: event.base_ram_mb };
 
     this.templatesService.reviewTemplate(event.id, dto).subscribe({
-      next: (updated) => {
-        this.allTemplates.update(list => 
-          list.map(t => t.id === updated.id ? updated : t)
-        );
+      next: updated => {
+        this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.closeReviewModal();
         this.showToast(`Solicitud de plantilla "${updated.name}" aprobada y derivada a borrador en auditoría técnica.`, 'success');
       },
-      error: (err) => {
-        const msg = err.error?.message || 'No se pudo aprobar la plantilla.';
-        this.showToast(msg, 'error');
+      error: err => {
+        this.showToast(err.error?.message || 'No se pudo aprobar la plantilla.', 'error');
         this.closeReviewModal();
       }
     });
@@ -557,27 +390,20 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   handleReject(event: { id: string; reason: string }): void {
-    const dto: ReviewTemplateDTO = {
-      status: 'rejected',
-      rejection_reason: event.reason
-    };
+    const dto: ReviewTemplateDTO = { status: 'rejected', rejection_reason: event.reason };
 
     this.templatesService.reviewTemplate(event.id, dto).subscribe({
-      next: (updated) => {
-        this.allTemplates.update(list => 
-          list.map(t => t.id === updated.id ? updated : t)
-        );
+      next: updated => {
+        this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.closeRejectModal();
-        this.showToast(`Solicitud rechazada con motivo registrado para el docente.`, 'success');
+        this.showToast('Solicitud rechazada con motivo registrado para el docente.', 'success');
       },
-      error: (err) => {
-        const msg = err.error?.message || 'No se pudo registrar el rechazo de la plantilla.';
-        this.showToast(msg, 'error');
+      error: err => {
+        this.showToast(err.error?.message || 'No se pudo registrar el rechazo de la plantilla.', 'error');
         this.closeRejectModal();
       }
     });
   }
-
 
   toggleStatusReason = signal<string>('');
 
@@ -601,10 +427,8 @@ export class AdminTemplatesComponent implements OnInit {
     };
 
     this.templatesService.reviewTemplate(template.id, dto).subscribe({
-      next: (updated) => {
-        this.allTemplates.update(list => 
-          list.map(t => t.id === updated.id ? updated : t)
-        );
+      next: updated => {
+        this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.templateToToggleStatus.set(null);
         this.toggleStatusReason.set('');
         const actionText = nextStatus === 'paused' ? 'suspendida/pausada' : 'reactivada';
@@ -621,24 +445,21 @@ export class AdminTemplatesComponent implements OnInit {
   confirmToggleStatus(template: AdminTemplateItem): void {
     const reason = this.toggleStatusReason().trim();
     const isPausing = template.status === 'approved' || template.status === 'APROBADA';
-    if (isPausing && reason.length < 10) {
-      return;
-    }
+    if (isPausing && reason.length < 10) return;
     this.handleConfirmToggleStatus({ template, reason });
   }
 
   duplicateTemplate(template: AdminTemplateItem): void {
     this.isLoading.set(true);
     this.templatesService.duplicateTemplate(template.id).subscribe({
-      next: (duplicated) => {
+      next: duplicated => {
         this.allTemplates.update(list => [duplicated, ...list]);
         this.isLoading.set(false);
         this.showToast(`Plantilla duplicada como "${duplicated.name}" y encolada para auditoría.`, 'success');
       },
-      error: (err) => {
+      error: err => {
         this.isLoading.set(false);
-        const msg = err.error?.message || err.error?.error || 'No se pudo duplicar la plantilla.';
-        this.showToast(msg, 'error');
+        this.showToast(err.error?.message || err.error?.error || 'No se pudo duplicar la plantilla.', 'error');
       }
     });
   }
@@ -672,23 +493,19 @@ export class AdminTemplatesComponent implements OnInit {
     };
 
     const targetStatus: 'approved' | 'paused' = this.isPausedStatus(current.status) ? 'paused' : 'approved';
-    const fallbackDto: ReviewTemplateDTO = {
-      status: targetStatus,
-      base_ram_mb: event.base_ram_mb
-    };
+    const fallbackDto: ReviewTemplateDTO = { status: targetStatus, base_ram_mb: event.base_ram_mb };
 
-    const save$ = (typeof this.templatesService.updateOfficialTemplate === 'function')
-      ? this.templatesService.updateOfficialTemplate(event.id, updateDto)
-      : this.templatesService.reviewTemplate(event.id, fallbackDto);
+    const save$ =
+      typeof this.templatesService.updateOfficialTemplate === 'function'
+        ? this.templatesService.updateOfficialTemplate(event.id, updateDto)
+        : this.templatesService.reviewTemplate(event.id, fallbackDto);
 
     save$.subscribe({
-      next: (updated) => {
+      next: updated => {
         if (event.description !== undefined) {
           updated.description = event.description;
         }
-        this.allTemplates.update(list => 
-          list.map(t => t.id === updated.id ? updated : t)
-        );
+        this.allTemplates.update(list => list.map(t => (t.id === updated.id ? updated : t)));
         this.closeEditModal();
         this.showToast(`Cuotas de "${updated.name}" actualizadas correctamente.`, 'success');
       },
@@ -708,13 +525,7 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   getPurposeBadge(targetEnv?: string): { label: string; shortLabel: string; variant: 'ide' | 'judge' | 'dual' } {
-    if (targetEnv === 'AMBOS') {
-      return { label: 'Dual: Lab + Juez', shortLabel: 'DUAL', variant: 'dual' };
-    }
-    if (targetEnv === 'JUEZ_EFIMERO' || targetEnv === 'JUEZ_VIRTUAL') {
-      return { label: 'Evaluador Juez', shortLabel: 'JUEZ', variant: 'judge' };
-    }
-    return { label: 'Laboratorio IDE', shortLabel: 'LAB IDE', variant: 'ide' };
+    return getTemplatePurposeBadge(targetEnv);
   }
 
   setTechFilter(techId: string): void {
@@ -725,7 +536,7 @@ export class AdminTemplatesComponent implements OnInit {
 
   onSelectExtraTech(event: Event): void {
     const target = event.target as HTMLSelectElement;
-    if (target && target.value) {
+    if (target?.value) {
       this.setTechFilter(target.value);
     }
   }
@@ -743,9 +554,7 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   copyDockerTag(tag: string, event?: Event): void {
-    if (event) {
-      event.stopPropagation();
-    }
+    if (event) event.stopPropagation();
     navigator.clipboard.writeText(tag).then(() => {
       this.copiedTag.set(tag);
       setTimeout(() => {
@@ -757,11 +566,9 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   loadCacheStatuses(): void {
-    if (!this.templatesService.getTemplatesCacheStatus) {
-      return;
-    }
+    if (!this.templatesService.getTemplatesCacheStatus) return;
     this.templatesService.getTemplatesCacheStatus().subscribe({
-      next: (statuses) => {
+      next: statuses => {
         const map = new Map<string, TemplateCacheStatus>();
         for (const s of statuses) {
           map.set(s.template_id, s);
@@ -777,37 +584,22 @@ export class AdminTemplatesComponent implements OnInit {
   }
 
   formatBytes(bytes: number): string {
-    if (!bytes || bytes <= 0) return '0 B';
-    const k = 1024;
-    const dm = 1;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
+    return formatByteSize(bytes);
   }
 
   warmTemplate(template: AdminTemplateItem, event?: MouseEvent): void {
-    if (event) {
-      event.stopPropagation();
-    }
+    if (event) event.stopPropagation();
     const id = template.id;
-    this.warmingTemplateIds.update(set => {
-      const next = new Set(set);
-      next.add(id);
-      return next;
-    });
+    this.warmingTemplateIds.update(set => new Set(set).add(id));
 
     this.templatesService.warmTemplate(id).subscribe({
-      next: (status) => {
+      next: status => {
         this.warmingTemplateIds.update(set => {
           const next = new Set(set);
           next.delete(id);
           return next;
         });
-        this.cacheStatuses.update(map => {
-          const next = new Map(map);
-          next.set(id, status);
-          return next;
-        });
+        this.cacheStatuses.update(map => new Map(map).set(id, status));
         this.showToast(`Entorno listo en el servidor: ${template.name}`, 'success');
       },
       error: () => {
@@ -828,7 +620,7 @@ export class AdminTemplatesComponent implements OnInit {
     }
     this.isWarmingAll.set(true);
     this.templatesService.warmAllTemplates().subscribe({
-      next: (summary) => {
+      next: summary => {
         this.isWarmingAll.set(false);
         this.loadCacheStatuses();
         if (summary.total_checked === 0) {

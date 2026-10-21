@@ -25,6 +25,8 @@ import { ModelEditModalComponent } from './components/model-edit-modal/model-edi
 import { CategoryFormModalComponent } from './components/category-form-modal/category-form-modal.component';
 import { CategoryDeleteModalComponent } from './components/category-delete-modal/category-delete-modal.component';
 import { ComponentFormModalComponent } from './components/component-form-modal/component-form-modal.component';
+import { TemplateModelsSectionComponent } from './components/template-models-section/template-models-section.component';
+import { TemplateCategoriesManagerComponent } from './components/template-categories-manager/template-categories-manager.component';
 import { TechLogoComponent } from '../tech-logo/tech-logo.component';
 import {
   LucideBoxes,
@@ -35,13 +37,19 @@ import {
   LucideCheck,
   LucidePower,
   LucideAlertTriangle,
-  LucideGripVertical,
-  LucideChevronUp,
-  LucideChevronDown,
   LucideCheckCircle2,
   LucideCode,
   LucideTerminal
 } from '@lucide/angular';
+import {
+  computeComponentMemoryBadge,
+  filterAndSortTechComponentsForLibrary,
+  filterModelsForLibrary,
+  getAddonEcosystemLabel,
+  getCompatibleAddonsCountForRuntime,
+  getComponentProfileLabel,
+  isOrphanAddonInCatalog
+} from './model-library.utils';
 
 @Component({
   selector: 'model-library',
@@ -61,6 +69,8 @@ import {
     CategoryFormModalComponent,
     CategoryDeleteModalComponent,
     ComponentFormModalComponent,
+    TemplateModelsSectionComponent,
+    TemplateCategoriesManagerComponent,
     TechLogoComponent,
     LucideBoxes,
     LucideTag,
@@ -70,9 +80,6 @@ import {
     LucideCheck,
     LucidePower,
     LucideAlertTriangle,
-    LucideGripVertical,
-    LucideChevronUp,
-    LucideChevronDown,
     LucideCheckCircle2,
     LucideCode,
     LucideTerminal
@@ -84,12 +91,10 @@ export class ModelLibraryComponent implements OnInit {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly router = inject(Router);
 
-  // Tabs y Vista
   readonly activeTab = signal<'models' | 'components' | 'categories'>('models');
   readonly viewMode = signal<'cards' | 'table'>('table');
   readonly isLoading = signal<boolean>(false);
 
-  // Data
   readonly models = signal<TemplateModelItem[]>([]);
   readonly categories = signal<TemplateCategory[]>([]);
   readonly techComponents = signal<TemplateComponent[]>([]);
@@ -99,26 +104,31 @@ export class ModelLibraryComponent implements OnInit {
   readonly defaultCompatibleRuntime = signal<string>('');
   readonly editingComponent = signal<TemplateComponent | null>(null);
 
-  // Filtros Tecnologías del Catálogo
   readonly componentSearchQuery = signal<string>('');
   readonly componentProfileFilter = signal<'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE'>('ALL');
   readonly componentStatusFilter = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  // KPIs
   readonly totalModelsCount = computed(() => this.models().length);
   readonly activeModelsCount = computed(() => this.models().filter(m => m.is_active !== false).length);
-  readonly ideModelsCount = computed(() => this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE' || m.target_environment === 'AMBOS').length);
-  readonly judgeModelsCount = computed(() => this.models().filter(m => m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO' || m.target_environment === 'AMBOS').length);
+  readonly ideModelsCount = computed(() =>
+    this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE' || m.target_environment === 'AMBOS').length
+  );
+  readonly judgeModelsCount = computed(() =>
+    this.models().filter(
+      m =>
+        m.target_environment === 'JUEZ_VIRTUAL' ||
+        m.target_environment === 'JUEZ_EFIMERO' ||
+        m.target_environment === 'AMBOS'
+    ).length
+  );
   readonly categoriesCount = computed(() => this.categories().length);
   readonly techComponentsCount = computed(() => this.techComponents().length);
 
-  // Filtros Modelos
   readonly searchQuery = signal<string>('');
   readonly filterPurpose = signal<string>('ALL');
   readonly filterCategory = signal<string>('ALL');
   readonly filterStatus = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  // Modales Modelos (Edición)
   readonly showModelModal = signal<boolean>(false);
   readonly editingModel = signal<TemplateModelItem | null>(null);
   readonly modelTitle = signal<string>('');
@@ -126,15 +136,13 @@ export class ModelLibraryComponent implements OnInit {
   readonly modelCategoryId = signal<string>('');
   readonly isModelSaving = signal<boolean>(false);
 
-  // Modal Nuevo Modelo Oficial (delegado en model-new-modal)
   readonly showNewModelModal = signal<boolean>(false);
   readonly approvedTemplates = signal<AdminTemplateItem[]>([]);
 
   readonly selectedEditModelCategoryLabel = computed<string>(() => {
     const id = this.modelCategoryId();
     if (!id) return 'Seleccione una categoría';
-    const match = this.categories().find(c => c.id === id);
-    return match ? match.name : 'Seleccione una categoría';
+    return this.categories().find(c => c.id === id)?.name || 'Seleccione una categoría';
   });
 
   onEditModelCategorySelected(opt: ComboboxOption): void {
@@ -150,8 +158,7 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly selectedPurposeFilterLabel = computed<string>(() => {
     const val = this.filterPurpose();
-    const match = this.purposeFilterComboboxOptions().find(o => o.value === val);
-    return match ? match.label : 'Todos los propósitos';
+    return this.purposeFilterComboboxOptions().find(o => o.value === val)?.label || 'Todos los propósitos';
   });
 
   onPurposeFilterSelected(opt: ComboboxOption): void {
@@ -160,18 +167,13 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly categoryFilterComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'ALL', label: 'Todas las categorías', value: 'ALL' },
-    ...this.categories().map(c => ({
-      id: c.id,
-      label: c.name,
-      value: c.id
-    }))
+    ...this.categories().map(c => ({ id: c.id, label: c.name, value: c.id }))
   ]);
 
   readonly selectedCategoryFilterLabel = computed<string>(() => {
     const val = this.filterCategory();
     if (val === 'ALL') return 'Todas las categorías';
-    const match = this.categories().find(c => c.id === val);
-    return match ? match.name : 'Todas las categorías';
+    return this.categories().find(c => c.id === val)?.name || 'Todas las categorías';
   });
 
   onCategoryFilterSelected(opt: ComboboxOption): void {
@@ -186,15 +188,13 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly selectedStatusFilterLabel = computed<string>(() => {
     const val = this.filterStatus();
-    const match = this.statusFilterComboboxOptions().find(o => o.value === val);
-    return match ? match.label : 'Todos';
+    return this.statusFilterComboboxOptions().find(o => o.value === val)?.label || 'Todos';
   });
 
   onStatusFilterSelected(opt: ComboboxOption): void {
-    this.filterStatus.set(opt.value || 'ALL');
+    this.filterStatus.set((opt.value as 'ALL' | 'ACTIVE' | 'INACTIVE') || 'ALL');
   }
 
-  // Opciones de Filtro para Tecnologías
   readonly componentProfileFilterOptions = computed<ComboboxOption[]>(() => [
     { id: 'ALL', label: 'Todos los perfiles', value: 'ALL' },
     { id: 'BACKEND', label: 'Lenguaje Principal', value: 'BACKEND' },
@@ -205,8 +205,7 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly selectedComponentProfileFilterLabel = computed<string>(() => {
     const val = this.componentProfileFilter();
-    const match = this.componentProfileFilterOptions().find(o => o.value === val);
-    return match ? match.label : 'Todos los perfiles';
+    return this.componentProfileFilterOptions().find(o => o.value === val)?.label || 'Todos los perfiles';
   });
 
   onComponentProfileSelected(opt: ComboboxOption): void {
@@ -221,8 +220,7 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly selectedComponentStatusFilterLabel = computed<string>(() => {
     const val = this.componentStatusFilter();
-    const match = this.componentStatusFilterOptions().find(o => o.value === val);
-    return match ? match.label : 'Todos los estados';
+    return this.componentStatusFilterOptions().find(o => o.value === val)?.label || 'Todos los estados';
   });
 
   onComponentStatusSelected(opt: ComboboxOption): void {
@@ -235,128 +233,39 @@ export class ModelLibraryComponent implements OnInit {
     this.componentStatusFilter.set('ALL');
   }
 
-  // Modales Categorías
   readonly showCategoryModal = signal<boolean>(false);
   readonly editingCategory = signal<TemplateCategory | null>(null);
   readonly categoryName = signal<string>('');
   readonly categoryDescription = signal<string>('');
   readonly isCategorySaving = signal<boolean>(false);
 
-  // Modal Confirmar Eliminar Categoría
   readonly categoryToDelete = signal<TemplateCategory | null>(null);
   readonly isCategoryDeleting = signal<boolean>(false);
 
-  // Feedback Toast
   readonly toastMessage = signal<string | null>(null);
   readonly toastType = signal<'success' | 'error'>('success');
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Drag and drop state
   draggedCategoryIndex: number | null = null;
 
-  // Modelos filtrados
-  readonly filteredModels = computed(() => {
-    const list = this.models();
-    const query = this.searchQuery().trim().toLowerCase();
-    const purpose = this.filterPurpose();
-    const catId = this.filterCategory();
-    const status = this.filterStatus();
+  readonly filteredModels = computed(() =>
+    filterModelsForLibrary({
+      models: this.models(),
+      searchQuery: this.searchQuery(),
+      filterPurpose: this.filterPurpose(),
+      filterCategory: this.filterCategory(),
+      filterStatus: this.filterStatus()
+    })
+  );
 
-    return list.filter(m => {
-      // Búsqueda por nombre o descripción o imagen
-      if (query) {
-        const matchesName = (m.name || m.title || '').toLowerCase().includes(query);
-        const matchesDesc = (m.description || '').toLowerCase().includes(query);
-        const matchesImage = (m.docker_image || '').toLowerCase().includes(query);
-        if (!matchesName && !matchesDesc && !matchesImage) return false;
-      }
-
-      // Propósito
-      if (purpose !== 'ALL') {
-        if (purpose === 'JUEZ_VIRTUAL') {
-          if (m.target_environment !== 'JUEZ_VIRTUAL' && m.target_environment !== 'JUEZ_EFIMERO' && m.target_environment !== 'AMBOS') {
-            return false;
-          }
-        } else if (purpose === 'IDE_PERSISTENTE') {
-          if (m.target_environment !== 'IDE_PERSISTENTE' && m.target_environment !== 'AMBOS') {
-            return false;
-          }
-        } else if (m.target_environment !== purpose) {
-          return false;
-        }
-      }
-
-      // Categoría
-      if (catId !== 'ALL' && m.category_id !== catId) {
-        return false;
-      }
-
-      // Estado activo/inactivo
-      if (status === 'ACTIVE' && m.is_active === false) {
-        return false;
-      }
-      if (status === 'INACTIVE' && m.is_active !== false) {
-        return false;
-      }
-
-      return true;
-    });
-  });
-
-  // Tecnologías del catálogo filtradas y ordenadas para gobernanza
-  readonly filteredTechComponents = computed(() => {
-    const list = this.techComponents();
-    const query = this.componentSearchQuery().trim().toLowerCase();
-    const profile = this.componentProfileFilter();
-    const status = this.componentStatusFilter();
-
-    return list.filter(c => {
-      if (query) {
-        const matchesName = (c.name || '').toLowerCase().includes(query);
-        const matchesSlug = (c.slug || '').toLowerCase().includes(query);
-        const matchesDesc = (c.description || '').toLowerCase().includes(query);
-        const matchesImage = (c.base_image || '').toLowerCase().includes(query);
-        const matchesTools = (c.tools_provided || []).some(t => t.toLowerCase().includes(query));
-        const matchesPkgs = (c.package_names || []).some(p => p.toLowerCase().includes(query));
-        if (!matchesName && !matchesSlug && !matchesDesc && !matchesImage && !matchesTools && !matchesPkgs) {
-          return false;
-        }
-      }
-
-      if (profile !== 'ALL') {
-        if (profile === 'BACKEND' && (c.layer !== 'runtime' || c.sub_category === 'web')) return false;
-        if (profile === 'WEB' && (c.layer !== 'runtime' || c.sub_category !== 'web')) return false;
-        if (profile === 'ADDON' && c.layer !== 'addon') return false;
-        if (profile === 'DATABASE' && c.layer !== 'database') return false;
-      }
-
-      if (status === 'ACTIVE' && c.is_active === false) return false;
-      if (status === 'INACTIVE' && c.is_active !== false) return false;
-
-      return true;
-    }).sort((a, b) => {
-      // Activos primero
-      const aActive = a.is_active !== false ? 1 : 0;
-      const bActive = b.is_active !== false ? 1 : 0;
-      if (aActive !== bActive) return bActive - aActive;
-
-      // Orden de capas/perfiles: Backend (1), Web (2), Addon (3), Database (4)
-      const profileOrder = (item: TemplateComponent): number => {
-        if (item.layer === 'runtime') return item.sub_category === 'web' ? 2 : 1;
-        if (item.layer === 'addon') return 3;
-        return 4;
-      };
-      const orderA = profileOrder(a);
-      const orderB = profileOrder(b);
-      if (orderA !== orderB) return orderA - orderB;
-
-      const soA = a.sort_order ?? 0;
-      const soB = b.sort_order ?? 0;
-      if (soA !== soB) return soA - soB;
-
-      return (a.name || '').localeCompare(b.name || '');
-    });
-  });
+  readonly filteredTechComponents = computed(() =>
+    filterAndSortTechComponentsForLibrary({
+      components: this.techComponents(),
+      searchQuery: this.componentSearchQuery(),
+      profileFilter: this.componentProfileFilter(),
+      statusFilter: this.componentStatusFilter()
+    })
+  );
 
   ngOnInit(): void {
     this.loadData();
@@ -364,13 +273,12 @@ export class ModelLibraryComponent implements OnInit {
 
   loadData(): void {
     this.isLoading.set(true);
-    // Cargar modelos con include_inactive=true para gestión completa
     this.templatesService.getModels(undefined, undefined, true).subscribe({
-      next: (models) => {
+      next: models => {
         this.models.set(models);
         this.loadCategories();
       },
-      error: (err) => {
+      error: err => {
         this.isLoading.set(false);
         this.showToast('Error al cargar la lista de modelos: ' + (err.message || 'Error de conexión'), 'error');
       }
@@ -379,11 +287,11 @@ export class ModelLibraryComponent implements OnInit {
 
   loadCategories(): void {
     this.templatesService.getCategories().subscribe({
-      next: (cats) => {
+      next: cats => {
         this.categories.set(cats);
         this.loadTechComponents();
       },
-      error: (err) => {
+      error: err => {
         this.isLoading.set(false);
         this.showToast('Error al cargar categorías: ' + (err.message || 'Error de conexión'), 'error');
       }
@@ -396,7 +304,7 @@ export class ModelLibraryComponent implements OnInit {
       return;
     }
     this.templatesService.getTechCatalog(undefined, true).subscribe({
-      next: (items) => {
+      next: items => {
         this.techComponents.set(items);
         this.isLoading.set(false);
       },
@@ -458,10 +366,7 @@ export class ModelLibraryComponent implements OnInit {
 
   toggleComponentActive(comp: TemplateComponent): void {
     const nextActive = comp.is_active === false;
-    // Actualización optimista inmediata en la UI
-    this.techComponents.update(list =>
-      list.map(c => (c.id === comp.id ? { ...c, is_active: nextActive } : c))
-    );
+    this.techComponents.update(list => list.map(c => (c.id === comp.id ? { ...c, is_active: nextActive } : c)));
 
     const dto: UpdateTemplateComponentDTO = {
       name: comp.name,
@@ -483,130 +388,37 @@ export class ModelLibraryComponent implements OnInit {
     };
 
     this.templatesService.updateTechCatalogItem(comp.id, dto).subscribe({
-      next: (updated) => {
-        this.techComponents.update(list =>
-          list.map(c => (c.id === comp.id ? updated : c))
-        );
-        this.showToast(
-          `Tecnología "${comp.name}" ${nextActive ? 'activada' : 'desactivada'}.`,
-          'success'
-        );
+      next: updated => {
+        this.techComponents.update(list => list.map(c => (c.id === comp.id ? updated : c)));
+        this.showToast(`Tecnología "${comp.name}" ${nextActive ? 'activada' : 'desactivada'}.`, 'success');
       },
-      error: (err) => {
-        // Revertir ante falla
-        this.techComponents.update(list =>
-          list.map(c => (c.id === comp.id ? comp : c))
-        );
-        const msg = err.error?.error?.message || err.message || 'Error al cambiar estado de tecnología';
-        this.showToast(msg, 'error');
+      error: err => {
+        this.techComponents.update(list => list.map(c => (c.id === comp.id ? comp : c)));
+        this.showToast(err.error?.error?.message || err.message || 'Error al cambiar estado de tecnología', 'error');
       }
     });
   }
 
   getComponentProfileLabel(comp: TemplateComponent): string {
-    if (comp.layer === 'runtime') {
-      return comp.sub_category === 'web' ? 'Interfaz Web' : 'Lenguaje Principal';
-    }
-    if (comp.layer === 'addon') {
-      return 'Complemento / Librería';
-    }
-    return 'Base de Datos';
+    return getComponentProfileLabel(comp);
   }
 
   getAddonEcosystemLabel(comp: TemplateComponent): string {
-    if (comp.layer !== 'addon') return '';
-    const cr = (comp.compatible_runtimes || []).map(r => r.trim().toLowerCase()).filter(Boolean);
-    if (!cr.length || cr.includes('universal') || cr.includes('any')) {
-      return 'Universal';
-    }
-    const tokenSet = new Set(cr);
-    const labels: string[] = [];
-    if (tokenSet.has('c') || tokenSet.has('cpp') || tokenSet.has('c-gcc13') || tokenSet.has('cpp-gcc13')) {
-      labels.push('C / C++');
-    }
-    if (tokenSet.has('python') || tokenSet.has('python-312')) {
-      labels.push('Python');
-    }
-    if (tokenSet.has('node') || tokenSet.has('web') || tokenSet.has('node-20')) {
-      labels.push('Node.js / Web');
-    }
-    if (tokenSet.has('java') || tokenSet.has('java-21')) {
-      labels.push('Java');
-    }
-    if (tokenSet.has('go') || tokenSet.has('go-122')) {
-      labels.push('Go');
-    }
-    if (tokenSet.has('rust') || tokenSet.has('rust-stable')) {
-      labels.push('Rust');
-    }
-    if (tokenSet.has('php') || tokenSet.has('php-83')) {
-      labels.push('PHP');
-    }
-    if (tokenSet.has('dotnet') || tokenSet.has('dotnet-8')) {
-      labels.push('.NET / C#');
-    }
-    if (labels.length > 0) {
-      return labels.join(' · ');
-    }
-    return cr.map(r => r.toUpperCase()).join(', ');
-  }
-
-  private matchesRuntimeEcosystem(rt: TemplateComponent, targetToken: string): boolean {
-    const low = targetToken.trim().toLowerCase();
-    if (!low || low === 'universal' || low === 'any') return false;
-    const slug = (rt.slug || '').toLowerCase();
-    const icon = (rt.icon_key || '').toLowerCase();
-    const name = (rt.name || '').toLowerCase();
-    return slug === low || (icon !== 'docker' && icon === low) || name === low || slug.startsWith(low + '-') || name.startsWith(low + ' ');
+    return getAddonEcosystemLabel(comp);
   }
 
   isOrphanAddon(comp: TemplateComponent): boolean {
-    if (comp.layer !== 'addon') return false;
-    const cr = comp.compatible_runtimes || [];
-    if (!cr.length || cr.includes('universal') || cr.includes('any')) {
-      return false;
-    }
-    const activeRuntimes = this.techComponents().filter(t => t.layer === 'runtime' && t.is_active !== false);
-    return !cr.some(target => activeRuntimes.some(rt => this.matchesRuntimeEcosystem(rt, target)));
+    return isOrphanAddonInCatalog(comp, this.techComponents());
   }
 
   getCompatibleAddonsCount(runtimeComp: TemplateComponent): number {
-    if (runtimeComp.layer !== 'runtime') return 0;
-    return this.techComponents().filter(c =>
-      c.layer === 'addon' &&
-      c.is_active !== false &&
-      (c.compatible_runtimes || []).some(target => this.matchesRuntimeEcosystem(runtimeComp, target))
-    ).length;
+    return getCompatibleAddonsCountForRuntime(runtimeComp, this.techComponents());
   }
 
-  getComponentMemoryBadge(comp: TemplateComponent): { label: string; detail: string; variant: 'light' | 'standard' | 'heavy' } {
-    if (comp.layer === 'addon') {
-      if (comp.ram_delta_mb > 0) {
-        return { label: `+${comp.ram_delta_mb} MB`, detail: 'Proceso activo', variant: 'standard' };
-      }
-      return { label: '0 MB RAM', detail: 'En disco', variant: 'light' };
-    }
-
-    if (comp.layer === 'runtime') {
-      const ram = comp.ram_delta_mb || 0;
-      const isCpp = (comp.icon_key || '').toLowerCase() === 'cpp';
-      const isJava = (comp.icon_key || '').toLowerCase() === 'java';
-
-      if ((ram > 0 && ram <= 384) || (ram === 0 && isCpp)) {
-        return { label: `${ram > 0 ? ram : 128} MB`, detail: 'Perfil liviano', variant: 'light' };
-      }
-      if (ram >= 1024 || (ram === 0 && isJava)) {
-        return { label: `${ram >= 1024 ? ram : 1024} MB`, detail: 'Perfil intensivo', variant: 'heavy' };
-      }
-      return { label: `${ram > 0 ? ram : 256} MB`, detail: 'Perfil estándar', variant: 'standard' };
-    }
-
-    const ram = comp.ram_delta_mb || 256;
-    return {
-      label: `${ram} MB`,
-      detail: 'Base de datos',
-      variant: ram >= 512 ? 'heavy' : 'standard'
-    };
+  getComponentMemoryBadge(
+    comp: TemplateComponent
+  ): { label: string; detail: string; variant: 'light' | 'standard' | 'heavy' } {
+    return computeComponentMemoryBadge(comp);
   }
 
   handleComponentSaved(savedComp: TemplateComponent): void {
@@ -615,9 +427,7 @@ export class ModelLibraryComponent implements OnInit {
     this.showComponentModal.set(false);
 
     if (isEdit) {
-      this.techComponents.update(list =>
-        list.map(c => (c.id === savedComp.id ? savedComp : c))
-      );
+      this.techComponents.update(list => list.map(c => (c.id === savedComp.id ? savedComp : c)));
       this.showToast(`Tecnología "${savedComp.name}" actualizada exitosamente.`, 'success');
     } else {
       this.showToast(`Tecnología "${savedComp.name}" registrada en el catálogo de tecnologías.`, 'success');
@@ -635,9 +445,8 @@ export class ModelLibraryComponent implements OnInit {
         this.showToast(`Tecnología "${item.name}" eliminada.`, 'success');
         this.loadTechComponents();
       },
-      error: (err) => {
-        const msg = err.error?.error?.message || 'Error al eliminar tecnología';
-        this.showToast(msg, 'error');
+      error: err => {
+        this.showToast(err.error?.error?.message || 'Error al eliminar tecnología', 'error');
       }
     });
   }
@@ -648,16 +457,13 @@ export class ModelLibraryComponent implements OnInit {
 
   getCategoryName(categoryId?: string | null): string {
     if (!categoryId) return 'Sin categoría';
-    const found = this.categories().find(c => c.id === categoryId);
-    return found ? found.name : 'Sin categoría';
+    return this.categories().find(c => c.id === categoryId)?.name || 'Sin categoría';
   }
-
-  // --- GESTIÓN DE MODELOS ---
 
   openNewModelModal(): void {
     this.showNewModelModal.set(true);
     this.templatesService.getTemplates('approved').subscribe({
-      next: (tpls) => this.approvedTemplates.set(tpls || []),
+      next: tpls => this.approvedTemplates.set(tpls || []),
       error: () => this.approvedTemplates.set([])
     });
   }
@@ -739,10 +545,9 @@ export class ModelLibraryComponent implements OnInit {
         this.showToast('Modelo actualizado exitosamente.', 'success');
         this.loadData();
       },
-      error: (err) => {
+      error: err => {
         this.isModelSaving.set(false);
-        const msg = err.error?.error?.message || err.message || 'Error al guardar modelo';
-        this.showToast(msg, 'error');
+        this.showToast(err.error?.error?.message || err.message || 'Error al guardar modelo', 'error');
       }
     });
   }
@@ -751,34 +556,24 @@ export class ModelLibraryComponent implements OnInit {
     const isCurrentlyActive = model.is_active !== false;
     this.isLoading.set(true);
 
-    if (isCurrentlyActive) {
-      this.templatesService.deactivateModel(model.id).subscribe({
-        next: () => {
-          this.showToast(`Modelo "${model.name || model.title}" desactivado del catálogo.`, 'success');
-          this.loadData();
-        },
-        error: (err) => {
-          this.isLoading.set(false);
-          const msg = err.error?.error?.message || err.message || 'Error al desactivar';
-          this.showToast(msg, 'error');
-        }
-      });
-    } else {
-      this.templatesService.reactivateModel(model.id).subscribe({
-        next: () => {
-          this.showToast(`Modelo "${model.name || model.title}" reactivado en el catálogo.`, 'success');
-          this.loadData();
-        },
-        error: (err) => {
-          this.isLoading.set(false);
-          const msg = err.error?.error?.message || err.message || 'Error al reactivar';
-          this.showToast(msg, 'error');
-        }
-      });
-    }
-  }
+    const obs$ = isCurrentlyActive
+      ? this.templatesService.deactivateModel(model.id)
+      : this.templatesService.reactivateModel(model.id);
 
-  // --- GESTIÓN DE CATEGORÍAS ---
+    obs$.subscribe({
+      next: () => {
+        this.showToast(
+          `Modelo "${model.name || model.title}" ${isCurrentlyActive ? 'desactivado del' : 'reactivado en el'} catálogo.`,
+          'success'
+        );
+        this.loadData();
+      },
+      error: err => {
+        this.isLoading.set(false);
+        this.showToast(err.error?.error?.message || err.message || 'Error al cambiar estado del modelo', 'error');
+      }
+    });
+  }
 
   openCreateCategory(): void {
     this.editingCategory.set(null);
@@ -808,44 +603,27 @@ export class ModelLibraryComponent implements OnInit {
 
     this.isCategorySaving.set(true);
     const editing = this.editingCategory();
+    const dto: CreateCategoryDTO | UpdateCategoryDTO = {
+      name,
+      description: this.categoryDescription().trim()
+    };
 
-    if (editing) {
-      const dto: UpdateCategoryDTO = {
-        name,
-        description: this.categoryDescription().trim()
-      };
-      this.templatesService.updateCategory(editing.id, dto).subscribe({
-        next: () => {
-          this.isCategorySaving.set(false);
-          this.closeCategoryModal();
-          this.showToast('Categoría actualizada.', 'success');
-          this.loadCategories();
-        },
-        error: (err) => {
-          this.isCategorySaving.set(false);
-          const msg = err.error?.error?.message || err.message || 'Error al actualizar categoría';
-          this.showToast(msg, 'error');
-        }
-      });
-    } else {
-      const dto: CreateCategoryDTO = {
-        name,
-        description: this.categoryDescription().trim()
-      };
-      this.templatesService.createCategory(dto).subscribe({
-        next: () => {
-          this.isCategorySaving.set(false);
-          this.closeCategoryModal();
-          this.showToast('Categoría creada exitosamente.', 'success');
-          this.loadCategories();
-        },
-        error: (err) => {
-          this.isCategorySaving.set(false);
-          const msg = err.error?.error?.message || err.message || 'Error al crear categoría';
-          this.showToast(msg, 'error');
-        }
-      });
-    }
+    const obs$ = editing
+      ? this.templatesService.updateCategory(editing.id, dto)
+      : this.templatesService.createCategory(dto);
+
+    obs$.subscribe({
+      next: () => {
+        this.isCategorySaving.set(false);
+        this.closeCategoryModal();
+        this.showToast(editing ? 'Categoría actualizada.' : 'Categoría creada exitosamente.', 'success');
+        this.loadCategories();
+      },
+      error: err => {
+        this.isCategorySaving.set(false);
+        this.showToast(err.error?.error?.message || err.message || 'Error al guardar categoría', 'error');
+      }
+    });
   }
 
   confirmDeleteCategory(cat: TemplateCategory): void {
@@ -868,7 +646,7 @@ export class ModelLibraryComponent implements OnInit {
         this.showToast('Categoría eliminada.', 'success');
         this.loadCategories();
       },
-      error: (err) => {
+      error: err => {
         this.isCategoryDeleting.set(false);
         let msg = 'Error al eliminar categoría.';
         if (err.status === 409 || err.error?.error?.code === 'category_in_use') {
@@ -881,23 +659,17 @@ export class ModelLibraryComponent implements OnInit {
     });
   }
 
-  // --- REORDENAMIENTO DE CATEGORÍAS ---
-
   moveCategoryUp(index: number): void {
     if (index <= 0) return;
     const cats = [...this.categories()];
-    const temp = cats[index];
-    cats[index] = cats[index - 1];
-    cats[index - 1] = temp;
+    [cats[index - 1], cats[index]] = [cats[index], cats[index - 1]];
     this.applyCategoryOrder(cats);
   }
 
   moveCategoryDown(index: number): void {
     const cats = [...this.categories()];
     if (index >= cats.length - 1) return;
-    const temp = cats[index];
-    cats[index] = cats[index + 1];
-    cats[index + 1] = temp;
+    [cats[index], cats[index + 1]] = [cats[index + 1], cats[index]];
     this.applyCategoryOrder(cats);
   }
 
@@ -930,9 +702,7 @@ export class ModelLibraryComponent implements OnInit {
     }));
 
     this.templatesService.reorderCategories(items).subscribe({
-      next: () => {
-        this.showToast('Orden de categorías actualizado.', 'success');
-      },
+      next: () => this.showToast('Orden de categorías actualizado.', 'success'),
       error: () => {
         this.showToast('Error al persistir el nuevo orden.', 'error');
         this.loadCategories();
@@ -940,12 +710,8 @@ export class ModelLibraryComponent implements OnInit {
     });
   }
 
-  // --- TOAST NOTIFICATIONS ---
-
   showToast(message: string, type: 'success' | 'error' = 'success'): void {
-    if (this.toastTimer) {
-      clearTimeout(this.toastTimer);
-    }
+    if (this.toastTimer) clearTimeout(this.toastTimer);
     this.toastMessage.set(message);
     this.toastType.set(type);
     this.toastTimer = setTimeout(() => {
