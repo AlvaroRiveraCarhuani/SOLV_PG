@@ -30,156 +30,25 @@
   }
 
   @if (!editingComponent) {
-    <div class="preset-catalog-section">
-      @if (catalogKind() === 'backend') {
-        <span class="form-label">Seleccione un Lenguaje Oficial (Autocompleta imagen, compilador y memoria en 1 clic)</span>
-        <div class="preset-cards-grid">
-          @for (prof of sortedEcosystemProfiles(); track prof.id) {
-            <button
-              type="button"
-              class="preset-card-btn"
-              [class.selected]="selectedEcosystemProfileId() === prof.id"
-              [class.in-catalog]="isPresetInCatalog(prof.id, prof.name)"
-              (click)="onSelectEcosystemProfile(prof.id)"
-            >
-              <tech-logo [iconType]="prof.iconKey" [size]="22" />
-              <div class="preset-card-meta">
-                <div class="preset-card-header-row">
-                  <strong class="preset-card-title">{{ prof.name }}</strong>
-                  @if (isPresetInCatalog(prof.id, prof.name)) {
-                    <span class="preset-installed-pill">En catálogo</span>
-                  }
-                </div>
-                <span class="preset-card-sub font-mono">{{ prof.baseImage }}</span>
-              </div>
-            </button>
-          }
-          <button
-            type="button"
-            class="preset-card-btn preset-card-custom"
-            [class.selected]="isCustomPresetSelected()"
-            (click)="onSelectCustomMode()"
-          >
-            <tech-logo iconType="docker" [size]="22" />
-            <div class="preset-card-meta">
-              <strong class="preset-card-title">+ Personalizado</strong>
-              <span class="preset-card-sub">Otra tecnología manual</span>
-            </div>
-          </button>
-        </div>
-      } @else if (catalogKind() === 'web') {
-        <span class="form-label">Seleccione una Plataforma Web Oficial (Autocompleta CLI y servidor de desarrollo)</span>
-        <div class="preset-cards-grid">
-          @for (webProf of sortedWebProfiles(); track webProf.id) {
-            <button
-              type="button"
-              class="preset-card-btn"
-              [class.selected]="selectedWebProfileId() === webProf.id"
-              [class.in-catalog]="isPresetInCatalog(webProf.id, webProf.name)"
-              (click)="onSelectWebProfile(webProf.id)"
-            >
-              <tech-logo [iconType]="webProf.iconKey" [size]="22" />
-              <div class="preset-card-meta">
-                <div class="preset-card-header-row">
-                  <strong class="preset-card-title">{{ webProf.name }}</strong>
-                  @if (isPresetInCatalog(webProf.id, webProf.name)) {
-                    <span class="preset-installed-pill">En catálogo</span>
-                  }
-                </div>
-                <span class="preset-card-sub font-mono">{{ webProf.packageNames.join(', ') }}</span>
-              </div>
-            </button>
-          }
-          <button
-            type="button"
-            class="preset-card-btn preset-card-custom"
-            [class.selected]="isCustomPresetSelected()"
-            (click)="onSelectCustomMode()"
-          >
-            <tech-logo iconType="docker" [size]="22" />
-            <div class="preset-card-meta">
-              <strong class="preset-card-title">+ Personalizado</strong>
-              <span class="preset-card-sub">Otro framework web</span>
-            </div>
-          </button>
-        </div>
-      } @else if (catalogKind() === 'addon' && contextualAddonPresets().length > 0) {
-        <span class="form-label">Kits y Librerías Sugeridas para este Ecosistema (1 clic)</span>
-        <div class="preset-cards-grid">
-          @for (addonPreset of contextualAddonPresets(); track addonPreset.id) {
-            <button
-              type="button"
-              class="preset-card-btn"
-              [class.selected]="selectedAddonPresetId() === addonPreset.id"
-              [class.in-catalog]="isPresetInCatalog(addonPreset.id, addonPreset.name)"
-              (click)="onSelectAddonPreset(addonPreset.id)"
-            >
-              <tech-logo [iconType]="addonPreset.iconKey" [size]="22" />
-              <div class="preset-card-meta">
-                <div class="preset-card-header-row">
-                  <strong class="preset-card-title">{{ addonPreset.name }}</strong>
-                  @if (isPresetInCatalog(addonPreset.id, addonPreset.name)) {
-                    <span class="preset-installed-pill">En catálogo</span>
-                  }
-                </div>
-                <span class="preset-card-sub font-mono">{{ addonPreset.packageNames.join(' ') }}</span>
-              </div>
-            </button>
-          }
-          <button
-            type="button"
-            class="preset-card-btn preset-card-custom"
-            [class.selected]="isCustomPresetSelected()"
-            (click)="onSelectCustomMode()"
-          >
-            <tech-logo iconType="docker" [size]="22" />
-            <div class="preset-card-meta">
-              <strong class="preset-card-title">+ Personalizado</strong>
-              <span class="preset-card-sub">Otro paquete o librería</span>
-            </div>
-          </button>
-        </div>
-      }
-
-      @if (availableVersionsForSelectedProfile().length > 0) {
-        <div class="version-parameter-bar">
-          <div class="version-chips-group">
-            <span class="version-bar-label">Versión:</span>
-            @for (ver of availableVersionsForSelectedProfile(); track ver.version) {
-              <button
-                type="button"
-                class="version-chip-btn"
-                [class.selected]="selectedVersion() === ver.version"
-                (click)="onVersionChange(ver.version)"
-              >
-                <span class="font-mono">{{ ver.version }}</span>
-                @if (ver.isDefault) {
-                  <span class="version-rec-tag">Recomendada</span>
-                }
-              </button>
-            }
-          </div>
-          <div class="version-custom-input-wrap">
-            <input
-              type="text"
-              class="form-input version-inline-input font-mono"
-              placeholder="Otra versión (ej. 3.14)"
-              aria-label="Versión específica o futura"
-              [ngModel]="selectedVersion()"
-              (ngModelChange)="onVersionChange($event)"
-            />
-          </div>
-        </div>
-      }
-
-      @if (existingCatalogMatch(); as matchedComp) {
-        <div class="existing-catalog-notice">
-          <span>
-            <strong>{{ matchedComp.name }}</strong> ya forma parte de su catálogo. Al guardar se actualizará su configuración existente sin crear duplicados.
-          </span>
-        </div>
-      }
-    </div>
+    <catalog-preset-grid
+      [catalogKind]="catalogKind()"
+      [ecosystemProfiles]="sortedEcosystemProfiles()"
+      [webProfiles]="sortedWebProfiles()"
+      [addonPresets]="contextualAddonPresets()"
+      [availableRuntimes]="availableRuntimes"
+      [selectedEcosystemProfileId]="selectedEcosystemProfileId()"
+      [selectedWebProfileId]="selectedWebProfileId()"
+      [selectedAddonPresetId]="selectedAddonPresetId()"
+      [isCustomPresetSelected]="isCustomPresetSelected()"
+      [availableVersions]="availableVersionsForSelectedProfile()"
+      [selectedVersion]="selectedVersion()"
+      [existingCatalogMatch]="existingCatalogMatch()"
+      (selectEcosystemProfile)="onSelectEcosystemProfile($event)"
+      (selectWebProfile)="onSelectWebProfile($event)"
+      (selectAddonPreset)="onSelectAddonPreset($event)"
+      (selectCustomMode)="onSelectCustomMode()"
+      (versionChange)="onVersionChange($event)"
+    />
   }
 
   <div class="form-row">
@@ -225,82 +94,22 @@
     />
   </form-field>
 
-  <div class="icon-selector-section">
-    <span class="form-label">Icono Oficial de la Herramienta</span>
-
-    <div class="smart-icon-bar">
-      <div class="smart-icon-current">
-        <tech-logo [iconType]="effectiveIconKey()" [size]="34" />
-        <div class="smart-icon-meta">
-          <strong class="smart-icon-name">{{ activeIconLabel() }}</strong>
-          <span class="smart-icon-badge">{{ iconResolutionSource() }}</span>
-        </div>
-      </div>
-
-      <div class="smart-icon-actions">
-        <button
-          type="button"
-          class="btn-xs-outline"
-          (click)="toggleIconPickerGrid()"
-        >
-          {{ showIconPickerGrid() ? 'Cerrar galería' : 'Cambiar icono' }}
-        </button>
-        <button
-          type="button"
-          class="btn-xs-outline"
-          (click)="toggleCustomIconInput()"
-        >
-          {{ showCustomIconInput() ? 'Ocultar URL' : 'Usar URL / .svg' }}
-        </button>
-      </div>
-    </div>
-
-    @if (showIconPickerGrid()) {
-      <div class="icon-picker-drawer">
-        <input
-          type="text"
-          class="form-input icon-search-input"
-          placeholder="Buscar icono en la galería (ej: python, angular, c++, postgres)..."
-          [ngModel]="iconSearchQuery()"
-          (ngModelChange)="iconSearchQuery.set($event)"
-        />
-        <div class="icons-grid">
-          @for (ic of filteredCuratedIcons(); track ic.key) {
-            <button
-              type="button"
-              class="icon-option-btn"
-              [class.selected]="!customIconUrl().trim() && iconKey() === ic.key"
-              (click)="selectCuratedIcon(ic.key)"
-            >
-              <tech-logo [iconType]="ic.key" [size]="24" />
-              <span class="icon-label">{{ ic.label }}</span>
-            </button>
-          }
-        </div>
-      </div>
-    }
-
-    @if (showCustomIconInput()) {
-      <div class="custom-icon-row">
-        <div class="custom-icon-input-wrap">
-          <form-field
-            label="URL o ruta de icono propio (.svg)"
-            for="comp-custom-icon"
-            hint="Pegue una ruta /tech-icons/mi-icono.svg o URL https://..."
-          >
-            <input
-              id="comp-custom-icon"
-              type="text"
-              class="form-input font-mono"
-              placeholder="Ej: /tech-icons/custom.svg o https://.../logo.svg"
-              [ngModel]="customIconUrl()"
-              (ngModelChange)="customIconUrl.set($event)"
-            />
-          </form-field>
-        </div>
-      </div>
-    }
-  </div>
+  <smart-icon-picker
+    [effectiveIconKey]="effectiveIconKey()"
+    [activeIconLabel]="activeIconLabel()"
+    [iconResolutionSource]="iconResolutionSource()"
+    [showIconPickerGrid]="showIconPickerGrid()"
+    [showCustomIconInput]="showCustomIconInput()"
+    [iconSearchQuery]="iconSearchQuery()"
+    [filteredCuratedIcons]="filteredCuratedIcons()"
+    [iconKey]="iconKey()"
+    [customIconUrl]="customIconUrl()"
+    (toggleGrid)="toggleIconPickerGrid()"
+    (toggleCustomUrl)="toggleCustomIconInput()"
+    (searchQueryChange)="iconSearchQuery.set($event)"
+    (selectIcon)="selectCuratedIcon($event)"
+    (customUrlChange)="customIconUrl.set($event)"
+  />
 
   @if (layer() === 'addon') {
     <div class="form-row">

@@ -1,0 +1,76 @@
+<div class="icon-selector-section">
+  <span class="form-label">Icono Oficial de la Herramienta</span>
+
+  <div class="smart-icon-bar">
+    <div class="smart-icon-current">
+      <tech-logo [iconType]="effectiveIconKey()" [size]="34" />
+      <div class="smart-icon-meta">
+        <strong class="smart-icon-name">{{ activeIconLabel() }}</strong>
+        <span class="smart-icon-badge">{{ iconResolutionSource() }}</span>
+      </div>
+    </div>
+
+    <div class="smart-icon-actions">
+      <button
+        type="button"
+        class="btn-xs-outline"
+        (click)="toggleGrid.emit()"
+      >
+        {{ showIconPickerGrid() ? 'Cerrar galería' : 'Cambiar icono' }}
+      </button>
+      <button
+        type="button"
+        class="btn-xs-outline"
+        (click)="toggleCustomUrl.emit()"
+      >
+        {{ showCustomIconInput() ? 'Ocultar URL' : 'Usar URL / .svg' }}
+      </button>
+    </div>
+  </div>
+
+  @if (showIconPickerGrid()) {
+    <div class="icon-picker-drawer">
+      <input
+        type="text"
+        class="form-input icon-search-input"
+        placeholder="Buscar icono en la galería (ej: python, angular, c++, postgres)..."
+        [ngModel]="iconSearchQuery()"
+        (ngModelChange)="searchQueryChange.emit($event)"
+      />
+      <div class="icons-grid">
+        @for (ic of filteredCuratedIcons(); track ic.key) {
+          <button
+            type="button"
+            class="icon-option-btn"
+            [class.selected]="!customIconUrl().trim() && iconKey() === ic.key"
+            (click)="selectIcon.emit(ic.key)"
+          >
+            <tech-logo [iconType]="ic.key" [size]="24" />
+            <span class="icon-label">{{ ic.label }}</span>
+          </button>
+        }
+      </div>
+    </div>
+  }
+
+  @if (showCustomIconInput()) {
+    <div class="custom-icon-row">
+      <div class="custom-icon-input-wrap">
+        <form-field
+          label="URL o ruta de icono propio (.svg)"
+          for="comp-custom-icon"
+          hint="Pegue una ruta /tech-icons/mi-icono.svg o URL https://..."
+        >
+          <input
+            id="comp-custom-icon"
+            type="text"
+            class="form-input font-mono"
+            placeholder="Ej: /tech-icons/custom.svg o https://.../logo.svg"
+            [ngModel]="customIconUrl()"
+            (ngModelChange)="customUrlChange.emit($event)"
+          />
+        </form-field>
+      </div>
+    </div>
+  }
+</div>
