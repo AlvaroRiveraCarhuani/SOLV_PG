@@ -1,11 +1,9 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
-import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { AdminTemplatesService } from '../../services/admin-templates.service';
 import {
+  AdminTemplatesService,
   AdminTemplateItem,
   ComponentLayer,
   CreateOfficialTemplateDTO,
@@ -15,78 +13,71 @@ import {
   TargetEnvironment,
   TemplateCategory,
   TemplateComponent
-} from '@features/admin/models/admin-templates.models';
+} from '../../services/admin-templates.service';
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
+import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   LucideArrowLeft,
   LucideCheckCircle2,
   LucideAlertCircle,
   LucideCode,
   LucideLayers,
-  LucidePlay,
-  LucideSend,
-  LucideRefreshCw,
-  LucideDownload,
   LucideUpload,
+  LucideDownload,
   LucideRotateCcw,
   LucideAlertTriangle,
   LucideCopy,
-  LucideXCircle,
   LucidePencil
 } from '@lucide/angular';
 import {
   analyzeDockerfile,
+  buildStudioDatabaseOptions,
+  CapacityOption,
+  computeCompatibleAddonsForSelection,
+  computeMinimumFloorMBForStack,
+  computeRecommendedRamMBForStack,
   computeVerificationFingerprint,
+  DockerfileDiagnostic,
+  downloadBrowserTextFile,
+  filterAndPrioritizeAddonItems,
+  filterAndPrioritizeRuntimeItems,
   fnv1aHex,
-  DockerfileDiagnostic
+  importBrowserTextFile,
+  StudioActionBlocker,
+  StudioDatabaseOption,
+  synthesizeVisualStackState
 } from './template-studio.utils';
+import { StudioPurposeStepComponent } from './components/studio-purpose-step/studio-purpose-step.component';
+import { StudioCapacitySelectorComponent } from './components/studio-capacity-selector/studio-capacity-selector.component';
+import { StudioSummarySidebarComponent } from './components/studio-summary-sidebar/studio-summary-sidebar.component';
 
-export interface CapacityOption {
-  mb: number;
-  title: string;
-  desc: string;
-  isRecommended: boolean;
-}
-
-export interface StudioDatabaseOption extends TemplateComponent {
-  is_available: boolean;
-  version?: string;
-}
-
-export interface StudioActionBlocker {
-  reason: string;
-  tone: 'neutral' | 'warning' | 'error';
-}
+export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
 
 @Component({
   selector: 'template-studio',
   imports: [
-    CommonModule,
     FormsModule,
-    RouterModule,
-    MachineDataDirective,
     TechLogoComponent,
     ComponentFormModalComponent,
     CodeEditorComponent,
-    ComboboxComponent,
+    MachineDataDirective,
+    StudioPurposeStepComponent,
+    StudioCapacitySelectorComponent,
+    StudioSummarySidebarComponent,
     LucideArrowLeft,
     LucideCheckCircle2,
     LucideAlertCircle,
     LucideCode,
     LucideLayers,
-    LucidePlay,
-    LucideSend,
-    LucideRefreshCw,
-    LucideDownload,
     LucideUpload,
+    LucideDownload,
     LucideRotateCcw,
     LucideAlertTriangle,
     LucideCopy,
-    LucideXCircle,
     LucidePencil
   ],
   templateUrl: './template-studio.component.html',
@@ -97,21 +88,19 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly envTestService = inject(EnvTestJobService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
   private loadedTemplateItem: AdminTemplateItem | null = null;
   private isDuplicateLoad = false;
 
-  // Modo de edición / duplicación
   readonly editingTemplateId = signal<string | null>(null);
   readonly isEditMode = computed(() => !!this.editingTemplateId());
 
-  // Estado principal del constructor
   readonly targetEnvironment = signal<TargetEnvironment>('IDE_PERSISTENTE');
   readonly studioMode = signal<'visual' | 'code'>('visual');
   readonly blueprintTab = signal<'human' | 'manifest'>('human');
 
-  // Campos de identidad
   readonly name = signal<string>('');
   readonly isNameManuallyEdited = signal<boolean>(false);
   readonly description = signal<string>('');
@@ -121,14 +110,12 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.categories().map(c => ({ id: c.id, label: c.name, value: c.id }))
   );
 
-  // Catálogo de componentes tecnológicos y selección activa
   readonly techComponents = signal<TemplateComponent[]>([]);
   readonly selectedRuntimeId = signal<string | null>(null);
   readonly selectedWebPlatformId = signal<string | null>(null);
   readonly selectedAddonIds = signal<string[]>([]);
   readonly selectedDatabaseId = signal<string>('db-none');
 
-  // Estado sincronizado del Modo Avanzado (Dockerfile / Scripts)
   readonly dockerImage = signal<string>('');
   readonly dockerfileContent = signal<string>('');
   readonly hasCustomDockerfile = signal<boolean>(false);
@@ -153,7 +140,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.dockerfileDiagnostics().some(d => d.severity === 'error')
   );
 
-  // Huella determinista y estado de verificación Zero-Trust
   readonly currentVerificationFingerprint = computed<string>(() =>
     computeVerificationFingerprint({
       targetEnvironment: this.targetEnvironment(),
@@ -170,9 +156,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly verifiedFingerprint = signal<string | null>(null);
 
   readonly isConfigModifiedAfterVerification = computed<boolean>(() => {
-    const verified = this.verifiedFingerprint();
-    if (!verified) return false;
-    return this.currentVerificationFingerprint() !== verified;
+    const vfp = this.verifiedFingerprint();
+    if (!vfp) return false;
+    return vfp !== this.currentVerificationFingerprint();
   });
 
   readonly requiresVerificationBeforePublish = computed<boolean>(() => {
@@ -184,7 +170,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     );
   });
 
-  // Estado del host y comprobación del entorno
   readonly runtimeCapabilities = signal<RuntimeCapabilities | null>(null);
   readonly activeEnvTestJob = signal<EnvTestJob | null>(null);
   readonly isVerifying = signal<boolean>(false);
@@ -192,7 +177,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly showTechnicalLogs = signal<boolean>(false);
   readonly toast = signal<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // Modal para registrar una nueva tecnología en el catálogo
   readonly showComponentModal = signal<boolean>(false);
   readonly modalDefaultLayer = signal<ComponentLayer>('addon');
   readonly modalDefaultSubCategory = signal<'backend' | 'web'>('backend');
@@ -202,7 +186,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     return (rt.slug || rt.icon_key || rt.name).toLowerCase();
   });
 
-  // Columnas computadas del Constructor de Entornos
   readonly backendRuntimes = computed<TemplateComponent[]>(() =>
     this.techComponents().filter(i => i.layer === 'runtime' && i.sub_category !== 'web')
   );
@@ -211,180 +194,45 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.techComponents().filter(i => i.layer === 'runtime' && i.sub_category === 'web')
   );
 
-  readonly compatibleAddons = computed<TemplateComponent[]>(() => {
-    const rt = this.selectedRuntimeComponent();
-    const web = this.selectedWebComponent();
-    if (!rt && !web) {
-      return [];
-    }
-    const activeFamilies = new Set<string>(['universal']);
-
-    if (rt) {
-      if (rt.slug) activeFamilies.add(rt.slug.toLowerCase());
-      if (rt.id) activeFamilies.add(rt.id.toLowerCase());
-      if (rt.icon_key) activeFamilies.add(rt.icon_key.toLowerCase());
-      for (const fam of rt.compatible_runtimes || []) {
-        activeFamilies.add(fam.toLowerCase());
-      }
-    }
-
-    if (web && this.targetEnvironment() === 'IDE_PERSISTENTE') {
-      activeFamilies.add('node');
-      activeFamilies.add('web');
-      if (web.slug) activeFamilies.add(web.slug.toLowerCase());
-      if (web.id) activeFamilies.add(web.id.toLowerCase());
-      if (web.icon_key) activeFamilies.add(web.icon_key.toLowerCase());
-      for (const fam of web.compatible_runtimes || []) {
-        activeFamilies.add(fam.toLowerCase());
-      }
-    }
-
-    return this.techComponents().filter(i => {
-      if (i.layer !== 'addon') return false;
-      const compat = i.compatible_runtimes || [];
-      if (compat.length === 0) return true;
-      return compat.some(c => activeFamilies.has(c.toLowerCase()));
-    });
-  });
+  readonly compatibleAddons = computed<TemplateComponent[]>(() =>
+    computeCompatibleAddonsForSelection(
+      this.techComponents(),
+      this.selectedRuntimeComponent(),
+      this.selectedWebComponent(),
+      this.targetEnvironment()
+    )
+  );
 
   readonly col1SearchQuery = signal<string>('');
   readonly col2SearchQuery = signal<string>('');
 
-  readonly filteredBackendRuntimes = computed<TemplateComponent[]>(() => {
-    const query = this.col1SearchQuery().trim().toLowerCase();
-    const selectedId = this.selectedRuntimeComponent()?.id;
-    const list = this.backendRuntimes().filter(item => {
-      if (!query) return true;
-      return (
-        item.name.toLowerCase().includes(query) ||
-        (item.description && item.description.toLowerCase().includes(query)) ||
-        (item.slug && item.slug.toLowerCase().includes(query))
-      );
-    });
-    if (!selectedId) return list;
-    return [...list].sort((a, b) => {
-      if (a.id === selectedId) return -1;
-      if (b.id === selectedId) return 1;
-      return 0;
-    });
-  });
+  readonly filteredBackendRuntimes = computed<TemplateComponent[]>(() =>
+    filterAndPrioritizeRuntimeItems(
+      this.backendRuntimes(),
+      this.col1SearchQuery(),
+      this.selectedRuntimeComponent()?.id
+    )
+  );
 
-  readonly filteredWebPlatforms = computed<TemplateComponent[]>(() => {
-    const query = this.col1SearchQuery().trim().toLowerCase();
-    const selectedId = this.selectedWebComponent()?.id;
-    const list = this.webPlatforms().filter(item => {
-      if (!query) return true;
-      return (
-        item.name.toLowerCase().includes(query) ||
-        (item.description && item.description.toLowerCase().includes(query)) ||
-        (item.slug && item.slug.toLowerCase().includes(query))
-      );
-    });
-    if (!selectedId) return list;
-    return [...list].sort((a, b) => {
-      if (a.id === selectedId) return -1;
-      if (b.id === selectedId) return 1;
-      return 0;
-    });
-  });
+  readonly filteredWebPlatforms = computed<TemplateComponent[]>(() =>
+    filterAndPrioritizeRuntimeItems(
+      this.webPlatforms(),
+      this.col1SearchQuery(),
+      this.selectedWebComponent()?.id
+    )
+  );
 
-  readonly filteredCompatibleAddons = computed<TemplateComponent[]>(() => {
-    const query = this.col2SearchQuery().trim().toLowerCase();
-    const list = this.compatibleAddons().filter(item => {
-      if (!query) return true;
-      const nameMatch = item.name.toLowerCase().includes(query);
-      const descMatch = !!item.description && item.description.toLowerCase().includes(query);
-      const slugMatch = !!item.slug && item.slug.toLowerCase().includes(query);
-      const pkgsMatch = (item.package_names || []).some(pkg => pkg.toLowerCase().includes(query));
-      return nameMatch || descMatch || slugMatch || pkgsMatch;
-    });
-    return [...list].sort((a, b) => {
-      const aSel = this.isAddonSelected(a.id) || this.isAddonSelected(a.slug);
-      const bSel = this.isAddonSelected(b.id) || this.isAddonSelected(b.slug);
-      if (aSel && !bSel) return -1;
-      if (!aSel && bSel) return 1;
-      return 0;
-    });
-  });
+  readonly filteredCompatibleAddons = computed<TemplateComponent[]>(() =>
+    filterAndPrioritizeAddonItems(
+      this.compatibleAddons(),
+      this.col2SearchQuery(),
+      this.selectedAddonIds()
+    )
+  );
 
-  readonly databaseOptions = computed<StudioDatabaseOption[]>(() => {
-    const caps = this.runtimeCapabilities();
-    const satellites = caps?.satellite_services || [];
-    const catalogDbs = this.techComponents().filter(i => i.layer === 'database');
-
-    const noneOption: StudioDatabaseOption = {
-      id: 'db-none',
-      slug: 'db-none',
-      layer: 'database',
-      sub_category: 'none',
-      name: 'Sin Base de Datos',
-      description: 'Solo archivos de código en la carpeta del alumno',
-      icon_key: 'docker',
-      base_image: '',
-      compatible_runtimes: ['universal'],
-      install_mode: 'none',
-      package_names: [],
-      build_layer_snippet: '',
-      setup_snippet: '',
-      judge_entrypoint: '',
-      tools_provided: [],
-      service_engine: 'none',
-      ram_delta_mb: 0,
-      is_system: true,
-      is_active: true,
-      sort_order: 300,
-      is_available: true
-    };
-
-    if (satellites.length > 0) {
-      const availableSatellites = satellites.filter(sat => sat.is_available);
-      const mappedSatellites = availableSatellites.map((sat, idx): StudioDatabaseOption => {
-        const engine = (sat.engine || '').toLowerCase();
-        const catMatch = catalogDbs.find(c => (c.service_engine || '').toLowerCase() === engine);
-        const verSuffix = sat.version ? ` v${sat.version}` : '';
-        return {
-          id: catMatch?.id || `db-${engine}`,
-          slug: catMatch?.slug || `${engine}-service`,
-          layer: 'database',
-          sub_category: sat.category || 'database',
-          name: `${sat.label}${verSuffix}`,
-          description: sat.description || catMatch?.description || '',
-          icon_key: catMatch?.icon_key || engine,
-          base_image: '',
-          compatible_runtimes: ['universal'],
-          install_mode: 'none',
-          package_names: [],
-          build_layer_snippet: '',
-          setup_snippet: '',
-          judge_entrypoint: '',
-          tools_provided: catMatch?.tools_provided || [],
-          service_engine: engine,
-          ram_delta_mb: sat.base_ram_mb ?? catMatch?.ram_delta_mb ?? 0,
-          is_system: true,
-          is_active: true,
-          sort_order: 310 + idx * 10,
-          is_available: true,
-          version: sat.version
-        };
-      });
-      return [noneOption, ...mappedSatellites];
-    }
-
-    const fallbackList = catalogDbs
-      .filter(item => {
-        const engine = (item.service_engine || '').toLowerCase();
-        return engine === 'none' || engine === 'sqlite' || engine === 'postgres';
-      })
-      .map((item): StudioDatabaseOption => ({
-        ...item,
-        is_available: true
-      }));
-
-    if (fallbackList.some(d => d.id === 'db-none' || d.service_engine === 'none')) {
-      return fallbackList;
-    }
-    return [noneOption, ...fallbackList];
-  });
+  readonly databaseOptions = computed<StudioDatabaseOption[]>(() =>
+    buildStudioDatabaseOptions(this.runtimeCapabilities(), this.techComponents())
+  );
 
   readonly selectedRuntimeComponent = computed<TemplateComponent | null>(() => {
     const id = this.selectedRuntimeId();
@@ -405,8 +253,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly selectedAddonComponents = computed<TemplateComponent[]>(() => {
     const ids = new Set(this.selectedAddonIds());
-    const validAddons = this.compatibleAddons();
-    return validAddons.filter(a => ids.has(a.id) || ids.has(a.slug));
+    return this.compatibleAddons().filter(a => ids.has(a.id) || ids.has(a.slug));
   });
 
   readonly selectedDatabaseOption = computed<StudioDatabaseOption | null>(() => {
@@ -433,177 +280,30 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly toolsList = computed<string[]>(() =>
-    this.toolsDeclared()
-      .split(',')
-      .map(t => t.trim())
-      .filter(Boolean)
+    this.toolsDeclared().split(',').map(t => t.trim()).filter(Boolean)
   );
 
+  readonly recommendedRamMB = computed<number>(() =>
+    computeRecommendedRamMBForStack({
+      targetEnvironment: this.targetEnvironment(),
+      rt: this.selectedRuntimeComponent(),
+      web: this.selectedWebComponent(),
+      addons: this.selectedAddonComponents(),
+      db: this.selectedDatabaseOption(),
+      caps: this.runtimeCapabilities()
+    })
+  );
 
-  private isLightRuntime(rt: TemplateComponent | null): boolean {
-    if (!rt) return false;
-    if (rt.ram_delta_mb > 0) return rt.ram_delta_mb <= 384;
-    if ((rt.icon_key || '').toLowerCase() === 'cpp') return true;
-    if ((rt.compatible_runtimes || []).some(c => c.toLowerCase() === 'cpp')) return true;
-    return false;
-  }
-
-  private isHeavyRuntime(rt: TemplateComponent | null): boolean {
-    if (!rt) return false;
-    if (rt.ram_delta_mb > 0) return rt.ram_delta_mb >= 1024;
-    if ((rt.icon_key || '').toLowerCase() === 'java') return true;
-    if ((rt.compatible_runtimes || []).some(c => c.toLowerCase() === 'java' || c.toLowerCase() === 'dotnet')) return true;
-    return false;
-  }
-
-  private resolveDefaultJudgeEntrypoint(rt: TemplateComponent | null): string {
-    if (!rt) return '';
-    const entry = (rt.judge_entrypoint || '').trim();
-    if (entry) return entry;
-
-    const baseImg = (rt.base_image || '').toLowerCase();
-    const icon = (rt.icon_key || '').toLowerCase();
-    const slug = (rt.slug || '').toLowerCase();
-    const name = (rt.name || '').toLowerCase();
-
-    const matches = (token: string): boolean =>
-      baseImg.includes(token) || icon.includes(token) || slug.includes(token) || name.includes(token);
-
-    if (matches('python')) {
-      return 'python3 solution.py';
-    }
-    if (matches('cpp') || matches('gcc') || matches('clang') || matches('c++')) {
-      return 'g++ -O2 solution.cpp -o solution && ./solution';
-    }
-    if (matches('java') || matches('temurin') || matches('openjdk')) {
-      return 'javac Main.java && java Main';
-    }
-    if (matches('rust')) {
-      return 'rustc -O solution.rs -o solution && ./solution';
-    }
-    if (matches('go') || matches('golang')) {
-      return 'go run solution.go';
-    }
-    if (matches('node')) {
-      return 'node solution.js';
-    }
-    if (matches('php')) {
-      return 'php solution.php';
-    }
-
-    if (rt.tools_provided && rt.tools_provided.length > 0) {
-      const tool = rt.tools_provided[0].trim();
-      if (tool) {
-        return `${tool} solution`;
-      }
-    }
-
-    return '';
-  }
-
-  private isResidentAddon(addon: TemplateComponent): boolean {
-    const sub = (addon.sub_category || '').toLowerCase();
-    const slug = (addon.slug || '').toLowerCase();
-    if (
-      sub === 'devserver' ||
-      sub === 'heavy' ||
-      sub === 'data' ||
-      slug.includes('datascience') ||
-      slug.includes('data-science')
-    ) {
-      return true;
-    }
-    return (addon.ram_delta_mb || 0) >= 256;
-  }
-
-  readonly recommendedRamMB = computed<number>(() => {
-    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const rt = this.selectedRuntimeComponent();
-    const web = this.selectedWebComponent();
-    const addons = this.selectedAddonComponents();
-    const db = this.selectedDatabaseOption();
-    const caps = this.runtimeCapabilities();
-
-    if (isJudge) {
-      if (!rt) return 256;
-      const runtimeBaseMB = caps?.runtime_base_mb ?? 32;
-      let processFootprintMB = 224;
-      if (this.isHeavyRuntime(rt)) {
-        processFootprintMB = 480;
-      } else if (this.isLightRuntime(rt)) {
-        processFootprintMB = 96;
-      }
-      for (const a of addons) {
-        if (!this.isResidentAddon(a)) continue;
-        if ((a.sub_category || '').toLowerCase() === 'heavy' || a.ram_delta_mb >= 384) {
-          processFootprintMB = Math.max(processFootprintMB, 480);
-        } else {
-          processFootprintMB = Math.max(processFootprintMB, 224);
-        }
-      }
-      const totalJudge = runtimeBaseMB + processFootprintMB;
-      return totalJudge <= 128 ? 128 : totalJudge <= 256 ? 256 : 512;
-    }
-
-    const editorBaseMB = caps?.editor_base_mb ?? 210;
-    const satelliteBaseMB = db?.ram_delta_mb || 0;
-    if (!rt && !web) {
-      return satelliteBaseMB > 0 ? 768 : 512;
-    }
-
-    let activeProcessFootprintMB = 256;
-    if (this.isLightRuntime(rt)) {
-      activeProcessFootprintMB = 128;
-    }
-    if (this.isHeavyRuntime(rt)) {
-      activeProcessFootprintMB = web || addons.length > 0 || satelliteBaseMB > 0 ? 1280 : 640;
-    }
-    if (web) {
-      activeProcessFootprintMB = Math.max(activeProcessFootprintMB, 640);
-    }
-
-    for (const a of addons) {
-      if (!this.isResidentAddon(a)) continue;
-      if ((a.sub_category || '').toLowerCase() === 'heavy' || a.ram_delta_mb >= 384) {
-        activeProcessFootprintMB = Math.max(
-          activeProcessFootprintMB,
-          web || this.isHeavyRuntime(rt) ? 1280 : 512
-        );
-      } else {
-        activeProcessFootprintMB = Math.max(activeProcessFootprintMB, 384);
-      }
-    }
-
-    const rawTotal = editorBaseMB + satelliteBaseMB + activeProcessFootprintMB;
-    if (rawTotal <= 384) return 384;
-    if (rawTotal <= 512) return 512;
-    if (rawTotal <= 768) return 768;
-    if (rawTotal <= 1024) return 1024;
-    if (rawTotal <= 2048) return 2048;
-    return 4096;
-  });
-
-  readonly minimumFloorMB = computed<number>(() => {
-    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const rt = this.selectedRuntimeComponent();
-    if (isJudge) {
-      return this.isHeavyRuntime(rt) ? 128 : 64;
-    }
-    const editorBase = this.runtimeCapabilities()?.editor_base_mb ?? 210;
-    const satelliteMB = this.selectedDatabaseOption()?.ram_delta_mb || 0;
-    const web = this.selectedWebComponent();
-    const addons = this.selectedAddonComponents();
-
-    let minRuntimeProcessMB = 0;
-    if (rt) {
-      minRuntimeProcessMB = this.isHeavyRuntime(rt) ? 500 : this.isLightRuntime(rt) ? 128 : 174;
-    }
-    if (web || addons.some(a => this.isResidentAddon(a))) {
-      minRuntimeProcessMB = Math.max(minRuntimeProcessMB, 300);
-    }
-    return editorBase + satelliteMB + minRuntimeProcessMB;
-  });
-
+  readonly minimumFloorMB = computed<number>(() =>
+    computeMinimumFloorMBForStack({
+      targetEnvironment: this.targetEnvironment(),
+      rt: this.selectedRuntimeComponent(),
+      web: this.selectedWebComponent(),
+      addons: this.selectedAddonComponents(),
+      db: this.selectedDatabaseOption(),
+      caps: this.runtimeCapabilities()
+    })
+  );
 
   readonly maxAllowedRamMB = computed<number>(() => {
     const caps = this.runtimeCapabilities();
@@ -614,16 +314,13 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     return Math.max(512, Math.floor(total * 0.75));
   });
 
-  readonly hostFreeRamMB = computed<number>(() => {
-    return this.runtimeCapabilities()?.host_memory?.available_ram_mb ?? 4096;
-  });
+  readonly hostFreeRamMB = computed<number>(() =>
+    this.runtimeCapabilities()?.host_memory?.available_ram_mb ?? 4096
+  );
 
   readonly isRamBelowFloor = computed<boolean>(() => this.baseRamMB() < this.minimumFloorMB());
-
   readonly isRamExceedingHost = computed<boolean>(() => this.baseRamMB() > this.maxAllowedRamMB());
-
   readonly ramExcessMB = computed<number>(() => Math.max(0, this.baseRamMB() - this.maxAllowedRamMB()));
-
   readonly isRamExceedingCurrentFree = computed<boolean>(() => {
     if (this.isRamExceedingHost()) return false;
     return this.baseRamMB() > this.hostFreeRamMB();
@@ -653,10 +350,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     }
 
     if (!this.dockerImage().trim()) {
-      return {
-        reason: 'Indique una imagen Docker base válida en el Paso 2.',
-        tone: 'warning'
-      };
+      return { reason: 'Indique una imagen Docker base válida en el Paso 2.', tone: 'warning' };
     }
 
     if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.entrypoint().trim()) {
@@ -667,10 +361,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     }
 
     if (this.isRamBelowFloor() || this.isRamExceedingHost()) {
-      return {
-        reason: 'Ajuste la memoria RAM dentro de los límites permitidos en el Paso 3.',
-        tone: 'error'
-      };
+      return { reason: 'Ajuste la memoria RAM dentro de los límites permitidos en el Paso 3.', tone: 'error' };
     }
 
     return null;
@@ -678,9 +369,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly publishBlocker = computed<StudioActionBlocker | null>(() => {
     const vBlocker = this.verificationBlocker();
-    if (vBlocker) {
-      return vBlocker;
-    }
+    if (vBlocker) return vBlocker;
 
     if (this.name().trim().length < 3) {
       return {
@@ -724,9 +413,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   });
 
   readonly capacityOptions = computed<CapacityOption[]>(() => {
-    if (!this.hasSelectedStack()) {
-      return [];
-    }
+    if (!this.hasSelectedStack()) return [];
     const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
     const rec = this.recommendedRamMB();
     const intensive = this.intensiveRamMB();
@@ -779,13 +466,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const floorMB = this.minimumFloorMB();
     const stackBaseMB = Math.max(0, floorMB - editorBaseMB);
     const usableMB = Math.max(0, totalMB - editorBaseMB - stackBaseMB);
-    return {
-      isJudge,
-      totalMB,
-      editorBaseMB,
-      stackBaseMB,
-      usableMB
-    };
+    return { isJudge, totalMB, editorBaseMB, stackBaseMB, usableMB };
   });
 
   readonly nominalConcurrentStudents = computed<number>(() => {
@@ -806,10 +487,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.showManualRamInput.update(v => !v);
   }
 
-  readonly liveManifestJson = computed<string>(() => {
-    const payload = this.buildCreatePayload();
-    return JSON.stringify(payload, null, 2);
-  });
+  readonly liveManifestJson = computed<string>(() =>
+    JSON.stringify(this.buildCreatePayload(), null, 2)
+  );
 
   ngOnInit(): void {
     this.loadInitialCatalog();
@@ -831,7 +511,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   private loadInitialCatalog(): void {
     this.templatesService.getTechCatalog().subscribe({
-      next: (items) => {
+      next: items => {
         this.techComponents.set(items || []);
         if (this.loadedTemplateItem) {
           this.applyTemplateToStudio(this.loadedTemplateItem, this.isDuplicateLoad);
@@ -846,14 +526,12 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     });
 
     this.templatesService.getCategories().subscribe({
-      next: (cats) => {
-        this.categories.set(cats || []);
-      },
+      next: cats => this.categories.set(cats || []),
       error: () => {}
     });
 
     this.templatesService.getRuntimeCapabilities().subscribe({
-      next: (caps) => {
+      next: caps => {
         if (caps) this.runtimeCapabilities.set(caps);
       },
       error: () => {}
@@ -862,7 +540,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   private loadExistingTemplate(id: string, isDuplicate: boolean): void {
     this.templatesService.getTemplateById(id).subscribe({
-      next: (tpl) => {
+      next: tpl => {
         if (!tpl) return;
         this.loadedTemplateItem = tpl;
         this.isDuplicateLoad = isDuplicate;
@@ -901,7 +579,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       if (tpl.setup_script !== undefined && tpl.setup_script !== null) {
         this.setupScript.set(tpl.setup_script);
       }
-      if (tpl.tools_declared && tpl.tools_declared.length > 0) {
+      if (tpl.tools_declared?.length) {
         this.toolsDeclared.set(tpl.tools_declared.join(', '));
       }
       if (tpl.entrypoint !== undefined && tpl.entrypoint !== null) {
@@ -950,7 +628,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.col2SearchQuery.set('');
     const next = this.selectedRuntimeId() === id ? null : id;
     this.selectedRuntimeId.set(next);
-    // Conservar únicamente los complementos que sigan siendo compatibles
     const validIds = new Set(this.compatibleAddons().map(a => a.id));
     const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
     this.selectedAddonIds.update(curr => curr.filter(x => validIds.has(x) || validSlugs.has(x)));
@@ -995,34 +672,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   downloadTextFile(filename: string, content: string, mimeType: string = 'text/plain'): void {
-    const blob = new Blob([content], { type: mimeType });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    downloadBrowserTextFile(filename, content, mimeType);
   }
 
   importTextFile(accept: string, callback: (text: string) => void): void {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = accept;
-    input.onchange = (e: Event) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        const text = event.target?.result;
-        if (typeof text === 'string') {
-          callback(text);
-        }
-      };
-      reader.readAsText(file);
-    };
-    input.click();
+    importBrowserTextFile(accept, callback);
   }
 
   downloadDockerfile(): void {
@@ -1032,7 +686,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   importDockerfile(): void {
-    this.importTextFile('.dockerfile,Dockerfile,text/plain,*', (content) => {
+    this.importTextFile('.dockerfile,Dockerfile,text/plain,*', content => {
       this.onDockerfileManualChange(content);
     });
   }
@@ -1044,7 +698,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   importSetupScript(): void {
-    this.importTextFile('.sh,text/x-shellscript,text/plain,*', (content) => {
+    this.importTextFile('.sh,text/x-shellscript,text/plain,*', content => {
       this.onSetupScriptManualChange(content);
     });
   }
@@ -1058,7 +712,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.col2SearchQuery.set('');
     const next = this.selectedWebPlatformId() === id ? null : id;
     this.selectedWebPlatformId.set(next);
-    // Conservar únicamente los complementos que sigan siendo compatibles
     const validIds = new Set(this.compatibleAddons().map(a => a.id));
     const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
     this.selectedAddonIds.update(curr => curr.filter(x => validIds.has(x) || validSlugs.has(x)));
@@ -1066,9 +719,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   toggleAddon(id: string): void {
-    this.selectedAddonIds.update(curr =>
-      curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id]
-    );
+    this.selectedAddonIds.update(curr => (curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id]));
     this.recalculateFromVisualSelection();
   }
 
@@ -1077,12 +728,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   selectDatabase(id: string): void {
-    const db = this.databaseOptions().find(
-      i => i.id === id || i.slug === id || i.service_engine === id
-    );
-    if (!db || !db.is_available) {
-      return;
-    }
+    const db = this.databaseOptions().find(i => i.id === id || i.slug === id || i.service_engine === id);
+    if (!db || !db.is_available) return;
     this.selectedDatabaseId.set(db.id);
     this.recalculateFromVisualSelection();
   }
@@ -1115,9 +762,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const rt = this.selectedRuntimeComponent();
     const web = this.selectedWebComponent();
     if (!rt && !web) {
-      if (!this.isNameManuallyEdited()) {
-        this.name.set('');
-      }
+      if (!this.isNameManuallyEdited()) this.name.set('');
       if (!this.hasCustomDockerfile()) {
         this.needsLocalBuild.set(false);
         this.dockerImage.set('');
@@ -1131,123 +776,28 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const isDual = this.targetEnvironment() === 'AMBOS';
-    const addons = this.selectedAddonComponents();
-    const db = this.selectedDatabaseOption();
+    const synthesized = synthesizeVisualStackState({
+      targetEnvironment: this.targetEnvironment(),
+      rt,
+      web,
+      addons: this.selectedAddonComponents(),
+      db: this.selectedDatabaseOption()
+    });
 
-    // 1. Nombre sugerido automáticamente
     if (!this.isNameManuallyEdited()) {
-      const parts: string[] = [];
-      if (rt) parts.push(rt.name);
-      if (web) parts.push(web.name);
-      for (const a of addons) {
-        parts.push(a.name.split(' ')[0]);
-      }
-      if (db) parts.push(db.name.split(' ')[0]);
-      let prefix = 'Laboratorio: ';
-      if (isDual) {
-        prefix = 'Entorno Dual: ';
-      } else if (isJudge) {
-        prefix = 'Evaluador: ';
-      }
-      this.name.set(prefix + parts.join(' + '));
+      this.name.set(synthesized.suggestedName);
     }
 
-    // 2. Capas de construcción y resolución determinista de imagen
-    const buildLayers: string[] = [];
-    let baseImage = '';
-
-    if (rt) {
-      baseImage = rt.base_image || '';
-      if (rt.build_layer_snippet) {
-        buildLayers.push(rt.build_layer_snippet);
-      }
-      if (web && !isJudge && !isDual) {
-        if (!baseImage.toLowerCase().includes('node')) {
-          const nodeSourceImage =
-            web.base_image && web.base_image.includes('node')
-              ? web.base_image
-              : 'node:20-bookworm-slim';
-          if (baseImage.toLowerCase().includes('alpine')) {
-            buildLayers.push('RUN apk add --no-cache nodejs npm');
-          } else {
-            buildLayers.push(`COPY --from=${nodeSourceImage} /usr/local /usr/local`);
-          }
-        }
-        if (web.build_layer_snippet) {
-          buildLayers.push(web.build_layer_snippet);
-        }
-      }
-    } else if (web && !isJudge && !isDual) {
-      baseImage = web.base_image || 'node:20-bookworm-slim';
-      if (web.build_layer_snippet) {
-        buildLayers.push(web.build_layer_snippet);
-      }
-    }
-
-    for (const addon of addons) {
-      if (addon.build_layer_snippet) {
-        buildLayers.push(addon.build_layer_snippet);
-      }
-    }
-
-    const needsBuild = buildLayers.length > 0;
-    this.needsLocalBuild.set(needsBuild);
+    this.needsLocalBuild.set(synthesized.needsBuild);
     if (!this.hasCustomDockerfile()) {
-      if (needsBuild) {
-        const canonical = `FROM ${baseImage}\n${buildLayers.join('\n')}`;
-        const hash = fnv1aHex(canonical);
-        this.dockerImage.set(`solv-local/stack:${hash}`);
-        this.dockerfileContent.set(
-          `# Generado automáticamente por el Constructor de Entornos SOLV\nFROM ${baseImage}\n${buildLayers.join('\n')}`
-        );
-      } else {
-        this.dockerImage.set(baseImage);
-        this.dockerfileContent.set(baseImage ? `FROM ${baseImage}` : '');
-      }
+      this.dockerImage.set(synthesized.dockerImage);
+      this.dockerfileContent.set(synthesized.dockerfileContent);
     }
 
-    // 3. Unión de programas verificables (R4: sin git fantasma)
-    const toolsSet = new Set<string>();
-    if (rt) {
-      for (const t of rt.tools_provided || []) toolsSet.add(t);
-    }
-    if (web && !isJudge && !isDual) {
-      for (const t of web.tools_provided || []) toolsSet.add(t);
-    }
-    for (const a of addons) {
-      for (const t of a.tools_provided || []) toolsSet.add(t);
-    }
-    if (db && !isJudge && !isDual) {
-      for (const t of db.tools_provided || []) toolsSet.add(t);
-    }
-    this.toolsDeclared.set(Array.from(toolsSet).join(', '));
+    this.toolsDeclared.set(synthesized.toolsDeclared);
+    this.setupScript.set(synthesized.setupScript);
+    this.entrypoint.set(synthesized.entrypoint);
 
-    // 4. Script de inicialización opcional y comando de evaluación
-    if (isDual) {
-      const lines: string[] = [];
-      if (rt?.setup_snippet) lines.push(rt.setup_snippet);
-      for (const a of addons) {
-        if (a.setup_snippet) lines.push(a.setup_snippet);
-      }
-      this.setupScript.set(lines.join('\n'));
-      this.entrypoint.set(this.resolveDefaultJudgeEntrypoint(rt));
-    } else if (!isJudge) {
-      const lines: string[] = [];
-      if (rt?.setup_snippet) lines.push(rt.setup_snippet);
-      if (web?.setup_snippet) lines.push(web.setup_snippet);
-      for (const a of addons) {
-        if (a.setup_snippet) lines.push(a.setup_snippet);
-      }
-      this.setupScript.set(lines.join('\n'));
-      this.entrypoint.set('');
-    } else {
-      this.setupScript.set('');
-      this.entrypoint.set(this.resolveDefaultJudgeEntrypoint(rt));
-    }
-
-    // 5. Memoria recomendada basada en la selección tecnológica
     if (!this.isRamManuallyEdited() || this.baseRamMB() < this.minimumFloorMB()) {
       this.baseRamMB.set(this.recommendedRamMB());
       this.isRamManuallyEdited.set(false);
@@ -1343,10 +893,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     };
 
     this.envTestService.startJob(req).subscribe({
-      next: (job) => {
+      next: job => {
         this.activeEnvTestJob.set(job);
         this.pollSub = this.envTestService.pollJob(job.id).subscribe({
-          next: (updated) => {
+          next: updated => {
             this.activeEnvTestJob.set(updated);
             if (updated.status === 'success') {
               this.verifiedFingerprint.set(testedFingerprint);
@@ -1365,7 +915,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         });
         this.sub.add(this.pollSub);
       },
-      error: (err) => {
+      error: err => {
         this.isVerifying.set(false);
         this.showToast(err.error?.error?.message || 'No se pudo iniciar la comprobación del entorno.', 'error');
       }
@@ -1380,9 +930,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.activeEnvTestJob.update(j => (j ? { ...j, status: 'canceled' } : null));
     this.isVerifying.set(false);
     this.envTestService.cancelJob(job.id).subscribe({
-      next: () => {
-        this.showToast('Comprobación de entorno cancelada.');
-      },
+      next: () => this.showToast('Comprobación de entorno cancelada.'),
       error: () => {}
     });
   }
@@ -1396,8 +944,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   copyManifestToClipboard(): void {
-    const content = this.liveManifestJson();
-    navigator.clipboard.writeText(content).then(() => {
+    navigator.clipboard.writeText(this.liveManifestJson()).then(() => {
       this.showToast('Manifiesto JSON copiado al portapapeles.');
     });
   }
@@ -1422,10 +969,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         this.isSubmitting.set(false);
         this.router.navigate(['/admin/plantillas'], { queryParams: { tab: 'catalog' } });
       },
-      error: (err) => {
+      error: err => {
         this.isSubmitting.set(false);
-        const msg = err.error?.error?.message || 'Error al guardar la plantilla en el catálogo.';
-        this.showToast(msg, 'error');
+        this.showToast(err.error?.error?.message || 'Error al guardar la plantilla en el catálogo.', 'error');
       }
     });
   }
@@ -1433,7 +979,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   buildCreatePayload(): CreateOfficialTemplateDTO {
     const db = this.selectedDatabaseOption();
     const services: ServiceRequirement[] = [];
-    if (db && db.service_engine && db.service_engine !== 'none') {
+    if (db?.service_engine && db.service_engine !== 'none') {
       services.push({
         category: db.service_engine === 'redis' ? 'cache' : 'database',
         engine: db.service_engine

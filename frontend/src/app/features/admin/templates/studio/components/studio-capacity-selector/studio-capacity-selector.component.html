@@ -1,0 +1,156 @@
+<section class="studio-card">
+  <div class="card-section-header">
+    <div>
+      <h2 class="section-title">3. Capacidad del Aula y Memoria por Alumno</h2>
+      @if (hasSelectedStack()) {
+        <p class="section-subtitle">
+          Asignación de memoria optimizada según las tecnologías seleccionadas. Con esta capacidad el aula soporta aproximadamente
+          <strong><span machineData>{{ nominalConcurrentStudents() }}</span> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}</strong> con el servidor disponible.
+        </p>
+      }
+    </div>
+  </div>
+
+  @if (!hasSelectedStack()) {
+    <div class="capacity-empty-state">
+      <h3 class="empty-state-title">Pendiente de selección tecnológica</h3>
+      <p class="empty-state-desc">
+        Seleccione primero el lenguaje principal en el Paso 2 para calcular automáticamente la memoria necesaria por alumno y cuántos estudiantes podrán trabajar al mismo tiempo.
+      </p>
+    </div>
+  } @else {
+    <div class="capacity-grid">
+      @for (opt of capacityOptions(); track opt.mb) {
+        <button
+          type="button"
+          class="capacity-card"
+          [class.selected]="baseRamMB() === opt.mb"
+          (click)="selectPreset.emit(opt.mb)"
+        >
+          <div class="cap-header-row">
+            <strong class="cap-title">{{ opt.title }}</strong>
+            @if (opt.isRecommended) {
+              <span class="cap-recommended-badge">Sugerido</span>
+            }
+          </div>
+          <span class="cap-desc">{{ opt.desc }}</span>
+          <span class="cap-students">
+            <span machineData>{{ opt.mb }} MB</span> por alumno · ~<span machineData>{{ estimateStudentsForPreset(opt.mb) }}</span>
+            {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+          </span>
+        </button>
+      }
+    </div>
+
+    <div class="manual-ram-section">
+      <button
+        type="button"
+        class="btn-toggle-manual-ram"
+        (click)="toggleManualInput.emit()"
+      >
+        {{ showManualRamInput() ? 'Ocultar ajuste manual' : 'Configurar memoria manualmente (opcional)' }}
+      </button>
+
+      @if (showManualRamInput() || isRamBelowFloor() || isRamExceedingHost()) {
+        <div class="custom-ram-row">
+          <div class="field-group custom-ram-field">
+            <label class="form-label" for="studio-custom-ram">Ajuste manual por alumno (MB)</label>
+            <input
+              id="studio-custom-ram"
+              type="number"
+              class="form-input font-mono"
+              [class.has-error]="isRamBelowFloor() || isRamExceedingHost()"
+              [ngModel]="baseRamMB()"
+              (ngModelChange)="customRamChange.emit($event)"
+              [min]="minimumFloorMB()"
+              [max]="maxAllowedRamMB()"
+              step="64"
+            />
+          </div>
+          <span class="custom-ram-hint">
+            Mínimo requerido por las tecnologías elegidas: <strong machineData>{{ minimumFloorMB() }} MB</strong> · Máximo permitido por el servidor: <strong machineData>{{ maxAllowedRamMB() }} MB</strong>
+          </span>
+        </div>
+      }
+    </div>
+
+    @if (isRamBelowFloor()) {
+      <div class="ram-lock-alert alert-error" role="alert">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <div>
+          La memoria indicada (<span machineData>{{ baseRamMB() }} MB</span>) es menor a los <span machineData>{{ minimumFloorMB() }} MB</span> que necesitan las tecnologías elegidas para iniciar correctamente.
+        </div>
+      </div>
+    }
+
+    @if (isRamExceedingHost()) {
+      <div class="ram-lock-alert alert-error" role="alert">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <div>
+          La memoria indicada (<span machineData>{{ baseRamMB() }} MB</span>) supera el límite disponible del servidor (<span machineData>{{ maxAllowedRamMB() }} MB</span>).
+        </div>
+      </div>
+    } @else if (isRamExceedingCurrentFree()) {
+      <div class="ram-lock-alert alert-warning" role="status">
+        <svg lucideAlertCircle class="alert-icon"></svg>
+        <div>
+          <strong>Aviso de concurrencia:</strong> La memoria seleccionada (<span machineData>{{ baseRamMB() }} MB</span>) supera la memoria libre actual del servidor (<span machineData>{{ hostFreeRamMB() }} MB</span>). La plantilla es válida, pero el cupo simultáneo dependerá de la memoria disponible en el momento de la clase.
+        </div>
+      </div>
+    }
+
+    <div class="resource-profile-card">
+      <div class="profile-header">
+        <div class="profile-header-left">
+          <span class="profile-title">Distribución de la Memoria por Alumno</span>
+          <span class="badge-floor" [class.badge-floor-alert]="isRamBelowFloor()">
+            Mínimo requerido: <span machineData>{{ minimumFloorMB() }} MB</span>
+          </span>
+        </div>
+        <span class="profile-capacity">
+          Capacidad nominal del servidor: ~<strong machineData>{{ nominalConcurrentStudents() }}</strong>
+          {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'alumnos simultáneos' }}
+        </span>
+      </div>
+
+      <div class="memory-bar" [class.bar-overflow]="isRamExceedingHost()">
+        @if (isRamExceedingHost()) {
+          <div class="bar-segment bar-segment-overflow">
+            <span>
+              Supera el límite del servidor en <span machineData>{{ ramExcessMB() }} MB</span> (máximo permitido: <span machineData>{{ maxAllowedRamMB() }} MB</span>)
+            </span>
+          </div>
+        } @else {
+          <div
+            class="bar-segment bar-editor"
+            [style.flex-grow]="resourceBreakdown().editorBaseMB"
+          >
+            <span>
+              {{ resourceBreakdown().isJudge ? 'Motor de evaluación' : 'Editor de código' }} (<span machineData>{{ resourceBreakdown().editorBaseMB }} MB</span>)
+            </span>
+          </div>
+
+          @if (resourceBreakdown().stackBaseMB > 0) {
+            <div
+              class="bar-segment bar-stack"
+              [style.flex-grow]="resourceBreakdown().stackBaseMB"
+            >
+              <span>
+                Tecnologías elegidas ({{ stackSummaryLabel() }}) (<span machineData>{{ resourceBreakdown().stackBaseMB }} MB</span>)
+              </span>
+            </div>
+          }
+
+          <div
+            class="bar-segment bar-usable"
+            [style.flex-grow]="resourceBreakdown().usableMB"
+          >
+            <span>
+              Espacio libre para los programas del alumno (<span machineData>{{ resourceBreakdown().usableMB }} MB</span>)
+            </span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

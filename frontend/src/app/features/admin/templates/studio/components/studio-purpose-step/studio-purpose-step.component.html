@@ -1,0 +1,104 @@
+<section class="studio-card">
+  <div class="card-section-header">
+    <div>
+      <h2 class="section-title">1. Propósito y Datos del Entorno</h2>
+      <p class="section-subtitle">Elija el modo de trabajo y asigne un nombre claro para los docentes.</p>
+    </div>
+  </div>
+
+  <div class="purpose-selector-grid">
+    <button
+      type="button"
+      class="purpose-option-card"
+      [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
+      (click)="targetEnvironmentChange.emit('IDE_PERSISTENTE')"
+    >
+      <div class="purpose-top">
+        <strong class="purpose-title">Laboratorio de Práctica (Con Editor Visual)</strong>
+        @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+          <span class="status-pill-active">Seleccionado</span>
+        }
+      </div>
+      <p class="purpose-desc">
+        El estudiante programa en un editor completo en el navegador, con terminal, carpetas persistentes y base de datos lista para conectar.
+      </p>
+    </button>
+
+    <button
+      type="button"
+      class="purpose-option-card"
+      [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
+      (click)="targetEnvironmentChange.emit('JUEZ_EFIMERO')"
+    >
+      <div class="purpose-top">
+        <strong class="purpose-title">Evaluador Automático de Ejercicios</strong>
+        @if (targetEnvironment() === 'JUEZ_EFIMERO') {
+          <span class="status-pill-active">Seleccionado</span>
+        }
+      </div>
+      <p class="purpose-desc">
+        Califica entregas de código automáticamente contra casos de prueba en pocos segundos, sin interfaz gráfica.
+      </p>
+    </button>
+
+    <button
+      type="button"
+      class="purpose-option-card"
+      [class.selected]="targetEnvironment() === 'AMBOS'"
+      (click)="targetEnvironmentChange.emit('AMBOS')"
+    >
+      <div class="purpose-top">
+        <strong class="purpose-title">Laboratorio + Evaluador</strong>
+        @if (targetEnvironment() === 'AMBOS') {
+          <span class="status-pill-active">Seleccionado</span>
+        }
+      </div>
+      <p class="purpose-desc">
+        Un único entorno oficial para prácticas con editor visual y corrección automática de ejercicios.
+      </p>
+    </button>
+  </div>
+
+  <div class="identity-fields-grid">
+    <div class="field-group">
+      <label class="form-label" for="studio-tpl-name">
+        Nombre del Entorno * <span class="hint-inline">(Se sugiere automáticamente según las tecnologías elegidas)</span>
+      </label>
+      <input
+        id="studio-tpl-name"
+        type="text"
+        class="form-input"
+        placeholder="Ej: Laboratorio: Python 3.12 + Angular + PostgreSQL"
+        [ngModel]="name()"
+        (ngModelChange)="nameChange.emit($event)"
+      />
+    </div>
+
+    <div class="field-group">
+      <label class="form-label" for="studio-tpl-category">Categoría Académica</label>
+      <combobox
+        id="studio-tpl-category"
+        [options]="categoryOptions()"
+        [value]="selectedCategoryId() || ''"
+        placeholder="Seleccione una categoría..."
+        [showSearchIcon]="false"
+        [showHeader]="false"
+        [allowClear]="true"
+        (valueChange)="categoryChange.emit($event || null)"
+        (cleared)="categoryChange.emit(null)"
+      />
+    </div>
+  </div>
+
+  <div class="field-group">
+    <label class="form-label" for="studio-tpl-desc">Descripción Pedagógica (Opcional)</label>
+    <input
+      id="studio-tpl-desc"
+      type="text"
+      class="form-input"
+      placeholder="Indique qué programas o librerías incluye para orientar a otros docentes..."
+      [ngModel]="description()"
+      (ngModelChange)="descriptionChange.emit($event)"
+    />
+  </div>
+</section>

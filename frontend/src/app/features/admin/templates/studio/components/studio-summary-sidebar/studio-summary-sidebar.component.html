@@ -1,0 +1,266 @@
+<aside class="blueprint-sidebar" aria-label="Resumen en vivo del entorno">
+  <div class="blueprint-card">
+    <div class="blueprint-header">
+      <span class="blueprint-heading">Resumen del Entorno</span>
+      <div class="blueprint-tabs">
+        <button
+          type="button"
+          class="bp-tab-btn"
+          [class.active]="blueprintTab() === 'human'"
+          (click)="blueprintTabChange.emit('human')"
+        >
+          Resumen
+        </button>
+        <button
+          type="button"
+          class="bp-tab-btn"
+          [class.active]="blueprintTab() === 'manifest'"
+          (click)="blueprintTabChange.emit('manifest')"
+        >
+          &lt;/&gt; Manifiesto
+        </button>
+      </div>
+    </div>
+
+    @if (blueprintTab() === 'human') {
+      <div class="blueprint-body">
+        <div class="bp-block">
+          <span class="bp-label">Nombre del Entorno</span>
+          <strong class="bp-env-name">{{ name() || 'Sin nombre definido' }}</strong>
+          <span class="bp-meta-pill">
+            @if (targetEnvironment() === 'AMBOS') {
+              Laboratorio + Evaluador
+            } @else if (targetEnvironment() === 'IDE_PERSISTENTE') {
+              Laboratorio con Editor
+            } @else {
+              Evaluador Automático
+            }
+          </span>
+        </div>
+
+        <div class="bp-block">
+          <span class="bp-label">Imagen Contenedora</span>
+          <div class="bp-image-row">
+            <span class="bp-image-name" machineData>{{ dockerImage() || 'Pendiente de selección' }}</span>
+            @if (dockerImage()) {
+              <span
+                class="bp-pill-badge"
+                [class.badge-local]="needsLocalBuild() || dockerImage().startsWith('solv-local/stack:')"
+                [class.badge-official]="!needsLocalBuild() && !dockerImage().startsWith('solv-local/stack:')"
+              >
+                {{ (needsLocalBuild() || dockerImage().startsWith('solv-local/stack:')) ? 'Construcción Local' : 'Imagen Oficial' }}
+              </span>
+            }
+          </div>
+        </div>
+
+        @if (targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS') {
+          <div class="bp-block">
+            <span class="bp-label">Parámetros de Evaluación</span>
+            <div class="bp-judge-params">
+              <div class="judge-param-row">
+                <span class="param-label">Comando de ejecución:</span>
+                <span class="param-val" machineData>{{ entrypoint() || 'Pendiente' }}</span>
+              </div>
+              <div class="judge-param-row">
+                <span class="param-label">Tiempo máximo:</span>
+                <span class="param-val"><span machineData>{{ timeoutMS() }}</span> ms</span>
+              </div>
+            </div>
+          </div>
+        }
+
+        <div class="bp-block">
+          <span class="bp-label">Tecnologías Seleccionadas ({{ selectedStackComponents().length }})</span>
+          <div class="bp-stack-list">
+            @for (comp of selectedStackComponents(); track comp.id) {
+              <div class="bp-stack-item">
+                <div class="bp-stack-left">
+                  <tech-logo [iconType]="comp.icon_key" [size]="22" />
+                  <span class="bp-comp-name">{{ comp.name }}</span>
+                </div>
+                <span class="bp-comp-role">
+                  {{ comp.layer === 'runtime' ? (comp.sub_category === 'web' ? 'Web' : 'Base') : comp.layer === 'addon' ? 'Complemento' : 'Datos' }}
+                </span>
+              </div>
+            } @empty {
+              <div class="bp-empty-item">
+                <span>No se han seleccionado tecnologías aún</span>
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="bp-block">
+          <div class="bp-row-between">
+            <span class="bp-label">Memoria por alumno</span>
+            @if (hasSelectedStack()) {
+              <strong class="bp-ram-val"><span machineData>{{ baseRamMB() }} MB</span></strong>
+            } @else {
+              <span class="bp-pending-text">Pendiente de selección</span>
+            }
+          </div>
+          <p class="bp-capacity-note">
+            @if (hasSelectedStack()) {
+              Capacidad del aula: soporta ~<strong machineData>{{ nominalConcurrentStudents() }}</strong> {{ targetEnvironment() === 'JUEZ_EFIMERO' ? 'evaluaciones simultáneas' : 'estudiantes simultáneos' }}.
+            } @else {
+              Capacidad del aula: <span class="bp-pending-text">Seleccione tecnologías en el Paso 2</span>
+            }
+          </p>
+        </div>
+
+        <div class="bp-block">
+          <span class="bp-label">Programas Incluidos</span>
+          <div class="bp-tools-chips">
+            @for (tool of toolsList(); track tool) {
+              <span class="bp-tool-tag" machineData>✓ {{ tool }}</span>
+            } @empty {
+              <span class="bp-pending-text">Sin programas verificables declarados</span>
+            }
+          </div>
+        </div>
+
+        @if (activeEnvTestJob(); as job) {
+          <div
+            class="verification-status-box"
+            [class.status-ok]="job.status === 'success'"
+            [class.status-err]="job.status === 'failed'"
+            [class.status-running]="job.status === 'pending' || job.status === 'pulling' || job.status === 'testing'"
+          >
+            @if (job.status === 'success') {
+              <div class="verif-row">
+                <svg lucideCheckCircle2 class="verif-icon"></svg>
+                <div class="verif-details">
+                  <div class="verif-title-row">
+                    <strong>¡Entorno Verificado!</strong>
+                    @if (job.result?.duration_ms) {
+                      <span class="verif-duration-badge">
+                        Completado en <span machineData>{{ job.result!.duration_ms }} ms</span>
+                      </span>
+                    }
+                  </div>
+                  <p>Todas las tecnologías respondieron correctamente.</p>
+                  @if (isConfigModifiedAfterVerification()) {
+                    <div class="verif-stale-alert" role="alert">
+                      <svg lucideAlertTriangle class="alert-icon-xs"></svg>
+                      <span>Configuración modificada tras la comprobación. Vuelva a comprobar el funcionamiento para habilitar la publicación.</span>
+                    </div>
+                  }
+                  @if (job.result?.tools?.length) {
+                    <div class="verif-tools-detected">
+                      <span class="tools-detected-title">Versiones reportadas por el contenedor:</span>
+                      <div class="detected-chips">
+                        @for (tool of job.result!.tools; track tool.name) {
+                          <span class="detected-chip" [class.chip-missing]="!tool.present">
+                            <span class="tool-name">{{ tool.name }}:</span>
+                            <span class="tool-ver" machineData>{{ tool.present ? (tool.version || 'detectado') : 'no encontrado' }}</span>
+                          </span>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+              </div>
+            } @else if (job.status === 'failed') {
+              <div class="verif-row">
+                <svg lucideAlertCircle class="verif-icon"></svg>
+                <div class="verif-details">
+                  <strong>Atención en la comprobación</strong>
+                  <p>{{ job.error_message || 'Uno de los programas no respondió como se esperaba.' }}</p>
+                </div>
+              </div>
+            } @else if (job.status === 'canceled') {
+              <div class="verif-row">
+                <svg lucideAlertCircle class="verif-icon"></svg>
+                <div class="verif-details">
+                  <strong>Comprobación cancelada</strong>
+                  <p>La verificación fue cancelada antes de completarse.</p>
+                </div>
+              </div>
+            } @else {
+              <div class="verif-row">
+                <svg lucideRefreshCw class="verif-icon spin"></svg>
+                <div class="verif-details">
+                  <strong>Preparando y comprobando tecnologías...</strong>
+                  <p>{{ job.progress.current_action || 'Verificando programas incluidos...' }}</p>
+                  <div class="progress-container">
+                    <div class="progress-bar-track">
+                      <div class="progress-bar-fill" [style.width.%]="job.progress.percent || 0"></div>
+                    </div>
+                    <span class="progress-percentage"><span machineData>{{ job.progress.percent || 0 }}</span>%</span>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-cancel-job"
+                    (click)="cancelTest.emit()"
+                    title="Cancelar comprobación"
+                  >
+                    <svg lucideXCircle class="btn-icon-xs"></svg>
+                    <span>Cancelar comprobación</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="blueprint-body">
+        <div class="manifest-header-row">
+          <span class="bp-label">Contrato Técnico Generado</span>
+          <div class="manifest-actions">
+            <button type="button" class="btn-xs-outline" (click)="copyManifest.emit()" title="Copiar Manifiesto JSON">
+              <svg lucideCopy class="btn-icon-xs"></svg>
+              <span>Copiar JSON</span>
+            </button>
+            <button type="button" class="btn-xs-outline" (click)="downloadManifest.emit()">
+              <svg lucideDownload class="btn-icon-xs"></svg>
+              <span>Descargar</span>
+            </button>
+          </div>
+        </div>
+        <code-editor
+          [value]="liveManifestJson()"
+          language="json"
+          [readonly]="true"
+          minHeight="260px"
+          maxHeight="450px"
+        />
+      </div>
+    }
+
+    <div class="blueprint-footer">
+      @if (publishBlocker(); as blocker) {
+        <p
+          class="publish-block-note"
+          [class.warning]="blocker.tone === 'warning'"
+          [class.error]="blocker.tone === 'error'"
+        >
+          {{ blocker.reason }}
+        </p>
+      }
+
+      <button
+        type="button"
+        class="btn-outline w-full"
+        [disabled]="!canRunVerification()"
+        (click)="runVerification.emit()"
+      >
+        <svg lucidePlay class="btn-icon-xs" [class.spin]="isVerifying()"></svg>
+        <span>{{ isVerifying() ? 'Comprobando funcionamiento...' : 'Comprobar funcionamiento' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="btn-primary w-full"
+        [disabled]="!canPublishTemplate()"
+        (click)="publish.emit()"
+      >
+        <svg lucideSend class="btn-icon-xs"></svg>
+        <span>
+          {{ isSubmitting() ? 'Guardando...' : isEditMode() ? 'Guardar Cambios de Plantilla' : 'Publicar Plantilla Oficial' }}
+        </span>
+      </button>
+    </div>
+  </div>
+</aside>
