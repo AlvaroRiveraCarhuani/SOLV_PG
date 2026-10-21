@@ -30,7 +30,7 @@
         <button 
           type="button" 
           class="btn-primary" 
-          (click)="openNewComponentModal('addon')">
+          (click)="openNewComponentModal()">
           <svg lucidePlus class="btn-icon"></svg>
           <span>Registrar Nueva Tecnología</span>
         </button>
@@ -200,8 +200,15 @@
                     <span 
                       class="purpose-badge" 
                       [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
-                      [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'">
-                      {{ m.target_environment === 'IDE_PERSISTENTE' ? 'IDE' : 'JUEZ' }}
+                      [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
+                      [class.purpose-both]="m.target_environment === 'AMBOS'">
+                      @if (m.target_environment === 'AMBOS') {
+                        DUAL
+                      } @else if (m.target_environment === 'IDE_PERSISTENTE') {
+                        IDE
+                      } @else {
+                        JUEZ
+                      }
                     </span>
 
                     <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
@@ -297,8 +304,15 @@
                     <span 
                       class="purpose-badge" 
                       [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
-                      [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'">
-                      {{ m.target_environment === 'IDE_PERSISTENTE' ? 'IDE Persistente' : 'Juez Virtual' }}
+                      [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
+                      [class.purpose-both]="m.target_environment === 'AMBOS'">
+                      @if (m.target_environment === 'AMBOS') {
+                        Laboratorio + Evaluador
+                      } @else if (m.target_environment === 'IDE_PERSISTENTE') {
+                        IDE Persistente
+                      } @else {
+                        Juez Virtual
+                      }
                     </span>
                   </td>
                   <td>
@@ -374,69 +388,350 @@
   <!-- Contenido TAB: CATÁLOGO DE TECNOLOGÍAS -->
   @if (activeTab() === 'components') {
     <section class="tab-content">
-      <div class="table-card">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Tecnología</th>
-              <th>Capa en el Constructor</th>
-              <th>Programas / Paquetes</th>
-              <th>Memoria Sugerida</th>
-              <th>Origen</th>
-              <th class="text-right">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (comp of techComponents(); track comp.id) {
-              <tr>
-                <td>
-                  <div class="category-name-cell">
-                    <tech-logo [iconType]="comp.icon_key" [size]="28" />
-                    <div>
-                      <strong class="model-title">{{ comp.name }}</strong>
-                      @if (comp.description) {
-                        <span class="model-desc">{{ comp.description }}</span>
+      <!-- Barra de Filtros y Acciones del Catálogo -->
+      <div class="filters-bar">
+        <search-bar
+          [query]="componentSearchQuery()"
+          (queryChange)="componentSearchQuery.set($event)"
+          placeholder="Buscar por tecnología, slug, paquete, imagen o herramienta..."
+        />
+
+        <div class="filter-controls">
+          <div class="select-wrap">
+            <label class="filter-label">Perfil:</label>
+            <combobox
+              [compact]="true"
+              [value]="selectedComponentProfileFilterLabel()"
+              [options]="componentProfileFilterOptions()"
+              placeholder="Perfil..."
+              (optionSelected)="onComponentProfileSelected($event)"
+            ></combobox>
+          </div>
+
+          <div class="select-wrap">
+            <label class="filter-label">Estado:</label>
+            <combobox
+              [compact]="true"
+              [value]="selectedComponentStatusFilterLabel()"
+              [options]="componentStatusFilterOptions()"
+              placeholder="Estado..."
+              (optionSelected)="onComponentStatusSelected($event)"
+            ></combobox>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vista de Tarjetas -->
+      @if (viewMode() === 'cards') {
+        <div class="components-grid">
+          @for (comp of filteredTechComponents(); track comp.id) {
+            <div class="tech-card" [class.inactive-card]="comp.is_active === false">
+              <div class="tech-card-header">
+                <div class="tech-card-identity">
+                  <tech-logo [iconType]="comp.icon_key" [size]="32" />
+                  <div class="identity-text">
+                    <div class="identity-title-row">
+                      <strong class="tech-name">{{ comp.name }}</strong>
+                      <span class="tech-profile-badge" [attr.data-profile]="comp.layer === 'runtime' ? (comp.sub_category === 'web' ? 'web' : 'backend') : comp.layer">
+                        {{ getComponentProfileLabel(comp) }}
+                      </span>
+                    </div>
+                    <code class="tech-slug" machineData>{{ comp.slug }}</code>
+                  </div>
+                </div>
+
+                <div class="tech-card-status">
+                  <button
+                    type="button"
+                    class="btn-toggle-switch"
+                    [class.active]="comp.is_active !== false"
+                    (click)="toggleComponentActive(comp)"
+                    [title]="comp.is_active !== false ? 'Desactivar tecnología' : 'Activar tecnología'"
+                    [attr.aria-label]="comp.is_active !== false ? 'Desactivar tecnología' : 'Activar tecnología'"
+                  >
+                    <span class="switch-handle">
+                      @if (comp.is_active !== false) {
+                        <svg lucideCheck class="switch-icon"></svg>
+                      } @else {
+                        <svg lucidePower class="switch-icon"></svg>
+                      }
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              @if (comp.description) {
+                <p class="tech-card-desc">{{ comp.description }}</p>
+              }
+
+              <!-- Badges de Gobernanza: Memoria, Ecosistema, Alerta Huérfano -->
+              <div class="tech-card-badges">
+                @let mem = getComponentMemoryBadge(comp);
+                <span class="tech-badge badge-memory" [attr.data-variant]="mem.variant" [title]="mem.detail">
+                  <span machineData>{{ mem.label }}</span>
+                  <span class="badge-detail">{{ mem.detail }}</span>
+                </span>
+
+                @if (comp.layer === 'addon') {
+                  <span class="tech-badge badge-ecosystem">
+                    <span class="badge-prefix">Ecosistema:</span>
+                    <strong>{{ getAddonEcosystemLabel(comp) }}</strong>
+                  </span>
+                }
+
+                @if (isOrphanAddon(comp)) {
+                  <span class="tech-badge badge-orphan" title="Ningún runtime activo es compatible con este complemento">
+                    <svg lucideAlertTriangle class="badge-icon"></svg>
+                    <span>Huérfano</span>
+                  </span>
+                }
+              </div>
+
+              <!-- Metadatos Técnicos -->
+              <div class="tech-card-specs">
+                @if (comp.base_image) {
+                  <div class="spec-row">
+                    <span class="spec-label">Imagen:</span>
+                    <code class="spec-value spec-image" machineData>{{ comp.base_image }}</code>
+                  </div>
+                }
+
+                @if (comp.package_names && comp.package_names.length > 0) {
+                  <div class="spec-row">
+                    <span class="spec-label">Paquetes ({{ comp.install_mode }}):</span>
+                    <span class="spec-value font-mono">{{ comp.package_names.join(', ') }}</span>
+                  </div>
+                }
+
+                @if (comp.tools_provided && comp.tools_provided.length > 0) {
+                  <div class="spec-row">
+                    <span class="spec-label">Herramientas:</span>
+                    <div class="tools-chips">
+                      @for (tool of comp.tools_provided; track tool) {
+                        <code class="tool-chip" machineData>{{ tool }}</code>
                       }
                     </div>
                   </div>
-                </td>
-                <td>
-                  <span class="category-badge">
-                    {{ comp.layer === 'runtime' ? '1. Tecnología Principal' : comp.layer === 'addon' ? '2. Complemento' : '3. Base de Datos' }}
-                  </span>
-                </td>
-                <td>
-                  @if (comp.tools_provided.length > 0) {
-                    <code class="docker-badge">{{ comp.tools_provided.join(', ') }}</code>
-                  } @else {
-                    <span class="text-muted text-xs">Automático</span>
+                }
+
+                @if (comp.layer === 'runtime') {
+                  <div class="spec-row runtime-addons-info">
+                    <span class="spec-label">Complementos compatibles:</span>
+                    <span class="spec-value font-mono" machineData>{{ getCompatibleAddonsCount(comp) }}</span>
+                  </div>
+                }
+              </div>
+
+              <div class="tech-card-footer">
+                <span class="tech-origin-tag">
+                  {{ comp.is_system ? 'Catálogo Oficial' : 'Creado por Admin' }}
+                </span>
+
+                <div class="card-actions">
+                  @if (comp.layer === 'runtime') {
+                    <button
+                      type="button"
+                      class="btn-action-text"
+                      (click)="openAddAddonForRuntime(comp)"
+                      title="Registrar complemento para este lenguaje"
+                    >
+                      <svg lucidePlus class="action-icon-sm"></svg>
+                      <span>Complemento</span>
+                    </button>
                   }
-                </td>
-                <td>
-                  <span class="ram-badge"><span machineData>+{{ comp.ram_delta_mb }} MB</span></span>
-                </td>
-                <td>
-                  <span class="text-muted text-xs">{{ comp.is_system ? 'Catálogo Oficial' : 'Creado por Admin' }}</span>
-                </td>
-                <td class="text-right">
+
+                  <button
+                    type="button"
+                    class="btn-action-icon action-edit"
+                    (click)="openEditComponentModal(comp)"
+                    title="Editar tecnología"
+                    aria-label="Editar tecnología"
+                  >
+                    <svg lucidePencil class="action-icon"></svg>
+                  </button>
+
                   @if (!comp.is_system) {
                     <button
                       type="button"
                       class="btn-action-icon action-delete"
                       (click)="deleteTechComponent(comp)"
                       title="Eliminar tecnología"
+                      aria-label="Eliminar tecnología"
                     >
                       <svg lucideTrash2 class="action-icon"></svg>
                     </button>
-                  } @else {
-                    <span class="text-muted text-xs">Base</span>
                   }
-                </td>
+                </div>
+              </div>
+            </div>
+          } @empty {
+            <div class="empty-results-card">
+              <svg lucideBoxes class="empty-icon"></svg>
+              <h3 class="empty-title">No se encontraron tecnologías</h3>
+              <p class="empty-text">No existen tecnologías que coincidan con los filtros aplicados.</p>
+              <button type="button" class="btn-secondary" (click)="resetComponentFilters()">
+                Restablecer filtros
+              </button>
+            </div>
+          }
+        </div>
+      } @else {
+        <!-- Vista de Tabla -->
+        <div class="table-card">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Tecnología</th>
+                <th>Perfil</th>
+                <th>Ecosistema / Paquetes</th>
+                <th>Imagen / Ejecución</th>
+                <th>Memoria</th>
+                <th>Estado</th>
+                <th class="text-right">Acciones</th>
               </tr>
-            }
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              @for (comp of filteredTechComponents(); track comp.id) {
+                <tr [class.inactive-row]="comp.is_active === false">
+                  <td>
+                    <div class="category-name-cell">
+                      <tech-logo [iconType]="comp.icon_key" [size]="28" />
+                      <div>
+                        <strong class="model-title">{{ comp.name }}</strong>
+                        <div class="comp-slug-row">
+                          <code class="text-xs font-mono" machineData>{{ comp.slug }}</code>
+                          @if (comp.is_system) {
+                            <span class="origin-chip">Oficial</span>
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="profile-cell">
+                      <span class="tech-profile-badge" [attr.data-profile]="comp.layer === 'runtime' ? (comp.sub_category === 'web' ? 'web' : 'backend') : comp.layer">
+                        {{ getComponentProfileLabel(comp) }}
+                      </span>
+                      @if (comp.layer === 'runtime') {
+                        <div class="runtime-meta-chips">
+                          <span class="chip-subtle" title="Complementos compatibles activos">
+                            <span machineData>{{ getCompatibleAddonsCount(comp) }}</span> complementos
+                          </span>
+                          @if (comp.judge_entrypoint) {
+                            <span class="chip-judge-ready" title="Comando de evaluación configurado">Juez listo</span>
+                          }
+                        </div>
+                      }
+                      @if (isOrphanAddon(comp)) {
+                        <span class="badge-orphan-mini" title="Ningún runtime activo es compatible con este complemento">
+                          <svg lucideAlertTriangle class="badge-icon-xs"></svg>
+                          Huérfano
+                        </span>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    @if (comp.layer === 'addon') {
+                      <div class="ecosystem-info">
+                        <span class="text-xs font-medium">{{ getAddonEcosystemLabel(comp) }}</span>
+                        @if (comp.package_names && comp.package_names.length > 0) {
+                          <code class="docker-badge text-xs" machineData>{{ comp.install_mode }}: {{ comp.package_names.join(', ') }}</code>
+                        }
+                      </div>
+                    } @else if (comp.tools_provided && comp.tools_provided.length > 0) {
+                      <code class="docker-badge text-xs" machineData>{{ comp.tools_provided.join(', ') }}</code>
+                    } @else {
+                      <span class="text-muted text-xs">Automático</span>
+                    }
+                  </td>
+                  <td>
+                    @if (comp.base_image) {
+                      <code class="docker-badge" machineData>{{ comp.base_image }}</code>
+                    } @else {
+                      <div class="execution-cell-addon">
+                        <span class="text-muted text-xs font-mono">{{ comp.install_mode }}</span>
+                        @if (comp.layer === 'addon' && comp.tools_provided && comp.tools_provided.length > 0) {
+                          <code class="docker-badge text-xs" machineData>{{ comp.tools_provided.join(', ') }}</code>
+                        }
+                      </div>
+                    }
+                  </td>
+                  <td>
+                    @let mem = getComponentMemoryBadge(comp);
+                    <span class="ram-badge" [attr.data-variant]="mem.variant" [title]="mem.detail">
+                      <span machineData>{{ mem.label }}</span>
+                    </span>
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="btn-toggle-switch mini"
+                      [class.active]="comp.is_active !== false"
+                      (click)="toggleComponentActive(comp)"
+                      [title]="comp.is_active !== false ? 'Desactivar' : 'Activar'"
+                      [attr.aria-label]="comp.is_active !== false ? 'Desactivar' : 'Activar'"
+                    >
+                      <span class="switch-handle">
+                        @if (comp.is_active !== false) {
+                          <svg lucideCheck class="switch-icon"></svg>
+                        } @else {
+                          <svg lucidePower class="switch-icon"></svg>
+                        }
+                      </span>
+                    </button>
+                  </td>
+                  <td class="text-right">
+                    <div class="actions-group">
+                      @if (comp.layer === 'runtime') {
+                        <button
+                          type="button"
+                          class="btn-action-icon action-add-addon"
+                          (click)="openAddAddonForRuntime(comp)"
+                          title="Registrar complemento para este lenguaje"
+                          aria-label="Registrar complemento"
+                        >
+                          <svg lucidePlus class="action-icon"></svg>
+                        </button>
+                      }
+                      <button
+                        type="button"
+                        class="btn-action-icon action-edit"
+                        (click)="openEditComponentModal(comp)"
+                        title="Editar tecnología"
+                        aria-label="Editar tecnología"
+                      >
+                        <svg lucidePencil class="action-icon"></svg>
+                      </button>
+                      @if (!comp.is_system) {
+                        <button
+                          type="button"
+                          class="btn-action-icon action-delete"
+                          (click)="deleteTechComponent(comp)"
+                          title="Eliminar tecnología"
+                          aria-label="Eliminar tecnología"
+                        >
+                          <svg lucideTrash2 class="action-icon"></svg>
+                        </button>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              } @empty {
+                <tr>
+                  <td colspan="7" class="text-center py-8">
+                    <div class="empty-state-cell">
+                      <p class="empty-text">No se encontraron tecnologías con los filtros aplicados.</p>
+                      <button type="button" class="btn-secondary btn-sm" (click)="resetComponentFilters()">
+                        Restablecer filtros
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
     </section>
   }
 
@@ -582,10 +877,14 @@
     />
   }
 
-  <!-- Modal Registrar Nueva Tecnología del Catálogo -->
+  <!-- Modal Registrar / Editar Tecnología del Catálogo -->
   @if (showComponentModal()) {
     <component-form-modal
       [defaultLayer]="defaultComponentLayer()"
+      [defaultSubCategory]="defaultComponentSubCategory()"
+      [defaultCompatibleRuntime]="defaultCompatibleRuntime()"
+      [editingComponent]="editingComponent()"
+      [availableRuntimes]="techComponents()"
       (closed)="closeComponentModal()"
       (saved)="handleComponentSaved($event)"
     />

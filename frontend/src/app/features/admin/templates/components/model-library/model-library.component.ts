@@ -13,7 +13,8 @@ import {
   UpdateCategoryDTO,
   ReorderCategoryItem,
   TemplateComponent,
-  ComponentLayer
+  ComponentLayer,
+  UpdateTemplateComponentDTO
 } from '../../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '../../../../../shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '../../../../../shared/components/search-bar/search-bar.component';
@@ -94,12 +95,20 @@ export class ModelLibraryComponent implements OnInit {
   readonly techComponents = signal<TemplateComponent[]>([]);
   readonly showComponentModal = signal<boolean>(false);
   readonly defaultComponentLayer = signal<ComponentLayer>('addon');
+  readonly defaultComponentSubCategory = signal<'backend' | 'web'>('backend');
+  readonly defaultCompatibleRuntime = signal<string>('');
+  readonly editingComponent = signal<TemplateComponent | null>(null);
+
+  // Filtros Tecnologías del Catálogo
+  readonly componentSearchQuery = signal<string>('');
+  readonly componentProfileFilter = signal<'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE'>('ALL');
+  readonly componentStatusFilter = signal<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
   // KPIs
   readonly totalModelsCount = computed(() => this.models().length);
   readonly activeModelsCount = computed(() => this.models().filter(m => m.is_active !== false).length);
-  readonly ideModelsCount = computed(() => this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE').length);
-  readonly judgeModelsCount = computed(() => this.models().filter(m => m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO').length);
+  readonly ideModelsCount = computed(() => this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE' || m.target_environment === 'AMBOS').length);
+  readonly judgeModelsCount = computed(() => this.models().filter(m => m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO' || m.target_environment === 'AMBOS').length);
   readonly categoriesCount = computed(() => this.categories().length);
   readonly techComponentsCount = computed(() => this.techComponents().length);
 
@@ -135,7 +144,8 @@ export class ModelLibraryComponent implements OnInit {
   readonly purposeFilterComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'ALL', label: 'Todos los propósitos', value: 'ALL' },
     { id: 'IDE_PERSISTENTE', label: 'IDE Persistente', value: 'IDE_PERSISTENTE' },
-    { id: 'JUEZ_VIRTUAL', label: 'Juez Virtual', value: 'JUEZ_VIRTUAL' }
+    { id: 'JUEZ_VIRTUAL', label: 'Juez Virtual', value: 'JUEZ_VIRTUAL' },
+    { id: 'AMBOS', label: 'Laboratorio + Evaluador', value: 'AMBOS' }
   ]);
 
   readonly selectedPurposeFilterLabel = computed<string>(() => {
@@ -184,6 +194,47 @@ export class ModelLibraryComponent implements OnInit {
     this.filterStatus.set(opt.value || 'ALL');
   }
 
+  // Opciones de Filtro para Tecnologías
+  readonly componentProfileFilterOptions = computed<ComboboxOption[]>(() => [
+    { id: 'ALL', label: 'Todos los perfiles', value: 'ALL' },
+    { id: 'BACKEND', label: 'Lenguaje Principal', value: 'BACKEND' },
+    { id: 'WEB', label: 'Interfaz Web / Frontend', value: 'WEB' },
+    { id: 'ADDON', label: 'Complemento / Librería', value: 'ADDON' },
+    { id: 'DATABASE', label: 'Base de Datos', value: 'DATABASE' }
+  ]);
+
+  readonly selectedComponentProfileFilterLabel = computed<string>(() => {
+    const val = this.componentProfileFilter();
+    const match = this.componentProfileFilterOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos los perfiles';
+  });
+
+  onComponentProfileSelected(opt: ComboboxOption): void {
+    this.componentProfileFilter.set((opt.value as 'ALL' | 'BACKEND' | 'WEB' | 'ADDON' | 'DATABASE') || 'ALL');
+  }
+
+  readonly componentStatusFilterOptions = computed<ComboboxOption[]>(() => [
+    { id: 'ALL', label: 'Todos los estados', value: 'ALL' },
+    { id: 'ACTIVE', label: 'Solo Activos', value: 'ACTIVE' },
+    { id: 'INACTIVE', label: 'Solo Inactivos', value: 'INACTIVE' }
+  ]);
+
+  readonly selectedComponentStatusFilterLabel = computed<string>(() => {
+    const val = this.componentStatusFilter();
+    const match = this.componentStatusFilterOptions().find(o => o.value === val);
+    return match ? match.label : 'Todos los estados';
+  });
+
+  onComponentStatusSelected(opt: ComboboxOption): void {
+    this.componentStatusFilter.set((opt.value as 'ALL' | 'ACTIVE' | 'INACTIVE') || 'ALL');
+  }
+
+  resetComponentFilters(): void {
+    this.componentSearchQuery.set('');
+    this.componentProfileFilter.set('ALL');
+    this.componentStatusFilter.set('ALL');
+  }
+
   // Modales Categorías
   readonly showCategoryModal = signal<boolean>(false);
   readonly editingCategory = signal<TemplateCategory | null>(null);
@@ -223,7 +274,11 @@ export class ModelLibraryComponent implements OnInit {
       // Propósito
       if (purpose !== 'ALL') {
         if (purpose === 'JUEZ_VIRTUAL') {
-          if (m.target_environment !== 'JUEZ_VIRTUAL' && m.target_environment !== 'JUEZ_EFIMERO') {
+          if (m.target_environment !== 'JUEZ_VIRTUAL' && m.target_environment !== 'JUEZ_EFIMERO' && m.target_environment !== 'AMBOS') {
+            return false;
+          }
+        } else if (purpose === 'IDE_PERSISTENTE') {
+          if (m.target_environment !== 'IDE_PERSISTENTE' && m.target_environment !== 'AMBOS') {
             return false;
           }
         } else if (m.target_environment !== purpose) {
@@ -245,6 +300,61 @@ export class ModelLibraryComponent implements OnInit {
       }
 
       return true;
+    });
+  });
+
+  // Tecnologías del catálogo filtradas y ordenadas para gobernanza
+  readonly filteredTechComponents = computed(() => {
+    const list = this.techComponents();
+    const query = this.componentSearchQuery().trim().toLowerCase();
+    const profile = this.componentProfileFilter();
+    const status = this.componentStatusFilter();
+
+    return list.filter(c => {
+      if (query) {
+        const matchesName = (c.name || '').toLowerCase().includes(query);
+        const matchesSlug = (c.slug || '').toLowerCase().includes(query);
+        const matchesDesc = (c.description || '').toLowerCase().includes(query);
+        const matchesImage = (c.base_image || '').toLowerCase().includes(query);
+        const matchesTools = (c.tools_provided || []).some(t => t.toLowerCase().includes(query));
+        const matchesPkgs = (c.package_names || []).some(p => p.toLowerCase().includes(query));
+        if (!matchesName && !matchesSlug && !matchesDesc && !matchesImage && !matchesTools && !matchesPkgs) {
+          return false;
+        }
+      }
+
+      if (profile !== 'ALL') {
+        if (profile === 'BACKEND' && (c.layer !== 'runtime' || c.sub_category === 'web')) return false;
+        if (profile === 'WEB' && (c.layer !== 'runtime' || c.sub_category !== 'web')) return false;
+        if (profile === 'ADDON' && c.layer !== 'addon') return false;
+        if (profile === 'DATABASE' && c.layer !== 'database') return false;
+      }
+
+      if (status === 'ACTIVE' && c.is_active === false) return false;
+      if (status === 'INACTIVE' && c.is_active !== false) return false;
+
+      return true;
+    }).sort((a, b) => {
+      // Activos primero
+      const aActive = a.is_active !== false ? 1 : 0;
+      const bActive = b.is_active !== false ? 1 : 0;
+      if (aActive !== bActive) return bActive - aActive;
+
+      // Orden de capas/perfiles: Backend (1), Web (2), Addon (3), Database (4)
+      const profileOrder = (item: TemplateComponent): number => {
+        if (item.layer === 'runtime') return item.sub_category === 'web' ? 2 : 1;
+        if (item.layer === 'addon') return 3;
+        return 4;
+      };
+      const orderA = profileOrder(a);
+      const orderB = profileOrder(b);
+      if (orderA !== orderB) return orderA - orderB;
+
+      const soA = a.sort_order ?? 0;
+      const soB = b.sort_order ?? 0;
+      if (soA !== soB) return soA - soB;
+
+      return (a.name || '').localeCompare(b.name || '');
     });
   });
 
@@ -296,19 +406,223 @@ export class ModelLibraryComponent implements OnInit {
     });
   }
 
-  openNewComponentModal(layer: ComponentLayer = 'addon'): void {
-    this.defaultComponentLayer.set(layer);
+  openNewComponentModal(
+    layer?: ComponentLayer,
+    subCategory?: 'backend' | 'web',
+    compatibleRuntime: string = ''
+  ): void {
+    let resolvedLayer = layer;
+    let resolvedSubCategory = subCategory;
+
+    if (!resolvedLayer) {
+      const profile = this.componentProfileFilter();
+      if (profile === 'WEB') {
+        resolvedLayer = 'runtime';
+        resolvedSubCategory = 'web';
+      } else if (profile === 'ADDON') {
+        resolvedLayer = 'addon';
+        resolvedSubCategory = 'backend';
+      } else if (profile === 'DATABASE') {
+        resolvedLayer = 'database';
+        resolvedSubCategory = 'backend';
+      } else {
+        resolvedLayer = 'runtime';
+        resolvedSubCategory = 'backend';
+      }
+    }
+
+    this.editingComponent.set(null);
+    this.defaultComponentLayer.set(resolvedLayer);
+    this.defaultComponentSubCategory.set(resolvedSubCategory || 'backend');
+    this.defaultCompatibleRuntime.set(compatibleRuntime);
     this.showComponentModal.set(true);
   }
 
+  openEditComponentModal(comp: TemplateComponent): void {
+    this.editingComponent.set(comp);
+    this.defaultComponentLayer.set(comp.layer);
+    this.defaultComponentSubCategory.set((comp.sub_category as 'backend' | 'web') || 'backend');
+    this.defaultCompatibleRuntime.set(comp.compatible_runtimes?.[0] || '');
+    this.showComponentModal.set(true);
+  }
+
+  openAddAddonForRuntime(rt: TemplateComponent): void {
+    const key = (rt.icon_key && rt.icon_key !== 'docker' ? rt.icon_key : rt.slug || rt.name).toLowerCase();
+    this.openNewComponentModal('addon', 'backend', key);
+  }
+
   closeComponentModal(): void {
+    this.editingComponent.set(null);
     this.showComponentModal.set(false);
   }
 
-  handleComponentSaved(created: TemplateComponent): void {
+  toggleComponentActive(comp: TemplateComponent): void {
+    const nextActive = comp.is_active === false;
+    // Actualización optimista inmediata en la UI
+    this.techComponents.update(list =>
+      list.map(c => (c.id === comp.id ? { ...c, is_active: nextActive } : c))
+    );
+
+    const dto: UpdateTemplateComponentDTO = {
+      name: comp.name,
+      sub_category: comp.sub_category,
+      description: comp.description || '',
+      icon_key: comp.icon_key,
+      base_image: comp.base_image,
+      compatible_runtimes: comp.compatible_runtimes || [],
+      install_mode: comp.install_mode,
+      package_names: comp.package_names || [],
+      build_layer_snippet: comp.build_layer_snippet || '',
+      setup_snippet: comp.setup_snippet || '',
+      judge_entrypoint: comp.judge_entrypoint || '',
+      tools_provided: comp.tools_provided || [],
+      service_engine: comp.service_engine || '',
+      ram_delta_mb: comp.ram_delta_mb || 0,
+      sort_order: comp.sort_order || 0,
+      is_active: nextActive
+    };
+
+    this.templatesService.updateTechCatalogItem(comp.id, dto).subscribe({
+      next: (updated) => {
+        this.techComponents.update(list =>
+          list.map(c => (c.id === comp.id ? updated : c))
+        );
+        this.showToast(
+          `Tecnología "${comp.name}" ${nextActive ? 'activada' : 'desactivada'}.`,
+          'success'
+        );
+      },
+      error: (err) => {
+        // Revertir ante falla
+        this.techComponents.update(list =>
+          list.map(c => (c.id === comp.id ? comp : c))
+        );
+        const msg = err.error?.error?.message || err.message || 'Error al cambiar estado de tecnología';
+        this.showToast(msg, 'error');
+      }
+    });
+  }
+
+  getComponentProfileLabel(comp: TemplateComponent): string {
+    if (comp.layer === 'runtime') {
+      return comp.sub_category === 'web' ? 'Interfaz Web' : 'Lenguaje Principal';
+    }
+    if (comp.layer === 'addon') {
+      return 'Complemento / Librería';
+    }
+    return 'Base de Datos';
+  }
+
+  getAddonEcosystemLabel(comp: TemplateComponent): string {
+    if (comp.layer !== 'addon') return '';
+    const cr = (comp.compatible_runtimes || []).map(r => r.trim().toLowerCase()).filter(Boolean);
+    if (!cr.length || cr.includes('universal') || cr.includes('any')) {
+      return 'Universal';
+    }
+    const tokenSet = new Set(cr);
+    const labels: string[] = [];
+    if (tokenSet.has('c') || tokenSet.has('cpp') || tokenSet.has('c-gcc13') || tokenSet.has('cpp-gcc13')) {
+      labels.push('C / C++');
+    }
+    if (tokenSet.has('python') || tokenSet.has('python-312')) {
+      labels.push('Python');
+    }
+    if (tokenSet.has('node') || tokenSet.has('web') || tokenSet.has('node-20')) {
+      labels.push('Node.js / Web');
+    }
+    if (tokenSet.has('java') || tokenSet.has('java-21')) {
+      labels.push('Java');
+    }
+    if (tokenSet.has('go') || tokenSet.has('go-122')) {
+      labels.push('Go');
+    }
+    if (tokenSet.has('rust') || tokenSet.has('rust-stable')) {
+      labels.push('Rust');
+    }
+    if (tokenSet.has('php') || tokenSet.has('php-83')) {
+      labels.push('PHP');
+    }
+    if (tokenSet.has('dotnet') || tokenSet.has('dotnet-8')) {
+      labels.push('.NET / C#');
+    }
+    if (labels.length > 0) {
+      return labels.join(' · ');
+    }
+    return cr.map(r => r.toUpperCase()).join(', ');
+  }
+
+  private matchesRuntimeEcosystem(rt: TemplateComponent, targetToken: string): boolean {
+    const low = targetToken.trim().toLowerCase();
+    if (!low || low === 'universal' || low === 'any') return false;
+    const slug = (rt.slug || '').toLowerCase();
+    const icon = (rt.icon_key || '').toLowerCase();
+    const name = (rt.name || '').toLowerCase();
+    return slug === low || (icon !== 'docker' && icon === low) || name === low || slug.startsWith(low + '-') || name.startsWith(low + ' ');
+  }
+
+  isOrphanAddon(comp: TemplateComponent): boolean {
+    if (comp.layer !== 'addon') return false;
+    const cr = comp.compatible_runtimes || [];
+    if (!cr.length || cr.includes('universal') || cr.includes('any')) {
+      return false;
+    }
+    const activeRuntimes = this.techComponents().filter(t => t.layer === 'runtime' && t.is_active !== false);
+    return !cr.some(target => activeRuntimes.some(rt => this.matchesRuntimeEcosystem(rt, target)));
+  }
+
+  getCompatibleAddonsCount(runtimeComp: TemplateComponent): number {
+    if (runtimeComp.layer !== 'runtime') return 0;
+    return this.techComponents().filter(c =>
+      c.layer === 'addon' &&
+      c.is_active !== false &&
+      (c.compatible_runtimes || []).some(target => this.matchesRuntimeEcosystem(runtimeComp, target))
+    ).length;
+  }
+
+  getComponentMemoryBadge(comp: TemplateComponent): { label: string; detail: string; variant: 'light' | 'standard' | 'heavy' } {
+    if (comp.layer === 'addon') {
+      if (comp.ram_delta_mb > 0) {
+        return { label: `+${comp.ram_delta_mb} MB`, detail: 'Proceso activo', variant: 'standard' };
+      }
+      return { label: '0 MB RAM', detail: 'En disco', variant: 'light' };
+    }
+
+    if (comp.layer === 'runtime') {
+      const ram = comp.ram_delta_mb || 0;
+      const isCpp = (comp.icon_key || '').toLowerCase() === 'cpp';
+      const isJava = (comp.icon_key || '').toLowerCase() === 'java';
+
+      if ((ram > 0 && ram <= 384) || (ram === 0 && isCpp)) {
+        return { label: `${ram > 0 ? ram : 128} MB`, detail: 'Perfil liviano', variant: 'light' };
+      }
+      if (ram >= 1024 || (ram === 0 && isJava)) {
+        return { label: `${ram >= 1024 ? ram : 1024} MB`, detail: 'Perfil intensivo', variant: 'heavy' };
+      }
+      return { label: `${ram > 0 ? ram : 256} MB`, detail: 'Perfil estándar', variant: 'standard' };
+    }
+
+    const ram = comp.ram_delta_mb || 256;
+    return {
+      label: `${ram} MB`,
+      detail: 'Base de datos',
+      variant: ram >= 512 ? 'heavy' : 'standard'
+    };
+  }
+
+  handleComponentSaved(savedComp: TemplateComponent): void {
+    const isEdit = !!this.editingComponent();
+    this.editingComponent.set(null);
     this.showComponentModal.set(false);
-    this.showToast(`Tecnología "${created.name}" registrada en el catálogo de tecnologías.`, 'success');
-    this.loadTechComponents();
+
+    if (isEdit) {
+      this.techComponents.update(list =>
+        list.map(c => (c.id === savedComp.id ? savedComp : c))
+      );
+      this.showToast(`Tecnología "${savedComp.name}" actualizada exitosamente.`, 'success');
+    } else {
+      this.showToast(`Tecnología "${savedComp.name}" registrada en el catálogo de tecnologías.`, 'success');
+      this.loadTechComponents();
+    }
   }
 
   deleteTechComponent(item: TemplateComponent): void {

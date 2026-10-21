@@ -9,6 +9,7 @@ import {
   CreateCategoryDTO,
   CreateOfficialTemplateDTO,
   CreateTemplateComponentDTO,
+  UpdateTemplateComponentDTO,
   ImageVerificationResult,
   LocalImagesResult,
   PromoteTemplateToModelDTO,
@@ -248,6 +249,12 @@ export class AdminTemplatesService {
 
   createTechCatalogItem(dto: CreateTemplateComponentDTO): Observable<TemplateComponent> {
     return this.http.post<ApiResponse<TemplateComponent>>(this.componentsUrl, dto).pipe(
+      map(res => res.data)
+    );
+  }
+
+  updateTechCatalogItem(id: string, dto: UpdateTemplateComponentDTO): Observable<TemplateComponent> {
+    return this.http.put<ApiResponse<TemplateComponent>>(`${this.componentsUrl}/${id}`, dto).pipe(
       map(res => res.data)
     );
   }

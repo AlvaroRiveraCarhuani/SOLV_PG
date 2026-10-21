@@ -1,4 +1,4 @@
-export type TargetEnvironment = 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO';
+export type TargetEnvironment = 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO' | 'AMBOS';
 
 export interface ImageSuggestion {
   repoTag: string;
@@ -141,7 +141,20 @@ export interface AdminTemplateItem {
 }
 
 export type ComponentLayer = 'runtime' | 'addon' | 'database';
-export type InstallMode = 'none' | 'pip' | 'npm' | 'apt' | 'custom';
+export type InstallMode =
+  | 'none'
+  | 'pip'
+  | 'uv'
+  | 'npm'
+  | 'pnpm'
+  | 'yarn'
+  | 'bun'
+  | 'apt'
+  | 'cargo'
+  | 'go'
+  | 'composer'
+  | 'dotnet'
+  | 'custom';
 
 export interface TemplateComponent {
   id: string;
@@ -190,6 +203,27 @@ export interface CreateTemplateComponentDTO {
 }
 
 export type CreateTechCatalogItemDTO = CreateTemplateComponentDTO;
+
+export interface UpdateTemplateComponentDTO {
+  name: string;
+  sub_category?: string;
+  description?: string;
+  icon_key?: string;
+  base_image?: string;
+  compatible_runtimes?: string[];
+  install_mode?: InstallMode;
+  package_names?: string[];
+  build_layer_snippet?: string;
+  setup_snippet?: string;
+  judge_entrypoint?: string;
+  tools_provided?: string[];
+  service_engine?: string;
+  ram_delta_mb?: number;
+  is_active?: boolean;
+  sort_order?: number;
+}
+
+export type UpdateTechCatalogItemDTO = UpdateTemplateComponentDTO;
 
 export interface StackConfig {
   mode?: 'visual' | 'code';

@@ -7,6 +7,7 @@ export type TechIconKey =
   | 'typescript'
   | 'go'
   | 'java'
+  | 'c'
   | 'cpp'
   | 'php'
   | 'dotnet'
@@ -45,7 +46,8 @@ export const CURATED_TECH_ICONS: CuratedIconMeta[] = [
   { key: 'typescript', label: 'TypeScript' },
   { key: 'java', label: 'Java' },
   { key: 'go', label: 'Go' },
-  { key: 'cpp', label: 'C / C++' },
+  { key: 'c', label: 'C' },
+  { key: 'cpp', label: 'C++' },
   { key: 'rust', label: 'Rust' },
   { key: 'php', label: 'PHP' },
   { key: 'dotnet', label: '.NET / C#' },
