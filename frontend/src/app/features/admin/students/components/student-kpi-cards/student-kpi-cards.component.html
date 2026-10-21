@@ -1,0 +1,34 @@
+<kpi-grid [columns]="4">
+  <kpi-card
+    label="Cursando en Periodo"
+    [value]="enrolledStudentsCount()"
+    [totalBadge]="'de ' + totalStudents() + ' total'"
+    variant="primary"
+  >
+    <svg kpi-icon lucideUsers></svg>
+  </kpi-card>
+
+  <kpi-card
+    label="Entornos en Ejecución"
+    [value]="activeWorkspacesTotal()"
+    variant="running"
+  >
+    <svg kpi-icon lucideCpu></svg>
+  </kpi-card>
+
+  <kpi-card
+    label="En Riesgo (1–2 Strikes)"
+    [value]="strikesStudentsCount()"
+    variant="warning"
+  >
+    <svg kpi-icon lucideAlertTriangle></svg>
+  </kpi-card>
+
+  <kpi-card
+    label="Bloqueados por OOM"
+    [value]="blockedStudentsCount()"
+    variant="danger"
+  >
+    <svg kpi-icon lucideShieldAlert></svg>
+  </kpi-card>
+</kpi-grid>

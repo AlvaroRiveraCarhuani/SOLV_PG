@@ -1,22 +1,13 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
-import { 
-  LucideServer, 
-  LucidePlus, 
-  LucideDatabase, 
-  LucideCalendar,
-  LucideClipboardList,
-  LucideTrash2,
-  LucideAlertTriangle,
-  LucideCheckCircle2
-} from '@lucide/angular';
 import { ExerciseEditorStore, RubricCriterionDTO, RubricLevelDTO } from '../../exercise-editor.store';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TemplateRequestModalComponent } from '../../../templates/template-request-modal/template-request-modal.component';
 import { RUBRIC_PRESETS } from '@shared/rubric-presets';
+import { IdeTemplateSelectorComponent } from './components/ide-template-selector/ide-template-selector.component';
+import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db-init-script.component';
+import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
+import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
 
 export interface ApprovedTemplate {
   id: string;
@@ -30,7 +21,7 @@ export interface ApprovedTemplate {
       enabled: boolean;
       engine?: string;
     };
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -38,308 +29,57 @@ export interface ApprovedTemplate {
   selector: 'step-ide-environment',
   standalone: true,
   imports: [
-    CommonModule,
-    FormsModule,
-    LucideServer,
-    LucidePlus,
-    LucideDatabase,
-    LucideCalendar,
-    LucideClipboardList,
-    LucideTrash2,
-    LucideAlertTriangle,
-    LucideCheckCircle2,
-    MachineDataDirective,
-    ComboboxComponent,
+    IdeTemplateSelectorComponent,
+    IdeDbInitScriptComponent,
+    IdeDeliveryConfigComponent,
+    IdeRubricEditorComponent,
     TemplateRequestModalComponent
   ],
   template: `
     <div class="ide-step-container">
       <header class="step-header">
-        <h2 class="step-title">Entorno de Ejecución y Entrega</h2>
+        <h2 class="step-title">Entorno de Ejecuci\u00f3n y Entrega</h2>
         <p class="step-subtitle">
           Configura la plantilla de desarrollo interactivo (OpenVSCode) y las reglas de entrega para los estudiantes.
         </p>
       </header>
 
-      <!-- Ficha de Selección de Plantilla del Catálogo -->
-      <section class="card-section" id="template-section">
-        <div class="section-header-row">
-          <div class="title-with-icon">
-            <svg lucideServer class="header-icon"></svg>
-            <h3 class="card-title">Plantilla del Catálogo Homologado</h3>
-          </div>
-          <button type="button" class="btn-outline btn-sm" (click)="openRequestModal()">
-            <svg lucidePlus class="btn-icon"></svg>
-            <span>Solicitar nueva plantilla</span>
-          </button>
-        </div>
+      <ide-template-selector
+        [approvedTemplates]="approvedTemplates()"
+        [selectedTemplate]="selectedTemplate()"
+        [templateOptions]="templateOptions()"
+        (templateSelected)="onTemplateSelected($event)"
+        (requestTemplate)="openRequestModal()"
+      />
 
-        <div class="form-group">
-          <label class="form-label">
-            Seleccionar plantilla aprobada <span class="required">*</span>
-          </label>
-          <combobox
-            [options]="templateOptions()"
-            [value]="store.metadata().template_id || ''"
-            [placeholder]="'Buscar o seleccionar plantilla homologada...'"
-            [showSearchIcon]="true"
-            [compact]="false"
-            (optionSelected)="onTemplateOptionSelected($event)"
-            inputAriaLabel="Seleccionar plantilla aprobada"
-          />
-        </div>
+      <ide-db-init-script
+        [dbInitScript]="store.metadata().db_init_script || ''"
+        [hasDatabaseService]="hasDatabaseService()"
+        (initScriptChange)="onInitScriptChange($event)"
+      />
 
-        <!-- Ficha de la Plantilla Seleccionada -->
-        @if (selectedTemplate(); as tpl) {
-          <div class="template-detail-card">
-            <div class="detail-row">
-              <span class="detail-label">Nombre de la plantilla:</span>
-              <span class="detail-value font-bold">{{ tpl.name }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Imagen Docker:</span>
-              <code class="detail-code" machineData>{{ tpl.docker_image }}</code>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Memoria RAM Asignada:</span>
-              <span class="detail-chip" machineData>{{ tpl.base_ram_mb }} MB (Heredada del Admin)</span>
-            </div>
-            <div class="detail-row">
-              <span class="detail-label">Servicios Satélite:</span>
-              <div class="satellites-list">
-                @if (tpl.services_config?.database?.enabled) {
-                  <span class="satellite-badge active">
-                    <svg lucideDatabase class="badge-icon"></svg>
-                    <span>Base de datos ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
-                  </span>
-                } @else {
-                  <span class="satellite-badge neutral">Sin base de datos satélite</span>
-                }
-              </div>
-            </div>
-          </div>
-        } @else {
-          <div class="empty-template-hint">
-            <span>Selecciona una plantilla del catálogo oficial para desplegar el entorno OpenVSCode.</span>
-          </div>
-        }
-      </section>
+      <ide-delivery-config
+        [dueDate]="store.metadata().due_date || ''"
+        [allowResubmit]="store.metadata().allow_resubmit || false"
+        [autoCheckpoint]="store.metadata().auto_checkpoint || false"
+        (dueDateChange)="onDueDateChange($event)"
+        (allowResubmitChange)="onAllowResubmitChange($event)"
+        (autoCheckpointChange)="onAutoCheckpointChange($event)"
+      />
 
-      <!-- Script DDL/DML de Inicialización (Condicional a BD Activa) -->
-      @if (hasDatabaseService()) {
-        <section class="card-section">
-          <div class="title-with-icon">
-            <svg lucideDatabase class="header-icon"></svg>
-            <h3 class="card-title">Script de Inicialización de Base de Datos (DDL / DML)</h3>
-          </div>
-          <p class="section-desc">
-            Este script SQL se ejecutará automáticamente durante el aprovisionamiento de la base de datos satélite del laboratorio.
-          </p>
+      <ide-rubric-editor
+        [rubric]="store.rubric()"
+        [rubricPresetOptions]="rubricPresetOptions"
+        [totalRubricWeight]="totalRubricWeight()"
+        (presetSelected)="applyRubricPreset($event)"
+        (addCriterion)="addCriterion()"
+        (removeCriterion)="removeCriterion($event)"
+        (updateCriterion)="updateCriterion($event.index, $event.update)"
+        (addLevelToCriterion)="addLevelToCriterion($event)"
+        (removeLevelFromCriterion)="removeLevelFromCriterion($event.criterionIndex, $event.levelIndex)"
+        (updateLevel)="updateLevel($event.criterionIndex, $event.levelIndex, $event.update)"
+      />
 
-          <div class="form-group">
-            <textarea
-              class="form-textarea font-mono"
-              rows="8"
-              placeholder="CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(100));&#10;INSERT INTO usuarios (nombre) VALUES ('Admin');"
-              [ngModel]="store.metadata().db_init_script"
-              (ngModelChange)="onInitScriptChange($event)"
-            ></textarea>
-            <span class="field-hint">Sentencias SQL separadas por punto y coma (;)</span>
-          </div>
-        </section>
-      }
-
-      <!-- Configuración de Entrega -->
-      <section class="card-section">
-        <div class="title-with-icon">
-          <svg lucideCalendar class="header-icon"></svg>
-          <h3 class="card-title">Parámetros de Entrega y Checkpoint</h3>
-        </div>
-
-        <div class="delivery-grid">
-          <div class="form-group">
-            <label for="ide-due-date" class="form-label">Fecha y hora límite de entrega</label>
-            <input
-              id="ide-due-date"
-              type="datetime-local"
-              class="form-input"
-              [ngModel]="store.metadata().due_date"
-              (ngModelChange)="onDueDateChange($event)"
-            />
-          </div>
-
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                [checked]="store.metadata().allow_resubmit"
-                (change)="onAllowResubmitChange($event)"
-              />
-              <span>Permitir re-envíos después de la primera entrega</span>
-            </label>
-            <span class="field-hint">Permite al estudiante re-entregar solución hasta la fecha límite</span>
-          </div>
-
-          <div class="form-group checkbox-group">
-            <label class="checkbox-label">
-              <input
-                type="checkbox"
-                [checked]="store.metadata().auto_checkpoint"
-                (change)="onAutoCheckpointChange($event)"
-              />
-              <span>Checkpoint automático cada 5 minutos</span>
-            </label>
-            <span class="field-hint">Guarda copia del espacio de trabajo periódicamente en segundo plano</span>
-          </div>
-        </div>
-      </section>
-
-      <!-- Rúbrica de Evaluación Cualitativa -->
-      <section class="card-section rubric-section" id="rubric-section">
-        <div class="section-header-row">
-          <div class="title-with-icon">
-            <svg lucideClipboardList class="header-icon"></svg>
-            <h3 class="card-title">Rúbrica de Evaluación Cualitativa</h3>
-          </div>
-          <div class="rubric-header-actions">
-            <combobox
-              [options]="rubricPresetOptions"
-              [placeholder]="'Cargar plantilla de rúbrica...'"
-              [compact]="true"
-              [showSearchIcon]="false"
-              (optionSelected)="onRubricPresetOptionSelected($event)"
-              inputAriaLabel="Cargar plantilla de rúbrica"
-            />
-            <button type="button" class="btn-primary btn-sm" (click)="addCriterion()">
-              <svg lucidePlus class="btn-icon"></svg>
-              <span>Agregar criterio</span>
-            </button>
-          </div>
-        </div>
-
-        <p class="section-desc">
-          Define los criterios de evaluación cualitativa y sus niveles de logro. La suma de pesos de los criterios debe ser exactamente 100%.
-        </p>
-
-        <!-- Banner de Ponderación Total -->
-        <div class="weight-total-banner" [class.valid]="totalRubricWeight() === 100" [class.invalid]="totalRubricWeight() !== 100">
-          @if (totalRubricWeight() === 100) {
-            <svg lucideCheckCircle2 class="banner-icon icon-success"></svg>
-            <span>Ponderación total balanceada: <strong machineData>100%</strong></span>
-          } @else {
-            <svg lucideAlertTriangle class="banner-icon icon-danger"></svg>
-            <span>Suma de pesos actual: <strong machineData>{{ totalRubricWeight() }}%</strong>. La suma debe ser exactamente 100%.</span>
-          }
-        </div>
-
-        @if (!store.rubric() || store.rubric()?.criteria?.length === 0) {
-          <div class="empty-rubric-box">
-            <svg lucideClipboardList class="empty-icon"></svg>
-            <p>No se han agregado criterios a la rúbrica.</p>
-            <button type="button" class="btn-outline btn-sm" (click)="applyRubricPreset('api-rest')">
-              <svg lucideClipboardList class="btn-icon"></svg>
-              <span>Cargar Plantilla API REST</span>
-            </button>
-          </div>
-        } @else {
-          <div class="criteria-list">
-            @for (criterion of store.rubric()?.criteria; track $index; let i = $index) {
-              <div class="criterion-card">
-                <div class="criterion-card-header">
-                  <span class="criterion-badge font-mono" machineData>Criterio {{ i + 1 }}</span>
-                  <button type="button" class="btn-icon-danger" (click)="removeCriterion(i)" title="Eliminar criterio">
-                    <svg lucideTrash2 class="btn-icon-sm"></svg>
-                  </button>
-                </div>
-
-                <div class="criterion-form-grid">
-                  <div class="form-group flex-2">
-                    <label class="form-label">Nombre del Criterio</label>
-                    <input
-                      type="text"
-                      class="form-input"
-                      placeholder="Ej: Arquitectura de carpetas, Endpoints REST..."
-                      [ngModel]="criterion.name"
-                      (ngModelChange)="updateCriterion(i, { name: $event })"
-                    />
-                  </div>
-
-                  <div class="form-group flex-1">
-                    <label class="form-label">Peso (%)</label>
-                    <input
-                      type="number"
-                      class="form-input font-mono"
-                      min="0"
-                      max="100"
-                      [ngModel]="criterion.weight"
-                      (ngModelChange)="updateCriterion(i, { weight: +$event })"
-                    />
-                  </div>
-                </div>
-
-                <div class="form-group">
-                  <label class="form-label">Descripción del Criterio</label>
-                  <textarea
-                    class="form-textarea"
-                    rows="2"
-                    placeholder="Descripción detallada de lo que se evaluará en este criterio..."
-                    [ngModel]="criterion.description"
-                    (ngModelChange)="updateCriterion(i, { description: $event })"
-                  ></textarea>
-                </div>
-
-                <!-- Niveles de logro -->
-                <div class="levels-container">
-                  <div class="levels-header-row">
-                    <span class="levels-title">Niveles de Logro</span>
-                    <button type="button" class="btn-ghost btn-xs" (click)="addLevelToCriterion(i)">
-                      <svg lucidePlus class="btn-icon-xs"></svg>
-                      <span>Agregar nivel</span>
-                    </button>
-                  </div>
-
-                  <div class="levels-list">
-                    @for (level of criterion.levels; track $index; let j = $index) {
-                      <div class="level-card">
-                        <div class="level-inputs-row">
-                          <input
-                            type="text"
-                            class="form-input level-name-input"
-                            placeholder="Ej: Excelente, Bueno..."
-                            [ngModel]="level.name"
-                            (ngModelChange)="updateLevel(i, j, { name: $event })"
-                          />
-                          <input
-                            type="number"
-                            class="form-input font-mono level-score-input"
-                            placeholder="Score (0-100)"
-                            min="0"
-                            max="100"
-                            [ngModel]="level.score"
-                            (ngModelChange)="updateLevel(i, j, { score: +$event })"
-                          />
-                          <button type="button" class="btn-icon-danger" (click)="removeLevelFromCriterion(i, j)" title="Eliminar nivel">
-                            <svg lucideTrash2 class="btn-icon-xs"></svg>
-                          </button>
-                        </div>
-                        <textarea
-                          class="form-textarea level-desc-input"
-                          rows="1"
-                          placeholder="Descripción del nivel de logro..."
-                          [ngModel]="level.description"
-                          (ngModelChange)="updateLevel(i, j, { description: $event })"
-                        ></textarea>
-                      </div>
-                    }
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-        }
-      </section>
-
-      <!-- Modal de solicitud de plantilla -->
       @if (showRequestModal()) {
         <template-request-modal
           [subjectId]="store.courseId()"
@@ -381,37 +121,26 @@ export class StepIdeEnvironmentComponent implements OnInit {
 
   readonly rubricPresetOptions: ComboboxOption[] = [
     { id: 'api-rest', label: 'API REST Backend', value: 'api-rest', description: 'Endpoints, HTTP y persistencia' },
-    { id: 'full-stack', label: 'Aplicación Full-Stack', value: 'full-stack', description: 'Frontend, backend y base de datos' },
+    { id: 'full-stack', label: 'Aplicaci\u00f3n Full-Stack', value: 'full-stack', description: 'Frontend, backend y base de datos' },
     { id: 'proyecto-integrador', label: 'Proyecto Integrador', value: 'proyecto-integrador', description: 'Arquitectura, testing y docs' }
   ];
-
-  onTemplateOptionSelected(option: ComboboxOption): void {
-    if (option) {
-      this.onTemplateSelected(option.value);
-    }
-  }
-
-  onRubricPresetOptionSelected(option: ComboboxOption): void {
-    if (option?.value) {
-      this.applyRubricPreset(option.value);
-    }
-  }
 
   ngOnInit(): void {
     this.loadTemplates();
   }
 
   loadTemplates(): void {
-    this.http.get<any>('/api/v1/templates').subscribe({
-      next: (res) => {
-        const list: ApprovedTemplate[] = Array.isArray(res) ? res : res?.data || [];
+    this.http.get<unknown>('/api/v1/templates').subscribe({
+      next: (res: unknown) => {
+        const list: ApprovedTemplate[] = Array.isArray(res)
+          ? res
+          : ((res as { data?: unknown })?.data as ApprovedTemplate[] | undefined) || [];
         const filtered = list.filter(t => 
           (t.status === 'approved' || t.status === 'APROBADA' || t.status === 'published' || !t.status) &&
           (t.target_environment === 'IDE_PERSISTENTE' || t.target_environment === 'AMBOS' || !t.target_environment)
         );
         this.approvedTemplates.set(filtered);
 
-        // Si ya había una plantilla vinculada, actualizar resumen en store
         const currentId = this.store.metadata().template_id;
         if (currentId) {
           const match = filtered.find(t => t.id === currentId);
@@ -444,13 +173,11 @@ export class StepIdeEnvironmentComponent implements OnInit {
     this.store.updateMetadata({ due_date });
   }
 
-  onAllowResubmitChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
+  onAllowResubmitChange(checked: boolean): void {
     this.store.updateMetadata({ allow_resubmit: checked });
   }
 
-  onAutoCheckpointChange(event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
+  onAutoCheckpointChange(checked: boolean): void {
     this.store.updateMetadata({ auto_checkpoint: checked });
   }
 
@@ -485,7 +212,7 @@ export class StepIdeEnvironmentComponent implements OnInit {
     const current = this.store.rubric() || { criteria: [] };
     const newCriterion: RubricCriterionDTO = {
       name: 'Nuevo Criterio',
-      description: 'Descripción del criterio de evaluación',
+      description: 'Descripci\u00f3n del criterio de evaluaci\u00f3n',
       weight: 25,
       levels: [
         { name: 'Excelente', score: 100, description: 'Cumple con excelencia los requisitos.' },

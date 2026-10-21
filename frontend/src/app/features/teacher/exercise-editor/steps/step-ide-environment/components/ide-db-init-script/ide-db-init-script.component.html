@@ -1,0 +1,22 @@
+@if (hasDatabaseService()) {
+  <section class="card-section">
+    <div class="title-with-icon">
+      <svg lucideDatabase class="header-icon"></svg>
+      <h3 class="card-title">Script de Inicialización de Base de Datos (DDL / DML)</h3>
+    </div>
+    <p class="section-desc">
+      Este script SQL se ejecutar\u00e1 autom\u00e1ticamente durante el aprovisionamiento de la base de datos sat\u00e9lite del laboratorio.
+    </p>
+
+    <div class="form-group">
+      <textarea
+        class="form-textarea font-mono"
+        rows="8"
+        placeholder="CREATE TABLE usuarios (id SERIAL PRIMARY KEY, nombre VARCHAR(100));&#10;INSERT INTO usuarios (nombre) VALUES ('Admin');"
+        [ngModel]="dbInitScript()"
+        (ngModelChange)="initScriptChange.emit($event)"
+      ></textarea>
+      <span class="field-hint">Sentencias SQL separadas por punto y coma (;)</span>
+    </div>
+  </section>
+}

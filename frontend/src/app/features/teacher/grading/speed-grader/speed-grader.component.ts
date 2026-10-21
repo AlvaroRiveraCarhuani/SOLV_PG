@@ -1,75 +1,32 @@
 import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { 
-  LucideArrowLeft, 
-  LucideChevronLeft, 
-  LucideChevronRight, 
-  LucidePlay, 
-  LucideEdit3, 
-  LucideTerminal, 
-  LucideCheckCircle, 
-  LucideXCircle, 
-  LucideAlertTriangle, 
-  LucideKeyboard,
-  LucideGitCompare,
-  LucideHistory,
-  LucideTrendingUp,
-  LucideCopy,
-  LucideFilm,
-  LucideClipboardList
-} from '@lucide/angular';
 import { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
 import { SubmissionComment, SubmissionTimeline, LiveWorkspaceSession } from '../../models/teacher.models';
-import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
-import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
-import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
-import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
-import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
-import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
+import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
+import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
+import { SpeedGraderHeaderComponent } from './components/speed-grader-header/speed-grader-header.component';
+import { SpeedGraderCodeViewerComponent } from './components/speed-grader-code-viewer/speed-grader-code-viewer.component';
+import { SpeedGraderEvalPanelComponent } from './components/speed-grader-eval-panel/speed-grader-eval-panel.component';
+import { SpeedGraderOverrideModalComponent } from './components/speed-grader-override-modal/speed-grader-override-modal.component';
 
 @Component({
   selector: 'speed-grader',
   standalone: true,
   imports: [
     CommonModule,
-    RouterLink,
-    FormsModule,
-    LucideArrowLeft,
-    LucideChevronLeft,
-    LucideChevronRight,
-    LucidePlay,
-    LucideEdit3,
-    LucideTerminal,
-    LucideCheckCircle,
-    LucideXCircle,
-    LucideAlertTriangle,
-    LucideKeyboard,
-    LucideGitCompare,
-    LucideHistory,
-    LucideTrendingUp,
-    LucideCopy,
-    LucideFilm,
-    LucideClipboardList,
-    DateTextPipe,
-    MachineDataDirective,
     SkeletonLoaderComponent,
-    ModalShellComponent,
     ShadowTerminalModalComponent,
-    TimeTravelReplayComponent,
-    ComplexityBenchmarkComponent,
     KeystrokeReplayModalComponent,
-    ComboboxComponent,
-    VerdictBadgeComponent
+    SpeedGraderHeaderComponent,
+    SpeedGraderCodeViewerComponent,
+    SpeedGraderEvalPanelComponent,
+    SpeedGraderOverrideModalComponent
   ],
   templateUrl: './speed-grader.component.html',
   styleUrl: './speed-grader.component.scss'
@@ -82,7 +39,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private unregisterFns: Array<() => void> = [];
 
-  readonly verdictOptions: ComboboxOption[] = [
+  readonly verdictOptions: { id: string; label: string; value: string }[] = [
     { id: 'AC', label: 'AC (Aceptado / Aprobado)', value: 'AC' },
     { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
     { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
@@ -134,7 +91,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
       comments: this.rubricComments()
     };
 
-    this.http.post<any>(`/api/v1/submissions/${id}/rubric-evaluation`, payload).subscribe({
+    this.http.post<{ data?: { score?: number } }>(`/api/v1/submissions/${id}/rubric-evaluation`, payload).subscribe({
       next: (res) => {
         this.isSubmittingRubric.set(false);
         const score = res?.data?.score ?? this.calculatedRubricScore();
@@ -413,9 +370,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   }
 
   loadRubric(exerciseId: string): void {
-    this.http.get<any>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
+    this.http.get<unknown>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
       next: (res) => {
-        const data = res?.data || res;
+        const data = (res as { data?: RubricDTO }).data ?? (res as RubricDTO);
         if (data && data.criteria && data.criteria.length > 0) {
           this.rubric.set(data);
           const initialSel: Record<string, string> = {};
@@ -503,8 +460,8 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.hotkeysService.openHelpModal();
   }
 
-  selectLine(lineNumber: number): void {
-    if (this.selectedLineNumber() === lineNumber) {
+  selectLine(lineNumber: number | null): void {
+    if (lineNumber === null || this.selectedLineNumber() === lineNumber) {
       this.selectedLineNumber.set(null);
     } else {
       this.selectedLineNumber.set(lineNumber);

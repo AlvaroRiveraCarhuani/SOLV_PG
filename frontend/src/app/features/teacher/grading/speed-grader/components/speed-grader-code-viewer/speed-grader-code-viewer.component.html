@@ -1,0 +1,116 @@
+<main class="code-viewer-panel">
+  <!-- Reproductor Time-Travel Replay Standalone Integrado -->
+  @if (showReplayPlayer()) {
+    <div class="replay-embedded-container">
+      <time-travel-replay
+        [timeline]="timeline()"
+        [initialBoilerplate]="starterBoilerplate()"
+        (close)="toggleReplay.emit()"
+      />
+    </div>
+  } @else if (showBenchmark()) {
+    <div class="benchmark-embedded-container">
+      <complexity-benchmark
+        [report]="benchmarkReport()"
+        [submissionId]="review().id"
+        [isLoading]="isLoadingBenchmark()"
+        (runBenchmark)="runBenchmark.emit($event)"
+        (close)="toggleBenchmark.emit()"
+      />
+    </div>
+  } @else {
+    <div class="code-panel-header">
+      <span class="panel-label">
+        @if (showReplayPlayer()) {
+          Time-Travel Replay: Visualizando evolución en vivo del código
+        } @else if (showDiffView()) {
+          Diferencias respecto a la Plantilla Base (<span class="diff-tag-add">+ Código alumno</span> / <span class="diff-tag-base">Base</span>)
+        } @else {
+          Código Fuente Entregado (Hacé clic en el número de línea para comentar <kbd>C</kbd>)
+        }
+      </span>
+      <span class="code-time">
+        Entregado: <time>{{ review().submitted_at | dateText:'datetime' }}</time>
+      </span>
+    </div>
+
+    <div class="code-scroll">
+      @if (showDiffView()) {
+        <!-- Vista de Diferencias -->
+        <table class="code-table diff-table">
+          <tbody>
+            @for (dline of diffLines(); track $index) {
+              <tr class="code-row" [class.diff-row-added]="dline.type === 'added'" [class.diff-row-removed]="dline.type === 'removed'">
+                <td class="line-number font-mono">
+                  {{ dline.newLineNumber || dline.oldLineNumber || ' ' }}
+                </td>
+                <td class="diff-marker font-mono">
+                  {{ dline.type === 'added' ? '+' : (dline.type === 'removed' ? '-' : ' ') }}
+                </td>
+                <td class="line-content font-mono">
+                  <pre>{{ dline.content || ' ' }}</pre>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      } @else {
+        <!-- Vista Estándar de Código con Comentarios -->
+        <table class="code-table">
+          <tbody>
+            @for (line of codeLines(); track $index; let idx = $index) {
+              <tr class="code-row" [class.line-selected]="selectedLineNumber() === (idx + 1)">
+                <td class="line-number font-mono" (click)="lineSelected.emit(idx + 1)" title="Comentar en línea {{ idx + 1 }}">
+                  {{ idx + 1 }}
+                </td>
+                <td class="line-content font-mono">
+                  <pre>{{ line || ' ' }}</pre>
+                </td>
+              </tr>
+
+              <!-- Formulario de Nuevo Comentario In-line -->
+              @if (selectedLineNumber() === (idx + 1)) {
+                <tr class="inline-comment-form-row">
+                  <td colspan="2">
+                    <div class="comment-input-box">
+                      <textarea
+                        rows="2"
+                        placeholder="Escribí un comentario pedagógico para la línea {{ idx + 1 }} (Ctrl+Enter para guardar)..."
+                        [ngModel]="newCommentText()"
+                        (ngModelChange)="newCommentTextChange.emit($event)"
+                        class="form-textarea"
+                      ></textarea>
+                      <div class="comment-actions">
+                        <button class="btn-cancel-sm" (click)="lineSelected.emit(null)">Cancelar</button>
+                        <button class="btn-submit-sm" [disabled]="isAddingComment() || !newCommentText().trim()" (click)="commentSubmitted.emit(idx + 1)">
+                          {{ isAddingComment() ? 'Guardando...' : 'Publicar Comentario' }}
+                        </button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+
+              <!-- Comentarios Existentes en esta Línea -->
+              @if (commentsByLine().get(idx + 1); as lineComms) {
+                @for (comm of lineComms; track comm.id) {
+                  <tr class="inline-comment-row">
+                    <td colspan="2">
+                      <div class="comment-bubble">
+                        <div class="comment-header">
+                          <span class="comment-author">{{ comm.author_name }}</span>
+                          <time class="comment-date">{{ comm.created_at | dateText:'compact-datetime' }}</time>
+                        </div>
+                        <p class="comment-text">{{ comm.comment }}</p>
+                      </div>
+                    </td>
+                  </tr>
+                }
+              }
+            }
+          </tbody>
+        </table>
+      }
+    </div>
+  }
+</main>

@@ -1,0 +1,326 @@
+$p: var(--tenant-primary);
+$p-bg: var(--tenant-primary-subtle);
+$p-bdr: var(--tenant-primary-border);
+$bdr: var(--border-subtle);
+$txt: var(--text-primary);
+$mut: var(--text-secondary);
+
+.table-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+
+.filter-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.search-box {
+  flex: 1;
+  min-width: 260px;
+}
+
+.filters-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.filter-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.filter-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  min-height: 240px;
+  padding: 0 16px 16px;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 16px;
+  color: $mut;
+  font-size: var(--text-sm);
+}
+
+.tenant-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--tenant-primary-border);
+  border-top-color: $p;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+.tenant-spinner-sm {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--tenant-primary-border);
+  border-top-color: $p;
+  border-radius: 50%;
+  animation: spin 700ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.teachers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  text-align: left;
+
+  th {
+    background: var(--bg-surface-subtle);
+    padding: 0.75rem 1rem;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid var(--border-subtle);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--bg-surface-active);
+    vertical-align: middle;
+  }
+
+  tr:hover td {
+    background: var(--bg-surface-subtle);
+  }
+  tr.row-pending td {
+    background: var(--status-pending-bg);
+  }
+  tr.row-expired td {
+    background: var(--status-failed-bg);
+  }
+}
+
+.teacher-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.teacher-avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: $p-bg;
+  color: $p;
+  border: 1px solid $p-bdr;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.teacher-meta {
+  display: flex;
+  flex-direction: column;
+}
+.teacher-name {
+  font-weight: 600;
+  color: $txt;
+}
+.teacher-email {
+  font-size: var(--text-xs);
+  color: $mut;
+}
+
+.origin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 500;
+
+  &.manual {
+    background: var(--bg-surface-active);
+    color: var(--text-secondary);
+  }
+  &.gclassroom {
+    background: $p-bg;
+    color: $p;
+    border: 1px solid $p-bdr;
+    .origin-icon {
+      width: 11px;
+      height: 11px;
+    }
+  }
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+
+  .pill-icon {
+    width: 12px;
+    height: 12px;
+  }
+  &.active {
+    background: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+  &.pending {
+    background: var(--status-pending-bg);
+    color: var(--status-pending-color);
+  }
+  &.expired {
+    background: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+}
+
+.btn-courses-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: $mut;
+  cursor: pointer;
+
+  .courses-icon {
+    width: 13px;
+    height: 13px;
+  }
+  &.has-courses {
+    color: $p;
+    background: $p-bg;
+    border-color: $p-bdr;
+    &:hover {
+      background: var(--tenant-primary-border);
+    }
+  }
+}
+
+.date-text {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.text-right {
+  text-align: right;
+}
+.actions-cell {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-row-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  .btn-icon {
+    width: 12px;
+    height: 12px;
+  }
+
+  &.copy-email {
+    background: var(--bg-surface-subtle);
+    border: 1px solid var(--border-strong);
+    color: var(--color-gray-700);
+    &:hover {
+      background: $bdr;
+      color: $txt;
+    }
+  }
+  &.resend {
+    background: var(--bg-surface-subtle);
+    border: 1px solid var(--border-strong);
+    color: var(--color-gray-700);
+    &:hover {
+      background: $bdr;
+    }
+  }
+  &.renew {
+    background: var(--status-failed-bg);
+    border: 1px solid var(--status-failed-border);
+    color: var(--verdict-ast-color);
+    &:hover {
+      background: var(--status-failed-border);
+    }
+  }
+  &.revoke {
+    background: var(--bg-surface);
+    border: 1px solid $bdr;
+    color: var(--color-gray-400);
+    padding: 4px 6px;
+    &:hover {
+      background: var(--status-failed-bg);
+      color: var(--color-error);
+    }
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 50px 16px;
+}
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  .empty-icon {
+    width: 36px;
+    height: 36px;
+    color: var(--border-strong);
+  }
+  .empty-title {
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+  .empty-desc {
+    font-size: var(--text-xs);
+    color: var(--color-gray-400);
+    margin: 0;
+  }
+}

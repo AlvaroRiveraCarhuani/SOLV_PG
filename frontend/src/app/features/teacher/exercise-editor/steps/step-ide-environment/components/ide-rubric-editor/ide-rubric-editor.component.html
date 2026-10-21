@@ -1,0 +1,141 @@
+<section class="card-section rubric-section" id="rubric-section">
+  <div class="section-header-row">
+    <div class="title-with-icon">
+      <svg lucideClipboardList class="header-icon"></svg>
+      <h3 class="card-title">R\u00fabrica de Evaluaci\u00f3n Cualitativa</h3>
+    </div>
+    <div class="rubric-header-actions">
+      <combobox
+        [options]="rubricPresetOptions()"
+        [placeholder]="'Cargar plantilla de r\u00fabrica...'"
+        [compact]="true"
+        [showSearchIcon]="false"
+        (optionSelected)="presetSelected.emit($event.value)"
+        inputAriaLabel="Cargar plantilla de r\u00fabrica"
+      />
+      <button type="button" class="btn-primary btn-sm" (click)="addCriterion.emit()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Agregar criterio</span>
+      </button>
+    </div>
+  </div>
+
+  <p class="section-desc">
+    Define los criterios de evaluaci\u00f3n cualitativa y sus niveles de logro. La suma de pesos de los criterios debe ser exactamente 100%.
+  </p>
+
+  <div class="weight-total-banner" [class.valid]="totalRubricWeight() === 100" [class.invalid]="totalRubricWeight() !== 100">
+    @if (totalRubricWeight() === 100) {
+      <svg lucideCheckCircle2 class="banner-icon icon-success"></svg>
+      <span>Ponderaci\u00f3n total balanceada: <strong machineData>100%</strong></span>
+    } @else {
+      <svg lucideAlertTriangle class="banner-icon icon-danger"></svg>
+      <span>Suma de pesos actual: <strong machineData>{{ totalRubricWeight() }}%</strong>. La suma debe ser exactamente 100%.</span>
+    }
+  </div>
+
+  @if (!rubric() || rubric()?.criteria?.length === 0) {
+    <div class="empty-rubric-box">
+      <svg lucideClipboardList class="empty-icon"></svg>
+      <p>No se han agregado criterios a la r\u00fabrica.</p>
+      <button type="button" class="btn-outline btn-sm" (click)="presetSelected.emit('api-rest')">
+        <svg lucideClipboardList class="btn-icon"></svg>
+        <span>Cargar Plantilla API REST</span>
+      </button>
+    </div>
+  } @else {
+    <div class="criteria-list">
+      @for (criterion of rubric()?.criteria; track $index; let i = $index) {
+        <div class="criterion-card">
+          <div class="criterion-card-header">
+            <span class="criterion-badge font-mono" machineData>Criterio {{ i + 1 }}</span>
+            <button type="button" class="btn-icon-danger" (click)="removeCriterion.emit(i)" title="Eliminar criterio">
+              <svg lucideTrash2 class="btn-icon-sm"></svg>
+            </button>
+          </div>
+
+          <div class="criterion-form-grid">
+            <div class="form-group flex-2">
+              <label class="form-label">Nombre del Criterio</label>
+              <input
+                type="text"
+                class="form-input"
+                placeholder="Ej: Arquitectura de carpetas, Endpoints REST..."
+                [ngModel]="criterion.name"
+                (ngModelChange)="updateCriterion.emit({ index: i, update: { name: $event } })"
+              />
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label">Peso (%)</label>
+              <input
+                type="number"
+                class="form-input font-mono"
+                min="0"
+                max="100"
+                [ngModel]="criterion.weight"
+                (ngModelChange)="updateCriterion.emit({ index: i, update: { weight: +$event } })"
+              />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Descripci\u00f3n del Criterio</label>
+            <textarea
+              class="form-textarea"
+              rows="2"
+              placeholder="Descripci\u00f3n detallada de lo que se evaluar\u00e1 en este criterio..."
+              [ngModel]="criterion.description"
+              (ngModelChange)="updateCriterion.emit({ index: i, update: { description: $event } })"
+            ></textarea>
+          </div>
+
+          <div class="levels-container">
+            <div class="levels-header-row">
+              <span class="levels-title">Niveles de Logro</span>
+              <button type="button" class="btn-ghost btn-xs" (click)="addLevelToCriterion.emit(i)">
+                <svg lucidePlus class="btn-icon-xs"></svg>
+                <span>Agregar nivel</span>
+              </button>
+            </div>
+
+            <div class="levels-list">
+              @for (level of criterion.levels; track $index; let j = $index) {
+                <div class="level-card">
+                  <div class="level-inputs-row">
+                    <input
+                      type="text"
+                      class="form-input level-name-input"
+                      placeholder="Ej: Excelente, Bueno..."
+                      [ngModel]="level.name"
+                      (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { name: $event } })"
+                    />
+                    <input
+                      type="number"
+                      class="form-input font-mono level-score-input"
+                      placeholder="Score (0-100)"
+                      min="0"
+                      max="100"
+                      [ngModel]="level.score"
+                      (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { score: +$event } })"
+                    />
+                    <button type="button" class="btn-icon-danger" (click)="removeLevelFromCriterion.emit({ criterionIndex: i, levelIndex: j })" title="Eliminar nivel">
+                      <svg lucideTrash2 class="btn-icon-xs"></svg>
+                    </button>
+                  </div>
+                  <textarea
+                    class="form-textarea level-desc-input"
+                    rows="1"
+                    placeholder="Descripci\u00f3n del nivel de logro..."
+                    [ngModel]="level.description"
+                    (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { description: $event } })"
+                  ></textarea>
+                </div>
+              }
+            </div>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</section>

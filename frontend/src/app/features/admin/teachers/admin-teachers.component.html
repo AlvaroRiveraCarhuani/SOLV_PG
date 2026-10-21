@@ -27,440 +27,84 @@
   </header>
 
   <!-- Tarjetas de Resumen KPI -->
-  <kpi-grid [columns]="3">
-    <kpi-card
-      label="Total Docentes"
-      [value]="counts().all"
-      detail="Profesores registrados en el sistema"
-      variant="primary"
-    >
-      <svg kpi-icon lucideUsers></svg>
-    </kpi-card>
+  <teacher-kpi-cards [counts]="counts()"></teacher-kpi-cards>
 
-    <kpi-card
-      label="Con Materias Asignadas"
-      [value]="counts().active - counts().noCourses"
-      detail="Docentes con materias asignadas"
-      variant="running"
-    >
-      <svg kpi-icon lucideBookOpen></svg>
-    </kpi-card>
-
-    <kpi-card
-      label="Sin Materias Asignadas"
-      [value]="counts().noCourses"
-      detail="Docentes activos sin carga horaria"
-      variant="warning"
-    >
-      <svg kpi-icon lucideClock></svg>
-    </kpi-card>
-  </kpi-grid>
-
-  <!-- Pestañas de Estado con Contadores -->
-  <status-tabs
-    [tabs]="teacherStatusTabs()"
-    [activeTab]="statusFilter()"
-    (tabChange)="onStatusChange($event)"
-  />
-
-  <!-- Tabla y Barra de Filtros -->
-  <div class="table-card">
-    <div class="filter-toolbar">
-      <div class="search-box">
-        <search-bar
-          [query]="searchTerm()"
-          placeholder="Buscar docente por nombre o correo institucional..."
-          (queryChange)="onSearchChange($event)"
-        />
-      </div>
-
-      <div class="filters-group">
-        <div class="filter-item">
-          <label class="filter-label">Origen:</label>
-          <combobox
-            [compact]="true"
-            [value]="selectedOriginLabel()"
-            [options]="originComboboxOptions()"
-            placeholder="Origen..."
-            (optionSelected)="onOriginSelected($event)"
-          ></combobox>
-        </div>
-      </div>
-    </div>
-
-    <!-- Contenedor de la Tabla -->
-    <div class="table-wrapper">
-      @if (isLoading()) {
-        <div class="loading-state">
-          <div class="tenant-spinner"></div>
-          <span>Consultando catálogo de docentes...</span>
-        </div>
-      } @else {
-        <table class="teachers-table">
-          <thead>
-            <tr>
-              <th>NOMBRE Y CORREO</th>
-              <th>ORIGEN</th>
-              <th>ESTADO</th>
-              <th>MATERIAS</th>
-              <th>FECHA DE REGISTRO</th>
-              <th class="text-right">ACCIÓN</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (teacher of paginatedTeachers(); track teacher.id) {
-              <tr [class.row-pending]="teacher.status === 'pending'" [class.row-expired]="teacher.status === 'expired'">
-                <!-- Nombre y Correo -->
-                <td>
-                  <div class="teacher-cell">
-                    <div class="teacher-avatar">
-                      {{ getInitials(teacher.full_name) }}
-                    </div>
-                    <div class="teacher-meta">
-                      <span class="teacher-name">{{ teacher.full_name }}</span>
-                      <span class="teacher-email">{{ teacher.email }}</span>
-                    </div>
-                  </div>
-                </td>
-
-                <!-- Origen -->
-                <td>
-                  @if (teacher.origin === 'gclassroom') {
-                    <span class="origin-badge gclassroom" title="Sincronizado vía Google Classroom">
-                      <svg lucideLock class="origin-icon"></svg>
-                      <span>GClassroom</span>
-                    </span>
-                  } @else {
-                    <span class="origin-badge manual">Manual</span>
-                  }
-                </td>
-
-                <!-- Estado del Usuario -->
-                <td>
-                  @switch (teacher.status) {
-                    @case ('active') {
-                      <span class="status-pill active">
-                        <svg lucideCheckCircle class="pill-icon"></svg>
-                        <span>Activo</span>
-                      </span>
-                    }
-                    @case ('pending') {
-                      <span class="status-pill pending" title="Invitación emitida. Vigencia de 72 horas.">
-                        <svg lucideClock class="pill-icon"></svg>
-                        <span>Pendiente</span>
-                      </span>
-                    }
-                    @case ('expired') {
-                      <span class="status-pill expired" title="Invitación expirada sin aceptar.">
-                        <svg lucideAlertCircle class="pill-icon"></svg>
-                        <span>Expirado</span>
-                      </span>
-                    }
-                  }
-                </td>
-
-                <!-- Materias Activas -->
-                <td>
-                  <button 
-                    class="btn-courses-link"
-                    [class.has-courses]="(teacher.active_courses ?? 0) > 0"
-                    (click)="openTeacherCoursesModal(teacher)">
-                    <svg lucideBookOpen class="courses-icon"></svg>
-                    <span>{{ teacher.active_courses ?? 0 }} {{ (teacher.active_courses ?? 0) === 1 ? 'materia' : 'materias' }}</span>
-                  </button>
-                </td>
-
-                <!-- Fecha Invitado / Registro -->
-                <td>
-                  <span class="date-text">{{ formatInvitedAt(teacher.invited_at) }}</span>
-                </td>
-
-                <!-- Acciones -->
-                <td class="text-right">
-                  <div class="actions-cell">
-                    @if (teacher.status === 'pending') {
-                      <button 
-                        class="btn-row-action resend" 
-                        (click)="resendInvitation(teacher)"
-                        title="Reenviar correo de invitación">
-                        <svg lucideSend class="btn-icon"></svg>
-                        <span>Reenviar</span>
-                      </button>
-                      <button 
-                        class="btn-row-action revoke" 
-                        (click)="revokeInvitation(teacher)"
-                        title="Cancelar invitación pendiente">
-                        <svg lucideTrash2 class="btn-icon"></svg>
-                      </button>
-                    } @else if (teacher.status === 'expired') {
-                      <button 
-                        class="btn-row-action renew" 
-                        (click)="renewInvitation(teacher)"
-                        title="Renovar invitación por 72 horas más">
-                        <svg lucideRotateCcw class="btn-icon"></svg>
-                        <span>Renovar</span>
-                      </button>
-                      <button 
-                        class="btn-row-action revoke" 
-                        (click)="revokeInvitation(teacher)"
-                        title="Eliminar registro de invitación expirada">
-                        <svg lucideTrash2 class="btn-icon"></svg>
-                      </button>
-                    } @else {
-                      <button 
-                        class="btn-row-action copy-email"
-                        (click)="copyTeacherEmail(teacher.email)"
-                        title="Copiar correo institucional al portapapeles">
-                        <svg lucideCopy class="btn-icon"></svg>
-                        <span>Copiar correo</span>
-                      </button>
-                      <button 
-                        class="btn-row-action revoke" 
-                        (click)="requestDeleteTeacher(teacher)"
-                        title="Dar de baja docente y revocar materias asignadas">
-                        <svg lucideTrash2 class="btn-icon"></svg>
-                      </button>
-                    }
-                  </div>
-                </td>
-              </tr>
-            } @empty {
-              <tr>
-                <td colspan="6" class="empty-state">
-                  <div class="empty-content">
-                    <svg lucideUserPlus class="empty-icon"></svg>
-                    <p class="empty-title">No se encontraron docentes</p>
-                    <p class="empty-desc">No hay profesores que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
-                  </div>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      }
-    </div>
-
-    <!-- Paginación de la Tabla -->
-    <pagination-bar
-      [currentPage]="currentPage()"
-      [totalPages]="totalPages()"
-      [totalItems]="filteredTeachersList().length"
-      [from]="paginationDisplay().from"
-      [to]="paginationDisplay().to"
-      itemLabel="docentes"
-      (pageChange)="goToPage($event)"
-    />
-  </div>
+  <!-- Tabla y Barra de Filtros (subcomponente presentacional) -->
+  <teacher-table
+    [teachers]="paginatedTeachers()"
+    [isLoading]="isLoading()"
+    [searchTerm]="searchTerm()"
+    [statusFilter]="statusFilter()"
+    [originFilter]="originFilter()"
+    [currentPage]="currentPage()"
+    [pageSize]="pageSize"
+    [totalPages]="totalPages()"
+    [filteredCount]="filteredTeachersList().length"
+    [teacherStatusTabs]="teacherStatusTabs()"
+    [originComboboxOptions]="originComboboxOptions()"
+    [selectedOriginLabel]="selectedOriginLabel()"
+    [counts]="counts()"
+    (searchChange)="onSearchChange($event)"
+    (statusChange)="onStatusChange($event)"
+    (originChange)="onOriginChange($event)"
+    (pageChange)="goToPage($event)"
+    (resendInvitation)="resendInvitation($event)"
+    (revokeInvitation)="revokeInvitation($event)"
+    (renewInvitation)="renewInvitation($event)"
+    (copyEmail)="copyTeacherEmail($event)"
+    (requestDeleteTeacher)="requestDeleteTeacher($event)"
+    (openTeacherCourses)="openTeacherCoursesModal($event)"
+    (toggleMenu)="toggleMenu($event)"
+  ></teacher-table>
 
   <!-- Modal de Registro de Docentes -->
   @if (showInviteModal()) {
-    <teacher-invite-modal 
+    <teacher-invite-modal
       (close)="showInviteModal.set(false)"
       (directSubmit)="onDirectTeacherSubmitted($event)"
       (batchSubmit)="onBatchTeachersSubmitted($event)"
     />
   }
 
-  <!-- Modal de Feedback de Invitación (Neutral, profesional) -->
+  <!-- Modal de Feedback de Invitación -->
   @if (tokenFeedback(); as feedback) {
-    <modal-shell [title]="feedback.title" intent="success" (close)="tokenFeedback.set(null)">
-      <svg modal-icon lucideCheckCircle class="icon"></svg>
-      <span modal-subtitle>Destinatario: <strong>{{ feedback.email }}</strong></span>
-
-      <div class="info-alert">
-        <svg lucideSend class="alert-icon"></svg>
-        <p class="alert-text">
-          Se ha generado el enlace de acceso directo para que el docente active su cuenta institucional mediante Google Workspace SSO.
-        </p>
-      </div>
-
-      <div class="direct-link-section">
-        <label class="direct-link-label">Enlace de acceso directo (vigencia de 72 horas):</label>
-        <div class="token-box">
-          <input type="text" readonly [value]="feedback.inviteUrl" class="token-input" />
-          <button class="btn-copy" (click)="copyTokenUrl(feedback.inviteUrl)" [class.copied]="copied()">
-            @if (!copied()) {
-              <svg lucideCopy class="btn-icon"></svg>
-            } @else {
-              <svg lucideCheckCircle class="btn-icon"></svg>
-            }
-            <span>{{ copied() ? '¡Copiado!' : 'Copiar enlace' }}</span>
-          </button>
-        </div>
-      </div>
-
-      <ng-container modal-footer>
-        <button class="btn-primary" (click)="tokenFeedback.set(null)">
-          <span>Aceptar y Cerrar</span>
-        </button>
-      </ng-container>
-    </modal-shell>
+    <teacher-invite-feedback
+      [feedback]="feedback"
+      [copied]="copied()"
+      (dismiss)="tokenFeedback.set(null)"
+      (copyTokenUrl)="copyTokenUrl($event)"
+    />
   }
 
   <!-- Modal: Materias Asignadas y Reasignación de Docente -->
   @if (selectedTeacherForCourses(); as teacher) {
-    <modal-shell
-      title="Materias Asignadas"
-      maxWidth="620px"
-      (close)="closeTeacherCoursesModal()"
-    >
-      <span modal-icon class="avatar-initials">{{ getInitials(teacher.full_name) }}</span>
-      <span modal-subtitle>
-        {{ teacher.full_name }} · {{ teacher.email }} · {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }} · {{ totalStudentsForTeacher() }} estudiantes a cargo
-      </span>
-
-      <div class="courses-scroll">
-          @if (isLoadingCourses()) {
-            <div class="courses-loading">
-              <div class="tenant-spinner-sm"></div>
-              <span>Consultando materias asignadas...</span>
-            </div>
-          } @else if (teacherCourses().length > 0) {
-            <div class="courses-list">
-              @for (course of teacherCourses(); track course.id) {
-                <div class="course-card-wrapper">
-                  <div class="course-card">
-                    <div class="course-main">
-                      <span class="course-code-badge" machineData>{{ course.code }}</span>
-                      <h4 class="course-name">{{ course.name }}</h4>
-                    </div>
-                    <div class="course-actions-area">
-                      <div class="course-meta">
-                        <svg lucideUsers class="meta-icon"></svg>
-                        <span><strong>{{ course.students_count }}</strong> {{ course.students_count === 1 ? 'estudiante' : 'estudiantes' }}</span>
-                      </div>
-                      <button 
-                        class="btn-reassign-trigger"
-                        [class.active]="reassigningCourse()?.id === course.id"
-                        (click)="reassigningCourse()?.id === course.id ? cancelReassign() : startReassign(course)"
-                        title="Reasignar esta materia a otro docente">
-                        <svg lucideArrowRightLeft class="btn-icon-sm"></svg>
-                        <span>Reasignar Docente</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <!-- Formulario Inline de Reasignación -->
-                  @if (reassigningCourse()?.id === course.id) {
-                    <div class="reassign-inline-panel">
-                      <div class="reassign-panel-header">
-                        <span class="panel-tag">Reasignación de docente para <span machineData>{{ course.code }}</span></span>
-                      </div>
-                      <div class="reassign-form">
-                      <form-field label="Nuevo docente asignado">
-                        <combobox
-                          [compact]="true"
-                          [value]="selectedNewTeacherLabel()"
-                          [options]="activeTeacherComboboxOptions()"
-                          placeholder="Seleccione el nuevo docente..."
-                          (optionSelected)="onNewTeacherSelected($event)"
-                        ></combobox>
-                      </form-field>
-                      <form-field label="Motivo del cambio (opcional)">
-                        <input
-                          type="text"
-                          placeholder="Ej. Rotación de materias, licencia temporal..."
-                          [ngModel]="reassignReason()"
-                          (ngModelChange)="reassignReason.set($event)"
-                          class="form-input"
-                        />
-                      </form-field>
-                        <div class="reassign-actions">
-                          <button 
-                            class="btn-sm-primary" 
-                            [disabled]="!selectedNewTeacherId() || isSubmittingReassign()"
-                            (click)="confirmReassignCourse()">
-                            @if (isSubmittingReassign()) {
-                              <span>Procesando...</span>
-                            } @else {
-                              <span>Confirmar Reasignación</span>
-                            }
-                          </button>
-                          <button 
-                            class="btn-sm-secondary" 
-                            [disabled]="isSubmittingReassign()"
-                            (click)="cancelReassign()">
-                            <span>Cancelar</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          } @else {
-            <div class="courses-empty">
-              <div class="empty-icon-circle">
-                <svg lucideBookOpen class="empty-course-icon"></svg>
-              </div>
-              <p class="empty-courses-title">Sin materias asignadas</p>
-              <p class="empty-courses-desc">Este docente no tiene materias asignadas en el periodo académico activo.</p>
-              
-              @if (!isAssigningNewCourse()) {
-                <button class="btn-assign-course" (click)="startAssignCourseToTeacher()">
-                  <svg lucidePlus class="btn-icon"></svg>
-                  <span>+ Asignar a una materia</span>
-                </button>
-              } @else {
-                <div class="assign-new-panel">
-                  @if (isLoadingAvailableCourses()) {
-                    <div class="courses-loading">
-                      <div class="tenant-spinner-sm"></div>
-                      <span>Consultando catálogo de materias...</span>
-                    </div>
-                  } @else {
-                    <div class="reassign-form">
-                      <form-field label="Materia a asignar">
-                        <combobox
-                          [compact]="true"
-                          [value]="selectedCourseToAssignLabel()"
-                          [options]="availableCourseComboboxOptions()"
-                          placeholder="Seleccione una materia disponible..."
-                          (optionSelected)="onCourseToAssignSelected($event)"
-                        ></combobox>
-                      </form-field>
-                      <form-field label="Motivo de asignación (opcional)">
-                        <input
-                          type="text"
-                          placeholder="Ej. Asignación inicial de carga docente"
-                          [ngModel]="reassignReason()"
-                          (ngModelChange)="reassignReason.set($event)"
-                          class="form-input"
-                        />
-                      </form-field>
-                      <div class="reassign-actions">
-                        <button 
-                          class="btn-sm-primary" 
-                          [disabled]="!selectedCourseToAssign() || isSubmittingReassign()"
-                          (click)="confirmAssignCourseToTeacher()">
-                          @if (isSubmittingReassign()) {
-                            <span>Asignando...</span>
-                          } @else {
-                            <span>Asignar a este docente</span>
-                          }
-                        </button>
-                        <button 
-                          class="btn-sm-secondary" 
-                          [disabled]="isSubmittingReassign()"
-                          (click)="cancelAssignCourseToTeacher()">
-                          <span>Cancelar</span>
-                        </button>
-                      </div>
-                    </div>
-                  }
-                </div>
-              }
-            </div>
-          }
-      </div>
-
-      <ng-container modal-footer>
-        <button class="btn-secondary" (click)="closeTeacherCoursesModal()">
-          <span>Cerrar</span>
-        </button>
-      </ng-container>
-    </modal-shell>
+    <teacher-courses-modal
+      [teacher]="teacher"
+      [teacherCourses]="teacherCourses()"
+      [isLoadingCourses]="isLoadingCourses()"
+      [totalStudentsForTeacher]="totalStudentsForTeacher()"
+      [activeTeacherComboboxOptions]="activeTeacherComboboxOptions()"
+      [selectedNewTeacherLabel]="selectedNewTeacherLabel()"
+      [selectedNewTeacherId]="selectedNewTeacherId()"
+      [reassigningCourse]="reassigningCourse()"
+      [reassignReason]="reassignReason()"
+      [isSubmittingReassign]="isSubmittingReassign()"
+      [isAssigningNewCourse]="isAssigningNewCourse()"
+      [availableCourseComboboxOptions]="availableCourseComboboxOptions()"
+      [selectedCourseToAssignLabel]="selectedCourseToAssignLabel()"
+      [selectedCourseToAssign]="selectedCourseToAssign()"
+      [isLoadingAvailableCourses]="isLoadingAvailableCourses()"
+      (dismiss)="closeTeacherCoursesModal()"
+      (startReassign)="startReassign($event)"
+      (cancelReassign)="cancelReassign()"
+      (confirmReassignCourse)="confirmReassignCourse()"
+      (startAssignCourseToTeacher)="startAssignCourseToTeacher()"
+      (cancelAssignCourseToTeacher)="cancelAssignCourseToTeacher()"
+      (confirmAssignCourseToTeacher)="confirmAssignCourseToTeacher()"
+      (newTeacherSelected)="onNewTeacherSelected($event)"
+      (courseToAssignSelected)="onCourseToAssignSelected($event)"
+      (reassignReasonChange)="reassignReason.set($event)"
+    ></teacher-courses-modal>
   }
 
   <!-- Modal Institucional de Confirmación de Baja -->

@@ -1,0 +1,162 @@
+<modal-shell
+  title="Materias Asignadas"
+  maxWidth="620px"
+  (close)="dismiss.emit()"
+>
+  <span modal-icon class="avatar-initials">{{ getInitials(teacher()?.full_name ?? '') }}</span>
+  <span modal-subtitle>
+    {{ teacher()?.full_name }} · {{ teacher()?.email }} · {{ teacherCourses().length }} {{ teacherCourses().length === 1 ? 'materia' : 'materias' }} · {{ totalStudentsForTeacher() }} estudiantes a cargo
+  </span>
+
+  <div class="courses-scroll">
+    @if (isLoadingCourses()) {
+      <div class="courses-loading">
+        <div class="tenant-spinner-sm"></div>
+        <span>Consultando materias asignadas...</span>
+      </div>
+    } @else if (teacherCourses().length > 0) {
+      <div class="courses-list">
+        @for (course of teacherCourses(); track course.id) {
+          <div class="course-card-wrapper">
+            <div class="course-card">
+              <div class="course-main">
+                <span class="course-code-badge" machineData>{{ course.code }}</span>
+                <h4 class="course-name">{{ course.name }}</h4>
+              </div>
+              <div class="course-actions-area">
+                <div class="course-meta">
+                  <svg lucideUsers class="meta-icon"></svg>
+                  <span><strong>{{ course.students_count }}</strong> {{ course.students_count === 1 ? 'estudiante' : 'estudiantes' }}</span>
+                </div>
+                <button
+                  class="btn-reassign-trigger"
+                  [class.active]="reassigningCourse()?.id === course.id"
+                  (click)="reassigningCourse()?.id === course.id ? cancelReassign.emit() : startReassign.emit(course)"
+                  title="Reasignar esta materia a otro docente">
+                  <svg lucideArrowRightLeft class="btn-icon-sm"></svg>
+                  <span>Reasignar Docente</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Formulario Inline de Reasignación -->
+            @if (reassigningCourse()?.id === course.id) {
+              <div class="reassign-inline-panel">
+                <div class="reassign-panel-header">
+                  <span class="panel-tag">Reasignación de docente para <span machineData>{{ course.code }}</span></span>
+                </div>
+                <div class="reassign-form">
+                  <form-field label="Nuevo docente asignado">
+                    <combobox
+                      [compact]="true"
+                      [value]="selectedNewTeacherLabel()"
+                      [options]="activeTeacherComboboxOptions()"
+                      placeholder="Seleccione el nuevo docente..."
+                      (optionSelected)="newTeacherSelected.emit($event)"
+                    ></combobox>
+                  </form-field>
+                  <form-field label="Motivo del cambio (opcional)">
+                    <input
+                      type="text"
+                      placeholder="Ej. Rotación de materias, licencia temporal..."
+                      [value]="reassignReason()"
+                      (input)="onReasonInput($event)"
+                      class="form-input"
+                    />
+                  </form-field>
+                  <div class="reassign-actions">
+                    <button
+                      class="btn-sm-primary"
+                      [disabled]="!selectedNewTeacherId() || isSubmittingReassign()"
+                      (click)="confirmReassignCourse.emit()">
+                      @if (isSubmittingReassign()) {
+                        <span>Procesando...</span>
+                      } @else {
+                        <span>Confirmar Reasignación</span>
+                      }
+                    </button>
+                    <button
+                      class="btn-sm-secondary"
+                      [disabled]="isSubmittingReassign()"
+                      (click)="cancelReassign.emit()">
+                      <span>Cancelar</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="courses-empty">
+        <div class="empty-icon-circle">
+          <svg lucideBookOpen class="empty-course-icon"></svg>
+        </div>
+        <p class="empty-courses-title">Sin materias asignadas</p>
+        <p class="empty-courses-desc">Este docente no tiene materias asignadas en el periodo académico activo.</p>
+
+        @if (!isAssigningNewCourse()) {
+          <button class="btn-assign-course" (click)="startAssignCourseToTeacher.emit()">
+            <svg lucidePlus class="btn-icon"></svg>
+            <span>+ Asignar a una materia</span>
+          </button>
+        } @else {
+          <div class="assign-new-panel">
+            @if (isLoadingAvailableCourses()) {
+              <div class="courses-loading">
+                <div class="tenant-spinner-sm"></div>
+                <span>Consultando catálogo de materias...</span>
+              </div>
+            } @else {
+              <div class="reassign-form">
+                <form-field label="Materia a asignar">
+                  <combobox
+                    [compact]="true"
+                    [value]="selectedCourseToAssignLabel()"
+                    [options]="availableCourseComboboxOptions()"
+                    placeholder="Seleccione una materia disponible..."
+                    (optionSelected)="courseToAssignSelected.emit($event)"
+                  ></combobox>
+                </form-field>
+                <form-field label="Motivo de asignación (opcional)">
+                  <input
+                    type="text"
+                    placeholder="Ej. Asignación inicial de carga docente"
+                    [value]="reassignReason()"
+                    (input)="onReasonInput($event)"
+                    class="form-input"
+                  />
+                </form-field>
+                <div class="reassign-actions">
+                  <button
+                    class="btn-sm-primary"
+                    [disabled]="!selectedCourseToAssign() || isSubmittingReassign()"
+                    (click)="confirmAssignCourseToTeacher.emit()">
+                    @if (isSubmittingReassign()) {
+                      <span>Asignando...</span>
+                    } @else {
+                      <span>Asignar a este docente</span>
+                    }
+                  </button>
+                  <button
+                    class="btn-sm-secondary"
+                    [disabled]="isSubmittingReassign()"
+                    (click)="cancelAssignCourseToTeacher.emit()">
+                    <span>Cancelar</span>
+                  </button>
+                </div>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    <button class="btn-secondary" (click)="dismiss.emit()">
+      <span>Cerrar</span>
+    </button>
+  </ng-container>
+</modal-shell>

@@ -27,12 +27,15 @@ import { TeacherCourseService } from '../../../../services/teacher-course.servic
 import { TestCaseDTO } from '../../../../models/teacher.models';
 import { CaseEditModalComponent } from './case-edit-modal/case-edit-modal.component';
 import { GenerateCasesModalComponent } from './generate-cases-modal/generate-cases-modal.component';
+import {
+  ValidationItem,
+  normalizeText,
+  getWeightPercentage,
+  mapGeneratedCasesToDTOs,
+  reindexValidationAfterRemoval
+} from './cases-table.utils';
 
-export interface ValidationItem {
-  valid: boolean;
-  error?: string;
-  loading?: boolean;
-}
+export type { ValidationItem };
 
 @Component({
   selector: 'cases-table',
@@ -199,7 +202,7 @@ export class CasesTableComponent implements OnInit {
   }
 
   onInputChange(index: number, value: string): void {
-    const normalized = value ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : '';
+    const normalized = normalizeText(value);
     this.store.updateCase(index, { input: normalized });
     this.validateCase(index, normalized);
   }
@@ -216,7 +219,7 @@ export class CasesTableComponent implements OnInit {
   }
 
   onOutputChange(index: number, value: string): void {
-    const normalized = value ? value.replace(/\r\n/g, '\n').replace(/\r/g, '\n') : '';
+    const normalized = normalizeText(value);
     this.store.updateCase(index, { expected_output: normalized });
   }
 
@@ -255,11 +258,7 @@ export class CasesTableComponent implements OnInit {
   });
 
   getWeightPercentage(weight?: number): string {
-    const total = this.store.totalWeight();
-    const w = weight ?? 1.0;
-    if (total <= 0) return '0.0%';
-    const pct = (w / total) * 100;
-    return `${pct.toFixed(1)}%`;
+    return getWeightPercentage(this.store.totalWeight(), weight);
   }
 
   setFilterTab(tab: 'all' | 'example' | 'hidden'): void {
@@ -374,18 +373,7 @@ export class CasesTableComponent implements OnInit {
 
   removeCase(index: number): void {
     this.store.removeCase(index);
-    this.validationResults.update(prev => {
-      const next: Record<number, ValidationItem> = {};
-      Object.keys(prev).forEach(key => {
-        const k = Number(key);
-        if (k < index) {
-          next[k] = prev[k];
-        } else if (k > index) {
-          next[k - 1] = prev[k];
-        }
-      });
-      return next;
-    });
+    this.validationResults.update(prev => reindexValidationAfterRemoval(prev, index));
   }
 
   moveUp(index: number): void {
@@ -424,21 +412,11 @@ export class CasesTableComponent implements OnInit {
     if (!newCases || newCases.length === 0) return;
 
     const currentLength = this.store.cases().length;
-    const dtos: TestCaseDTO[] = newCases.map((c, i) => ({
-      input: c.input,
-      expected_output: c.output || '',
-      description: c.description || `Caso de prueba #${currentLength + i + 1}`,
-      visibility: 'hidden',
-      weight: 1.0,
-      is_hidden: true,
-      is_sample: false,
-      order_index: currentLength + i + 1
-    }));
+    const dtos = mapGeneratedCasesToDTOs(newCases, currentLength);
 
     this.store.addCases(dtos);
     this.lastGeneratedCount.set(newCases.length);
 
-    // Si hay solución de referencia disponible y algunos casos no tienen salida, ofrecer auto-cálculo
     const hasRef = !!this.store.referenceSolution()?.trim();
     const hasEmptyOutputs = dtos.some(d => !d.expected_output);
     if (hasRef && hasEmptyOutputs) {
@@ -459,7 +437,6 @@ export class CasesTableComponent implements OnInit {
     const targetIndices: number[] = [];
     const inputsToCalculate: string[] = [];
 
-    // Recalcular para todos los casos que tengan entrada definida
     allCases.forEach((tc, idx) => {
       if (tc.input && tc.input.trim() !== '') {
         targetIndices.push(idx);

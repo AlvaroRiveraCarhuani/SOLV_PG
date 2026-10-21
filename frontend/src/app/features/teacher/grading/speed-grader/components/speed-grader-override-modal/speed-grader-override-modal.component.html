@@ -1,0 +1,59 @@
+<modal-shell
+  title="Modificar Calificación Manualmente"
+  subtitle="Ajuste manual de puntaje y veredicto para el alumno."
+  maxWidth="520px"
+  [disableClose]="isSubmittingOverride()"
+  (close)="dismiss.emit()"
+>
+  <svg modal-icon lucideEdit3 class="icon"></svg>
+
+  @if (overrideError()) {
+    <div class="error-banner">
+      <svg lucideAlertTriangle class="error-icon"></svg>
+      <span>{{ overrideError() }}</span>
+    </div>
+  }
+
+  <div class="modal-body-form">
+    <div class="form-group">
+      <label class="form-label">Nuevo Veredicto</label>
+      <combobox
+        [options]="verdictOptions()"
+        [value]="overrideVerdict()"
+        (valueChange)="verdictChange.emit($event)"
+        [showSearchIcon]="false"
+        placeholder="Seleccionar veredicto..."
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Puntaje Asignado (0-100)</label>
+      <input
+        type="number"
+        min="0"
+        max="100"
+        [ngModel]="overrideScore()"
+        (ngModelChange)="scoreChange.emit($event)"
+        class="form-input"
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Motivo de la Convalidación (Opcional)</label>
+      <textarea
+        rows="3"
+        placeholder="Explique la razón pedagógica del cambio de nota (opcional)..."
+        [ngModel]="overrideReason()"
+        (ngModelChange)="reasonChange.emit($event)"
+        class="form-textarea"
+      ></textarea>
+    </div>
+  </div>
+
+  <div modal-footer class="modal-footer-actions">
+    <button type="button" class="btn-outline" [disabled]="isSubmittingOverride()" (click)="dismiss.emit()">Cancelar</button>
+    <button type="button" class="btn-primary" [disabled]="isSubmittingOverride()" (click)="submitOverride.emit()">
+      {{ isSubmittingOverride() ? 'Guardando...' : 'Aplicar Modificación' }}
+    </button>
+  </div>
+</modal-shell>

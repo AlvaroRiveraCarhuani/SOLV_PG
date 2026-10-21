@@ -1,0 +1,28 @@
+<kpi-grid [columns]="3">
+  <kpi-card
+    label="Total Docentes"
+    [value]="counts().all"
+    detail="Profesores registrados en el sistema"
+    variant="primary"
+  >
+    <svg kpi-icon lucideUsers></svg>
+  </kpi-card>
+
+  <kpi-card
+    label="Con Materias Asignadas"
+    [value]="counts().active - counts().noCourses"
+    detail="Docentes con materias asignadas"
+    variant="running"
+  >
+    <svg kpi-icon lucideBookOpen></svg>
+  </kpi-card>
+
+  <kpi-card
+    label="Sin Materias Asignadas"
+    [value]="counts().noCourses"
+    detail="Docentes activos sin carga horaria"
+    variant="warning"
+  >
+    <svg kpi-icon lucideClock></svg>
+  </kpi-card>
+</kpi-grid>

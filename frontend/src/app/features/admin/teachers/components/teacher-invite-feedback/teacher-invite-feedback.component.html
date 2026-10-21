@@ -1,0 +1,39 @@
+<modal-shell
+  [title]="feedback()!.title"
+  intent="success"
+  (close)="dismiss.emit()"
+>
+  <svg modal-icon lucideCheckCircle class="icon"></svg>
+  <span modal-subtitle>Destinatario: <strong>{{ feedback()!.email }}</strong></span>
+
+  <div class="info-alert">
+    <svg lucideSend class="alert-icon"></svg>
+    <p class="alert-text">
+      Se ha generado el enlace de acceso directo para que el docente active su cuenta institucional mediante Google Workspace SSO.
+    </p>
+  </div>
+
+  <div class="direct-link-section">
+    <label class="direct-link-label">Enlace de acceso directo (vigencia de 72 horas):</label>
+    <div class="token-box">
+      <input type="text" readonly [value]="feedback()!.inviteUrl" class="token-input" />
+      <button
+        class="btn-copy"
+        [class.copied]="copied()"
+        (click)="copyTokenUrl.emit(feedback()!.inviteUrl)">
+        @if (!copied()) {
+          <svg lucideCopy class="btn-icon"></svg>
+        } @else {
+          <svg lucideCheckCircle class="btn-icon"></svg>
+        }
+        <span>{{ copied() ? '¡Copiado!' : 'Copiar enlace' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <ng-container modal-footer>
+    <button class="btn-primary" (click)="dismiss.emit()">
+      <span>Aceptar y Cerrar</span>
+    </button>
+  </ng-container>
+</modal-shell>

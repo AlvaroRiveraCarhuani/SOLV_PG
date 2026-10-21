@@ -1,0 +1,189 @@
+<div class="table-card">
+  <status-tabs
+    [tabs]="teacherStatusTabs()"
+    [activeTab]="statusFilter()"
+    (tabChange)="statusChange.emit($event)"
+  />
+
+  <div class="filter-toolbar">
+    <div class="search-box">
+      <search-bar
+        [query]="searchTerm()"
+        placeholder="Buscar docente por nombre o correo institucional..."
+        (queryChange)="searchChange.emit($event)"
+      />
+    </div>
+
+    <div class="filters-group">
+      <div class="filter-item">
+        <label class="filter-label">Origen:</label>
+        <combobox
+          [compact]="true"
+          [value]="selectedOriginLabel()"
+          [options]="originComboboxOptions()"
+          placeholder="Origen..."
+          (optionSelected)="onOriginSelected($event)"
+        ></combobox>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrapper">
+    @if (isLoading()) {
+      <div class="loading-state">
+        <div class="tenant-spinner"></div>
+        <span>Consultando catálogo de docentes...</span>
+      </div>
+    } @else {
+      <table class="teachers-table">
+        <thead>
+          <tr>
+            <th>NOMBRE Y CORREO</th>
+            <th>ORIGEN</th>
+            <th>ESTADO</th>
+            <th>MATERIAS</th>
+            <th>FECHA DE REGISTRO</th>
+            <th class="text-right">ACCIÓN</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (teacher of teachers(); track teacher.id) {
+            <tr [class.row-pending]="teacher.status === 'pending'" [class.row-expired]="teacher.status === 'expired'">
+              <!-- Nombre y Correo -->
+              <td>
+                <div class="teacher-cell">
+                  <div class="teacher-avatar">{{ getInitials(teacher.full_name) }}</div>
+                  <div class="teacher-meta">
+                    <span class="teacher-name">{{ teacher.full_name }}</span>
+                    <span class="teacher-email">{{ teacher.email }}</span>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Origen -->
+              <td>
+                @if (teacher.origin === 'gclassroom') {
+                  <span class="origin-badge gclassroom" title="Sincronizado vía Google Classroom">
+                    <svg lucideLock class="origin-icon"></svg>
+                    <span>GClassroom</span>
+                  </span>
+                } @else {
+                  <span class="origin-badge manual">Manual</span>
+                }
+              </td>
+
+              <!-- Estado del Usuario -->
+              <td>
+                @switch (teacher.status) {
+                  @case ('active') {
+                    <span class="status-pill active">
+                      <svg lucideCheckCircle class="pill-icon"></svg>
+                      <span>Activo</span>
+                    </span>
+                  }
+                  @case ('pending') {
+                    <span class="status-pill pending" title="Invitación emitida. Vigencia de 72 horas.">
+                      <svg lucideClock class="pill-icon"></svg>
+                      <span>Pendiente</span>
+                    </span>
+                  }
+                  @case ('expired') {
+                    <span class="status-pill expired" title="Invitación expirada sin aceptar.">
+                      <svg lucideAlertCircle class="pill-icon"></svg>
+                      <span>Expirado</span>
+                    </span>
+                  }
+                }
+              </td>
+
+              <!-- Materias Activas -->
+              <td>
+                <button
+                  class="btn-courses-link"
+                  [class.has-courses]="(teacher.active_courses ?? 0) > 0"
+                  (click)="openTeacherCourses.emit(teacher)">
+                  <svg lucideBookOpen class="courses-icon"></svg>
+                  <span>{{ teacher.active_courses ?? 0 }} {{ (teacher.active_courses ?? 0) === 1 ? 'materia' : 'materias' }}</span>
+                </button>
+              </td>
+
+              <!-- Fecha Invitado / Registro -->
+              <td>
+                <span class="date-text">{{ formatInvitedAt(teacher.invited_at) }}</span>
+              </td>
+
+              <!-- Acciones -->
+              <td class="text-right">
+                <div class="actions-cell">
+                  @if (teacher.status === 'pending') {
+                    <button
+                      class="btn-row-action resend"
+                      (click)="resendInvitation.emit(teacher)"
+                      title="Reenviar correo de invitación">
+                      <svg lucideSend class="btn-icon"></svg>
+                      <span>Reenviar</span>
+                    </button>
+                    <button
+                      class="btn-row-action revoke"
+                      (click)="revokeInvitation.emit(teacher)"
+                      title="Cancelar invitación pendiente">
+                      <svg lucideTrash2 class="btn-icon"></svg>
+                    </button>
+                  } @else if (teacher.status === 'expired') {
+                    <button
+                      class="btn-row-action renew"
+                      (click)="renewInvitation.emit(teacher)"
+                      title="Renovar invitación por 72 horas más">
+                      <svg lucideRotateCcw class="btn-icon"></svg>
+                      <span>Renovar</span>
+                    </button>
+                    <button
+                      class="btn-row-action revoke"
+                      (click)="revokeInvitation.emit(teacher)"
+                      title="Eliminar registro de invitación expirada">
+                      <svg lucideTrash2 class="btn-icon"></svg>
+                    </button>
+                  } @else {
+                    <button
+                      class="btn-row-action copy-email"
+                      (click)="copyEmail.emit(teacher.email)"
+                      title="Copiar correo institucional al portapapeles">
+                      <svg lucideCopy class="btn-icon"></svg>
+                      <span>Copiar correo</span>
+                    </button>
+                    <button
+                      class="btn-row-action revoke"
+                      (click)="requestDeleteTeacher.emit(teacher)"
+                      title="Dar de baja docente y revocar materias asignadas">
+                      <svg lucideTrash2 class="btn-icon"></svg>
+                    </button>
+                  }
+                </div>
+              </td>
+            </tr>
+          } @empty {
+            <tr>
+              <td colspan="6" class="empty-state">
+                <div class="empty-content">
+                  <svg lucideUserPlus class="empty-icon"></svg>
+                  <p class="empty-title">No se encontraron docentes</p>
+                  <p class="empty-desc">No hay profesores que coincidan con los criterios de búsqueda o filtros seleccionados.</p>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </div>
+
+  <pagination-bar
+    [currentPage]="currentPage()"
+    [totalPages]="totalPages()"
+    [totalItems]="filteredCount()"
+    [from]="paginationDisplay().from"
+    [to]="paginationDisplay().to"
+    itemLabel="docentes"
+    (pageChange)="pageChange.emit($event)"
+  />
+</div>

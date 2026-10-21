@@ -4,36 +4,30 @@ import { FormsModule } from '@angular/forms';
 import { AdminTeachersService, TeacherCourse } from '../services/admin-teachers.service';
 import { TeacherInviteModalComponent } from './components/teacher-invite-modal/teacher-invite-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
-import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
-import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { formatSolvDate } from '@shared/pipes/date-text.pipe';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
-import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
-import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
-import { 
-  TeacherItem, 
-  TeacherInvitationPayload, 
-  DirectTeacherPayload, 
-  BatchDirectTeacherPayload 
+import { TeacherTableComponent } from './components/teacher-table/teacher-table.component';
+import { TeacherCoursesModalComponent } from './components/teacher-courses-modal/teacher-courses-modal.component';
+import { TeacherInviteFeedbackComponent } from './components/teacher-invite-feedback/teacher-invite-feedback.component';
+import { TeacherKpiCardsComponent } from './components/teacher-kpi-cards/teacher-kpi-cards.component';
+import { ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
+import {
+  TeacherItem,
+  TeacherInvitationPayload,
+  DirectTeacherPayload,
+  BatchDirectTeacherPayload
 } from '@core/models/admin.model';
-import { 
-  LucideUserPlus, 
-  LucideLock, 
-  LucideCheckCircle, 
-  LucideClock, 
-  LucideAlertCircle, 
-  LucideSend, 
-  LucideRotateCcw,
-  LucideCopy,
-  LucideTrash2,
-  LucideBookOpen,
-  LucideUsers,
-  LucideArrowRightLeft,
-  LucidePlus
-} from '@lucide/angular';
+import { LucideUserPlus, LucideCheckCircle, LucideAlertCircle } from '@lucide/angular';
+import { formatSolvDate } from '@shared/pipes/date-text.pipe';
+
+const ENGLISH_MONTH_INDEX: Record<string, number> = {
+  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+};
+
+interface ToastData {
+  text: string;
+  isError: boolean;
+}
 
 interface TokenFeedbackData {
   title: string;
@@ -41,46 +35,21 @@ interface TokenFeedbackData {
   inviteUrl: string;
 }
 
-interface ToastData {
-  text: string;
-  isError: boolean;
-}
-
-const ENGLISH_MONTH_INDEX: Record<string, number> = {
-  jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-  jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
-};
-
 @Component({
   selector: 'admin-teachers',
   standalone: true,
   imports: [
-    CommonModule, 
-    FormsModule, 
-    ComboboxComponent,
-    SearchBarComponent,
-    KpiCardComponent,
-    KpiGridComponent,
-    StatusTabsComponent,
-    PaginationBarComponent,
+    CommonModule,
+    FormsModule,
     TeacherInviteModalComponent,
     ConfirmModalComponent,
-    ModalShellComponent,
-    FormFieldComponent,
-    MachineDataDirective,
-    LucideUserPlus, 
-    LucideLock, 
-    LucideCheckCircle, 
-    LucideClock, 
-    LucideAlertCircle, 
-    LucideSend, 
-    LucideRotateCcw,
-    LucideCopy,
-    LucideTrash2,
-    LucideBookOpen,
-    LucideUsers,
-    LucideArrowRightLeft,
-    LucidePlus
+    TeacherTableComponent,
+    TeacherCoursesModalComponent,
+    TeacherInviteFeedbackComponent,
+    TeacherKpiCardsComponent,
+    LucideUserPlus,
+    LucideCheckCircle,
+    LucideAlertCircle
   ],
   templateUrl: './admin-teachers.component.html',
   styleUrl: './admin-teachers.component.scss'
@@ -108,12 +77,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     return match ? match.label : 'Todos los orígenes';
   });
 
-  onOriginSelected(opt: ComboboxOption): void {
-    this.onOriginChange(opt.value || 'all');
-  }
-
   formatInvitedAt(value: string): string {
-    // Formato legacy '17-Sep-2026' → ISO antes del formateador canónico
     const legacyDate = /^(\d{2})-([A-Za-z]{3})-(\d{4})$/.exec(value);
     if (legacyDate) {
       const monthIndex = ENGLISH_MONTH_INDEX[legacyDate[2].toLowerCase()] ?? -1;
@@ -124,6 +88,12 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
       return value;
     }
     return formatSolvDate(value, 'daymonthyear') ?? value;
+  }
+
+  onOriginChange(value: string): void {
+    this.originFilter.set(value);
+    this.currentPage.set(1);
+    this.loadTeachers();
   }
 
   activeTeacherComboboxOptions = computed<ComboboxOption[]>(() => {
@@ -343,12 +313,6 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.loadTeachers();
   }
 
-  onOriginChange(value: string): void {
-    this.originFilter.set(value);
-    this.currentPage.set(1);
-    this.loadTeachers();
-  }
-
   goToPage(page: number): void {
     if (page >= 1 && page <= this.totalPages()) {
       this.currentPage.set(page);
@@ -359,18 +323,7 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
     this.showInviteModal.set(true);
   }
 
-  getInitials(name: string): string {
-    if (!name) return 'PR';
-    return name
-      .split(' ')
-      .slice(0, 2)
-      .map(w => w[0] || '')
-      .join('')
-      .toUpperCase();
-  }
-
-  toggleMenu(teacherId: string, event: Event): void {
-    event.stopPropagation();
+  toggleMenu(teacherId: string): void {
     this.activeMenuId.update(current => current === teacherId ? null : teacherId);
   }
 
@@ -470,8 +423,8 @@ export class AdminTeachersComponent implements OnInit, OnDestroy {
   copyTeacherEmail(email: string): void {
     if (navigator?.clipboard) {
       navigator.clipboard.writeText(email);
-      this.showToast('Correo copiado al portapapeles');
     }
+    this.showToast('Correo copiado al portapapeles');
     this.activeMenuId.set(null);
   }
 

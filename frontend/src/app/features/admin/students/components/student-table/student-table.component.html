@@ -1,0 +1,241 @@
+<!-- Barra de Filtros y Búsqueda -->
+<section class="filters-bar">
+  <div class="search-box">
+    <search-bar
+      [query]="searchTerm()"
+      placeholder="Buscar por nombre, apellido o correo institucional..."
+      (queryChange)="onSearchChange($event)"
+    />
+  </div>
+
+  <div class="filters-controls">
+    <!-- Filtro por Periodo Académico -->
+    <div class="filter-group">
+      <label class="filter-label">Periodo:</label>
+      <combobox
+        [compact]="true"
+        [value]="selectedPeriodLabel()"
+        [options]="periodComboboxOptions()"
+        placeholder="Periodo..."
+        (optionSelected)="onPeriodSelected($event)"
+      ></combobox>
+    </div>
+
+    <!-- Filtro por Materia -->
+    <div class="filter-group">
+      <label class="filter-label">Materia:</label>
+      <combobox
+        [compact]="true"
+        [value]="selectedSubjectLabel()"
+        [options]="subjectComboboxOptions()"
+        placeholder="Materia..."
+        (optionSelected)="onSubjectSelected($event)"
+      ></combobox>
+    </div>
+
+    <!-- Filtro por Estado -->
+    <div class="filter-group">
+      <label class="filter-label">Estado:</label>
+      <combobox
+        [compact]="true"
+        [value]="selectedStatusLabel()"
+        [options]="statusComboboxOptions()"
+        placeholder="Estado..."
+        (optionSelected)="onStatusSelected($event)"
+      ></combobox>
+    </div>
+  </div>
+</section>
+
+<!-- Tabla de Estudiantes -->
+<section class="table-container">
+  @if (isLoading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Cargando directorio de estudiantes...</span>
+    </div>
+  } @else if (students().length === 0) {
+    <div class="empty-state">
+      <p>No se encontraron estudiantes que coincidan con los criterios seleccionados.</p>
+      <button class="btn-reset-filters" (click)="onResetFilters()">
+        Restablecer filtros
+      </button>
+    </div>
+  } @else {
+    <table class="students-table">
+      <thead>
+        <tr>
+          <th>Estudiante</th>
+          <th>Condición Académica</th>
+          <th>Materias Inscritas</th>
+          <th>Entornos Activos</th>
+          <th>Penalizaciones OOM</th>
+          <th>Último Incidente</th>
+          <th class="text-right">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (student of students(); track student.id) {
+          <tr>
+            <!-- Info del Estudiante -->
+            <td>
+              <div class="student-profile">
+                <div class="student-avatar" [class.has-strikes]="student.oom_strike_count > 0">
+                  {{ getInitials(student.first_name, student.last_name) }}
+                </div>
+                <div class="student-meta">
+                  <span class="student-name">{{ student.first_name }} {{ student.last_name }}</span>
+                  <div class="student-email-row">
+                    <span class="student-email">{{ student.email }}</span>
+                    <button 
+                      class="btn-copy-email" 
+                      (click)="onCopyEmail(student.email)" 
+                      [title]="copiedEmail() === student.email ? '¡Copiado!' : 'Copiar correo'">
+                      @if (copiedEmail() === student.email) {
+                        <svg lucideCheck class="copy-icon text-success"></svg>
+                      } @else {
+                        <svg lucideCopy class="copy-icon"></svg>
+                      }
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </td>
+
+            <!-- Estado Académico y de Cuenta -->
+            <td>
+              @if (student.status === 'suspended') {
+                <span class="account-status-pill suspended" [title]="student.suspension_reason || 'Acceso suspendido administrativamente'">
+                  <svg lucideUserX class="pill-icon"></svg>
+                  <span>Suspendido</span>
+                </span>
+              } @else if (student.academic_status === 'enrolled') {
+                <span class="account-status-pill enrolled" title="Con materias inscritas en el periodo seleccionado">
+                  <svg lucideUserCheck class="pill-icon"></svg>
+                  <span>Cursando</span>
+                </span>
+              } @else {
+                <span class="account-status-pill inactive" title="Sin materias registradas en el periodo seleccionado">
+                  <span class="neutral-dot"></span>
+                  <span>Sin materias</span>
+                </span>
+              }
+            </td>
+
+            <!-- Materias Inscritas -->
+            <td>
+              <button 
+                class="btn-courses-badge" 
+                (click)="onOpenCourses(student)"
+                [title]="'Ver materias asignadas a ' + student.first_name">
+                <svg lucideBookOpen class="courses-icon"></svg>
+                <span>{{ student.enrolled_courses_count }} {{ student.enrolled_courses_count === 1 ? 'materia' : 'materias' }}</span>
+              </button>
+            </td>
+
+            <!-- Entornos Activos -->
+            <td>
+              @if (student.active_workspaces_count > 0) {
+                <span class="active-workspaces-badge">
+                  <span class="pulse-dot"></span>
+                  <span>{{ student.active_workspaces_count }} en ejecución</span>
+                </span>
+              } @else {
+                <span class="idle-workspaces-badge">En reposo</span>
+              }
+            </td>
+
+            <!-- Penalizaciones OOM (Semáforo 0, 1-2, 3) -->
+            <td>
+              @if (student.oom_strike_count === 0) {
+                <span class="strike-pill normal">
+                  0 strikes
+                </span>
+              } @else if (student.oom_strike_count < 3) {
+                <span class="strike-pill warning">
+                  <svg lucideAlertTriangle class="pill-icon"></svg>
+                  <span>{{ student.oom_strike_count }} / 3 strikes</span>
+                </span>
+              } @else {
+                <span class="strike-pill blocked" title="Estudiante bloqueado por superar el límite de 3 strikes OOM">
+                  <svg lucideShieldAlert class="pill-icon"></svg>
+                  <span>3 / 3 (Bloqueado)</span>
+                </span>
+              }
+            </td>
+
+            <!-- Último Incidente OOM -->
+            <td>
+              <time class="incident-date font-date">{{ formatDate(student.last_oom_killed_at) }}</time>
+            </td>
+
+            <!-- Acciones de Gobernanza -->
+            <td class="text-right">
+              <div class="actions-cell">
+                <div class="actions-menu-container">
+                  <button 
+                    #actionsTriggerBtn
+                    type="button" 
+                    class="btn-action-icon more"
+                    (click)="onToggleMenu(student.id, $event)"
+                    title="Acciones de cuenta">
+                    <svg lucideMoreVertical class="action-icon"></svg>
+                  </button>
+
+                  @if (activeMenuStudentId() === student.id) {
+                    <div 
+                      class="actions-dropdown" 
+                      dismissible 
+                      [dismissExclude]="actionsTriggerBtn"
+                      (dismiss)="onDismissMenu()"
+                    >
+                      @if (student.oom_strike_count > 0) {
+                        <button 
+                          type="button" 
+                          class="dropdown-item warning" 
+                          (click)="onOpenResetOOM(student)">
+                          <svg lucideRotateCcw class="dropdown-icon"></svg>
+                          <span>Restablecer strikes OOM ({{ student.oom_strike_count }})</span>
+                        </button>
+                        <div class="dropdown-divider"></div>
+                      }
+
+                      @if (student.status === 'suspended') {
+                        <button 
+                          type="button" 
+                          class="dropdown-item success" 
+                          (click)="onToggleStatus(student)">
+                          <svg lucideUserCheck class="dropdown-icon"></svg>
+                          <span>Reactivar acceso</span>
+                        </button>
+                      } @else {
+                        <button 
+                          type="button" 
+                          class="dropdown-item danger" 
+                          (click)="onToggleStatus(student)">
+                          <svg lucideUserX class="dropdown-icon"></svg>
+                          <span>Suspender acceso</span>
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              </div>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+
+    <!-- Paginación -->
+    <pagination-bar
+      [currentPage]="currentPage()"
+      [totalPages]="totalPages()"
+      [totalItems]="totalItems()"
+      [from]="paginationFrom()"
+      [to]="paginationTo()"
+      itemLabel="estudiantes"
+      (pageChange)="onPageChange($event)"
+    />
+  }
+</section>

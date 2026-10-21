@@ -1,0 +1,61 @@
+<section class="card-section" id="template-section">
+  <div class="section-header-row">
+    <div class="title-with-icon">
+      <svg lucideServer class="header-icon"></svg>
+      <h3 class="card-title">Plantilla del Catálogo Homologado</h3>
+    </div>
+    <button type="button" class="btn-outline btn-sm" (click)="requestTemplate.emit()">
+      <svg lucidePlus class="btn-icon"></svg>
+      <span>Solicitar nueva plantilla</span>
+    </button>
+  </div>
+
+  <div class="form-group">
+    <label class="form-label">
+      Seleccionar plantilla aprobada <span class="required">*</span>
+    </label>
+    <combobox
+      [options]="templateOptions()"
+      [value]="selectedTemplate()?.id || ''"
+      [placeholder]="'Buscar o seleccionar plantilla homologada...'"
+      [showSearchIcon]="true"
+      [compact]="false"
+      (optionSelected)="onTemplateOptionSelected($event)"
+      inputAriaLabel="Seleccionar plantilla aprobada"
+    />
+  </div>
+
+  @if (selectedTemplate(); as tpl) {
+    <div class="template-detail-card">
+      <div class="detail-row">
+        <span class="detail-label">Nombre de la plantilla:</span>
+        <span class="detail-value font-bold">{{ tpl.name }}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Imagen Docker:</span>
+        <code class="detail-code" machineData>{{ tpl.docker_image }}</code>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Memoria RAM Asignada:</span>
+        <span class="detail-chip" machineData>{{ tpl.base_ram_mb }} MB (Heredada del Admin)</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Servicios Satélite:</span>
+        <div class="satellites-list">
+          @if (tpl.services_config?.database?.enabled) {
+            <span class="satellite-badge active">
+              <svg lucideDatabase class="badge-icon"></svg>
+              <span>Base de datos ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
+            </span>
+          } @else {
+            <span class="satellite-badge neutral">Sin base de datos satélite</span>
+          }
+        </div>
+      </div>
+    </div>
+  } @else {
+    <div class="empty-template-hint">
+      <span>Selecciona una plantilla del catálogo oficial para desplegar el entorno OpenVSCode.</span>
+    </div>
+  }
+</section>
