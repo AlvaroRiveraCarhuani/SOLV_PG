@@ -38,6 +38,17 @@ export const routes: Routes = [
       {
         path: 'cursos/:courseId',
         redirectTo: 'courses/:courseId'
+      },
+      {
+        path: 'exercises/:exerciseId',
+        loadComponent: () =>
+          import('@features/student/exercises/solver/student-exercise-solver.component').then(
+            (m) => m.StudentExerciseSolverComponent
+          )
+      },
+      {
+        path: 'ejercicios/:exerciseId',
+        redirectTo: 'exercises/:exerciseId'
       }
     ]
   },

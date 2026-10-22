@@ -1,0 +1,430 @@
+<div class="solver-page-container">
+  <header class="solver-topbar">
+    <div class="topbar-left">
+      <a [routerLink]="backCourseLink()" class="btn-back" title="Volver al curso">
+        <svg lucideArrowLeft class="topbar-icon"></svg>
+        <span>Volver al Curso</span>
+      </a>
+
+      <div class="title-meta">
+        <h1 class="page-title">{{ exercise()?.title || 'Cargando ejercicio...' }}</h1>
+        @if (exercise()?.purpose === 'exam') {
+          <span class="exam-pill">Evaluación de Examen</span>
+        }
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      @if (!isIdeExercise()) {
+        <div class="lang-selector-group">
+          <span class="lang-label">Lenguaje:</span>
+          <combobox
+            [options]="languageOptions()"
+            [value]="selectedLanguage()"
+            [compact]="true"
+            [showSearchIcon]="false"
+            (optionSelected)="onLanguageChange($event.value)"
+            inputAriaLabel="Seleccionar lenguaje"
+          />
+        </div>
+      }
+    </div>
+  </header>
+
+  @if (isLoading()) {
+    <div class="solver-state-card">
+      <p>Cargando consigna del ejercicio...</p>
+    </div>
+  } @else if (loadError()) {
+    <div class="solver-state-card error-card">
+      <svg lucideAlertTriangle class="state-icon"></svg>
+      <p>{{ loadError() }}</p>
+    </div>
+  } @else if (exercise(); as ex) {
+    <div class="solver-split-grid">
+      <!-- Columna izquierda: Consigna y ejemplos públicos -->
+      <section class="statement-panel">
+        <div class="meta-strip">
+          @if (ex.difficulty) {
+            <span class="meta-badge" machineData>{{ ex.difficulty }}</span>
+          }
+          <span class="meta-badge" machineData>
+            <svg lucideClock class="meta-icon"></svg>
+            <span>{{ effectiveTimeLimitMs() }} ms</span>
+          </span>
+          <span class="meta-badge" machineData>
+            <svg lucideCpu class="meta-icon"></svg>
+            <span>{{ effectiveMemoryLimitMb() }} MB</span>
+          </span>
+        </div>
+
+        <article class="statement-card">
+          <div class="section-heading">
+            <svg lucideFileText class="section-icon"></svg>
+            <h2 class="section-title">Descripción del Problema</h2>
+          </div>
+          <div class="markdown-body" [innerHTML]="renderedDescription()"></div>
+        </article>
+
+        @if (constraintsList().length > 0) {
+          <article class="statement-card constraints-card">
+            <div class="section-heading">
+              <svg lucideShield class="section-icon"></svg>
+              <h2 class="section-title">Restricciones de Código</h2>
+            </div>
+            <ul class="constraints-list">
+              @for (rule of constraintsList(); track rule) {
+                <li><code class="font-mono">{{ rule }}</code></li>
+              }
+            </ul>
+          </article>
+        }
+
+        @if (!isIdeExercise()) {
+          <article class="statement-card">
+            <div class="section-heading">
+              <svg lucideLayers class="section-icon"></svg>
+              <h2 class="section-title">Casos de Ejemplo (<span machineData>{{ exampleCases().length }}</span>)</h2>
+            </div>
+
+            @for (tc of exampleCases(); track $index) {
+              <div class="example-box">
+                <div class="example-box-header">
+                  <span class="font-mono" machineData>Ejemplo #{{ $index + 1 }}</span>
+                </div>
+                <div class="example-io-columns">
+                  <div class="io-col">
+                    <span class="io-label">Entrada (STDIN)</span>
+                    <pre class="io-pre font-mono" machineData>{{ tc.input || '(vacío)' }}</pre>
+                  </div>
+                  <div class="io-col">
+                    <span class="io-label">Salida Esperada (STDOUT)</span>
+                    <pre class="io-pre font-mono" machineData>{{ tc.expected_output || '(vacío)' }}</pre>
+                  </div>
+                </div>
+              </div>
+            } @empty {
+              <p class="empty-note">Sin casos de ejemplo públicos.</p>
+            }
+          </article>
+        } @else {
+          <article class="statement-card">
+            <div class="section-heading">
+              <svg lucideTerminal class="section-icon"></svg>
+              <h2 class="section-title">Proyecto en IDE Persistente</h2>
+            </div>
+            <p class="ide-hint">
+              El ejercicio se resuelve dentro de tu workspace interactivo. Escribí los archivos del
+              proyecto y entregalos para que el docente los califique con la rúbrica.
+            </p>
+            <ul class="ide-rules-list">
+              <li>Los archivos se sincronizan con el volumen del workspace al entregar.</li>
+              <li>La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta la calificación docente.</li>
+              <li>
+                @if (canResubmitProject()) {
+                  Podés volver a entregar mientras el docente lo permita.
+                } @else {
+                  Solo se permite una entrega para este ejercicio.
+                }
+              </li>
+            </ul>
+          </article>
+        }
+      </section>
+
+      <!-- Columna derecha: Editor de código + Resultado del Juez -->
+      <section class="editor-panel">
+        @if (isIdeExercise()) {
+          <div class="editor-card">
+            <div class="editor-toolbar">
+              <div class="toolbar-left">
+                <svg lucideTerminal class="toolbar-icon"></svg>
+                <span class="file-label">Workspace del alumno</span>
+              </div>
+              <div class="toolbar-actions">
+                <button
+                  type="button"
+                  class="btn-outline"
+                  data-testid="btn-start-ide"
+                  [disabled]="isStartingWorkspace()"
+                  (click)="startIdeWorkspace()"
+                >
+                  <svg lucideRefreshCw class="btn-icon" [class.spin-icon]="isStartingWorkspace()"></svg>
+                  <span>{{ workspace() ? 'Reconectar' : 'Iniciar IDE' }}</span>
+                </button>
+                @if (workspace()?.access_url) {
+                  <button type="button" class="btn-primary" data-testid="btn-open-ide" (click)="openIdeInNewTab()">
+                    <svg lucideExternalLink class="btn-icon"></svg>
+                    <span>Abrir IDE</span>
+                  </button>
+                }
+              </div>
+            </div>
+
+            <div class="editor-body">
+              @if (isStartingWorkspace()) {
+                <p class="empty-note">Aprovisionando el workspace del ejercicio...</p>
+              } @else if (workspace(); as ws) {
+                <div class="ide-status-grid">
+                  <div class="ide-status-item">
+                    <span class="ide-status-label">Estado</span>
+                    <span class="ide-status-value font-mono" machineData>{{ ws.status }}</span>
+                  </div>
+                  @if (ws.access_url) {
+                    <div class="ide-status-item ide-status-item-wide">
+                      <span class="ide-status-label">URL de acceso</span>
+                      <code class="ide-url font-mono" machineData>{{ ws.access_url }}</code>
+                    </div>
+                  }
+                  @if (ws.last_activity_at) {
+                    <div class="ide-status-item">
+                      <span class="ide-status-label">Última actividad</span>
+                      <time class="ide-status-value font-mono" machineData>{{ ws.last_activity_at | dateText:'compact-datetime' }}</time>
+                    </div>
+                  }
+                  <div class="ide-status-item">
+                    <span class="ide-status-label">Workspace</span>
+                    <span class="ide-status-value font-mono" machineData>{{ ws.id }}</span>
+                  </div>
+                </div>
+              } @else {
+                <p class="empty-note">
+                  El workspace se inicia bajo demanda y conserva tus archivos entre sesiones.
+                </p>
+              }
+
+              @if (workspaceError()) {
+                <p class="ide-error" role="alert">{{ workspaceError() }}</p>
+              }
+            </div>
+          </div>
+
+          <div class="editor-card">
+            <div class="editor-toolbar">
+              <div class="toolbar-left">
+                <svg lucideFileCode class="toolbar-icon"></svg>
+                <span class="file-label">Archivos del proyecto</span>
+                <span class="meta-badge" machineData>{{ projectFilesCount() }}</span>
+              </div>
+            </div>
+
+            <div class="editor-body">
+              <div class="project-file-bar">
+                @for (file of projectFiles(); track file.name) {
+                  <button
+                    type="button"
+                    class="file-chip"
+                    [class.file-chip-active]="file.name === selectedFileName()"
+                    (click)="selectProjectFile(file.name)"
+                  >
+                    <span class="font-mono" machineData>{{ file.name }}</span>
+                  </button>
+                }
+              </div>
+
+              <div class="project-file-actions">
+                <input
+                  class="form-input font-mono"
+                  type="text"
+                  [ngModel]="newFileName()"
+                  (ngModelChange)="newFileName.set($event)"
+                  placeholder="nuevo_archivo.py"
+                  aria-label="Nombre de archivo nuevo"
+                />
+                <button type="button" class="btn-outline" (click)="addProjectFile()">
+                  <svg lucidePlus class="btn-icon"></svg>
+                  <span>Agregar</span>
+                </button>
+                <button
+                  type="button"
+                  class="btn-outline btn-danger"
+                  [disabled]="projectFilesCount() <= 1"
+                  (click)="removeProjectFile(selectedFileName())"
+                >
+                  <svg lucideTrash2 class="btn-icon"></svg>
+                  <span>Quitar</span>
+                </button>
+              </div>
+
+              <div class="project-editor-body">
+                @defer {
+                  <code-editor
+                    [value]="selectedFileContent()"
+                    [language]="projectEditorLanguage()"
+                    minHeight="320px"
+                    (valueChange)="onProjectFileChange($event)"
+                  />
+                } @placeholder {
+                  <textarea
+                    class="form-textarea font-mono"
+                    rows="12"
+                    [ngModel]="selectedFileContent()"
+                    (ngModelChange)="onProjectFileChange($event)"
+                    aria-label="Contenido del archivo seleccionado"
+                  ></textarea>
+                }
+              </div>
+            </div>
+          </div>
+
+          <div class="editor-card">
+            <div class="editor-toolbar">
+              <div class="toolbar-left">
+                <svg lucideLayers class="toolbar-icon"></svg>
+                <span class="file-label">Entrega del proyecto</span>
+              </div>
+              <div class="toolbar-actions">
+                <button
+                  type="button"
+                  class="btn-primary"
+                  data-testid="btn-submit-project"
+                  [disabled]="!canSubmitProject()"
+                  (click)="submitProject()"
+                >
+                  @if (isSubmittingProject()) {
+                    <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                    <span>Entregando...</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Entregar Proyecto</span>
+                  }
+                </button>
+              </div>
+            </div>
+
+            <div class="editor-body">
+              @if (projectSubmission(); as submission) {
+                <div class="submission-saved-banner">
+                  <svg lucideCheckCircle2 class="saved-icon"></svg>
+                  <span>
+                    Entrega registrada (<code class="font-mono" machineData>{{ submission.submission_id }}</code>)
+                  </span>
+                </div>
+                <div class="verdict-metrics">
+                  <span class="metric-chip font-mono" machineData>verdict: {{ submission.verdict }}</span>
+                  @if (projectSubmittedAt(); as submittedAt) {
+                    <time class="metric-chip font-mono" machineData>{{ submittedAt | dateText:'long-datetime' }}</time>
+                  }
+                </div>
+                @if (canResubmitProject()) {
+                  <p class="empty-note">Podés reemplazar la entrega con los archivos actuales.</p>
+                } @else {
+                  <p class="empty-note">Este ejercicio admite una única entrega.</p>
+                }
+              } @else {
+                <p class="empty-note">
+                  La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta que el docente la califique con la rúbrica.
+                </p>
+              }
+
+              @if (projectError()) {
+                <p class="ide-error" role="alert">{{ projectError() }}</p>
+              }
+            </div>
+          </div>
+        } @else {
+        <div class="editor-card">
+          <div class="editor-toolbar">
+            <div class="toolbar-left">
+              <svg lucideFileCode class="toolbar-icon"></svg>
+              <span class="file-label font-mono" machineData>solucion.{{ selectedLanguage() }}</span>
+            </div>
+
+            <div class="toolbar-actions">
+              <button
+                type="button"
+                class="btn-outline btn-reset-code"
+                (click)="resetBoilerplate()"
+                title="Restaurar plantilla inicial"
+              >
+                <svg lucideRotateCcw class="btn-icon"></svg>
+                <span>Reiniciar</span>
+              </button>
+
+              <button
+                type="button"
+                class="btn-primary btn-submit-solution"
+                data-testid="btn-submit-solution"
+                (click)="submitSolution()"
+                [disabled]="isSubmitting() || !sourceCode().trim()"
+              >
+                @if (isSubmitting()) {
+                  <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                  <span>Evaluando...</span>
+                } @else {
+                  <svg lucidePlay class="btn-icon"></svg>
+                  <span>Enviar al Juez</span>
+                }
+              </button>
+            </div>
+          </div>
+
+          <div class="editor-body">
+            @defer {
+              <code-editor
+                [value]="sourceCode()"
+                [language]="selectedLanguage()"
+                minHeight="280px"
+                (valueChange)="onCodeChange($event)"
+              />
+            } @placeholder {
+              <textarea
+                class="form-textarea font-mono"
+                rows="10"
+                [ngModel]="sourceCode()"
+                (ngModelChange)="onCodeChange($event)"
+                aria-label="Editor de código"
+              ></textarea>
+            }
+          </div>
+        </div>
+
+        @if (submitError()) {
+          <div class="verdict-card verdict-error" role="alert">
+            <svg lucideAlertTriangle class="verdict-icon"></svg>
+            <span>{{ submitError() }}</span>
+          </div>
+        }
+
+        @if (lastResult(); as res) {
+          <div class="verdict-card" data-testid="judge-result-panel">
+            <div class="verdict-header">
+              <div class="verdict-title-group">
+                <svg lucideTerminal class="verdict-icon"></svg>
+                <h3 class="card-title">Resultado del Juez Virtual</h3>
+                <verdict-badge [verdict]="res.verdict" />
+              </div>
+
+              <div class="verdict-metrics">
+                <span class="metric-chip font-mono" machineData>{{ res.execution_time_ms }} ms</span>
+                <span class="metric-chip font-mono" machineData>{{ res.memory_used_mb }} MB</span>
+              </div>
+            </div>
+
+            <p class="verdict-message">{{ res.message }}</p>
+
+            @if (res.case_results && res.case_results.length > 0) {
+              <div class="cases-summary-list">
+                @for (cr of res.case_results; track cr.index) {
+                  <div class="case-result-item">
+                    <span class="font-mono" machineData>Caso #{{ cr.index + 1 }}</span>
+                    <verdict-badge [verdict]="cr.verdict" />
+                    <span class="font-mono" machineData>{{ cr.duration_ms }} ms</span>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (lastSubmissionId()) {
+              <div class="submission-saved-banner">
+                <svg lucideCheckCircle2 class="saved-icon"></svg>
+                <span>Entrega registrada (<code class="font-mono" machineData>{{ lastSubmissionId() }}</code>)</span>
+              </div>
+            }
+          </div>
+        }
+        }
+      </section>
+    </div>
+  }
+</div>
