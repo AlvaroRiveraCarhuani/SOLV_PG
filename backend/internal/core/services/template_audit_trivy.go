@@ -35,6 +35,7 @@ func (w *TemplateAuditWorker) runTrivyScan(ctx context.Context, dockerImage stri
 	defer cancel()
 
 	hostConfig := &container.HostConfig{
+		NetworkMode: "none",
 		Binds: []string{
 			"/var/run/docker.sock:/var/run/docker.sock:ro",
 			fmt.Sprintf("%s:/root/.cache", w.cacheDir),
