@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"strings"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -62,9 +64,13 @@ func (m *Manager) StartTestContainer(ctx context.Context) error {
 	return nil
 }
 func (m *Manager) buildDockerLabels() map[string]string {
+	baseDomain := strings.TrimSpace(os.Getenv("BASE_DOMAIN"))
+	if baseDomain == "" || strings.HasSuffix(strings.ToLower(baseDomain), ".local") {
+		baseDomain = "localhost"
+	}
 	return map[string]string{
 		"traefik.enable":                                        "true",
-		"traefik.http.routers.prueba.rule":                      "Host(`prueba.solv.local`)",
+		"traefik.http.routers.prueba.rule":                      fmt.Sprintf("Host(`prueba.%s`)", baseDomain),
 		"traefik.http.services.prueba.loadbalancer.server.port": "80",
 		"traefik.docker.network":                                "solv_net",
 	}

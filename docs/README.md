@@ -20,6 +20,7 @@
 * [`ARQUITECTURA/CONCURRENCIA.md`](ARQUITECTURA/CONCURRENCIA.md): Modelo de control de concurrencia y límites de hardware.
 * [`ARQUITECTURA/SEGURIDAD.md`](ARQUITECTURA/SEGURIDAD.md): Estrategia de seguridad, ForwardAuth HttpOnly (D1) y reglas `iptables` Zero-Trust.
 * [`ARQUITECTURA/STORAGE_STRATEGY.md`](ARQUITECTURA/STORAGE_STRATEGY.md): Persistencia mediante volúmenes nombrados por estudiante/materia.
+* [`ARQUITECTURA/IDE_PERSISTENTE.md`](ARQUITECTURA/IDE_PERSISTENTE.md): Flujo as-built del IDE Persistente (arranque, BD satélite, entrega de proyecto y rúbrica).
 
 ---
 

@@ -9,7 +9,7 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance) (*domain.WorkspaceInstance, error) {
+func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, satelliteDBName string) (*domain.WorkspaceInstance, error) {
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
 	if instance.ContainerID != nil && *instance.ContainerID != "" {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
@@ -42,36 +42,39 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	networkName := "solv-traefik-net"
 	baseDomain := getBaseDomain()
 
-	labels := map[string]string{
-		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID):                      fmt.Sprintf("Host(`%s.%s`)", instance.ID, baseDomain),
-		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", instance.ID): "3000",
+	labels := map[string]string{}
+	hostPort, portErr := reserveWorkspaceHostPort()
+	if portErr != nil {
+		log.Printf("[Workspace] WARNING: no se pudo reservar un puerto local para %s: %v", instance.ID, portErr)
+	}
+	if baseDomain != "" {
+		labels["traefik.enable"] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.rule", instance.ID)] = fmt.Sprintf("Host(`%s.%s`)", instance.ID, baseDomain)
+		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", instance.ID)] = "3000"
+	}
+	instance.AccessURL = buildWorkspaceAccessURL(instance.ID, hostPort)
+	if updater, ok := s.repo.(workspaceAccessURLUpdater); ok {
+		if errURL := updater.UpdateAccessURL(ctx, instance.ID, instance.AccessURL); errURL != nil {
+			log.Printf("[Workspace] WARNING: no se pudo persistir access_url de %s: %v", instance.ID, errURL)
+		}
 	}
 
+	// Reinyección de credenciales satélite si aplica (la BD ya fue asegurada y el
+	// db_init_script del ejercicio aplicado por ensureExerciseSatelliteDB).
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
-
-	// Reinyección de credenciales satélite si aplica
-	if template != nil && len(template.ServicesConfig.Services) > 0 && s.db != nil {
-		for _, srv := range template.ServicesConfig.Services {
-			if srv.Category == "database" && srv.Engine == "postgres" {
-				cleanStd := sanitizeIDForDB(instance.StudentID)
-				cleanSubj := sanitizeIDForDB(instance.SubjectID)
-				dbName := fmt.Sprintf("solv_std_%s_%s", cleanStd, cleanSubj)
-				_ = ensureSatellitePostgresDatabase(ctx, s.db, dbName)
-				pgHost := getPostgresContainerHost()
-				dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, dbName)
-				envVars = append(envVars,
-					fmt.Sprintf("DATABASE_URL=%s", dbURL),
-					fmt.Sprintf("PGHOST=%s", pgHost),
-					"PGPORT=5432",
-					"PGUSER=postgres",
-					"PGPASSWORD=postgres",
-					fmt.Sprintf("PGDATABASE=%s", dbName),
-				)
-			}
-		}
+	if satelliteDBName != "" {
+		pgHost := getPostgresContainerHost()
+		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, satelliteDBName)
+		envVars = append(envVars,
+			fmt.Sprintf("DATABASE_URL=%s", dbURL),
+			fmt.Sprintf("PGHOST=%s", pgHost),
+			"PGPORT=5432",
+			"PGUSER=postgres",
+			"PGPASSWORD=postgres",
+			fmt.Sprintf("PGDATABASE=%s", satelliteDBName),
+		)
 	}
 
 	config := domain.WorkspaceContainerConfig{
@@ -82,6 +85,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 		NetworkName:   networkName,
 		Labels:        labels,
 		Env:           envVars,
+		HostPort:      hostPort,
 	}
 
 	containerID, err := s.docker.StartWorkspaceContainer(ctx, config)
@@ -116,7 +120,13 @@ func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID str
 	}
 
 	_ = s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusPending)
-	return s.reactivateWorkspace(ctx, ws)
+
+	template := s.resolveTemplate(ctx, ws.SubjectID)
+	satelliteDBName, dbErr := s.ensureExerciseSatelliteDB(ctx, ws.StudentID, ws.SubjectID, template, nil)
+	if dbErr != nil {
+		return nil, dbErr
+	}
+	return s.reactivateWorkspace(ctx, ws, satelliteDBName)
 }
 
 func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID string) error {

@@ -153,7 +153,7 @@ func (r *PostgresExerciseRepository) Create(ctx context.Context, exercise *domai
 			reference_solution, stale, expected_complexity, config, tenant_id
 		)
 		VALUES (
-			:id, :subject_id, :title, :description, :type, :environment_type, :template_id, :difficulty, :tags, :purpose, :per_student_seed,
+			:id, :subject_id, :title, :description, :type, :environment_type, CAST(NULLIF(:template_id, '') AS uuid), :difficulty, :tags, :purpose, :per_student_seed,
 			:due_date, :boilerplate, :status, :language, :time_limit_ms, :memory_limit_mb,
 			:reference_solution, :stale, :expected_complexity, :config, :tenant_id
 		)
@@ -211,7 +211,7 @@ func (r *PostgresExerciseRepository) Update(ctx context.Context, exercise *domai
 		    subject_id = :subject_id,
 		    type = :type,
 		    environment_type = :environment_type,
-		    template_id = :template_id,
+		    template_id = CAST(NULLIF(:template_id, '') AS uuid),
 		    difficulty = :difficulty,
 		    tags = :tags,
 		    purpose = :purpose,

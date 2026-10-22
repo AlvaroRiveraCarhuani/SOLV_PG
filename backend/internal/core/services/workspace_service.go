@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +23,8 @@ type WorkspaceService struct {
 	hostMonitor     domain.HostMonitor
 	subjectRepo     domain.SubjectRepository
 	templateRepo    domain.TemplateRepository
+	exerciseRepo    domain.ExerciseRepository
+	submissionRepo  domain.SubmissionRepository
 	db              *sqlx.DB
 	policiesService *ServerPoliciesService
 }
@@ -38,6 +42,16 @@ func (s *WorkspaceService) WithProvisioning(subjectRepo domain.SubjectRepository
 	s.subjectRepo = subjectRepo
 	s.templateRepo = templateRepo
 	s.db = db
+	return s
+}
+
+// WithExerciseSubmission habilita el flujo de IDE Persistente por ejercicio:
+// resolución de plantilla desde el ejercicio, db_init_script idempotente y
+// entrega del proyecto hacia SpeedGrader. Es fluido para no romper las firmas
+// existentes usadas por los tests.
+func (s *WorkspaceService) WithExerciseSubmission(exerciseRepo domain.ExerciseRepository, submissionRepo domain.SubmissionRepository) *WorkspaceService {
+	s.exerciseRepo = exerciseRepo
+	s.submissionRepo = submissionRepo
 	return s
 }
 
@@ -64,12 +78,42 @@ func (s *WorkspaceService) effectivePolicies(ctx context.Context, tenantID strin
 	return *policies
 }
 
+// getBaseDomain devuelve el dominio público configurado, o vacío cuando no hay
+// uno. Un valor .local se descarta explícitamente: el acceso local se resuelve
+// por 127.0.0.1/localhost y nunca por un dominio inventado.
 func getBaseDomain() string {
 	d := strings.TrimSpace(os.Getenv("BASE_DOMAIN"))
-	if d != "" {
-		return d
+	if d == "" || strings.HasSuffix(strings.ToLower(d), ".local") {
+		return ""
 	}
-	return "solv.local"
+	return d
+}
+
+// reserveWorkspaceHostPort pide al kernel un puerto libre en 127.0.0.1 que Docker
+// reutiliza en el PortBindings de 3000/tcp.
+func reserveWorkspaceHostPort() (string, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = listener.Close() }()
+
+	addr, ok := listener.Addr().(*net.TCPAddr)
+	if !ok {
+		return "", fmt.Errorf("unexpected listener address %q", listener.Addr().String())
+	}
+	return strconv.Itoa(addr.Port), nil
+}
+
+// buildWorkspaceAccessURL resuelve el acceso al workspace publicado en el host.
+func buildWorkspaceAccessURL(workspaceID, hostPort string) string {
+	if baseDomain := getBaseDomain(); baseDomain != "" {
+		return fmt.Sprintf("https://%s.%s", workspaceID, baseDomain)
+	}
+	if hostPort != "" {
+		return fmt.Sprintf("http://localhost:%s", hostPort)
+	}
+	return ""
 }
 
 // hostTotalMB lee la RAM física total del host con fallback a 8 GB cuando
@@ -79,6 +123,14 @@ func hostTotalMB() int {
 		return int(vm.Total / (1024 * 1024))
 	}
 	return 8192
+}
+
+// workspaceAccessURLUpdater es una capacidad opcional del repositorio de
+// workspaces: persiste el access_url cuando se recrea el contenedor y cambia el
+// puerto publicado. Se resuelve por type-assertion para no ampliar
+// domain.WorkspaceRepository ni romper sus mocks.
+type workspaceAccessURLUpdater interface {
+	UpdateAccessURL(ctx context.Context, id, accessURL string) error
 }
 
 func sanitizeIDForDB(id string) string {
@@ -108,14 +160,104 @@ func (s *WorkspaceService) resolveTemplate(ctx context.Context, subjectID string
 	return tpl
 }
 
-func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
-	// 0. Resolución de plantilla institucional asociada a la materia
-	template := s.resolveTemplate(ctx, subjectID)
+// resolveExercise carga el ejercicio del tenant cuando el workspace se inicia
+// desde una actividad concreta.
+func (s *WorkspaceService) resolveExercise(ctx context.Context, exerciseID, tenantID string) *domain.Exercise {
+	if s.exerciseRepo == nil || strings.TrimSpace(exerciseID) == "" {
+		return nil
+	}
+	exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil || exercise == nil {
+		exercise, err = s.exerciseRepo.GetByID(ctx, exerciseID)
+		if err != nil || exercise == nil {
+			log.Printf("[Workspace] exercise %s not found: %v", exerciseID, err)
+			return nil
+		}
+	}
+	return exercise
+}
 
+// resolveTemplateForWorkspace prioriza la plantilla del ejercicio sobre la de la
+// materia (hallazgo #8): el ejercicio define la imagen real con la que se trabaja.
+func (s *WorkspaceService) resolveTemplateForWorkspace(ctx context.Context, subjectID string, exercise *domain.Exercise) *domain.Template {
+	if exercise != nil && s.templateRepo != nil {
+		if templateID := strings.TrimSpace(exercise.TemplateID); templateID != "" {
+			if tpl, err := s.templateRepo.GetTemplateByID(ctx, templateID); err == nil && tpl != nil {
+				return tpl
+			}
+		}
+	}
+	return s.resolveTemplate(ctx, subjectID)
+}
+
+// templateDeclaresPostgres indica si la plantilla declara una base PostgreSQL
+// satélite en services_config.services.
+func templateDeclaresPostgres(template *domain.Template) bool {
+	if template == nil {
+		return false
+	}
+	for _, service := range template.ServicesConfig.Services {
+		if service.Category == "database" && service.Engine == "postgres" {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureExerciseSatelliteDB asegura la base satélite del alumno y aplica el
+// db_init_script del ejercicio una sola vez (hard-fail: si el script falla, el
+// inicio o la reactivación se aborta). Devuelve el nombre de la BD satélite.
+func (s *WorkspaceService) ensureExerciseSatelliteDB(ctx context.Context, studentID, subjectID string, template *domain.Template, exercise *domain.Exercise) (string, error) {
+	script := ""
+	if exercise != nil && exercise.Config.IDE != nil {
+		script = strings.TrimSpace(exercise.Config.IDE.DBInitScript)
+	}
+	if script == "" && !templateDeclaresPostgres(template) {
+		return "", nil
+	}
+	if s.db == nil {
+		if script != "" {
+			log.Printf("[Satellite DB Warning] no hay conexión a PostgreSQL configurada: db_init_script del ejercicio %s omitido", exercise.ID)
+		}
+		return "", nil
+	}
+
+	dbName := fmt.Sprintf("solv_std_%s_%s", sanitizeIDForDB(studentID), sanitizeIDForDB(subjectID))
+	if err := ensureSatellitePostgresDatabase(ctx, s.db, dbName); err != nil {
+		return "", fmt.Errorf("failed to ensure satellite database %s: %w", dbName, err)
+	}
+	if script != "" {
+		if err := applyExerciseDBInitScript(ctx, dbName, exercise.ID, script); err != nil {
+			return "", fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
+		}
+		log.Printf("[Satellite DB] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
+	}
+	return dbName, nil
+}
+
+func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
+	return s.StartWorkspaceForExercise(ctx, studentID, subjectID, "")
+}
+
+// StartWorkspaceForExercise inicia (o reactiva) el IDE persistente resolviendo
+// plantilla y db_init_script desde el ejercicio cuando se provee exerciseID.
+func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {
 		tenantID = domain.DefaultTenantID
 	}
+
+	exercise := s.resolveExercise(ctx, exerciseID, tenantID)
+	if strings.TrimSpace(exerciseID) != "" && exercise == nil {
+		return nil, fmt.Errorf("exercise %s not found", exerciseID)
+	}
+	if strings.TrimSpace(subjectID) == "" && exercise != nil && exercise.SubjectID != nil {
+		subjectID = strings.TrimSpace(*exercise.SubjectID)
+	}
+
+	// 0. Resolución de plantilla: el ejercicio manda sobre la materia.
+	template := s.resolveTemplateForWorkspace(ctx, subjectID, exercise)
+
 	policies := s.effectivePolicies(ctx, tenantID)
 
 	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
@@ -157,6 +299,15 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	// 2. Verificación de Idempotencia y Estado Previos
 	existing, err := s.repo.GetByStudentAndSubject(ctx, studentID, subjectID)
 	if err == nil && existing != nil {
+		// El workspace es único por (student_id, subject_id): si ya existía, la
+		// base satélite y el db_init_script del ejercicio también deben quedar
+		// asegurados antes de devolverlo o reactivarlo. El registro de
+		// _solv_exercise_migrations hace la operación idempotente.
+		satelliteDBName, dbErr := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+		if dbErr != nil {
+			return nil, dbErr
+		}
+
 		if existing.Status == domain.WorkspaceStatusRunning {
 			return existing, nil
 		}
@@ -170,17 +321,22 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 			_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
 		}
 
-		return s.reactivateWorkspace(ctx, existing)
+		return s.reactivateWorkspace(ctx, existing, satelliteDBName)
+	}
+
+	satelliteDBName, err := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+	if err != nil {
+		return nil, err
 	}
 
 	// 3. Generación de UUID opaco para el workspace_id y construcción de access_url
 	workspaceID := uuid.NewString()
 	baseDomain := getBaseDomain()
-	scheme := "http"
-	if strings.Contains(baseDomain, ".") && !strings.HasSuffix(baseDomain, ".local") {
-		scheme = "https"
+	hostPort, portErr := reserveWorkspaceHostPort()
+	if portErr != nil {
+		log.Printf("[Workspace] WARNING: no se pudo reservar un puerto local para %s: %v", workspaceID, portErr)
 	}
-	accessURL := fmt.Sprintf("%s://%s.%s", scheme, workspaceID, baseDomain)
+	accessURL := buildWorkspaceAccessURL(workspaceID, hostPort)
 	containerName := fmt.Sprintf("solv-workspace-%s", workspaceID)
 	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
 	networkName := "solv-traefik-net"
@@ -216,41 +372,35 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 		return nil, fmt.Errorf("failed to ensure ICC-disabled docker network %s: %w", networkName, err)
 	}
 
-	// 7. Inyección de Dynamic Labels de Traefik v3 (Puerto 3000 para OpenVSCode Server)
-	labels := map[string]string{
-		"traefik.enable": "true",
-		fmt.Sprintf("traefik.http.routers.%s.rule", workspaceID):                      fmt.Sprintf("Host(`%s.%s`)", workspaceID, baseDomain),
-		fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", workspaceID): "3000",
+	// 7. Dynamic Labels de Traefik v3 (Puerto 3000 para OpenVSCode Server). Solo se
+	// publican cuando existe un dominio público configurado; el acceso local no
+	// depende de Traefik ni de .local.
+	labels := map[string]string{}
+	if baseDomain != "" {
+		labels["traefik.enable"] = "true"
+		labels[fmt.Sprintf("traefik.http.routers.%s.rule", workspaceID)] = fmt.Sprintf("Host(`%s.%s`)", workspaceID, baseDomain)
+		labels[fmt.Sprintf("traefik.http.services.%s.loadbalancer.server.port", workspaceID)] = "3000"
 	}
 
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
 
-	// 8. Aprovisionamiento Dinámico de Servicios Satélite Desacoplados (ADR-030)
-	if template != nil && len(template.ServicesConfig.Services) > 0 && s.db != nil {
-		for _, srv := range template.ServicesConfig.Services {
-			if srv.Category == "database" && srv.Engine == "postgres" {
-				cleanStd := sanitizeIDForDB(studentID)
-				cleanSubj := sanitizeIDForDB(subjectID)
-				dbName := fmt.Sprintf("solv_std_%s_%s", cleanStd, cleanSubj)
-				if errDB := ensureSatellitePostgresDatabase(ctx, s.db, dbName); errDB != nil {
-					log.Printf("[Satellite DB Warning] Failed to ensure database %s: %v", dbName, errDB)
-				} else {
-					pgHost := getPostgresContainerHost()
-					dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, dbName)
-					envVars = append(envVars,
-						fmt.Sprintf("DATABASE_URL=%s", dbURL),
-						fmt.Sprintf("PGHOST=%s", pgHost),
-						"PGPORT=5432",
-						"PGUSER=postgres",
-						"PGPASSWORD=postgres",
-						fmt.Sprintf("PGDATABASE=%s", dbName),
-					)
-					log.Printf("[Satellite DB] Injected DATABASE_URL for workspace %s (db: %s)", workspaceID, dbName)
-				}
-			}
-		}
+	// 8. Inyección de credenciales de la base satélite ya asegurada (ADR-030).
+	// El helper ensureExerciseSatelliteDB ya creó la BD y aplicó el
+	// db_init_script del ejercicio en modo hard-fail.
+	if satelliteDBName != "" && s.db != nil {
+		pgHost := getPostgresContainerHost()
+		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, satelliteDBName)
+		envVars = append(envVars,
+			fmt.Sprintf("DATABASE_URL=%s", dbURL),
+			fmt.Sprintf("PGHOST=%s", pgHost),
+			"PGPORT=5432",
+			"PGUSER=postgres",
+			"PGPASSWORD=postgres",
+			fmt.Sprintf("PGDATABASE=%s", satelliteDBName),
+		)
+		log.Printf("[Satellite DB] Injected DATABASE_URL for workspace %s (db: %s)", workspaceID, satelliteDBName)
 	}
 
 	// 9. Configuración del contenedor OpenVSCode Server
@@ -262,6 +412,7 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 		NetworkName:   networkName,
 		Labels:        labels,
 		Env:           envVars,
+		HostPort:      hostPort,
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server

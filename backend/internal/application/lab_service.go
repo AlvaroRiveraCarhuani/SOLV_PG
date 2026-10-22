@@ -3,10 +3,21 @@ package application
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 
 	"solv-backend/internal/domain"
 )
+
+// publicBaseDomain devuelve el dominio público configurado. Un valor .local se
+// descarta: el acceso local se resuelve por localhost.
+func publicBaseDomain() string {
+	d := strings.TrimSpace(os.Getenv("BASE_DOMAIN"))
+	if d == "" || strings.HasSuffix(strings.ToLower(d), ".local") {
+		return "localhost"
+	}
+	return d
+}
 
 type DatabasePort interface {
 	domain.UserRepository
@@ -43,7 +54,7 @@ func (s *LabService) StartLab(ctx context.Context, userID, templateID string) (d
 
 	cleanTemplateName := strings.ReplaceAll(strings.ToLower(template.Name), " ", "")
 	containerName := fmt.Sprintf("solv_%s_%s", cleanTemplateName, prefix)
-	traefikURL := fmt.Sprintf("%s.solv.local", prefix)
+	traefikURL := fmt.Sprintf("%s.%s", prefix, publicBaseDomain())
 
 	dto := domain.CreateInstanceDTO{
 		UserID:        userID,

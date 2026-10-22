@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 const (
 	WorkspaceStatusPending    = "pending"
@@ -50,6 +53,24 @@ type WorkspaceContainerConfig struct {
 	NetworkName   string
 	Labels        map[string]string
 	Env           []string
+	// HostPort es el puerto ya reservado en 127.0.0.1 que se publicará contra el
+	// 3000/tcp del contenedor. Vacío delega la elección al daemon de Docker.
+	HostPort string
+}
+
+// WorkspaceVolumeFile es un archivo leído del volumen de un workspace.
+type WorkspaceVolumeFile struct {
+	Path    string
+	Content []byte
+}
+
+// WorkspaceVolumeStore es una capacidad opcional del orquestador: permite leer y
+// escribir el volumen nombrado del workspace sin depender del estado del
+// contenedor. Se resuelve por type-assertion para no ampliar
+// WorkspaceOrchestrator (y no romper sus mocks).
+type WorkspaceVolumeStore interface {
+	SnapshotWorkspaceVolume(ctx context.Context, volumeName string, maxBytes int64) ([]WorkspaceVolumeFile, error)
+	WriteWorkspaceVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error
 }
 
 type ContainerMetrics struct {

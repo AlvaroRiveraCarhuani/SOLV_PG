@@ -2,6 +2,7 @@ package integration
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -138,7 +139,7 @@ func (m *MockWorkspaceRepository) SaveSemgrepAudit(ctx context.Context, id strin
 	return nil
 }
 
-func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
+func TestSlice04WorkspaceLifecycle(t *testing.T) {
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
 	if err != nil {
@@ -171,9 +172,9 @@ func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 		t.Errorf("Expected non-empty workspace_id UUID")
 	}
 
-	expectedURL := "http://" + ws1.ID + ".solv.local"
-	if ws1.AccessURL != expectedURL {
-		t.Errorf("Expected AccessURL '%s', got '%s'", expectedURL, ws1.AccessURL)
+	// Sin BASE_DOMAIN el acceso se publica en 127.0.0.1 con puerto dinámico.
+	if !strings.HasPrefix(ws1.AccessURL, "http://localhost:") {
+		t.Errorf("Expected AccessURL 'http://localhost:<port>', got '%s'", ws1.AccessURL)
 	}
 
 	// Clean up container and volume
@@ -193,24 +194,22 @@ func TestWorkspaceServiceStartAndIdempotency(t *testing.T) {
 		t.Errorf("Idempotency violation: expected same workspace ID '%s', got '%s'", ws1.ID, ws2.ID)
 	}
 
-	// 3. Inspección del Contenedor de Docker y Etiquetas de Traefik v3
+	// 3. Inspección del Contenedor de Docker: puerto 3000 publicado en 127.0.0.1
 	containerName := "solv-workspace-" + ws1.ID
 	inspect, err := rawCli.ContainerInspect(ctx, containerName)
 	if err != nil {
 		t.Fatalf("Failed to inspect workspace container %s: %v", containerName, err)
 	}
 
-	// Verificar etiqueta Traefik router rule
-	ruleKey := "traefik.http.routers." + ws1.ID + ".rule"
-	expectedRule := "Host(`" + ws1.ID + ".solv.local`)"
-	if inspect.Config.Labels[ruleKey] != expectedRule {
-		t.Errorf("Expected label %s='%s', got '%s'", ruleKey, expectedRule, inspect.Config.Labels[ruleKey])
+	bindings := inspect.HostConfig.PortBindings["3000/tcp"]
+	if len(bindings) == 0 {
+		t.Fatalf("Expected container port 3000/tcp to be published, got %+v", inspect.HostConfig.PortBindings)
 	}
-
-	// Verificar puerto del servicio Traefik (3000)
-	portKey := "traefik.http.services." + ws1.ID + ".loadbalancer.server.port"
-	if inspect.Config.Labels[portKey] != "3000" {
-		t.Errorf("Expected label %s='3000', got '%s'", portKey, inspect.Config.Labels[portKey])
+	if bindings[0].HostIP != "127.0.0.1" {
+		t.Errorf("Expected HostIP 127.0.0.1, got '%s'", bindings[0].HostIP)
+	}
+	if !strings.HasSuffix(ws1.AccessURL, ":"+bindings[0].HostPort) {
+		t.Errorf("Expected AccessURL '%s' to use host port '%s'", ws1.AccessURL, bindings[0].HostPort)
 	}
 
 	// 4. Inspección de la Red Docker deshabilitada ICC

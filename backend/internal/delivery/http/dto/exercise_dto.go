@@ -11,17 +11,24 @@ type PublicTestCase struct {
 
 type ExercisePublicResponse struct {
 	ID              string           `json:"id"`
+	SubjectID       *string          `json:"subject_id,omitempty"`
 	Title           string           `json:"title"`
 	Description     string           `json:"description"`
 	Type            string           `json:"type"`
+	EnvironmentType string           `json:"environment_type,omitempty"`
 	Difficulty      *string          `json:"difficulty,omitempty"`
 	Tags            []string         `json:"tags,omitempty"`
 	Purpose         string           `json:"purpose,omitempty"`
+	PerStudentSeed  bool             `json:"per_student_seed,omitempty"`
 	Language        string           `json:"language,omitempty"`
+	Boilerplate     string           `json:"boilerplate,omitempty"`
 	TimeLimitMs     int              `json:"time_limit_ms,omitempty"`
 	MemoryMB        int              `json:"memory_mb,omitempty"`
+	MemoryLimitMB   int              `json:"memory_limit_mb,omitempty"`
 	Constraints     []string         `json:"constraints,omitempty"`
 	PublicTestCases []PublicTestCase `json:"public_test_cases,omitempty"`
+	AllowResubmit   bool             `json:"allow_resubmit,omitempty"`
+	AutoCheckpoint  bool             `json:"auto_checkpoint,omitempty"`
 }
 
 func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
@@ -30,18 +37,31 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 	}
 
 	resp := &ExercisePublicResponse{
-		ID:          ex.ID,
-		Title:       ex.Title,
-		Description: ex.Description,
-		Type:        string(ex.Type),
-		Difficulty:  ex.Difficulty,
-		Tags:        ex.Tags,
-		Purpose:     ex.Purpose,
+		ID:              ex.ID,
+		SubjectID:       ex.SubjectID,
+		Title:           ex.Title,
+		Description:     ex.Description,
+		Type:            string(ex.Type),
+		EnvironmentType: ex.EnvironmentType,
+		Difficulty:      ex.Difficulty,
+		Tags:            ex.Tags,
+		Purpose:         ex.Purpose,
+		PerStudentSeed:  ex.PerStudentSeed,
+		Language:        ex.Language,
+		Boilerplate:     ex.Boilerplate,
+		TimeLimitMs:     ex.TimeLimitMS,
+		MemoryMB:        ex.MemoryLimitMB,
+		MemoryLimitMB:   ex.MemoryLimitMB,
 	}
 
 	if ex.Config.Algorithm != nil {
-		resp.TimeLimitMs = ex.Config.Algorithm.TimeLimitMS
-		resp.MemoryMB = ex.Config.Algorithm.MemoryLimitMB
+		if ex.Config.Algorithm.TimeLimitMS > 0 {
+			resp.TimeLimitMs = ex.Config.Algorithm.TimeLimitMS
+		}
+		if ex.Config.Algorithm.MemoryLimitMB > 0 {
+			resp.MemoryMB = ex.Config.Algorithm.MemoryLimitMB
+			resp.MemoryLimitMB = ex.Config.Algorithm.MemoryLimitMB
+		}
 
 		constraints := make([]string, 0)
 		for _, imp := range ex.Config.Algorithm.ASTRules.ForbiddenImports {
@@ -67,9 +87,22 @@ func ToExercisePublicResponse(ex *domain.Exercise) *ExercisePublicResponse {
 			resp.PublicTestCases = exampleCases
 		}
 	} else if ex.Config.Database != nil {
-		resp.Language = ex.Config.Database.Engine
-		resp.TimeLimitMs = ex.Config.Database.TimeLimitMS
-		resp.MemoryMB = ex.Config.Database.MemoryLimitMB
+		if ex.Config.Database.Engine != "" {
+			resp.Language = ex.Config.Database.Engine
+		}
+		if ex.Config.Database.TimeLimitMS > 0 {
+			resp.TimeLimitMs = ex.Config.Database.TimeLimitMS
+		}
+		if ex.Config.Database.MemoryLimitMB > 0 {
+			resp.MemoryMB = ex.Config.Database.MemoryLimitMB
+			resp.MemoryLimitMB = ex.Config.Database.MemoryLimitMB
+		}
+	}
+
+	// Metadatos del IDE persistente visibles para el alumno (nunca el db_init_script).
+	if ex.Config.IDE != nil {
+		resp.AllowResubmit = ex.Config.IDE.AllowResubmit
+		resp.AutoCheckpoint = ex.Config.IDE.AutoCheckpoint
 	}
 
 	return resp

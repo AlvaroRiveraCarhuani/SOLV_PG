@@ -178,6 +178,7 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/maintenance/disable", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DisableMaintenance))))
 		mux.Handle("GET /api/v1/admin/maintenance/status", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetMaintenanceStatus)))
 		mux.Handle("GET /api/v1/admin/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
+		mux.Handle("GET /api/v1/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
 		mux.Handle("POST /api/v1/admin/academic-periods", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreatePeriod))))
 		mux.Handle("PUT /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdatePeriod))))
 		mux.Handle("POST /api/v1/admin/academic-periods/{id}/archive", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ArchivePeriod))))
@@ -345,6 +346,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/workspaces/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartWorkspace)))
+		mux.Handle("POST /api/v1/workspaces/{id}/submit", tenantMiddleware(WithAuth(http.HandlerFunc(h.SubmitWorkspaceProject))))
 	} else {
 		mux.Handle("POST /api/v1/workspaces/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
 		mux.Handle("POST /api/v1/workspaces/{id}/pause", WithAuth(http.HandlerFunc(h.PauseWorkspace)))
@@ -352,6 +354,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 		mux.Handle("GET /api/v1/workspaces/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
 		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
 		mux.Handle("POST /api/v1/workspaces/{id}/restart", WithAuth(http.HandlerFunc(h.RestartWorkspace)))
+		mux.Handle("POST /api/v1/workspaces/{id}/submit", WithAuth(http.HandlerFunc(h.SubmitWorkspaceProject)))
 	}
 }
 

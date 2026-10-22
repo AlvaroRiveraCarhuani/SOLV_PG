@@ -69,15 +69,19 @@ func main() {
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
 	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
+	generatedCaseSnapshotRepo := postgres.NewPostgresGeneratedCaseSnapshotRepository(db.GetDB())
+	evaluationService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
 	evaluationService.SetScriptSandboxRunner(scriptSandboxRunner)
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
-		WithProvisioning(subjectRepo, templateRepo, db.GetDB())
+		WithProvisioning(subjectRepo, templateRepo, db.GetDB()).
+		WithExerciseSubmission(exerciseRepo, submissionRepo)
 	subjectService := services.NewSubjectService(subjectRepo)
 	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
 	submissionService := services.NewSubmissionService(submissionRepo)
 	submissionService.SetKeystrokeRepository(keystrokeRepo)
+	submissionService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	smtpMailer := mailer.NewSMTPMailerFromEnv()
 	defer func() { _ = smtpMailer.Close() }()
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo, smtpMailer)
@@ -233,6 +237,11 @@ func main() {
 	courseModuleHandler := httpdelivery.NewCourseModuleHandler(courseModuleService)
 	evaluationService.SetModuleRepository(courseModuleRepo)
 
+	// Rúbricas de evaluación cualitativa (IDE Persistente)
+	rubricRepo := postgres.NewPostgresRubricRepository(db.GetDB())
+	rubricService := services.NewDefaultRubricService(rubricRepo, exerciseRepo, db.GetDB())
+	rubricHandler := httpdelivery.NewRubricHandler(rubricService)
+
 	rateLimiter := middleware.NewRateLimiter()
 	loginLimiter := middleware.NewUserRateLimiter(5, 5)
 	submissionLimiter := middleware.NewUserRateLimiter(10, 10)
@@ -245,6 +254,7 @@ func main() {
 		EvaluationHandler:             evalHandler,
 		LanguageProfileHandler:        langProfileHandler,
 		CourseModuleHandler:           courseModuleHandler,
+		RubricHandler:                 rubricHandler,
 		WorkspaceHandler:              httpdelivery.NewWorkspaceHandler(workspaceService, v),
 		MetricsHandler:                httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
 		ConfigHandler:                 httpdelivery.NewConfigHandler(tenantRepo),

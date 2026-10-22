@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 
@@ -105,13 +106,16 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	submissionID uuid.UUID,
 	req domain.RubricEvaluationRequest,
 ) (*domain.RubricEvaluationResponse, error) {
-	var exerciseID uuid.UUID
-	err := s.db.GetContext(ctx, &exerciseID, "SELECT exercise_id FROM submissions WHERE id = $1", submissionID)
+	var subMeta struct {
+		ExerciseID uuid.UUID `db:"exercise_id"`
+		TenantID   uuid.UUID `db:"tenant_id"`
+	}
+	err := s.db.GetContext(ctx, &subMeta, "SELECT exercise_id, tenant_id FROM submissions WHERE id = $1", submissionID)
 	if err != nil {
 		return nil, fmt.Errorf("submission not found: %w", err)
 	}
 
-	rubric, err := s.rubricRepo.GetByExerciseID(ctx, exerciseID)
+	rubric, err := s.rubricRepo.GetByExerciseID(ctx, subMeta.ExerciseID)
 	if err != nil {
 		return nil, fmt.Errorf("rubric not found for exercise: %w", err)
 	}
@@ -121,21 +125,28 @@ func (s *DefaultRubricService) EvaluateSubmission(
 		return nil, err
 	}
 
+	var authorID any
+	if userID := strings.TrimSpace(domain.GetUserID(ctx)); userID != "" {
+		authorID = userID
+	}
+
 	roundedScoreInt := int(math.Round(score))
 	_, err = s.db.ExecContext(ctx, `
 		UPDATE submissions
-		SET score = $1, verdict = 'AC', manual_override = TRUE, override_reason = 'Evaluado por rúbrica'
+		SET score = $1, verdict = 'AC', manual_override = TRUE, override_reason = 'Evaluado por rúbrica', graded_by = COALESCE($3, graded_by)
 		WHERE id = $2
-	`, roundedScoreInt, submissionID)
+	`, roundedScoreInt, submissionID, authorID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update submission score: %w", err)
 	}
 
-	if req.Comments != "" {
-		_, _ = s.db.ExecContext(ctx, `
-			INSERT INTO submission_comments (submission_id, author_id, comment_text, created_at)
-			VALUES ($1, NULL, $2, NOW())
-		`, submissionID, req.Comments)
+	if strings.TrimSpace(req.Comments) != "" && authorID != nil {
+		if _, err := s.db.ExecContext(ctx, `
+			INSERT INTO submission_comments (tenant_id, submission_id, author_id, line_number, comment, created_at)
+			VALUES ($1, $2, $3, 1, $4, NOW())
+		`, subMeta.TenantID, submissionID, authorID, req.Comments); err != nil {
+			return nil, fmt.Errorf("failed to insert rubric comment: %w", err)
+		}
 	}
 
 	return &domain.RubricEvaluationResponse{

@@ -12,9 +12,26 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/errdefs"
+	"github.com/docker/go-connections/nat"
 
 	"solv-backend/internal/core/domain"
 )
+
+const (
+	// workspaceServerPort es el único puerto que un workspace expone al host.
+	workspaceServerPort = "3000/tcp"
+
+	// pureRuntimeWorkspaceCmd se usa en imágenes que no traen OpenVSCode: deja el
+	// workspace escribible y, si el binario fue montado o copiado, lo arranca. Sin
+	// binario mantiene el contenedor vivo para que el volumen siga disponible.
+	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000; else exec sleep infinity; fi`
+)
+
+// imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
+// entrypoint (gitpod/openvscode-server y derivadas).
+func imageShipsOpenVSCode(imageRef string) bool {
+	return strings.Contains(strings.ToLower(imageRef), "openvscode-server")
+}
 
 func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerConfig) (string, error) {
 	mountMode := "rw"
@@ -70,6 +87,10 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	}
 
 	memReservation := int64(float64(memLimit) * 0.75) // 75% memory.low para contención suave
+	hostPort := strings.TrimSpace(config.HostPort)
+	if hostPort == "" {
+		hostPort = "0" // puerto dinámico elegido por el daemon
+	}
 	hostConfig := &container.HostConfig{
 		Binds: []string{
 			fmt.Sprintf("%s:/home/workspace:rw", config.VolumeName),
@@ -80,7 +101,16 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		},
 		NetworkMode: container.NetworkMode(config.NetworkName),
 		SecurityOpt: []string{"no-new-privileges:true"},
+		// Publicación local: el workspace se alcanza por 127.0.0.1 y nunca por
+		// un dominio .local inventado.
+		PortBindings: nat.PortMap{
+			nat.Port(workspaceServerPort): []nat.PortBinding{
+				{HostIP: "127.0.0.1", HostPort: hostPort},
+			},
+		},
 	}
+
+	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)
 
 	// Inyección de NODE_OPTIONS para controlar el heap de V8 en OpenVSCode Server (Memory Governance)
 	envList := config.Env
@@ -91,7 +121,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 			break
 		}
 	}
-	if !hasNodeOptions {
+	if shipsOpenVSCode && !hasNodeOptions {
 		maxOldSpace := int(float64(memLimit) * 0.65)
 		if maxOldSpace < 128 {
 			maxOldSpace = 128
@@ -100,11 +130,22 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	}
 
 	containerConfig := &container.Config{
-		Image:  config.Image,
-		Labels: config.Labels,
-		Env:    envList,
-		User:   "1000:1000",
-		Cmd:    []string{"--without-connection-token", "--host", "0.0.0.0"},
+		Image:        config.Image,
+		Labels:       config.Labels,
+		Env:          envList,
+		ExposedPorts: nat.PortSet{nat.Port(workspaceServerPort): struct{}{}},
+	}
+
+	if shipsOpenVSCode {
+		// El entrypoint de la imagen ya es el binario: solo se le pasan flags.
+		containerConfig.User = "1000:1000"
+		containerConfig.Cmd = []string{"--without-connection-token", "--host", "0.0.0.0", "--port", "3000"}
+	} else {
+		// Runtime puro (python, node, solv-local/stack): NO se le pasa
+		// --without-connection-token como Cmd porque el binario no existe y el
+		// contenedor moriría con "executable file not found". El shell prepara el
+		// workspace y arranca OpenVSCode solo si está disponible.
+		containerConfig.Cmd = []string{"/bin/sh", "-c", pureRuntimeWorkspaceCmd}
 	}
 
 	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)
