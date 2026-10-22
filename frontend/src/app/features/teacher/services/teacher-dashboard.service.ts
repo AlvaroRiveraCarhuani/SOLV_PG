@@ -26,7 +26,7 @@ export class TeacherDashboardService {
   readonly isLoading = signal<boolean>(false);
 
   getAcademicPeriods(): Observable<AcademicPeriod[]> {
-    return this.http.get<ApiResponse<AcademicPeriod[]>>('/api/v1/academic-periods').pipe(
+    return this.http.get<ApiResponse<AcademicPeriod[]>>('/api/v1/admin/academic-periods').pipe(
       map(res => res.data || []),
       tap(periods => {
         this.periods.set(periods);

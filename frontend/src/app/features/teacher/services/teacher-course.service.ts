@@ -209,31 +209,31 @@ export class TeacherCourseService {
   }
 
   getCourseModules(subjectId: string): Observable<TeacherCourseModule[]> {
-    return this.http.get<ApiResponse<TeacherCourseModule[]>>(`/api/v1/courses/${subjectId}/modules`).pipe(
+    return this.http.get<ApiResponse<TeacherCourseModule[]>>(`/api/v1/teacher/courses/${subjectId}/modules`).pipe(
       map(res => res.data || [])
     );
   }
 
   createModule(subjectId: string, dto: CreateModuleDTO): Observable<TeacherCourseModule> {
-    return this.http.post<ApiResponse<TeacherCourseModule>>(`/api/v1/courses/${subjectId}/modules`, dto).pipe(
+    return this.http.post<ApiResponse<TeacherCourseModule>>(`/api/v1/teacher/courses/${subjectId}/modules`, dto).pipe(
       map(res => res.data)
     );
   }
 
   updateModule(subjectId: string, moduleId: string, dto: UpdateModuleDTO): Observable<TeacherCourseModule> {
-    return this.http.put<ApiResponse<TeacherCourseModule>>(`/api/v1/courses/${subjectId}/modules/${moduleId}`, dto).pipe(
+    return this.http.put<ApiResponse<TeacherCourseModule>>(`/api/v1/teacher/modules/${moduleId}`, dto).pipe(
       map(res => res.data)
     );
   }
 
   deleteModule(subjectId: string, moduleId: string): Observable<void> {
-    return this.http.delete<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}`).pipe(
+    return this.http.delete<ApiResponse<void>>(`/api/v1/teacher/modules/${moduleId}`).pipe(
       map(() => void 0)
     );
   }
 
   setModulePrerequisites(subjectId: string, moduleId: string, prerequisiteModuleIds: string[]): Observable<void> {
-    return this.http.put<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}/prerequisites`, {
+    return this.http.post<ApiResponse<void>>(`/api/v1/teacher/modules/${moduleId}/prerequisites`, {
       prerequisite_module_ids: prerequisiteModuleIds
     }).pipe(
       map(() => void 0)
@@ -241,7 +241,7 @@ export class TeacherCourseService {
   }
 
   assignExercisesToModule(subjectId: string, moduleId: string, exerciseIds: string[]): Observable<void> {
-    return this.http.put<ApiResponse<void>>(`/api/v1/courses/${subjectId}/modules/${moduleId}/exercises`, {
+    return this.http.put<ApiResponse<void>>(`/api/v1/teacher/courses/${subjectId}/modules/${moduleId}/exercises`, {
       exercise_ids: exerciseIds
     }).pipe(
       map(() => void 0)
@@ -249,7 +249,7 @@ export class TeacherCourseService {
   }
 
   assignExerciseModule(exerciseId: string, moduleId: string | null): Observable<void> {
-    return this.http.put<ApiResponse<void>>(`/api/v1/exercises/${exerciseId}/module`, {
+    return this.http.put<ApiResponse<void>>(`/api/v1/teacher/exercises/${exerciseId}/module`, {
       module_id: moduleId
     }).pipe(
       map(() => void 0)
