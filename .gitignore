@@ -20,3 +20,8 @@ coverage/
 # OpenCode configuration and storage
 .opencode/
 opencode.json
+
+# Playwright E2E runtime artifacts
+frontend/e2e/test-results/
+frontend/playwright-report/
+frontend/test-results/
