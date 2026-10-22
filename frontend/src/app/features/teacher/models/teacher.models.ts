@@ -213,7 +213,7 @@ export interface CourseAnalyticsDTO {
 
 export interface ComparatorDTO {
   id: 'exact' | 'float' | 'unordered' | 'custom';
-  params?: Record<string, any>;
+  params?: Record<string, unknown>;
 }
 
 export interface TestCaseDTO {
@@ -246,7 +246,7 @@ export interface CreateExerciseRequestDTO {
   reference_solution?: string;
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
-  input_format?: any;
+  input_format?: unknown;
   expected_complexity?: string;
   test_cases?: TestCaseDTO[];
 }
@@ -268,7 +268,7 @@ export interface UpdateExerciseRequestDTO {
   reference_solution?: string;
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
-  input_format?: any;
+  input_format?: unknown;
   expected_complexity?: string;
   test_cases?: TestCaseDTO[];
 }
@@ -364,6 +364,8 @@ export interface LiveWorkspaceSession {
   memory_limit_mb: number;
   memory_used_mb?: number;
   cpu_percent?: number;
+  metrics_available?: boolean;
+  metrics_updated_at?: string;
   oom_strikes: number;
   last_heartbeat: string;
   is_attached: boolean;

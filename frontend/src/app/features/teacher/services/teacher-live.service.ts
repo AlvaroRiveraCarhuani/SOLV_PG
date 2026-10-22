@@ -58,7 +58,27 @@ export class TeacherLiveService implements OnDestroy {
     return this.http.get<ApiResponse<LiveWorkspaceSession[]>>(
       '/api/v1/teacher/live-sessions'
     ).pipe(
-      map(res => this.enrichSessionsWithTelemetry(res.data || [])),
+      map(res => {
+        const sessions = res.data || [];
+        // Process metrics for each session
+        sessions.forEach(session => {
+          if (session.metrics_available && session.workspace_id) {
+            const memHistory = this.memoryHistoryMap.get(session.workspace_id) || [];
+            if (session.memory_used_mb !== undefined) {
+              const newMemHistory = [...memHistory, session.memory_used_mb].slice(-MAX_HISTORY_SAMPLES);
+              this.memoryHistoryMap.set(session.workspace_id, newMemHistory);
+              session.memory_history = newMemHistory;
+            }
+            if (session.cpu_percent !== undefined) {
+              const cpuHistory = this.cpuHistoryMap.get(session.workspace_id) || [];
+              const newCpuHistory = [...cpuHistory, session.cpu_percent].slice(-MAX_HISTORY_SAMPLES);
+              this.cpuHistoryMap.set(session.workspace_id, newCpuHistory);
+              session.cpu_history = newCpuHistory;
+            }
+          }
+        });
+        return sessions;
+      }),
       tap(enriched => {
         this.liveSessions.set(enriched);
         this.lastUpdated.set(new Date());
@@ -106,54 +126,6 @@ export class TeacherLiveService implements OnDestroy {
       clearInterval(this.pollingTimer);
       this.pollingTimer = undefined;
     }
-  }
-
-  private enrichSessionsWithTelemetry(sessions: LiveWorkspaceSession[]): LiveWorkspaceSession[] {
-    return sessions.map((session, index) => {
-      const limit = session.memory_limit_mb || 512;
-      
-      // Compute realistic/deterministic memory telemetry if not provided by backend
-      const prevMemHistory = this.memoryHistoryMap.get(session.workspace_id) || [];
-      const lastMem = prevMemHistory.length > 0 
-        ? prevMemHistory[prevMemHistory.length - 1] 
-        : session.memory_used_mb ?? Math.round(limit * (0.28 + ((index * 17) % 45) / 100));
-
-      // Small natural jitter simulation between poll cycles
-      const jitter = (Math.sin(Date.now() / 3000 + index) * 6);
-      const currentMem = Math.max(16, Math.min(limit, Math.round(lastMem + jitter)));
-      
-      const newMemHistory = [...prevMemHistory, currentMem].slice(-MAX_HISTORY_SAMPLES);
-      this.memoryHistoryMap.set(session.workspace_id, newMemHistory);
-
-      // CPU telemetry simulation
-      const prevCpuHistory = this.cpuHistoryMap.get(session.workspace_id) || [];
-      const currentCpu = session.cpu_percent ?? Math.max(1, Math.min(99, Math.round(12 + Math.abs(Math.sin(Date.now() / 2000 + index * 2) * 55))));
-      const newCpuHistory = [...prevCpuHistory, currentCpu].slice(-MAX_HISTORY_SAMPLES);
-      this.cpuHistoryMap.set(session.workspace_id, newCpuHistory);
-
-      // Cognitive/activity state heuristic
-      const memRatio = currentMem / limit;
-      let activity: 'typing' | 'idle' | 'executing' | 'oom_warning' = 'idle';
-      if (memRatio >= 0.88 || session.oom_strikes > 0) {
-        activity = 'oom_warning';
-      } else if (currentCpu > 35) {
-        activity = 'executing';
-      } else if (currentCpu > 4) {
-        activity = 'typing';
-      }
-
-      const wpm = activity === 'typing' ? Math.round(35 + (currentCpu * 1.2)) : 0;
-
-      return {
-        ...session,
-        memory_used_mb: currentMem,
-        cpu_percent: currentCpu,
-        activity_state: activity,
-        wpm,
-        memory_history: newMemHistory,
-        cpu_history: newCpuHistory
-      };
-    });
   }
 
   executeTutorCommand(containerId: string, command: string): Observable<TutorCommandResponse> {

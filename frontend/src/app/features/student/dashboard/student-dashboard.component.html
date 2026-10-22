@@ -260,28 +260,24 @@
             <div class="card widget-progress">
               <div class="card-header">
                 <h3>Mi Progreso (Semestre Activo)</h3>
-                <span class="badge-counter">85% Global</span>
+                <span class="badge-counter" machineData>{{ globalProgressPercent() }}% Global</span>
               </div>
               <div class="progress-bars">
-                <div class="progress-item">
-                  <div class="progress-label">
-                    <span>Programación II (Algoritmia y Estructuras)</span>
-                    <span class="progress-val" machineData>80%</span>
+                @for (item of subjects(); track item.subject.id) {
+                  <div class="progress-item">
+                    <div class="progress-label">
+                      <span>{{ item.subject.name }} (<span machineData>{{ item.subject.code }}</span>)</span>
+                      <span class="progress-val" machineData>{{ item.progress_percent ?? 0 }}%</span>
+                    </div>
+                    <div class="progress-track">
+                      <div class="progress-fill" [style.width.%]="item.progress_percent ?? 0"></div>
+                    </div>
                   </div>
-                  <div class="progress-track">
-                    <div class="progress-fill" style="width: 80%;"></div>
+                } @empty {
+                  <div class="empty-state">
+                    <p>Sin progreso registrado en materias activas.</p>
                   </div>
-                </div>
-
-                <div class="progress-item">
-                  <div class="progress-label">
-                    <span>Sistemas Operativos (Procesos e Hilos)</span>
-                    <span class="progress-val" machineData>65%</span>
-                  </div>
-                  <div class="progress-track">
-                    <div class="progress-fill" style="width: 65%;"></div>
-                  </div>
-                </div>
+                }
               </div>
             </div>
           }
@@ -292,16 +288,18 @@
                 <h3>Accesos Recientes</h3>
               </div>
               <ul class="recent-list">
-                <li class="recent-item">
-                  <span class="recent-bullet"></span>
-                  <span class="recent-text">Lab #04: Árboles Binarios</span>
-                  <span class="recent-time">hace 2h</span>
-                </li>
-                <li class="recent-item">
-                  <span class="recent-bullet"></span>
-                  <span class="recent-text">Envío #12 &bull; Veredicto AC</span>
-                  <span class="recent-time">ayer</span>
-                </li>
+                @for (sub of recentSubmissions(); track sub.id) {
+                  <li class="recent-item">
+                    <span class="recent-bullet"></span>
+                    <span class="recent-text">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                    <span class="recent-verdict" machineData>{{ sub.verdict }}</span>
+                    <time class="recent-time" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+                  </li>
+                } @empty {
+                  <li class="empty-state">
+                    <p>Aún no registras entregas recientes.</p>
+                  </li>
+                }
               </ul>
             </div>
           }

@@ -95,6 +95,19 @@ export class StudentDashboardComponent implements OnInit {
     return this.studentService.dueAssignments();
   });
 
+  recentSubmissions = computed(() => {
+    return this.studentService.dashboardData()?.recent_submissions || [];
+  });
+
+  globalProgressPercent = computed(() => {
+    const items = this.subjects();
+    if (items.length === 0) return 0;
+    const total = items.reduce((acc, item) => acc + (item.total_exercises ?? 0), 0);
+    const completed = items.reduce((acc, item) => acc + (item.completed_exercises ?? 0), 0);
+    if (total === 0) return 0;
+    return Math.round((completed * 100) / total);
+  });
+
   dueCount = computed(() => {
     return this.dueAssignments().length;
   });

@@ -2,6 +2,7 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"math"
 	"net/http"
 
 	"solv-backend/internal/core/domain"
@@ -30,15 +31,27 @@ func NewStudentHandler(
 }
 
 type StudentSubjectItem struct {
-	Subject         *domain.Subject           `json:"subject"`
-	ActiveWorkspace *domain.WorkspaceInstance `json:"active_workspace,omitempty"`
+	Subject            *domain.Subject           `json:"subject"`
+	ActiveWorkspace    *domain.WorkspaceInstance `json:"active_workspace,omitempty"`
+	TotalExercises     int                       `json:"total_exercises"`
+	CompletedExercises int                       `json:"completed_exercises"`
+	ProgressPercent    int                       `json:"progress_percent"`
+}
+
+// StudentRecentSubmissionItem enriquece una entrega con el titulo del
+// ejercicio y el codigo de la materia para que el dashboard no tenga que
+// resolverlos por su cuenta.
+type StudentRecentSubmissionItem struct {
+	*domain.Submission
+	ExerciseTitle string `json:"exercise_title,omitempty"`
+	SubjectCode   string `json:"subject_code,omitempty"`
 }
 
 type StudentDashboardResponse struct {
-	StudentID         string               `json:"student_id"`
-	TenantID          string               `json:"tenant_id"`
-	Subjects          []StudentSubjectItem `json:"subjects"`
-	RecentSubmissions []*domain.Submission `json:"recent_submissions"`
+	StudentID         string                        `json:"student_id"`
+	TenantID          string                        `json:"tenant_id"`
+	Subjects          []StudentSubjectItem          `json:"subjects"`
+	RecentSubmissions []StudentRecentSubmissionItem `json:"recent_submissions"`
 }
 
 func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
@@ -67,30 +80,113 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subjects, err := h.subjectRepo.ListByStudent(r.Context(), tenantID, userID)
-	if err != nil {
-		subjects = []*domain.Subject{}
+	var subjects []*domain.Subject
+	if h.subjectRepo != nil {
+		subjects, err = h.subjectRepo.ListByStudent(r.Context(), tenantID, userID)
+		if err != nil {
+			subjects = []*domain.Subject{}
+		}
 	}
 
+	var submissions []*domain.Submission
+	if h.submissionRepo != nil {
+		submissions, err = h.submissionRepo.ListByStudent(r.Context(), tenantID, userID)
+		if err != nil {
+			submissions = []*domain.Submission{}
+		}
+	}
+
+	solvedExercises := make(map[string]bool, len(submissions))
+	for _, sub := range submissions {
+		if sub == nil {
+			continue
+		}
+		if sub.Verdict == "AC" || (sub.Score != nil && *sub.Score >= 51) {
+			solvedExercises[sub.ExerciseID] = true
+		}
+	}
+
+	exerciseByID := make(map[string]*domain.Exercise)
+	subjectByID := make(map[string]*domain.Subject, len(subjects))
 	subjectItems := make([]StudentSubjectItem, 0, len(subjects))
 	for _, subj := range subjects {
-		ws, _ := h.workspaceRepo.GetByStudentAndSubject(r.Context(), userID, subj.ID)
+		if subj == nil {
+			continue
+		}
+		subjectByID[subj.ID] = subj
+
+		totalExercises := 0
+		completedExercises := 0
+		if h.exerciseRepo != nil {
+			exercises, exErr := h.exerciseRepo.ListBySubject(r.Context(), tenantID, subj.ID)
+			if exErr != nil {
+				exercises = nil
+			}
+			for _, ex := range exercises {
+				if ex == nil {
+					continue
+				}
+				exerciseByID[ex.ID] = ex
+				if ex.Status == "" || ex.Status == "published" {
+					totalExercises++
+					if solvedExercises[ex.ID] {
+						completedExercises++
+					}
+				}
+			}
+		}
+
+		progressPercent := 0
+		if totalExercises > 0 {
+			progressPercent = int(math.Round(float64(completedExercises) * 100.0 / float64(totalExercises)))
+		}
+
+		var ws *domain.WorkspaceInstance
+		if h.workspaceRepo != nil {
+			ws, _ = h.workspaceRepo.GetByStudentAndSubject(r.Context(), userID, subj.ID)
+		}
 		subjectItems = append(subjectItems, StudentSubjectItem{
-			Subject:         subj,
-			ActiveWorkspace: ws,
+			Subject:            subj,
+			ActiveWorkspace:    ws,
+			TotalExercises:     totalExercises,
+			CompletedExercises: completedExercises,
+			ProgressPercent:    progressPercent,
 		})
 	}
 
-	submissions, err := h.submissionRepo.ListByStudent(r.Context(), tenantID, userID)
-	if err != nil {
-		submissions = []*domain.Submission{}
+	const recentLimit = 5
+	if len(submissions) > recentLimit {
+		submissions = submissions[:recentLimit]
+	}
+	recentSubmissions := make([]StudentRecentSubmissionItem, 0, len(submissions))
+	for _, sub := range submissions {
+		if sub == nil {
+			continue
+		}
+		item := StudentRecentSubmissionItem{Submission: sub}
+		exercise, ok := exerciseByID[sub.ExerciseID]
+		if !ok && h.exerciseRepo != nil {
+			if fetched, fetchErr := h.exerciseRepo.GetByIDAndTenant(r.Context(), sub.ExerciseID, tenantID); fetchErr == nil && fetched != nil {
+				exercise = fetched
+				exerciseByID[fetched.ID] = fetched
+			}
+		}
+		if exercise != nil {
+			item.ExerciseTitle = exercise.Title
+			if exercise.SubjectID != nil {
+				if subject, found := subjectByID[*exercise.SubjectID]; found && subject != nil {
+					item.SubjectCode = subject.Code
+				}
+			}
+		}
+		recentSubmissions = append(recentSubmissions, item)
 	}
 
 	resp := StudentDashboardResponse{
 		StudentID:         userID,
 		TenantID:          tenantID,
 		Subjects:          subjectItems,
-		RecentSubmissions: submissions,
+		RecentSubmissions: recentSubmissions,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
