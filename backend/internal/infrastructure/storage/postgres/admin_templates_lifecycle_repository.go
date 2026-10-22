@@ -218,9 +218,9 @@ func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
 			cve_high_count = $5,
 			security_audit_report = $6,
 			security_audited_at = NOW(),
-			status = $7,
+			status = CAST($7 AS VARCHAR),
 			rejection_reason = CASE
-				WHEN $7 = 'RECHAZADA' AND COALESCE(rejection_reason, '') = '' THEN COALESCE(NULLIF($2, ''), 'Auditoría técnica de seguridad no superada')
+				WHEN CAST($7 AS VARCHAR) = 'RECHAZADA' AND COALESCE(rejection_reason, '') = '' THEN COALESCE(NULLIF($2, ''), 'Auditoría técnica de seguridad no superada')
 				ELSE rejection_reason
 			END,
 			updated_at = NOW()
