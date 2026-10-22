@@ -36,7 +36,7 @@ func setupTeacherReviewTestServer(t *testing.T) (*httptest.Server, *database.Dat
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
 	submissionService := services.NewSubmissionService(submissionRepo)
 
-	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
+	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, nil)
 	subHandler := httpdelivery.NewSubmissionHandler(submissionService)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {

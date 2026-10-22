@@ -17,6 +17,20 @@ func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacher
 	if err != nil {
 		return nil, fmt.Errorf("error al listar sesiones en vivo: %w", err)
 	}
+	
+	// Completar las métricas de cada sesión usando el snapshot service
+	for _, session := range sessions {
+		if s.metricsSnapshotService != nil {
+			// Obtener el snapshot para esta workspace si existe
+			snap, exists := s.metricsSnapshotService.GetSnapshot(session.WorkspaceID)
+			if exists {
+				session.MemoryUsedMB = snap.MemoryUsedMB
+				session.CPUPercent = snap.CPUPercent
+				session.MetricsAvailable = snap.MetricsAvailable
+				session.MetricsUpdatedAt = snap.MetricsUpdatedAt
+			}
+		}
+	}
 
 	return sessions, nil
 }

@@ -127,7 +127,9 @@ func main() {
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
 	teacherService.SetEvaluationService(evaluationService)
-	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
+	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
+	metricsSnapshotService.Start(ctx)
+	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
 
 	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())

@@ -31,8 +31,8 @@ func setupTeacherDashboardTestServer(t *testing.T) (*httptest.Server, *database.
 	}
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
-	teacherService := services.NewTeacherService(teacherRepo)
-	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
+	teacherService := services.NewTeacherService(teacherRepo, nil)
+	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, nil)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

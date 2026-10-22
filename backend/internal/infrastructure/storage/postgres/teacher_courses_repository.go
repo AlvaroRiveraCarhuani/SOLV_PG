@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenantID, teacherID string) ([]*domain.TeacherCourseSummary, error) {
+func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenantID, teacherID, periodID string) ([]*domain.TeacherCourseSummary, error) {
 	type subjectRow struct {
 		ID   string `db:"id"`
 		Name string `db:"name"`
@@ -18,23 +18,47 @@ func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenan
 	var rows []subjectRow
 	var err error
 
-	if teacherID != "" {
-		query := `
-			SELECT s.id, s.name, s.code
-			FROM subjects s
-			WHERE s.tenant_id = $1
-			  AND s.teacher_id = $2
-			ORDER BY s.name ASC
-		`
-		err = r.db.SelectContext(ctx, &rows, query, tenantID, teacherID)
+	// Construir query con filtro opcional de período académico
+	if periodID != "" {
+		if teacherID != "" {
+			query := `
+				SELECT s.id, s.name, s.code
+				FROM subjects s
+				WHERE s.tenant_id = $1
+				  AND s.teacher_id = $2
+				  AND s.academic_period_id = $3::uuid
+				ORDER BY s.name ASC
+			`
+			err = r.db.SelectContext(ctx, &rows, query, tenantID, teacherID, periodID)
+		} else {
+			query := `
+				SELECT s.id, s.name, s.code
+				FROM subjects s
+				WHERE s.tenant_id = $1
+				  AND s.academic_period_id = $2::uuid
+				ORDER BY s.name ASC
+			`
+			err = r.db.SelectContext(ctx, &rows, query, tenantID, periodID)
+		}
 	} else {
-		query := `
-			SELECT s.id, s.name, s.code
-			FROM subjects s
-			WHERE s.tenant_id = $1
-			ORDER BY s.name ASC
-		`
-		err = r.db.SelectContext(ctx, &rows, query, tenantID)
+		if teacherID != "" {
+			query := `
+				SELECT s.id, s.name, s.code
+				FROM subjects s
+				WHERE s.tenant_id = $1
+				  AND s.teacher_id = $2
+				ORDER BY s.name ASC
+			`
+			err = r.db.SelectContext(ctx, &rows, query, tenantID, teacherID)
+		} else {
+			query := `
+				SELECT s.id, s.name, s.code
+				FROM subjects s
+				WHERE s.tenant_id = $1
+				ORDER BY s.name ASC
+			`
+			err = r.db.SelectContext(ctx, &rows, query, tenantID)
+		}
 	}
 
 	if err != nil {
@@ -129,7 +153,12 @@ func (r *PostgresTeacherRepository) GetAttentionWidget(ctx context.Context, tena
 			LEFT JOIN users u ON w.student_id = u.id
 			WHERE s.tenant_id = $1
 			  AND s.teacher_id = $2
-			  AND (w.status = 'oom_killed' OR w.status = 'failed' OR w.last_oom_killed_at IS NOT NULL)
+			  AND w.status != 'running'
+			  AND (
+			    w.status = 'oom_killed' 
+			    OR w.status = 'failed'
+			    OR w.last_oom_killed_at >= NOW() - INTERVAL '24 hours'
+			  )
 			ORDER BY occurred_at DESC
 			LIMIT 20
 		`
@@ -142,7 +171,12 @@ func (r *PostgresTeacherRepository) GetAttentionWidget(ctx context.Context, tena
 			JOIN subjects s ON w.subject_id = s.id
 			LEFT JOIN users u ON w.student_id = u.id
 			WHERE s.tenant_id = $1
-			  AND (w.status = 'oom_killed' OR w.status = 'failed' OR w.last_oom_killed_at IS NOT NULL)
+			  AND w.status != 'running'
+			  AND (
+			    w.status = 'oom_killed' 
+			    OR w.status = 'failed'
+			    OR w.last_oom_killed_at >= NOW() - INTERVAL '24 hours'
+			  )
 			ORDER BY occurred_at DESC
 			LIMIT 20
 		`

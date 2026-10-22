@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+	"solv-backend/internal/core/services"
 )
 
 type Handlers struct {
@@ -29,8 +31,8 @@ type Handlers struct {
 	WebSocketHandler              *WebSocketHandler
 	EnvTestHandler                *EnvTestHandler
 	LanguageProfileHandler        *LanguageProfileHandler
-	CourseModuleHandler           *CourseModuleHandler
-	RubricHandler                 *RubricHandler
+	CourseModuleHandler          *CourseModuleHandler
+	RubricHandler                *RubricHandler
 	TenantMiddleware              func(http.Handler) http.Handler
 	AuditMiddleware               func(http.Handler) http.Handler
 	RateLimitMiddleware           func(http.Handler) http.Handler
@@ -38,6 +40,7 @@ type Handlers struct {
 	SubmissionRateLimitMiddleware func(http.Handler) http.Handler
 	KeystrokeRateLimitMiddleware  func(http.Handler) http.Handler
 	MaintenanceMiddleware         func(http.Handler) http.Handler
+	TeacherMetricsSnapshotService *services.MetricsSnapshotService
 }
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -406,6 +409,7 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/live-sessions", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessions)))
+	mux.Handle("GET /api/v1/teacher/live-sessions/metrics", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessionsMetrics)))
 	mux.Handle("POST /api/v1/teacher/live-sessions/{id}/exec", tm(http.HandlerFunc(deps.TeacherHandler.PostTutorExec)))
 	mux.HandleFunc("GET /api/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)
 	mux.HandleFunc("GET /ws/v1/teacher/live-sessions/{id}/terminal", deps.TeacherHandler.HandleTerminalWebSocket)

@@ -211,6 +211,18 @@ type LiveWorkspaceSession struct {
 	OOMStrikes    int       `db:"oom_strikes" json:"oom_strikes"`
 	LastHeartbeat time.Time `db:"last_heartbeat" json:"last_heartbeat"`
 	IsAttached    bool      `json:"is_attached"`
+
+	// New real-time metrics from Docker
+	MemoryUsedMB      int64     `json:"memory_used_mb,omitempty"`
+	CPUPercent        float64   `json:"cpu_percent,omitempty"`
+	MetricsAvailable  bool      `json:"metrics_available,omitempty"`
+	MetricsUpdatedAt  time.Time `json:"metrics_updated_at,omitempty"`
+
+	// Legacy fields for backward compatibility
+	MemoryHistory    []int64   `json:"memory_history,omitempty"`
+	CPUHistory       []float64 `json:"cpu_history,omitempty"`
+	ActivityState    string    `json:"activity_state,omitempty"`
+	WPM              int       `json:"wpm,omitempty"`
 }
 
 // TutorCommandRequest comando emitido por el docente para ejecutar diagnostico o ayuda interactiva.

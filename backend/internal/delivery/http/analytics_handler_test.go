@@ -17,7 +17,7 @@ type mockTeacherAnalyticsRepo struct {
 	err       error
 }
 
-func (m *mockTeacherAnalyticsRepo) GetCoursesSummary(ctx context.Context, tenantID, teacherID string) ([]*domain.TeacherCourseSummary, error) {
+func (m *mockTeacherAnalyticsRepo) GetCoursesSummary(ctx context.Context, tenantID, teacherID string, periodID string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
 func (m *mockTeacherAnalyticsRepo) GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*domain.TeacherAttentionWidget, error) {
@@ -80,8 +80,8 @@ func TestGetCourseAnalyticsEndpoint(t *testing.T) {
 	}
 
 	repo := &mockTeacherAnalyticsRepo{analytics: mockAnalytics}
-	teacherService := services.NewTeacherService(repo)
-	handler := httpdelivery.NewTeacherHandler(teacherService)
+	teacherService := services.NewTeacherService(repo, nil)
+	handler := httpdelivery.NewTeacherHandler(teacherService, nil)
 
 	t.Run("Teacher can get aggregated course analytics", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/teacher/courses/course-123/analytics", nil)

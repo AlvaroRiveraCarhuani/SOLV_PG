@@ -35,7 +35,7 @@ func setupTeacherRunnerAndExportTestServer(t *testing.T) (*httptest.Server, *dat
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
-	teacherHandler := httpdelivery.NewTeacherHandler(teacherService)
+	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, nil)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

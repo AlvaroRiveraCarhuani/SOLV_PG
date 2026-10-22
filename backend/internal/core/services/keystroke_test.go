@@ -67,7 +67,7 @@ type stubTeacherRepoForKeystroke struct {
 	review *domain.TeacherSubmissionReviewDTO
 }
 
-func (r *stubTeacherRepoForKeystroke) GetCoursesSummary(_ context.Context, _, _ string) ([]*domain.TeacherCourseSummary, error) {
+func (r *stubTeacherRepoForKeystroke) GetCoursesSummary(_ context.Context, _, _ string, _ string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForKeystroke) GetAttentionWidget(_ context.Context, _, _ string) (*domain.TeacherAttentionWidget, error) {
@@ -86,6 +86,9 @@ func (r *stubTeacherRepoForKeystroke) AddComment(_ context.Context, _ *domain.Su
 	return nil
 }
 func (r *stubTeacherRepoForKeystroke) GetCommentsBySubmission(_ context.Context, _, _ string) ([]*domain.SubmissionComment, error) {
+	return nil, nil
+}
+func (r *stubTeacherRepoForKeystroke) GetLiveWorkspaceSessions(_ context.Context, _, _ string) ([]*domain.LiveWorkspaceSession, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForKeystroke) GetCourseGradesMatrix(_ context.Context, _, _, _ string) (*domain.CourseGradesMatrix, error) {
@@ -148,9 +151,9 @@ func TestTeacherService_GetKeystrokeEvents_MetricsCalculation(t *testing.T) {
 		Verdict:     "AC",
 		SubmittedAt: time.Now(),
 	}
-	tRepo := &stubTeacherRepoForKeystroke{review: review}
-	tService := NewTeacherService(tRepo)
-	tService.SetKeystrokeRepository(keystrokeRepo)
+	repo := &stubTeacherRepoForKeystroke{review: review}
+	service := NewTeacherService(repo, nil)
+	service.SetKeystrokeRepository(keystrokeRepo)
 
 	// Save events: 10 typed chars, 20 pasted chars
 	events := []domain.SubmissionKeystrokeEvent{
@@ -159,7 +162,7 @@ func TestTeacherService_GetKeystrokeEvents_MetricsCalculation(t *testing.T) {
 	}
 	_ = keystrokeRepo.SaveBatch(context.Background(), "sub-456", events)
 
-	report, err := tService.GetKeystrokeEvents(context.Background(), "tenant-1", "teacher-1", "sub-456")
+	report, err := service.GetKeystrokeEvents(context.Background(), "tenant-1", "teacher-1", "sub-456")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -184,16 +187,16 @@ func TestTeacherService_GetKeystrokeEvents_MetricsCalculation(t *testing.T) {
 func TestTeacherService_GetSubmissionTimeline_WithRealKeystrokeEvents(t *testing.T) {
 	keystrokeRepo := newMemoryKeystrokeRepo()
 	review := &domain.TeacherSubmissionReviewDTO{
-		ID:          "sub-789",
+		ID:          "sub-456",
 		StudentID:   "stu-1",
-		StudentName: "Ana Gomez",
-		Code:        "x = 10",
+		StudentName: "Juan Perez",
+		Code:        "def solve():\n    return 42",
 		Verdict:     "AC",
 		SubmittedAt: time.Now(),
 	}
-	tRepo := &stubTeacherRepoForKeystroke{review: review}
-	tService := NewTeacherService(tRepo)
-	tService.SetKeystrokeRepository(keystrokeRepo)
+	repo := &stubTeacherRepoForKeystroke{review: review}
+	service := NewTeacherService(repo, nil)
+	service.SetKeystrokeRepository(keystrokeRepo)
 
 	events := []domain.SubmissionKeystrokeEvent{
 		{TimestampMS: 100, EventType: domain.KeystrokeEventInsert, Position: 0, Content: "x = "},
@@ -201,7 +204,7 @@ func TestTeacherService_GetSubmissionTimeline_WithRealKeystrokeEvents(t *testing
 	}
 	_ = keystrokeRepo.SaveBatch(context.Background(), "sub-789", events)
 
-	timeline, err := tService.GetSubmissionTimeline(context.Background(), "tenant-1", "teacher-1", "sub-789")
+	timeline, err := service.GetSubmissionTimeline(context.Background(), "tenant-1", "teacher-1", "sub-789")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

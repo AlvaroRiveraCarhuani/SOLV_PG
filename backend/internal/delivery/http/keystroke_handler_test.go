@@ -72,7 +72,7 @@ type stubTeacherRepoForHTTP struct {
 	review *domain.TeacherSubmissionReviewDTO
 }
 
-func (r *stubTeacherRepoForHTTP) GetCoursesSummary(_ context.Context, _, _ string) ([]*domain.TeacherCourseSummary, error) {
+func (r *stubTeacherRepoForHTTP) GetCoursesSummary(_ context.Context, _, _ string, _ string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForHTTP) GetAttentionWidget(_ context.Context, _, _ string) (*domain.TeacherAttentionWidget, error) {
@@ -137,7 +137,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	}
 	teacherService := services.NewTeacherService(teacherRepo, subRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
-	teacherHandler := NewTeacherHandler(teacherService)
+	teacherHandler := NewTeacherHandler(teacherService, nil)
 
 	mux := http.NewServeMux()
 	SetupRoutes(mux, &Handlers{
