@@ -299,7 +299,9 @@ export class ExerciseEditorComponent implements OnInit {
     }
 
     if (exId) {
-      this.store.loadExercise(exId, cId);
+      if (this.store.exerciseId() !== exId) {
+        this.store.loadExercise(exId, cId);
+      }
     } else {
       // Si es nuevo ejercicio, recuperar borrador local persistido automáticamente si existe
       this.store.restoreDraftFromStorage();

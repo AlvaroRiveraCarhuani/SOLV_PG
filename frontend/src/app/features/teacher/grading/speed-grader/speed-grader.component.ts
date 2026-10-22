@@ -106,6 +106,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
             override_reason: 'Evaluado por rúbrica'
           });
         }
+        if (this.rubricComments().trim()) {
+          this.gradingService.getComments(id).subscribe();
+        }
       },
       error: () => {
         this.isSubmittingRubric.set(false);

@@ -21,6 +21,11 @@ export interface ApprovedTemplate {
       enabled: boolean;
       engine?: string;
     };
+    services?: Array<{
+      category?: string;
+      engine?: string;
+      [key: string]: unknown;
+    }>;
     [key: string]: unknown;
   };
 }
@@ -38,7 +43,7 @@ export interface ApprovedTemplate {
   template: `
     <div class="ide-step-container">
       <header class="step-header">
-        <h2 class="step-title">Entorno de Ejecuci\u00f3n y Entrega</h2>
+        <h2 class="step-title">Entorno de Ejecución y Entrega</h2>
         <p class="step-subtitle">
           Configura la plantilla de desarrollo interactivo (OpenVSCode) y las reglas de entrega para los estudiantes.
         </p>
@@ -104,24 +109,47 @@ export class StepIdeEnvironmentComponent implements OnInit {
     return this.approvedTemplates().find(t => t.id === tplId) || this.store.metadata().template || null;
   });
 
-  hasDatabaseService = computed(() => {
-    const tpl = this.selectedTemplate();
-    return !!(tpl && tpl.services_config && tpl.services_config.database && tpl.services_config.database.enabled);
-  });
+  hasDatabaseService = computed(() => this.templateHasDatabase(this.selectedTemplate()));
 
   readonly templateOptions = computed<ComboboxOption[]>(() => {
-    return this.approvedTemplates().map(t => ({
-      id: t.id,
-      label: t.name,
-      value: t.id,
-      badge: `${t.base_ram_mb} MB`,
-      description: `${t.docker_image}${t.services_config?.database?.enabled ? ' • BD ' + (t.services_config.database.engine || 'SQL') : ''}`
-    }));
+    return this.approvedTemplates().map(t => {
+      const databaseEngine = this.templateDatabaseEngine(t);
+      return {
+        id: t.id,
+        label: t.name,
+        value: t.id,
+        badge: `${t.base_ram_mb} MB`,
+        description: `${t.docker_image}${databaseEngine ? ' • BD ' + databaseEngine : ''}`
+      };
+    });
   });
+
+  /**
+   * El backend puede serializar services_config con dos formas: el objeto
+   * histórico `database.enabled` o la lista `services[]` con category=database.
+   */
+  private templateHasDatabase(tpl: ApprovedTemplate | null | undefined): boolean {
+    return this.templateDatabaseEngine(tpl) !== '';
+  }
+
+  private templateDatabaseEngine(tpl: ApprovedTemplate | null | undefined): string {
+    const config = tpl?.services_config;
+    if (!config) {
+      return '';
+    }
+    if (config.database?.enabled) {
+      return config.database.engine || 'SQL';
+    }
+    const services = Array.isArray(config.services) ? config.services : [];
+    const databaseService = services.find(
+      service => service.category === 'database' && !!service.engine && service.engine !== 'none'
+    );
+    return databaseService?.engine || '';
+  }
 
   readonly rubricPresetOptions: ComboboxOption[] = [
     { id: 'api-rest', label: 'API REST Backend', value: 'api-rest', description: 'Endpoints, HTTP y persistencia' },
-    { id: 'full-stack', label: 'Aplicaci\u00f3n Full-Stack', value: 'full-stack', description: 'Frontend, backend y base de datos' },
+    { id: 'full-stack', label: 'Aplicación Full-Stack', value: 'full-stack', description: 'Frontend, backend y base de datos' },
     { id: 'proyecto-integrador', label: 'Proyecto Integrador', value: 'proyecto-integrador', description: 'Arquitectura, testing y docs' }
   ];
 
@@ -130,11 +158,17 @@ export class StepIdeEnvironmentComponent implements OnInit {
   }
 
   loadTemplates(): void {
-    this.http.get<unknown>('/api/v1/templates').subscribe({
+    this.http.get<unknown>('/api/v1/templates?limit=50').subscribe({
       next: (res: unknown) => {
+        const envelope = res as { data?: unknown } | null | undefined;
+        const inner = (envelope?.data as { data?: unknown } | null | undefined)?.data;
         const list: ApprovedTemplate[] = Array.isArray(res)
-          ? res
-          : ((res as { data?: unknown })?.data as ApprovedTemplate[] | undefined) || [];
+          ? (res as ApprovedTemplate[])
+          : Array.isArray(envelope?.data)
+            ? (envelope.data as ApprovedTemplate[])
+            : Array.isArray(inner)
+              ? (inner as ApprovedTemplate[])
+              : [];
         const filtered = list.filter(t => 
           (t.status === 'approved' || t.status === 'APROBADA' || t.status === 'published' || !t.status) &&
           (t.target_environment === 'IDE_PERSISTENTE' || t.target_environment === 'AMBOS' || !t.target_environment)
@@ -212,7 +246,7 @@ export class StepIdeEnvironmentComponent implements OnInit {
     const current = this.store.rubric() || { criteria: [] };
     const newCriterion: RubricCriterionDTO = {
       name: 'Nuevo Criterio',
-      description: 'Descripci\u00f3n del criterio de evaluaci\u00f3n',
+      description: 'Descripción del criterio de evaluación',
       weight: 25,
       levels: [
         { name: 'Excelente', score: 100, description: 'Cumple con excelencia los requisitos.' },

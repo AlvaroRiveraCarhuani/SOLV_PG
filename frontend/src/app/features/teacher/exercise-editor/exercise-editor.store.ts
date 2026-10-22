@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { ASTRulesDTO, ASTCustomRuleDTO, ChecklistReportDTO, TestCaseDTO } from '../models/teacher.models';
 
@@ -178,6 +178,7 @@ export class ExerciseEditorStore {
       if (parsed.ref !== undefined) this.referenceSolution.set(parsed.ref);
       if (parsed.ast) this.astRules.set(parsed.ast);
       if (parsed.bp !== undefined) this.boilerplate.set(parsed.bp);
+      if (parsed.rub !== undefined) this.rubric.set(parsed.rub);
       this.hasInteracted.set(true);
       return true;
     } catch {
@@ -194,15 +195,25 @@ export class ExerciseEditorStore {
     }
   }
 
+  private canAutoSaveRemoteDraft(): boolean {
+    const m = this.metadata();
+    if (!m.title.trim()) {
+      return false;
+    }
+    if (!this.exerciseId() && m.environment_type === 'IDE_PERSISTENTE' && !m.template_id) {
+      return false;
+    }
+    return true;
+  }
+
   scheduleAutoSave() {
     this.saveDraftToStorage();
     if (this.autoSaveTimeout) {
       clearTimeout(this.autoSaveTimeout);
     }
     this.autoSaveTimeout = setTimeout(() => {
-      // Si ya tiene un título o contenido mínimo, auto-guardar en backend
-      const title = this.metadata().title.trim();
-      if (title && this.dirty() && !this.isSaving()) {
+      // Si ya tiene un título y plantilla válida, auto-guardar en backend
+      if (this.canAutoSaveRemoteDraft() && this.dirty() && !this.isSaving()) {
         this.saveDraft();
       }
     }, 1500);
@@ -428,6 +439,19 @@ export class ExerciseEditorStore {
     }));
   }
 
+  flushAutoSave(callback?: (err?: any, result?: any) => void): void {
+    if (this.autoSaveTimeout) {
+      clearTimeout(this.autoSaveTimeout);
+      this.autoSaveTimeout = null;
+    }
+    this.saveDraftToStorage();
+    if (this.canAutoSaveRemoteDraft() && this.dirty() && !this.isSaving()) {
+      this.saveDraft(callback);
+    } else if (callback) {
+      callback();
+    }
+  }
+
   refreshChecklist() {
     const id = this.exerciseId();
     const meta = this.metadata();
@@ -475,36 +499,57 @@ export class ExerciseEditorStore {
     }
 
     if (!id) {
-      // Para ejercicios nuevos JUEZ_EFIMERO no persistidos aún
-      const s1 = this.step1Validation();
-      const errors: string[] = [...s1.errors];
-      const warnings: string[] = [...s1.warnings];
-      const info: string[] = [];
+      this.evaluateLocalChecklist();
+      return;
+    }
 
-      if (this.cases().length === 0) {
-        errors.push('Debes incluir al menos un caso de prueba.');
-      }
-      if (this.hiddenCasesCount() === 0) {
-        warnings.push('Sin casos ocultos: un alumno podría aprobar mostrando salidas fijas en consola.');
-      }
-      if (this.exampleCasesCount() === 0) {
-        warnings.push('0 casos de ejemplo: el estudiante no verá casos ilustrativos en el enunciado.');
-      }
-      if (!this.referenceSolution().trim()) {
-        warnings.push('No se ha configurado la solución de referencia del docente.');
-      }
-
-      info.push(`Total de casos: ${this.cases().length} (${this.exampleCasesCount()} ejemplos, ${this.publicCasesCount()} públicos, ${this.hiddenCasesCount()} ocultos).`);
-
-      this.checklistReport.set({
-        blockers: errors,
-        warnings,
-        info,
-        can_publish: errors.length === 0
+    if (this.dirty()) {
+      this.isChecklistLoading.set(true);
+      this.flushAutoSave((err) => {
+        const currentId = this.exerciseId();
+        if (!err && currentId) {
+          this.fetchRemoteChecklist(currentId);
+        } else {
+          this.evaluateLocalChecklist();
+          this.isChecklistLoading.set(false);
+        }
       });
       return;
     }
 
+    this.fetchRemoteChecklist(id);
+  }
+
+  private evaluateLocalChecklist(): void {
+    const s1 = this.step1Validation();
+    const errors: string[] = [...s1.errors];
+    const warnings: string[] = [...s1.warnings];
+    const info: string[] = [];
+
+    if (this.cases().length === 0) {
+      errors.push('Debes incluir al menos un caso de prueba.');
+    }
+    if (this.hiddenCasesCount() === 0) {
+      warnings.push('Sin casos ocultos: un alumno podría aprobar mostrando salidas fijas en consola.');
+    }
+    if (this.exampleCasesCount() === 0) {
+      warnings.push('0 casos de ejemplo: el estudiante no verá casos ilustrativos en el enunciado.');
+    }
+    if (!this.referenceSolution().trim()) {
+      warnings.push('No se ha configurado la solución de referencia del docente.');
+    }
+
+    info.push(`Total de casos: ${this.cases().length} (${this.exampleCasesCount()} ejemplos, ${this.publicCasesCount()} públicos, ${this.hiddenCasesCount()} ocultos).`);
+
+    this.checklistReport.set({
+      blockers: errors,
+      warnings,
+      info,
+      can_publish: errors.length === 0
+    });
+  }
+
+  private fetchRemoteChecklist(id: string): void {
     this.isChecklistLoading.set(true);
     const refSol = this.referenceSolution().trim() ? {
       code: this.referenceSolution(),
@@ -514,7 +559,15 @@ export class ExerciseEditorStore {
     this.courseService.getExerciseChecklist(id, refSol).subscribe({
       next: (report: ChecklistReportDTO) => {
         const s1 = this.step1Validation();
-        const mergedBlockers = Array.from(new Set([...s1.errors, ...(report.blockers || [])]));
+        let remoteBlockers = report.blockers || [];
+        if (this.cases().length > 0) {
+          remoteBlockers = remoteBlockers.filter(b => !b.toLowerCase().includes('caso de prueba'));
+        }
+        if (this.referenceSolution().trim()) {
+          remoteBlockers = remoteBlockers.filter(b => !b.toLowerCase().includes('solución de referencia') && !b.toLowerCase().includes('solucion de referencia'));
+        }
+
+        const mergedBlockers = Array.from(new Set([...s1.errors, ...remoteBlockers]));
         const mergedWarnings = Array.from(new Set([...s1.warnings, ...(report.warnings || [])]));
 
         this.checklistReport.set({
@@ -526,13 +579,16 @@ export class ExerciseEditorStore {
         this.isChecklistLoading.set(false);
       },
       error: () => {
+        this.evaluateLocalChecklist();
         this.isChecklistLoading.set(false);
       }
     });
   }
 
   setRubric(rubric: RubricDTO | null) {
+    this.hasInteracted.set(true);
     this.rubric.set(rubric);
+    this.scheduleAutoSave();
   }
 
   setCourseId(id: string) {
@@ -540,6 +596,9 @@ export class ExerciseEditorStore {
   }
 
   setStep(step: 1 | 2 | 3) {
+    if (this.dirty() && this.metadata().title.trim()) {
+      this.flushAutoSave();
+    }
     this.currentStep.set(step);
     this.stepAttempted.set(false);
   }
@@ -559,6 +618,9 @@ export class ExerciseEditorStore {
   attemptNextStep(): boolean {
     const current = this.currentStep();
     if (current < 3) {
+      if (this.dirty() && this.metadata().title.trim()) {
+        this.flushAutoSave();
+      }
       this.currentStep.set((current + 1) as 1 | 2 | 3);
       this.stepAttempted.set(false);
       return true;
@@ -810,15 +872,10 @@ export class ExerciseEditorStore {
     });
   }
 
-  // Guardar borrador
-  saveDraft(): Observable<any> | void {
+  private buildPayload(): any {
     const meta = this.metadata();
     const stat = this.statement();
-    const id = this.exerciseId();
     const cId = this.courseId();
-
-    this.isSaving.set(true);
-
     const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
 
     const payload: any = {
@@ -850,143 +907,115 @@ export class ExerciseEditorStore {
       payload.test_cases = this.cases();
     }
 
-    if (id) {
-      this.courseService.updateExercise(id, payload).subscribe({
-        next: () => {
-          this.isSaving.set(false);
-          this.lastSavedAt.set(new Date());
-          if (isIDE && this.rubric()) {
-            this.http.put(`/api/v1/exercises/${id}/rubric`, this.rubric()).subscribe({ error: () => {} });
-          }
-          this.initialSnapshot.set(this.serializeState());
-        },
-        error: () => {
-          this.isSaving.set(false);
-        }
-      });
-    } else {
-      this.courseService.createExercise(payload as any).subscribe({
-        next: (created: any) => {
-          this.isSaving.set(false);
-          this.lastSavedAt.set(new Date());
-          const newId = created?.id;
-          if (isIDE && this.rubric() && newId) {
-            this.http.put(`/api/v1/exercises/${newId}/rubric`, this.rubric()).subscribe({ error: () => {} });
-          }
-          if (created?.id) {
-            this.exerciseId.set(created.id);
-            this.initialSnapshot.set(this.serializeState());
-            this.router.navigate(['/teacher/courses', cId, 'exercises', created.id, 'edit'], {
-              replaceUrl: true
-            });
-          }
-        },
-        error: () => {
-          this.isSaving.set(false);
-        }
-      });
+    return payload;
+  }
+
+  /**
+   * Persiste la rúbrica del IDE antes de cerrar el guardado o la publicación.
+   * Sin esta espera el PUT competía contra el publish y SpeedGrader podía
+   * quedar sin criterios de calificación.
+   */
+  private async persistIdeRubric(exerciseId: string): Promise<void> {
+    const rubric = this.rubric();
+    if (this.metadata().environment_type !== 'IDE_PERSISTENTE' || !rubric) {
+      return;
+    }
+    await firstValueFrom(this.http.put(`/api/v1/exercises/${exerciseId}/rubric`, rubric));
+  }
+
+  private errorMessage(err: unknown): string {
+    if (err && typeof err === 'object') {
+      const candidate = err as { error?: { message?: string }; message?: string };
+      return candidate.error?.message || candidate.message || '';
+    }
+    return '';
+  }
+
+  // Guardar borrador
+  async saveDraft(callback?: (err?: unknown, result?: unknown) => void): Promise<void> {
+    const id = this.exerciseId();
+    const cId = this.courseId();
+    const payload = this.buildPayload();
+
+    this.isSaving.set(true);
+
+    try {
+      if (id) {
+        await firstValueFrom(this.courseService.updateExercise(id, payload));
+        // En borrador la rúbrica no bloquea el guardado: se reintenta al publicar.
+        await this.persistIdeRubric(id).catch(() => undefined);
+        this.lastSavedAt.set(new Date());
+        this.initialSnapshot.set(this.serializeState());
+        this.isSaving.set(false);
+        if (callback) callback(null, undefined);
+        return;
+      }
+
+      const created = await firstValueFrom(this.courseService.createExercise(payload));
+      const newId = created?.id;
+      if (newId) {
+        await this.persistIdeRubric(newId).catch(() => undefined);
+        this.exerciseId.set(newId);
+        this.initialSnapshot.set(this.serializeState());
+        this.router.navigate(['/teacher/courses', cId, 'exercises', newId, 'edit'], {
+          replaceUrl: true
+        });
+      }
+      this.lastSavedAt.set(new Date());
+      this.isSaving.set(false);
+      if (callback) callback(null, created);
+    } catch (err) {
+      this.isSaving.set(false);
+      if (callback) callback(err);
     }
   }
 
-  executePublish(onSuccess?: () => void, onError?: (err: any) => void): void {
-    const meta = this.metadata();
-    const stat = this.statement();
+  async executePublish(onSuccess?: () => void, onError?: (err: unknown) => void): Promise<void> {
     const id = this.exerciseId();
-    const cId = this.courseId();
+    const payload = this.buildPayload();
 
     this.isPublishing.set(true);
     this.publishError.set(null);
 
-    const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
-    const payload: any = {
-      subject_id: cId,
-      title: meta.title || 'Borrador sin título',
-      description: stat.description,
-      type: isIDE ? 'project' : (meta.modality === 'judge' ? 'algorithm' : meta.modality),
-      environment_type: meta.environment_type || (isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO'),
-      template_id: meta.template_id || undefined,
-      difficulty: meta.difficulty || undefined,
-      tags: meta.tags,
-      purpose: meta.purpose,
-      per_student_seed: meta.per_student_seed,
-      language: meta.language,
-      time_limit_ms: meta.time_limit_ms,
-      due_date: meta.due_date ? new Date(meta.due_date).toISOString() : undefined,
-      expected_complexity: meta.expected_complexity || undefined,
-      ast_rules: this.astRules(),
-      boilerplate: this.boilerplate()
-    };
+    let step: 'save' | 'rubric' | 'publish' = 'save';
 
-    if (isIDE) {
-      payload.db_init_script = meta.db_init_script || undefined;
-      payload.allow_resubmit = meta.allow_resubmit;
-      payload.auto_checkpoint = meta.auto_checkpoint;
-    } else {
-      payload.reference_solution = this.referenceSolution();
-      payload.input_format = this.contract();
-      payload.test_cases = this.cases();
-    }
+    try {
+      let exerciseIdToPublish = id;
 
-    const doPublish = (exerciseIdToPublish: string) => {
-      this.courseService.publishExercise(exerciseIdToPublish).subscribe({
-        next: () => {
-          this.isPublishing.set(false);
-          this.status.set('published');
-          this.publishSuccess.set(true);
-          this.showPublishConfirmModal.set(false);
-          this.initialSnapshot.set(this.serializeState());
-          if (onSuccess) onSuccess();
-        },
-        error: (err: any) => {
-          this.isPublishing.set(false);
-          this.showPublishConfirmModal.set(false);
-          const msg = err.error?.message || err.message || 'No se pudo publicar el ejercicio.';
-          this.publishError.set(msg);
-          if (onError) onError(err);
+      if (exerciseIdToPublish) {
+        await firstValueFrom(this.courseService.updateExercise(exerciseIdToPublish, payload));
+      } else {
+        const created = await firstValueFrom(this.courseService.createExercise(payload));
+        exerciseIdToPublish = created?.id;
+        if (!exerciseIdToPublish) {
+          throw new Error('No se pudo obtener el identificador del ejercicio creado.');
         }
-      });
-    };
+        this.exerciseId.set(exerciseIdToPublish);
+      }
+      this.lastSavedAt.set(new Date());
 
-    if (id) {
-      this.courseService.updateExercise(id, payload).subscribe({
-        next: () => {
-          this.lastSavedAt.set(new Date());
-          if (isIDE && this.rubric()) {
-            this.http.put(`/api/v1/exercises/${id}/rubric`, this.rubric()).subscribe({ error: () => {} });
-          }
-          doPublish(id);
-        },
-        error: (err: any) => {
-          this.isPublishing.set(false);
-          this.showPublishConfirmModal.set(false);
-          this.publishError.set(err.error?.message || 'Error al guardar los cambios antes de publicar.');
-          if (onError) onError(err);
-        }
-      });
-    } else {
-      this.courseService.createExercise(payload).subscribe({
-        next: (created: any) => {
-          this.lastSavedAt.set(new Date());
-          const newId = created?.id;
-          if (newId) {
-            this.exerciseId.set(newId);
-            if (isIDE && this.rubric()) {
-              this.http.put(`/api/v1/exercises/${newId}/rubric`, this.rubric()).subscribe({ error: () => {} });
-            }
-            doPublish(newId);
-          } else {
-            this.isPublishing.set(false);
-            this.showPublishConfirmModal.set(false);
-            this.publishError.set('No se pudo obtener el identificador del ejercicio creado.');
-          }
-        },
-        error: (err: any) => {
-          this.isPublishing.set(false);
-          this.showPublishConfirmModal.set(false);
-          this.publishError.set(err.error?.message || 'Error al crear el ejercicio antes de publicar.');
-          if (onError) onError(err);
-        }
-      });
+      step = 'rubric';
+      await this.persistIdeRubric(exerciseIdToPublish);
+
+      step = 'publish';
+      await firstValueFrom(this.courseService.publishExercise(exerciseIdToPublish));
+
+      this.isPublishing.set(false);
+      this.status.set('published');
+      this.publishSuccess.set(true);
+      this.showPublishConfirmModal.set(false);
+      this.initialSnapshot.set(this.serializeState());
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      this.isPublishing.set(false);
+      this.showPublishConfirmModal.set(false);
+      const msg = this.errorMessage(err) || (step === 'rubric'
+        ? 'No se pudo guardar la rúbrica de evaluación del proyecto.'
+        : step === 'save'
+          ? 'Error al guardar los cambios antes de publicar.'
+          : 'No se pudo publicar el ejercicio.');
+      this.publishError.set(msg);
+      if (onError) onError(err);
     }
   }
 
@@ -1028,6 +1057,7 @@ export class ExerciseEditorStore {
     });
     this.boilerplate.set('');
     this.boilerplates.set({});
+    this.rubric.set(null);
     this.checklistReport.set(null);
     this.acceptedWarnings.set(false);
     if (this.autoSaveTimeout) {
@@ -1047,7 +1077,8 @@ export class ExerciseEditorStore {
       cases: this.cases(),
       ref: this.referenceSolution(),
       ast: this.astRules(),
-      bp: this.boilerplate()
+      bp: this.boilerplate(),
+      rub: this.rubric()
     });
   }
 }

@@ -2,6 +2,7 @@ export type WorkspaceStatus = 'running' | 'pending' | 'hibernated' | 'failed' | 
 
 export interface Workspace {
   id: string;
+  workspace_id?: string;
   student_id: string;
   subject_id?: string;
   tenant_id?: string;
@@ -16,6 +17,7 @@ export interface Workspace {
   cpu_limit?: number;
   oom_strikes?: number;
   last_activity_at?: string;
+  last_heartbeat_at?: string;
   created_at: string;
 }
 

@@ -1,12 +1,12 @@
 <section class="card-section">
   <div class="title-with-icon">
     <svg lucideCalendar class="header-icon"></svg>
-    <h3 class="card-title">Par\u00e1metros de Entrega y Checkpoint</h3>
+    <h3 class="card-title">Parámetros de Entrega y Checkpoint</h3>
   </div>
 
   <div class="delivery-grid">
     <div class="form-group">
-      <label for="ide-due-date" class="form-label">Fecha y hora l\u00edmite de entrega</label>
+      <label for="ide-due-date" class="form-label">Fecha y hora límite de entrega</label>
       <input
         id="ide-due-date"
         type="datetime-local"
@@ -23,9 +23,9 @@
           [checked]="allowResubmit()"
           (change)="onAllowResubmit($event)"
         />
-        <span>Permitir re-env\u00edos despu\u00e9s de la primera entrega</span>
+        <span>Permitir re-envíos después de la primera entrega</span>
       </label>
-      <span class="field-hint">Permite al estudiante re-entregar soluci\u00f3n hasta la fecha l\u00edmite</span>
+      <span class="field-hint">Permite al estudiante re-entregar solución hasta la fecha límite</span>
     </div>
 
     <div class="form-group checkbox-group">
@@ -35,9 +35,9 @@
           [checked]="autoCheckpoint()"
           (change)="onAutoCheckpoint($event)"
         />
-        <span>Checkpoint autom\u00e1tico cada 5 minutos</span>
+        <span>Checkpoint automático cada 5 minutos</span>
       </label>
-      <span class="field-hint">Guarda copia del espacio de trabajo per\u00edodicamente en segundo plano</span>
+      <span class="field-hint">Guarda copia del espacio de trabajo períodicamente en segundo plano</span>
     </div>
   </div>
 </section>
