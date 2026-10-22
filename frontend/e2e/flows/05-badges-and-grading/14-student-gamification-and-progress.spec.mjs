@@ -136,6 +136,31 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
 
         expect(mapData).toBeDefined();
       });
+
+      // Dashboard del estudiante: widgets de progreso y accesos recientes con datos reales
+      await test.step('Paso 2: Dashboard muestra el curso al 100% y la entrega AC reciente', async () => {
+        await studentPage.bringToFront();
+        forensic.recordStep('Estudiante verifica widgets del dashboard');
+
+        await studentPage.goto('/student');
+
+        // Widget "Mi Progreso": código del curso y 100% (único ejercicio publicado, resuelto con AC)
+        const progressWidget = studentPage.locator('.widget-progress');
+        await expect(progressWidget).toBeVisible();
+        await expect(progressWidget).toContainText(courseCode);
+
+        const courseProgress = progressWidget.locator('.progress-item', { hasText: courseCode });
+        await expect(courseProgress).toContainText('100%');
+
+        // Widget "Accesos Recientes": título del ejercicio, veredicto AC y marca de tiempo semántica
+        const recentWidget = studentPage.locator('.widget-recent');
+        await expect(recentWidget).toBeVisible();
+
+        const recentItem = recentWidget.locator('.recent-item', { hasText: exerciseTitle });
+        await expect(recentItem).toBeVisible();
+        await expect(recentItem.locator('.recent-verdict')).toHaveText('AC');
+        await expect(recentItem.locator('time.recent-time')).toBeVisible();
+      });
     } catch (err) {
       await forensic.flushOnTestEnd(
         {

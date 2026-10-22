@@ -155,6 +155,9 @@ test.describe('Categoría 02 (Media): Módulos Curriculares y Cadena de Desbloqu
           return json.data || json;
         }, sharedState.courseId);
 
+        const mod1 = mapData.modules?.find(m => m.id === sharedState.mod1Id);
+        expect(mod1?.state).toBe('unlocked');
+
         const mod2 = mapData.modules?.find(m => m.id === sharedState.mod2Id);
         expect(mod2?.state).toBe('locked');
       });
@@ -208,8 +211,25 @@ test.describe('Categoría 02 (Media): Módulos Curriculares y Cadena de Desbloqu
           return json.data || json;
         }, sharedState.courseId);
 
+        const mod1 = updatedMap.modules?.find(m => m.id === sharedState.mod1Id);
+        expect(mod1?.state).toBe('completed');
+
         const mod2 = updatedMap.modules?.find(m => m.id === sharedState.mod2Id);
-        expect(mod2?.state).toBe('available');
+        expect(mod2?.state).toBe('unlocked');
+      });
+
+      // Verificación en el DOM real del mapa curricular del estudiante
+      await test.step('Paso 3: Estudiante ve en /student/courses/:id el módulo desbloqueado', async () => {
+        await studentPage.bringToFront();
+        forensic.recordStep('Estudiante abre el mapa curricular en la UI');
+
+        await studentPage.goto(`/student/courses/${sharedState.courseId}`);
+
+        const completedCard = studentPage.locator('.module-card.is-completed .module-title');
+        await expect(completedCard).toContainText('Módulo 1: Inicial');
+
+        const unlockedCard = studentPage.locator('.module-card.is-unlocked .module-title');
+        await expect(unlockedCard).toContainText('Módulo 2: Avanzado');
       });
     } catch (err) {
       await forensic.flushOnTestEnd(
