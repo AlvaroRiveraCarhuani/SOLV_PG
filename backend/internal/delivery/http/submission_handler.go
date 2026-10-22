@@ -8,6 +8,7 @@ import (
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
+	"solv-backend/internal/delivery/http/dto"
 	"solv-backend/internal/delivery/http/middleware"
 )
 
@@ -31,13 +32,26 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	var dto services.CreateSubmissionDTO
-	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+	var submissionDTO services.CreateSubmissionDTO
+	if err := json.NewDecoder(r.Body).Decode(&submissionDTO); err != nil {
 		http.Error(w, `{"error":"Invalid request payload"}`, http.StatusBadRequest)
 		return
 	}
 
-	sub, err := h.service.CreateSubmission(r.Context(), tenantID, dto)
+	// El rol student solo puede registrar entregas propias y nunca puede
+	// declarar la salida esperada de los casos generados (GOB-SEGURO-04).
+	if isStudentRole(r) {
+		if userID := r.Header.Get("X-User-Id"); userID != "" {
+			submissionDTO.StudentID = userID
+		}
+		if submissionDTO.StudentID == "" {
+			http.Error(w, `{"error":"Missing student identity"}`, http.StatusUnauthorized)
+			return
+		}
+		submissionDTO.GeneratedCases = dto.StripExpectedOutputFromRawCases(submissionDTO.GeneratedCases)
+	}
+
+	sub, err := h.service.CreateSubmission(r.Context(), tenantID, submissionDTO)
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
@@ -45,8 +59,8 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if h.wsHub != nil && dto.StudentID != "" {
-		h.wsHub.EmitToUser(dto.StudentID, WebSocketMessage{
+	if h.wsHub != nil && submissionDTO.StudentID != "" {
+		h.wsHub.EmitToUser(submissionDTO.StudentID, WebSocketMessage{
 			Event:        "EVALUATION_COMPLETED",
 			SubmissionID: sub.ID,
 			Stage:        "COMPLETED",
@@ -56,7 +70,17 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(sub)
+	_ = json.NewEncoder(w).Encode(sanitizeSubmissionForRole(sub, r))
+}
+
+// sanitizeSubmissionForRole elimina de la respuesta las salidas esperadas de
+// los casos generados cuando la entrega se entrega al rol student.
+func sanitizeSubmissionForRole(sub *domain.Submission, r *http.Request) *domain.Submission {
+	if sub == nil || !isStudentRole(r) {
+		return sub
+	}
+	sub.GeneratedCases = dto.StripExpectedOutputFromRawCases(sub.GeneratedCases)
+	return sub
 }
 
 func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +111,12 @@ func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *
 		return
 	}
 
+	if isStudentRole(r) {
+		for _, item := range list {
+			sanitizeSubmissionForRole(item, r)
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"exercise_id": exerciseID,
@@ -113,8 +143,17 @@ func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	// El rol student solo puede leer sus propias entregas.
+	if isStudentRole(r) {
+		userID := r.Header.Get("X-User-Id")
+		if userID == "" || userID != sub.StudentID {
+			http.Error(w, `{"error":"Forbidden"}`, http.StatusForbidden)
+			return
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(sub)
+	_ = json.NewEncoder(w).Encode(sanitizeSubmissionForRole(sub, r))
 }
 
 type OverrideSubmissionDTO struct {

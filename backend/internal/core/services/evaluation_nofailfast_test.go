@@ -88,6 +88,10 @@ func (s *stubExerciseRepo) GetStudentRecommendations(_ context.Context, _, _, _ 
 
 type allowAnalyzer struct{}
 
+func (allowAnalyzer) ValidateCustomRules(_ string, _ string, _ domain.ASTRules) *domain.CustomRuleViolation {
+	return nil
+}
+
 func (allowAnalyzer) ValidateCode(_ string, _ string, _ domain.ASTRules) (bool, string) {
 	return true, ""
 }

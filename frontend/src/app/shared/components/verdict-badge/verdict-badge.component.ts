@@ -50,6 +50,9 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
         @case ('AST_BLOCKED') {
           <svg lucideShieldAlert class="verdict-icon"></svg>
         }
+        @case ('AST_VIOLATION') {
+          <svg lucideShieldAlert class="verdict-icon"></svg>
+        }
         @case ('PENDING') {
           <svg lucideLoader2 class="verdict-icon spin-icon"></svg>
         }

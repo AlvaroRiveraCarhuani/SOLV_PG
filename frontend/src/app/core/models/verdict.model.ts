@@ -1,4 +1,11 @@
-export type JudgeVerdict = 'AC' | 'WA' | 'TLE' | 'RE' | 'AST_BLOCKED' | 'PENDING';
+export type JudgeVerdict =
+  | 'AC'
+  | 'WA'
+  | 'TLE'
+  | 'RE'
+  | 'AST_BLOCKED'
+  | 'AST_VIOLATION'
+  | 'PENDING';
 
 export function getVerdictBadgeClass(verdict: string): string {
   switch ((verdict || '').trim().toUpperCase()) {
@@ -11,6 +18,7 @@ export function getVerdictBadgeClass(verdict: string): string {
     case 'RE':
       return 'verdict-re';
     case 'AST_BLOCKED':
+    case 'AST_VIOLATION':
       return 'verdict-ast';
     case 'PENDING':
       return 'verdict-pending';
@@ -30,6 +38,7 @@ export function getVerdictHumanLabel(verdict: string): string {
     case 'RE':
       return 'Error de ejecución';
     case 'AST_BLOCKED':
+    case 'AST_VIOLATION':
       return 'Regla de código';
     case 'PENDING':
       return 'Evaluando';

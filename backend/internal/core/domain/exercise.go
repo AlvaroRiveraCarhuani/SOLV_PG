@@ -142,6 +142,18 @@ type ASTCustomRule struct {
 	Message  string `json:"message"`
 }
 
+// CustomRuleViolation describe la infracción de una regla personalizada
+// declarada por el docente en `ast_rules.custom_rules`.
+type CustomRuleViolation struct {
+	RuleID   string `json:"rule_id"`
+	Type     string `json:"type"`
+	Language string `json:"language"`
+	Pattern  string `json:"pattern"`
+	Target   string `json:"target"`
+	Line     int    `json:"line"`
+	Message  string `json:"message"`
+}
+
 type ASTRules struct {
 	BlockNativeSort    bool            `json:"block_native_sort,omitempty"`
 	BlockSystemModules bool            `json:"block_system_modules,omitempty"`

@@ -98,6 +98,11 @@ func GenerateStudentSeed(exerciseID, studentID string) int64 {
 	return int64(binary.BigEndian.Uint64(h[:8]))
 }
 
+// hiddenCaseDetailPlaceholder reemplaza el detalle del comparador en los casos
+// de evaluación ocultos: el detalle original incluye la salida esperada y
+// permitiría al rol student reconstruirla (GOB-SEGURO-01).
+const hiddenCaseDetailPlaceholder = "[CASO DE EVALUACIÓN OCULTO]"
+
 func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *domain.Exercise, language string, sourceCode string) (*domain.EvaluationResult, error) {
 	cfg := exercise.Config.Algorithm
 	if cfg == nil {
@@ -107,7 +112,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		s.attachTemplateSummary(ctx, exercise)
 	}
 	var tplImage, tplEntrypoint string
-	if exercise.Template != nil {
+	if exercise.Template != nil && (exercise.Language == "" || strings.EqualFold(language, exercise.Language)) {
 		tplImage = exercise.Template.DockerImage
 		tplEntrypoint = exercise.Template.Entrypoint
 	}
@@ -152,10 +157,40 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		}
 	}
 
-	// 2.5 Generación de casos deterministas por estudiante en exámenes
+	// 2.5 Pre-chequeo de reglas personalizadas declaradas por el docente
+	// (`ast_rules.custom_rules`). Corre después de Semgrep para que la barrera
+	// de plataforma conserve su mensaje y su `actual_json` own, y la
+	// enumeración visible en la UI sea la que efectivamente bloquea (GOB-SEGURO-02).
+	if violation := s.astAnalyzer.ValidateCustomRules(language, sourceCode, cfg.ASTRules); violation != nil {
+		payload := map[string]any{
+			"rule_id":        violation.RuleID,
+			"type":           violation.Type,
+			"language":       violation.Language,
+			"pattern":        violation.Pattern,
+			"target":         violation.Target,
+			"line":           violation.Line,
+			"message":        violation.Message,
+			"has_violations": true,
+			"violations":     []domain.CustomRuleViolation{*violation},
+		}
+		jsonBytes, _ := json.Marshal(payload)
+		return &domain.EvaluationResult{
+			Verdict:         domain.VerdictASTBlocked,
+			ExecutionTimeMS: 0,
+			MemoryUsedMB:    0,
+			Message: fmt.Sprintf(
+				"Violación de regla AST declarada por el docente: %s (patrón '%s', línea %d)",
+				violation.Message, violation.Pattern, violation.Line,
+			),
+			ActualJSON: string(jsonBytes),
+		}, nil
+	}
+
+	// 2.6 Generación de casos deterministas por estudiante en exámenes
 	testCasesToRun := cfg.TestCases
 	var generatedCases []domain.TestCase
 	isExamWithSeed := exercise.PerStudentSeed && exercise.Purpose == string(domain.ExercisePurposeExam)
+	var seedForSnapshot int64
 
 	if isExamWithSeed {
 		studentID := "anonymous"
@@ -163,6 +198,7 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			studentID = uid
 		}
 		seed := GenerateStudentSeed(exercise.ID, studentID)
+		seedForSnapshot = seed
 
 		var inputFormat json.RawMessage
 		if len(cfg.InputFormat) > 0 && string(cfg.InputFormat) != "null" {
@@ -222,6 +258,11 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 				generatedCases = append(generatedCases, tc)
 			}
 			testCasesToRun = generatedCases
+
+			// El snapshot autoritativo se conserva del lado del servidor: el rol
+			// student no debe recibir la salida esperada de los casos generados,
+			// pero el docente sí necesita verla en la revisión de la entrega.
+			s.persistGeneratedCaseSnapshot(ctx, exercise, studentID, seedForSnapshot, generatedCases)
 		}
 	}
 
@@ -256,10 +297,11 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		caseMsg := ""
 		if res.Verdict != domain.VerdictAC {
 			failCount++
+			hiddenCase := isExamWithSeed || tc.Visibility == domain.TestCaseVisibilityHidden || (tc.Visibility == "" && tc.IsHidden)
 			if globalVerdict == domain.VerdictAC {
 				globalVerdict = res.Verdict
 				failedTC := tc
-				if isExamWithSeed || tc.Visibility == domain.TestCaseVisibilityHidden || (tc.Visibility == "" && tc.IsHidden) {
+				if hiddenCase {
 					failedTC.Input = "[OCULTO POR EXAMEN]"
 					failedTC.ExpectedOutput = "[OCULTO POR EXAMEN]"
 				}
@@ -267,7 +309,14 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 			}
 			caseMsg = string(res.Verdict)
 			if res.ErrorDetails != "" {
-				caseMsg = fmt.Sprintf("%s. Detalle: %s", caseMsg, res.ErrorDetails)
+				if hiddenCase {
+					// El detalle del comparador incluye la salida esperada del caso;
+					// para casos ocultos se omite por completo para que el rol student
+					// no pueda reconstruir la respuesta por iteración (GOB-SEGURO-01).
+					caseMsg = fmt.Sprintf("%s. Detalle: %s", caseMsg, hiddenCaseDetailPlaceholder)
+				} else {
+					caseMsg = fmt.Sprintf("%s. Detalle: %s", caseMsg, res.ErrorDetails)
+				}
 			}
 		}
 		caseResults = append(caseResults, domain.CaseResult{
@@ -300,6 +349,28 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 		CaseResults:     caseResults,
 		GeneratedCases:  generatedCases,
 	}, nil
+}
+
+// persistGeneratedCaseSnapshot guarda del lado del servidor los casos
+// generados por semilla. Si el registro no está disponible la evaluación
+// continúa: el snapshot solo alimenta la revisión docente.
+func (s *EvaluationService) persistGeneratedCaseSnapshot(ctx context.Context, exercise *domain.Exercise, studentID string, seed int64, cases []domain.TestCase) {
+	if s.snapshotRepo == nil || exercise == nil || studentID == "" || len(cases) == 0 {
+		return
+	}
+
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
+	if err := s.snapshotRepo.SaveGeneratedCaseSnapshot(ctx, tenantID, exercise.ID, studentID, seed, cases); err != nil {
+		logging.FromContext(ctx).Warn("failed to persist generated case snapshot",
+			slog.String("exercise_id", exercise.ID),
+			slog.String("student_id", studentID),
+			slog.String("error", err.Error()),
+		)
+	}
 }
 
 func (s *EvaluationService) recordRunMetric(ctx context.Context, exerciseID, language string, res domain.TestCaseRunResult, caseIdx int) {

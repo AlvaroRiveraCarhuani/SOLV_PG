@@ -96,7 +96,8 @@ export class TeacherCourseDetailComponent implements OnInit {
     { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
     { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
     { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' }
+    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' },
+    { id: 'AST_VIOLATION', label: 'Restricción de código infringida (AST_VIOLATION)', value: 'AST_VIOLATION' }
   ];
 
   subjectId = signal<string>('');

@@ -27,6 +27,11 @@ describe('VerdictBadge mapping logic', () => {
     expect(getVerdictBadgeClass('AST_BLOCKED')).toBe('verdict-ast');
   });
 
+  it('debe mapear AST_VIOLATION a Regla de código y clase verdict-ast', () => {
+    expect(getVerdictHumanLabel('AST_VIOLATION')).toBe('Regla de código');
+    expect(getVerdictBadgeClass('AST_VIOLATION')).toBe('verdict-ast');
+  });
+
   it('debe mapear PENDING a Evaluando y clase verdict-pending', () => {
     expect(getVerdictHumanLabel('PENDING')).toBe('Evaluando');
     expect(getVerdictBadgeClass('PENDING')).toBe('verdict-pending');

@@ -18,8 +18,8 @@ func NewPostgresSubmissionRepository(db *sqlx.DB) *PostgresSubmissionRepository 
 
 func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.Submission) error {
 	query := `
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, execution_time_ms, memory_used_mb, submitted_at)
-		VALUES (:id, :tenant_id, :exercise_id, :student_id, :workspace_id, :code, :verdict, :ast_result, :generated_cases, :complexity_analysis, :execution_time_ms, :memory_used_mb, NOW())
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, ast_result, generated_cases, complexity_analysis, score, execution_time_ms, memory_used_mb, submitted_at)
+		VALUES (:id, :tenant_id, :exercise_id, :student_id, :workspace_id, :code, :verdict, :ast_result, :generated_cases, :complexity_analysis, :score, :execution_time_ms, :memory_used_mb, NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, sub)
 	if err != nil {

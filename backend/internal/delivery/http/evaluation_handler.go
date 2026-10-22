@@ -76,15 +76,31 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// El rol student nunca recibe la salida esperada de los casos generados por
+	// semilla: es la respuesta del ejercicio (GOB-SEGURO-04).
+	payload := any(result)
+	if isStudentRole(r) {
+		payload = dto.ToStudentEvaluationResponse(result)
+	}
+
 	if h.wsHub != nil && userID != "" {
 		h.wsHub.EmitToUser(userID, WebSocketMessage{
 			Event: "EVALUATION_COMPLETED",
 			Stage: "COMPLETED",
-			Data:  result,
+			Data:  payload,
 		})
 	}
 
-	SendJSON(w, http.StatusOK, result, "Evaluación procesada exitosamente")
+	SendJSON(w, http.StatusOK, payload, "Evaluación procesada exitosamente")
+}
+
+// isStudentRole indica si la petición la realiza el rol student.
+func isStudentRole(r *http.Request) bool {
+	role := r.Header.Get("X-User-Role")
+	if role == "" {
+		role = "student"
+	}
+	return role == "student"
 }
 
 func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Request) {

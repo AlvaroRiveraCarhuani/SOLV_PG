@@ -110,6 +110,18 @@ El presente documento establece la especificación formal del contrato de interf
   * Rol `student`: Retorna el **DTO público** (`ExercisePublicResponse`) enmascarando los `test_cases` del Juez Virtual, `reference_solution`, `validation_query` y `expected_json` para prevenir la lectura de respuestas desde DevTools del navegador.
   * Rol `teacher` / `admin`: Retorna el objeto `Exercise` completo incluyendo el bloque `config` con los `test_cases` completos.
 
+### 3.8 `POST /api/v1/evaluations`
+* **Propósito:** Evaluar la solución del estudiante contra los casos de prueba del ejercicio y devolver el veredicto del Juez Virtual.
+* **Regla de Seguridad por Rol (GOB-SEGURO-01):** El rol `student` nunca recibe datos de casos ocultos en ninguna parte de la respuesta:
+  * `failed_test_case.input` y `failed_test_case.expected_output` se enmascaran con `[OCULTO POR EXAMEN]` cuando el caso es `hidden` o el ejercicio corre en modo examen con semilla por estudiante.
+  * `case_results[].message` (detalle por caso) se reemplaza por `<VERDICT>. Detalle: [CASO DE EVALUACIÓN OCULTO]` en los casos ocultos: el detalle original del comparador incluye la salida esperada y permitiría reconstruirla por iteración.
+  * Los casos `example` y `public` conservan su detalle completo (`Esperado` / `Obtenido`) porque son visibles para el estudiante en el enunciado.
+* **Regla de Seguridad por Rol (GOB-SEGURO-04):** En los exámenes con `per_student_seed` la entrada de cada caso se genera con la semilla `sha256(ejercicio:estudiante)`, de modo que dos estudiantes reciben casos distintos. La salida esperada de esos casos es la respuesta del ejercicio y **nunca** se entrega al rol `student`:
+  * `POST /api/v1/evaluations` responde con el DTO `StudentEvaluationResponse`: los `generated_cases` viajan sin `expected_output` y el `failed_test_case` de un caso oculto no lleva salida esperada.
+  * El evento WebSocket `EVALUATION_COMPLETED` emite el mismo DTO saneado.
+  * `POST /api/v1/submissions` ignora el `generated_cases` declarado por el cliente: el servidor guarda el snapshot autoritativo calculado durante la evaluación (tabla `evaluation_generated_cases`) y el rol `student` tampoco puede leer la entrega de otro estudiante (`GET /api/v1/submissions/{id}` responde `403`).
+* **Verificación:** `backend/internal/core/services/evaluation_hidden_case_isolation_test.go`, `backend/internal/delivery/http/dto/evaluation_dto_test.go` y los specs E2E `frontend/e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs` y `frontend/e2e/flows/03-hard/J05-curricular-unlock-and-exam-seed.spec.mjs` (assert sobre el payload HTTP y sobre el DOM del rol `student`).
+
 ---
 
 ## 4. Interfaces TypeScript Mapeadas (Angular 22)

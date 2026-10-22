@@ -17,10 +17,17 @@ type EvaluationService struct {
 	moduleRepo      domain.CourseModuleRepository
 	scriptRunner    domain.ScriptSandboxRunner
 	adminGovRepo    domain.AdminGovernanceRepository
+	snapshotRepo    domain.GeneratedCaseSnapshotRepository
 }
 
 func (s *EvaluationService) SetAdminGovernanceRepository(repo domain.AdminGovernanceRepository) {
 	s.adminGovRepo = repo
+}
+
+// SetGeneratedCaseSnapshotRepository activa el guardado del snapshot
+// autoritativo de los casos generados por semilla.
+func (s *EvaluationService) SetGeneratedCaseSnapshotRepository(repo domain.GeneratedCaseSnapshotRepository) {
+	s.snapshotRepo = repo
 }
 
 // RunMetricsRecorder persiste la telemetria por caso (tabla run_metrics,

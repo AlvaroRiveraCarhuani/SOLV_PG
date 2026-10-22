@@ -13,10 +13,18 @@ import (
 type SubmissionService struct {
 	repo          domain.SubmissionRepository
 	keystrokeRepo domain.KeystrokeRepository
+	snapshotRepo  domain.GeneratedCaseSnapshotRepository
 }
 
 func NewSubmissionService(repo domain.SubmissionRepository) *SubmissionService {
 	return &SubmissionService{repo: repo}
+}
+
+// SetGeneratedCaseSnapshotRepository conecta el snapshot autoritativo de los
+// casos generados por semilla. Permite que la entrega se persista con la
+// salida esperada real sin que el rol student la reciba nunca.
+func (s *SubmissionService) SetGeneratedCaseSnapshotRepository(repo domain.GeneratedCaseSnapshotRepository) {
+	s.snapshotRepo = repo
 }
 
 func (s *SubmissionService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {
@@ -79,10 +87,34 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		ExecutionTimeMS:    dto.ExecutionTimeMS,
 		MemoryUsedMB:       dto.MemoryUsedMB,
 	}
+
+	// El snapshot del servidor manda sobre el payload del cliente: es la única
+	// fuente de verdad de los casos generados por semilla (GOB-SEGURO-04).
+	if authoritative := s.authoritativeGeneratedCases(ctx, dto.ExerciseID, dto.StudentID); authoritative != nil {
+		payload, err := json.Marshal(authoritative)
+		if err == nil {
+			sub.GeneratedCases = json.RawMessage(payload)
+		}
+	}
+
 	if err := s.repo.Create(ctx, sub); err != nil {
 		return nil, fmt.Errorf("failed to create submission: %w", err)
 	}
 	return sub, nil
+}
+
+// authoritativeGeneratedCases recupera del servidor los casos generados por
+// semilla para el ejercicio y el estudiante indicados. Devuelve nil cuando no
+// existe snapshot (el ejercicio no usa semilla o todavía no se evaluó).
+func (s *SubmissionService) authoritativeGeneratedCases(ctx context.Context, exerciseID, studentID string) []domain.TestCase {
+	if s.snapshotRepo == nil || exerciseID == "" || studentID == "" {
+		return nil
+	}
+	cases, err := s.snapshotRepo.GetGeneratedCaseSnapshot(ctx, exerciseID, studentID)
+	if err != nil || len(cases) == 0 {
+		return nil
+	}
+	return cases
 }
 
 func (s *SubmissionService) GetSubmissionsForExercise(ctx context.Context, tenantID, exerciseID, userID, userRole string) ([]*domain.Submission, error) {

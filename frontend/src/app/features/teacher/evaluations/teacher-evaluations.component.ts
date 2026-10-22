@@ -95,7 +95,8 @@ export class TeacherEvaluationsComponent implements OnInit {
     { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
     { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
     { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' }
+    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' },
+    { id: 'AST_VIOLATION', label: 'Restricción de código infringida (AST_VIOLATION)', value: 'AST_VIOLATION' }
   ];
 
   readonly statusFilterOptions: ComboboxOption<'all' | 'pending' | 'graded'>[] = [
@@ -147,7 +148,7 @@ export class TeacherEvaluationsComponent implements OnInit {
     const total = queue.length;
     const pending = queue.filter(q => q.score === undefined || q.score === null).length;
     const graded = total - pending;
-    const atRisk = queue.filter(q => q.verdict === 'WA' || q.verdict === 'TLE' || q.verdict === 'AST_BLOCKED').length;
+    const atRisk = queue.filter(q => q.verdict === 'WA' || q.verdict === 'TLE' || q.verdict === 'AST_BLOCKED' || q.verdict === 'AST_VIOLATION').length;
     return { total, pending, graded, atRisk };
   });
 

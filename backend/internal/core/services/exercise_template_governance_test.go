@@ -366,6 +366,10 @@ func (a *noopASTAnalyzer) ValidateCode(language, code string, rules domain.ASTRu
 	return true, ""
 }
 
+func (a *noopASTAnalyzer) ValidateCustomRules(language, code string, rules domain.ASTRules) *domain.CustomRuleViolation {
+	return nil
+}
+
 func TestExerciseTemplateGovernance_AprobadaStatusAndRunnerPropagation(t *testing.T) {
 	exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
 	govRepo := &mockGovRepoForTemplate{

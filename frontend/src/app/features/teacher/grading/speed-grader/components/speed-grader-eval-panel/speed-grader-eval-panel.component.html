@@ -148,7 +148,7 @@
   }
 
   <!-- Panel de Infracción de Restricciones de Código -->
-  @if (review().verdict === 'AST_BLOCKED' || review().ast_result) {
+  @if (review().verdict === 'AST_BLOCKED' || review().verdict === 'AST_VIOLATION' || review().ast_result) {
     <div class="ast-violations-box">
       <div class="ast-header">
         <svg lucideAlertTriangle class="btn-icon-sm text-danger"></svg>

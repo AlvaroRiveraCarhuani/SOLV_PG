@@ -70,11 +70,23 @@ type ExerciseRepository interface {
 
 type ASTAnalyzer interface {
 	ValidateCode(language string, sourceCode string, rules ASTRules) (bool, string)
+	// ValidateCustomRules evalúa las reglas personalizadas declaradas por el
+	// docente y devuelve la primera infracción detectada (nil si cumple).
+	ValidateCustomRules(language string, sourceCode string, rules ASTRules) *CustomRuleViolation
 }
 
 // CodeScanner runs Semgrep CLI against source code and returns structured violations
 type CodeScanner interface {
 	ScanCode(code string, language string) (*ScanResult, error)
+}
+
+// GeneratedCaseSnapshotRepository conserva el snapshot autoritativo de los
+// casos generados por semilla. El servidor calcula esos casos durante la
+// evaluación y es la única fuente de verdad: el rol student nunca recibe la
+// salida esperada, pero el docente sí necesita verla en la revision.
+type GeneratedCaseSnapshotRepository interface {
+	SaveGeneratedCaseSnapshot(ctx context.Context, tenantID, exerciseID, studentID string, seed int64, cases []TestCase) error
+	GetGeneratedCaseSnapshot(ctx context.Context, exerciseID, studentID string) ([]TestCase, error)
 }
 
 type LanguageStrategy interface {
