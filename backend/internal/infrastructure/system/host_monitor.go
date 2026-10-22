@@ -51,8 +51,10 @@ func (h *GopsutilHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 	}
 
 	// 1. Verificación por OOM_GUARD_MB (si se obtuvo del Auto-Tuner y existe en .env)
+	hasCalibratedGuard := false
 	if guardEnv := os.Getenv("OOM_GUARD_MB"); guardEnv != "" {
 		if guardMB, parseErr := strconv.ParseUint(guardEnv, 10, 64); parseErr == nil && guardMB > 0 {
+			hasCalibratedGuard = true
 			if availableMB < guardMB {
 				log.Printf("Admission Control Triggered (OOM_GUARD_MB): Host available RAM %d MB is below calibrated guard threshold %d MB", availableMB, guardMB)
 				return false
@@ -60,8 +62,8 @@ func (h *GopsutilHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 		}
 	}
 
-	// 2. Verificación por porcentaje libre mínimo (fallback 15%)
-	if freePct < h.minFreePct {
+	// 2. Verificación por porcentaje libre mínimo (fallback 15% cuando no hay OOM_GUARD_MB)
+	if !hasCalibratedGuard && freePct < h.minFreePct {
 		log.Printf("Admission Control Triggered: Host available RAM is %.2f%% (< %.2f%% threshold). Available: %d MB", freePct, h.minFreePct, availableMB)
 		return false
 	}
