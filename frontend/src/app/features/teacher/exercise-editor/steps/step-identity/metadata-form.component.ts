@@ -214,14 +214,19 @@ export class MetadataFormComponent implements OnInit {
 
     const options: ComboboxOption<string>[] = runners.map(r => {
       const langCode = this.store.deriveLanguageCode(r);
+      const rawName = r.name || langCode;
+      const label = rawName.toLowerCase().includes(langCode.toLowerCase())
+        ? rawName
+        : `${rawName} (${langCode.toUpperCase()})`;
       return {
         id: langCode,
-        label: r.name,
+        label,
         value: langCode
       };
     });
 
-    return options.filter((opt, index, self) => 
+    const combined = [...options, ...this.defaultLanguages];
+    return combined.filter((opt, index, self) => 
       index === self.findIndex(o => o.value === opt.value)
     );
   });
