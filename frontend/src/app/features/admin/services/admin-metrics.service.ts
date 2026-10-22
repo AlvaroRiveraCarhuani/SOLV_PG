@@ -201,7 +201,7 @@ export class AdminMetricsService {
     return this.http.get<WorkspaceLogsResponse>(`/api/v1/admin/workspaces/${workspaceId}/logs`);
   }
 
-  resolveIncident(workspaceId: string): Observable<any> {
+  resolveIncident(workspaceId: string): Observable<{ status: string; workspace_id: string; message: string }> {
     return this.http.post<{ status: string; workspace_id: string; message: string }>(
       `/api/v1/admin/workspaces/${workspaceId}/resolve`, 
       {}

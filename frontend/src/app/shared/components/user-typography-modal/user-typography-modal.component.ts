@@ -28,6 +28,8 @@ import { LucideType, LucideRotateCcw, LucideCheck } from '@lucide/angular';
 export class UserTypographyModalComponent {
   private userTypoService = inject(UserTypographyService);
 
+  // 'close' es parte de la API pública de este modal: renombrarlo rompe los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() close = new EventEmitter<void>();
 
   sansOptions = computed<ComboboxOption[]>(() => {

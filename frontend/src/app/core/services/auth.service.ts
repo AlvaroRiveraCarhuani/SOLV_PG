@@ -5,6 +5,17 @@ import { Observable, tap, catchError, of, switchMap, map } from 'rxjs';
 import { User, UserRole } from '@core/models/user.model';
 import { TenantService } from '@core/services/tenant.service';
 
+/** Respuesta de GET /api/v1/users/me: puede venir envuelta en { data: ... } o cruda. */
+type MeResponse = { data?: User } | User;
+
+function unwrapUser(resp: MeResponse | null | undefined): User | null {
+  if (!resp) return null;
+  if ('data' in resp) {
+    return resp.data ?? null;
+  }
+  return resp as User;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -69,16 +80,16 @@ export class AuthService {
     }
 
     this.isLoading.set(true);
-    return this.http.get<any>('/api/v1/users/me', { withCredentials: true }).pipe(
+    return this.http.get<MeResponse>('/api/v1/users/me', { withCredentials: true }).pipe(
       switchMap((resp) => {
-        const user: User = resp?.data || resp;
+        const user = unwrapUser(resp);
         const pendingInvite = typeof window !== 'undefined' ? sessionStorage.getItem('solv_invite_token') : null;
         if (pendingInvite && user) {
           return this.acceptTeacherInvitation(pendingInvite).pipe(
             switchMap(() => {
               sessionStorage.removeItem('solv_invite_token');
-              return this.http.get<any>('/api/v1/users/me', { withCredentials: true }).pipe(
-                map((uResp) => (uResp?.data || uResp) as User)
+              return this.http.get<MeResponse>('/api/v1/users/me', { withCredentials: true }).pipe(
+                map((uResp) => unwrapUser(uResp) as User)
               );
             }),
             catchError((err) => {

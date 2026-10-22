@@ -42,6 +42,19 @@ export interface SubjectOption {
   name: string;
 }
 
+interface AcademicPeriodRaw {
+  id: string;
+  code: string;
+  name: string;
+  is_active?: boolean;
+}
+
+interface DataEnvelope<T> {
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
 export interface AcademicPeriodOption {
   id: string;
   code: string;
@@ -61,6 +74,7 @@ export interface CreateStudentDTO {
 export class AdminStudentsService {
   private http = inject(HttpClient);
   private apiUrl = '/api/v1/admin/students';
+  private academicPeriodsUrl = '/api/v1/admin/academic-periods';
 
   getStudents(search?: string, subjectId?: string, status?: string, periodId?: string): Observable<AdminStudentItem[]> {
     let params = new HttpParams();
@@ -83,7 +97,7 @@ export class AdminStudentsService {
   }
 
   getAcademicPeriods(): Observable<AcademicPeriodOption[]> {
-    return this.http.get<{ data: any[]; error: string; message: string }>('/api/v1/admin/academic-periods').pipe(
+    return this.http.get<DataEnvelope<AcademicPeriodRaw[]>>(this.academicPeriodsUrl).pipe(
       map(res => {
         const raw = res.data || [];
         return raw.map(item => ({
@@ -103,7 +117,7 @@ export class AdminStudentsService {
   }
 
   updateStudentStatus(studentId: string, status: 'active' | 'suspended', reason?: string): Observable<void> {
-    return this.http.put<{ data: any; error: string; message: string }>(
+    return this.http.put<DataEnvelope<unknown>>(
       `${this.apiUrl}/${studentId}/status`,
       { status, reason }
     ).pipe(
@@ -120,13 +134,13 @@ export class AdminStudentsService {
   }
 
   restartWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<any>(`/api/v1/workspaces/${workspaceId}/restart`, {}).pipe(
+    return this.http.post<unknown>(`/api/v1/workspaces/${workspaceId}/restart`, {}).pipe(
       map(() => void 0)
     );
   }
 
   pauseWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<any>(`/api/v1/workspaces/${workspaceId}/pause`, {}).pipe(
+    return this.http.post<unknown>(`/api/v1/workspaces/${workspaceId}/pause`, {}).pipe(
       map(() => void 0)
     );
   }
@@ -141,7 +155,7 @@ export class AdminStudentsService {
   }
 
   getSubjects(): Observable<SubjectOption[]> {
-    return this.http.get<{ data: any[]; error: string; message: string }>('/api/v1/subjects').pipe(
+    return this.http.get<DataEnvelope<SubjectOption[]>>('/api/v1/subjects').pipe(
       map(res => {
         const raw = res.data || [];
         return raw.map(item => ({

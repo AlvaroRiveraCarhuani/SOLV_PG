@@ -12,6 +12,9 @@ import {
 import { CommonModule } from '@angular/common';
 import { LucideSearch, LucideChevronDown, LucideCheck, LucideX } from '@lucide/angular';
 
+// `T = any` se mantiene por retrocompatibilidad de tipado con los consumidores que usan
+// ComboboxOption sin genérico y leen `value` como string; `unknown` rompe su compilación.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface ComboboxOption<T = any> {
   id: string;
   label: string;

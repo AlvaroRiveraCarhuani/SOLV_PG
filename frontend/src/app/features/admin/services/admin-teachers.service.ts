@@ -26,6 +26,17 @@ export interface TeacherCourse {
   students_count: number;
 }
 
+interface CourseLoadRaw {
+  id: string;
+  course_name: string;
+  teacher_name?: string;
+}
+
+interface DirectTeacherResponse {
+  message: string;
+  teacher?: TeacherItem;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -158,15 +169,15 @@ export class AdminTeachersService {
       );
   }
 
-  reassignCourseTeacher(courseId: string, newTeacherId: string, reason?: string): Observable<any> {
-    return this.http.post(`/api/v1/admin/courses/${courseId}/reassign`, {
+  reassignCourseTeacher(courseId: string, newTeacherId: string, reason?: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/admin/courses/${courseId}/reassign`, {
       new_teacher_id: newTeacherId,
       reason: reason || 'Reasignación de docente por administración'
     });
   }
 
   getAllAvailableCourses(): Observable<{ id: string; name: string; teacher_name: string }[]> {
-    return this.http.get<{ data?: any[] } | any[]>('/api/v1/admin/dashboard/courses-load')
+    return this.http.get<CourseLoadRaw[] | { data?: CourseLoadRaw[] }>('/api/v1/admin/dashboard/courses-load')
       .pipe(
         map(res => {
           const list = Array.isArray(res) ? res : (res.data || []);
@@ -180,9 +191,9 @@ export class AdminTeachersService {
       );
   }
 
-  directRegisterTeacher(payload: DirectTeacherPayload): Observable<{ message: string; teacher?: any } | null> {
+  directRegisterTeacher(payload: DirectTeacherPayload): Observable<DirectTeacherResponse | null> {
     this.isLoading.set(true);
-    return this.http.post<{ message: string; teacher?: any }>('/api/v1/teachers/direct', payload)
+    return this.http.post<DirectTeacherResponse>('/api/v1/teachers/direct', payload)
       .pipe(
         tap(() => {
           this.fetchTeachers();

@@ -62,6 +62,8 @@ export class ConfirmModalComponent {
   @Input() isLoading = false;
 
   @Output() confirm = new EventEmitter<void>();
+  // 'cancel' es parte de la API pública de este modal: renombrarlo rompe los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() cancel = new EventEmitter<void>();
 
   @HostListener('document:keydown.escape')

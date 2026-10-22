@@ -82,6 +82,15 @@ export interface ReassignCoursePayload {
   reason: string;
 }
 
+interface SubjectsListResponse {
+  data?: SubjectRaw[];
+  subjects?: SubjectRaw[];
+}
+
+interface CoursesLoadResponse {
+  data?: CourseLoadMetric[];
+}
+
 export interface DockerTemplateItem {
   id: string;
   name: string;
@@ -223,7 +232,7 @@ export class AdminCoursesService {
   // Materias / Cursos
   // ---------------------------------------------------------------------------
   fetchSubjects(): Observable<SubjectRaw[]> {
-    return this.http.get<any>('/api/v1/subjects').pipe(
+    return this.http.get<SubjectRaw[] | SubjectsListResponse>('/api/v1/subjects').pipe(
       map(res => {
         if (Array.isArray(res)) return res;
         if (res && Array.isArray(res.data)) return res.data;
@@ -235,7 +244,7 @@ export class AdminCoursesService {
   }
 
   fetchCoursesLoadMetrics(): Observable<CourseLoadMetric[]> {
-    return this.http.get<any>('/api/v1/admin/dashboard/courses-load').pipe(
+    return this.http.get<CourseLoadMetric[] | CoursesLoadResponse>('/api/v1/admin/dashboard/courses-load').pipe(
       map(res => {
         if (Array.isArray(res)) return res;
         if (res && Array.isArray(res.data)) return res.data;

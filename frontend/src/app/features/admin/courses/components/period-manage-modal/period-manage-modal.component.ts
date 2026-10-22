@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output, HostListener, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { AcademicPeriod, AdminCoursesService, CreateAcademicPeriodDTO } from '../../../services/admin-courses.service';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
@@ -40,6 +41,8 @@ export class PeriodManageModalComponent {
   private coursesService = inject(AdminCoursesService);
 
   @Input() periods: AcademicPeriod[] = [];
+  // `close` es API pública de este componente compartido: renombrar rompería a todos sus consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() close = new EventEmitter<void>();
   @Output() periodCreated = new EventEmitter<AcademicPeriod>();
   @Output() periodActivated = new EventEmitter<AcademicPeriod>();
@@ -105,9 +108,10 @@ export class PeriodManageModalComponent {
         this.showCreateForm.set(false);
         this.periodCreated.emit(created);
       },
-      error: (err: { error?: { error?: string } }) => {
+      error: (err: HttpErrorResponse) => {
         this.isSubmitting.set(false);
-        const msg = err.error?.error || 'No se pudo crear el periodo. Verifique que el código no exista.';
+        const body = err.error as { error?: string; message?: string } | null;
+        const msg = body?.error || body?.message || 'No se pudo crear el periodo. Verifique que el código no exista.';
         this.formError.set(msg);
       }
     });
@@ -136,8 +140,9 @@ export class PeriodManageModalComponent {
       next: (updated: AcademicPeriod) => {
         this.periodActivated.emit(updated);
       },
-      error: (err: any) => {
-        const detail = err.error?.error || err.error?.message || err.statusText || 'Error de servidor';
+      error: (err: HttpErrorResponse) => {
+        const body = err.error as { error?: string; message?: string } | null;
+        const detail = body?.error || body?.message || err.statusText || 'Error de servidor';
         this.formError.set(`No se pudo activar el periodo "${period.name}": ${detail}`);
       }
     });
@@ -149,8 +154,9 @@ export class PeriodManageModalComponent {
       next: (updated: AcademicPeriod) => {
         this.periodActivated.emit(updated);
       },
-      error: (err: any) => {
-        const detail = err.error?.error || err.error?.message || 'Error al desactivar el periodo';
+      error: (err: HttpErrorResponse) => {
+        const body = err.error as { error?: string; message?: string } | null;
+        const detail = body?.error || body?.message || 'Error al desactivar el periodo';
         this.formError.set(detail);
       }
     });
@@ -203,9 +209,10 @@ export class PeriodManageModalComponent {
         this.editingPeriodId.set(null);
         this.periodActivated.emit(updated);
       },
-      error: (err: any) => {
+      error: (err: HttpErrorResponse) => {
         this.isSavingEdit.set(false);
-        const detail = err.error?.error || err.error?.message || 'Error al actualizar el periodo.';
+        const body = err.error as { error?: string; message?: string } | null;
+        const detail = body?.error || body?.message || 'Error al actualizar el periodo.';
         this.formError.set(detail);
       }
     });
@@ -229,9 +236,10 @@ export class PeriodManageModalComponent {
         this.cancelDeletePeriod();
         this.formError.set(null);
       },
-      error: (err: any) => {
+      error: (err: HttpErrorResponse) => {
         this.cancelDeletePeriod();
-        const detail = err.error?.error || err.error?.message || 'Tiene materias registradas asociadas';
+        const body = err.error as { error?: string; message?: string } | null;
+        const detail = body?.error || body?.message || 'Tiene materias registradas asociadas';
         this.formError.set(`No se pudo eliminar el periodo: ${detail}`);
       }
     });

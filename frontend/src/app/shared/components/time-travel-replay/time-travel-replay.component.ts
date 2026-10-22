@@ -59,6 +59,8 @@ export class TimeTravelReplayComponent implements OnDestroy {
   readonly mode = input<'embedded' | 'drawer' | 'modal'>('embedded');
   readonly title = input<string>('Time-Travel Replay & AST Timeline');
 
+  // 'close' es parte de la API pública de este modal: renombrarlo rompe los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   readonly close = output<void>();
   readonly keyframeChange = output<TimelineKeyframe>();
 

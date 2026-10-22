@@ -17,8 +17,7 @@ import {
   LucideRotateCcw,
   LucideCopy,
   LucideTrash2,
-  LucideBookOpen,
-  LucideUsers
+  LucideBookOpen
 } from '@lucide/angular';
 
 const ENGLISH_MONTH_INDEX: Record<string, number> = {

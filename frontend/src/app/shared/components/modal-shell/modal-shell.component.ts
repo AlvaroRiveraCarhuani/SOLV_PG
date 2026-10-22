@@ -24,6 +24,8 @@ export class ModalShellComponent {
   readonly showIcon = input<boolean>(true);
   readonly disableClose = input<boolean>(false);
 
+  // 'close' es parte de la API pública de este shell: renombrarlo rompe los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   readonly close = output<void>();
 
   @HostListener('document:keydown.escape')

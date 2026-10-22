@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, signal, computed, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { 
   AdminCoursesService, 
@@ -356,9 +357,10 @@ export class AdminCoursesComponent implements OnInit {
         this.closeEditCourseModal();
         this.showToast(`Materia "${code}" actualizada con éxito.`);
       },
-      error: (err: any) => {
+      error: (err: HttpErrorResponse) => {
         this.isSubmittingEditCourse.set(false);
-        const msg = err.error?.error || 'Error al actualizar la materia.';
+        const body = err.error as { error?: string } | null;
+        const msg = body?.error || 'Error al actualizar la materia.';
         this.editCourseError.set(msg);
       }
     });

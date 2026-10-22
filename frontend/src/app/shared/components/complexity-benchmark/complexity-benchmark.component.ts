@@ -61,6 +61,8 @@ export class ComplexityBenchmarkComponent {
   @Input() isModal: boolean = false;
 
   @Output() runBenchmark = new EventEmitter<'small' | 'standard' | 'stress'>();
+  // 'close' es parte de la API pública de este modal: renombrarlo rompe los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-output-native
   @Output() close = new EventEmitter<void>();
 
   readonly activeMetric = signal<'time' | 'memory'>('time');

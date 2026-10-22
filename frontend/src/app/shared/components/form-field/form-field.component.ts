@@ -11,6 +11,8 @@ import { CommonModule } from '@angular/common';
 })
 export class FormFieldComponent {
   readonly label = input.required<string>();
+  // El alias 'for' es parte de la API pública: cambia el nombre y rompes los templates consumidores.
+  // eslint-disable-next-line @angular-eslint/no-input-rename
   readonly fieldId = input<string>('', { alias: 'for' });
   readonly required = input<boolean>(false);
   readonly hint = input<string>();
