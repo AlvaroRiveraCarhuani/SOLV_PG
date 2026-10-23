@@ -33,6 +33,27 @@ export interface PublishedTemplate {
   ports?: string;
 }
 
+export interface RawTemplateItem {
+  id?: string;
+  name?: string;
+  description?: string;
+  docker_image?: string;
+  default_memory_mb?: number;
+  base_ram_mb?: number;
+  default_cpu_cores?: number;
+  category?: string;
+  category_name?: string;
+  environment_type?: string;
+  target_environment?: string;
+  is_official?: boolean;
+  is_active?: boolean;
+  ports?: string;
+}
+
+export type TemplateApiResponse =
+  | RawTemplateItem[]
+  | { data?: RawTemplateItem[] | { data?: RawTemplateItem[] } };
+
 @Component({
   selector: 'teacher-templates',
   standalone: true,
@@ -161,18 +182,18 @@ export class TeacherTemplatesComponent implements OnInit {
 
   loadTemplates(): void {
     this.isLoading.set(true);
-    this.http.get<any>('/api/v1/templates').subscribe({
+    this.http.get<TemplateApiResponse>('/api/v1/templates').subscribe({
       next: res => {
-        let items: any[] = [];
+        let items: RawTemplateItem[] = [];
         if (Array.isArray(res)) {
           items = res;
         } else if (Array.isArray(res?.data)) {
           items = res.data;
-        } else if (Array.isArray(res?.data?.data)) {
+        } else if (res?.data && typeof res.data === 'object' && 'data' in res.data && Array.isArray(res.data.data)) {
           items = res.data.data;
         }
 
-        const mapped: PublishedTemplate[] = items.map((item: any) => ({
+        const mapped: PublishedTemplate[] = items.map((item: RawTemplateItem) => ({
           id: item.id || '',
           name: item.name || '',
           description: item.description || '',

@@ -5,6 +5,7 @@ import { LucideSparkles, LucideAlertTriangle } from '@lucide/angular';
 import { 
   AdminTemplateItem, 
   TemplateCategory, 
+  TemplateModelItem,
   AdminTemplatesService 
 } from '../../../../../services/admin-templates.service';
 import { ComboboxComponent, ComboboxOption } from '../../../../../../../shared/components/combobox/combobox.component';
@@ -122,7 +123,7 @@ export class ModelNewModalComponent {
       category_id: categoryId,
       description: this.modelDescription().trim()
     }).subscribe({
-      next: (res: any) => {
+      next: (res: TemplateModelItem) => {
         this.isSubmitting.set(false);
         this.promoted.emit({ id: res?.id || tplId, name: title });
       },

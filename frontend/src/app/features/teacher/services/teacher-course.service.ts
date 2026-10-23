@@ -14,8 +14,12 @@ import {
   CreateModuleDTO,
   UpdateModuleDTO,
   ExerciseImportResponse,
-  ScriptGenerationResponse
+  ScriptGenerationResponse,
+  ExerciseDetailDTO,
+  DryRunJobDTO,
+  ChecklistReportDTO
 } from '../models/teacher.models';
+import { ExerciseContract } from '../exercise-editor/steps/step-contract/format-builder/format-builder.models';
 
 
 interface ApiResponse<T> {
@@ -70,13 +74,13 @@ export class TeacherCourseService {
     );
   }
 
-  getExercise(exerciseId: string): Observable<any> {
-    return this.http.get<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}`).pipe(
+  getExercise(exerciseId: string): Observable<ExerciseDetailDTO> {
+    return this.http.get<ApiResponse<ExerciseDetailDTO>>(`/api/v1/exercises/${exerciseId}`).pipe(
       map(res => res.data)
     );
   }
 
-  validateInputFormat(contract: any, input: string): Observable<{ valid: boolean; error?: string }> {
+  validateInputFormat(contract: ExerciseContract | Record<string, unknown>, input: string): Observable<{ valid: boolean; error?: string }> {
     return this.http.post<ApiResponse<{ valid: boolean; error?: string }>>('/api/v1/exercises/validate-input', {
       contract,
       input
@@ -103,30 +107,30 @@ export class TeacherCourseService {
     );
   }
 
-  startDryRun(exerciseId: string): Observable<any> {
-    return this.http.post<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}/dry-run`, {}).pipe(
+  startDryRun(exerciseId: string): Observable<DryRunJobDTO> {
+    return this.http.post<ApiResponse<DryRunJobDTO>>(`/api/v1/exercises/${exerciseId}/dry-run`, {}).pipe(
       map(res => res.data)
     );
   }
 
-  getDryRunJob(jobId: string, exerciseId?: string): Observable<any> {
+  getDryRunJob(jobId: string, exerciseId?: string): Observable<DryRunJobDTO> {
     const url = exerciseId 
       ? `/api/v1/exercises/${exerciseId}/dry-run/jobs/${jobId}`
       : `/api/v1/dry-run/jobs/${jobId}`;
-    return this.http.get<ApiResponse<any>>(url).pipe(
+    return this.http.get<ApiResponse<DryRunJobDTO>>(url).pipe(
       map(res => res.data)
     );
   }
 
-  getExerciseChecklist(exerciseId: string, referenceSolution?: { code: string; language: string }): Observable<any> {
-    return this.http.post<ApiResponse<any>>(`/api/v1/exercises/${exerciseId}/checklist`, {
+  getExerciseChecklist(exerciseId: string, referenceSolution?: { code: string; language: string }): Observable<ChecklistReportDTO> {
+    return this.http.post<ApiResponse<ChecklistReportDTO>>(`/api/v1/exercises/${exerciseId}/checklist`, {
       reference_solution: referenceSolution
     }).pipe(
       map(res => res.data)
     );
   }
 
-  generateCases(contract: any, count: number, seed?: number): Observable<{ cases: Array<{ input: string; output: string | null }> }> {
+  generateCases(contract: ExerciseContract | Record<string, unknown>, count: number, seed?: number): Observable<{ cases: Array<{ input: string; output: string | null }> }> {
     return this.http.post<ApiResponse<{ cases: Array<{ input: string; output: string | null }> }>>('/api/v1/exercises/generate-cases', {
       contract,
       count,

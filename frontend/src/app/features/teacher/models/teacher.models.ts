@@ -548,6 +548,90 @@ export interface ScriptGenerationResponse {
   imported_case_ids?: string[];
 }
 
+export interface ExerciseTemplateSummary {
+  id: string;
+  name: string;
+  docker_image?: string;
+  entrypoint?: string;
+  base_ram_mb?: number;
+  target_environment?: string;
+  services_config?: Record<string, unknown>;
+}
+
+export interface ExerciseAlgorithmConfigDTO {
+  test_cases?: TestCaseDTO[];
+  ast_rules?: ASTRulesDTO;
+  comparator?: ComparatorDTO;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
+  input_format?: unknown;
+}
+
+export interface ExerciseDatabaseConfigDTO {
+  engine?: string;
+  init_script?: string;
+  reference_solution?: string;
+  validation_query?: string;
+  expected_json?: string;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
+}
+
+export interface ExerciseIDEConfigDTO {
+  allow_resubmit?: boolean;
+  auto_checkpoint?: boolean;
+  db_init_script?: string;
+}
+
+export interface ExerciseConfigDTO {
+  algorithm?: ExerciseAlgorithmConfigDTO;
+  database?: ExerciseDatabaseConfigDTO;
+  ide?: ExerciseIDEConfigDTO;
+  input_format?: unknown;
+}
+
+export interface ExerciseDetailDTO {
+  id: string;
+  subject_id?: string;
+  title: string;
+  description: string;
+  type?: string;
+  environment_type?: string;
+  template_id?: string | null;
+  difficulty?: 'easy' | 'medium' | 'hard' | string | null;
+  tags?: string[];
+  purpose?: string;
+  per_student_seed?: boolean;
+  due_date?: string | null;
+  boilerplate?: string;
+  status?: string;
+  language?: string;
+  time_limit_ms?: number;
+  memory_limit_mb?: number;
+  reference_solution?: string;
+  stale?: boolean;
+  last_valid_dry_run_at?: string | null;
+  module_id?: string | null;
+  expected_complexity?: string | null;
+  config?: ExerciseConfigDTO;
+  tenant_id?: string;
+  template?: ExerciseTemplateSummary | null;
+  test_cases?: TestCaseDTO[];
+  created_at?: string;
+}
+
+export interface DryRunJobDTO {
+  id: string;
+  exercise_id: string;
+  status: string;
+  progress_current: number;
+  progress_total: number;
+  result?: Record<string, unknown> | null;
+  error?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 
 
 

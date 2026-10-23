@@ -81,7 +81,7 @@ export class CategoryFormModalComponent implements OnInit {
         description: this.description().trim()
       };
       this.templatesService.createCategory(dto).subscribe({
-        next: (created: any) => {
+        next: (created: TemplateCategory) => {
           this.isSubmitting.set(false);
           this.saved.emit({ id: created?.id || '', name: nameVal });
         },
