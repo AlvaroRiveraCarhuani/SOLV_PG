@@ -28,8 +28,8 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     <button 
       type="button" 
       class="preset-btn"
-      [class.active]="selected()"
-      (click)="select.emit(preset())"
+      [class.active]="active()"
+      (click)="selected.emit(preset())"
       [title]="preset().description"
     >
       <div class="preset-icon-box">
@@ -67,6 +67,6 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 })
 export class PresetButtonComponent {
   preset = input.required<FormatPreset>();
-  selected = input<boolean>(false);
-  select = output<FormatPreset>();
+  active = input<boolean>(false);
+  selected = output<FormatPreset>();
 }

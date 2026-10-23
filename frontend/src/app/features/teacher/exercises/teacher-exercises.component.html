@@ -219,7 +219,7 @@
     [exerciseId]="lab.id"
     [exerciseTitle]="lab.title"
     [language]="lab.language || 'python'"
-    (close)="closeFuzzingModal()"
+    (closed)="closeFuzzingModal()"
     (applied)="onFuzzingApplied()"
   />
 }

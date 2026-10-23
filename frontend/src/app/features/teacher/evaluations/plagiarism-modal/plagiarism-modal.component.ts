@@ -50,7 +50,7 @@ export class PlagiarismModalComponent implements OnInit {
   @Input({ required: true }) subjectId!: string;
   @Input() initialExerciseId?: string;
   @Input() labs: TeacherLabStats[] = [];
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
 
   selectedExerciseId = signal<string>('all');
   report = signal<PlagiarismReport | null>(null);
@@ -71,7 +71,7 @@ export class PlagiarismModalComponent implements OnInit {
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 
   ngOnInit(): void {

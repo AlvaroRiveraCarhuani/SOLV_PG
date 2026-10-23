@@ -75,7 +75,7 @@ export interface MacroPreset {
 })
 export class ShadowTerminalModalComponent implements OnInit, OnDestroy {
   @Input({ required: true }) session!: LiveWorkspaceSession;
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
 
   private liveService = inject(TeacherLiveService);
 
@@ -401,6 +401,6 @@ export class ShadowTerminalModalComponent implements OnInit, OnDestroy {
   }
 
   onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 }

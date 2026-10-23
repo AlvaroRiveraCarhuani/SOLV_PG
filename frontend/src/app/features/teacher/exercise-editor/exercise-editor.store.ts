@@ -3,7 +3,25 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { TeacherCourseService } from '../services/teacher-course.service';
-import { ASTRulesDTO, ASTCustomRuleDTO, ChecklistReportDTO, TestCaseDTO } from '../models/teacher.models';
+import {
+  ASTRulesDTO,
+  ASTCustomRuleDTO,
+  ChecklistReportDTO,
+  TestCaseDTO,
+  ExerciseTemplateSummary,
+  ExerciseDetailDTO,
+  ExercisePayloadDTO
+} from '../models/teacher.models';
+import { ExerciseContract } from './steps/step-contract/format-builder/format-builder.models';
+
+interface ApiResponse<T> {
+  data: T;
+  message?: string;
+}
+
+type RunnerTemplatesApiResponse =
+  | ExerciseTemplateSummary[]
+  | { data?: ExerciseTemplateSummary[] | { data?: ExerciseTemplateSummary[] } };
 
 export interface RubricLevelDTO {
   name: string;
@@ -32,7 +50,7 @@ export interface ExerciseMetadata {
   modality: 'judge' | 'workspace' | 'database';
   environment_type: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
   template_id: string | null;
-  template: any | null;
+  template: ExerciseTemplateSummary | null;
   db_init_script: string;
   allow_resubmit: boolean;
   auto_checkpoint: boolean;
@@ -109,7 +127,7 @@ export class ExerciseEditorStore {
   });
 
   // Paso 2: Contrato, Casos y Referencia
-  readonly contract = signal<any | null>(null);
+  readonly contract = signal<ExerciseContract | null>(null);
   readonly cases = signal<TestCaseDTO[]>([]);
   readonly referenceSolution = signal<string>('');
 
@@ -131,11 +149,11 @@ export class ExerciseEditorStore {
   readonly touchedFields = signal<Set<string>>(new Set<string>());
 
   // Estado de plantillas runner para Juez Efímero
-  readonly runnerTemplates = signal<any[]>([]);
+  readonly runnerTemplates = signal<ExerciseTemplateSummary[]>([]);
 
   // Snapshot inicial para cálculo de dirty
   private initialSnapshot = signal<string>('');
-  private autoSaveTimeout: any = null;
+  private autoSaveTimeout: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.initialSnapshot.set(this.serializeState());
@@ -439,7 +457,7 @@ export class ExerciseEditorStore {
     }));
   }
 
-  flushAutoSave(callback?: (err?: any, result?: any) => void): void {
+  flushAutoSave(callback?: (err?: unknown, result?: unknown) => void): void {
     if (this.autoSaveTimeout) {
       clearTimeout(this.autoSaveTimeout);
       this.autoSaveTimeout = null;
@@ -637,12 +655,19 @@ export class ExerciseEditorStore {
   loadRunnerTemplates(): void {
     if (this.runnerTemplates().length > 0) return;
 
-    this.http.get<any>('/api/v1/templates?limit=50').subscribe({
+    this.http.get<RunnerTemplatesApiResponse>('/api/v1/templates?limit=50').subscribe({
       next: (res) => {
-        let items: any[] = [];
-        if (Array.isArray(res)) items = res;
-        else if (Array.isArray(res?.data)) items = res.data;
-        else if (Array.isArray(res?.data?.data)) items = res.data.data;
+        let items: ExerciseTemplateSummary[] = [];
+        if (Array.isArray(res)) {
+          items = res;
+        } else if (res && typeof res === 'object' && 'data' in res) {
+          const data = (res as { data?: unknown }).data;
+          if (Array.isArray(data)) {
+            items = data as ExerciseTemplateSummary[];
+          } else if (data && typeof data === 'object' && 'data' in data && Array.isArray((data as { data: unknown }).data)) {
+            items = (data as { data: ExerciseTemplateSummary[] }).data;
+          }
+        }
 
         const runners = items.filter(t => {
           const env = t.target_environment || t.environment_type || '';
@@ -672,7 +697,7 @@ export class ExerciseEditorStore {
     }
   }
 
-  private syncLanguageWithTemplate(lang: string, list?: any[]): void {
+  private syncLanguageWithTemplate(lang: string, list?: ExerciseTemplateSummary[]): void {
     const templates = list || this.runnerTemplates();
     const match = templates.find(r => this.deriveLanguageCode(r) === lang);
     if (match) {
@@ -687,7 +712,7 @@ export class ExerciseEditorStore {
     }
   }
 
-  deriveLanguageCode(template: any): string {
+  deriveLanguageCode(template: ExerciseTemplateSummary): string {
     const name = (template.name || '').toLowerCase();
     const image = (template.docker_image || '').toLowerCase();
     if (name.includes('python') || image.includes('python')) return 'python';
@@ -723,7 +748,7 @@ export class ExerciseEditorStore {
     this.scheduleAutoSave();
   }
 
-  setContract(contract: any) {
+  setContract(contract: ExerciseContract | null) {
     this.contract.set(contract);
     this.scheduleAutoSave();
   }
@@ -804,22 +829,22 @@ export class ExerciseEditorStore {
     this.isLoading.set(true);
 
     this.courseService.getExercise(exerciseId).subscribe({
-      next: (ex: any) => {
+      next: (ex: ExerciseDetailDTO) => {
         if (ex) {
-          this.status.set(ex.status || 'draft');
+          this.status.set(ex.status === 'published' ? 'published' : 'draft');
           const isIDE = ex.environment_type === 'IDE_PERSISTENTE' || ex.type === 'workspace' || ex.type === 'project';
           this.metadata.set({
             title: ex.title || '',
-            difficulty: ex.difficulty || null,
+            difficulty: (ex.difficulty as 'easy' | 'medium' | 'hard' | null) || null,
             tags: ex.tags || [],
-            modality: isIDE ? 'workspace' : (ex.type || 'judge'),
+            modality: isIDE ? 'workspace' : ((ex.type as 'judge' | 'workspace' | 'database') || 'judge'),
             environment_type: isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO',
             template_id: ex.template_id || null,
             template: ex.template || null,
             db_init_script: ex.config?.ide?.db_init_script || ex.config?.database?.init_script || '',
             allow_resubmit: ex.config?.ide?.allow_resubmit ?? true,
             auto_checkpoint: ex.config?.ide?.auto_checkpoint ?? true,
-            purpose: ex.purpose || 'class',
+            purpose: (ex.purpose as 'class' | 'exam') || 'class',
             per_student_seed: !!ex.per_student_seed,
             language: ex.language || 'python',
             allowed_languages: [ex.language || 'python'],
@@ -851,9 +876,9 @@ export class ExerciseEditorStore {
           }
 
           if (isIDE && exerciseId) {
-            this.http.get<any>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
+            this.http.get<ApiResponse<RubricDTO> | RubricDTO>(`/api/v1/exercises/${exerciseId}/rubric`).subscribe({
               next: (res) => {
-                const data = res?.data || res;
+                const data = (res && typeof res === 'object' && 'data' in res ? (res as ApiResponse<RubricDTO>).data : res) as RubricDTO | null;
                 if (data && data.criteria) {
                   this.rubric.set(data);
                 }
@@ -872,13 +897,13 @@ export class ExerciseEditorStore {
     });
   }
 
-  private buildPayload(): any {
+  private buildPayload(): ExercisePayloadDTO {
     const meta = this.metadata();
     const stat = this.statement();
     const cId = this.courseId();
     const isIDE = meta.environment_type === 'IDE_PERSISTENTE';
 
-    const payload: any = {
+    const payload: ExercisePayloadDTO = {
       subject_id: cId,
       title: meta.title || 'Borrador sin título',
       description: stat.description,
@@ -903,7 +928,7 @@ export class ExerciseEditorStore {
       payload.auto_checkpoint = meta.auto_checkpoint;
     } else {
       payload.reference_solution = this.referenceSolution();
-      payload.input_format = this.contract();
+      payload.input_format = this.contract() || undefined;
       payload.test_cases = this.cases();
     }
 

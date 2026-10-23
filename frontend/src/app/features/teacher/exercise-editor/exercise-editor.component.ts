@@ -188,7 +188,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
       <!-- Modal de Vista Previa del Estudiante -->
       <student-preview-modal
         [isOpen]="store.studentPreviewOpen()"
-        (close)="store.setStudentPreviewOpen(false)"
+        (closed)="store.setStudentPreviewOpen(false)"
       />
 
       <!-- Modal de Confirmación para Borrar Borrador -->
@@ -239,7 +239,7 @@ export class ExerciseEditorComponent implements OnInit {
 
   showDeleteModal = signal<boolean>(false);
   toastMessage = signal<string | null>(null);
-  private toastTimer: any = null;
+  private toastTimer: ReturnType<typeof setTimeout> | null = null;
 
   prevStep() {
     const current = this.store.currentStep();

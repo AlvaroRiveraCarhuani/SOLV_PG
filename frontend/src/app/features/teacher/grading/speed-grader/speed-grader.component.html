@@ -81,7 +81,7 @@
 @if (showShadowTerminal() && currentLiveSession(); as session) {
   <shadow-terminal-modal
     [session]="session"
-    (close)="closeShadowTerminal()"
+    (closed)="closeShadowTerminal()"
   />
 }
 

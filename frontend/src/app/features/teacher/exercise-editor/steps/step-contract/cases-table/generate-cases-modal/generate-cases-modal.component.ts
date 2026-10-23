@@ -67,11 +67,11 @@ export class GenerateCasesModalComponent implements OnChanges {
   private courseService = inject(TeacherCourseService);
 
   @Input() isOpen = false;
-  @Input() contract: any = null;
+  @Input() contract: ExerciseContract | null = null;
   @Input() exerciseId: string | null = null;
 
   @Output() casesGenerated = new EventEmitter<Array<{ input: string; output?: string; expected_output?: string; description?: string }>>();
-  @Output() cancel = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
 
   // Control de Pestañas
   readonly activeTab = signal<'presets' | 'script'>('presets');
@@ -315,7 +315,7 @@ export class GenerateCasesModalComponent implements OnChanges {
     const total = res.cases.length;
     const validCases = res.cases
       .filter((c: ScriptCaseValidationItem) => c.valid)
-      .map((c: any, idx: number) => {
+      .map((c: ScriptCaseValidationItem, idx: number) => {
         let fallbackDesc = `Caso aleatorio #${idx + 1}`;
         if (idx === 0) fallbackDesc = 'Caso base: inicial';
         else if (idx === 1) fallbackDesc = 'Caso borde: extremos';
@@ -336,7 +336,7 @@ export class GenerateCasesModalComponent implements OnChanges {
   }
 
   onClose(): void {
-    this.cancel.emit();
+    this.closed.emit();
   }
 
   onBackdropClick(event: MouseEvent): void {

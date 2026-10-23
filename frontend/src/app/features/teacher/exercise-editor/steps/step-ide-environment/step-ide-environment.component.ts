@@ -103,10 +103,24 @@ export class StepIdeEnvironmentComponent implements OnInit {
   approvedTemplates = signal<ApprovedTemplate[]>([]);
   showRequestModal = signal<boolean>(false);
 
-  selectedTemplate = computed(() => {
+  selectedTemplate = computed<ApprovedTemplate | null>(() => {
     const tplId = this.store.metadata().template_id;
     if (!tplId) return null;
-    return this.approvedTemplates().find(t => t.id === tplId) || this.store.metadata().template || null;
+    const found = this.approvedTemplates().find(t => t.id === tplId);
+    if (found) return found;
+    const storeTpl = this.store.metadata().template;
+    if (storeTpl) {
+      return {
+        id: storeTpl.id,
+        name: storeTpl.name,
+        docker_image: storeTpl.docker_image || '',
+        base_ram_mb: storeTpl.base_ram_mb || 128,
+        target_environment: storeTpl.target_environment || storeTpl.environment_type || '',
+        status: storeTpl.status || 'approved',
+        services_config: storeTpl.services_config as ApprovedTemplate['services_config']
+      };
+    }
+    return null;
   });
 
   hasDatabaseService = computed(() => this.templateHasDatabase(this.selectedTemplate()));

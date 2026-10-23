@@ -5,10 +5,14 @@ import { KeystrokeReplayModalComponent } from './keystroke-replay-modal.componen
 import { TeacherGradingService } from '../../../services/teacher-grading.service';
 import { SubmissionKeystrokeReport } from '../../../models/teacher.models';
 
+interface MockGradingService {
+  getKeystrokeEvents: ReturnType<typeof vi.fn>;
+}
+
 describe('KeystrokeReplayModalComponent', () => {
   let component: KeystrokeReplayModalComponent;
   let fixture: ComponentFixture<KeystrokeReplayModalComponent>;
-  let mockGradingService: any;
+  let mockGradingService: MockGradingService;
 
   const mockReport: SubmissionKeystrokeReport = {
     submission_id: 'sub-123',

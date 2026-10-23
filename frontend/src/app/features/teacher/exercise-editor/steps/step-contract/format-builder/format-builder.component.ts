@@ -236,7 +236,7 @@ export class FormatBuilderComponent implements OnInit {
     this.onVisualChange();
   }
 
-  updateLineField(index: number, field: keyof FormatLine, value: any) {
+  updateLineField(index: number, field: keyof FormatLine, value: FormatLine[keyof FormatLine]) {
     this.lines.update(curr => {
       const copy = [...curr];
       copy[index] = { ...copy[index], [field]: value };
@@ -298,8 +298,9 @@ export class FormatBuilderComponent implements OnInit {
       this.matchPreset(parsed);
       this.syncToStore(parsed);
       this.validateWithBackend(parsed);
-    } catch (e: any) {
-      this.jsonError.set(`Error de sintaxis JSON: ${e.message}`);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      this.jsonError.set(`Error de sintaxis JSON: ${message}`);
     }
   }
 

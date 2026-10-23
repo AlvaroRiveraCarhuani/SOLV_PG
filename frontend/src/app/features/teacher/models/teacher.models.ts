@@ -1,3 +1,5 @@
+import type { ExerciseContract } from '../exercise-editor/steps/step-contract/format-builder/format-builder.models';
+
 export interface AcademicPeriod {
   id: string;
   name: string;
@@ -246,7 +248,7 @@ export interface CreateExerciseRequestDTO {
   reference_solution?: string;
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
-  input_format?: unknown;
+  input_format?: ExerciseContract;
   expected_complexity?: string;
   test_cases?: TestCaseDTO[];
 }
@@ -268,9 +270,16 @@ export interface UpdateExerciseRequestDTO {
   reference_solution?: string;
   ast_rules?: ASTRulesDTO;
   comparator?: ComparatorDTO;
-  input_format?: unknown;
+  input_format?: ExerciseContract;
   expected_complexity?: string;
   test_cases?: TestCaseDTO[];
+}
+
+export interface ExercisePayloadDTO extends CreateExerciseRequestDTO {
+  environment_type?: string;
+  db_init_script?: string;
+  allow_resubmit?: boolean;
+  auto_checkpoint?: boolean;
 }
 
 export interface BulkTestCasesRequestDTO {
@@ -534,6 +543,7 @@ export interface ScriptCaseValidationItem {
   expected_output: string;
   valid: boolean;
   error?: string;
+  description?: string;
 }
 
 export interface ScriptGenerationResponse {
@@ -555,6 +565,10 @@ export interface ExerciseTemplateSummary {
   entrypoint?: string;
   base_ram_mb?: number;
   target_environment?: string;
+  environment_type?: string;
+  status?: string;
+  slug?: string;
+  language?: string;
   services_config?: Record<string, unknown>;
 }
 
@@ -564,7 +578,7 @@ export interface ExerciseAlgorithmConfigDTO {
   comparator?: ComparatorDTO;
   time_limit_ms?: number;
   memory_limit_mb?: number;
-  input_format?: unknown;
+  input_format?: ExerciseContract;
 }
 
 export interface ExerciseDatabaseConfigDTO {
@@ -587,7 +601,7 @@ export interface ExerciseConfigDTO {
   algorithm?: ExerciseAlgorithmConfigDTO;
   database?: ExerciseDatabaseConfigDTO;
   ide?: ExerciseIDEConfigDTO;
-  input_format?: unknown;
+  input_format?: ExerciseContract;
 }
 
 export interface ExerciseDetailDTO {

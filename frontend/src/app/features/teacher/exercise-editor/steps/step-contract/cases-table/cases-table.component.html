@@ -430,7 +430,7 @@
     [isCalculating]="isModalCalculating()"
     (calculateOutput)="onModalCalculateOutput($event)"
     (save)="onModalSave($event)"
-    (cancel)="closeModal()"
+    (closed)="closeModal()"
   />
 
   <!-- Modal para Generación Fuzzing de Casos -->
@@ -439,6 +439,6 @@
     [contract]="store.contract()"
     [exerciseId]="store.exerciseId()"
     (casesGenerated)="onCasesGenerated($event)"
-    (cancel)="closeGenerateModal()"
+    (closed)="closeGenerateModal()"
   />
 </div>

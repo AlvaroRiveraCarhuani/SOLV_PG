@@ -71,7 +71,7 @@ describe('StudentPreviewModalComponent', () => {
 
   it('debe emitir evento de cierre al hacer click en cerrar', () => {
     let closed = false;
-    component.close.subscribe(() => {
+    component.closed.subscribe(() => {
       closed = true;
     });
 

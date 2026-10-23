@@ -42,7 +42,7 @@ export class CaseEditModalComponent implements OnChanges {
   @Input() isCalculating = false;
 
   @Output() save = new EventEmitter<CaseEditSavePayload>();
-  @Output() cancel = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
   @Output() calculateOutput = new EventEmitter<string>();
 
   readonly currentInput = signal<string>('');
@@ -98,7 +98,7 @@ export class CaseEditModalComponent implements OnChanges {
   }
 
   onCancel(): void {
-    this.cancel.emit();
+    this.closed.emit();
   }
 
   private normalizePosix(text: string): string {

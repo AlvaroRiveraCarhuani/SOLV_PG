@@ -35,7 +35,7 @@ describe('GenerateCasesModalComponent', () => {
   });
 
   it('debe emitir cancelación al cerrar', () => {
-    const spy = vi.spyOn(component.cancel, 'emit');
+    const spy = vi.spyOn(component.closed, 'emit');
     component.onClose();
     expect(spy).toHaveBeenCalled();
   });

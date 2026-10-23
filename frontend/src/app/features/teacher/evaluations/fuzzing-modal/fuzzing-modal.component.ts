@@ -52,7 +52,7 @@ export class FuzzingModalComponent implements OnInit {
   @Input() exerciseTitle: string = 'Laboratorio';
   @Input() language: string = 'python';
   @Input() referenceSolution: string = '';
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
   @Output() applied = new EventEmitter<number>();
 
   private fuzzingService = inject(TeacherFuzzingService);
@@ -195,6 +195,6 @@ export class FuzzingModalComponent implements OnInit {
   }
 
   onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 }

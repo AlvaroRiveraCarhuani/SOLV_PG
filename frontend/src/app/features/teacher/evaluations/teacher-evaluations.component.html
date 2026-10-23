@@ -314,6 +314,6 @@
 @if (isPlagiarismModalOpen()) {
   <plagiarism-modal
     [subjectId]="selectedCourseId() || (courses()[0]?.id ?? '')"
-    (close)="closePlagiarismModal()"
+    (closed)="closePlagiarismModal()"
   />
 }

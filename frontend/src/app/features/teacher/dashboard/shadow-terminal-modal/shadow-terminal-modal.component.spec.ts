@@ -164,7 +164,7 @@ describe('ShadowTerminalModalComponent', () => {
     component.clearTerminal();
     expect(component.logEntries().length).toBe(0);
 
-    const closeSpy = vi.spyOn(component.close, 'emit');
+    const closeSpy = vi.spyOn(component.closed, 'emit');
     component.onEscape();
     expect(closeSpy).toHaveBeenCalled();
   });

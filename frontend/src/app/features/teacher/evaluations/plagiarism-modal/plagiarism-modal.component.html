@@ -1,4 +1,4 @@
-<div class="modal-backdrop" (click)="close.emit()">
+<div class="modal-backdrop" (click)="closed.emit()">
   <div class="modal-dialog" (click)="$event.stopPropagation()">
     <!-- Header -->
     <header class="modal-header">
@@ -13,7 +13,7 @@
           </p>
         </div>
       </div>
-      <button class="close-btn" (click)="close.emit()" title="Cerrar modal">
+      <button class="close-btn" (click)="closed.emit()" title="Cerrar modal">
         <svg lucideX class="icon-sm"></svg>
       </button>
     </header>
@@ -189,7 +189,7 @@
 
     <!-- Footer -->
     <footer class="modal-footer">
-      <button class="btn-secondary" (click)="close.emit()">Cerrar</button>
+      <button class="btn-secondary" (click)="closed.emit()">Cerrar</button>
     </footer>
   </div>
 </div>

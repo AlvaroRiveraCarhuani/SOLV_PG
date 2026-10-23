@@ -467,7 +467,7 @@
   <plagiarism-modal
     [subjectId]="subjectId()"
     [labs]="labs()"
-    (close)="closePlagiarismModal()"
+    (closed)="closePlagiarismModal()"
   />
 }
 
@@ -475,7 +475,7 @@
   <fuzzing-modal
     [exerciseId]="fuzz.id"
     [exerciseTitle]="fuzz.title"
-    (close)="closeFuzzingModal()"
+    (closed)="closeFuzzingModal()"
     (applied)="onFuzzCasesApplied($event)"
   />
 }

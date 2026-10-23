@@ -119,7 +119,7 @@ export class StudentPreviewModalComponent {
   private destroyRef = inject(DestroyRef);
 
   @Input() isOpen = false;
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
 
   readonly selectedLanguage = signal<string>('python');
   readonly isSimulationMode = computed(() => this.store.studentPreviewMode() === 'simulation');
@@ -355,7 +355,7 @@ export class StudentPreviewModalComponent {
   }
 
   onClose(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 
   onBackdropClick(event: MouseEvent): void {

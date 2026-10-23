@@ -96,8 +96,8 @@
       @for (preset of presets; track preset.id) {
         <preset-button 
           [preset]="preset" 
-          [selected]="activePresetId() === preset.id"
-          (select)="applyPreset($event)"
+          [active]="activePresetId() === preset.id"
+          (selected)="applyPreset($event)"
         />
       }
     </div>

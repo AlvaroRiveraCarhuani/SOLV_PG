@@ -4,10 +4,18 @@ import { FuzzingModalComponent } from './fuzzing-modal.component';
 import { TeacherFuzzingService } from '../../services/teacher-fuzzing.service';
 import { FuzzGenerationReport, ApplyFuzzCasesResponse } from '../../models/teacher.models';
 
+interface MockFuzzingService {
+  isGenerating: ReturnType<typeof vi.fn>;
+  isApplying: ReturnType<typeof vi.fn>;
+  currentReport: ReturnType<typeof vi.fn>;
+  generateFuzzCases: ReturnType<typeof vi.fn>;
+  applyFuzzCases: ReturnType<typeof vi.fn>;
+}
+
 describe('FuzzingModalComponent', () => {
   let component: FuzzingModalComponent;
   let fixture: ComponentFixture<FuzzingModalComponent>;
-  let mockFuzzingService: any;
+  let mockFuzzingService: MockFuzzingService;
 
   const mockReport: FuzzGenerationReport = {
     total_generated: 3,
@@ -134,7 +142,7 @@ describe('FuzzingModalComponent', () => {
 
   it('applies selected cases and emits applied event', () => {
     const appliedSpy = vi.spyOn(component.applied, 'emit');
-    const closeSpy = vi.spyOn(component.close, 'emit');
+    const closeSpy = vi.spyOn(component.closed, 'emit');
 
     component.applySelectedCases();
 
@@ -161,7 +169,7 @@ describe('FuzzingModalComponent', () => {
   });
 
   it('closes on escape key event', () => {
-    const closeSpy = vi.spyOn(component.close, 'emit');
+    const closeSpy = vi.spyOn(component.closed, 'emit');
     component.onEscape();
     expect(closeSpy).toHaveBeenCalled();
   });
