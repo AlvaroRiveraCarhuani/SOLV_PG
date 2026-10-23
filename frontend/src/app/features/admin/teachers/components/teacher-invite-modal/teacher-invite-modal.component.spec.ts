@@ -7,12 +7,24 @@ import { of } from 'rxjs';
 import { TeacherInviteModalComponent } from './teacher-invite-modal.component';
 import { TenantService } from '@core/services/tenant.service';
 import { AdminTeachersService } from '@features/admin/services/admin-teachers.service';
-import { ParsedRosterResult } from '@core/models/admin.model';
+import {
+  DirectTeacherPayload,
+  BatchDirectTeacherPayload,
+  ParsedRosterResult
+} from '@core/models/admin.model';
+
+interface MockTenantService {
+  config: ReturnType<typeof signal<{ support_email: string; base_domain: string }>>;
+}
+
+interface MockAdminTeachersService {
+  parseRosterFile: (file?: File) => import('rxjs').Observable<ParsedRosterResult>;
+}
 
 describe('TeacherInviteModalComponent', () => {
   let component: TeacherInviteModalComponent;
-  let mockTenantService: any;
-  let mockTeachersService: any;
+  let mockTenantService: MockTenantService;
+  let mockTeachersService: MockAdminTeachersService;
 
   beforeEach(async () => {
     const configSignal = signal({ support_email: 'soporte@uab.edu.bo', base_domain: 'uab.edu.bo' });
@@ -60,7 +72,7 @@ describe('TeacherInviteModalComponent', () => {
   });
 
   it('onSubmitIndividual emite directSubmit con datos limpios', () => {
-    let payload: any;
+    let payload: DirectTeacherPayload | undefined;
     component.directSubmit.subscribe(p => { payload = p; });
 
     component.email.set('alvaro.rivera@uab.edu.bo');
@@ -101,7 +113,7 @@ describe('TeacherInviteModalComponent', () => {
   });
 
   it('onSubmitBatch emite batchSubmit con correos parseados', () => {
-    let batchPayload: any;
+    let batchPayload: BatchDirectTeacherPayload | undefined;
     component.batchSubmit.subscribe(p => { batchPayload = p; });
 
     component.parsedRoster.set({

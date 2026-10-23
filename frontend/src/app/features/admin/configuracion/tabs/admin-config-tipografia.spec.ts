@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, vi } from 'vitest';
@@ -6,10 +5,23 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminConfigIdentidadComponent } from './admin-config-identidad.component';
-import { AdminConfigIdentidadService, BrandingPayload } from '../admin-config-identidad.service';
+import {
+  AdminConfigIdentidadService,
+  BrandingPayload,
+  BrandingValidation
+} from '../admin-config-identidad.service';
 import { TenantService } from '@core/services/tenant.service';
 import { TenantConfig } from '@core/models/tenant.model';
 import { CURATED_FONTS, DEFAULT_SANS_SLUG, DEFAULT_MONO_SLUG, fontValueToFamily } from '@shared/curated-fonts';
+
+interface MockAdminConfigIdentidadService {
+  isSaving: ReturnType<typeof signal<boolean>>;
+  currentConfig: () => TenantConfig | null;
+  initialValues: () => BrandingPayload;
+  saveBranding: ReturnType<typeof vi.fn>;
+  resolveError: ReturnType<typeof vi.fn>;
+  validate: () => BrandingValidation;
+}
 
 const makeConfig = (overrides: Partial<TenantConfig> = {}): TenantConfig => ({
   tenant_id: 't1',
@@ -23,13 +35,14 @@ const makeConfig = (overrides: Partial<TenantConfig> = {}): TenantConfig => ({
 
 describe('Tipografía white-label (tenant-typography)', () => {
   let component: AdminConfigIdentidadComponent;
-  let mockService: any;
+  let mockService: MockAdminConfigIdentidadService;
   let configSignal: ReturnType<typeof signal<TenantConfig | null>>;
   let applyBrandingMock: ReturnType<typeof vi.fn>;
 
   const setup = async (configOverrides: Partial<TenantConfig> = {}): Promise<void> => {
     configSignal = signal<TenantConfig | null>(makeConfig(configOverrides));
-    applyBrandingMock = vi.fn();    mockService = {
+    applyBrandingMock = vi.fn();
+    mockService = {
       isSaving: signal(false),
       currentConfig: () => configSignal(),
       initialValues: (): BrandingPayload => ({
@@ -43,7 +56,7 @@ describe('Tipografía white-label (tenant-typography)', () => {
         const e = err as { error?: { message?: string } };
         return e?.error?.message || 'Error de prueba';
       }),
-      validate: (): any => ({ valid: true })
+      validate: (): BrandingValidation => ({ valid: true })
     };
 
     await TestBed.configureTestingModule({
@@ -93,7 +106,8 @@ describe('Tipografía white-label (tenant-typography)', () => {
 
   it('URL custom se envía como url:... al backend y el error 422 se muestra sin perder el branding', async () => {
     await setup();
-    mockService.saveBranding.mockImplementation((payload: any) => {
+    mockService.saveBranding.mockImplementation(
+      (payload: BrandingPayload & { font_sans_family?: string; font_mono_family?: string }) => {
       if (payload['font_sans_family']?.startsWith?.('url:')) {
         return throwError(() => ({ error: { message: 'No se pudo alcanzar la URL de la fuente.' } }));
       }

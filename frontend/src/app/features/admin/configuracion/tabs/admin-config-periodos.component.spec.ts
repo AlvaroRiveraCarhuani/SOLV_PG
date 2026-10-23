@@ -8,8 +8,29 @@ import { of, throwError } from 'rxjs';
 import { AdminConfigPeriodosComponent } from './admin-config-periodos.component';
 import {
   AdminConfigPeriodosService,
-  AcademicPeriodConfig
+  AcademicPeriodConfig,
+  PeriodLifecycle
 } from '../admin-config-periodos.service';
+
+interface PeriodRow extends AcademicPeriodConfig {
+  lifecycle: PeriodLifecycle;
+}
+
+interface MockAdminConfigPeriodosService {
+  periods: ReturnType<typeof signal<AcademicPeriodConfig[]>>;
+  isLoading: ReturnType<typeof signal<boolean>>;
+  error: ReturnType<typeof signal<string | null>>;
+  fetchPeriods: ReturnType<typeof vi.fn>;
+  createAndActivate: ReturnType<typeof vi.fn>;
+  updatePeriod: ReturnType<typeof vi.fn>;
+  archivePeriod: ReturnType<typeof vi.fn>;
+  deletePeriod: ReturnType<typeof vi.fn>;
+  resolveError: ReturnType<typeof vi.fn>;
+}
+
+interface MockHttp {
+  get: ReturnType<typeof vi.fn>;
+}
 
 const makePeriod = (overrides: Partial<AcademicPeriodConfig> = {}): AcademicPeriodConfig => ({
   id: 'p1',
@@ -24,8 +45,8 @@ const makePeriod = (overrides: Partial<AcademicPeriodConfig> = {}): AcademicPeri
 
 describe('AdminConfigPeriodosComponent', () => {
   let component: AdminConfigPeriodosComponent;
-  let mockService: any;
-  let mockHttp: any;
+  let mockService: MockAdminConfigPeriodosService;
+  let mockHttp: MockHttp;
 
   const periodsSignal = signal<AcademicPeriodConfig[]>([]);
   const loadingSignal = signal(false);
@@ -122,7 +143,7 @@ describe('AdminConfigPeriodosComponent', () => {
   it('archivo fuerte: botón deshabilitado hasta tipear el código exacto y archiva vía endpoint formal', async () => {
     await setup();
 
-    component.openArchive({ ...makePeriod(), lifecycle: 'activo' } as any);
+    component.openArchive({ ...makePeriod(), lifecycle: 'activo' });
     expect(component.archiveCodeMatches()).toBe(false);
 
     component.archiveConfirmation.set('código incorrecto');
@@ -141,7 +162,7 @@ describe('AdminConfigPeriodosComponent', () => {
     await setup();
 
     // p2 es próximo (is_active=false, is_archived=false, vigencia futura) según la seed
-    component.openActivate({ ...makePeriod({ id: 'p2', is_active: false }), lifecycle: 'proximo' } as any);
+    component.openActivate({ ...makePeriod({ id: 'p2', is_active: false }), lifecycle: 'proximo' });
     component.confirmActivate();
 
     expect(mockService.updatePeriod).toHaveBeenCalledWith('p2', { is_active: true });
@@ -152,7 +173,7 @@ describe('AdminConfigPeriodosComponent', () => {
     await setup();
 
     // p3 está vencido (2024) y el sweep lo habría formalizado como archivado
-    const archived = { ...makePeriod({ id: 'p3', is_active: false, is_archived: true }), lifecycle: 'archivado' } as any;
+    const archived: PeriodRow = { ...makePeriod({ id: 'p3', is_active: false, is_archived: true }), lifecycle: 'archivado' };
     component.openActivate(archived);
 
     // La UI no tiene vía de activación para archivados: confirmActivate sobre
@@ -164,10 +185,11 @@ describe('AdminConfigPeriodosComponent', () => {
   it('borrado sin materias procede y un 409 del backend se traduce a mensaje accionable', async () => {
     await setup();
     mockHttp.get.mockReturnValue(of([])); // sin materias asociadas
-    (component as any).loadCourseCounts();
+    // Acceso a método privado para sincronizar el conteo de materias en el test
+    (component as unknown as { loadCourseCounts: () => void }).loadCourseCounts();
     await Promise.resolve();
 
-    component.openDelete({ ...makePeriod(), lifecycle: 'activo' } as any);
+    component.openDelete({ ...makePeriod(), lifecycle: 'activo' });
     expect(component.deletingHasCourses()).toBe(false);
 
     mockService.deletePeriod.mockReturnValue(

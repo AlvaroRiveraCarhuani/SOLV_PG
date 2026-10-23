@@ -17,9 +17,15 @@ const makePeriod = (overrides: Partial<AcademicPeriod> = {}): AcademicPeriod => 
   ...overrides
 });
 
+interface MockAdminCoursesService {
+  createPeriod: ReturnType<typeof vi.fn>;
+  updatePeriod: ReturnType<typeof vi.fn>;
+  deletePeriod: ReturnType<typeof vi.fn>;
+}
+
 describe('PeriodManageModalComponent', () => {
   let component: PeriodManageModalComponent;
-  let mockCoursesService: any;
+  let mockCoursesService: MockAdminCoursesService;
 
   beforeEach(async () => {
     mockCoursesService = {

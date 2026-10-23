@@ -42,7 +42,9 @@ describe('TemplateEditModalComponent', () => {
   it('ngOnInit usa 512 MB como fallback cuando base_ram_mb es undefined', async () => {
     const fixture = TestBed.createComponent(TemplateEditModalComponent);
     const c = fixture.componentInstance;
-    c.template = { ...mockTemplate, base_ram_mb: undefined as any };
+    const templateWithoutRam: AdminTemplateItem = { ...mockTemplate };
+    delete (templateWithoutRam as { base_ram_mb?: number }).base_ram_mb;
+    c.template = templateWithoutRam;
     c.ngOnInit();
     expect(c.selectedRam()).toBe(512);
   });
@@ -53,7 +55,7 @@ describe('TemplateEditModalComponent', () => {
   });
 
   it('confirmSave emite payload con id, ram y descripción recortada', () => {
-    let payload: any;
+    let payload: { id: string; base_ram_mb: number; description?: string } | undefined;
     component.saved.subscribe(p => { payload = p; });
 
     component.setRam(2048);

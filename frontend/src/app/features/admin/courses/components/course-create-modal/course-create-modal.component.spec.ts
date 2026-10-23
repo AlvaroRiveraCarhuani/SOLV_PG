@@ -20,9 +20,13 @@ const mockTemplates: DockerTemplateItem[] = [
   { id: 'tpl1', name: 'Python 3.12', display_name: 'Python 3.12 Slim', image: 'python:3.12-slim', base_ram_mb: 512 }
 ];
 
+interface MockAdminCoursesService {
+  createCourse: ReturnType<typeof vi.fn>;
+}
+
 describe('CourseCreateModalComponent', () => {
   let component: CourseCreateModalComponent;
-  let mockCoursesService: any;
+  let mockCoursesService: MockAdminCoursesService;
 
   beforeEach(async () => {
     mockCoursesService = {

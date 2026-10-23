@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { of, throwError } from 'rxjs';
 import { AdminConfigIdentidadComponent } from './admin-config-identidad.component';
-import { AdminConfigIdentidadService, BrandingPayload } from '../admin-config-identidad.service';
+import { AdminConfigIdentidadService, BrandingPayload, BrandingValidation } from '../admin-config-identidad.service';
 import { TenantService } from '@core/services/tenant.service';
 import { TenantConfig } from '@core/models/tenant.model';
 
@@ -19,11 +19,27 @@ const makeConfig = (overrides: Partial<TenantConfig> = {}): TenantConfig => ({
   ...overrides
 });
 
+interface MockTenantService {
+  config: ReturnType<typeof signal<TenantConfig | null>>;
+  applyBranding: ReturnType<typeof vi.fn>;
+  applyTenantFonts: ReturnType<typeof vi.fn>;
+}
+
+interface MockAdminConfigIdentidadService {
+  isSaving: ReturnType<typeof signal<boolean>>;
+  currentConfig: () => TenantConfig | null;
+  initialValues: () => BrandingPayload;
+  saveBranding: ReturnType<typeof vi.fn>;
+  uploadLogo: ReturnType<typeof vi.fn>;
+  resolveError: ReturnType<typeof vi.fn>;
+  validate: (payload: BrandingPayload) => BrandingValidation;
+}
+
 describe('AdminConfigIdentidadComponent', () => {
   let component: AdminConfigIdentidadComponent;
   let fixture: import('@angular/core/testing').ComponentFixture<AdminConfigIdentidadComponent>;
-  let mockService: any;
-  let tenantMock: any;
+  let mockService: MockAdminConfigIdentidadService;
+  let tenantMock: MockTenantService;
   let configSignal: ReturnType<typeof signal<TenantConfig | null>>;
 
   const setup = async (): Promise<void> => {
@@ -45,8 +61,8 @@ describe('AdminConfigIdentidadComponent', () => {
       uploadLogo: vi.fn().mockImplementation(() => of({ logo_url: '/api/v1/public/branding/logo/t1.png', file: 'logo_t1.png' })),
       resolveError: vi.fn().mockReturnValue('No se pudo guardar la identidad institucional.'),
       // Validación real (misma lógica del servicio) para los tests de formato
-      validate: (payload: BrandingPayload) => {
-        const result: any = { valid: true };
+      validate: (payload: BrandingPayload): BrandingValidation => {
+        const result: BrandingValidation = { valid: true };
         if (!payload.institution_name.trim()) {
           result.valid = false;
           result.nameError = 'El nombre de la universidad es obligatorio.';

@@ -6,10 +6,23 @@ import { AdminTeachersComponent } from './admin-teachers.component';
 import { AdminTeachersService } from '../services/admin-teachers.service';
 import { TeacherItem } from '@core/models/admin.model';
 
+interface MockAdminTeachersService {
+  teachers: ReturnType<typeof signal<TeacherItem[]>>;
+  isLoading: ReturnType<typeof signal<boolean>>;
+  fetchTeachers: ReturnType<typeof vi.fn>;
+  getTeacherCourses: ReturnType<typeof vi.fn>;
+  getAvailableCourses: ReturnType<typeof vi.fn>;
+  inviteTeacher: ReturnType<typeof vi.fn>;
+  reassignCourse: ReturnType<typeof vi.fn>;
+  deleteTeacher: ReturnType<typeof vi.fn>;
+  directRegisterTeacher?: ReturnType<typeof vi.fn>;
+  batchDirectRegister?: ReturnType<typeof vi.fn>;
+}
+
 describe('AdminTeachersComponent Unit Tests', () => {
   let component: AdminTeachersComponent;
   let fixture: ComponentFixture<AdminTeachersComponent>;
-  let mockTeachersService: any;
+  let mockTeachersService: MockAdminTeachersService;
 
   const mockTeachers: TeacherItem[] = [
     {

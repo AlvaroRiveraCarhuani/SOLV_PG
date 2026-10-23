@@ -1,13 +1,13 @@
 import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { TemplateRejectModalComponent } from './template-reject-modal.component';
 import { AdminTemplateItem } from '../../../services/admin-templates.service';
 
 describe('TemplateRejectModalComponent Spec', () => {
   let component: TemplateRejectModalComponent;
-  let fixture: any;
+  let fixture: ComponentFixture<TemplateRejectModalComponent>;
 
   const mockTemplate: AdminTemplateItem = {
     id: 'tpl-reject-1',

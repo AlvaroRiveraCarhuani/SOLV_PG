@@ -1,15 +1,20 @@
 import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { AdminTemplatesComponent } from './admin-templates.component';
-import { AdminTemplatesService, AdminTemplateItem } from '../services/admin-templates.service';
+import {
+  AdminTemplatesService,
+  AdminTemplateItem,
+  CreateOfficialTemplateDTO,
+  ReviewTemplateDTO
+} from '../services/admin-templates.service';
 
 describe('AdminTemplatesComponent Spec', () => {
   let component: AdminTemplatesComponent;
-  let fixture: any;
+  let fixture: ComponentFixture<AdminTemplatesComponent>;
 
   const mockTemplates: AdminTemplateItem[] = [
     {
@@ -53,27 +58,27 @@ describe('AdminTemplatesComponent Spec', () => {
   ];
 
   let mockTemplatesService: {
-    getTemplates: any;
-    getCategories: any;
-    getRuntimeCapabilities: any;
-    reviewTemplate: any;
-    promoteToModel: any;
-    duplicateTemplate: any;
-    getModels: any;
-    getLocalImages: any;
-    getDraft: any;
-    getTemplatesCacheStatus: any;
-    warmTemplate: any;
-    warmAllTemplates: any;
-    updateOfficialTemplate: any;
+    getTemplates: ReturnType<typeof vi.fn>;
+    getCategories: ReturnType<typeof vi.fn>;
+    getRuntimeCapabilities: ReturnType<typeof vi.fn>;
+    reviewTemplate: ReturnType<typeof vi.fn>;
+    promoteToModel: ReturnType<typeof vi.fn>;
+    duplicateTemplate: ReturnType<typeof vi.fn>;
+    getModels: ReturnType<typeof vi.fn>;
+    getLocalImages: ReturnType<typeof vi.fn>;
+    getDraft: ReturnType<typeof vi.fn>;
+    getTemplatesCacheStatus: ReturnType<typeof vi.fn>;
+    warmTemplate: ReturnType<typeof vi.fn>;
+    warmAllTemplates: ReturnType<typeof vi.fn>;
+    updateOfficialTemplate: ReturnType<typeof vi.fn>;
   };
 
-  let routerMock: { navigate: any };
+  let routerMock: { navigate: ReturnType<typeof vi.fn> };
   let queryParamNueva: string | null = null;
 
   async function createFixture(): Promise<void> {
     mockTemplatesService = {
-      updateOfficialTemplate: vi.fn().mockImplementation((id: string, dto: any) => of({
+      updateOfficialTemplate: vi.fn().mockImplementation((id: string, dto: CreateOfficialTemplateDTO) => of({
         ...mockTemplates.find(t => t.id === id),
         ...dto
       })),
@@ -86,7 +91,7 @@ describe('AdminTemplatesComponent Spec', () => {
         judge_presets: [],
         max_allowed_ram_mb: 4096
       })),
-      reviewTemplate: vi.fn().mockImplementation((id: string, dto: any) => of({
+      reviewTemplate: vi.fn().mockImplementation((id: string, dto: ReviewTemplateDTO) => of({
         ...mockTemplates.find(t => t.id === id),
         status: dto.status,
         base_ram_mb: dto.base_ram_mb || 512

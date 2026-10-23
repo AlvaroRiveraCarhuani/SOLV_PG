@@ -7,6 +7,7 @@ import { signal } from '@angular/core';
 import { AdminAuditoriaEmergenciasComponent } from './admin-auditoria-emergencias.component';
 import { AdminAuditoriaService, EmergencyActionResult } from '../admin-auditoria.service';
 import { AdminMetricsService } from '@features/admin/services/admin-metrics.service';
+import { HostSystemHealth } from '@core/models/admin.model';
 
 const EMPTY_LIST = { tenant_id: 't', limit: 10, offset: 0, total: 0, data: [] };
 
@@ -16,7 +17,7 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
   const executeSpy = vi.fn();
   const listSpy = vi.fn();
   const isExecuting = signal(false);
-  const health = signal<any>(null);
+  const health = signal<HostSystemHealth | null>(null);
 
   function result(affected: number, message: string): EmergencyActionResult {
     return {
@@ -110,7 +111,27 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
   });
 
   it('muestra banner crítico cuando la RAM del host supera el 90%', () => {
-    health.set({ metrics: { ram_percent: 94, containers_active: 12 } });
+    health.set({
+      status: 'critical',
+      docker_version: '27.0',
+      uptime_seconds: 100,
+      metrics: {
+        ram_used_bytes: 0,
+        ram_total_bytes: 0,
+        ram_percent: 94,
+        cpu_cores: 4,
+        cpu_percent: 10,
+        disk_used_bytes: 0,
+        disk_total_bytes: 0,
+        disk_percent: 20,
+        containers_active: 12,
+        containers_hibernated: 0,
+        containers_max: 50
+      },
+      containers: [],
+      courses_load: [],
+      incidents: []
+    });
     fixture.detectChanges();
 
     expect(component.ramCritical()).toBe(true);

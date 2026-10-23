@@ -7,9 +7,13 @@ import { CourseWorkspacesModalComponent } from './course-workspaces-modal.compon
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
 import { CourseLoadSummary, DockerContainerSummary } from '@core/models/admin.model';
 
+interface MockAdminMetricsService {
+  getCourseWorkspaces: ReturnType<typeof vi.fn>;
+}
+
 describe('CourseWorkspacesModalComponent', () => {
   let component: CourseWorkspacesModalComponent;
-  let mockMetricsService: any;
+  let mockMetricsService: MockAdminMetricsService;
 
   const mockCourse: CourseLoadSummary = {
     id: 'course-123',

@@ -11,10 +11,27 @@ import {
 } from '../services/admin-courses.service';
 import { TeacherItem } from '@core/models/admin.model';
 
+interface MockAdminCoursesService {
+  periods: ReturnType<typeof signal<AcademicPeriod[]>>;
+  activePeriod: ReturnType<typeof signal<AcademicPeriod | null>>;
+  courses: ReturnType<typeof signal<AdminCourseItem[]>>;
+  teachers: ReturnType<typeof signal<TeacherItem[]>>;
+  templates: ReturnType<typeof signal<DockerTemplateItem[]>>;
+  isLoading: ReturnType<typeof signal<boolean>>;
+  error: ReturnType<typeof signal<string | null>>;
+  loadAll: ReturnType<typeof vi.fn>;
+  setActivePeriod: ReturnType<typeof vi.fn>;
+  createPeriod: ReturnType<typeof vi.fn>;
+  activatePeriod: ReturnType<typeof vi.fn>;
+  createCourse: ReturnType<typeof vi.fn>;
+  reassignCourse: ReturnType<typeof vi.fn>;
+  toggleArchive: ReturnType<typeof vi.fn>;
+}
+
 describe('AdminCoursesComponent Unit Tests', () => {
   let component: AdminCoursesComponent;
   let fixture: ComponentFixture<AdminCoursesComponent>;
-  let mockCoursesService: any;
+  let mockCoursesService: MockAdminCoursesService;
 
   const mockPeriods: AcademicPeriod[] = [
     { id: 'p1', tenant_id: 't-1', name: 'Primer Semestre 2026', code: '2026-1', start_date: '2026-02-01', end_date: '2026-06-30', is_active: true },

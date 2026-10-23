@@ -4,11 +4,16 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { StudentCreateModalComponent } from './student-create-modal.component';
+import { CreateStudentDTO } from '../../../services/admin-students.service';
 import { TenantService } from '@core/services/tenant.service';
+
+interface MockTenantService {
+  config: ReturnType<typeof signal<{ support_email: string; base_domain: string }>>;
+}
 
 describe('StudentCreateModalComponent', () => {
   let component: StudentCreateModalComponent;
-  let mockTenantService: any;
+  let mockTenantService: MockTenantService;
 
   beforeEach(async () => {
     const configSignal = signal({ support_email: 'soporte@uab.edu.bo', base_domain: 'uab.edu.bo' });
@@ -51,7 +56,7 @@ describe('StudentCreateModalComponent', () => {
   });
 
   it('onSubmit con datos válidos emite el DTO correcto', () => {
-    let payload: any;
+    let payload: CreateStudentDTO | undefined;
     component.studentCreated.subscribe(dto => { payload = dto; });
 
     component.firstName.set('  Juan  ');

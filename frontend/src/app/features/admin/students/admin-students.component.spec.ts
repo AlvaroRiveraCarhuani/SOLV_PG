@@ -4,10 +4,20 @@ import { of } from 'rxjs';
 import { AdminStudentsComponent } from './admin-students.component';
 import { AdminStudentsService, AdminStudentItem, AcademicPeriodOption, SubjectOption } from '../services/admin-students.service';
 
+interface MockAdminStudentsService {
+  getAcademicPeriods: ReturnType<typeof vi.fn>;
+  getSubjects: ReturnType<typeof vi.fn>;
+  getStudents: ReturnType<typeof vi.fn>;
+  getStudentCourses: ReturnType<typeof vi.fn>;
+  createStudent: ReturnType<typeof vi.fn>;
+  resetOOMStrikes: ReturnType<typeof vi.fn>;
+  toggleStudentStatus: ReturnType<typeof vi.fn>;
+}
+
 describe('AdminStudentsComponent Unit Tests', () => {
   let component: AdminStudentsComponent;
   let fixture: ComponentFixture<AdminStudentsComponent>;
-  let mockStudentsService: any;
+  let mockStudentsService: MockAdminStudentsService;
 
   const mockPeriods: AcademicPeriodOption[] = [
     { id: 'p1', code: '2026-1', name: 'Primer Semestre 2026', is_active: true },

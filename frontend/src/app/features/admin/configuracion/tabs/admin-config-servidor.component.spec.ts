@@ -9,6 +9,7 @@ import {
   AdminConfigServidorService,
   ServerPolicies,
   MaintenanceStatus,
+  BackupConfigItem,
   BackupExecutionItem,
   VerifyBackupResult
 } from '../admin-config-servidor.service';
@@ -43,11 +44,43 @@ const makeVerifyResult = (overrides: Partial<VerifyBackupResult> = {}): VerifyBa
   ...overrides
 });
 
+const makeBackupConfig = (overrides: Partial<BackupConfigItem> = {}): BackupConfigItem => ({
+  id: 'cfg-1',
+  tenant_id: 't1',
+  local_frequency_hours: 6,
+  local_retention_days: 7,
+  remote_enabled: false,
+  remote_provider: '',
+  remote_bucket_name: '',
+  remote_endpoint: '',
+  remote_retention_days: 30,
+  is_active: true,
+  updated_at: '2026-09-26T00:00:00Z',
+  ...overrides
+});
+
+interface MockAdminConfigServidorService {
+  policies: ReturnType<typeof signal<ServerPolicies | null>>;
+  maintenance: ReturnType<typeof signal<MaintenanceStatus | null>>;
+  backupConfig: ReturnType<typeof signal<BackupConfigItem | null>>;
+  backups: ReturnType<typeof signal<BackupExecutionItem[]>>;
+  isLoading: ReturnType<typeof signal<boolean>>;
+  error: ReturnType<typeof signal<string | null>>;
+  loadAll: ReturnType<typeof vi.fn>;
+  updatePolicies: ReturnType<typeof vi.fn>;
+  enableMaintenance: ReturnType<typeof vi.fn>;
+  disableMaintenance: ReturnType<typeof vi.fn>;
+  updateBackupConfig: ReturnType<typeof vi.fn>;
+  triggerBackup: ReturnType<typeof vi.fn>;
+  verifyBackup: ReturnType<typeof vi.fn>;
+  resolveError: ReturnType<typeof vi.fn>;
+}
+
 const verifyEnvelope = (result: VerifyBackupResult) => ({ data: result });
 
 describe('AdminConfigServidorComponent', () => {
   let component: AdminConfigServidorComponent;
-  let mockService: any;
+  let mockService: MockAdminConfigServidorService;
 
   const policiesSignal = signal<ServerPolicies | null>(null);
   const maintenanceSignal = signal<MaintenanceStatus | null>(null);
@@ -61,7 +94,7 @@ describe('AdminConfigServidorComponent', () => {
     mockService = {
       policies: policiesSignal,
       maintenance: maintenanceSignal,
-      backupConfig: signal<any>({ local_frequency_hours: 6, local_retention_days: 7 }),
+      backupConfig: signal<BackupConfigItem | null>(makeBackupConfig({ local_frequency_hours: 6, local_retention_days: 7 })),
       backups: backupsSignal,
       isLoading: signal(false),
       error: signal<string | null>(null),

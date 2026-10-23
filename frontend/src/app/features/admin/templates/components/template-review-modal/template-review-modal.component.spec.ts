@@ -1,14 +1,14 @@
 import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { TemplateReviewModalComponent } from './template-review-modal.component';
 import { AdminTemplatesService, AdminTemplateItem, RuntimeCapabilities } from '../../../services/admin-templates.service';
 
 describe('TemplateReviewModalComponent Spec', () => {
   let component: TemplateReviewModalComponent;
-  let fixture: any;
+  let fixture: ComponentFixture<TemplateReviewModalComponent>;
 
   const mockTemplate: AdminTemplateItem = {
     id: 'tpl-review-1',
@@ -43,7 +43,7 @@ describe('TemplateReviewModalComponent Spec', () => {
   };
 
   let mockTemplatesService: {
-    getRuntimeCapabilities: any;
+    getRuntimeCapabilities: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {

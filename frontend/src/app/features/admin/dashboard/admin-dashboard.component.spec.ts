@@ -5,13 +5,45 @@ import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
 import { AdminDashboardComponent, DEFAULT_BLOCK_ORDER } from './admin-dashboard.component';
 import { AdminMetricsService } from '../services/admin-metrics.service';
-import { CourseLoadSummary, TechnicalIncident } from '@core/models/admin.model';
+import { CourseLoadSummary, HostSystemHealth, TechnicalIncident } from '@core/models/admin.model';
+
+interface MockAdminMetricsService {
+  health: ReturnType<typeof signal<HostSystemHealth | null>>;
+  isLoading: ReturnType<typeof signal<boolean>>;
+  refresh: ReturnType<typeof vi.fn>;
+  hibernateAll: ReturnType<typeof vi.fn>;
+  stopContainer: ReturnType<typeof vi.fn>;
+  autoRefreshActive: ReturnType<typeof vi.fn>;
+}
+
+const makeHealth = (overrides: Partial<HostSystemHealth> = {}): HostSystemHealth => ({
+  status: 'healthy',
+  docker_version: '27.0',
+  uptime_seconds: 3600,
+  metrics: {
+    ram_used_bytes: 0,
+    ram_total_bytes: 0,
+    ram_percent: 50,
+    cpu_cores: 4,
+    cpu_percent: 10,
+    disk_used_bytes: 0,
+    disk_total_bytes: 0,
+    disk_percent: 20,
+    containers_active: 0,
+    containers_hibernated: 0,
+    containers_max: 40
+  },
+  containers: [],
+  courses_load: [],
+  incidents: [],
+  ...overrides
+});
 
 describe('AdminDashboardComponent', () => {
   let component: AdminDashboardComponent;
-  let mockMetricsService: any;
+  let mockMetricsService: MockAdminMetricsService;
 
-  const healthSignal = signal<any>(null);
+  const healthSignal = signal<HostSystemHealth | null>(null);
   const isLoadingSignal = signal<boolean>(false);
 
   beforeEach(async () => {
@@ -81,7 +113,15 @@ describe('AdminDashboardComponent', () => {
   });
 
   it('el cierre del modal de curso limpia selectedCourse', () => {
-    component.selectedCourse.set({ id: 'c1' } as any);
+    const dummyCourse: CourseLoadSummary = {
+      id: 'c1',
+      course_name: 'Redes I',
+      teacher_name: 'Docente',
+      active_students: 0,
+      hibernated_students: 0,
+      ram_used_mb: 0
+    };
+    component.selectedCourse.set(dummyCourse);
     component.selectedCourse.set(null);
     expect(component.selectedCourse()).toBeNull();
   });
@@ -98,8 +138,16 @@ describe('AdminDashboardComponent', () => {
   });
 
   it('onViewLogs localiza la incidencia existente cuando health la contiene', () => {
-    const existing = { id: 'inc-1', workspace_id: 'ws-9', student_name: 'Ana' } as TechnicalIncident;
-    healthSignal.set({ incidents: [existing] });
+    const existing: TechnicalIncident = {
+      id: 'inc-1',
+      type: 'oom_killed',
+      workspace_id: 'ws-9',
+      student_name: 'Ana',
+      course_name: 'Prog',
+      description: 'OOM',
+      timestamp: '2026-10-01'
+    };
+    healthSignal.set(makeHealth({ incidents: [existing] }));
     component.onViewLogs('ws-9');
     expect(component.selectedIncidentForLogs()).toBe(existing);
     healthSignal.set(null);
