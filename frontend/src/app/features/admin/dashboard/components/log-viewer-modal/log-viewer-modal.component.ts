@@ -10,7 +10,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
   standalone: true,
   imports: [CommonModule, MachineDataDirective, LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw],
   template: `
-    <div class="modal-backdrop" (click)="close.emit()">
+    <div class="modal-backdrop" (click)="closed.emit()">
       <div class="modal-card" (click)="$event.stopPropagation()">
         <!-- Header -->
         <div class="modal-header">
@@ -37,7 +37,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
                 <span>Copiar</span>
               }
             </button>
-            <button class="btn-close" (click)="close.emit()" title="Cerrar ventana">
+            <button class="btn-close" (click)="closed.emit()" title="Cerrar ventana">
               <svg lucideX class="close-icon"></svg>
             </button>
           </div>
@@ -65,7 +65,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
             <span class="badge-status">Estado: Error 137 (SIGKILL por OOM)</span>
             <span class="meta-tip">El recolector QoS o el kernel detuvieron el proceso por superar la cuota máxima permitida.</span>
           </div>
-          <button class="btn-primary" (click)="close.emit()">Entendido</button>
+          <button class="btn-primary" (click)="closed.emit()">Entendido</button>
         </div>
       </div>
     </div>
@@ -76,11 +76,11 @@ export class LogViewerModalComponent {
   private metricsService = inject(AdminMetricsService);
 
   incident = input<TechnicalIncident | null>(null);
-  close = output<void>();
+  closed = output<void>();
 
   @HostListener('document:keydown.escape')
   handleEscape(): void {
-    this.close.emit();
+    this.closed.emit();
   }
 
   logsContent = signal<string>('');

@@ -71,7 +71,7 @@
     <student-create-modal
       [isSubmitting]="isCreatingStudent()"
       (studentCreated)="onStudentCreated($event)"
-      (close)="closeCreateModal()">
+      (closed)="closeCreateModal()">
     </student-create-modal>
   }
 
@@ -96,7 +96,7 @@
       [actionInProgressId]="actionInProgressWorkspaceId()"
       (restartWorkspace)="onRestartWorkspace($event)"
       (pauseWorkspace)="onPauseWorkspace($event)"
-      (close)="closeCoursesModal()">
+      (closed)="closeCoursesModal()">
     </student-courses-modal>
   }
 
@@ -105,7 +105,7 @@
       [student]="st"
       [isSubmitting]="isResetting()"
       (confirmReset)="confirmResetOOM($event)"
-      (close)="closeResetOOMModal()">
+      (closed)="closeResetOOMModal()">
     </student-reset-oom-modal>
   }
 </div>

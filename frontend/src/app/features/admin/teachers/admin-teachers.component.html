@@ -60,7 +60,7 @@
   <!-- Modal de Registro de Docentes -->
   @if (showInviteModal()) {
     <teacher-invite-modal
-      (close)="showInviteModal.set(false)"
+      (closed)="showInviteModal.set(false)"
       (directSubmit)="onDirectTeacherSubmitted($event)"
       (batchSubmit)="onBatchTeachersSubmitted($event)"
     />

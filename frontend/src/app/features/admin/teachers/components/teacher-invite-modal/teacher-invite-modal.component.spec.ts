@@ -121,10 +121,10 @@ describe('TeacherInviteModalComponent', () => {
     expect(component.isSubmittingBatch()).toBe(true);
   });
 
-  it('close emite evento al ser llamado', () => {
+  it('closed emite evento al ser llamado', () => {
     let closed = false;
-    component.close.subscribe(() => { closed = true; });
-    component.close.emit();
+    component.closed.subscribe(() => { closed = true; });
+    component.closed.emit();
     expect(closed).toBe(true);
   });
 });

@@ -18,7 +18,7 @@ export class StudentResetOOMModalComponent {
   isSubmitting = input<boolean>(false);
 
   confirmReset = output<string>();
-  close = output<void>();
+  closed = output<void>();
 
   reason = signal<string>('');
   error = signal<string | null>(null);

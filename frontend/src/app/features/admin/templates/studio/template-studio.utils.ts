@@ -535,8 +535,8 @@ export function synthesizeVisualStackState(params: {
   }
   const toolsDeclared = Array.from(toolsSet).join(', ');
 
-  let setupScript = '';
-  let entrypoint = '';
+  let setupScript: string;
+  let entrypoint: string;
   if (isDual) {
     const lines: string[] = [];
     if (rt?.setup_snippet) lines.push(rt.setup_snippet);

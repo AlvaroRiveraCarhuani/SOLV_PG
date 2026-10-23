@@ -12,7 +12,6 @@ import {
 } from '@lucide/angular';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { RubricDTO } from '../../../../exercise-editor/exercise-editor.store';
 import {
   TeacherSubmissionReviewDTO,

@@ -2,7 +2,7 @@
   title="Registrar Estudiante"
   subtitle="Alta manual institucional para acceso a laboratorios virtuales"
   [disableClose]="isSubmitting()"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideUserPlus class="icon"></svg>
 
@@ -65,7 +65,7 @@
   </form-field>
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+    <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
       Cancelar
     </button>
     <button

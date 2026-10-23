@@ -36,7 +36,7 @@ export class CourseReassignModalComponent implements OnInit {
   @Input({ required: true }) course!: AdminCourseItem;
   @Input() teachers: TeacherItem[] = [];
 
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
   @Output() reassignCompleted = new EventEmitter<void>();
 
   selectedTeacherId = signal<string>('');

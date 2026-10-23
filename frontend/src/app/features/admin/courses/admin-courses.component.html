@@ -220,7 +220,7 @@
       [teachers]="coursesService.teachers()"
       [templates]="coursesService.templates()"
       [defaultPeriodId]="coursesService.activePeriod()?.id || null"
-      (close)="closeCreateCourseModal()"
+      (closed)="closeCreateCourseModal()"
       (courseCreated)="onCourseCreated()">
     </course-create-modal>
   }
@@ -229,7 +229,7 @@
     <course-reassign-modal 
       [course]="course"
       [teachers]="coursesService.teachers()"
-      (close)="closeReassignModal()"
+      (closed)="closeReassignModal()"
       (reassignCompleted)="onReassignCompleted()">
     </course-reassign-modal>
   }

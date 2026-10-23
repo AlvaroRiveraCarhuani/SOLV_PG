@@ -1,7 +1,7 @@
 <modal-shell
   title="Materias Asignadas"
   maxWidth="720px"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideBookOpen class="icon"></svg>
   <span modal-subtitle>
@@ -101,7 +101,7 @@
   }
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()">
+    <button class="btn-outline" (click)="closed.emit()">
       Cerrar
     </button>
   </ng-container>

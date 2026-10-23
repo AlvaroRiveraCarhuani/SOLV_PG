@@ -2,7 +2,7 @@
   title="Registrar Docente"
   subtitle="Habilita el acceso docente de forma individual o importa una lista desde un archivo Excel o CSV."
   maxWidth="620px"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideUserPlus class="icon"></svg>
 
@@ -228,7 +228,7 @@
   }
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()">
+    <button class="btn-outline" (click)="closed.emit()">
       <span>Cancelar</span>
     </button>
 

@@ -18,7 +18,7 @@ export class StudentCreateModalComponent {
   private readonly tenantService = inject(TenantService);
 
   isSubmitting = input<boolean>(false);
-  close = output<void>();
+  closed = output<void>();
   studentCreated = output<CreateStudentDTO>();
 
   firstName = signal<string>('');

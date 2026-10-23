@@ -33,7 +33,7 @@ export class CourseWorkspacesModalComponent implements OnInit {
   course = input.required<CourseLoadSummary>();
   workspacesInput = input<DockerContainerSummary[]>([]);
 
-  close = output<void>();
+  closed = output<void>();
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
 

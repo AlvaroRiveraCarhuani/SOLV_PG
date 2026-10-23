@@ -43,7 +43,7 @@ export class CourseCreateModalComponent implements OnInit {
   @Input() templates: DockerTemplateItem[] = [];
   @Input() defaultPeriodId: string | null = null;
 
-  @Output() close = new EventEmitter<void>();
+  @Output() closed = new EventEmitter<void>();
   @Output() courseCreated = new EventEmitter<void>();
 
   // Campos del formulario

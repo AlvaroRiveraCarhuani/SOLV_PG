@@ -38,7 +38,7 @@ export class StudentCoursesModalComponent {
   isLoading = input<boolean>(false);
   actionInProgressId = input<string | null>(null);
 
-  close = output<void>();
+  closed = output<void>();
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
 

@@ -1,7 +1,7 @@
 <modal-shell
   title="Reasignar Docente a la Materia"
   subtitle="Transferencia de materia con registro en auditoría institucional."
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideArrowRightLeft class="icon"></svg>
 
@@ -52,7 +52,7 @@
   </form-field>
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+    <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
       Cancelar
     </button>
     <button class="btn-primary" (click)="submitReassign()" [disabled]="isSubmitting()">

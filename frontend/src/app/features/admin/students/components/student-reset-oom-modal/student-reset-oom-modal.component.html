@@ -2,7 +2,7 @@
   title="Desbloqueo de Penalizaciones OOM"
   intent="warning"
   [disableClose]="isSubmitting()"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideAlertTriangle class="icon"></svg>
   <span modal-subtitle>
@@ -51,7 +51,7 @@
   </form-field>
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+    <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
       Cancelar
     </button>
     <button

@@ -49,7 +49,7 @@ export class TeacherInviteModalComponent {
   private readonly tenantService = inject(TenantService);
   private readonly teachersService = inject(AdminTeachersService);
 
-  close = output<void>();
+  closed = output<void>();
   directSubmit = output<DirectTeacherPayload>();
   batchSubmit = output<BatchDirectTeacherPayload>();
 

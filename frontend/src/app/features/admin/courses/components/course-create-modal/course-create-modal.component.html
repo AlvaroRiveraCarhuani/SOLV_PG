@@ -1,7 +1,7 @@
 <modal-shell
   title="Nuevo Curso Institucional"
   subtitle="Alta de materia oficial y asignación de titular docente."
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideBookPlus class="header-icon"></svg>
 
@@ -71,7 +71,7 @@
   </form-field>
 
   <ng-container modal-footer>
-    <button class="btn-outline" (click)="close.emit()" [disabled]="isSubmitting()">
+    <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
       Cancelar
     </button>
     <button class="btn-primary" (click)="submitCourse()" [disabled]="isSubmitting()">

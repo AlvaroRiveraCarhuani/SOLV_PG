@@ -2,7 +2,7 @@
   [title]="'Contenedores: ' + course().course_name"
   maxWidth="900px"
   [showIcon]="false"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <span modal-subtitle>
     Docente a cargo: <strong>{{ course().teacher_name }}</strong> &bull;
@@ -133,7 +133,7 @@
       <div class="footer-meta">
         <span class="count-indicator"><span machineData>{{ workspaces().length }}</span> instancias encontradas</span>
       </div>
-      <button class="btn-secondary" (click)="close.emit()">
+      <button class="btn-secondary" (click)="closed.emit()">
         <span>Cerrar</span>
       </button>
     </div>
