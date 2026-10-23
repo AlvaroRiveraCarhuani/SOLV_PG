@@ -309,7 +309,7 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 		if !strings.Contains(plan.DockerfileContent, "@angular/cli@18") {
 			t.Errorf("expected Dockerfile to contain angular snippet, got:\n%s", plan.DockerfileContent)
 		}
-		if strings.Contains(plan.DockerfileContent, "COPY --from=") {
+		if strings.Contains(plan.DockerfileContent, "COPY --from=") && !strings.Contains(plan.DockerfileContent, "openvscode-server") {
 			t.Errorf("unexpected redundant COPY --from multi-stage copy in solo frontend:\n%s", plan.DockerfileContent)
 		}
 		if strings.Contains(plan.DockerfileContent, "apk add") {
@@ -341,7 +341,7 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 		if !strings.Contains(plan.DockerfileContent, "FROM node:22-bookworm-slim") {
 			t.Errorf("expected Dockerfile FROM node:22-bookworm-slim, got:\n%s", plan.DockerfileContent)
 		}
-		if strings.Contains(plan.DockerfileContent, "COPY --from=") {
+		if strings.Contains(plan.DockerfileContent, "COPY --from=") && !strings.Contains(plan.DockerfileContent, "openvscode-server") {
 			t.Errorf("unexpected redundant COPY --from in solo frontend with custom node image:\n%s", plan.DockerfileContent)
 		}
 	})
@@ -500,8 +500,13 @@ func TestAdversarial_FullStackMultiDistroInjection(t *testing.T) {
 			if !strings.Contains(plan.DockerfileContent, tc.expectSnippet) {
 				t.Errorf("expected Dockerfile to contain %q, got:\n%s", tc.expectSnippet, plan.DockerfileContent)
 			}
-			if tc.forbidSnippet != "" && strings.Contains(plan.DockerfileContent, tc.forbidSnippet) {
-				t.Errorf("forbidden snippet %q found in Dockerfile:\n%s", tc.forbidSnippet, plan.DockerfileContent)
+			if tc.forbidSnippet != "" {
+				lines := strings.Split(plan.DockerfileContent, "\n")
+				for _, l := range lines {
+					if strings.Contains(l, tc.forbidSnippet) && !strings.Contains(l, "openvscode-server") {
+						t.Errorf("forbidden snippet %q found in Dockerfile line %q:\n%s", tc.forbidSnippet, l, plan.DockerfileContent)
+					}
+				}
 			}
 			if plan.RecommendedRamMB != tc.expectRecommended {
 				t.Errorf("expected %d MB, got %d MB", tc.expectRecommended, plan.RecommendedRamMB)

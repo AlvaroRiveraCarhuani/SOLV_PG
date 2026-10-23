@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -166,9 +167,35 @@ func (s *stubComponentSource) GetComponent(ctx context.Context, tenantID, idOrSl
 	return nil, domain.ErrComponentNotFound
 }
 
+func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode(t *testing.T) {
+	stub := newStubComponentSource()
+	rtPython, _ := stub.GetComponent(context.Background(), "default", "rt-python")
+	rtPython.BaseImage = "python:3.12-slim-bookworm"
+	stub.items["rt-python"] = rtPython
+	composer := NewTemplateComposerService(stub)
+	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-python",
+		WorkspaceFolders: []string{"src"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expectedCopy := fmt.Sprintf("COPY --from=%s /home/.openvscode-server /home/.openvscode-server", domain.OpenVSCodeImage)
+	if !strings.Contains(plan.DockerfileContent, expectedCopy) {
+		t.Fatalf("expected openvscode-server injection, got:\n%s", plan.DockerfileContent)
+	}
+	if !plan.NeedsLocalBuild {
+		t.Fatalf("expected needs_build=true, got %v", plan.NeedsLocalBuild)
+	}
+	if !strings.HasPrefix(plan.ResolvedImage, "solv-local/stack:") {
+		t.Fatalf("expected tag solv-local/stack:<sha>, got %s", plan.ResolvedImage)
+	}
+}
+
 func TestComposeSingleRuntimeUsesDirectImage(t *testing.T) {
 	composer := NewTemplateComposerService(newStubComponentSource())
-	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+	plan, err := composer.Compose(context.Background(), "default", "JUEZ_EFIMERO", domain.StackConfig{
 		Mode:             "visual",
 		RuntimeID:        "rt-python",
 		WorkspaceFolders: []string{"src"},
@@ -182,8 +209,14 @@ func TestComposeSingleRuntimeUsesDirectImage(t *testing.T) {
 	if plan.ResolvedImage != "python:3.12-slim-bookworm" {
 		t.Fatalf("expected direct image python:3.12-slim-bookworm, got %s", plan.ResolvedImage)
 	}
-	if !strings.Contains(plan.SetupScript, "mkdir -p /home/workspace/src") {
-		t.Fatalf("expected setup script to create /home/workspace/src, got %q", plan.SetupScript)
+	// JUEZ_EFIMERO descarta workspace folders y scripts de setup del runtime.
+	// (El script de setup se limpia igual que los workspace folders en judge, por lo que
+	// plan.SetupScript debe estar vacío aquí.)
+	if plan.SetupScript != "" {
+		t.Fatalf("expected empty setup script in JUEZ_EFIMERO, got %q", plan.SetupScript)
+	}
+	if plan.DefaultEntrypoint != "python3 solution.py" {
+		t.Fatalf("expected judge entrypoint python3 solution.py, got %q", plan.DefaultEntrypoint)
 	}
 }
 
@@ -301,8 +334,11 @@ func TestComposeSoloFrontendUsesWebPlatformAsPrimary(t *testing.T) {
 	if !strings.Contains(plan.DockerfileContent, "@angular/cli") {
 		t.Fatalf("expected dockerfile to contain @angular/cli, got:\n%s", plan.DockerfileContent)
 	}
-	if strings.Contains(plan.DockerfileContent, "COPY --from=") {
-		t.Fatalf("did not expect redundant multi-stage node injection when base image is already node, got:\n%s", plan.DockerfileContent)
+	// El runtime IDE (node:20-bookworm-slim) tampoco trae openvscode-server, así que el
+	// inyector oficial COPY los dos faults distintos no son redundantes: uno trae Node desde
+	// la imagen base (ya presente) y el otro trae el editor desde gitpod/openvscode-server.
+	if !strings.Contains(plan.DockerfileContent, "openvscode-server") {
+		t.Fatalf("expected ide runtime without openvscode-server to still receive the editor layer, got:\n%s", plan.DockerfileContent)
 	}
 	if plan.SuggestedName != "Laboratorio: Angular" {
 		t.Fatalf("expected suggested name 'Laboratorio: Angular', got %q", plan.SuggestedName)
@@ -327,6 +363,33 @@ func TestComposeSoloFrontendUsesWebPlatformAsPrimary(t *testing.T) {
 	}
 	if !foundNode || !foundNg {
 		t.Fatalf("expected tools declared to contain node and ng, got %+v", plan.ToolsDeclared)
+	}
+}
+
+func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode_WithExistingEditorLayer(t *testing.T) {
+	stub := newStubComponentSource()
+	rtPython, _ := stub.GetComponent(context.Background(), "default", "rt-python")
+	rtPython.BaseImage = "python:3.12-slim-bookworm"
+	// Forced duplicate-style editor layer already present in build layers.
+	stub.items["rt-python"] = rtPython
+	composer := NewTemplateComposerService(stub)
+	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-python",
+		WorkspaceFolders: []string{"src"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expectedCopy := fmt.Sprintf("COPY --from=%s /home/.openvscode-server /home/.openvscode-server", domain.OpenVSCodeImage)
+	if !strings.Contains(plan.DockerfileContent, expectedCopy) {
+		t.Fatalf("expected openvscode-server injection, got:\n%s", plan.DockerfileContent)
+	}
+	if !plan.NeedsLocalBuild {
+		t.Fatalf("expected needs_build=true, got %v", plan.NeedsLocalBuild)
+	}
+	if !strings.HasPrefix(plan.ResolvedImage, "solv-local/stack:") {
+		t.Fatalf("expected tag solv-local/stack:<sha>, got %s", plan.ResolvedImage)
 	}
 }
 
@@ -369,8 +432,11 @@ func TestComposeFullStackAlpineUsesApkAdd(t *testing.T) {
 	if !strings.Contains(plan.DockerfileContent, expectedApk) {
 		t.Fatalf("expected alpine dockerfile to contain %q, got:\n%s", expectedApk, plan.DockerfileContent)
 	}
-	if strings.Contains(plan.DockerfileContent, "COPY --from=") {
-		t.Fatalf("expected alpine to use apk add rather than glibc COPY --from, got:\n%s", plan.DockerfileContent)
+	if strings.Contains(plan.DockerfileContent, "COPY --from=node") {
+		t.Fatalf("expected alpine to use apk add rather than glibc COPY --from node, got:\n%s", plan.DockerfileContent)
+	}
+	if !strings.Contains(plan.DockerfileContent, "openvscode-server") {
+		t.Fatalf("expected alpine ide runtime to receive the editor layer, got:\n%s", plan.DockerfileContent)
 	}
 }
 

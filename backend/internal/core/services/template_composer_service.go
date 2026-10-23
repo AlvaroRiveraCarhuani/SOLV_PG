@@ -90,10 +90,10 @@ func (s *TemplateComposerService) Compose(
 		if len(cleanFolders) > 0 {
 			setupLines = append(setupLines, "mkdir -p "+strings.Join(cleanFolders, " "))
 		}
-	}
 
-	if strings.TrimSpace(rt.SetupSnippet) != "" && !isJudge {
-		setupLines = append(setupLines, strings.TrimSpace(rt.SetupSnippet))
+		if strings.TrimSpace(rt.SetupSnippet) != "" {
+			setupLines = append(setupLines, strings.TrimSpace(rt.SetupSnippet))
+		}
 	}
 
 	toolsSet := make(map[string]bool)
@@ -198,9 +198,31 @@ func (s *TemplateComposerService) Compose(
 
 	// Construcción determinista de imagen y Dockerfile
 	needsBuild := len(buildLayers) > 0
-	sigHash := domain.ComputeStackSignature(baseImage, buildLayers)
-	resolvedImage := baseImage
+
+	// Inyección multi-stage de OpenVSCode Server para entornos IDE (/ DUAL).
+	// JUEZ_EFIMERO y JUEZ_VIRTUAL quedan limpios (nilentes): su runtime genera soluciones
+	// y no expone un editor web interactivo.
+	if !isJudge {
+		const openvsCodeMarker = "openvscode-server"
+		baseHasOpenVSCode := strings.Contains(strings.ToLower(baseImage), openvsCodeMarker)
+		const dupePattern = "/home/.openvscode-server /home/.openvscode-server"
+		alreadyStacked := func() bool {
+			for _, l := range buildLayers {
+				if strings.Contains(l, dupePattern) {
+					return true
+				}
+			}
+			return false
+		}()
+		if !baseHasOpenVSCode && !alreadyStacked {
+			buildLayers = append(buildLayers, fmt.Sprintf("COPY --from=%s /home/.openvscode-server /home/.openvscode-server", domain.OpenVSCodeImage))
+			needsBuild = true
+		}
+	}
+
 	dockerfileContent := "FROM " + baseImage
+	resolvedImage := baseImage
+	sigHash := domain.ComputeStackSignature(baseImage, buildLayers)
 	if needsBuild {
 		resolvedImage = domain.FormatBuiltStackImageTag(sigHash)
 		var dfLines []string
