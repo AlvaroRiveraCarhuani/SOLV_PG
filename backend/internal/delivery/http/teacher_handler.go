@@ -4,25 +4,25 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/gorilla/websocket"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
 type TeacherHandler struct {
-	service              *services.TeacherService
+	service                *services.TeacherService
 	metricsSnapshotService *services.MetricsSnapshotService
-	authService          *services.AuthService
-	upgrader             websocket.Upgrader
+	authService            *services.AuthService
+	upgrader               websocket.Upgrader
 }
 
 func NewTeacherHandler(service *services.TeacherService, metricsSnapshotService *services.MetricsSnapshotService) *TeacherHandler {
 	return &TeacherHandler{
-		service:              service,
+		service:                service,
 		metricsSnapshotService: metricsSnapshotService,
-		upgrader:             defaultUpgrader,
+		upgrader:               defaultUpgrader,
 	}
 }
 
@@ -119,7 +119,7 @@ func (h *TeacherHandler) GetLiveSessionsMetrics(w http.ResponseWriter, r *http.R
 
 	tenantID := getTenantFromCtx(r)
 	teacherID := r.Header.Get("X-User-Id")
-	
+
 	metrics, err := h.metricsSnapshotService.GetWorkspaceMetrics(r.Context(), tenantID, teacherID)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener métricas de sesiones en vivo")

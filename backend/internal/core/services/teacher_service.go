@@ -10,12 +10,12 @@ import (
 )
 
 type TeacherService struct {
-	repo                          domain.TeacherRepository
-	subRepo                       domain.SubmissionRepository
-	keystrokeRepo                  domain.KeystrokeRepository
-	evalService                   *EvaluationService
-	mirrorService                 *TerminalMirrorService
-	metricsSnapshotService        *MetricsSnapshotService
+	repo                   domain.TeacherRepository
+	subRepo                domain.SubmissionRepository
+	keystrokeRepo          domain.KeystrokeRepository
+	evalService            *EvaluationService
+	mirrorService          *TerminalMirrorService
+	metricsSnapshotService *MetricsSnapshotService
 }
 
 func NewTeacherService(
@@ -23,9 +23,9 @@ func NewTeacherService(
 	subRepo domain.SubmissionRepository,
 ) *TeacherService {
 	return &TeacherService{
-		repo:                          repo,
-		subRepo:                       subRepo,
-		mirrorService:                 NewTerminalMirrorService(nil),
+		repo:          repo,
+		subRepo:       subRepo,
+		mirrorService: NewTerminalMirrorService(nil),
 	}
 }
 
@@ -110,4 +110,3 @@ func (s *TeacherService) GetLiveWorkspaceSessions(ctx context.Context, tenantID,
 	}
 	return sessions, nil
 }
-

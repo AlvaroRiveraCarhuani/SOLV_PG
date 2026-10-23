@@ -31,8 +31,8 @@ type Handlers struct {
 	WebSocketHandler              *WebSocketHandler
 	EnvTestHandler                *EnvTestHandler
 	LanguageProfileHandler        *LanguageProfileHandler
-	CourseModuleHandler          *CourseModuleHandler
-	RubricHandler                *RubricHandler
+	CourseModuleHandler           *CourseModuleHandler
+	RubricHandler                 *RubricHandler
 	TenantMiddleware              func(http.Handler) http.Handler
 	AuditMiddleware               func(http.Handler) http.Handler
 	RateLimitMiddleware           func(http.Handler) http.Handler

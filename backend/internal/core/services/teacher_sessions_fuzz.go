@@ -17,7 +17,7 @@ func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacher
 	if err != nil {
 		return nil, fmt.Errorf("error al listar sesiones en vivo: %w", err)
 	}
-	
+
 	// Completar las métricas de cada sesión usando el snapshot service
 	for _, session := range sessions {
 		if s.metricsSnapshotService != nil {

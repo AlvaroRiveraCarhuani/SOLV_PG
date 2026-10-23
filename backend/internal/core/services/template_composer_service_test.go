@@ -174,8 +174,8 @@ func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode(t *testing.T) {
 	stub.items["rt-python"] = rtPython
 	composer := NewTemplateComposerService(stub)
 	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
-		Mode:      "visual",
-		RuntimeID: "rt-python",
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
 		WorkspaceFolders: []string{"src"},
 	})
 	if err != nil {
@@ -374,8 +374,8 @@ func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode_WithExistingEdito
 	stub.items["rt-python"] = rtPython
 	composer := NewTemplateComposerService(stub)
 	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
-		Mode:      "visual",
-		RuntimeID: "rt-python",
+		Mode:             "visual",
+		RuntimeID:        "rt-python",
 		WorkspaceFolders: []string{"src"},
 	})
 	if err != nil {
