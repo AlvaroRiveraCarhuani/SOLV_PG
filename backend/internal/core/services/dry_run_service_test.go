@@ -101,7 +101,8 @@ func (m *mockExerciseRepoForDryRun) UpdateExerciseLastValidDryRun(ctx context.Co
 func (m *mockExerciseRepoForDryRun) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.jobs[job.ID] = job
+	stored := *job
+	m.jobs[job.ID] = &stored
 	return nil
 }
 
@@ -112,7 +113,8 @@ func (m *mockExerciseRepoForDryRun) GetDryRunJob(ctx context.Context, jobID stri
 	if !ok {
 		return nil, errors.New("job not found")
 	}
-	return j, nil
+	snapshot := *j
+	return &snapshot, nil
 }
 
 func (m *mockExerciseRepoForDryRun) UpdateDryRunJobProgress(
@@ -312,12 +314,21 @@ func TestStartDryRun_LifecycleAndStaleReset(t *testing.T) {
 		t.Errorf("expected progress_total 2, got: %d", job.ProgressTotal)
 	}
 
-	// 2. Esperar finalización del job asíncrono
-	time.Sleep(50 * time.Millisecond)
-
-	finalJob, err := svc.GetDryRunJob(ctx, job.ID)
-	if err != nil {
-		t.Fatalf("error retrieving job: %v", err)
+	// 2. Esperar finalización del job asíncrono sin depender de un sleep fijo
+	deadline := time.Now().Add(2 * time.Second)
+	var finalJob *domain.DryRunJob
+	for {
+		finalJob, err = svc.GetDryRunJob(ctx, job.ID)
+		if err != nil {
+			t.Fatalf("error retrieving job: %v", err)
+		}
+		if finalJob.Status == domain.DryRunJobStatusDone || finalJob.Status == domain.DryRunJobStatusFailed {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("dry run job did not reach a terminal status, last status: %s", finalJob.Status)
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
 	if finalJob.Status != domain.DryRunJobStatusDone {
 		t.Errorf("expected job status 'done', got: %s", finalJob.Status)
