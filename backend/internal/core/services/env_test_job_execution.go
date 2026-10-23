@@ -13,6 +13,15 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
+const (
+	// openVSCodeBinaryPath es la ruta del binario del editor inyectado en las
+	// imágenes compuestas de IDE persistente.
+	openVSCodeBinaryPath = "/home/.openvscode-server/bin/openvscode-server"
+	// openVSCodeToolName es el nombre estable con el que el reporte registra
+	// la verificación del editor.
+	openVSCodeToolName = "openvscode-server"
+)
+
 // isNotFoundError verifica si el error indica que la imagen o tag no existen en el registro
 func isNotFoundError(err error) bool {
 	if err == nil {
@@ -278,8 +287,15 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 		return
 	}
 
+	// Para entornos de IDE persistente el editor forma parte del contrato de la
+	// imagen: se verifica su presencia junto a las herramientas pedidas.
+	smokeTools := tools
+	if targetEnv == domain.TargetEnvironmentIDEPersistente || targetEnv == domain.TargetEnvironmentAmbos {
+		smokeTools = append(append([]string{}, tools...), openVSCodeBinaryPath)
+	}
+
 	startTime := time.Now()
-	results, exitCode, runnerErr := s.runner.RunSmokeTest(ctx, imageRef, tools, memLimitMB)
+	results, exitCode, runnerErr := s.runner.RunSmokeTest(ctx, imageRef, smokeTools, memLimitMB)
 	durationMs := time.Since(startTime).Milliseconds()
 
 	if runnerErr != nil {
@@ -293,6 +309,13 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 		}
 		_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("Fallo en la ejecución del contenedor de prueba: %v", runnerErr))
 		return
+	}
+
+	// El reporte registra el editor bajo su nombre corto, no la ruta completa.
+	for i := range results {
+		if results[i].Name == openVSCodeBinaryPath || results[i].Path == openVSCodeBinaryPath {
+			results[i].Name = openVSCodeToolName
+		}
 	}
 
 	testResult := &domain.EnvTestResult{

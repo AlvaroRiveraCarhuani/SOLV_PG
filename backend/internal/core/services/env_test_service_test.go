@@ -60,11 +60,13 @@ type mockRunner struct {
 	err       error
 	runCalled bool
 	delay     time.Duration
+	lastTools []string
 }
 
 func (m *mockRunner) RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) ([]domain.ToolResult, int, error) {
 	m.mu.Lock()
 	m.runCalled = true
+	m.lastTools = append([]string{}, tools...)
 	res := m.results
 	code := m.exitCode
 	err := m.err
@@ -363,6 +365,154 @@ func TestEnvTestService_Cancellation(t *testing.T) {
 	got, _ := svc.GetJob(context.Background(), job.ID)
 	if got.Status != domain.EnvTestStatusCanceled {
 		t.Errorf("expected status canceled, got: %v", got.Status)
+	}
+}
+
+func TestEnvTestService_IDEPersistente_VerifiesOpenVSCodeBinary(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	openVSCodePath := "/home/.openvscode-server/bin/openvscode-server"
+	run := &mockRunner{
+		results: []domain.ToolResult{
+			{Name: "python3", Present: true, Path: "/usr/bin/python3"},
+			{Name: openVSCodePath, Present: true, Path: openVSCodePath, Version: "1.96.0"},
+		},
+		exitCode: 0,
+	}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:             "python:3.12-slim",
+		Tools:             []string{"python3"},
+		TargetEnvironment: "IDE_PERSISTENTE",
+	})
+	if err != nil {
+		t.Fatalf("unexpected start error: %v", err)
+	}
+
+	var finishedJob *domain.EnvTestJob
+	for i := 0; i < 20; i++ {
+		time.Sleep(20 * time.Millisecond)
+		finishedJob, _ = svc.GetJob(context.Background(), job.ID)
+		if finishedJob != nil && finishedJob.IsTerminal() {
+			break
+		}
+	}
+
+	if finishedJob == nil || finishedJob.Status != domain.EnvTestStatusSuccess {
+		t.Fatalf("expected job success, got: %+v", finishedJob)
+	}
+
+	run.mu.Lock()
+	requestedTools := run.lastTools
+	run.mu.Unlock()
+	foundEditor := false
+	for _, tool := range requestedTools {
+		if tool == openVSCodePath {
+			foundEditor = true
+			break
+		}
+	}
+	if !foundEditor {
+		t.Errorf("esperado que el smoke test verifique %s, herramientas pedidas: %v", openVSCodePath, requestedTools)
+	}
+
+	var editorResult *domain.ToolResult
+	for i := range finishedJob.Result.Tools {
+		if finishedJob.Result.Tools[i].Name == "openvscode-server" {
+			editorResult = &finishedJob.Result.Tools[i]
+			break
+		}
+	}
+	if editorResult == nil {
+		t.Fatalf("esperado resultado openvscode-server en el reporte, obtenido: %+v", finishedJob.Result.Tools)
+	}
+	if !editorResult.Present {
+		t.Errorf("esperado openvscode-server presente = true")
+	}
+}
+
+func TestEnvTestService_IDEPersistente_FailsWhenOpenVSCodeMissing(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	openVSCodePath := "/home/.openvscode-server/bin/openvscode-server"
+	run := &mockRunner{
+		results: []domain.ToolResult{
+			{Name: "python3", Present: true, Path: "/usr/bin/python3"},
+			{Name: openVSCodePath, Present: false},
+		},
+		exitCode: 0,
+	}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:             "python:3.12-slim",
+		Tools:             []string{"python3"},
+		TargetEnvironment: "IDE_PERSISTENTE",
+	})
+	if err != nil {
+		t.Fatalf("unexpected start error: %v", err)
+	}
+
+	var finishedJob *domain.EnvTestJob
+	for i := 0; i < 20; i++ {
+		time.Sleep(20 * time.Millisecond)
+		finishedJob, _ = svc.GetJob(context.Background(), job.ID)
+		if finishedJob != nil && finishedJob.IsTerminal() {
+			break
+		}
+	}
+
+	if finishedJob == nil || finishedJob.Status != domain.EnvTestStatusFailed {
+		t.Fatalf("expected failed status when editor missing, got: %+v", finishedJob)
+	}
+	if finishedJob.ErrorCode != domain.EnvTestErrTestCrash {
+		t.Errorf("expected error code %q, got %q", domain.EnvTestErrTestCrash, finishedJob.ErrorCode)
+	}
+}
+
+func TestEnvTestService_JuezEfimero_DoesNotRequireOpenVSCode(t *testing.T) {
+	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
+	reg := &mockRegistry{isLocal: true}
+	run := &mockRunner{
+		results: []domain.ToolResult{
+			{Name: "gcc", Present: true, Path: "/usr/bin/gcc"},
+		},
+		exitCode: 0,
+	}
+	svc := services.NewEnvTestService(repo, reg, run, services.EnvTestConfig{})
+
+	job, err := svc.StartJob(context.Background(), domain.StartEnvTestRequest{
+		Image:             "gcc:13.2",
+		Tools:             []string{"gcc"},
+		TargetEnvironment: "JUEZ_EFIMERO",
+		Entrypoint:        "gcc solution.c -o solution && ./solution",
+		TimeoutMS:         2000,
+	})
+	if err != nil {
+		t.Fatalf("unexpected start error: %v", err)
+	}
+
+	var finishedJob *domain.EnvTestJob
+	for i := 0; i < 20; i++ {
+		time.Sleep(20 * time.Millisecond)
+		finishedJob, _ = svc.GetJob(context.Background(), job.ID)
+		if finishedJob != nil && finishedJob.IsTerminal() {
+			break
+		}
+	}
+
+	if finishedJob == nil || finishedJob.Status != domain.EnvTestStatusSuccess {
+		t.Fatalf("expected job success, got: %+v", finishedJob)
+	}
+
+	run.mu.Lock()
+	requestedTools := run.lastTools
+	run.mu.Unlock()
+	for _, tool := range requestedTools {
+		if tool == "/home/.openvscode-server/bin/openvscode-server" {
+			t.Errorf("el entorno JUEZ_EFIMERO no debe verificar el binario del editor")
+		}
 	}
 }
 
