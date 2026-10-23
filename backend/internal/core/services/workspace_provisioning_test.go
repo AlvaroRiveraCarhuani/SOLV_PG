@@ -275,15 +275,10 @@ func TestWorkspaceService_TemplateProvisioning(t *testing.T) {
 		t.Errorf("esperado container MemoryLimitMB = 1024, obtenido: %d", orch.lastConfig.MemoryLimitMB)
 	}
 
-	// 4. Esperar brevemente a que el goroutine dispare el setup script
-	time.Sleep(1200 * time.Millisecond)
-	if orch.lastExecCmd == nil {
-		t.Errorf("esperado comando de setup_script ejecutado vía Docker Exec")
-	} else {
-		cmdStr := strings.Join(orch.lastExecCmd, " ")
-		if !strings.Contains(cmdStr, "pip install pandas numpy") {
-			t.Errorf("esperado script de setup en comando exec, obtenido: %s", cmdStr)
-		}
+	// 4. El script de la plantilla debe propagarse al contenedor para que el
+	// shell de arranque lo ejecute una sola vez (sello .solv_initialized).
+	if orch.lastConfig.SetupScript != "pip install pandas numpy" {
+		t.Errorf("esperado SetupScript = %q, obtenido: %q", "pip install pandas numpy", orch.lastConfig.SetupScript)
 	}
 }
 

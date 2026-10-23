@@ -53,6 +53,9 @@ type WorkspaceContainerConfig struct {
 	NetworkName   string
 	Labels        map[string]string
 	Env           []string
+	// SetupScript es el script de inicialización de la plantilla compuesta.
+	// Cuando está presente, el runtime lo ejecuta una sola vez por sesión.
+	SetupScript string
 	// HostPort es el puerto ya reservado en 127.0.0.1 que se publicará contra el
 	// 3000/tcp del contenedor. Vacío delega la elección al daemon de Docker.
 	HostPort string

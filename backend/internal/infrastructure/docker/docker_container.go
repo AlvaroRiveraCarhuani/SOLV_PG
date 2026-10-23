@@ -21,10 +21,10 @@ const (
 	// workspaceServerPort es el único puerto que un workspace expone al host.
 	workspaceServerPort = "3000/tcp"
 
-	// pureRuntimeWorkspaceCmd se usa en imágenes que no traen OpenVSCode: deja el
-	// workspace escribible y, si el binario fue montado o copiado, lo arranca. Sin
-	// binario mantiene el contenedor vivo para que el volumen siga disponible.
-	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000; else exec sleep infinity; fi`
+	// pureRuntimeWorkspaceCmd se usa en imágenes que no traen OpenVSCode: prepara el
+	// workspace, ejecuta el setup_script de la plantilla una sola vez y arranca
+	// OpenVSCode abriendo directamente el directorio del proyecto.
+	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -112,8 +112,12 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 
 	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)
 
-	// Inyección de NODE_OPTIONS para controlar el heap de V8 en OpenVSCode Server (Memory Governance)
+	// Inyección de variables de entorno del workspace.
 	envList := config.Env
+	if strings.TrimSpace(config.SetupScript) != "" {
+		envList = append(envList, fmt.Sprintf("SOLV_SETUP_SCRIPT=%s", config.SetupScript))
+	}
+	// Evita duplicar NODE_OPTIONS cuando el cliente ya lo provee.
 	hasNodeOptions := false
 	for _, env := range envList {
 		if strings.HasPrefix(env, "NODE_OPTIONS=") {
@@ -139,7 +143,12 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	if shipsOpenVSCode {
 		// El entrypoint de la imagen ya es el binario: solo se le pasan flags.
 		containerConfig.User = "1000:1000"
-		containerConfig.Cmd = []string{"--without-connection-token", "--host", "0.0.0.0", "--port", "3000"}
+		containerConfig.Cmd = []string{
+			"--without-connection-token",
+			"--host", "0.0.0.0",
+			"--port", "3000",
+			"--default-folder", "/home/workspace",
+		}
 	} else {
 		// Runtime puro (python, node, solv-local/stack): NO se le pasa
 		// --without-connection-token como Cmd porque el binario no existe y el

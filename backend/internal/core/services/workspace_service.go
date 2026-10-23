@@ -241,6 +241,13 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 
 // StartWorkspaceForExercise inicia (o reactiva) el IDE persistente resolviendo
 // plantilla y db_init_script desde el ejercicio cuando se provee exerciseID.
+func sanitizeWorkspaceSetupScript(template *domain.Template) string {
+	if template == nil {
+		return ""
+	}
+	return strings.TrimSpace(template.SetupScript)
+}
+
 func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {
@@ -412,6 +419,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		NetworkName:   networkName,
 		Labels:        labels,
 		Env:           envVars,
+		SetupScript:   sanitizeWorkspaceSetupScript(template),
 		HostPort:      hostPort,
 	}
 
@@ -430,25 +438,9 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		return nil, fmt.Errorf("failed to update workspace status: %w", err)
 	}
 
-	// 12. Ejecución no bloqueante del setup_script si la plantilla lo define
-	if template != nil && strings.TrimSpace(template.SetupScript) != "" {
-		setupScript := template.SetupScript
-		setupCmd := []string{
-			"/bin/sh",
-			"-c",
-			fmt.Sprintf("cd /home/workspace && (%s) > /home/workspace/.solv_setup.log 2>&1", setupScript),
-		}
-		go func(cid, wid string) {
-			time.Sleep(1 * time.Second)
-			bgCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			if errExec := s.docker.ExecuteCommandInBackground(bgCtx, cid, "/home/workspace", setupCmd); errExec != nil {
-				log.Printf("[Setup Script Warning] Failed to execute setup_script in workspace %s: %v", wid, errExec)
-			} else {
-				log.Printf("[Setup Script] Successfully triggered setup_script for workspace %s", wid)
-			}
-		}(containerID, workspaceID)
-	}
+	// 12. El setup_script ya no se lanza como goroutine legacy: el shell de
+	// arranque del contenedor lo ejecuta una sola vez por volumen, sellado con
+	// .solv_initialized, por lo que una reactivación no lo duplica.
 
 	instance.ContainerID = &containerID
 	instance.Status = domain.WorkspaceStatusRunning

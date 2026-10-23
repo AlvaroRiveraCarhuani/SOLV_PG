@@ -85,6 +85,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 		NetworkName:   networkName,
 		Labels:        labels,
 		Env:           envVars,
+		SetupScript:   sanitizeWorkspaceSetupScript(template),
 		HostPort:      hostPort,
 	}
 
