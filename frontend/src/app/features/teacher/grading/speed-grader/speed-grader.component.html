@@ -88,6 +88,6 @@
 @if (showKeystrokeReplay()) {
   <keystroke-replay-modal
     [submissionId]="submissionId()"
-    (close)="closeKeystrokeReplay()"
+    (closed)="closeKeystrokeReplay()"
   />
 }

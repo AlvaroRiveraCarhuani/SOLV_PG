@@ -4,7 +4,7 @@
   intent="info"
   maxWidth="1020px"
   [showClose]="true"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideFilm class="icon"></svg>
 
@@ -138,6 +138,6 @@
   }
 
   <div modal-footer class="modal-footer-actions">
-    <button type="button" class="btn-outline" (click)="close.emit()">Cerrar Auditoría</button>
+    <button type="button" class="btn-outline" (click)="closed.emit()">Cerrar Auditoría</button>
   </div>
 </modal-shell>

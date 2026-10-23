@@ -88,7 +88,7 @@ export interface ApprovedTemplate {
       @if (showRequestModal()) {
         <template-request-modal
           [subjectId]="store.courseId()"
-          (close)="closeRequestModal()"
+          (closed)="closeRequestModal()"
           (requested)="onTemplateRequested()"
         />
       }

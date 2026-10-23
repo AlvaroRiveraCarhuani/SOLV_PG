@@ -162,7 +162,7 @@
 <!-- Modal de Solicitud de Plantilla al Admin -->
 @if (isRequestModalOpen()) {
   <template-request-modal
-    (close)="closeRequestModal()"
+    (closed)="closeRequestModal()"
     (requested)="onRequestSubmitted()"
   />
 }

@@ -3,7 +3,7 @@
   subtitle="Envía una propuesta de entorno para revisión y homologación por la administración del sistema."
   maxWidth="600px"
   [disableClose]="isSubmitting()"
-  (close)="close.emit()"
+  (close)="closed.emit()"
 >
   <svg modal-icon lucideServer class="icon"></svg>
 
@@ -183,7 +183,7 @@
 
   <ng-container modal-footer>
     @if (currentStep() === 1) {
-      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="close.emit()">
+      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="closed.emit()">
         Cancelar
       </button>
       <button type="button" class="btn-primary" (click)="nextStep()">

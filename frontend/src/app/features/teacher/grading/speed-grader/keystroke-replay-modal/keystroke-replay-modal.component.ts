@@ -50,7 +50,7 @@ interface CodeReplaySegment {
 })
 export class KeystrokeReplayModalComponent implements OnInit, OnDestroy {
   readonly submissionId = input.required<string>();
-  readonly close = output<void>();
+  readonly closed = output<void>();
 
   private gradingService = inject(TeacherGradingService);
 

@@ -50,7 +50,7 @@ export class TemplateRequestModalComponent implements OnInit {
   subjectId = input<string>('');
   subjectName = input<string>('');
 
-  close = output<void>();
+  closed = output<void>();
   requested = output<void>();
 
   // Estado del wizard (2 pasos: 1 = Selección de Tecnologías y Perfil de Carga, 2 = Identidad y Justificación)
@@ -202,7 +202,7 @@ export class TemplateRequestModalComponent implements OnInit {
         this.successMessage.set('¡Solicitud enviada exitosamente a la cola de auditoría del Administrador!');
         setTimeout(() => {
           this.requested.emit();
-          this.close.emit();
+          this.closed.emit();
         }, 1200);
       },
       error: (err) => {
