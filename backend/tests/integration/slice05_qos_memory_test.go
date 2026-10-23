@@ -28,6 +28,8 @@ func (m *MockHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 	if m.FreePct < domain.MinHostFreeRAMPct {
 		return false
 	}
+	// Conversion en mock de test sobre valores fijos acotados.
+	//nolint:gosec
 	return int64(m.AvailableMB) >= requiredMB
 }
 

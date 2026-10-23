@@ -68,6 +68,8 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
 	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
 
+	// Atributos de cookie configurados explicitamente (Secure adaptativo, HttpOnly y SameSite Lax).
+	//nolint:gosec
 	cookie := &http.Cookie{
 		Name:     "solv_session",
 		Value:    token,
@@ -109,6 +111,8 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 		redirectURL = "/" + targetRole
 	}
 
+	// Redireccion construida desde FRONTEND_URL de configuracion o paths fijos, r.Host no se concatena.
+	//nolint:gosec
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
@@ -154,6 +158,8 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	cookieDomain := getCookieDomain(r)
 	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
 	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
+	// Atributos de cookie de logout configurados explicitamente (Secure adaptativo, HttpOnly y SameSite Lax).
+	//nolint:gosec
 	cookie := &http.Cookie{
 		Name:     "solv_session",
 		Value:    "",

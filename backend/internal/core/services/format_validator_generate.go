@@ -88,6 +88,8 @@ func (v *DefaultFormatValidator) GenerateCase(contract json.RawMessage, seed int
 		return "", fmt.Errorf("formato de contrato inválido: %w", err)
 	}
 
+	// Generacion pseudoaleatoria determinista controlada por semilla para reproducibilidad de casos.
+	//nolint:gosec
 	r := rand.New(rand.NewSource(seed))
 	ctx := make(map[string]int64)
 	var sb strings.Builder

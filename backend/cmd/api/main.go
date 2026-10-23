@@ -184,6 +184,8 @@ func main() {
 			log.Printf("[TemplateCache] Advertencia en auto-recuperación de entornos: %v", err)
 			return
 		}
+		// Contadores internos generados por el servicio, no provienen de entrada de usuario.
+		//nolint:gosec
 		log.Printf("[TemplateCache] Disponibilidad de entornos verificada: %d listos, %d descargados, %d con error (total: %d)",
 			summary.AlreadyWarm, summary.WarmedCount, summary.FailedCount, summary.TotalChecked)
 	}()
@@ -197,6 +199,8 @@ func main() {
 			if err != nil {
 				log.Printf("Error in automatic archiving of academic periods: %v", err)
 			} else if count > 0 {
+				// Contador de base de datos generado por el servicio, no proviene de entrada de usuario.
+				//nolint:gosec
 				log.Printf("Automatic archiving completed: %d expired periods archived", count)
 			}
 		}
@@ -300,8 +304,18 @@ func main() {
 		port = "3000"
 	}
 
+	// Puerto obtenido de variable de entorno local, no proviene de peticion HTTP.
+	//nolint:gosec
 	log.Printf("Server starting on port %s...", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
+	// Sin ReadTimeout/WriteTimeout: hay WebSockets (/api/v1/teacher/live-sessions/{id}/terminal,
+	// /ws/v1/evaluations) y descargas largas de backups/logos que exceden cualquier cota razonable.
+	srv := &http.Server{
+		Addr:              ":" + port,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

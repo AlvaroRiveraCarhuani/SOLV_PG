@@ -302,6 +302,8 @@ func (h *TeacherInvitationHandler) RegisterDirectTeacher(w http.ResponseWriter, 
 }
 
 func (h *TeacherInvitationHandler) ParseRoster(w http.ResponseWriter, r *http.Request) {
+	// Limite explicito de 10 MB para parseo de nomina en formulario multipart.
+	//nolint:gosec
 	if err := r.ParseMultipartForm(10 << 20); err != nil {
 		SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el archivo subido")
 		return

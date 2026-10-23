@@ -417,8 +417,13 @@ func (s *ImageVerificationService) getHostDiskStats() (float64, float64, error) 
 	for _, p := range paths {
 		err = syscall.Statfs(p, &stat)
 		if err == nil {
-			totalGB := float64(stat.Blocks*uint64(stat.Bsize)) / (1024 * 1024 * 1024)
-			freeGB := float64(stat.Bavail*uint64(stat.Bsize)) / (1024 * 1024 * 1024)
+			bsize := stat.Bsize
+			if bsize <= 0 {
+				// Filesystem sin tamaño de bloque válido: continuar con la siguiente ruta.
+				continue
+			}
+			totalGB := float64(stat.Blocks*uint64(bsize)) / (1024 * 1024 * 1024)
+			freeGB := float64(stat.Bavail*uint64(bsize)) / (1024 * 1024 * 1024)
 			return totalGB, freeGB, nil
 		}
 	}

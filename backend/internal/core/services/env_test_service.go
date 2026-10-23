@@ -137,6 +137,8 @@ func (s *EnvTestService) StartJob(ctx context.Context, req domain.StartEnvTestRe
 	s.cancelMu.Unlock()
 
 	// Lanzar ejecución asíncrona
+	// Ejecucion asincrona del job con timeout propio, desacoplada del request HTTP.
+	//nolint:gosec
 	go s.executeJob(jobCtx, jobID, imageRef, strings.TrimSpace(req.DockerfileContent), cleanTools, targetEnv, strings.TrimSpace(req.Entrypoint), req.SampleInput, timeoutMS, req.BaseRamMB)
 
 	return job, nil

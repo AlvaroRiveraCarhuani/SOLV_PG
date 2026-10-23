@@ -61,6 +61,8 @@ func createTestJWT(secret string, expiration time.Duration) string {
 }
 
 func TestCRIT05ForwardAuthVerification(t *testing.T) {
+	// Secreto fijo utilizado exclusivamente para pruebas de integracion en memoria.
+	//nolint:gosec
 	secret := "test-super-secret-key-1234567890"
 	mux, _ := setupForwardAuthTestServer(t, secret)
 
@@ -99,6 +101,8 @@ func TestCRIT05ForwardAuthVerification(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/auth/verify", nil)
 			if tt.cookieValue != "" {
+				// Cookie utilizada en entorno de test sintetico contra httptest.Server.
+				//nolint:gosec
 				req.AddCookie(&http.Cookie{
 					Name:  "solv_session",
 					Value: tt.cookieValue,

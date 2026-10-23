@@ -59,6 +59,8 @@ func (s *EvaluationService) StartDryRun(ctx context.Context, exerciseID, tenantI
 
 	// Ejecución asíncrona del Dry-Run con progreso por caso
 	s.attachTemplateSummary(ctx, ex)
+	// Dry-run asincrono desacoplado del ctx del request para evitar cancelacion prematura.
+	//nolint:gosec
 	go func(jID, eID, tID string, exerciseCopy domain.Exercise) {
 		bgCtx := context.Background()
 		if exerciseCopy.Template == nil {

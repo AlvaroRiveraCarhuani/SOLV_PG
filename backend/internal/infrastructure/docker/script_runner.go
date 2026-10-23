@@ -40,6 +40,8 @@ func (r *DockerScriptSandboxRunner) RunPythonScript(ctx context.Context, scriptC
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	scriptFile := filepath.Join(tmpDir, "generate.py")
+	// Permisos 0644 requeridos para lectura por usuario no-root en montaje de contenedor :/runner:ro.
+	//nolint:gosec
 	if err := os.WriteFile(scriptFile, []byte(scriptCode), 0644); err != nil {
 		return "", "", fmt.Errorf("failed to write script file: %w", err)
 	}

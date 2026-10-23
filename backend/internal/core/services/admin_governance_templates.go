@@ -69,7 +69,7 @@ func (s *AdminGovernanceService) ReviewTemplate(
 func (s *AdminGovernanceService) getHostTotalRAM(ctx context.Context) int {
 	totalMB := 8192
 	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
-		totalMB = int(v.Total / (1024 * 1024))
+		totalMB = domain.Uint64ToInt(v.Total / (1024 * 1024))
 	}
 	return totalMB
 }
@@ -172,6 +172,8 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 
 	// Golden Image Invariant (Solución 4): Precalentamiento asíncrono en background
 	if s.cacheService != nil && created != nil {
+		// Pull asincrono desacoplado del ciclo de vida del request HTTP.
+		//nolint:gosec
 		go func(tid, tmplID, img string) {
 			bgCtx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 			defer cancel()

@@ -20,6 +20,8 @@ func judgeMigrationsDir(t *testing.T) string {
 
 func readJudgeMigration(t *testing.T, dir, name string) string {
 	t.Helper()
+	// Lectura en test de archivos de migracion versionados dentro del propio repositorio.
+	//nolint:gosec
 	raw, err := os.ReadFile(filepath.Join(dir, name))
 	if err != nil {
 		t.Fatalf("migration %s missing: %v", name, err)

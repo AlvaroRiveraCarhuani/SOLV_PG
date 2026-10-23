@@ -133,6 +133,8 @@ func (h *EvaluationHandler) GenerateCases(w http.ResponseWriter, r *http.Request
 	for i := 0; i < req.Count; i++ {
 		caseSeed := baseSeed + int64(i*10007)
 		if req.Seed == nil {
+			// Semilla pseudoaleatoria para generacion de casos de prueba de evaluación.
+			//nolint:gosec
 			caseSeed = time.Now().UnixNano() + int64(i*10007+rand.Intn(1000000))
 		}
 		generatedInput, err := validator.GenerateCase(req.Contract, caseSeed)
@@ -165,6 +167,8 @@ func (h *EvaluationHandler) ImportExercises(w http.ResponseWriter, r *http.Reque
 
 	contentType := r.Header.Get("Content-Type")
 	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Limite explicito de 10 MB para parseo de formulario multipart.
+		//nolint:gosec
 		err := r.ParseMultipartForm(10 << 20) // 10MB limit
 		if err != nil {
 			SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el archivo subido")
@@ -230,6 +234,8 @@ func (h *EvaluationHandler) GenerateCasesFromScript(w http.ResponseWriter, r *ht
 	contentType := r.Header.Get("Content-Type")
 
 	if strings.HasPrefix(contentType, "multipart/form-data") {
+		// Limite explicito de 10 MB para parseo de formulario multipart.
+		//nolint:gosec
 		err := r.ParseMultipartForm(10 << 20)
 		if err != nil {
 			SendError(w, http.StatusBadRequest, err.Error(), "Error al procesar el formulario")

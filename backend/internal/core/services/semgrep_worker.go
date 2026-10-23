@@ -99,6 +99,8 @@ func (w *SemgrepWorker) ScanCode(code string, language string) (*domain.ScanResu
 	semgrepBin := findSemgrepBinary()
 
 	// 3. Ejecutar semgrep CLI
+	// Binario resuelto localmente por findSemgrepBinary en rutas del sistema, no es input de usuario.
+	//nolint:gosec
 	cmd := exec.Command(semgrepBin, "--config", ruleFile, "--json", tmpFile.Name())
 	outBytes, err := cmd.Output()
 	if err != nil {

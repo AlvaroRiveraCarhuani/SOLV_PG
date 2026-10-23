@@ -202,9 +202,9 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 	cpuCores := 4
 
 	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
-		totalMB = int64(v.Total / (1024 * 1024))
-		availableMB = int64(v.Available / (1024 * 1024))
-		usedMB = int64(v.Used / (1024 * 1024))
+		totalMB = domain.Uint64ToInt64(v.Total / (1024 * 1024))
+		availableMB = domain.Uint64ToInt64(v.Available / (1024 * 1024))
+		usedMB = domain.Uint64ToInt64(v.Used / (1024 * 1024))
 	}
 	if c, err := cpu.CountsWithContext(ctx, true); err == nil && c > 0 {
 		cpuCores = c

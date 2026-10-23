@@ -29,6 +29,8 @@ func main() {
 		dsn = os.Getenv("TEST_DB_DSN")
 	}
 	if dsn == "" {
+		// DSN de fallback para desarrollo y testing local, sin credenciales reales.
+		//nolint:gosec
 		dsn = "postgres://solv_user:solv_password@127.0.0.1:5432/solv_test?sslmode=disable"
 	}
 

@@ -72,7 +72,7 @@ func (s *EnvTestService) executeJob(ctx context.Context, jobID, imageRef, docker
 	if baseRamMB > 0 {
 		totalHostMB := 8192
 		if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
-			totalHostMB = int(v.Total / (1024 * 1024))
+			totalHostMB = domain.Uint64ToInt(v.Total / (1024 * 1024))
 		}
 		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
 		if err := domain.ValidateRamAgainstHost(baseRamMB, maxAllowedRAM); err != nil {

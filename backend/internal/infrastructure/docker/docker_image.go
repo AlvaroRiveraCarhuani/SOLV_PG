@@ -11,6 +11,8 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/errdefs"
+
+	"solv-backend/internal/core/domain"
 )
 
 // InspectLocalImage comprueba si una imagen reside físicamente en el almacenamiento local del host Docker
@@ -78,7 +80,7 @@ func (c *Client) PruneOrphans(ctx context.Context) (containersPruned int64, spac
 	if err != nil {
 		return containersPruned, spaceReclaimedMB, fmt.Errorf("failed to prune dangling images: %w", err)
 	}
-	spaceReclaimedMB = int64(pruneReport.SpaceReclaimed) / (1024 * 1024)
+	spaceReclaimedMB = domain.Uint64ToInt64(pruneReport.SpaceReclaimed / (1024 * 1024))
 
 	return containersPruned, spaceReclaimedMB, nil
 }

@@ -120,7 +120,7 @@ func buildWorkspaceAccessURL(workspaceID, hostPort string) string {
 // gopsutil no responde (mismo contrato que el resto de los workers).
 func hostTotalMB() int {
 	if vm, err := mem.VirtualMemory(); err == nil && vm.Total > 0 {
-		return int(vm.Total / (1024 * 1024))
+		return domain.Uint64ToInt(vm.Total / (1024 * 1024))
 	}
 	return 8192
 }

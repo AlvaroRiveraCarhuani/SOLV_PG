@@ -43,7 +43,7 @@ func (s *EvaluationService) validateExerciseInputFormat(ex *domain.Exercise) err
 func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
 	totalMB := 8192
 	if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil && v.Total > 0 {
-		totalMB = int(v.Total / (1024 * 1024))
+		totalMB = domain.Uint64ToInt(v.Total / (1024 * 1024))
 	}
 	return totalMB
 }

@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -70,6 +71,8 @@ func NewBackupServiceWithContentSource(repo domain.BackupRepository, notifServic
 			backupDir = "/tmp/solv_backups"
 		}
 	}
+	// Raiz de respaldos proveniente de configuracion o variable de entorno.
+	//nolint:gosec
 	_ = os.MkdirAll(backupDir, 0750)
 
 	return &BackupService{
@@ -160,7 +163,12 @@ func (s *BackupService) checkDiskSpace(dir string, minBytesRequired uint64) erro
 	if err := syscall.Statfs(dir, &stat); err != nil {
 		return nil // Si el filesystem no soporta Statfs en entorno de test, continuar
 	}
-	available := stat.Bavail * uint64(stat.Bsize)
+	bsize := stat.Bsize
+	if bsize <= 0 {
+		// Filesystem sin tamaño de bloque válido: mismo criterio que Statfs no soportado.
+		return nil
+	}
+	available := stat.Bavail * uint64(bsize)
 	if available < minBytesRequired {
 		return fmt.Errorf("espacio en disco insuficiente: %d MB disponibles, se requieren al menos %d MB", available/(1024*1024), minBytesRequired/(1024*1024))
 	}
@@ -192,6 +200,16 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 	if len(prefix) > 8 {
 		prefix = prefix[:8]
 	}
+	var cleanPrefix strings.Builder
+	for _, r := range prefix {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			cleanPrefix.WriteRune(r)
+		}
+	}
+	prefix = cleanPrefix.String()
+	if prefix == "" {
+		prefix = "default"
+	}
 	fileName := fmt.Sprintf("solv_backup_%s_%d.dump.gz", prefix, startedAt.Unix())
 	filePath := filepath.Join(s.backupDir, fileName)
 
@@ -211,6 +229,8 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 	}
 
 	// 2. Crear archivo comprimido .dump.gz con puertas de enlace staged
+	// Ruta compuesta por backupDir de configuracion y nombre con prefijo saneado.
+	//nolint:gosec
 	file, err := os.Create(filePath)
 	if err != nil {
 		exec.Status = domain.BackupStatusFailed
@@ -290,6 +310,8 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 	}
 
 	// 4. Aplicar política de rotación de retención
+	// Rotacion asincrona desacoplada del request tras completar backup.
+	//nolint:gosec
 	go s.applyRetentionPolicy(tenantID)
 
 	// 5. Notificación proactiva al Administrador (integrity-only copy)
@@ -336,6 +358,8 @@ func (s *BackupService) VerifyBackup(ctx context.Context, tenantID, executionID 
 	}
 
 	filePath := filepath.Join(s.backupDir, exec.FileName)
+	// Lectura de archivo compuesto con backupDir de configuracion y nombre persistido por el servicio.
+	//nolint:gosec
 	file, err := os.Open(filePath)
 	if err != nil {
 		// File missing: persist the failure of verify, then return result
@@ -403,4 +427,10 @@ func (s *BackupService) GetBackupFilePath(ctx context.Context, tenantID, executi
 	}
 
 	return filePath, exec.FileName, nil
+}
+
+// BackupRoot expone la raíz de almacenamiento de respaldos para validaciones
+// de defensa en profundidad en la capa de delivery.
+func (s *BackupService) BackupRoot() string {
+	return s.backupDir
 }

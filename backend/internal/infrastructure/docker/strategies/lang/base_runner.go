@@ -100,6 +100,8 @@ func RunBuildPhase(ctx context.Context, cli *client.Client, imageName, fileName,
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
+	// Permisos 0644 requeridos para lectura en contenedor del compilador (montaje :/runner:ro).
+	//nolint:gosec
 	if err := os.WriteFile(filepath.Join(tmpDir, fileName), []byte(sourceCode), 0644); err != nil {
 		return BuildResult{}, fmt.Errorf("failed to write solution file: %w", err)
 	}
@@ -311,6 +313,8 @@ func runContainerExecution(ctx context.Context, cli *client.Client, imageName st
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
 	filePath := filepath.Join(tmpDir, fileName)
+	// Permisos 0644 requeridos para lectura por usuario no-root en montaje de contenedor :/runner:ro.
+	//nolint:gosec
 	if err := os.WriteFile(filePath, []byte(config.SourceCode), 0644); err != nil {
 		return domain.TestCaseRunResult{}, fmt.Errorf("failed to write solution file: %w", err)
 	}

@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -157,7 +160,17 @@ func (h *BackupHandler) Download(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Defensa en profundidad: el path servido debe permanecer bajo la raíz de backups.
+	cleanedPath := filepath.Clean(filePath)
+	backupRoot := filepath.Clean(h.service.BackupRoot())
+	if cleanedPath != backupRoot && !strings.HasPrefix(cleanedPath, backupRoot+string(os.PathSeparator)) {
+		SendError(w, http.StatusForbidden, "invalid_path", "Ruta de respaldo fuera del directorio permitido")
+		return
+	}
+
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", fileName))
 	w.Header().Set("Content-Type", "application/gzip")
-	http.ServeFile(w, r, filePath)
+	// Archivo verificado bajo la raiz de respaldos con defensa en profundidad y nombre persistido por el servicio.
+	//nolint:gosec
+	http.ServeFile(w, r, cleanedPath)
 }

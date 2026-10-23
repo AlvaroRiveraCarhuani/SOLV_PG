@@ -95,6 +95,8 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 // GenerateStudentSeed calcula una semilla pseudoaleatoria de 64 bits determinista por ejercicio y estudiante.
 func GenerateStudentSeed(exerciseID, studentID string) int64 {
 	h := sha256.Sum256([]byte(exerciseID + ":" + studentID))
+	// Conversion deliberada para preservar exactamente el patron de 64 bits de la semilla determinista.
+	//nolint:gosec
 	return int64(binary.BigEndian.Uint64(h[:8]))
 }
 

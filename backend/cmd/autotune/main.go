@@ -238,7 +238,7 @@ FinishTest:
 	// Guardar reporte JSON para Anexo de Tesis
 	reportJSON, err := json.MarshalIndent(report, "", "  ")
 	if err == nil {
-		_ = os.WriteFile("autotune_report.json", reportJSON, 0644)
+		_ = os.WriteFile("autotune_report.json", reportJSON, 0600)
 		log.Println("\n-> Reporte de tesis guardado en: autotune_report.json")
 	}
 

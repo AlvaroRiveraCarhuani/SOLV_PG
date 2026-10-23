@@ -92,6 +92,8 @@ func getCertExpiryDays() float64 {
 	tlsDialer := &tls.Dialer{
 		NetDialer: dialer,
 		Config: &tls.Config{
+			// Conexion exclusiva a 127.0.0.1:443 para inspeccionar vigencia de certificado local sin trafico de datos.
+			//nolint:gosec
 			InsecureSkipVerify: true,
 		},
 	}

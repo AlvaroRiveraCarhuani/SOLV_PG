@@ -225,8 +225,8 @@ func (c *Client) GetContainerMetrics(ctx context.Context, containerID string) (*
 		return metrics, nil
 	}
 
-	metrics.MemoryUsageBytes = int64(s.MemoryStats.Usage)
-	metrics.MemoryLimitBytes = int64(s.MemoryStats.Limit)
+	metrics.MemoryUsageBytes = domain.Uint64ToInt64(s.MemoryStats.Usage)
+	metrics.MemoryLimitBytes = domain.Uint64ToInt64(s.MemoryStats.Limit)
 
 	// Cálculo exacto del delta de CPU: ((cpuDelta / systemDelta) * onlineCPUs) * 100.0
 	cpuDelta := float64(s.CPUStats.CPUUsage.TotalUsage - s.PreCPUStats.CPUUsage.TotalUsage)
@@ -350,7 +350,7 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 		if err := decoder.Decode(&s); err != nil {
 			break
 		}
-		usage := int64(s.MemoryStats.Usage)
+		usage := domain.Uint64ToInt64(s.MemoryStats.Usage)
 		if usage > maxRAM {
 			maxRAM = usage
 		}

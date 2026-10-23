@@ -26,6 +26,8 @@ func NewTenantLogoHandler(tenantRepo domain.TenantRepository) *TenantLogoHandler
 	if dir == "" {
 		dir = "./uploads/logos"
 	}
+	// Directorio base de subida obtenido de variable de entorno o ruta local fija.
+	//nolint:gosec
 	_ = os.MkdirAll(dir, 0750)
 	return &TenantLogoHandler{tenantRepo: tenantRepo, uploadDir: dir}
 }
@@ -53,6 +55,8 @@ func (h *TenantLogoHandler) UploadLogo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.Body = http.MaxBytesReader(w, r.Body, maxLogoBytes+1024)
+	// Parseo con doble cota de seguridad (MaxBytesReader y ParseMultipartForm).
+	//nolint:gosec
 	if err := r.ParseMultipartForm(maxLogoBytes); err != nil {
 		SendError(w, http.StatusUnprocessableEntity, "file_too_large", fmt.Sprintf("El logo no debe exceder %d MB.", maxLogoBytes/(1<<20)))
 		return
@@ -75,6 +79,8 @@ func (h *TenantLogoHandler) UploadLogo(w http.ResponseWriter, r *http.Request) {
 	fileName := fmt.Sprintf("logo_%s%s", tenantID, ext)
 	targetPath := filepath.Join(h.uploadDir, fileName)
 
+	// Creacion con nombre determinista y extension restringida por allowlist bajo uploadDir seguro.
+	//nolint:gosec
 	out, err := os.Create(targetPath)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al almacenar el logo")
@@ -143,6 +149,8 @@ func (h *TenantLogoHandler) ServePublicLogo(w http.ResponseWriter, r *http.Reque
 	}
 
 	targetPath := filepath.Join(h.uploadDir, fmt.Sprintf("logo_%s%s", tenantID, ext))
+	// Lectura de archivo acotado por nombre sintetizado y extension validada por allowlist.
+	//nolint:gosec
 	data, err := os.ReadFile(targetPath)
 	if err != nil {
 		http.Error(w, `{"error":"not_found"}`, http.StatusNotFound)
@@ -151,5 +159,11 @@ func (h *TenantLogoHandler) ServePublicLogo(w http.ResponseWriter, r *http.Reque
 
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=300") // 5 min, alineado a la caché de config
+	// Los SVG servidos pueden contener script: se sirven sin ejecución en el mismo origen.
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+	// El logo se sirve con Content-Type validado por allowlist, nosniff y CSP con
+	// sandbox: el SVG no se interpreta como HTML en el origen de la aplicación.
+	//nolint:gosec
 	_, _ = w.Write(data)
 }

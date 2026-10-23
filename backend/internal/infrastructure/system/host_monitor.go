@@ -68,7 +68,7 @@ func (h *GopsutilHostMonitor) CanAllocateMemory(requiredMB int64) bool {
 		return false
 	}
 
-	if int64(availableMB) < requiredMB {
+	if domain.Uint64ToInt64(availableMB) < requiredMB {
 		log.Printf("Admission Control Triggered: Required %d MB exceeds available %d MB", requiredMB, availableMB)
 		return false
 	}

@@ -52,6 +52,8 @@ func NewTemplateAuditWorker(dockerCli *client.Client, govRepo domain.AdminGovern
 	if cacheDir == "" {
 		cacheDir = DefaultTrivyCacheDir
 	}
+	// Permisos 0755 requeridos para montaje como /root/.cache en contenedor Trivy (datos publicos de CVE).
+	//nolint:gosec
 	_ = os.MkdirAll(cacheDir, 0755)
 
 	return &TemplateAuditWorker{
@@ -160,7 +162,7 @@ func (w *TemplateAuditWorker) AuditTemplate(ctx context.Context, item *domain.Ad
 	if item.BaseRamMB > 0 {
 		totalHostMB := 8192
 		if v, err := mem.VirtualMemoryWithContext(ctx); err == nil && v != nil {
-			totalHostMB = int(v.Total / (1024 * 1024))
+			totalHostMB = domain.Uint64ToInt(v.Total / (1024 * 1024))
 		}
 		maxAllowedRAM := domain.CalculateHostMaxAllowedRAM(totalHostMB)
 		if err := domain.ValidateRamAgainstHost(item.BaseRamMB, maxAllowedRAM); err != nil {

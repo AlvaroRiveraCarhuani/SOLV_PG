@@ -126,6 +126,8 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 	defer server.Close()
 
 	timelineURL := fmt.Sprintf("%s/api/v1/admin/audit-logs/actors/%s/timeline", server.URL, actorWithUser)
+	// Peticion HTTP efectuada contra httptest.Server local de prueba.
+	//nolint:gosec
 	resp, err := http.Get(timelineURL)
 	if err != nil {
 		t.Fatalf("Failed to call timeline endpoint: %v", err)
@@ -228,6 +230,8 @@ func TestSlice147_AuditUnifiedSearchAndCount(t *testing.T) {
 		{"actor_id": []string{email}},
 	} {
 		requestURL := fmt.Sprintf("%s/api/v1/admin/audit-logs?%s", server.URL, query.Encode())
+		// Peticion HTTP efectuada contra httptest.Server local de prueba.
+		//nolint:gosec
 		response, err := http.Get(requestURL)
 		if err != nil {
 			t.Fatalf("Failed to call audit log endpoint: %v", err)
