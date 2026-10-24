@@ -1,0 +1,138 @@
+<section class="student-evaluations">
+  <header class="page-header">
+    <h1>Evaluaciones y prácticas</h1>
+    <p>Consulta tus actividades publicadas, su estado y tu último resultado.</p>
+  </header>
+
+  <kpi-grid [columns]="4">
+    <kpi-card label="Pendientes" [value]="counts().pending" variant="primary">
+      <svg lucideClock kpi-icon></svg>
+    </kpi-card>
+    <kpi-card label="En progreso" [value]="counts().in_progress" variant="warning">
+      <svg lucideLoader2 kpi-icon></svg>
+    </kpi-card>
+    <kpi-card label="Completadas" [value]="counts().completed" variant="running">
+      <svg lucideCheckCircle2 kpi-icon></svg>
+    </kpi-card>
+    <kpi-card label="Vencidas" [value]="counts().overdue" variant="danger">
+      <svg lucideAlertTriangle kpi-icon></svg>
+    </kpi-card>
+  </kpi-grid>
+
+  <status-tabs
+    [tabs]="statusTabs()"
+    [activeTab]="statusFilter()"
+    (tabChange)="onStatusTabChange($event)"
+  />
+
+  <div class="evaluations-toolbar">
+    <div class="toolbar-field">
+      <span class="toolbar-label">Materia</span>
+      <combobox
+        [options]="subjectOptions()"
+        [value]="subjectFilter()"
+        (valueChange)="subjectFilter.set($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todas las materias"
+        inputAriaLabel="Filtrar por materia"
+      />
+    </div>
+    <div class="toolbar-field">
+      <span class="toolbar-label">Tipo de actividad</span>
+      <combobox
+        [options]="purposeOptions"
+        [value]="purposeFilter()"
+        (valueChange)="onPurposeChange($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todas las actividades"
+        inputAriaLabel="Filtrar por tipo de actividad"
+      />
+    </div>
+    <div class="toolbar-search">
+      <search-bar
+        [query]="searchQuery()"
+        placeholder="Buscar por título..."
+        ariaLabel="Buscar evaluaciones"
+        (queryChange)="searchQuery.set($event)"
+        (cleared)="searchQuery.set('')"
+      />
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <skeleton-loader variant="list" [count]="4" />
+  } @else if (filteredEvaluations().length === 0) {
+    <div class="empty-state">
+      <p>No hay actividades que coincidan con los filtros.</p>
+    </div>
+  } @else {
+    <ul class="evaluation-list">
+      @for (item of filteredEvaluations(); track item.exercise_id) {
+        <li class="evaluation-item">
+          <div class="evaluation-main">
+            <div class="evaluation-badges">
+              <span class="activity-tag" [class.is-exam]="item.purpose === 'exam'">
+                {{ item.purpose === 'exam' ? 'Evaluación' : 'Práctica' }}
+              </span>
+              <span class="academic-status" [ngClass]="statusClass(item.academic_status)">
+                {{ statusLabel(item.academic_status) }}
+              </span>
+            </div>
+
+            <h2 class="evaluation-title">{{ item.title }}</h2>
+
+            <div class="evaluation-meta">
+              <span class="evaluation-subject">
+                <span class="subject-code" machineData>{{ item.subject_code }}</span>
+                {{ item.subject_name }}
+              </span>
+              @if (difficultyLabel(item.difficulty); as difficulty) {
+                <span class="evaluation-difficulty">{{ difficulty }}</span>
+              }
+              @if (item.due_date) {
+                <span class="evaluation-due">
+                  Entrega
+                  <time [attr.datetime]="item.due_date">{{ item.due_date | dateText:'date' }}</time>
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="evaluation-stats">
+            <span class="stat">
+              <span class="stat-label">Intentos</span>
+              <span class="stat-value" machineData>{{ item.attempts_count }}</span>
+            </span>
+            @if (item.best_score !== null && item.best_score !== undefined) {
+              <span class="stat">
+                <span class="stat-label">Mejor nota</span>
+                <span class="stat-value" machineData>{{ item.best_score }} pts</span>
+              </span>
+            }
+            @if (item.last_verdict) {
+              <span class="stat">
+                <span class="stat-label">Último resultado</span>
+                <verdict-badge [verdict]="item.last_verdict" size="sm" />
+              </span>
+              @if (item.last_submitted_at) {
+                <time class="stat-date" [attr.datetime]="item.last_submitted_at">
+                  {{ item.last_submitted_at | dateText:'compact-datetime' }}
+                </time>
+              }
+            }
+          </div>
+
+          <div class="evaluation-action">
+            @if (item.environment_type === 'ide_workspace') {
+              <a class="action-link" [routerLink]="['/student/workspaces', item.subject_id]">Abrir en laboratorio</a>
+            } @else {
+              <a class="action-link" [routerLink]="['/student/exercises', item.exercise_id]">{{ actionLabel(item) }}</a>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  }
+</section>
