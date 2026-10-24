@@ -150,6 +150,25 @@ Los colores de veredicto representan señales operativas universales y **no se m
 | **RE** | **Runtime Error:** Excepción no controlada durante la ejecución. | `#E67E22` | `RE` (Naranja) |
 | **AST_BLOCKED** | **Restricción Violada:** Detección de sintaxis o función prohibida por el docente. | `#900C3F` | `AST_BLOCKED` (Rojo Intenso) |
 
+### 5.1. Lenguaje Ubicuo de Veredictos (Estudiante y Docente)
+
+El código del veredicto es un dato técnico interno: no se muestra como texto principal en ninguna vista. Estudiante y Docente ven exactamente la misma etiqueta humana, definida en `frontend/src/app/core/models/verdict.model.ts` y renderizada por `VerdictBadgeComponent` (que encapsula el código dentro de un nodo `machineData` y ya no lo expone por defecto: `showAcronym` inicia en `false`).
+
+| Código interno | Etiqueta visible |
+| :---: | :--- |
+| `AC` | Solución correcta |
+| `WA` | Resultado incorrecto |
+| `TLE` | Tiempo límite excedido |
+| `MLE` | Límite de memoria excedido |
+| `RE` | Error durante la ejecución |
+| `CE` | Error de compilación |
+| `AST_BLOCKED` / `AST_VIOLATION` | Restricción de código incumplida |
+| `VE` | Error en validación de prueba |
+| `PENDING` | Evaluando entrega |
+| (desconocido o vacío) | Sin evaluar |
+
+Los filtros y los overrides manuales del docente consumen `VERDICT_FILTER_OPTIONS` y `VERDICT_OVERRIDE_OPTIONS` del mismo módulo, de modo que los desplegables tampoco ofrecen siglas. En plantillas HTML el veredicto se pinta siempre con `<verdict-badge [verdict]="..." size="sm" />`; interpolar `{{ submission.verdict }}` en texto plano incumple el gate de tipografía porque `.verdict` está en `MACHINE_DATA_CATALOG`.
+
 ---
 
 ## 6. Divulgación Progresiva Asimétrica de Pruebas

@@ -34,12 +34,6 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
       { label: 'Evaluaciones', route: '/student/evaluations', iconName: 'award' },
       { label: 'Historial', route: '/student/history', iconName: 'history' }
     ]
-  },
-  {
-    isFooter: true,
-    items: [
-      { label: 'Ajustes', route: '/student/settings', iconName: 'settings' }
-    ]
   }
 ];
 

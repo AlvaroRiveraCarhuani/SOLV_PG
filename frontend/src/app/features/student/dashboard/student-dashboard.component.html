@@ -174,9 +174,7 @@
                       <div class="lab-status">
                         @if (item.active_workspace) {
                           <status-badge [status]="item.active_workspace.status" />
-                          <span class="lab-details">
-                            RAM: <span machineData>{{ item.active_workspace.memory_limit_mb }} MB</span> &bull; {{ item.active_workspace.type }}
-                          </span>
+                          <span class="lab-details">Entorno de práctica listo</span>
                         } @else {
                           <span class="no-workspace-text">Sin entorno instanciado</span>
                         }
@@ -292,7 +290,7 @@
                   <li class="recent-item">
                     <span class="recent-bullet"></span>
                     <span class="recent-text">{{ sub.exercise_title || 'Ejercicio' }}</span>
-                    <span class="recent-verdict" machineData>{{ sub.verdict }}</span>
+                    <verdict-badge [verdict]="sub.verdict" size="sm" />
                     <time class="recent-time" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
                   </li>
                 } @empty {

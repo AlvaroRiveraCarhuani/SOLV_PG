@@ -446,31 +446,6 @@
     }
   }
 
-  .verdict-tag {
-    display: inline-block;
-    padding: 2px var(--space-2);
-    border-radius: var(--radius-sm);
-    font-size: var(--text-xs);
-    font-weight: 700;
-
-    &.verdict-ac {
-      background-color: var(--color-success-subtle);
-      color: var(--color-success);
-    }
-
-    &.verdict-wa,
-    &.verdict-ast-blocked {
-      background-color: var(--color-error-subtle);
-      color: var(--color-error);
-    }
-
-    &.verdict-tle,
-    &.verdict-re {
-      background-color: var(--color-warning-subtle);
-      color: var(--color-warning);
-    }
-  }
-
   .btn-grade {
     display: inline-flex;
     align-items: center;

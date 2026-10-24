@@ -248,9 +248,7 @@
                 </td>
                 <td>{{ sub.exercise_title }}</td>
                 <td>
-                  <span class="verdict-tag" [class]="'verdict-' + sub.verdict.toLowerCase().replace('_', '-')">
-                    <code class="font-mono">{{ sub.verdict }}</code>
-                  </span>
+                  <verdict-badge [verdict]="sub.verdict" size="sm" />
                 </td>
                 <td><span machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' pts' : '—' }}</span></td>
                 <td>

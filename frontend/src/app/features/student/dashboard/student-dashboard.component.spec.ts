@@ -147,7 +147,7 @@ describe('StudentDashboardComponent', () => {
     const items = (fixture.nativeElement as HTMLElement).querySelectorAll('.recent-item');
     expect(items.length).toBe(1);
     expect(items[0].textContent).toContain('Árboles binarios');
-    expect(items[0].textContent).toContain('AC');
+    expect(items[0].textContent).toContain('Solución correcta');
 
     const time = items[0].querySelector('time');
     expect(time?.getAttribute('datetime')).toBe('2026-10-20T14:05:00');

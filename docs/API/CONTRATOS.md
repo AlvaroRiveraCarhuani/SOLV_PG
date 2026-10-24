@@ -122,6 +122,22 @@ El presente documento establece la especificación formal del contrato de interf
   * `POST /api/v1/submissions` ignora el `generated_cases` declarado por el cliente: el servidor guarda el snapshot autoritativo calculado durante la evaluación (tabla `evaluation_generated_cases`) y el rol `student` tampoco puede leer la entrega de otro estudiante (`GET /api/v1/submissions/{id}` responde `403`).
 * **Verificación:** `backend/internal/core/services/evaluation_hidden_case_isolation_test.go`, `backend/internal/delivery/http/dto/evaluation_dto_test.go` y los specs E2E `frontend/e2e/flows/02-medium/J03-verdict-matrix-and-hidden-isolation.spec.mjs` y `frontend/e2e/flows/03-hard/J05-curricular-unlock-and-exam-seed.spec.mjs` (assert sobre el payload HTTP y sobre el DOM del rol `student`).
 
+### 3.9 `GET /api/v1/student/evaluations`
+* **Propósito:** Devolver todos los ejercicios publicados de las materias inscritas por el estudiante, cada uno con el resumen de sus entregas y su estado académico.
+* **Respuesta:** `SendJSON(200, []StudentEvaluationItem, ...)`, siempre como array (nunca `null`). Cada ítem incluye `exercise_id`, `title`, `description`, `type`, `environment_type`, `purpose`, `difficulty`, `due_date`, `subject_id`, `subject_name`, `subject_code`, `attempts_count`, `best_score`, `last_verdict`, `last_submitted_at` y `academic_status`.
+* **Agregación por ejercicio:** `attempts_count` cuenta todas las entregas del alumno, `best_score` toma el mayor `score` no nulo (100 cuando hay un `AC` sin nota) y `last_verdict` / `last_submitted_at` corresponden a la entrega más reciente.
+* **Precedencia de `academic_status`:** `completed` (existe `AC` o `score >= 51`) → `overdue` (sin completar y con `due_date` vencida) → `in_progress` (hay intentos) → `pending`.
+* **Filtro:** solo se incluyen ejercicios con `status` vacío o `published`; los borradores del docente nunca se exponen al rol `student`.
+* **Aislamiento:** se compone de `SubjectRepository.ListByStudent`, `SubmissionRepository.ListByStudent` y `ExerciseRepository.ListBySubject` con el `tenant_id` y el `student_id` del contexto; no acepta identificadores de estudiante por parámetro.
+* **Verificación:** `backend/internal/delivery/http/student_handler_test.go`.
+
+### 3.10 `GET /api/v1/student/submissions`
+* **Propósito:** Devolver el historial completo de entregas del estudiante autenticado, sin el truncado a cinco elementos del dashboard.
+* **Respuesta:** `SendJSON(200, []StudentSubmissionHistoryItem, ...)`, siempre como array. Cada ítem embebe la `Submission` (`id`, `exercise_id`, `code`, `verdict`, `score`, `execution_time_ms`, `memory_used_mb`, `submitted_at`, `manual_override`, `override_reason`) y añade `exercise_title`, `exercise_type`, `exercise_purpose`, `subject_id`, `subject_code` y `subject_name`.
+* **Enriquecimiento:** resuelve el mapa de materias del alumno con `SubjectRepository.ListByStudent` y cachea los ejercicios por ID con `ExerciseRepository.GetByIDAndTenant`.
+* **Aislamiento:** mismo criterio que 3.9; el rol `student` solo recibe sus propias entregas del tenant activo.
+* **Verificación:** `backend/internal/delivery/http/student_handler_test.go`.
+
 ---
 
 ## 4. Interfaces TypeScript Mapeadas (Angular 22)

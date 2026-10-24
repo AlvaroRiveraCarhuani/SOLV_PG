@@ -19,6 +19,7 @@ import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-lo
 import { PlagiarismModalComponent } from './plagiarism-modal/plagiarism-modal.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
 import { TeacherLabStats, SubmissionQueueItem } from '../models/teacher.models';
 
 export interface EvaluationRow {
@@ -89,15 +90,7 @@ export class TeacherEvaluationsComponent implements OnInit {
     ...this.courses().map(c => ({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id }))
   ]);
 
-  readonly verdictFilterOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos los veredictos', value: 'all' },
-    { id: 'AC', label: 'Aceptado (AC)', value: 'AC' },
-    { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
-    { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
-    { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' },
-    { id: 'AST_VIOLATION', label: 'Restricción de código infringida (AST_VIOLATION)', value: 'AST_VIOLATION' }
-  ];
+  readonly verdictFilterOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
 
   readonly statusFilterOptions: ComboboxOption<'all' | 'pending' | 'graded'>[] = [
     { id: 'all', label: 'Todos', value: 'all' },
@@ -126,7 +119,7 @@ export class TeacherEvaluationsComponent implements OnInit {
       items = items.filter(i => i.course_id === course);
     }
     if (verdict !== 'all') {
-      items = items.filter(i => i.verdict === verdict);
+      items = items.filter(i => matchesVerdictFilter(i.verdict, verdict));
     }
     if (status === 'pending') {
       items = items.filter(i => i.score === undefined || i.score === null);

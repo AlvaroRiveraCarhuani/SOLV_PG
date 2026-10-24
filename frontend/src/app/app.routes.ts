@@ -29,10 +29,45 @@ export const routes: Routes = [
           import('@features/student/dashboard/student-dashboard.component').then((m) => m.StudentDashboardComponent)
       },
       {
+        path: 'courses',
+        loadComponent: () =>
+          import('@features/student/courses/course-list/student-courses.component').then(
+            (m) => m.StudentCoursesComponent
+          )
+      },
+      {
         path: 'courses/:courseId',
         loadComponent: () =>
           import('@features/student/courses/course-detail/student-course-detail.component').then(
             (m) => m.StudentCourseDetailComponent
+          )
+      },
+      {
+        path: 'workspaces',
+        loadComponent: () =>
+          import('@features/student/workspaces/workspace-list/student-workspaces.component').then(
+            (m) => m.StudentWorkspacesComponent
+          )
+      },
+      {
+        path: 'workspaces/:subjectId',
+        loadComponent: () =>
+          import('@features/student/workspaces/active-lab/student-active-lab.component').then(
+            (m) => m.StudentActiveLabComponent
+          )
+      },
+      {
+        path: 'evaluations',
+        loadComponent: () =>
+          import('@features/student/evaluations/student-evaluations.component').then(
+            (m) => m.StudentEvaluationsComponent
+          )
+      },
+      {
+        path: 'history',
+        loadComponent: () =>
+          import('@features/student/history/student-history.component').then(
+            (m) => m.StudentHistoryComponent
           )
       },
       {

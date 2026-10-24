@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"time"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/delivery/http/middleware"
@@ -52,6 +53,30 @@ type StudentDashboardResponse struct {
 	TenantID          string                        `json:"tenant_id"`
 	Subjects          []StudentSubjectItem          `json:"subjects"`
 	RecentSubmissions []StudentRecentSubmissionItem `json:"recent_submissions"`
+}
+
+// studentIdentity resuelve tenant y usuario con la misma precedencia que
+// GetDashboard: contexto de middleware, cabeceras y por ultimo el contexto
+// de dominio.
+func studentIdentity(r *http.Request) (string, string) {
+	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
+	if err != nil || tenantID == "" {
+		tenantID = r.Header.Get("X-Tenant-Id")
+	}
+	if tenantID == "" {
+		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
+			tenantID = ctxTenantID
+		}
+	}
+
+	userID := r.Header.Get("X-User-Id")
+	if userID == "" {
+		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
+			userID = ctxUserID
+		}
+	}
+
+	return tenantID, userID
 }
 
 func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
@@ -284,4 +309,249 @@ func (h *StudentHandler) GetRecommendations(w http.ResponseWriter, r *http.Reque
 	}
 
 	SendJSON(w, http.StatusOK, recommendations, "Recomendaciones obtenidas exitosamente")
+}
+
+// StudentEvaluationItem resume el estado academico de un ejercicio para el
+// estudiante: intentos, mejor nota, ultima entrega y estado canonico.
+type StudentEvaluationItem struct {
+	ExerciseID      string     `json:"exercise_id"`
+	Title           string     `json:"title"`
+	Description     string     `json:"description"`
+	Type            string     `json:"type"`
+	EnvironmentType string     `json:"environment_type"`
+	Purpose         string     `json:"purpose"`
+	Difficulty      *string    `json:"difficulty,omitempty"`
+	DueDate         *time.Time `json:"due_date,omitempty"`
+	SubjectID       string     `json:"subject_id"`
+	SubjectName     string     `json:"subject_name"`
+	SubjectCode     string     `json:"subject_code"`
+	AttemptsCount   int        `json:"attempts_count"`
+	BestScore       *int       `json:"best_score,omitempty"`
+	LastVerdict     string     `json:"last_verdict,omitempty"`
+	LastSubmittedAt *time.Time `json:"last_submitted_at,omitempty"`
+	AcademicStatus  string     `json:"academic_status"`
+}
+
+// StudentSubmissionHistoryItem enriquece una entrega con los datos del
+// ejercicio y de la materia para el historial completo del estudiante.
+type StudentSubmissionHistoryItem struct {
+	*domain.Submission
+	ExerciseTitle   string `json:"exercise_title,omitempty"`
+	ExerciseType    string `json:"exercise_type,omitempty"`
+	ExercisePurpose string `json:"exercise_purpose,omitempty"`
+	SubjectID       string `json:"subject_id,omitempty"`
+	SubjectCode     string `json:"subject_code,omitempty"`
+	SubjectName     string `json:"subject_name,omitempty"`
+}
+
+// submissionAggregation acumula las entregas de un alumno por ejercicio.
+type submissionAggregation struct {
+	AttemptsCount   int
+	MaxScore        *int
+	HasACUngraded   bool
+	LastVerdict     string
+	LastSubmittedAt *time.Time
+	IsCompleted     bool
+}
+
+const (
+	academicStatusCompleted  = "completed"
+	academicStatusOverdue    = "overdue"
+	academicStatusInProgress = "in_progress"
+	academicStatusPending    = "pending"
+)
+
+// GetEvaluations devuelve todos los ejercicios publicados de las materias
+// inscritas, cada uno con su resumen de entregas y estado academico.
+func (h *StudentHandler) GetEvaluations(w http.ResponseWriter, r *http.Request) {
+	tenantID, userID := studentIdentity(r)
+	if tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
+		return
+	}
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
+		return
+	}
+
+	var subjects []*domain.Subject
+	if h.subjectRepo != nil {
+		if listed, err := h.subjectRepo.ListByStudent(r.Context(), tenantID, userID); err == nil {
+			subjects = listed
+		}
+	}
+
+	var submissions []*domain.Submission
+	if h.submissionRepo != nil {
+		if listed, err := h.submissionRepo.ListByStudent(r.Context(), tenantID, userID); err == nil {
+			submissions = listed
+		}
+	}
+
+	aggregates := make(map[string]*submissionAggregation, len(submissions))
+	for _, sub := range submissions {
+		if sub == nil {
+			continue
+		}
+		agg := aggregates[sub.ExerciseID]
+		if agg == nil {
+			agg = &submissionAggregation{}
+			aggregates[sub.ExerciseID] = agg
+		}
+
+		agg.AttemptsCount++
+		if sub.Score != nil {
+			if agg.MaxScore == nil || *sub.Score > *agg.MaxScore {
+				score := *sub.Score
+				agg.MaxScore = &score
+			}
+		} else if sub.Verdict == "AC" {
+			agg.HasACUngraded = true
+		}
+		if agg.LastSubmittedAt == nil || sub.SubmittedAt.After(*agg.LastSubmittedAt) {
+			agg.LastVerdict = sub.Verdict
+			submittedAt := sub.SubmittedAt
+			agg.LastSubmittedAt = &submittedAt
+		}
+		if sub.Verdict == "AC" || (sub.Score != nil && *sub.Score >= 51) {
+			agg.IsCompleted = true
+		}
+	}
+
+	items := make([]StudentEvaluationItem, 0)
+	for _, subj := range subjects {
+		if subj == nil {
+			continue
+		}
+
+		var exercises []*domain.Exercise
+		if h.exerciseRepo != nil {
+			if listed, err := h.exerciseRepo.ListBySubject(r.Context(), tenantID, subj.ID); err == nil {
+				exercises = listed
+			}
+		}
+
+		for _, ex := range exercises {
+			if ex == nil || (ex.Status != "" && ex.Status != "published") {
+				continue
+			}
+
+			agg := aggregates[ex.ID]
+			if agg == nil {
+				agg = &submissionAggregation{}
+			}
+
+			var bestScore *int
+			if agg.MaxScore != nil {
+				score := *agg.MaxScore
+				bestScore = &score
+			}
+			if agg.HasACUngraded && (bestScore == nil || *bestScore < 100) {
+				score := 100
+				bestScore = &score
+			}
+
+			items = append(items, StudentEvaluationItem{
+				ExerciseID:      ex.ID,
+				Title:           ex.Title,
+				Description:     ex.Description,
+				Type:            string(ex.Type),
+				EnvironmentType: ex.EnvironmentType,
+				Purpose:         ex.Purpose,
+				Difficulty:      ex.Difficulty,
+				DueDate:         ex.DueDate,
+				SubjectID:       subj.ID,
+				SubjectName:     subj.Name,
+				SubjectCode:     subj.Code,
+				AttemptsCount:   agg.AttemptsCount,
+				BestScore:       bestScore,
+				LastVerdict:     agg.LastVerdict,
+				LastSubmittedAt: agg.LastSubmittedAt,
+				AcademicStatus:  academicStatus(agg, ex.DueDate),
+			})
+		}
+	}
+
+	SendJSON(w, http.StatusOK, items, "Evaluaciones del estudiante obtenidas exitosamente")
+}
+
+// academicStatus aplica la precedencia cerrada: completado, vencido, en
+// curso o pendiente.
+func academicStatus(agg *submissionAggregation, dueDate *time.Time) string {
+	if agg.IsCompleted {
+		return academicStatusCompleted
+	}
+	if dueDate != nil && dueDate.Before(time.Now()) {
+		return academicStatusOverdue
+	}
+	if agg.AttemptsCount > 0 {
+		return academicStatusInProgress
+	}
+	return academicStatusPending
+}
+
+// GetSubmissions devuelve el historial completo de entregas del estudiante,
+// sin truncar, enriquecido con ejercicio y materia.
+func (h *StudentHandler) GetSubmissions(w http.ResponseWriter, r *http.Request) {
+	tenantID, userID := studentIdentity(r)
+	if tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "Tenant ID missing in context", "Tenant no identificado")
+		return
+	}
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "User ID missing in request", "Usuario no autenticado")
+		return
+	}
+
+	var submissions []*domain.Submission
+	if h.submissionRepo != nil {
+		if listed, err := h.submissionRepo.ListByStudent(r.Context(), tenantID, userID); err == nil {
+			submissions = listed
+		}
+	}
+
+	subjectByID := make(map[string]*domain.Subject)
+	if h.subjectRepo != nil {
+		if subjects, err := h.subjectRepo.ListByStudent(r.Context(), tenantID, userID); err == nil {
+			for _, subj := range subjects {
+				if subj != nil {
+					subjectByID[subj.ID] = subj
+				}
+			}
+		}
+	}
+
+	exerciseByID := make(map[string]*domain.Exercise)
+	historyItems := make([]StudentSubmissionHistoryItem, 0, len(submissions))
+	for _, sub := range submissions {
+		if sub == nil {
+			continue
+		}
+
+		item := StudentSubmissionHistoryItem{Submission: sub}
+
+		exercise, cached := exerciseByID[sub.ExerciseID]
+		if !cached && h.exerciseRepo != nil {
+			if fetched, err := h.exerciseRepo.GetByIDAndTenant(r.Context(), sub.ExerciseID, tenantID); err == nil && fetched != nil {
+				exercise = fetched
+			}
+			exerciseByID[sub.ExerciseID] = exercise
+		}
+		if exercise != nil {
+			item.ExerciseTitle = exercise.Title
+			item.ExerciseType = string(exercise.Type)
+			item.ExercisePurpose = exercise.Purpose
+			if exercise.SubjectID != nil {
+				if subj, found := subjectByID[*exercise.SubjectID]; found && subj != nil {
+					item.SubjectID = subj.ID
+					item.SubjectCode = subj.Code
+					item.SubjectName = subj.Name
+				}
+			}
+		}
+
+		historyItems = append(historyItems, item)
+	}
+
+	SendJSON(w, http.StatusOK, historyItems, "Historial de entregas obtenido exitosamente")
 }

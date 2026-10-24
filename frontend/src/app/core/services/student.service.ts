@@ -44,6 +44,46 @@ export interface StudentDashboardData {
   recent_submissions: StudentRecentSubmission[];
 }
 
+export type StudentAcademicStatus = 'pending' | 'in_progress' | 'completed' | 'overdue';
+
+export interface StudentEvaluationItem {
+  exercise_id: string;
+  title: string;
+  description: string;
+  type: string;
+  environment_type: string;
+  purpose: 'class' | 'exam' | string;
+  difficulty?: string;
+  due_date?: string | null;
+  subject_id: string;
+  subject_name: string;
+  subject_code: string;
+  attempts_count: number;
+  best_score?: number | null;
+  last_verdict?: string;
+  last_submitted_at?: string | null;
+  academic_status: StudentAcademicStatus;
+}
+
+export interface StudentSubmissionHistoryItem {
+  id: string;
+  exercise_id: string;
+  exercise_title?: string;
+  exercise_type?: string;
+  exercise_purpose?: string;
+  subject_id?: string;
+  subject_code?: string;
+  subject_name?: string;
+  code: string;
+  verdict: string;
+  score?: number | null;
+  execution_time_ms: number;
+  memory_used_mb: number;
+  manual_override?: boolean;
+  override_reason?: string;
+  submitted_at: string;
+}
+
 export interface WeakTag {
   tag: string;
   success_rate: number;
@@ -166,6 +206,8 @@ export class StudentService {
 
   dashboardData = signal<StudentDashboardData | null>(null);
   dueAssignments = signal<DueAssignment[]>([]);
+  evaluations = signal<StudentEvaluationItem[]>([]);
+  submissionsHistory = signal<StudentSubmissionHistoryItem[]>([]);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
 
@@ -195,6 +237,40 @@ export class StudentService {
       this.error.set('No se pudo sincronizar el estado académico');
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  async loadEvaluations(): Promise<StudentEvaluationItem[]> {
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<StudentEvaluationItem[] | { data?: StudentEvaluationItem[] }>(
+          '/api/v1/student/evaluations',
+          { withCredentials: true }
+        )
+      );
+      const list = Array.isArray(resp) ? resp : (resp?.data ?? []);
+      this.evaluations.set(list);
+      return list;
+    } catch {
+      this.evaluations.set([]);
+      return [];
+    }
+  }
+
+  async loadSubmissionsHistory(): Promise<StudentSubmissionHistoryItem[]> {
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<StudentSubmissionHistoryItem[] | { data?: StudentSubmissionHistoryItem[] }>(
+          '/api/v1/student/submissions',
+          { withCredentials: true }
+        )
+      );
+      const list = Array.isArray(resp) ? resp : (resp?.data ?? []);
+      this.submissionsHistory.set(list);
+      return list;
+    } catch {
+      this.submissionsHistory.set([]);
+      return [];
     }
   }
 

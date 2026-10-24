@@ -8,6 +8,7 @@ import { StudentService, StudentSubjectItem } from '@core/services/student.servi
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
 import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
 import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
+import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
@@ -48,6 +49,7 @@ export const STUDENT_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     CourseColorPickerComponent,
     DismissibleDirective,
     StatusBadgeComponent,
+    VerdictBadgeComponent,
     MachineDataDirective,
     DateTextPipe,
     LucidePlay, 

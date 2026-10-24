@@ -39,6 +39,8 @@ import { ImportExercisesModalComponent } from './import-exercises-modal/import-e
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
+import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
+import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
 
 @Component({
   selector: 'teacher-course-detail',
@@ -78,7 +80,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
     FuzzingModalComponent,
     GradebookExportModalComponent,
     ImportExercisesModalComponent,
-    ComboboxComponent
+    ComboboxComponent,
+    VerdictBadgeComponent
   ],
   templateUrl: './teacher-course-detail.component.html',
   styleUrl: './teacher-course-detail.component.scss'
@@ -90,15 +93,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   private courseService = inject(TeacherCourseService);
   private dashboardService = inject(TeacherDashboardService);
 
-  readonly verdictOptions: ComboboxOption[] = [
-    { id: 'all', label: 'Todos los veredictos', value: 'all' },
-    { id: 'AC', label: 'Aceptado (AC)', value: 'AC' },
-    { id: 'WA', label: 'Respuesta incorrecta (WA)', value: 'WA' },
-    { id: 'TLE', label: 'Tiempo límite excedido (TLE)', value: 'TLE' },
-    { id: 'RE', label: 'Error de ejecución (RE)', value: 'RE' },
-    { id: 'AST_BLOCKED', label: 'Restricción de código infringida (AST_BLOCKED)', value: 'AST_BLOCKED' },
-    { id: 'AST_VIOLATION', label: 'Restricción de código infringida (AST_VIOLATION)', value: 'AST_VIOLATION' }
-  ];
+  readonly verdictOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
 
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);
@@ -138,8 +133,7 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   filteredSubmissions = computed(() => {
     const filter = this.verdictFilter();
-    if (filter === 'all') return this.submissions();
-    return this.submissions().filter(s => s.verdict === filter);
+    return this.submissions().filter(s => matchesVerdictFilter(s.verdict, filter));
   });
 
   ngOnInit(): void {

@@ -14,6 +14,7 @@ import { SpeedGraderHeaderComponent } from './components/speed-grader-header/spe
 import { SpeedGraderCodeViewerComponent } from './components/speed-grader-code-viewer/speed-grader-code-viewer.component';
 import { SpeedGraderEvalPanelComponent } from './components/speed-grader-eval-panel/speed-grader-eval-panel.component';
 import { SpeedGraderOverrideModalComponent } from './components/speed-grader-override-modal/speed-grader-override-modal.component';
+import { VERDICT_OVERRIDE_OPTIONS } from '@core/models/verdict.model';
 
 @Component({
   selector: 'speed-grader',
@@ -39,12 +40,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   private http = inject(HttpClient);
   private unregisterFns: Array<() => void> = [];
 
-  readonly verdictOptions: { id: string; label: string; value: string }[] = [
-    { id: 'AC', label: 'AC (Aceptado / Aprobado)', value: 'AC' },
-    { id: 'WA', label: 'WA (Wrong Answer)', value: 'WA' },
-    { id: 'RE', label: 'RE (Runtime Error)', value: 'RE' },
-    { id: 'TLE', label: 'TLE (Time Limit Exceeded)', value: 'TLE' }
-  ];
+  readonly verdictOptions: { id: string; label: string; value: string }[] = VERDICT_OVERRIDE_OPTIONS;
 
   submissionId = signal<string>('');
   review = this.gradingService.currentReview;

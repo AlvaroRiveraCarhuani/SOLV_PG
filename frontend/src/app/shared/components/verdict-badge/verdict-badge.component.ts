@@ -44,7 +44,16 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
         @case ('TLE') {
           <svg lucideClock class="verdict-icon"></svg>
         }
+        @case ('MLE') {
+          <svg lucideClock class="verdict-icon"></svg>
+        }
         @case ('RE') {
+          <svg lucideAlertTriangle class="verdict-icon"></svg>
+        }
+        @case ('CE') {
+          <svg lucideAlertTriangle class="verdict-icon"></svg>
+        }
+        @case ('VE') {
           <svg lucideAlertTriangle class="verdict-icon"></svg>
         }
         @case ('AST_BLOCKED') {
@@ -74,7 +83,7 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
 })
 export class VerdictBadgeComponent {
   readonly verdict = input.required<JudgeVerdict | string>();
-  readonly showAcronym = input<boolean>(true);
+  readonly showAcronym = input<boolean>(false);
   readonly showHumanLabel = input<boolean>(true);
   readonly size = input<'sm' | 'md' | 'lg'>('md');
 
@@ -100,6 +109,6 @@ export class VerdictBadgeComponent {
   });
 
   readonly fullTitle = computed<string>(() => {
-    return `${this.humanLabel()} (${this.acronym()})`;
+    return this.showAcronym() ? `${this.humanLabel()} (${this.acronym()})` : this.humanLabel();
   });
 }
