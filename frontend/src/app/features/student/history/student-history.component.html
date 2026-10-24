@@ -1,0 +1,144 @@
+<section class="student-history">
+  <header class="page-header">
+    <h1>Historial de entregas</h1>
+    <p>Revisa tus entregas anteriores, su resultado y el código que enviaste.</p>
+  </header>
+
+  <div class="history-toolbar">
+    <div class="toolbar-field">
+      <span class="toolbar-label">Materia</span>
+      <combobox
+        [options]="subjectOptions()"
+        [value]="subjectFilter()"
+        (valueChange)="subjectFilter.set($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todas las materias"
+        inputAriaLabel="Filtrar por materia"
+      />
+    </div>
+    <div class="toolbar-field">
+      <span class="toolbar-label">Resultado</span>
+      <combobox
+        [options]="verdictOptions"
+        [value]="verdictFilter()"
+        (valueChange)="verdictFilter.set($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todos los resultados"
+        inputAriaLabel="Filtrar por resultado"
+      />
+    </div>
+    <div class="toolbar-search">
+      <search-bar
+        [query]="searchQuery()"
+        placeholder="Buscar por título de ejercicio..."
+        ariaLabel="Buscar entregas"
+        (queryChange)="searchQuery.set($event)"
+        (cleared)="searchQuery.set('')"
+      />
+    </div>
+  </div>
+
+  @if (isLoading()) {
+    <skeleton-loader variant="table" [rows]="4" [columns]="7" />
+  } @else if (filteredSubmissions().length === 0) {
+    <div class="empty-state">
+      <p>No hay entregas que coincidan con los filtros.</p>
+    </div>
+  } @else {
+    <div class="table-responsive">
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th scope="col">Ejercicio</th>
+            <th scope="col">Materia</th>
+            <th scope="col">Resultado</th>
+            <th scope="col">Nota</th>
+            <th scope="col">Tiempo</th>
+            <th scope="col">Fecha</th>
+            <th scope="col">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (sub of filteredSubmissions(); track sub.id) {
+            <tr>
+              <td class="cell-exercise">{{ sub.exercise_title || 'Ejercicio' }}</td>
+              <td class="cell-subject">
+                <span class="subject-code" machineData>{{ sub.subject_code }}</span>
+                <span class="subject-name">{{ sub.subject_name }}</span>
+              </td>
+              <td class="cell-verdict">
+                <verdict-badge [verdict]="sub.verdict" size="sm" />
+                @if (sub.manual_override) {
+                  <span class="manual-review">Revisado por docente</span>
+                }
+              </td>
+              <td class="cell-score">
+                @if (sub.score !== null && sub.score !== undefined) {
+                  <span class="score-value" machineData>{{ sub.score }} pts</span>
+                } @else {
+                  <span class="no-score">—</span>
+                }
+              </td>
+              <td class="cell-time"><span machineData>{{ sub.execution_time_ms }} ms</span></td>
+              <td class="cell-date">
+                <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+              </td>
+              <td class="cell-actions">
+                <div class="actions-row">
+                  <button type="button" class="btn-view-code" (click)="selectedSubmission.set(sub)">
+                    Ver código enviado
+                  </button>
+                  <a class="action-link" [routerLink]="['/student/exercises', sub.exercise_id]">Ir al ejercicio</a>
+                </div>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  }
+
+  @if (selectedSubmission(); as selected) {
+    <modal-shell
+      [title]="selected.exercise_title || 'Detalle de entrega'"
+      [subtitle]="selected.subject_name"
+      maxWidth="720px"
+      (close)="selectedSubmission.set(null)"
+    >
+      <svg modal-icon lucideCode class="icon"></svg>
+
+      <div class="modal-meta">
+        <verdict-badge [verdict]="selected.verdict" size="sm" />
+        @if (selected.score !== null && selected.score !== undefined) {
+          <span class="meta-item">
+            <span class="meta-label">Nota</span>
+            <span class="meta-value" machineData>{{ selected.score }} pts</span>
+          </span>
+        }
+        <span class="meta-item">
+          <span class="meta-label">Tiempo</span>
+          <span class="meta-value" machineData>{{ selected.execution_time_ms }} ms</span>
+        </span>
+        <span class="meta-item">
+          <span class="meta-label">Fecha</span>
+          <time [attr.datetime]="selected.submitted_at">{{ selected.submitted_at | dateText:'compact-datetime' }}</time>
+        </span>
+      </div>
+
+      @if (selected.manual_override && selected.override_reason) {
+        <div class="override-note">
+          <span class="override-label">Observación del docente</span>
+          <p>{{ selected.override_reason }}</p>
+        </div>
+      }
+
+      <pre class="submission-code font-mono"><code>{{ selected.code }}</code></pre>
+
+      <ng-container modal-footer>
+        <button type="button" class="btn-outline" (click)="selectedSubmission.set(null)">Cerrar</button>
+      </ng-container>
+    </modal-shell>
+  }
+</section>
