@@ -236,7 +236,18 @@ func TestSemgrepPrecheckSuite(t *testing.T) {
 		if _, err := sqlDB.Exec("INSERT INTO users (id, tenant_id, email, first_name, last_name, role) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (id) DO NOTHING", studentID, tenantID, "semgrep-student@test.com", "Semgrep", "Student", "student"); err != nil {
 			t.Fatalf("Failed to insert user: %v", err)
 		}
-		if _, err := sqlDB.Exec("INSERT INTO exercises (id, tenant_id, title, type, config) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (id) DO NOTHING", exerciseID, tenantID, "Semgrep Ex", "algorithm", "{}"); err != nil {
+
+		var seedTemplateID string
+		err = sqlDB.Get(&seedTemplateID,
+			"SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' AND name LIKE 'Python%' LIMIT 1")
+		if err != nil {
+			t.Fatalf("Failed to fetch seed template: %v", err)
+		}
+
+		if _, err := sqlDB.Exec(
+			"INSERT INTO exercises (id, tenant_id, title, type, config, template_id, environment_type) VALUES ($1, $2, $3, $4, $5, $6, 'JUEZ_EFIMERO') ON CONFLICT (id) DO NOTHING",
+			exerciseID, tenantID, "Semgrep Ex", "algorithm", "{}", seedTemplateID,
+		); err != nil {
 			t.Fatalf("Failed to insert exercise: %v", err)
 		}
 

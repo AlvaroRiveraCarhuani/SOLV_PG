@@ -54,7 +54,9 @@ func setupSlice13TestServer(t *testing.T) (*httptest.Server, *database.Database)
 
 	validate := validator.New()
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
+	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
+	evalService.SetAdminGovernanceRepository(govRepo)
 	evalHandler := httpdelivery.NewEvaluationHandler(evalService, validate)
 
 	handlers := &httpdelivery.Handlers{
@@ -114,7 +116,7 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 		},
 	}
 
-	jsonBytes, _ := json.Marshal(payload)
+	jsonBytes := buildExerciseRequest(t, payload)
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("X-User-Role", "teacher")
@@ -152,8 +154,21 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	if dbEx.Language != "python" {
 		t.Errorf("DB language mismatch: expected 'python', got '%s'", dbEx.Language)
 	}
-	if dbEx.TimeLimitMS != 1500 || dbEx.MemoryLimitMB <= 0 {
-		t.Errorf("DB limits mismatch: got time=%d, memory=%d", dbEx.TimeLimitMS, dbEx.MemoryLimitMB)
+	var expectedRAM int
+	err = db.GetDB().Get(&expectedRAM, `
+		SELECT base_ram_mb FROM lab_templates
+		WHERE target_environment='JUEZ_EFIMERO' AND status='approved' AND description='SYSTEM_SEED_RUNNER' AND name LIKE 'Python%'
+		LIMIT 1
+	`)
+	if err != nil {
+		t.Fatalf("Failed to fetch expected template RAM: %v", err)
+	}
+
+	if dbEx.TimeLimitMS != 1500 {
+		t.Errorf("DB time_limit_ms mismatch: expected 1500, got %d", dbEx.TimeLimitMS)
+	}
+	if dbEx.MemoryLimitMB != expectedRAM {
+		t.Errorf("DB memory_limit_mb mismatch: expected %d (governed by template), got %d", expectedRAM, dbEx.MemoryLimitMB)
 	}
 	if dbEx.Config.Algorithm == nil || len(dbEx.Config.Algorithm.TestCases) != 4 {
 		t.Fatalf("DB test cases mismatch: expected 4 cases, got %v", dbEx.Config.Algorithm)
@@ -186,13 +201,21 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 			},
 		},
 	}
-	createJSON, _ := json.Marshal(zeroPubExercise)
+	createJSON := buildExerciseRequest(t, zeroPubExercise)
 	req1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(createJSON))
 	req1.Header.Set("Content-Type", "application/json")
 	req1.Header.Set("X-User-Role", "teacher")
 	req1.Header.Set("X-Tenant-Id", tenantID)
-	resp1, _ := http.DefaultClient.Do(req1)
-	_ = resp1.Body.Close()
+	resp1, err := http.DefaultClient.Do(req1)
+	if err != nil {
+		t.Fatalf("POST /api/v1/exercises zeroPubExercise failed: %v", err)
+	}
+	defer func() { _ = resp1.Body.Close() }()
+	if resp1.StatusCode != http.StatusCreated {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(resp1.Body)
+		t.Fatalf("Expected status 201 Created for zeroPubExercise, got %d. Body: %s", resp1.StatusCode, buf.String())
+	}
 
 	// Intentar publicar ejercicio con 0 casos públicos -> DEBE RETORNAR 422
 	pubReq1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exZeroPublicID+"/publish", nil)
@@ -227,13 +250,21 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 			},
 		},
 	}
-	validJSON, _ := json.Marshal(validExercise)
+	validJSON := buildExerciseRequest(t, validExercise)
 	req2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(validJSON))
 	req2.Header.Set("Content-Type", "application/json")
 	req2.Header.Set("X-User-Role", "teacher")
 	req2.Header.Set("X-Tenant-Id", tenantID)
-	resp2, _ := http.DefaultClient.Do(req2)
-	_ = resp2.Body.Close()
+	resp2, err := http.DefaultClient.Do(req2)
+	if err != nil {
+		t.Fatalf("POST /api/v1/exercises validExercise failed: %v", err)
+	}
+	defer func() { _ = resp2.Body.Close() }()
+	if resp2.StatusCode != http.StatusCreated {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(resp2.Body)
+		t.Fatalf("Expected status 201 Created for validExercise, got %d. Body: %s", resp2.StatusCode, buf.String())
+	}
 
 	// Publicar ejercicio válido -> DEBE RETORNAR 200 OK
 	pubReq2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+validExID+"/publish", nil)
@@ -274,13 +305,21 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 		Status:      "draft",
 		TenantID:    tenantID,
 	}
-	exBytes, _ := json.Marshal(ex)
+	exBytes := buildExerciseRequest(t, ex)
 	reqInit, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(exBytes))
 	reqInit.Header.Set("Content-Type", "application/json")
 	reqInit.Header.Set("X-User-Role", "teacher")
 	reqInit.Header.Set("X-Tenant-Id", tenantID)
-	respInit, _ := http.DefaultClient.Do(reqInit)
-	_ = respInit.Body.Close()
+	respInit, err := http.DefaultClient.Do(reqInit)
+	if err != nil {
+		t.Fatalf("POST /api/v1/exercises base failed: %v", err)
+	}
+	defer func() { _ = respInit.Body.Close() }()
+	if respInit.StatusCode != http.StatusCreated {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(respInit.Body)
+		t.Fatalf("Expected status 201 Created for base exercise, got %d. Body: %s", respInit.StatusCode, buf.String())
+	}
 
 	// 1. Enviar CSV con fila malformada (línea 4 solo tiene 1 columna)
 	csvMalformed := "input,expected_output,is_hidden\r\n" +
@@ -363,7 +402,7 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 		Status:   "draft",
 		TenantID: tenantA,
 	}
-	stBytes, _ := json.Marshal(studentPayload)
+	stBytes := buildExerciseRequest(t, studentPayload)
 	reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
 	reqStudent.Header.Set("Content-Type", "application/json")
 	reqStudent.Header.Set("X-User-Role", "student") // ROL STUDENT
@@ -384,8 +423,16 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	reqTeacher.Header.Set("Content-Type", "application/json")
 	reqTeacher.Header.Set("X-User-Role", "teacher")
 	reqTeacher.Header.Set("X-Tenant-Id", tenantA)
-	respTeacher, _ := http.DefaultClient.Do(reqTeacher)
-	_ = respTeacher.Body.Close()
+	respTeacher, err := http.DefaultClient.Do(reqTeacher)
+	if err != nil {
+		t.Fatalf("POST /api/v1/exercises teacher failed: %v", err)
+	}
+	defer func() { _ = respTeacher.Body.Close() }()
+	if respTeacher.StatusCode != http.StatusCreated {
+		var buf bytes.Buffer
+		_, _ = buf.ReadFrom(respTeacher.Body)
+		t.Fatalf("Expected status 201 Created for teacher exercise, got %d. Body: %s", respTeacher.StatusCode, buf.String())
+	}
 
 	// 3. Docente de Tenant B intenta modificar el ejercicio de Tenant A -> 404 Not Found
 	updatePayload := domain.Exercise{
@@ -421,4 +468,32 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	if respPubCross.StatusCode != http.StatusNotFound {
 		t.Fatalf("Expected status 404 Not Found for cross-tenant publish, got %d", respPubCross.StatusCode)
 	}
+}
+
+// buildExerciseRequest serializa un ejercicio omitiendo memory_limit_mb.
+// El ADR-043 reserva ese campo al administrador técnico: el handler responde 422
+// si la clave viaja en el payload, aunque su valor sea cero por el zero value de Go.
+func buildExerciseRequest(t *testing.T, ex domain.Exercise) []byte {
+	t.Helper()
+
+	if ex.Language == "" && ex.TemplateID == "" {
+		ex.Language = "python"
+	}
+
+	raw, err := json.Marshal(ex)
+	if err != nil {
+		t.Fatalf("Failed to marshal exercise payload: %v", err)
+	}
+
+	var fields map[string]any
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatalf("Failed to normalize exercise payload: %v", err)
+	}
+	delete(fields, "memory_limit_mb")
+
+	out, err := json.Marshal(fields)
+	if err != nil {
+		t.Fatalf("Failed to marshal sanitized payload: %v", err)
+	}
+	return out
 }
