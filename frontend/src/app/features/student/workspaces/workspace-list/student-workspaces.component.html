@@ -1,0 +1,75 @@
+<section class="student-workspaces">
+  <header class="page-header">
+    <h1>Laboratorios</h1>
+    <p>Estos son tus entornos de práctica.</p>
+  </header>
+
+  <div class="info-banner" role="note">
+    Cada materia cuenta con un entorno de práctica propio. Tus archivos se conservan automáticamente entre sesiones.
+  </div>
+
+  @if (isLoading() && subjects().length === 0) {
+    <skeleton-loader variant="cards" [count]="3" />
+  } @else {
+    <div class="labs-toolbar">
+      <search-bar
+        [query]="searchQuery()"
+        placeholder="Buscar laboratorio por nombre o código..."
+        ariaLabel="Buscar laboratorios"
+        (queryChange)="searchQuery.set($event)"
+        (cleared)="searchQuery.set('')"
+      />
+    </div>
+
+    @if (filteredSubjects().length === 0) {
+      <div class="empty-state">
+        <p>No hay laboratorios que coincidan con el filtro.</p>
+      </div>
+    } @else {
+      <div class="labs-grid">
+        @for (item of filteredSubjects(); track item.subject.id) {
+          <article class="lab-card">
+            <header class="lab-card-header">
+              <h2 class="lab-name">{{ item.subject.name }}</h2>
+              <span class="lab-code" machineData>{{ item.subject.code }}</span>
+            </header>
+
+            <div class="lab-status-row">
+              @if (item.active_workspace; as ws) {
+                <status-badge [status]="ws.status" />
+                @if (ws.last_activity_at) {
+                  <span class="lab-last-activity">
+                    Última actividad:
+                    <time [attr.datetime]="ws.last_activity_at">{{ relativeTime(ws.last_activity_at) }}</time>
+                  </span>
+                }
+              } @else {
+                <span class="lab-no-workspace">Entorno disponible bajo demanda</span>
+              }
+            </div>
+
+            <footer class="lab-actions">
+              @if (item.active_workspace?.status === 'running') {
+                <a class="btn btn-primary" [routerLink]="['/student/workspaces', item.subject.id]">Entrar al laboratorio</a>
+                <button
+                  type="button"
+                  class="btn btn-outline"
+                  (click)="pauseLab(item)"
+                  [disabled]="isActionLoading()"
+                >Pausar entorno</button>
+              } @else {
+                <button
+                  type="button"
+                  class="btn btn-primary"
+                  (click)="openOrStartLab(item.subject.id)"
+                  [disabled]="isActionLoading()"
+                >{{ labActionLabel(item) }}</button>
+                <a class="btn btn-outline" [routerLink]="['/student/courses', item.subject.id]">Ver ejercicios de la materia</a>
+              }
+            </footer>
+          </article>
+        }
+      </div>
+    }
+  }
+</section>

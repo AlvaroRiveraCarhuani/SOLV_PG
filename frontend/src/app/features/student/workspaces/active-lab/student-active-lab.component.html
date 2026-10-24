@@ -1,0 +1,63 @@
+<section class="student-active-lab">
+  <header class="lab-toolbar">
+    <a
+      class="lab-back"
+      [routerLink]="['/student/workspaces']"
+      title="Volver a laboratorios"
+      aria-label="Volver a laboratorios"
+    >
+      <svg lucideArrowLeft class="btn-icon"></svg>
+      <span>Laboratorios</span>
+    </a>
+
+    <div class="lab-title-group">
+      <h1 class="lab-title">{{ subjectName() }}</h1>
+      @if (subjectCode()) {
+        <span class="lab-code" machineData>{{ subjectCode() }}</span>
+      }
+      @if (activeWorkspace(); as ws) {
+        <status-badge [status]="ws.status" />
+      }
+    </div>
+
+    <div class="lab-toolbar-actions">
+      @if (rawUrl()) {
+        <a class="btn btn-outline" [href]="rawUrl()" target="_blank" rel="noopener noreferrer">
+          <svg lucideExternalLink class="btn-icon"></svg>
+          <span>Abrir en pestaña nueva</span>
+        </a>
+      }
+      @if (activeWorkspace()) {
+        <button
+          type="button"
+          class="btn btn-outline"
+          (click)="pauseAndExit()"
+          [disabled]="isActionLoading()"
+        >
+          <svg lucidePause class="btn-icon"></svg>
+          <span>Pausar y salir</span>
+        </button>
+      }
+      <a class="btn btn-outline" [routerLink]="['/student/courses', subjectId()]">
+        <svg lucideBookOpen class="btn-icon"></svg>
+        <span>Ver materia</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="lab-viewport">
+    @if (safeLabUrl()) {
+      <iframe class="lab-iframe" [src]="safeLabUrl()" title="Entorno de práctica"></iframe>
+    } @else {
+      <div class="lab-empty">
+        <p>Tu entorno de práctica no está activo en este momento.</p>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="startLab()"
+          [disabled]="isActionLoading()"
+        >Iniciar entorno de práctica</button>
+      </div>
+    }
+  </main>
+</section>
