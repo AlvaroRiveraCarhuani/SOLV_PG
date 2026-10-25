@@ -1,8 +1,11 @@
 <section class="student-evaluations">
   <header class="page-header">
     <h1>Evaluaciones y prácticas</h1>
-    <p>Consulta tus actividades publicadas, su estado y tu último resultado.</p>
   </header>
+
+  <div class="info-banner" role="note">
+    Consulta tus actividades publicadas, su estado y tu último resultado.
+  </div>
 
   <kpi-grid [columns]="4">
     <kpi-card label="Pendientes" [value]="counts().pending" variant="primary">

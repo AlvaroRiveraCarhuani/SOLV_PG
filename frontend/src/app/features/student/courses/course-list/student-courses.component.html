@@ -1,8 +1,11 @@
 <section class="student-courses">
   <header class="page-header">
     <h1>Mis Materias</h1>
-    <p>Sigue el avance de tus materias inscritas y entra al laboratorio cuando lo necesites.</p>
   </header>
+
+  <div class="info-banner" role="note">
+    Sigue el avance de tus materias inscritas y entra al laboratorio cuando lo necesites.
+  </div>
 
   <kpi-grid [columns]="3">
     <kpi-card label="Materias inscritas" [value]="subjects().length" variant="primary">

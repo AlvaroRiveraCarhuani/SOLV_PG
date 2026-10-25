@@ -385,6 +385,19 @@ input, select, textarea, optgroup, option, button {
   line-height: var(--leading-normal);
 }
 
+.info-banner {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--tenant-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+  text-align: left;
+}
+
 // Jerarquía de Encabezados Globales
 h1, .h1-title {
   font-family: var(--font-sans);
