@@ -1,8 +1,9 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { ComponentFormModalComponent } from './component-form-modal.component';
 import { AdminTemplatesService } from '../../../../../services/admin-templates.service';
+import { AdminConfigIaService } from '../../../../../configuracion/admin-config-ia.service';
 import { TemplateComponent } from '@features/admin/models/admin-templates.models';
 
 describe('ComponentFormModalComponent', () => {
@@ -15,14 +16,26 @@ describe('ComponentFormModalComponent', () => {
     updateTechCatalogItem: vi.fn()
   };
 
+  const mockAiService = {
+    getStatus: vi.fn().mockReturnValue(of({ enabled: true, provider: 'gemini', model: 'gemini-2.5-flash' })),
+    suggestComponent: vi.fn(),
+    resolveError: vi.fn().mockReturnValue('Error en el servicio de IA')
+  };
+
   beforeEach(async () => {
     mockAdminTemplatesService.createTechCatalogItem.mockReset();
     mockAdminTemplatesService.updateTechCatalogItem.mockReset();
+    mockAiService.getStatus.mockReset();
+    mockAiService.getStatus.mockReturnValue(of({ enabled: true, provider: 'gemini', model: 'gemini-2.5-flash' }));
+    mockAiService.suggestComponent.mockReset();
+    mockAiService.resolveError.mockReset();
+    mockAiService.resolveError.mockReturnValue('Error en el servicio de IA');
 
     await TestBed.configureTestingModule({
       imports: [ComponentFormModalComponent],
       providers: [
-        { provide: AdminTemplatesService, useValue: mockAdminTemplatesService }
+        { provide: AdminTemplatesService, useValue: mockAdminTemplatesService },
+        { provide: AdminConfigIaService, useValue: mockAiService }
       ]
     }).compileComponents();
 
@@ -982,6 +995,71 @@ describe('ComponentFormModalComponent', () => {
       component.onCatalogKindChange('web');
       component.onSelectCustomMode();
       expect(component.baseImage()).toBe('node:22-bookworm-slim');
+    });
+  });
+
+  describe('Asistente Copiloto IA', () => {
+    it('debe inicializar aiEnabled consultando getStatus en ngOnInit', () => {
+      component.ngOnInit();
+      expect(mockAiService.getStatus).toHaveBeenCalled();
+      expect(component.aiEnabled()).toBe(true);
+    });
+
+    it('cuando aiEnabled es true y se invoca generateWithAi, puebla los signals del formulario y aiRationale', () => {
+      component.ngOnInit();
+      component.aiPrompt.set('PyTorch CPU y scikit-learn para Inteligencia Artificial');
+
+      const mockResponse = {
+        component: {
+          name: 'PyTorch y Scikit-Learn',
+          layer: 'addon' as const,
+          description: 'Stack de computación científica y ML para Python',
+          icon_key: 'python',
+          base_image: '',
+          install_mode: 'pip',
+          package_names: ['torch', 'torchvision', 'scikit-learn'],
+          tools_provided: ['python3'],
+          judge_entrypoint: '',
+          ram_delta_mb: 512
+        },
+        rationale: 'Se configuró pip para instalar PyTorch modo CPU y scikit-learn con 512MB RAM adicional recomendada.',
+        latency_ms: 240
+      };
+
+      mockAiService.suggestComponent.mockReturnValue(of(mockResponse));
+
+      component.generateWithAi();
+
+      expect(mockAiService.suggestComponent).toHaveBeenCalledWith({
+        prompt: 'PyTorch CPU y scikit-learn para Inteligencia Artificial',
+        layer: 'addon',
+        target_runtime: undefined
+      });
+
+      expect(component.isCustomPresetSelected()).toBe(true);
+      expect(component.name()).toBe('PyTorch y Scikit-Learn');
+      expect(component.description()).toBe('Stack de computación científica y ML para Python');
+      expect(component.iconKey()).toBe('python');
+      expect(component.installMode()).toBe('pip');
+      expect(component.installPreset()).toBe('pip');
+      expect(component.packageNamesInput()).toBe('torch, torchvision, scikit-learn');
+      expect(component.toolsProvidedInput()).toBe('python3');
+      expect(component.ramDeltaMB()).toBe(512);
+      expect(component.aiRationale()).toBe('Se configuró pip para instalar PyTorch modo CPU y scikit-learn con 512MB RAM adicional recomendada.');
+      expect(component.aiLatencyMs()).toBe(240);
+      expect(component.isGeneratingAi()).toBe(false);
+    });
+
+    it('maneja errores del servicio de IA y activa errorMessage', () => {
+      component.ngOnInit();
+      component.aiPrompt.set('Tensorflow');
+
+      mockAiService.suggestComponent.mockReturnValue(throwError(() => new Error('Fallo conexión')));
+
+      component.generateWithAi();
+
+      expect(component.errorMessage()).toBe('Error en el servicio de IA');
+      expect(component.isGeneratingAi()).toBe(false);
     });
   });
 });

@@ -21,7 +21,7 @@ describe('AdminConfiguracionComponent', () => {
   it('debe crearse con la pestaña de períodos activa por defecto', () => {
     expect(component.activeTab()).toBe('periodos');
     const tabs = fixture.nativeElement.querySelectorAll('.config-tab');
-    expect(tabs.length).toBe(3);
+    expect(tabs.length).toBe(4);
     expect(tabs[0].classList.contains('active')).toBe(true);
   });
 

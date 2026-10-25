@@ -9,7 +9,8 @@ import {
   LucideEye,
   LucideTrash2,
   LucideGlobe,
-  LucideLoader2
+  LucideLoader2,
+  LucideSparkles
 } from '@lucide/angular';
 import { ExerciseEditorStore } from './exercise-editor.store';
 import { StepperNavComponent } from './shared/stepper-nav.component';
@@ -19,7 +20,9 @@ import { StepContractComponent } from './steps/step-contract/step-contract.compo
 import { StepIdeEnvironmentComponent } from './steps/step-ide-environment/step-ide-environment.component';
 import { StepPublicationComponent } from './steps/step-publication/step-publication.component';
 import { StudentPreviewModalComponent } from './student-preview-modal/student-preview-modal.component';
+import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal/ai-exercise-generator-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
+import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
 
 @Component({
   selector: 'exercise-editor',
@@ -35,6 +38,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
     LucideTrash2,
     LucideGlobe,
     LucideLoader2,
+    LucideSparkles,
     StepperNavComponent,
     SummaryPanelComponent,
     StepIdentityComponent,
@@ -42,6 +46,7 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
     StepIdeEnvironmentComponent,
     StepPublicationComponent,
     StudentPreviewModalComponent,
+    AiExerciseGeneratorModalComponent,
     ConfirmModalComponent
   ],
   template: `
@@ -88,6 +93,18 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
             <svg lucideEye class="btn-icon"></svg>
             <span>Vista previa</span>
           </button>
+
+          @if (aiEnabled() && store.metadata().environment_type === 'JUEZ_EFIMERO') {
+            <button
+              type="button"
+              class="btn-outline ai-copilot-btn"
+              (click)="aiModalOpen.set(true)"
+              title="Generar enunciado, solución de referencia y casos de prueba con el Copiloto IA"
+            >
+              <svg lucideSparkles class="btn-icon"></svg>
+              <span>Generar con IA</span>
+            </button>
+          }
 
           <button
             type="button"
@@ -225,17 +242,30 @@ import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-
           <span>{{ msg }}</span>
         </div>
       }
+
+      <!-- Modal del Copiloto IA -->
+      @if (aiModalOpen()) {
+        <ai-exercise-generator-modal
+          [defaultLanguage]="store.metadata().language || 'python'"
+          (closed)="aiModalOpen.set(false)"
+          (applied)="onAiDraftApplied($event)"
+        />
+      }
     </div>
   `,
   styleUrl: './exercise-editor.component.scss'
 })
 export class ExerciseEditorComponent implements OnInit {
   readonly store = inject(ExerciseEditorStore);
+  private readonly aiCopilotService = inject(TeacherAiCopilotService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
 
   courseId = input<string>('');
   id = input<string | null>(null);
+
+  readonly aiEnabled = signal(false);
+  readonly aiModalOpen = signal(false);
 
   showDeleteModal = signal<boolean>(false);
   toastMessage = signal<string | null>(null);
@@ -273,6 +303,12 @@ export class ExerciseEditorComponent implements OnInit {
     );
   }
 
+  onAiDraftApplied(draft: AIGenerateExerciseResponse): void {
+    this.store.applyAIGeneratedDraft(draft);
+    this.aiModalOpen.set(false);
+    this.showToast('Borrador generado por IA aplicado al editor.');
+  }
+
   private showToast(message: string) {
     if (this.toastTimer) {
       clearTimeout(this.toastTimer);
@@ -306,5 +342,10 @@ export class ExerciseEditorComponent implements OnInit {
       // Si es nuevo ejercicio, recuperar borrador local persistido automáticamente si existe
       this.store.restoreDraftFromStorage();
     }
+
+    this.aiCopilotService.getStatus().subscribe({
+      next: (s) => this.aiEnabled.set(!!s?.enabled),
+      error: () => this.aiEnabled.set(false)
+    });
   }
 }

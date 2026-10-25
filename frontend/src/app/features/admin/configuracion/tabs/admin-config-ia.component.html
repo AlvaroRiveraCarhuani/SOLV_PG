@@ -1,0 +1,582 @@
+<div class="ia-tab">
+  @if (toast(); as t) {
+    <div class="toast-notification" [class.toast-error]="t.type === 'error'">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="loading-state">
+      <div class="spinner"></div>
+      <span>Cargando configuración de Inteligencia Artificial...</span>
+    </div>
+  } @else {
+    <!-- ================= TARJETA 1: Estado y Proveedor ================= -->
+    <div class="ia-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideBot class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Copiloto de Inteligencia Artificial Institucional</h2>
+            <p class="card-hint">
+              Asiste a administradores (generación de plantillas y Dockerfile) y docentes (borradores de ejercicios con casos de prueba validados por el Juez de Código), nunca a estudiantes durante evaluaciones.
+            </p>
+          </div>
+        </div>
+        @if (settings()?.updated_at) {
+          <time class="updated-badge font-mono">{{ settings()!.updated_at! | dateText:'daymonth' }}</time>
+        }
+      </div>
+
+      <div class="enable-banner">
+        <div class="enable-info">
+          <span class="enable-title">Habilitar IA en la Institución</span>
+          <span class="enable-desc">Activa el motor de inferencia para tareas administrativas y docentes</span>
+        </div>
+        <label class="switch-toggle" for="ai-enabled-toggle">
+          <input
+            type="checkbox"
+            id="ai-enabled-toggle"
+            [checked]="enabled()"
+            (change)="onToggleEnabled($event)" />
+          <span class="slider"></span>
+          <span class="toggle-state font-mono" [class.on]="enabled()">
+            {{ enabled() ? 'HABILITADO' : 'DESHABILITADO' }}
+          </span>
+        </label>
+      </div>
+
+      <div class="provider-grid">
+        @for (item of visibleProviderItems(); track item.id) {
+          @if (item.kind === 'add') {
+            <button
+              type="button"
+              class="provider-card provider-card-add"
+              [class.selected]="addingCustom()"
+              (click)="startAddCustom()">
+              <div class="provider-card-header">
+                <div class="provider-title-row">
+                  <svg lucidePlus class="provider-icon"></svg>
+                  <span class="provider-label">Agregar proveedor</span>
+                </div>
+                <span class="provider-badge">{{ item.badge }}</span>
+              </div>
+              <div class="provider-card-footer">
+                <span class="model-caption">Registro de un endpoint personalizado</span>
+              </div>
+            </button>
+          } @else {
+            <button
+              type="button"
+              class="provider-card"
+              [class.selected]="!addingCustom() && provider() === item.id"
+              (click)="selectProvider(item.id)">
+              <div class="provider-card-header">
+                <div class="provider-title-row">
+                  @if (item.iconUrl && !iconErrors()[item.id]) {
+                    <img
+                      class="provider-logo"
+                      [src]="item.iconUrl"
+                      [alt]="item.label"
+                      (error)="onIconError(item.id)" />
+                  } @else if (item.kind === 'custom') {
+                    <span class="provider-avatar font-mono" aria-hidden="true">{{ providerInitials(item.label) }}</span>
+                  } @else if (item.isCloud) {
+                    <svg lucideCloud class="provider-icon"></svg>
+                  } @else {
+                    <svg lucideServer class="provider-icon"></svg>
+                  }
+                  <span class="provider-label">{{ item.label }}</span>
+                  @if (item.isActiveInBackend) {
+                    <span class="active-engine-badge font-mono" [class.enabled]="settings()?.enabled">
+                      {{ settings()?.enabled ? 'EN USO' : 'PREDETERMINADO' }}
+                    </span>
+                  }
+                </div>
+                <span class="provider-badge">{{ item.badge }}</span>
+              </div>
+              <div class="provider-card-footer">
+                @if (item.hasSavedKey || item.model) {
+                  <div class="configured-row">
+                    @if (item.hasSavedKey) {
+                      <span class="saved-key-pill font-mono">Clave guardada</span>
+                    }
+                    <span class="model-caption">
+                      Modelo: <code class="font-mono">{{ item.model || 'Sin modelo' }}</code>
+                    </span>
+                  </div>
+                } @else {
+                  <span class="model-caption sin-configurar">Sin configurar</span>
+                }
+              </div>
+            </button>
+          }
+        }
+      </div>
+
+      @if (hasHiddenProviders()) {
+        <div class="grid-more-row">
+          <button type="button" class="btn-more" (click)="gridExpanded.set(!gridExpanded())">
+            {{ gridExpanded() ? 'Mostrar menos' : 'Ver más proveedores (+' + hiddenProviderCount() + ')' }}
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- ================= TARJETA 2: Credenciales, Conexión y Modelo ================= -->
+    <div class="ia-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideKey class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Credenciales, Conexión y Modelo</h2>
+            <p class="card-hint">
+              Autenticación cifrada, endpoint de conexión y selección directa del modelo del proveedor.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="connection-fields">
+        @if (showSwitchWithSavedKeyBanner()) {
+          <div class="switch-saved-key-banner">
+            <svg lucideLock class="banner-icon"></svg>
+            <div class="banner-text">
+              Este proveedor ya tiene su API Key cifrada guardada (<code class="font-mono">{{ savedKey().masked }}</code>). No necesitás volver a ingresarla: verificá el modelo seleccionado y pulsá «Guardar Configuración de IA» para activarlo como motor de la institución.
+            </div>
+          </div>
+        }
+
+        @if (addingCustom()) {
+          <p class="draft-hint">
+            Nuevo proveedor personalizado: completá los datos y guardá la configuración para registrarlo en la institución.
+          </p>
+        }
+
+        <!-- Bloque A: Datos del proveedor personalizado -->
+        @if (isCustomForm()) {
+          <form-field
+            label="Nombre del Proveedor"
+            for="ai-custom-label"
+            [required]="true"
+            hint="Nombre visible en la grilla (1-60 caracteres)"
+            [error]="customLabelError()">
+            <input
+              id="ai-custom-label"
+              type="text"
+              class="form-input"
+              placeholder="Ej: Mistral AI"
+              [ngModel]="customLabel()"
+              (ngModelChange)="customLabel.set($event)"
+              (blur)="customLabelTouched.set(true)" />
+          </form-field>
+
+          <form-field
+            label="URL del Logo (Opcional)"
+            for="ai-custom-icon"
+            hint="Imagen http(s) de hasta 500 caracteres para la grilla. Si no se indica o falla la carga, se usan las iniciales de la vista previa."
+            [error]="customIconUrlError()">
+            <div class="logo-url-row">
+              <input
+                id="ai-custom-icon"
+                type="text"
+                class="form-input font-mono"
+                placeholder="https://..."
+                [ngModel]="customIconUrl()"
+                (ngModelChange)="onCustomIconUrlChange($event)"
+                (blur)="customIconUrlTouched.set(true)" />
+              <div
+                class="provider-avatar preview-avatar font-mono"
+                [attr.title]="customIconUrl() && !iconErrors()['custom-draft-icon'] ? 'Vista previa del logo cargado' : 'Vista previa del avatar generado con iniciales'"
+                aria-label="Vista previa del logo o iniciales del proveedor">
+                @if (customIconUrl() && !iconErrors()['custom-draft-icon']) {
+                  <img
+                    class="avatar-img"
+                    [src]="customIconUrl()"
+                    [alt]="customLabel() || 'Logo del proveedor'"
+                    (error)="onIconError('custom-draft-icon')" />
+                } @else {
+                  <span class="preview-initials">{{ providerInitials(customLabel()) || '?' }}</span>
+                }
+              </div>
+            </div>
+          </form-field>
+        }
+
+        <!-- Bloque B: Endpoint -->
+        @if (formMode() === 'cloud') {
+          <form-field
+            label="Endpoint oficial (solo lectura)"
+            for="ai-base-url"
+            hint="URL oficial fija del proveedor: el backend la fuerza siempre por seguridad (anti-SSRF)">
+            <div class="endpoint-badge">
+              <svg lucideLock class="endpoint-icon"></svg>
+              <code class="font-mono">{{ officialBaseUrl() }}</code>
+            </div>
+          </form-field>
+        } @else {
+          <form-field
+            label="URL Base de Inferencia (API OpenAI-Compatible)"
+            for="ai-base-url"
+            [required]="true"
+            [hint]="formMode() === 'lan'
+              ? 'IP privada LAN o dominio del servidor GPU universitario (ej. http://10.20.1.50:11434/v1)'
+              : 'URL base OpenAI-compatible del proveedor personalizado (ej. https://ia.universidad.edu.bo/v1)'"
+            [error]="baseUrlError()">
+            <input
+              id="ai-base-url"
+              type="text"
+              class="form-input font-mono"
+              [ngModel]="baseUrl()"
+              (ngModelChange)="onBaseUrlInput($event)"
+              (blur)="baseUrlTouched.set(true)" />
+          </form-field>
+        }
+
+        <!-- Bloque C: Credencial (API Key) -->
+        <form-field
+          [label]="formMode() === 'lan' ? 'API Key de Autenticación (Opcional)' : 'API Key de Autenticación'"
+          for="ai-api-key"
+          [required]="formMode() !== 'lan'"
+          [hint]="formMode() === 'lan'
+            ? 'Opcional en el servidor local: dejala vacía si el endpoint no exige clave'
+            : undefined">
+          @if (!addingCustom() && savedKey().has && !clearApiKey()) {
+            <div class="saved-key-badge">
+              <span class="key-label">Clave guardada:</span>
+              <code class="font-mono">{{ savedKey().masked }}</code>
+              <span class="key-hint font-sans">(No necesitás volver a escribirla)</span>
+              <button type="button" class="btn-link" (click)="clearApiKey.set(true)">
+                Cambiar / Borrar clave guardada
+              </button>
+            </div>
+          }
+          <input
+            id="ai-api-key"
+            type="password"
+            class="form-input font-mono"
+            [ngModel]="apiKey()"
+            (ngModelChange)="onApiKeyInput($event)"
+            [placeholder]="savedKey().has && !clearApiKey() && !addingCustom()
+              ? 'Dejar en blanco para conservar la clave actual'
+              : apiKeyPlaceholder()" />
+        </form-field>
+
+        <!-- Bloque D: Modelo de Inferencia — Catálogo Directo + Fallback Manual -->
+        <form-field
+          label="Modelo de Inferencia"
+          for="ai-model"
+          [required]="enabled()"
+          hint="Identificador exacto del LLM: seleccioná un modelo del catálogo o usá el modo manual"
+          [error]="modelError()">
+
+          <!-- Barra de modelo seleccionado actual -->
+          <div class="selected-model-bar">
+            <div class="selected-model-info">
+              <span class="model-caption">Modelo seleccionado:</span>
+              @if (model().trim()) {
+                <code class="font-mono model-pill" machineData>{{ model() }}</code>
+              } @else {
+                <span class="model-none font-mono">Sin modelo seleccionado</span>
+              }
+            </div>
+            <button
+              type="button"
+              class="btn-toggle-manual"
+              (click)="manualModelMode.set(!manualModelMode())">
+              {{ manualModelMode() ? 'Elegir de la lista' : 'Cambiar / Escribir ID manual' }}
+            </button>
+          </div>
+
+          <!-- Input manual si manualModelMode() está activo -->
+          @if (manualModelMode()) {
+            <div class="manual-model-box">
+              <input
+                id="ai-model"
+                type="text"
+                class="form-input font-mono"
+                machineData
+                placeholder="Escribí el ID del modelo (ej. gpt-4o, gemini-2.5-flash)..."
+                [ngModel]="model()"
+                (ngModelChange)="model.set($event)"
+                (blur)="modelTouched.set(true)" />
+            </div>
+          }
+
+          <!-- Estado 1: Sin credenciales aún -->
+          @if (!canFetchModels() && !manualModelMode()) {
+            <div class="model-locked-hint">
+              <svg lucideLock class="hint-icon"></svg>
+              <span>Ingresá primero la API Key de autenticación arriba para descubrir y listar automáticamente los modelos disponibles de este proveedor.</span>
+              <button type="button" class="btn-link" (click)="manualModelMode.set(true)">
+                O escribir el ID del modelo manualmente
+              </button>
+            </div>
+          }
+
+          <!-- Estado 2: Cargando catálogo -->
+          @if (loadingModels()) {
+            <div class="catalog-loading-hint">
+              <div class="spinner"></div>
+              <span>Descubriendo modelos disponibles del proveedor...</span>
+            </div>
+          }
+
+          <!-- Estado de error inline si el auto-fetch o consulta falló -->
+          @if (catalogError(); as err) {
+            <div class="catalog-error-inline">
+              <svg lucideAlertCircle class="error-icon"></svg>
+              <span class="error-text">{{ err }}</span>
+              <button
+                type="button"
+                class="btn-retry"
+                (click)="fetchModels(true, false)"
+                [disabled]="loadingModels() || !canFetchModels()">
+                Reintentar / Consultar modelos
+              </button>
+            </div>
+          }
+
+          <!-- Estado 3: Catálogo disponible -->
+          @if (catalogModels().length > 0) {
+            <div class="catalog-actions-bar">
+              <span class="catalog-timestamp">
+                @if (catalogFetchedAt(); as fetched) {
+                  Actualizado: <time>{{ fetched | dateText:'time' }}</time>
+                }
+                <span class="catalog-count font-mono">({{ catalogModels().length }} modelos)</span>
+              </span>
+              <div class="catalog-btn-group">
+                <button
+                  type="button"
+                  class="btn-toggle-manual-secondary"
+                  (click)="manualModelMode.set(!manualModelMode())">
+                  {{ manualModelMode() ? 'Ocultar edición manual' : 'Escribir ID manualmente' }}
+                </button>
+                <button
+                  type="button"
+                  class="btn-catalog"
+                  (click)="fetchModels(true, false)"
+                  [disabled]="loadingModels() || !canFetchModels()">
+                  <svg lucideRefreshCw class="btn-icon" [class.spinning]="loadingModels()"></svg>
+                  <span>Actualizar lista</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="catalog-drawer">
+              <div class="model-search-box">
+                <svg lucideSearch class="search-icon"></svg>
+                <input
+                  type="text"
+                  class="model-search-input font-mono"
+                  placeholder="Buscar modelo por nombre o ID..."
+                  [ngModel]="modelSearchQuery()"
+                  (ngModelChange)="modelSearchQuery.set($event)" />
+              </div>
+
+              @if (provider() === 'openrouter') {
+                <div class="tier-filter-tabs">
+                  <button
+                    type="button"
+                    class="tier-tab"
+                    [class.active]="modelTierFilter() === 'all'"
+                    (click)="modelTierFilter.set('all')">
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    class="tier-tab"
+                    [class.active]="modelTierFilter() === 'free'"
+                    (click)="modelTierFilter.set('free')">
+                    Gratis
+                  </button>
+                  <button
+                    type="button"
+                    class="tier-tab"
+                    [class.active]="modelTierFilter() === 'paid'"
+                    (click)="modelTierFilter.set('paid')">
+                    De pago
+                  </button>
+                </div>
+              }
+
+              <div class="catalog-list" role="listbox">
+                @for (m of filteredCatalogModels(); track m.id) {
+                  <button
+                    type="button"
+                    class="catalog-item"
+                    [class.selected]="model() === m.id"
+                    (click)="selectCatalogModel(m)">
+                    <div class="catalog-item-main">
+                      <span class="catalog-item-name">{{ m.name }}</span>
+                      <code class="font-mono">{{ m.id }}</code>
+                    </div>
+                    <span
+                      class="tier-badge"
+                      [class.tier-free]="m.tier === 'free' || m.tier === 'local'"
+                      [class.tier-paid]="m.tier === 'paid' || m.tier === 'by_account'">
+                      {{ m.pricing_hint }}
+                    </span>
+                  </button>
+                } @empty {
+                  <div class="empty-catalog-hint">No se encontraron modelos con los filtros seleccionados.</div>
+                }
+              </div>
+            </div>
+          } @else if (canFetchModels() && !loadingModels() && !catalogError()) {
+            <div class="catalog-actions-bar">
+              <button
+                type="button"
+                class="btn-catalog"
+                (click)="fetchModels(false, false)"
+                [disabled]="loadingModels() || !canFetchModels()">
+                <svg lucideRefreshCw class="btn-icon"></svg>
+                <span>Consultar modelos disponibles</span>
+              </button>
+            </div>
+          }
+        </form-field>
+      </div>
+
+      @if (testResult(); as tr) {
+        <div class="test-result-banner" [class.test-ok]="tr.ok" [class.test-fail]="!tr.ok">
+          <div class="test-result-header">
+            @if (tr.ok) {
+              <svg lucideCheckCircle2 class="test-icon"></svg>
+            } @else {
+              <svg lucideAlertCircle class="test-icon"></svg>
+            }
+            <span class="test-message">{{ tr.message }}</span>
+          </div>
+          <div class="test-details">
+            <span>Proveedor: <strong class="font-mono">{{ tr.provider }}</strong></span>
+            <span>Modelo: <strong class="font-mono">{{ tr.model }}</strong></span>
+            <span>Latencia: <code class="font-mono">{{ tr.latency_ms }} ms</code></span>
+          </div>
+        </div>
+      }
+
+      <div class="card-actions-row">
+        @if (formMode() === 'custom') {
+          <button
+            type="button"
+            class="btn-link-danger"
+            (click)="removeCustomProvider()"
+            [disabled]="saving() || testing()">
+            Eliminar proveedor
+          </button>
+        }
+        <button
+          type="button"
+          class="btn-outline"
+          (click)="testConnection()"
+          [disabled]="testing() || saving() || !canTestConnection()">
+          <svg lucideWifi class="btn-icon"></svg>
+          <span>{{ testing() ? 'Probando...' : 'Probar Conexión' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ================= TARJETA 3: Gobernanza de Cuota y Timeout ================= -->
+    <div class="ia-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideActivity class="card-icon"></svg>
+          <div>
+            <h2 class="section-title">Gobernanza de Cuota y Timeout</h2>
+            <p class="card-hint">
+              Límites por docente y tiempos de espera para prevenir costos excesivos o saturación del servidor.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="governance-grid">
+        <form-field
+          label="Cuota Horaria por Usuario (Solicitudes/Hora)"
+          for="ai-quota"
+          hint="Límite máximo por docente/administrador (1-200)"
+          [error]="hourlyQuotaError()">
+          <input
+            id="ai-quota"
+            type="number"
+            class="form-input font-mono"
+            min="1"
+            max="200"
+            [ngModel]="hourlyQuota()"
+            (ngModelChange)="hourlyQuota.set(+$event)"
+            (blur)="hourlyQuotaTouched.set(true)" />
+          <div class="profile-cards-grid">
+            @for (p of quotaProfiles; track p.value) {
+              <button
+                type="button"
+                class="profile-card"
+                [class.selected]="hourlyQuota() === p.value"
+                (click)="selectQuotaProfile(p.value)">
+                <div class="profile-card-header">
+                  <span class="profile-val font-mono">{{ p.value }} solic./h</span>
+                  @if (p.badge) {
+                    <span class="profile-badge">{{ p.badge }}</span>
+                  }
+                </div>
+                <span class="profile-title">{{ p.title }}</span>
+                <span class="profile-desc">{{ p.description }}</span>
+              </button>
+            }
+          </div>
+        </form-field>
+
+        <form-field
+          label="Timeout de Inferencia (Segundos)"
+          for="ai-timeout"
+          hint="Tiempo máximo de espera por respuesta (5-120)"
+          [error]="timeoutSecondsError()">
+          <input
+            id="ai-timeout"
+            type="number"
+            class="form-input font-mono"
+            min="5"
+            max="120"
+            [ngModel]="timeoutSeconds()"
+            (ngModelChange)="timeoutSeconds.set(+$event)"
+            (blur)="timeoutSecondsTouched.set(true)" />
+          <div class="profile-cards-grid">
+            @for (t of timeoutProfiles; track t.value) {
+              <button
+                type="button"
+                class="profile-card"
+                [class.selected]="timeoutSeconds() === t.value"
+                (click)="selectTimeoutProfile(t.value)">
+                <div class="profile-card-header">
+                  <span class="profile-val font-mono">{{ t.value }} s</span>
+                  @if (t.badge) {
+                    <span class="profile-badge">{{ t.badge }}</span>
+                  }
+                </div>
+                <span class="profile-title">{{ t.title }}</span>
+                <span class="profile-desc">{{ t.description }}</span>
+              </button>
+            }
+          </div>
+        </form-field>
+      </div>
+
+      <div class="card-actions-row">
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="save()"
+          [disabled]="saving() || testing()">
+          <svg lucideSave class="btn-icon"></svg>
+          <span>{{ saving() ? 'Guardando...' : 'Guardar Configuración de IA' }}</span>
+        </button>
+      </div>
+    </div>
+  }
+</div>

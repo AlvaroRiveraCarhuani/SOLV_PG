@@ -1,0 +1,121 @@
+.modal-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.error-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background-color: var(--status-failed-bg);
+  color: var(--status-failed-color);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .error-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+}
+
+.chip-group,
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.choice-chip,
+.radio-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    border-color: var(--tenant-primary);
+  }
+
+  &.selected {
+    border-color: var(--tenant-primary);
+    background-color: var(--tenant-primary);
+    color: var(--tenant-on-primary, var(--bg-surface));
+  }
+}
+
+.count-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+.preview-step {
+  gap: var(--space-4);
+}
+
+.preview-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  .preview-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .preview-meta {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--text-secondary);
+  }
+}
+
+.seal-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+
+  .seal-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+
+  &.seal-ok {
+    border-color: var(--status-running-color);
+    background-color: var(--status-running-bg);
+    color: var(--status-running-color);
+  }
+
+  &.seal-warning {
+    border-color: var(--status-failed-color);
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+  }
+}
+
+.modal-footer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

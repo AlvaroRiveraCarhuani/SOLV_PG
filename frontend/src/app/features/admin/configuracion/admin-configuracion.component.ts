@@ -4,8 +4,9 @@ import { TenantService } from '@core/services/tenant.service';
 import { AdminConfigPeriodosComponent } from './tabs/admin-config-periodos.component';
 import { AdminConfigIdentidadComponent } from './tabs/admin-config-identidad.component';
 import { AdminConfigServidorComponent } from './tabs/admin-config-servidor.component';
+import { AdminConfigIaComponent } from './tabs/admin-config-ia.component';
 
-export type ConfigTab = 'periodos' | 'identidad' | 'servidor';
+export type ConfigTab = 'periodos' | 'identidad' | 'servidor' | 'ia';
 
 interface ConfigTabDef {
   id: ConfigTab;
@@ -20,7 +21,8 @@ interface ConfigTabDef {
     CommonModule,
     AdminConfigPeriodosComponent,
     AdminConfigIdentidadComponent,
-    AdminConfigServidorComponent
+    AdminConfigServidorComponent,
+    AdminConfigIaComponent
   ],
   templateUrl: './admin-configuracion.component.html',
   styleUrls: ['./admin-configuracion.component.scss']
@@ -35,7 +37,8 @@ export class AdminConfiguracionComponent {
   readonly tabs: ConfigTabDef[] = [
     { id: 'periodos', label: 'Períodos Académicos', description: 'Semestres, ciclos lectivos y archivado institucional' },
     { id: 'identidad', label: 'Identidad (White-Label)', description: 'Logo, nombre, color primario y tipografía de la universidad' },
-    { id: 'servidor', label: 'Servidor y Respaldos', description: 'Políticas QoS, mantenimiento y estrategia de backups' }
+    { id: 'servidor', label: 'Servidor y Respaldos', description: 'Políticas QoS, mantenimiento y estrategia de backups' },
+    { id: 'ia', label: 'Inteligencia Artificial', description: 'Copiloto institucional para plantillas y creación de ejercicios del Juez' }
   ];
 
   readonly activeTab = signal<ConfigTab>('periodos');

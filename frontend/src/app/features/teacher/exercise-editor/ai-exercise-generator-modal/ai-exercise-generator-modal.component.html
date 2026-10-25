@@ -1,0 +1,140 @@
+<modal-shell
+  title="Generar Borrador con Copiloto IA"
+  subtitle="Crea enunciado, solución de referencia y casos de prueba sellados por el Juez Virtual"
+  maxWidth="600px"
+  [disableClose]="isGenerating()"
+  (close)="closed.emit()"
+>
+  <svg modal-icon lucideSparkles class="icon"></svg>
+
+  @if (errorMessage(); as error) {
+    <div class="error-banner" role="alert">
+      <svg lucideAlertTriangle class="error-icon"></svg>
+      <span>{{ error }}</span>
+    </div>
+  }
+
+  @if (generatedResult(); as res) {
+    <!-- Paso B: previsualización del sello antes de aplicar -->
+    <div class="modal-body-form preview-step">
+      <div class="preview-summary">
+        <span class="preview-title">{{ res.title }}</span>
+        <span class="preview-meta">
+          {{ res.test_cases.length }} caso(s) de prueba ·
+          <code class="font-mono">{{ res.latency_ms }} ms</code>
+        </span>
+      </div>
+
+      @if (res.runner_verified_all) {
+        <div class="seal-banner seal-ok" role="status">
+          <svg lucideShieldCheck class="seal-icon"></svg>
+          <span>Salidas esperadas selladas por el ejecutor del Juez Virtual (100% casos verificados)</span>
+        </div>
+      } @else {
+        <div class="seal-banner seal-warning" role="status">
+          <svg lucideAlertTriangle class="seal-icon"></svg>
+          <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Juez Virtual. Revisa las salidas esperadas antes de aplicar.' }}</span>
+        </div>
+      }
+    </div>
+  } @else {
+    <!-- Paso A: formulario de generación -->
+    <div class="modal-body-form">
+      <form-field label="Consigna pedagógica" for="ai-prompt" [required]="true" hint="Describe el tema del ejercicio (5 a 1500 caracteres).">
+        <textarea
+          id="ai-prompt"
+          class="form-textarea"
+          rows="3"
+          placeholder="Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos..."
+          [ngModel]="prompt()"
+          (ngModelChange)="onPromptChange($event)"
+          name="prompt"
+        ></textarea>
+      </form-field>
+
+      <form-field label="Lenguaje de ejecución" for="ai-language">
+        <div class="chip-group" role="radiogroup" aria-label="Lenguaje de ejecución">
+          @for (lang of languageOptions; track lang) {
+            <button
+              type="button"
+              class="choice-chip"
+              [class.selected]="language() === lang"
+              role="radio"
+              [attr.aria-checked]="language() === lang"
+              (click)="language.set(lang)"
+            >
+              {{ lang }}
+            </button>
+          }
+        </div>
+      </form-field>
+
+      <form-field label="Dificultad" for="ai-difficulty">
+        <div class="pill-group" role="radiogroup" aria-label="Dificultad">
+          @for (opt of difficultyOptions; track opt.value) {
+            <button
+              type="button"
+              class="radio-pill"
+              [class.selected]="difficulty() === opt.value"
+              role="radio"
+              [attr.aria-checked]="difficulty() === opt.value"
+              (click)="difficulty.set(opt.value)"
+            >
+              {{ opt.label }}
+            </button>
+          }
+        </div>
+      </form-field>
+
+      <div class="count-row">
+        <form-field label="Casos públicos" for="ai-public-count" hint="1 a 5">
+          <input
+            id="ai-public-count"
+            type="number"
+            min="1"
+            max="5"
+            class="form-input"
+            [ngModel]="publicCasesCount()"
+            (ngModelChange)="onPublicCountChange(+$event)"
+            name="publicCasesCount"
+          />
+        </form-field>
+
+        <form-field label="Casos ocultos" for="ai-hidden-count" hint="1 a 10">
+          <input
+            id="ai-hidden-count"
+            type="number"
+            min="1"
+            max="10"
+            class="form-input"
+            [ngModel]="hiddenCasesCount()"
+            (ngModelChange)="onHiddenCountChange(+$event)"
+            name="hiddenCasesCount"
+          />
+        </form-field>
+      </div>
+    </div>
+  }
+
+  <div modal-footer class="modal-footer-actions">
+    @if (generatedResult()) {
+      <button type="button" class="btn-outline" [disabled]="isGenerating()" (click)="discardResult()">
+        Volver a editar
+      </button>
+      <button type="button" class="btn-primary" [disabled]="isGenerating()" (click)="applyDraft()">
+        Aplicar Borrador al Editor
+      </button>
+    } @else {
+      <button type="button" class="btn-outline" [disabled]="isGenerating()" (click)="closed.emit()">
+        Cancelar
+      </button>
+      <button type="button" class="btn-primary" [disabled]="isGenerating()" (click)="generate()">
+        @if (isGenerating()) {
+          Generando y verificando con el Juez...
+        } @else {
+          Generar y Verificar con el Juez
+        }
+      </button>
+    }
+  </div>
+</modal-shell>

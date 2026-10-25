@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { LucideBoxes, LucideAlertTriangle } from '@lucide/angular';
+import { LucideBoxes, LucideAlertTriangle, LucideSparkles } from '@lucide/angular';
+import { AdminConfigIaService } from '../../../../../configuracion/admin-config-ia.service';
 import {
   AdminTemplatesService,
   ComponentLayer,
@@ -73,13 +74,15 @@ export {
     CatalogPresetGridComponent,
     SmartIconPickerComponent,
     LucideBoxes,
-    LucideAlertTriangle
+    LucideAlertTriangle,
+    LucideSparkles
   ],
   templateUrl: './component-form-modal.component.html',
   styleUrls: ['./component-form-modal.component.scss']
 })
 export class ComponentFormModalComponent implements OnInit {
   private readonly templatesService = inject(AdminTemplatesService);
+  private readonly aiService = inject(AdminConfigIaService);
 
   @Input() defaultLayer: ComponentLayer = 'addon';
   @Input() defaultSubCategory: 'backend' | 'web' = 'backend';
@@ -136,6 +139,12 @@ export class ComponentFormModalComponent implements OnInit {
 
   readonly isSubmitting = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
+
+  readonly aiEnabled = signal<boolean>(false);
+  readonly aiPrompt = signal<string>('');
+  readonly isGeneratingAi = signal<boolean>(false);
+  readonly aiRationale = signal<string | null>(null);
+  readonly aiLatencyMs = signal<number | null>(null);
 
   readonly ecosystemProfileOptions: ComboboxOption<string>[] = OFFICIAL_ECOSYSTEM_PROFILES.map(p => ({
     id: p.id,
@@ -322,6 +331,11 @@ export class ComponentFormModalComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    this.aiService.getStatus().subscribe({
+      next: (s) => this.aiEnabled.set(!!s?.enabled),
+      error: () => this.aiEnabled.set(false)
+    });
+
     this.isContextLocked.set(this.lockContext && !this.editingComponent);
 
     if (this.editingComponent) {
@@ -471,6 +485,60 @@ export class ComponentFormModalComponent implements OnInit {
     } else {
       this.baseImage.set('');
     }
+  }
+
+  generateWithAi(): void {
+    const prompt = this.aiPrompt().trim();
+    if (prompt.length < 3 || this.isGeneratingAi()) {
+      return;
+    }
+
+    this.isGeneratingAi.set(true);
+    this.errorMessage.set(null);
+    this.aiRationale.set(null);
+
+    this.aiService
+      .suggestComponent({
+        prompt,
+        layer: this.layer(),
+        target_runtime: this.compatibleRuntime() || undefined
+      })
+      .subscribe({
+        next: (res) => {
+          this.onSelectCustomMode();
+          if (res.component.name) this.name.set(res.component.name);
+          if (res.component.description) this.description.set(res.component.description);
+          if (res.component.icon_key) this.iconKey.set(res.component.icon_key);
+          if (res.component.base_image) this.baseImage.set(res.component.base_image);
+          if (res.component.install_mode) {
+            this.installMode.set(res.component.install_mode as InstallMode);
+            this.installPreset.set(res.component.install_mode);
+          }
+          if (res.component.package_names?.length) {
+            this.packageNamesInput.set(res.component.package_names.join(', '));
+          }
+          if (res.component.tools_provided?.length) {
+            this.toolsProvidedInput.set(res.component.tools_provided.join(', '));
+          }
+          if (res.component.judge_entrypoint) {
+            this.judgeEntrypoint.set(res.component.judge_entrypoint);
+          }
+          if (typeof res.component.ram_delta_mb === 'number') {
+            this.ramDeltaMB.set(res.component.ram_delta_mb);
+          }
+          if (res.component.install_mode === 'custom' && res.component.build_layer_snippet) {
+            this.customBuildSnippet.set(res.component.build_layer_snippet);
+            this.showExpertMode.set(true);
+          }
+          this.aiRationale.set(res.rationale);
+          this.aiLatencyMs.set(res.latency_ms);
+          this.isGeneratingAi.set(false);
+        },
+        error: (err: unknown) => {
+          this.errorMessage.set(this.aiService.resolveError(err));
+          this.isGeneratingAi.set(false);
+        }
+      });
   }
 
   onCatalogKindChange(kind: ComponentCatalogKind): void {

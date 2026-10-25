@@ -13,6 +13,7 @@ import {
   ExercisePayloadDTO
 } from '../models/teacher.models';
 import { ExerciseContract } from './steps/step-contract/format-builder/format-builder.models';
+import type { AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
 
 interface ApiResponse<T> {
   data: T;
@@ -1042,6 +1043,34 @@ export class ExerciseEditorStore {
       this.publishError.set(msg);
       if (onError) onError(err);
     }
+  }
+
+  applyAIGeneratedDraft(draft: AIGenerateExerciseResponse): void {
+    this.metadata.update((m) => ({
+      ...m,
+      title: draft.title,
+      difficulty: (draft.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
+      language: draft.language || m.language || 'python',
+      allowed_languages: draft.language ? [draft.language] : m.allowed_languages
+    }));
+    this.statement.update((s) => ({ ...s, description: draft.description }));
+    this.referenceSolution.set(draft.reference_solution || '');
+    this.boilerplate.set(draft.boilerplate || '');
+    if (draft.language) {
+      this.boilerplates.update((b) => ({ ...b, [draft.language]: draft.boilerplate || '' }));
+    }
+    const mappedCases: TestCaseDTO[] = (draft.test_cases || []).map((tc) => ({
+      order_index: tc.order_index,
+      input: tc.input,
+      expected_output: tc.expected_output,
+      visibility: tc.visibility,
+      weight: tc.weight,
+      is_hidden: tc.visibility === 'hidden',
+      is_sample: tc.visibility === 'example'
+    }));
+    this.cases.set(mappedCases);
+    this.hasInteracted.set(true);
+    this.scheduleAutoSave();
   }
 
   resetDraft() {

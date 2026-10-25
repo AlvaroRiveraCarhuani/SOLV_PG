@@ -51,6 +51,45 @@
     />
   }
 
+  @if (!editingComponent && aiEnabled()) {
+    <div class="ai-assist-box">
+      <div class="ai-assist-header">
+        <svg lucideSparkles class="ai-icon"></svg>
+        <span class="ai-assist-title">Autocompletar con Copiloto IA</span>
+      </div>
+      <div class="ai-input-row">
+        <input
+          type="text"
+          class="form-input"
+          placeholder="Ej. PyTorch CPU y scikit-learn para Inteligencia Artificial..."
+          [ngModel]="aiPrompt()"
+          (ngModelChange)="aiPrompt.set($event)"
+          (keydown.enter)="generateWithAi()"
+        />
+        <button
+          type="button"
+          class="btn-outline ai-generate-btn"
+          (click)="generateWithAi()"
+          [disabled]="isGeneratingAi() || aiPrompt().trim().length < 3"
+        >
+          <svg lucideSparkles class="ai-btn-icon"></svg>
+          <span>{{ isGeneratingAi() ? 'Sugiriendo...' : 'Sugerir con IA' }}</span>
+        </button>
+      </div>
+
+      @if (aiRationale()) {
+        <div class="ai-rationale-banner">
+          <p class="ai-rationale-text">{{ aiRationale() }}</p>
+          @if (aiLatencyMs()) {
+            <span class="ai-latency-tag">
+              Latencia: <code class="font-mono">{{ aiLatencyMs() }} ms</code>
+            </span>
+          }
+        </div>
+      }
+    </div>
+  }
+
   <div class="form-row">
     @if (!isContextLocked()) {
       <form-field
