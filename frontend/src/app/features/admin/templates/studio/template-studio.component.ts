@@ -37,7 +37,9 @@ import {
   analyzeDockerfile,
   buildStudioDatabaseOptions,
   CapacityOption,
+  classifyAddonComponent,
   computeCompatibleAddonsForSelection,
+  computeIntensiveRamMB,
   computeMinimumFloorMBForStack,
   computeRecommendedRamMBForStack,
   computeVerificationFingerprint,
@@ -46,7 +48,9 @@ import {
   filterAndPrioritizeAddonItems,
   filterAndPrioritizeRuntimeItems,
   fnv1aHex,
+  getComponentRoleBadge,
   importBrowserTextFile,
+  isFrameworkAddon,
   StudioActionBlocker,
   StudioDatabaseOption,
   synthesizeVisualStackState
@@ -205,6 +209,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly col1SearchQuery = signal<string>('');
   readonly col2SearchQuery = signal<string>('');
+  readonly col2CategoryFilter = signal<'all' | 'framework' | 'orm' | 'toolkit'>('all');
 
   readonly filteredBackendRuntimes = computed<TemplateComponent[]>(() =>
     filterAndPrioritizeRuntimeItems(
@@ -228,6 +233,18 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.col2SearchQuery(),
       this.selectedAddonIds()
     )
+  );
+
+  readonly filteredFrameworkAddons = computed<TemplateComponent[]>(() =>
+    this.filteredCompatibleAddons().filter(a => classifyAddonComponent(a) === 'framework')
+  );
+
+  readonly filteredOrmAddons = computed<TemplateComponent[]>(() =>
+    this.filteredCompatibleAddons().filter(a => classifyAddonComponent(a) === 'orm')
+  );
+
+  readonly filteredToolkitAddons = computed<TemplateComponent[]>(() =>
+    this.filteredCompatibleAddons().filter(a => classifyAddonComponent(a) === 'toolkit')
   );
 
   readonly databaseOptions = computed<StudioDatabaseOption[]>(() =>
@@ -403,14 +420,13 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     () => !this.isVerifying() && !this.isSubmitting() && this.publishBlocker() === null
   );
 
-  readonly intensiveRamMB = computed<number>(() => {
-    const isJudge = this.targetEnvironment() === 'JUEZ_EFIMERO';
-    const rec = this.recommendedRamMB();
-    const maxAllowed = this.maxAllowedRamMB();
-    const tiers = isJudge ? [128, 256, 512, 1024] : [384, 512, 768, 1024, 1536, 2048];
-    const nextTier = tiers.find(t => t > rec) ?? rec;
-    return Math.min(nextTier, maxAllowed);
-  });
+  readonly intensiveRamMB = computed<number>(() =>
+    computeIntensiveRamMB({
+      isJudge: this.targetEnvironment() === 'JUEZ_EFIMERO',
+      recommendedRamMB: this.recommendedRamMB(),
+      maxAllowedRamMB: this.maxAllowedRamMB()
+    })
+  );
 
   readonly capacityOptions = computed<CapacityOption[]>(() => {
     if (!this.hasSelectedStack()) return [];
@@ -626,11 +642,27 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   selectRuntime(id: string): void {
     this.hasCustomDockerfile.set(false);
     this.col2SearchQuery.set('');
+    this.col2CategoryFilter.set('all');
+    this.isRamManuallyEdited.set(false);
     const next = this.selectedRuntimeId() === id ? null : id;
     this.selectedRuntimeId.set(next);
     const validIds = new Set(this.compatibleAddons().map(a => a.id));
     const validSlugs = new Set(this.compatibleAddons().map(a => a.slug));
-    this.selectedAddonIds.update(curr => curr.filter(x => validIds.has(x) || validSlugs.has(x)));
+    const allComponents = this.techComponents();
+    let hasFramework = false;
+    this.selectedAddonIds.update(curr => {
+      const valid = curr.filter(x => validIds.has(x) || validSlugs.has(x));
+      return valid.filter(addonId => {
+        const comp = allComponents.find(c => c.id === addonId || c.slug === addonId);
+        if (comp && isFrameworkAddon(comp)) {
+          if (hasFramework) {
+            return false;
+          }
+          hasFramework = true;
+        }
+        return true;
+      });
+    });
     this.recalculateFromVisualSelection();
   }
 
@@ -710,6 +742,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   selectWebPlatform(id: string | null): void {
     this.hasCustomDockerfile.set(false);
     this.col2SearchQuery.set('');
+    this.col2CategoryFilter.set('all');
     const next = this.selectedWebPlatformId() === id ? null : id;
     this.selectedWebPlatformId.set(next);
     const validIds = new Set(this.compatibleAddons().map(a => a.id));
@@ -718,13 +751,42 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.recalculateFromVisualSelection();
   }
 
+  getRoleBadge(comp: TemplateComponent | StudioDatabaseOption): string {
+    return getComponentRoleBadge(comp);
+  }
+
   toggleAddon(id: string): void {
-    this.selectedAddonIds.update(curr => (curr.includes(id) ? curr.filter(x => x !== id) : [...curr, id]));
+    const isCurrentlySelected = this.isAddonSelected(id);
+    if (isCurrentlySelected) {
+      const comp = this.techComponents().find(c => c.id === id || c.slug === id);
+      const toRemove = new Set<string>(comp ? [comp.id, comp.slug] : [id]);
+      this.selectedAddonIds.update(curr => curr.filter(x => !toRemove.has(x)));
+    } else {
+      const compToSelect = this.techComponents().find(c => c.id === id || c.slug === id);
+      if (compToSelect && isFrameworkAddon(compToSelect)) {
+        const allComponents = this.techComponents();
+        this.selectedAddonIds.update(curr => {
+          const nonFrameworks = curr.filter(currId => {
+            const c = allComponents.find(item => item.id === currId || item.slug === currId);
+            return !c || !isFrameworkAddon(c);
+          });
+          return [...nonFrameworks, id];
+        });
+      } else {
+        this.selectedAddonIds.update(curr => [...curr, id]);
+      }
+    }
     this.recalculateFromVisualSelection();
   }
 
   isAddonSelected(id: string): boolean {
-    return this.selectedAddonIds().includes(id);
+    const ids = this.selectedAddonIds();
+    if (ids.includes(id)) return true;
+    const comp = this.techComponents().find(c => c.id === id || c.slug === id);
+    if (comp) {
+      return ids.includes(comp.id) || ids.includes(comp.slug);
+    }
+    return false;
   }
 
   selectDatabase(id: string): void {
@@ -740,7 +802,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   selectRamPreset(mb: number): void {
-    this.isRamManuallyEdited.set(true);
+    this.isRamManuallyEdited.set(mb !== this.recommendedRamMB());
     this.baseRamMB.set(mb);
     if (this.activeEnvTestJob()?.status !== 'success') {
       this.activeEnvTestJob.set(null);
@@ -773,6 +835,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.entrypoint.set('');
       this.activeEnvTestJob.set(null);
       this.verifiedFingerprint.set(null);
+      if (!this.isRamManuallyEdited()) {
+        this.baseRamMB.set(512);
+      }
       return;
     }
 
@@ -800,7 +865,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     if (!this.isRamManuallyEdited() || this.baseRamMB() < this.minimumFloorMB()) {
       this.baseRamMB.set(this.recommendedRamMB());
-      this.isRamManuallyEdited.set(false);
+      if (this.baseRamMB() < this.minimumFloorMB()) {
+        this.isRamManuallyEdited.set(false);
+      }
     }
   }
 

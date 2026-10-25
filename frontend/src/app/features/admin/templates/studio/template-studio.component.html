@@ -116,12 +116,10 @@
                     (keydown.enter)="selectRuntime(rt.id)"
                     (keydown.space)="selectRuntime(rt.id); $event.preventDefault()"
                   >
-                    <div class="comp-main">
-                      <tech-logo [iconType]="rt.icon_key" [size]="30" />
-                      <div class="comp-text">
-                        <strong class="comp-name">{{ rt.name }}</strong>
-                        <span class="comp-desc">{{ rt.description }}</span>
-                      </div>
+                    <div class="comp-compact-row">
+                      <tech-logo [iconType]="rt.icon_key" [size]="22" />
+                      <span class="comp-name">{{ rt.name }}</span>
+                      <span class="comp-role-badge">{{ getRoleBadge(rt) }}</span>
                       <button
                         type="button"
                         class="comp-edit-btn"
@@ -131,6 +129,23 @@
                         <svg lucidePencil class="comp-edit-icon"></svg>
                       </button>
                     </div>
+                    @if (selectedRuntimeComponent()?.id === rt.id) {
+                      <div class="comp-expanded-content">
+                        @if (rt.description) {
+                          <p class="comp-desc">{{ rt.description }}</p>
+                        }
+                        @if (rt.tools_provided && rt.tools_provided.length > 0) {
+                          <div class="comp-tools-row">
+                            <span class="comp-tools-label">Herramientas:</span>
+                            <div class="comp-tools-tags">
+                              @for (tool of rt.tools_provided; track tool) {
+                                <span class="comp-tool-tag" machineData>{{ tool }}</span>
+                              }
+                            </div>
+                          </div>
+                        }
+                      </div>
+                    }
                   </div>
                 } @empty {
                   <p class="empty-col-hint">
@@ -159,12 +174,10 @@
                       (keydown.enter)="selectWebPlatform(web.id)"
                       (keydown.space)="selectWebPlatform(web.id); $event.preventDefault()"
                     >
-                      <div class="comp-main">
-                        <tech-logo [iconType]="web.icon_key" [size]="30" />
-                        <div class="comp-text">
-                          <strong class="comp-name">{{ web.name }}</strong>
-                          <span class="comp-desc">{{ web.description }}</span>
-                        </div>
+                      <div class="comp-compact-row">
+                        <tech-logo [iconType]="web.icon_key" [size]="22" />
+                        <span class="comp-name">{{ web.name }}</span>
+                        <span class="comp-role-badge">{{ getRoleBadge(web) }}</span>
                         <button
                           type="button"
                           class="comp-edit-btn"
@@ -174,6 +187,23 @@
                           <svg lucidePencil class="comp-edit-icon"></svg>
                         </button>
                       </div>
+                      @if (selectedWebComponent()?.id === web.id) {
+                        <div class="comp-expanded-content">
+                          @if (web.description) {
+                            <p class="comp-desc">{{ web.description }}</p>
+                          }
+                          @if (web.tools_provided && web.tools_provided.length > 0) {
+                            <div class="comp-tools-row">
+                              <span class="comp-tools-label">Herramientas:</span>
+                              <div class="comp-tools-tags">
+                                @for (tool of web.tools_provided; track tool) {
+                                  <span class="comp-tool-tag" machineData>{{ tool }}</span>
+                                }
+                              </div>
+                            </div>
+                          }
+                        </div>
+                      }
                     </div>
                   } @empty {
                     <p class="empty-col-hint">
@@ -216,6 +246,43 @@
                 </div>
               }
 
+              @if (effectivePrimaryComponent() && compatibleAddons().length > 0) {
+                <div class="col2-filter-pills" role="tablist" aria-label="Filtro de complementos">
+                  <button
+                    type="button"
+                    class="filter-pill-btn"
+                    [class.active]="col2CategoryFilter() === 'all'"
+                    (click)="col2CategoryFilter.set('all')"
+                  >
+                    Todos
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill-btn"
+                    [class.active]="col2CategoryFilter() === 'framework'"
+                    (click)="col2CategoryFilter.set('framework')"
+                  >
+                    Frameworks (máx. 1)
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill-btn"
+                    [class.active]="col2CategoryFilter() === 'orm'"
+                    (click)="col2CategoryFilter.set('orm')"
+                  >
+                    BD y ORMs
+                  </button>
+                  <button
+                    type="button"
+                    class="filter-pill-btn"
+                    [class.active]="col2CategoryFilter() === 'toolkit'"
+                    (click)="col2CategoryFilter.set('toolkit')"
+                  >
+                    Kits y Pruebas
+                  </button>
+                </div>
+              }
+
               <div class="column-body">
                 @if (effectivePrimaryComponent(); as primary) {
                   <span class="sub-group-label">
@@ -229,35 +296,161 @@
                     }
                   </span>
 
-                  @for (addon of filteredCompatibleAddons(); track addon.id) {
-                    <div
-                      class="tech-component-card"
-                      role="button"
-                      tabindex="0"
-                      [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
-                      (click)="toggleAddon(addon.id)"
-                      (keydown.enter)="toggleAddon(addon.id)"
-                      (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
-                    >
-                      <div class="comp-main">
-                        <tech-logo [iconType]="addon.icon_key" [size]="30" />
-                        <div class="comp-text">
-                          <strong class="comp-name">{{ addon.name }}</strong>
-                          <span class="comp-desc">{{ addon.description }}</span>
-                        </div>
-                        <button
-                          type="button"
-                          class="comp-edit-btn"
-                          title="Editar tecnología"
-                          (click)="$event.stopPropagation(); openEditComponentModal(addon)"
-                        >
-                          <svg lucidePencil class="comp-edit-icon"></svg>
-                        </button>
-                      </div>
+                  <!-- Grupo 1: Frameworks Principales (Elija hasta 1) -->
+                  @if ((col2CategoryFilter() === 'all' || col2CategoryFilter() === 'framework') && filteredFrameworkAddons().length > 0) {
+                    <div class="sub-group-header mt-group">
+                      <span class="sub-group-label">Frameworks Principales (Elija hasta 1)</span>
                     </div>
-                  } @empty {
+                    @for (addon of filteredFrameworkAddons(); track addon.id) {
+                      <div
+                        class="tech-component-card"
+                        role="button"
+                        tabindex="0"
+                        [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                        (click)="toggleAddon(addon.id)"
+                        (keydown.enter)="toggleAddon(addon.id)"
+                        (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
+                      >
+                        <div class="comp-compact-row">
+                          <tech-logo [iconType]="addon.icon_key" [size]="22" />
+                          <span class="comp-name">{{ addon.name }}</span>
+                          <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar tecnología"
+                            (click)="$event.stopPropagation(); openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
+                        </div>
+                        @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                          <div class="comp-expanded-content">
+                            @if (addon.description) {
+                              <p class="comp-desc">{{ addon.description }}</p>
+                            }
+                            @if (addon.tools_provided && addon.tools_provided.length > 0) {
+                              <div class="comp-tools-row">
+                                <span class="comp-tools-label">Herramientas:</span>
+                                <div class="comp-tools-tags">
+                                  @for (tool of addon.tools_provided; track tool) {
+                                    <span class="comp-tool-tag" machineData>{{ tool }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+
+                  <!-- Grupo 2: ORMs y Conectores de Datos -->
+                  @if ((col2CategoryFilter() === 'all' || col2CategoryFilter() === 'orm') && filteredOrmAddons().length > 0) {
+                    <div class="sub-group-header mt-group">
+                      <span class="sub-group-label">ORMs y Conectores de Datos</span>
+                    </div>
+                    @for (addon of filteredOrmAddons(); track addon.id) {
+                      <div
+                        class="tech-component-card"
+                        role="button"
+                        tabindex="0"
+                        [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                        (click)="toggleAddon(addon.id)"
+                        (keydown.enter)="toggleAddon(addon.id)"
+                        (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
+                      >
+                        <div class="comp-compact-row">
+                          <tech-logo [iconType]="addon.icon_key" [size]="22" />
+                          <span class="comp-name">{{ addon.name }}</span>
+                          <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar tecnología"
+                            (click)="$event.stopPropagation(); openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
+                        </div>
+                        @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                          <div class="comp-expanded-content">
+                            @if (addon.description) {
+                              <p class="comp-desc">{{ addon.description }}</p>
+                            }
+                            @if (addon.tools_provided && addon.tools_provided.length > 0) {
+                              <div class="comp-tools-row">
+                                <span class="comp-tools-label">Herramientas:</span>
+                                <div class="comp-tools-tags">
+                                  @for (tool of addon.tools_provided; track tool) {
+                                    <span class="comp-tool-tag" machineData>{{ tool }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+
+                  <!-- Grupo 3: Kits y Herramientas Académicas -->
+                  @if ((col2CategoryFilter() === 'all' || col2CategoryFilter() === 'toolkit') && filteredToolkitAddons().length > 0) {
+                    <div class="sub-group-header mt-group">
+                      <span class="sub-group-label">Kits y Herramientas Académicas</span>
+                    </div>
+                    @for (addon of filteredToolkitAddons(); track addon.id) {
+                      <div
+                        class="tech-component-card"
+                        role="button"
+                        tabindex="0"
+                        [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                        (click)="toggleAddon(addon.id)"
+                        (keydown.enter)="toggleAddon(addon.id)"
+                        (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
+                      >
+                        <div class="comp-compact-row">
+                          <tech-logo [iconType]="addon.icon_key" [size]="22" />
+                          <span class="comp-name">{{ addon.name }}</span>
+                          <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar tecnología"
+                            (click)="$event.stopPropagation(); openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
+                        </div>
+                        @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                          <div class="comp-expanded-content">
+                            @if (addon.description) {
+                              <p class="comp-desc">{{ addon.description }}</p>
+                            }
+                            @if (addon.tools_provided && addon.tools_provided.length > 0) {
+                              <div class="comp-tools-row">
+                                <span class="comp-tools-label">Herramientas:</span>
+                                <div class="comp-tools-tags">
+                                  @for (tool of addon.tools_provided; track tool) {
+                                    <span class="comp-tool-tag" machineData>{{ tool }}</span>
+                                  }
+                                </div>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
+
+                  @if (
+                    (col2CategoryFilter() === 'all' && filteredCompatibleAddons().length === 0) ||
+                    (col2CategoryFilter() === 'framework' && filteredFrameworkAddons().length === 0) ||
+                    (col2CategoryFilter() === 'orm' && filteredOrmAddons().length === 0) ||
+                    (col2CategoryFilter() === 'toolkit' && filteredToolkitAddons().length === 0)
+                  ) {
                     <p class="empty-col-hint">
-                      {{ col2SearchQuery().trim() ? 'No hay complementos que coincidan con la búsqueda.' : 'No hay complementos adicionales registrados para esta tecnología. Puede agregar uno con "+ Nuevo".' }}
+                      {{ col2SearchQuery().trim() ? 'No hay complementos que coincidan con la búsqueda.' : 'No hay complementos en esta categoría para la tecnología seleccionada.' }}
                     </p>
                   }
                 } @else {
@@ -286,20 +479,23 @@
                       [class.selected]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
                       (click)="selectDatabase(db.id)"
                     >
-                      <div class="comp-main">
-                        <tech-logo [iconType]="db.icon_key" [size]="30" />
-                        <div class="comp-text">
-                          <div class="comp-title-row">
-                            <strong class="comp-name">{{ db.name }}</strong>
-                            @if (db.service_engine !== 'none') {
-                              <span class="comp-ram-badge" machineData>
-                                {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
-                              </span>
-                            }
-                          </div>
-                          <span class="comp-desc">{{ db.description }}</span>
-                        </div>
+                      <div class="comp-compact-row">
+                        <tech-logo [iconType]="db.icon_key" [size]="22" />
+                        <span class="comp-name">{{ db.name }}</span>
+                        @if (db.service_engine !== 'none') {
+                          <span class="comp-ram-badge" machineData>
+                            {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
+                          </span>
+                        }
+                        <span class="comp-role-badge">{{ getRoleBadge(db) }}</span>
                       </div>
+                      @if (selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine) {
+                        <div class="comp-expanded-content">
+                          @if (db.description) {
+                            <p class="comp-desc">{{ db.description }}</p>
+                          }
+                        </div>
+                      }
                     </button>
                   }
                 </div>

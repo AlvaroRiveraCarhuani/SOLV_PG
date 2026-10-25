@@ -322,6 +322,24 @@ export const OFFICIAL_WEB_PROFILES: OfficialWebProfile[] = [
     ],
     toolsProvided: ['node', 'npm', 'npx'],
     memoryProfile: 'light'
+  },
+  {
+    id: 'nextjs-web',
+    name: 'Next.js (React Full-Stack)',
+    nameTemplate: 'Next.js {version} (React Full-Stack)',
+    description: 'Framework React full-stack con renderizado híbrido, server actions y soporte TypeScript',
+    iconKey: 'react',
+    baseImage: 'node:20-bookworm-slim',
+    installPreset: 'npm',
+    packageNames: ['create-next-app', 'typescript'],
+    packageTemplate: ['create-next-app@{version}', 'typescript'],
+    defaultVersion: '14',
+    suggestedVersions: [
+      { version: '15', label: 'Next.js 15 (Reciente)' },
+      { version: '14', label: 'Next.js 14 LTS (Recomendada)', isDefault: true }
+    ],
+    toolsProvided: ['node', 'npm', 'npx'],
+    memoryProfile: 'standard'
   }
 ];
 
@@ -427,7 +445,7 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
   },
   {
     id: 'spring-maven',
-    name: 'Maven + Gestión Java',
+    name: 'Apache Maven (Proyectos Java / Spring)',
     description: 'Gestor de dependencias y construcción de proyectos para ecosistemas Java y Spring',
     iconKey: 'spring',
     compatibleFamilies: ['java'],
@@ -445,6 +463,270 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
     installPreset: 'composer',
     packageNames: ['laravel/installer'],
     toolsProvided: ['php'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-sqlalchemy',
+    name: 'SQLAlchemy ORM + SQLite/Postgres',
+    description: 'Toolkit SQL y mapeador objeto-relacional (ORM) para Python con soporte asíncrono y migraciones Alembic',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['sqlalchemy', 'alembic', 'psycopg2-binary'],
+    toolsProvided: ['python3', 'alembic'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-nosql-clients',
+    name: 'Clientes NoSQL (Redis + PyMongo)',
+    description: 'Controladores oficiales de conexión para bases de datos NoSQL Redis y MongoDB en Python',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['redis', 'pymongo'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-ml',
+    name: 'Machine Learning (Scikit-Learn + PyTorch)',
+    description: 'Bibliotecas para aprendizaje automático, algoritmos predictivos y computación tensorial',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['scikit-learn', 'torch', 'torchvision'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'heavy'
+  },
+  {
+    id: 'python-testing-ruff',
+    name: 'Calidad y Pruebas (Pytest + Ruff)',
+    description: 'Framework de pruebas unitarias pytest con linter y formateador ultrarrápido ruff',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['pytest', 'pytest-cov', 'ruff'],
+    toolsProvided: ['pytest', 'ruff'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'java-springboot',
+    name: 'Spring Boot Framework',
+    description: 'Framework empresarial en Java para microservicios y APIs REST con servidor web integrado',
+    iconKey: 'spring',
+    compatibleFamilies: ['java'],
+    installPreset: 'apt',
+    packageNames: ['default-jdk'],
+    toolsProvided: ['java', 'javac'],
+    memoryProfile: 'devserver'
+  },
+  {
+    id: 'java-hibernate-jdbc',
+    name: 'Hibernate ORM & Drivers JDBC',
+    description: 'Mapeador objeto-relacional JPA/Hibernate con conectores PostgreSQL, MySQL y SQLite',
+    iconKey: 'java',
+    compatibleFamilies: ['java'],
+    installPreset: 'apt',
+    packageNames: ['libpostgresql-jdbc-java'],
+    toolsProvided: ['java'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'java-gradle',
+    name: 'Gradle Build Tool',
+    description: 'Sistema de automatización de compilación y gestión de dependencias de alto rendimiento para Java y Kotlin',
+    iconKey: 'java',
+    compatibleFamilies: ['java'],
+    installPreset: 'apt',
+    packageNames: ['gradle'],
+    toolsProvided: ['gradle'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'java-junit5',
+    name: 'Pruebas Unitarias (JUnit 5 + AssertJ)',
+    description: 'Ecosistema canónico de pruebas unitarias y aserciones para proyectos Java orientados a objetos',
+    iconKey: 'java',
+    compatibleFamilies: ['java'],
+    installPreset: 'apt',
+    packageNames: ['junit5'],
+    toolsProvided: ['java'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'node-express',
+    name: 'Express.js',
+    description: 'Micro-framework rápido y minimalista para construcción de APIs REST y servicios web en Node.js',
+    iconKey: 'node',
+    compatibleFamilies: ['node', 'web'],
+    installPreset: 'npm',
+    packageNames: ['express', 'cors'],
+    toolsProvided: ['node', 'npm'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'node-nestjs',
+    name: 'NestJS Framework',
+    description: 'Framework progresivo TypeScript para desarrollo de arquitecturas empresariales y microservicios escalables',
+    iconKey: 'node',
+    compatibleFamilies: ['node', 'web'],
+    installPreset: 'npm',
+    packageNames: ['@nestjs/cli'],
+    toolsProvided: ['nest', 'node'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'node-prisma',
+    name: 'Prisma ORM',
+    description: 'ORM de tipado estático con generador de esquemas, migraciones declarativas y cliente de base de datos',
+    iconKey: 'node',
+    compatibleFamilies: ['node', 'web'],
+    installPreset: 'npm',
+    packageNames: ['prisma', '@prisma/client'],
+    toolsProvided: ['prisma', 'node'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'node-typeorm',
+    name: 'TypeORM',
+    description: 'ORM tradicional con soporte para patrones Data Mapper y Active Record en TypeScript y JavaScript',
+    iconKey: 'node',
+    compatibleFamilies: ['node', 'web'],
+    installPreset: 'npm',
+    packageNames: ['typeorm', 'reflect-metadata'],
+    toolsProvided: ['typeorm', 'node'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'node-vitest-jest',
+    name: 'Testing (Vitest + Jest)',
+    description: 'Entorno de pruebas unitarias y de integración de alta velocidad compatible con TypeScript',
+    iconKey: 'node',
+    compatibleFamilies: ['node', 'web'],
+    installPreset: 'npm',
+    packageNames: ['vitest', 'jest'],
+    toolsProvided: ['vitest', 'node'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'cpp-sql-drivers',
+    name: 'Drivers SQL (libpq + SQLite3 Dev)',
+    description: 'Bibliotecas cliente nativas y cabeceras para conexión a PostgreSQL y SQLite en C y C++',
+    iconKey: 'cpp',
+    compatibleFamilies: ['c', 'cpp'],
+    installPreset: 'apt',
+    packageNames: ['libpq-dev', 'libsqlite3-dev'],
+    toolsProvided: ['pkg-config'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'cpp-openmp',
+    name: 'Concurrencia OpenMP & TBB',
+    description: 'Bibliotecas y directivas de compilador para programación paralela, memoria compartida y multiprocesamiento',
+    iconKey: 'cpp',
+    compatibleFamilies: ['c', 'cpp'],
+    installPreset: 'apt',
+    packageNames: ['libomp-dev', 'libtbb-dev'],
+    toolsProvided: ['gcc', 'g++'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'go-gin-chi',
+    name: 'Gin & Chi Web Frameworks',
+    description: 'Micro-frameworks web ultrarrápidos y enrutamiento HTTP modular para desarrollo de microservicios en Go',
+    iconKey: 'go',
+    compatibleFamilies: ['go'],
+    installPreset: 'go',
+    packageNames: ['github.com/gin-gonic/gin@latest', 'github.com/go-chi/chi/v5@latest'],
+    toolsProvided: ['go'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'go-gorm',
+    name: 'GORM & Drivers SQL',
+    description: 'ORM completo para Go con soporte de transacciones, asociaciones y migraciones automáticas',
+    iconKey: 'go',
+    compatibleFamilies: ['go'],
+    installPreset: 'go',
+    packageNames: ['gorm.io/gorm@latest', 'gorm.io/driver/postgres@latest', 'gorm.io/driver/sqlite@latest'],
+    toolsProvided: ['go'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'go-golangci-lint',
+    name: 'Calidad y Linters (GolangCI-Lint)',
+    description: 'Agregador oficial de linters de código estático y análisis de concurrencia para proyectos Go',
+    iconKey: 'go',
+    compatibleFamilies: ['go'],
+    installPreset: 'apt',
+    packageNames: ['golangci-lint'],
+    toolsProvided: ['golangci-lint'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'rust-axum',
+    name: 'Axum Web Framework',
+    description: 'Framework web modular y ergonómico diseñado para el ecosistema asíncrono Tokio y Tower',
+    iconKey: 'rust',
+    compatibleFamilies: ['rust'],
+    installPreset: 'cargo',
+    packageNames: ['axum', 'tokio'],
+    toolsProvided: ['cargo'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'rust-sqlx',
+    name: 'SQLx Async ORM',
+    description: 'Framework asíncrono de SQL puro para Rust con validación de consultas en tiempo de compilación',
+    iconKey: 'rust',
+    compatibleFamilies: ['rust'],
+    installPreset: 'cargo',
+    packageNames: ['sqlx-cli'],
+    toolsProvided: ['cargo', 'sqlx'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'rust-clippy',
+    name: 'Herramientas de Calidad (Clippy + Rustfmt)',
+    description: 'Herramientas oficiales de buenas prácticas, linter de rendimiento y formateo canónico de Rust',
+    iconKey: 'rust',
+    compatibleFamilies: ['rust'],
+    installPreset: 'cargo',
+    packageNames: ['clippy'],
+    toolsProvided: ['cargo-clippy', 'rustfmt'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'dotnet-aspnet',
+    name: 'ASP.NET Core Web APIs',
+    description: 'Framework de alto rendimiento para creación de APIs REST y servicios web modernos con C# y .NET',
+    iconKey: 'dotnet',
+    compatibleFamilies: ['dotnet'],
+    installPreset: 'dotnet',
+    packageNames: ['Microsoft.AspNetCore.App'],
+    toolsProvided: ['dotnet'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'dotnet-ef',
+    name: 'Entity Framework Core (EF Core)',
+    description: 'Herramienta oficial de migración y mapeo objeto-relacional para aplicaciones de datos en .NET',
+    iconKey: 'dotnet',
+    compatibleFamilies: ['dotnet'],
+    installPreset: 'dotnet',
+    packageNames: ['dotnet-ef'],
+    toolsProvided: ['dotnet-ef', 'dotnet'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'dotnet-xunit',
+    name: 'Pruebas Unitarias (xUnit + Moq)',
+    description: 'Framework de pruebas unitarias y biblioteca de simulación de dependencias (mocking) para C#',
+    iconKey: 'dotnet',
+    compatibleFamilies: ['dotnet'],
+    installPreset: 'dotnet',
+    packageNames: ['xunit', 'moq'],
+    toolsProvided: ['dotnet'],
     memoryProfile: 'library'
   }
 ];

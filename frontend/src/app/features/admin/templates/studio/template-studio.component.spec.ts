@@ -8,6 +8,11 @@ import { AdminTemplatesService } from '../../services/admin-templates.service';
 import { AdminTemplateItem, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJobService } from '../../services/env-test-job.service';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
+import { classifyAddonComponent } from './template-studio.utils';
+import {
+  OFFICIAL_ADDON_PRESETS,
+  OFFICIAL_WEB_PROFILES
+} from '../components/model-library/components/component-form-modal/component-catalog.presets';
 
 const MOCK_CATALOG_ITEMS: TemplateComponent[] = [
   {
@@ -1578,6 +1583,259 @@ describe('TemplateStudioComponent', () => {
       // Julia en IDE -> 1024 MB
       component.setTargetEnvironment('IDE_PERSISTENTE');
       expect(component.recommendedRamMB()).toBe(1024);
+    });
+  });
+
+  describe('Column 2 Grouping, Quick Filter Pills, and Mutual Exclusion', () => {
+    it('should initialize col2CategoryFilter with "all" and filter groups accordingly', () => {
+      expect(component.col2CategoryFilter()).toBe('all');
+
+      component.col2CategoryFilter.set('framework');
+      expect(component.col2CategoryFilter()).toBe('framework');
+
+      component.col2CategoryFilter.set('orm');
+      expect(component.col2CategoryFilter()).toBe('orm');
+
+      component.col2CategoryFilter.set('toolkit');
+      expect(component.col2CategoryFilter()).toBe('toolkit');
+    });
+
+    it('should reset col2CategoryFilter to "all" when selecting runtime or web platform', () => {
+      component.col2CategoryFilter.set('framework');
+      component.selectRuntime('rt-python-312');
+      expect(component.col2CategoryFilter()).toBe('all');
+
+      component.col2CategoryFilter.set('orm');
+      component.selectWebPlatform('web-angular');
+      expect(component.col2CategoryFilter()).toBe('all');
+    });
+
+    it('should enforce mutual exclusion when selecting multiple framework addons', () => {
+      const djangoAddon: TemplateComponent = {
+        id: 'ad-django',
+        slug: 'django',
+        layer: 'addon',
+        sub_category: 'framework',
+        name: 'Django',
+        description: 'Django web framework',
+        icon_key: 'python',
+        base_image: '',
+        compatible_runtimes: ['python'],
+        install_mode: 'pip',
+        package_names: ['django'],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['django-admin'],
+        service_engine: '',
+        ram_delta_mb: 256,
+        is_system: true,
+        is_active: true,
+        sort_order: 10
+      };
+
+      component.techComponents.set([...MOCK_CATALOG_ITEMS, djangoAddon]);
+      component.selectRuntime('rt-python-312');
+
+      // Select FastAPI (framework)
+      component.toggleAddon('ad-fastapi');
+      expect(component.selectedAddonIds()).toContain('ad-fastapi');
+
+      // Select Django (framework) -> FastAPI must be automatically deselected
+      component.toggleAddon('ad-django');
+      expect(component.selectedAddonIds()).toContain('ad-django');
+      expect(component.selectedAddonIds()).not.toContain('ad-fastapi');
+
+      // Select non-framework addon (e.g. ad-numpy) -> Django stays selected
+      component.toggleAddon('ad-numpy');
+      expect(component.selectedAddonIds()).toContain('ad-django');
+      expect(component.selectedAddonIds()).toContain('ad-numpy');
+    });
+
+    it('should auto-tune baseRamMB when stack changes if RAM was not manually edited', () => {
+      component.selectRuntime('rt-python-312');
+      expect(component.isRamManuallyEdited()).toBe(false);
+      const initialRam = component.baseRamMB();
+      expect(initialRam).toBe(component.recommendedRamMB());
+
+      // Toggle an addon
+      component.toggleAddon('ad-fastapi');
+      expect(component.isRamManuallyEdited()).toBe(false);
+      expect(component.baseRamMB()).toBe(component.recommendedRamMB());
+
+      // If user manually customizes RAM
+      component.isRamManuallyEdited.set(true);
+      component.baseRamMB.set(1536);
+
+      // Toggle another addon: custom RAM must be preserved
+      component.toggleAddon('ad-numpy');
+      expect(component.baseRamMB()).toBe(1536);
+
+      // Switching runtime resets isRamManuallyEdited and auto-tunes
+      component.selectRuntime('rt-cpp-13');
+      expect(component.isRamManuallyEdited()).toBe(false);
+      expect(component.baseRamMB()).toBe(component.recommendedRamMB());
+    });
+  });
+
+  describe('classifyAddonComponent and Official Catalog Presets', () => {
+    it('should prioritize spring-maven slug/id as toolkit', () => {
+      const springMavenComp: TemplateComponent = {
+        id: 'spring-maven',
+        slug: 'spring-maven',
+        layer: 'addon',
+        sub_category: 'framework', // even if sub_category was set to framework
+        name: 'Apache Maven (Proyectos Java / Spring)',
+        description: 'Gestor de dependencias Maven',
+        icon_key: 'java',
+        base_image: '',
+        compatible_runtimes: ['java'],
+        install_mode: 'apt',
+        package_names: ['maven'],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['mvn'],
+        service_engine: '',
+        ram_delta_mb: 128,
+        is_system: true,
+        is_active: true,
+        sort_order: 1
+      };
+
+      expect(classifyAddonComponent(springMavenComp)).toBe('toolkit');
+    });
+
+    it('should classify by explicit sub_category before text heuristics', () => {
+      const springBootFramework: TemplateComponent = {
+        id: 'java-springboot',
+        slug: 'java-springboot',
+        layer: 'addon',
+        sub_category: 'framework',
+        name: 'Spring Boot Starter',
+        description: 'Includes maven build and spring tools',
+        icon_key: 'java',
+        base_image: '',
+        compatible_runtimes: ['java'],
+        install_mode: 'custom',
+        package_names: ['spring-boot-starter'],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: ['mvn', 'java'],
+        service_engine: '',
+        ram_delta_mb: 512,
+        is_system: true,
+        is_active: true,
+        sort_order: 2
+      };
+
+      // Even though text has 'maven', explicit sub_category: 'framework' must take precedence
+      expect(classifyAddonComponent(springBootFramework)).toBe('framework');
+
+      const connectorComp: TemplateComponent = {
+        ...springBootFramework,
+        sub_category: 'connector',
+        name: 'JDBC Driver',
+        description: ''
+      };
+      expect(classifyAddonComponent(connectorComp)).toBe('orm');
+
+      const heavyToolkit: TemplateComponent = {
+        ...springBootFramework,
+        sub_category: 'heavy',
+        name: 'Heavy Data Science Toolkit',
+        description: ''
+      };
+      expect(classifyAddonComponent(heavyToolkit)).toBe('toolkit');
+    });
+
+    it('should fall back to text heuristics when sub_category is not classified', () => {
+      const fallbackOrm: TemplateComponent = {
+        id: 'custom-comp',
+        slug: 'custom-comp',
+        layer: 'addon',
+        sub_category: '',
+        name: 'My Custom Prisma Client',
+        description: '',
+        icon_key: 'custom',
+        base_image: '',
+        compatible_runtimes: ['node'],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: [],
+        service_engine: '',
+        ram_delta_mb: 128,
+        is_system: false,
+        is_active: true,
+        sort_order: 1
+      };
+      expect(classifyAddonComponent(fallbackOrm)).toBe('orm');
+
+      const fallbackFw: TemplateComponent = {
+        ...fallbackOrm,
+        name: 'FastAPI DevServer'
+      };
+      expect(classifyAddonComponent(fallbackFw)).toBe('framework');
+
+      const fallbackToolkit: TemplateComponent = {
+        ...fallbackOrm,
+        name: 'PyTest Suite Runner'
+      };
+      expect(classifyAddonComponent(fallbackToolkit)).toBe('toolkit');
+    });
+
+    it('should include nextjs-web in OFFICIAL_WEB_PROFILES', () => {
+      const nextjs = OFFICIAL_WEB_PROFILES.find((p) => p.id === 'nextjs-web');
+      expect(nextjs).toBeDefined();
+      expect(nextjs?.name).toBe('Next.js (React Full-Stack)');
+      expect(nextjs?.iconKey).toBe('react');
+      expect(nextjs?.baseImage).toBe('node:20-bookworm-slim');
+      expect(nextjs?.packageNames).toContain('create-next-app');
+      expect(nextjs?.toolsProvided).toContain('npx');
+    });
+
+    it('should include all required 24 official university addon presets', () => {
+      const requiredIds = [
+        'python-sqlalchemy',
+        'python-nosql-clients',
+        'python-ml',
+        'python-testing-ruff',
+        'java-springboot',
+        'java-hibernate-jdbc',
+        'java-gradle',
+        'java-junit5',
+        'node-express',
+        'node-nestjs',
+        'node-prisma',
+        'node-typeorm',
+        'node-vitest-jest',
+        'cpp-sql-drivers',
+        'cpp-openmp',
+        'go-gin-chi',
+        'go-gorm',
+        'go-golangci-lint',
+        'rust-axum',
+        'rust-sqlx',
+        'rust-clippy',
+        'dotnet-aspnet',
+        'dotnet-ef',
+        'dotnet-xunit'
+      ];
+
+      for (const id of requiredIds) {
+        const found = OFFICIAL_ADDON_PRESETS.find((p) => p.id === id);
+        expect(found).toBeDefined();
+        expect(found?.name.length).toBeGreaterThan(0);
+      }
+
+      const maven = OFFICIAL_ADDON_PRESETS.find((p) => p.id === 'spring-maven');
+      expect(maven).toBeDefined();
+      expect(maven?.name).toBe('Apache Maven (Proyectos Java / Spring)');
+      expect(maven?.memoryProfile).toBe('library');
     });
   });
 });

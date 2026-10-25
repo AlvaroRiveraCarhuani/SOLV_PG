@@ -151,6 +151,77 @@ func newStubComponentSource() *stubComponentSource {
 			RamDeltaMB:         384,
 			IsActive:           true,
 		},
+		{
+			ID:                 "rt-java",
+			Slug:               "java-21",
+			Layer:              domain.ComponentLayerRuntime,
+			SubCategory:        "backend",
+			Name:               "Java 21 LTS",
+			IconKey:            "java",
+			BaseImage:          "eclipse-temurin:21-jdk-jammy",
+			CompatibleRuntimes: []string{"java"},
+			JudgeEntrypoint:    "javac Solution.java && java -Xmx256m Solution",
+			ToolsProvided:      []string{"java", "javac", "jar"},
+			RamDeltaMB:         1024,
+			IsActive:           true,
+		},
+		{
+			ID:                 "ad-spring-maven",
+			Slug:               "spring-maven",
+			Layer:              domain.ComponentLayerAddon,
+			SubCategory:        "toolkit",
+			Name:               "Apache Maven (Java / Spring)",
+			IconKey:            "spring",
+			CompatibleRuntimes: []string{"java"},
+			InstallMode:        domain.InstallModeApt,
+			PackageNames:       []string{"maven"},
+			BuildLayerSnippet:  "RUN apt-get update && apt-get install -y --no-install-recommends maven && rm -rf /var/lib/apt/lists/*",
+			ToolsProvided:      []string{"java", "mvn"},
+			RamDeltaMB:         0,
+			IsActive:           true,
+		},
+		{
+			ID:            "db-sqlite",
+			Slug:          "sqlite-3",
+			Layer:         domain.ComponentLayerDatabase,
+			SubCategory:   "relational",
+			Name:          "SQLite 3 (En archivo)",
+			IconKey:       "sqlite",
+			ServiceEngine: "sqlite",
+			ToolsProvided: []string{},
+			RamDeltaMB:    0,
+			IsActive:      true,
+		},
+		{
+			ID:                 "ad-python-sqlalchemy",
+			Slug:               "python-sqlalchemy",
+			Layer:              domain.ComponentLayerAddon,
+			SubCategory:        "orm",
+			Name:               "SQLAlchemy + Drivers SQL",
+			IconKey:            "python",
+			CompatibleRuntimes: []string{"python"},
+			InstallMode:        domain.InstallModePip,
+			PackageNames:       []string{"sqlalchemy", "alembic"},
+			BuildLayerSnippet:  "RUN pip install --no-cache-dir sqlalchemy alembic",
+			ToolsProvided:      []string{"python3", "alembic"},
+			RamDeltaMB:         0,
+			IsActive:           true,
+		},
+		{
+			ID:                 "ad-python-ml",
+			Slug:               "python-ml",
+			Layer:              domain.ComponentLayerAddon,
+			SubCategory:        "heavy",
+			Name:               "Machine Learning (Scikit-Learn + SciPy)",
+			IconKey:            "python",
+			CompatibleRuntimes: []string{"python"},
+			InstallMode:        domain.InstallModePip,
+			PackageNames:       []string{"scikit-learn", "scipy", "matplotlib"},
+			BuildLayerSnippet:  "RUN pip install --no-cache-dir scikit-learn scipy matplotlib",
+			ToolsProvided:      []string{"python3", "pip"},
+			RamDeltaMB:         256,
+			IsActive:           true,
+		},
 	}
 	m := make(map[string]*domain.TemplateComponent, len(items)*2)
 	for _, it := range items {
@@ -729,5 +800,113 @@ func TestSynthesizeAssistedBuildLayerFirstClassManagers(t *testing.T) {
 	// Verify shell injection is blocked for all first-class modes
 	if _, err := domain.SynthesizeAssistedBuildLayer(domain.InstallModePnpm, []string{"vite; rm -rf /"}, ""); err == nil {
 		t.Fatalf("expected shell injection in pnpm package name to be rejected")
+	}
+}
+
+func TestComposeResidentRAM1536StepForJavaMavenAnd512ForPythonSqlite(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	// 1. Java 21 + Apache Maven (toolkit sin RAM residente) -> 210 (editor) + 1280 (JVM) = 1490 -> escalón 1536 MB
+	planJava, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-java",
+		AddonIDs:  []string{"ad-spring-maven"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing Java + Maven: %v", err)
+	}
+	if planJava.RecommendedRamMB != 1536 {
+		t.Fatalf("expected 1536 MB recommended RAM for Java + Maven, got %d", planJava.RecommendedRamMB)
+	}
+
+	// 2. Python + SQLite + complementos livianos en disco -> 210 (editor) + 256 (procesos) = 466 -> 512 MB
+	planPy, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:       "visual",
+		RuntimeID:  "rt-python",
+		AddonIDs:   []string{"ad-fastapi", "ad-flask"},
+		DatabaseID: "db-sqlite",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing Python + SQLite: %v", err)
+	}
+	if planPy.RecommendedRamMB != 512 {
+		t.Fatalf("expected 512 MB recommended RAM for Python + SQLite with light addons, got %d", planPy.RecommendedRamMB)
+	}
+
+	// 3. Escalones válidos del modelo residente (paridad con el frontend)
+	presets := []struct {
+		raw  int
+		want int
+	}{
+		{384, 384},
+		{512, 512},
+		{768, 768},
+		{1024, 1024},
+		{1025, 1536},
+		{1536, 1536},
+		{1537, 2048},
+		{2048, 2048},
+		{2049, 4096},
+	}
+	for _, tc := range presets {
+		if got := roundToRamPreset(tc.raw, false); got != tc.want {
+			t.Errorf("roundToRamPreset(%d) = %d, expected %d", tc.raw, got, tc.want)
+		}
+	}
+}
+
+func TestIsResidentAddonSubcategoryParityWithFrontend(t *testing.T) {
+	cases := []struct {
+		slug     string
+		sub      string
+		ramDelta int
+		want     bool
+	}{
+		{slug: "streamlit", sub: "devserver", ramDelta: 128, want: true},
+		{slug: "python-datascience", sub: "heavy", ramDelta: 256, want: true},
+		{slug: "python-ml", sub: "heavy", ramDelta: 256, want: true},
+		{slug: "ml-data", sub: "data", ramDelta: 0, want: true},
+		{slug: "custom-datascience-kit", sub: "toolkit", ramDelta: 0, want: true},
+		{slug: "heavy-by-ram", sub: "toolkit", ramDelta: 256, want: true},
+		{slug: "spring-maven", sub: "toolkit", ramDelta: 0, want: false},
+		{slug: "python-sqlalchemy", sub: "orm", ramDelta: 0, want: false},
+		{slug: "fastapi", sub: "framework", ramDelta: 0, want: false},
+		{slug: "flask", sub: "framework", ramDelta: 64, want: false},
+	}
+	for _, tc := range cases {
+		got := isResidentAddon(&domain.TemplateComponent{Slug: tc.slug, SubCategory: tc.sub, RamDeltaMB: tc.ramDelta})
+		if got != tc.want {
+			t.Errorf("isResidentAddon(slug=%q, sub=%q, ram=%d) = %v, expected %v", tc.slug, tc.sub, tc.ramDelta, got, tc.want)
+		}
+	}
+}
+
+func TestComposeUniversityCatalogORMAndHeavyAddonsResidentRAM(t *testing.T) {
+	composer := NewTemplateComposerService(newStubComponentSource())
+
+	// 1. ORM en disco (sub_category 'orm', ram_delta 0) -> no residente, Python se mantiene en 512 MB
+	planORM, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-python",
+		AddonIDs:  []string{"ad-python-sqlalchemy"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing Python + SQLAlchemy: %v", err)
+	}
+	if planORM.RecommendedRamMB != 512 {
+		t.Fatalf("expected 512 MB for Python + ORM addon in disk, got %d", planORM.RecommendedRamMB)
+	}
+
+	// 2. Kit pesado de Machine Learning (sub_category 'heavy', 256 MB) -> residente: 210 + 512 = 722 -> 768 MB
+	planML, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
+		Mode:      "visual",
+		RuntimeID: "rt-python",
+		AddonIDs:  []string{"ad-python-ml"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error composing Python + ML: %v", err)
+	}
+	if planML.RecommendedRamMB != 768 {
+		t.Fatalf("expected 768 MB for Python + heavy ML addon, got %d", planML.RecommendedRamMB)
 	}
 }

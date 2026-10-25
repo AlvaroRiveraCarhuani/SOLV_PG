@@ -378,9 +378,9 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// RAM: 210 (editor) + 1280 (heavy process) = 1490 -> 2048 MB
-		if plan.RecommendedRamMB != 2048 {
-			t.Errorf("expected 2048 MB for solo frontend with heavy addon, got %d", plan.RecommendedRamMB)
+		// RAM: 210 (editor) + 1280 (heavy process) = 1490 -> escalón 1536 MB
+		if plan.RecommendedRamMB != 1536 {
+			t.Errorf("expected 1536 MB for solo frontend with heavy addon, got %d", plan.RecommendedRamMB)
 		}
 	})
 }
@@ -465,13 +465,13 @@ func TestAdversarial_FullStackMultiDistroInjection(t *testing.T) {
 			expectRecommended: 1024,
 		},
 		{
-			name:              "Java 21 Temurin + Angular -> Multi-Stage COPY and 2048 MB RAM",
+			name:              "Java 21 Temurin + Angular -> Multi-Stage COPY and 1536 MB RAM",
 			runtimeID:         "rt-java-21",
 			webID:             "web-angular-standard",
 			expectFrom:        "FROM eclipse-temurin:21-jdk-jammy",
 			expectSnippet:     "COPY --from=node:20-bookworm-slim /usr/local /usr/local",
 			forbidSnippet:     "apk add",
-			expectRecommended: 2048, // 210 + 1280 = 1490 -> 2048 MB
+			expectRecommended: 1536, // 210 + 1280 = 1490 -> escalón 1536 MB
 		},
 		{
 			name:              "C/C++ GCC 13 + Angular -> Multi-Stage COPY and 1024 MB RAM",

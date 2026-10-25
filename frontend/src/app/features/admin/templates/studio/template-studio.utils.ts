@@ -384,6 +384,7 @@ export function computeRecommendedRamMBForStack(params: {
   if (rawTotal <= 512) return 512;
   if (rawTotal <= 768) return 768;
   if (rawTotal <= 1024) return 1024;
+  if (rawTotal <= 1536) return 1536;
   if (rawTotal <= 2048) return 2048;
   return 4096;
 }
@@ -599,4 +600,104 @@ export function importBrowserTextFile(accept: string, callback: (text: string) =
     reader.readAsText(file);
   };
   input.click();
+}
+
+export const STUDIO_IDE_RAM_TIERS = [384, 512, 768, 1024, 1536, 2048] as const;
+export const STUDIO_JUDGE_RAM_TIERS = [128, 256, 512, 1024] as const;
+
+export function computeIntensiveRamMB(params: {
+  isJudge: boolean;
+  recommendedRamMB: number;
+  maxAllowedRamMB: number;
+}): number {
+  const tiers = params.isJudge ? STUDIO_JUDGE_RAM_TIERS : STUDIO_IDE_RAM_TIERS;
+  const nextTier = tiers.find(t => t > params.recommendedRamMB) ?? params.recommendedRamMB;
+  return Math.min(nextTier, params.maxAllowedRamMB);
+}
+
+export type AddonAcademicCategory = 'framework' | 'orm' | 'toolkit';
+
+export function classifyAddonComponent(addon: TemplateComponent): AddonAcademicCategory {
+  const slug = (addon.slug || '').toLowerCase();
+  const id = (addon.id || '').toLowerCase();
+
+  // 1. Excepción explícita para Maven (herramienta de construcción académica)
+  if (slug === 'spring-maven' || id === 'spring-maven') {
+    return 'toolkit';
+  }
+
+  // 2. Prioridad de sub_category declarada
+  const sub = (addon.sub_category || '').toLowerCase();
+  if (sub === 'orm' || sub === 'connector') {
+    return 'orm';
+  }
+  if (sub === 'framework' || sub === 'devserver') {
+    return 'framework';
+  }
+  if (sub === 'toolkit' || sub === 'heavy') {
+    return 'toolkit';
+  }
+
+  // 3. Heurística de respaldo por texto
+  const name = (addon.name || '').toLowerCase();
+  const packages = (addon.package_names || []).map(p => p.toLowerCase());
+  const allText = `${slug} ${id} ${name} ${packages.join(' ')}`;
+
+  if (
+    allText.includes('sqlalchemy') ||
+    allText.includes('prisma') ||
+    allText.includes('typeorm') ||
+    allText.includes('jdbc') ||
+    allText.includes('hibernate') ||
+    allText.includes('gorm') ||
+    allText.includes('peewee') ||
+    allText.includes('tortoise') ||
+    allText.includes('sequelize') ||
+    allText.includes('drizzle') ||
+    allText.includes('sqlx') ||
+    allText.includes('connector') ||
+    allText.includes('orm') ||
+    allText.includes('nosql')
+  ) {
+    return 'orm';
+  }
+
+  if (
+    allText.includes('fastapi') ||
+    allText.includes('django') ||
+    allText.includes('flask') ||
+    allText.includes('streamlit') ||
+    allText.includes('express') ||
+    allText.includes('nestjs') ||
+    allText.includes('laravel') ||
+    allText.includes('rails') ||
+    allText.includes('gin') ||
+    allText.includes('echo') ||
+    allText.includes('fiber') ||
+    allText.includes('springboot') ||
+    allText.includes('spring-boot') ||
+    allText.includes('aspnet') ||
+    allText.includes('axum')
+  ) {
+    return 'framework';
+  }
+
+  return 'toolkit';
+}
+
+export function isFrameworkAddon(addon: TemplateComponent): boolean {
+  return classifyAddonComponent(addon) === 'framework';
+}
+
+export function getComponentRoleBadge(comp: TemplateComponent | StudioDatabaseOption): string {
+  if (comp.layer === 'database') {
+    return comp.service_engine === 'none' ? 'Sin BD' : 'Servicio';
+  }
+  if (comp.layer === 'runtime') {
+    return comp.sub_category === 'web' ? 'Web' : 'Lenguaje';
+  }
+  const cat = classifyAddonComponent(comp as TemplateComponent);
+  if (cat === 'framework') return 'Framework';
+  if (cat === 'orm') return 'ORM';
+  return 'Herramienta';
 }

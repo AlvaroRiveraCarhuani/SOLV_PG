@@ -413,6 +413,8 @@ func roundToRamPreset(rawMB int, isJudge bool) int {
 		return 768
 	case rawMB <= 1024:
 		return 1024
+	case rawMB <= 1536:
+		return 1536
 	case rawMB <= 2048:
 		return 2048
 	default:

@@ -258,6 +258,44 @@
   background-color: var(--bg-surface-subtle);
 }
 
+.col2-filter-pills {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-surface-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  overflow-x: auto;
+  flex-wrap: wrap;
+}
+
+.filter-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: var(--leading-normal);
+  transition: background-color var(--transition-fast) ease, color var(--transition-fast) ease, border-color var(--transition-fast) ease;
+
+  &:hover {
+    border-color: var(--border-strong);
+    color: var(--text-primary);
+  }
+
+  &.active {
+    background-color: var(--tenant-primary-subtle);
+    border-color: var(--tenant-primary);
+    color: var(--tenant-primary);
+  }
+}
+
 .column-search-input {
   width: 100%;
   padding: var(--space-1) var(--space-2);
@@ -322,15 +360,17 @@
 .tech-component-card {
   width: 100%;
   text-align: left;
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  min-height: 42px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   background-color: var(--bg-surface);
   cursor: pointer;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  justify-content: center;
   gap: var(--space-2);
+  transition: border-color var(--transition-fast) ease, background-color var(--transition-fast) ease;
 
   &:hover:not(:disabled) {
     border-color: var(--border-strong);
@@ -339,6 +379,12 @@
   &.selected {
     border-color: var(--tenant-primary);
     background-color: var(--tenant-primary-subtle);
+
+    .comp-role-badge {
+      background-color: var(--bg-surface);
+      color: var(--tenant-primary);
+      border-color: var(--tenant-primary-border);
+    }
   }
 
   &.disabled,
@@ -349,37 +395,39 @@
   }
 }
 
-.comp-main {
+.comp-compact-row {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  min-width: 0;
   width: 100%;
-}
-
-.comp-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   min-width: 0;
-  flex: 1;
-}
-
-.comp-title-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  flex-wrap: wrap;
 }
 
 .comp-name {
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: 600;
   color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
+}
+
+.comp-role-badge {
+  flex-shrink: 0;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-xs);
+  background-color: var(--color-gray-100);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  line-height: var(--leading-normal);
 }
 
 .comp-ram-badge {
+  flex-shrink: 0;
   font-size: var(--text-2xs);
   font-weight: 600;
   padding: 1px var(--space-2);
@@ -389,9 +437,50 @@
   border: 1px solid var(--border-subtle);
 }
 
+.comp-expanded-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--tenant-primary-border);
+  width: 100%;
+}
+
 .comp-desc {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+  line-height: var(--leading-normal);
+  margin: 0;
+}
+
+.comp-tools-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.comp-tools-label {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.comp-tools-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.comp-tool-tag {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  padding: 1px var(--space-1);
+  border-radius: var(--radius-xs);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
 }
 
 .comp-edit-btn {
