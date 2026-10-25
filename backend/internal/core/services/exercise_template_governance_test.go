@@ -34,6 +34,12 @@ func (m *mockGovRepoForTemplate) ResetStudentOOM(ctx context.Context, tenantID, 
 func (m *mockGovRepoForTemplate) ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error) {
 	return true, nil
 }
+func (m *mockGovRepoForTemplate) BatchCreateStudents(ctx context.Context, tenantID string, emails []string) (int, error) {
+	return 0, nil
+}
+func (m *mockGovRepoForTemplate) EnrollStudentsByEmails(ctx context.Context, tenantID, subjectID string, emails []string) (int, int, error) {
+	return 0, 0, nil
+}
 func (m *mockGovRepoForTemplate) ListTemplates(ctx context.Context, tenantID, status, search string) ([]*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
 }

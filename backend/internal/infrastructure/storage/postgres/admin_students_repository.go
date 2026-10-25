@@ -359,3 +359,96 @@ func (r *PostgresAdminGovernanceRepository) ValidateTeacherRole(ctx context.Cont
 	}
 	return isValid, nil
 }
+
+// arrayTextLiteral serializa una lista de strings como literal de array de
+// PostgreSQL (p.ej. "{a@x.com,b@y.com}"). Los correos ya están normalizados y
+// sanitizados antes de llegar acá; no contienen comas ni llaves.
+func arrayTextLiteral(items []string) string {
+	return "{" + strings.Join(items, ",") + "}"
+}
+
+// BatchCreateStudents inserta cuentas de rol student para los correos que aún no
+// existen en el tenant. Devuelve cuántas cuentas nuevas se crearon.
+func (r *PostgresAdminGovernanceRepository) BatchCreateStudents(ctx context.Context, tenantID string, emails []string) (int, error) {
+	cleaned := make([]string, 0, len(emails))
+	seen := make(map[string]bool)
+	for _, raw := range emails {
+		e := strings.ToLower(strings.TrimSpace(raw))
+		if e == "" || seen[e] {
+			continue
+		}
+		seen[e] = true
+		cleaned = append(cleaned, e)
+	}
+	if len(cleaned) == 0 {
+		return 0, nil
+	}
+
+	query := `
+		INSERT INTO users (id, tenant_id, email, first_name, last_name, role, status, origin, created_at)
+		SELECT gen_random_uuid(), $1, x.email, '', '', 'student', 'active', 'manual', NOW()
+		FROM unnest($2::text[]) AS x(email)
+		WHERE NOT EXISTS (
+			SELECT 1 FROM users u
+			WHERE u.tenant_id = $1 AND LOWER(u.email) = LOWER(x.email)
+		)
+	`
+	res, err := r.db.ExecContext(ctx, query, tenantID, arrayTextLiteral(cleaned))
+	if err != nil {
+		return 0, fmt.Errorf("error creating students in batch: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	return int(rows), nil
+}
+
+// EnrollStudentsByEmails matricula en la materia a los estudiantes existentes
+// (rol student) cuyos correos estén en la lista. Devuelve cuántos quedaron
+// matriculados (nuevos) y cuántos correos no tenían cuenta registrada.
+func (r *PostgresAdminGovernanceRepository) EnrollStudentsByEmails(ctx context.Context, tenantID, subjectID string, emails []string) (int, int, error) {
+	cleaned := make([]string, 0, len(emails))
+	seen := make(map[string]bool)
+	for _, raw := range emails {
+		e := strings.ToLower(strings.TrimSpace(raw))
+		if e == "" || seen[e] {
+			continue
+		}
+		seen[e] = true
+		cleaned = append(cleaned, e)
+	}
+	if len(cleaned) == 0 {
+		return 0, 0, nil
+	}
+
+	// 1. Resolver correos existentes con rol student en el tenant.
+	lookup := `
+		SELECT id FROM users
+		WHERE tenant_id = $1 AND role = 'student' AND LOWER(email) = ANY(
+			SELECT LOWER(x) FROM unnest($2::text[]) AS x
+		)
+	`
+	var studentIDs []string
+	if err := r.db.SelectContext(ctx, &studentIDs, lookup, tenantID, arrayTextLiteral(cleaned)); err != nil {
+		return 0, 0, fmt.Errorf("error resolving student emails: %w", err)
+	}
+
+	skippedNotFound := len(cleaned) - len(studentIDs)
+	if len(studentIDs) == 0 {
+		return 0, skippedNotFound, nil
+	}
+
+	// 2. Insertar matriculaciones nuevas de forma idempotente.
+	insert := `
+		INSERT INTO enrollments (id, tenant_id, student_id, subject_id, enrolled_at)
+		SELECT gen_random_uuid(), $1, sid.id, $3, NOW()
+		FROM unnest($2::uuid[]) AS sid(id)
+		JOIN users u ON u.id = sid.id AND u.tenant_id = $1 AND u.role = 'student'
+		ON CONFLICT (tenant_id, student_id, subject_id) DO NOTHING
+		RETURNING student_id
+	`
+	res, err := r.db.ExecContext(ctx, insert, tenantID, arrayTextLiteral(studentIDs), subjectID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("error enrolling students in batch: %w", err)
+	}
+	rows, _ := res.RowsAffected()
+	return int(rows), skippedNotFound, nil
+}

@@ -68,6 +68,19 @@ export interface CreateStudentDTO {
   email: string;
 }
 
+export interface BatchStudentsResult {
+  total_processed: number;
+  created_count: number;
+}
+
+export interface RosterEnrollResult {
+  created_students: number;
+  enrolled_students: number;
+  duplicate_emails: string[];
+  invalid_emails: string[];
+  total_detected: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -165,5 +178,13 @@ export class AdminStudentsService {
         }));
       })
     );
+  }
+
+  batchCreateStudents(emails: string[]): Observable<BatchStudentsResult> {
+    return this.http.post<BatchStudentsResult>('/api/v1/admin/students/batch', { emails });
+  }
+
+  rosterEnroll(subjectId: string, emails: string[]): Observable<RosterEnrollResult> {
+    return this.http.post<RosterEnrollResult>(`/api/v1/admin/subjects/${subjectId}/roster`, { emails });
   }
 }

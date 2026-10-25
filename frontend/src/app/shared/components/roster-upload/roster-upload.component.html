@@ -1,0 +1,103 @@
+<div class="roster-upload">
+  @if (!parsedRoster()) {
+    <div
+      class="dropzone-box"
+      [class.dragging]="isDragging()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      <input
+        type="file"
+        #fileInput
+        accept=".xlsx,.csv"
+        class="file-hidden-input"
+        (change)="onFileInputChange($event)"
+      />
+
+      @if (isParsing()) {
+        <div class="dropzone-loading">
+          <div class="tenant-spinner-md"></div>
+          <p class="loading-text">Leyendo planilla y buscando correos...</p>
+        </div>
+      } @else {
+        <div class="dropzone-content" (click)="fileInput.click()">
+          <svg lucideUpload class="dropzone-icon"></svg>
+          <p class="dropzone-title">Haz clic o arrastra tu archivo aquí</p>
+          <p class="dropzone-subtitle">
+            Archivos admitidos: <span machineData>.xlsx</span> y <span machineData>.csv</span>
+          </p>
+          <p class="dropzone-hint">
+            El sistema detecta automáticamente los correos sin importar el nombre o el orden de las columnas.
+          </p>
+        </div>
+      }
+    </div>
+
+    @if (parseError()) {
+      <div class="parse-error-box">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <p class="error-text">{{ parseError() }}</p>
+      </div>
+    }
+  } @else {
+    <div class="preview-panel">
+      <div class="preview-header">
+        <div class="file-info">
+          <svg lucideFileCheck class="file-icon"></svg>
+          <span class="file-name" machineData>{{ selectedFile()?.name }}</span>
+        </div>
+        <button type="button" class="btn-outline-sm" (click)="reset()">
+          <span>Elegir otro archivo</span>
+        </button>
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <span class="metric-label">Detectados</span>
+          <span class="metric-val" machineData>{{ parsedRoster()?.total_detected }}</span>
+        </div>
+
+        <div class="metric-card metric-valid">
+          <span class="metric-label">Listos para registrar</span>
+          <span class="metric-val text-success" machineData>{{ parsedRoster()?.valid_emails?.length }}</span>
+        </div>
+
+        @if ((parsedRoster()?.duplicate_emails?.length ?? 0) > 0) {
+          <div class="metric-card metric-duplicate">
+            <span class="metric-label">Ya registrados</span>
+            <span class="metric-val text-warning" machineData>{{ parsedRoster()?.duplicate_emails?.length }}</span>
+          </div>
+        }
+
+        @if ((parsedRoster()?.invalid_emails?.length ?? 0) > 0) {
+          <div class="metric-card metric-invalid">
+            <span class="metric-label">No institucionales</span>
+            <span class="metric-val text-error" machineData>{{ parsedRoster()?.invalid_emails?.length }}</span>
+          </div>
+        }
+      </div>
+
+      @if (hasValid()) {
+        <div class="emails-preview-box">
+          <label class="preview-box-label">Correos que se registrarán como {{ recordLabel() }}:</label>
+          <div class="emails-scroll-list">
+            @for (emailItem of parsedRoster()?.valid_emails; track emailItem) {
+              <div class="email-row">
+                <svg lucideCheckCircle2 class="row-icon text-success"></svg>
+                <span class="row-email" machineData>{{ emailItem }}</span>
+              </div>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="no-valid-alert">
+          <svg lucideAlertTriangle class="alert-icon"></svg>
+          <p class="alert-text">
+            No hay correos nuevos para registrar en esta planilla.
+          </p>
+        </div>
+      }
+    </div>
+  }
+</div>

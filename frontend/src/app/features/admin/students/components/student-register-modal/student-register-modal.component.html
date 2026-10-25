@@ -1,0 +1,133 @@
+<modal-shell
+  title="Registrar Estudiante"
+  subtitle="Alta manual institucional o importación masiva desde una planilla Excel o CSV."
+  maxWidth="620px"
+  [disableClose]="isSubmitting()"
+  (close)="closed.emit()"
+>
+  <svg modal-icon lucideUserPlus class="icon"></svg>
+
+  <div class="modal-nav-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="currentTab() === 'individual'"
+      (click)="setTab('individual')"
+    >
+      <svg lucideUserCheck class="tab-icon"></svg>
+      <span>Registro Individual</span>
+    </button>
+
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="currentTab() === 'batch'"
+      (click)="setTab('batch')"
+    >
+      <svg lucideFileSpreadsheet class="tab-icon"></svg>
+      <span>Importar Planilla</span>
+    </button>
+  </div>
+
+  @if (currentTab() === 'individual') {
+    <div class="tab-panel">
+      @if (error()) {
+        <div class="form-error-banner">
+          {{ error() }}
+        </div>
+      }
+
+      <div class="form-row">
+        <form-field class="flex-1" label="Nombres" for="first-name" [required]="true">
+          <input
+            id="first-name"
+            type="text"
+            class="form-input"
+            placeholder="Ej: Ana Lucía"
+            [ngModel]="firstName()"
+            (ngModelChange)="firstName.set($event); error.set(null)"
+            [disabled]="isSubmitting()" />
+        </form-field>
+
+        <form-field class="flex-1" label="Apellidos" for="last-name" [required]="true">
+          <input
+            id="last-name"
+            type="text"
+            class="form-input"
+            placeholder="Ej: Flores Mamani"
+            [ngModel]="lastName()"
+            (ngModelChange)="lastName.set($event); error.set(null)"
+            [disabled]="isSubmitting()" />
+        </form-field>
+      </div>
+
+      <form-field
+        label="Correo institucional"
+        for="student-email"
+        [required]="true"
+        [hint]="isExternalDomain() ? '' : 'El estudiante podrá autenticarse mediante Google Workspace institucional o acceder a sus materias asignadas.'"
+      >
+        <input
+          id="student-email"
+          type="email"
+          class="form-input"
+          [placeholder]="institutionDomain() ? ('ejemplo@' + institutionDomain()) : 'estudiante@institucion.edu'"
+          [ngModel]="email()"
+          (ngModelChange)="email.set($event); error.set(null)"
+          [disabled]="isSubmitting()" />
+
+        @if (isExternalDomain()) {
+          <div class="domain-warning-box">
+            <svg lucideAlertTriangle class="warning-icon"></svg>
+            <div class="warning-content">
+              <span class="warning-title">Dominio externo detectado ({{ enteredDomain() }})</span>
+              <p class="warning-text">
+                El correo no coincide con el dominio de la institución ({{ institutionDomain() }}). Si el inicio de sesión con Google Workspace está restringido a cuentas institucionales, el estudiante no podrá ingresar.
+              </p>
+            </div>
+          </div>
+        }
+      </form-field>
+    </div>
+  } @else {
+    <div class="tab-panel">
+      <roster-upload
+        parseEndpoint="/api/v1/admin/students/parse-roster"
+        recordLabel="estudiantes"
+      />
+    </div>
+  }
+
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="closed.emit()" [disabled]="isSubmitting()">
+      Cancelar
+    </button>
+
+    @if (currentTab() === 'individual') {
+      <button
+        class="btn-primary"
+        (click)="onSubmitIndividual()"
+        [disabled]="isSubmitting() || !firstName().trim() || !lastName().trim() || !email().trim()"
+      >
+        <svg lucideUserPlus class="btn-icon"></svg>
+        <span>{{ isSubmitting() ? 'Registrando...' : 'Registrar Estudiante' }}</span>
+      </button>
+    } @else {
+      <button
+        class="btn-primary"
+        [disabled]="!rosterUpload()?.hasValid() || isSubmitting()"
+        (click)="confirmBatch()"
+      >
+        @if (isSubmitting()) {
+          <div class="tenant-spinner-sm"></div>
+          <span>Registrando...</span>
+        } @else {
+          <svg lucideFileSpreadsheet class="btn-icon"></svg>
+          <span>Registrar {{ rosterUpload()?.parsedRoster()?.valid_emails?.length ?? 0 }} Estudiantes</span>
+        }
+      </button>
+    }
+  </ng-container>
+</modal-shell>

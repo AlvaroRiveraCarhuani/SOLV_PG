@@ -40,6 +40,12 @@ func (m *mockAdminGovernanceRepo) ResetStudentOOM(ctx context.Context, tenantID,
 func (m *mockAdminGovernanceRepo) ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error) {
 	return true, nil
 }
+func (m *mockAdminGovernanceRepo) BatchCreateStudents(ctx context.Context, tenantID string, emails []string) (int, error) {
+	return 0, nil
+}
+func (m *mockAdminGovernanceRepo) EnrollStudentsByEmails(ctx context.Context, tenantID, subjectID string, emails []string) (int, int, error) {
+	return 0, 0, nil
+}
 func (m *mockAdminGovernanceRepo) ListTemplates(ctx context.Context, tenantID, status, search string) ([]*domain.AdminTemplateReviewItem, error) {
 	return nil, nil
 }

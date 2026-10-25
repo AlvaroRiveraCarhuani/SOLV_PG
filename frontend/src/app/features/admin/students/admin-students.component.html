@@ -13,14 +13,18 @@
 
   <!-- Header Institucional -->
   <header class="page-header">
-    <div class="header-titles">
+    <div class="header-left">
       <h1 class="page-title">Directorio Institucional de Estudiantes</h1>
       <p class="page-subtitle">
         Supervisión de consumo de cómputo, entornos de laboratorio y desbloqueo de penalizaciones de memoria.
       </p>
     </div>
     <div class="header-actions">
-      <button class="btn-primary" (click)="openCreateModal()" title="Registrar nuevo estudiante">
+      <button class="btn-outline" (click)="openRosterEnrollModal()" title="Matricular estudiantes desde una planilla">
+        <svg lucideBookOpen class="btn-icon"></svg>
+        <span>Matricular por Nómina</span>
+      </button>
+      <button class="btn-primary" (click)="openRegisterModal()" title="Registrar estudiante individual o por planilla">
         <svg lucideUserPlus class="btn-icon"></svg>
         <span>Registrar Estudiante</span>
       </button>
@@ -67,12 +71,22 @@
   />
 
   <!-- Modales -->
-  @if (showCreateModal()) {
-    <student-create-modal
-      [isSubmitting]="isCreatingStudent()"
+  @if (showRegisterModal()) {
+    <student-register-modal
+      [isSubmitting]="isRegistering()"
       (studentCreated)="onStudentCreated($event)"
-      (closed)="closeCreateModal()">
-    </student-create-modal>
+      (batchSubmit)="onBatchCreated($event)"
+      (closed)="closeRegisterModal()">
+    </student-register-modal>
+  }
+
+  @if (showRosterEnrollModal()) {
+    <student-enroll-roster-modal
+      [subjects]="subjects()"
+      [isSubmitting]="isEnrollingRoster()"
+      (rosterSubmit)="onRosterEnrolled($event)"
+      (closed)="closeRosterEnrollModal()">
+    </student-enroll-roster-modal>
   }
 
   @if (studentToToggleStatus(); as st) {

@@ -1,32 +1,64 @@
-import { Component, input, output, signal, computed, inject } from '@angular/core';
+import {
+  Component,
+  ChangeDetectionStrategy,
+  computed,
+  inject,
+  input,
+  output,
+  signal,
+  viewChild
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CreateStudentDTO } from '../../../services/admin-students.service';
 import { TenantService } from '@core/services/tenant.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
-import { LucideUserPlus, LucideAlertTriangle } from '@lucide/angular';
+import { RosterUploadComponent } from '@shared/components/roster-upload/roster-upload.component';
+import {
+  LucideUserPlus,
+  LucideAlertTriangle,
+  LucideFileSpreadsheet,
+  LucideUserCheck
+} from '@lucide/angular';
+
+export type RegisterTab = 'individual' | 'batch';
 
 @Component({
-  selector: 'student-create-modal',
+  selector: 'student-register-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, ModalShellComponent, FormFieldComponent, LucideUserPlus, LucideAlertTriangle],
-  templateUrl: './student-create-modal.component.html',
-  styleUrls: ['./student-create-modal.component.scss']
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CommonModule,
+    FormsModule,
+    ModalShellComponent,
+    FormFieldComponent,
+    RosterUploadComponent,
+    LucideUserPlus,
+    LucideAlertTriangle,
+    LucideFileSpreadsheet,
+    LucideUserCheck
+  ],
+  templateUrl: './student-register-modal.component.html',
+  styleUrl: './student-register-modal.component.scss'
 })
-export class StudentCreateModalComponent {
+export class StudentRegisterModalComponent {
   private readonly tenantService = inject(TenantService);
 
-  isSubmitting = input<boolean>(false);
-  closed = output<void>();
-  studentCreated = output<CreateStudentDTO>();
+  readonly rosterUpload = viewChild(RosterUploadComponent);
+  readonly isSubmitting = input<boolean>(false);
 
-  firstName = signal<string>('');
-  lastName = signal<string>('');
-  email = signal<string>('');
-  error = signal<string | null>(null);
+  readonly closed = output<void>();
+  readonly studentCreated = output<CreateStudentDTO>();
+  readonly batchSubmit = output<string[]>();
 
-  // Dominio institucional dinámico
+  readonly currentTab = signal<RegisterTab>('individual');
+
+  readonly firstName = signal('');
+  readonly lastName = signal('');
+  readonly email = signal('');
+  readonly error = signal<string | null>(null);
+
   institutionDomain = computed<string>(() => {
     const cfg = this.tenantService.config();
     if (cfg?.support_email && cfg.support_email.includes('@')) {
@@ -56,7 +88,12 @@ export class StudentCreateModalComponent {
     return entered !== inst && !entered.endsWith('.' + inst);
   });
 
-  onSubmit(): void {
+  setTab(tab: RegisterTab): void {
+    this.currentTab.set(tab);
+    this.error.set(null);
+  }
+
+  onSubmitIndividual(): void {
     const fn = this.firstName().trim();
     const ln = this.lastName().trim();
     const em = this.email().trim().toLowerCase();
@@ -77,5 +114,13 @@ export class StudentCreateModalComponent {
       last_name: ln,
       email: em
     });
+  }
+
+  confirmBatch(): void {
+    const emails = this.rosterUpload()?.parsedRoster()?.valid_emails ?? [];
+    if (emails.length === 0) {
+      return;
+    }
+    this.batchSubmit.emit(emails);
   }
 }

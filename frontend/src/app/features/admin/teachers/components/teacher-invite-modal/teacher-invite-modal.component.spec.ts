@@ -1,10 +1,14 @@
 import '@angular/compiler';
 import '@angular/localize/init';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { TestBed } from '@angular/core/testing';
+import { ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { signal } from '@angular/core';
 import { of } from 'rxjs';
+import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
 import { TeacherInviteModalComponent } from './teacher-invite-modal.component';
+import { RosterUploadComponent } from '@shared/components/roster-upload/roster-upload.component';
 import { TenantService } from '@core/services/tenant.service';
 import { AdminTeachersService } from '@features/admin/services/admin-teachers.service';
 import {
@@ -21,8 +25,17 @@ interface MockAdminTeachersService {
   parseRosterFile: (file?: File) => import('rxjs').Observable<ParsedRosterResult>;
 }
 
+const SAMPLE_ROSTER: ParsedRosterResult = {
+  total_detected: 2,
+  valid_emails: ['docente1@uab.edu.bo', 'docente2@uab.edu.bo'],
+  duplicate_emails: [],
+  invalid_emails: []
+};
+
 describe('TeacherInviteModalComponent', () => {
   let component: TeacherInviteModalComponent;
+  let fixture: ComponentFixture<TeacherInviteModalComponent>;
+  let httpMock: HttpTestingController;
   let mockTenantService: MockTenantService;
   let mockTeachersService: MockAdminTeachersService;
 
@@ -30,26 +43,31 @@ describe('TeacherInviteModalComponent', () => {
     const configSignal = signal({ support_email: 'soporte@uab.edu.bo', base_domain: 'uab.edu.bo' });
     mockTenantService = { config: configSignal };
     mockTeachersService = {
-      parseRosterFile: () => of({
-        total_detected: 2,
-        valid_emails: ['docente1@uab.edu.bo', 'docente2@uab.edu.bo'],
-        duplicate_emails: [],
-        invalid_emails: []
-      } as ParsedRosterResult)
+      parseRosterFile: () => of(SAMPLE_ROSTER)
     };
 
     await TestBed.configureTestingModule({
       imports: [TeacherInviteModalComponent],
       providers: [
+        provideHttpClientTesting(),
         { provide: TenantService, useValue: mockTenantService },
         { provide: AdminTeachersService, useValue: mockTeachersService }
       ]
     }).compileComponents();
 
-    const fixture = TestBed.createComponent(TeacherInviteModalComponent);
+    fixture = TestBed.createComponent(TeacherInviteModalComponent);
     component = fixture.componentInstance;
+    httpMock = TestBed.inject(HttpTestingController);
     fixture.detectChanges();
   });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+
+  function rosterUpload(): RosterUploadComponent {
+    return fixture.debugElement.query(By.directive(RosterUploadComponent)).componentInstance as RosterUploadComponent;
+  }
 
   it('debe crearse correctamente en la pestaña individual por defecto', () => {
     expect(component).toBeTruthy();
@@ -103,31 +121,38 @@ describe('TeacherInviteModalComponent', () => {
   it('permite cambiar a pestaña de importar planilla y procesar archivo', () => {
     component.setTab('batch');
     expect(component.currentTab()).toBe('batch');
+    fixture.detectChanges();
 
-    const dummyFile = new File(['email\ndocente1@uab.edu.bo\ndocente2@uab.edu.bo'], 'roster.csv', { type: 'text/csv' });
-    component.processFile(dummyFile);
+    const dummyFile = new File(
+      ['email\ndocente1@uab.edu.bo\ndocente2@uab.edu.bo'],
+      'roster.csv',
+      { type: 'text/csv' }
+    );
+    rosterUpload().processFile(dummyFile);
 
-    expect(component.selectedFile()).toBe(dummyFile);
-    expect(component.parsedRoster()?.total_detected).toBe(2);
-    expect(component.parsedRoster()?.valid_emails.length).toBe(2);
+    const req = httpMock.expectOne('/api/v1/teachers/parse-roster');
+    expect(req.request.method).toBe('POST');
+    req.flush(SAMPLE_ROSTER);
+
+    expect(rosterUpload().selectedFile()).toBe(dummyFile);
+    expect(rosterUpload().parsedRoster()?.total_detected).toBe(2);
+    expect(rosterUpload().parsedRoster()?.valid_emails.length).toBe(2);
   });
 
   it('onSubmitBatch emite batchSubmit con correos parseados', () => {
     let batchPayload: BatchDirectTeacherPayload | undefined;
     component.batchSubmit.subscribe(p => { batchPayload = p; });
 
-    component.parsedRoster.set({
-      total_detected: 2,
-      valid_emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
-      duplicate_emails: [],
-      invalid_emails: []
-    });
+    component.setTab('batch');
+    fixture.detectChanges();
+
+    rosterUpload().parsedRoster.set(SAMPLE_ROSTER);
     component.sendNotificationBatch.set(true);
 
     component.onSubmitBatch();
 
     expect(batchPayload).toEqual({
-      emails: ['d1@uab.edu.bo', 'd2@uab.edu.bo'],
+      emails: ['docente1@uab.edu.bo', 'docente2@uab.edu.bo'],
       send_notification: true
     });
     expect(component.isSubmittingBatch()).toBe(true);

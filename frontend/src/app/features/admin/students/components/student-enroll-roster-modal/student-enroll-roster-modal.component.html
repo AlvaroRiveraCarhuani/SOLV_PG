@@ -1,0 +1,45 @@
+<modal-shell
+  title="Cargar Nómina del Curso"
+  subtitle="Matricula estudiantes en una materia a partir de una planilla de correos."
+  maxWidth="640px"
+  (close)="closed.emit()"
+>
+  <svg modal-icon lucideBookOpen class="icon"></svg>
+
+  <div class="subject-selector">
+    <label class="form-label" for="enroll-subject-select">Materia destino</label>
+    <combobox
+      [value]="selectedSubjectLabel()"
+      [options]="subjectOptions()"
+      placeholder="Selecciona una materia..."
+      [compact]="false"
+      inputAriaLabel="Seleccionar materia destino"
+      (optionSelected)="onSubjectSelected($event)"
+    />
+  </div>
+
+  <roster-upload
+    parseEndpoint="/api/v1/admin/students/parse-roster"
+    recordLabel="estudiantes"
+  />
+
+  <ng-container modal-footer>
+    <button class="btn-outline" (click)="closed.emit()">
+      <span>Cancelar</span>
+    </button>
+
+    <button
+      class="btn-primary"
+      [disabled]="!selectedSubjectId() || !rosterUpload()?.hasValid() || isSubmitting()"
+      (click)="confirm()"
+    >
+      @if (isSubmitting()) {
+        <div class="tenant-spinner-sm"></div>
+        <span>Matriculando...</span>
+      } @else {
+        <svg lucideBookOpen class="btn-icon"></svg>
+        <span>Matricular {{ rosterUpload()?.parsedRoster()?.valid_emails?.length ?? 0 }} Estudiantes</span>
+      }
+    </button>
+  </ng-container>
+</modal-shell>

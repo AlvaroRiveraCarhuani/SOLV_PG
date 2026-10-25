@@ -1,0 +1,16 @@
+.icon {
+  color: var(--tenant-primary);
+}
+
+.subject-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.form-label {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+}

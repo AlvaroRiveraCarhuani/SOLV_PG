@@ -183,6 +183,13 @@ type AdminGovernanceRepository interface {
 	UpdateStudentStatus(ctx context.Context, tenantID, studentID, status, reason string) error
 	ResetStudentOOM(ctx context.Context, tenantID, studentID string) (int64, error)
 	ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error)
+	// BatchCreateStudents crea cuentas de rol student para los correos que aún no
+	// existen en el tenant. Devuelve cuántas cuentas nuevas se crearon.
+	BatchCreateStudents(ctx context.Context, tenantID string, emails []string) (int, error)
+	// EnrollStudentsByEmails matricula en la materia a los estudiantes existentes
+	// (rol student) cuyos correos estén en la lista. Devuelve cuántos quedaron
+	// matriculados (nuevos) y cuántos correos no tenían cuenta registrada.
+	EnrollStudentsByEmails(ctx context.Context, tenantID, subjectID string, emails []string) (enrolled int, skippedNotFound int, err error)
 	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*AdminTemplateReviewItem, error)
 	GetTemplateByID(ctx context.Context, id string) (*AdminTemplateReviewItem, error)
 	GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*AdminTemplateReviewItem, error)

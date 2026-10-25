@@ -33,6 +33,12 @@ func (m *mockCacheGovRepo) ResetStudentOOM(ctx context.Context, tenantID, studen
 func (m *mockCacheGovRepo) ValidateTeacherRole(ctx context.Context, tenantID, userID string) (bool, error) {
 	return true, nil
 }
+func (m *mockCacheGovRepo) BatchCreateStudents(ctx context.Context, tenantID string, emails []string) (int, error) {
+	return 0, nil
+}
+func (m *mockCacheGovRepo) EnrollStudentsByEmails(ctx context.Context, tenantID, subjectID string, emails []string) (int, int, error) {
+	return 0, 0, nil
+}
 func (m *mockCacheGovRepo) ListTemplates(ctx context.Context, tenantID, status, search string) ([]*domain.AdminTemplateReviewItem, error) {
 	list := make([]*domain.AdminTemplateReviewItem, 0, len(m.templates))
 	for _, t := range m.templates {

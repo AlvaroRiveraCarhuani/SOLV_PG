@@ -12,10 +12,11 @@ import { StudentKpiCardsComponent } from './components/student-kpi-cards/student
 import { StudentTableComponent } from './components/student-table/student-table.component';
 import { StudentCoursesModalComponent } from './components/student-courses-modal/student-courses-modal.component';
 import { StudentResetOOMModalComponent } from './components/student-reset-oom-modal/student-reset-oom-modal.component';
-import { StudentCreateModalComponent } from './components/student-create-modal/student-create-modal.component';
+import { StudentRegisterModalComponent } from './components/student-register-modal/student-register-modal.component';
+import { StudentEnrollRosterModalComponent } from './components/student-enroll-roster-modal/student-enroll-roster-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus } from '@lucide/angular';
+import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus, LucideBookOpen } from '@lucide/angular';
 
 @Component({
   selector: 'admin-students',
@@ -26,11 +27,13 @@ import { LucideCheckCircle2, LucideAlertTriangle, LucideUserPlus } from '@lucide
     StudentTableComponent,
     StudentCoursesModalComponent,
     StudentResetOOMModalComponent,
-    StudentCreateModalComponent,
     ConfirmModalComponent,
     LucideCheckCircle2,
     LucideAlertTriangle,
-    LucideUserPlus
+    LucideUserPlus,
+    LucideBookOpen,
+    StudentRegisterModalComponent,
+    StudentEnrollRosterModalComponent
   ],
   templateUrl: './admin-students.component.html',
   styleUrls: ['./admin-students.component.scss']
@@ -51,8 +54,10 @@ export class AdminStudentsComponent implements OnInit {
   readonly pageSize = 8;
   readonly activeMenuStudentId = signal<string | null>(null);
 
-  readonly showCreateModal = signal<boolean>(false);
-  readonly isCreatingStudent = signal<boolean>(false);
+  readonly showRegisterModal = signal<boolean>(false);
+  readonly isRegistering = signal<boolean>(false);
+  readonly showRosterEnrollModal = signal<boolean>(false);
+  readonly isEnrollingRoster = signal<boolean>(false);
   readonly studentToToggleStatus = signal<AdminStudentItem | null>(null);
   readonly isTogglingStatus = signal<boolean>(false);
   readonly studentForReset = signal<AdminStudentItem | null>(null);
@@ -134,7 +139,8 @@ export class AdminStudentsComponent implements OnInit {
   @HostListener('document:keydown.escape')
   onEscape(): void {
     this.activeMenuStudentId.set(null);
-    this.showCreateModal.set(false);
+    this.showRegisterModal.set(false);
+    this.showRosterEnrollModal.set(false);
     this.studentToToggleStatus.set(null);
     this.studentForReset.set(null);
     this.studentForCourses.set(null);
@@ -264,21 +270,59 @@ export class AdminStudentsComponent implements OnInit {
     });
   }
 
-  openCreateModal(): void { this.showCreateModal.set(true); }
-  closeCreateModal(): void { this.showCreateModal.set(false); }
+  openRegisterModal(): void { this.showRegisterModal.set(true); }
+  closeRegisterModal(): void { this.showRegisterModal.set(false); }
 
   onStudentCreated(dto: CreateStudentDTO): void {
-    this.isCreatingStudent.set(true);
+    this.isRegistering.set(true);
     this.studentsService.createStudent(dto).subscribe({
       next: (newStudent) => {
-        this.isCreatingStudent.set(false);
-        this.closeCreateModal();
+        this.isRegistering.set(false);
+        this.closeRegisterModal();
         this.showToast(`Estudiante ${newStudent.first_name} ${newStudent.last_name} registrado correctamente.`, 'success');
         this.loadStudents();
       },
       error: (err) => {
-        this.isCreatingStudent.set(false);
+        this.isRegistering.set(false);
         this.showToast(err.error?.error || err.error?.message || 'Error al registrar estudiante institucional.', 'error');
+      }
+    });
+  }
+
+  onBatchCreated(emails: string[]): void {
+    this.isRegistering.set(true);
+    this.studentsService.batchCreateStudents(emails).subscribe({
+      next: (res) => {
+        this.isRegistering.set(false);
+        this.closeRegisterModal();
+        this.showToast(`${res.created_count} estudiantes creados exitosamente.`, 'success');
+        this.loadStudents();
+      },
+      error: (err) => {
+        this.isRegistering.set(false);
+        this.showToast(err.error?.error || err.error?.message || 'Error al registrar estudiantes en lote.', 'error');
+      }
+    });
+  }
+
+  openRosterEnrollModal(): void { this.showRosterEnrollModal.set(true); }
+  closeRosterEnrollModal(): void { this.showRosterEnrollModal.set(false); }
+
+  onRosterEnrolled(payload: { subjectId: string; emails: string[] }): void {
+    this.isEnrollingRoster.set(true);
+    this.studentsService.rosterEnroll(payload.subjectId, payload.emails).subscribe({
+      next: (res) => {
+        this.isEnrollingRoster.set(false);
+        this.closeRosterEnrollModal();
+        this.showToast(
+          `${res.enrolled_students} estudiantes matriculados (${res.created_students} cuentas nuevas creadas).`,
+          'success'
+        );
+        this.loadStudents();
+      },
+      error: (err) => {
+        this.isEnrollingRoster.set(false);
+        this.showToast(err.error?.error || err.error?.message || 'Error al procesar la nómina del curso.', 'error');
       }
     });
   }

@@ -139,6 +139,12 @@ func (h *SubjectHandler) ListSubjects(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SubjectHandler) EnrollStudent(w http.ResponseWriter, r *http.Request) {
+	// Guard de rol: la matrícula es una operación exclusiva de administradores.
+	if role := r.Header.Get("X-User-Role"); role != "admin" {
+		http.Error(w, `{"error":"Forbidden"}`, http.StatusForbidden)
+		return
+	}
+
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
 		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
