@@ -20,3 +20,8 @@ lint\:backend:
 	@echo "=>  golangci-lint (backend)..."
 	@cd backend && PATH="$$(go env GOPATH)/bin:$$PATH" golangci-lint run ./...
 
+.PHONY: token
+token:
+	@./scripts/gen-token.sh
+
+
