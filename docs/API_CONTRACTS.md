@@ -1158,3 +1158,353 @@ Ejecuta el precalentamiento secuencial seguro de todas las plantillas registrada
 ```
   - `403 Forbidden`: Si el rol no es `admin`.
 
+---
+
+## Módulo de Inteligencia Artificial Híbrida (Nube + Servidor Local LAN)
+
+Contratos del Copiloto Institucional: configuración por institución, prueba de conexión, estado liviano, sugerencia de componentes de catálogo (admin) y borradores de ejercicio con sello determinista del juez (docente).
+
+### Reglas comunes del módulo
+
+- La configuración se persiste por tenant en `tenants.config["ai_settings"]`.
+- La API Key se guarda cifrada con AES-256-GCM (`base64(nonce + ciphertext)`) y jamás se expone: las respuestas solo incluyen `has_api_key` y `api_key_masked` (ej. `AIza...9f2a`).
+- Cuota horaria por usuario (`hourly_quota_per_user`, 1..200, default 15) con ventana en memoria de 1 hora.
+- Escudo anti-SSRF: para `gemini`/`openai`/`openrouter`/`deepseek` la URL base oficial se fuerza y se ignora cualquier `base_url` del cliente; `ollama_lan` exige `http://` o `https://` y rechaza loopback (`localhost`, `127.0.0.0/8`, `::1`), `0.0.0.0`, rangos link-local/metadata (`169.254.0.0/16`) y nombres internos de contenedores sin dominio (`postgres`, `redis`, `traefik`). Se permiten IPs privadas LAN (`10.x`, `192.168.x`, `172.16-31.x`) y dominios con punto.
+
+#### Códigos de estado del módulo
+
+| Código | `error` | Condición |
+|--------|---------|-----------|
+| `200 OK` | `""` | Operación completada |
+| `400 Bad Request` | `invalid_payload`, `prompt_invalid`, `layer_invalid`, `language_invalid`, `provider_invalid`, `base_url_required`, `base_url_invalid`, `base_url_blocked`, `base_image_latest`, `base_image_unpinned`, `hourly_quota_invalid`, `timeout_invalid`, `ai_response_invalid`, `api_key_required` | Validación de entrada, escudo anti-SSRF o respuesta del LLM inválida |
+| `403 Forbidden` | `forbidden` | Rol insuficiente (sugerencia de componente solo `admin`; borradores bloqueados para `student`) |
+| `401 Unauthorized` | texto plano | Sin sesión válida (`tm(...)`) |
+| `409 Conflict` | `ai_disabled` | `domain.ErrAIDisabled`: IA deshabilitada para el instituto |
+| `429 Too Many Requests` | `ai_quota_exceeded` | `domain.ErrAIQuotaExceeded`: cuota horaria agotada |
+| `500 Internal Server Error` | texto del error | Falla interna o del tenant |
+
+---
+
+### 1. Consulta de Configuración de IA (`GET /api/v1/admin/ai/settings`)
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/ai/settings`
+- **Headers Requeridos:**
+  - `X-User-Id: <admin_uuid>`
+  - `X-User-Role: admin`
+  - `X-Tenant-Id: <tenant_uuid>` (opcional, fallback por defecto)
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "enabled": false,
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "has_api_key": false,
+    "api_key_masked": "",
+    "hourly_quota_per_user": 15,
+    "timeout_seconds": 30,
+    "updated_at": ""
+  },
+  "error": "",
+  "message": "Configuración de IA obtenida exitosamente"
+}
+```
+
+- `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 2. Actualización de Configuración de IA (`PUT /api/v1/admin/ai/settings`)
+
+- **Método:** `PUT`
+- **Ruta:** `/api/v1/admin/ai/settings`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+
+#### Payload de Entrada
+```json
+{
+  "enabled": true,
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "base_url": "",
+  "api_key": "AIza...",
+  "clear_api_key": false,
+  "hourly_quota_per_user": 15,
+  "timeout_seconds": 30
+}
+```
+
+Reglas:
+- `provider`: `gemini` | `openai` | `openrouter` | `deepseek` | `ollama_lan`.
+- En proveedores cloud se ignora `base_url` y se persiste la URL oficial; en `ollama_lan` es obligatoria y pasa por el escudo anti-SSRF.
+- `api_key` vacía con `clear_api_key: false` conserva la clave previa; `clear_api_key: true` la elimina.
+- Si `enabled: true` y el proveedor es cloud sin API Key (nueva ni previa): `400` con `Se requiere una API Key para habilitar un proveedor en la nube`.
+- `hourly_quota_per_user` 1..200 (0 aplica default 15); `timeout_seconds` 5..120 (0 aplica default 30).
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "enabled": true,
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "has_api_key": true,
+    "api_key_masked": "AIza...9f2a",
+    "hourly_quota_per_user": 15,
+    "timeout_seconds": 30,
+    "updated_at": "2026-10-24T14:03:11Z"
+  },
+  "error": "",
+  "message": "Configuración de IA actualizada"
+}
+```
+
+- `400 Bad Request`: Validaciones (`provider_invalid`, `base_url_blocked`, `hourly_quota_invalid`, `timeout_invalid`, `api_key_required`, ...).
+- `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 3. Prueba de Conexión al Motor (`POST /api/v1/admin/ai/test-connection`)
+
+Verificación real contra el motor configurado pidiendo el JSON mínimo `{"ok":true}` y midiendo la latencia. Los fallos de validación local devuelven `400`; un fallo del motor remoto responde `200` con `ok: false`.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/ai/test-connection`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+
+#### Payload de Entrada
+```json
+{
+  "provider": "gemini",
+  "model": "gemini-2.5-flash",
+  "base_url": "",
+  "api_key": ""
+}
+```
+> `api_key` vacía usa la clave cifrada guardada en el tenant; `provider`/`model`/`base_url` vacíos heredan los guardados.
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "ok": true,
+    "provider": "gemini",
+    "model": "gemini-2.5-flash",
+    "latency_ms": 340,
+    "message": "Conexión verificada correctamente con el motor de IA."
+  },
+  "error": "",
+  "message": "Prueba de conexión completada"
+}
+```
+
+#### Comando `curl` de Prueba
+```bash
+curl -X POST "http://localhost:3000/api/v1/admin/ai/test-connection" \
+     -H "Authorization: Bearer <jwt_admin>" \
+     -H "Content-Type: application/json" \
+     -d '{"provider":"ollama_lan","model":"qwen2.5-coder:7b","base_url":"http://10.20.1.50:11434/v1","api_key":""}'
+```
+
+- `400 Bad Request`: `provider_invalid`, `base_url_required`, `base_url_blocked`.
+- `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 4. Catálogo Dinámico de Modelos de IA (`POST /api/v1/admin/ai/models`)
+
+Descubre dinámicamente los modelos ofrecidos por el proveedor de IA. Si `api_key` se envía en el payload, se utiliza en memoria; si se omite, se descifra la clave guardada en el tenant. Aplica el escudo anti-SSRF (proveedores cloud usan URL oficial fija, `ollama_lan` valida host de LAN).
+Mantiene una caché en memoria de 5 minutos por `(tenant_id, provider, base_url)` para llamadas con credenciales guardadas y `refresh: false`.
+Normaliza identificadores (remueve el prefijo `models/` en Gemini), excluye modelos no aptos para chat o código (embeddings, whisper, tts, dall-e, moderación, etc.), clasifica el nivel/precio (`free`, `paid`, `local`, `by_account`) y ordena los resultados (OpenRouter: gratuitos primero y luego alfabético; resto de proveedores: orden alfabético por ID).
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/ai/models`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+
+#### Payload de Entrada
+```json
+{
+  "provider": "openrouter",
+  "base_url": "",
+  "api_key": "sk-or-...",
+  "refresh": false
+}
+```
+> `provider` obligatorio ("gemini" | "openai" | "openrouter" | "deepseek" | "ollama_lan"); `base_url` opcional (solo editable en `ollama_lan`); `api_key` opcional (si se omite se usa la guardada del tenant; requerida para cloud); `refresh` booleano opcional (fuerza consulta en vivo ignorando la caché).
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "provider": "openrouter",
+    "cached": false,
+    "count": 2,
+    "models": [
+      {
+        "id": "meta-llama/llama-3.3-70b-instruct:free",
+        "name": "Llama 3.3 70B Instruct (free)",
+        "description": "Modelo de código y razonamiento",
+        "tier": "free",
+        "pricing_hint": "Gratis",
+        "context_length": 131072
+      },
+      {
+        "id": "anthropic/claude-3.5-sonnet",
+        "name": "Claude 3.5 Sonnet",
+        "description": "Modelo de alto rendimiento",
+        "tier": "paid",
+        "pricing_hint": "De pago",
+        "context_length": 200000
+      }
+    ]
+  },
+  "error": "",
+  "message": "Modelos de IA obtenidos"
+}
+```
+
+- `400 Bad Request`: `provider_invalid`, `base_url_required`, `base_url_blocked`, `api_key_required`.
+- `403 Forbidden`: Si el rol no es `admin`.
+
+---
+
+### 5. Estado Liviano de IA (`GET /api/v1/ai/status`)
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/ai/status`
+- **Headers Requeridos:** `X-User-Id` (cualquier usuario autenticado del tenant)
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "enabled": true,
+    "provider": "gemini",
+    "model": "gemini-2.5-flash"
+  },
+  "error": "",
+  "message": "Estado de IA obtenido"
+}
+```
+
+- `401 Unauthorized`: Sin sesión válida.
+
+---
+
+### 6. Sugerencia de Componente de Catálogo (`POST /api/v1/admin/ai/suggest-component`)
+
+Genera un componente tecnológico a partir de la descripción del administrador. El JSON del LLM se sanea sin confianza ciega: se limpian fences Markdown, se aplica `NormalizeCreateComponentDTO`, se rechazan imágenes `:latest` o sin tag fijo y la capa de build se sintetiza de forma determinista desde `install_mode + package_names`.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/ai/suggest-component`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+
+#### Payload de Entrada
+```json
+{
+  "prompt": "PyTorch CPU y scikit-learn para Inteligencia Artificial",
+  "layer": "addon",
+  "target_runtime": "python"
+}
+```
+> `prompt` 3..600 caracteres (obligatorio); `layer` opcional (`runtime` | `addon` | `database`, default `addon`); `target_runtime` opcional.
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "component": {
+      "name": "PyTorch CPU + scikit-learn",
+      "slug": "python-ml-stack",
+      "layer": "addon",
+      "sub_category": "toolkit",
+      "description": "Framework de machine learning para Python",
+      "icon_key": "python",
+      "base_image": "python:3.12-slim-bookworm",
+      "compatible_runtimes": ["python"],
+      "install_mode": "pip",
+      "package_names": ["torch", "scikit-learn"],
+      "build_layer_snippet": "RUN pip install --no-cache-dir torch scikit-learn",
+      "setup_snippet": "",
+      "judge_entrypoint": "",
+      "tools_provided": [],
+      "ram_delta_mb": 0
+    },
+    "rationale": "torch cubre el entrenamiento y scikit-learn los modelos clásicos.",
+    "latency_ms": 812
+  },
+  "error": "",
+  "message": "Sugerencia de componente generada"
+}
+```
+
+Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `layer_invalid`, `base_image_latest`, `base_image_unpinned`, `build_layer_invalid`, `ai_response_invalid`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`).
+
+---
+
+### 7. Borrador de Ejercicio con Sello del Juez (`POST /api/v1/teacher/ai/generate-exercise`)
+
+Genera el borrador completo de un ejercicio (consigna, boilerplate, solución de referencia y casos). Cuando `verify_with_runner` no es `false` y hay runner disponible, cada caso se ejecuta con la solución de referencia y `expected_output` se sobrescribe con la salida real del runner (sello determinista): los veredictos `CE`, `RE`, `TLE` o `MLE` de la referencia dejan el caso sin verificar y detallan el motivo en `verification_warning`.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/teacher/ai/generate-exercise`
+- **Headers Requeridos:** `X-User-Id`, `X-Tenant-Id`; el rol `student` recibe `403`.
+
+#### Payload de Entrada
+```json
+{
+  "prompt": "Leer dos enteros desde stdin e imprimir su suma",
+  "language": "python",
+  "difficulty": "easy",
+  "public_cases_count": 2,
+  "hidden_cases_count": 3,
+  "verify_with_runner": true
+}
+```
+> `prompt` 5..1500 caracteres; `language` obligatorio; `difficulty` default `medium`; `public_cases_count` default 2 (1..5); `hidden_cases_count` default 3 (1..10); `verify_with_runner` nil equivale a `true`.
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "title": "Suma de dos enteros",
+    "description": "# Suma\nLea dos enteros e imprima su suma.",
+    "difficulty": "easy",
+    "language": "python",
+    "boilerplate": "a, b = map(int, input().split())\n# imprima a + b",
+    "reference_solution": "a, b = map(int, input().split())\nprint(a + b)",
+    "test_cases": [
+      {
+        "order_index": 1,
+        "input": "1 2\n",
+        "expected_output": "3",
+        "visibility": "example",
+        "weight": 1,
+        "verified_by_runner": true
+      },
+      {
+        "order_index": 2,
+        "input": "10 5\n",
+        "expected_output": "15",
+        "visibility": "public",
+        "weight": 1,
+        "verified_by_runner": true
+      }
+    ],
+    "runner_verified_all": true,
+    "latency_ms": 1470
+  },
+  "error": "",
+  "message": "Borrador de ejercicio generado"
+}
+```
+
+Cuando la solución de referencia falla en el runner la respuesta sigue siendo `200` con `runner_verified_all: false` y `verification_warning` indicando el caso y el veredicto; `verification_warning` también se emite si el motor no devolvió `reference_solution`.
+
+Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `language_invalid`, `ai_response_invalid`); `403 Forbidden` (rol `student`); `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`).
+
+

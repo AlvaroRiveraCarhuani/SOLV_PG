@@ -119,6 +119,14 @@ func main() {
 
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
 	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
+	// Módulo de IA Híbrida (Nube + Servidor Local LAN) gobernado por institución:
+	// cifrado AES-256-GCM de la API Key, escudo anti-SSRF y cuota horaria por usuario.
+	aiSettingsService := services.NewAISettingsService(tenantRepo)
+	aiSettingsHandler := httpdelivery.NewAISettingsHandler(aiSettingsService)
+	// Copiloto estructurado: sugerencia de componentes (admin) y borradores de
+	// ejercicio con sello determinista del juez (docente) sobre CompleteJSON.
+	aiCopilotService := services.NewAICopilotService(aiSettingsService, dockerRunner)
+	aiCopilotHandler := httpdelivery.NewAICopilotHandler(aiCopilotService)
 	tenantLogoHandler := httpdelivery.NewTenantLogoHandler(tenantRepo)
 	adminHandler.SetOrchestrator(dockerClient)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
@@ -270,6 +278,8 @@ func main() {
 		ClassroomHandler:              httpdelivery.NewClassroomHandler(),
 		AdminHandler:                  adminHandler,
 		ServerPoliciesHandler:         serverPoliciesHandler,
+		AISettingsHandler:             aiSettingsHandler,
+		AICopilotHandler:              aiCopilotHandler,
 		TenantLogoHandler:             tenantLogoHandler,
 		AdminAcademicHandler:          adminAcademicHandler,
 		StudentHandler:                studentHandler,

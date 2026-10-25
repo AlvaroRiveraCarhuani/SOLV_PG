@@ -10,6 +10,8 @@ import (
 
 type Handlers struct {
 	ServerPoliciesHandler         *ServerPoliciesHandler
+	AISettingsHandler             *AISettingsHandler
+	AICopilotHandler              *AICopilotHandler
 	TenantLogoHandler             *TenantLogoHandler
 	UserHandler                   *UserHandler
 	TemplateHandler               *TemplateHandler
@@ -61,6 +63,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerNotificationRoutes(mux, deps)
 	registerBackupRoutes(mux, deps)
 	registerServerPoliciesRoutes(mux, deps)
+	registerAIRoutes(mux, deps)
 	registerTenantLogoRoutes(mux, deps)
 	registerWebSocketRoutes(mux, deps.WebSocketHandler)
 }
@@ -78,6 +81,33 @@ func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
 	if deps.ServerPoliciesHandler != nil {
 		mux.Handle("GET /api/v1/admin/server/policies", tm(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
 		mux.Handle("PUT /api/v1/admin/server/policies", am(tm(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies))))
+	}
+}
+
+// registerAIRoutes configura el módulo de Inteligencia Artificial Híbrida:
+// settings y prueba de conexión son de administración institucional; el estado
+// liviano queda disponible para cualquier usuario autenticado del tenant.
+func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	if deps.AISettingsHandler != nil {
+		mux.Handle("GET /api/v1/admin/ai/settings", tm(http.HandlerFunc(deps.AISettingsHandler.GetSettings)))
+		mux.Handle("PUT /api/v1/admin/ai/settings", am(tm(http.HandlerFunc(deps.AISettingsHandler.UpdateSettings))))
+		mux.Handle("POST /api/v1/admin/ai/test-connection", am(tm(http.HandlerFunc(deps.AISettingsHandler.TestConnection))))
+		mux.Handle("POST /api/v1/admin/ai/models", am(tm(http.HandlerFunc(deps.AISettingsHandler.ListModels))))
+		mux.Handle("GET /api/v1/ai/status", tm(http.HandlerFunc(deps.AISettingsHandler.Status)))
+	}
+
+	if deps.AICopilotHandler != nil {
+		mux.Handle("POST /api/v1/admin/ai/suggest-component", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent))))
+		mux.Handle("POST /api/v1/teacher/ai/generate-exercise", am(tm(http.HandlerFunc(deps.AICopilotHandler.GenerateExerciseDraft))))
 	}
 }
 
@@ -192,6 +222,10 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/admin/students/{id}/courses", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.GetStudentCourses))))
 		mux.Handle("PUT /api/v1/admin/students/{id}/status", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateStudentStatus))))
 		mux.Handle("POST /api/v1/admin/students/{id}/reset-oom", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ResetStudentOOM))))
+		mux.Handle("POST /api/v1/admin/students/parse-roster", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ParseStudentRoster))))
+		mux.Handle("POST /api/v1/admin/students/batch", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.BatchCreateStudents))))
+		mux.Handle("POST /api/v1/admin/subjects/{id}/enroll-batch", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.EnrollStudentsBatch))))
+		mux.Handle("POST /api/v1/admin/subjects/{id}/roster", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.RosterEnroll))))
 		mux.Handle("GET /api/v1/admin/templates", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplates)))
 		mux.Handle("GET /api/v1/admin/templates/capabilities", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetRuntimeCapabilities)))
 		mux.Handle("POST /api/v1/admin/templates", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplate))))
