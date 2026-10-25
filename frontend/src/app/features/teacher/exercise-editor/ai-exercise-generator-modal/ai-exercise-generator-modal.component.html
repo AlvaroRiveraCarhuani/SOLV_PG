@@ -1,11 +1,216 @@
 <modal-shell
   title="Generar Borrador con Copiloto IA"
   subtitle="Crea enunciado, solución de referencia y casos de prueba sellados por el Juez Virtual"
-  maxWidth="600px"
+  maxWidth="640px"
   [disableClose]="isGenerating()"
   (close)="closed.emit()"
 >
   <svg modal-icon lucideSparkles class="icon"></svg>
+
+  <!-- Barra de Estado del Motor / BYOK -->
+  <div class="engine-status-bar">
+    <div class="status-left">
+      @if (aiStatus()?.using_personal_key) {
+        <span class="badge-source personal">
+          <svg lucideKeyRound class="badge-icon"></svg>
+          <span>Mi API Key Personal</span>
+        </span>
+        <span class="engine-model-desc font-mono" machineData>{{ aiStatus()?.model }}</span>
+      } @else if (aiStatus()?.enabled) {
+        <span class="badge-source institutional">
+          <svg lucideShieldCheck class="badge-icon"></svg>
+          <span>Motor Institucional</span>
+        </span>
+        <span class="engine-model-desc font-mono" machineData>{{ aiStatus()?.model }}</span>
+      } @else {
+        <span class="badge-source disabled">
+          <svg lucideAlertTriangle class="badge-icon"></svg>
+          <span>Motor Institucional Inactivo</span>
+        </span>
+        <span class="engine-model-desc">Activa tu propia clave para continuar</span>
+      }
+    </div>
+
+    <button
+      type="button"
+      class="btn-toggle-byok"
+      (click)="toggleByokPanel()"
+      [attr.aria-expanded]="showByokPanel()"
+    >
+      <svg lucideKeyRound class="btn-icon"></svg>
+      <span>Configurar mi API Key</span>
+      @if (showByokPanel()) {
+        <svg lucideChevronUp class="chevron-icon"></svg>
+      } @else {
+        <svg lucideChevronDown class="chevron-icon"></svg>
+      }
+    </button>
+  </div>
+
+  <!-- Panel Desplegable BYOK (Mi API Key Personal) -->
+  @if (showByokPanel()) {
+    <div class="byok-panel">
+      <div class="byok-header">
+        <span class="byok-title">Configuración de API Key Personal (BYOK)</span>
+        <label class="byok-toggle-switch">
+          <input
+            type="checkbox"
+            [checked]="byokEnabled()"
+            (change)="byokEnabled.set(!byokEnabled())"
+          />
+          <span>Usar mi clave personal</span>
+        </label>
+      </div>
+
+      <div class="byok-body">
+        <div class="form-row">
+          <form-field label="Proveedor de IA" for="byok-provider">
+            <select
+              id="byok-provider"
+              class="form-select"
+              [ngModel]="byokProvider()"
+              (ngModelChange)="onProviderChange($event)"
+            >
+              @for (prov of byokProviders; track prov.value) {
+                <option [value]="prov.value">{{ prov.label }}</option>
+              }
+            </select>
+          </form-field>
+
+          <form-field label="API Key Personal" for="byok-api-key" [hint]="userOverride()?.has_api_key ? 'Clave actual: ' + userOverride()?.api_key_masked : 'Pega tu clave privada'">
+            <input
+              id="byok-api-key"
+              type="password"
+              class="form-input"
+              placeholder="Pega nueva clave..."
+              [ngModel]="byokApiKey()"
+              (ngModelChange)="byokApiKey.set($event)"
+            />
+          </form-field>
+        </div>
+
+        <!-- Selector de Modelos con Filtro Gratis y Búsqueda -->
+        <div class="model-selection-row">
+          <form-field
+            label="Modelo a Utilizar"
+            for="byok-model"
+            [hint]="byokManualModelMode() ? 'Escribe el ID del modelo manualmente' : 'Elige del catálogo o busca'"
+          >
+            @if (byokManualModelMode() || byokAvailableModels().length === 0) {
+              <div class="manual-model-input-group">
+                <input
+                  id="byok-model"
+                  type="text"
+                  class="form-input"
+                  placeholder="Ej: google/gemini-2.5-flash, deepseek/deepseek-chat..."
+                  [ngModel]="byokModel()"
+                  (ngModelChange)="byokModel.set($event)"
+                />
+                <button
+                  type="button"
+                  class="btn-xs-outline"
+                  [disabled]="byokLoadingModels()"
+                  (click)="fetchModels()"
+                  title="Listar modelos disponibles para este proveedor"
+                >
+                  @if (byokLoadingModels()) {
+                    <svg lucideLoader2 class="spin-icon"></svg>
+                  } @else {
+                    <svg lucideSearch class="icon-xs"></svg>
+                  }
+                  <span>Listar modelos</span>
+                </button>
+              </div>
+            } @else {
+              <div class="catalog-model-picker">
+                <div class="model-filter-bar">
+                  <div class="filter-chips">
+                    <button
+                      type="button"
+                      class="filter-chip"
+                      [class.active]="byokModelFilter() === 'all'"
+                      (click)="byokModelFilter.set('all')"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      class="filter-chip"
+                      [class.active]="byokModelFilter() === 'free'"
+                      (click)="byokModelFilter.set('free')"
+                    >
+                      Solo Gratis (:free)
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    class="filter-search-input"
+                    placeholder="Filtrar por nombre..."
+                    [ngModel]="byokModelSearch()"
+                    (ngModelChange)="byokModelSearch.set($event)"
+                  />
+                  <button
+                    type="button"
+                    class="btn-xs-text"
+                    (click)="byokManualModelMode.set(true)"
+                  >
+                    Modo manual
+                  </button>
+                </div>
+
+                <select
+                  id="byok-model-select"
+                  class="form-select font-mono"
+                  [ngModel]="byokModel()"
+                  (ngModelChange)="byokModel.set($event)"
+                >
+                  @for (m of filteredByokModels(); track m) {
+                    <option [value]="m">{{ m }}</option>
+                  }
+                </select>
+              </div>
+            }
+          </form-field>
+        </div>
+
+        @if (byokTestMessage(); as msg) {
+          <div class="byok-test-result" [class.success]="byokTestOk()" [class.error]="byokTestOk() === false">
+            <span>{{ msg }}</span>
+          </div>
+        }
+
+        <div class="byok-actions">
+          <button
+            type="button"
+            class="btn-xs-outline"
+            [disabled]="byokTesting() || !byokModel()"
+            (click)="testConnection()"
+          >
+            @if (byokTesting()) {
+              <svg lucideLoader2 class="spin-icon"></svg>
+              <span>Probando conexión...</span>
+            } @else {
+              <span>Probar conexión</span>
+            }
+          </button>
+
+          <button
+            type="button"
+            class="btn-xs-primary"
+            [disabled]="byokSaving() || !byokModel()"
+            (click)="saveByokSettings()"
+          >
+            @if (byokSaving()) {
+              <svg lucideLoader2 class="spin-icon"></svg>
+              <span>Guardando...</span>
+            } @else {
+              <span>Guardar configuración personal</span>
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  }
 
   @if (errorMessage(); as error) {
     <div class="error-banner" role="alert">
@@ -15,27 +220,35 @@
   }
 
   @if (generatedResult(); as res) {
-    <!-- Paso B: previsualización del sello antes de aplicar -->
+    <!-- Paso B: Tarjeta Estructurada de Previsualización (.exercise-preview-card) -->
     <div class="modal-body-form preview-step">
-      <div class="preview-summary">
-        <span class="preview-title">{{ res.title }}</span>
-        <span class="preview-meta">
-          {{ res.test_cases.length }} caso(s) de prueba ·
-          <code class="font-mono">{{ res.latency_ms }} ms</code>
-        </span>
-      </div>
+      <div class="exercise-preview-card">
+        <div class="preview-header">
+          <div class="preview-title-row">
+            <h4 class="preview-title">{{ res.title }}</h4>
+            <div class="preview-badges">
+              <span class="chip-lang font-mono" machineData>{{ res.language }}</span>
+              <span class="chip-difficulty" [class]="res.difficulty">{{ res.difficulty }}</span>
+              <span class="chip-cases font-mono" machineData>{{ res.test_cases.length }} casos de prueba</span>
+              <span class="chip-latency font-mono" machineData>{{ res.latency_ms }} ms</span>
+            </div>
+          </div>
+        </div>
 
-      @if (res.runner_verified_all) {
-        <div class="seal-banner seal-ok" role="status">
-          <svg lucideShieldCheck class="seal-icon"></svg>
-          <span>Salidas esperadas selladas por el ejecutor del Juez Virtual (100% casos verificados)</span>
-        </div>
-      } @else {
-        <div class="seal-banner seal-warning" role="status">
-          <svg lucideAlertTriangle class="seal-icon"></svg>
-          <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Juez Virtual. Revisa las salidas esperadas antes de aplicar.' }}</span>
-        </div>
-      }
+        <p class="preview-desc">{{ res.description }}</p>
+
+        @if (res.runner_verified_all) {
+          <div class="seal-banner seal-ok" role="status">
+            <svg lucideShieldCheck class="seal-icon"></svg>
+            <span>Salidas esperadas selladas por el ejecutor del Juez Virtual (100% casos verificados)</span>
+          </div>
+        } @else {
+          <div class="seal-banner seal-warning" role="status">
+            <svg lucideAlertTriangle class="seal-icon"></svg>
+            <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Juez Virtual. Revisa las salidas esperadas antes de aplicar.' }}</span>
+          </div>
+        }
+      </div>
     </div>
   } @else {
     <!-- Paso A: formulario de generación -->
@@ -113,6 +326,18 @@
           />
         </form-field>
       </div>
+
+      @if (isGenerating()) {
+        <div class="generation-progress-box">
+          <div class="progress-info">
+            <svg lucideLoader2 class="spin-icon"></svg>
+            <span>Generando y sellando casos de prueba... <code class="font-mono" machineData>{{ elapsedSeconds() }} s</code></span>
+          </div>
+          <button type="button" class="btn-cancel-gen" (click)="cancelGeneration()">
+            Cancelar
+          </button>
+        </div>
+      }
     </div>
   }
 
@@ -126,11 +351,16 @@
       </button>
     } @else {
       <button type="button" class="btn-outline" [disabled]="isGenerating()" (click)="closed.emit()">
-        Cancelar
+        Cerrar
       </button>
-      <button type="button" class="btn-primary" [disabled]="isGenerating()" (click)="generate()">
+      <button
+        type="button"
+        class="btn-primary"
+        [disabled]="isGenerating() || (!aiStatus()?.enabled && !aiStatus()?.using_personal_key)"
+        (click)="generate()"
+      >
         @if (isGenerating()) {
-          Generando y verificando con el Juez...
+          Generando y verificando...
         } @else {
           Generar y Verificar con el Juez
         }

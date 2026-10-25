@@ -167,6 +167,36 @@
                 <div class="verif-details">
                   <strong>Atención en la comprobación</strong>
                   <p>{{ job.error_message || 'Uno de los programas no respondió como se esperaba.' }}</p>
+
+                  @if (aiEnabled()) {
+                    <div class="ai-repair-action-box">
+                      @if (!isRepairingWithAi()) {
+                        <button
+                          type="button"
+                          class="btn-ai-repair"
+                          (click)="repairWithAi.emit()"
+                          [disabled]="isVerifying()"
+                        >
+                          <svg lucideWrench class="btn-icon-xs"></svg>
+                          <span>Corregir con Copiloto IA</span>
+                        </button>
+                      } @else {
+                        <div class="ai-repair-loading-row">
+                          <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+                          <span>Diagnosticando y reparando entorno...</span>
+                          <span class="font-mono text-xs" machineData>Transcurrido: {{ repairElapsedSeconds() }} s</span>
+                          <button
+                            type="button"
+                            class="btn-cancel-repair"
+                            (click)="cancelRepairWithAi.emit()"
+                          >
+                            <svg lucideXCircle class="btn-icon-xs"></svg>
+                            <span>Cancelar</span>
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  }
                 </div>
               </div>
             } @else if (job.status === 'canceled') {

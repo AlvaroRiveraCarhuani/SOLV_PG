@@ -483,89 +483,109 @@
       </div>
     </div>
 
-    <!-- ================= TARJETA 3: Gobernanza de Cuota y Timeout ================= -->
+    <!-- ================= TARJETA 3: Gobernanza Autoadaptativa ================= -->
     <div class="ia-card">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideActivity class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Gobernanza de Cuota y Timeout</h2>
+            <h2 class="section-title">Gobernanza Autoadaptativa del Motor</h2>
             <p class="card-hint">
-              Límites por docente y tiempos de espera para prevenir costos excesivos o saturación del servidor.
+              El motor calibra dinámicamente los presupuestos de tiempo y cuota según el perfil técnico del modelo en uso.
             </p>
           </div>
         </div>
       </div>
 
-      <div class="governance-grid">
-        <form-field
-          label="Cuota Horaria por Usuario (Solicitudes/Hora)"
-          for="ai-quota"
-          hint="Límite máximo por docente/administrador (1-200)"
-          [error]="hourlyQuotaError()">
-          <input
-            id="ai-quota"
-            type="number"
-            class="form-input font-mono"
-            min="1"
-            max="200"
-            [ngModel]="hourlyQuota()"
-            (ngModelChange)="hourlyQuota.set(+$event)"
-            (blur)="hourlyQuotaTouched.set(true)" />
-          <div class="profile-cards-grid">
-            @for (p of quotaProfiles; track p.value) {
-              <button
-                type="button"
-                class="profile-card"
-                [class.selected]="hourlyQuota() === p.value"
-                (click)="selectQuotaProfile(p.value)">
-                <div class="profile-card-header">
-                  <span class="profile-val font-mono">{{ p.value }} solic./h</span>
-                  @if (p.badge) {
-                    <span class="profile-badge">{{ p.badge }}</span>
-                  }
-                </div>
-                <span class="profile-title">{{ p.title }}</span>
-                <span class="profile-desc">{{ p.description }}</span>
-              </button>
-            }
+      <!-- Panel de Gobernanza Autoadaptativa (Zero-Config) -->
+      <div class="adaptive-governance-panel">
+        <div class="adaptive-card">
+          <div class="adaptive-card-header">
+            <span class="adaptive-label">Perfil detectado</span>
+            <span class="adaptive-badge font-mono">{{ detectedProfile().label }}</span>
           </div>
-        </form-field>
+          <p class="adaptive-desc">{{ detectedProfile().description }}</p>
+        </div>
 
-        <form-field
-          label="Timeout de Inferencia (Segundos)"
-          for="ai-timeout"
-          hint="Tiempo máximo de espera por respuesta (5-120)"
-          [error]="timeoutSecondsError()">
-          <input
-            id="ai-timeout"
-            type="number"
-            class="form-input font-mono"
-            min="5"
-            max="120"
-            [ngModel]="timeoutSeconds()"
-            (ngModelChange)="timeoutSeconds.set(+$event)"
-            (blur)="timeoutSecondsTouched.set(true)" />
-          <div class="profile-cards-grid">
-            @for (t of timeoutProfiles; track t.value) {
-              <button
-                type="button"
-                class="profile-card"
-                [class.selected]="timeoutSeconds() === t.value"
-                (click)="selectTimeoutProfile(t.value)">
-                <div class="profile-card-header">
-                  <span class="profile-val font-mono">{{ t.value }} s</span>
-                  @if (t.badge) {
-                    <span class="profile-badge">{{ t.badge }}</span>
-                  }
-                </div>
-                <span class="profile-title">{{ t.title }}</span>
-                <span class="profile-desc">{{ t.description }}</span>
-              </button>
-            }
+        <div class="adaptive-card">
+          <div class="adaptive-card-header">
+            <span class="adaptive-label">Presupuesto automático por tarea</span>
           </div>
-        </form-field>
+          <div class="budgets-row">
+            <div class="budget-pill">
+              <span class="budget-task">Componentes</span>
+              <span class="budget-val font-mono" machineData>{{ detectedProfile().componentsBudget }}</span>
+            </div>
+            <div class="budget-pill">
+              <span class="budget-task">Stacks y Reparación</span>
+              <span class="budget-val font-mono" machineData>{{ detectedProfile().stacksBudget }}</span>
+            </div>
+            <div class="budget-pill">
+              <span class="budget-task">Ejercicios Juez</span>
+              <span class="budget-val font-mono" machineData>{{ detectedProfile().exercisesBudget }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="adaptive-card">
+          <div class="adaptive-card-header">
+            <span class="adaptive-label">Protección de cuota y BYOK</span>
+          </div>
+          <p class="adaptive-desc">{{ detectedProfile().quotaDescription }}</p>
+        </div>
       </div>
+
+      <!-- Toggle Modo Experto -->
+      <div class="expert-toggle-row">
+        <button
+          type="button"
+          class="btn-expert-toggle"
+          (click)="showExpertGovernance.set(!showExpertGovernance())">
+          <svg lucideSliders class="toggle-icon"></svg>
+          <span>Ajuste manual de límites (Modo Experto)</span>
+          @if (showExpertGovernance()) {
+            <svg lucideChevronUp class="chevron-icon"></svg>
+          } @else {
+            <svg lucideChevronDown class="chevron-icon"></svg>
+          }
+        </button>
+      </div>
+
+      @if (showExpertGovernance()) {
+        <div class="governance-grid expert-governance-grid">
+          <form-field
+            label="Cuota Horaria por Usuario (Solicitudes/Hora)"
+            for="ai-quota"
+            hint="Límite máximo por docente/administrador (1-200)"
+            [error]="hourlyQuotaError()">
+            <input
+              id="ai-quota"
+              type="number"
+              class="form-input font-mono"
+              min="1"
+              max="200"
+              [ngModel]="hourlyQuota()"
+              (ngModelChange)="hourlyQuota.set(+$event)"
+              (blur)="hourlyQuotaTouched.set(true)" />
+          </form-field>
+
+          <form-field
+            label="Timeout de Inferencia (Segundos)"
+            for="ai-timeout"
+            hint="Tiempo máximo de espera por respuesta (5-240 s)"
+            [error]="timeoutSecondsError()">
+            <input
+              id="ai-timeout"
+              type="number"
+              class="form-input font-mono"
+              min="5"
+              max="240"
+              [ngModel]="timeoutSeconds()"
+              (ngModelChange)="timeoutSeconds.set(+$event)"
+              (blur)="timeoutSecondsTouched.set(true)" />
+          </form-field>
+        </div>
+      }
 
       <div class="card-actions-row">
         <button

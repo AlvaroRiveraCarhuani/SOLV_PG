@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"solv-backend/internal/core/domain"
@@ -77,10 +78,38 @@ func (h *AICopilotHandler) GenerateExerciseDraft(w http.ResponseWriter, r *http.
 	SendJSON(w, http.StatusOK, *resp, "Borrador de ejercicio generado")
 }
 
+// RepairTemplate repara el manifiesto técnico de una plantilla a partir del
+// fallo de verificación del contenedor (Modo Visual y Modo Avanzado).
+func (h *AICopilotHandler) RepairTemplate(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	userID := getUserIDFromCtx(r)
+
+	var dto domain.AIRepairTemplateRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	resp, err := h.copilotService.RepairTemplate(r.Context(), tenantID, userID, dto)
+	if err != nil {
+		sendAICopilotError(w, err, "Error al reparar la plantilla con el Copiloto IA")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, *resp, "Plantilla reparada por el Copiloto IA")
+}
+
 // sendAICopilotError traduce los errores del módulo de IA a HTTP de forma
-// uniforme: 409 IA deshabilitada, 429 cuota agotada, 400 validaciones.
+// uniforme: 504 timeout del motor, 409 IA deshabilitada, 429 cuota agotada,
+// 400 validaciones y 500 con el motivo técnico real a la vista.
 func sendAICopilotError(w http.ResponseWriter, err error, fallbackMessage string) {
 	switch {
+	case errors.Is(err, domain.ErrAITimeout):
+		SendError(w, http.StatusGatewayTimeout, "ai_timeout", "El motor de IA superó el tiempo límite de espera para esta operación. Probá nuevamente, usá un modelo más ágil o verificá la carga del proveedor.")
+		return
 	case errors.Is(err, domain.ErrAIDisabled):
 		SendError(w, http.StatusConflict, "ai_disabled", err.Error())
 		return
@@ -93,5 +122,5 @@ func sendAICopilotError(w http.ResponseWriter, err error, fallbackMessage string
 		SendError(w, http.StatusBadRequest, vErr.Code, vErr.Message)
 		return
 	}
-	SendError(w, http.StatusInternalServerError, err.Error(), fallbackMessage)
+	SendError(w, http.StatusInternalServerError, err.Error(), fmt.Sprintf("%s: %s", fallbackMessage, err.Error()))
 }

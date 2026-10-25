@@ -17,6 +17,7 @@ import {
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
+import { AdminConfigIaService, AIRepairTemplateResponse, AISuggestTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -31,7 +32,13 @@ import {
   LucideRotateCcw,
   LucideAlertTriangle,
   LucideCopy,
-  LucidePencil
+  LucidePencil,
+  LucideSparkles,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideRefreshCw,
+  LucideXCircle,
+  LucideWrench
 } from '@lucide/angular';
 import {
   analyzeDockerfile,
@@ -82,7 +89,13 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     LucideRotateCcw,
     LucideAlertTriangle,
     LucideCopy,
-    LucidePencil
+    LucidePencil,
+    LucideSparkles,
+    LucideChevronDown,
+    LucideChevronUp,
+    LucideRefreshCw,
+    LucideXCircle,
+    LucideWrench
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
@@ -90,11 +103,15 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
 export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly envTestService = inject(EnvTestJobService);
+  private readonly aiService = inject(AdminConfigIaService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
+  private repairSub?: Subscription;
+  private suggestSub?: Subscription;
+  private timerInterval?: ReturnType<typeof setInterval>;
   private loadedTemplateItem: AdminTemplateItem | null = null;
   private isDuplicateLoad = false;
 
@@ -139,6 +156,18 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly dockerfileDiagnostics = computed<DockerfileDiagnostic[]>(() =>
     analyzeDockerfile(this.dockerfileContent())
   );
+
+  // Copiloto IA y Autorreparación
+  readonly aiEnabled = signal<boolean>(false);
+  readonly isAiSectionCollapsed = signal<boolean>(false);
+  readonly aiPrompt = signal<string>('');
+  readonly isSuggestingWithAi = signal<boolean>(false);
+  readonly aiElapsedSeconds = signal<string>('0.0');
+  readonly aiRationale = signal<string | null>(null);
+  readonly aiLatencyMs = signal<number | null>(null);
+  readonly isRepairingWithAi = signal<boolean>(false);
+  readonly repairElapsedSeconds = signal<string>('0.0');
+  readonly repairDiagnosis = signal<{ rationale: string; latencyMs: number } | null>(null);
 
   readonly hasBlockingDockerfileError = computed<boolean>(() =>
     this.dockerfileDiagnostics().some(d => d.severity === 'error')
@@ -522,7 +551,18 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
+    this.repairSub?.unsubscribe();
+    this.suggestSub?.unsubscribe();
+    this.suggestSub = undefined;
+    this.clearTimer();
     this.sub.unsubscribe();
+  }
+
+  private clearTimer(): void {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
   }
 
   private loadInitialCatalog(): void {
@@ -551,6 +591,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         if (caps) this.runtimeCapabilities.set(caps);
       },
       error: () => {}
+    });
+
+    this.aiService.getStatus().subscribe({
+      next: (status: AIStatusDTO) => this.aiEnabled.set(!!status?.enabled),
+      error: () => this.aiEnabled.set(false)
     });
   }
 
@@ -1082,6 +1127,186 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       tools_declared: this.toolsList(),
       stack_config: stackConfig
     };
+  }
+
+  // Flujo de Copiloto IA (Sugerencia de Stack)
+  suggestStackWithAi(): void {
+    const prompt = this.aiPrompt().trim();
+    if (!prompt || this.isSuggestingWithAi()) return;
+
+    this.isSuggestingWithAi.set(true);
+    this.aiRationale.set(null);
+    this.aiLatencyMs.set(null);
+    this.aiElapsedSeconds.set('0.0');
+
+    const startTime = performance.now();
+    this.clearTimer();
+    this.timerInterval = setInterval(() => {
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      this.aiElapsedSeconds.set(elapsed);
+    }, 100);
+
+    this.suggestSub?.unsubscribe();
+    this.suggestSub = this.aiService
+      .suggestTemplate({
+        prompt,
+        target_environment: this.targetEnvironment()
+      })
+      .subscribe({
+        next: (res: AISuggestTemplateResponse) => {
+          this.clearTimer();
+          this.suggestSub = undefined;
+          this.isSuggestingWithAi.set(false);
+          this.aiRationale.set(res.rationale);
+          this.aiLatencyMs.set(res.latency_ms);
+
+          // 2. Componente runtime (slug o id)
+          const rt = res.runtime_slug
+            ? this.techComponents().find((c) => c.slug === res.runtime_slug || c.id === res.runtime_slug)
+            : null;
+          this.selectedRuntimeId.set(rt ? rt.id : null);
+
+          // 3. Plataforma web para IDE_PERSISTENTE
+          if (this.targetEnvironment() === 'IDE_PERSISTENTE' && res.web_platform_slug) {
+            const web = this.techComponents().find((c) => c.slug === res.web_platform_slug || c.id === res.web_platform_slug);
+            if (web) {
+              this.selectedWebPlatformId.set(web.id);
+            }
+          }
+
+          // 4. Addons
+          if (Array.isArray(res.addon_slugs)) {
+            const matchedAddonIds: string[] = [];
+            for (const slug of res.addon_slugs) {
+              const comp = this.techComponents().find((c) => c.slug === slug || c.id === slug);
+              if (comp) {
+                matchedAddonIds.push(comp.id);
+              }
+            }
+            this.selectedAddonIds.set(matchedAddonIds);
+          }
+
+          // 5. Database
+          if (res.database_slug) {
+            const db = this.databaseOptions().find(
+              (i) => i.id === res.database_slug || i.slug === res.database_slug || (i as any).service_engine === res.database_slug
+            );
+            this.selectedDatabaseId.set(db?.id || 'db-none');
+          } else {
+            this.selectedDatabaseId.set('db-none');
+          }
+
+          // 6. Sincronizar visual + avanzado
+          this.hasCustomDockerfile.set(false);
+          this.recalculateFromVisualSelection();
+
+          // 1. Nombre y descripción si no fueron editados manualmente
+          if (res.name && !this.isNameManuallyEdited()) {
+            this.name.set(res.name);
+          }
+          if (res.description) {
+            this.description.set(res.description);
+          }
+
+          // 7. Script de setup y RAM base
+          if (res.setup_script?.trim()) {
+            this.setupScript.set(res.setup_script);
+          }
+          if (typeof res.base_ram_mb === 'number' && res.base_ram_mb >= 256) {
+            this.baseRamMB.set(res.base_ram_mb);
+          }
+
+          this.showToast('Configuración asistida aplicada.');
+        },
+        error: (err: unknown) => {
+          this.clearTimer();
+          this.suggestSub = undefined;
+          this.isSuggestingWithAi.set(false);
+          this.showToast(this.aiService.resolveError(err), 'error');
+        }
+      });
+    this.sub.add(this.suggestSub);
+  }
+
+  cancelAiSuggestion(): void {
+    this.suggestSub?.unsubscribe();
+    this.suggestSub = undefined;
+    this.clearTimer();
+    this.isSuggestingWithAi.set(false);
+    this.showToast('Operación del Copiloto cancelada.');
+  }
+
+  // Flujo de Autorreparación (Corregir con Copiloto IA)
+  repairWithAi(): void {
+    const job = this.activeEnvTestJob();
+    if (!job || job.status !== 'failed' || this.isRepairingWithAi()) return;
+
+    this.isRepairingWithAi.set(true);
+    this.repairElapsedSeconds.set('0.0');
+    this.repairDiagnosis.set(null);
+
+    const startTime = performance.now();
+    this.clearTimer();
+    this.timerInterval = setInterval(() => {
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      this.repairElapsedSeconds.set(elapsed);
+    }, 100);
+
+    const failedTools: string[] = (job.result?.tools || [])
+      .filter((t) => !t.present)
+      .map((t) => t.name);
+
+    this.repairSub = this.aiService
+      .repairTemplate({
+        name: this.name(),
+        description: this.description(),
+        target_environment: this.targetEnvironment(),
+        docker_image: this.dockerImage(),
+        dockerfile_content: this.dockerfileContent(),
+        setup_script: this.setupScript(),
+        tools_declared: this.toolsList(),
+        entrypoint: this.entrypoint(),
+        base_ram_mb: this.baseRamMB(),
+        error_message: job.error_message || '',
+        failed_tools: failedTools
+      })
+      .subscribe({
+        next: (res: AIRepairTemplateResponse) => {
+          this.clearTimer();
+          this.isRepairingWithAi.set(false);
+
+          // 1. Aplica las correcciones en el Modo Avanzado
+          this.dockerfileContent.set(res.dockerfile_content);
+          this.hasCustomDockerfile.set(true);
+          this.dockerImage.set(res.docker_image);
+          this.needsLocalBuild.set(res.docker_image.startsWith('solv-local/stack:'));
+          this.setupScript.set(res.setup_script);
+          this.toolsDeclared.set((res.tools_declared || []).join(', '));
+          this.entrypoint.set(res.entrypoint);
+          this.baseRamMB.set(res.base_ram_mb);
+
+          // 2. Conmuta automáticamente a Modo Avanzado y muestra diagnóstico
+          this.studioMode.set('code');
+          this.repairDiagnosis.set({
+            rationale: res.rationale,
+            latencyMs: res.latency_ms
+          });
+          this.showToast('Entorno reparado por Copiloto IA. Verifique el manifiesto en Modo Avanzado.');
+        },
+        error: (err: unknown) => {
+          this.clearTimer();
+          this.isRepairingWithAi.set(false);
+          this.showToast(this.aiService.resolveError(err), 'error');
+        }
+      });
+    this.sub.add(this.repairSub);
+  }
+
+  cancelRepairWithAi(): void {
+    this.clearTimer();
+    this.repairSub?.unsubscribe();
+    this.isRepairingWithAi.set(false);
+    this.showToast('Reparación cancelada.');
   }
 
   goBack(): void {

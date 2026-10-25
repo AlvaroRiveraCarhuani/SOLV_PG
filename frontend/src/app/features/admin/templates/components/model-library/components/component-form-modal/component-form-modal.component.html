@@ -29,7 +29,64 @@
     </div>
   }
 
-  @if (!editingComponent) {
+  <!-- Barra segmentada de Clasificación compacta de 1 línea -->
+  @if (!isContextLocked() && !editingComponent) {
+    <div class="segmented-control-row">
+      <div id="comp-layer" class="catalog-kind-segmented" role="tablist" aria-label="Clasificación del componente">
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="catalogKind() === 'backend'"
+          (click)="onCatalogKindChange('backend')"
+        >
+          Lenguaje Principal
+        </button>
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="catalogKind() === 'web'"
+          (click)="onCatalogKindChange('web')"
+        >
+          Interfaz Web
+        </button>
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="catalogKind() === 'addon'"
+          (click)="onCatalogKindChange('addon')"
+        >
+          Complemento / Librería
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- Pestañas: Catálogo Oficial (1 clic) | Diseñar con Copiloto IA (solo en creación si IA está activa) -->
+  @if (!editingComponent && aiEnabled()) {
+    <div class="modal-mode-tabs" role="tablist">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeModalTab() === 'catalog'"
+        (click)="switchModalTab('catalog')"
+      >
+        <svg lucideLayers class="tab-icon"></svg>
+        <span>Catálogo Oficial (1 clic)</span>
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeModalTab() === 'ai'"
+        (click)="switchModalTab('ai')"
+      >
+        <svg lucideSparkles class="tab-icon"></svg>
+        <span>Diseñar con Copiloto IA</span>
+      </button>
+    </div>
+  }
+
+  <!-- Contenido Pestaña 1: Catálogo Oficial -->
+  @if (!editingComponent && activeModalTab() === 'catalog') {
     <catalog-preset-grid
       [catalogKind]="catalogKind()"
       [ecosystemProfiles]="sortedEcosystemProfiles()"
@@ -51,30 +108,50 @@
     />
   }
 
-  @if (!editingComponent && aiEnabled()) {
+  <!-- Contenido Pestaña 2: Diseñar con Copiloto IA (SIN píldoras de ejemplos rápidos) -->
+  @if (!editingComponent && activeModalTab() === 'ai') {
     <div class="ai-assist-box">
       <div class="ai-assist-header">
         <svg lucideSparkles class="ai-icon"></svg>
-        <span class="ai-assist-title">Autocompletar con Copiloto IA</span>
+        <span class="ai-assist-title">Diseñar Componente con Copiloto IA</span>
       </div>
       <div class="ai-input-row">
-        <input
-          type="text"
-          class="form-input"
-          placeholder="Ej. PyTorch CPU y scikit-learn para Inteligencia Artificial..."
+        <textarea
+          class="form-textarea"
+          rows="2"
+          placeholder="Ej: PyTorch CPU y scikit-learn con soporte para procesamiento numérico en Python..."
           [ngModel]="aiPrompt()"
           (ngModelChange)="aiPrompt.set($event)"
-          (keydown.enter)="generateWithAi()"
-        />
-        <button
-          type="button"
-          class="btn-outline ai-generate-btn"
-          (click)="generateWithAi()"
-          [disabled]="isGeneratingAi() || aiPrompt().trim().length < 3"
-        >
-          <svg lucideSparkles class="ai-btn-icon"></svg>
-          <span>{{ isGeneratingAi() ? 'Sugiriendo...' : 'Sugerir con IA' }}</span>
-        </button>
+          [disabled]="isGeneratingAi()"
+        ></textarea>
+      </div>
+
+      <div class="ai-actions-row">
+        @if (isGeneratingAi()) {
+          <div class="ai-running-telemetry">
+            <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+            <span>Generando especificación técnica...</span>
+            <span class="font-mono text-xs" machineData>Transcurrido: {{ aiElapsedSeconds() }} s</span>
+            <button
+              type="button"
+              class="btn-cancel-ai"
+              (click)="cancelAiGeneration()"
+            >
+              <svg lucideXCircle class="btn-icon-xs"></svg>
+              <span>Cancelar</span>
+            </button>
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="btn-primary ai-generate-btn"
+            (click)="generateWithAi()"
+            [disabled]="aiPrompt().trim().length < 3"
+          >
+            <svg lucideSparkles class="ai-btn-icon"></svg>
+            <span>Generar Componente</span>
+          </button>
+        }
       </div>
 
       @if (aiRationale()) {
@@ -82,7 +159,7 @@
           <p class="ai-rationale-text">{{ aiRationale() }}</p>
           @if (aiLatencyMs()) {
             <span class="ai-latency-tag">
-              Latencia: <code class="font-mono">{{ aiLatencyMs() }} ms</code>
+              Latencia: <code class="font-mono" machineData>{{ aiLatencyMs() }} ms</code>
             </span>
           }
         </div>
@@ -90,244 +167,247 @@
     </div>
   }
 
-  <div class="form-row">
-    @if (!isContextLocked()) {
-      <form-field
-        label="Clasificación del Componente del Catálogo"
-        for="comp-layer"
-        [required]="true"
-        hint="Los motores de base de datos son gobernados por las capacidades del nodo. Los clientes u ORMs (Prisma, SQLAlchemy, TypeORM) se registran como Complemento / Framework."
-      >
-        <combobox
-          id="comp-layer"
-          [options]="catalogKindOptions"
-          [value]="catalogKind()"
-          [showSearchIcon]="false"
-          [showHeader]="false"
-          [allowClear]="false"
-          (valueChange)="onCatalogKindChange($any($event))"
-        />
-      </form-field>
-    }
-
-    <form-field label="Nombre Visible" for="comp-name" [required]="true">
-      <input
-        id="comp-name"
-        type="text"
-        class="form-input"
-        [placeholder]="uiCopy().namePlaceholder"
-        [ngModel]="name()"
-        (ngModelChange)="onNameChange($event)"
-      />
-    </form-field>
-  </div>
-
-  <form-field label="Descripción breve para docentes y administradores" for="comp-desc">
-    <input
-      id="comp-desc"
-      type="text"
-      class="form-input"
-      [placeholder]="uiCopy().descPlaceholder"
-      [ngModel]="description()"
-      (ngModelChange)="description.set($event)"
-    />
-  </form-field>
-
-  <smart-icon-picker
-    [effectiveIconKey]="effectiveIconKey()"
-    [activeIconLabel]="activeIconLabel()"
-    [iconResolutionSource]="iconResolutionSource()"
-    [showIconPickerGrid]="showIconPickerGrid()"
-    [showCustomIconInput]="showCustomIconInput()"
-    [iconSearchQuery]="iconSearchQuery()"
-    [filteredCuratedIcons]="filteredCuratedIcons()"
-    [iconKey]="iconKey()"
-    [customIconUrl]="customIconUrl()"
-    (toggleGrid)="toggleIconPickerGrid()"
-    (toggleCustomUrl)="toggleCustomIconInput()"
-    (searchQueryChange)="iconSearchQuery.set($event)"
-    (selectIcon)="selectCuratedIcon($event)"
-    (customUrlChange)="customIconUrl.set($event)"
-  />
-
-  @if (layer() === 'addon') {
-    <div class="form-row">
-      <form-field label="Compatible con la tecnología" for="comp-compat" [required]="true">
-        <combobox
-          id="comp-compat"
-          [options]="compatibleRuntimeOptions()"
-          [value]="compatibleRuntime()"
-          [placeholder]="'Seleccione el lenguaje compatible...'"
-          [showSearchIcon]="false"
-          [showHeader]="false"
-          [allowClear]="false"
-          (valueChange)="onCompatibleRuntimeChange($event)"
-        />
-      </form-field>
-
-      @if (filteredInstallPresetOptions().length > 1) {
-        <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode">
-          <combobox
-            id="comp-install-mode"
-            [options]="filteredInstallPresetOptions()"
-            [value]="installPreset()"
-            [showSearchIcon]="false"
-            [showHeader]="false"
-            [allowClear]="false"
-            (valueChange)="installPreset.set($event)"
-          />
-        </form-field>
-      }
-    </div>
-  }
-
-  @if ((layer() === 'addon' || (layer() === 'runtime' && subCategory() === 'web')) && installPreset() !== 'none') {
-    @if (installPreset() !== 'custom') {
-      <form-field
-        label="Paquetes o herramientas a incluir"
-        for="comp-pkgs"
-        hint="Escriba los nombres separados por espacio o coma (ej: gdb valgrind cmake o fastapi uvicorn). El sistema instala y verifica cada paquete automáticamente."
-        [required]="true"
-      >
-        <input
-          id="comp-pkgs"
-          type="text"
-          class="form-input font-mono"
-          [placeholder]="uiCopy().packagesPlaceholder"
-          [ngModel]="packageNamesInput()"
-          (ngModelChange)="packageNamesInput.set($event)"
-        />
-      </form-field>
-    } @else {
-      <form-field label="Instrucción de construcción personalizada (RUN)" for="comp-custom-run">
-        <input
-          id="comp-custom-run"
-          type="text"
-          class="form-input font-mono"
-          placeholder="Ej: RUN pip install --no-cache-dir mi-libreria"
-          [ngModel]="customBuildSnippet()"
-          (ngModelChange)="customBuildSnippet.set($event)"
-        />
-      </form-field>
-    }
-  }
-
-  @if (layer() === 'database') {
-    <form-field label="Motor de conexión" for="comp-db-engine">
-      <combobox
-        id="comp-db-engine"
-        [options]="databaseEngineOptions"
-        [value]="serviceEngine()"
-        [showSearchIcon]="false"
-        [showHeader]="false"
-        [allowClear]="false"
-        (valueChange)="serviceEngine.set($event)"
-      />
-    </form-field>
-  }
-
-  <div class="auto-resolved-banner">
-    <div class="auto-resolved-info">
-      <strong class="auto-resolved-title">Configuración técnica resuelta automáticamente</strong>
-      <span class="auto-resolved-detail font-mono">{{ autoResolvedSummary() }}</span>
-    </div>
-    <button
-      type="button"
-      class="btn-xs-outline"
-      (click)="toggleExpertMode()"
-    >
-      {{ showExpertMode() ? 'Ocultar modo experto' : 'Modo experto (contenedor)' }}
-    </button>
-  </div>
-
-  @if (showExpertMode()) {
-    <div class="expert-mode-panel">
-      @if (layer() === 'runtime') {
-        <form-field label="Imagen Base Oficial (sin :latest)" for="comp-base-image" [required]="true">
-          <input
-            id="comp-base-image"
-            type="text"
-            class="form-input font-mono"
-            [placeholder]="uiCopy().baseImagePlaceholder"
-            [ngModel]="baseImage()"
-            (ngModelChange)="baseImage.set($event)"
-          />
-        </form-field>
-
-        @if (subCategory() === 'backend') {
+  <!-- Formulario Manual Completo (.manual-form-panel) -->
+  <!-- Siempre visible debajo del catálogo o del cuadro de IA -->
+  <div class="manual-form-panel">
+      <div class="form-row">
+        @if (!isContextLocked() && editingComponent) {
           <form-field
-            label="Comando de evaluación para Juez Virtual (Opcional)"
-            for="comp-judge-entrypoint"
-            hint="Ej: gcc -O2 solution.c -o solution && ./solution o g++ -O2 solution.cpp -o solution && ./solution"
+            label="Clasificación del Componente del Catálogo"
+            for="comp-layer-edit"
+            [required]="true"
+          >
+            <combobox
+              id="comp-layer-edit"
+              [options]="catalogKindOptions"
+              [value]="catalogKind()"
+              [showSearchIcon]="false"
+              [showHeader]="false"
+              [allowClear]="false"
+              (valueChange)="onCatalogKindChange($any($event))"
+            />
+          </form-field>
+        }
+
+        <form-field label="Nombre Visible" for="comp-name" [required]="true">
+          <input
+            id="comp-name"
+            type="text"
+            class="form-input"
+            [placeholder]="uiCopy().namePlaceholder"
+            [ngModel]="name()"
+            (ngModelChange)="onNameChange($event)"
+          />
+        </form-field>
+      </div>
+
+      <form-field label="Descripción breve para docentes y administradores" for="comp-desc">
+        <input
+          id="comp-desc"
+          type="text"
+          class="form-input"
+          [placeholder]="uiCopy().descPlaceholder"
+          [ngModel]="description()"
+          (ngModelChange)="description.set($event)"
+        />
+      </form-field>
+
+      <smart-icon-picker
+        [effectiveIconKey]="effectiveIconKey()"
+        [activeIconLabel]="activeIconLabel()"
+        [iconResolutionSource]="iconResolutionSource()"
+        [showIconPickerGrid]="showIconPickerGrid()"
+        [showCustomIconInput]="showCustomIconInput()"
+        [iconSearchQuery]="iconSearchQuery()"
+        [filteredCuratedIcons]="filteredCuratedIcons()"
+        [iconKey]="iconKey()"
+        [customIconUrl]="customIconUrl()"
+        (toggleGrid)="toggleIconPickerGrid()"
+        (toggleCustomUrl)="toggleCustomIconInput()"
+        (searchQueryChange)="iconSearchQuery.set($event)"
+        (selectIcon)="selectCuratedIcon($event)"
+        (customUrlChange)="customIconUrl.set($event)"
+      />
+
+      @if (layer() === 'addon') {
+        <div class="form-row">
+          <form-field label="Compatible con la tecnología" for="comp-compat" [required]="true">
+            <combobox
+              id="comp-compat"
+              [options]="compatibleRuntimeOptions()"
+              [value]="compatibleRuntime()"
+              [placeholder]="'Seleccione el lenguaje compatible...'"
+              [showSearchIcon]="false"
+              [showHeader]="false"
+              [allowClear]="false"
+              (valueChange)="onCompatibleRuntimeChange($event)"
+            />
+          </form-field>
+
+          @if (filteredInstallPresetOptions().length > 1) {
+            <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode">
+              <combobox
+                id="comp-install-mode"
+                [options]="filteredInstallPresetOptions()"
+                [value]="installPreset()"
+                [showSearchIcon]="false"
+                [showHeader]="false"
+                [allowClear]="false"
+                (valueChange)="installPreset.set($event)"
+              />
+            </form-field>
+          }
+        </div>
+      }
+
+      @if ((layer() === 'addon' || (layer() === 'runtime' && subCategory() === 'web')) && installPreset() !== 'none') {
+        @if (installPreset() !== 'custom') {
+          <form-field
+            label="Paquetes o herramientas a incluir"
+            for="comp-pkgs"
+            hint="Escriba los nombres separados por espacio o coma. El sistema instala y verifica cada paquete automáticamente."
+            [required]="true"
           >
             <input
-              id="comp-judge-entrypoint"
+              id="comp-pkgs"
               type="text"
               class="form-input font-mono"
-              placeholder="Ej: python3 solution.py o go run main.go"
-              [ngModel]="judgeEntrypoint()"
-              (ngModelChange)="judgeEntrypoint.set($event)"
+              [placeholder]="uiCopy().packagesPlaceholder"
+              [ngModel]="packageNamesInput()"
+              (ngModelChange)="packageNamesInput.set($event)"
+            />
+          </form-field>
+        } @else {
+          <form-field label="Instrucción de construcción personalizada (RUN)" for="comp-custom-run">
+            <input
+              id="comp-custom-run"
+              type="text"
+              class="form-input font-mono"
+              placeholder="Ej: RUN pip install --no-cache-dir mi-libreria"
+              [ngModel]="customBuildSnippet()"
+              (ngModelChange)="customBuildSnippet.set($event)"
             />
           </form-field>
         }
+      }
 
-        <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode-rt">
+      @if (layer() === 'database') {
+        <form-field label="Motor de conexión" for="comp-db-engine">
           <combobox
-            id="comp-install-mode-rt"
-            [options]="filteredInstallPresetOptions()"
-            [value]="installPreset()"
+            id="comp-db-engine"
+            [options]="databaseEngineOptions"
+            [value]="serviceEngine()"
             [showSearchIcon]="false"
             [showHeader]="false"
             [allowClear]="false"
-            (valueChange)="installPreset.set($event)"
+            (valueChange)="serviceEngine.set($event)"
           />
         </form-field>
       }
 
-      <div class="form-row">
-        <form-field
-          label="Programa a comprobar al iniciar (Opcional)"
-          for="comp-tools"
-          hint="Ej: gcc, g++, gdb, valgrind, cmake"
+      <div class="auto-resolved-banner">
+        <div class="auto-resolved-info">
+          <strong class="auto-resolved-title">Configuración técnica resuelta automáticamente</strong>
+          <span class="auto-resolved-detail font-mono">{{ autoResolvedSummary() }}</span>
+        </div>
+        <button
+          type="button"
+          class="btn-xs-outline"
+          (click)="toggleExpertMode()"
         >
-          <input
-            id="comp-tools"
-            type="text"
-            class="form-input font-mono"
-            [placeholder]="uiCopy().toolsPlaceholder"
-            [ngModel]="toolsProvidedInput()"
-            (ngModelChange)="toolsProvidedInput.set($event)"
-          />
-        </form-field>
-
-        @if (layer() === 'addon') {
-          <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
-            <combobox
-              id="comp-memory-profile"
-              [options]="addonMemoryProfileOptions"
-              [value]="memoryProfile()"
-              [showSearchIcon]="false"
-              [showHeader]="false"
-              [allowClear]="false"
-              (valueChange)="setMemoryProfile($any($event))"
-            />
-          </form-field>
-        } @else if (layer() === 'runtime') {
-          <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
-            <combobox
-              id="comp-memory-profile"
-              [options]="runtimeMemoryProfileOptions"
-              [value]="memoryProfile()"
-              [showSearchIcon]="false"
-              [showHeader]="false"
-              [allowClear]="false"
-              (valueChange)="setMemoryProfile($any($event))"
-            />
-          </form-field>
-        }
+          {{ showExpertMode() ? 'Ocultar modo experto' : 'Modo experto (contenedor)' }}
+        </button>
       </div>
+
+      @if (showExpertMode()) {
+        <div class="expert-mode-panel">
+          @if (layer() === 'runtime') {
+            <form-field label="Imagen Base Oficial (sin :latest)" for="comp-base-image" [required]="true">
+              <input
+                id="comp-base-image"
+                type="text"
+                class="form-input font-mono"
+                [placeholder]="uiCopy().baseImagePlaceholder"
+                [ngModel]="baseImage()"
+                (ngModelChange)="baseImage.set($event)"
+              />
+            </form-field>
+
+            @if (subCategory() === 'backend') {
+              <form-field
+                label="Comando de evaluación para Juez Virtual (Opcional)"
+                for="comp-judge-entrypoint"
+                hint="Ej: gcc -O2 solution.c -o solution && ./solution o g++ -O2 solution.cpp -o solution && ./solution"
+              >
+                <input
+                  id="comp-judge-entrypoint"
+                  type="text"
+                  class="form-input font-mono"
+                  placeholder="Ej: python3 solution.py o go run main.go"
+                  [ngModel]="judgeEntrypoint()"
+                  (ngModelChange)="judgeEntrypoint.set($event)"
+                />
+              </form-field>
+            }
+
+            <form-field label="¿Cómo se instala esta herramienta?" for="comp-install-mode-rt">
+              <combobox
+                id="comp-install-mode-rt"
+                [options]="filteredInstallPresetOptions()"
+                [value]="installPreset()"
+                [showSearchIcon]="false"
+                [showHeader]="false"
+                [allowClear]="false"
+                (valueChange)="installPreset.set($event)"
+              />
+            </form-field>
+          }
+
+          <div class="form-row">
+            <form-field
+              label="Programa a comprobar al iniciar (Opcional)"
+              for="comp-tools"
+              hint="Ej: gcc, g++, gdb, valgrind, cmake"
+            >
+              <input
+                id="comp-tools"
+                type="text"
+                class="form-input font-mono"
+                [placeholder]="uiCopy().toolsPlaceholder"
+                [ngModel]="toolsProvidedInput()"
+                (ngModelChange)="toolsProvidedInput.set($event)"
+              />
+            </form-field>
+
+            @if (layer() === 'addon') {
+              <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
+                <combobox
+                  id="comp-memory-profile"
+                  [options]="addonMemoryProfileOptions"
+                  [value]="memoryProfile()"
+                  [showSearchIcon]="false"
+                  [showHeader]="false"
+                  [allowClear]="false"
+                  (valueChange)="setMemoryProfile($any($event))"
+                />
+              </form-field>
+            } @else if (layer() === 'runtime') {
+              <form-field label="Perfil de Consumo en Memoria" for="comp-memory-profile">
+                <combobox
+                  id="comp-memory-profile"
+                  [options]="runtimeMemoryProfileOptions"
+                  [value]="memoryProfile()"
+                  [showSearchIcon]="false"
+                  [showHeader]="false"
+                  [allowClear]="false"
+                  (valueChange)="setMemoryProfile($any($event))"
+                />
+              </form-field>
+            }
+          </div>
+        </div>
+      }
     </div>
-  }
 
   <ng-container modal-footer>
     <button type="button" class="btn-outline" (click)="onClose()" [disabled]="isSubmitting()">

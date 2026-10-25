@@ -6,7 +6,9 @@ import { of } from 'rxjs';
 import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal.component';
 import {
   TeacherAiCopilotService,
-  AIGenerateExerciseResponse
+  AIGenerateExerciseResponse,
+  AIUserOverrideDTO,
+  AIAvailabilityStatus
 } from '../../services/teacher-ai-copilot.service';
 import { ExerciseEditorStore } from '../exercise-editor.store';
 
@@ -39,6 +41,28 @@ const mockDraft: AIGenerateExerciseResponse = {
   latency_ms: 1234
 };
 
+const mockUserOverride: AIUserOverrideDTO = {
+  enabled: true,
+  provider: 'openrouter',
+  provider_label: 'OpenRouter',
+  model: 'meta-llama/llama-3.3-70b-instruct:free',
+  base_url: '',
+  has_api_key: true,
+  api_key_masked: 'sk-or-•••••••1234',
+  updated_at: '2026-10-25T12:00:00Z',
+  institutional_enabled: true,
+  institutional_provider_label: 'Gemini',
+  institutional_model: 'gemini-2.5-flash'
+};
+
+const mockStatus: AIAvailabilityStatus = {
+  enabled: true,
+  provider: 'openrouter',
+  model: 'meta-llama/llama-3.3-70b-instruct:free',
+  using_personal_key: true,
+  institutional_enabled: true
+};
+
 describe('AiExerciseGeneratorModalComponent', () => {
   let component: AiExerciseGeneratorModalComponent;
   let fixture: ComponentFixture<AiExerciseGeneratorModalComponent>;
@@ -46,13 +70,21 @@ describe('AiExerciseGeneratorModalComponent', () => {
     generateExercise: ReturnType<typeof vi.fn>;
     resolveError: ReturnType<typeof vi.fn>;
     getStatus: ReturnType<typeof vi.fn>;
+    getMySettings: ReturnType<typeof vi.fn>;
+    updateMySettings: ReturnType<typeof vi.fn>;
+    testMyConnection: ReturnType<typeof vi.fn>;
+    listMyModels: ReturnType<typeof vi.fn>;
   };
 
   beforeEach(async () => {
     mockService = {
       generateExercise: vi.fn().mockReturnValue(of(mockDraft)),
       resolveError: vi.fn().mockReturnValue('error de prueba'),
-      getStatus: vi.fn()
+      getStatus: vi.fn().mockReturnValue(of(mockStatus)),
+      getMySettings: vi.fn().mockReturnValue(of(mockUserOverride)),
+      updateMySettings: vi.fn().mockReturnValue(of(mockUserOverride)),
+      testMyConnection: vi.fn().mockReturnValue(of({ ok: true, message: 'Conexión OK (120ms)', latency_ms: 120 })),
+      listMyModels: vi.fn().mockReturnValue(of(['google/gemini-2.0-flash-exp:free', 'meta-llama/llama-3.3-70b-instruct:free', 'openai/gpt-4o-mini']))
     };
 
     await TestBed.configureTestingModule({
@@ -70,7 +102,15 @@ describe('AiExerciseGeneratorModalComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe invocar generateExercise con los parámetros seleccionados y mostrar el resultado sellado', () => {
+  it('debe inicializar cargando el status y los settings de BYOK del usuario', () => {
+    expect(mockService.getStatus).toHaveBeenCalled();
+    expect(mockService.getMySettings).toHaveBeenCalled();
+    expect(component.byokEnabled()).toBe(true);
+    expect(component.byokProvider()).toBe('openrouter');
+    expect(component.byokModel()).toBe('meta-llama/llama-3.3-70b-instruct:free');
+  });
+
+  it('debe invocar generateExercise con los parámetros seleccionados y mostrar el resultado en la tarjeta estructurada', () => {
     component.prompt.set('Suma de los primos hasta N con casos extremos');
     component.language.set('python');
     component.difficulty.set('hard');
@@ -95,10 +135,63 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(component.isGenerating()).toBe(false);
 
     fixture.detectChanges();
-    const latency = fixture.nativeElement.querySelector('.preview-summary code.font-mono');
+    const card = fixture.nativeElement.querySelector('.exercise-preview-card');
+    expect(card).toBeTruthy();
+    const latency = fixture.nativeElement.querySelector('.chip-latency');
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
     expect(seal?.textContent).toContain('selladas por el ejecutor del Juez Virtual');
+  });
+
+  it('debe filtrar modelos BYOK correctamente por texto y filtro Gratis', () => {
+    component.byokAvailableModels.set([
+      'google/gemini-2.0-flash-exp:free',
+      'meta-llama/llama-3.3-70b-instruct:free',
+      'openai/gpt-4o-mini',
+      'deepseek/deepseek-chat'
+    ]);
+
+    component.byokModelFilter.set('free');
+    expect(component.filteredByokModels().length).toBe(2);
+    expect(component.filteredByokModels()).toContain('google/gemini-2.0-flash-exp:free');
+    expect(component.filteredByokModels()).toContain('meta-llama/llama-3.3-70b-instruct:free');
+
+    component.byokModelSearch.set('gemini');
+    expect(component.filteredByokModels().length).toBe(1);
+    expect(component.filteredByokModels()[0]).toBe('google/gemini-2.0-flash-exp:free');
+  });
+
+  it('debe permitir probar conexión y guardar la configuración BYOK', () => {
+    component.byokProvider.set('openrouter');
+    component.byokModel.set('meta-llama/llama-3.3-70b-instruct:free');
+    component.byokApiKey.set('sk-or-nueva-clave');
+
+    component.testConnection();
+    expect(mockService.testMyConnection).toHaveBeenCalled();
+    expect(component.byokTestOk()).toBe(true);
+
+    component.saveByokSettings();
+    expect(mockService.updateMySettings).toHaveBeenCalledWith({
+      enabled: true,
+      provider: 'openrouter',
+      model: 'meta-llama/llama-3.3-70b-instruct:free',
+      base_url: undefined,
+      api_key: 'sk-or-nueva-clave'
+    });
+    expect(component.byokApiKey()).toBe('');
+  });
+
+  it('debe cancelar la generación en curso al llamar cancelGeneration()', () => {
+    component.prompt.set('Ejercicio largo que demora');
+    component.generate();
+    expect(component.isGenerating()).toBe(false); // mock observable is synchronous
+
+    // Simular que está en curso
+    component.isGenerating.set(true);
+    component.cancelGeneration();
+
+    expect(component.isGenerating()).toBe(false);
+    expect(component.errorMessage()).toContain('cancelada por el docente');
   });
 
   it('debe emitir (applied) al confirmar y que applyAIGeneratedDraft pueble el editor', () => {
@@ -130,5 +223,15 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(cases[1].is_hidden).toBe(true);
     expect(cases[1].weight).toBe(2);
     expect(store.hasInteracted()).toBe(true);
+  });
+
+  it('no crashea si listMyModels devuelve datos no array y filteredByokModels opera de forma segura', () => {
+    (component.byokAvailableModels as any).set(null);
+    expect(() => component.filteredByokModels()).not.toThrow();
+    expect(component.filteredByokModels()).toEqual([]);
+
+    component.byokAvailableModels.set(['gemini-1.5-flash:free', 'gpt-4o']);
+    component.byokModelFilter.set('free');
+    expect(component.filteredByokModels()).toEqual(['gemini-1.5-flash:free']);
   });
 });

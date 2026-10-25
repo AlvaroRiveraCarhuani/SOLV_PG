@@ -128,6 +128,195 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 	}, nil
 }
 
+// RepairTemplate repara el manifiesto técnico de una plantilla a partir de la
+// radiografía fresca del fallo del contenedor (sin historial de chat): corrige
+// el Dockerfile, el setup_script, tools_declared, el entrypoint y la memoria
+// base, y devuelve la causa raíz explicada en español. Aplica guardrails
+// deterministas sobre la salida del motor.
+func (s *AICopilotService) RepairTemplate(ctx context.Context, tenantID, userID string, req domain.AIRepairTemplateRequestDTO) (*domain.AIRepairTemplateResponseDTO, error) {
+	systemPrompt := repairTemplateSystemPrompt()
+	userPrompt := repairTemplateUserPrompt(req)
+
+	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "repair-template", systemPrompt, userPrompt)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		DockerImage       string   `json:"docker_image"`
+		DockerfileContent string   `json:"dockerfile_content"`
+		SetupScript       string   `json:"setup_script"`
+		ToolsDeclared     []string `json:"tools_declared"`
+		Entrypoint        string   `json:"entrypoint"`
+		BaseRamMB         int      `json:"base_ram_mb"`
+		Rationale         string   `json:"rationale"`
+	}
+	if err := json.Unmarshal([]byte(cleanJSONFence(raw)), &payload); err != nil {
+		return nil, &AISettingsValidationError{
+			Code:    "ai_response_invalid",
+			Message: "el motor de IA devolvió JSON inválido para la reparación de la plantilla",
+		}
+	}
+
+	rationale := strings.TrimSpace(payload.Rationale)
+	if rationale == "" {
+		return nil, &AISettingsValidationError{
+			Code:    "ai_response_invalid",
+			Message: "el motor de IA no devolvió el rationale con la causa raíz del fallo",
+		}
+	}
+
+	// Cada campo cae en su valor actual si el motor lo omitió: la reparación
+	// nunca borra estado que ya funcionaba.
+	dockerImage := strings.TrimSpace(payload.DockerImage)
+	if dockerImage == "" {
+		dockerImage = strings.TrimSpace(req.DockerImage)
+	}
+	dockerfile := strings.TrimSpace(payload.DockerfileContent)
+	if dockerfile == "" {
+		dockerfile = strings.TrimSpace(req.DockerfileContent)
+	}
+	setupScript := payload.SetupScript
+	if strings.TrimSpace(setupScript) == "" {
+		setupScript = req.SetupScript
+	}
+	toolsDeclared := sanitizeToolsList(payload.ToolsDeclared, req.ToolsDeclared)
+	entrypoint := strings.TrimSpace(payload.Entrypoint)
+	if entrypoint == "" {
+		entrypoint = strings.TrimSpace(req.Entrypoint)
+	}
+	baseRamMB := payload.BaseRamMB
+	if baseRamMB == 0 {
+		baseRamMB = req.BaseRamMB
+	}
+	if baseRamMB == 0 {
+		baseRamMB = 1024
+	}
+	baseRamMB = clampInt(baseRamMB, 256, 4096)
+
+	// Guardrail 1: prohibido :latest en la imagen o en cualquier FROM.
+	if strings.Contains(strings.ToLower(dockerImage), ":latest") {
+		return nil, &AISettingsValidationError{
+			Code:    "base_image_latest",
+			Message: fmt.Sprintf("el motor de IA propuso la imagen %q: el tag :latest está prohibido por reproducibilidad académica", dockerImage),
+		}
+	}
+	if line, ok := dockerfileLatestTagLine(dockerfile); ok {
+		return nil, &AISettingsValidationError{
+			Code:    "base_image_latest",
+			Message: fmt.Sprintf("el motor de IA devolvió un Dockerfile con :latest (%s): el tag :latest está prohibido por reproducibilidad académica", line),
+		}
+	}
+
+	// Guardrail 2: un Dockerfile con capas RUN requiere build local, por lo que
+	// la imagen debe arrastrar el prefijo solv-local/stack:...
+	if dockerfileNeedsLocalBuild(dockerfile) && !strings.HasPrefix(dockerImage, localStackImagePrefix) {
+		dockerImage = localStackImagePrefix + repairLocalImageSlug(req.Name)
+	}
+
+	return &domain.AIRepairTemplateResponseDTO{
+		DockerImage:       dockerImage,
+		DockerfileContent: dockerfile,
+		SetupScript:       setupScript,
+		ToolsDeclared:     toolsDeclared,
+		Entrypoint:        entrypoint,
+		BaseRamMB:         baseRamMB,
+		Rationale:         rationale,
+		LatencyMS:         latencyMS,
+	}, nil
+}
+
+// localStackImagePrefix fuerza el build local de la imagen cuando el
+// Dockerfile define capas propias.
+const localStackImagePrefix = "solv-local/stack:"
+
+// sanitizeToolsList limpia la lista de herramientas verificadas: recorta,
+// descarta vacíos y duplicados preservando el orden. Si el motor no devolvió
+// ninguna, conserva las declaradas originalmente.
+func sanitizeToolsList(tools, fallback []string) []string {
+	cleaned := make([]string, 0, len(tools))
+	seen := make(map[string]bool, len(tools))
+	for _, tool := range tools {
+		name := strings.TrimSpace(tool)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		cleaned = append(cleaned, name)
+	}
+	if len(cleaned) > 0 {
+		return cleaned
+	}
+	for _, tool := range fallback {
+		name := strings.TrimSpace(tool)
+		if name == "" || seen[name] {
+			continue
+		}
+		seen[name] = true
+		cleaned = append(cleaned, name)
+	}
+	return cleaned
+}
+
+// dockerfileNeedsLocalBuild reporta si el Dockerfile define capas RUN propias
+// (y por lo tanto no puede resolverse con una imagen preconstruida).
+func dockerfileNeedsLocalBuild(dockerfile string) bool {
+	for _, raw := range strings.Split(dockerfile, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "RUN" || strings.HasPrefix(line, "RUN ") || strings.HasPrefix(line, "RUN\t") {
+			return true
+		}
+	}
+	return false
+}
+
+// dockerfileLatestTagLine devuelve la instrucción FROM con :latest si existe.
+func dockerfileLatestTagLine(dockerfile string) (string, bool) {
+	for _, raw := range strings.Split(dockerfile, "\n") {
+		line := strings.TrimSpace(raw)
+		if !strings.HasPrefix(line, "FROM ") && line != "FROM" {
+			continue
+		}
+		if strings.Contains(strings.ToLower(line), ":latest") {
+			return line, true
+		}
+	}
+	return "", false
+}
+
+// repairSlugReplacer elimina tildes y eñes para que el tag local quede en
+// ASCII puro, como exige el formato de tag de Docker.
+var repairSlugReplacer = strings.NewReplacer(
+	"á", "a", "é", "e", "í", "i", "ó", "o", "ú", "u", "ü", "u", "ñ", "n", "ç", "c",
+)
+
+// repairLocalImageSlug deriva el tag local solv-local/stack:<slug> desde el
+// nombre de la plantilla.
+func repairLocalImageSlug(name string) string {
+	var b strings.Builder
+	pendingDash := false
+	normalized := repairSlugReplacer.Replace(strings.ToLower(strings.TrimSpace(name)))
+	for _, r := range normalized {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if pendingDash && b.Len() > 0 {
+				b.WriteByte('-')
+			}
+			pendingDash = false
+			b.WriteRune(r)
+			continue
+		}
+		pendingDash = true
+	}
+	slug := b.String()
+	if len(slug) > 60 {
+		slug = strings.TrimRight(slug[:60], "-")
+	}
+	if slug == "" || slug == "latest" {
+		return "plantilla-reparada"
+	}
+	return slug
+}
+
 // GenerateExerciseDraft genera el borrador completo de un ejercicio y sella
 // las salidas esperadas ejecutando la solución de referencia en el runner.
 func (s *AICopilotService) GenerateExerciseDraft(ctx context.Context, tenantID, userID string, req domain.AIGenerateExerciseRequestDTO) (*domain.AIGenerateExerciseResponseDTO, error) {
@@ -358,7 +547,80 @@ Reglas innegociables:
 - reference_solution: programa completo y ejecutable que lee de stdin y escribe en stdout, sin interacción.
 - boilerplate: esqueleto de código para el estudiante que NO resuelve el problema.
 - Generá exactamente %d caso(s) público(s) (visibility "example" o "public") y %d caso(s) oculto(s) (visibility "hidden").
-- weight >= 1.0 en todos los casos.
+-		weight >= 1.0 en todos los casos.
 - expected_output debe ser lo que produce reference_solution ante cada input; el backend lo re-verifica en el runner del juez antes de aceptarlo.`,
 		difficulty, publicCount, hiddenCount)
+}
+
+// repairTemplateSystemPrompt describe el contrato JSON de la autorreparación
+// diagnóstica de plantillas (Modo Visual y Modo Avanzado).
+func repairTemplateSystemPrompt() string {
+	return `Sos el ingeniero de plataforma del Copiloto de SOLV, la plataforma de laboratorios virtuales.
+Recibís la radiografía de un contenedor que falló y debés devolver el manifiesto técnico YA REPARADO.
+Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, sin comentarios) con esta forma exacta:
+{
+  "docker_image": "",
+  "dockerfile_content": "",
+  "setup_script": "",
+  "tools_declared": [],
+  "entrypoint": "",
+  "base_ram_mb": 1024,
+  "rationale": ""
+}
+Reglas innegociables:
+- PROHIBIDO el tag :latest. Toda imagen y todo FROM deben llevar un tag de versión fija (ej: python:3.12-slim-bookworm, node:20-bookworm-slim).
+- Si el Dockerfile necesita capas RUN (instalación de paquetes, compilación), docker_image debe ser una imagen local con prefijo solv-local/stack: seguida de un slug en minúsculas del nombre de la plantilla, para forzar el build local.
+- tools_declared debe listar SOLO binarios o paquetes reales verificables en la imagen (Debian/Alpine: nombres de binarios del PATH o paquetes apt/apk), sin metacaracteres de shell y sin herramientas que no se instalaron.
+- entrypoint es el comando único que el contenedor ejecuta al arrancar, tal como lo espera el Juez; si la verificación falló por el comando de arranque, corregilo.
+- setup_script debe ser idempotente y no repetir instalaciones ya cubiertas por el Dockerfile.
+- base_ram_mb es un entero entre 256 y 4096; si el fallo fue por memoria (OOM), subilo lo mínimo necesario.
+- rationale es obligatorio: causa raíz del error_message en español y lista concreta de lo que corregiste.`
+}
+
+// repairTemplateUserPrompt arma el snapshot diagnóstico sin historial de chat.
+func repairTemplateUserPrompt(req domain.AIRepairTemplateRequestDTO) string {
+	tools := make([]string, 0, len(req.ToolsDeclared))
+	for _, tool := range req.ToolsDeclared {
+		if t := strings.TrimSpace(tool); t != "" {
+			tools = append(tools, t)
+		}
+	}
+	failed := make([]string, 0, len(req.FailedTools))
+	for _, tool := range req.FailedTools {
+		if t := strings.TrimSpace(tool); t != "" {
+			failed = append(failed, t)
+		}
+	}
+
+	return fmt.Sprintf(`Plantilla: %s
+Descripción: %s
+Entorno objetivo: %s
+
+-- Estado actual del contenedor --
+docker_image: %s
+base_ram_mb: %d
+entrypoint: %s
+herramientas declaradas: %s
+herramientas con present=false: %s
+
+-- Dockerfile actual --
+%s
+
+-- setup_script actual --
+%s
+
+-- Error reportado por el contenedor --
+%s`,
+		strings.TrimSpace(req.Name),
+		strings.TrimSpace(req.Description),
+		strings.TrimSpace(req.TargetEnvironment),
+		strings.TrimSpace(req.DockerImage),
+		req.BaseRamMB,
+		strings.TrimSpace(req.Entrypoint),
+		strings.Join(tools, ", "),
+		strings.Join(failed, ", "),
+		strings.TrimSpace(req.DockerfileContent),
+		strings.TrimSpace(req.SetupScript),
+		strings.TrimSpace(req.ErrorMessage),
+	)
 }

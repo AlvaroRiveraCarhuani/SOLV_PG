@@ -86,7 +86,8 @@ func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
 
 // registerAIRoutes configura el módulo de Inteligencia Artificial Híbrida:
 // settings y prueba de conexión son de administración institucional; el estado
-// liviano queda disponible para cualquier usuario autenticado del tenant.
+// liviano queda disponible para cualquier usuario autenticado del tenant y la
+// cascada personal BYOK (/api/v1/ai/my-settings) para docentes y administradores.
 func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 	tm := deps.TenantMiddleware
 	if tm == nil {
@@ -103,10 +104,15 @@ func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/admin/ai/test-connection", am(tm(http.HandlerFunc(deps.AISettingsHandler.TestConnection))))
 		mux.Handle("POST /api/v1/admin/ai/models", am(tm(http.HandlerFunc(deps.AISettingsHandler.ListModels))))
 		mux.Handle("GET /api/v1/ai/status", tm(http.HandlerFunc(deps.AISettingsHandler.Status)))
+		mux.Handle("GET /api/v1/ai/my-settings", tm(http.HandlerFunc(deps.AISettingsHandler.GetMySettings)))
+		mux.Handle("PUT /api/v1/ai/my-settings", am(tm(http.HandlerFunc(deps.AISettingsHandler.UpdateMySettings))))
+		mux.Handle("POST /api/v1/ai/my-settings/test-connection", am(tm(http.HandlerFunc(deps.AISettingsHandler.TestMyConnection))))
+		mux.Handle("POST /api/v1/ai/my-settings/models", am(tm(http.HandlerFunc(deps.AISettingsHandler.ListMyModels))))
 	}
 
 	if deps.AICopilotHandler != nil {
 		mux.Handle("POST /api/v1/admin/ai/suggest-component", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent))))
+		mux.Handle("POST /api/v1/admin/ai/repair-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.RepairTemplate))))
 		mux.Handle("POST /api/v1/teacher/ai/generate-exercise", am(tm(http.HandlerFunc(deps.AICopilotHandler.GenerateExerciseDraft))))
 	}
 }

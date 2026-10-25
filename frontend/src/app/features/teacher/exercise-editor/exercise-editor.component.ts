@@ -94,12 +94,12 @@ import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services
             <span>Vista previa</span>
           </button>
 
-          @if (aiEnabled() && store.metadata().environment_type === 'JUEZ_EFIMERO') {
+          @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
             <button
               type="button"
               class="btn-outline ai-copilot-btn"
               (click)="aiModalOpen.set(true)"
-              title="Generar enunciado, solución de referencia y casos de prueba con el Copiloto IA"
+              title="Generar enunciado, solución de referencia y casos de prueba con el Copiloto IA (Institucional o BYOK)"
             >
               <svg lucideSparkles class="btn-icon"></svg>
               <span>Generar con IA</span>

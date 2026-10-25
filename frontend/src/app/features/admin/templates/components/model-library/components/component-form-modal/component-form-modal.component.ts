@@ -1,6 +1,8 @@
-import { Component, EventEmitter, Input, OnInit, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, OnDestroy, Output, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { LucideBoxes, LucideAlertTriangle, LucideSparkles } from '@lucide/angular';
+import { Subscription } from 'rxjs';
+import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers, LucideRefreshCw, LucideXCircle } from '@lucide/angular';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminConfigIaService } from '../../../../../configuracion/admin-config-ia.service';
 import {
   AdminTemplatesService,
@@ -73,14 +75,18 @@ export {
     ComboboxComponent,
     CatalogPresetGridComponent,
     SmartIconPickerComponent,
+    MachineDataDirective,
     LucideBoxes,
     LucideAlertTriangle,
-    LucideSparkles
+    LucideSparkles,
+    LucideLayers,
+    LucideRefreshCw,
+    LucideXCircle
   ],
   templateUrl: './component-form-modal.component.html',
   styleUrls: ['./component-form-modal.component.scss']
 })
-export class ComponentFormModalComponent implements OnInit {
+export class ComponentFormModalComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly aiService = inject(AdminConfigIaService);
 
@@ -140,11 +146,45 @@ export class ComponentFormModalComponent implements OnInit {
   readonly isSubmitting = signal<boolean>(false);
   readonly errorMessage = signal<string | null>(null);
 
+  // Pestañas (Catálogo Oficial vs Diseñar con Copiloto IA)
+  readonly activeModalTab = signal<'catalog' | 'ai'>('catalog');
+  readonly showManualFineTune = signal<boolean>(false);
+
   readonly aiEnabled = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
   readonly isGeneratingAi = signal<boolean>(false);
+  readonly aiElapsedSeconds = signal<string>('0.0');
   readonly aiRationale = signal<string | null>(null);
   readonly aiLatencyMs = signal<number | null>(null);
+  private timerInterval?: ReturnType<typeof setInterval>;
+  private aiSub?: Subscription;
+
+  /** Reporta si hay una previsualización técnica lista para mostrar */
+  readonly hasPreviewReady = computed<boolean>(() => {
+    return !this.editingComponent && this.name().trim().length >= 2;
+  });
+
+  readonly previewRoleBadge = computed<string>(() => {
+    if (this.layer() === 'runtime') {
+      return this.subCategory() === 'web' ? 'Plataforma Web / Frontend' : 'Lenguaje Principal';
+    }
+    if (this.layer() === 'database') {
+      return 'Base de Datos';
+    }
+    return 'Complemento / Librería';
+  });
+
+  readonly previewToolsList = computed<string[]>(() => {
+    const raw = this.toolsProvidedInput().trim();
+    if (!raw) return [];
+    return raw.split(/[\s,]+/).filter(t => t.length > 0);
+  });
+
+  readonly previewMemoryBadge = computed<string>(() => {
+    const prof = this.memoryProfile();
+    const opt = [...this.addonMemoryProfileOptions, ...this.runtimeMemoryProfileOptions].find(o => o.value === prof);
+    return opt ? opt.label : `${this.ramDeltaMB()} MB RAM`;
+  });
 
   readonly ecosystemProfileOptions: ComboboxOption<string>[] = OFFICIAL_ECOSYSTEM_PROFILES.map(p => ({
     id: p.id,
@@ -487,6 +527,26 @@ export class ComponentFormModalComponent implements OnInit {
     }
   }
 
+  switchModalTab(tab: 'catalog' | 'ai'): void {
+    this.activeModalTab.set(tab);
+    // Los inputs del formulario permanecen siempre visibles
+    // debajo de las pestañas tanto del Catálogo como del Copiloto IA
+  }
+
+  toggleManualFineTune(): void {
+    this.showManualFineTune.set(!this.showManualFineTune());
+  }
+
+  cancelAiGeneration(): void {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
+    this.aiSub?.unsubscribe();
+    this.aiSub = undefined;
+    this.isGeneratingAi.set(false);
+  }
+
   generateWithAi(): void {
     const prompt = this.aiPrompt().trim();
     if (prompt.length < 3 || this.isGeneratingAi()) {
@@ -496,8 +556,17 @@ export class ComponentFormModalComponent implements OnInit {
     this.isGeneratingAi.set(true);
     this.errorMessage.set(null);
     this.aiRationale.set(null);
+    this.aiElapsedSeconds.set('0.0');
 
-    this.aiService
+    const startTime = performance.now();
+    if (this.timerInterval) clearInterval(this.timerInterval);
+    this.timerInterval = setInterval(() => {
+      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
+      this.aiElapsedSeconds.set(elapsed);
+    }, 100);
+
+    this.aiSub?.unsubscribe();
+    this.aiSub = this.aiService
       .suggestComponent({
         prompt,
         layer: this.layer(),
@@ -505,6 +574,11 @@ export class ComponentFormModalComponent implements OnInit {
       })
       .subscribe({
         next: (res) => {
+          if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = undefined;
+          }
+          this.aiSub = undefined;
           this.onSelectCustomMode();
           if (res.component.name) this.name.set(res.component.name);
           if (res.component.description) this.description.set(res.component.description);
@@ -532,13 +606,28 @@ export class ComponentFormModalComponent implements OnInit {
           }
           this.aiRationale.set(res.rationale);
           this.aiLatencyMs.set(res.latency_ms);
+          this.showManualFineTune.set(false);
           this.isGeneratingAi.set(false);
         },
         error: (err: unknown) => {
+          if (this.timerInterval) {
+            clearInterval(this.timerInterval);
+            this.timerInterval = undefined;
+          }
+          this.aiSub = undefined;
           this.errorMessage.set(this.aiService.resolveError(err));
           this.isGeneratingAi.set(false);
         }
       });
+  }
+
+  ngOnDestroy(): void {
+    if (this.timerInterval) {
+      clearInterval(this.timerInterval);
+      this.timerInterval = undefined;
+    }
+    this.aiSub?.unsubscribe();
+    this.aiSub = undefined;
   }
 
   onCatalogKindChange(kind: ComponentCatalogKind): void {

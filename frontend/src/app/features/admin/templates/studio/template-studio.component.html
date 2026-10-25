@@ -42,6 +42,118 @@
         (categoryChange)="selectedCategoryId.set($event)"
       />
 
+      <!-- Tarjeta Elevada del Copiloto IA (Visible en Modo Visual y Modo Avanzado) -->
+      @if (aiEnabled()) {
+        <section class="studio-card studio-ai-card">
+          <div class="card-section-header ai-card-header" [class.collapsed]="isAiSectionCollapsed()">
+            <div class="ai-header-title-group">
+              <div class="ai-badge-title">
+                <svg lucideSparkles class="ai-sparkles-icon"></svg>
+                <h2 class="section-title">Copiloto IA para Arquitectura de Entornos</h2>
+              </div>
+              <p class="section-subtitle">
+                Describa los requisitos o paquetes necesarios. El Copiloto actualizará tanto el constructor visual como el manifiesto técnico del Modo Avanzado.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-collapse-ai"
+              (click)="isAiSectionCollapsed.set(!isAiSectionCollapsed())"
+              [attr.aria-label]="isAiSectionCollapsed() ? 'Expandir Copiloto IA' : 'Colapsar Copiloto IA'"
+            >
+              <span>{{ isAiSectionCollapsed() ? 'Mostrar asistente' : 'Ocultar' }}</span>
+              @if (isAiSectionCollapsed()) {
+                <svg lucideChevronDown class="btn-icon-xs"></svg>
+              } @else {
+                <svg lucideChevronUp class="btn-icon-xs"></svg>
+              }
+            </button>
+          </div>
+
+          @if (!isAiSectionCollapsed()) {
+            <div class="ai-card-body">
+              <div class="ai-prompt-box">
+                <textarea
+                  class="form-textarea"
+                  rows="2"
+                  placeholder="Ej: Entorno para Algoritmos Avanzados con Python 3.12, PyTest y base de datos SQLite para pruebas de concurrencia..."
+                  [ngModel]="aiPrompt()"
+                  (ngModelChange)="aiPrompt.set($event)"
+                  [disabled]="isSuggestingWithAi()"
+                ></textarea>
+
+                <div class="ai-actions-row">
+                  @if (isSuggestingWithAi()) {
+                    <div class="ai-running-telemetry">
+                      <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+                      <span>Diseñando arquitectura...</span>
+                      <span class="font-mono" machineData>Transcurrido: {{ aiElapsedSeconds() }} s</span>
+                      <button
+                        type="button"
+                        class="btn-cancel-ai"
+                        (click)="cancelAiSuggestion()"
+                      >
+                        <svg lucideXCircle class="btn-icon-xs"></svg>
+                        <span>Cancelar</span>
+                      </button>
+                    </div>
+                  } @else {
+                    <button
+                      type="button"
+                      class="btn-primary btn-ai-submit"
+                      (click)="suggestStackWithAi()"
+                      [disabled]="aiPrompt().trim().length < 3"
+                    >
+                      <svg lucideSparkles class="btn-icon-xs"></svg>
+                      <span>Sugerir y Configurar Entorno</span>
+                    </button>
+                  }
+                </div>
+              </div>
+
+              @if (aiRationale()) {
+                <div class="ai-rationale-box">
+                  <div class="rationale-header">
+                    <strong>Resumen del Stack Configurado:</strong>
+                    @if (aiLatencyMs()) {
+                      <span class="font-mono text-xs text-muted" machineData>{{ aiLatencyMs() }} ms</span>
+                    }
+                  </div>
+                  <p class="rationale-text">{{ aiRationale() }}</p>
+
+                  <div class="rationale-tech-badges">
+                    @for (comp of selectedStackComponents(); track comp.id) {
+                      <span class="tech-chip">
+                        <tech-logo [iconType]="comp.icon_key" [size]="16" />
+                        <span>{{ comp.name }}</span>
+                      </span>
+                    }
+                    <span class="ram-chip font-mono" machineData>{{ baseRamMB() }} MB RAM</span>
+                  </div>
+                </div>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      <!-- Banner de Diagnóstico y Reparación de la IA (Modo Avanzado) -->
+      @if (repairDiagnosis(); as diag) {
+        <div class="repair-diagnostic-banner">
+          <div class="diagnostic-header">
+            <div class="diag-title-row">
+              <svg lucideWrench class="diag-icon"></svg>
+              <strong>Diagnóstico y Reparación Aplicada por Copiloto IA</strong>
+            </div>
+            <span class="font-mono text-xs" machineData>{{ diag.latencyMs }} ms</span>
+          </div>
+          <p class="diagnostic-text">{{ diag.rationale }}</p>
+          <span class="diagnostic-hint">
+            Se actualizaron las capas del Dockerfile y scripts en el editor de abajo. Verifique los cambios y pulse «Comprobar funcionamiento».
+          </span>
+        </div>
+      }
+
       <section class="studio-card">
         <div class="card-section-header">
           <div>
@@ -728,12 +840,17 @@
       [isVerifying]="isVerifying()"
       [isSubmitting]="isSubmitting()"
       [isEditMode]="isEditMode()"
+      [aiEnabled]="aiEnabled()"
+      [isRepairingWithAi]="isRepairingWithAi()"
+      [repairElapsedSeconds]="repairElapsedSeconds()"
       (blueprintTabChange)="blueprintTab.set($event)"
       (cancelTest)="cancelEnvTest()"
       (copyManifest)="copyManifestToClipboard()"
       (downloadManifest)="downloadManifest()"
       (runVerification)="runVerificationTest()"
       (publish)="publishTemplate()"
+      (repairWithAi)="repairWithAi()"
+      (cancelRepairWithAi)="cancelRepairWithAi()"
     />
   </div>
 

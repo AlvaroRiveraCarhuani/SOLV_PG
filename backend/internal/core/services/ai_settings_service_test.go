@@ -90,8 +90,8 @@ func TestAISettingsDefaultsWhenTenantHasNoAISettings(t *testing.T) {
 	if got.Provider != def.Provider || got.Model != def.Model || got.BaseURL != def.BaseURL {
 		t.Errorf("esperado defaults %+v, got %+v", def, got)
 	}
-	if got.HourlyQuotaPerUser != 15 || got.TimeoutSeconds != 30 {
-		t.Errorf("esperado cuota 15 y timeout 30, got %d/%d", got.HourlyQuotaPerUser, got.TimeoutSeconds)
+	if got.HourlyQuotaPerUser != 15 || got.TimeoutSeconds != 60 {
+		t.Errorf("esperado cuota 15 y timeout 60, got %d/%d", got.HourlyQuotaPerUser, got.TimeoutSeconds)
 	}
 	if got.EncryptedAPIKey != "" || got.APIKeyMasked != "" {
 		t.Errorf("esperado sin API Key por defecto, got %q/%q", got.EncryptedAPIKey, got.APIKeyMasked)
@@ -812,12 +812,12 @@ func TestAISettingsCustomProvidersCRUD(t *testing.T) {
 		Provider: domain.AIProviderGemini,
 		CustomProviders: []domain.AICustomProviderDTO{
 			{
-				ID:       "custom_paquito1",
-				Label:    "Paquito AI",
-				IconURL:  "https://cdn.paquito.ai/logo.svg",
-				BaseURL:  "https://api.paquito.ai/v1",
-				Model:    "paquito-coder-7b",
-				APIKey:   "sk-paquito-0123456789",
+				ID:      "custom_paquito1",
+				Label:   "Paquito AI",
+				IconURL: "https://cdn.paquito.ai/logo.svg",
+				BaseURL: "https://api.paquito.ai/v1",
+				Model:   "paquito-coder-7b",
+				APIKey:  "sk-paquito-0123456789",
 			},
 		},
 	})
@@ -1122,7 +1122,7 @@ func TestAISettingsCustomProviderExfiltrationShield(t *testing.T) {
 				ID:      "custom_paquito",
 				Label:   "Paquito AI",
 				BaseURL: "https://new-host.paquito.ai/v2", // mismo host, path v2
-				APIKey:  "",                              // sin clave
+				APIKey:  "",                               // sin clave
 			},
 		},
 	})
@@ -1306,3 +1306,551 @@ func TestAIStatusDTOProviderLabel(t *testing.T) {
 	}
 }
 
+// TestAISettingsLatencyMeasuredAfterReadAll asegura que latency_ms cubra la
+// descarga completa del stream JSON: los headers llegan al instante y el cuerpo
+// recién 200 ms después.
+func TestAISettingsLatencyMeasuredAfterReadAll(t *testing.T) {
+	const bodyDelay = 200 * time.Millisecond
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if flusher, ok := w.(http.Flusher); ok {
+			flusher.Flush() // los headers salen ya, el cuerpo después
+		}
+		time.Sleep(bodyDelay)
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+	}))
+	defer server.Close()
+
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOpenAI,
+		Model:              "gpt-4o-mini",
+		APIKey:             "sk-test-123",
+		HourlyQuotaPerUser: 15,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("no se pudo habilitar la IA de prueba: %v", err)
+	}
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	_, latencyMS, err := svc.CompleteJSON(ctx, "t-1", "u-1", "suggest-component", "sys", "user")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if latencyMS < int64(bodyDelay/time.Millisecond)-20 {
+		t.Errorf("latency_ms=%d mide antes de descargar el cuerpo: esperaba al menos %d ms", latencyMS, int64(bodyDelay/time.Millisecond)-20)
+	}
+}
+
+// TestAISettingsTimeoutWrapsErrAITimeout valida el error tipado de plazo
+// agotado (el handler HTTP lo traduce a 504 ai_timeout).
+func TestAISettingsTimeoutWrapsErrAITimeout(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-r.Context().Done():
+		case <-time.After(500 * time.Millisecond):
+		}
+	}))
+	defer server.Close()
+
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOpenAI,
+		Model:              "gpt-4o-mini",
+		APIKey:             "sk-test-123",
+		HourlyQuotaPerUser: 15,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("no se pudo habilitar la IA de prueba: %v", err)
+	}
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	reqCtx, cancel := context.WithTimeout(ctx, 80*time.Millisecond)
+	defer cancel()
+
+	_, _, err := svc.CompleteJSON(reqCtx, "t-1", "u-1", "suggest-component", "sys", "user")
+	if err == nil {
+		t.Fatalf("esperaba un error de plazo agotado")
+	}
+	if !errors.Is(err, domain.ErrAITimeout) {
+		t.Fatalf("esperaba domain.ErrAITimeout envuelto, got %v", err)
+	}
+}
+
+// TestAISettingsAdaptiveGovernanceByProfileAndAction cubre la gobernanza
+// autoadaptativa: perfil de motor, acción, piso del timeout viejo de 30 s y
+// el tope mayor fijado en Modo Experto.
+func TestAISettingsAdaptiveGovernanceByProfileAndAction(t *testing.T) {
+	profiles := []struct {
+		provider string
+		model    string
+		profile  string
+		label    string
+		auto     map[string]int
+	}{
+		{
+			provider: domain.AIProviderOpenAI,
+			model:    "gpt-4o-mini",
+			profile:  domain.AIEngineProfileFastCloud,
+			label:    "60s – 120s según complejidad de la tarea",
+			auto: map[string]int{
+				"suggest-component": 60,
+				"suggest-template":  90,
+				"repair-template":   90,
+				"generate-exercise": 120,
+				"test-connection":   30,
+			},
+		},
+		{
+			provider: domain.AIProviderOpenRouter,
+			model:    "deepseek-r1:free",
+			profile:  domain.AIEngineProfileQueuedOrReasoning,
+			label:    "90s – 180s según complejidad de la tarea",
+			auto: map[string]int{
+				"suggest-component": 90,
+				"suggest-template":  120,
+				"repair-template":   120,
+				"generate-exercise": 180,
+				"test-connection":   60,
+			},
+		},
+		{
+			provider: domain.AIProviderOllamaLAN,
+			model:    "qwen2.5-coder:7b",
+			profile:  domain.AIEngineProfileLocalGPU,
+			label:    "90s – 180s según complejidad de la tarea",
+			auto: map[string]int{
+				"suggest-component": 90,
+				"suggest-template":  120,
+				"repair-template":   120,
+				"generate-exercise": 180,
+				"test-connection":   60,
+			},
+		},
+	}
+
+	for _, tc := range profiles {
+		if got := domain.ClassifyAIEngine(tc.provider, tc.model); got != tc.profile {
+			t.Errorf("ClassifyAIEngine(%q, %q) = %q, esperaba %q", tc.provider, tc.model, got, tc.profile)
+		}
+		if got := domain.AIEngineAutoTimeoutRangeLabel(tc.profile); got != tc.label {
+			t.Errorf("rango automático de %q = %q, esperaba %q", tc.profile, got, tc.label)
+		}
+
+		// Un tope viejo de 30 s guardado en la base jamás recorta la operación.
+		stored30 := &domain.AISettingsStored{Provider: tc.provider, Model: tc.model, TimeoutSeconds: 30}
+		for action, want := range tc.auto {
+			if got := domain.AIEngineAutoTimeoutSeconds(tc.profile, action); got != want {
+				t.Errorf("AIEngineAutoTimeoutSeconds(%q, %q) = %d, esperaba %d", tc.profile, action, got, want)
+			}
+			got := int(effectiveAITimeout(stored30, tc.profile, action) / time.Second)
+			if action == "test-connection" {
+				if got != want {
+					t.Errorf("test-connection en %q = %ds, esperaba %ds", tc.profile, got, want)
+				}
+				continue
+			}
+			if got != want {
+				t.Errorf("timeout de %q con tope viejo de 30s en %q = %ds, esperaba %ds", tc.profile, action, got, want)
+			}
+		}
+
+		// Modo Experto: un tope mayor fijado por el administrador se respeta.
+		expert := &domain.AISettingsStored{Provider: tc.provider, Model: tc.model, TimeoutSeconds: 240}
+		for _, action := range []string{"suggest-component", "suggest-template", "repair-template", "generate-exercise"} {
+			if got := int(effectiveAITimeout(expert, tc.profile, action) / time.Second); got != 240 {
+				t.Errorf("Modo Experto 240s ignorado en %q/%q: got %ds", tc.profile, action, got)
+			}
+		}
+	}
+
+	// Clasificación complementaria de modelos gratuitos y de razonamiento.
+	classified := map[string]string{
+		"meta-llama/llama-3.3-70b-instruct:free": domain.AIEngineProfileQueuedOrReasoning,
+		"qwen3-30b-a3b-thinking":                 domain.AIEngineProfileQueuedOrReasoning,
+		"nvidia/llama-3.1-nemotron-70b":          domain.AIEngineProfileQueuedOrReasoning,
+		"deepseek-chat":                          domain.AIEngineProfileFastCloud,
+		"gemini-2.5-flash":                       domain.AIEngineProfileFastCloud,
+	}
+	for model, want := range classified {
+		if got := domain.ClassifyAIEngine(domain.AIProviderOpenRouter, model); got != want {
+			t.Errorf("ClassifyAIEngine(openrouter, %q) = %q, esperaba %q", model, got, want)
+		}
+	}
+	if got := domain.ClassifyAIEngine("custom_empresa", "llama-3.3-70b"); got != domain.AIEngineProfileLocalGPU {
+		t.Errorf("proveedor custom debía clasificarse como local_gpu, got %q", got)
+	}
+
+	// Los DTO públicos exponen la política resuelta por el servidor.
+	settings := domain.DefaultAISettings()
+	settings.Provider = domain.AIProviderOpenAI
+	settings.Model = "gpt-4o-mini"
+	settingsResp := domain.NewAISettingsResponseDTO(settings)
+	if settingsResp.EngineProfile != domain.AIEngineProfileFastCloud || settingsResp.AutoTimeoutRangeLabel == "" {
+		t.Errorf("AISettingsResponseDTO sin política autoadaptativa: %+v", settingsResp)
+	}
+	statusResp := domain.NewAIStatusDTO(settings)
+	if statusResp.EngineProfile != domain.AIEngineProfileFastCloud || statusResp.AutoTimeoutRangeLabel == "" {
+		t.Errorf("AIStatusDTO sin política autoadaptativa: %+v", statusResp)
+	}
+}
+
+// TestAISettingsLocalGPUQuotaFloor verifica el piso de cuota anti-abuso del
+// servidor GPU local (60/h) y que la nube conserve su límite configurado.
+func TestAISettingsLocalGPUQuotaFloor(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+	}))
+	defer server.Close()
+
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOllamaLAN,
+		Model:              "qwen2.5-coder:7b",
+		BaseURL:            "http://10.20.1.50:11434/v1",
+		HourlyQuotaPerUser: 5,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("no se pudo habilitar la IA local: %v", err)
+	}
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	for i := 0; i < 7; i++ {
+		if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-1", "suggest-component", "sys", "user"); err != nil {
+			t.Fatalf("invocación %d debía permitirse con el piso local de 60/h: %v", i+1, err)
+		}
+	}
+
+	// Mismo límite de 5 en nube: la sexta invocación queda bloqueada.
+	_, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOpenAI,
+		Model:              "gpt-4o-mini",
+		APIKey:             "sk-test-123",
+		HourlyQuotaPerUser: 5,
+		TimeoutSeconds:     60,
+	})
+	if err != nil {
+		t.Fatalf("no se pudo pasar a nube: %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-2", "suggest-component", "sys", "user"); err != nil {
+			t.Fatalf("invocación %d debía permitirse: %v", i+1, err)
+		}
+	}
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-2", "suggest-component", "sys", "user"); !errors.Is(err, domain.ErrAIQuotaExceeded) {
+		t.Fatalf("esperaba domain.ErrAIQuotaExceeded en la sexta invocación, got %v", err)
+	}
+}
+
+// TestAISettingsUserOverrideCascadeBYOK cubre la cascada personal: la API Key
+// del docente prevalece, opera con la institucional deshabilitada y no consume
+// la cuota horaria compartida.
+func TestAISettingsUserOverrideCascadeBYOK(t *testing.T) {
+	var gotAuth []string
+	var gotModel []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Model string `json:"model"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		gotAuth = append(gotAuth, r.Header.Get("Authorization"))
+		gotModel = append(gotModel, body.Model)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+	}))
+	defer server.Close()
+
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+
+	// Base institucional: Gemini con cuota horaria de 1 y tope viejo de 30 s.
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderGemini,
+		Model:              "gemini-2.5-flash",
+		APIKey:             "AIzaInstitucional0000001",
+		HourlyQuotaPerUser: 1,
+		TimeoutSeconds:     30,
+	}); err != nil {
+		t.Fatalf("no se pudo configurar la base institucional: %v", err)
+	}
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	override, err := svc.UpdateUserOverride(ctx, "t-1", "u-teacher", domain.UpdateAIUserOverrideDTO{
+		Enabled:  true,
+		Provider: domain.AIProviderOpenAI,
+		Model:    "gpt-4o-mini",
+		APIKey:   "sk-personal-00000001",
+	})
+	if err != nil {
+		t.Fatalf("no se pudo guardar la API Key personal: %v", err)
+	}
+	if !override.HasAPIKey || override.APIKeyMasked != "sk-p...0001" {
+		t.Errorf("cascada personal sin clave cifrada: %+v", override)
+	}
+	if !override.InstitutionalEnabled || override.InstitutionalProviderLabel != "Google Gemini" || override.InstitutionalModel != "gemini-2.5-flash" {
+		t.Errorf("la respuesta no conserva la base institucional: %+v", override)
+	}
+
+	// GET devuelve la clave personal sin exponer el ciphertext.
+	fetched, err := svc.GetUserOverride(ctx, "t-1", "u-teacher")
+	if err != nil {
+		t.Fatalf("GetUserOverride falló: %v", err)
+	}
+	rawDTO, err := json.Marshal(fetched)
+	if err != nil {
+		t.Fatalf("no se pudo serializar la respuesta: %v", err)
+	}
+	if strings.Contains(string(rawDTO), "encrypted_api_key") || strings.Contains(string(rawDTO), "sk-personal-00000001") {
+		t.Fatalf("la respuesta personal filtra la API Key: %s", string(rawDTO))
+	}
+
+	// El docente opera con su cuenta: modelo y Authorization propios.
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-teacher", "generate-exercise", "sys", "user"); err != nil {
+		t.Fatalf("la inferencia con clave personal falló: %v", err)
+	}
+	if gotAuth[len(gotAuth)-1] != "Bearer sk-personal-00000001" || gotModel[len(gotModel)-1] != "gpt-4o-mini" {
+		t.Errorf("no se usó la credencial personal: auth=%q model=%q", gotAuth[len(gotAuth)-1], gotModel[len(gotModel)-1])
+	}
+
+	// Segunda invocación: la cuota institucional de 1 no se descuenta aquí.
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-teacher", "generate-exercise", "sys", "user"); err != nil {
+		t.Fatalf("la cuota institucional no debe aplicar a la clave personal: %v", err)
+	}
+
+	// Otro usuario sigue con la base institucional y su cuota de 1.
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-student", "generate-exercise", "sys", "user"); err != nil {
+		t.Fatalf("la base institucional debía seguir operativa: %v", err)
+	}
+	if gotAuth[len(gotAuth)-1] != "Bearer AIzaInstitucional0000001" || gotModel[len(gotModel)-1] != "gemini-2.5-flash" {
+		t.Errorf("no se usó la base institucional: auth=%q model=%q", gotAuth[len(gotAuth)-1], gotModel[len(gotModel)-1])
+	}
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-student", "generate-exercise", "sys", "user"); !errors.Is(err, domain.ErrAIQuotaExceeded) {
+		t.Fatalf("esperaba domain.ErrAIQuotaExceeded para el usuario sin override, got %v", err)
+	}
+
+	// Estado efectivo por usuario.
+	teacherStatus, err := svc.GetEffectiveStatus(ctx, "t-1", "u-teacher")
+	if err != nil {
+		t.Fatalf("GetEffectiveStatus falló: %v", err)
+	}
+	if !teacherStatus.UsingPersonalKey || !teacherStatus.Enabled || !teacherStatus.InstitutionalEnabled {
+		t.Errorf("estado personal inesperado: %+v", teacherStatus)
+	}
+	if teacherStatus.Provider != domain.AIProviderOpenAI || teacherStatus.EngineProfile != domain.AIEngineProfileFastCloud {
+		t.Errorf("motor personal inesperado: %+v", teacherStatus)
+	}
+	studentStatus, err := svc.GetEffectiveStatus(ctx, "t-1", "u-student")
+	if err != nil {
+		t.Fatalf("GetEffectiveStatus falló: %v", err)
+	}
+	if studentStatus.UsingPersonalKey || studentStatus.Provider != domain.AIProviderGemini {
+		t.Errorf("estado institucional inesperado: %+v", studentStatus)
+	}
+
+	// La actualización institucional del administrador preserva los overrides.
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderGemini,
+		Model:              "gemini-2.5-pro",
+		HourlyQuotaPerUser: 1,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("la actualización institucional falló: %v", err)
+	}
+	afterAdmin, err := svc.Get(ctx, "t-1")
+	if err != nil {
+		t.Fatalf("Get falló: %v", err)
+	}
+	kept, ok := afterAdmin.UserOverrides["u-teacher"]
+	if !ok || !kept.Enabled || kept.APIKeyMasked != "sk-p...0001" {
+		t.Fatalf("Update institucional pisó la cascada BYOK: %+v", afterAdmin.UserOverrides)
+	}
+
+	// Con la IA institucional deshabilitada, el docente con clave personal sigue operando.
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            false,
+		Provider:           domain.AIProviderGemini,
+		Model:              "gemini-2.5-pro",
+		HourlyQuotaPerUser: 1,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("la desactivación institucional falló: %v", err)
+	}
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-teacher", "generate-exercise", "sys", "user"); err != nil {
+		t.Fatalf("la clave personal debe operar con la IA institucional deshabilitada: %v", err)
+	}
+	if _, _, err := svc.CompleteJSON(ctx, "t-1", "u-student", "generate-exercise", "sys", "user"); !errors.Is(err, domain.ErrAIDisabled) {
+		t.Fatalf("esperaba domain.ErrAIDisabled para el usuario sin override, got %v", err)
+	}
+}
+
+// TestAISettingsUserOverrideValidation aplica al override personal las mismas
+// garantías que la configuración institucional.
+func TestAISettingsUserOverrideValidation(t *testing.T) {
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+
+	cases := []struct {
+		name string
+		dto  domain.UpdateAIUserOverrideDTO
+		code string
+	}{
+		{
+			name: "proveedor fuera de catálogo",
+			dto:  domain.UpdateAIUserOverrideDTO{Enabled: true, Provider: "azure", Model: "gpt-4o"},
+			code: "provider_invalid",
+		},
+		{
+			name: "cloud sin api key",
+			dto:  domain.UpdateAIUserOverrideDTO{Enabled: true, Provider: domain.AIProviderOpenAI, Model: "gpt-4o-mini"},
+			code: "api_key_required",
+		},
+		{
+			name: "sin modelo al activar",
+			dto:  domain.UpdateAIUserOverrideDTO{Enabled: true, Provider: domain.AIProviderOllamaLAN, BaseURL: "http://10.20.1.50:11434/v1"},
+			code: "model_required",
+		},
+		{
+			name: "escudo anti-SSRF",
+			dto: domain.UpdateAIUserOverrideDTO{
+				Enabled:  false,
+				Provider: domain.AIProviderOllamaLAN,
+				Model:    "qwen2.5-coder:7b",
+				BaseURL:  "http://localhost:11434/v1",
+			},
+			code: "base_url_blocked",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.UpdateUserOverride(ctx, "t-1", "u-teacher", tc.dto)
+			if err == nil {
+				t.Fatalf("esperaba rechazo")
+			}
+			var vErr *AISettingsValidationError
+			if !errors.As(err, &vErr) || vErr.Code != tc.code {
+				t.Errorf("esperaba código %q, got %v", tc.code, err)
+			}
+		})
+	}
+
+	// Un override sin clave en la nube no califica: cae en la base institucional.
+	stored, err := svc.Get(ctx, "t-1")
+	if err != nil {
+		t.Fatalf("Get falló: %v", err)
+	}
+	if _, ok := resolveUserOverride(stored, "u-teacher"); ok {
+		t.Errorf("un override incompleto no debe calificar")
+	}
+}
+
+// TestAISettingsResponseFormatFallbackOnBadRequest cubre el blindaje de
+// transporte: 400 por response_format se reintenta una vez sin él.
+func TestAISettingsResponseFormatFallbackOnBadRequest(t *testing.T) {
+	var withFormat []bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			ResponseFormat struct {
+				Type string `json:"type"`
+			} `json:"response_format"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		sentFormat := body.ResponseFormat.Type != ""
+		withFormat = append(withFormat, sentFormat)
+		if sentFormat {
+			time.Sleep(80 * time.Millisecond)
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"response_format json_object no soportado"}`))
+			return
+		}
+		time.Sleep(80 * time.Millisecond)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"content":"{\"ok\":true}"}}]}`))
+	}))
+	defer server.Close()
+
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderOpenRouter,
+		Model:              "deepseek-r1:free",
+		APIKey:             "sk-or-test",
+		HourlyQuotaPerUser: 15,
+		TimeoutSeconds:     30,
+	}); err != nil {
+		t.Fatalf("no se pudo habilitar la IA de prueba: %v", err)
+	}
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	content, latencyMS, err := svc.CompleteJSON(ctx, "t-1", "u-1", "generate-exercise", "sys", "user")
+	if err != nil {
+		t.Fatalf("el reintento sin response_format debía resolver el 400: %v", err)
+	}
+	if content != `{"ok":true}` {
+		t.Errorf("contenido inesperado: %q", content)
+	}
+	if len(withFormat) != 2 || !withFormat[0] || withFormat[1] {
+		t.Errorf("esperaba 2 intentos (con y sin response_format), got %v", withFormat)
+	}
+	if latencyMS < 150 {
+		t.Errorf("latency_ms=%d debe acumular los dos intentos (80 ms + 80 ms)", latencyMS)
+	}
+}
+
+// TestAISettingsTestConnectionToleratesReasoningWrap cubre modelos de
+// razonamiento que envuelven el JSON en prosa o en fences Markdown.
+func TestAISettingsTestConnectionToleratesReasoningWrap(t *testing.T) {
+	contents := []string{
+		"Pensando en cómo verificar...\n```json\n{\"ok\":true}\n``` ",
+		"Verificando el endpoint... {\"ok\":true}",
+		"{\"ok\":true}",
+	}
+	for _, content := range contents {
+		server := newCopilotLLMServer(t, content)
+		svc := NewAISettingsService(newTestAISettingsRepo(`{}`)).WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+		resp, err := svc.TestConnection(context.Background(), "t-1", domain.TestAIConnectionRequestDTO{
+			Provider: domain.AIProviderOpenRouter,
+			Model:    "deepseek-r1:free",
+			APIKey:   "sk-or-test",
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !resp.OK {
+			t.Errorf("esperaba ok=true con contenido %q, got message=%q", content, resp.Message)
+		}
+	}
+
+	// Sin objeto JSON alguno la prueba sigue fallando con ok=false.
+	server := newCopilotLLMServer(t, "no puedo responder ahora")
+	svc := NewAISettingsService(newTestAISettingsRepo(`{}`)).WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+	resp, err := svc.TestConnection(context.Background(), "t-1", domain.TestAIConnectionRequestDTO{
+		Provider: domain.AIProviderOpenRouter,
+		Model:    "deepseek-r1:free",
+		APIKey:   "sk-or-test",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.OK {
+		t.Errorf("esperaba ok=false sin objeto JSON")
+	}
+}

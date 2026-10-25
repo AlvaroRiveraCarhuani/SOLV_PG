@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -181,6 +182,10 @@ func (s *AISettingsService) Get(ctx context.Context, tenantID string) (*domain.A
 
 	if stored.CustomProviders == nil {
 		stored.CustomProviders = make([]domain.AICustomProviderStored, 0)
+	}
+
+	if stored.UserOverrides == nil {
+		stored.UserOverrides = make(map[string]domain.AIUserOverrideStored)
 	}
 
 	return &stored, nil
@@ -504,6 +509,9 @@ func (s *AISettingsService) Update(ctx context.Context, tenantID string, dto dom
 		UpdatedAt:          s.nowFn().UTC().Format(time.RFC3339),
 		ProviderProfiles:   current.ProviderProfiles,
 		CustomProviders:    finalCustomProviders,
+		// La cascada BYOK personal pertenece al usuario, no a la configuración
+		// institucional: la actualización del administrador jamás la pisa.
+		UserOverrides: current.UserOverrides,
 	}
 
 	if err := s.persist(ctx, tenantID, stored); err != nil {
@@ -573,38 +581,61 @@ func (s *AISettingsService) ConsumeQuota(tenantID, userID string, limitPerHour i
 }
 
 // CompleteJSON invoca al motor OpenAI-compatible configurado pidiendo JSON
-// estricto: consume 1 punto de cuota, descifra la API Key, aplica el timeout
-// institucional y devuelve el contenido junto a la latencia en milisegundos.
-// action identifica la operación para los mensajes de diagnóstico.
+// estricto: resuelve la cascada BYOK del usuario, consume 1 punto de cuota
+// institucional (solo si opera con la base del instituto), descifra la API Key,
+// aplica el presupuesto de tiempo automático del perfil de motor y devuelve el
+// contenido junto a la latencia en milisegundos.
+// action identifica la operación para el presupuesto de tiempo y los mensajes
+// de diagnóstico.
 func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, action, systemPrompt, userPrompt string) (string, int64, error) {
 	settings, err := s.Get(ctx, tenantID)
 	if err != nil {
 		return "", 0, err
 	}
-	if !settings.Enabled {
-		return "", 0, domain.ErrAIDisabled
-	}
-	if err := s.ConsumeQuota(tenantID, userID, settings.HourlyQuotaPerUser); err != nil {
-		return "", 0, err
+
+	effective := *settings
+	profile := classifyAIEngine(settings.Provider, settings.Model)
+
+	if override, ok := resolveUserOverride(settings, userID); ok {
+		// BYOK: la credencial personal prevalece, opera incluso con la IA
+		// institucional deshabilitada y no consume la cuota horaria compartida.
+		effective.Provider = override.Provider
+		effective.Model = override.Model
+		effective.BaseURL = userOverrideBaseURL(settings, override)
+		effective.EncryptedAPIKey = override.EncryptedAPIKey
+		profile = classifyAIEngine(override.Provider, override.Model)
+	} else {
+		if !settings.Enabled {
+			return "", 0, domain.ErrAIDisabled
+		}
+		quotaLimit := settings.HourlyQuotaPerUser
+		if profile == domain.AIEngineProfileLocalGPU {
+			// Motor local: no hay costo por token externo, se eleva el piso
+			// anti-abuso a 60 solicitudes por hora.
+			quotaLimit = maxInt(quotaLimit, 60)
+		}
+		if err := s.ConsumeQuota(tenantID, userID, quotaLimit); err != nil {
+			return "", 0, err
+		}
 	}
 
 	apiKey := ""
-	if strings.TrimSpace(settings.EncryptedAPIKey) != "" {
-		apiKey, err = s.decryptAPIKey(settings.EncryptedAPIKey)
+	if strings.TrimSpace(effective.EncryptedAPIKey) != "" {
+		apiKey, err = s.decryptAPIKey(effective.EncryptedAPIKey)
 		if err != nil {
 			return "", 0, fmt.Errorf("no se pudo descifrar la API Key guardada: %w", err)
 		}
 	}
 
-	provider, err := s.providerFor(settings)
+	provider, err := s.providerFor(&effective)
 	if err != nil {
 		return "", 0, err
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, aiSettingsTimeout(settings))
+	reqCtx, cancel := context.WithTimeout(ctx, effectiveAITimeout(&effective, profile, action))
 	defer cancel()
 
 	payload := aiChatCompletionRequest{
-		Model: settings.Model,
+		Model: effective.Model,
 		Messages: []aiChatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},
@@ -617,6 +648,84 @@ func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, 
 		return "", latencyMS, err
 	}
 	return content, latencyMS, nil
+}
+
+// resolveUserOverride devuelve la cascada BYOK personal activa y válida de un
+// usuario. Un override ausente, deshabilitado o incompleto se trata como
+// inexistente: la operación cae en la base institucional.
+func resolveUserOverride(settings *domain.AISettingsStored, userID string) (domain.AIUserOverrideStored, bool) {
+	var zero domain.AIUserOverrideStored
+	if settings == nil || strings.TrimSpace(userID) == "" {
+		return zero, false
+	}
+	override, ok := settings.UserOverrides[userID]
+	if !ok || !override.Enabled {
+		return zero, false
+	}
+	if !domain.IsValidAIProvider(override.Provider) {
+		return zero, false
+	}
+	if strings.TrimSpace(override.Model) == "" {
+		return zero, false
+	}
+	if domain.IsCloudAIProvider(override.Provider) && strings.TrimSpace(override.EncryptedAPIKey) == "" {
+		return zero, false
+	}
+	return override, true
+}
+
+// userOverrideBaseURL resuelve la URL de la credencial personal: oficial y
+// fija en la nube, la propia en servidores LAN y la del catálogo custom como
+// último recurso.
+func userOverrideBaseURL(settings *domain.AISettingsStored, override domain.AIUserOverrideStored) string {
+	if domain.IsCloudAIProvider(override.Provider) {
+		official, _ := domain.OfficialAIBaseURL(override.Provider)
+		return official
+	}
+	if base := strings.TrimSpace(override.BaseURL); base != "" {
+		return strings.TrimRight(base, "/")
+	}
+	for _, cp := range settings.CustomProviders {
+		if cp.ID == override.Provider {
+			return cp.BaseURL
+		}
+	}
+	return ""
+}
+
+// classifyAIEngine resuelve el perfil de gobernanza del motor activo.
+func classifyAIEngine(provider, model string) string {
+	return domain.ClassifyAIEngine(provider, model)
+}
+
+// effectiveAITimeout resuelve el presupuesto de tiempo final:
+// min(MaxAITimeoutSeconds, max(presupuestoAutomático, timeoutGuardado)).
+// Así un tope viejo de 30 s guardado en la base jamás recorta una operación
+// pesada ni un modelo gratuito, y un tope mayor fijado en Modo Experto se
+// respeta.
+func effectiveAITimeout(settings *domain.AISettingsStored, profile, action string) time.Duration {
+	stored := settings.TimeoutSeconds
+	if stored <= 0 {
+		stored = domain.DefaultAITimeoutSeconds
+	}
+	seconds := domain.AIEngineAutoTimeoutSeconds(profile, action)
+	if seconds < stored {
+		seconds = stored
+	}
+	if seconds > domain.MaxAITimeoutSeconds {
+		seconds = domain.MaxAITimeoutSeconds
+	}
+	if seconds < domain.MinAITimeoutSeconds {
+		seconds = domain.MinAITimeoutSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 // TestConnection realiza una verificación real contra el motor (o el
@@ -717,7 +826,7 @@ func (s *AISettingsService) TestConnection(ctx context.Context, tenantID string,
 	if err != nil {
 		return nil, err
 	}
-	reqCtx, cancel := context.WithTimeout(ctx, aiSettingsTimeout(&probe))
+	reqCtx, cancel := context.WithTimeout(ctx, effectiveAITimeout(&probe, classifyAIEngine(provider, model), "test-connection"))
 	defer cancel()
 
 	content, latencyMS, callErr := aiProvider.Complete(reqCtx, payload, apiKey)
@@ -726,7 +835,7 @@ func (s *AISettingsService) TestConnection(ctx context.Context, tenantID string,
 		resp.Message = fmt.Sprintf("No se pudo verificar la conexión: %s", callErr.Error())
 		return resp, nil
 	}
-	if !json.Valid([]byte(content)) {
+	if !json.Valid([]byte(extractJSONObject(content))) {
 		resp.Message = "No se pudo verificar la conexión: el motor no devolvió JSON válido"
 		return resp, nil
 	}
@@ -734,6 +843,228 @@ func (s *AISettingsService) TestConnection(ctx context.Context, tenantID string,
 	resp.OK = true
 	resp.Message = "Conexión verificada correctamente con el motor de IA."
 	return resp, nil
+}
+
+// extractJSONObject recorta razonamiento previo, bloques de texto sueltos y
+// fences Markdown para quedarse con el objeto JSON que el motor devolvió.
+// Modelos de razonamiento (deepseek-r1, nemotron, qwq) responden a menudo
+// "pensando... ```json {\"ok\":true}```"; la prueba de conexión debe aceptarlos.
+func extractJSONObject(content string) string {
+	trimmed := strings.TrimSpace(content)
+	start := strings.IndexByte(trimmed, '{')
+	if start < 0 {
+		return trimmed
+	}
+	end := strings.LastIndexByte(trimmed, '}')
+	if end < start {
+		return trimmed
+	}
+	return strings.TrimSpace(trimmed[start : end+1])
+}
+
+// GetUserOverride devuelve la cascada BYOK personal del usuario junto al
+// estado institucional. Nunca expone el ciphertext de la API Key.
+func (s *AISettingsService) GetUserOverride(ctx context.Context, tenantID, userID string) (*domain.AIUserOverrideResponseDTO, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, &AISettingsValidationError{
+			Code:    "user_required",
+			Message: "no se pudo identificar al usuario para su configuración personal de IA",
+		}
+	}
+	stored, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	override, ok := stored.UserOverrides[userID]
+	if !ok || strings.TrimSpace(override.Provider) == "" {
+		// Sin override todavía: se pre-carga con la base institucional para que
+		// el docente vea un punto de partida, siempre con enabled=false.
+		override = domain.AIUserOverrideStored{
+			Enabled:  false,
+			Provider: stored.Provider,
+			Model:    stored.Model,
+			BaseURL:  stored.BaseURL,
+		}
+	}
+	resp := domain.NewAIUserOverrideResponseDTO(override, *stored)
+	return &resp, nil
+}
+
+// UpdateUserOverride valida, cifra y persiste la API Key personal (BYOK) del
+// usuario. Aplica las mismas garantías que la configuración institucional:
+// catálogo de proveedores, URL oficial en la nube, escudo anti-SSRF en
+// ollama_lan/custom_* y cifrado AES-256-GCM.
+func (s *AISettingsService) UpdateUserOverride(ctx context.Context, tenantID, userID string, dto domain.UpdateAIUserOverrideDTO) (*domain.AIUserOverrideResponseDTO, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, &AISettingsValidationError{
+			Code:    "user_required",
+			Message: "no se pudo identificar al usuario para su configuración personal de IA",
+		}
+	}
+	stored, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	provider := strings.TrimSpace(dto.Provider)
+	if provider == "" {
+		provider = stored.Provider
+	}
+	if !domain.IsValidAIProvider(provider) {
+		return nil, &AISettingsValidationError{
+			Code:    "provider_invalid",
+			Message: fmt.Sprintf("proveedor inválido: %q. Valores permitidos: %s", provider, domain.AIProviderList()),
+		}
+	}
+
+	previous := stored.UserOverrides[userID]
+
+	rawBaseURL := strings.TrimSpace(dto.BaseURL)
+	if rawBaseURL == "" {
+		rawBaseURL = strings.TrimSpace(previous.BaseURL)
+	}
+	if rawBaseURL == "" && provider == stored.Provider {
+		rawBaseURL = strings.TrimSpace(stored.BaseURL)
+	}
+	if rawBaseURL == "" && domain.IsCustomAIProvider(provider) {
+		for _, cp := range stored.CustomProviders {
+			if cp.ID == provider {
+				rawBaseURL = cp.BaseURL
+				break
+			}
+		}
+	}
+	baseURL, err := resolveAIBaseURL(provider, rawBaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	model := strings.TrimSpace(dto.Model)
+	if model == "" {
+		model = strings.TrimSpace(previous.Model)
+	}
+	if model == "" && provider == stored.Provider {
+		model = strings.TrimSpace(stored.Model)
+	}
+
+	encryptedKey := previous.EncryptedAPIKey
+	maskedKey := previous.APIKeyMasked
+	switch {
+	case dto.ClearAPIKey:
+		encryptedKey, maskedKey = "", ""
+	case strings.TrimSpace(dto.APIKey) != "":
+		cipherText, errCipher := s.encryptAPIKey(strings.TrimSpace(dto.APIKey))
+		if errCipher != nil {
+			return nil, fmt.Errorf("no se pudo cifrar la API Key personal: %w", errCipher)
+		}
+		encryptedKey = cipherText
+		maskedKey = maskAPIKey(strings.TrimSpace(dto.APIKey))
+	}
+
+	if dto.Enabled {
+		if strings.TrimSpace(model) == "" {
+			return nil, &AISettingsValidationError{
+				Code:    "model_required",
+				Message: domain.ErrAIMissingModel.Error(),
+			}
+		}
+		if domain.IsCloudAIProvider(provider) && strings.TrimSpace(encryptedKey) == "" {
+			return nil, &AISettingsValidationError{
+				Code:    "api_key_required",
+				Message: domain.ErrAIMissingAPIKey.Error(),
+			}
+		}
+	}
+
+	override := domain.AIUserOverrideStored{
+		Enabled:         dto.Enabled,
+		Provider:        provider,
+		Model:           model,
+		BaseURL:         baseURL,
+		EncryptedAPIKey: encryptedKey,
+		APIKeyMasked:    maskedKey,
+		UpdatedAt:       s.nowFn().UTC().Format(time.RFC3339),
+	}
+	stored.UserOverrides[userID] = override
+
+	if err := s.persist(ctx, tenantID, *stored); err != nil {
+		return nil, err
+	}
+
+	resp := domain.NewAIUserOverrideResponseDTO(override, *stored)
+	return &resp, nil
+}
+
+// GetEffectiveStatus devuelve el estado liviano resuelto para el usuario:
+// refleja el motor personal (BYOK) cuando está activo y conserva el estado
+// institucional por separado.
+func (s *AISettingsService) GetEffectiveStatus(ctx context.Context, tenantID, userID string) (*domain.AIStatusDTO, error) {
+	stored, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	resp := domain.NewAIStatusDTO(*stored)
+	if override, ok := resolveUserOverride(stored, userID); ok {
+		profile := domain.ClassifyAIEngine(override.Provider, override.Model)
+		resp.Enabled = true
+		resp.Provider = override.Provider
+		resp.ProviderLabel = domain.AIProviderLabel(override.Provider, stored.CustomProviders)
+		resp.Model = override.Model
+		resp.EngineProfile = profile
+		resp.AutoTimeoutRangeLabel = domain.AIEngineAutoTimeoutRangeLabel(profile)
+		resp.UsingPersonalKey = true
+	}
+	return &resp, nil
+}
+
+// TestUserConnection prueba la conexión con las credenciales personales del
+// usuario cuando no llegan en el payload.
+func (s *AISettingsService) TestUserConnection(ctx context.Context, tenantID, userID string, req domain.TestAIConnectionRequestDTO) (*domain.TestAIConnectionResponseDTO, error) {
+	req = s.fillUserCredentials(ctx, tenantID, userID, req.Provider, req.Model, req.BaseURL, req.APIKey)
+	return s.TestConnection(ctx, tenantID, req)
+}
+
+// ListUserModels lista los modelos disponibles con las credenciales personales
+// del usuario cuando no llegan en el payload.
+func (s *AISettingsService) ListUserModels(ctx context.Context, tenantID, userID string, req domain.ListAIModelsRequestDTO) (*domain.ListAIModelsResponseDTO, error) {
+	filled := s.fillUserCredentials(ctx, tenantID, userID, req.Provider, "", req.BaseURL, req.APIKey)
+	req.Provider = filled.Provider
+	req.BaseURL = filled.BaseURL
+	req.APIKey = filled.APIKey
+	return s.ListModels(ctx, tenantID, req)
+}
+
+// fillUserCredentials completa provider/model/base_url/api_key con la cascada
+// BYOK del usuario solo cuando el payload viene vacío, para que la prueba de
+// conexión y el catálogo usen la cuenta personal sin consumir la institucional.
+func (s *AISettingsService) fillUserCredentials(ctx context.Context, tenantID, userID, provider, model, baseURL, apiKey string) domain.TestAIConnectionRequestDTO {
+	filled := domain.TestAIConnectionRequestDTO{Provider: provider, Model: model, BaseURL: baseURL, APIKey: apiKey}
+	if strings.TrimSpace(apiKey) != "" {
+		return filled
+	}
+	stored, err := s.Get(ctx, tenantID)
+	if err != nil {
+		return filled
+	}
+	override, ok := resolveUserOverride(stored, userID)
+	if !ok {
+		return filled
+	}
+	if strings.TrimSpace(filled.Provider) == "" || filled.Provider == override.Provider {
+		if strings.TrimSpace(filled.Provider) == "" {
+			filled.Provider = override.Provider
+		}
+		if strings.TrimSpace(filled.Model) == "" {
+			filled.Model = override.Model
+		}
+		if strings.TrimSpace(filled.BaseURL) == "" {
+			filled.BaseURL = override.BaseURL
+		}
+		if plain, errKey := s.decryptAPIKey(override.EncryptedAPIKey); errKey == nil {
+			filled.APIKey = plain
+		}
+	}
+	return filled
 }
 
 // ListModels consulta dinámicamente los modelos disponibles en el proveedor
@@ -884,45 +1215,87 @@ func newOpenAICompatibleProvider(client *http.Client, baseURL string, nowFn func
 }
 
 func (p *openAICompatibleProvider) Complete(ctx context.Context, payload aiChatCompletionRequest, apiKey string) (string, int64, error) {
+	start := p.nowFn()
+
+	content, latencyMS, statusCode, err := p.completeOnce(ctx, payload, apiKey, start)
+	if err == nil {
+		return content, latencyMS, nil
+	}
+
+	// Blindaje de transporte (S10): varios modelos gratuitos de OpenRouter
+	// rechazan "response_format": {"type":"json_object"} con HTTP 400. Se
+	// reintenta una única vez sin response_format acumulando la latencia total.
+	if statusCode == http.StatusBadRequest && strings.TrimSpace(payload.ResponseFormat.Type) != "" {
+		retry := payload
+		retry.ResponseFormat = aiResponseFormat{}
+		content, retryLatencyMS, _, retryErr := p.completeOnce(ctx, retry, apiKey, start)
+		if retryErr == nil {
+			return content, retryLatencyMS, nil
+		}
+		return "", retryLatencyMS, retryErr
+	}
+
+	return "", latencyMS, err
+}
+
+// completeOnce ejecuta un intento de /chat/completions. La latencia se mide
+// desde start (compartido entre intentos) hasta después de io.ReadAll, de modo
+// que refleje la descarga completa del stream JSON y no solo el TTFB de los
+// headers HTTP.
+func (p *openAICompatibleProvider) completeOnce(ctx context.Context, payload aiChatCompletionRequest, apiKey string, start time.Time) (string, int64, int, error) {
+	elapsed := func() int64 { return p.nowFn().Sub(start).Milliseconds() }
+
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return "", 0, fmt.Errorf("no se pudo serializar la petición de IA: %w", err)
+		return "", elapsed(), 0, fmt.Errorf("no se pudo serializar la petición de IA: %w", err)
 	}
 
 	endpoint := p.baseURL + "/chat/completions"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
-		return "", 0, fmt.Errorf("petición de IA inválida: %w", err)
+		return "", elapsed(), 0, fmt.Errorf("petición de IA inválida: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if strings.TrimSpace(apiKey) != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 
-	start := p.nowFn()
 	httpResp, err := p.client.Do(httpReq)
-	latencyMS := p.nowFn().Sub(start).Milliseconds()
 	if err != nil {
-		return "", latencyMS, fmt.Errorf("fallo de conexión con el motor de IA: %w", err)
+		if isAITimeout(err, ctx) {
+			return "", elapsed(), 0, fmt.Errorf("%w: %w", domain.ErrAITimeout, err)
+		}
+		return "", elapsed(), 0, fmt.Errorf("fallo de conexión con el motor de IA: %w", err)
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 
 	raw, err := io.ReadAll(io.LimitReader(httpResp.Body, aiMaxResponseBytes))
 	if err != nil {
-		return "", latencyMS, fmt.Errorf("no se pudo leer la respuesta del motor de IA: %w", err)
+		if isAITimeout(err, ctx) {
+			return "", elapsed(), 0, fmt.Errorf("%w: %w", domain.ErrAITimeout, err)
+		}
+		return "", elapsed(), 0, fmt.Errorf("no se pudo leer la respuesta del motor de IA: %w", err)
 	}
+
+	latencyMS := elapsed()
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return "", latencyMS, fmt.Errorf("el motor de IA respondió HTTP %d: %s", httpResp.StatusCode, truncateForLog(string(raw), 200))
+		return "", latencyMS, httpResp.StatusCode, fmt.Errorf("el motor de IA respondió HTTP %d: %s", httpResp.StatusCode, truncateForLog(string(raw), 200))
 	}
 
 	var parsed aiChatCompletionResponse
 	if err := json.Unmarshal(raw, &parsed); err != nil {
-		return "", latencyMS, fmt.Errorf("respuesta inesperada del motor de IA: %w", err)
+		return "", latencyMS, httpResp.StatusCode, fmt.Errorf("respuesta inesperada del motor de IA: %w", err)
 	}
 	if len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
-		return "", latencyMS, fmt.Errorf("la respuesta del motor de IA no incluye contenido")
+		return "", latencyMS, httpResp.StatusCode, fmt.Errorf("la respuesta del motor de IA no incluye contenido")
 	}
-	return parsed.Choices[0].Message.Content, latencyMS, nil
+	return parsed.Choices[0].Message.Content, latencyMS, httpResp.StatusCode, nil
+}
+
+// isAITimeout reporta si el fallo corresponde a un agotamiento de plazo del
+// contexto de la petición o del contexto padre.
+func isAITimeout(err error, ctx context.Context) bool {
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded)
 }
 
 var excludedModelKeywords = []string{

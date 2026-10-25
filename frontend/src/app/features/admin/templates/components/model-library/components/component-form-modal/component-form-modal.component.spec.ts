@@ -1047,7 +1047,31 @@ describe('ComponentFormModalComponent', () => {
       expect(component.ramDeltaMB()).toBe(512);
       expect(component.aiRationale()).toBe('Se configuró pip para instalar PyTorch modo CPU y scikit-learn con 512MB RAM adicional recomendada.');
       expect(component.aiLatencyMs()).toBe(240);
+      expect(component.showManualFineTune()).toBe(false);
       expect(component.isGeneratingAi()).toBe(false);
+    });
+
+    it('cancelAiGeneration cancela la suscripción y detiene la generación', () => {
+      component.ngOnInit();
+      component.aiPrompt.set('FastAPI');
+      mockAiService.suggestComponent.mockReturnValue(of({
+        component: { name: 'FastAPI', layer: 'addon' as const },
+        rationale: '',
+        latency_ms: 100
+      }));
+
+      component.generateWithAi();
+      component.cancelAiGeneration();
+      expect(component.isGeneratingAi()).toBe(false);
+    });
+
+    it('switchModalTab cambia la pestaña activa manteniendo visibles los campos del formulario', () => {
+      component.name.set('Preset Previo');
+      expect(component.aiRationale()).toBeNull();
+
+      component.switchModalTab('ai');
+      expect(component.activeModalTab()).toBe('ai');
+      expect(component.name()).toBe('Preset Previo');
     });
 
     it('maneja errores del servicio de IA y activa errorMessage', () => {

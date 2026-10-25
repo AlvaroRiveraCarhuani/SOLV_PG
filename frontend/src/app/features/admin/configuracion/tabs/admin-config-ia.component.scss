@@ -868,6 +868,120 @@
   }
 }
 
+// Gobernanza Autoadaptativa
+.adaptive-governance-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.adaptive-card {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+
+  .adaptive-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+
+    .adaptive-label {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .adaptive-badge {
+      font-size: var(--text-xs);
+      font-weight: 600;
+      color: var(--tenant-primary);
+      background-color: var(--tenant-primary-subtle);
+      padding: 2px var(--space-2);
+      border-radius: var(--radius-sm);
+    }
+  }
+
+  .adaptive-desc {
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+    margin: 0;
+    line-height: var(--leading-normal);
+  }
+
+  .budgets-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .budget-pill {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+
+    .budget-task {
+      font-size: var(--text-xs);
+      color: var(--text-secondary);
+    }
+
+    .budget-val {
+      font-size: var(--text-xs);
+      font-weight: 700;
+      color: var(--tenant-primary);
+    }
+  }
+}
+
+.expert-toggle-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-3);
+
+  .btn-expert-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    cursor: pointer;
+    padding: var(--space-1) 0;
+    transition: color 0.15s ease;
+
+    &:hover {
+      color: var(--tenant-primary);
+    }
+
+    .toggle-icon,
+    .chevron-icon {
+      width: 14px;
+      height: 14px;
+    }
+  }
+}
+
+.expert-governance-grid {
+  padding: var(--space-3);
+  background-color: var(--bg-surface-subtle);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-4);
+}
+
 // Gobernanza
 .governance-grid {
   display: grid;

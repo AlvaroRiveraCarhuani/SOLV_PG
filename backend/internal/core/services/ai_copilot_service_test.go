@@ -268,6 +268,128 @@ func TestAICopilot_GenerateExerciseDraft_ReportsWarningWhenReferenceFailsInRunne
 	}
 }
 
+// TestAICopilot_RepairTemplateRepairsDockerfileAndTools cubre la autorreparación
+// diagnóstica: corrige el Dockerfile, fuerza el build local cuando hay capas
+// RUN y devuelve la causa raíz en español.
+func TestAICopilot_RepairTemplateRepairsDockerfileAndTools(t *testing.T) {
+	repaired := `{"docker_image":"python:3.12-slim-bookworm","dockerfile_content":"FROM python:3.12-slim-bookworm\nRUN apt-get update && apt-get install -y --no-install-recommends gcc make\nCMD [\"python3\"]","setup_script":"set -euo pipefail\npip install --no-cache-dir numpy==2.1.0","tools_declared":["python3","pip","gcc","pip","  "],"entrypoint":"python3 /opt/judge/run.py","base_ram_mb":5120,"rationale":"El contenedor falló porque gcc no estaba instalado y la imagen llegaba a 8 GB de RAM."}`
+	server := newCopilotLLMServer(t, repaired)
+	svc := newEnabledCopilotSettings(t, server)
+	copilot := NewAICopilotService(svc, nil)
+
+	resp, err := copilot.RepairTemplate(context.Background(), "t-1", "u-1", domain.AIRepairTemplateRequestDTO{
+		Name:              "Laboratorio de Estadística",
+		Description:       "Python con NumPy",
+		TargetEnvironment: "python",
+		DockerImage:       "python:3.12-slim",
+		DockerfileContent: "FROM python:3.12-slim\nCMD [\"python3\"]",
+		SetupScript:       "set -euo pipefail",
+		ToolsDeclared:     []string{"python3", "pip"},
+		Entrypoint:        "python /app/main.py",
+		BaseRamMB:         4096,
+		ErrorMessage:      "exec format error: gcc: not found",
+		FailedTools:       []string{"gcc"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if resp.DockerImage != "solv-local/stack:laboratorio-de-estadistica" {
+		t.Errorf("con capas RUN la imagen debe forzar build local, got %q", resp.DockerImage)
+	}
+	if strings.Contains(strings.ToLower(resp.DockerfileContent), ":latest") {
+		t.Errorf("el Dockerfile reparado no debe llevar :latest: %q", resp.DockerfileContent)
+	}
+	if !strings.Contains(resp.DockerfileContent, "FROM python:3.12-slim-bookworm") || !strings.Contains(resp.DockerfileContent, "gcc") {
+		t.Errorf("Dockerfile reparado inesperado: %q", resp.DockerfileContent)
+	}
+	if resp.SetupScript == "" || !strings.Contains(resp.SetupScript, "numpy") {
+		t.Errorf("setup_script inesperado: %q", resp.SetupScript)
+	}
+	wantTools := []string{"python3", "pip", "gcc"}
+	if strings.Join(resp.ToolsDeclared, ",") != strings.Join(wantTools, ",") {
+		t.Errorf("tools_declared depurado inesperado: %v", resp.ToolsDeclared)
+	}
+	if resp.Entrypoint != "python3 /opt/judge/run.py" {
+		t.Errorf("entrypoint inesperado: %q", resp.Entrypoint)
+	}
+	if resp.BaseRamMB != 4096 {
+		t.Errorf("base_ram_mb debe quedar dentro de 256..4096, got %d", resp.BaseRamMB)
+	}
+	if strings.TrimSpace(resp.Rationale) == "" {
+		t.Errorf("esperaba una rationale con la causa raíz")
+	}
+	if resp.LatencyMS < 0 {
+		t.Errorf("latency_ms inválida: %d", resp.LatencyMS)
+	}
+}
+
+// TestAICopilot_RepairTemplateGuardrails verifica los guardrails deterministas.
+func TestAICopilot_RepairTemplateGuardrails(t *testing.T) {
+	req := domain.AIRepairTemplateRequestDTO{
+		Name:              "Stack Web",
+		DockerImage:       "node:20-bookworm-slim",
+		DockerfileContent: "FROM node:20-bookworm-slim\nCMD [\"node\"]",
+		ToolsDeclared:     []string{"node"},
+		Entrypoint:        "node server.js",
+		BaseRamMB:         512,
+		ErrorMessage:      "no arranca",
+	}
+
+	// 1. Imagen :latest -> rechazo.
+	latest := newCopilotLLMServer(t, `{"docker_image":"node:latest","dockerfile_content":"FROM node:20-bookworm-slim","rationale":"cambio de imagen"}`)
+	copilot := NewAICopilotService(newEnabledCopilotSettings(t, latest), nil)
+	_, err := copilot.RepairTemplate(context.Background(), "t-1", "u-1", req)
+	if err == nil {
+		t.Fatalf("esperaba rechazo de imagen :latest")
+	}
+	var vErr *AISettingsValidationError
+	if !errors.As(err, &vErr) || vErr.Code != "base_image_latest" {
+		t.Errorf("esperaba AISettingsValidationError base_image_latest, got %v", err)
+	}
+
+	// 2. Dockerfile con FROM :latest -> rechazo.
+	latestFROM := newCopilotLLMServer(t, `{"docker_image":"node:20-bookworm-slim","dockerfile_content":"FROM node:latest","rationale":"sin cambios"}`)
+	copilotFROM := NewAICopilotService(newEnabledCopilotSettings(t, latestFROM), nil)
+	_, err = copilotFROM.RepairTemplate(context.Background(), "t-1", "u-1", req)
+	if !errors.As(err, &vErr) || vErr.Code != "base_image_latest" {
+		t.Errorf("esperaba base_image_latest desde el Dockerfile, got %v", err)
+	}
+
+	// 3. Sin rationale -> rechazo.
+	withoutRationale := newCopilotLLMServer(t, `{"docker_image":"node:20-bookworm-slim","dockerfile_content":"FROM node:20-bookworm-slim"}`)
+	copilotNoRationale := NewAICopilotService(newEnabledCopilotSettings(t, withoutRationale), nil)
+	_, err = copilotNoRationale.RepairTemplate(context.Background(), "t-1", "u-1", req)
+	if !errors.As(err, &vErr) || vErr.Code != "ai_response_invalid" {
+		t.Errorf("esperaba ai_response_invalid sin rationale, got %v", err)
+	}
+
+	// 4. Sin capas RUN la imagen fijada se conserva tal cual.
+	withoutRUN := newCopilotLLMServer(t, `{"docker_image":"node:20-bookworm-slim","dockerfile_content":"FROM node:20-bookworm-slim\nCMD [\"node\"]","rationale":"solo se corrigió el entrypoint","tools_declared":["node"]}`)
+	copilotNoRUN := NewAICopilotService(newEnabledCopilotSettings(t, withoutRUN), nil)
+	resp, err := copilotNoRUN.RepairTemplate(context.Background(), "t-1", "u-1", req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.DockerImage != "node:20-bookworm-slim" {
+		t.Errorf("la imagen fijada debía conservarse, got %q", resp.DockerImage)
+	}
+	if resp.BaseRamMB != 512 {
+		t.Errorf("base_ram_mb debía conservar el valor del snapshot, got %d", resp.BaseRamMB)
+	}
+
+	// 5. Memoria fuera de rango -> recorte determinista a 256..4096.
+	outOfRange := newCopilotLLMServer(t, `{"docker_image":"node:20-bookworm-slim","dockerfile_content":"FROM node:20-bookworm-slim","base_ram_mb":99999,"rationale":"memoria desajustada"}`)
+	copilotRAM := NewAICopilotService(newEnabledCopilotSettings(t, outOfRange), nil)
+	respRAM, err := copilotRAM.RepairTemplate(context.Background(), "t-1", "u-1", req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if respRAM.BaseRamMB != 4096 {
+		t.Errorf("esperaba recorte a 4096, got %d", respRAM.BaseRamMB)
+	}
+}
+
 func TestAICopilot_RespectsDisabledAndQuota(t *testing.T) {
 	ctx := context.Background()
 

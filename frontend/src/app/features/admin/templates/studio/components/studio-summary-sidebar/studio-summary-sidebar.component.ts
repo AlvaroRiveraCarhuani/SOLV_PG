@@ -8,6 +8,7 @@ import {
   LucidePlay,
   LucideRefreshCw,
   LucideSend,
+  LucideWrench,
   LucideXCircle
 } from '@lucide/angular';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
@@ -31,6 +32,7 @@ import { StudioActionBlocker } from '../../template-studio.utils';
     LucidePlay,
     LucideRefreshCw,
     LucideSend,
+    LucideWrench,
     LucideXCircle
   ],
   templateUrl: './studio-summary-sidebar.component.html',
@@ -58,6 +60,9 @@ export class StudioSummarySidebarComponent {
   readonly isVerifying = input<boolean>(false);
   readonly isSubmitting = input<boolean>(false);
   readonly isEditMode = input<boolean>(false);
+  readonly aiEnabled = input<boolean>(false);
+  readonly isRepairingWithAi = input<boolean>(false);
+  readonly repairElapsedSeconds = input<string>('0.0');
 
   readonly blueprintTabChange = output<'human' | 'manifest'>();
   readonly cancelTest = output<void>();
@@ -65,4 +70,6 @@ export class StudioSummarySidebarComponent {
   readonly downloadManifest = output<void>();
   readonly runVerification = output<void>();
   readonly publish = output<void>();
+  readonly repairWithAi = output<void>();
+  readonly cancelRepairWithAi = output<void>();
 }

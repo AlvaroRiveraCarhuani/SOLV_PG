@@ -17,7 +17,10 @@ import {
   LucideSearch,
   LucidePlus,
   LucideLock,
-  LucideWifi
+  LucideWifi,
+  LucideChevronDown,
+  LucideChevronUp,
+  LucideSliders
 } from '@lucide/angular';
 import {
   AdminConfigIaService,
@@ -179,7 +182,10 @@ const CLOUD_PROVIDER_IDS: ReadonlySet<string> = new Set(['gemini', 'openai', 'op
     LucideSearch,
     LucidePlus,
     LucideLock,
-    LucideWifi
+    LucideWifi,
+    LucideChevronDown,
+    LucideChevronUp,
+    LucideSliders
   ],
   templateUrl: './admin-config-ia.component.html',
   styleUrls: ['./admin-config-ia.component.scss']
@@ -205,7 +211,8 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   readonly apiKey = signal<string>('');
   readonly clearApiKey = signal<boolean>(false);
   readonly hourlyQuota = signal<number>(15);
-  readonly timeoutSeconds = signal<number>(30);
+  readonly timeoutSeconds = signal<number>(60);
+  readonly showExpertGovernance = signal<boolean>(false);
 
   // Signals para auto-descubrimiento, catálogo y selector directo
   readonly catalogError = signal<string | null>(null);
@@ -226,6 +233,52 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
   readonly modelTouched = signal<boolean>(false);
   readonly hourlyQuotaTouched = signal<boolean>(false);
   readonly timeoutSecondsTouched = signal<boolean>(false);
+
+  readonly detectedProfile = computed<{
+    label: string;
+    description: string;
+    componentsBudget: string;
+    stacksBudget: string;
+    exercisesBudget: string;
+    quotaDescription: string;
+  }>(() => {
+    const prov = this.provider();
+    const mdl = (this.model() || '').toLowerCase();
+
+    if (prov === 'ollama_lan' || prov.startsWith('custom_')) {
+      return {
+        label: 'Servidor GPU Local Universitario',
+        description: 'Inferencia en red LAN institucional sobre hardware propio. Sin costos de API externa ni consumo de cuota cloud.',
+        componentsBudget: '90 s',
+        stacksBudget: '120 s',
+        exercisesBudget: '180 s',
+        quotaDescription: 'Piso ampliado automático de 60 solic./h por docente (sin costo por token externo).'
+      };
+    }
+
+    const reasoningTokens = [':free', 'r1', 'reasoner', 'thinking', 'nemotron', 'qwq', 'o1', 'o3'];
+    const isReasoningOrFree = reasoningTokens.some((tok) => mdl.includes(tok));
+
+    if (isReasoningOrFree) {
+      return {
+        label: 'Modelo Gratuito / Razonamiento (Cola extendida)',
+        description: 'Proveedores comunitarios o modelos con mayor tiempo de cómputo y colas de espera variables.',
+        componentsBudget: '90 s',
+        stacksBudget: '120 s',
+        exercisesBudget: '180 s',
+        quotaDescription: 'Protección automática con respaldo BYOK docente para evitar consumo del cupo institucional.'
+      };
+    }
+
+    return {
+      label: 'Motor Ágil en Nube',
+      description: 'Modelos comerciales optimizados para streaming rápido y generación interactiva continua.',
+      componentsBudget: '60 s',
+      stacksBudget: '90 s',
+      exercisesBudget: '120 s',
+      quotaDescription: 'Protección de cuota automática por docente con soporte de API Key Personal BYOK.'
+    };
+  });
 
   readonly customLabelError = computed<string>(() => {
     if (!this.isCustomForm()) return '';
@@ -282,8 +335,8 @@ export class AdminConfigIaComponent implements OnInit, OnDestroy {
 
   readonly timeoutSecondsError = computed<string>(() => {
     const val = Number(this.timeoutSeconds());
-    if (!Number.isInteger(val) || val < 5 || val > 120) {
-      return 'El timeout debe ser un número entero entre 5 y 120 segundos.';
+    if (!Number.isInteger(val) || val < 5 || val > 240) {
+      return 'El timeout debe ser un número entero entre 5 y 240 segundos.';
     }
     return '';
   });

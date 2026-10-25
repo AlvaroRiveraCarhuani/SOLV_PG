@@ -6,6 +6,8 @@ export interface AIAvailabilityStatus {
   enabled: boolean;
   provider: string;
   model: string;
+  using_personal_key?: boolean;
+  institutional_enabled?: boolean;
 }
 
 export interface AIGenerateExercisePayload {
@@ -15,6 +17,29 @@ export interface AIGenerateExercisePayload {
   public_cases_count: number;
   hidden_cases_count: number;
   verify_with_runner?: boolean;
+}
+
+export interface AIUserOverrideDTO {
+  enabled: boolean;
+  provider: string;
+  provider_label: string;
+  model: string;
+  base_url: string;
+  has_api_key: boolean;
+  api_key_masked: string;
+  updated_at: string;
+  institutional_enabled: boolean;
+  institutional_provider_label: string;
+  institutional_model: string;
+}
+
+export interface UpdateAIUserOverridePayload {
+  enabled: boolean;
+  provider: string;
+  model: string;
+  base_url?: string;
+  api_key?: string;
+  clear_api_key?: boolean;
 }
 
 export interface AIGeneratedTestCaseDTO {
@@ -66,6 +91,43 @@ export class TeacherAiCopilotService {
         payload
       )
       .pipe(map((res) => res.data));
+  }
+
+  getMySettings(): Observable<AIUserOverrideDTO> {
+    return this.http
+      .get<ApiResponse<AIUserOverrideDTO>>('/api/v1/ai/my-settings')
+      .pipe(map((res) => res.data));
+  }
+
+  updateMySettings(payload: UpdateAIUserOverridePayload): Observable<AIUserOverrideDTO> {
+    return this.http
+      .put<ApiResponse<AIUserOverrideDTO>>('/api/v1/ai/my-settings', payload)
+      .pipe(map((res) => res.data));
+  }
+
+  testMyConnection(payload: { provider: string; model: string; api_key?: string; base_url?: string }): Observable<{ ok: boolean; message: string; latency_ms: number }> {
+    return this.http
+      .post<ApiResponse<{ ok: boolean; message: string; latency_ms: number }>>('/api/v1/ai/my-settings/test-connection', payload)
+      .pipe(map((res) => res.data));
+  }
+
+  listMyModels(payload: { provider: string; api_key?: string; base_url?: string }): Observable<string[]> {
+    return this.http
+      .post<any>('/api/v1/ai/my-settings/models', payload)
+      .pipe(
+        map((res) => {
+          if (!res) return [];
+          const raw = res.data ?? res;
+          if (Array.isArray(raw)) {
+            return raw.map((m: any) => (typeof m === 'string' ? m : (m?.id ?? '')));
+          }
+          const models = raw?.models ?? res.models ?? [];
+          if (Array.isArray(models)) {
+            return models.map((m: any) => (typeof m === 'string' ? m : (m?.id ?? '')));
+          }
+          return [];
+        })
+      );
   }
 
   resolveError(err: unknown): string {

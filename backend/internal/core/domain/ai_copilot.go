@@ -41,6 +41,35 @@ type AIGeneratedTestCaseDTO struct {
 	VerifiedByRunner bool               `json:"verified_by_runner"`
 }
 
+// AIRepairTemplateRequestDTO es el payload de POST /api/v1/admin/ai/repair-template:
+// la radiografía fresca del fallo del contenedor, sin historial de chat.
+type AIRepairTemplateRequestDTO struct {
+	Name              string   `json:"name"`
+	Description       string   `json:"description"`
+	TargetEnvironment string   `json:"target_environment"`
+	DockerImage       string   `json:"docker_image"`
+	DockerfileContent string   `json:"dockerfile_content"`
+	SetupScript       string   `json:"setup_script"`
+	ToolsDeclared     []string `json:"tools_declared"`
+	Entrypoint        string   `json:"entrypoint"`
+	BaseRamMB         int      `json:"base_ram_mb"`
+	ErrorMessage      string   `json:"error_message"`
+	FailedTools       []string `json:"failed_tools"`
+}
+
+// AIRepairTemplateResponseDTO devuelve el manifiesto técnico reparado y la
+// causa raíz explicada en español por el motor.
+type AIRepairTemplateResponseDTO struct {
+	DockerImage       string   `json:"docker_image"`
+	DockerfileContent string   `json:"dockerfile_content"`
+	SetupScript       string   `json:"setup_script"`
+	ToolsDeclared     []string `json:"tools_declared"`
+	Entrypoint        string   `json:"entrypoint"`
+	BaseRamMB         int      `json:"base_ram_mb"`
+	Rationale         string   `json:"rationale"`
+	LatencyMS         int64    `json:"latency_ms"`
+}
+
 // AIGenerateExerciseResponseDTO es el borrador de ejercicio devuelto al docente.
 type AIGenerateExerciseResponseDTO struct {
 	Title               string                   `json:"title"`

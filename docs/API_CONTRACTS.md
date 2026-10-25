@@ -1168,7 +1168,18 @@ Contratos del Copiloto Institucional: configuración por institución, prueba de
 
 - La configuración se persiste por tenant en `tenants.config["ai_settings"]`.
 - La API Key se guarda cifrada con AES-256-GCM (`base64(nonce + ciphertext)`) y jamás se expone: las respuestas solo incluyen `has_api_key` y `api_key_masked` (ej. `AIza...9f2a`).
-- Cuota horaria por usuario (`hourly_quota_per_user`, 1..200, default 15) con ventana en memoria de 1 hora.
+- Cuota horaria por usuario (`hourly_quota_per_user`, 1..200, default 15) con ventana en memoria de 1 hora. En motores `local_gpu` (`ollama_lan` o proveedor `custom_*`) el piso efectivo es de 60 solicitudes/hora, por no existir costo por token externo.
+- **Gobernanza autoadaptativa del timeout**: `timeout_seconds` (5..240, default 60) es un tope, no un valor adivinado. El servidor clasifica el motor activo (`engine_profile`) y resuelve el presupuesto de tiempo por acción (`min(240, max(presupuestoAutomático, timeout_seconds))`), de modo que un tope viejo de `30` jamás recorta una operación pesada y un tope mayor fijado en Modo Experto se respeta.
+
+| `engine_profile` | Condición | Presupuesto por acción (`suggest-component` · `suggest-template` / `repair-template` · `generate-exercise` · `test-connection`) | `auto_timeout_range_label` |
+|------------------|-----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| `fast_cloud` | Modelo comercial en la nube (`gemini-2.5-flash`, `gpt-4o-mini`, `deepseek-chat`, ...) | `60 s` · `90 s` · `120 s` · `30 s` | `60s – 120s según complejidad de la tarea` |
+| `queued_or_reasoning` | Modelo gratuito o de razonamiento (`:free`, `r1`, `reasoner`, `thinking`, `nemotron`, `qwq`, `o1`, `o3`) | `90 s` · `120 s` · `180 s` · `60 s` | `90s – 180s según complejidad de la tarea` |
+| `local_gpu` | Servidor LAN propio (`ollama_lan`) o proveedor `custom_*` | `90 s` · `120 s` · `180 s` · `60 s` | `90s – 180s según complejidad de la tarea` |
+
+- **Cascada BYOK personal** (`/api/v1/ai/my-settings`): docentes y administradores pueden guardar su propia API Key indexada por `userID` en `ai_settings.user_overrides`. Cuando está activa, la inferencia usa el proveedor, modelo, `base_url` y clave personales, opera incluso con la IA institucional deshabilitada y **no descuenta** la cuota horaria institucional compartida.
+- La latencia (`latency_ms`) se mide **después de descargar el cuerpo completo** de la respuesta del motor (no solo los headers) y acumula todos los intentos realizados.
+- Blindaje de transporte: si un modelo gratuito rechaza `response_format: json_object` con `400 Bad Request`, el backend reintenta una única vez sin ese campo; las pruebas de conexión aceptan JSON envuelto en prosa de razonamiento o en fences Markdown (```` ```json ... ``` ````).
 - Escudo anti-SSRF: para `gemini`/`openai`/`openrouter`/`deepseek` la URL base oficial se fuerza y se ignora cualquier `base_url` del cliente; `ollama_lan` exige `http://` o `https://` y rechaza loopback (`localhost`, `127.0.0.0/8`, `::1`), `0.0.0.0`, rangos link-local/metadata (`169.254.0.0/16`) y nombres internos de contenedores sin dominio (`postgres`, `redis`, `traefik`). Se permiten IPs privadas LAN (`10.x`, `192.168.x`, `172.16-31.x`) y dominios con punto.
 
 #### Códigos de estado del módulo
@@ -1176,12 +1187,13 @@ Contratos del Copiloto Institucional: configuración por institución, prueba de
 | Código | `error` | Condición |
 |--------|---------|-----------|
 | `200 OK` | `""` | Operación completada |
-| `400 Bad Request` | `invalid_payload`, `prompt_invalid`, `layer_invalid`, `language_invalid`, `provider_invalid`, `base_url_required`, `base_url_invalid`, `base_url_blocked`, `base_image_latest`, `base_image_unpinned`, `hourly_quota_invalid`, `timeout_invalid`, `ai_response_invalid`, `api_key_required` | Validación de entrada, escudo anti-SSRF o respuesta del LLM inválida |
-| `403 Forbidden` | `forbidden` | Rol insuficiente (sugerencia de componente solo `admin`; borradores bloqueados para `student`) |
+| `400 Bad Request` | `invalid_payload`, `prompt_invalid`, `layer_invalid`, `language_invalid`, `provider_invalid`, `base_url_required`, `base_url_invalid`, `base_url_blocked`, `base_image_latest`, `base_image_unpinned`, `hourly_quota_invalid`, `timeout_invalid`, `ai_response_invalid`, `api_key_required`, `model_required` | Validación de entrada, escudo anti-SSRF o respuesta del LLM inválida |
+| `403 Forbidden` | `forbidden` | Rol insuficiente (sugerencia/autorreparación de plantilla solo `admin`; borradores bloqueados para `student`; `/api/v1/ai/my-settings*` solo `teacher` y `admin`) |
 | `401 Unauthorized` | texto plano | Sin sesión válida (`tm(...)`) |
 | `409 Conflict` | `ai_disabled` | `domain.ErrAIDisabled`: IA deshabilitada para el instituto |
 | `429 Too Many Requests` | `ai_quota_exceeded` | `domain.ErrAIQuotaExceeded`: cuota horaria agotada |
-| `500 Internal Server Error` | texto del error | Falla interna o del tenant |
+| `500 Internal Server Error` | texto del error | Falla interna o del tenant; `message` conserva el motivo técnico real (`<contexto>: <causa>`) |
+| `504 Gateway Timeout` | `ai_timeout` | `domain.ErrAITimeout`: el motor superó el presupuesto de tiempo de la operación |
 
 ---
 
@@ -1205,8 +1217,10 @@ Contratos del Copiloto Institucional: configuración por institución, prueba de
     "has_api_key": false,
     "api_key_masked": "",
     "hourly_quota_per_user": 15,
-    "timeout_seconds": 30,
-    "updated_at": ""
+    "timeout_seconds": 60,
+    "updated_at": "",
+    "engine_profile": "fast_cloud",
+    "auto_timeout_range_label": "60s – 120s según complejidad de la tarea"
   },
   "error": "",
   "message": "Configuración de IA obtenida exitosamente"
@@ -1378,13 +1392,20 @@ Normaliza identificadores (remueve el prefijo `models/` en Gemini), excluye mode
 - **Ruta:** `/api/v1/ai/status`
 - **Headers Requeridos:** `X-User-Id` (cualquier usuario autenticado del tenant)
 
+Resuelve por usuario la política autoadaptativa vigente (`engine_profile`, `auto_timeout_range_label`) y la cascada personal: si el usuario tiene una API Key personal activa, `enabled` refleja su motor personal, `using_personal_key` pasa a `true` y `institutional_enabled` conserva el estado de la base del instituto.
+
 #### Ejemplo de Respuesta (`200 OK`)
 ```json
 {
   "data": {
     "enabled": true,
     "provider": "gemini",
-    "model": "gemini-2.5-flash"
+    "provider_label": "Google Gemini",
+    "model": "gemini-2.5-flash",
+    "engine_profile": "fast_cloud",
+    "auto_timeout_range_label": "60s – 120s según complejidad de la tarea",
+    "using_personal_key": false,
+    "institutional_enabled": true
   },
   "error": "",
   "message": "Estado de IA obtenido"
@@ -1442,7 +1463,7 @@ Genera un componente tecnológico a partir de la descripción del administrador.
 }
 ```
 
-Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `layer_invalid`, `base_image_latest`, `base_image_unpinned`, `build_layer_invalid`, `ai_response_invalid`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`).
+Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `layer_invalid`, `base_image_latest`, `base_image_unpinned`, `build_layer_invalid`, `ai_response_invalid`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`); `504 Gateway Timeout` (`ai_timeout`).
 
 ---
 
@@ -1505,6 +1526,116 @@ Genera el borrador completo de un ejercicio (consigna, boilerplate, solución de
 
 Cuando la solución de referencia falla en el runner la respuesta sigue siendo `200` con `runner_verified_all: false` y `verification_warning` indicando el caso y el veredicto; `verification_warning` también se emite si el motor no devolvió `reference_solution`.
 
-Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `language_invalid`, `ai_response_invalid`); `403 Forbidden` (rol `student`); `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`).
+Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `language_invalid`, `ai_response_invalid`); `403 Forbidden` (rol `student`); `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`); `504 Gateway Timeout` (`ai_timeout`).
+
+---
+
+### 8. Autorreparación Diagnóstica de Plantilla (`POST /api/v1/admin/ai/repair-template`)
+
+Repara el manifiesto técnico de una plantilla cuando falla **Comprobar funcionamiento**: recibe la radiografía fresca del fallo del contenedor (sin historial de chat) y devuelve el `Dockerfile`, el `setup_script`, `tools_declared`, el `entrypoint` y `base_ram_mb` corregidos junto a la causa raíz explicada en español. Pensado para aplicarse desde el Modo Visual y el Modo Avanzado del constructor.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/ai/repair-template`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+- **Presupuesto de tiempo:** `90 s` en `fast_cloud`, `120 s` en `queued_or_reasoning` / `local_gpu`.
+
+#### Payload de Entrada
+```json
+{
+  "name": "Laboratorio de Estadística",
+  "description": "Python con NumPy",
+  "target_environment": "python",
+  "docker_image": "python:3.12-slim",
+  "dockerfile_content": "FROM python:3.12-slim\nCMD [\"python3\"]",
+  "setup_script": "set -euo pipefail",
+  "tools_declared": ["python3", "pip"],
+  "entrypoint": "python /app/main.py",
+  "base_ram_mb": 4096,
+  "error_message": "exec format error: gcc: not found",
+  "failed_tools": ["gcc"]
+}
+```
+> `failed_tools` lista las herramientas devueltas con `present: false` en la verificación. `error_message` es el texto crudo reportado por el contenedor.
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "docker_image": "solv-local/stack:laboratorio-de-estadistica",
+    "dockerfile_content": "FROM python:3.12-slim-bookworm\nRUN apt-get update && apt-get install -y --no-install-recommends gcc\nCMD [\"python3\"]",
+    "setup_script": "set -euo pipefail\npip install --no-cache-dir numpy==2.1.0",
+    "tools_declared": ["python3", "pip", "gcc"],
+    "entrypoint": "python3 /opt/judge/run.py",
+    "base_ram_mb": 4096,
+    "rationale": "El contenedor falló porque gcc no estaba instalado en la imagen; se agregó la capa de build y se ajustó la memoria.",
+    "latency_ms": 5420
+  },
+  "error": "",
+  "message": "Plantilla reparada por el Copiloto IA"
+}
+```
+
+Guardrails deterministas aplicados sobre la salida del motor:
+- `base_image_latest` (`400`) si `docker_image` o cualquier instrucción `FROM` del `Dockerfile` llevan `:latest`.
+- Si el `Dockerfile` define capas `RUN`, `docker_image` recibe o conserva el prefijo `solv-local/stack:<slug>` para forzar el build local.
+- `ai_response_invalid` (`400`) si falta `rationale` o el JSON del motor es inválido.
+- `base_ram_mb` siempre recortado al rango `256..4096`; `tools_declared` depurado (sin vacíos ni duplicados); los campos omitidos conservan el valor actual.
+
+Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `base_image_latest`, `ai_response_invalid`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`); `504 Gateway Timeout` (`ai_timeout`).
+
+---
+
+### 9. API Key Personal en Cascada (BYOK) — `/api/v1/ai/my-settings`
+
+Cascada de credenciales por usuario: la base institucional sigue siendo el motor por defecto y cada docente/administrador puede activar su propia API Key. Las credenciales personales se almacenan en `ai_settings.user_overrides[userID]` con el mismo cifrado AES-256-GCM y las mismas validaciones que la configuración institucional.
+
+| Método y ruta | Uso |
+|---------------|-----|
+| `GET /api/v1/ai/my-settings` | Lee la configuración personal (nunca el ciphertext) |
+| `PUT /api/v1/ai/my-settings` | Guarda o limpia la API Key personal |
+| `POST /api/v1/ai/my-settings/test-connection` | Prueba la conexión con la clave personal |
+| `POST /api/v1/ai/my-settings/models` | Lista los modelos disponibles con la clave personal |
+
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: teacher` o `admin`, `X-Tenant-Id`
+- **`403 Forbidden`** para `student` en los cuatro endpoints.
+- La prueba de conexión acepta razonamiento y fences (ver reglas comunes) y usa `30 s` en `fast_cloud`, `60 s` en `queued_or_reasoning` / `local_gpu`.
+
+#### Payload de `PUT /api/v1/ai/my-settings`
+```json
+{
+  "enabled": true,
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "base_url": "",
+  "api_key": "sk-personal-00000001",
+  "clear_api_key": false
+}
+```
+> `provider` vacío reutiliza el de la base institucional; en proveedores cloud la URL oficial se fuerza y `base_url` se ignora. `clear_api_key: true` elimina la clave guardada.
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "enabled": true,
+    "provider": "openai",
+    "provider_label": "OpenAI",
+    "model": "gpt-4o-mini",
+    "base_url": "https://api.openai.com/v1",
+    "has_api_key": true,
+    "api_key_masked": "sk-p...0001",
+    "updated_at": "2026-10-25T14:03:11Z",
+    "institutional_enabled": true,
+    "institutional_provider_label": "Google Gemini",
+    "institutional_model": "gemini-2.5-flash"
+  },
+  "error": "",
+  "message": "Configuración personal de IA actualizada"
+}
+```
+
+Efecto sobre las invocaciones generativas (`suggest-component`, `generate-exercise`, `repair-template`): si el `userID` tiene un override activo y válido, el motor usa proveedor, modelo, `base_url` y API Key personales **sin descontar cuota institucional** y **aunque `enabled` institucional sea `false`**.
+
+Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `provider_invalid`, `base_url_required`, `base_url_blocked`, `model_required`, `api_key_required`, `user_required`); `403 Forbidden` (rol distinto de `teacher`/`admin`); `500 Internal Server Error`.
 
 

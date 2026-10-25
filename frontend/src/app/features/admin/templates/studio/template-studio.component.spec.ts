@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { TemplateStudioComponent } from './template-studio.component';
 import { AdminTemplatesService } from '../../services/admin-templates.service';
+import { AdminConfigIaService } from '../../configuracion/admin-config-ia.service';
 import { AdminTemplateItem, TemplateComponent } from '@features/admin/models/admin-templates.models';
 import { EnvTestJobService } from '../../services/env-test-job.service';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
@@ -301,12 +302,32 @@ describe('TemplateStudioComponent', () => {
       isTerminal: vi.fn((status: string) => status === 'success' || status === 'failed' || status === 'canceled')
     };
 
+    const mockAiService = {
+      getStatus: vi.fn().mockReturnValue(of({ enabled: true, provider: 'gemini', model: 'gemini-2.5-flash' })),
+      suggestTemplate: vi.fn().mockReturnValue(of({
+        name: 'Python Fast Stack',
+        description: 'Plantilla sugerida por IA',
+        runtime_slug: 'python-312',
+        web_platform_slug: '',
+        addon_slugs: [],
+        database_slug: 'sqlite',
+        setup_script: 'pip install -r requirements.txt',
+        base_ram_mb: 512,
+        rationale: 'Configuración generada para Python y SQLite',
+        latency_ms: 180
+      })),
+      suggestComponent: vi.fn(),
+      repairTemplate: vi.fn(),
+      resolveError: vi.fn().mockReturnValue('Error de IA')
+    };
+
     await TestBed.configureTestingModule({
       imports: [TemplateStudioComponent],
       providers: [
         provideRouter([]),
         { provide: AdminTemplatesService, useValue: mockTemplatesService },
-        { provide: EnvTestJobService, useValue: mockEnvTestService }
+        { provide: EnvTestJobService, useValue: mockEnvTestService },
+        { provide: AdminConfigIaService, useValue: mockAiService }
       ]
     }).compileComponents();
 
@@ -1836,6 +1857,27 @@ describe('TemplateStudioComponent', () => {
       expect(maven).toBeDefined();
       expect(maven?.name).toBe('Apache Maven (Proyectos Java / Spring)');
       expect(maven?.memoryProfile).toBe('library');
+    });
+  });
+
+  describe('Sugerencia de Stack con Copiloto IA', () => {
+    it('invoca suggestTemplate y aplica la configuración en el estado del Studio', () => {
+      component.aiPrompt.set('Fullstack Python con SQLite');
+      component.suggestStackWithAi();
+
+      expect(component.name()).toBe('Python Fast Stack');
+      expect(component.description()).toBe('Plantilla sugerida por IA');
+      expect(component.selectedRuntimeId()).toBe('rt-python-312');
+      expect(component.setupScript()).toBe('pip install -r requirements.txt');
+      expect(component.baseRamMB()).toBe(512);
+      expect(component.isSuggestingWithAi()).toBe(false);
+    });
+
+    it('cancela la sugerencia en vuelo al invocar cancelAiSuggestion', () => {
+      component.aiPrompt.set('Fullstack');
+      component.suggestStackWithAi();
+      component.cancelAiSuggestion();
+      expect(component.isSuggestingWithAi()).toBe(false);
     });
   });
 });
