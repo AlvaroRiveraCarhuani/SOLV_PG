@@ -9,6 +9,7 @@ import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { PaginationBarComponent } from '@shared/components/pagination-bar/pagination-bar.component';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   LucideServer,
   LucideHardDrive,
@@ -23,8 +24,18 @@ import {
   LucidePower
 } from '@lucide/angular';
 
-const RAM_OPTIONS = [256, 512, 1024];
-const INACTIVITY_OPTIONS = [10, 15, 30];
+const CEILING_OPTIONS = [
+  { value: 75, label: '75% (Conservador)' },
+  { value: 85, label: '85% (Balanceado · Recomendado)' },
+  { value: 90, label: '90% (Máxima Densidad)' }
+];
+const INACTIVITY_OPTIONS = [
+  { value: 15, label: '15 minutos' },
+  { value: 30, label: '30 minutos' },
+  { value: 60, label: '60 minutos' }
+];
+const BACKUP_FREQ_QUICK = [6, 12, 24, 168];
+const BACKUP_RETENTION_QUICK = [7, 14, 30, 90];
 
 // Pure fail-closed integer check: NaN, empty, decimals and out-of-range all
 // produce an inline message; valid input returns ''.
@@ -43,6 +54,7 @@ export function validateBackupInt(raw: unknown, min: number, max: number, field:
     CommonModule,
     FormsModule,
     DateTextPipe,
+    MachineDataDirective,
     ModalShellComponent,
     FormFieldComponent,
     PaginationBarComponent,
@@ -71,12 +83,15 @@ export class AdminConfigServidorComponent implements OnInit {
   readonly isLoading = this.servidorService.isLoading;
   readonly loadError = this.servidorService.error;
 
-  readonly ramOptions = RAM_OPTIONS;
+  readonly ceilingOptions = CEILING_OPTIONS;
   readonly inactivityOptions = INACTIVITY_OPTIONS;
+  readonly backupFreqQuick = BACKUP_FREQ_QUICK;
+  readonly backupRetentionQuick = BACKUP_RETENTION_QUICK;
 
-  // Form QoS local (radios del wireframe: solo valores del catálogo)
-  readonly selectedRam = signal<number>(512);
+  // Políticas de Autogestión
+  readonly selectedCeilingPct = signal<number>(85);
   readonly selectedInactivity = signal<number>(15);
+  readonly selectedRam = signal<number>(512);
   readonly selectedMaxContainers = signal<number>(40);
   readonly isSavingPolicies = signal(false);
 
@@ -84,9 +99,8 @@ export class AdminConfigServidorComponent implements OnInit {
     const p = this.policies();
     if (!p) return false;
     return (
-      this.selectedRam() !== p.ram_limit_mb ||
-      this.selectedInactivity() !== p.inactivity_minutes ||
-      this.selectedMaxContainers() !== p.max_containers
+      this.selectedCeilingPct() !== (p.host_safety_ceiling_pct ?? 85) ||
+      this.selectedInactivity() !== p.inactivity_minutes
     );
   });
 
@@ -156,9 +170,10 @@ export class AdminConfigServidorComponent implements OnInit {
       if (this.formSynced) return;
       if (!p && !cfg) return;
       if (p) {
-        this.selectedRam.set(p.ram_limit_mb);
+        this.selectedCeilingPct.set(p.host_safety_ceiling_pct ?? 85);
         this.selectedInactivity.set(p.inactivity_minutes);
-        this.selectedMaxContainers.set(p.max_containers);
+        if (p.ram_limit_mb) this.selectedRam.set(p.ram_limit_mb);
+        if (p.max_containers) this.selectedMaxContainers.set(p.max_containers);
       }
       if (cfg) {
         this.backupFrequency.set(cfg.local_frequency_hours);
@@ -228,9 +243,10 @@ export class AdminConfigServidorComponent implements OnInit {
   syncFormFromPolicies(): void {
     const p = this.policies();
     if (!p) return;
-    this.selectedRam.set(p.ram_limit_mb);
+    this.selectedCeilingPct.set(p.host_safety_ceiling_pct ?? 85);
     this.selectedInactivity.set(p.inactivity_minutes);
-    this.selectedMaxContainers.set(p.max_containers);
+    if (p.ram_limit_mb) this.selectedRam.set(p.ram_limit_mb);
+    if (p.max_containers) this.selectedMaxContainers.set(p.max_containers);
   }
 
   savePolicies(): void {
@@ -238,13 +254,12 @@ export class AdminConfigServidorComponent implements OnInit {
     this.isSavingPolicies.set(true);
 
     this.servidorService.updatePolicies({
-      ram_limit_mb: this.selectedRam(),
-      inactivity_minutes: this.selectedInactivity(),
-      max_containers: this.selectedMaxContainers()
+      host_safety_ceiling_pct: this.selectedCeilingPct(),
+      inactivity_minutes: this.selectedInactivity()
     }).subscribe({
       next: () => {
         this.isSavingPolicies.set(false);
-        this.showToast('Políticas QoS guardadas. El worker aplicará la configuración en su próximo ciclo.');
+        this.showToast('Políticas de autogestión guardadas. El worker aplicará la configuración en su próximo ciclo.');
       },
       error: (err) => {
         this.isSavingPolicies.set(false);

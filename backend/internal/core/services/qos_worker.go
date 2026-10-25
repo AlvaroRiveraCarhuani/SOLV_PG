@@ -182,7 +182,12 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 		maxIdleCycles := int(inactivityTimeout / w.checkInterval)
 		realityTimeout := hist.idleCounter >= maxIdleCycles
 
-		if intentionTimeout || realityTimeout {
+		shouldHibernate := intentionTimeout || realityTimeout
+		if !ws.LastHeartbeatAt.IsZero() {
+			shouldHibernate = intentionTimeout && realityTimeout
+		}
+
+		if shouldHibernate {
 			log.Printf("[QoS Hibernation] Hibernating container %s (Workspace %s). Reason: IntentionTimeout=%v, RealityTimeout=%v", containerID, ws.ID, intentionTimeout, realityTimeout)
 			if err := w.docker.StopAndRemoveContainer(ctx, containerID); err == nil {
 				_ = w.repo.UpdateStatus(ctx, ws.ID, domain.WorkspaceStatusHibernated)

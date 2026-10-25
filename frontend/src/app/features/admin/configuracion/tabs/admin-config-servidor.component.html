@@ -24,18 +24,15 @@
       <p class="empty-description">{{ loadError() }}</p>
     </div>
   } @else {
-    <!-- ================= BLOQUE 1: Políticas QoS ================= -->
+    <!-- ================= BLOQUE 1: Políticas de Autogestión ================= -->
     <div class="server-card">
       <div class="card-header">
         <div class="card-title-group">
           <svg lucideServer class="card-icon"></svg>
           <div>
-            <h2 class="section-title">Políticas de Concurrencia y Recursos Estudiantiles</h2>
+            <h2 class="section-title">Políticas de Autogestión y Ciclo de Vida de Laboratorios</h2>
             <p class="card-hint">
-              El worker QoS recarga estos valores en cada ciclo. La RAM es el default
-              por alumno para contenedores nuevos (los activos la conservan); si una
-              plantilla exige más, prevalece y queda registrado. La concurrencia
-              máxima rechaza inicios nuevos con 503 al alcanzar el techo.
+              La memoria RAM de cada laboratorio la define automáticamente su Plantilla Docente (384 MB a 2048 MB). El servidor calcula cuántos laboratorios simultáneos admitir según la memoria física disponible.
             </p>
           </div>
         </div>
@@ -45,47 +42,36 @@
       </div>
 
       <div class="qos-grid">
-        <form-field label="Límite de Memoria RAM por Alumno" for="qos-ram">
-          <div class="radio-group" id="qos-ram">
-            @for (option of ramOptions; track option) {
-              <label class="radio-pill" [class.selected]="selectedRam() === option">
+        <form-field label="Techo de Seguridad de Memoria del Host" for="policy-ceiling" hint="Porcentaje de RAM física del host antes de restringir admisión de nuevos laboratorios">
+          <div class="radio-group" id="policy-ceiling">
+            @for (option of ceilingOptions; track option.value) {
+              <label class="radio-pill" [class.selected]="selectedCeilingPct() === option.value">
                 <input
                   type="radio"
-                  name="qos-ram"
-                  [value]="option"
-                  [checked]="selectedRam() === option"
-                  (change)="selectedRam.set(option)" />
-                <span>{{ option }} MB</span>
+                  name="policy-ceiling"
+                  [value]="option.value"
+                  [checked]="selectedCeilingPct() === option.value"
+                  (change)="selectedCeilingPct.set(option.value)" />
+                <span>{{ option.label }}</span>
               </label>
             }
           </div>
         </form-field>
 
-        <form-field label="Toque de Queda por Inactividad (Hibernación Automática)" for="qos-inactivity">
-          <div class="radio-group" id="qos-inactivity">
-            @for (option of inactivityOptions; track option) {
-              <label class="radio-pill" [class.selected]="selectedInactivity() === option">
+        <form-field label="Pausa Automática por Inactividad" for="policy-inactivity" hint="Solo se hiberna si el estudiante cierra el laboratorio Y no hay procesos activos en CPU. Su código queda guardado.">
+          <div class="radio-group" id="policy-inactivity">
+            @for (option of inactivityOptions; track option.value) {
+              <label class="radio-pill" [class.selected]="selectedInactivity() === option.value">
                 <input
                   type="radio"
-                  name="qos-inactivity"
-                  [value]="option"
-                  [checked]="selectedInactivity() === option"
-                  (change)="selectedInactivity.set(option)" />
-                <span>{{ option }} minutos</span>
+                  name="policy-inactivity"
+                  [value]="option.value"
+                  [checked]="selectedInactivity() === option.value"
+                  (change)="selectedInactivity.set(option.value)" />
+                <span>{{ option.label }}</span>
               </label>
             }
           </div>
-        </form-field>
-
-        <form-field label="Concurrencia Máxima del Servidor" for="qos-containers" hint="Protección contra saturación del host (1-500)">
-          <input
-            id="qos-containers"
-            type="number"
-            class="form-input"
-            min="1"
-            max="500"
-            [ngModel]="selectedMaxContainers()"
-            (ngModelChange)="selectedMaxContainers.set($event)" />
         </form-field>
       </div>
 
@@ -102,7 +88,7 @@
           @if (isSavingPolicies()) {
             <span>Guardando...</span>
           } @else {
-            <span>Guardar Parámetros de QoS</span>
+            <span>Guardar Parámetros de Autogestión</span>
           }
         </button>
       </div>
@@ -174,8 +160,41 @@
       </div>
 
       @if (backupConfig(); as cfg) {
+        <!-- Franja de Estado de Almacenamiento -->
+        <div class="storage-status-strip">
+          <div class="storage-status-item">
+            <span class="storage-status-label">Ruta en el servidor</span>
+            <code class="storage-status-value font-mono" machineData>{{ cfg.storage_path || '/var/lib/solv/backups' }}</code>
+          </div>
+          <div class="storage-status-item">
+            <span class="storage-status-label">Espacio disponible</span>
+            <span class="storage-status-value font-mono" machineData>{{ cfg.disk_free_bytes ? formatBytes(cfg.disk_free_bytes) : 'Verificando...' }}</span>
+          </div>
+          <div class="storage-status-item">
+            <span class="storage-status-label">Próximo respaldo automático</span>
+            <span class="storage-status-value">
+              @if (cfg.next_scheduled_at) {
+                <time>{{ cfg.next_scheduled_at | dateText:'datetime' }}</time>
+              } @else {
+                <span>Según frecuencia activa</span>
+              }
+            </span>
+          </div>
+        </div>
+
         <div class="backup-strategy-grid">
           <form-field label="Cada Cuántas Horas (automático)" for="backup-freq" hint="Cada cuántas horas se crea un respaldo solo" [error]="backupFrequencyError()">
+            <div class="quick-pill-row">
+              @for (hours of backupFreqQuick; track hours) {
+                <button
+                  type="button"
+                  class="quick-pill"
+                  [class.active]="backupFrequency() === hours"
+                  (click)="backupFrequency.set(hours)">
+                  {{ hours }}h
+                </button>
+              }
+            </div>
             <input
               id="backup-freq"
               type="number"
@@ -186,6 +205,17 @@
               (ngModelChange)="backupFrequency.set($event)" />
           </form-field>
           <form-field label="Conservar Respaldos (días)" for="backup-retention" hint="Cuántos días se guardan antes de borrarlos solos" [error]="backupRetentionError()">
+            <div class="quick-pill-row">
+              @for (days of backupRetentionQuick; track days) {
+                <button
+                  type="button"
+                  class="quick-pill"
+                  [class.active]="backupRetention() === days"
+                  (click)="backupRetention.set(days)">
+                  {{ days }}d
+                </button>
+              }
+            </div>
             <input
               id="backup-retention"
               type="number"
@@ -268,7 +298,7 @@
               </tr>
             } @empty {
               <tr>
-                <td colspan="5" class="empty-cell">
+                <td colspan="6" class="empty-cell">
                   <div class="empty-state">
                     <div class="empty-icon-box">
                       <svg lucideDatabaseBackup></svg>

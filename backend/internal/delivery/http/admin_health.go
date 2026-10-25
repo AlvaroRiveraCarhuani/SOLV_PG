@@ -25,15 +25,17 @@ type HostHardwareMetricsDTO struct {
 }
 
 type HealthMetricsResponse struct {
-	TenantID        string                  `json:"tenant_id"`
-	RunningLabs     int                     `json:"running_labs"`
-	HibernatedLabs  int                     `json:"hibernated_labs"`
-	OOMKilledLabs   int                     `json:"oom_killed_labs"`
-	TotalRAMAllocMB int64                   `json:"total_ram_alloc_mb"`
-	HealthStatus    string                  `json:"health_status"`
-	UptimeSeconds   uint64                  `json:"uptime_seconds"`
-	HostHardware    *HostHardwareMetricsDTO `json:"host_hardware,omitempty"`
-	LoadHistory     []LoadSnapshot          `json:"load_history"`
+	TenantID               string                  `json:"tenant_id"`
+	RunningLabs            int                     `json:"running_labs"`
+	HibernatedLabs         int                     `json:"hibernated_labs"`
+	OOMKilledLabs          int                     `json:"oom_killed_labs"`
+	TotalRAMAllocMB        int64                   `json:"total_ram_alloc_mb"`
+	HealthStatus           string                  `json:"health_status"`
+	UptimeSeconds          uint64                  `json:"uptime_seconds"`
+	HostHardware           *HostHardwareMetricsDTO `json:"host_hardware,omitempty"`
+	LoadHistory            []LoadSnapshot          `json:"load_history"`
+	HostSafetyCeilingPct   int                     `json:"host_safety_ceiling_pct"`
+	EstimatedMaxContainers int                     `json:"estimated_max_containers"`
 }
 
 func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) {
@@ -68,8 +70,27 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	ceilingPct := 85
+	if h.tenantRepo != nil {
+		if tenant, err := h.tenantRepo.GetByID(r.Context(), tenantID); err == nil && tenant != nil && len(tenant.Config) > 0 {
+			var configMap map[string]json.RawMessage
+			if err := json.Unmarshal(tenant.Config, &configMap); err == nil {
+				if raw, ok := configMap["server_policies"]; ok {
+					var pol domain.ServerPolicies
+					if err := json.Unmarshal(raw, &pol); err == nil && pol.HostSafetyCeilingPct > 0 {
+						ceilingPct = pol.HostSafetyCeilingPct
+					}
+				}
+			}
+		}
+	}
+
+	totalHostMB := uint64(8192)
 	var hostHardware *HostHardwareMetricsDTO
 	if v, memErr := mem.VirtualMemory(); memErr == nil {
+		if v.Total > 0 {
+			totalHostMB = v.Total / (1024 * 1024)
+		}
 		cores, _ := cpu.Counts(true)
 		cpuPercents, _ := cpu.Percent(0, false)
 		cpuVal := 0.0
@@ -98,21 +119,34 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	allocatableMB := float64(totalHostMB) * float64(ceilingPct) / 100.0
+	avgMB := 512.0
+	if runningCount > 0 && totalRAM > 0 {
+		avgMB = float64(totalRAM) / float64(runningCount)
+	}
+	estimated := int(allocatableMB / avgMB)
+	minContainers := max(runningCount, 1)
+	if estimated < minContainers {
+		estimated = minContainers
+	}
+
 	var uptimeSec uint64 = 0
 	if u, err := host.Uptime(); err == nil {
 		uptimeSec = u
 	}
 
 	resp := HealthMetricsResponse{
-		TenantID:        tenantID,
-		RunningLabs:     runningCount,
-		HibernatedLabs:  hibernatedCount,
-		OOMKilledLabs:   oomCount,
-		TotalRAMAllocMB: totalRAM,
-		HealthStatus:    "healthy",
-		UptimeSeconds:   uptimeSec,
-		HostHardware:    hostHardware,
-		LoadHistory:     h.getHistorySnapshots(),
+		TenantID:               tenantID,
+		RunningLabs:            runningCount,
+		HibernatedLabs:         hibernatedCount,
+		OOMKilledLabs:          oomCount,
+		TotalRAMAllocMB:        totalRAM,
+		HealthStatus:           "healthy",
+		UptimeSeconds:          uptimeSec,
+		HostHardware:           hostHardware,
+		LoadHistory:            h.getHistorySnapshots(),
+		HostSafetyCeilingPct:   ceilingPct,
+		EstimatedMaxContainers: estimated,
 	}
 
 	if oomCount > 5 {

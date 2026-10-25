@@ -55,6 +55,9 @@ func (s *ServerPoliciesService) Get(ctx context.Context, tenantID string) (*doma
 	if policies.RAMLimitMB <= 0 || policies.InactivityMinutes <= 0 || policies.MaxContainers <= 0 {
 		return &defaults, nil
 	}
+	if policies.HostSafetyCeilingPct <= 0 {
+		policies.HostSafetyCeilingPct = 85
+	}
 	return &policies, nil
 }
 
@@ -91,6 +94,15 @@ func (s *ServerPoliciesService) Update(ctx context.Context, tenantID string, dto
 			}
 		}
 		current.MaxContainers = *dto.MaxContainers
+	}
+	if dto.HostSafetyCeilingPct != nil {
+		if !containsInt(domain.AllowedHostSafetyCeilingsPct, *dto.HostSafetyCeilingPct) {
+			return nil, &PoliciesValidationError{
+				Code:    "host_ceiling_invalid",
+				Message: fmt.Sprintf("host_safety_ceiling_pct debe ser uno de: %s. Recibido: %d", allowedList(domain.AllowedHostSafetyCeilingsPct), *dto.HostSafetyCeilingPct),
+			}
+		}
+		current.HostSafetyCeilingPct = *dto.HostSafetyCeilingPct
 	}
 
 	current.UpdatedAt = time.Now().UTC().Format(time.RFC3339)

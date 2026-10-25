@@ -10,6 +10,8 @@ export interface HostHardwareMetrics {
   containers_active: number;
   containers_hibernated: number;
   containers_max: number;
+  host_safety_ceiling_pct?: number;
+  estimated_max_containers?: number;
 }
 
 export interface DockerContainerSummary {

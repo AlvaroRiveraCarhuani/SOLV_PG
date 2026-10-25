@@ -56,7 +56,7 @@ func TestServerPolicies_DefaultsWhenNeverConfigured(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	def := domain.DefaultServerPolicies()
-	if p.RAMLimitMB != def.RAMLimitMB || p.InactivityMinutes != def.InactivityMinutes || p.MaxContainers != def.MaxContainers {
+	if p.RAMLimitMB != def.RAMLimitMB || p.InactivityMinutes != def.InactivityMinutes || p.MaxContainers != def.MaxContainers || p.HostSafetyCeilingPct != def.HostSafetyCeilingPct {
 		t.Fatalf("expected defaults %+v, got %+v", def, p)
 	}
 }
@@ -68,21 +68,22 @@ func TestServerPolicies_UpdateWithValidation(t *testing.T) {
 
 	// Actualización válida
 	updated, err := svc.Update(ctx, "t-1", domain.UpdateServerPoliciesDTO{
-		RAMLimitMB:        policiesIntPtr(1024),
-		InactivityMinutes: policiesIntPtr(10),
-		MaxContainers:     policiesIntPtr(60),
+		RAMLimitMB:           policiesIntPtr(1024),
+		InactivityMinutes:    policiesIntPtr(60),
+		MaxContainers:        policiesIntPtr(60),
+		HostSafetyCeilingPct: policiesIntPtr(80),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if updated.RAMLimitMB != 1024 || updated.InactivityMinutes != 10 || updated.MaxContainers != 60 {
+	if updated.RAMLimitMB != 1024 || updated.InactivityMinutes != 60 || updated.MaxContainers != 60 || updated.HostSafetyCeilingPct != 80 {
 		t.Fatalf("expected updated policies, got %+v", updated)
 	}
 
 	// Persistida y legible de vuelta
 	reloaded, _ := svc.Get(ctx, "t-1")
-	if reloaded.RAMLimitMB != 1024 {
-		t.Fatalf("expected persisted ram 1024, got %d", reloaded.RAMLimitMB)
+	if reloaded.RAMLimitMB != 1024 || reloaded.HostSafetyCeilingPct != 80 {
+		t.Fatalf("expected persisted ram 1024 and ceiling 80, got %d and %d", reloaded.RAMLimitMB, reloaded.HostSafetyCeilingPct)
 	}
 
 	// Fuera de rango: rechazado sin persistir
@@ -104,9 +105,19 @@ func TestServerPolicies_UpdateWithValidation(t *testing.T) {
 		t.Fatal("expected max_containers_invalid error")
 	}
 
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateServerPoliciesDTO{HostSafetyCeilingPct: policiesIntPtr(70)}); err == nil {
+		t.Fatal("expected host_ceiling_invalid error")
+	} else if code := func() *services.PoliciesValidationError {
+		target := &services.PoliciesValidationError{}
+		_ = errors.As(err, &target)
+		return target
+	}().Code; code != "host_ceiling_invalid" {
+		t.Fatalf("expected host_ceiling_invalid, got %s", code)
+	}
+
 	// El valor rechazado no se persistió
 	final, _ := svc.Get(ctx, "t-1")
-	if final.RAMLimitMB != 1024 || final.InactivityMinutes != 10 || final.MaxContainers != 60 {
+	if final.RAMLimitMB != 1024 || final.InactivityMinutes != 60 || final.MaxContainers != 60 || final.HostSafetyCeilingPct != 80 {
 		t.Fatalf("rejected update must not persist, got %+v", final)
 	}
 }

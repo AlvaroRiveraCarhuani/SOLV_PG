@@ -28,7 +28,7 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
           </div>
         </div>
         <div class="kpi-footer">
-          <span>Umbral de seguridad: 85% &bull; Servidor Físico</span>
+          <span>Umbral de seguridad: <span machineData>{{ metrics().host_safety_ceiling_pct ?? 85 }}%</span> &bull; Servidor Físico</span>
         </div>
       </div>
 
@@ -94,11 +94,7 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
           </div>
         </div>
         <div class="kpi-footer">
-          @if (metrics().containers_active === 0) {
-            <span>0 labs en RAM &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
-          } @else {
-            <span><span machineData>{{ metrics().containers_hibernated }}</span> contenedores hibernados</span>
-          }
+          <span>Capacidad dinámica según RAM &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
         </div>
       </div>
     </div>

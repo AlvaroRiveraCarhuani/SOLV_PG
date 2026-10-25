@@ -31,6 +31,8 @@ interface BackendHealthMetrics {
   total_ram_alloc_mb: number;
   health_status: string;
   uptime_seconds?: number;
+  host_safety_ceiling_pct?: number;
+  estimated_max_containers?: number;
   host_hardware?: BackendHostHardware;
   load_history?: LoadSnapshot[];
 }
@@ -76,7 +78,9 @@ export class AdminMetricsService {
             disk_percent: Math.round(health.host_hardware.disk_percent),
             containers_active: health.running_labs,
             containers_hibernated: health.hibernated_labs,
-            containers_max: 40
+            containers_max: health?.estimated_max_containers ?? 40,
+            host_safety_ceiling_pct: health?.host_safety_ceiling_pct ?? 85,
+            estimated_max_containers: health?.estimated_max_containers ?? 40
           };
         } else {
           const running = health?.running_labs ?? 0;
@@ -94,7 +98,9 @@ export class AdminMetricsService {
             disk_percent: 36,
             containers_active: running,
             containers_hibernated: hibernated,
-            containers_max: 40
+            containers_max: health?.estimated_max_containers ?? 40,
+            host_safety_ceiling_pct: health?.host_safety_ceiling_pct ?? 85,
+            estimated_max_containers: health?.estimated_max_containers ?? 40
           };
         }
 

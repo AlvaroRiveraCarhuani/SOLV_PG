@@ -15,6 +15,7 @@ import {
 } from '../admin-config-servidor.service';
 
 const makePolicies = (overrides: Partial<ServerPolicies> = {}): ServerPolicies => ({
+  host_safety_ceiling_pct: 85,
   ram_limit_mb: 512,
   inactivity_minutes: 15,
   max_containers: 40,
@@ -130,12 +131,11 @@ describe('AdminConfigServidorComponent', () => {
     fixture.detectChanges();
   };
 
-  it('carga el estado real: QoS vigente, mantenimiento inactivo, historial con 1 snapshot', async () => {
+  it('carga el estado real: autogestión vigente, mantenimiento inactivo, historial con 1 snapshot', async () => {
     await setup();
 
-    expect(component.selectedRam()).toBe(512);
+    expect(component.selectedCeilingPct()).toBe(85);
     expect(component.selectedInactivity()).toBe(15);
-    expect(component.selectedMaxContainers()).toBe(40);
     expect(component.maintenance()?.maintenance_mode).toBe(false);
     expect(component.backups().length).toBe(1);
     expect(mockService.loadAll).toHaveBeenCalled();
@@ -144,17 +144,15 @@ describe('AdminConfigServidorComponent', () => {
   it('guardado de políticas: valores del catálogo se envían y confirman efecto en workspaces nuevos', async () => {
     await setup();
 
-    component.selectedRam.set(1024);
-    component.selectedInactivity.set(10);
-    component.selectedMaxContainers.set(60);
+    component.selectedCeilingPct.set(90);
+    component.selectedInactivity.set(30);
     expect(component.policiesDirty()).toBe(true);
 
     component.savePolicies();
 
     expect(mockService.updatePolicies).toHaveBeenCalledWith({
-      ram_limit_mb: 1024,
-      inactivity_minutes: 10,
-      max_containers: 60
+      host_safety_ceiling_pct: 90,
+      inactivity_minutes: 30
     });
     expect(component.toast()?.message).toContain('próximo ciclo');
   });

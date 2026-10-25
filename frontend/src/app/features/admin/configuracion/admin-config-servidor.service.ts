@@ -7,10 +7,18 @@ import { Observable, tap, catchError, of, forkJoin } from 'rxjs';
 // ---------------------------------------------------------------------------
 
 export interface ServerPolicies {
-  ram_limit_mb: number;
+  ram_limit_mb?: number;
   inactivity_minutes: number;
-  max_containers: number;
+  max_containers?: number;
+  host_safety_ceiling_pct?: number;
   updated_at?: string;
+}
+
+export interface UpdateServerPoliciesPayload {
+  host_safety_ceiling_pct?: number;
+  inactivity_minutes?: number;
+  ram_limit_mb?: number;
+  max_containers?: number;
 }
 
 export interface MaintenanceStatus {
@@ -31,7 +39,12 @@ export interface BackupConfigItem {
   remote_retention_days: number;
   is_active: boolean;
   updated_at: string;
+  storage_path?: string;
+  disk_free_bytes?: number;
+  next_scheduled_at?: string | null;
 }
+
+export type BackupConfig = BackupConfigItem;
 
 export interface BackupExecutionItem {
   id: string;
@@ -107,7 +120,7 @@ export class AdminConfigServidorService {
     });
   }
 
-  updatePolicies(dto: Partial<ServerPolicies>): Observable<ApiEnvelope<ServerPolicies>> {
+  updatePolicies(dto: UpdateServerPoliciesPayload | Partial<ServerPolicies>): Observable<ApiEnvelope<ServerPolicies>> {
     return this.http.put<ApiEnvelope<ServerPolicies>>('/api/v1/admin/server/policies', dto).pipe(
       tap((res) => this.policies.set(res.data))
     );

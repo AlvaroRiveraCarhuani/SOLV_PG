@@ -27,8 +27,11 @@ type BackupConfig struct {
 	RemoteAccessKey          string    `db:"remote_access_key" json:"remote_access_key,omitempty"`
 	RemoteSecretKeyEncrypted string    `db:"remote_secret_key_encrypted" json:"-"`
 	RemoteRetentionDays      int       `db:"remote_retention_days" json:"remote_retention_days"`
-	IsActive                 bool      `db:"is_active" json:"is_active"`
-	UpdatedAt                time.Time `db:"updated_at" json:"updated_at"`
+	IsActive                 bool       `db:"is_active" json:"is_active"`
+	UpdatedAt                time.Time  `db:"updated_at" json:"updated_at"`
+	StoragePath              string     `db:"-" json:"storage_path,omitempty"`
+	DiskFreeBytes            uint64     `db:"-" json:"disk_free_bytes,omitempty"`
+	NextScheduledAt          *time.Time `db:"-" json:"next_scheduled_at,omitempty"`
 }
 
 // UpdateBackupConfigDTO DTO para modificar la configuración de backups.

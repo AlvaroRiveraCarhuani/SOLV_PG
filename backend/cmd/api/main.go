@@ -229,7 +229,8 @@ func main() {
 
 	// Slice 16: Backups Configurables y Retención (ADR-035)
 	backupRepo := postgres.NewPostgresBackupRepository(db.GetDB())
-	backupService := services.NewBackupService(backupRepo, notificationService, "")
+	backupService := services.NewBackupServiceWithContentSource(backupRepo, notificationService, "", postgres.NewPostgresDumpContentSource(db.GetDB()))
+	backupService.StartScheduler(ctx, domain.DefaultTenantID)
 	backupHandler := httpdelivery.NewBackupHandler(backupService)
 
 	envTestService := services.NewEnvTestService(envTestJobRepo, envTestAdapter, envTestAdapter, services.EnvTestConfig{

@@ -266,13 +266,14 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	template := s.resolveTemplateForWorkspace(ctx, subjectID, exercise)
 
 	policies := s.effectivePolicies(ctx, tenantID)
+	ceilingPct := policies.HostSafetyCeilingPct
+	if ceilingPct <= 0 {
+		ceilingPct = 85
+	}
 
-	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
-	// Solo cuenta workspaces nuevos; reactivaciones de existentes no consumen cupo.
-	if active, err := s.repo.GetActiveWorkspaces(ctx); err != nil {
-		log.Printf("[Admission] WARNING: no se pudo contar workspaces activos, admitiendo por fail-open: %v", err)
-	} else if len(active) >= policies.MaxContainers {
-		return nil, fmt.Errorf("%w: tenant %s tiene %d activos (techo %d)", ErrMaxContainersReached, tenantID, len(active), policies.MaxContainers)
+	active, activeErr := s.repo.GetActiveWorkspaces(ctx)
+	if activeErr != nil {
+		log.Printf("[Admission] WARNING: no se pudo contar workspaces activos, admitiendo por fail-open: %v", activeErr)
 	}
 
 	// 0.2 RAM efectiva: la política es el default por alumno; la plantilla
@@ -329,6 +330,26 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		}
 
 		return s.reactivateWorkspace(ctx, existing, satelliteDBName)
+	}
+
+	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
+	// Solo cuenta workspaces nuevos; reactivaciones de existentes no consumen cupo.
+	if activeErr == nil && len(active) >= policies.MaxContainers {
+		return nil, fmt.Errorf("%w: tenant %s tiene %d activos (techo %d)", ErrMaxContainersReached, tenantID, len(active), policies.MaxContainers)
+	}
+
+	// Control de Admisión por Presupuesto Comprometido (Host Safety Ceiling)
+	if s.policiesService != nil && hostTotalMB() > 0 {
+		var committedMB int64
+		for _, ws := range active {
+			if ws != nil {
+				committedMB += ws.MemoryLimitMB
+			}
+		}
+		allocatableMB := int64(hostTotalMB() * ceilingPct / 100)
+		if committedMB+ramLimitMB > allocatableMB {
+			return nil, ErrHostMemoryExhausted
+		}
 	}
 
 	satelliteDBName, err := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)

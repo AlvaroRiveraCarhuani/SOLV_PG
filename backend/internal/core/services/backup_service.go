@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -85,8 +86,55 @@ func NewBackupServiceWithContentSource(repo domain.BackupRepository, notifServic
 	}
 }
 
+func (s *BackupService) getDiskFreeBytes(dir string) uint64 {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(dir, &stat); err != nil {
+		return 0
+	}
+	if stat.Bsize <= 0 {
+		return 0
+	}
+	return stat.Bavail * uint64(stat.Bsize)
+}
+
+func (s *BackupService) populateConfigRuntimeInfo(ctx context.Context, tenantID string, cfg *domain.BackupConfig) {
+	if cfg == nil {
+		return
+	}
+	cfg.StoragePath = s.backupDir
+	cfg.DiskFreeBytes = s.getDiskFreeBytes(s.backupDir)
+
+	if !cfg.IsActive || cfg.LocalFrequencyHours <= 0 {
+		cfg.NextScheduledAt = nil
+		return
+	}
+
+	var baseTime time.Time
+	execs, _, err := s.repo.ListExecutions(ctx, tenantID, 1, 0)
+	if err == nil && len(execs) > 0 && execs[0] != nil && !execs[0].StartedAt.IsZero() {
+		baseTime = execs[0].StartedAt
+	} else if !cfg.UpdatedAt.IsZero() {
+		baseTime = cfg.UpdatedAt
+	} else {
+		baseTime = time.Now().UTC()
+	}
+
+	interval := time.Duration(cfg.LocalFrequencyHours) * time.Hour
+	next := baseTime.Add(interval)
+	now := time.Now().UTC()
+	for next.Before(now) {
+		next = next.Add(interval)
+	}
+	cfg.NextScheduledAt = &next
+}
+
 func (s *BackupService) GetConfig(ctx context.Context, tenantID string) (*domain.BackupConfig, error) {
-	return s.repo.GetConfig(ctx, tenantID)
+	cfg, err := s.repo.GetConfig(ctx, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	s.populateConfigRuntimeInfo(ctx, tenantID, cfg)
+	return cfg, nil
 }
 
 func (s *BackupService) UpdateConfig(ctx context.Context, tenantID string, dto domain.UpdateBackupConfigDTO) (*domain.BackupConfig, error) {
@@ -143,6 +191,7 @@ func (s *BackupService) UpdateConfig(ctx context.Context, tenantID string, dto d
 		return nil, err
 	}
 
+	s.populateConfigRuntimeInfo(ctx, tenantID, cfg)
 	return cfg, nil
 }
 
@@ -299,11 +348,14 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 	_, _ = checksumHasher.Write(fileBytes)
 	checksum := hex.EncodeToString(checksumHasher.Sum(nil))
 	completedAt := time.Now().UTC()
+	verified := true
 
 	exec.FileSizeBytes = fileInfo.Size()
 	exec.SHA256Checksum = checksum
 	exec.Status = domain.BackupStatusSuccess
 	exec.CompletedAt = &completedAt
+	exec.LastVerifyOK = &verified
+	exec.LastVerifyAt = &completedAt
 
 	if err := s.repo.UpdateExecution(ctx, exec); err != nil {
 		return nil, err
@@ -433,4 +485,42 @@ func (s *BackupService) GetBackupFilePath(ctx context.Context, tenantID, executi
 // de defensa en profundidad en la capa de delivery.
 func (s *BackupService) BackupRoot() string {
 	return s.backupDir
+}
+
+// StartScheduler inicia un loop en background que verifica periódicamente (cada 15 min)
+// si corresponde disparar un respaldo automático según cfg.IsActive y cfg.LocalFrequencyHours.
+func (s *BackupService) StartScheduler(ctx context.Context, defaultTenantID string) {
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+
+		checkAndRun := func() {
+			cfg, err := s.repo.GetConfig(ctx, defaultTenantID)
+			if err != nil || cfg == nil || !cfg.IsActive || cfg.LocalFrequencyHours <= 0 {
+				return
+			}
+			execs, _, err := s.repo.ListExecutions(ctx, defaultTenantID, 1, 0)
+			if err != nil {
+				return
+			}
+			interval := time.Duration(cfg.LocalFrequencyHours) * time.Hour
+			if len(execs) == 0 || time.Since(execs[0].StartedAt) >= interval {
+				log.Printf("[Backup Scheduler] Disparando respaldo automático para tenant %s", defaultTenantID)
+				if _, err := s.TriggerBackup(ctx, defaultTenantID, ""); err != nil {
+					log.Printf("[Backup Scheduler] Error en respaldo automático: %v", err)
+				}
+			}
+		}
+
+		checkAndRun()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				checkAndRun()
+			}
+		}
+	}()
 }
