@@ -20,6 +20,7 @@ func isValidationError(err error) bool {
 		errors.Is(err, domain.ErrMemoryGovernedByTemplate) ||
 		errors.Is(err, domain.ErrTemplateEnvironmentMismatch) ||
 		errors.Is(err, domain.ErrTemplateNotApproved) ||
+		errors.Is(err, domain.ErrTimeLimitOutOfRange) ||
 		errors.Is(err, domain.ErrPayloadMismatchForEnvironmentType) ||
 		strings.Contains(err.Error(), "contrato de formato") ||
 		strings.Contains(err.Error(), "inválido según contrato") {

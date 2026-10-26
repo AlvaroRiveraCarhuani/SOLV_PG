@@ -153,6 +153,7 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 	if ex.ID == "" {
 		ex.ID = uuid.NewString()
 	}
+	s.normalizeTimeLimit(ex)
 	if err := ex.Validate(); err != nil {
 		return err
 	}
@@ -179,7 +180,22 @@ func (s *EvaluationService) CreateExercise(ctx context.Context, ex *domain.Exerc
 	return s.exerciseRepo.Create(ctx, ex)
 }
 
+// normalizeTimeLimit establece la columna time_limit_ms como fuente de verdad
+// del límite por caso y la sincroniza en config.algorithm.time_limit_ms, que
+// es lo que consume el runner (evaluation_algorithm_runner) y el dry-run.
+// Así un payload con config.algorithm.time_limit_ms divergente queda cubierto
+// por la misma validación de rango (100..30.000 ms, ver ErrTimeLimitOutOfRange).
+func (s *EvaluationService) normalizeTimeLimit(ex *domain.Exercise) {
+	if ex.TimeLimitMS <= 0 {
+		ex.TimeLimitMS = 1000
+	}
+	if ex.Config.Algorithm != nil {
+		ex.Config.Algorithm.TimeLimitMS = ex.TimeLimitMS
+	}
+}
+
 func (s *EvaluationService) UpdateExercise(ctx context.Context, ex *domain.Exercise) error {
+	s.normalizeTimeLimit(ex)
 	if err := ex.Validate(); err != nil {
 		return err
 	}

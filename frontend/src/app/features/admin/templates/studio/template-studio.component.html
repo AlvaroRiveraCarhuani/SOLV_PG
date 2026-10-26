@@ -781,7 +781,7 @@
                   />
                 </div>
                 <div class="field-group">
-                  <label class="form-label" for="code-timeout-input">Tiempo máximo por entrega (ms)</label>
+                  <label class="form-label" for="code-timeout-input">Tiempo máximo sugerido (ms)</label>
                   <input
                     id="code-timeout-input"
                     type="number"
@@ -789,6 +789,7 @@
                     [ngModel]="timeoutMS()"
                     (ngModelChange)="timeoutMS.set($event)"
                   />
+                  <span class="field-hint">Valor orientativo: el límite real por entrega lo fija el docente al crear el ejercicio (100–30.000 ms).</span>
                 </div>
               </div>
             }

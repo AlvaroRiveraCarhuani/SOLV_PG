@@ -57,6 +57,11 @@ var (
 	ErrModuleLocked                = errors.New("MODULE_LOCKED: el módulo curricular se encuentra bloqueado")
 	ErrMemoryGovernedByTemplate    = errors.New("memory_governed_by_template: la memoria RAM es gobernada por la plantilla homologada del administrador y no puede ser enviada por el docente")
 	ErrTemplateEnvironmentMismatch = errors.New("template_environment_mismatch: el tipo de entorno de la plantilla no coincide con el environment_type del ejercicio")
+	// ErrTimeLimitOutOfRange mantiene el mismo rango que el formulario docente
+	// (100..30.000 ms): se valida en servidor porque el runner consume
+	// config.algorithm.time_limit_ms y la columna time_limit_ms es la única
+	// fuente persistente (no hay techos por plantilla todavía; ver ADR-047).
+	ErrTimeLimitOutOfRange = errors.New("time_limit_out_of_range: el tiempo límite por caso debe estar entre 100 y 30.000 ms")
 )
 
 type Verdict string
@@ -323,6 +328,11 @@ func (ex *Exercise) Validate() error {
 	}
 	if ex.Tags == nil {
 		ex.Tags = pq.StringArray{}
+	}
+	// El valor 0 se permite: el repositorio lo normaliza a 1000 ms como en
+	// flujos históricos (import y DTOs que omiten el campo).
+	if ex.TimeLimitMS != 0 && (ex.TimeLimitMS < 100 || ex.TimeLimitMS > 30000) {
+		return ErrTimeLimitOutOfRange
 	}
 	return nil
 }
