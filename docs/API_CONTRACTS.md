@@ -1467,7 +1467,49 @@ Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `layer_invalid`, `base_
 
 ---
 
-### 7. Borrador de Ejercicio con Sello del Juez (`POST /api/v1/teacher/ai/generate-exercise`)
+### 7. Propuesta de Arquitectura de Entorno — Copiloto (`POST /api/v1/admin/ai/suggest-template`)
+
+El administrador describe en lenguaje natural qué debe resolver el entorno (librerías, paquetes, base de datos, script de preparación) y el Copiloto devuelve una **propuesta completa de arquitectura**, sin tocar nada: runtime principal, plataforma web, complementos, motor de base de datos, RAM base, script de setup, nombre y descripción sugeridos, con justificación técnica. El backend no aplica ni persiste: quien resuelve contra el catálogo real del tenant es el frontend (por id, slug o `icon_key`), marca las piezas que hoy no existen como no disponibles y deja que el administrador decida si **aplicar al constructor** o **descartar** antes de que se sincronice el constructor visual y el manifiesto técnico del Modo Avanzado.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/admin/ai/suggest-template`
+- **Headers Requeridos:** `X-User-Id`, `X-User-Role: admin`, `X-Tenant-Id`
+
+#### Payload de Entrada
+```json
+{
+  "prompt": "Entorno para Algoritmos Avanzados con Python 3.12, PyTest y SQLite para pruebas de concurrencia",
+  "target_environment": "JUEZ_EFIMERO"
+}
+```
+> `prompt` 3..600 caracteres (obligatorio); `target_environment` opcional (`JUEZ_EFIMERO` | `IDE_PERSISTENTE` | `AMBOS`, default `JUEZ_EFIMERO`).
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "data": {
+    "name": "Algoritmos con Python y SQLite",
+    "description": "Juez automático para estructuras de datos",
+    "runtime_slug": "python",
+    "web_platform_slug": "",
+    "addon_slugs": ["pytest"],
+    "database_slug": "sqlite",
+    "setup_script": "export PIP_NO_CACHE=1",
+    "base_ram_mb": 768,
+    "rationale": "Python 3.12 con pytest para los casos de prueba y SQLite como servidor de datos acoplado.",
+    "latency_ms": 812
+  },
+  "error": "",
+  "message": "Propuesta de arquitectura generada"
+}
+```
+> El servicio normaliza al responder: slugs en minúscula sin duplicados (`addon_slugs`), `base_ram_mb` acotado a [256, 4096] con default 512, y `rationale` obligatorio. La propuesta siempre se sanea contra slugs canónicos de ecosistema; el frontend es quien valida la existencia real en el catálogo del tenant antes de aplicar.
+
+Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `target_environment_invalid`, `ai_response_invalid`, `runtime_slug_missing`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`); `504 Gateway Timeout` (`ai_timeout`).
+
+---
+
+### 8. Borrador de Ejercicio con Sello del Juez (`POST /api/v1/teacher/ai/generate-exercise`)
 
 Genera el borrador completo de un ejercicio (consigna, boilerplate, solución de referencia y casos). Cuando `verify_with_runner` no es `false` y hay runner disponible, cada caso se ejecuta con la solución de referencia y `expected_output` se sobrescribe con la salida real del runner (sello determinista): los veredictos `CE`, `RE`, `TLE` o `MLE` de la referencia dejan el caso sin verificar y detallan el motivo en `verification_warning`.
 
@@ -1530,7 +1572,7 @@ Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `language_invalid`, `ai
 
 ---
 
-### 8. Autorreparación Diagnóstica de Plantilla (`POST /api/v1/admin/ai/repair-template`)
+### 9. Autorreparación Diagnóstica de Plantilla (`POST /api/v1/admin/ai/repair-template`)
 
 Repara el manifiesto técnico de una plantilla cuando falla **Comprobar funcionamiento**: recibe la radiografía fresca del fallo del contenedor (sin historial de chat) y devuelve el `Dockerfile`, el `setup_script`, `tools_declared`, el `entrypoint` y `base_ram_mb` corregidos junto a la causa raíz explicada en español. Pensado para aplicarse desde el Modo Visual y el Modo Avanzado del constructor.
 
@@ -1585,7 +1627,7 @@ Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `base_image_latest`, `
 
 ---
 
-### 9. API Key Personal en Cascada (BYOK) — `/api/v1/ai/my-settings`
+### 10. API Key Personal en Cascada (BYOK) — `/api/v1/ai/my-settings`
 
 Cascada de credenciales por usuario: la base institucional sigue siendo el motor por defecto y cada docente/administrador puede activar su propia API Key. Las credenciales personales se almacenan en `ai_settings.user_overrides[userID]` con el mismo cifrado AES-256-GCM y las mismas validaciones que la configuración institucional.
 

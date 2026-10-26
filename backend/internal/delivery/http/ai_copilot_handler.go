@@ -21,6 +21,31 @@ func NewAICopilotHandler(copilotService *services.AICopilotService) *AICopilotHa
 	return &AICopilotHandler{copilotService: copilotService}
 }
 
+// SuggestTemplate propone la arquitectura de un entorno completo (rol admin).
+// Devuelve una propuesta con slugs de ecosistema que el frontend resuelve
+// contra el catálogo del tenant; el administrador decide si aplicarla.
+func (h *AICopilotHandler) SuggestTemplate(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	userID := getUserIDFromCtx(r)
+
+	var dto domain.AISuggestTemplateRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	resp, err := h.copilotService.SuggestTemplate(r.Context(), tenantID, userID, dto)
+	if err != nil {
+		sendAICopilotError(w, err, "Error al diseñar la arquitectura del entorno")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, *resp, "Propuesta de arquitectura generada")
+}
+
 // SuggestComponent genera una sugerencia de componente de catálogo (rol admin).
 func (h *AICopilotHandler) SuggestComponent(w http.ResponseWriter, r *http.Request) {
 	if !requireAdminRole(w, r) {

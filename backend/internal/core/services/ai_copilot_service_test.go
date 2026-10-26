@@ -77,6 +77,53 @@ func newEnabledCopilotSettings(t *testing.T, server *httptest.Server) *AISetting
 	return svc
 }
 
+func TestAICopilot_SuggestTemplate_ReturnsProposalWithSanitizedSlugs(t *testing.T) {
+	templateJSON := `{"name":"Algoritmos con Python y PostgreSQL","description":"Juez automático para estructuras de datos","runtime_slug":"python","web_platform_slug":"","addon_slugs":["pytest","numpy","pytest"],"database_slug":"sqlite","setup_script":"export PIP_NO_CACHE=1","base_ram_mb":768,"rationale":"Python 3.12 con pytest para los casos de prueba y SQLite como servidor de datos acoplado."}`
+
+	server := newCopilotLLMServer(t, "```json\n"+templateJSON+"\n```")
+	svc := newEnabledCopilotSettings(t, server)
+	copilot := NewAICopilotService(svc, nil)
+
+	resp, err := copilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
+		Prompt:            "Entorno para estructuras de datos con Python, pytest y SQLite",
+		TargetEnvironment: "JUEZ_EFIMERO",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.RuntimeSlug != "python" {
+		t.Errorf("runtime_slug inesperado: %q", resp.RuntimeSlug)
+	}
+	// Slugs saneados: minúsculas y sin duplicados.
+	if len(resp.AddonSlugs) != 2 || resp.AddonSlugs[0] != "pytest" || resp.AddonSlugs[1] != "numpy" {
+		t.Errorf("addon_slugs saneado inesperado: %#v", resp.AddonSlugs)
+	}
+	if resp.DatabaseSlug != "sqlite" {
+		t.Errorf("database_slug inesperado: %q", resp.DatabaseSlug)
+	}
+	if resp.BaseRamMB != 768 {
+		t.Errorf("base_ram_mb inesperado: %d", resp.BaseRamMB)
+	}
+	if strings.TrimSpace(resp.Rationale) == "" {
+		t.Errorf("esperaba una rationale técnica en español")
+	}
+
+	// Entorno objetivo inválido -> error de validación.
+	if _, err := copilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
+		Prompt:            "un entorno de prueba",
+		TargetEnvironment: "MODO_RARO",
+	}); err == nil {
+		t.Errorf("esperaba rechazo de target_environment inválido")
+	}
+
+	// Prompt fuera de rango -> error de validación.
+	if _, err := copilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
+		Prompt: "ab",
+	}); err == nil {
+		t.Errorf("esperaba rechazo de prompt menor a 3 caracteres")
+	}
+}
+
 func TestAICopilot_SuggestComponent_SynthesizesAndSanitizes(t *testing.T) {
 	componentJSON := `{"component":{"name":"PyTorch CPU + scikit-learn","slug":"python-ml-stack","layer":"addon","sub_category":"toolkit","description":"Framework de machine learning para Python","icon_key":"python","base_image":"python:3.12-slim-bookworm","compatible_runtimes":["python"],"install_mode":"pip","package_names":["torch","scikit-learn"],"build_layer_snippet":"","ram_delta_mb":0},"rationale":"torch cubre el entrenamiento y scikit-learn los modelos clásicos."}`
 

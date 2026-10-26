@@ -65,6 +65,28 @@ import {
 import { StudioPurposeStepComponent } from './components/studio-purpose-step/studio-purpose-step.component';
 import { StudioCapacitySelectorComponent } from './components/studio-capacity-selector/studio-capacity-selector.component';
 import { StudioSummarySidebarComponent } from './components/studio-summary-sidebar/studio-summary-sidebar.component';
+import {
+  findCatalogComponentMatch,
+  findDatabaseOptionMatch
+} from './template-studio.utils';
+
+// Resolución de una propuesta del Copiloto contra el catálogo real del tenant:
+// muestra qué piezas se pueden aplicar y cuáles faltan (no disponibles).
+interface AiProposalView {
+  runtime: TemplateComponent | null;
+  runtimeSlug: string;
+  web: TemplateComponent | null;
+  webSlug: string;
+  addons: TemplateComponent[];
+  addonSlugs: string[];
+  database: StudioDatabaseOption | null;
+  databaseSlug: string;
+  missing: string[];
+  ramMB: number;
+  hasSetupScript: boolean;
+  rationale: string;
+  latencyMs: number;
+}
 
 export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
 
@@ -162,9 +184,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly isAiSectionCollapsed = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
   readonly isSuggestingWithAi = signal<boolean>(false);
+  readonly aiProposal = signal<AISuggestTemplateResponse | null>(null);
+  readonly aiProposalApplied = signal<boolean>(false);
   readonly aiElapsedSeconds = signal<string>('0.0');
-  readonly aiRationale = signal<string | null>(null);
-  readonly aiLatencyMs = signal<number | null>(null);
   readonly isRepairingWithAi = signal<boolean>(false);
   readonly repairElapsedSeconds = signal<string>('0.0');
   readonly repairDiagnosis = signal<{ rationale: string; latencyMs: number } | null>(null);
@@ -1135,8 +1157,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (!prompt || this.isSuggestingWithAi()) return;
 
     this.isSuggestingWithAi.set(true);
-    this.aiRationale.set(null);
-    this.aiLatencyMs.set(null);
+    this.aiProposal.set(null);
+    this.aiProposalApplied.set(false);
     this.aiElapsedSeconds.set('0.0');
 
     const startTime = performance.now();
@@ -1157,66 +1179,11 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
           this.clearTimer();
           this.suggestSub = undefined;
           this.isSuggestingWithAi.set(false);
-          this.aiRationale.set(res.rationale);
-          this.aiLatencyMs.set(res.latency_ms);
-
-          // 2. Componente runtime (slug o id)
-          const rt = res.runtime_slug
-            ? this.techComponents().find((c) => c.slug === res.runtime_slug || c.id === res.runtime_slug)
-            : null;
-          this.selectedRuntimeId.set(rt ? rt.id : null);
-
-          // 3. Plataforma web para IDE_PERSISTENTE
-          if (this.targetEnvironment() === 'IDE_PERSISTENTE' && res.web_platform_slug) {
-            const web = this.techComponents().find((c) => c.slug === res.web_platform_slug || c.id === res.web_platform_slug);
-            if (web) {
-              this.selectedWebPlatformId.set(web.id);
-            }
-          }
-
-          // 4. Addons
-          if (Array.isArray(res.addon_slugs)) {
-            const matchedAddonIds: string[] = [];
-            for (const slug of res.addon_slugs) {
-              const comp = this.techComponents().find((c) => c.slug === slug || c.id === slug);
-              if (comp) {
-                matchedAddonIds.push(comp.id);
-              }
-            }
-            this.selectedAddonIds.set(matchedAddonIds);
-          }
-
-          // 5. Database
-          if (res.database_slug) {
-            const db = this.databaseOptions().find(
-              (i) => i.id === res.database_slug || i.slug === res.database_slug || (i as any).service_engine === res.database_slug
-            );
-            this.selectedDatabaseId.set(db?.id || 'db-none');
-          } else {
-            this.selectedDatabaseId.set('db-none');
-          }
-
-          // 6. Sincronizar visual + avanzado
-          this.hasCustomDockerfile.set(false);
-          this.recalculateFromVisualSelection();
-
-          // 1. Nombre y descripción si no fueron editados manualmente
-          if (res.name && !this.isNameManuallyEdited()) {
-            this.name.set(res.name);
-          }
-          if (res.description) {
-            this.description.set(res.description);
-          }
-
-          // 7. Script de setup y RAM base
-          if (res.setup_script?.trim()) {
-            this.setupScript.set(res.setup_script);
-          }
-          if (typeof res.base_ram_mb === 'number' && res.base_ram_mb >= 256) {
-            this.baseRamMB.set(res.base_ram_mb);
-          }
-
-          this.showToast('Configuración asistida aplicada.');
+          // La propuesta NO se aplica sola: se resuelve contra el catálogo real
+          // y queda pendiente de revisión (flujo propuesta -> aplicar).
+          this.aiProposal.set(res);
+          this.aiProposalApplied.set(false);
+          this.showToast('Propuesta del Copiloto lista para revisar.');
         },
         error: (err: unknown) => {
           this.clearTimer();
@@ -1226,6 +1193,110 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         }
       });
     this.sub.add(this.suggestSub);
+  }
+
+  // Resuelve la propuesta del Copiloto contra el catálogo real del tenant.
+  // Cada slug propuesto se empareja por id, slug o icon_key; los que no existen
+  // se marcan en `missing` para que el administrador los vea antes de aplicar.
+  readonly aiProposalView = computed<AiProposalView | null>(() => {
+    const res = this.aiProposal();
+    if (!res) return null;
+
+    const runtime = res.runtime_slug
+      ? findCatalogComponentMatch(this.techComponents(), res.runtime_slug)
+      : null;
+    const web =
+      this.targetEnvironment() === 'IDE_PERSISTENTE' && res.web_platform_slug
+        ? findCatalogComponentMatch(this.techComponents(), res.web_platform_slug)
+        : null;
+    const addons: TemplateComponent[] = [];
+    const addonSlugs: string[] = [];
+    const missing: string[] = [];
+    if (Array.isArray(res.addon_slugs)) {
+      for (const slug of res.addon_slugs) {
+        addonSlugs.push(slug);
+        const comp = findCatalogComponentMatch(this.techComponents(), slug);
+        if (comp) {
+          addons.push(comp);
+        } else {
+          missing.push(slug);
+        }
+      }
+    }
+    if (!runtime && res.runtime_slug) missing.push(res.runtime_slug);
+    if (!web && res.web_platform_slug && this.targetEnvironment() === 'IDE_PERSISTENTE') {
+      missing.push(res.web_platform_slug);
+    }
+    const database = res.database_slug
+      ? findDatabaseOptionMatch(this.databaseOptions(), res.database_slug)
+      : null;
+    if (!database && res.database_slug) missing.push(res.database_slug);
+
+    return {
+      runtime,
+      runtimeSlug: res.runtime_slug || '',
+      web,
+      webSlug: res.web_platform_slug || '',
+      addons,
+      addonSlugs,
+      database,
+      databaseSlug: res.database_slug || '',
+      missing: [...new Set(missing)],
+      ramMB: res.base_ram_mb,
+      hasSetupScript: !!res.setup_script?.trim(),
+      rationale: res.rationale,
+      latencyMs: res.latency_ms
+    };
+  });
+
+  // Aplica la propuesta revisada: sincroniza el constructor visual y el
+  // manifiesto técnico del Modo Avanzado (Dockerfile, script de setup, RAM).
+  applyAiProposal(): void {
+    const res = this.aiProposal();
+    const view = this.aiProposalView();
+    if (!res || !view || this.isSuggestingWithAi()) return;
+
+    // 2. Componente runtime (id real del catálogo)
+    this.selectedRuntimeId.set(view.runtime ? view.runtime.id : null);
+
+    // 3. Plataforma web para IDE_PERSISTENTE
+    this.selectedWebPlatformId.set(view.web ? view.web.id : null);
+
+    // 4. Addons (solo los presentes en el catálogo)
+    this.selectedAddonIds.set(view.addons.map((a) => a.id));
+
+    // 5. Database
+    this.selectedDatabaseId.set(view.database ? view.database.id : 'db-none');
+
+    // 6. Sincronizar visual + avanzado
+    this.hasCustomDockerfile.set(false);
+    this.recalculateFromVisualSelection();
+
+    // 1. Nombre y descripción si no fueron editados manualmente
+    if (res.name && !this.isNameManuallyEdited()) {
+      this.name.set(res.name);
+    }
+    if (res.description) {
+      this.description.set(res.description);
+    }
+
+    // 7. Script de setup y RAM base
+    if (view.hasSetupScript) {
+      this.setupScript.set(res.setup_script);
+    }
+    if (typeof res.base_ram_mb === 'number' && res.base_ram_mb >= 256) {
+      this.baseRamMB.set(res.base_ram_mb);
+    }
+
+    this.aiProposalApplied.set(true);
+    this.showToast('Configuración asistida aplicada al constructor.');
+  }
+
+  // Descarta la propuesta del Copiloto sin tocar el constructor.
+  discardAiProposal(): void {
+    this.aiProposal.set(null);
+    this.aiProposalApplied.set(false);
+    this.showToast('Propuesta descartada; el constructor no se modificó.');
   }
 
   cancelAiSuggestion(): void {

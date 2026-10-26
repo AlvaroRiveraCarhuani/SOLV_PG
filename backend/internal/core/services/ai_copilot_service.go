@@ -25,6 +25,141 @@ func NewAICopilotService(aiSettings *AISettingsService, runner domain.Evaluation
 	return &AICopilotService{aiSettings: aiSettings, runner: runner}
 }
 
+// SuggestTemplate propone el stack completo de una plantilla a partir de la
+// descripción del administrador y el entorno objetivo. El backend NO aplica
+// nada: devuelve una propuesta estructurada con slugs canónicos de ecosistema
+// y el rationale, y el frontend la resuelve contra el catálogo real del tenant
+// antes de que el administrador decida aplicarla (flujo propuesta -> revisión
+// -> aplicar).
+func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID string, req domain.AISuggestTemplateRequestDTO) (*domain.AISuggestTemplateResponseDTO, error) {
+	prompt := strings.TrimSpace(req.Prompt)
+	if n := utf8.RuneCountInString(prompt); n < 3 || n > 600 {
+		return nil, &AISettingsValidationError{
+			Code:    "prompt_invalid",
+			Message: "prompt debe tener entre 3 y 600 caracteres",
+		}
+	}
+
+	targetEnv := strings.ToUpper(strings.TrimSpace(req.TargetEnvironment))
+	if targetEnv == "" {
+		targetEnv = string(domain.TargetEnvironmentJuezEfimero)
+	}
+	switch targetEnv {
+	case string(domain.TargetEnvironmentJuezEfimero), string(domain.TargetEnvironmentIDEPersistente), string(domain.TargetEnvironmentAmbos):
+	default:
+		return nil, &AISettingsValidationError{
+			Code:    "target_environment_invalid",
+			Message: fmt.Sprintf("target_environment inválido: %q. Valores permitidos: JUEZ_EFIMERO, IDE_PERSISTENTE, AMBOS", req.TargetEnvironment),
+		}
+	}
+
+	systemPrompt := suggestTemplateSystemPrompt()
+	userPrompt := fmt.Sprintf("Entorno objetivo: %s\nRequisitos del administrador:\n%s", targetEnv, prompt)
+
+	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "suggest-template", systemPrompt, userPrompt)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Name            string   `json:"name"`
+		Description     string   `json:"description"`
+		RuntimeSlug     string   `json:"runtime_slug"`
+		WebPlatformSlug string   `json:"web_platform_slug"`
+		AddonSlugs      []string `json:"addon_slugs"`
+		DatabaseSlug    string   `json:"database_slug"`
+		SetupScript     string   `json:"setup_script"`
+		BaseRamMB       int      `json:"base_ram_mb"`
+		Rationale       string   `json:"rationale"`
+	}
+	if err := json.Unmarshal([]byte(cleanJSONFence(raw)), &payload); err != nil {
+		return nil, &AISettingsValidationError{
+			Code:    "ai_response_invalid",
+			Message: "el motor de IA devolvió JSON inválido para la arquitectura del entorno",
+		}
+	}
+
+	rationale := strings.TrimSpace(payload.Rationale)
+	if rationale == "" {
+		return nil, &AISettingsValidationError{
+			Code:    "ai_response_invalid",
+			Message: "el motor de IA no devolvió el rationale con la justificación del stack",
+		}
+	}
+
+	runtimeSlug := strings.ToLower(strings.TrimSpace(payload.RuntimeSlug))
+	if runtimeSlug == "" {
+		return nil, &AISettingsValidationError{
+			Code:    "runtime_slug_missing",
+			Message: "el motor de IA no devolvió el runtime principal (runtime_slug)",
+		}
+	}
+
+	// Saneo de slugs: minúsculas, sin vacíos ni duplicados, de rango 3..64.
+	webSlug := strings.ToLower(strings.TrimSpace(payload.WebPlatformSlug))
+	dbSlug := strings.ToLower(strings.TrimSpace(payload.DatabaseSlug))
+	addons := make([]string, 0, len(payload.AddonSlugs))
+	seen := make(map[string]struct{}, len(payload.AddonSlugs))
+	for _, a := range payload.AddonSlugs {
+		slug := strings.ToLower(strings.TrimSpace(a))
+		if slug == "" || slug == "none" || slug == "null" {
+			continue
+		}
+		if _, dup := seen[slug]; dup {
+			continue
+		}
+		seen[slug] = struct{}{}
+		addons = append(addons, slug)
+	}
+	if dbSlug == "none" || dbSlug == "null" {
+		dbSlug = ""
+	}
+
+	// Memoria dentro de la horquilla homologada de los perfiles del Studio.
+	baseRamMB := payload.BaseRamMB
+	if baseRamMB <= 0 {
+		baseRamMB = 512
+	}
+	baseRamMB = clampInt(baseRamMB, 256, 4096)
+
+	return &domain.AISuggestTemplateResponseDTO{
+		Name:            strings.TrimSpace(payload.Name),
+		Description:     strings.TrimSpace(payload.Description),
+		RuntimeSlug:     runtimeSlug,
+		WebPlatformSlug: webSlug,
+		AddonSlugs:      addons,
+		DatabaseSlug:    dbSlug,
+		SetupScript:     strings.TrimSpace(payload.SetupScript),
+		BaseRamMB:       baseRamMB,
+		Rationale:       rationale,
+		LatencyMS:       latencyMS,
+	}, nil
+}
+
+func suggestTemplateSystemPrompt() string {
+	return `Sos el copiloto de arquitectura de entornos de SOLV, la plataforma de laboratorios virtuales.
+Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, sin comentarios) con esta forma exacta:
+{
+  "name": "Nombre corto y descriptivo del entorno",
+  "description": "Una frase breve de qué cubre el entorno",
+  "runtime_slug": "slug del lenguaje de programación principal",
+  "web_platform_slug": "slug de la plataforma web o vacío",
+  "addon_slugs": ["slugs de frameworks o librerías"],
+  "database_slug": "slug del motor de base de datos o vacío",
+  "setup_script": "script shell de preparación o cadena vacía",
+  "base_ram_mb": 512,
+  "rationale": "justificación técnica breve en español del stack elegido"
+}
+Reglas innegociables:
+- Usá SOLO slugs canónicos de ecosistemas de desarrollo conocidos, en minúsculas y sin espacios (ejemplos: python, node, javascript, typescript, go, rust, c, cpp, java, php, dotnet, angular, react, vue, csharp). NO inventes slugs raros ni versiones.
+- addon_slugs usa nombres de paquetes o herramientas de uso común (ej: pytest, numpy, fastapi, flask, express, prisma, sqlalchemy, cmake, sanitizers).
+- database_slug SOLO puede ser sqlite, postgres, mysql, mongodb o redis; si no hace falta base de datos, dejalo como cadena vacía.
+- base_ram_mb entre 256 y 4096: 512 para entornos ligeros de juez, 1024 o más para laboratorios IDE con compilación pesada o servicios acoplados.
+- web_platform_slug SOLO tiene sentido cuando el entorno es un laboratorio IDE de tipo web (Angular, React, Vue); en jueces automáticos dejalo vacío.
+- setup_script es OPCIONAL y solo de preparación del espacio de trabajo (crear carpetas, alias, variables de entorno); no incluyas comandos de instalación de paquetes (eso va en capas de la imagen).
+- name y description en español, descriptivos para un catálogo académico.`
+}
+
 // SuggestComponent propone un componente de catálogo a partir de la
 // descripción del administrador y devuelve el DTO normalizado con la capa de
 // build sintetizada de forma determinista.

@@ -4,6 +4,61 @@ import {
   TemplateComponent
 } from '../../services/admin-templates.service';
 
+// --- Resolución de propuestas del Copiloto contra el catálogo real del tenant ---
+
+// findCatalogComponentMatch resuelve un slug propuesto por el Copiloto
+// (python, node, cpp, angular...) contra un componente del catálogo activo por
+// id, slug o icon_key, en ese orden. Devuelve nil si el slug no existe hoy en
+// el catálogo: la pieza se marca como no disponible en la propuesta.
+export function findCatalogComponentMatch(components: TemplateComponent[], rawSlug: string): TemplateComponent | null {
+	const key = (rawSlug || '').trim().toLowerCase();
+	if (!key) {
+		return null;
+	}
+	for (const c of components) {
+		if ((c.id || '').toLowerCase() === key) {
+			return c;
+		}
+	}
+	for (const c of components) {
+		if ((c.slug || '').toLowerCase() === key) {
+			return c;
+		}
+	}
+	for (const c of components) {
+		if ((c.icon_key || '').toLowerCase() === key) {
+			return c;
+		}
+	}
+	return null;
+}
+
+// findDatabaseOptionMatch resuelve un slug de motor propuesto (sqlite, postgres)
+// contra las opciones de base de datos reales del nodo, por service_engine, id o
+// slug. Devuelve nil si el motor no está disponible o el slug no existe.
+export function findDatabaseOptionMatch(options: StudioDatabaseOption[], rawSlug: string): StudioDatabaseOption | null {
+	const key = (rawSlug || '').trim().toLowerCase();
+	if (!key || key === 'none' || key === 'null') {
+		return null;
+	}
+	for (const o of options) {
+		if ((o.service_engine || '').toLowerCase() === key && (o.service_engine || '').toLowerCase() !== 'none') {
+			return o;
+		}
+	}
+	for (const o of options) {
+		if ((o.id || '').toLowerCase() === key) {
+			return o;
+		}
+	}
+	for (const o of options) {
+		if ((o.slug || '').toLowerCase() === key) {
+			return o;
+		}
+	}
+	return null;
+}
+
 export interface DockerfileDiagnostic {
   severity: 'error' | 'warning';
   message: string;

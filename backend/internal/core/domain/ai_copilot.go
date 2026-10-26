@@ -70,6 +70,31 @@ type AIRepairTemplateResponseDTO struct {
 	LatencyMS         int64    `json:"latency_ms"`
 }
 
+// AISuggestTemplateRequestDTO es el payload de POST /api/v1/admin/ai/suggest-template:
+// el administrador describe los requisitos del entorno en lenguaje natural, sin
+// tocar el constructor visual todavía (flujo propuesta -> revisión -> aplicar).
+type AISuggestTemplateRequestDTO struct {
+	Prompt            string `json:"prompt"`                       // ej. "Entorno para estructuras de datos con C++17, CMake y Sanitizers"
+	TargetEnvironment string `json:"target_environment,omitempty"` // JUEZ_EFIMERO | IDE_PERSISTENTE | AMBOS
+}
+
+// AISuggestTemplateResponseDTO propone el stack completo de una plantilla con
+// slugs canónicos de ecosistema (python, node, gcc, angular, sqlite...). El
+// frontend resuelve la disponibilidad real contra el catálogo del tenant y
+// marca las piezas propuestas que no existen: el backend no aplica nada.
+type AISuggestTemplateResponseDTO struct {
+	Name            string   `json:"name"`
+	Description     string   `json:"description"`
+	RuntimeSlug     string   `json:"runtime_slug"`
+	WebPlatformSlug string   `json:"web_platform_slug,omitempty"`
+	AddonSlugs      []string `json:"addon_slugs,omitempty"`
+	DatabaseSlug    string   `json:"database_slug,omitempty"`
+	SetupScript     string   `json:"setup_script,omitempty"`
+	BaseRamMB       int      `json:"base_ram_mb"`
+	Rationale       string   `json:"rationale"` // explicación técnica en español
+	LatencyMS       int64    `json:"latency_ms"`
+}
+
 // AIGenerateExerciseResponseDTO es el borrador de ejercicio devuelto al docente.
 type AIGenerateExerciseResponseDTO struct {
 	Title               string                   `json:"title"`

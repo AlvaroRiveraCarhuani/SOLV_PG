@@ -52,7 +52,7 @@
                 <h2 class="section-title">Copiloto IA para Arquitectura de Entornos</h2>
               </div>
               <p class="section-subtitle">
-                Describa los requisitos o paquetes necesarios. El Copiloto actualizará tanto el constructor visual como el manifiesto técnico del Modo Avanzado.
+                Describa los requisitos, librerías o paquetes del entorno. El Copiloto propondrá una arquitectura completa: usted la revisa y decide si aplicarla al constructor visual y al manifiesto técnico.
               </p>
             </div>
             <button
@@ -105,31 +105,119 @@
                       [disabled]="aiPrompt().trim().length < 3"
                     >
                       <svg lucideSparkles class="btn-icon-xs"></svg>
-                      <span>Sugerir y Configurar Entorno</span>
+                      <span>Sugerir Arquitectura</span>
                     </button>
                   }
                 </div>
               </div>
 
-              @if (aiRationale()) {
-                <div class="ai-rationale-box">
-                  <div class="rationale-header">
-                    <strong>Resumen del Stack Configurado:</strong>
-                    @if (aiLatencyMs()) {
-                      <span class="font-mono text-xs text-muted" machineData>{{ aiLatencyMs() }} ms</span>
+              @if (aiProposalView(); as view) {
+                <div class="ai-proposal-box" [class.applied]="aiProposalApplied()">
+                  <div class="proposal-header">
+                    <strong>Propuesta de Arquitectura</strong>
+                    @if (view.latencyMs) {
+                      <span class="font-mono text-xs text-muted" machineData>{{ view.latencyMs }} ms</span>
                     }
                   </div>
-                  <p class="rationale-text">{{ aiRationale() }}</p>
+                  <p class="rationale-text">{{ view.rationale }}</p>
 
-                  <div class="rationale-tech-badges">
-                    @for (comp of selectedStackComponents(); track comp.id) {
-                      <span class="tech-chip">
-                        <tech-logo [iconType]="comp.icon_key" [size]="16" />
-                        <span>{{ comp.name }}</span>
+                  <div class="proposal-pieces-grid">
+                    @if (view.runtime; as rt) {
+                      <span class="tech-chip" title="Runtime">
+                        <tech-logo [iconType]="rt.icon_key" [size]="16" />
+                        <span>{{ rt.name }}</span>
+                        <svg lucideCheckCircle2 class="chip-icon chip-ok"></svg>
+                      </span>
+                    } @else if (view.runtimeSlug) {
+                      <span class="tech-chip chip-missing" title="Runtime no disponible en el catálogo">
+                        <span class="chip-slug font-mono" machineData>{{ view.runtimeSlug }}</span>
+                        <svg lucideAlertTriangle class="chip-icon chip-missing-icon"></svg>
                       </span>
                     }
-                    <span class="ram-chip font-mono" machineData>{{ baseRamMB() }} MB RAM</span>
+
+                    @if (view.web; as web) {
+                      <span class="tech-chip" title="Plataforma web">
+                        <tech-logo [iconType]="web.icon_key" [size]="16" />
+                        <span>{{ web.name }}</span>
+                        <svg lucideCheckCircle2 class="chip-icon chip-ok"></svg>
+                      </span>
+                    } @else if (view.webSlug) {
+                      <span class="tech-chip chip-missing" title="Plataforma web no disponible en el catálogo">
+                        <span class="chip-slug font-mono" machineData>{{ view.webSlug }}</span>
+                        <svg lucideAlertTriangle class="chip-icon chip-missing-icon"></svg>
+                      </span>
+                    }
+
+                    @for (addon of view.addons; track addon.id) {
+                      <span class="tech-chip" title="Complemento">
+                        <tech-logo [iconType]="addon.icon_key" [size]="16" />
+                        <span>{{ addon.name }}</span>
+                        <svg lucideCheckCircle2 class="chip-icon chip-ok"></svg>
+                      </span>
+                    }
+                    @for (slug of view.addonSlugs; track slug) {
+                      @if (!view.addons.some((a) => a.slug === slug || a.id === slug || a.icon_key === slug)) {
+                        <span class="tech-chip chip-missing" title="Complemento no disponible en el catálogo">
+                          <span class="chip-slug font-mono" machineData>{{ slug }}</span>
+                          <svg lucideAlertTriangle class="chip-icon chip-missing-icon"></svg>
+                        </span>
+                      }
+                    }
+
+                    @if (view.database; as db) {
+                      <span class="tech-chip" title="Base de datos">
+                        <tech-logo [iconType]="db.icon_key" [size]="16" />
+                        <span>{{ db.name }}</span>
+                        <svg lucideCheckCircle2 class="chip-icon chip-ok"></svg>
+                      </span>
+                    } @else if (view.databaseSlug) {
+                      <span class="tech-chip chip-missing" title="Motor de base de datos no disponible">
+                        <span class="chip-slug font-mono" machineData>{{ view.databaseSlug }}</span>
+                        <svg lucideAlertTriangle class="chip-icon chip-missing-icon"></svg>
+                      </span>
+                    }
+
+                    @if (view.hasSetupScript) {
+                      <span class="tech-chip" title="Se rellenará el script de setup">
+                        <svg lucideCode class="chip-icon chip-ok"></svg>
+                        <span>script de preparación</span>
+                      </span>
+                    }
+
+                    <span class="ram-chip font-mono" machineData>{{ view.ramMB }} MB RAM</span>
                   </div>
+
+                  @if (view.missing.length) {
+                    <div class="proposal-missing-warning">
+                      <svg lucideAlertTriangle class="btn-icon-xs"></svg>
+                      <span>No está en el catálogo actual y no se aplicará:</span>
+                      <span class="font-mono text-xs" machineData>{{ view.missing.join(', ') }}</span>
+                    </div>
+                  }
+
+                  <div class="proposal-actions">
+                    @if (!aiProposalApplied()) {
+                      <button type="button" class="btn-primary btn-ai-apply" (click)="applyAiProposal()">
+                        <svg lucideCheckCircle2 class="btn-icon-xs"></svg>
+                        <span>Aplicar al constructor</span>
+                      </button>
+                    } @else {
+                      <span class="proposal-applied-badge">
+                        <svg lucideCheckCircle2 class="btn-icon-xs"></svg>
+                        <span>Aplicada al constructor visual y al manifiesto técnico</span>
+                      </span>
+                    }
+                    <button type="button" class="btn-secondary btn-ai-discard" (click)="discardAiProposal()">
+                      <svg lucideRotateCcw class="btn-icon-xs"></svg>
+                      <span>Descartar propuesta</span>
+                    </button>
+                  </div>
+
+                  @if (aiProposalApplied()) {
+                    <p class="proposal-applied-hint">
+                      Revise el Paso 2 y ejecute «Comprobar funcionamiento» para validar el entorno ensamblado.
+                    </p>
+                  }
                 </div>
               }
             </div>

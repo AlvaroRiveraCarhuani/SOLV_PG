@@ -111,6 +111,7 @@ func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.AICopilotHandler != nil {
+		mux.Handle("POST /api/v1/admin/ai/suggest-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestTemplate))))
 		mux.Handle("POST /api/v1/admin/ai/suggest-component", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent))))
 		mux.Handle("POST /api/v1/admin/ai/repair-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.RepairTemplate))))
 		mux.Handle("POST /api/v1/teacher/ai/generate-exercise", am(tm(http.HandlerFunc(deps.AICopilotHandler.GenerateExerciseDraft))))

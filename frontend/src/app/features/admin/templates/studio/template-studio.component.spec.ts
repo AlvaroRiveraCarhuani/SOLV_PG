@@ -1861,16 +1861,44 @@ describe('TemplateStudioComponent', () => {
   });
 
   describe('Sugerencia de Stack con Copiloto IA', () => {
-    it('invoca suggestTemplate y aplica la configuración en el estado del Studio', () => {
+    it('invoca suggestTemplate y genera una propuesta sin aplicar nada aún', () => {
       component.aiPrompt.set('Fullstack Python con SQLite');
       component.suggestStackWithAi();
+
+      // La propuesta queda pendiente de revisión: no toca el constructor.
+      expect(component.aiProposal()).not.toBeNull();
+      expect(component.aiProposalApplied()).toBe(false);
+      expect(component.name()).toBe('');
+      expect(component.description()).toBe('');
+      expect(component.selectedRuntimeId()).toBeNull();
+      expect(component.isSuggestingWithAi()).toBe(false);
+    });
+
+    it('aplica la propuesta al constructor solo tras applyAiProposal', () => {
+      component.aiPrompt.set('Fullstack Python con SQLite');
+      component.suggestStackWithAi();
+      expect(component.aiProposal()).not.toBeNull();
+
+      component.applyAiProposal();
 
       expect(component.name()).toBe('Python Fast Stack');
       expect(component.description()).toBe('Plantilla sugerida por IA');
       expect(component.selectedRuntimeId()).toBe('rt-python-312');
       expect(component.setupScript()).toBe('pip install -r requirements.txt');
       expect(component.baseRamMB()).toBe(512);
-      expect(component.isSuggestingWithAi()).toBe(false);
+      expect(component.aiProposalApplied()).toBe(true);
+    });
+
+    it('descarta la propuesta sin modificar el constructor', () => {
+      component.aiPrompt.set('Fullstack Python con SQLite');
+      component.suggestStackWithAi();
+      expect(component.aiProposal()).not.toBeNull();
+
+      component.discardAiProposal();
+
+      expect(component.aiProposal()).toBeNull();
+      expect(component.selectedRuntimeId()).toBeNull();
+      expect(component.name()).toBe('');
     });
 
     it('cancela la sugerencia en vuelo al invocar cancelAiSuggestion', () => {

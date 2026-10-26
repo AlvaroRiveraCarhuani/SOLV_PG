@@ -51,6 +51,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 044 | [Piloto con Usuarios Reales](ADR-044-piloto-con-usuarios-reales.md) | Aprobado | Piloto |
 | 045 | [Estrategia Dual de Persistencia y Perfil Académico de Base de Datos](ADR-045-estrategia-persistencia-dual-sqlite-postgres-sintonizado.md) | Aprobado | Core |
 | 046 | [Constructor de Entornos Componibles por Catálogo de Tecnologías y Construcción Local Determinista de Imágenes (`solv-local/stack:<sha256>`)](ADR-046-estudio-plantillas-componentes-construccion-local.md) | Aprobado | Core |
+| 048 | [Copiloto IA para Arquitectura de Entornos — Flujo Propuesta → Revisión → Aplicar](ADR-048-copiloto-arquitectura-entornos-propuesta-revision-aplicar.md) | Aprobado | Core |
 | 047 | [Gobierna del Límite de Tiempo por Caso — Validación en Servidor y Contrato de Plantilla como Arquitectura Objetivo](ADR-047-time-limit-governanza-y-contrato-plantilla.md) | Aprobado | Core |
 
 
