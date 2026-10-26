@@ -101,6 +101,22 @@ export interface StudioResourceBreakdown {
   usableMB: number;
 }
 
+export interface AiProposalView {
+  runtime: TemplateComponent | null;
+  runtimeSlug: string;
+  web: TemplateComponent | null;
+  webSlug: string;
+  addons: TemplateComponent[];
+  addonSlugs: string[];
+  database: StudioDatabaseOption | null;
+  databaseSlug: string;
+  missing: string[];
+  ramMB: number;
+  hasSetupScript: boolean;
+  rationale: string;
+  latencyMs?: number;
+}
+
 export function analyzeDockerfile(content: string): DockerfileDiagnostic[] {
   const trimmed = (content || '').trim();
   if (!trimmed) return [];

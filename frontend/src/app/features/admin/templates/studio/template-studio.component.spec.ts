@@ -1907,6 +1907,25 @@ describe('TemplateStudioComponent', () => {
       component.cancelAiSuggestion();
       expect(component.isSuggestingWithAi()).toBe(false);
     });
+
+    it('abre el modal del copiloto IA con openAiCopilotModal', () => {
+      expect(component.isAiCopilotModalOpen()).toBe(false);
+      component.openAiCopilotModal();
+      expect(component.isAiCopilotModalOpen()).toBe(true);
+    });
+
+    it('aplica la propuesta y cierra el modal en onApplyAiCopilotModal', () => {
+      component.openAiCopilotModal();
+      component.aiPrompt.set('Fullstack Python con SQLite');
+      component.suggestStackWithAi();
+      expect(component.aiProposal()).not.toBeNull();
+
+      component.onApplyAiCopilotModal();
+
+      expect(component.isAiCopilotModalOpen()).toBe(false);
+      expect(component.aiProposalApplied()).toBe(true);
+      expect(component.selectedRuntimeId()).toBe('rt-python-312');
+    });
   });
 });
 

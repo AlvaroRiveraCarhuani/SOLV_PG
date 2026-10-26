@@ -1,0 +1,196 @@
+<modal-shell
+  title="Copiloto IA para Arquitectura de Entornos"
+  subtitle="Especifique los requerimientos pedagógicos para componer automáticamente la plantilla"
+  intent="info"
+  maxWidth="680px"
+  (close)="close.emit()"
+>
+  <svg modal-icon lucideSparkles class="icon"></svg>
+
+  <div class="ai-modal-body">
+    <div class="prompt-section">
+      <label class="form-label" for="ai-prompt-input">
+        Especificación del Laboratorio
+      </label>
+      <textarea
+        id="ai-prompt-input"
+        class="form-textarea"
+        rows="3"
+        placeholder="Ej: Entorno para Algoritmos Avanzados con Python 3.12, PyTest y base de datos SQLite para pruebas de concurrencia..."
+        [ngModel]="prompt()"
+        (ngModelChange)="promptChange.emit($event)"
+        [disabled]="isSuggesting()"
+      ></textarea>
+
+      <div class="prompt-footer-bar">
+        <span class="prompt-hint">
+          Describa qué lenguajes, frameworks o herramientas deben estar listos para el alumno.
+        </span>
+
+        @if (isSuggesting()) {
+          <div class="ai-running-telemetry">
+            <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+            <span>Diseñando arquitectura...</span>
+            <span class="font-mono" machineData>{{ elapsedSeconds() }} s</span>
+            <button
+              type="button"
+              class="btn-cancel-ai"
+              (click)="cancelSuggest.emit()"
+            >
+              <svg lucideXCircle class="btn-icon-xs"></svg>
+              <span>Cancelar</span>
+            </button>
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="btn-primary btn-ai-submit"
+            (click)="suggest.emit()"
+            [disabled]="prompt().trim().length < 3"
+          >
+            <svg lucideSparkles class="btn-icon-xs"></svg>
+            <span>Generar Propuesta</span>
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (proposalView(); as view) {
+      <div class="spec-sheet" [class.applied]="isApplied()">
+        <div class="spec-sheet-header">
+          <div class="spec-title-group">
+            <svg lucideCheckCircle class="spec-header-icon"></svg>
+            <strong class="spec-title">Hoja de Cotejo de Arquitectura</strong>
+          </div>
+          @if (view.latencyMs) {
+            <span class="spec-latency font-mono text-xs text-muted" machineData>{{ view.latencyMs }} ms</span>
+          }
+        </div>
+
+        <p class="spec-rationale">{{ view.rationale }}</p>
+
+        <div class="spec-breakdown-section">
+          <span class="spec-breakdown-label">Componentes Mapeados con el Catálogo</span>
+          <div class="spec-chips-grid">
+            @if (view.runtime; as rt) {
+              <div class="spec-tech-chip" title="Lenguaje Principal">
+                <tech-logo [iconType]="rt.icon_key" [size]="18" />
+                <div class="chip-text">
+                  <span class="chip-title">{{ rt.name }}</span>
+                  <span class="chip-subtitle">Lenguaje</span>
+                </div>
+                <svg lucideCheckCircle2 class="chip-status-icon chip-ok"></svg>
+              </div>
+            } @else if (view.runtimeSlug) {
+              <div class="spec-tech-chip chip-missing" title="No disponible en el catálogo del servidor">
+                <div class="chip-text">
+                  <span class="chip-slug font-mono" machineData>{{ view.runtimeSlug }}</span>
+                  <span class="chip-subtitle">No en catálogo</span>
+                </div>
+                <svg lucideAlertTriangle class="chip-status-icon chip-missing-icon"></svg>
+              </div>
+            }
+
+            @if (targetEnvironment() === 'IDE_PERSISTENTE' && view.web; as web) {
+              <div class="spec-tech-chip" title="Plataforma Web">
+                <tech-logo [iconType]="web.icon_key" [size]="18" />
+                <div class="chip-text">
+                  <span class="chip-title">{{ web.name }}</span>
+                  <span class="chip-subtitle">Web</span>
+                </div>
+                <svg lucideCheckCircle2 class="chip-status-icon chip-ok"></svg>
+              </div>
+            }
+
+            @for (addon of view.addons; track addon.id) {
+              <div class="spec-tech-chip" title="Complemento">
+                <tech-logo [iconType]="addon.icon_key" [size]="18" />
+                <div class="chip-text">
+                  <span class="chip-title">{{ addon.name }}</span>
+                  <span class="chip-subtitle">Complemento</span>
+                </div>
+                <svg lucideCheckCircle2 class="chip-status-icon chip-ok"></svg>
+              </div>
+            }
+
+            @if (view.database; as db) {
+              <div class="spec-tech-chip" title="Base de Datos">
+                <tech-logo [iconType]="db.icon_key" [size]="18" />
+                <div class="chip-text">
+                  <span class="chip-title">{{ db.name }}</span>
+                  <span class="chip-subtitle">Base de Datos</span>
+                </div>
+                <svg lucideCheckCircle2 class="chip-status-icon chip-ok"></svg>
+              </div>
+            }
+
+            @if (view.hasSetupScript) {
+              <div class="spec-tech-chip" title="Script de inicialización generado">
+                <svg lucideCode class="chip-generic-icon"></svg>
+                <div class="chip-text">
+                  <span class="chip-title">Script Bash</span>
+                  <span class="chip-subtitle">Setup</span>
+                </div>
+                <svg lucideCheckCircle2 class="chip-status-icon chip-ok"></svg>
+              </div>
+            }
+
+            <div class="spec-tech-chip spec-chip-ram">
+              <svg lucideHardDrive class="chip-generic-icon"></svg>
+              <div class="chip-text">
+                <span class="chip-title font-mono" machineData>{{ view.ramMB }} MB</span>
+                <span class="chip-subtitle">Memoria Base</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        @if (view.missing.length > 0) {
+          <div class="proposal-missing-warning">
+            <svg lucideAlertTriangle class="btn-icon-xs"></svg>
+            <span>No presentes en el catálogo del servidor (deben instalarse por script):</span>
+            <span class="font-mono text-xs" machineData>{{ view.missing.join(', ') }}</span>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    <div class="modal-footer-row">
+      @if (proposalView()) {
+        <button
+          type="button"
+          class="btn-outline"
+          (click)="discard.emit()"
+        >
+          <svg lucideRotateCcw class="btn-icon-xs"></svg>
+          <span>Descartar Propuesta</span>
+        </button>
+      } @else {
+        <div></div>
+      }
+
+      <div class="footer-actions-right">
+        <button
+          type="button"
+          class="btn-outline"
+          (click)="close.emit()"
+        >
+          Cerrar
+        </button>
+
+        @if (proposalView()) {
+          <button
+            type="button"
+            class="btn-primary"
+            (click)="apply.emit()"
+          >
+            <svg lucideCheckCircle2 class="btn-icon-xs"></svg>
+            <span>Aplicar al Constructor</span>
+          </button>
+        }
+      </div>
+    </div>
+  </ng-container>
+</modal-shell>

@@ -34,10 +34,6 @@ import {
   LucideCopy,
   LucidePencil,
   LucideSparkles,
-  LucideChevronDown,
-  LucideChevronUp,
-  LucideRefreshCw,
-  LucideXCircle,
   LucideWrench
 } from '@lucide/angular';
 import {
@@ -65,6 +61,7 @@ import {
 import { StudioPurposeStepComponent } from './components/studio-purpose-step/studio-purpose-step.component';
 import { StudioCapacitySelectorComponent } from './components/studio-capacity-selector/studio-capacity-selector.component';
 import { StudioSummarySidebarComponent } from './components/studio-summary-sidebar/studio-summary-sidebar.component';
+import { StudioAiCopilotModalComponent } from './components/studio-ai-copilot-modal/studio-ai-copilot-modal.component';
 import {
   findCatalogComponentMatch,
   findDatabaseOptionMatch
@@ -101,6 +98,7 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     StudioPurposeStepComponent,
     StudioCapacitySelectorComponent,
     StudioSummarySidebarComponent,
+    StudioAiCopilotModalComponent,
     LucideArrowLeft,
     LucideCheckCircle2,
     LucideAlertCircle,
@@ -113,10 +111,6 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     LucideCopy,
     LucidePencil,
     LucideSparkles,
-    LucideChevronDown,
-    LucideChevronUp,
-    LucideRefreshCw,
-    LucideXCircle,
     LucideWrench
   ],
   templateUrl: './template-studio.component.html',
@@ -181,7 +175,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   // Copiloto IA y Autorreparación
   readonly aiEnabled = signal<boolean>(false);
-  readonly isAiSectionCollapsed = signal<boolean>(false);
+  readonly isAiCopilotModalOpen = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
   readonly isSuggestingWithAi = signal<boolean>(false);
   readonly aiProposal = signal<AISuggestTemplateResponse | null>(null);
@@ -1305,6 +1299,15 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.clearTimer();
     this.isSuggestingWithAi.set(false);
     this.showToast('Operación del Copiloto cancelada.');
+  }
+
+  openAiCopilotModal(): void {
+    this.isAiCopilotModalOpen.set(true);
+  }
+
+  onApplyAiCopilotModal(): void {
+    this.applyAiProposal();
+    this.isAiCopilotModalOpen.set(false);
   }
 
   // Flujo de Autorreparación (Corregir con Copiloto IA)
