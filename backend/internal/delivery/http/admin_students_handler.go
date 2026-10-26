@@ -262,7 +262,7 @@ func (h *AdminAcademicHandler) BatchCreateStudents(w http.ResponseWriter, r *htt
 
 	SendJSON(w, http.StatusCreated, domain.BatchCreateStudentsResult{
 		TotalProcessed: len(req.Emails),
-		CreatedCount:    count,
+		CreatedCount:   count,
 	}, fmt.Sprintf("%d estudiantes dados de alta exitosamente", count))
 }
 
@@ -303,9 +303,9 @@ func (h *AdminAcademicHandler) EnrollStudentsBatch(w http.ResponseWriter, r *htt
 	}
 
 	SendJSON(w, http.StatusCreated, map[string]interface{}{
-		"enrolled_count":     enrolled,
-		"skipped_not_found":  skipped,
-		"total_processed":    len(req.Emails),
+		"enrolled_count":    enrolled,
+		"skipped_not_found": skipped,
+		"total_processed":   len(req.Emails),
 	}, fmt.Sprintf("%d estudiantes matriculados exitosamente", enrolled))
 }
 

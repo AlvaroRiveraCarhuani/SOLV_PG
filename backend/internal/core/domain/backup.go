@@ -16,17 +16,17 @@ const (
 
 // BackupConfig define las políticas de retención y sincronización (ADR-035)
 type BackupConfig struct {
-	ID                       string    `db:"id" json:"id"`
-	TenantID                 string    `db:"tenant_id" json:"tenant_id"`
-	LocalFrequencyHours      int       `db:"local_frequency_hours" json:"local_frequency_hours"`
-	LocalRetentionDays       int       `db:"local_retention_days" json:"local_retention_days"`
-	RemoteEnabled            bool      `db:"remote_enabled" json:"remote_enabled"`
-	RemoteProvider           string    `db:"remote_provider" json:"remote_provider"`
-	RemoteBucketName         string    `db:"remote_bucket_name" json:"remote_bucket_name"`
-	RemoteEndpoint           string    `db:"remote_endpoint" json:"remote_endpoint"`
-	RemoteAccessKey          string    `db:"remote_access_key" json:"remote_access_key,omitempty"`
-	RemoteSecretKeyEncrypted string    `db:"remote_secret_key_encrypted" json:"-"`
-	RemoteRetentionDays      int       `db:"remote_retention_days" json:"remote_retention_days"`
+	ID                       string     `db:"id" json:"id"`
+	TenantID                 string     `db:"tenant_id" json:"tenant_id"`
+	LocalFrequencyHours      int        `db:"local_frequency_hours" json:"local_frequency_hours"`
+	LocalRetentionDays       int        `db:"local_retention_days" json:"local_retention_days"`
+	RemoteEnabled            bool       `db:"remote_enabled" json:"remote_enabled"`
+	RemoteProvider           string     `db:"remote_provider" json:"remote_provider"`
+	RemoteBucketName         string     `db:"remote_bucket_name" json:"remote_bucket_name"`
+	RemoteEndpoint           string     `db:"remote_endpoint" json:"remote_endpoint"`
+	RemoteAccessKey          string     `db:"remote_access_key" json:"remote_access_key,omitempty"`
+	RemoteSecretKeyEncrypted string     `db:"remote_secret_key_encrypted" json:"-"`
+	RemoteRetentionDays      int        `db:"remote_retention_days" json:"remote_retention_days"`
 	IsActive                 bool       `db:"is_active" json:"is_active"`
 	UpdatedAt                time.Time  `db:"updated_at" json:"updated_at"`
 	StoragePath              string     `db:"-" json:"storage_path,omitempty"`

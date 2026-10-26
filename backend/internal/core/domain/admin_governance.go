@@ -163,17 +163,17 @@ type CreateStudentDTO struct {
 // BatchCreateStudentsResult DTO con el resultado del alta masiva de estudiantes
 type BatchCreateStudentsResult struct {
 	TotalProcessed int `json:"total_processed"`
-	CreatedCount    int `json:"created_count"`
+	CreatedCount   int `json:"created_count"`
 }
 
 // RosterEnrollResult DTO con el resumen de la nómina de curso: cuentas creadas,
 // matriculaciones nuevas y correos inválidos/duplicados detectados.
 type RosterEnrollResult struct {
-	CreatedStudents   int      `json:"created_students"`
-	EnrolledStudents  int      `json:"enrolled_students"`
-	DuplicateEmails   []string `json:"duplicate_emails"`
-	InvalidEmails     []string `json:"invalid_emails"`
-	TotalDetected     int      `json:"total_detected"`
+	CreatedStudents  int      `json:"created_students"`
+	EnrolledStudents int      `json:"enrolled_students"`
+	DuplicateEmails  []string `json:"duplicate_emails"`
+	InvalidEmails    []string `json:"invalid_emails"`
+	TotalDetected    int      `json:"total_detected"`
 }
 
 // AdminStudentCourseItem DTO para el detalle de materias y espacios de trabajo del estudiante

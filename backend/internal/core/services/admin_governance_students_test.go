@@ -36,7 +36,7 @@ func (m *mockStudentBatchGovRepo) EnrollStudentsByEmails(ctx context.Context, te
 func TestCleanEmails(t *testing.T) {
 	cleaned := cleanEmails([]string{
 		"  Student1@UAB.edu.bo ",
-		"student1@uab.edu.bo",       // duplicado tras normalizar
+		"student1@uab.edu.bo", // duplicado tras normalizar
 		"not-an-email",
 		"",
 		"student2@uab.edu.bo",
