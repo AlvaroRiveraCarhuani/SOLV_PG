@@ -1,0 +1,96 @@
+<div class="constellation-wrap">
+  <div class="constellation-title-row">
+    <svg lucideOrbit class="constellation-title-icon"></svg>
+    <strong>{{ title() }}</strong>
+  </div>
+
+  @if (model(); as m) {
+    <div class="constellation-view">
+      @if (m.core; as core) {
+        <div class="constellation-core">
+          <div class="core-orbit-ring" aria-hidden="true"></div>
+          <span
+            class="constellation-node constellation-core-node"
+            [class.is-missing]="core.availability === 'missing'"
+            [class.is-incompatible]="core.availability === 'incompatible'"
+            [title]="core.name"
+          >
+            @if (core.iconKey) {
+              <tech-logo [iconType]="core.iconKey" [size]="34" />
+            } @else {
+              <span class="node-fallback font-mono" machineData>{{ core.slug }}</span>
+            }
+            <span class="node-role-badge">Núcleo</span>
+            <span class="node-name">{{ core.name }}</span>
+          </span>
+          @if (core.availability !== 'available') {
+            <span class="node-mini-status">
+              <svg lucideAlertTriangle class="status-icon-warn"></svg>
+            </span>
+          }
+        </div>
+      } @else {
+        <div class="constellation-empty-nucleus">
+          <svg lucideXCircle class="constellation-title-icon"></svg>
+          <span>Sin pieza principal seleccionada</span>
+        </div>
+      }
+
+      @if (orderedSatellites(); as satellites) {
+        <div class="constellation-satellites-row">
+          @for (sat of satellites; track sat.slug) {
+            <span
+              class="constellation-node constellation-satellite-node"
+              [class.is-missing]="sat.availability === 'missing'"
+              [class.is-incompatible]="sat.availability === 'incompatible'"
+              [title]="sat.availability === 'missing' ? 'No está en el catálogo' : sat.name"
+            >
+              @if (sat.iconKey) {
+                <tech-logo [iconType]="sat.iconKey" [size]="26" />
+              } @else {
+                <span class="node-fallback font-mono" machineData>{{ sat.slug }}</span>
+              }
+              <span class="node-role-badge">{{ sat.role }}</span>
+              <span class="node-name">{{ sat.name }}</span>
+              @if (sat.availability === 'missing') {
+                <span class="node-mini-status">
+                  <svg lucideXCircle class="status-icon-x"></svg>
+                </span>
+              } @else if (sat.availability === 'incompatible') {
+                <span class="node-mini-status">
+                  <svg lucideAlertTriangle class="status-icon-warn"></svg>
+                </span>
+              } @else {
+                <span class="node-mini-status">
+                  <svg lucideCheckCircle2 class="status-icon-ok"></svg>
+                </span>
+              }
+            </span>
+          } @empty {
+            <span class="constellation-empty-satellites">Sin componentes satélite</span>
+          }
+        </div>
+      }
+    </div>
+
+    <div class="constellation-legend">
+      <span class="legend-item">
+        <svg lucideCheckCircle2 class="legend-icon legend-icon-ok"></svg>
+        Disponible
+      </span>
+      <span class="legend-item">
+        <svg lucideAlertTriangle class="legend-icon legend-icon-warn"></svg>
+        Incompatible con el núcleo
+      </span>
+      <span class="legend-item">
+        <svg lucideXCircle class="legend-icon legend-icon-x"></svg>
+        No está en el catálogo
+      </span>
+    </div>
+  } @else {
+    <div class="constellation-void">
+      <svg lucideOrbit class="void-icon"></svg>
+      <span>El mapa se construye al proponer una arquitectura o elegir tecnologías en el Paso 2.</span>
+    </div>
+  }
+</div>

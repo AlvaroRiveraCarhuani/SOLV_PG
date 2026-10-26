@@ -117,6 +117,198 @@ export interface AiProposalView {
   latencyMs?: number;
 }
 
+// --- Modelo de la constelación visual del stack (mapa de herramientas) ---
+
+export type ConstellationRole =
+  | 'lenguaje'
+  | 'web'
+  | 'addon'
+  | 'database';
+
+export type ConstellationAvailability =
+  | 'available'   // en el catálogo y compatible con el núcleo
+  | 'incompatible' // en el catálogo pero incompatible con el núcleo (⚠)
+  | 'missing';     // no existe en el catálogo (✗)
+
+export interface ConstellationNode {
+  role: ConstellationRole;
+  name: string;
+  slug: string;
+  iconKey: string;
+  availability: ConstellationAvailability;
+  isCore: boolean;
+  ramDeltaMB: number;
+}
+
+export interface StackConstellation {
+  core: ConstellationNode | null;
+  satellites: ConstellationNode[];
+  ramMB: number;
+  hasSetupScript: boolean;
+}
+
+// Devuelve true si el addon encaja con las familias activas del componente núcleo
+// (misma lógica de familias que computeCompatibleAddonsForSelection).
+export function addonFitsCore(addon: TemplateComponent, core: TemplateComponent): boolean {
+  const activeFamilies = new Set<string>(['universal']);
+  if (core.slug) activeFamilies.add(core.slug.toLowerCase());
+  if (core.id) activeFamilies.add(core.id.toLowerCase());
+  if (core.icon_key) activeFamilies.add(core.icon_key.toLowerCase());
+  for (const fam of core.compatible_runtimes || []) {
+    activeFamilies.add(fam.toLowerCase());
+  }
+  const compat = addon.compatible_runtimes || [];
+  if (compat.length === 0) return true;
+  return compat.some((c) => activeFamilies.has(c.toLowerCase()));
+}
+
+// Construye la constelación desde una propuesta del Copiloto. El núcleo es el
+// lenguaje (o la web si no hay lenguaje); los satélites son web, complementos y
+// base de datos. Los addons presentes pero incompatibles con ese núcleo pasan a
+// estado 'incompatible'; los slugs sin pieza en el catálogo pasan a 'missing'.
+export function buildConstellationFromProposal(
+  view: AiProposalView,
+  targetEnvironment: TargetEnvironment
+): StackConstellation {
+  const satellites: ConstellationNode[] = [];
+
+  const nodeFromComponent = (
+    comp: TemplateComponent,
+    role: ConstellationRole,
+    availability: ConstellationAvailability
+  ): ConstellationNode => ({
+    role,
+    name: comp.name,
+    slug: comp.slug || comp.id,
+    iconKey: comp.icon_key,
+    availability,
+    isCore: false,
+    ramDeltaMB: comp.ram_delta_mb || 0
+  });
+
+  // Núcleo: lenguaje principal; si no hay, la web.
+  let core: ConstellationNode | null = null;
+  if (view.runtime) {
+    core = nodeFromComponent(view.runtime, 'lenguaje', 'available');
+  } else if (view.web) {
+    core = nodeFromComponent(view.web, 'web', 'available');
+  }
+  if (core) core.isCore = true;
+
+  // Web como satélite cuando el núcleo es el lenguaje; si se propuso pero no
+  // existe en el catálogo, se lista como faltante.
+  if (view.runtime && view.web) {
+    satellites.push(nodeFromComponent(view.web, 'web', 'available'));
+  } else if (view.runtime && view.webSlug && targetEnvironment === 'IDE_PERSISTENTE') {
+    satellites.push({
+      role: 'web',
+      name: view.webSlug,
+      slug: view.webSlug,
+      iconKey: '',
+      availability: 'missing',
+      isCore: false,
+      ramDeltaMB: 0
+    });
+  }
+
+  // Complementos: disponibles o incompatibles con el núcleo.
+  const resolvedSlugs = new Set<string>();
+  for (const addon of view.addons) {
+    resolvedSlugs.add((addon.slug || '').toLowerCase());
+    resolvedSlugs.add((addon.id || '').toLowerCase());
+    resolvedSlugs.add((addon.icon_key || '').toLowerCase());
+    const availability: ConstellationAvailability =
+      core && !addonFitsCore(addon, view.runtime || view.web!)
+        ? 'incompatible'
+        : 'available';
+    satellites.push(nodeFromComponent(addon, 'addon', availability));
+  }
+
+  // Slugs de addons sin pieza en el catálogo.
+  for (const slug of view.addonSlugs || []) {
+    const key = slug.toLowerCase();
+    if (resolvedSlugs.has(key)) continue;
+    satellites.push({ role: 'addon', name: slug, slug, iconKey: '', availability: 'missing', isCore: false, ramDeltaMB: 0 });
+  }
+
+  // Base de datos.
+  if (view.database) {
+    satellites.push(nodeFromComponent(view.database, 'database', 'available'));
+  } else if (view.databaseSlug) {
+    satellites.push({
+      role: 'database',
+      name: view.databaseSlug,
+      slug: view.databaseSlug,
+      iconKey: '',
+      availability: 'missing',
+      isCore: false,
+      ramDeltaMB: 0
+    });
+  }
+
+  // Núcleo ausente: se lista como nodo faltante para que la advertencia exista.
+  if (!core && (view.runtimeSlug || view.webSlug)) {
+    const missingSlug = view.runtimeSlug || view.webSlug;
+    satellites.unshift({
+      role: view.runtimeSlug ? 'lenguaje' : 'web',
+      name: missingSlug,
+      slug: missingSlug,
+      iconKey: '',
+      availability: 'missing',
+      isCore: false,
+      ramDeltaMB: 0
+    });
+  }
+
+  return { core, satellites, ramMB: view.ramMB, hasSetupScript: view.hasSetupScript };
+}
+
+// Construye la constelación desde la selección actual del constructor (Paso 2)
+// cuando no hay propuesta del Copiloto: todo lo seleccionado es compatible por
+// construcción, así que nunca hay estados 'missing' ni 'incompatible'.
+export function buildConstellationFromSelection(
+  rt: TemplateComponent | null,
+  web: TemplateComponent | null,
+  addons: TemplateComponent[],
+  database: StudioDatabaseOption | null,
+  targetEnvironment: TargetEnvironment
+): StackConstellation {
+  const satellites: ConstellationNode[] = [];
+
+  const nodeFromComponent = (
+    comp: TemplateComponent,
+    role: ConstellationRole
+  ): ConstellationNode => ({
+    role,
+    name: comp.name,
+    slug: comp.slug || comp.id,
+    iconKey: comp.icon_key,
+    availability: 'available',
+    isCore: false,
+    ramDeltaMB: comp.ram_delta_mb || 0
+  });
+
+  let core: ConstellationNode | null = null;
+  if (rt) {
+    core = nodeFromComponent(rt, 'lenguaje');
+  } else if (web && targetEnvironment === 'IDE_PERSISTENTE') {
+    core = nodeFromComponent(web, 'web');
+  }
+  if (core) core.isCore = true;
+
+  if (rt && web && targetEnvironment === 'IDE_PERSISTENTE') {
+    satellites.push(nodeFromComponent(web, 'web'));
+  }
+  for (const addon of addons) {
+    satellites.push(nodeFromComponent(addon, 'addon'));
+  }
+  if (database && database.service_engine !== 'none') {
+    satellites.push(nodeFromComponent(database, 'database'));
+  }
+
+  return { core, satellites, ramMB: 0, hasSetupScript: false };
+}
+
 export function analyzeDockerfile(content: string): DockerfileDiagnostic[] {
   const trimmed = (content || '').trim();
   if (!trimmed) return [];

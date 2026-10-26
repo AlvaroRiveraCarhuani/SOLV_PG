@@ -27,18 +27,7 @@
       </p>
     </div>
 
-    @if (aiEnabled()) {
-      <div class="header-right">
-        <button
-          type="button"
-          class="btn-ai-header-trigger"
-          (click)="openAiCopilotModal()"
-        >
-          <svg lucideSparkles class="btn-icon-xs"></svg>
-          <span>Diseñar con Copiloto IA</span>
-        </button>
-      </div>
-    }
+
   </header>
 
   <div class="studio-grid">
@@ -162,7 +151,6 @@
                     <div class="comp-compact-row">
                       <tech-logo [iconType]="rt.icon_key" [size]="22" />
                       <span class="comp-name">{{ rt.name }}</span>
-                      <span class="comp-role-badge">{{ getRoleBadge(rt) }}</span>
                       <button
                         type="button"
                         class="comp-edit-btn"
@@ -220,7 +208,6 @@
                       <div class="comp-compact-row">
                         <tech-logo [iconType]="web.icon_key" [size]="22" />
                         <span class="comp-name">{{ web.name }}</span>
-                        <span class="comp-role-badge">{{ getRoleBadge(web) }}</span>
                         <button
                           type="button"
                           class="comp-edit-btn"
@@ -806,6 +793,7 @@
       [isSuggesting]="isSuggestingWithAi()"
       [elapsedSeconds]="aiElapsedSeconds()"
       [proposalView]="aiProposalView()"
+      [constellation]="stackConstellation()"
       [isApplied]="aiProposalApplied()"
       [targetEnvironment]="targetEnvironment()"
       (promptChange)="aiPrompt.set($event)"

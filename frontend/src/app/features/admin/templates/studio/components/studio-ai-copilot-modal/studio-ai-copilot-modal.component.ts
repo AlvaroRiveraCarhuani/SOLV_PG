@@ -3,19 +3,16 @@ import { FormsModule } from '@angular/forms';
 import {
   LucideSparkles,
   LucideCheckCircle2,
-  LucideAlertTriangle,
   LucideRotateCcw,
   LucideRefreshCw,
   LucideXCircle,
-  LucideCode,
-  LucideHardDrive,
   LucideCheckCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { TechLogoComponent } from '../../../components/tech-logo/tech-logo.component';
+import { StackConstellationComponent } from '../stack-constellation/stack-constellation.component';
 import { TargetEnvironment } from '@features/admin/models/admin-templates.models';
-import { AiProposalView } from '../../template-studio.utils';
+import { AiProposalView, StackConstellation } from '../../template-studio.utils';
 
 @Component({
   selector: 'studio-ai-copilot-modal',
@@ -24,15 +21,12 @@ import { AiProposalView } from '../../template-studio.utils';
     FormsModule,
     ModalShellComponent,
     MachineDataDirective,
-    TechLogoComponent,
+    StackConstellationComponent,
     LucideSparkles,
     LucideCheckCircle2,
-    LucideAlertTriangle,
     LucideRotateCcw,
     LucideRefreshCw,
     LucideXCircle,
-    LucideCode,
-    LucideHardDrive,
     LucideCheckCircle
   ],
   templateUrl: './studio-ai-copilot-modal.component.html',
@@ -45,6 +39,7 @@ export class StudioAiCopilotModalComponent {
   readonly isSuggesting = input<boolean>(false);
   readonly elapsedSeconds = input<string>('0.0');
   readonly proposalView = input<AiProposalView | null>(null);
+  readonly constellation = input<StackConstellation | null>(null);
   readonly isApplied = input<boolean>(false);
   readonly targetEnvironment = input<TargetEnvironment>('IDE_PERSISTENTE');
 

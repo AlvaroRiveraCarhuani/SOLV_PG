@@ -43,6 +43,8 @@ import {
   classifyAddonComponent,
   computeCompatibleAddonsForSelection,
   computeIntensiveRamMB,
+  buildConstellationFromProposal,
+  buildConstellationFromSelection,
   computeMinimumFloorMBForStack,
   computeRecommendedRamMBForStack,
   computeVerificationFingerprint,
@@ -54,6 +56,7 @@ import {
   getComponentRoleBadge,
   importBrowserTextFile,
   isFrameworkAddon,
+  StackConstellation,
   StudioActionBlocker,
   StudioDatabaseOption,
   synthesizeVisualStackState
@@ -1241,6 +1244,22 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       rationale: res.rationale,
       latencyMs: res.latency_ms
     };
+  });
+
+  // Constelación visual del stack: usa la propuesta del Copiloto cuando existe;
+  // si no, refleja la selección actual del Paso 2 (todo compatible por diseño).
+  readonly stackConstellation = computed<StackConstellation | null>(() => {
+    const proposal = this.aiProposalView();
+    if (proposal) {
+      return buildConstellationFromProposal(proposal, this.targetEnvironment());
+    }
+    return buildConstellationFromSelection(
+      this.selectedRuntimeComponent(),
+      this.selectedWebComponent(),
+      this.selectedAddonComponents(),
+      this.selectedDatabaseOption(),
+      this.targetEnvironment()
+    );
   });
 
   // Aplica la propuesta revisada: sincroniza el constructor visual y el

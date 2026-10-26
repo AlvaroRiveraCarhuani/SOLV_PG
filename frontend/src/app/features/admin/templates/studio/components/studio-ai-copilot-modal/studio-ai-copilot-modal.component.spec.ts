@@ -133,6 +133,39 @@ describe('StudioAiCopilotModalComponent', () => {
 
   it('should render the specification sheet when proposalView is present', () => {
     fixture.componentRef.setInput('proposalView', mockProposal);
+    fixture.componentRef.setInput('constellation', {
+      core: {
+        role: 'lenguaje',
+        name: 'Python 3.12',
+        slug: 'python-312',
+        iconKey: 'python',
+        availability: 'available',
+        isCore: true,
+        ramDeltaMB: 0
+      },
+      satellites: [
+        {
+          role: 'addon',
+          name: 'FastAPI',
+          slug: 'fastapi',
+          iconKey: 'fastapi',
+          availability: 'available',
+          isCore: false,
+          ramDeltaMB: 256
+        },
+        {
+          role: 'addon',
+          name: 'pytest-custom',
+          slug: 'pytest-custom',
+          iconKey: '',
+          availability: 'missing',
+          isCore: false,
+          ramDeltaMB: 0
+        }
+      ],
+      ramMB: 1536,
+      hasSetupScript: true
+    });
     fixture.detectChanges();
 
     const specSheet = fixture.nativeElement.querySelector('.spec-sheet');
@@ -141,7 +174,6 @@ describe('StudioAiCopilotModalComponent', () => {
     expect(specSheet.textContent).toContain('Python 3.12');
     expect(specSheet.textContent).toContain('FastAPI');
     expect(specSheet.textContent).toContain('pytest-custom');
-    expect(specSheet.textContent).toContain('1536 MB');
   });
 
   it('should emit apply and discard when buttons in footer are clicked', () => {
