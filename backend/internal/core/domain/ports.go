@@ -142,6 +142,42 @@ type WorkspaceOrchestrator interface {
 	PullImage(ctx context.Context, imageRef string) error
 }
 
+// ManagedSatelliteSpec describe un contenedor satélite de base de datos que se levanta
+// bajo demanda y se comparte entre los laboratorios del nodo, aislados por credenciales.
+// El volumen de datos es nombrado y persistente: detener el contenedor nunca borra datos.
+type ManagedSatelliteSpec struct {
+	Engine        string
+	Image         string
+	ContainerName string
+	VolumeName    string
+	NetworkName   string
+	MemoryLimitMB int64
+	Port          int
+	Env           []string
+	Cmd           []string
+	// ReadyCmd es el comando de verificación de arranque ejecutado dentro del
+	// contenedor con backoff acotado antes de exponer el endpoint.
+	ReadyCmd []string
+}
+
+// ManagedSatelliteEndpoint es el punto de acceso resuelto de un satélite gestionado.
+type ManagedSatelliteEndpoint struct {
+	Engine      string
+	Host        string
+	Port        int
+	ContainerID string
+}
+
+// ManagedSatelliteOrchestrator es una capacidad opcional del orquestador: levanta,
+// detiene y ejecuta comandos en los contenedores satélite gestionados del nodo.
+// Se resuelve por type-assertion para no ampliar WorkspaceOrchestrator ni romper sus
+// implementaciones y mocks.
+type ManagedSatelliteOrchestrator interface {
+	EnsureManagedSatelliteRunning(ctx context.Context, spec ManagedSatelliteSpec) (*ManagedSatelliteEndpoint, error)
+	StopManagedSatellite(ctx context.Context, engine string) error
+	ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error)
+}
+
 type TenantRepository interface {
 	GetByID(ctx context.Context, id string) (*Tenant, error)
 	GetBySlug(ctx context.Context, slug string) (*Tenant, error)

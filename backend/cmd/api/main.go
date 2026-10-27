@@ -92,6 +92,9 @@ func main() {
 
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
 	workspaceService.SetPoliciesService(serverPoliciesService)
+	// Scale-to-Zero de motores de base de datos auto-orquestados: el worker de QoS apaga
+	// los satélites (mysql, mariadb, mongodb, redis) que ya no usa ningún laboratorio.
+	qosWorker.SetManagedSatelliteReconciler(workspaceService.ReconcileIdleManagedSatellites)
 	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
 		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
 		if err != nil {

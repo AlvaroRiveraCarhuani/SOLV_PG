@@ -178,6 +178,17 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		return "", fmt.Errorf("failed to start workspace container %q: %w", config.ContainerName, err)
 	}
 
+	// El laboratorio que declara un motor gestionado se conecta a la red interna de
+	// satélites para resolver 'solv-sat-<engine>'. Si la conexión falla, el contenedor
+	// se descarta: un laboratorio sin su base de datos fallaría de forma confusa y
+	// silenciosa más adelante.
+	if config.AttachSatellitesNet {
+		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
+			_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			return "", fmt.Errorf("failed to attach workspace container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
+		}
+	}
+
 	return resp.ID, nil
 }
 

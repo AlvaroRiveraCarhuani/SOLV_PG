@@ -76,7 +76,16 @@ func (m *mockWorkspaceRepo) GetActiveWorkspaces(ctx context.Context) ([]*domain.
 }
 
 func (m *mockWorkspaceRepo) GetAllRunningWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
-	return nil, nil
+	seen := make(map[*domain.WorkspaceInstance]bool)
+	var running []*domain.WorkspaceInstance
+	for _, ws := range m.workspaces {
+		if ws == nil || seen[ws] || ws.Status != domain.WorkspaceStatusRunning {
+			continue
+		}
+		seen[ws] = true
+		running = append(running, ws)
+	}
+	return running, nil
 }
 
 func (m *mockWorkspaceRepo) GetByType(ctx context.Context, wsType string) ([]*domain.WorkspaceInstance, error) {
@@ -87,9 +96,23 @@ func (m *mockWorkspaceRepo) SaveSemgrepAudit(ctx context.Context, id string, aud
 	return nil
 }
 
+type satelliteExec struct {
+	engine string
+	cmd    []string
+}
+
 type mockOrchestrator struct {
 	lastConfig  *domain.WorkspaceContainerConfig
 	lastExecCmd []string
+
+	// Satélites gestionados: el mock registra specs levantadas, motores detenidos y
+	// comandos ejecutados, y simula el registro de migraciones del ejercicio para
+	// verificar que el db_init_script se aplica una sola vez.
+	satelliteSpecs       []domain.ManagedSatelliteSpec
+	satelliteStops       []string
+	satelliteExecs       []satelliteExec
+	satelliteScriptRuns  int
+	satelliteEnsureError error
 }
 
 func (m *mockOrchestrator) EnsureVolumeExists(ctx context.Context, volumeName string) error {
@@ -149,6 +172,56 @@ func (m *mockOrchestrator) InspectLocalImage(ctx context.Context, imageRef strin
 
 func (m *mockOrchestrator) PullImage(ctx context.Context, imageRef string) error {
 	return nil
+}
+
+func (m *mockOrchestrator) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.ManagedSatelliteSpec) (*domain.ManagedSatelliteEndpoint, error) {
+	if m.satelliteEnsureError != nil {
+		return nil, m.satelliteEnsureError
+	}
+	m.satelliteSpecs = append(m.satelliteSpecs, spec)
+	return &domain.ManagedSatelliteEndpoint{
+		Engine:      spec.Engine,
+		Host:        spec.ContainerName,
+		Port:        spec.Port,
+		ContainerID: "sat-" + spec.Engine,
+	}, nil
+}
+
+func (m *mockOrchestrator) StopManagedSatellite(ctx context.Context, engine string) error {
+	m.satelliteStops = append(m.satelliteStops, engine)
+	return nil
+}
+
+func (m *mockOrchestrator) ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error) {
+	m.satelliteExecs = append(m.satelliteExecs, satelliteExec{engine: engine, cmd: cmd})
+	sql := ""
+	if len(cmd) > 0 {
+		sql = cmd[len(cmd)-1]
+	}
+	switch {
+	case strings.Contains(sql, "SELECT COUNT(*) FROM _solv_exercise_migrations"):
+		if m.satelliteScriptRuns > 0 {
+			return "1\n", nil
+		}
+		return "0\n", nil
+	case strings.Contains(sql, "_solv_exercise_migrations") || strings.Contains(sql, "CREATE DATABASE IF NOT EXISTS"):
+		return "", nil
+	default:
+		m.satelliteScriptRuns++
+		return "", nil
+	}
+}
+
+// satelliteExecutedSQL indica si algún comando ejecutado contiene el fragmento dado.
+func (m *mockOrchestrator) satelliteExecutedSQL(fragment string) bool {
+	for _, exec := range m.satelliteExecs {
+		for _, arg := range exec.cmd {
+			if strings.Contains(arg, fragment) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 type mockHostMonitor struct{}

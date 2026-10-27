@@ -23,7 +23,11 @@ type QoSOrchestratorWorker struct {
 	inactivityTimeout time.Duration
 	checkInterval     time.Duration
 	policiesProvider  func(ctx context.Context) (int, bool) // minutos de inactividad vigentes, opcional
-	history           map[string]*containerStatsHistory
+	// satelliteReconciler apaga los motores de base de datos gestionados que ya no usa
+	// ningún laboratorio activo (Scale-to-Zero). Se inyecta desde el servicio de
+	// laboratorios porque es quien conoce la plantilla de cada sesión.
+	satelliteReconciler func(ctx context.Context)
+	history             map[string]*containerStatsHistory
 	mu                sync.Mutex
 	stopChan          chan struct{}
 }
@@ -80,6 +84,13 @@ func (w *QoSOrchestratorWorker) Stop() {
 // vigente se aplica desde el siguiente ciclo sin reiniciar el worker.
 func (w *QoSOrchestratorWorker) SetPoliciesProvider(provider func(ctx context.Context) (int, bool)) {
 	w.policiesProvider = provider
+}
+
+// SetManagedSatelliteReconciler inyecta el apagado por falta de uso de los satélites
+// gestionados: cada ciclo del worker deja el nodo igual que lo encontró, sin motores
+// encendidos que nadie usa.
+func (w *QoSOrchestratorWorker) SetManagedSatelliteReconciler(reconciler func(ctx context.Context)) {
+	w.satelliteReconciler = reconciler
 }
 
 // effectiveInactivityTimeout resuelve el timeout vigente para este ciclo.
@@ -196,5 +207,11 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 				w.mu.Unlock()
 			}
 		}
+	}
+
+	// Scale-to-Zero de los motores gestionados tras aplicar la hibernación del ciclo:
+	// el reconciliador registra internamente lo que no se pueda liberar.
+	if w.satelliteReconciler != nil {
+		w.satelliteReconciler(ctx)
 	}
 }

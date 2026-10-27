@@ -204,35 +204,38 @@ func templateDeclaresPostgres(template *domain.Template) bool {
 	return false
 }
 
-// ensureExerciseSatelliteDB asegura la base satélite del alumno y aplica el
-// db_init_script del ejercicio una sola vez (hard-fail: si el script falla, el
-// inicio o la reactivación se aborta). Devuelve el nombre de la BD satélite.
-func (s *WorkspaceService) ensureExerciseSatelliteDB(ctx context.Context, studentID, subjectID string, template *domain.Template, exercise *domain.Exercise) (string, error) {
-	script := ""
-	if exercise != nil && exercise.Config.IDE != nil {
-		script = strings.TrimSpace(exercise.Config.IDE.DBInitScript)
+// ensureExerciseSatelliteDB asegura el motor de base de datos que declara la plantilla
+// del laboratorio y devuelve las credenciales aisladas del alumno: para mysql, mariadb,
+// mongodb y redis levanta el contenedor satélite bajo demanda; para PostgreSQL usa la
+// base del aula. El db_init_script del ejercicio se aplica una sola vez (hard-fail: si el
+// script falla, el inicio o la reactivación se aborta).
+func (s *WorkspaceService) ensureExerciseSatelliteDB(ctx context.Context, studentID, subjectID string, template *domain.Template, exercise *domain.Exercise) (satelliteProvision, error) {
+	if engine := templateManagedEngine(template); engine != "" {
+		return s.provisionManagedSatellite(ctx, engine, studentID, subjectID, exercise)
 	}
+
+	script := exerciseDBInitScript(exercise)
 	if script == "" && !templateDeclaresPostgres(template) {
-		return "", nil
+		return satelliteProvision{}, nil
 	}
 	if s.db == nil {
 		if script != "" {
 			log.Printf("[Satellite DB Warning] no hay conexión a PostgreSQL configurada: db_init_script del ejercicio %s omitido", exercise.ID)
 		}
-		return "", nil
+		return satelliteProvision{}, nil
 	}
 
-	dbName := fmt.Sprintf("solv_std_%s_%s", sanitizeIDForDB(studentID), sanitizeIDForDB(subjectID))
+	dbName := satelliteDatabaseName(studentID, subjectID)
 	if err := ensureSatellitePostgresDatabase(ctx, s.db, dbName); err != nil {
-		return "", fmt.Errorf("failed to ensure satellite database %s: %w", dbName, err)
+		return satelliteProvision{}, fmt.Errorf("failed to ensure satellite database %s: %w", dbName, err)
 	}
 	if script != "" {
 		if err := applyExerciseDBInitScript(ctx, dbName, exercise.ID, script); err != nil {
-			return "", fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
+			return satelliteProvision{}, fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
 		}
 		log.Printf("[Satellite DB] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
 	}
-	return dbName, nil
+	return satelliteProvision{PostgresDBName: dbName}, nil
 }
 
 func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
@@ -311,7 +314,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		// base satélite y el db_init_script del ejercicio también deben quedar
 		// asegurados antes de devolverlo o reactivarlo. El registro de
 		// _solv_exercise_migrations hace la operación idempotente.
-		satelliteDBName, dbErr := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+		provision, dbErr := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
 		if dbErr != nil {
 			return nil, dbErr
 		}
@@ -329,7 +332,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 			_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
 		}
 
-		return s.reactivateWorkspace(ctx, existing, satelliteDBName)
+		return s.reactivateWorkspace(ctx, existing, provision)
 	}
 
 	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
@@ -352,7 +355,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		}
 	}
 
-	satelliteDBName, err := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+	provision, err := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
 	if err != nil {
 		return nil, err
 	}
@@ -414,34 +417,37 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
 
-	// 8. Inyección de credenciales de la base satélite ya asegurada (ADR-030).
-	// El helper ensureExerciseSatelliteDB ya creó la BD y aplicó el
+	// 8. Inyección de las credenciales del motor ya asegurado (ADR-030 / ADR-046):
+	// DATABASE_URL y afines del satélite gestionado, o la base del aula en PostgreSQL
+	// compartido. El helper ensureExerciseSatelliteDB ya creó la base y aplicó el
 	// db_init_script del ejercicio en modo hard-fail.
-	if satelliteDBName != "" && s.db != nil {
+	envVars = append(envVars, provision.Env...)
+	if provision.PostgresDBName != "" && s.db != nil {
 		pgHost := getPostgresContainerHost()
-		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, satelliteDBName)
+		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, provision.PostgresDBName)
 		envVars = append(envVars,
 			fmt.Sprintf("DATABASE_URL=%s", dbURL),
 			fmt.Sprintf("PGHOST=%s", pgHost),
 			"PGPORT=5432",
 			"PGUSER=postgres",
 			"PGPASSWORD=postgres",
-			fmt.Sprintf("PGDATABASE=%s", satelliteDBName),
+			fmt.Sprintf("PGDATABASE=%s", provision.PostgresDBName),
 		)
-		log.Printf("[Satellite DB] Injected DATABASE_URL for workspace %s (db: %s)", workspaceID, satelliteDBName)
+		log.Printf("[Satellite DB] Injected DATABASE_URL for workspace %s (db: %s)", workspaceID, provision.PostgresDBName)
 	}
 
 	// 9. Configuración del contenedor OpenVSCode Server
 	config := domain.WorkspaceContainerConfig{
-		Image:         imageName,
-		ContainerName: containerName,
-		VolumeName:    volumeName,
-		MemoryLimitMB: ramLimitMB,
-		NetworkName:   networkName,
-		Labels:        labels,
-		Env:           envVars,
-		SetupScript:   sanitizeWorkspaceSetupScript(template),
-		HostPort:      hostPort,
+		Image:               imageName,
+		ContainerName:       containerName,
+		VolumeName:          volumeName,
+		MemoryLimitMB:       ramLimitMB,
+		NetworkName:         networkName,
+		Labels:              labels,
+		Env:                 envVars,
+		SetupScript:         sanitizeWorkspaceSetupScript(template),
+		HostPort:            hostPort,
+		AttachSatellitesNet: provision.UsesManagedContainer,
 	}
 
 	// 10. Instanciación e inicio del contenedor OpenVSCode Server

@@ -59,6 +59,11 @@ type WorkspaceContainerConfig struct {
 	// HostPort es el puerto ya reservado en 127.0.0.1 que se publicará contra el
 	// 3000/tcp del contenedor. Vacío delega la elección al daemon de Docker.
 	HostPort string
+	// AttachSatellitesNet conecta además el contenedor del laboratorio a la red
+	// interna de satélites, donde resuelve por DNS el motor de base de datos que
+	// su plantilla declara (solv-sat-<engine>). Falso cuando el laboratorio no usa
+	// un satélite gestionado.
+	AttachSatellitesNet bool
 }
 
 // WorkspaceVolumeFile es un archivo leído del volumen de un workspace.

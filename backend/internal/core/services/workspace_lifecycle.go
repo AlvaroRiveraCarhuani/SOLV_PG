@@ -9,7 +9,7 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, satelliteDBName string) (*domain.WorkspaceInstance, error) {
+func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, provision satelliteProvision) (*domain.WorkspaceInstance, error) {
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
 	if instance.ContainerID != nil && *instance.ContainerID != "" {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
@@ -59,34 +59,36 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 		}
 	}
 
-	// Reinyección de credenciales satélite si aplica (la BD ya fue asegurada y el
+	// Reinyección de credenciales del motor si aplica (la base ya fue asegurada y el
 	// db_init_script del ejercicio aplicado por ensureExerciseSatelliteDB).
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
-	if satelliteDBName != "" {
+	envVars = append(envVars, provision.Env...)
+	if provision.PostgresDBName != "" {
 		pgHost := getPostgresContainerHost()
-		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, satelliteDBName)
+		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, provision.PostgresDBName)
 		envVars = append(envVars,
 			fmt.Sprintf("DATABASE_URL=%s", dbURL),
 			fmt.Sprintf("PGHOST=%s", pgHost),
 			"PGPORT=5432",
 			"PGUSER=postgres",
 			"PGPASSWORD=postgres",
-			fmt.Sprintf("PGDATABASE=%s", satelliteDBName),
+			fmt.Sprintf("PGDATABASE=%s", provision.PostgresDBName),
 		)
 	}
 
 	config := domain.WorkspaceContainerConfig{
-		Image:         imageName,
-		ContainerName: containerName,
-		VolumeName:    volumeName,
-		MemoryLimitMB: ramLimitMB,
-		NetworkName:   networkName,
-		Labels:        labels,
-		Env:           envVars,
-		SetupScript:   sanitizeWorkspaceSetupScript(template),
-		HostPort:      hostPort,
+		Image:               imageName,
+		ContainerName:       containerName,
+		VolumeName:          volumeName,
+		MemoryLimitMB:       ramLimitMB,
+		NetworkName:         networkName,
+		Labels:              labels,
+		Env:                 envVars,
+		SetupScript:         sanitizeWorkspaceSetupScript(template),
+		HostPort:            hostPort,
+		AttachSatellitesNet: provision.UsesManagedContainer,
 	}
 
 	containerID, err := s.docker.StartWorkspaceContainer(ctx, config)
@@ -123,11 +125,11 @@ func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID str
 	_ = s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusPending)
 
 	template := s.resolveTemplate(ctx, ws.SubjectID)
-	satelliteDBName, dbErr := s.ensureExerciseSatelliteDB(ctx, ws.StudentID, ws.SubjectID, template, nil)
+	provision, dbErr := s.ensureExerciseSatelliteDB(ctx, ws.StudentID, ws.SubjectID, template, nil)
 	if dbErr != nil {
 		return nil, dbErr
 	}
-	return s.reactivateWorkspace(ctx, ws, satelliteDBName)
+	return s.reactivateWorkspace(ctx, ws, provision)
 }
 
 func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID string) error {
@@ -146,6 +148,8 @@ func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID s
 		return fmt.Errorf("failed to update workspace status to failed: %w", err)
 	}
 
+	// Scale-to-Zero: el motor gestionado se apaga si este era su último laboratorio.
+	s.ReconcileIdleManagedSatellites(ctx)
 	return nil
 }
 
@@ -165,6 +169,8 @@ func (s *WorkspaceService) HibernateWorkspace(ctx context.Context, workspaceID s
 		return fmt.Errorf("failed to update workspace status to hibernated: %w", err)
 	}
 
+	// Scale-to-Zero: el motor gestionado se apaga si este era su último laboratorio.
+	s.ReconcileIdleManagedSatellites(ctx)
 	return nil
 }
 
@@ -187,6 +193,9 @@ func (s *WorkspaceService) PauseWorkspace(ctx context.Context, workspaceID strin
 	if err := s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusHibernated); err != nil {
 		return nil, fmt.Errorf("failed to update workspace status to hibernated: %w", err)
 	}
+
+	// Scale-to-Zero: el motor gestionado se apaga si este era su último laboratorio.
+	s.ReconcileIdleManagedSatellites(ctx)
 
 	ws.Status = domain.WorkspaceStatusHibernated
 	return ws, nil
