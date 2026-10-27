@@ -3,33 +3,52 @@ import {
   TargetEnvironment,
   TemplateComponent
 } from '../../services/admin-templates.service';
+import { AIMissingComponent } from '../../configuracion/admin-config-ia.service';
 
 // --- Resolución de propuestas del Copiloto contra el catálogo real del tenant ---
 
 // findCatalogComponentMatch resuelve un slug propuesto por el Copiloto
-// (python, node, cpp, angular...) contra un componente del catálogo activo por
-// id, slug o icon_key, en ese orden. Devuelve nil si el slug no existe hoy en
-// el catálogo: la pieza se marca como no disponible en la propuesta.
+// (python, node, cpp, angular...) contra un componente del catálogo activo por:
+// 1. Coincidencia exacta por id, slug o icon_key.
+// 2. Prefijo o sufijo de versión (ej. "python" -> "python-312" si es el runtime único/primario).
+// 3. Paquete o herramienta declarada en package_names o tools_provided (ej. "sqlalchemy" -> "python-sqlalchemy").
+// Devuelve null si no existe en el catálogo: la pieza se marca como faltante.
 export function findCatalogComponentMatch(components: TemplateComponent[], rawSlug: string): TemplateComponent | null {
 	const key = (rawSlug || '').trim().toLowerCase();
 	if (!key) {
 		return null;
 	}
+	// 1. Exact match en id, slug o icon_key
 	for (const c of components) {
-		if ((c.id || '').toLowerCase() === key) {
-			return c;
-		}
+		if ((c.id || '').toLowerCase() === key) return c;
 	}
 	for (const c of components) {
-		if ((c.slug || '').toLowerCase() === key) {
-			return c;
-		}
+		if ((c.slug || '').toLowerCase() === key) return c;
 	}
 	for (const c of components) {
-		if ((c.icon_key || '').toLowerCase() === key) {
-			return c;
+		if ((c.icon_key || '').toLowerCase() === key) return c;
+	}
+
+	// 2. Coincidencia por paquete incluido en package_names o tools_provided
+	for (const c of components) {
+		const pkgs = Array.isArray(c.package_names) ? c.package_names : [];
+		for (const p of pkgs) {
+			if ((p || '').trim().toLowerCase() === key) return c;
+		}
+		const tools = Array.isArray(c.tools_provided) ? c.tools_provided : [];
+		for (const t of tools) {
+			if ((t || '').trim().toLowerCase() === key) return c;
 		}
 	}
+
+	// 3. Coincidencia por prefijo de runtime de versión (ej. 'python' empareja con 'python-312')
+	// o por convención de nombre de ecosistema ('python-sqlalchemy' empareja con 'sqlalchemy')
+	for (const c of components) {
+		const slug = (c.slug || '').toLowerCase();
+		if (slug.startsWith(`${key}-`)) return c;
+		if (slug.endsWith(`-${key}`)) return c;
+	}
+
 	return null;
 }
 
@@ -111,6 +130,7 @@ export interface AiProposalView {
   database: StudioDatabaseOption | null;
   databaseSlug: string;
   missing: string[];
+  missingComponents?: AIMissingComponent[];
   runtimeChoices?: TemplateComponent[];
   webChoices?: TemplateComponent[];
   addonChoices?: TemplateComponent[];

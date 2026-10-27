@@ -122,6 +122,13 @@ export interface AISuggestTemplatePayload {
   target_environment: string;
 }
 
+export interface AIMissingComponent {
+  name: string;
+  layer: 'runtime' | 'addon' | 'database';
+  category?: string;
+  reason: string;
+}
+
 export interface AISuggestTemplateResponse {
   name: string;
   description: string;
@@ -132,6 +139,7 @@ export interface AISuggestTemplateResponse {
   setup_script: string;
   base_ram_mb: number;
   rationale: string;
+  missing_components?: AIMissingComponent[];
   latency_ms: number;
 }
 

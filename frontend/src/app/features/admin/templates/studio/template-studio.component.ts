@@ -38,6 +38,7 @@ import {
   LucideNetwork
 } from '@lucide/angular';
 import {
+  AiProposalView,
   analyzeDockerfile,
   buildStudioDatabaseOptions,
   CapacityOption,
@@ -74,19 +75,7 @@ import {
 
 // Resolución de una propuesta del Copiloto contra el catálogo real del tenant:
 // muestra qué piezas se pueden aplicar y cuáles faltan (no disponibles).
-interface StudioAiProposalView {
-  runtime: TemplateComponent | null;
-  runtimeSlug: string;
-  web: TemplateComponent | null;
-  webSlug: string;
-  addons: TemplateComponent[];
-  addonSlugs: string[];
-  database: StudioDatabaseOption | null;
-  databaseSlug: string;
-  missing: string[];
-  ramMB: number;
-  hasSetupScript: boolean;
-  rationale: string;
+interface StudioAiProposalView extends AiProposalView {
   latencyMs: number;
 }
 
@@ -1234,6 +1223,13 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       : null;
     if (!database && res.database_slug) missing.push(res.database_slug);
 
+    const proposalAddonChoices = computeCompatibleAddonsForSelection(
+      this.techComponents(),
+      runtime,
+      web,
+      this.targetEnvironment()
+    );
+
     return {
       runtime,
       runtimeSlug: res.runtime_slug || '',
@@ -1244,9 +1240,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       database,
       databaseSlug: res.database_slug || '',
       missing: [...new Set(missing)],
+      missingComponents: res.missing_components,
       runtimeChoices: this.backendRuntimes(),
       webChoices: this.webPlatforms(),
-      addonChoices: this.compatibleAddons(),
+      addonChoices: proposalAddonChoices,
       databaseChoices: this.databaseOptions(),
       ramMB: res.base_ram_mb,
       hasSetupScript: !!res.setup_script?.trim(),
