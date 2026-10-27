@@ -1,0 +1,272 @@
+<div class="administradores-tab">
+  @if (toast(); as t) {
+    <div class="toast-notification" [class.toast-error]="t.type === 'error'" role="status">
+      @if (t.type === 'success') {
+        <svg lucideCheckCircle2 class="toast-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="toast-icon"></svg>
+      }
+      <span>{{ t.message }}</span>
+    </div>
+  }
+
+  @if (isLoading()) {
+    <div class="loading-state" role="status">
+      <div class="spinner"></div>
+      <span>Cargando lista de administradores...</span>
+    </div>
+  } @else if (serviceError()) {
+    <div class="empty-state" role="alert">
+      <div class="empty-icon-box">
+        <svg lucideAlertCircle></svg>
+      </div>
+      <p class="empty-title">Error al cargar administradores</p>
+      <p class="empty-description">{{ serviceError() }}</p>
+    </div>
+  } @else {
+    <div class="admin-card">
+      <div class="card-header">
+        <div class="card-title-group">
+          <svg lucideShield class="card-icon"></svg>
+          <div>
+            <div class="title-with-badge">
+              <h2 class="section-title">Equipo con Rol Administrador</h2>
+              <span class="count-badge">{{ activeAdminsCount() }} activos</span>
+            </div>
+            <p class="card-hint">
+              Los administradores tienen acceso irrestricto a la gestión de infraestructura, plantillas globales, períodos lectivos y bitácora de auditoría.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="openCreateModal()"
+        >
+          <svg lucideUserPlus class="btn-icon"></svg>
+          <span>Agregar Administrador</span>
+        </button>
+      </div>
+
+      <div class="info-banner" role="note">
+        <svg lucideAlertCircle class="banner-icon"></svg>
+        <div class="banner-content">
+          <strong>Pre-aprovisionamiento institucional:</strong>
+          <span>
+            Al registrar a un nuevo administrador con su correo institucional, quedará habilitado de inmediato. Podrá ingresar directamente usando Google SSO sin esperar enlaces de confirmación.
+          </span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="admins-table">
+          <thead>
+            <tr>
+              <th scope="col">Usuario</th>
+              <th scope="col">Incorporación</th>
+              <th scope="col">Último Acceso</th>
+              <th scope="col">Estado</th>
+              <th scope="col" class="th-actions">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (admin of administrators(); track admin.id) {
+              <tr [class.self-row]="isSelf(admin)">
+                <td class="col-user">
+                  <div class="user-avatar-group">
+                    <div class="avatar-circle">
+                      {{ (admin.first_name[0] || 'A') + (admin.last_name[0] || '') }}
+                    </div>
+                    <div class="user-details">
+                      <div class="user-name-line">
+                        <span class="user-name">{{ admin.first_name }} {{ admin.last_name }}</span>
+                        @if (isSelf(admin)) {
+                          <span class="self-badge">Tú</span>
+                        }
+                      </div>
+                      <span class="user-email font-mono">{{ admin.email }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="col-date">
+                  <time [attr.datetime]="admin.created_at">{{ admin.created_at | dateText }}</time>
+                </td>
+                <td class="col-date">
+                  @if (admin.last_login_at) {
+                    <time [attr.datetime]="admin.last_login_at">{{ admin.last_login_at | dateText }}</time>
+                  } @else {
+                    <span class="text-muted">Sin registros</span>
+                  }
+                </td>
+                <td class="col-status">
+                  <span class="status-pill status-active">
+                    <svg lucideShieldCheck class="status-icon"></svg>
+                    <span>Activo</span>
+                  </span>
+                </td>
+                <td class="col-actions">
+                  <button
+                    type="button"
+                    class="btn-revoke"
+                    [disabled]="!canRevoke(admin)"
+                    [attr.title]="getRevokeDisabledTooltip(admin)"
+                    [attr.aria-label]="'Revocar privilegios a ' + admin.first_name + ' ' + admin.last_name"
+                    (click)="confirmRevoke(admin)"
+                  >
+                    <svg lucideTrash2 class="btn-icon-sm"></svg>
+                    <span>Revocar</span>
+                  </button>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="empty-table-cell">
+                  No se encontraron administradores registrados en la institución.
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+
+  <!-- Modal: Agregar Administrador -->
+  @if (isCreateModalOpen()) {
+    <modal-shell
+      title="Agregar Administrador"
+      subtitle="Pre-aprovisionamiento de credenciales con privilegios elevados"
+      maxWidth="520px"
+      [disableClose]="isSubmitting()"
+      (close)="closeCreateModal()"
+    >
+      <div modal-icon>
+        <svg lucideUserPlus></svg>
+      </div>
+
+      <div class="modal-form-content">
+        @if (formError()) {
+          <div class="form-error-banner" role="alert">
+            <svg lucideAlertCircle class="error-banner-icon"></svg>
+            <span>{{ formError() }}</span>
+          </div>
+        }
+
+        <div class="form-row">
+          <form-field label="Nombre" for="admin-first-name" [required]="true">
+            <input
+              id="admin-first-name"
+              type="text"
+              class="form-input"
+              placeholder="Ej. Carlos"
+              [disabled]="isSubmitting()"
+              [ngModel]="formFirstName()"
+              (ngModelChange)="formFirstName.set($event)"
+            />
+          </form-field>
+
+          <form-field label="Apellido" for="admin-last-name" [required]="true">
+            <input
+              id="admin-last-name"
+              type="text"
+              class="form-input"
+              placeholder="Ej. Gómez"
+              [disabled]="isSubmitting()"
+              [ngModel]="formLastName()"
+              (ngModelChange)="formLastName.set($event)"
+            />
+          </form-field>
+        </div>
+
+        <form-field
+          label="Correo Institucional"
+          for="admin-email"
+          hint="Debe coincidir con la cuenta de Google Workspace institucional del operador."
+          [required]="true"
+        >
+          <input
+            id="admin-email"
+            type="email"
+            class="form-input font-mono"
+            placeholder="operador@uab.edu.bo"
+            [disabled]="isSubmitting()"
+            [ngModel]="formEmail()"
+            (ngModelChange)="formEmail.set($event)"
+          />
+        </form-field>
+      </div>
+
+      <div modal-footer class="modal-footer-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          [disabled]="isSubmitting()"
+          (click)="closeCreateModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="isSubmitting()"
+          (click)="submitCreate()"
+        >
+          @if (isSubmitting()) {
+            <div class="spinner-sm"></div>
+            <span>Registrando...</span>
+          } @else {
+            <span>Habilitar Administrador</span>
+          }
+        </button>
+      </div>
+    </modal-shell>
+  }
+
+  <!-- Modal: Confirmar Revocación -->
+  @if (adminToRevoke(); as target) {
+    <modal-shell
+      title="Revocar Privilegios de Administrador"
+      intent="error"
+      maxWidth="480px"
+      [disableClose]="isSubmitting()"
+      (close)="cancelRevoke()"
+    >
+      <div modal-icon>
+        <svg lucideAlertTriangle></svg>
+      </div>
+
+      <div class="revoke-confirm-content">
+        <p class="confirm-lead">
+          ¿Confirmas la revocación de privilegios administrativos para <strong>{{ target.first_name }} {{ target.last_name }}</strong> (<span class="font-mono">{{ target.email }}</span>)?
+        </p>
+        <p class="confirm-warning">
+          El usuario perderá de forma inmediata el acceso a la consola de administración, auditoría y control de infraestructura de la institución.
+        </p>
+      </div>
+
+      <div modal-footer class="modal-footer-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          [disabled]="isSubmitting()"
+          (click)="cancelRevoke()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn-danger"
+          [disabled]="isSubmitting()"
+          (click)="executeRevoke()"
+        >
+          @if (isSubmitting()) {
+            <div class="spinner-sm"></div>
+            <span>Revocando...</span>
+          } @else {
+            <span>Revocar Acceso</span>
+          }
+        </button>
+      </div>
+    </modal-shell>
+  }
+</div>

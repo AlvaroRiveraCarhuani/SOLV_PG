@@ -21,7 +21,7 @@ describe('AdminConfiguracionComponent', () => {
   it('debe crearse con la pestaña de períodos activa por defecto', () => {
     expect(component.activeTab()).toBe('periodos');
     const tabs = fixture.nativeElement.querySelectorAll('.config-tab');
-    expect(tabs.length).toBe(4);
+    expect(tabs.length).toBe(5);
     expect(tabs[0].classList.contains('active')).toBe(true);
   });
 
@@ -42,6 +42,15 @@ describe('AdminConfiguracionComponent', () => {
     const panel = fixture.nativeElement.querySelector('.config-tab-panel');
     expect(panel.querySelector('admin-config-identidad')).not.toBeNull();
     expect(panel.querySelector('admin-config-periodos')).toBeNull();
+  });
+
+  it('debe renderizar el panel de administradores al seleccionar la pestaña correspondiente', () => {
+    component.selectTab('administradores');
+    fixture.detectChanges();
+
+    const panel = fixture.nativeElement.querySelector('.config-tab-panel');
+    expect(panel.querySelector('admin-config-administradores')).not.toBeNull();
+    expect(panel.querySelector('admin-config-identidad')).toBeNull();
   });
 
   it('debe mostrar el nombre institucional del tenant en el subtítulo', () => {
