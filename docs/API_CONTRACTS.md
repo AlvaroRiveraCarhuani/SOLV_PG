@@ -1772,3 +1772,86 @@ El `db_init_script` del ejercicio se aplica una sola vez por `exercise_id`, sell
 **Scale-to-Zero:** al hibernar, pausar o terminar un laboratorio —y en cada ciclo del worker de QoS— SOLV verifica si queda algún laboratorio en estado `running` que use cada motor gestionado. Cuando el conteo llega a `0`, el contenedor `solv-sat-<engine>` se detiene y libera toda su memoria del host; el contenedor no se elimina y su volumen de datos sobrevive, de modo que la próxima sesión lo reactiva sin reconstruir nada.
 
 **Override de destino:** `MYSQL_SATELLITE_HOST`, `MARIADB_SATELLITE_HOST`, `MONGODB_SATELLITE_HOST` y `REDIS_SATELLITE_HOST` dejan de ser un requisito de disponibilidad y pasan a ser un override opcional para apuntar a un motor externo ya provisionado. Con un override presente, SOLV no levanta ni apaga contenedores para ese motor.
+
+---
+
+## Slice 17 — Panel de Salud y Recursos (Telemetría Verdadera)
+
+### 1. Estado de Salud y Recursos del Host (`GET /api/v1/admin/metrics/health`)
+
+Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): telemetría del host vía el puerto `domain.HostTelemetry` (gopsutil + daemon Docker), conteos por estado del repositorio (`GROUP BY status`), capacidad calculada con `min(policy, RAM disponible)` e historial persistido en `host_metrics_samples`.
+
+- **Método:** `GET`
+- **Ruta:** `/api/v1/admin/metrics/health`
+- **Query opcional:** `?window=60m|24h` (ventana del historial; default `60m`, tope = retención de 7 días; también acepta sufijo de días, p. ej. `7d`).
+- **Headers requeridos:** `X-User-Id` / sesión admin, `X-Tenant-Id` (opcional, fallback por defecto).
+
+#### Ejemplo de Respuesta (`200 OK`)
+```json
+{
+  "tenant_id": "00000000-0000-0000-0000-000000000001",
+  "running_labs": 3,
+  "hibernated_labs": 1,
+  "oom_killed_labs": 1,
+  "unknown_labs": 0,
+  "orphaned_labs": 1,
+  "total_ram_alloc_mb": 1536,
+  "health_status": "critical",
+  "health_reasons": ["orphaned_workspaces", "oom_killed_workspaces"],
+  "uptime_seconds": 123456,
+  "host_hardware": {
+    "ram_used_bytes": 6227705856,
+    "ram_total_bytes": 8159223808,
+    "ram_percent": 76.3,
+    "cpu_cores": 8,
+    "cpu_percent": 14.2,
+    "disk_used_bytes": 197000000000,
+    "disk_total_bytes": 549000000000,
+    "disk_percent": 36,
+    "disk_path": "/var/lib/docker"
+  },
+  "docker": {
+    "server_version": "27.1.1",
+    "storage_driver": "overlay2",
+    "healthy": true
+  },
+  "load_history": [
+    {
+      "timestamp": "2026-10-27T17:12:00-04:00",
+      "ram_percent": 76.1,
+      "ram_used_gb": 5.8,
+      "cpu_percent": 14.0,
+      "active_containers": 3
+    }
+  ],
+  "host_safety_ceiling_pct": 85,
+  "estimated_max_containers": 7,
+  "capacity_basis": "mem_available",
+  "max_containers_policy": 40,
+  "ram_per_lab_mb": 512
+}
+```
+
+#### Semántica de campos
+
+| Campo | Significado |
+|-------|-------------|
+| `running_labs` | Conteo real de `workspaces.status = 'running'` del tenant. |
+| `hibernated_labs`, `oom_killed_labs`, `unknown_labs`, `orphaned_labs` | Desglose por estado del agregado `CountWorkspacesByStatus` (nunca un filtro de una lista de running). |
+| `health_status` | `operational \| degraded \| critical`. `critical` si `docker.healthy == false` o `orphaned_labs > 0`; `degraded` si `oom_killed_labs > 0`, `unknown_labs > 0` o RAM sobre el techo de seguridad. |
+| `health_reasons` | Códigos estables: `docker_unreachable`, `orphaned_workspaces`, `oom_killed_workspaces`, `unknown_workspaces`, `ram_above_safety_ceiling`. |
+| `host_hardware` | Lectura medida del nodo (RAM, CPU, disco con su ruta real `disk_path`). Ausente si la telemetría no está inyectada. |
+| `docker` | `server_version`, `storage_driver` y `healthy` del daemon real. Ausente si la telemetría no está inyectada. |
+| `load_history` | Últimos samples reales persistidos por el worker (1 fila/min, retención 7 días). `timestamp` es RFC3339 del momento de la medición. **Nunca** se siembra historia sintética. |
+| `estimated_max_containers` | `min(max_containers_policy, floor(availableMB / ram_per_lab_mb))`, nunca menor que `running_labs`. |
+| `capacity_basis` | `"policy"` (mandó `max_containers`, o no se pudo medir RAM) \| `"mem_available"` (mandó la RAM disponible). |
+| `host_safety_ceiling_pct` | Techo de seguridad de la política vigente del tenant (75–90). |
+
+#### Estados de workspace nuevos (ADR-049)
+
+| Estado | Origen | Efecto |
+|--------|--------|--------|
+| `unknown` | El daemon de Docker no respondió durante la reconciliación (ciclo 30 s). | No destruye nada; retiene cupo en `GetActiveWorkspaces`; alerta de auditoría si persiste > 5 ciclos; reintenta en el siguiente ciclo. |
+| `orphaned` | El daemon respondió y el contenedor del registro ya no existe. | Libera cupo; el alumno lo recrea con restart; transición auditada. |
+
+`GET /api/v1/admin/dashboard/containers` expone ambos estados en `status` del DTO (ya no colapsan a `hibernated`).

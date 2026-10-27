@@ -53,5 +53,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 046 | [Constructor de Entornos Componibles por Catálogo de Tecnologías y Construcción Local Determinista de Imágenes (`solv-local/stack:<sha256>`)](ADR-046-estudio-plantillas-componentes-construccion-local.md) | Aprobado | Core |
 | 048 | [Copiloto IA para Arquitectura de Entornos — Flujo Propuesta → Revisión → Aplicar](ADR-048-copiloto-arquitectura-entornos-propuesta-revision-aplicar.md) | Aprobado | Core |
 | 047 | [Gobierna del Límite de Tiempo por Caso — Validación en Servidor y Contrato de Plantilla como Arquitectura Objetivo](ADR-047-time-limit-governanza-y-contrato-plantilla.md) | Aprobado | Core |
+| 049 | [Telemetría de Host Persistida y Estados de Reconciliación (`unknown` / `orphaned`)](ADR-049-telemetria-de-host-persistida-y-estados-de-reconciliacion.md) | Aprobado | Core |
 
 

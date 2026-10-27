@@ -72,3 +72,22 @@ Este documento define el catálogo estándar de alertas Prometheus recomendadas 
   1. Identificar rutas lentas agrupando por etiqueta `path` en `solv_http_request_duration_seconds`.
   2. Verificar si hay contención de bloqueos en PostgreSQL o consultas no indexadas.
   3. Comprobar si el middleware de observabilidad reporta tiempos anómalos en los logs JSON de petición.
+
+---
+
+## 5. ReconciledWorkspaceStates (ADR-049)
+
+* **Origen:** `WorkspaceStateReconciler` (cielo de 30 s del `ZombieCollectorWorker`) y `domain.EvaluateHealth` del panel `GET /api/v1/admin/metrics/health`.
+* **Severidad:** `warning` (unknown persistente) / `critical` (orphaned o daemon caído).
+* **Disparo (panel, `health_status` + `health_reasons`):**
+  - `critical` — `docker_unreachable` (Docker `healthy == false`) u `orphaned_workspaces` (`orphaned_labs > 0`).
+  - `degraded` — `oom_killed_workspaces`, `unknown_workspaces` o `ram_above_safety_ceiling` (RAM del host sobre el techo de seguridad de la política).
+* **Eventos de auditoría registrados por el reconciliador** con `ResourceType: "workspace"`:
+  - `WORKSPACE_RECONCILED_ORPHANED` — contenedor ausente, cupo liberado.
+  - `WORKSPACE_RECONCILED_UNKNOWN_PERSISTENT` — daemon no respondió más de 5 ciclos (~2,5 min); se emite una sola vez por regresión.
+  - `WORKSPACE_RECONCILED_RECOVERED` — daemon vuelto y contenedor presente, registro restaurado a `running`.
+  - `WORKSPACE_RECONCILED_EXITED` — contenedor salió limpio y se marcó `hibernated`.
+* **Diagnóstico & Mitigación:**
+  1. `unknown` persistente: verificar `systemctl status docker` y la red del daemon; no se destruye ningún registro.
+  2. `orphaned` reciente: revisar si hubo `docker stop/rm` manual o poda del daemon; el alumno recrea el entorno con restart.
+  3. Correlacionar con el historial persistido (`host_metrics_samples`, ventana `?window=24h`) para ver el momento exacto del incidente, incluso tras reinicios del backend.
