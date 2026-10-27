@@ -119,6 +119,18 @@ func (m *mockGovRepoForTemplate) DeleteDraft(ctx context.Context, tenantID, user
 func (m *mockGovRepoForTemplate) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
 	return nil, nil
 }
+func (m *mockGovRepoForTemplate) ListAdministrators(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockGovRepoForTemplate) CreateAdministrator(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockGovRepoForTemplate) RevokeAdministrator(ctx context.Context, tenantID, targetUserID string) error {
+	return nil
+}
+func (m *mockGovRepoForTemplate) CountActiveAdministrators(ctx context.Context, tenantID string) (int, error) {
+	return 1, nil
+}
 
 type mockExerciseRepoGov struct {
 	exercises map[string]*domain.Exercise

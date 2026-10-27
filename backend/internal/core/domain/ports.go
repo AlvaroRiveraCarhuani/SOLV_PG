@@ -250,6 +250,10 @@ type AdminGovernanceRepository interface {
 	GetDraftByUser(ctx context.Context, tenantID, userID string) (*TemplateDraft, error)
 	DeleteDraft(ctx context.Context, tenantID, userID string) error
 	GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error)
+	ListAdministrators(ctx context.Context, tenantID string) ([]*AdminUserItem, error)
+	CreateAdministrator(ctx context.Context, tenantID, email, firstName, lastName string) (*AdminUserItem, error)
+	RevokeAdministrator(ctx context.Context, tenantID, targetUserID string) error
+	CountActiveAdministrators(ctx context.Context, tenantID string) (int, error)
 }
 
 // PostgresVersionProbe permite consultar en vivo la versión mayor del motor PostgreSQL del nodo.

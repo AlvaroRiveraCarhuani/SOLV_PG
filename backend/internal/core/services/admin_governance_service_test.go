@@ -146,6 +146,18 @@ func (m *mockAdminGovernanceRepo) GetImageUsageCounts(ctx context.Context, tenan
 		"node:20-bookworm-slim":     2,
 	}, nil
 }
+func (m *mockAdminGovernanceRepo) ListAdministrators(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) CreateAdministrator(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockAdminGovernanceRepo) RevokeAdministrator(ctx context.Context, tenantID, targetUserID string) error {
+	return nil
+}
+func (m *mockAdminGovernanceRepo) CountActiveAdministrators(ctx context.Context, tenantID string) (int, error) {
+	return 1, nil
+}
 func (m *mockAdminGovernanceRepo) GetTemplateByID(ctx context.Context, id string) (*domain.AdminTemplateReviewItem, error) {
 	if m.templateByID != nil {
 		if tpl, ok := m.templateByID[id]; ok {

@@ -9,11 +9,36 @@ import (
 )
 
 var (
-	ErrTemplateNameConflict = errors.New("template with this name already exists")
-	ErrCategoryInUse        = errors.New("category is in use and cannot be deleted")
-	ErrCategoryNotFound     = errors.New("category not found")
-	ErrTemplateNotApproved  = errors.New("only approved templates can be promoted to models")
+	ErrTemplateNameConflict   = errors.New("template with this name already exists")
+	ErrCategoryInUse          = errors.New("category is in use and cannot be deleted")
+	ErrCategoryNotFound       = errors.New("category not found")
+	ErrTemplateNotApproved    = errors.New("only approved templates can be promoted to models")
+	ErrCannotRevokeSelf       = errors.New("cannot_revoke_self: no es posible revocar los propios privilegios de administrador")
+	ErrLastAdministrator     = errors.New("last_administrator: debe existir al menos un administrador activo en la institución")
+	ErrAdminNotFound          = errors.New("admin_not_found: el administrador no existe o no tiene rol administrativo")
+	ErrInvalidAdminEmail      = errors.New("invalid_admin_email: el correo del administrador es inválido")
+	ErrAdminNamesRequired     = errors.New("admin_names_required: el nombre y apellido del administrador son obligatorios")
 )
+
+// AdminUserItem representa a un operador con rol administrativo en el tenant.
+type AdminUserItem struct {
+	ID          string     `json:"id" db:"id"`
+	Email       string     `json:"email" db:"email"`
+	FirstName   string     `json:"first_name" db:"first_name"`
+	LastName    string     `json:"last_name" db:"last_name"`
+	Role        string     `json:"role" db:"role"`
+	Status      string     `json:"status" db:"status"`
+	Origin      string     `json:"origin" db:"origin"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	LastLoginAt *time.Time `json:"last_login_at,omitempty" db:"last_login_at"`
+}
+
+// CreateAdminDTO encapsula los datos requeridos para pre-aprovisionar un administrador.
+type CreateAdminDTO struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+}
 
 const (
 	TargetEnvironmentIDEPersistente = "IDE_PERSISTENTE"

@@ -119,6 +119,18 @@ func (m *mockCacheGovRepo) DeleteDraft(ctx context.Context, tenantID, userID str
 func (m *mockCacheGovRepo) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
 	return nil, nil
 }
+func (m *mockCacheGovRepo) ListAdministrators(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockCacheGovRepo) CreateAdministrator(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockCacheGovRepo) RevokeAdministrator(ctx context.Context, tenantID, targetUserID string) error {
+	return nil
+}
+func (m *mockCacheGovRepo) CountActiveAdministrators(ctx context.Context, tenantID string) (int, error) {
+	return 1, nil
+}
 
 type mockCacheOrch struct{}
 

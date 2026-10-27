@@ -174,6 +174,18 @@ func (m *mockGovRepoForCache) DeleteDraft(ctx context.Context, tenantID, userID 
 func (m *mockGovRepoForCache) GetImageUsageCounts(ctx context.Context, tenantID string) (map[string]int, error) {
 	return nil, nil
 }
+func (m *mockGovRepoForCache) ListAdministrators(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockGovRepoForCache) CreateAdministrator(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error) {
+	return nil, nil
+}
+func (m *mockGovRepoForCache) RevokeAdministrator(ctx context.Context, tenantID, targetUserID string) error {
+	return nil
+}
+func (m *mockGovRepoForCache) CountActiveAdministrators(ctx context.Context, tenantID string) (int, error) {
+	return 1, nil
+}
 
 func TestTemplateCacheService_GetTemplatesCacheStatus(t *testing.T) {
 	ctx := context.Background()
