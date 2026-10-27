@@ -115,12 +115,39 @@ func main() {
 
 	auditLogRepo := postgres.NewAuditLogRepository(db.GetDB())
 
+	// Reconciliacion bidireccional (D2, ADR-049): el collector saca contenedores
+	// sin registro; el reconciler marca registros sin contenedor (orphaned) y
+	// daemon caido (unknown), dentro del mismo ciclo de 30 s del collector.
+	stateReconciler := services.NewWorkspaceStateReconciler(workspaceRepo, dockerClient)
+	stateReconciler.SetAuditRepository(auditLogRepo)
+	zombieCollector.SetStateReconciler(stateReconciler)
+
 	wsHub := httpdelivery.NewWebSocketHub()
 	go wsHub.Run()
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
 	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
+	// Telemetria unica del host para el panel de salud: mide /proc via
+	// gopsutil y el daemon de Docker, desacoplada de la capa HTTP. El mismo
+	// origen alimenta al sampler persistido (D1) y al handler del panel.
+	hostTelemetry := system.NewSystemTelemetry("/var/lib/docker", dockerClient)
+	adminHandler.SetTelemetry(hostTelemetry)
+
+	// Historial persistido del host (D1, ADR-049): el grafico ya no se siembra en
+	// memoria; un worker escribe 1 fila/minuto y poda a 7 dias, y el panel lee
+	// los ultimos samples reales desde la base tras un reinicio.
+	metricsSampleRepo := postgres.NewPostgresHostMetricsSampleRepository(db.GetDB())
+	hostMetricsSampler := services.NewHostMetricsSampler(metricsSampleRepo, hostTelemetry, func(ctx context.Context) (int, error) {
+		running, err := workspaceRepo.GetAllRunningWorkspaces(ctx)
+		if err != nil {
+			return 0, err
+		}
+		return len(running), nil
+	})
+	go hostMetricsSampler.Start(ctx)
+	adminHandler.SetMetricsSampleStore(metricsSampleRepo)
+	adminHandler.SetPoliciesService(serverPoliciesService)
 	serverPoliciesHandler := httpdelivery.NewServerPoliciesHandler(serverPoliciesService)
 	// Módulo de IA Híbrida (Nube + Servidor Local LAN) gobernado por institución:
 	// cifrado AES-256-GCM de la API Key, escudo anti-SSRF y cuota horaria por usuario.

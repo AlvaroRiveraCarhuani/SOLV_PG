@@ -11,6 +11,13 @@ const (
 	WorkspaceStatusHibernated = "hibernated"
 	WorkspaceStatusOOMKilled  = "oom_killed"
 	WorkspaceStatusFailed     = "failed"
+	// WorkspaceStatusUnknown marca un laboratorio cuyo estado no pudo verificarse
+	// (el daemon de Docker no respondio durante la reconciliacion). No destruye el
+	// registro: reintenta el siguiente ciclo y retiene el cupo de max_containers.
+	WorkspaceStatusUnknown  = "unknown"
+	// WorkspaceStatusOrphaned marca un laboratorio cuyo contenedor ya no existe en
+	// el daemon. Libera el cupo y deja el registro para que el alumno lo recree.
+	WorkspaceStatusOrphaned = "orphaned"
 
 	WorkspaceTypeIDEPersistente = "IDE_PERSISTENTE"
 	WorkspaceTypeJuezEfimero    = "JUEZ_EFIMERO"

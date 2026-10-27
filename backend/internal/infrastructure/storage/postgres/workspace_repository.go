@@ -196,7 +196,7 @@ func (r *PostgresWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) (
 	query := `
 		SELECT id, student_id, subject_id, template_id, type, container_id, status, access_url, memory_limit_mb, last_heartbeat_at, last_oom_killed_at, oom_strike_count, COALESCE(semgrep_audit, '{}'::jsonb) AS semgrep_audit, tenant_id, created_at, updated_at
 		FROM workspaces
-		WHERE status IN ('running', 'pending') AND tenant_id = $1
+		WHERE status IN ('running', 'pending', 'unknown') AND tenant_id = $1
 	`
 	var workspaces []*domain.WorkspaceInstance
 	err := r.db.SelectContext(ctx, &workspaces, query, tenantID)

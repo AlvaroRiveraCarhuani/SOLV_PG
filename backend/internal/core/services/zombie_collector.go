@@ -16,6 +16,7 @@ type ZombieCollectorWorker struct {
 	interval             time.Duration
 	mu                   sync.Mutex
 	reclaimedCountAtomic uint64
+	stateReconciler      *WorkspaceStateReconciler
 }
 
 func NewZombieCollectorWorker(repo domain.WorkspaceRepository, orchestrator domain.WorkspaceOrchestrator, interval time.Duration) *ZombieCollectorWorker {
@@ -27,6 +28,13 @@ func NewZombieCollectorWorker(repo domain.WorkspaceRepository, orchestrator doma
 		orchestrator: orchestrator,
 		interval:     interval,
 	}
+}
+
+// SetStateReconciler engancha la verificacion DB->Docker (estados unknown y
+// orphaned) al final del ciclo del collector, reutilizando su mutex de
+// reconciliciones superpuestas.
+func (w *ZombieCollectorWorker) SetStateReconciler(r *WorkspaceStateReconciler) {
+	w.stateReconciler = r
 }
 
 func (w *ZombieCollectorWorker) GetReclaimedCount() uint64 {
@@ -91,5 +99,12 @@ func (w *ZombieCollectorWorker) ReconcileOrphanContainers(ctx context.Context) {
 				log.Printf("[Zombie Collector] Error removing orphan container %s: %v", cid[:12], err)
 			}
 		}
+	}
+
+	// Reconciliacion inversa: registros sin contenedor (orphaned) y daemon caido
+	// (unknown). Corre dentro de la misma mutex para no solaparse con el ciclo
+	// siguiente ni con la limpieza de zombies registrada arriba.
+	if w.stateReconciler != nil {
+		w.stateReconciler.Reconcile(ctx)
 	}
 }
