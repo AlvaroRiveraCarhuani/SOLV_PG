@@ -57,7 +57,7 @@ Branch: main | Delivery strategy: ask-on-risk | Test runner: go test ./... & npm
 - [x] **T1** (S1, S2): Extender `AICopilotService` en Go para recibir `TemplateComponentRepository`, generar el resumen estructurado del catálogo e instruir al modelo con grounding y `missing_components` estructurados. Añadir tests unitarios en `ai_copilot_service_test.go`.
 - [x] **T2** (S3): Corregir la reactividad de `addonChoices` en `aiProposalView` y enriquecer `findCatalogComponentMatch` con resolución por prefijos y paquetes en `template-studio.utils.ts`.
 - [x] **T3** (S4): Implementar en la UI del modal de propuesta las tarjetas de faltantes con botón `Diseñar con Copiloto IA`, enlazadas con `component-form-modal` y preservación de estado en `template-studio.component.ts`.
-- [ ] **T4** (S5): Ejecución y pase de verificación integral: `go test ./...`, `npm run test:ci`, `npm run lint:styles` y build de producción.
+- [x] **T4** (S5): Ejecución y pase de verificación integral: `go test ./...`, `npm run test:ci`, `npm run lint:styles` y build de producción.
 
 ## Log
 - **L1 (2026-10-27)**: Diagnóstico de la inconsistencia en el Copiloto de Entornos: el modelo generaba slugs genéricos a ciegas (`python`, `sqlalchemy`), el backend no le suministraba el catálogo del tenant, y el frontend leía los complementos compatibles del constructor en lugar de la propuesta provisional. Se acordó la arquitectura con Grounding contextual compacto, detección estructurada de faltantes y flujo de creación con 1 clic sin pérdida de contexto.
