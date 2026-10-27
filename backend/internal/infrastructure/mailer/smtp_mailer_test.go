@@ -84,7 +84,12 @@ func TestSMTPMailer_BuildMIME(t *testing.T) {
 }
 
 func TestBuildTeacherWelcomeEmail(t *testing.T) {
-	htmlBody, textBody := BuildTeacherWelcomeEmail("Universidad Adventista de Bolivia", "Elena Docente", "https://solv.uab.edu.bo/login")
+	branding := domain.EmailBranding{
+		InstitutionName: "Universidad Adventista de Bolivia",
+		BaseDomain:      "solv.uab.edu.bo",
+		LogoURL:         "/assets/uab-logo.png",
+	}
+	htmlBody, textBody := BuildTeacherWelcomeEmail(branding, "Elena Docente", "https://solv.uab.edu.bo/login")
 
 	if !strings.Contains(htmlBody, "Universidad Adventista de Bolivia") {
 		t.Errorf("HTML template missing institution name")

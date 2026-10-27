@@ -173,6 +173,8 @@ func main() {
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
 	teacherService.SetEvaluationService(evaluationService)
+	teacherService.SetMailer(smtpMailer)
+	teacherService.SetTenantRepository(tenantRepo)
 	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
@@ -216,6 +218,11 @@ func main() {
 
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
 	templateAuditWorker.Start(ctx)
+
+	deadlineReminderRepo := postgres.NewPostgresDeadlineReminderRepository(db.GetDB())
+	deadlineReminderWorker := services.NewDeadlineReminderWorker(deadlineReminderRepo, tenantRepo, smtpMailer)
+	deadlineReminderWorker.Start(ctx, 15*time.Minute)
+	defer deadlineReminderWorker.Stop()
 
 	// Auto-recuperación y verificación de disponibilidad de entornos en segundo plano al arrancar el servidor
 	go func() {
@@ -289,6 +296,8 @@ func main() {
 	// Rúbricas de evaluación cualitativa (IDE Persistente)
 	rubricRepo := postgres.NewPostgresRubricRepository(db.GetDB())
 	rubricService := services.NewDefaultRubricService(rubricRepo, exerciseRepo, db.GetDB())
+	rubricService.SetMailer(smtpMailer)
+	rubricService.SetTenantRepository(tenantRepo)
 	rubricHandler := httpdelivery.NewRubricHandler(rubricService)
 
 	rateLimiter := middleware.NewRateLimiter()

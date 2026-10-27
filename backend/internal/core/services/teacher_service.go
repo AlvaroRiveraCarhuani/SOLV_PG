@@ -16,6 +16,8 @@ type TeacherService struct {
 	evalService            *EvaluationService
 	mirrorService          *TerminalMirrorService
 	metricsSnapshotService *MetricsSnapshotService
+	mailer                 domain.Mailer
+	tenantRepo             domain.TenantRepository
 }
 
 func NewTeacherService(
@@ -43,6 +45,14 @@ func (s *TeacherService) SetMetricsSnapshotService(metricsSnapshotService *Metri
 
 func (s *TeacherService) SetEvaluationService(evalService *EvaluationService) {
 	s.evalService = evalService
+}
+
+func (s *TeacherService) SetMailer(m domain.Mailer) {
+	s.mailer = m
+}
+
+func (s *TeacherService) SetTenantRepository(tr domain.TenantRepository) {
+	s.tenantRepo = tr
 }
 
 func (s *TeacherService) GetCoursesSummary(ctx context.Context, tenantID, teacherID, periodID string) ([]*domain.TeacherCourseSummary, error) {

@@ -151,13 +151,16 @@ func (s *TeacherInvitationService) RegisterDirectTeacher(ctx context.Context, te
 	}
 
 	if sendNotification && s.mailer != nil {
-		if institutionName == "" {
-			institutionName = "SOLV"
+		branding := domain.EmailBranding{
+			InstitutionName: institutionName,
 		}
-		htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(institutionName, teacher.FullName, loginURL)
+		if branding.InstitutionName == "" {
+			branding.InstitutionName = "Plataforma Académica"
+		}
+		htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(branding, teacher.FullName, loginURL)
 		s.mailer.SendAsync(&domain.EmailMessage{
 			To:       teacher.Email,
-			Subject:  fmt.Sprintf("Bienvenido a SOLV — %s", institutionName),
+			Subject:  fmt.Sprintf("[%s] Habilitación de acceso docente", branding.InstitutionName),
 			HTMLBody: htmlBody,
 			TextBody: textBody,
 		})
@@ -177,18 +180,21 @@ func (s *TeacherInvitationService) BatchRegisterTeachers(ctx context.Context, te
 	}
 
 	if sendNotification && s.mailer != nil {
-		if institutionName == "" {
-			institutionName = "SOLV"
+		branding := domain.EmailBranding{
+			InstitutionName: institutionName,
+		}
+		if branding.InstitutionName == "" {
+			branding.InstitutionName = "Plataforma Académica"
 		}
 		for _, em := range emails {
 			cleanEmail := strings.TrimSpace(em)
 			if cleanEmail == "" {
 				continue
 			}
-			htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(institutionName, "", loginURL)
+			htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(branding, "", loginURL)
 			s.mailer.SendAsync(&domain.EmailMessage{
 				To:       cleanEmail,
-				Subject:  fmt.Sprintf("Bienvenido a SOLV — %s", institutionName),
+				Subject:  fmt.Sprintf("[%s] Habilitación de acceso docente", branding.InstitutionName),
 				HTMLBody: htmlBody,
 				TextBody: textBody,
 			})

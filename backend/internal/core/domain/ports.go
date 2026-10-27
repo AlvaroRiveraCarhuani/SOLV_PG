@@ -414,3 +414,24 @@ type Mailer interface {
 	SendAsync(msg *EmailMessage)
 	Close() error
 }
+
+// DeadlineReminderCandidate contiene los datos necesarios para despachar un recordatorio de vencimiento
+type DeadlineReminderCandidate struct {
+	TenantID            string    `db:"tenant_id"`
+	ExerciseID          string    `db:"exercise_id"`
+	ExerciseTitle       string    `db:"exercise_title"`
+	SubjectID           string    `db:"subject_id"`
+	SubjectName         string    `db:"subject_name"`
+	DueDate             time.Time `db:"due_date"`
+	StudentID           string    `db:"student_id"`
+	StudentName         string    `db:"student_name"`
+	StudentEmail        string    `db:"student_email"`
+	HasStartedWorkspace bool      `db:"has_started_workspace"`
+}
+
+// DeadlineReminderRepository gestiona la búsqueda y deduplicación de avisos de vencimiento
+type DeadlineReminderRepository interface {
+	FindPendingReminders(ctx context.Context, windowStart, windowEnd time.Time) ([]*DeadlineReminderCandidate, error)
+	MarkReminderSent(ctx context.Context, tenantID, exerciseID, studentID string) error
+	IsReminderSent(ctx context.Context, tenantID, exerciseID, studentID string) (bool, error)
+}

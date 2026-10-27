@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/infrastructure/mailer"
 )
 
 func (s *TeacherService) ListCourseSubmissions(ctx context.Context, tenantID, teacherID, subjectID, exerciseID, verdict string) ([]*domain.SubmissionQueueItem, error) {
@@ -79,5 +80,58 @@ func (s *TeacherService) OverrideSubmission(ctx context.Context, tenantID, submi
 	if s.subRepo == nil {
 		return fmt.Errorf("submission repository not configured")
 	}
-	return s.subRepo.UpdateOverride(ctx, tenantID, submissionID, verdict, reason, score, gradedBy)
+	if err := s.subRepo.UpdateOverride(ctx, tenantID, submissionID, verdict, reason, score, gradedBy); err != nil {
+		return err
+	}
+
+	// Despacho asíncrono de notificación al estudiante (desacoplado de la persistencia de la nota)
+	s.notifyGradePublished(ctx, tenantID, submissionID, gradedBy)
+
+	return nil
+}
+
+func (s *TeacherService) notifyGradePublished(ctx context.Context, tenantID, submissionID string, gradedBy *string) {
+	if s.mailer == nil || s.repo == nil {
+		return
+	}
+
+	teacherID := ""
+	if gradedBy != nil {
+		teacherID = *gradedBy
+	}
+
+	review, err := s.repo.GetTeacherSubmissionReview(ctx, tenantID, teacherID, submissionID)
+	if err != nil || review == nil || strings.TrimSpace(review.StudentEmail) == "" {
+		return
+	}
+
+	branding := domain.EmailBranding{
+		InstitutionName: "Plataforma Académica",
+	}
+	if s.tenantRepo != nil {
+		if tenant, err := s.tenantRepo.GetByID(ctx, tenantID); err == nil && tenant != nil {
+			branding = tenant.ResolveBranding()
+		}
+	}
+
+	domainName := strings.TrimSpace(branding.BaseDomain)
+	if domainName == "" {
+		domainName = "localhost:4200"
+	}
+	reviewURL := fmt.Sprintf("https://%s/student/courses/%s/assignments/%s", domainName, review.SubjectID, review.ExerciseID)
+
+	htmlBody, textBody := mailer.BuildGradeFeedbackEmail(
+		branding,
+		review.StudentName,
+		review.ExerciseTitle,
+		review.SubjectName,
+		reviewURL,
+	)
+
+	s.mailer.SendAsync(&domain.EmailMessage{
+		To:       review.StudentEmail,
+		Subject:  fmt.Sprintf("[%s] Evaluación publicada: %s — %s", branding.InstitutionName, review.ExerciseTitle, review.SubjectName),
+		HTMLBody: htmlBody,
+		TextBody: textBody,
+	})
 }
