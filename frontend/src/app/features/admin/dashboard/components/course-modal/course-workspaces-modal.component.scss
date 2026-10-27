@@ -386,3 +386,12 @@
     border-color: var(--color-gray-400);
   }
 }
+
+// Sin telemetría real del contenedor: el backend marca metrics_available=false
+// y la fila muestra este rótulo en lugar de una barra inventada.
+.mem-none {
+  display: inline-block;
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-style: italic;
+}

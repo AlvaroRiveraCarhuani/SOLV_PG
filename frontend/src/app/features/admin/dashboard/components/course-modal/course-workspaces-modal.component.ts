@@ -37,6 +37,9 @@ export class CourseWorkspacesModalComponent implements OnInit {
   restartWorkspace = output<string>();
   pauseWorkspace = output<string>();
 
+  // El dashboard lo incrementa tras cada pausa para recargar esta lista.
+  reloadToken = input<number>(0);
+
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');
   workspaces = signal<DockerContainerSummary[]>([]);
@@ -61,6 +64,13 @@ export class CourseWorkspacesModalComponent implements OnInit {
     effect(() => {
       const c = this.course();
       if (c && c.id) {
+        this.fetchWorkspaces();
+      }
+    });
+
+    effect(() => {
+      const token = this.reloadToken();
+      if (token > 0) {
         this.fetchWorkspaces();
       }
     });
@@ -99,6 +109,14 @@ export class CourseWorkspacesModalComponent implements OnInit {
         this.workspaces.set(fallback);
       }
     });
+  }
+
+  // Sin métricas reales del contenedor no se dibuja una barra inventada.
+  hasRealMetrics(ws: DockerContainerSummary): boolean {
+    if (typeof ws.metrics_available === 'boolean') {
+      return ws.metrics_available;
+    }
+    return ws.memory_used_mb > 0;
   }
 
   onSearchChange(term: string): void {

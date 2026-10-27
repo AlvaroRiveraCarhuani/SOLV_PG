@@ -27,9 +27,20 @@ type AdminHandler struct {
 	subjectRepo   domain.SubjectRepository
 	hostMonitor   domain.HostMonitor
 	orchestrator  domain.WorkspaceOrchestrator
+	studentDir    StudentDirectorySource
 
 	historyMu   sync.RWMutex
 	loadHistory []LoadSnapshot
+}
+
+// StudentDirectorySource resuelve identidades reales de estudiantes (nombre y
+// correo) para que las vistas de administración no expongan UUIDs internos.
+type StudentDirectorySource interface {
+	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*domain.AdminStudentDirectoryItem, error)
+}
+
+func (h *AdminHandler) SetStudentDirectory(src StudentDirectorySource) {
+	h.studentDir = src
 }
 
 func (h *AdminHandler) SetOrchestrator(orch domain.WorkspaceOrchestrator) {

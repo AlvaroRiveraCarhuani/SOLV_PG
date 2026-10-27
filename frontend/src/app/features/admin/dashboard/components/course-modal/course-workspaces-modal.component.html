@@ -64,7 +64,9 @@
                   </div>
                   <div class="student-meta">
                     <span class="student-name">{{ ws.student_name }}</span>
-                    <span class="student-email">{{ ws.student_email }}</span>
+                    @if (ws.student_email) {
+                      <span class="student-email">{{ ws.student_email }}</span>
+                    }
                     <span class="student-ws-id" machineData>{{ ws.id }}</span>
                   </div>
                 </div>
@@ -73,6 +75,7 @@
                 <status-badge [status]="ws.status" />
               </td>
               <td>
+                @if (hasRealMetrics(ws)) {
                 <div class="mem-gauge">
                   <div class="gauge-labels">
                     <span class="mono-mem" machineData>{{ ws.memory_used_mb }} / {{ ws.memory_limit_mb }} MB</span>
@@ -87,6 +90,9 @@
                     ></div>
                   </div>
                 </div>
+                } @else {
+                  <span class="mem-none">Sin métricas</span>
+                }
               </td>
               <td class="text-right">
                 <div class="actions-wrapper">

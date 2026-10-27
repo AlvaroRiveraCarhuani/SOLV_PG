@@ -21,6 +21,8 @@ export interface DockerContainerSummary {
   course_name: string;
   image_tag: string;
   memory_used_mb: number;
+  /** false cuando no hay telemetría real del contenedor: la UI muestra «Sin métricas». */
+  metrics_available?: boolean;
   memory_limit_mb: number;
   ttl_remaining_seconds: number;
   status: 'running' | 'hibernated' | 'failed';

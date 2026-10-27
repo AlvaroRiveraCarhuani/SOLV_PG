@@ -1,7 +1,7 @@
 import '@angular/compiler';
 import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 import { CourseWorkspacesModalComponent } from './course-workspaces-modal.component';
 import { AdminMetricsService } from '../../../services/admin-metrics.service';
@@ -13,6 +13,7 @@ interface MockAdminMetricsService {
 
 describe('CourseWorkspacesModalComponent', () => {
   let component: CourseWorkspacesModalComponent;
+  let fixture: ComponentFixture<CourseWorkspacesModalComponent>;
   let mockMetricsService: MockAdminMetricsService;
 
   const mockCourse: CourseLoadSummary = {
@@ -51,7 +52,7 @@ describe('CourseWorkspacesModalComponent', () => {
       ]
     }).compileComponents();
 
-    const fixture = TestBed.createComponent(CourseWorkspacesModalComponent);
+    fixture = TestBed.createComponent(CourseWorkspacesModalComponent);
     fixture.componentRef.setInput('course', mockCourse);
     component = fixture.componentInstance;
     fixture.detectChanges();
@@ -78,5 +79,45 @@ describe('CourseWorkspacesModalComponent', () => {
     component.onStatusSelected({ id: 'running', label: 'En ejecución', value: 'running' });
     expect(component.statusFilter()).toBe('running');
     expect(component.selectedStatusLabel()).toBe('En ejecución');
+  });
+
+  it('hasRealMetrics respeta metrics_available del backend', () => {
+    // Sin flag y con consumo > 0 (fuente antigua): se muestra la barra.
+    expect(component.hasRealMetrics(mockWorkspaces[0])).toBe(true);
+    // El backend marca sin telemetría: no se dibuja barra inventada.
+    expect(
+      component.hasRealMetrics({ ...mockWorkspaces[0], metrics_available: false, memory_used_mb: 0 })
+    ).toBe(false);
+  });
+
+  it('renderiza «Sin métricas» en la fila sin telemetría real', () => {
+    component.workspaces.set([
+      { ...mockWorkspaces[0], metrics_available: false, memory_used_mb: 0 }
+    ]);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.textContent).toContain('Sin métricas');
+    expect(el.querySelector('.mem-gauge')).toBeNull();
+  });
+
+  it('muestra la barra de memoria cuando hay métricas reales', () => {
+    component.workspaces.set([
+      { ...mockWorkspaces[0], metrics_available: true, memory_used_mb: 85, memory_limit_mb: 256 }
+    ]);
+    fixture.detectChanges();
+
+    const el: HTMLElement = fixture.nativeElement;
+    expect(el.querySelector('.mem-gauge')).toBeTruthy();
+    expect(el.textContent).not.toContain('Sin métricas');
+  });
+
+  it('recarga la lista cuando el dashboard incrementa reloadToken', () => {
+    const callsBefore = mockMetricsService.getCourseWorkspaces.mock.calls.length;
+
+    fixture.componentRef.setInput('reloadToken', 1);
+    TestBed.flushEffects();
+
+    expect(mockMetricsService.getCourseWorkspaces.mock.calls.length).toBe(callsBefore + 1);
   });
 });

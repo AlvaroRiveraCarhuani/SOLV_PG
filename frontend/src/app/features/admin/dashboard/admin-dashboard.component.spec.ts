@@ -3,6 +3,7 @@ import '@angular/localize/init';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
+import { of, throwError } from 'rxjs';
 import { AdminDashboardComponent, DEFAULT_BLOCK_ORDER } from './admin-dashboard.component';
 import { AdminMetricsService } from '../services/admin-metrics.service';
 import { CourseLoadSummary, HostSystemHealth, TechnicalIncident } from '@core/models/admin.model';
@@ -14,6 +15,8 @@ interface MockAdminMetricsService {
   hibernateAll: ReturnType<typeof vi.fn>;
   stopContainer: ReturnType<typeof vi.fn>;
   autoRefreshActive: ReturnType<typeof vi.fn>;
+  pauseWorkspace: ReturnType<typeof vi.fn>;
+  restartWorkspace: ReturnType<typeof vi.fn>;
 }
 
 const makeHealth = (overrides: Partial<HostSystemHealth> = {}): HostSystemHealth => ({
@@ -53,7 +56,9 @@ describe('AdminDashboardComponent', () => {
       refresh: vi.fn(),
       hibernateAll: vi.fn(),
       stopContainer: vi.fn(),
-      autoRefreshActive: vi.fn().mockReturnValue(false)
+      autoRefreshActive: vi.fn().mockReturnValue(false),
+      pauseWorkspace: vi.fn().mockReturnValue(of(undefined)),
+      restartWorkspace: vi.fn().mockReturnValue(of(undefined))
     };
 
     await TestBed.configureTestingModule({
@@ -95,6 +100,33 @@ describe('AdminDashboardComponent', () => {
 
   it('selectedCourse inicia en null', () => {
     expect(component.selectedCourse()).toBeNull();
+  });
+
+  it('onPauseWorkspace incrementa el recargo del modal en éxito', () => {
+    expect(component.wsReloadToken()).toBe(0);
+
+    component.onPauseWorkspace('ws-1');
+
+    expect(mockMetricsService.pauseWorkspace).toHaveBeenCalledWith('ws-1');
+    expect(component.wsReloadToken()).toBe(1);
+  });
+
+  it('onPauseWorkspace no recarga el modal si la pausa falla', () => {
+    mockMetricsService.pauseWorkspace.mockReturnValue(throwError(() => new Error('404')));
+
+    component.onPauseWorkspace('ws-1');
+
+    expect(component.wsReloadToken()).toBe(0);
+  });
+
+  it('onRestartWorkspace recarga el modal en éxito y avisa si falla', () => {
+    component.onRestartWorkspace('ws-1');
+    expect(mockMetricsService.restartWorkspace).toHaveBeenCalledWith('ws-1');
+    expect(component.wsReloadToken()).toBe(1);
+
+    mockMetricsService.restartWorkspace.mockReturnValue(throwError(() => new Error('404')));
+    component.onRestartWorkspace('ws-1');
+    expect(component.wsReloadToken()).toBe(1);
   });
 
   it('onViewCourseDetails establece selectedCourse', () => {

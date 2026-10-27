@@ -152,23 +152,13 @@ export class AdminMetricsService {
       );
   }
 
-  restartWorkspace(workspaceId: string): void {
-    this.http.post(`/api/v1/admin/workspaces/${workspaceId}/restart`, {})
-      .pipe(
-        tap(() => this.fetchMetrics()),
-        catchError(() => {
-          this.health.update(current => {
-            if (!current) return current;
-            return {
-              ...current,
-              containers: current.containers.map(c => c.id === workspaceId ? { ...c, status: 'running' as const, memory_used_mb: 180 } : c),
-              incidents: current.incidents.filter(i => i.workspace_id !== workspaceId)
-            };
-          });
-          return of(null);
-        })
-      )
-      .subscribe();
+  // Mismo caso que la pausa: la ruta real es /api/v1/workspaces/{id}/restart;
+  // el antiguo prefijo /admin/workspaces devolvía 404 silencioso. El error se
+  // propaga para que la UI lo muestre.
+  restartWorkspace(workspaceId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/workspaces/${workspaceId}/restart`, {}).pipe(
+      tap(() => this.fetchMetrics())
+    );
   }
 
   stopContainer(containerId: string): void {
@@ -185,22 +175,13 @@ export class AdminMetricsService {
     });
   }
 
-  pauseWorkspace(workspaceId: string): void {
-    this.http.post(`/api/v1/admin/workspaces/${workspaceId}/pause`, {})
-      .pipe(
-        tap(() => this.fetchMetrics()),
-        catchError(() => {
-          this.health.update(current => {
-            if (!current) return current;
-            return {
-              ...current,
-              containers: current.containers.map(c => c.id === workspaceId ? { ...c, status: 'hibernated' as const } : c)
-            };
-          });
-          return of(null);
-        })
-      )
-      .subscribe();
+  // La ruta real de pausa es /api/v1/workspaces/{id}/pause (el rol admin pasa
+  // la guarda del handler). El antiguo prefijo /admin/workspaces no existía y
+  // devolvía 404 silencioso: el error se propaga para que la UI lo muestre.
+  pauseWorkspace(workspaceId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/workspaces/${workspaceId}/pause`, {}).pipe(
+      tap(() => this.fetchMetrics())
+    );
   }
 
   getWorkspaceLogs(workspaceId: string): Observable<WorkspaceLogsResponse> {

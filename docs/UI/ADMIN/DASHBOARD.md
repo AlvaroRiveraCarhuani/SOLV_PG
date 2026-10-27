@@ -162,5 +162,14 @@ Al hacer clic en `[Ver Dtl]` en una materia, se abre una ventana modal para insp
 | `GET` | `/api/v1/admin/dashboard/courses-load` | `?period_id={id}` | Distribución agregada de laboratorios activos y memoria consumida por materia. |
 | `GET` | `/api/v1/admin/courses/{id}/workspaces` | `?search={q}&status={status}` | Lista detallada de contenedores de una materia específica con soporte de búsqueda y filtrado. |
 | `GET` | `/api/v1/admin/dashboard/incidents` | `?limit=10` | Lista de anomalías técnicas recientes (OOM Killer, errores de inicio de contenedor). |
-| `POST` | `/api/v1/admin/workspaces/{id}/restart` | — | Reinicia un contenedor caído por OOM restableciendo sus recursos de forma inmediata. |
-| `POST` | `/api/v1/admin/workspaces/{id}/pause` | — | Pausa forzada de un contenedor con comportamiento anómalo. |
+| `POST` | `/api/v1/workspaces/{id}/restart` | — | Reinicia un contenedor caído por OOM restableciendo sus recursos de forma inmediata. **Ruta real registrada en el router**; el antiguo prefijo `/admin/workspaces/...` no existía y devolvía 404 silencioso. |
+| `POST` | `/api/v1/workspaces/{id}/pause` | — | Pausa forzada de un contenedor con comportamiento anómalo (el rol `admin` pasa la guarda del handler). Mismo caso: el prefijo `/admin/...` devolvía 404. Tras cada pausa/reinicio el dashboard recarga el modal (`reloadToken`) y muestra toast de éxito/error. |
+
+---
+
+## 6. Integridad de los Datos Mostrados (Salud y Recursos)
+
+1. **Identidades reales, nunca UUIDs**: `GET /admin/dashboard/containers`, `GET /admin/courses/{id}/workspaces` y `GET /admin/dashboard/incidents` resuelven nombre y correo del estudiante desde el directorio (`users` vía `ListStudentsDirectory`). Si el estudiante no está en el directorio se muestra el rótulo neutro «Estudiante» **sin correo y sin UUID**; jamás se concatena el UUID para fabricar un correo (`uuid@uab.edu.bo` está prohibido). Las materias también se resuelven por nombre (fallback «Materia»), no por UUID.
+2. **Memoria real o «Sin métricas»**: el consumo por contenedor se lee de Docker (`GetContainerMetrics`) y se expone con el flag `metrics_available`. Sin telemetría (`false`) la fila del modal muestra el rótulo *Sin métricas* en lugar de una barra inventada; está prohibido el antiguo cálculo `limit / 3`. El campo `image_tag` de estos DTO queda vacío hasta resolverse desde `lab_templates.docker_image` (nada de tags hardcodeados).
+3. **Estados**: `running`/`oom_killed` provienen de la tabla `workspaces`; el semáforo de la tabla de carga usa `--tenant-primary` para RAM y alumnos (el morado `--color-purple-600` quedó fuera de la paleta).
+4. **Cobertura de tests**: `admin_courses_test.go` verifica que ni el nombre ni el correo contengan el UUID (fallback y directorio), y que las métricas sin Docker devuelvan `(0, false)`.

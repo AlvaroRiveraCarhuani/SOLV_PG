@@ -141,6 +141,9 @@ func main() {
 
 	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
 	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
+	// Directorio de estudiantes para mostrar identidades reales (nombre/correo)
+	// en los paneles admin, nunca UUIDs internos.
+	adminHandler.SetStudentDirectory(govRepo)
 	evaluationService.SetAdminGovernanceRepository(govRepo)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)

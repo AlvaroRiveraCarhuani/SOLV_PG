@@ -14,7 +14,7 @@ type TechnicalIncidentDTO struct {
 	ID            string `json:"id"`
 	Type          string `json:"type"`
 	WorkspaceID   string `json:"workspace_id"`
-	StudentID     string `json:"student_name"`
+	StudentName   string `json:"student_name"`
 	CourseName    string `json:"course_name"`
 	Description   string `json:"description"`
 	MemoryLimitMB int64  `json:"memory_limit_mb"`
@@ -34,6 +34,19 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	incidents := make([]TechnicalIncidentDTO, 0)
+
+	// Identidades y nombres reales: nada de UUIDs de estudiantes ni de materias.
+	studentIDs := make([]string, 0)
+	subjectIDs := make([]string, 0)
+	for _, ws := range allWorkspaces {
+		if ws.TenantID == tenantID && (ws.Status == "failed" || ws.Status == "oom_killed" || ws.OOMStrikeCount > 0) {
+			studentIDs = append(studentIDs, ws.StudentID)
+			subjectIDs = append(subjectIDs, ws.SubjectID)
+		}
+	}
+	identities := h.studentIdentities(r.Context(), tenantID, studentIDs)
+	courseNames := h.courseNames(r.Context(), tenantID, subjectIDs)
+
 	for _, ws := range allWorkspaces {
 		if ws.TenantID == tenantID && (ws.Status == "failed" || ws.Status == "oom_killed" || ws.OOMStrikeCount > 0) {
 			desc := "Excedió cuota de memoria configurada (Exit code 137)"
@@ -49,8 +62,8 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 				ID:            "inc-" + wsID,
 				Type:          "oom_killed",
 				WorkspaceID:   ws.ID,
-				StudentID:     ws.StudentID,
-				CourseName:    "Materia ID: " + ws.SubjectID,
+				StudentName:   identities[ws.StudentID].Name,
+				CourseName:    courseNames[ws.SubjectID],
 				Description:   desc,
 				MemoryLimitMB: ws.MemoryLimitMB,
 				Timestamp:     ts,
@@ -69,6 +82,7 @@ type DockerContainerDTO struct {
 	CourseName          string `json:"course_name"`
 	ImageTag            string `json:"image_tag"`
 	MemoryUsedMB        int64  `json:"memory_used_mb"`
+	MetricsAvailable    bool   `json:"metrics_available"`
 	MemoryLimitMB       int64  `json:"memory_limit_mb"`
 	TTLRemainingSeconds int64  `json:"ttl_remaining_seconds"`
 	Status              string `json:"status"`
@@ -87,6 +101,18 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 		allWorkspaces = []*domain.WorkspaceInstance{}
 	}
 
+	// Identidades y nombres reales para el listado del clúster.
+	studentIDs := make([]string, 0)
+	subjectIDs := make([]string, 0)
+	for _, ws := range allWorkspaces {
+		if ws.TenantID == tenantID {
+			studentIDs = append(studentIDs, ws.StudentID)
+			subjectIDs = append(subjectIDs, ws.SubjectID)
+		}
+	}
+	identities := h.studentIdentities(r.Context(), tenantID, studentIDs)
+	courseNames := h.courseNames(r.Context(), tenantID, subjectIDs)
+
 	containers := make([]DockerContainerDTO, 0)
 	for _, ws := range allWorkspaces {
 		if ws.TenantID == tenantID {
@@ -102,13 +128,15 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 					ttl = int64(remaining)
 				}
 			}
+			memUsedMB, metricsAvailable := h.containerUsageMB(r.Context(), ws)
 			containers = append(containers, DockerContainerDTO{
 				ID:                  ws.ID,
-				StudentName:         "Estudiante ID: " + ws.StudentID,
-				StudentEmail:        ws.StudentID + "@uab.edu.bo",
-				CourseName:          "Materia ID: " + ws.SubjectID,
-				ImageTag:            "solv-lab/base:latest",
-				MemoryUsedMB:        ws.MemoryLimitMB / 3,
+				StudentName:         identities[ws.StudentID].Name,
+				StudentEmail:        identities[ws.StudentID].Email,
+				CourseName:          courseNames[ws.SubjectID],
+				ImageTag:            "",
+				MemoryUsedMB:        memUsedMB,
+				MetricsAvailable:    metricsAvailable,
 				MemoryLimitMB:       ws.MemoryLimitMB,
 				TTLRemainingSeconds: ttl,
 				Status:              status,

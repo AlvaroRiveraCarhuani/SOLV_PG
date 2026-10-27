@@ -205,6 +205,7 @@
     <course-workspaces-modal 
       [course]="selectedCourse()!"
       [workspacesInput]="health()?.containers || []"
+      [reloadToken]="wsReloadToken()"
       (closed)="selectedCourse.set(null)"
       (restartWorkspace)="onRestartWorkspace($event)"
       (pauseWorkspace)="onPauseWorkspace($event)"

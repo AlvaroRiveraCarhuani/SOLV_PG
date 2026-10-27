@@ -70,6 +70,8 @@ export class AdminDashboardComponent implements OnDestroy {
   isLoading = this.metricsService.isLoading;
 
   selectedCourse = signal<CourseLoadSummary | null>(null);
+  // Se incrementa tras cada pausa correcta para que el modal recargue su lista.
+  readonly wsReloadToken = signal<number>(0);
   selectedIncidentForLogs = signal<TechnicalIncident | null>(null);
   showAllContainers = signal<boolean>(false);
 
@@ -300,7 +302,15 @@ export class AdminDashboardComponent implements OnDestroy {
   }
 
   onRestartWorkspace(workspaceId: string): void {
-    this.metricsService.restartWorkspace(workspaceId);
+    this.metricsService.restartWorkspace(workspaceId).subscribe({
+      next: () => {
+        this.showFeedback('success', 'El contenedor fue reiniciado y el clúster quedó actualizado.');
+        this.wsReloadToken.update(value => value + 1);
+      },
+      error: () => {
+        this.showFeedback('warning', 'No se pudo reiniciar el contenedor. Inténtelo de nuevo.');
+      }
+    });
   }
 
   onResolveIncident(workspaceId: string): void {
@@ -315,7 +325,15 @@ export class AdminDashboardComponent implements OnDestroy {
   }
 
   onPauseWorkspace(workspaceId: string): void {
-    this.metricsService.pauseWorkspace(workspaceId);
+    this.metricsService.pauseWorkspace(workspaceId).subscribe({
+      next: () => {
+        this.showFeedback('success', 'La instancia pasó a reposo y el clúster quedó actualizado.');
+        this.wsReloadToken.update(value => value + 1);
+      },
+      error: () => {
+        this.showFeedback('warning', 'No se pudo pausar la instancia. Inténtelo de nuevo.');
+      }
+    });
   }
 
   onViewLogs(workspaceId: string): void {
