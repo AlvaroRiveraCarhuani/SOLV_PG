@@ -201,6 +201,16 @@ func (s *AdminGovernanceService) CreateTemplateComponent(ctx context.Context, te
 
 	dto = domain.NormalizeCreateComponentDTO(dto)
 
+	// Gobernanza del catálogo de motores: solo se aceptan los motores canónicos, con
+	// su modo de aprovisionamiento conocido (archivo, host de aula o contenedor
+	// satélite auto-orquestado).
+	if dto.Layer == domain.ComponentLayerDatabase && !domain.IsSupportedServiceEngine(dto.ServiceEngine) {
+		return nil, fmt.Errorf(
+			"motor de base de datos no soportado: %q (motores válidos: %s)",
+			dto.ServiceEngine, strings.Join(domain.SupportedServiceEngines(), ", "),
+		)
+	}
+
 	synthesizedLayer, errSynth := domain.SynthesizeAssistedBuildLayer(dto.InstallMode, dto.PackageNames, dto.BuildLayerSnippet)
 	if errSynth != nil {
 		return nil, errSynth
@@ -255,6 +265,18 @@ func (s *AdminGovernanceService) UpdateTemplateComponent(ctx context.Context, te
 	}
 	if strings.HasSuffix(strings.ToLower(strings.TrimSpace(dto.BaseImage)), ":latest") {
 		return nil, errors.New("el tag :latest está prohibido por reproducibilidad académica")
+	}
+	// El motor de servicio solo existe para la capa de base de datos: se canonicaliza
+	// (mongo -> mongodb) y se rechaza cualquier motor fuera del dominio soportado.
+	if engine := strings.TrimSpace(dto.ServiceEngine); engine != "" {
+		canonical := domain.NormalizeServiceEngine(engine, "", dto.Name, "", dto.BaseImage)
+		if canonical == "" {
+			return nil, fmt.Errorf(
+				"motor de base de datos no soportado: %q (motores válidos: %s)",
+				engine, strings.Join(domain.SupportedServiceEngines(), ", "),
+			)
+		}
+		dto.ServiceEngine = canonical
 	}
 	var synthesized string
 	if strings.TrimSpace(dto.InstallMode) != "" {

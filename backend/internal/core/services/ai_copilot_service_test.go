@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -237,6 +238,77 @@ func TestAICopilot_SuggestComponent_RejectsLatestTag(t *testing.T) {
 	}
 	if !errors.As(err, &vErr) || vErr.Code != "base_image_unpinned" {
 		t.Errorf("esperaba AISettingsValidationError base_image_unpinned, got %v", err)
+	}
+}
+
+// El copiloto acepta la capa database y gobierna la respuesta con el catálogo: motor
+// canónico, imagen con tag fijo, clasificación, huella de memoria y modo de instalación
+// no dependen de lo que devuelva el motor de IA.
+func TestAICopilot_SuggestComponent_GovernsDatabaseEngines(t *testing.T) {
+	cases := []struct {
+		requested      string
+		wantEngine     string
+		wantImage      string
+		wantCategory   string
+		wantRamDeltaMB int
+	}{
+		{requested: "mysql", wantEngine: "mysql", wantImage: "mysql:8.4", wantCategory: "relational", wantRamDeltaMB: 128},
+		{requested: "mariadb", wantEngine: "mariadb", wantImage: "mariadb:11.4", wantCategory: "relational", wantRamDeltaMB: 128},
+		{requested: "mongodb", wantEngine: "mongodb", wantImage: "mongo:7.0", wantCategory: "nosql", wantRamDeltaMB: 128},
+		{requested: "redis", wantEngine: "redis", wantImage: "redis:7.2-alpine", wantCategory: "nosql", wantRamDeltaMB: 64},
+		// Un motor fuera del catálogo cae en el PostgreSQL de aula, nunca en un motor inventado.
+		{requested: "sqlserver", wantEngine: "postgres", wantImage: "", wantCategory: "relational", wantRamDeltaMB: 50},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.requested, func(t *testing.T) {
+			// El motor de IA responde con la capa equivocada y con metadatos incompletos.
+			componentJSON := fmt.Sprintf(
+				`{"component":{"name":"Motor %s del curso","slug":"motor-%s","layer":"addon","sub_category":"general","base_image":"","service_engine":"%s","install_mode":"pip","package_names":["algo"],"ram_delta_mb":0},"rationale":"el docente pidió este motor para el laboratorio"}`,
+				tc.requested, tc.requested, tc.requested,
+			)
+			server := newCopilotLLMServer(t, componentJSON)
+			copilot := NewAICopilotService(newEnabledCopilotSettings(t, server), nil)
+
+			resp, err := copilot.SuggestComponent(context.Background(), "t-1", "u-1", domain.AISuggestComponentRequestDTO{
+				Prompt: fmt.Sprintf("Necesito %s para el laboratorio de bases de datos", tc.requested),
+				Layer:  domain.ComponentLayerDatabase,
+			})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if resp.Component.Layer != domain.ComponentLayerDatabase {
+				t.Errorf("capa sugerida = %q, esperada database", resp.Component.Layer)
+			}
+			if resp.Component.ServiceEngine != tc.wantEngine {
+				t.Errorf("service_engine = %q, esperado %q", resp.Component.ServiceEngine, tc.wantEngine)
+			}
+			if resp.ServiceEngine != tc.wantEngine {
+				t.Errorf("service_engine de la respuesta = %q, esperado %q", resp.ServiceEngine, tc.wantEngine)
+			}
+			if resp.Component.BaseImage != tc.wantImage {
+				t.Errorf("base_image = %q, esperada %q", resp.Component.BaseImage, tc.wantImage)
+			}
+			if strings.Contains(resp.Component.BaseImage, ":latest") {
+				t.Errorf("la imagen del motor debe llevar tag fijo: %q", resp.Component.BaseImage)
+			}
+			if resp.Component.SubCategory != tc.wantCategory {
+				t.Errorf("sub_category = %q, esperada %q", resp.Component.SubCategory, tc.wantCategory)
+			}
+			if resp.Component.RamDeltaMB != tc.wantRamDeltaMB {
+				t.Errorf("ram_delta_mb = %d, esperada %d", resp.Component.RamDeltaMB, tc.wantRamDeltaMB)
+			}
+			if len(resp.Component.CompatibleRuntimes) != 1 || resp.Component.CompatibleRuntimes[0] != "universal" {
+				t.Errorf("compatible_runtimes = %v, esperado [universal]", resp.Component.CompatibleRuntimes)
+			}
+			if resp.Component.InstallMode != domain.InstallModeNone {
+				t.Errorf("install_mode = %q: el motor se aprovisiona como servicio, no se instala", resp.Component.InstallMode)
+			}
+			if len(resp.Component.PackageNames) != 0 || resp.Component.BuildLayerSnippet != "" {
+				t.Errorf("un motor no debe llevar paquetes ni capa de build: %v / %q", resp.Component.PackageNames, resp.Component.BuildLayerSnippet)
+			}
+		})
 	}
 }
 

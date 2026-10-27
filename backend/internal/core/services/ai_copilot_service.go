@@ -300,6 +300,9 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 	}
 
 	systemPrompt := suggestComponentSystemPrompt()
+	if layer == domain.ComponentLayerDatabase {
+		systemPrompt += suggestDatabaseComponentRules()
+	}
 	userPrompt := fmt.Sprintf("Capa solicitada: %s\nRuntime objetivo: %s\nDescripción del administrador:\n%s", layer, targetRuntime, prompt)
 
 	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "suggest-component", systemPrompt, userPrompt)
@@ -334,6 +337,11 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 	if strings.TrimSpace(string(dto.Layer)) == "" {
 		dto.Layer = layer
 	}
+	// La capa solicitada manda: un componente pedido como base de datos nunca se
+	// guarda como runtime o complemento, y viceversa.
+	if layer == domain.ComponentLayerDatabase {
+		dto.Layer = domain.ComponentLayerDatabase
+	}
 
 	// Prohibido :latest: toda imagen debe llevar tag de versión fija.
 	baseImage := strings.TrimSpace(dto.BaseImage)
@@ -355,6 +363,9 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 	}
 
 	// Saneo de metadatos del catálogo y síntesis determinista de la capa de build.
+	// En la capa de base de datos el saneo es cerrado: el motor, la clasificación, la
+	// imagen versionada, la huella de memoria y el modo de instalación quedan
+	// gobernados por el catálogo, no por la salida del motor de IA.
 	dto = domain.NormalizeCreateComponentDTO(dto)
 	synthesized, err := domain.SynthesizeAssistedBuildLayer(dto.InstallMode, dto.PackageNames, dto.BuildLayerSnippet)
 	if err != nil {
@@ -366,9 +377,10 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 	dto.BuildLayerSnippet = synthesized
 
 	return &domain.AISuggestComponentResponseDTO{
-		Component: dto,
-		Rationale: strings.TrimSpace(payload.Rationale),
-		LatencyMS: latencyMS,
+		Component:     dto,
+		ServiceEngine: strings.TrimSpace(dto.ServiceEngine),
+		Rationale:     strings.TrimSpace(payload.Rationale),
+		LatencyMS:     latencyMS,
 	}, nil
 }
 
@@ -771,6 +783,19 @@ Reglas innegociables:
 - install_mode debe corresponder al ecosistema y package_names debe listar paquetes reales sin metacaracteres de shell.
 - build_layer_snippet puede ir vacío: el backend lo sintetiza de forma determinista desde install_mode + package_names.
 - Los paquetes ocupan disco, no memoria residente: ram_delta_mb solo refleja procesos residentes (0 salvo servidores o librerías pesadas).`
+}
+
+// suggestDatabaseComponentRules amplía el prompt del copiloto con las reglas del
+// catálogo de motores de base de datos: el motor se aprovisiona como servicio, no se
+// instala dentro de la imagen del laboratorio.
+func suggestDatabaseComponentRules() string {
+	return `
+Reglas adicionales para un componente de capa database:
+- service_engine SOLO puede ser sqlite, postgres, mysql, mariadb, mongodb o redis.
+- sub_category es "relational" (sqlite, postgres, mysql, mariadb) o "nosql" (mongodb, redis).
+- base_image lleva tag de versión fija para los motores de contenedor (mysql:8.4, mariadb:11.4, mongo:7.0, redis:7.2-alpine) y va vacía en sqlite y en el PostgreSQL de aula.
+- install_mode siempre "none" y package_names vacío: el motor se aprovisiona como servicio acoplado, no se instala en la imagen.
+- compatible_runtimes debe ser ["universal"] y ram_delta_mb la huella residente del motor (0 sqlite, 50 postgres, 64 redis, 128 mysql/mariadb/mongodb).`
 }
 
 func generateExerciseSystemPrompt(publicCount, hiddenCount int, difficulty string) string {

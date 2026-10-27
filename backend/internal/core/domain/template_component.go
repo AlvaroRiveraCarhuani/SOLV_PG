@@ -249,8 +249,141 @@ func IsBuiltStackImageTag(imageRef string) bool {
 	return strings.HasPrefix(strings.TrimSpace(imageRef), "solv-local/stack:")
 }
 
+// canonicalServiceEngines son los motores de base de datos gobernados por el catálogo.
+// El catálogo no admite motores fuera de esta lista: cada uno tiene un modo de
+// aprovisionamiento conocido (archivo local, host compartido de aula o contenedor
+// satélite auto-orquestado).
+var canonicalServiceEngines = []string{"none", "sqlite", "postgres", "mysql", "mariadb", "mongodb", "redis"}
+
+// SupportedServiceEngines devuelve la lista canónica de motores soportados por el catálogo.
+func SupportedServiceEngines() []string {
+	out := make([]string, len(canonicalServiceEngines))
+	copy(out, canonicalServiceEngines)
+	return out
+}
+
+// IsSupportedServiceEngine indica si un motor pertenece al dominio soportado.
+func IsSupportedServiceEngine(engine string) bool {
+	return canonicalServiceEngine(engine) != ""
+}
+
+// canonicalServiceEngine resuelve un alias de motor a su nombre canónico ('none' cuando
+// el componente declara explícitamente que no usa base de datos).
+func canonicalServiceEngine(engine string) string {
+	switch strings.ToLower(strings.TrimSpace(engine)) {
+	case "none":
+		return "none"
+	case "sqlite", "sqlite3":
+		return "sqlite"
+	case "postgres", "postgresql":
+		return "postgres"
+	case "mysql":
+		return "mysql"
+	case "mariadb":
+		return "mariadb"
+	case "mongodb", "mongo":
+		return "mongodb"
+	case "redis":
+		return "redis"
+	default:
+		return ""
+	}
+}
+
+// NormalizeServiceEngine resuelve el motor de servicio canónico a partir del valor
+// declarado y, cuando viene vacío o desconocido, lo infiere del slug, nombre, icono o
+// imagen del componente. Devuelve cadena vacía cuando no es reconocible.
+func NormalizeServiceEngine(engine, slug, name, iconKey, baseImage string) string {
+	if canonical := canonicalServiceEngine(engine); canonical != "" {
+		return canonical
+	}
+	combined := strings.ToLower(strings.Join([]string{slug, name, iconKey, baseImage}, " "))
+	switch {
+	case strings.Contains(combined, "sqlite"):
+		return "sqlite"
+	case strings.Contains(combined, "postgres") || strings.Contains(combined, "pgsql"):
+		return "postgres"
+	case strings.Contains(combined, "mariadb"):
+		return "mariadb"
+	case strings.Contains(combined, "mysql"):
+		return "mysql"
+	case strings.Contains(combined, "mongo"):
+		return "mongodb"
+	case strings.Contains(combined, "redis"):
+		return "redis"
+	default:
+		return ""
+	}
+}
+
+// DefaultDatabaseSubCategory clasifica un motor: relacional, NoSQL/caché o sin base de datos.
+func DefaultDatabaseSubCategory(engine string) string {
+	switch canonicalServiceEngine(engine) {
+	case "none":
+		return "none"
+	case "mongodb", "redis":
+		return "nosql"
+	default:
+		return "relational"
+	}
+}
+
+// DefaultDatabaseBaseImage devuelve la imagen con tag fijo del motor cuando el
+// administrador no la declara. SQLite (archivo local) y PostgreSQL de aula (host
+// compartido) no usan imagen propia.
+func DefaultDatabaseBaseImage(engine string) string {
+	switch canonicalServiceEngine(engine) {
+	case "mysql":
+		return "mysql:8.4"
+	case "mariadb":
+		return "mariadb:11.4"
+	case "mongodb":
+		return "mongo:7.0"
+	case "redis":
+		return "redis:7.2-alpine"
+	default:
+		return ""
+	}
+}
+
+// DefaultDatabaseRamDeltaMB es la huella de memoria residente del motor cuando el
+// administrador no la declara. Los motores de contenedor satélite se levantan bajo
+// demanda y solo consumen RAM mientras hay laboratorios activos usándolos.
+func DefaultDatabaseRamDeltaMB(engine string) int {
+	switch canonicalServiceEngine(engine) {
+	case "postgres":
+		return 50
+	case "redis":
+		return 64
+	case "mysql", "mariadb", "mongodb":
+		return 128
+	default:
+		return 0
+	}
+}
+
 // NormalizeCreateComponentDTO completa metadatos técnicos omitidos por el administrador (entrypoint, binarios verificables y huella de memoria) a partir de la familia tecnológica.
 func NormalizeCreateComponentDTO(dto CreateTemplateComponentDTO) CreateTemplateComponentDTO {
+	if dto.Layer == ComponentLayerDatabase {
+		dto.ServiceEngine = NormalizeServiceEngine(dto.ServiceEngine, dto.Slug, dto.Name, dto.IconKey, dto.BaseImage)
+		if dto.ServiceEngine == "" {
+			dto.ServiceEngine = "postgres"
+		}
+		dto.SubCategory = DefaultDatabaseSubCategory(dto.ServiceEngine)
+		if len(dto.CompatibleRuntimes) == 0 {
+			dto.CompatibleRuntimes = []string{"universal"}
+		}
+		if strings.TrimSpace(dto.BaseImage) == "" {
+			dto.BaseImage = DefaultDatabaseBaseImage(dto.ServiceEngine)
+		}
+		if dto.RamDeltaMB <= 0 {
+			dto.RamDeltaMB = DefaultDatabaseRamDeltaMB(dto.ServiceEngine)
+		}
+		// Un motor de base de datos no instala paquetes: se aprovisiona como servicio.
+		dto.InstallMode = InstallModeNone
+		dto.PackageNames = nil
+	}
+
 	if dto.Layer == ComponentLayerRuntime {
 		if strings.TrimSpace(dto.JudgeEntrypoint) == "" && strings.TrimSpace(dto.SubCategory) != "web" {
 			dto.JudgeEntrypoint = InferRuntimeJudgeEntrypoint(dto.Name, dto.Slug, dto.IconKey, dto.BaseImage)

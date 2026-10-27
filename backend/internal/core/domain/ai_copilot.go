@@ -16,8 +16,12 @@ type AISuggestComponentRequestDTO struct {
 // build_layer_snippet sintetizado por SynthesizeAssistedBuildLayer.
 type AISuggestComponentResponseDTO struct {
 	Component CreateTemplateComponentDTO `json:"component"`
-	Rationale string                     `json:"rationale"` // explicación técnica en español
-	LatencyMS int64                      `json:"latency_ms"`
+	// ServiceEngine es el motor canónico resuelto cuando la sugerencia es un motor de
+	// base de datos (misma verdad que component.service_engine, expuesta en la raíz
+	// para que la Columna 3 del constructor la consuma sin desenvolverse).
+	ServiceEngine string `json:"service_engine,omitempty"`
+	Rationale     string `json:"rationale"`                // explicación técnica en español
+	LatencyMS     int64  `json:"latency_ms"`
 }
 
 // AIGenerateExerciseRequestDTO es el payload de POST /api/v1/teacher/ai/generate-exercise.
