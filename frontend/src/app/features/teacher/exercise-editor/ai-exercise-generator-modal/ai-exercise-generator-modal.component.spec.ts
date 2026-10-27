@@ -226,7 +226,9 @@ describe('AiExerciseGeneratorModalComponent', () => {
   });
 
   it('no crashea si listMyModels devuelve datos no array y filteredByokModels opera de forma segura', () => {
-    (component.byokAvailableModels as any).set(null);
+    // El signal está tipado string[]; el cast evita el `any` y ejercita la
+    // rama defensiva (Array.isArray) con una entrada fuera de contrato.
+    component.byokAvailableModels.set(null as unknown as string[]);
     expect(() => component.filteredByokModels()).not.toThrow();
     expect(component.filteredByokModels()).toEqual([]);
 

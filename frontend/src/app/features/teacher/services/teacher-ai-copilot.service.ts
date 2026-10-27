@@ -74,6 +74,21 @@ interface ApiErrorBody {
   code?: string;
 }
 
+// El listado de modelos BYOK llega como { data: { models: [...] } }; por contrato
+// previo también se aceptan el array plano y el body { models: [...] }. Cada modelo
+// puede ser el id directamente o un objeto { id } según el proveedor.
+
+function toByokModelId(m: unknown): string {
+  if (typeof m === 'string') {
+    return m;
+  }
+  if (typeof m === 'object' && m !== null && 'id' in m) {
+    const id = (m as { id?: unknown }).id;
+    return typeof id === 'string' ? id : '';
+  }
+  return '';
+}
+
 @Injectable({ providedIn: 'root' })
 export class TeacherAiCopilotService {
   private readonly http = inject(HttpClient);
@@ -113,17 +128,18 @@ export class TeacherAiCopilotService {
 
   listMyModels(payload: { provider: string; api_key?: string; base_url?: string }): Observable<string[]> {
     return this.http
-      .post<any>('/api/v1/ai/my-settings/models', payload)
+      .post<{ data?: unknown; models?: unknown }>('/api/v1/ai/my-settings/models', payload)
       .pipe(
-        map((res) => {
-          if (!res) return [];
-          const raw = res.data ?? res;
-          if (Array.isArray(raw)) {
-            return raw.map((m: any) => (typeof m === 'string' ? m : (m?.id ?? '')));
+        map((envelope) => {
+          if (!envelope) return [];
+          const body: unknown = envelope.data ?? envelope;
+          if (Array.isArray(body)) {
+            return body.map(toByokModelId);
           }
-          const models = raw?.models ?? res.models ?? [];
+          const bodyModels = (body as { models?: unknown } | null)?.models;
+          const models: unknown = bodyModels ?? envelope.models ?? [];
           if (Array.isArray(models)) {
-            return models.map((m: any) => (typeof m === 'string' ? m : (m?.id ?? '')));
+            return models.map(toByokModelId);
           }
           return [];
         })

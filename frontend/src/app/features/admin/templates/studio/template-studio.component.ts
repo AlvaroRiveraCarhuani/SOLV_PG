@@ -17,7 +17,7 @@ import {
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
-import { AdminConfigIaService, AIRepairTemplateResponse, AISuggestTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
+import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AISuggestTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -940,7 +940,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.showComponentModal.set(true);
   }
 
-  openCreateMissingFromProposal(event: { name: string; missing?: any }): void {
+  openCreateMissingFromProposal(event: { name: string; missing?: AIMissingComponent }): void {
     const layer = (event.missing?.layer as ComponentLayer) || 'addon';
     const sub = (event.missing?.category === 'web' ? 'web' : 'backend') as 'backend' | 'web';
     const prompt = event.missing?.reason

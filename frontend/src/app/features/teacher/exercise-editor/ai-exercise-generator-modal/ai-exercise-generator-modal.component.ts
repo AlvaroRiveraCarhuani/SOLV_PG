@@ -136,7 +136,7 @@ export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
     const search = this.byokModelSearch().toLowerCase().trim();
 
     return list.filter((m) => {
-      const lower = (typeof m === 'string' ? m : (m as any)?.id || '').toLowerCase();
+      const lower = m.toLowerCase();
       if (filter === 'free' && !lower.includes(':free') && !lower.includes('free')) {
         return false;
       }
