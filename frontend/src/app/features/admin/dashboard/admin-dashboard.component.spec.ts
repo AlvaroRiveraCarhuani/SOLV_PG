@@ -20,8 +20,10 @@ interface MockAdminMetricsService {
 }
 
 const makeHealth = (overrides: Partial<HostSystemHealth> = {}): HostSystemHealth => ({
-  status: 'healthy',
-  docker_version: '27.0',
+  status: 'operational',
+  docker: { server_version: '27.0', storage_driver: 'overlay2', healthy: true },
+  docker_version: 'Docker Engine v27.0 (overlay2)',
+  health_reasons: [],
   uptime_seconds: 3600,
   metrics: {
     ram_used_bytes: 0,

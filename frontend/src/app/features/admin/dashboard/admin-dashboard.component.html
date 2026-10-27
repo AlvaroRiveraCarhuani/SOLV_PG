@@ -4,9 +4,15 @@
     <div class="header-left">
       <div class="title-row">
         <h1 class="page-title">Salud del Servidor y Recursos</h1>
-        <span class="status-pill status-healthy">
+        <span
+          class="status-pill"
+          [class.status-healthy]="healthStatusClass() === 'healthy'"
+          [class.status-degraded]="healthStatusClass() === 'degraded'"
+          [class.status-critical]="healthStatusClass() === 'critical'"
+          [attr.title]="healthReasonsTooltip()"
+        >
           <span class="pill-dot"></span>
-          {{ health()?.status === 'degraded' ? 'Rendimiento Degradado' : 'Operativo y Estable' }}
+          {{ healthStatusLabel() }}
         </span>
       </div>
       <div class="meta-row">

@@ -26,6 +26,10 @@ export class StatusBadgeComponent {
         return 'status-hibernated';
       case 'pending':
         return 'status-pending';
+      case 'unknown':
+        return 'status-unknown';
+      case 'orphaned':
+        return 'status-orphaned';
       case 'oom_killed':
         return 'status-oom-killed';
       case 'failed':
@@ -43,6 +47,10 @@ export class StatusBadgeComponent {
         return 'En Pausa';
       case 'pending':
         return 'Iniciando';
+      case 'unknown':
+        return 'Sin Verificar';
+      case 'orphaned':
+        return 'Huérfano';
       case 'oom_killed':
         return 'Límite de Memoria';
       case 'failed':

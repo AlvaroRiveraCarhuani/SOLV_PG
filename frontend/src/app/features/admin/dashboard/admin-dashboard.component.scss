@@ -52,6 +52,24 @@
     }
   }
 
+  &.status-degraded {
+    background-color: var(--status-pending-bg);
+    color: var(--status-pending-color);
+
+    .pill-dot {
+      background-color: var(--color-warning);
+    }
+  }
+
+  &.status-critical {
+    background-color: var(--status-failed-bg);
+    color: var(--status-failed-color);
+
+    .pill-dot {
+      background-color: var(--color-error);
+    }
+  }
+
   .pill-dot {
     width: 6px;
     height: 6px;

@@ -117,7 +117,10 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 	for _, ws := range allWorkspaces {
 		if ws.TenantID == tenantID {
 			status := ws.Status
-			if status != "running" && status != "hibernated" && status != "failed" {
+			// Estados conocidos del panel pasan tal cual; unknown y orphaned entran en
+			// la lista por derecho propio (ADR-049). Solo lo no clasificado colapsa a
+			// hibernated para no romper la vista.
+			if status != "running" && status != "hibernated" && status != "failed" && status != "unknown" && status != "orphaned" {
 				status = "hibernated"
 			}
 			ttl := int64(0)

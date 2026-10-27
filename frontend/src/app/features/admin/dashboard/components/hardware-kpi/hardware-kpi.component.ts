@@ -72,7 +72,7 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
           </div>
         </div>
         <div class="kpi-footer">
-          <span>/var/lib/docker overlay2</span>
+          <span><span machineData>{{ metrics().disk_path || '—' }}</span> &bull; Servidor Físico</span>
         </div>
       </div>
 
@@ -84,7 +84,7 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
         </div>
         <div class="kpi-body">
           <div class="kpi-value-row">
-            <span class="kpi-mono-val"><span machineData>{{ metrics().containers_active }} / {{ metrics().containers_max }}</span> Activos</span>
+            <span class="kpi-mono-val"><span machineData>{{ metrics().containers_active }} / {{ concurrencyMax() }}</span> Activos</span>
             <span class="kpi-badge badge-success">
               <span machineData>{{ concurrencyPercent() }}%</span>
             </span>
@@ -94,7 +94,7 @@ import { LucideCpu, LucideDatabase, LucideHardDrive, LucideBoxes } from '@lucide
           </div>
         </div>
         <div class="kpi-footer">
-          <span>Capacidad dinámica según RAM &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
+          <span>{{ capacityBasisLabel() }} &bull; <span machineData>{{ metrics().containers_hibernated }}</span> hibernados</span>
         </div>
       </div>
     </div>
@@ -114,8 +114,21 @@ export class HardwareKpiComponent {
   });
   diskUsedGB = computed(() => (this.metrics().disk_used_bytes / (1024 * 1024 * 1024)).toFixed(0));
   diskTotalGB = computed(() => (this.metrics().disk_total_bytes / (1024 * 1024 * 1024)).toFixed(0));
+  concurrencyMax = computed(() => this.metrics().estimated_max_containers ?? this.metrics().containers_max ?? 40);
+  // El denominador de la tarjeta es la capacidad real calculada por el backend
+  // (min(politica, RAM disponible)), y el subtitulo explica cual limite mando.
+  capacityBasisLabel = computed(() => {
+    switch (this.metrics().capacity_basis) {
+      case 'mem_available':
+        return 'Limitado por RAM disponible del host';
+      case 'policy':
+        return 'Techo de política (max_containers)';
+      default:
+        return 'Capacidad según políticas del tenant';
+    }
+  });
   concurrencyPercent = computed(() => {
-    const max = this.metrics().containers_max || 40;
-    return Math.round((this.metrics().containers_active / max) * 100);
+    const max = this.concurrencyMax();
+    return max > 0 ? Math.round((this.metrics().containers_active / max) * 100) : 0;
   });
 }

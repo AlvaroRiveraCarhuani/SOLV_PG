@@ -41,6 +41,28 @@
   }
 }
 
+/* unknown = neutral (mismo token semantico: sin verificar no es un fallo) */
+.status-unknown {
+  background-color: var(--status-hibernated-bg);
+  color: var(--status-hibernated-color);
+  border-color: var(--status-hibernated-border);
+
+  .status-indicator {
+    background-color: var(--status-hibernated-color);
+  }
+}
+
+/* orphaned = amber (el contenedor desaparecio: requiere accion del alumno) */
+.status-orphaned {
+  background-color: var(--status-pending-bg);
+  color: var(--status-pending-color);
+  border-color: var(--status-pending-border);
+
+  .status-indicator {
+    background-color: var(--status-pending-color);
+  }
+}
+
 /* pending = warning */
 .status-pending {
   background-color: var(--status-pending-bg);

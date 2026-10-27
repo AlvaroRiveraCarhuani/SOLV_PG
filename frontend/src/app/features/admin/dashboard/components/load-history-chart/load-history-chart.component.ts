@@ -2,6 +2,7 @@ import { Component, input, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LoadSnapshot } from '@core/models/admin.model';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { formatSolvDate, parseDateValue } from '@shared/pipes/date-text.pipe';
 import { LucideActivity } from '@lucide/angular';
 
 @Component({
@@ -38,12 +39,13 @@ import { LucideActivity } from '@lucide/angular';
           </div>
           <div class="legend-item">
             <span class="legend-indicator threshold"></span>
-            <span class="legend-label">Límite QoS (85%)</span>
+            <span class="legend-label">Límite QoS ({{ threshold() }}%)</span>
           </div>
         </div>
       </div>
 
       <!-- Contenedor Principal del Gráfico con Eje Y HTML desacoplado -->
+      @if (hasEnoughData()) {
       <div class="chart-body-wrapper">
         <!-- Eje Y en HTML: tipografía nítida sin distorsión vectorial -->
         <div class="y-axis">
@@ -56,9 +58,9 @@ import { LucideActivity } from '@lucide/angular';
 
         <!-- Área Gráfica: SVG Geométrico + Overlays HTML -->
         <div class="chart-plot-area" (mouseleave)="hoveredIndex.set(null)">
-          <!-- Badge de Umbral Crítico posicionado con HTML en el 85% -->
+          <!-- Badge de Umbral Crítico posicionado con el techo real de la política -->
           <div class="threshold-badge">
-            Umbral Crítico (85%)
+            Umbral Crítico ({{ threshold() }}%)
           </div>
 
           <svg viewBox="0 0 800 160" preserveAspectRatio="none" class="chart-svg">
@@ -69,8 +71,9 @@ import { LucideActivity } from '@lucide/angular';
             <line x1="0" y1="120" x2="800" y2="120" class="grid-line" />
             <line x1="0" y1="159" x2="800" y2="159" class="grid-line baseline" />
 
-            <!-- Línea de Umbral QoS (85% = Y: 160 - 0.85*160 = 24) -->
-            <line x1="0" y1="24" x2="800" y2="24" class="threshold-line" />
+            <!-- Línea de Umbral QoS: la Y sale del techo de política vigente,
+                 no de un 85 hardcodeado: 160 - (techo/100)*160 -->
+            <line x1="0" [attr.y1]="thresholdY()" x2="800" [attr.y2]="thresholdY()" class="threshold-line" />
 
             <!-- Curvas de Carga -->
             @if (cpuLinePoints()) {
@@ -107,7 +110,10 @@ import { LucideActivity } from '@lucide/angular';
               [style.left.%]="tooltipPercent()"
               [style.top.px]="15"
             >
-              <div class="tooltip-time"><span machineData>{{ snap.timestamp }}</span> (Hace {{ 59 - (hoveredIndex() ?? 0) }}m)</div>
+              <div class="tooltip-time">
+                <time [attr.datetime]="snap.timestamp">{{ formatTime(snap.timestamp) }}</time>
+                (Hace <span machineData>{{ minutesAgo(snap.timestamp) }}</span>m)
+              </div>
               <div class="tooltip-row">
                 <span class="dot ram-bg"></span>
                 <span class="tooltip-name">RAM Host:</span>
@@ -123,22 +129,37 @@ import { LucideActivity } from '@lucide/angular';
         </div>
       </div>
 
-      <!-- Eje X Inferior (Marcas temporales) perfectamente alineado -->
+      <!-- Eje X Inferior: marcas proporcionales al rango real de los samples
+           (el span cubre exactamente entre el primer y el último sample) -->
       <div class="chart-timeline">
-        <span>-60 min</span>
-        <span>-45 min</span>
-        <span>-30 min</span>
-        <span>-15 min</span>
-        <span>Ahora</span>
+        @for (label of xAxisLabels(); track $index) {
+          <span>{{ label }}</span>
+        }
       </div>
+      } @else {
+      <!-- Estado vacío honesto: sin al menos 2 samples reales no hay línea que dibujar. -->
+      <div class="chart-empty">
+        <svg lucideActivity class="empty-icon"></svg>
+        <span>Recopilando telemetría: el historial se llena con muestras reales cada minuto.</span>
+      </div>
+      }
     </div>
   `,
   styleUrl: './load-history-chart.component.scss',
 })
 export class LoadHistoryChartComponent {
   history = input<LoadSnapshot[]>([]);
+  // Techo de seguridad vigente: lo pasa el dashboard desde la política del
+  // tenant (antes eran tres 85 hardcodeados en esta plantilla).
+  threshold = input<number>(85);
 
   hoveredIndex = signal<number | null>(null);
+
+  // Con menos de 2 puntos reales el gráfico muestra su estado vacío explícito:
+  // no se dibuja una línea con un solo sample ni se inventa historia.
+  hasEnoughData = computed(() => (this.history()?.length ?? 0) >= 2);
+
+  thresholdY = computed(() => 160 - (Math.min(Math.max(this.threshold(), 0), 100) / 100) * 160);
 
   currentRAM = computed(() => {
     const list = this.history();
@@ -152,6 +173,39 @@ export class LoadHistoryChartComponent {
     return Math.round(list[list.length - 1].cpu_percent);
   });
 
+  // Marcas del eje X proporcionales al rango temporal real de los samples: el
+  // span total es (último - primer timestamp) y cada marca cae en su fracción.
+  xAxisLabels = computed<string[]>(() => {
+    const list = this.history() ?? [];
+    if (list.length < 2) {
+      return ['-60 min', '-45 min', '-30 min', '-15 min', 'Ahora'];
+    }
+    const first = parseDateValue(list[0].timestamp);
+    const last = parseDateValue(list[list.length - 1].timestamp);
+    if (!first || !last || last.getTime() <= first.getTime()) {
+      return ['-60 min', '-45 min', '-30 min', '-15 min', 'Ahora'];
+    }
+    const spanMin = Math.max(1, Math.round((last.getTime() - first.getTime()) / 60000));
+    const fractions = [0, 0.25, 0.5, 0.75, 1];
+    return fractions.map((f) => {
+      if (f === 1) return 'Ahora';
+      const ago = Math.round(spanMin * (1 - f));
+      return `-${ago} min`;
+    });
+  });
+
+  // Delta real desde el timestamp del sample, no un "59 - índice" inventado.
+  minutesAgo(timestamp: string): number {
+    const d = parseDateValue(timestamp);
+    if (!d) return 0;
+    const minutes = Math.round((Date.now() - d.getTime()) / 60000);
+    return Math.max(0, minutes);
+  }
+
+  formatTime(timestamp: string): string {
+    return formatSolvDate(timestamp, 'time') ?? '—';
+  }
+
   points = computed(() => {
     const list = this.history() || [];
     if (list.length === 0) return [];
@@ -164,10 +218,14 @@ export class LoadHistoryChartComponent {
     const count = list.length;
     const step = (endX - startX) / (count > 1 ? count - 1 : 1);
 
+    // clampPercent acota 0..100: un sample medido fuera de rango no debe
+    // dibujarse por debajo del baseline (negativo) ni por encima del techo.
+    const clampPercent = (v: number) => Math.min(Math.max(v, 0), 100);
+
     return list.map((item, idx) => {
       const x = startX + idx * step;
-      const ramY = baseY - (Math.min(item.ram_percent, 100) / 100) * height;
-      const cpuY = baseY - (Math.min(item.cpu_percent, 100) / 100) * height;
+      const ramY = baseY - (clampPercent(item.ram_percent) / 100) * height;
+      const cpuY = baseY - (clampPercent(item.cpu_percent) / 100) * height;
       return { x, ramY, cpuY, item };
     });
   });

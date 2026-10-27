@@ -7,11 +7,17 @@ export interface HostHardwareMetrics {
   disk_used_bytes: number;
   disk_total_bytes: number;
   disk_percent: number;
+  /** Ruta real medida por el backend (vía gopsutil), no un literal de UI. */
+  disk_path?: string;
   containers_active: number;
   containers_hibernated: number;
   containers_max: number;
   host_safety_ceiling_pct?: number;
   estimated_max_containers?: number;
+  /** Qué límite mandó en el cálculo: la política del tenant o la RAM disponible. */
+  capacity_basis?: 'policy' | 'mem_available';
+  max_containers_policy?: number;
+  ram_per_lab_mb?: number;
 }
 
 export interface DockerContainerSummary {
@@ -25,7 +31,8 @@ export interface DockerContainerSummary {
   metrics_available?: boolean;
   memory_limit_mb: number;
   ttl_remaining_seconds: number;
-  status: 'running' | 'hibernated' | 'failed';
+  /** unknown = daemon no respondió durante la reconciliación; orphaned = contenedor ausente (ADR-049). */
+  status: 'running' | 'hibernated' | 'failed' | 'unknown' | 'orphaned';
   started_at: string;
 }
 
@@ -50,6 +57,7 @@ export interface TechnicalIncident {
 }
 
 export interface LoadSnapshot {
+  /** Timestamp real (RFC3339) del sample persistido por el worker; el gráfico calcula los deltas desde acá. */
   timestamp: string;
   ram_percent: number;
   ram_used_gb: number;
@@ -57,9 +65,20 @@ export interface LoadSnapshot {
   active_containers: number;
 }
 
+/** Daemon de Docker medido en el nodo (S6): nunca un literal fijo. */
+export interface DockerDaemonInfo {
+  server_version: string;
+  storage_driver: string;
+  healthy: boolean;
+}
+
 export interface HostSystemHealth {
-  status: 'healthy' | 'degraded' | 'critical';
-  docker_version: string;
+  status: 'operational' | 'degraded' | 'critical';
+  docker: DockerDaemonInfo;
+  /** Línea formateada para el encabezado, derivada de docker (S7: sin literales). */
+  docker_version?: string;
+  /** Códigos estables del backend: docker_unreachable, orphaned_workspaces, ... */
+  health_reasons?: string[];
   uptime_seconds: number;
   metrics: HostHardwareMetrics;
   containers: DockerContainerSummary[];

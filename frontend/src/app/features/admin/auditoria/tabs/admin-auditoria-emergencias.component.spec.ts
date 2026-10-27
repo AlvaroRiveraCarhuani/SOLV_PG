@@ -113,6 +113,7 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
   it('muestra banner crítico cuando la RAM del host supera el 90%', () => {
     health.set({
       status: 'critical',
+      docker: { server_version: '27.0', storage_driver: 'overlay2', healthy: false },
       docker_version: '27.0',
       uptime_seconds: 100,
       metrics: {

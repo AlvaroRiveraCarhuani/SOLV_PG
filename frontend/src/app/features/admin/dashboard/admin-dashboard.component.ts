@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AdminMetricsService } from '../services/admin-metrics.service';
@@ -68,6 +68,40 @@ export class AdminDashboardComponent implements OnDestroy {
 
   health = this.metricsService.health;
   isLoading = this.metricsService.isLoading;
+
+  // Badge de salud (S6): el estado viene del backend (operational/degraded/
+  // critical) con codigos de motivo estables. La clase CSS mapea a los tokens
+  // de estado semanticos; el titulo nativo sirve de tooltip con los motivos
+  // traducidos (S7: cero literales en la UI).
+  healthStatusLabel = computed(() => {
+    switch (this.health()?.status) {
+      case 'degraded':
+        return 'Rendimiento Degradado';
+      case 'critical':
+        return 'Servicio Crítico';
+      case 'operational':
+      default:
+        return 'Operativo y Estable';
+    }
+  });
+
+  healthStatusClass = computed(() => {
+    switch (this.health()?.status) {
+      case 'degraded':
+        return 'degraded';
+      case 'critical':
+        return 'critical';
+      case 'operational':
+      default:
+        return 'healthy';
+    }
+  });
+
+  healthReasonsTooltip = computed(() => {
+    const reasons = this.health()?.health_reasons ?? [];
+    if (reasons.length === 0) return '';
+    return reasons.map((r) => healthReasonLabel(r)).join('\n');
+  });
 
   selectedCourse = signal<CourseLoadSummary | null>(null);
   // Se incrementa tras cada pausa correcta para que el modal recargue su lista.
@@ -355,5 +389,25 @@ export class AdminDashboardComponent implements OnDestroy {
     if (this.refreshTimer) clearInterval(this.refreshTimer);
     if (this.hibernateTimer) clearInterval(this.hibernateTimer);
     if (this.feedbackTimer) clearTimeout(this.feedbackTimer);
+  }
+}
+
+// Traduccion estable de los codigos de motivo de salud del backend (S6/S7).
+// Los codigos nunca cambian (alertas y documentos dependen de la cadena); solo
+// el texto que ve el usuario vive en la UI.
+export function healthReasonLabel(reason: string): string {
+  switch (reason) {
+    case 'docker_unreachable':
+      return 'Daemon de Docker inaccesible';
+    case 'orphaned_workspaces':
+      return 'Contenedores huérfanos detectados';
+    case 'oom_killed_workspaces':
+      return 'Laboratorios detenidos por límite de memoria';
+    case 'unknown_workspaces':
+      return 'Estados sin verificar (Docker no respondió)';
+    case 'ram_above_safety_ceiling':
+      return 'RAM del host sobre el umbral de seguridad';
+    default:
+      return reason;
   }
 }

@@ -1,11 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { formatSolvDate } from '@shared/pipes/date-text.pipe';
-import { 
-  HostHardwareMetrics, 
-  DockerContainerSummary, 
-  HostSystemHealth, 
-  CourseLoadSummary, 
+import {
+  HostHardwareMetrics,
+  DockerContainerSummary,
+  HostSystemHealth,
+  CourseLoadSummary,
   TechnicalIncident,
   LoadSnapshot,
   WorkspaceLogsResponse
@@ -21,6 +20,13 @@ interface BackendHostHardware {
   disk_used_bytes: number;
   disk_total_bytes: number;
   disk_percent: number;
+  disk_path?: string;
+}
+
+interface BackendDockerDaemon {
+  server_version: string;
+  storage_driver: string;
+  healthy: boolean;
 }
 
 interface BackendHealthMetrics {
@@ -28,12 +34,19 @@ interface BackendHealthMetrics {
   running_labs: number;
   hibernated_labs: number;
   oom_killed_labs: number;
+  unknown_labs: number;
+  orphaned_labs: number;
   total_ram_alloc_mb: number;
   health_status: string;
+  health_reasons?: string[];
   uptime_seconds?: number;
   host_safety_ceiling_pct?: number;
   estimated_max_containers?: number;
+  max_containers_policy?: number;
+  ram_per_lab_mb?: number;
+  capacity_basis?: 'policy' | 'mem_available';
   host_hardware?: BackendHostHardware;
+  docker?: BackendDockerDaemon;
   load_history?: LoadSnapshot[];
 }
 
@@ -64,6 +77,7 @@ export class AdminMetricsService {
     }).pipe(
       tap(({ health, coursesLoad, incidents, containers }) => {
         let metrics: HostHardwareMetrics;
+        const maxContainers = health?.max_containers_policy ?? health?.estimated_max_containers ?? 40;
 
         if (health?.host_hardware) {
           // Datos 100% reales del servidor Linux Asus mediante gopsutil
@@ -76,11 +90,15 @@ export class AdminMetricsService {
             disk_used_bytes: health.host_hardware.disk_used_bytes,
             disk_total_bytes: health.host_hardware.disk_total_bytes,
             disk_percent: Math.round(health.host_hardware.disk_percent),
+            disk_path: health.host_hardware.disk_path,
             containers_active: health.running_labs,
             containers_hibernated: health.hibernated_labs,
-            containers_max: health?.estimated_max_containers ?? 40,
+            containers_max: maxContainers,
             host_safety_ceiling_pct: health?.host_safety_ceiling_pct ?? 85,
-            estimated_max_containers: health?.estimated_max_containers ?? 40
+            estimated_max_containers: health?.estimated_max_containers ?? maxContainers,
+            capacity_basis: health?.capacity_basis,
+            max_containers_policy: health?.max_containers_policy,
+            ram_per_lab_mb: health?.ram_per_lab_mb
           };
         } else {
           const running = health?.running_labs ?? 0;
@@ -98,21 +116,36 @@ export class AdminMetricsService {
             disk_percent: 36,
             containers_active: running,
             containers_hibernated: hibernated,
-            containers_max: health?.estimated_max_containers ?? 40,
+            containers_max: maxContainers,
             host_safety_ceiling_pct: health?.host_safety_ceiling_pct ?? 85,
-            estimated_max_containers: health?.estimated_max_containers ?? 40
+            estimated_max_containers: health?.estimated_max_containers ?? maxContainers,
+            capacity_basis: health?.capacity_basis,
+            max_containers_policy: health?.max_containers_policy,
+            ram_per_lab_mb: health?.ram_per_lab_mb
           };
         }
 
+        const docker = health?.docker;
+        const rawStatus = health?.health_status;
+        const healthStatus: 'operational' | 'degraded' | 'critical' =
+          rawStatus === 'degraded' || rawStatus === 'critical' ? rawStatus : 'operational';
+        const dockerVersion = docker
+          ? (docker.healthy
+              ? `Docker Engine v${docker.server_version} (${docker.storage_driver})`
+              : 'Docker daemon inaccesible')
+          : '';
+
         this.health.set({
-          status: (health?.oom_killed_labs ?? 0) > 0 ? 'degraded' : 'healthy',
-          docker_version: 'Docker Engine v27.1.1 (overlay2)',
-          uptime_seconds: health?.uptime_seconds ?? (14 * 86400 + 3600 * 5),
+          status: healthStatus,
+          docker: docker ?? { server_version: '', storage_driver: '', healthy: false },
+          docker_version: dockerVersion,
+          health_reasons: health?.health_reasons ?? [],
+          uptime_seconds: health?.uptime_seconds ?? 0,
           metrics,
           containers: containers || [],
           courses_load: coursesLoad || [],
           incidents: incidents || [],
-          load_history: health?.load_history ?? this.buildLoadHistoryFallback(metrics)
+          load_history: health?.load_history ?? []
         });
 
         this.isLoading.set(false);
@@ -204,33 +237,5 @@ export class AdminMetricsService {
     return this.http.get<DockerContainerSummary[]>(`/api/v1/admin/courses/${courseId}/workspaces`, { params }).pipe(
       catchError(() => of([]))
     );
-  }
-
-  private buildLoadHistoryFallback(metrics?: HostHardwareMetrics): LoadSnapshot[] {
-    const snapshots: LoadSnapshot[] = [];
-    const now = new Date();
-    const baseRam = metrics?.ram_percent ?? 24;
-    const baseCpu = metrics?.cpu_percent ?? 10;
-    const active = metrics?.containers_active ?? 0;
-    const totalRamGB = metrics ? Math.round((metrics.ram_total_bytes / (1024 * 1024 * 1024)) * 10) / 10 : 32;
-
-    for (let i = 59; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 60000);
-      const timeStr = formatSolvDate(d, 'time') ?? '';
-      // Variación sutil alrededor de las métricas reales del host
-      const variance = Math.sin(i / 5) * 1.5;
-      const ram = Math.max(1, Math.min(100, Math.round(baseRam + variance)));
-      const cpu = Math.max(1, Math.min(100, Math.round(baseCpu + variance * 0.8)));
-      const usedGB = Math.round(((ram / 100) * totalRamGB) * 10) / 10;
-
-      snapshots.push({
-        timestamp: timeStr,
-        ram_percent: ram,
-        ram_used_gb: usedGB,
-        cpu_percent: cpu,
-        active_containers: active
-      });
-    }
-    return snapshots;
   }
 }
