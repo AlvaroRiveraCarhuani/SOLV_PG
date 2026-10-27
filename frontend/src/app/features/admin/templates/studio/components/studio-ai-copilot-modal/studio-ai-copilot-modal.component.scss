@@ -140,11 +140,11 @@
   line-height: var(--leading-normal);
 }
 
-.proposal-warning {
+.proposal-missing-box {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-3);
   border: 1px solid var(--status-pending-border);
   border-radius: var(--radius-sm);
   background-color: var(--status-pending-bg);
@@ -152,14 +152,58 @@
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
 
+  .missing-box-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-weight: 600;
+  }
+
   .status-icon {
     flex: 0 0 var(--space-4);
     width: var(--space-4);
     height: var(--space-4);
   }
 
-  code {
-    overflow-wrap: anywhere;
+  .missing-cards-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-top: var(--space-1);
+  }
+
+  .missing-action-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  .missing-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+
+    strong {
+      color: var(--text-primary);
+      font-size: var(--text-xs);
+    }
+
+    .missing-card-reason {
+      color: var(--text-secondary);
+      font-size: var(--text-2xs);
+    }
+  }
+
+  .btn-create-missing {
+    flex-shrink: 0;
+    gap: var(--space-1);
+    font-size: var(--text-2xs);
   }
 }
 

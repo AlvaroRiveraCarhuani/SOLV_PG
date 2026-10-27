@@ -59,9 +59,36 @@
         <p class="proposal-rationale">{{ view.rationale }}</p>
 
         @if (view.missing.length > 0) {
-          <div class="proposal-warning" role="status">
-            <svg lucideXCircle class="status-icon"></svg>
-            <span>No están disponibles en el catálogo: <code machineData>{{ view.missing.join(', ') }}</code>. Seleccione alternativas o quite los complementos antes de aplicar.</span>
+          <div class="proposal-missing-box" role="status">
+            <div class="missing-box-header">
+              <svg lucideXCircle class="status-icon"></svg>
+              <span>Piezas solicitadas no encontradas en el catálogo:</span>
+            </div>
+            <div class="missing-cards-list">
+              @for (item of view.missing; track item) {
+                <div class="missing-action-card">
+                  <div class="missing-card-info">
+                    <strong class="font-mono" machineData>{{ item }}</strong>
+                    @if (view.missingComponents; as list) {
+                      @for (mc of list; track mc.name) {
+                        @if (mc.name.toLowerCase() === item.toLowerCase()) {
+                          <span class="missing-card-reason">{{ mc.reason }}</span>
+                        }
+                      }
+                    }
+                  </div>
+                  <button
+                    type="button"
+                    class="btn-outline btn-xs btn-create-missing"
+                    (click)="onCreateMissing(item, view)"
+                    title="Diseñar este componente con Copiloto IA y agregarlo al catálogo"
+                  >
+                    <svg lucidePlusCircle class="btn-icon-xs"></svg>
+                    <span>Diseñar con IA</span>
+                  </button>
+                </div>
+              }
+            </div>
           </div>
         }
 

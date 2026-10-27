@@ -226,6 +226,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly showComponentModal = signal<boolean>(false);
   readonly modalDefaultLayer = signal<ComponentLayer>('addon');
   readonly modalDefaultSubCategory = signal<'backend' | 'web'>('backend');
+  readonly modalInitialAiPrompt = signal<string>('');
   readonly modalDefaultCompatibleRuntime = computed<string>(() => {
     const rt = this.effectivePrimaryComponent();
     if (!rt) return '';
@@ -931,11 +932,21 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly editingComponent = signal<TemplateComponent | null>(null);
 
-  openNewComponentModal(layer: ComponentLayer, subCategory: 'backend' | 'web' = 'backend'): void {
+  openNewComponentModal(layer: ComponentLayer, subCategory: 'backend' | 'web' = 'backend', initialPrompt: string = ''): void {
     this.editingComponent.set(null);
     this.modalDefaultLayer.set(layer);
     this.modalDefaultSubCategory.set(subCategory);
+    this.modalInitialAiPrompt.set(initialPrompt);
     this.showComponentModal.set(true);
+  }
+
+  openCreateMissingFromProposal(event: { name: string; missing?: any }): void {
+    const layer = (event.missing?.layer as ComponentLayer) || 'addon';
+    const sub = (event.missing?.category === 'web' ? 'web' : 'backend') as 'backend' | 'web';
+    const prompt = event.missing?.reason
+      ? `Configurar ${event.name} (${layer}): ${event.missing.reason}`
+      : `Configurar ${event.name} como ${layer} para el catálogo oficial`;
+    this.openNewComponentModal(layer, sub, prompt);
   }
 
   openEditComponentModal(comp: TemplateComponent): void {
@@ -948,6 +959,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   handleModalClosed(): void {
     this.showComponentModal.set(false);
     this.editingComponent.set(null);
+    this.modalInitialAiPrompt.set('');
   }
 
   handleModalComponentSaved(saved: TemplateComponent): void {
@@ -975,6 +987,22 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.showToast(`Tecnología "${saved.name}" actualizada.`);
     } else {
       this.techComponents.update(list => [...list, saved]);
+      // Si la propuesta del copiloto está abierta, sincronizar la nueva pieza en la propuesta activa
+      const currentProp = this.aiProposal();
+      if (currentProp) {
+        if (saved.layer === 'addon') {
+          this.aiProposal.set({
+            ...currentProp,
+            addon_slugs: [...new Set([...(currentProp.addon_slugs || []), saved.slug || saved.id])]
+          });
+        } else if (saved.layer === 'runtime' && saved.sub_category !== 'web' && !currentProp.runtime_slug) {
+          this.aiProposal.set({
+            ...currentProp,
+            runtime_slug: saved.slug || saved.id
+          });
+        }
+      }
+
       if (saved.layer === 'runtime') {
         if (saved.sub_category === 'web') {
           this.selectWebPlatform(saved.id);

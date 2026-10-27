@@ -787,6 +787,7 @@
       [defaultLayer]="modalDefaultLayer()"
       [defaultSubCategory]="modalDefaultSubCategory()"
       [defaultCompatibleRuntime]="modalDefaultCompatibleRuntime()"
+      [initialAiPrompt]="modalInitialAiPrompt()"
       [availableRuntimes]="techComponents()"
       [editingComponent]="editingComponent()"
       [lockContext]="true"
@@ -818,6 +819,7 @@
       (apply)="onApplyAiCopilotModal()"
       (discard)="discardAiProposal()"
       (proposalChange)="updateAiProposalView($event)"
+      (createMissingComponent)="openCreateMissingFromProposal($event)"
       (dismiss)="isAiCopilotModalOpen.set(false)"
     />
   }

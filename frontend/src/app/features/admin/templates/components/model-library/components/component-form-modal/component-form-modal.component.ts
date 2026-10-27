@@ -93,6 +93,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   @Input() defaultLayer: ComponentLayer = 'addon';
   @Input() defaultSubCategory: 'backend' | 'web' = 'backend';
   @Input() defaultCompatibleRuntime: string = '';
+  @Input() initialAiPrompt: string = '';
   @Input() availableRuntimes: TemplateComponent[] = [];
   @Input() editingComponent: TemplateComponent | null = null;
   @Input() lockContext: boolean = false;
@@ -398,6 +399,11 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       }
     } else if (this.defaultCompatibleRuntime?.trim()) {
       this.compatibleRuntime.set(this.defaultCompatibleRuntime.trim().toLowerCase());
+    }
+
+    if (this.initialAiPrompt?.trim()) {
+      this.aiPrompt.set(this.initialAiPrompt.trim());
+      this.activeModalTab.set('ai');
     }
   }
 

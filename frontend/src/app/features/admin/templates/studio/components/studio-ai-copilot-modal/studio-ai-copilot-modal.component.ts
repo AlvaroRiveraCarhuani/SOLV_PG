@@ -5,13 +5,15 @@ import {
   LucideCheckCircle2,
   LucideRotateCcw,
   LucideRefreshCw,
-  LucideXCircle
+  LucideXCircle,
+  LucidePlusCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StackConstellationComponent } from '../stack-constellation/stack-constellation.component';
 import { TargetEnvironment } from '@features/admin/models/admin-templates.models';
 import { AiProposalView, StackConstellation } from '../../template-studio.utils';
+import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.service';
 
 @Component({
   selector: 'studio-ai-copilot-modal',
@@ -25,7 +27,8 @@ import { AiProposalView, StackConstellation } from '../../template-studio.utils'
     LucideCheckCircle2,
     LucideRotateCcw,
     LucideRefreshCw,
-    LucideXCircle
+    LucideXCircle,
+    LucidePlusCircle
   ],
   templateUrl: './studio-ai-copilot-modal.component.html',
   styleUrl: './studio-ai-copilot-modal.component.scss',
@@ -48,6 +51,12 @@ export class StudioAiCopilotModalComponent {
   readonly discard = output<void>();
   readonly dismiss = output<void>();
   readonly proposalChange = output<Omit<AiProposalView, 'latencyMs'> & { latencyMs: number }>();
+  readonly createMissingComponent = output<{ name: string; missing?: AIMissingComponent }>();
+
+  onCreateMissing(name: string, view: AiProposalView): void {
+    const item = view.missingComponents?.find(m => m.name.toLowerCase() === name.toLowerCase());
+    this.createMissingComponent.emit({ name, missing: item });
+  }
 
   updateProposal<K extends 'runtime' | 'web' | 'database'>(field: K, value: string, view: AiProposalView): void {
     if (field === 'runtime') {
