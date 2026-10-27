@@ -3,6 +3,7 @@ package services_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"solv-backend/internal/core/domain"
@@ -57,9 +58,6 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 				t.Errorf("versión de postgres debe ser 18 (resuelta en vivo), obtenido: %s", s.Version)
 			}
 		}
-		if s.Engine == "mysql" && s.IsAvailable {
-			t.Error("MySQL no debe figurar disponible por defecto cuando MYSQL_SATELLITE_HOST no está configurado")
-		}
 	}
 	if !foundSQLite {
 		t.Error("SQLite debe estar presente en las capacidades")
@@ -74,6 +72,67 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 
 	if caps.MaxAllowedRamMB <= 0 {
 		t.Errorf("max_allowed_ram_mb debe ser positivo, obtenido: %d", caps.MaxAllowedRamMB)
+	}
+}
+
+// Los motores de contenedor se levantan bajo demanda: no dependen de variables de host
+// declaradas a mano y todos figuran disponibles con su modo de aprovisionamiento.
+func TestGetRuntimeCapabilities_AllEnginesAvailableWithProvisioningMode(t *testing.T) {
+	svc := services.NewAdminGovernanceService(nil, &mockAdminGovernanceRepo{serverMajorVersion: "18"})
+
+	caps, err := svc.GetRuntimeCapabilities(context.Background())
+	if err != nil {
+		t.Fatalf("error inesperado al obtener capacidades: %v", err)
+	}
+
+	byEngine := make(map[string]domain.SatelliteServiceCapability, len(caps.SatelliteServices))
+	for _, s := range caps.SatelliteServices {
+		byEngine[s.Engine] = s
+	}
+
+	want := map[string]struct {
+		mode           string
+		baseRAMMB      int
+		defaultImage   string
+		requiresImage  bool
+	}{
+		"sqlite":   {mode: domain.ProvisioningEmbedded, baseRAMMB: 0},
+		"postgres": {mode: domain.ProvisioningSharedHost, baseRAMMB: 50},
+		"mysql":    {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mysql:8.4", requiresImage: true},
+		"mariadb":  {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mariadb:11.4", requiresImage: true},
+		"mongodb":  {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mongo:7.0", requiresImage: true},
+		"redis":    {mode: domain.ProvisioningManagedContainer, baseRAMMB: 64, defaultImage: "redis:7.2-alpine", requiresImage: true},
+	}
+
+	for engine, expected := range want {
+		capability, ok := byEngine[engine]
+		if !ok {
+			t.Fatalf("el motor %s debe figurar en las capacidades del nodo", engine)
+		}
+		if !capability.IsAvailable {
+			t.Errorf("el motor %s debe estar disponible: los motores gestionados se levantan bajo demanda", engine)
+		}
+		if capability.ProvisioningMode != expected.mode {
+			t.Errorf("provisioning_mode de %s = %q, esperado %q", engine, capability.ProvisioningMode, expected.mode)
+		}
+		if capability.BaseRAMMB != expected.baseRAMMB {
+			t.Errorf("base_ram_mb de %s = %d, esperado %d", engine, capability.BaseRAMMB, expected.baseRAMMB)
+		}
+		if expected.requiresImage {
+			if capability.DefaultImage != expected.defaultImage {
+				t.Errorf("default_image de %s = %q, esperado %q", engine, capability.DefaultImage, expected.defaultImage)
+			}
+			if strings.Contains(capability.DefaultImage, ":latest") || !strings.Contains(capability.DefaultImage, ":") {
+				t.Errorf("default_image de %s debe llevar tag de versión fija, obtenido %q", engine, capability.DefaultImage)
+			}
+		}
+		if capability.EnvVar == "" || capability.Label == "" || capability.Version == "" {
+			t.Errorf("el motor %s debe declarar etiqueta, versión y variable de entorno", engine)
+		}
+	}
+
+	if len(caps.SatelliteServices) != len(want) {
+		t.Errorf("esperados %d motores soportados, obtenidos %d", len(want), len(caps.SatelliteServices))
 	}
 }
 

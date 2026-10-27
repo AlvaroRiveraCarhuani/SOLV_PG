@@ -371,6 +371,17 @@ type HostCapacityInfo struct {
 	CPUCores       int   `json:"cpu_cores"`
 }
 
+// Modos de aprovisionamiento de un motor de base de datos en el nodo.
+const (
+	// ProvisioningEmbedded: el motor vive dentro del propio laboratorio (archivo local).
+	ProvisioningEmbedded = "embedded"
+	// ProvisioningSharedHost: el motor es un servicio compartido del nodo (aula).
+	ProvisioningSharedHost = "shared_host"
+	// ProvisioningManagedContainer: el motor se levanta bajo demanda como contenedor
+	// satélite y se detiene cuando ningún laboratorio lo usa (Scale-to-Zero).
+	ProvisioningManagedContainer = "managed_container"
+)
+
 // SatelliteServiceCapability especificación de un servicio satélite soportado por la plataforma
 type SatelliteServiceCapability struct {
 	Category    string `json:"category"`
@@ -381,6 +392,13 @@ type SatelliteServiceCapability struct {
 	EnvVar      string `json:"env_var"`
 	IsAvailable bool   `json:"is_available"`
 	BaseRAMMB   int    `json:"base_ram_mb"`
+	// ProvisioningMode indica cómo se aprovisiona el motor: 'embedded', 'shared_host'
+	// o 'managed_container'. El frontend lo usa para explicar el costo de memoria y
+	// si el motor se levanta bajo demanda.
+	ProvisioningMode string `json:"provisioning_mode"`
+	// DefaultImage es la imagen versionada con la que se levanta el motor cuando se
+	// aprovisiona como contenedor gestionado (vacío en motores embebidos o de host).
+	DefaultImage string `json:"default_image,omitempty"`
 }
 
 // RamPresetSuggestion preset de memoria contextual sugerido según capacidades del nodo
