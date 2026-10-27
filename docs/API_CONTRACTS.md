@@ -1465,6 +1465,35 @@ Genera un componente tecnológico a partir de la descripción del administrador.
 
 Códigos: `200 OK`; `400 Bad Request` (`prompt_invalid`, `layer_invalid`, `base_image_latest`, `base_image_unpinned`, `build_layer_invalid`, `ai_response_invalid`); `403 Forbidden` si el rol no es `admin`; `409 Conflict` (`ai_disabled`); `429 Too Many Requests` (`ai_quota_exceeded`); `504 Gateway Timeout` (`ai_timeout`).
 
+#### Capa `database` (motores de base de datos)
+
+Cuando el administrador pide un componente con `layer: "database"`, el saneo es cerrado y no depende de la salida del LLM: la capa pedida manda sobre la que devuelva el motor, `service_engine` se canonicaliza dentro del dominio soportado (`sqlite`, `postgres`, `mysql`, `mariadb`, `mongodb`, `redis`) con `postgres` como respaldo, `sub_category` pasa a `relational`/`nosql`, `base_image` se rellena con tag fijo (`mysql:8.4`, `mariadb:11.4`, `mongo:7.0`, `redis:7.2-alpine`), `install_mode` queda en `none` sin paquetes y `ram_delta_mb` toma la huella del motor (0 sqlite, 50 postgres, 64 redis, 128 mysql/mariadb/mongodb). La raíz de la respuesta repite el motor resuelto en `service_engine`, además de `component.service_engine`.
+
+```json
+{
+  "data": {
+    "component": {
+      "name": "MariaDB 11.4",
+      "slug": "mariadb-114",
+      "layer": "database",
+      "sub_category": "relational",
+      "icon_key": "mysql",
+      "base_image": "mariadb:11.4",
+      "compatible_runtimes": ["universal"],
+      "install_mode": "none",
+      "package_names": [],
+      "build_layer_snippet": "",
+      "ram_delta_mb": 128
+    },
+    "service_engine": "mariadb",
+    "rationale": "MariaDB cubre el laboratorio relacional con la sintaxis clásica de SQL.",
+    "latency_ms": 798
+  },
+  "error": "",
+  "message": "Sugerencia de componente generada"
+}
+```
+
 ---
 
 ### 7. Propuesta de Arquitectura de Entorno — Copiloto (`POST /api/v1/admin/ai/suggest-template`)
@@ -1680,4 +1709,66 @@ Efecto sobre las invocaciones generativas (`suggest-component`, `generate-exerci
 
 Códigos: `200 OK`; `400 Bad Request` (`invalid_payload`, `provider_invalid`, `base_url_required`, `base_url_blocked`, `model_required`, `api_key_required`, `user_required`); `403 Forbidden` (rol distinto de `teacher`/`admin`); `500 Internal Server Error`.
 
+---
 
+## Motores de Base de Datos Gobernados por Catálogo y Auto-Orquestación Scale-to-Zero (ADR-046)
+
+### 1. Capacidades del Nodo (`GET /api/v1/admin/templates/capabilities`)
+
+Los motores de base de datos se ofrecen desde el catálogo y ya no dependen de que un administrador de sistema declare hosts a mano: con el motor Docker activo, todos los motores soportados figuran disponibles (`is_available: true`) y cada uno declara cómo se aprovisiona (`provisioning_mode`).
+
+| Motor | `provisioning_mode` | `base_ram_mb` | `default_image` |
+|-------|---------------------|---------------|-----------------|
+| `sqlite` | `embedded` | 0 | — |
+| `postgres` | `shared_host` | 50 | — (versión resuelta en vivo con `PostgresVersionProbe`) |
+| `mysql` | `managed_container` | 128 | `mysql:8.4` |
+| `mariadb` | `managed_container` | 128 | `mariadb:11.4` |
+| `mongodb` | `managed_container` | 128 | `mongo:7.0` |
+| `redis` | `managed_container` | 64 | `redis:7.2-alpine` |
+
+```json
+{
+  "data": {
+    "satellite_services": [
+      {
+        "category": "database",
+        "engine": "mariadb",
+        "label": "MariaDB",
+        "version": "11.4",
+        "env_var": "DATABASE_URL",
+        "is_available": true,
+        "base_ram_mb": 128,
+        "provisioning_mode": "managed_container",
+        "default_image": "mariadb:11.4"
+      }
+    ]
+  }
+}
+```
+
+El modo de aprovisionamiento es la clave de lectura de la Columna 3 del Constructor: `embedded` no consume RAM, `shared_host` comparte un motor del aula y `managed_container` explica que la memoria se consume solo mientras hay laboratorios activos, porque el motor se apaga solo cuando nadie lo usa.
+
+### 2. Alta y Edición de Motores en el Catálogo (`POST|PUT|PATCH /api/v1/admin/template-components`)
+
+El administrador registra, activa y edita motores con `layer: "database"` igual que cualquier otro componente del catálogo:
+
+- `service_engine` debe pertenecer al dominio soportado (`none`, `sqlite`, `postgres`, `mysql`, `mariadb`, `mongodb`, `redis`); se aceptan los alias `postgresql` y `mongo` y se canonicalizan. En la edición, un motor fuera de esa lista responde `422 Unprocessable Entity`.
+- Si el motor no se declara, se infiere de `slug`, `name`, `icon_key` o `base_image` y, cuando no es reconocible, el componente cae en el PostgreSQL de aula.
+- Los valores por defecto completados en servidor son `compatible_runtimes: ["universal"]`, `sub_category` (`relational`/`nosql`), `base_image` con tag fijo y `ram_delta_mb` del motor; `install_mode` queda en `none` porque un motor se aprovisiona como servicio y nunca se instala dentro de la imagen del laboratorio.
+- La migración `00027_seed_managed_database_engines.sql` deja las seis semillas institucionales activas (`sqlite-3`, `postgres-16`, `mysql-84`, `mariadb-11`, `mongodb-70`, `redis-72`) con su motor, imagen y huella de memoria.
+
+### 3. Efecto en el Arranque del Laboratorio y Apagado Automático
+
+Cuando la plantilla del ejercicio declara un motor `managed_container`, al iniciar (o reactivar) el laboratorio SOLV levanta el contenedor `solv-sat-<engine>` en la red interna `solv-satellites-net` —con volumen nombrado `solv_sat_data_<engine>`, techo de memoria en cgroups y `no-new-privileges`— y conecta el laboratorio del alumno a esa red. El aislamiento no es por contenedor sino por credenciales derivadas por HMAC-SHA256 de alumno y materia (`u_<12hex>`), sobre la base `solv_std_<student>_<subject>`:
+
+| Motor | Variables inyectadas al laboratorio |
+|-------|-------------------------------------|
+| `mysql`, `mariadb` | `DATABASE_URL=mysql://<user>:<pass>@<host>:3306/<db>`, `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` |
+| `mongodb` | `MONGODB_URI=mongodb://<host>:27017/<db>`, `MONGO_DATABASE` |
+| `redis` | `REDIS_URL=redis://<host>:6379/0`, `REDIS_HOST`, `REDIS_PORT`, `REDIS_KEY_PREFIX=<db>:` |
+
+El `db_init_script` del ejercicio se aplica una sola vez por `exercise_id`, sellado en `_solv_exercise_migrations` dentro de la base del alumno. Si el motor no puede levantarse, el inicio del laboratorio falla y no queda registrado como activo.
+
+**Scale-to-Zero:** al hibernar, pausar o terminar un laboratorio —y en cada ciclo del worker de QoS— SOLV verifica si queda algún laboratorio en estado `running` que use cada motor gestionado. Cuando el conteo llega a `0`, el contenedor `solv-sat-<engine>` se detiene y libera toda su memoria del host; el contenedor no se elimina y su volumen de datos sobrevive, de modo que la próxima sesión lo reactiva sin reconstruir nada.
+
+**Override de destino:** `MYSQL_SATELLITE_HOST`, `MARIADB_SATELLITE_HOST`, `MONGODB_SATELLITE_HOST` y `REDIS_SATELLITE_HOST` dejan de ser un requisito de disponibilidad y pasan a ser un override opcional para apuntar a un motor externo ya provisionado. Con un override presente, SOLV no levanta ni apaga contenedores para ese motor.
