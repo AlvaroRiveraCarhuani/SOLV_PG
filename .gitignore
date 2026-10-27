@@ -24,4 +24,5 @@ opencode.json
 # Playwright E2E runtime artifacts
 frontend/e2e/test-results/
 frontend/playwright-report/
-frontend/test-results/
+frontend/test-results//backup/
+/backup/
