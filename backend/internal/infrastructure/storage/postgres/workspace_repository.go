@@ -206,6 +206,33 @@ func (r *PostgresWorkspaceRepository) GetActiveWorkspaces(ctx context.Context) (
 	return workspaces, nil
 }
 
+func (r *PostgresWorkspaceRepository) CountWorkspacesByStatus(ctx context.Context, tenantID string) (map[string]int, error) {
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+
+	const query = `
+		SELECT status, COUNT(*) AS total
+		FROM workspaces
+		WHERE tenant_id = $1
+		GROUP BY status
+	`
+
+	var rows []struct {
+		Status string `db:"status"`
+		Total  int    `db:"total"`
+	}
+	if err := r.db.SelectContext(ctx, &rows, query, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to count workspaces by status: %w", err)
+	}
+
+	counts := make(map[string]int, len(rows))
+	for _, row := range rows {
+		counts[row.Status] = row.Total
+	}
+	return counts, nil
+}
+
 func (r *PostgresWorkspaceRepository) GetAllRunningWorkspaces(ctx context.Context) ([]*domain.WorkspaceInstance, error) {
 	// A veces las tareas de limpieza global corren sin tenant_id en background.
 	// Si no hay tenant_id, consultamos todos.
