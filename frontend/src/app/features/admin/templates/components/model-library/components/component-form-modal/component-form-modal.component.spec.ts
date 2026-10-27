@@ -392,9 +392,10 @@ describe('ComponentFormModalComponent', () => {
   });
 
   describe('Unified Catalog Profiles and Ecosystem Synchronization', () => {
-    it('should expose 3 unified catalogKindOptions (backend, web, addon)', () => {
+    it('should expose 4 unified catalogKindOptions (backend, web, addon, database)', () => {
       const kinds = component.catalogKindOptions.map(o => o.value);
-      expect(kinds).toEqual(['backend', 'web', 'addon']);
+      expect(kinds).toEqual(['backend', 'web', 'addon', 'database']);
+      expect(component.layerOptions.map(o => o.value)).toEqual(['runtime', 'addon', 'database']);
     });
 
     it('should compute catalogKind accurately from layer and subCategory', () => {
@@ -407,6 +408,10 @@ describe('ComponentFormModalComponent', () => {
 
       component.layer.set('addon');
       expect(component.catalogKind()).toBe('addon');
+
+      component.layer.set('database');
+      component.subCategory.set('nosql');
+      expect(component.catalogKind()).toBe('database');
     });
 
     it('should lock context and display banner when lockContext=true without editingComponent', () => {
@@ -995,6 +1000,205 @@ describe('ComponentFormModalComponent', () => {
       component.onCatalogKindChange('web');
       component.onSelectCustomMode();
       expect(component.baseImage()).toBe('node:22-bookworm-slim');
+    });
+  });
+
+  describe('Motores de Base de Datos gobernados por el catálogo (Columna 3)', () => {
+    it('should initialize the modal on the database classification when opened from Column 3', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+
+      expect(component.layer()).toBe('database');
+      expect(component.catalogKind()).toBe('database');
+      expect(component.subCategory()).toBe('relational');
+      expect(component.serviceEngine()).toBe('postgres');
+      expect(component.installMode()).toBe('none');
+      expect(component.installPreset()).toBe('none');
+      expect(component.compatibleRuntime()).toBe('universal');
+    });
+
+    it('should render the fourth classification button with the official engines in 1 click', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+      fixture.detectChanges();
+
+      const hostEl = fixture.nativeElement as HTMLElement;
+      const segmentedButtons = Array.from(
+        hostEl.querySelectorAll<HTMLButtonElement>('.catalog-kind-segmented .segmented-btn')
+      );
+      expect(segmentedButtons.length).toBe(4);
+      expect(segmentedButtons[3].textContent).toContain('Motor de Base de Datos');
+      expect(segmentedButtons[3].classList.contains('active')).toBe(true);
+
+      const presetCards = Array.from(hostEl.querySelectorAll<HTMLButtonElement>('.preset-card-btn'));
+      expect(presetCards.length).toBe(component.officialDatabaseProfiles.length + 1);
+
+      const gridText = hostEl.querySelector('.preset-cards-grid')?.textContent || '';
+      expect(gridText).toContain('MySQL 8.4');
+      expect(gridText).toContain('mysql:8.4');
+      expect(gridText).toContain('mariadb:11.4');
+      expect(gridText).toContain('mongo:7.0');
+      expect(gridText).toContain('redis:7.2-alpine');
+      expect(gridText).toContain('PostgreSQL 18');
+      expect(gridText).toContain('Embebido en workspace (+0 MB)');
+    });
+
+    it('should fill image, engine, classification and memory in 1 click from an official engine', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+
+      component.onSelectDatabaseProfile('mysql-84');
+      expect(component.name()).toBe('MySQL 8.4');
+      expect(component.iconKey()).toBe('mysql');
+      expect(component.serviceEngine()).toBe('mysql');
+      expect(component.subCategory()).toBe('relational');
+      expect(component.baseImage()).toBe('mysql:8.4');
+      expect(component.ramDeltaMB()).toBe(128);
+      expect(component.installMode()).toBe('none');
+      expect(component.selectedVersion()).toBe('8.4');
+
+      component.onSelectDatabaseProfile('sqlite-3');
+      expect(component.serviceEngine()).toBe('sqlite');
+      expect(component.baseImage()).toBe('');
+      expect(component.ramDeltaMB()).toBe(0);
+
+      component.onSelectDatabaseProfile('mongodb-70');
+      expect(component.serviceEngine()).toBe('mongodb');
+      expect(component.subCategory()).toBe('nosql');
+      expect(component.baseImage()).toBe('mongo:7.0');
+      expect(component.ramDeltaMB()).toBe(128);
+    });
+
+    it('should parameterize the engine version and update the official image and name', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+
+      component.onSelectDatabaseProfile('mongodb-70');
+      expect(component.availableVersionsForSelectedProfile().length).toBeGreaterThan(1);
+
+      component.onVersionChange('6.0');
+      expect(component.baseImage()).toBe('mongo:6.0');
+      expect(component.name()).toBe('MongoDB 6.0');
+
+      component.onSelectDatabaseProfile('redis-72');
+      component.onVersionChange('7.4');
+      expect(component.baseImage()).toBe('redis:7.4-alpine');
+      expect(component.name()).toBe('Redis 7.4 (Caché)');
+    });
+
+    it('should save the engine with layer, service_engine, base_image and universal compatibility', () => {
+      const savedSpy = vi.fn();
+      component.saved.subscribe(savedSpy);
+
+      const createdEngine: TemplateComponent = {
+        id: 'db-mysql-84',
+        slug: 'mysql-8-4',
+        layer: 'database',
+        sub_category: 'relational',
+        name: 'MySQL 8.4',
+        description: 'Motor relacional auto-orquestado y aislado por estudiante',
+        icon_key: 'mysql',
+        base_image: 'mysql:8.4',
+        compatible_runtimes: ['universal'],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: [],
+        service_engine: 'mysql',
+        ram_delta_mb: 128,
+        is_system: false,
+        is_active: true,
+        sort_order: 330
+      };
+      mockAdminTemplatesService.createTechCatalogItem.mockReturnValue(of(createdEngine));
+
+      component.availableRuntimes = [];
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+      component.onSelectDatabaseProfile('mysql-84');
+      component.onSave();
+
+      expect(tplService.createTechCatalogItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'MySQL 8.4',
+          slug: 'mysql-8-4',
+          layer: 'database',
+          sub_category: 'relational',
+          service_engine: 'mysql',
+          base_image: 'mysql:8.4',
+          compatible_runtimes: ['universal'],
+          install_mode: 'none',
+          ram_delta_mb: 128
+        })
+      );
+      expect(savedSpy).toHaveBeenCalledWith(createdEngine);
+    });
+
+    it('should require an engine before saving a database component', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+      component.name.set('Motor sin clasificar');
+      component.serviceEngine.set('');
+
+      component.onSave();
+
+      expect(component.errorMessage()).toContain('motor de base de datos');
+      expect(tplService.createTechCatalogItem).not.toHaveBeenCalled();
+    });
+
+    it('debe aceptar layer database en el copiloto IA y fijar el service_engine devuelto', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+      component.aiPrompt.set('MongoDB para ejercicios documentales');
+
+      mockAiService.suggestComponent.mockReturnValue(
+        of({
+          component: {
+            name: 'MongoDB 7.0',
+            layer: 'database' as const,
+            sub_category: 'nosql',
+            base_image: 'mongo:7.0',
+            install_mode: 'none',
+            service_engine: 'mongodb',
+            ram_delta_mb: 128
+          },
+          service_engine: 'mongodb',
+          rationale: 'Motor documental aislado por estudiante',
+          latency_ms: 310
+        })
+      );
+
+      component.generateWithAi();
+
+      expect(mockAiService.suggestComponent).toHaveBeenCalledWith({
+        prompt: 'MongoDB para ejercicios documentales',
+        layer: 'database',
+        target_runtime: 'universal'
+      });
+      expect(component.layer()).toBe('database');
+      expect(component.catalogKind()).toBe('database');
+      expect(component.serviceEngine()).toBe('mongodb');
+      expect(component.subCategory()).toBe('nosql');
+      expect(component.baseImage()).toBe('mongo:7.0');
+      expect(component.ramDeltaMB()).toBe(128);
+      expect(component.aiRationale()).toBe('Motor documental aislado por estudiante');
+    });
+
+    it('should describe the managed satellite in the auto-resolved summary instead of the installer preset', () => {
+      component.defaultLayer = 'database';
+      component.ngOnInit();
+      component.onSelectDatabaseProfile('redis-72');
+
+      const summary = component.autoResolvedSummary();
+      expect(summary).toContain('redis');
+      expect(summary).toContain('redis:7.2-alpine');
+      expect(summary).toContain('64 MB');
+
+      component.onSelectDatabaseProfile('sqlite-3');
+      expect(component.autoResolvedSummary()).toContain('sqlite');
+      expect(component.autoResolvedSummary()).toContain('Sin contenedor satélite');
     });
   });
 

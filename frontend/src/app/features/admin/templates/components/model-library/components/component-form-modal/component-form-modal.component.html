@@ -57,6 +57,14 @@
         >
           Complemento / Librería
         </button>
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="catalogKind() === 'database'"
+          (click)="onCatalogKindChange('database')"
+        >
+          Motor de Base de Datos
+        </button>
       </div>
     </div>
   }
@@ -92,10 +100,12 @@
       [ecosystemProfiles]="sortedEcosystemProfiles()"
       [webProfiles]="sortedWebProfiles()"
       [addonPresets]="contextualAddonPresets()"
+      [databaseProfiles]="sortedDatabaseProfiles()"
       [availableRuntimes]="availableRuntimes"
       [selectedEcosystemProfileId]="selectedEcosystemProfileId()"
       [selectedWebProfileId]="selectedWebProfileId()"
       [selectedAddonPresetId]="selectedAddonPresetId()"
+      [selectedDatabaseProfileId]="selectedDatabaseProfileId()"
       [isCustomPresetSelected]="isCustomPresetSelected()"
       [availableVersions]="availableVersionsForSelectedProfile()"
       [selectedVersion]="selectedVersion()"
@@ -103,6 +113,7 @@
       (selectEcosystemProfile)="onSelectEcosystemProfile($event)"
       (selectWebProfile)="onSelectWebProfile($event)"
       (selectAddonPreset)="onSelectAddonPreset($event)"
+      (selectDatabaseProfile)="onSelectDatabaseProfile($event)"
       (selectCustomMode)="onSelectCustomMode()"
       (versionChange)="onVersionChange($event)"
     />
@@ -292,7 +303,11 @@
       }
 
       @if (layer() === 'database') {
-        <form-field label="Motor de conexión" for="comp-db-engine">
+        <form-field
+          label="Motor de conexión"
+          for="comp-db-engine"
+          hint="El nodo auto-orquesta el motor bajo demanda y lo apaga cuando ningún laboratorio lo usa."
+        >
           <combobox
             id="comp-db-engine"
             [options]="databaseEngineOptions"
@@ -330,6 +345,38 @@
                 [placeholder]="uiCopy().baseImagePlaceholder"
                 [ngModel]="baseImage()"
                 (ngModelChange)="baseImage.set($event)"
+              />
+            </form-field>
+          }
+
+          @if (layer() === 'database' && serviceEngine() !== 'sqlite') {
+            <form-field
+              label="Imagen Base Oficial del Motor (sin :latest)"
+              for="comp-db-base-image"
+              hint="Si la deja vacía se usa la imagen por defecto del motor aprovisionado."
+            >
+              <input
+                id="comp-db-base-image"
+                type="text"
+                class="form-input font-mono"
+                [placeholder]="uiCopy().baseImagePlaceholder"
+                [ngModel]="baseImage()"
+                (ngModelChange)="baseImage.set($event)"
+              />
+            </form-field>
+
+            <form-field
+              label="Memoria del contenedor satélite (MB)"
+              for="comp-db-ram"
+              hint="Los motores gestionados se apagan solos cuando no hay laboratorios activos usándolos."
+            >
+              <input
+                id="comp-db-ram"
+                type="number"
+                min="0"
+                class="form-input font-mono"
+                [ngModel]="ramDeltaMB()"
+                (ngModelChange)="ramDeltaMB.set(+$event || 0)"
               />
             </form-field>
 

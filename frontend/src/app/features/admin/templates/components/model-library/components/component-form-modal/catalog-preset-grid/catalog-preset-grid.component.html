@@ -71,6 +71,42 @@
         </div>
       </button>
     </div>
+  } @else if (catalogKind() === 'database') {
+    <span class="form-label">Seleccione un Motor Oficial (Autocompleta imagen, clasificación y memoria en 1 clic)</span>
+    <div class="preset-cards-grid">
+      @for (dbProf of databaseProfiles(); track dbProf.id) {
+        <button
+          type="button"
+          class="preset-card-btn"
+          [class.selected]="selectedDatabaseProfileId() === dbProf.id"
+          [class.in-catalog]="isPresetInCatalog(dbProf.id, dbProf.name)"
+          (click)="selectDatabaseProfile.emit(dbProf.id)"
+        >
+          <tech-logo [iconType]="dbProf.iconKey" [size]="22" />
+          <div class="preset-card-meta">
+            <div class="preset-card-header-row">
+              <strong class="preset-card-title">{{ dbProf.name }}</strong>
+              @if (isPresetInCatalog(dbProf.id, dbProf.name)) {
+                <span class="preset-installed-pill">En catálogo</span>
+              }
+            </div>
+            <span class="preset-card-sub font-mono">{{ dbProf.baseImage || 'Embebido en workspace (+0 MB)' }}</span>
+          </div>
+        </button>
+      }
+      <button
+        type="button"
+        class="preset-card-btn preset-card-custom"
+        [class.selected]="isCustomPresetSelected()"
+        (click)="selectCustomMode.emit()"
+      >
+        <tech-logo iconType="docker" [size]="22" />
+        <div class="preset-card-meta">
+          <strong class="preset-card-title">+ Personalizado</strong>
+          <span class="preset-card-sub">Otro motor o caché</span>
+        </div>
+      </button>
+    </div>
   } @else if (catalogKind() === 'addon' && addonPresets().length > 0) {
     <span class="form-label">Kits y Librerías Sugeridas para este Ecosistema (1 clic)</span>
     <div class="preset-cards-grid">

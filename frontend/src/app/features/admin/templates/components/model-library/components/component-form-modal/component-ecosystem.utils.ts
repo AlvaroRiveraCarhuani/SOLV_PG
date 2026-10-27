@@ -56,6 +56,13 @@ export function computeComponentUiCopy(
     descPlaceholder = 'Ej: Entorno Node.js con servidor de desarrollo web';
     baseImagePlaceholder = 'Ej: node:20-bookworm-slim';
     toolsPlaceholder = 'Ej: node, npm, ng';
+  } else if (kind === 'database') {
+    modalTitle = isEditing ? 'Editar Motor de Base de Datos' : 'Registrar Motor de Base de Datos';
+    contextBadgeLabel = 'Columna 3 · Motor de Base de Datos';
+    namePlaceholder = 'Ej: MySQL 8.4 / MariaDB 11.4 / MongoDB 7.0 / Redis 7.2';
+    descPlaceholder = 'Ej: Motor de base de datos auto-orquestado y aislado por estudiante';
+    baseImagePlaceholder = 'Ej: mysql:8.4, mariadb:11.4, mongo:7.0 o redis:7.2-alpine';
+    toolsPlaceholder = 'Ej: mysql, mongosh, redis-cli, psql';
   } else {
     modalTitle = isEditing ? 'Editar Complemento del Catálogo' : 'Registrar Complemento o Librería';
     contextBadgeLabel = 'Columna 2 · Complemento / Librería';
@@ -269,6 +276,8 @@ export function filterCuratedIconsByContext(
     pool = pool.filter(ic => backendKeys.has(ic.key));
   } else if (kind === 'web') {
     pool = pool.filter(ic => webOnlyKeys.has(ic.key) || ic.key === 'typescript' || ic.key === 'node' || ic.key === 'docker');
+  } else if (kind === 'database') {
+    pool = pool.filter(ic => databaseKeys.has(ic.key) || ic.key === 'docker');
   } else if (kind === 'addon') {
     pool = pool.filter(ic => !databaseKeys.has(ic.key));
     if (family === 'python') {

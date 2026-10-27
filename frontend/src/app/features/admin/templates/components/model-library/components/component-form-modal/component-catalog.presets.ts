@@ -2,7 +2,7 @@ import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { ComponentLayer } from '../../../../../services/admin-templates.service';
 
 export type ComponentMemoryProfile = 'library' | 'devserver' | 'heavy' | 'light' | 'standard';
-export type ComponentCatalogKind = 'backend' | 'web' | 'addon';
+export type ComponentCatalogKind = 'backend' | 'web' | 'addon' | 'database';
 
 export interface EcosystemVersionOption {
   version: string;
@@ -54,6 +54,21 @@ export interface OfficialAddonPreset {
   packageNames: string[];
   toolsProvided: string[];
   memoryProfile: ComponentMemoryProfile;
+}
+
+export interface OfficialDatabaseProfile {
+  id: string;
+  name: string;
+  nameTemplate: string;
+  description: string;
+  iconKey: string;
+  serviceEngine: 'sqlite' | 'postgres' | 'mysql' | 'mariadb' | 'mongodb' | 'redis';
+  subCategory: 'relational' | 'nosql';
+  baseImage: string;
+  imageTemplate: string;
+  defaultVersion: string;
+  suggestedVersions: EcosystemVersionOption[];
+  ramDeltaMB: number;
 }
 
 export const OFFICIAL_ECOSYSTEM_PROFILES: OfficialEcosystemProfile[] = [
@@ -731,15 +746,123 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
   }
 ];
 
+// Motores de base de datos gestionados por el catálogo del nodo. Los contenedores
+// satélite (mysql, mariadb, mongodb, redis) se auto-orquestan bajo demanda y se
+// apagan solos cuando ningún laboratorio activo los usa; PostgreSQL se comparte
+// en el host del aula y SQLite vive dentro del contenedor del alumno.
+export const OFFICIAL_DATABASE_PROFILES: OfficialDatabaseProfile[] = [
+  {
+    id: 'mysql-84',
+    name: 'MySQL 8.4',
+    nameTemplate: 'MySQL {version}',
+    description: 'Motor relacional auto-orquestado y aislado por estudiante',
+    iconKey: 'mysql',
+    serviceEngine: 'mysql',
+    subCategory: 'relational',
+    baseImage: 'mysql:8.4',
+    imageTemplate: 'mysql:{version}',
+    defaultVersion: '8.4',
+    suggestedVersions: [
+      { version: '8.4', label: 'MySQL 8.4 LTS (Recomendada)', isDefault: true },
+      { version: '8.0', label: 'MySQL 8.0 (Clásica)' }
+    ],
+    ramDeltaMB: 128
+  },
+  {
+    id: 'mariadb-11',
+    name: 'MariaDB 11.4',
+    nameTemplate: 'MariaDB {version}',
+    description: 'Motor relacional auto-orquestado compatible con MySQL',
+    iconKey: 'mysql',
+    serviceEngine: 'mariadb',
+    subCategory: 'relational',
+    baseImage: 'mariadb:11.4',
+    imageTemplate: 'mariadb:{version}',
+    defaultVersion: '11.4',
+    suggestedVersions: [
+      { version: '11.4', label: 'MariaDB 11.4 LTS (Recomendada)', isDefault: true },
+      { version: '10.11', label: 'MariaDB 10.11 LTS' }
+    ],
+    ramDeltaMB: 128
+  },
+  {
+    id: 'mongodb-70',
+    name: 'MongoDB 7.0',
+    nameTemplate: 'MongoDB {version}',
+    description: 'Base de datos documental auto-orquestada para ejercicios NoSQL',
+    iconKey: 'mongodb',
+    serviceEngine: 'mongodb',
+    subCategory: 'nosql',
+    baseImage: 'mongo:7.0',
+    imageTemplate: 'mongo:{version}',
+    defaultVersion: '7.0',
+    suggestedVersions: [
+      { version: '7.0', label: 'MongoDB 7.0 (Recomendada)', isDefault: true },
+      { version: '6.0', label: 'MongoDB 6.0' }
+    ],
+    ramDeltaMB: 128
+  },
+  {
+    id: 'redis-72',
+    name: 'Redis 7.2 (Caché)',
+    nameTemplate: 'Redis {version} (Caché)',
+    description: 'Almacén en memoria auto-orquestado para caché y colas',
+    iconKey: 'redis',
+    serviceEngine: 'redis',
+    subCategory: 'nosql',
+    baseImage: 'redis:7.2-alpine',
+    imageTemplate: 'redis:{version}-alpine',
+    defaultVersion: '7.2',
+    suggestedVersions: [
+      { version: '7.2', label: 'Redis 7.2 (Recomendada)', isDefault: true },
+      { version: '7.4', label: 'Redis 7.4 (Reciente)' }
+    ],
+    ramDeltaMB: 64
+  },
+  {
+    id: 'postgres-16',
+    name: 'PostgreSQL 18 (Aula)',
+    nameTemplate: 'PostgreSQL {version}',
+    description: 'Motor relacional compartido del aula, sintonizado para laboratorio',
+    iconKey: 'postgres',
+    serviceEngine: 'postgres',
+    subCategory: 'relational',
+    baseImage: 'postgres:18-alpine',
+    imageTemplate: 'postgres:{version}-alpine',
+    defaultVersion: '18',
+    suggestedVersions: [
+      { version: '18', label: 'PostgreSQL 18 (Recomendada)', isDefault: true },
+      { version: '16', label: 'PostgreSQL 16' }
+    ],
+    ramDeltaMB: 50
+  },
+  {
+    id: 'sqlite-3',
+    name: 'SQLite 3 (En archivo)',
+    nameTemplate: 'SQLite {version} (En archivo)',
+    description: 'Base de datos embebida en archivo dentro del contenedor del alumno',
+    iconKey: 'sqlite',
+    serviceEngine: 'sqlite',
+    subCategory: 'relational',
+    baseImage: '',
+    imageTemplate: '',
+    defaultVersion: '3',
+    suggestedVersions: [],
+    ramDeltaMB: 0
+  }
+];
+
 export const CATALOG_KIND_OPTIONS: ComboboxOption<ComponentCatalogKind>[] = [
   { id: 'backend', label: 'Columna 1 · Lenguaje Principal (C, C++, Python, Java, Go, Rust...)', value: 'backend' },
   { id: 'web', label: 'Columna 1 · Interfaz Web / Frontend (Angular, React, Vue...)', value: 'web' },
-  { id: 'addon', label: 'Columna 2 · Complemento, Framework o Librería', value: 'addon' }
+  { id: 'addon', label: 'Columna 2 · Complemento, Framework o Librería', value: 'addon' },
+  { id: 'database', label: 'Columna 3 · Motor de Base de Datos o Caché', value: 'database' }
 ];
 
 export const LAYER_OPTIONS: ComboboxOption<ComponentLayer>[] = [
   { id: 'runtime', label: '1. Tecnología Principal o Interfaz Web', value: 'runtime' },
-  { id: 'addon', label: '2. Complemento / Framework / Librería', value: 'addon' }
+  { id: 'addon', label: '2. Complemento / Framework / Librería', value: 'addon' },
+  { id: 'database', label: '3. Motor de Base de Datos o Caché', value: 'database' }
 ];
 
 export const SUB_CATEGORY_OPTIONS: ComboboxOption<string>[] = [
@@ -764,11 +887,13 @@ export const INSTALL_PRESET_OPTIONS: ComboboxOption<string>[] = [
 ];
 
 export const DATABASE_ENGINE_OPTIONS: ComboboxOption<string>[] = [
-  { id: 'postgres', label: 'PostgreSQL', value: 'postgres' },
-  { id: 'mysql', label: 'MySQL / MariaDB', value: 'mysql' },
+  { id: 'postgres', label: 'PostgreSQL (Aula compartida)', value: 'postgres' },
+  { id: 'mysql', label: 'MySQL (Auto-orquestado)', value: 'mysql' },
+  { id: 'mariadb', label: 'MariaDB (Auto-orquestado)', value: 'mariadb' },
   { id: 'sqlite', label: 'SQLite (Archivo local)', value: 'sqlite' },
-  { id: 'mongodb', label: 'MongoDB', value: 'mongodb' },
-  { id: 'redis', label: 'Redis (Caché)', value: 'redis' }
+  { id: 'mongodb', label: 'MongoDB (Auto-orquestado)', value: 'mongodb' },
+  { id: 'redis', label: 'Redis (Caché auto-orquestada)', value: 'redis' },
+  { id: 'none', label: 'Ninguno (solo archivos del alumno)', value: 'none' }
 ];
 
 export const ADDON_MEMORY_PROFILE_OPTIONS: ComboboxOption<ComponentMemoryProfile>[] = [

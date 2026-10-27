@@ -507,10 +507,18 @@
                     <span class="column-step">Columna 3 · Servicio del Nodo</span>
                     <h3 class="column-title">Base de Datos</h3>
                   </div>
+                  <button
+                    type="button"
+                    class="btn-inline-new"
+                    title="Registrar o configurar un motor de base de datos en el catálogo"
+                    (click)="openNewComponentModal('database')"
+                  >
+                    + Nuevo
+                  </button>
                 </div>
 
                 <div class="column-body">
-                  <span class="sub-group-label">Motores aprovisionados en el servidor</span>
+                  <span class="sub-group-label">Motores disponibles en el nodo y el catálogo</span>
                   @for (db of databaseOptions(); track db.id) {
                     <button
                       type="button"

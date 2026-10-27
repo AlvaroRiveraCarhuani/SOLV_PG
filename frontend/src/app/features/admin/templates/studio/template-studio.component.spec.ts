@@ -276,10 +276,48 @@ describe('TemplateStudioComponent', () => {
             engine: 'mysql',
             label: 'MySQL',
             version: '8.4',
-            description: 'Base de datos relacional MySQL para ejercicios de SQL',
+            description: 'Base de datos relacional MySQL auto-orquestada por estudiante',
             env_var: 'DATABASE_URL',
-            is_available: false,
-            base_ram_mb: 128
+            is_available: true,
+            base_ram_mb: 128,
+            provisioning_mode: 'managed_container',
+            default_image: 'mysql:8.4'
+          },
+          {
+            category: 'database',
+            engine: 'mariadb',
+            label: 'MariaDB',
+            version: '11.4',
+            description: 'Alternativa relacional compatible con MySQL, auto-orquestada',
+            env_var: 'DATABASE_URL',
+            is_available: true,
+            base_ram_mb: 128,
+            provisioning_mode: 'managed_container',
+            default_image: 'mariadb:11.4'
+          },
+          {
+            category: 'database',
+            engine: 'mongodb',
+            label: 'MongoDB',
+            version: '7.0',
+            description: 'Base de datos documental auto-orquestada',
+            env_var: 'MONGODB_URI',
+            is_available: true,
+            base_ram_mb: 128,
+            provisioning_mode: 'managed_container',
+            default_image: 'mongo:7.0'
+          },
+          {
+            category: 'cache',
+            engine: 'redis',
+            label: 'Redis',
+            version: '7.2',
+            description: 'Almacén en memoria auto-orquestado para caché y colas',
+            env_var: 'REDIS_URL',
+            is_available: true,
+            base_ram_mb: 64,
+            provisioning_mode: 'managed_container',
+            default_image: 'redis:7.2-alpine'
           }
         ],
         ide_presets: [],
@@ -389,18 +427,31 @@ describe('TemplateStudioComponent', () => {
     expect(component.dockerfileContent()).toContain('@angular/cli');
   });
 
-  it('should govern Column 3 database options from node RuntimeCapabilities without a + Nuevo button, displaying only provisioned engines (SQLite and PostgreSQL v18)', () => {
+  it('should govern Column 3 database engines from the node capabilities and the active catalog, with + Nuevo opening the modal', () => {
     const hostEl = fixture.nativeElement as HTMLElement;
     const columns = hostEl.querySelectorAll('.studio-column');
     expect(columns.length).toBe(3);
 
     const col1Btn = columns[0].querySelector('.btn-inline-new');
     const col2Btn = columns[1].querySelector('.btn-inline-new');
-    const col3Btn = columns[2].querySelector('.btn-inline-new');
+    const col3Btn = columns[2].querySelector<HTMLButtonElement>('.btn-inline-new');
 
     expect(col1Btn).toBeTruthy();
     expect(col2Btn).toBeTruthy();
-    expect(col3Btn).toBeNull();
+    expect(col3Btn).toBeTruthy();
+    expect(col3Btn?.textContent).toContain('Nuevo');
+
+    col3Btn?.click();
+    fixture.detectChanges();
+    expect(component.showComponentModal()).toBe(true);
+    expect(component.modalDefaultLayer()).toBe('database');
+
+    const modalDebugEl = fixture.debugElement.query(By.directive(ComponentFormModalComponent));
+    expect(modalDebugEl).toBeTruthy();
+    expect((modalDebugEl.componentInstance as ComponentFormModalComponent).catalogKind()).toBe('database');
+
+    component.handleModalClosed();
+    fixture.detectChanges();
 
     const col3Text = columns[2].textContent || '';
     expect(col3Text).toContain('Sin Base de Datos');
@@ -409,16 +460,69 @@ describe('TemplateStudioComponent', () => {
     expect(col3Text).toContain('PostgreSQL (Aula) v18');
     expect(col3Text).toContain('~50 MB RAM');
     expect(col3Text).not.toContain('No habilitado en este nodo');
-    expect(col3Text).not.toContain('MySQL');
-    expect(col3Text).not.toContain('MongoDB');
-    expect(col3Text).not.toContain('Redis');
 
     const dbCards = Array.from(columns[2].querySelectorAll<HTMLButtonElement>('.tech-component-card'));
-    expect(dbCards.length).toBe(3);
+    expect(dbCards.length).toBe(7);
 
-    // Attempting to select an unprovisioned / unavailable engine does not change selectedDatabaseId
+    // Los motores gestionados se ofrecen con su badge de aprovisionamiento y son seleccionables
+    expect(col3Text).toContain('MySQL v8.4');
+    expect(col3Text).toContain('Auto-orquestado');
+    expect(col3Text).toContain('SQLite3 (Nativo) v3.x');
     component.selectDatabase('db-mysql');
-    expect(component.selectedDatabaseId()).toBe('db-none');
+    expect(component.selectedDatabaseId()).toBe('db-mysql');
+    expect(component.selectedDatabaseOption()?.service_engine).toBe('mysql');
+
+    // Un motor desactivado en el catálogo deja de ofrecerse aunque el nodo lo reporte
+    component.techComponents.update(list =>
+      list.map(item => (item.id === 'db-mysql' ? { ...item, is_active: false } : item))
+    );
+    const enginesAfterDeactivation = component.databaseOptions();
+    expect(enginesAfterDeactivation.some(d => d.service_engine === 'mysql')).toBe(false);
+    expect(enginesAfterDeactivation.some(d => d.service_engine === 'postgres')).toBe(true);
+  });
+
+  it('should offer catalog-registered database engines that the node does not report yet', () => {
+    const registeredEngine = {
+      id: 'db-redis-72',
+      slug: 'redis-72',
+      layer: 'database' as const,
+      sub_category: 'nosql',
+      name: 'Redis 7.2 (Caché)',
+      description: 'Caché auto-orquestada',
+      icon_key: 'redis',
+      base_image: 'redis:7.2-alpine',
+      compatible_runtimes: ['universal'],
+      install_mode: 'none' as const,
+      package_names: [],
+      build_layer_snippet: '',
+      setup_snippet: '',
+      judge_entrypoint: '',
+      tools_provided: [],
+      service_engine: 'redis',
+      ram_delta_mb: 64,
+      is_system: false,
+      is_active: true,
+      sort_order: 340
+    };
+
+    component.techComponents.update(list => [
+      ...list.filter(item => item.service_engine !== 'redis'),
+      registeredEngine
+    ]);
+    component.runtimeCapabilities.update(caps =>
+      caps
+        ? { ...caps, satellite_services: caps.satellite_services.filter(sat => sat.engine !== 'redis') }
+        : caps
+    );
+
+    const options = component.databaseOptions();
+    const redisOption = options.find(d => d.service_engine === 'redis');
+    expect(redisOption).toBeTruthy();
+    expect(redisOption?.id).toBe('db-redis-72');
+    expect(redisOption?.is_available).toBe(true);
+
+    component.selectDatabase('db-redis-72');
+    expect(component.selectedDatabaseId()).toBe('db-redis-72');
   });
 
   it('should render clean domain terminology in the UI without culinary metaphors', () => {

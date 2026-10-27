@@ -6,6 +6,7 @@ import {
   ComponentCatalogKind,
   EcosystemVersionOption,
   OfficialAddonPreset,
+  OfficialDatabaseProfile,
   OfficialEcosystemProfile,
   OfficialWebProfile
 } from '../component-catalog.presets';
@@ -22,11 +23,13 @@ export class CatalogPresetGridComponent {
   readonly ecosystemProfiles = input.required<OfficialEcosystemProfile[]>();
   readonly webProfiles = input.required<OfficialWebProfile[]>();
   readonly addonPresets = input.required<OfficialAddonPreset[]>();
+  readonly databaseProfiles = input<OfficialDatabaseProfile[]>([]);
   readonly availableRuntimes = input<TemplateComponent[]>([]);
 
   readonly selectedEcosystemProfileId = input<string>('');
   readonly selectedWebProfileId = input<string>('');
   readonly selectedAddonPresetId = input<string>('');
+  readonly selectedDatabaseProfileId = input<string>('');
   readonly isCustomPresetSelected = input<boolean>(false);
 
   readonly availableVersions = input<EcosystemVersionOption[]>([]);
@@ -36,6 +39,7 @@ export class CatalogPresetGridComponent {
   readonly selectEcosystemProfile = output<string>();
   readonly selectWebProfile = output<string>();
   readonly selectAddonPreset = output<string>();
+  readonly selectDatabaseProfile = output<string>();
   readonly selectCustomMode = output<void>();
   readonly versionChange = output<string>();
 

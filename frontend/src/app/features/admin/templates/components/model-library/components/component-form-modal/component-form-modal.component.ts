@@ -26,9 +26,11 @@ import {
   INSTALL_PRESET_OPTIONS,
   LAYER_OPTIONS,
   OFFICIAL_ADDON_PRESETS,
+  OFFICIAL_DATABASE_PROFILES,
   OFFICIAL_ECOSYSTEM_PROFILES,
   OFFICIAL_WEB_PROFILES,
   OfficialAddonPreset,
+  OfficialDatabaseProfile,
   OfficialEcosystemProfile,
   OfficialWebProfile,
   RUNTIME_MEMORY_PROFILE_OPTIONS,
@@ -56,12 +58,14 @@ export type {
   ComponentMemoryProfile,
   EcosystemVersionOption,
   OfficialAddonPreset,
+  OfficialDatabaseProfile,
   OfficialEcosystemProfile,
   OfficialWebProfile
 };
 
 export {
   OFFICIAL_ADDON_PRESETS,
+  OFFICIAL_DATABASE_PROFILES,
   OFFICIAL_ECOSYSTEM_PROFILES,
   OFFICIAL_WEB_PROFILES
 };
@@ -105,6 +109,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   readonly officialEcosystemProfiles = OFFICIAL_ECOSYSTEM_PROFILES;
   readonly officialWebProfiles = OFFICIAL_WEB_PROFILES;
   readonly officialAddonPresets = OFFICIAL_ADDON_PRESETS;
+  readonly officialDatabaseProfiles = OFFICIAL_DATABASE_PROFILES;
   readonly catalogKindOptions = CATALOG_KIND_OPTIONS;
   readonly layerOptions = LAYER_OPTIONS;
   readonly subCategoryOptions = SUB_CATEGORY_OPTIONS;
@@ -118,6 +123,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   readonly selectedEcosystemProfileId = signal<string>('');
   readonly selectedWebProfileId = signal<string>('');
   readonly selectedAddonPresetId = signal<string>('');
+  readonly selectedDatabaseProfileId = signal<string>('');
   readonly selectedVersion = signal<string>('');
   readonly isCustomPresetSelected = signal<boolean>(false);
   readonly existingCatalogMatch = signal<TemplateComponent | null>(null);
@@ -194,6 +200,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   }));
 
   readonly catalogKind = computed<ComponentCatalogKind>(() => {
+    if (this.layer() === 'database') return 'database';
     if (this.layer() === 'addon') return 'addon';
     return this.subCategory() === 'web' ? 'web' : 'backend';
   });
@@ -231,6 +238,14 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       return judge
         ? `Imagen: ${img} · Evaluador: ${judge} · Memoria base: ${ram} MB`
         : `Imagen: ${img} · Memoria base: ${ram} MB`;
+    }
+    if (this.layer() === 'database') {
+      const engine = this.serviceEngine().trim() || 'postgres';
+      const img = this.baseImage().trim() || 'imagen por defecto del nodo';
+      if (engine === 'sqlite' || engine === 'none') {
+        return `Motor: ${engine} · Sin contenedor satélite (+0 MB RAM)`;
+      }
+      return `Motor: ${engine} · Imagen: ${img} · Contenedor satélite: ${this.ramDeltaMB() || 0} MB`;
     }
     const preset = this.installPreset();
     const installerLabel = this.installPresetOptions.find(o => o.id === preset)?.label || preset;
@@ -283,6 +298,9 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     if (kind === 'web') {
       return this.officialWebProfiles.find(p => p.id === this.selectedWebProfileId())?.suggestedVersions || [];
     }
+    if (kind === 'database') {
+      return this.officialDatabaseProfiles.find(p => p.id === this.selectedDatabaseProfileId())?.suggestedVersions || [];
+    }
     return [];
   });
 
@@ -313,6 +331,14 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
         this.name.set(resolvedName);
         this.existingCatalogMatch.set(this.findCatalogMatch(slugifyComponentName(resolvedName), resolvedName));
       }
+    } else if (kind === 'database') {
+      const dbProf = this.officialDatabaseProfiles.find(p => p.id === this.selectedDatabaseProfileId());
+      if (dbProf && dbProf.imageTemplate) {
+        this.baseImage.set(dbProf.imageTemplate.replace('{version}', cleanVer));
+        const resolvedDbName = dbProf.nameTemplate.replace('{version}', cleanVer);
+        this.name.set(resolvedDbName);
+        this.existingCatalogMatch.set(this.findCatalogMatch(slugifyComponentName(resolvedDbName), resolvedDbName));
+      }
     } else if (kind === 'web') {
       const webProf = this.officialWebProfiles.find(p => p.id === this.selectedWebProfileId());
       if (webProf) {
@@ -338,6 +364,12 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
 
   readonly sortedWebProfiles = computed<OfficialWebProfile[]>(() =>
     [...this.officialWebProfiles].sort(
+      (a, b) => (this.isPresetInCatalog(a.id, a.name) ? 1 : 0) - (this.isPresetInCatalog(b.id, b.name) ? 1 : 0)
+    )
+  );
+
+  readonly sortedDatabaseProfiles = computed<OfficialDatabaseProfile[]>(() =>
+    [...this.officialDatabaseProfiles].sort(
       (a, b) => (this.isPresetInCatalog(a.id, a.name) ? 1 : 0) - (this.isPresetInCatalog(b.id, b.name) ? 1 : 0)
     )
   );
@@ -385,7 +417,11 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     }
 
     const initialKind: ComponentCatalogKind =
-      this.defaultLayer === 'addon' ? 'addon' : (this.defaultSubCategory === 'web' ? 'web' : 'backend');
+      this.defaultLayer === 'addon'
+        ? 'addon'
+        : this.defaultLayer === 'database'
+          ? 'database'
+          : (this.defaultSubCategory === 'web' ? 'web' : 'backend');
     this.onCatalogKindChange(initialKind);
 
     if (this.defaultLayer === 'addon') {
@@ -489,6 +525,26 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     this.setMemoryProfile(profile.memoryProfile);
   }
 
+  onSelectDatabaseProfile(profileId: string): void {
+    this.isCustomPresetSelected.set(false);
+    this.selectedDatabaseProfileId.set(profileId);
+    const profile = this.officialDatabaseProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+    this.selectedVersion.set(profile.defaultVersion || '');
+    this.existingCatalogMatch.set(this.findCatalogMatch(profile.id, profile.name));
+    this.name.set(profile.name);
+    this.description.set(profile.description);
+    this.iconKey.set(profile.iconKey);
+    this.isIconManuallySelected.set(false);
+    this.baseImage.set(profile.baseImage);
+    this.subCategory.set(profile.subCategory);
+    this.serviceEngine.set(profile.serviceEngine);
+    this.compatibleRuntime.set('universal');
+    this.installMode.set('none');
+    this.installPreset.set('none');
+    this.ramDeltaMB.set(profile.ramDeltaMB);
+  }
+
   onSelectAddonPreset(presetId: string): void {
     this.isCustomPresetSelected.set(false);
     this.selectedAddonPresetId.set(presetId);
@@ -510,6 +566,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
     this.selectedEcosystemProfileId.set('');
     this.selectedWebProfileId.set('');
     this.selectedAddonPresetId.set('');
+    this.selectedDatabaseProfileId.set('');
     this.selectedVersion.set('');
     this.existingCatalogMatch.set(null);
     this.name.set('');
@@ -523,6 +580,14 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       this.baseImage.set(this.resolveDynamicWebBaseImage());
       this.installPreset.set('npm');
       this.installMode.set('npm');
+    } else if (this.catalogKind() === 'database') {
+      this.layer.set('database');
+      this.subCategory.set('relational');
+      this.baseImage.set('');
+      this.serviceEngine.set('postgres');
+      this.installPreset.set('none');
+      this.installMode.set('none');
+      this.ramDeltaMB.set(50);
     } else if (this.catalogKind() === 'backend') {
       this.baseImage.set('');
       this.installPreset.set('none');
@@ -590,6 +655,14 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
           if (res.component.description) this.description.set(res.component.description);
           if (res.component.icon_key) this.iconKey.set(res.component.icon_key);
           if (res.component.base_image) this.baseImage.set(res.component.base_image);
+          const resolvedServiceEngine = res.service_engine || res.component.service_engine;
+          if (resolvedServiceEngine) {
+            this.serviceEngine.set(resolvedServiceEngine);
+            if (this.layer() === 'database') {
+              this.layer.set('database');
+              if (res.component.sub_category) this.subCategory.set(res.component.sub_category);
+            }
+          }
           if (res.component.install_mode) {
             this.installMode.set(res.component.install_mode as InstallMode);
             this.installPreset.set(res.component.install_mode);
@@ -656,6 +729,14 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       this.installMode.set('npm');
       this.installPreset.set('npm');
       this.setMemoryProfile('standard');
+    } else if (kind === 'database') {
+      this.layer.set('database');
+      this.subCategory.set('relational');
+      this.serviceEngine.set('postgres');
+      this.compatibleRuntime.set('universal');
+      this.installMode.set('none');
+      this.installPreset.set('none');
+      this.ramDeltaMB.set(128);
     } else if (kind === 'addon') {
       this.layer.set('addon');
       this.subCategory.set('framework');
@@ -739,6 +820,12 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
         const matchedWeb = this.officialWebProfiles.find(p => p.iconKey === key);
         if (matchedWeb) {
           this.onSelectWebProfile(matchedWeb.id);
+          this.isIconManuallySelected.set(true);
+        }
+      } else if (kind === 'database') {
+        const matchedDb = this.officialDatabaseProfiles.find(p => p.iconKey === key);
+        if (matchedDb) {
+          this.onSelectDatabaseProfile(matchedDb.id);
           this.isIconManuallySelected.set(true);
         }
       } else if (kind === 'addon') {
@@ -825,7 +912,17 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (currentLayer === 'database' && !this.serviceEngine().trim()) {
+      this.errorMessage.set('Seleccione el motor de base de datos que el nodo debe aprovisionar.');
+      return;
+    }
+
     let preset = this.installPreset();
+    // Los motores de base de datos nunca instalan paquetes en el contenedor del alumno:
+    // el motor vive en su propio contenedor satélite.
+    if (currentLayer === 'database') {
+      preset = 'none';
+    }
     const pkgs = this.packageNamesInput().split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
     let tools = this.toolsProvidedInput().split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
 
@@ -882,7 +979,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
         sub_category: this.subCategory(),
         description: this.description().trim(),
         icon_key: this.effectiveIconKey(),
-        base_image: currentLayer === 'runtime' ? this.baseImage().trim() : '',
+        base_image: currentLayer === 'runtime' || currentLayer === 'database' ? this.baseImage().trim() : '',
         compatible_runtimes: compatibleRuntimes,
         install_mode: resolvedInstallMode,
         package_names: pkgs,
@@ -915,7 +1012,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       sub_category: this.subCategory(),
       description: this.description().trim(),
       icon_key: this.effectiveIconKey(),
-      base_image: currentLayer === 'runtime' ? this.baseImage().trim() : '',
+      base_image: currentLayer === 'runtime' || currentLayer === 'database' ? this.baseImage().trim() : '',
       compatible_runtimes: compatibleRuntimes,
       install_mode: resolvedInstallMode,
       package_names: pkgs,

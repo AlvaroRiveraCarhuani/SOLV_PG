@@ -82,6 +82,10 @@ export interface SatelliteServiceCapability {
   env_var: string;
   is_available: boolean;
   base_ram_mb?: number;
+  /** Cómo aprovisiona el nodo el motor: embebido, contenedor compartido del host o contenedor gestionado. */
+  provisioning_mode?: 'embedded' | 'shared_host' | 'managed_container' | string;
+  /** Imagen por defecto del motor gestionado (con tag fijo, nunca :latest). */
+  default_image?: string;
 }
 
 export interface RamPresetSuggestion {

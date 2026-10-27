@@ -109,12 +109,16 @@ export interface AISuggestedComponentDTO {
   judge_entrypoint?: string;
   tools_provided?: string[];
   ram_delta_mb?: number;
+  /** Motor de base de datos canónico cuando layer es 'database'. */
+  service_engine?: string;
 }
 
 export interface AISuggestComponentResponse {
   component: AISuggestedComponentDTO;
   rationale: string;
   latency_ms: number;
+  /** Motor de base de datos canónico resuelto por el backend cuando layer es 'database'. */
+  service_engine?: string;
 }
 
 export interface AISuggestTemplatePayload {

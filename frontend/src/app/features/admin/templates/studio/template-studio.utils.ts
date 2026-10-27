@@ -105,6 +105,8 @@ export interface StudioDatabaseOption extends TemplateComponent {
   is_available: boolean;
   unavailable_reason?: string;
   version?: string;
+  /** Modo de aprovisionamiento reportado por el nodo: embedded, shared_host o managed_container. */
+  provisioning_mode?: string;
 }
 
 export interface StudioActionBlocker {
@@ -466,7 +468,9 @@ export function buildStudioDatabaseOptions(
   techComponents: TemplateComponent[]
 ): StudioDatabaseOption[] {
   const satellites = caps?.satellite_services || [];
-  const catalogDbs = techComponents.filter(i => i.layer === 'database');
+  // Solo los motores activos del catálogo son seleccionables: el administrador los
+  // activa/desactiva desde el Catálogo de Tecnologías.
+  const catalogDbs = techComponents.filter(i => i.layer === 'database' && i.is_active !== false);
 
   const noneOption: StudioDatabaseOption = {
     id: 'db-none',
@@ -493,7 +497,16 @@ export function buildStudioDatabaseOptions(
   };
 
   if (satellites.length > 0) {
-    const availableSatellites = satellites.filter(sat => sat.is_available);
+    // Un motor desactivado explícitamente en el catálogo no vuelve a ofrecerse (#comp-motor).
+    const deactivatedEngines = new Set(
+      techComponents
+        .filter(i => i.layer === 'database' && i.is_active === false)
+        .map(i => (i.service_engine || '').toLowerCase())
+        .filter(Boolean)
+    );
+    const availableSatellites = satellites.filter(
+      sat => sat.is_available && !deactivatedEngines.has((sat.engine || '').toLowerCase())
+    );
     const mappedSatellites = availableSatellites.map((sat, idx): StudioDatabaseOption => {
       const engine = (sat.engine || '').toLowerCase();
       const catMatch = catalogDbs.find(c => (c.service_engine || '').toLowerCase() === engine);
@@ -502,7 +515,7 @@ export function buildStudioDatabaseOptions(
         id: catMatch?.id || `db-${engine}`,
         slug: catMatch?.slug || `${engine}-service`,
         layer: 'database',
-        sub_category: sat.category || 'database',
+        sub_category: catMatch?.sub_category || sat.category || 'database',
         name: `${sat.label}${verSuffix}`,
         description: sat.description || catMatch?.description || '',
         icon_key: catMatch?.icon_key || engine,
@@ -520,21 +533,44 @@ export function buildStudioDatabaseOptions(
         is_active: true,
         sort_order: 310 + idx * 10,
         is_available: true,
-        version: sat.version
+        version: sat.version,
+        provisioning_mode: sat.provisioning_mode
       };
     });
-    return [noneOption, ...mappedSatellites];
+
+    // Los motores activos del catálogo que el nodo todavía no reporta en sus
+    // capacidades también se ofrecen: toda alta desde "+ Nuevo" en la Columna 3
+    // queda seleccionable de inmediato.
+    const mappedKeys = new Set<string>();
+    for (const opt of mappedSatellites) {
+      mappedKeys.add((opt.id || '').toLowerCase());
+      mappedKeys.add((opt.slug || '').toLowerCase());
+      mappedKeys.add((opt.service_engine || '').toLowerCase());
+    }
+    const extraCatalogDbs = catalogDbs
+      .filter(item => (item.service_engine || '').toLowerCase() !== 'none')
+      .filter(
+        item =>
+          !mappedKeys.has((item.id || '').toLowerCase()) &&
+          !mappedKeys.has((item.slug || '').toLowerCase()) &&
+          !mappedKeys.has((item.service_engine || '').toLowerCase())
+      )
+      .map(
+        (item, idx): StudioDatabaseOption => ({
+          ...item,
+          is_available: true,
+          sort_order: 360 + idx * 10
+        })
+      );
+
+    return [noneOption, ...mappedSatellites, ...extraCatalogDbs];
   }
 
-  const fallbackList = catalogDbs
-    .filter(item => {
-      const engine = (item.service_engine || '').toLowerCase();
-      return engine === 'none' || engine === 'sqlite' || engine === 'postgres';
-    })
-    .map((item): StudioDatabaseOption => ({
-      ...item,
-      is_available: true
-    }));
+  // Sin capacidades del nodo la Columna 3 se gobierna solo por el catálogo activo.
+  const fallbackList = catalogDbs.map((item): StudioDatabaseOption => ({
+    ...item,
+    is_available: true
+  }));
 
   if (fallbackList.some(d => d.id === 'db-none' || d.service_engine === 'none')) {
     return fallbackList;
@@ -978,7 +1014,11 @@ export function isFrameworkAddon(addon: TemplateComponent): boolean {
 
 export function getComponentRoleBadge(comp: TemplateComponent | StudioDatabaseOption): string {
   if (comp.layer === 'database') {
-    return comp.service_engine === 'none' ? 'Sin BD' : 'Servicio';
+    const engine = (comp.service_engine || '').toLowerCase();
+    if (engine === 'none') return 'Sin BD';
+    if (engine === 'sqlite') return 'En archivo';
+    if (engine === 'postgres') return 'Aula compartida';
+    return 'Auto-orquestado';
   }
   if (comp.layer === 'runtime') {
     return comp.sub_category === 'web' ? 'Web' : 'Lenguaje';
