@@ -10,19 +10,25 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-// AICopilotService implementa los dos casos de uso generativos del Copiloto
+// AICopilotService implementa los casos de uso generativos del Copiloto
 // Institucional sobre AISettingsService.CompleteJSON. Aplica cero confianza
 // ciega en la salida del LLM: sanea DTOs, prohíbe imágenes sin tag fijo,
 // sintetiza capas de build y sella las salidas esperadas con el runner del juez.
 type AICopilotService struct {
 	aiSettings *AISettingsService
 	runner     domain.EvaluationRunner
+	compRepo   domain.TemplateComponentRepository
 }
 
 // NewAICopilotService acepta un runner opcional (nil desactiva el sello
-// determinista de los casos de prueba).
-func NewAICopilotService(aiSettings *AISettingsService, runner domain.EvaluationRunner) *AICopilotService {
-	return &AICopilotService{aiSettings: aiSettings, runner: runner}
+// determinista de los casos de prueba) y un repositorio de componentes opcional
+// para grounding del catálogo activo.
+func NewAICopilotService(aiSettings *AISettingsService, runner domain.EvaluationRunner, compRepo ...domain.TemplateComponentRepository) *AICopilotService {
+	var repo domain.TemplateComponentRepository
+	if len(compRepo) > 0 {
+		repo = compRepo[0]
+	}
+	return &AICopilotService{aiSettings: aiSettings, runner: runner, compRepo: repo}
 }
 
 // SuggestTemplate propone el stack completo de una plantilla a partir de la
@@ -53,7 +59,8 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 		}
 	}
 
-	systemPrompt := suggestTemplateSystemPrompt()
+	catalogSummary := s.buildCompactCatalogSummary(ctx, tenantID)
+	systemPrompt := suggestTemplateSystemPrompt(catalogSummary)
 	userPrompt := fmt.Sprintf("Entorno objetivo: %s\nRequisitos del administrador:\n%s", targetEnv, prompt)
 
 	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "suggest-template", systemPrompt, userPrompt)
@@ -62,15 +69,21 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 	}
 
 	var payload struct {
-		Name            string   `json:"name"`
-		Description     string   `json:"description"`
-		RuntimeSlug     string   `json:"runtime_slug"`
-		WebPlatformSlug string   `json:"web_platform_slug"`
-		AddonSlugs      []string `json:"addon_slugs"`
-		DatabaseSlug    string   `json:"database_slug"`
-		SetupScript     string   `json:"setup_script"`
-		BaseRamMB       int      `json:"base_ram_mb"`
-		Rationale       string   `json:"rationale"`
+		Name              string   `json:"name"`
+		Description       string   `json:"description"`
+		RuntimeSlug       string   `json:"runtime_slug"`
+		WebPlatformSlug   string   `json:"web_platform_slug"`
+		AddonSlugs        []string `json:"addon_slugs"`
+		DatabaseSlug      string   `json:"database_slug"`
+		SetupScript       string   `json:"setup_script"`
+		BaseRamMB         int      `json:"base_ram_mb"`
+		Rationale         string   `json:"rationale"`
+		MissingComponents []struct {
+			Name     string `json:"name"`
+			Layer    string `json:"layer"`
+			Category string `json:"category"`
+			Reason   string `json:"reason"`
+		} `json:"missing_components"`
 	}
 	if err := json.Unmarshal([]byte(cleanJSONFence(raw)), &payload); err != nil {
 		return nil, &AISettingsValidationError{
@@ -122,22 +135,104 @@ func (s *AICopilotService) SuggestTemplate(ctx context.Context, tenantID, userID
 	}
 	baseRamMB = clampInt(baseRamMB, 256, 4096)
 
+	// Saneo de componentes faltantes reportados por la IA.
+	missingComponents := make([]domain.AIMissingComponentDTO, 0, len(payload.MissingComponents))
+	seenMissing := make(map[string]struct{}, len(payload.MissingComponents))
+	for _, m := range payload.MissingComponents {
+		name := strings.TrimSpace(m.Name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, dup := seenMissing[key]; dup {
+			continue
+		}
+		seenMissing[key] = struct{}{}
+
+		layer := strings.ToLower(strings.TrimSpace(m.Layer))
+		if layer != "runtime" && layer != "addon" && layer != "database" {
+			layer = "addon"
+		}
+
+		reason := strings.TrimSpace(m.Reason)
+		if reason == "" {
+			reason = fmt.Sprintf("Tecnología %s requerida pero no disponible en el catálogo", name)
+		}
+
+		missingComponents = append(missingComponents, domain.AIMissingComponentDTO{
+			Name:     name,
+			Layer:    layer,
+			Category: strings.ToLower(strings.TrimSpace(m.Category)),
+			Reason:   reason,
+		})
+	}
+
 	return &domain.AISuggestTemplateResponseDTO{
-		Name:            strings.TrimSpace(payload.Name),
-		Description:     strings.TrimSpace(payload.Description),
-		RuntimeSlug:     runtimeSlug,
-		WebPlatformSlug: webSlug,
-		AddonSlugs:      addons,
-		DatabaseSlug:    dbSlug,
-		SetupScript:     strings.TrimSpace(payload.SetupScript),
-		BaseRamMB:       baseRamMB,
-		Rationale:       rationale,
-		LatencyMS:       latencyMS,
+		Name:              strings.TrimSpace(payload.Name),
+		Description:       strings.TrimSpace(payload.Description),
+		RuntimeSlug:       runtimeSlug,
+		WebPlatformSlug:   webSlug,
+		AddonSlugs:        addons,
+		DatabaseSlug:      dbSlug,
+		SetupScript:       strings.TrimSpace(payload.SetupScript),
+		BaseRamMB:         baseRamMB,
+		Rationale:         rationale,
+		MissingComponents: missingComponents,
+		LatencyMS:         latencyMS,
 	}, nil
 }
 
-func suggestTemplateSystemPrompt() string {
-	return `Sos el copiloto de arquitectura de entornos de SOLV, la plataforma de laboratorios virtuales.
+func (s *AICopilotService) buildCompactCatalogSummary(ctx context.Context, tenantID string) string {
+	if s.compRepo == nil {
+		return ""
+	}
+	comps, err := s.compRepo.ListTemplateComponents(ctx, tenantID, "", false)
+	if err != nil || len(comps) == 0 {
+		return ""
+	}
+
+	var runtimes, webs []string
+	addonsByFam := make(map[string][]string)
+
+	for _, c := range comps {
+		if !c.IsActive {
+			continue
+		}
+		if c.Layer == "runtime" {
+			if c.SubCategory == "web" {
+				webs = append(webs, fmt.Sprintf("%s (%s)", c.Slug, c.Name))
+			} else {
+				runtimes = append(runtimes, fmt.Sprintf("%s (%s)", c.Slug, c.Name))
+			}
+		} else if c.Layer == "addon" {
+			fam := "general"
+			if len(c.CompatibleRuntimes) > 0 && c.CompatibleRuntimes[0] != "" {
+				fam = c.CompatibleRuntimes[0]
+			}
+			addonsByFam[fam] = append(addonsByFam[fam], fmt.Sprintf("%s (%s)", c.Slug, c.Name))
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\nCATÁLOGO REAL INSTALADO EN EL TENANT (Prioridad absoluta para reutilizar):\n")
+	if len(runtimes) > 0 {
+		sb.WriteString(fmt.Sprintf("- Lenguajes Principales (runtime_slug): %s\n", strings.Join(runtimes, ", ")))
+	}
+	if len(webs) > 0 {
+		sb.WriteString(fmt.Sprintf("- Plataformas Web (web_platform_slug): %s\n", strings.Join(webs, ", ")))
+	}
+	for fam, items := range addonsByFam {
+		if len(items) > 0 {
+			sb.WriteString(fmt.Sprintf("- Complementos %s (addon_slugs): %s\n", strings.Title(fam), strings.Join(items, ", ")))
+		}
+	}
+	sb.WriteString("- Motores Base de Datos (database_slug): sqlite, postgres, mysql, mongodb, redis (o vacío si no requiere)\n")
+
+	return sb.String()
+}
+
+func suggestTemplateSystemPrompt(catalogSummary string) string {
+	base := `Sos el copiloto de arquitectura de entornos de SOLV, la plataforma de laboratorios virtuales.
 Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, sin comentarios) con esta forma exacta:
 {
   "name": "Nombre corto y descriptivo del entorno",
@@ -148,16 +243,30 @@ Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, s
   "database_slug": "slug del motor de base de datos o vacío",
   "setup_script": "script shell de preparación o cadena vacía",
   "base_ram_mb": 512,
-  "rationale": "justificación técnica breve en español del stack elegido"
+  "rationale": "justificación técnica breve en español del stack elegido",
+  "missing_components": [
+    {
+      "name": "Nombre de tecnología faltante",
+      "layer": "runtime | addon | database",
+      "category": "backend | web | framework | orm | toolkit | heavy",
+      "reason": "breve justificación técnica de por qué no está en el catálogo pero es necesaria"
+    }
+  ]
 }
 Reglas innegociables:
-- Usá SOLO slugs canónicos de ecosistemas de desarrollo conocidos, en minúsculas y sin espacios (ejemplos: python, node, javascript, typescript, go, rust, c, cpp, java, php, dotnet, angular, react, vue, csharp). NO inventes slugs raros ni versiones.
-- addon_slugs usa nombres de paquetes o herramientas de uso común (ej: pytest, numpy, fastapi, flask, express, prisma, sqlalchemy, cmake, sanitizers).
+- Si se suministra un CATÁLOGO REAL INSTALADO, debes elegir ÚNICAMENTE entre los slugs listados en dicho catálogo para runtime_slug, web_platform_slug y addon_slugs.
+- Si una herramienta solicitada no está en el catálogo pero existe una alternativa directa instalada en la misma categoría (ej. un ORM o cliente alternativo), usa la del catálogo y explícalo en el rationale.
+- Solo si el usuario solicita explícitamente una tecnología o librería que NO existe ni tiene alternativa en el catálogo provisto, repórtala en "missing_components" y NO inventes slugs dentro de addon_slugs.
 - database_slug SOLO puede ser sqlite, postgres, mysql, mongodb o redis; si no hace falta base de datos, dejalo como cadena vacía.
 - base_ram_mb entre 256 y 4096: 512 para entornos ligeros de juez, 1024 o más para laboratorios IDE con compilación pesada o servicios acoplados.
 - web_platform_slug SOLO tiene sentido cuando el entorno es un laboratorio IDE de tipo web (Angular, React, Vue); en jueces automáticos dejalo vacío.
 - setup_script es OPCIONAL y solo de preparación del espacio de trabajo (crear carpetas, alias, variables de entorno); no incluyas comandos de instalación de paquetes (eso va en capas de la imagen).
 - name y description en español, descriptivos para un catálogo académico.`
+
+	if catalogSummary != "" {
+		return base + "\n" + catalogSummary
+	}
+	return base
 }
 
 // SuggestComponent propone un componente de catálogo a partir de la

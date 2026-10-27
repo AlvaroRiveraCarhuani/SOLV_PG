@@ -77,26 +77,59 @@ func newEnabledCopilotSettings(t *testing.T, server *httptest.Server) *AISetting
 	return svc
 }
 
+type stubComponentRepoForTesting struct {
+	comps []*domain.TemplateComponent
+}
+
+func (s *stubComponentRepoForTesting) UpdateOfficialTemplate(ctx context.Context, tenantID, templateID, adminID string, dto domain.UpdateOfficialTemplateDTO) (*domain.AdminTemplateReviewItem, error) {
+	return nil, nil
+}
+func (s *stubComponentRepoForTesting) ListTemplateComponents(ctx context.Context, tenantID, layer string, includeInactive bool) ([]*domain.TemplateComponent, error) {
+	return s.comps, nil
+}
+func (s *stubComponentRepoForTesting) GetTemplateComponentByIDOrSlug(ctx context.Context, tenantID, idOrSlug string) (*domain.TemplateComponent, error) {
+	return nil, nil
+}
+func (s *stubComponentRepoForTesting) CreateTemplateComponent(ctx context.Context, tenantID string, comp *domain.TemplateComponent) (*domain.TemplateComponent, error) {
+	return comp, nil
+}
+func (s *stubComponentRepoForTesting) UpdateTemplateComponent(ctx context.Context, tenantID, id string, dto domain.UpdateTemplateComponentDTO, synthesizedLayer string) (*domain.TemplateComponent, error) {
+	return nil, nil
+}
+func (s *stubComponentRepoForTesting) DeleteTemplateComponent(ctx context.Context, tenantID, id string) error {
+	return nil
+}
+
 func TestAICopilot_SuggestTemplate_ReturnsProposalWithSanitizedSlugs(t *testing.T) {
-	templateJSON := `{"name":"Algoritmos con Python y PostgreSQL","description":"Juez automático para estructuras de datos","runtime_slug":"python","web_platform_slug":"","addon_slugs":["pytest","numpy","pytest"],"database_slug":"sqlite","setup_script":"export PIP_NO_CACHE=1","base_ram_mb":768,"rationale":"Python 3.12 con pytest para los casos de prueba y SQLite como servidor de datos acoplado."}`
+	templateJSON := `{"name":"Algoritmos con Python y PostgreSQL","description":"Juez automático para estructuras de datos","runtime_slug":"python-312","web_platform_slug":"","addon_slugs":["fastapi","python-sqlalchemy"],"database_slug":"sqlite","setup_script":"export PIP_NO_CACHE=1","base_ram_mb":768,"rationale":"Python 3.12 con FastAPI y SQLAlchemy.","missing_components":[{"name":"Celery","layer":"addon","category":"toolkit","reason":"Falta soporte asíncrono"}]}`
 
 	server := newCopilotLLMServer(t, "```json\n"+templateJSON+"\n```")
 	svc := newEnabledCopilotSettings(t, server)
-	copilot := NewAICopilotService(svc, nil)
+	mockRepo := &stubComponentRepoForTesting{
+		comps: []*domain.TemplateComponent{
+			{ID: "rt-1", Slug: "python-312", Name: "Python 3.12", Layer: "runtime", SubCategory: "backend", IsActive: true},
+			{ID: "ad-1", Slug: "fastapi", Name: "FastAPI + Uvicorn", Layer: "addon", SubCategory: "framework", CompatibleRuntimes: []string{"python"}, IsActive: true},
+			{ID: "ad-2", Slug: "python-sqlalchemy", Name: "SQLAlchemy + Drivers", Layer: "addon", SubCategory: "orm", CompatibleRuntimes: []string{"python"}, IsActive: true},
+		},
+	}
+	copilot := NewAICopilotService(svc, nil, mockRepo)
 
 	resp, err := copilot.SuggestTemplate(context.Background(), "t-1", "u-1", domain.AISuggestTemplateRequestDTO{
-		Prompt:            "Entorno para estructuras de datos con Python, pytest y SQLite",
+		Prompt:            "Entorno para estructuras de datos con Python, FastAPI y SQLite",
 		TargetEnvironment: "JUEZ_EFIMERO",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if resp.RuntimeSlug != "python" {
+	if resp.RuntimeSlug != "python-312" {
 		t.Errorf("runtime_slug inesperado: %q", resp.RuntimeSlug)
 	}
 	// Slugs saneados: minúsculas y sin duplicados.
-	if len(resp.AddonSlugs) != 2 || resp.AddonSlugs[0] != "pytest" || resp.AddonSlugs[1] != "numpy" {
+	if len(resp.AddonSlugs) != 2 || resp.AddonSlugs[0] != "fastapi" || resp.AddonSlugs[1] != "python-sqlalchemy" {
 		t.Errorf("addon_slugs saneado inesperado: %#v", resp.AddonSlugs)
+	}
+	if len(resp.MissingComponents) != 1 || resp.MissingComponents[0].Name != "Celery" {
+		t.Errorf("missing_components inesperado: %#v", resp.MissingComponents)
 	}
 	if resp.DatabaseSlug != "sqlite" {
 		t.Errorf("database_slug inesperado: %q", resp.DatabaseSlug)

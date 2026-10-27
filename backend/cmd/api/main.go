@@ -123,9 +123,17 @@ func main() {
 	// cifrado AES-256-GCM de la API Key, escudo anti-SSRF y cuota horaria por usuario.
 	aiSettingsService := services.NewAISettingsService(tenantRepo)
 	aiSettingsHandler := httpdelivery.NewAISettingsHandler(aiSettingsService)
+	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
+	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
+	// Directorio de estudiantes para mostrar identidades reales (nombre/correo)
+	// en los paneles admin, nunca UUIDs internos.
+	adminHandler.SetStudentDirectory(govRepo)
+	evaluationService.SetAdminGovernanceRepository(govRepo)
+
 	// Copiloto estructurado: sugerencia de componentes (admin) y borradores de
-	// ejercicio con sello determinista del juez (docente) sobre CompleteJSON.
-	aiCopilotService := services.NewAICopilotService(aiSettingsService, dockerRunner)
+	// ejercicio con sello determinista del juez (docente) sobre CompleteJSON, con
+	// grounding del catálogo real vía govRepo.
+	aiCopilotService := services.NewAICopilotService(aiSettingsService, dockerRunner, govRepo)
 	aiCopilotHandler := httpdelivery.NewAICopilotHandler(aiCopilotService)
 	tenantLogoHandler := httpdelivery.NewTenantLogoHandler(tenantRepo)
 	adminHandler.SetOrchestrator(dockerClient)
@@ -138,13 +146,6 @@ func main() {
 	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
-
-	// Slice 14: Periodos Académicos, Modo Mantenimiento, Reasignación y Estudiantes
-	govRepo := postgres.NewPostgresAdminGovernanceRepository(db.GetDB())
-	// Directorio de estudiantes para mostrar identidades reales (nombre/correo)
-	// en los paneles admin, nunca UUIDs internos.
-	adminHandler.SetStudentDirectory(govRepo)
-	evaluationService.SetAdminGovernanceRepository(govRepo)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.

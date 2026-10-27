@@ -78,21 +78,31 @@ type AISuggestTemplateRequestDTO struct {
 	TargetEnvironment string `json:"target_environment,omitempty"` // JUEZ_EFIMERO | IDE_PERSISTENTE | AMBOS
 }
 
+// AIMissingComponentDTO representa una tecnología o complemento detectado por la IA
+// que fue solicitado por el usuario pero no existe actualmente en el catálogo del tenant.
+type AIMissingComponentDTO struct {
+	Name     string `json:"name"`               // Nombre reconocible de la herramienta (ej: PyTorch, Celery)
+	Layer    string `json:"layer"`              // runtime | addon | database
+	Category string `json:"category,omitempty"` // backend | web | framework | orm | toolkit | heavy
+	Reason   string `json:"reason"`             // Justificación técnica breve de por qué se necesita
+}
+
 // AISuggestTemplateResponseDTO propone el stack completo de una plantilla con
-// slugs canónicos de ecosistema (python, node, gcc, angular, sqlite...). El
-// frontend resuelve la disponibilidad real contra el catálogo del tenant y
-// marca las piezas propuestas que no existen: el backend no aplica nada.
+// slugs canónicos de ecosistema o del catálogo. El frontend resuelve la
+// disponibilidad real contra el catálogo del tenant y muestra las acciones
+// para los componentes faltantes: el backend no aplica nada.
 type AISuggestTemplateResponseDTO struct {
-	Name            string   `json:"name"`
-	Description     string   `json:"description"`
-	RuntimeSlug     string   `json:"runtime_slug"`
-	WebPlatformSlug string   `json:"web_platform_slug,omitempty"`
-	AddonSlugs      []string `json:"addon_slugs,omitempty"`
-	DatabaseSlug    string   `json:"database_slug,omitempty"`
-	SetupScript     string   `json:"setup_script,omitempty"`
-	BaseRamMB       int      `json:"base_ram_mb"`
-	Rationale       string   `json:"rationale"` // explicación técnica en español
-	LatencyMS       int64    `json:"latency_ms"`
+	Name              string                  `json:"name"`
+	Description       string                  `json:"description"`
+	RuntimeSlug       string                  `json:"runtime_slug"`
+	WebPlatformSlug   string                  `json:"web_platform_slug,omitempty"`
+	AddonSlugs        []string                `json:"addon_slugs,omitempty"`
+	DatabaseSlug      string                  `json:"database_slug,omitempty"`
+	SetupScript       string                  `json:"setup_script,omitempty"`
+	BaseRamMB         int                     `json:"base_ram_mb"`
+	Rationale         string                  `json:"rationale"` // explicación técnica en español
+	MissingComponents []AIMissingComponentDTO `json:"missing_components,omitempty"`
+	LatencyMS         int64                   `json:"latency_ms"`
 }
 
 // AIGenerateExerciseResponseDTO es el borrador de ejercicio devuelto al docente.
