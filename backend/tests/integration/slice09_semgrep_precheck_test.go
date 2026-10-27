@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -107,9 +109,29 @@ func getRulesDir() string {
 	return filepath.Join("internal", "infrastructure", "semgrep", "rules")
 }
 
+// semgrepCLIBootCheck comprueba que el CLI arranca, no solo que el binario
+// existe. Un entorno con las dependencias del CLI rotas (p. ej. un stack
+// opentelemetry desalineado) debe omitir la suite igual que la ausencia del
+// binario, en vez de convertirla en un fallo.
+func semgrepCLIBootCheck() error {
+	out, err := exec.Command("semgrep", "--version").CombinedOutput()
+	if err != nil {
+		lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+		tail := "sin salida"
+		if len(lines) > 0 && lines[len(lines)-1] != "" {
+			tail = lines[len(lines)-1]
+		}
+		return fmt.Errorf("semgrep cli no arranca: %s", tail)
+	}
+	return nil
+}
+
 func TestSemgrepPrecheckSuite(t *testing.T) {
 	if _, err := exec.LookPath("semgrep"); err != nil {
 		t.Skip("Skipping Semgrep CLI tests: semgrep executable not found in PATH")
+	}
+	if err := semgrepCLIBootCheck(); err != nil {
+		t.Skipf("Skipping Semgrep CLI tests: %v", err)
 	}
 	rulesDir := getRulesDir()
 	worker := services.NewSemgrepWorker(nil, nil, rulesDir)
