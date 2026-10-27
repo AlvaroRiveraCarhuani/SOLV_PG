@@ -5,8 +5,7 @@ import {
   LucideCheckCircle2,
   LucideRotateCcw,
   LucideRefreshCw,
-  LucideXCircle,
-  LucideCheckCircle
+  LucideXCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -26,8 +25,7 @@ import { AiProposalView, StackConstellation } from '../../template-studio.utils'
     LucideCheckCircle2,
     LucideRotateCcw,
     LucideRefreshCw,
-    LucideXCircle,
-    LucideCheckCircle
+    LucideXCircle
   ],
   templateUrl: './studio-ai-copilot-modal.component.html',
   styleUrl: './studio-ai-copilot-modal.component.scss',
@@ -48,5 +46,33 @@ export class StudioAiCopilotModalComponent {
   readonly cancelSuggest = output<void>();
   readonly apply = output<void>();
   readonly discard = output<void>();
-  readonly close = output<void>();
+  readonly dismiss = output<void>();
+  readonly proposalChange = output<Omit<AiProposalView, 'latencyMs'> & { latencyMs: number }>();
+
+  updateProposal<K extends 'runtime' | 'web' | 'database'>(field: K, value: string, view: AiProposalView): void {
+    if (field === 'runtime') {
+      const runtime = view.runtimeChoices?.find(item => item.id === value) ?? null;
+      this.proposalChange.emit({ ...view, latencyMs: view.latencyMs ?? 0, runtime, runtimeSlug: runtime?.slug ?? value });
+      return;
+    }
+    if (field === 'web') {
+      const web = view.webChoices?.find(item => item.id === value) ?? null;
+      this.proposalChange.emit({ ...view, latencyMs: view.latencyMs ?? 0, web, webSlug: web?.slug ?? value });
+      return;
+    }
+    const database = view.databaseChoices?.find(item => item.id === value) ?? null;
+    this.proposalChange.emit({ ...view, latencyMs: view.latencyMs ?? 0, database, databaseSlug: database?.service_engine ?? value });
+  }
+
+  toggleAddon(addonId: string, selected: boolean, view: AiProposalView): void {
+    const addon = view.addonChoices?.find(item => item.id === addonId);
+    if (!addon) return;
+    const addons = selected
+      ? [...view.addons.filter(item => item.id !== addon.id), addon]
+      : view.addons.filter(item => item.id !== addon.id);
+    const addonSlugs = selected
+      ? [...new Set([...view.addonSlugs, addon.slug])]
+      : view.addonSlugs.filter(slug => slug !== addon.slug && slug !== addon.id);
+    this.proposalChange.emit({ ...view, latencyMs: view.latencyMs ?? 0, addons, addonSlugs });
+  }
 }

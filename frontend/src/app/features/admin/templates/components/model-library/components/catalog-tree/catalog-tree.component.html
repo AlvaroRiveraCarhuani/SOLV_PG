@@ -1,0 +1,126 @@
+<section class="tab-content catalog-map">
+  <div class="map-header">
+    <div class="map-title-group">
+      <span class="map-title-icon-wrap" aria-hidden="true">
+        <svg lucideNetwork class="map-title-icon"></svg>
+      </span>
+      <div class="map-title-text">
+        <h2 class="map-title">Mapa de Herramientas del Sistema</h2>
+        <p class="map-subtitle">
+          Árbol completo del catálogo de tecnologías: qué puede usar el constructor de plantillas.
+          Vista de solo lectura; la edición ocurre en «Catálogo de Tecnologías».
+        </p>
+      </div>
+    </div>
+
+    <div class="map-summary">
+      <span class="summary-chip chip-active">
+        <svg lucideCheckCircle2 class="chip-icon"></svg>
+        <span class="chip-value font-mono" machineData>{{ activeTotal() }}</span>
+        <span class="chip-label">activas</span>
+      </span>
+      <span class="summary-chip chip-inactive">
+        <svg lucidePower class="chip-icon"></svg>
+        <span class="chip-value font-mono" machineData>{{ inactiveTotal() }}</span>
+        <span class="chip-label">inactivas</span>
+      </span>
+      <span class="summary-chip chip-total">
+        <svg lucideNetwork class="chip-icon"></svg>
+        <span class="chip-value font-mono" machineData>{{ total() }}</span>
+        <span class="chip-label">en total</span>
+      </span>
+    </div>
+  </div>
+
+  @if (total() === 0) {
+    <div class="map-empty">
+      <svg lucideNetwork class="map-empty-icon"></svg>
+      <p class="map-empty-title">El catálogo de tecnologías está vacío</p>
+      <p class="map-empty-hint">
+        Registra la primera tecnología en «Catálogo de Tecnologías» y aparecerá aquí agrupada por rol.
+      </p>
+    </div>
+  } @else {
+    <div class="tree">
+      <div class="tree-trunk">
+        <span class="trunk-node">
+          <svg lucideNetwork class="trunk-icon"></svg>
+          <strong class="trunk-label">Catálogo de Tecnologías</strong>
+          <span class="trunk-count font-mono" machineData>{{ total() }}</span>
+        </span>
+      </div>
+
+      <div class="tree-branches">
+        @for (group of groups(); track group.id) {
+          <div class="tree-branch" [class.is-collapsed]="!expanded()[group.id]">
+            <button
+              type="button"
+              class="branch-row"
+              [attr.aria-expanded]="expanded()[group.id]"
+              (click)="toggleGroup(group.id)"
+            >
+              <svg
+                lucideChevronRight
+                class="branch-chevron"
+                [class.is-open]="expanded()[group.id]"
+              ></svg>
+              @switch (group.id) {
+                @case ('languages') {
+                  <svg lucideCode class="branch-icon"></svg>
+                }
+                @case ('web') {
+                  <svg lucideGlobe class="branch-icon"></svg>
+                }
+                @case ('addons') {
+                  <svg lucidePuzzle class="branch-icon"></svg>
+                }
+                @case ('databases') {
+                  <svg lucideDatabase class="branch-icon"></svg>
+                }
+              }
+              <span class="branch-label">{{ group.label }}</span>
+              <span class="branch-hint">{{ group.hint }}</span>
+              <span class="branch-count">
+                <span class="count-active font-mono" machineData>{{ group.activeCount }}</span>
+                <span class="count-sep">/</span>
+                <span class="count-total font-mono" machineData>{{ group.components.length }}</span>
+              </span>
+            </button>
+
+            @if (expanded()[group.id]) {
+              <ul class="branch-leaves">
+                @for (comp of group.components; track comp.id) {
+                  <li class="leaf" [class.is-inactive]="!isActive(comp)">
+                    <span class="leaf-glyph" aria-hidden="true">
+                      <tech-logo [iconType]="comp.icon_key" [size]="22" />
+                    </span>
+                    <span class="leaf-name">{{ comp.name }}</span>
+                    <code class="leaf-slug" machineData>{{ comp.slug }}</code>
+
+                    @if (comp.layer === 'addon' && isOrphan(comp)) {
+                      <span
+                        class="leaf-flag"
+                        title="Ningún runtime activo es compatible con este complemento"
+                      >
+                        <svg lucideAlertTriangle class="flag-icon"></svg>
+                        <span>Sin runtime compatible</span>
+                      </span>
+                    }
+
+                    @if (isActive(comp)) {
+                      <span class="leaf-status status-on">Activo</span>
+                    } @else {
+                      <span class="leaf-status status-off">Inactivo</span>
+                    }
+                  </li>
+                } @empty {
+                  <li class="leaf-empty">Sin tecnologías registradas en este grupo.</li>
+                }
+              </ul>
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+</section>

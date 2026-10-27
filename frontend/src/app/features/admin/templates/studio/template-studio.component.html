@@ -71,6 +71,15 @@
           </div>
 
           <div class="header-actions-row">
+            <button
+              type="button"
+              class="btn-ai-section-trigger"
+              (click)="openTechGraph()"
+            >
+              <svg lucideNetwork class="btn-icon-xs"></svg>
+              <span>Mapa de Herramientas</span>
+            </button>
+
             @if (aiEnabled()) {
               <button
                 type="button"
@@ -786,6 +795,13 @@
     />
   }
 
+  @if (isTechGraphOpen()) {
+    <tech-graph-modal
+      [components]="techComponents()"
+      (dismiss)="isTechGraphOpen.set(false)"
+    />
+  }
+
   @if (aiEnabled() && isAiCopilotModalOpen()) {
     <studio-ai-copilot-modal
       [isOpen]="isAiCopilotModalOpen()"
@@ -801,7 +817,8 @@
       (cancelSuggest)="cancelAiSuggestion()"
       (apply)="onApplyAiCopilotModal()"
       (discard)="discardAiProposal()"
-      (close)="isAiCopilotModalOpen.set(false)"
+      (proposalChange)="updateAiProposalView($event)"
+      (dismiss)="isAiCopilotModalOpen.set(false)"
     />
   }
 </div>

@@ -111,6 +111,10 @@ export interface AiProposalView {
   database: StudioDatabaseOption | null;
   databaseSlug: string;
   missing: string[];
+  runtimeChoices?: TemplateComponent[];
+  webChoices?: TemplateComponent[];
+  addonChoices?: TemplateComponent[];
+  databaseChoices?: StudioDatabaseOption[];
   ramMB: number;
   hasSetupScript: boolean;
   rationale: string;

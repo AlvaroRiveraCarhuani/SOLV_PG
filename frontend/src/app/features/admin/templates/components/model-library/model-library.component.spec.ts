@@ -210,6 +210,67 @@ describe('ModelLibraryComponent Spec', () => {
     expect(component.defaultComponentLayer()).toBe('addon');
   });
 
+  it('debe mostrar el árbol del Mapa del Sistema con las tecnologías agrupadas por rol', () => {
+    const compiled = fixture.nativeElement as HTMLElement;
+    expect(compiled.querySelector('.catalog-map')).toBeNull();
+
+    component.techComponents.set([
+      {
+        id: 'tc-map-1',
+        slug: 'python-312',
+        layer: 'runtime',
+        sub_category: 'backend',
+        name: 'Python 3.12',
+        description: '',
+        icon_key: 'python',
+        base_image: 'python:3.12-slim',
+        compatible_runtimes: ['python'],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: [],
+        service_engine: '',
+        ram_delta_mb: 512,
+        is_system: true,
+        is_active: true,
+        sort_order: 0
+      },
+      {
+        id: 'tc-map-2',
+        slug: 'postgres-16',
+        layer: 'database',
+        sub_category: 'relational',
+        name: 'PostgreSQL 16',
+        description: '',
+        icon_key: 'postgres',
+        base_image: 'postgres:16',
+        compatible_runtimes: [],
+        install_mode: 'none',
+        package_names: [],
+        build_layer_snippet: '',
+        setup_snippet: '',
+        judge_entrypoint: '',
+        tools_provided: [],
+        service_engine: 'postgres',
+        ram_delta_mb: 256,
+        is_system: true,
+        is_active: true,
+        sort_order: 1
+      }
+    ] as TemplateComponent[]);
+    component.activeTab.set('map');
+    fixture.detectChanges();
+
+    expect(compiled.querySelector('.catalog-map')).toBeTruthy();
+    expect(compiled.querySelectorAll('.branch-row').length).toBe(4);
+    expect(compiled.querySelectorAll('.leaf').length).toBe(2);
+    expect(compiled.querySelector('.tree-trunk')).toBeTruthy();
+    expect(compiled.textContent).toContain('Lenguajes Principales');
+    expect(compiled.textContent).toContain('Bases de Datos');
+  });
+
   it('debe abrir el modal de edición de tecnología al llamar a openEditComponentModal', () => {
     const comp: TemplateComponent = {
       id: 'tc-1',

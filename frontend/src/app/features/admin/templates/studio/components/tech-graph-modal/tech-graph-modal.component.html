@@ -1,0 +1,205 @@
+<modal-shell
+  title="Mapa de Herramientas del Sistema"
+  subtitle="Explore el catálogo por lenguaje, busque tecnologías y revise compatibilidades"
+  intent="info"
+  maxWidth="1080px"
+  (close)="dismiss.emit()"
+>
+  <svg modal-icon lucideNetwork class="icon"></svg>
+
+  <div class="graph-modal-body">
+    @if (languages().length === 0) {
+      <div class="graph-void">
+        <svg lucideNetwork class="void-icon"></svg>
+        <span>No hay lenguajes en el catálogo. Agregue tecnologías para ver sus opciones.</span>
+      </div>
+    } @else {
+      <label class="catalog-search">
+        <span>Buscar en el catálogo</span>
+        <input
+          type="search"
+          [ngModel]="searchQuery()"
+          (ngModelChange)="setSearchQuery($event)"
+          placeholder="Nombre, slug o descripción"
+          aria-label="Buscar tecnologías del catálogo"
+        />
+      </label>
+
+      <div class="catalog-overview" aria-label="Resumen del catálogo">
+        <span><strong class="font-mono" machineData>{{ graph().runtimeCount }}</strong> lenguajes</span>
+        <span><strong class="font-mono" machineData>{{ graph().webCount }}</strong> interfaces</span>
+        <span><strong class="font-mono" machineData>{{ graph().databaseCount }}</strong> bases de datos</span>
+        <span><strong class="font-mono" machineData>{{ graph().addonCount }}</strong> complementos</span>
+      </div>
+
+      <div class="lang-chips" aria-label="Filtrar complementos por lenguaje">
+        @for (lang of languages(); track lang.key) {
+          <button
+            type="button"
+            class="lang-chip"
+            [class.active]="selectedLanguage()?.key === lang.key"
+            [class.is-inactive]="!lang.isActive"
+            [attr.aria-pressed]="selectedLanguage()?.key === lang.key"
+            (click)="selectLanguage(lang.key)"
+          >
+            <tech-logo [iconType]="lang.iconKey" [size]="16" />
+            <span>{{ lang.name }}</span>
+            <span class="chip-count font-mono" machineData>{{ graph().chipCounts[lang.key] ?? 0 }}</span>
+          </button>
+        }
+      </div>
+
+      <div class="graph-summary">
+        <span class="summary-item">
+          <strong class="font-mono" machineData>{{ graph().totalAddons }}</strong>
+          complementos compatibles con <strong>{{ selectedLanguage()?.name }}</strong>
+        </span>
+        <span class="summary-item summary-ok">
+          <svg lucideCheckCircle2 class="summary-icon"></svg>
+          <strong class="font-mono" machineData>{{ graph().activeCount }}</strong> piezas activas
+        </span>
+        @if (graph().inactiveCount > 0) {
+          <span class="summary-item summary-muted">
+            <strong class="font-mono" machineData>{{ graph().inactiveCount }}</strong> piezas inactivas
+          </span>
+        }
+        @if (graph().orphanCount > 0) {
+          <span class="summary-item summary-warn">
+            <svg lucideAlertTriangle class="summary-icon"></svg>
+            <strong class="font-mono" machineData>{{ graph().orphanCount }}</strong> complementos sin runtime compatible
+          </span>
+        }
+      </div>
+
+      <div class="graph-relationship-note">
+        <span class="relation-line relation-compatible" aria-hidden="true"></span>
+        <span>Compatible según runtime</span>
+        <span class="relation-line relation-combinable" aria-hidden="true"></span>
+        <span>Combinable en el constructor; compatibilidad no validada</span>
+      </div>
+
+      <div class="catalog-groups">
+        @if (graph().webCount > 0 || graph().databaseCount > 0) {
+          <section class="catalog-group" aria-labelledby="combinable-heading">
+            <div class="group-heading">
+              <h3 id="combinable-heading">Opciones combinables</h3>
+              <span>Se pueden añadir desde el constructor</span>
+            </div>
+            <div class="catalog-node-grid">
+              @for (node of nodes(); track node.key) {
+                @if (node.role === 'web' || node.role === 'database') {
+                  <button
+                    type="button"
+                    class="graph-node"
+                    [class.is-inactive]="!node.isActive"
+                    [class.is-selected]="selectedKey() === node.key"
+                    [attr.aria-pressed]="selectedKey() === node.key"
+                    [attr.aria-label]="node.name + ', ' + roleLabel(node.role) + (node.isActive ? ', activa' : ', inactiva')"
+                    [title]="node.name + (node.isActive ? '' : ' — Inactiva')"
+                    (click)="selectNode(node.key)"
+                  >
+                    <span class="node-circle">
+                      @if (node.iconKey) {
+                        <tech-logo [iconType]="node.iconKey" [size]="20" />
+                      } @else {
+                        <span class="node-fallback font-mono" machineData>{{ node.slug }}</span>
+                      }
+                    </span>
+                    <span class="node-name">{{ node.name }}</span>
+                    <span class="node-role">{{ roleLabel(node.role) }}</span>
+                    @if (!node.isActive) {
+                      <span class="node-status">Inactiva</span>
+                    }
+                  </button>
+                }
+              }
+            </div>
+          </section>
+        }
+
+        <section class="catalog-group" aria-labelledby="addons-heading">
+          <div class="group-heading">
+            <h3 id="addons-heading">Complementos compatibles</h3>
+            <span>{{ graph().visibleAddons }} de {{ graph().totalAddons }}</span>
+          </div>
+          @if (graph().totalAddons === 0) {
+            <p class="group-empty">No hay complementos que coincidan con este lenguaje y la búsqueda actual.</p>
+          } @else {
+            <div class="catalog-node-grid">
+              @for (node of nodes(); track node.key) {
+                @if (node.role === 'complemento') {
+                  <button
+                    type="button"
+                    class="graph-node"
+                    [class.is-inactive]="!node.isActive"
+                    [class.is-selected]="selectedKey() === node.key"
+                    [attr.aria-pressed]="selectedKey() === node.key"
+                    [attr.aria-label]="node.name + ', complemento' + (node.isUniversal ? ', compatible con todos los lenguajes' : '') + (node.isActive ? ', activo' : ', inactivo')"
+                    [title]="node.name + (node.isUniversal ? ' — Compatible con todos los lenguajes' : node.isActive ? '' : ' — Inactivo')"
+                    (click)="selectNode(node.key)"
+                  >
+                    <span class="node-circle">
+                      @if (node.iconKey) {
+                        <tech-logo [iconType]="node.iconKey" [size]="20" />
+                      } @else {
+                        <span class="node-fallback font-mono" machineData>{{ node.slug }}</span>
+                      }
+                      @if (node.isUniversal) {
+                        <span class="node-flag flag-universal font-mono" machineData title="Compatible con todos los lenguajes">∞</span>
+                      }
+                    </span>
+                    <span class="node-name">{{ node.name }}</span>
+                    <span class="node-role">{{ roleLabel(node.role) }}</span>
+                    @if (!node.isActive) {
+                      <span class="node-status">Inactivo</span>
+                    }
+                  </button>
+                }
+              }
+            </div>
+            @if (graph().hasMoreAddons) {
+              <button type="button" class="show-more" (click)="showAllAddons.set(true)">
+                Mostrar todos los {{ graph().totalAddons }} complementos
+              </button>
+            }
+          }
+        </section>
+      </div>
+
+      <div class="graph-bottom-row">
+        <div class="graph-legend">
+          <span class="legend-item"><span class="legend-dot dot-core"></span>Lenguaje elegido</span>
+          <span class="legend-item legend-badge-example"><span class="legend-infinity font-mono" machineData>∞</span>Compatible con todos</span>
+          <span class="legend-item">
+            <svg lucideAlertTriangle class="legend-icon legend-warn"></svg>
+            Sin runtime compatible
+          </span>
+        </div>
+        @if (selectedNode(); as sel) {
+          <div class="graph-selection" role="status">
+            <strong class="selection-name">{{ sel.name }}</strong>
+            <span class="selection-role">{{ roleLabel(sel.role) }}</span>
+            <span class="selection-degree font-mono" machineData>{{ sel.isUniversal ? 'Universal' : 'Compatible con ' + selectedLanguage()?.name }}</span>
+            <button type="button" class="selection-clear" (click)="clearSelection()">Limpiar</button>
+          </div>
+        }
+      </div>
+
+      <details class="relationship-details">
+        <summary>Ver relaciones como lista accesible</summary>
+        <ul>
+          @for (relationship of accessibleRelationships(); track relationship) {
+            <li>{{ relationship }}</li>
+          }
+        </ul>
+      </details>
+    }
+  </div>
+
+  <ng-container modal-footer>
+    <div class="modal-footer-row">
+      <div></div>
+      <button type="button" class="btn-outline" (click)="dismiss.emit()">Cerrar</button>
+    </div>
+  </ng-container>
+</modal-shell>

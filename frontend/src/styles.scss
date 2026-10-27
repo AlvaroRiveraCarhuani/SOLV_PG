@@ -7,6 +7,7 @@
 @use 'styles/primitives';
 @use 'styles/semantic';
 @use 'styles/tenant';
+@use 'styles/animations';
 
 *, *::before, *::after {
   box-sizing: border-box;

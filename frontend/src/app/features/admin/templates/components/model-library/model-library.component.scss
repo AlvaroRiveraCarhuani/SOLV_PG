@@ -122,6 +122,7 @@
   padding: 12px 16px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  animation: solv-fade-in-up 150ms ease;
 
   search-bar {
     flex: 1;
@@ -264,6 +265,11 @@
       background-color: var(--bg-surface-active);
       color: var(--text-primary);
       border-color: var(--border-strong);
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.98);
     }
 
     &.action-edit:hover {
@@ -329,6 +335,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
   gap: 16px;
+  animation: solv-fade-in 150ms ease;
 }
 
 .tech-card {
@@ -340,10 +347,26 @@
   flex-direction: column;
   gap: 12px;
   box-shadow: var(--shadow-card);
-  transition: all 150ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  animation: solv-fade-in-up 200ms ease backwards;
+
+  &:nth-child(1) { animation-delay: 0ms; }
+  &:nth-child(2) { animation-delay: 35ms; }
+  &:nth-child(3) { animation-delay: 70ms; }
+  &:nth-child(4) { animation-delay: 105ms; }
+  &:nth-child(5) { animation-delay: 140ms; }
+  &:nth-child(6) { animation-delay: 175ms; }
+  &:nth-child(7) { animation-delay: 210ms; }
+  &:nth-child(8) { animation-delay: 245ms; }
+  &:nth-child(9) { animation-delay: 280ms; }
+  &:nth-child(10) { animation-delay: 315ms; }
+  &:nth-child(11) { animation-delay: 350ms; }
+  &:nth-child(12) { animation-delay: 385ms; }
 
   &:hover {
     border-color: var(--border-strong);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-dropdown);
   }
 
   &.inactive-card {
@@ -822,4 +845,18 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tech-card {
+    animation: none;
+
+    &:hover {
+      transform: none;
+    }
+  }
+
+  .toast-notification {
+    animation: none;
+  }
 }

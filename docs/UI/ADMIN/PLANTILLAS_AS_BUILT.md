@@ -310,3 +310,53 @@ stateDiagram-v2
 En cumplimiento de la investigación técnica sobre densidad de entornos en servidores con recursos acotados (nodo piloto de 12 GB de RAM), se adopta la segmentación curricular:
 1. **SQLite3 (Motor de Archivo Embebido)**: No levanta demonios de fondo ni consume sockets TCP. Aporte de RAM en reposo: 0 MB. Ideal para asignaturas iniciales y evaluación determinista por jueces virtuales (`file:test.db?mode=ro`).
 2. **PostgreSQL Optimizado para Aula**: Configurado para operar en 40-60 MB de memoria residente (frente a los 150-200 MB por defecto), implementando salvaguardas automáticas contra consultas lentas (`statement_timeout = 5s`), límites de archivos temporales (`temp_file_limit = 20MB`) y descarte de conexiones ociosas.
+
+---
+
+## 12. Mapa del Sistema (Árbol de Herramientas del Catálogo)
+
+Vista panorámica de **solo lectura** para el administrador: cuarta pestaña «Mapa del Sistema» de la Biblioteca de Modelos (`/admin/plantillas`), junto a Modelos Oficiales, Catálogo de Tecnologías y Categorías Académicas.
+
+| Aspecto | Detalle |
+| :--- | :--- |
+| Componente | [`catalog-tree.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/components/catalog-tree/catalog-tree.component.ts) (standalone, `OnPush`, selector `catalog-tree`) |
+| Origen de datos | Signal `techComponents` de [`model-library.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.component.ts), el mismo `GET` del catálogo que alimenta la pestaña de edición. **DATO REAL**, sin endpoint nuevo. |
+| Agrupación | Por rol, derivada de `layer` + `sub_category`: Lenguajes Principales (`runtime` ≠ web), Interfaces Web (`runtime` + `web`), Complementos y Librerías (`addon`), Bases de Datos (`database`). |
+| Orden dentro de cada rama | Activas primero, luego `sort_order`, luego nombre alfabético. |
+| Estados por hoja | Chip **Activo** (`--status-running-*`) o **Inactivo** (`--status-hibernated-*`) según `is_active`. |
+| Marcador huérfano | Chip ámbar «Sin runtime compatible» usando `isOrphanAddonInCatalog` de [`model-library.utils.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.utils.ts), el mismo criterio que ya usa la pestaña de Catálogo. |
+| Interacción | Ramas colapsables (`aria-expanded`); sin acciones de edición ni eliminación desde el árbol. |
+| Iconos | `tech-logo` con `icon_key` del catálogo; degrada a monograma si no hay SVG. |
+| Tests | [`catalog-tree.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/components/catalog-tree/catalog-tree.component.spec.ts): agrupación, conteos, orden, colapso, huérfanos y estado vacío. Integración en [`model-library.component.spec.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/model-library/model-library.component.spec.ts). |
+
+Invariantes de la vista:
+1. **No duplica datos**: es una proyección del mismo catálogo; crear/editar/eliminar tecnología sigue ocurriendo en «Catálogo de Tecnologías».
+2. **Sin acciones destructivas**: el árbol no muta estado; su único control es el colapso de ramas (estado local en signal).
+3. **Sin cambios de backend**: no agrega endpoints, tablas ni migraciones.
+
+---
+
+## 13. Mapa de Herramientas del Studio
+
+Vista de consulta del catálogo desde el Constructor de Entornos, abierta con «Mapa de Herramientas». Para evitar que un grafo con cientos de nodos resulte ilegible, la vista se presenta como inventario agrupado y buscable: el administrador elige un lenguaje para filtrar complementos y puede consultar las opciones web y bases de datos combinables.
+
+| Aspecto | Detalle |
+| :--- | :--- |
+| Componente | [`tech-graph-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/studio/components/tech-graph-modal/tech-graph-modal.component.ts), standalone con `OnPush` y `modal-shell` responsive. |
+| Origen de datos | Signal `techComponents` de `template-studio.component.ts`, sin endpoint adicional. |
+| Presentación | Inventario por grupos en tarjetas; buscador por nombre, slug o descripción; resumen por tipo; desplazamiento vertical limitado dentro del cuerpo del modal; máximo inicial de 12 complementos con acción para ampliar la lista. |
+| Relaciones | Complementos filtrados mediante `computeCompatibleAddonsForSelection`. Interfaces web y bases de datos se identifican como combinables en el constructor, no como compatibilidad técnica validada. La vista incluye una lista textual de las relaciones. |
+| Navegación y accesibilidad | Chips de lenguaje como botones con estado `aria-pressed`, nombres completos accesibles, foco visible y estado textual. El catálogo mantiene la búsqueda incluso con muchos elementos y deja el pie del modal visible. |
+| Resumen | Conteos por lenguaje, web, base de datos y complemento; estados activos/inactivos y complementos sin runtime compatible. La opción `db-none` no se considera una tecnología. |
+| Tests | `tech-graph-modal.component.spec.ts` verifica filtrado, relaciones tipadas, límites iniciales, búsqueda, acceso textual, estados y cierre. |
+
+Invariantes:
+1. Es proyección del catálogo existente y no crea endpoints ni modifica tecnologías.
+2. No presenta una vista fuerza-dirigida como si todas sus líneas fueran compatibilidad técnica.
+3. Para inventarios grandes, la búsqueda y el límite inicial reducen el coste visual; una necesidad futura de decenas de miles de registros requeriría además paginación/virtualización y carga desde servidor.
+
+## 14. Revisión editable de propuestas del Copiloto IA
+
+El modal del Copiloto muestra el resultado estructurado, la justificación, faltantes, RAM y script de preparación. Antes de aplicar, el administrador puede sustituir lenguaje, interfaz web o base de datos con opciones del catálogo y marcar complementos compatibles. Las piezas faltantes se explicitan y no se incorporan automáticamente. «Aplicar al constructor» sigue siendo una acción explícita; generar o revisar una propuesta no cambia el formulario.
+
+La constelación se conserva plegada como vista auxiliar de relaciones, mientras que los campos editables y la lista de complementos son la representación principal del resultado. Las alternativas se calculan con el mismo catálogo y las mismas opciones activas del Studio; un lenguaje disponible es obligatorio para aplicar.

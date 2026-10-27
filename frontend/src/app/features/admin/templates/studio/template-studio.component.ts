@@ -34,7 +34,8 @@ import {
   LucideCopy,
   LucidePencil,
   LucideSparkles,
-  LucideWrench
+  LucideWrench,
+  LucideNetwork
 } from '@lucide/angular';
 import {
   analyzeDockerfile,
@@ -65,6 +66,7 @@ import { StudioPurposeStepComponent } from './components/studio-purpose-step/stu
 import { StudioCapacitySelectorComponent } from './components/studio-capacity-selector/studio-capacity-selector.component';
 import { StudioSummarySidebarComponent } from './components/studio-summary-sidebar/studio-summary-sidebar.component';
 import { StudioAiCopilotModalComponent } from './components/studio-ai-copilot-modal/studio-ai-copilot-modal.component';
+import { TechGraphModalComponent } from './components/tech-graph-modal/tech-graph-modal.component';
 import {
   findCatalogComponentMatch,
   findDatabaseOptionMatch
@@ -72,7 +74,7 @@ import {
 
 // Resolución de una propuesta del Copiloto contra el catálogo real del tenant:
 // muestra qué piezas se pueden aplicar y cuáles faltan (no disponibles).
-interface AiProposalView {
+interface StudioAiProposalView {
   runtime: TemplateComponent | null;
   runtimeSlug: string;
   web: TemplateComponent | null;
@@ -102,6 +104,7 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     StudioCapacitySelectorComponent,
     StudioSummarySidebarComponent,
     StudioAiCopilotModalComponent,
+    TechGraphModalComponent,
     LucideArrowLeft,
     LucideCheckCircle2,
     LucideAlertCircle,
@@ -114,7 +117,8 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     LucideCopy,
     LucidePencil,
     LucideSparkles,
-    LucideWrench
+    LucideWrench,
+    LucideNetwork
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
@@ -179,6 +183,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   // Copiloto IA y Autorreparación
   readonly aiEnabled = signal<boolean>(false);
   readonly isAiCopilotModalOpen = signal<boolean>(false);
+  readonly isTechGraphOpen = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
   readonly isSuggestingWithAi = signal<boolean>(false);
   readonly aiProposal = signal<AISuggestTemplateResponse | null>(null);
@@ -1195,7 +1200,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   // Resuelve la propuesta del Copiloto contra el catálogo real del tenant.
   // Cada slug propuesto se empareja por id, slug o icon_key; los que no existen
   // se marcan en `missing` para que el administrador los vea antes de aplicar.
-  readonly aiProposalView = computed<AiProposalView | null>(() => {
+  readonly aiProposalView = computed<StudioAiProposalView | null>(() => {
     const res = this.aiProposal();
     if (!res) return null;
 
@@ -1239,6 +1244,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       database,
       databaseSlug: res.database_slug || '',
       missing: [...new Set(missing)],
+      runtimeChoices: this.backendRuntimes(),
+      webChoices: this.webPlatforms(),
+      addonChoices: this.compatibleAddons(),
+      databaseChoices: this.databaseOptions(),
       ramMB: res.base_ram_mb,
       hasSetupScript: !!res.setup_script?.trim(),
       rationale: res.rationale,
@@ -1261,6 +1270,20 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.targetEnvironment()
     );
   });
+
+  updateAiProposalView(view: StudioAiProposalView): void {
+    const current = this.aiProposal();
+    if (!current) return;
+
+    this.aiProposal.set({
+      ...current,
+      runtime_slug: view.runtime?.slug ?? view.runtimeSlug,
+      web_platform_slug: view.web?.slug ?? view.webSlug,
+      addon_slugs: view.addons.map(addon => addon.slug).concat(view.missing.filter(slug => view.addonSlugs.includes(slug))),
+      database_slug: view.database?.service_engine ?? view.databaseSlug,
+      base_ram_mb: view.ramMB
+    });
+  }
 
   // Aplica la propuesta revisada: sincroniza el constructor visual y el
   // manifiesto técnico del Modo Avanzado (Dockerfile, script de setup, RAM).
@@ -1322,6 +1345,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   openAiCopilotModal(): void {
     this.isAiCopilotModalOpen.set(true);
+  }
+
+  openTechGraph(): void {
+    this.isTechGraphOpen.set(true);
   }
 
   onApplyAiCopilotModal(): void {

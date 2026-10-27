@@ -1,0 +1,34 @@
+// Keyframes reutilizables globales.
+// Se nombran con prefijo `solv-` porque @keyframes es global en CSS aunque
+// viva en un parcial: varios componentes ya declaran su propio `fadeIn`
+// local y la última definición inyectada ganaría en tiempo de ejecución.
+@keyframes solv-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes solv-fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes solv-scale-up {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}

@@ -27,6 +27,7 @@ import { CategoryDeleteModalComponent } from './components/category-delete-modal
 import { ComponentFormModalComponent } from './components/component-form-modal/component-form-modal.component';
 import { TemplateModelsSectionComponent } from './components/template-models-section/template-models-section.component';
 import { TemplateCategoriesManagerComponent } from './components/template-categories-manager/template-categories-manager.component';
+import { CatalogTreeComponent } from './components/catalog-tree/catalog-tree.component';
 import { TechLogoComponent } from '../tech-logo/tech-logo.component';
 import {
   LucideBoxes,
@@ -39,7 +40,8 @@ import {
   LucideAlertTriangle,
   LucideCheckCircle2,
   LucideCode,
-  LucideTerminal
+  LucideTerminal,
+  LucideNetwork
 } from '@lucide/angular';
 import {
   computeComponentMemoryBadge,
@@ -71,6 +73,7 @@ import {
     ComponentFormModalComponent,
     TemplateModelsSectionComponent,
     TemplateCategoriesManagerComponent,
+    CatalogTreeComponent,
     TechLogoComponent,
     LucideBoxes,
     LucideTag,
@@ -82,7 +85,8 @@ import {
     LucideAlertTriangle,
     LucideCheckCircle2,
     LucideCode,
-    LucideTerminal
+    LucideTerminal,
+    LucideNetwork
   ],
   templateUrl: './model-library.component.html',
   styleUrls: ['./model-library.component.scss']
@@ -91,7 +95,7 @@ export class ModelLibraryComponent implements OnInit {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly router = inject(Router);
 
-  readonly activeTab = signal<'models' | 'components' | 'categories'>('models');
+  readonly activeTab = signal<'models' | 'components' | 'categories' | 'map'>('models');
   readonly viewMode = signal<'cards' | 'table'>('table');
   readonly isLoading = signal<boolean>(false);
 

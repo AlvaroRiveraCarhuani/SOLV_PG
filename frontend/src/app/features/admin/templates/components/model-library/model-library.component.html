@@ -34,7 +34,7 @@
           <svg lucidePlus class="btn-icon"></svg>
           <span>Registrar Nueva Tecnología</span>
         </button>
-      } @else {
+      } @else if (activeTab() === 'categories') {
         <button
           type="button"
           class="btn-primary"
@@ -119,6 +119,16 @@
       <button
         type="button"
         class="tab-btn"
+        [class.active]="activeTab() === 'map'"
+        (click)="activeTab.set('map')"
+      >
+        <svg lucideNetwork class="tab-icon"></svg>
+        <span>Mapa del Sistema</span>
+        <span class="tab-badge" [class.neutral]="activeTab() === 'map'">{{ techComponentsCount() }}</span>
+      </button>
+      <button
+        type="button"
+        class="tab-btn"
         [class.active]="activeTab() === 'categories'"
         (click)="activeTab.set('categories')"
       >
@@ -128,7 +138,9 @@
       </button>
     </div>
 
-    <view-switcher [(mode)]="viewMode" />
+    @if (activeTab() !== 'map') {
+      <view-switcher [(mode)]="viewMode" />
+    }
   </div>
 
   @if (activeTab() === 'models') {
@@ -494,6 +506,10 @@
         </div>
       }
     </section>
+  }
+
+  @if (activeTab() === 'map') {
+    <catalog-tree [components]="techComponents()" />
   }
 
   @if (activeTab() === 'categories') {

@@ -1,12 +1,17 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { StudioAiCopilotModalComponent } from './studio-ai-copilot-modal.component';
 import { AiProposalView } from '../../template-studio.utils';
+import { TemplateComponent } from '@features/admin/models/admin-templates.models';
 
 describe('StudioAiCopilotModalComponent', () => {
   let component: StudioAiCopilotModalComponent;
   let fixture: ComponentFixture<StudioAiCopilotModalComponent>;
 
   const mockProposal: AiProposalView = {
+    runtimeChoices: [],
+    webChoices: [],
+    addonChoices: [],
+    databaseChoices: [],
     runtime: {
       id: 'rt-python-312',
       slug: 'python-312',
@@ -65,6 +70,29 @@ describe('StudioAiCopilotModalComponent', () => {
     rationale: 'Arquitectura moderna para desarrollo de APIs REST en Python.',
     latencyMs: 820
   };
+
+  const option = (id: string, name: string, layer: 'runtime' | 'addon' | 'database'): TemplateComponent => ({
+    id,
+    slug: id,
+    layer,
+    sub_category: layer === 'runtime' ? 'backend' : layer === 'addon' ? 'framework' : 'database',
+    name,
+    description: '',
+    icon_key: '',
+    base_image: '',
+    compatible_runtimes: ['python'],
+    install_mode: 'none',
+    package_names: [],
+    build_layer_snippet: '',
+    setup_snippet: '',
+    judge_entrypoint: '',
+    tools_provided: [],
+    service_engine: layer === 'database' ? 'postgres' : 'none',
+    ram_delta_mb: 0,
+    is_system: true,
+    is_active: true,
+    sort_order: 0
+  });
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
@@ -132,7 +160,11 @@ describe('StudioAiCopilotModalComponent', () => {
   });
 
   it('should render the specification sheet when proposalView is present', () => {
-    fixture.componentRef.setInput('proposalView', mockProposal);
+    fixture.componentRef.setInput('proposalView', {
+      ...mockProposal,
+      runtimeChoices: [option('rt-python-312', 'Python 3.12', 'runtime')],
+      addonChoices: [option('ad-fastapi', 'FastAPI', 'addon')]
+    });
     fixture.componentRef.setInput('constellation', {
       core: {
         role: 'lenguaje',
@@ -168,12 +200,15 @@ describe('StudioAiCopilotModalComponent', () => {
     });
     fixture.detectChanges();
 
-    const specSheet = fixture.nativeElement.querySelector('.spec-sheet');
-    expect(specSheet).toBeTruthy();
-    expect(specSheet.textContent).toContain('Hoja de Cotejo de Arquitectura');
-    expect(specSheet.textContent).toContain('Python 3.12');
-    expect(specSheet.textContent).toContain('FastAPI');
-    expect(specSheet.textContent).toContain('pytest-custom');
+    const review = fixture.nativeElement.querySelector('.proposal-review');
+    expect(review).toBeTruthy();
+    expect(review.textContent).toContain('Revisión de la propuesta');
+    expect(review.textContent).toContain('Python 3.12');
+    expect(review.textContent).toContain('FastAPI');
+    expect(review.textContent).toContain('pytest-custom');
+    expect(review.querySelector('.proposal-map-details')).toBeTruthy();
+    expect(review.querySelector('select')).toBeTruthy();
+    expect(review.querySelector('input[type="checkbox"]')).toBeTruthy();
   });
 
   it('should emit apply and discard when buttons in footer are clicked', () => {
@@ -186,8 +221,8 @@ describe('StudioAiCopilotModalComponent', () => {
     fixture.detectChanges();
 
     const buttons = fixture.nativeElement.querySelectorAll('footer button');
-    const discardBtn = Array.from(buttons).find((b: any) => b.textContent.includes('Descartar')) as HTMLButtonElement;
-    const applyBtn = Array.from(buttons).find((b: any) => b.textContent.includes('Aplicar')) as HTMLButtonElement;
+    const discardBtn = Array.from(buttons).find((button) => (button as HTMLButtonElement).textContent?.includes('Descartar')) as HTMLButtonElement;
+    const applyBtn = Array.from(buttons).find((button) => (button as HTMLButtonElement).textContent?.includes('Aplicar')) as HTMLButtonElement;
 
     expect(discardBtn).toBeTruthy();
     expect(applyBtn).toBeTruthy();

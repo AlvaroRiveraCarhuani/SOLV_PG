@@ -1,44 +1,34 @@
 <modal-shell
   title="Copiloto IA para Arquitectura de Entornos"
-  subtitle="Especifique los requerimientos pedagógicos para componer automáticamente la plantilla"
+  subtitle="Revise y ajuste la propuesta antes de sincronizarla con el constructor"
   intent="info"
-  maxWidth="680px"
-  (close)="close.emit()"
+  maxWidth="860px"
+  (close)="dismiss.emit()"
 >
   <svg modal-icon lucideSparkles class="icon"></svg>
 
   <div class="ai-modal-body">
     <div class="prompt-section">
-      <label class="form-label" for="ai-prompt-input">
-        Especificación del Laboratorio
-      </label>
+      <label class="form-label" for="ai-prompt-input">Especificación del Laboratorio</label>
       <textarea
         id="ai-prompt-input"
         class="form-textarea"
         rows="3"
-        placeholder="Ej: Entorno para Algoritmos Avanzados con Python 3.12, PyTest y base de datos SQLite para pruebas de concurrencia..."
+        placeholder="Ej: Entorno para algoritmos avanzados con Python, PyTest y SQLite..."
         [ngModel]="prompt()"
         (ngModelChange)="promptChange.emit($event)"
         [disabled]="isSuggesting()"
       ></textarea>
 
       <div class="prompt-footer-bar">
-        <span class="prompt-hint">
-          Describa qué lenguajes, frameworks o herramientas deben estar listos para el alumno.
-        </span>
-
+        <span class="prompt-hint">Describa los requisitos del laboratorio. La propuesta no modifica el constructor hasta que la aplique.</span>
         @if (isSuggesting()) {
-          <div class="ai-running-telemetry">
+          <div class="ai-running-telemetry" role="status">
             <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
             <span>Diseñando arquitectura...</span>
             <span class="font-mono" machineData>{{ elapsedSeconds() }} s</span>
-            <button
-              type="button"
-              class="btn-cancel-ai"
-              (click)="cancelSuggest.emit()"
-            >
-              <svg lucideXCircle class="btn-icon-xs"></svg>
-              <span>Cancelar</span>
+            <button type="button" class="btn-cancel-ai" (click)="cancelSuggest.emit()">
+              <svg lucideXCircle class="btn-icon-xs"></svg><span>Cancelar</span>
             </button>
           </div>
         } @else {
@@ -48,66 +38,146 @@
             (click)="suggest.emit()"
             [disabled]="prompt().trim().length < 3"
           >
-            <svg lucideSparkles class="btn-icon-xs"></svg>
-            <span>Generar Propuesta</span>
+            <svg lucideSparkles class="btn-icon-xs"></svg><span>{{ proposalView() ? 'Generar otra propuesta' : 'Generar propuesta' }}</span>
           </button>
         }
       </div>
     </div>
 
     @if (proposalView(); as view) {
-      <div class="spec-sheet" [class.applied]="isApplied()">
-        <div class="spec-sheet-header">
-          <div class="spec-title-group">
-            <svg lucideCheckCircle class="spec-header-icon"></svg>
-            <strong class="spec-title">Hoja de Cotejo de Arquitectura</strong>
+      <section class="proposal-review" [class.applied]="isApplied()" aria-labelledby="proposal-review-title">
+        <header class="proposal-header">
+          <div>
+            <h3 id="proposal-review-title">Revisión de la propuesta</h3>
+            <p>Confirme o sustituya las piezas antes de aplicarlas al constructor.</p>
           </div>
           @if (view.latencyMs) {
-            <span class="spec-latency font-mono text-xs text-muted" machineData>{{ view.latencyMs }} ms</span>
+            <span class="proposal-latency font-mono" machineData>{{ view.latencyMs }} ms</span>
           }
+        </header>
+
+        <p class="proposal-rationale">{{ view.rationale }}</p>
+
+        @if (view.missing.length > 0) {
+          <div class="proposal-warning" role="status">
+            <svg lucideXCircle class="status-icon"></svg>
+            <span>No están disponibles en el catálogo: <code machineData>{{ view.missing.join(', ') }}</code>. Seleccione alternativas o quite los complementos antes de aplicar.</span>
+          </div>
+        }
+
+        <div class="proposal-fields">
+          <label class="proposal-field">
+            <span>Lenguaje principal</span>
+            <select
+              [value]="view.runtime?.id ?? ''"
+              (change)="updateProposal('runtime', $any($event.target).value, view)"
+            >
+              <option value="">Seleccione un lenguaje</option>
+              @for (runtime of view.runtimeChoices ?? []; track runtime.id) {
+                <option [value]="runtime.id">{{ runtime.name }}{{ runtime.is_active === false ? ' (inactivo)' : '' }}</option>
+              }
+            </select>
+            @if (!view.runtime && view.runtimeSlug) {
+              <small>Solicitado por IA: <code machineData>{{ view.runtimeSlug }}</code></small>
+            }
+          </label>
+
+          @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+            <label class="proposal-field">
+              <span>Interfaz web</span>
+              <select
+                [value]="view.web?.id ?? ''"
+                (change)="updateProposal('web', $any($event.target).value, view)"
+              >
+                <option value="">Sin interfaz web</option>
+                @for (web of view.webChoices ?? []; track web.id) {
+                  <option [value]="web.id">{{ web.name }}{{ web.is_active === false ? ' (inactiva)' : '' }}</option>
+                }
+              </select>
+              @if (!view.web && view.webSlug) {
+                <small>Solicitada por IA: <code machineData>{{ view.webSlug }}</code></small>
+              }
+            </label>
+          }
+
+          <label class="proposal-field">
+            <span>Base de datos</span>
+            <select
+              [value]="view.database?.id ?? ''"
+              (change)="updateProposal('database', $any($event.target).value, view)"
+            >
+              <option value="">Sin base de datos</option>
+              @for (database of view.databaseChoices ?? []; track database.id) {
+                @if (database.service_engine !== 'none') {
+                  <option [value]="database.id" [disabled]="!database.is_available">{{ database.name }}{{ database.is_available ? '' : ' (no disponible)' }}</option>
+                }
+              }
+            </select>
+            @if (!view.database && view.databaseSlug) {
+              <small>Solicitada por IA: <code machineData>{{ view.databaseSlug }}</code></small>
+            }
+          </label>
         </div>
 
-        <p class="spec-rationale">{{ view.rationale }}</p>
+        <fieldset class="addon-review">
+          <legend>Complementos compatibles</legend>
+          <div class="addon-options">
+            @for (addon of view.addonChoices ?? []; track addon.id) {
+              <label class="addon-option" [class.is-selected]="view.addons.some(item => item.id === addon.id)">
+                <input
+                  type="checkbox"
+                  [checked]="view.addons.some(item => item.id === addon.id)"
+                  [disabled]="addon.is_active === false"
+                  (change)="toggleAddon(addon.id, $any($event.target).checked, view)"
+                />
+                <span>{{ addon.name }}</span>
+                <code machineData>{{ addon.slug }}</code>
+              </label>
+            } @empty {
+              <p>No hay complementos compatibles disponibles para el lenguaje seleccionado.</p>
+            }
+          </div>
+          @if (view.addonSlugs.length > 0) {
+            <p class="requested-addons">Complementos solicitados por IA: <code machineData>{{ view.addonSlugs.join(', ') }}</code></p>
+          }
+        </fieldset>
 
-        <stack-constellation [model]="constellation()" title="Mapa de Herramientas Propuestas" />
-      </div>
+        <div class="proposal-technical-summary">
+          <span><strong>RAM base</strong><b class="font-mono" machineData>{{ view.ramMB }} MB</b></span>
+          <span><strong>Script de preparación</strong><b>{{ view.hasSetupScript ? 'Incluido' : 'No incluido' }}</b></span>
+          <span><strong>Elementos seleccionados</strong><b class="font-mono" machineData>{{ (view.runtime ? 1 : 0) + (view.web ? 1 : 0) + view.addons.length + (view.database ? 1 : 0) }}</b></span>
+        </div>
+
+        <details class="proposal-map-details">
+          <summary>Ver mapa de relaciones</summary>
+          <stack-constellation [model]="constellation()" title="Arquitectura propuesta" />
+        </details>
+      </section>
     } @else if (constellation()) {
-      <stack-constellation [model]="constellation()" title="Mapa del Entorno Actual" />
+      <stack-constellation [model]="constellation()" title="Mapa del entorno actual" />
     }
   </div>
 
   <ng-container modal-footer>
     <div class="modal-footer-row">
       @if (proposalView()) {
-        <button
-          type="button"
-          class="btn-outline"
-          (click)="discard.emit()"
-        >
-          <svg lucideRotateCcw class="btn-icon-xs"></svg>
-          <span>Descartar Propuesta</span>
+        <button type="button" class="btn-outline" (click)="discard.emit()">
+          <svg lucideRotateCcw class="btn-icon-xs"></svg><span>Descartar propuesta</span>
         </button>
       } @else {
         <div></div>
       }
-
       <div class="footer-actions-right">
-        <button
-          type="button"
-          class="btn-outline"
-          (click)="close.emit()"
-        >
-          Cerrar
-        </button>
-
-        @if (proposalView()) {
+        <button type="button" class="btn-outline" (click)="dismiss.emit()">Cerrar</button>
+        @if (proposalView(); as view) {
           <button
             type="button"
             class="btn-primary"
             (click)="apply.emit()"
+            [disabled]="!view.runtime"
+            [title]="view.runtime ? '' : 'Seleccione un lenguaje disponible antes de aplicar'"
           >
-            <svg lucideCheckCircle2 class="btn-icon-xs"></svg>
-            <span>Aplicar al Constructor</span>
+            <svg lucideCheckCircle2 class="btn-icon-xs"></svg><span>{{ isApplied() ? 'Actualizar constructor' : 'Aplicar al constructor' }}</span>
           </button>
         }
       </div>

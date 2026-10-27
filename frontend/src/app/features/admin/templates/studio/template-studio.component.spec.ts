@@ -1914,6 +1914,30 @@ describe('TemplateStudioComponent', () => {
       expect(component.isAiCopilotModalOpen()).toBe(true);
     });
 
+    it('abre y cierra el Mapa de Herramientas con openTechGraph', () => {
+      expect(component.isTechGraphOpen()).toBe(false);
+      component.openTechGraph();
+      expect(component.isTechGraphOpen()).toBe(true);
+      component.isTechGraphOpen.set(false);
+      expect(component.isTechGraphOpen()).toBe(false);
+    });
+
+    it('monta tech-graph-modal en el DOM al pulsar el botón Mapa de Herramientas', () => {
+      fixture.detectChanges();
+      const buttons = fixture.nativeElement.querySelectorAll(
+        'button'
+      ) as NodeListOf<HTMLButtonElement>;
+      const btn = Array.from(buttons).find(b =>
+        (b.textContent || '').includes('Mapa de Herramientas')
+      );
+      expect(btn).toBeTruthy();
+
+      btn!.click();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('tech-graph-modal')).toBeTruthy();
+    });
+
     it('aplica la propuesta y cierra el modal en onApplyAiCopilotModal', () => {
       component.openAiCopilotModal();
       component.aiPrompt.set('Fullstack Python con SQLite');
