@@ -17,6 +17,7 @@ import {
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
 import { StudioCopilotService, StudioDraft } from './studio-copilot.service';
 import { ToastService } from '@shared/services/toast.service';
+import { AiOperation, AiOperations } from '@shared/services/ai-operation';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
 import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
@@ -119,14 +120,13 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly envTestService = inject(EnvTestJobService);
   private readonly aiService = inject(AdminConfigIaService);
   private readonly copilot = inject(StudioCopilotService);
+  private readonly aiOperations = inject(AiOperations);
   private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
-  private repairSub?: Subscription;
-  private timerInterval?: ReturnType<typeof setInterval>;
   private loadedTemplateItem: AdminTemplateItem | null = null;
   private isDuplicateLoad = false;
   private readonly pendingDraft: StudioDraft | null;
@@ -195,8 +195,21 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly aiProposal = this.copilot.proposal;
   readonly aiProposalApplied = this.copilot.applied;
   readonly aiElapsedSeconds = this.copilot.elapsedSeconds;
-  readonly isRepairingWithAi = signal<boolean>(false);
-  readonly repairElapsedSeconds = signal<string>('0.0');
+  // La autorreparación también es una operación con dueño en la raíz.
+  private readonly repairOperation: AiOperation<AIRepairTemplateResponse> = this.aiOperations.get(
+    'repair-template',
+    {
+      resolveError: (err: unknown) => this.aiService.resolveError(err),
+      onSuccess: (res: AIRepairTemplateResponse) => this.applyRepairResult(res),
+      notify: {
+        success: 'Entorno reparado por Copiloto IA. Verifique el manifiesto en Modo Avanzado.',
+        error: (message: string) => message,
+        cancel: 'Reparación cancelada.'
+      }
+    }
+  );
+  readonly isRepairingWithAi = this.repairOperation.isRunning;
+  readonly repairElapsedSeconds = this.repairOperation.elapsedSeconds;
   readonly repairDiagnosis = signal<{ rationale: string; latencyMs: number } | null>(null);
 
   readonly hasBlockingDockerfileError = computed<boolean>(() =>
@@ -581,20 +594,19 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.applyDraft(this.pendingDraft);
       this.toastService.show('Borrador del Studio restaurado.', 'info');
     }
+
+    // Una reparación que terminó mientras el administrador estaba en otra
+    // vista se aplica al volver. `take()` la reclama y la consume, así el
+    // resultado no se aplica dos veces.
+    const pendingRepair = this.repairOperation.take();
+    if (pendingRepair) {
+      this.applyRepairResult(pendingRepair);
+    }
   }
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
-    this.repairSub?.unsubscribe();
-    this.clearTimer();
     this.sub.unsubscribe();
-  }
-
-  private clearTimer(): void {
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-      this.timerInterval = undefined;
-    }
   }
 
   private loadInitialCatalog(): void {
@@ -1359,27 +1371,21 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   // Flujo de Autorreparación (Corregir con Copiloto IA)
+  // Igual que la sugerencia de stack: la llamada vive en una operación con
+  // dueño en la raíz, así que navegar no la aborta y el resultado se aplica
+  // al volver.
   repairWithAi(): void {
     const job = this.activeEnvTestJob();
     if (!job || job.status !== 'failed' || this.isRepairingWithAi()) return;
 
-    this.isRepairingWithAi.set(true);
-    this.repairElapsedSeconds.set('0.0');
     this.repairDiagnosis.set(null);
-
-    const startTime = performance.now();
-    this.clearTimer();
-    this.timerInterval = setInterval(() => {
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      this.repairElapsedSeconds.set(elapsed);
-    }, 100);
 
     const failedTools: string[] = (job.result?.tools || [])
       .filter((t) => !t.present)
       .map((t) => t.name);
 
-    this.repairSub = this.aiService
-      .repairTemplate({
+    this.repairOperation.run(
+      this.aiService.repairTemplate({
         name: this.name(),
         description: this.description(),
         target_environment: this.targetEnvironment(),
@@ -1392,43 +1398,30 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         error_message: job.error_message || '',
         failed_tools: failedTools
       })
-      .subscribe({
-        next: (res: AIRepairTemplateResponse) => {
-          this.clearTimer();
-          this.isRepairingWithAi.set(false);
-
-          // 1. Aplica las correcciones en el Modo Avanzado
-          this.dockerfileContent.set(res.dockerfile_content);
-          this.hasCustomDockerfile.set(true);
-          this.dockerImage.set(res.docker_image);
-          this.needsLocalBuild.set(res.docker_image.startsWith('solv-local/stack:'));
-          this.setupScript.set(res.setup_script);
-          this.toolsDeclared.set((res.tools_declared || []).join(', '));
-          this.entrypoint.set(res.entrypoint);
-          this.baseRamMB.set(res.base_ram_mb);
-
-          // 2. Conmuta automáticamente a Modo Avanzado y muestra diagnóstico
-          this.studioMode.set('code');
-          this.repairDiagnosis.set({
-            rationale: res.rationale,
-            latencyMs: res.latency_ms
-          });
-          this.showToast('Entorno reparado por Copiloto IA. Verifique el manifiesto en Modo Avanzado.');
-        },
-        error: (err: unknown) => {
-          this.clearTimer();
-          this.isRepairingWithAi.set(false);
-          this.showToast(this.aiService.resolveError(err), 'error');
-        }
-      });
-    this.sub.add(this.repairSub);
+    );
   }
 
   cancelRepairWithAi(): void {
-    this.clearTimer();
-    this.repairSub?.unsubscribe();
-    this.isRepairingWithAi.set(false);
-    this.showToast('Reparación cancelada.');
+    this.repairOperation.cancel();
+  }
+
+  private applyRepairResult(res: AIRepairTemplateResponse): void {
+    // 1. Aplica las correcciones en el Modo Avanzado
+    this.dockerfileContent.set(res.dockerfile_content);
+    this.hasCustomDockerfile.set(true);
+    this.dockerImage.set(res.docker_image);
+    this.needsLocalBuild.set(res.docker_image.startsWith('solv-local/stack:'));
+    this.setupScript.set(res.setup_script);
+    this.toolsDeclared.set((res.tools_declared || []).join(', '));
+    this.entrypoint.set(res.entrypoint);
+    this.baseRamMB.set(res.base_ram_mb);
+
+    // 2. Conmuta automáticamente a Modo Avanzado y muestra diagnóstico
+    this.studioMode.set('code');
+    this.repairDiagnosis.set({
+      rationale: res.rationale,
+      latencyMs: res.latency_ms
+    });
   }
 
   // --- Persistencia del borrador del Studio (sobrevive a la navegación) ---
