@@ -76,12 +76,12 @@ func TestTeacherWelcomeEmail_NoSOLVBrandLeak(t *testing.T) {
 
 	htmlBody, textBody := mailer.BuildTeacherWelcomeEmail(branding, "Carlos Perez", "https://solv.uab.edu.bo/login")
 
-	// Verificar marca blanca institucional
+	// Verificar marca blanca institucional en badge
 	if !strings.Contains(htmlBody, "Universidad Adventista de Bolivia") {
 		t.Errorf("htmlBody should contain institution name")
 	}
-	if !strings.Contains(htmlBody, "https://solv.uab.edu.bo/assets/uab-logo.png") {
-		t.Errorf("htmlBody should contain absolute logo URL")
+	if !strings.Contains(htmlBody, "class=\"badge\"") {
+		t.Errorf("htmlBody should contain badge class")
 	}
 	if !strings.Contains(htmlBody, "soporte@uab.edu.bo") {
 		t.Errorf("htmlBody should contain support email")

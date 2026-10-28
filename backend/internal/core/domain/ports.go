@@ -400,12 +400,22 @@ type RubricService interface {
 	EvaluateSubmission(ctx context.Context, submissionID uuid.UUID, req RubricEvaluationRequest) (*RubricEvaluationResponse, error)
 }
 
+// EmailAttachment representa un archivo adjunto o recurso inline (CID) para correos
+type EmailAttachment struct {
+	Filename    string
+	ContentType string
+	Data        []byte
+	ContentID   string
+	Inline      bool
+}
+
 // EmailMessage representa el contenido de un correo transaccional
 type EmailMessage struct {
-	To       string
-	Subject  string
-	HTMLBody string
-	TextBody string
+	To          string
+	Subject     string
+	HTMLBody    string
+	TextBody    string
+	Attachments []EmailAttachment
 }
 
 // Mailer define el contrato para el despacho de correos transaccionales

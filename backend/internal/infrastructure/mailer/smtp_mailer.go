@@ -225,7 +225,6 @@ func (m *SMTPMailer) Send(ctx context.Context, msg *domain.EmailMessage) error {
 }
 
 func (m *SMTPMailer) buildMIMEMessage(msg *domain.EmailMessage) []byte {
-	boundary := fmt.Sprintf("solv_boundary_%d", time.Now().UnixNano())
 	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(msg.Subject)))
 
 	var b bytes.Buffer
@@ -233,25 +232,87 @@ func (m *SMTPMailer) buildMIMEMessage(msg *domain.EmailMessage) []byte {
 	fmt.Fprintf(&b, "To: %s\r\n", msg.To)
 	fmt.Fprintf(&b, "Subject: %s\r\n", encodedSubject)
 	b.WriteString("MIME-Version: 1.0\r\n")
-	fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary)
 
-	// Parte Texto Plano
-	fmt.Fprintf(&b, "--%s\r\n", boundary)
+	// Si no hay adjuntos ni recursos inline, estructura estándar multipart/alternative
+	if len(msg.Attachments) == 0 {
+		boundary := fmt.Sprintf("solv_alt_%d", time.Now().UnixNano())
+		fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", boundary)
+
+		// Parte Texto Plano
+		fmt.Fprintf(&b, "--%s\r\n", boundary)
+		b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+		b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
+		b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.TextBody)))
+		b.WriteString("\r\n\r\n")
+
+		// Parte HTML
+		if msg.HTMLBody != "" {
+			fmt.Fprintf(&b, "--%s\r\n", boundary)
+			b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
+			b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
+			b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.HTMLBody)))
+			b.WriteString("\r\n\r\n")
+		}
+
+		fmt.Fprintf(&b, "--%s--\r\n", boundary)
+		return b.Bytes()
+	}
+
+	// Estructura RFC 2387: multipart/related para soportar imágenes inline (CID) y adjuntos
+	relatedBoundary := fmt.Sprintf("solv_rel_%d", time.Now().UnixNano())
+	altBoundary := fmt.Sprintf("solv_alt_%d", time.Now().UnixNano())
+
+	fmt.Fprintf(&b, "Content-Type: multipart/related; boundary=\"%s\"\r\n\r\n", relatedBoundary)
+
+	// Sub-parte alternativa (texto plano y HTML)
+	fmt.Fprintf(&b, "--%s\r\n", relatedBoundary)
+	fmt.Fprintf(&b, "Content-Type: multipart/alternative; boundary=\"%s\"\r\n\r\n", altBoundary)
+
+	// Texto Plano
+	fmt.Fprintf(&b, "--%s\r\n", altBoundary)
 	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
 	b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
 	b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.TextBody)))
 	b.WriteString("\r\n\r\n")
 
-	// Parte HTML
+	// HTML
 	if msg.HTMLBody != "" {
-		fmt.Fprintf(&b, "--%s\r\n", boundary)
+		fmt.Fprintf(&b, "--%s\r\n", altBoundary)
 		b.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
 		b.WriteString("Content-Transfer-Encoding: base64\r\n\r\n")
 		b.WriteString(base64.StdEncoding.EncodeToString([]byte(msg.HTMLBody)))
 		b.WriteString("\r\n\r\n")
 	}
+	fmt.Fprintf(&b, "--%s--\r\n\r\n", altBoundary)
 
-	fmt.Fprintf(&b, "--%s--\r\n", boundary)
+	// Adjuntos y recursos inline
+	for _, att := range msg.Attachments {
+		fmt.Fprintf(&b, "--%s\r\n", relatedBoundary)
+		contentType := att.ContentType
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		filename := att.Filename
+		if filename == "" {
+			filename = "attachment"
+		}
+
+		fmt.Fprintf(&b, "Content-Type: %s; name=\"%s\"\r\n", contentType, filename)
+		b.WriteString("Content-Transfer-Encoding: base64\r\n")
+		if att.ContentID != "" {
+			fmt.Fprintf(&b, "Content-ID: <%s>\r\n", att.ContentID)
+		}
+		if att.Inline {
+			fmt.Fprintf(&b, "Content-Disposition: inline; filename=\"%s\"\r\n\r\n", filename)
+		} else {
+			fmt.Fprintf(&b, "Content-Disposition: attachment; filename=\"%s\"\r\n\r\n", filename)
+		}
+
+		b.WriteString(base64.StdEncoding.EncodeToString(att.Data))
+		b.WriteString("\r\n\r\n")
+	}
+
+	fmt.Fprintf(&b, "--%s--\r\n", relatedBoundary)
 	return b.Bytes()
 }
 

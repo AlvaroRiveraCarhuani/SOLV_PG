@@ -83,6 +83,43 @@ func TestSMTPMailer_BuildMIME(t *testing.T) {
 	}
 }
 
+func TestSMTPMailer_BuildMIME_WithInlineAttachment(t *testing.T) {
+	cfg := Config{
+		Host: "smtp.example.com",
+		Port: 587,
+		From: "no-reply@uab.edu.bo",
+	}
+	m := NewSMTPMailer(cfg, 10, 1)
+	defer func() { _ = m.Close() }()
+
+	msg := &domain.EmailMessage{
+		To:       "test@uab.edu.bo",
+		Subject:  "Notificación institucional",
+		TextBody: "Texto plano",
+		HTMLBody: `<p><img src="cid:institution_logo" /></p>`,
+		Attachments: []domain.EmailAttachment{
+			{
+				Filename:    "logo.jpg",
+				ContentType: "image/jpeg",
+				Data:        []byte{0xFF, 0xD8, 0xFF, 0xE0},
+				ContentID:   "institution_logo",
+				Inline:      true,
+			},
+		},
+	}
+
+	raw := string(m.buildMIMEMessage(msg))
+	if !strings.Contains(raw, "multipart/related") {
+		t.Errorf("MIME with attachment should use multipart/related: %s", raw)
+	}
+	if !strings.Contains(raw, "Content-ID: <institution_logo>") {
+		t.Errorf("MIME missing Content-ID header for inline attachment: %s", raw)
+	}
+	if !strings.Contains(raw, "Content-Disposition: inline; filename=\"logo.jpg\"") {
+		t.Errorf("MIME missing Content-Disposition header: %s", raw)
+	}
+}
+
 func TestBuildTeacherWelcomeEmail(t *testing.T) {
 	branding := domain.EmailBranding{
 		InstitutionName: "Universidad Adventista de Bolivia",

@@ -26,6 +26,16 @@ type EmailBranding struct {
 	LogoURL         string `json:"logo_url"`
 	BaseDomain      string `json:"base_domain"`
 	SupportEmail    string `json:"support_email"`
+	PrimaryColor    string `json:"primary_color"`
+	LogoCID         string `json:"-"`
+}
+
+// LogoSrc retorna el origen de imagen prioritario: CID inline o URL pública canónica.
+func (b EmailBranding) LogoSrc() string {
+	if strings.TrimSpace(b.LogoCID) != "" {
+		return "cid:" + strings.TrimSpace(b.LogoCID)
+	}
+	return b.AbsoluteLogoURL()
 }
 
 // AbsoluteLogoURL retorna la URL pública canónica del imagotipo institucional.
@@ -52,13 +62,15 @@ func (t *Tenant) ResolveBranding() EmailBranding {
 	branding := EmailBranding{
 		InstitutionName: t.Name,
 		BaseDomain:      t.Slug,
+		PrimaryColor:    "#2563eb",
 	}
 	if len(t.Config) > 0 {
 		var cfg struct {
-			InstitutionName string `json:"institution_name"`
-			LogoURL         string `json:"logo_url"`
-			BaseDomain      string `json:"base_domain"`
-			SupportEmail    string `json:"support_email"`
+			InstitutionName    string `json:"institution_name"`
+			LogoURL            string `json:"logo_url"`
+			BaseDomain         string `json:"base_domain"`
+			SupportEmail       string `json:"support_email"`
+			TenantPrimaryColor string `json:"tenant_primary_color"`
 		}
 		if err := json.Unmarshal(t.Config, &cfg); err == nil {
 			if strings.TrimSpace(cfg.InstitutionName) != "" {
@@ -72,6 +84,9 @@ func (t *Tenant) ResolveBranding() EmailBranding {
 			}
 			if strings.TrimSpace(cfg.SupportEmail) != "" {
 				branding.SupportEmail = strings.TrimSpace(cfg.SupportEmail)
+			}
+			if strings.TrimSpace(cfg.TenantPrimaryColor) != "" {
+				branding.PrimaryColor = strings.TrimSpace(cfg.TenantPrimaryColor)
 			}
 		}
 	}
