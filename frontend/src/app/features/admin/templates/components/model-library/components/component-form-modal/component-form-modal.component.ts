@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, OnInit, OnDestroy, Output, computed, inject, signal } from '@angular/core';
+import { Component, EventEmitter, Input, OnInit, OnDestroy, inject, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
 import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers, LucideRefreshCw, LucideXCircle } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
-import { AdminConfigIaService } from '../../../../../configuracion/admin-config-ia.service';
+import { AdminConfigIaService, AISuggestComponentResponse } from '../../../../../configuracion/admin-config-ia.service';
+import { AiOperation } from '@shared/services/ai-operation';
+import { ToastService } from '@shared/services/toast.service';
 import {
   AdminTemplatesService,
   ComponentLayer,
@@ -159,12 +160,25 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
 
   readonly aiEnabled = signal<boolean>(false);
   readonly aiPrompt = signal<string>('');
-  readonly isGeneratingAi = signal<boolean>(false);
-  readonly aiElapsedSeconds = signal<string>('0.0');
+  // La sugerencia de un componente solo tiene sentido dentro de este formulario
+  // de alta: si el modal muere, el resultado no tiene destinatario. Por eso la
+  // operación vive acá y no en el registro de la raíz.
+  private readonly aiOperation: AiOperation<AISuggestComponentResponse> = new AiOperation(
+    inject(ToastService),
+    {
+      resolveError: (err: unknown) => this.aiService.resolveError(err),
+      onSuccess: (res: AISuggestComponentResponse) => this.applySuggestion(res),
+      onError: (message: string) => this.errorMessage.set(message)
+    }
+  );
+  readonly isGeneratingAi = this.aiOperation.isRunning;
+  readonly aiElapsedSeconds = this.aiOperation.elapsedSeconds;
   readonly aiRationale = signal<string | null>(null);
   readonly aiLatencyMs = signal<number | null>(null);
-  private timerInterval?: ReturnType<typeof setInterval>;
-  private aiSub?: Subscription;
+
+  ngOnDestroy(): void {
+    this.aiOperation.dispose();
+  }
 
   /** Reporta si hay una previsualización técnica lista para mostrar */
   readonly hasPreviewReady = computed<boolean>(() => {
@@ -609,13 +623,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   }
 
   cancelAiGeneration(): void {
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-      this.timerInterval = undefined;
-    }
-    this.aiSub?.unsubscribe();
-    this.aiSub = undefined;
-    this.isGeneratingAi.set(false);
+    this.aiOperation.cancel();
   }
 
   generateWithAi(): void {
@@ -624,89 +632,55 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.isGeneratingAi.set(true);
     this.errorMessage.set(null);
     this.aiRationale.set(null);
-    this.aiElapsedSeconds.set('0.0');
 
-    const startTime = performance.now();
-    if (this.timerInterval) clearInterval(this.timerInterval);
-    this.timerInterval = setInterval(() => {
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      this.aiElapsedSeconds.set(elapsed);
-    }, 100);
-
-    this.aiSub?.unsubscribe();
-    this.aiSub = this.aiService
-      .suggestComponent({
+    this.aiOperation.run(
+      this.aiService.suggestComponent({
         prompt,
         layer: this.layer(),
         target_runtime: this.compatibleRuntime() || undefined
       })
-      .subscribe({
-        next: (res) => {
-          if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = undefined;
-          }
-          this.aiSub = undefined;
-          this.onSelectCustomMode();
-          if (res.component.name) this.name.set(res.component.name);
-          if (res.component.description) this.description.set(res.component.description);
-          if (res.component.icon_key) this.iconKey.set(res.component.icon_key);
-          if (res.component.base_image) this.baseImage.set(res.component.base_image);
-          const resolvedServiceEngine = res.service_engine || res.component.service_engine;
-          if (resolvedServiceEngine) {
-            this.serviceEngine.set(resolvedServiceEngine);
-            if (this.layer() === 'database') {
-              this.layer.set('database');
-              if (res.component.sub_category) this.subCategory.set(res.component.sub_category);
-            }
-          }
-          if (res.component.install_mode) {
-            this.installMode.set(res.component.install_mode as InstallMode);
-            this.installPreset.set(res.component.install_mode);
-          }
-          if (res.component.package_names?.length) {
-            this.packageNamesInput.set(res.component.package_names.join(', '));
-          }
-          if (res.component.tools_provided?.length) {
-            this.toolsProvidedInput.set(res.component.tools_provided.join(', '));
-          }
-          if (res.component.judge_entrypoint) {
-            this.judgeEntrypoint.set(res.component.judge_entrypoint);
-          }
-          if (typeof res.component.ram_delta_mb === 'number') {
-            this.ramDeltaMB.set(res.component.ram_delta_mb);
-          }
-          if (res.component.install_mode === 'custom' && res.component.build_layer_snippet) {
-            this.customBuildSnippet.set(res.component.build_layer_snippet);
-            this.showExpertMode.set(true);
-          }
-          this.aiRationale.set(res.rationale);
-          this.aiLatencyMs.set(res.latency_ms);
-          this.showManualFineTune.set(false);
-          this.isGeneratingAi.set(false);
-        },
-        error: (err: unknown) => {
-          if (this.timerInterval) {
-            clearInterval(this.timerInterval);
-            this.timerInterval = undefined;
-          }
-          this.aiSub = undefined;
-          this.errorMessage.set(this.aiService.resolveError(err));
-          this.isGeneratingAi.set(false);
-        }
-      });
+    );
   }
 
-  ngOnDestroy(): void {
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-      this.timerInterval = undefined;
+  private applySuggestion(res: AISuggestComponentResponse): void {
+    this.onSelectCustomMode();
+    if (res.component.name) this.name.set(res.component.name);
+    if (res.component.description) this.description.set(res.component.description);
+    if (res.component.icon_key) this.iconKey.set(res.component.icon_key);
+    if (res.component.base_image) this.baseImage.set(res.component.base_image);
+    const resolvedServiceEngine = res.service_engine || res.component.service_engine;
+    if (resolvedServiceEngine) {
+      this.serviceEngine.set(resolvedServiceEngine);
+      if (this.layer() === 'database') {
+        this.layer.set('database');
+        if (res.component.sub_category) this.subCategory.set(res.component.sub_category);
+      }
     }
-    this.aiSub?.unsubscribe();
-    this.aiSub = undefined;
+    if (res.component.install_mode) {
+      this.installMode.set(res.component.install_mode as InstallMode);
+      this.installPreset.set(res.component.install_mode);
+    }
+    if (res.component.package_names?.length) {
+      this.packageNamesInput.set(res.component.package_names.join(', '));
+    }
+    if (res.component.tools_provided?.length) {
+      this.toolsProvidedInput.set(res.component.tools_provided.join(', '));
+    }
+    if (res.component.judge_entrypoint) {
+      this.judgeEntrypoint.set(res.component.judge_entrypoint);
+    }
+    if (typeof res.component.ram_delta_mb === 'number') {
+      this.ramDeltaMB.set(res.component.ram_delta_mb);
+    }
+    if (res.component.install_mode === 'custom' && res.component.build_layer_snippet) {
+      this.customBuildSnippet.set(res.component.build_layer_snippet);
+      this.showExpertMode.set(true);
+    }
+    this.aiRationale.set(res.rationale);
+    this.aiLatencyMs.set(res.latency_ms);
+    this.showManualFineTune.set(false);
   }
 
   onCatalogKindChange(kind: ComponentCatalogKind): void {
