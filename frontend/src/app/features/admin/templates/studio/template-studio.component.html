@@ -138,7 +138,7 @@
         }
 
         @if (studioMode() === 'visual') {
-          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS'">
+          <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
             <div class="studio-column">
               <div class="column-header">
                 <div>
@@ -528,51 +528,64 @@
               </div>
             </div>
 
-            @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+            @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
               <div class="studio-column">
                 <div class="column-header">
                   <div>
                     <span class="column-step">Columna 3 · Servicio del Nodo</span>
                     <h3 class="column-title">Base de Datos</h3>
                   </div>
-                  <button
-                    type="button"
-                    class="btn-inline-new"
-                    title="Registrar o configurar un motor de base de datos en el catálogo"
-                    (click)="openNewComponentModal('database')"
-                  >
-                    + Nuevo
-                  </button>
+                  @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+                    <button
+                      type="button"
+                      class="btn-inline-new"
+                      title="Registrar o configurar un motor de base de datos en el catálogo"
+                      (click)="openNewComponentModal('database')"
+                    >
+                      + Nuevo
+                    </button>
+                  }
                 </div>
 
                 <div class="column-body">
-                  <span class="sub-group-label">Motores disponibles en el nodo y el catálogo</span>
-                  @for (db of databaseOptions(); track db.id) {
-                    <button
-                      type="button"
-                      class="tech-component-card"
-                      [class.selected]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
-                      (click)="selectDatabase(db.id)"
-                    >
-                      <div class="comp-compact-row">
-                        <tech-logo [iconType]="db.icon_key" [size]="22" />
-                        <span class="comp-name">{{ db.name }}</span>
-                      </div>
-                      @if (db.service_engine !== 'none') {
-                        <div class="comp-meta-row">
-                          <span class="comp-ram-badge" machineData>
-                            {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
-                          </span>
+                  @if (targetEnvironment() === 'AMBOS') {
+                    <div class="col-scope-locked-notice">
+                      <svg lucideInfo class="notice-icon"></svg>
+                      <strong class="notice-title">Base de datos satélite no disponible en Modo Dual</strong>
+                      <p class="notice-desc">
+                        La corrección automática de ejercicios opera en un contenedor efímero aislado sin red.
+                        Para habilitar PostgreSQL, MySQL u otros motores de base de datos satélite, desmarque la casilla de evaluación automática en el Paso 1.
+                      </p>
+                    </div>
+                  } @else {
+                    <span class="sub-group-label">Motores disponibles en el nodo y el catálogo</span>
+                    @for (db of databaseOptions(); track db.id) {
+                      <button
+                        type="button"
+                        class="tech-component-card"
+                        [class.selected]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
+                        (click)="selectDatabase(db.id)"
+                      >
+                        <div class="comp-compact-row">
+                          <tech-logo [iconType]="db.icon_key" [size]="22" />
+                          <span class="comp-name">{{ db.name }}</span>
                         </div>
-                      }
-                      @if (selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine) {
-                        <div class="comp-expanded-content">
-                          @if (db.description) {
-                            <p class="comp-desc">{{ db.description }}</p>
-                          }
-                        </div>
-                      }
-                    </button>
+                        @if (db.service_engine !== 'none') {
+                          <div class="comp-meta-row">
+                            <span class="comp-ram-badge" machineData>
+                              {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
+                            </span>
+                          </div>
+                        }
+                        @if (selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine) {
+                          <div class="comp-expanded-content">
+                            @if (db.description) {
+                              <p class="comp-desc">{{ db.description }}</p>
+                            }
+                          </div>
+                        }
+                      </button>
+                    }
                   }
                 </div>
               </div>

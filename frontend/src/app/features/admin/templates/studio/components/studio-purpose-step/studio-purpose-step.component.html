@@ -10,12 +10,12 @@
     <button
       type="button"
       class="purpose-option-card"
-      [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE'"
-      (click)="targetEnvironmentChange.emit('IDE_PERSISTENTE')"
+      [class.selected]="targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS'"
+      (click)="selectPrimaryMode('IDE_PERSISTENTE')"
     >
       <div class="purpose-top">
         <strong class="purpose-title">Laboratorio de Práctica (Con Editor Visual)</strong>
-        @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+        @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
           <span class="status-pill-active">Seleccionado</span>
         }
       </div>
@@ -28,7 +28,7 @@
       type="button"
       class="purpose-option-card"
       [class.selected]="targetEnvironment() === 'JUEZ_EFIMERO'"
-      (click)="targetEnvironmentChange.emit('JUEZ_EFIMERO')"
+      (click)="selectPrimaryMode('JUEZ_EFIMERO')"
     >
       <div class="purpose-top">
         <strong class="purpose-title">Evaluador Automático de Ejercicios</strong>
@@ -40,24 +40,32 @@
         Califica entregas de código automáticamente contra casos de prueba en pocos segundos, sin interfaz gráfica.
       </p>
     </button>
-
-    <button
-      type="button"
-      class="purpose-option-card"
-      [class.selected]="targetEnvironment() === 'AMBOS'"
-      (click)="targetEnvironmentChange.emit('AMBOS')"
-    >
-      <div class="purpose-top">
-        <strong class="purpose-title">Laboratorio + Evaluador</strong>
-        @if (targetEnvironment() === 'AMBOS') {
-          <span class="status-pill-active">Seleccionado</span>
-        }
-      </div>
-      <p class="purpose-desc">
-        Un único entorno oficial para prácticas con editor visual y corrección automática por consola. Diseñado para lenguajes algorítmicos (Python, C++, Java, Rust).
-      </p>
-    </button>
   </div>
+
+  @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
+    <div class="dual-capability-container">
+      <label class="dual-capability-toggle" for="dual-evaluation-toggle">
+        <input
+          type="checkbox"
+          id="dual-evaluation-toggle"
+          class="dual-checkbox"
+          [checked]="targetEnvironment() === 'AMBOS'"
+          (change)="onToggleDual($any($event.target).checked)"
+        />
+        <div class="dual-text-wrap">
+          <div class="dual-title-row">
+            <strong class="dual-title">Habilitar también para evaluación automática de ejercicios (Juez)</strong>
+            @if (targetEnvironment() === 'AMBOS') {
+              <span class="status-pill-dual">Modo Dual Activo</span>
+            }
+          </div>
+          <p class="dual-desc">
+            Permite que esta misma plantilla oficial califique código por consola estándar (<code>stdin</code> / <code>stdout</code>) en exámenes y tareas.
+          </p>
+        </div>
+      </label>
+    </div>
+  }
 
   <div class="identity-fields-grid">
     <div class="field-group">

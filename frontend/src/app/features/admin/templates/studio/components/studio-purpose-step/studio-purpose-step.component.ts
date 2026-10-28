@@ -20,4 +20,16 @@ export class StudioPurposeStepComponent {
   readonly nameChange = output<string>();
   readonly descriptionChange = output<string>();
   readonly categoryChange = output<string | null>();
+
+  selectPrimaryMode(mode: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): void {
+    if (mode === 'JUEZ_EFIMERO') {
+      this.targetEnvironmentChange.emit('JUEZ_EFIMERO');
+    } else if (this.targetEnvironment() === 'JUEZ_EFIMERO') {
+      this.targetEnvironmentChange.emit('IDE_PERSISTENTE');
+    }
+  }
+
+  onToggleDual(enabled: boolean): void {
+    this.targetEnvironmentChange.emit(enabled ? 'AMBOS' : 'IDE_PERSISTENTE');
+  }
 }

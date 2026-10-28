@@ -60,11 +60,15 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await adminPage.goto('/admin/plantillas/nueva');
         await expect(adminPage.locator('h1.page-title')).toContainText('Registrar Nueva Plantilla Oficial');
 
-        // Seleccionar tarjeta "Laboratorio + Evaluador" (AMBOS)
-        const dualCard = adminPage.locator('.purpose-option-card', { hasText: 'Laboratorio + Evaluador' });
-        await expect(dualCard).toBeVisible();
-        await dualCard.click();
-        await expect(dualCard).toHaveClass(/selected/);
+        // Seleccionar tarjeta "Laboratorio de Práctica" y activar interruptor de evaluación (AMBOS)
+        const labCard = adminPage.locator('.purpose-option-card', { hasText: 'Laboratorio de Práctica' });
+        await expect(labCard).toBeVisible();
+        await labCard.click();
+        await expect(labCard).toHaveClass(/selected/);
+
+        const dualToggle = adminPage.locator('#dual-evaluation-toggle');
+        await expect(dualToggle).toBeVisible();
+        await dualToggle.check();
 
         // Seleccionar Python 3.12 en Columna 1
         const pythonCard = adminPage.locator('.tech-component-card', { hasText: 'Python 3.12' }).first();
