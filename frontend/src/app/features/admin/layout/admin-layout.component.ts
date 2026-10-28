@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { TopbarComponent } from '@shared/components/topbar/topbar.component';
 import { SidebarComponent } from '@shared/components/sidebar/sidebar.component';
+import { ToastHostComponent } from '@shared/components/toast-host/toast-host.component';
 import { NavSection } from '@shared/components/sidebar/sidebar.model';
 
 export const ADMIN_NAV_SECTIONS: NavSection[] = [
@@ -35,7 +36,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
 @Component({
   selector: 'admin-layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent],
+  imports: [CommonModule, RouterOutlet, TopbarComponent, SidebarComponent, ToastHostComponent],
   template: `
     <div class="shell-container">
       <topbar (toggleSidebar)="toggleSidebar()" />
@@ -48,6 +49,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
           <router-outlet />
         </main>
       </div>
+      <toast-host />
     </div>
   `,
   styleUrl: './admin-layout.component.scss',

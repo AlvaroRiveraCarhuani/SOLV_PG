@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, computed, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subscription } from 'rxjs';
@@ -15,9 +15,11 @@ import {
   TemplateComponent
 } from '../../services/admin-templates.service';
 import { EnvTestJob, EnvTestJobService } from '../../services/env-test-job.service';
+import { StudioCopilotService, StudioDraft } from './studio-copilot.service';
+import { ToastService } from '@shared/services/toast.service';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
-import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AISuggestTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
+import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -116,16 +118,28 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   private readonly templatesService = inject(AdminTemplatesService);
   private readonly envTestService = inject(EnvTestJobService);
   private readonly aiService = inject(AdminConfigIaService);
+  private readonly copilot = inject(StudioCopilotService);
+  private readonly toastService = inject(ToastService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
 
   private readonly sub = new Subscription();
   private pollSub?: Subscription;
   private repairSub?: Subscription;
-  private suggestSub?: Subscription;
   private timerInterval?: ReturnType<typeof setInterval>;
   private loadedTemplateItem: AdminTemplateItem | null = null;
   private isDuplicateLoad = false;
+  private readonly pendingDraft: StudioDraft | null;
+
+  constructor() {
+    // Se lee antes de cualquier flush de effects para no pisar el borrador
+    // guardado por una visita anterior al Studio.
+    this.pendingDraft = this.copilot.draft();
+    effect(() => {
+      if (this.editingTemplateId()) return;
+      this.copilot.saveDraft(this.captureDraft());
+    });
+  }
 
   readonly editingTemplateId = signal<string | null>(null);
   readonly isEditMode = computed(() => !!this.editingTemplateId());
@@ -173,11 +187,14 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly aiEnabled = signal<boolean>(false);
   readonly isAiCopilotModalOpen = signal<boolean>(false);
   readonly isTechGraphOpen = signal<boolean>(false);
-  readonly aiPrompt = signal<string>('');
-  readonly isSuggestingWithAi = signal<boolean>(false);
-  readonly aiProposal = signal<AISuggestTemplateResponse | null>(null);
-  readonly aiProposalApplied = signal<boolean>(false);
-  readonly aiElapsedSeconds = signal<string>('0.0');
+  // El estado del Copiloto vive en StudioCopilotService: sobrevive a la
+  // navegación y al cierre del modal. Se exponen los mismos signals para no
+  // cambiar los bindings del template ni la API que consumen los tests.
+  readonly aiPrompt = this.copilot.prompt;
+  readonly isSuggestingWithAi = this.copilot.isSuggesting;
+  readonly aiProposal = this.copilot.proposal;
+  readonly aiProposalApplied = this.copilot.applied;
+  readonly aiElapsedSeconds = this.copilot.elapsedSeconds;
   readonly isRepairingWithAi = signal<boolean>(false);
   readonly repairElapsedSeconds = signal<string>('0.0');
   readonly repairDiagnosis = signal<{ rationale: string; latencyMs: number } | null>(null);
@@ -560,14 +577,15 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       this.loadExistingTemplate(editId, false);
     } else if (duplicateId) {
       this.loadExistingTemplate(duplicateId, true);
+    } else if (this.pendingDraft && this.isMeaningfulDraft(this.pendingDraft)) {
+      this.applyDraft(this.pendingDraft);
+      this.toastService.show('Borrador del Studio restaurado.', 'info');
     }
   }
 
   ngOnDestroy(): void {
     this.pollSub?.unsubscribe();
     this.repairSub?.unsubscribe();
-    this.suggestSub?.unsubscribe();
-    this.suggestSub = undefined;
     this.clearTimer();
     this.sub.unsubscribe();
   }
@@ -1120,6 +1138,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     obs$.subscribe({
       next: () => {
         this.isSubmitting.set(false);
+        this.copilot.clearDraft();
         this.router.navigate(['/admin/plantillas'], { queryParams: { tab: 'catalog' } });
       },
       error: err => {
@@ -1171,47 +1190,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   }
 
   // Flujo de Copiloto IA (Sugerencia de Stack)
+  // La operación vive en StudioCopilotService para que sobreviva a la
+  // navegación y al cierre del modal; acá solo se dispara y se refleja.
   suggestStackWithAi(): void {
-    const prompt = this.aiPrompt().trim();
-    if (!prompt || this.isSuggestingWithAi()) return;
-
-    this.isSuggestingWithAi.set(true);
-    this.aiProposal.set(null);
-    this.aiProposalApplied.set(false);
-    this.aiElapsedSeconds.set('0.0');
-
-    const startTime = performance.now();
-    this.clearTimer();
-    this.timerInterval = setInterval(() => {
-      const elapsed = ((performance.now() - startTime) / 1000).toFixed(1);
-      this.aiElapsedSeconds.set(elapsed);
-    }, 100);
-
-    this.suggestSub?.unsubscribe();
-    this.suggestSub = this.aiService
-      .suggestTemplate({
-        prompt,
-        target_environment: this.targetEnvironment()
-      })
-      .subscribe({
-        next: (res: AISuggestTemplateResponse) => {
-          this.clearTimer();
-          this.suggestSub = undefined;
-          this.isSuggestingWithAi.set(false);
-          // La propuesta NO se aplica sola: se resuelve contra el catálogo real
-          // y queda pendiente de revisión (flujo propuesta -> aplicar).
-          this.aiProposal.set(res);
-          this.aiProposalApplied.set(false);
-          this.showToast('Propuesta del Copiloto lista para revisar.');
-        },
-        error: (err: unknown) => {
-          this.clearTimer();
-          this.suggestSub = undefined;
-          this.isSuggestingWithAi.set(false);
-          this.showToast(this.aiService.resolveError(err), 'error');
-        }
-      });
-    this.sub.add(this.suggestSub);
+    this.copilot.suggest(this.targetEnvironment());
   }
 
   // Resuelve la propuesta del Copiloto contra el catálogo real del tenant.
@@ -1355,17 +1337,12 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   // Descarta la propuesta del Copiloto sin tocar el constructor.
   discardAiProposal(): void {
-    this.aiProposal.set(null);
-    this.aiProposalApplied.set(false);
+    this.copilot.discard();
     this.showToast('Propuesta descartada; el constructor no se modificó.');
   }
 
   cancelAiSuggestion(): void {
-    this.suggestSub?.unsubscribe();
-    this.suggestSub = undefined;
-    this.clearTimer();
-    this.isSuggestingWithAi.set(false);
-    this.showToast('Operación del Copiloto cancelada.');
+    this.copilot.cancel();
   }
 
   openAiCopilotModal(): void {
@@ -1452,6 +1429,70 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.repairSub?.unsubscribe();
     this.isRepairingWithAi.set(false);
     this.showToast('Reparación cancelada.');
+  }
+
+  // --- Persistencia del borrador del Studio (sobrevive a la navegación) ---
+  private captureDraft(): StudioDraft {
+    return {
+      name: this.name(),
+      description: this.description(),
+      selectedCategoryId: this.selectedCategoryId(),
+      targetEnvironment: this.targetEnvironment(),
+      studioMode: this.studioMode(),
+      blueprintTab: this.blueprintTab(),
+      selectedRuntimeId: this.selectedRuntimeId(),
+      selectedWebPlatformId: this.selectedWebPlatformId(),
+      selectedAddonIds: [...this.selectedAddonIds()],
+      selectedDatabaseId: this.selectedDatabaseId(),
+      dockerImage: this.dockerImage(),
+      dockerfileContent: this.dockerfileContent(),
+      hasCustomDockerfile: this.hasCustomDockerfile(),
+      needsLocalBuild: this.needsLocalBuild(),
+      setupScript: this.setupScript(),
+      toolsDeclared: this.toolsDeclared(),
+      entrypoint: this.entrypoint(),
+      timeoutMS: this.timeoutMS(),
+      sampleInput: this.sampleInput(),
+      baseRamMB: this.baseRamMB(),
+      isNameManuallyEdited: this.isNameManuallyEdited(),
+      isRamManuallyEdited: this.isRamManuallyEdited()
+    };
+  }
+
+  private applyDraft(draft: StudioDraft): void {
+    this.name.set(draft.name);
+    this.description.set(draft.description);
+    this.selectedCategoryId.set(draft.selectedCategoryId);
+    this.targetEnvironment.set(draft.targetEnvironment);
+    this.studioMode.set(draft.studioMode);
+    this.blueprintTab.set(draft.blueprintTab);
+    this.selectedRuntimeId.set(draft.selectedRuntimeId);
+    this.selectedWebPlatformId.set(draft.selectedWebPlatformId);
+    this.selectedAddonIds.set([...draft.selectedAddonIds]);
+    this.selectedDatabaseId.set(draft.selectedDatabaseId);
+    this.dockerImage.set(draft.dockerImage);
+    this.dockerfileContent.set(draft.dockerfileContent);
+    this.hasCustomDockerfile.set(draft.hasCustomDockerfile);
+    this.needsLocalBuild.set(draft.needsLocalBuild);
+    this.setupScript.set(draft.setupScript);
+    this.toolsDeclared.set(draft.toolsDeclared);
+    this.entrypoint.set(draft.entrypoint);
+    this.timeoutMS.set(draft.timeoutMS);
+    this.sampleInput.set(draft.sampleInput);
+    this.baseRamMB.set(draft.baseRamMB);
+    this.isNameManuallyEdited.set(draft.isNameManuallyEdited);
+    this.isRamManuallyEdited.set(draft.isRamManuallyEdited);
+  }
+
+  private isMeaningfulDraft(draft: StudioDraft): boolean {
+    return Boolean(
+      draft.name.trim() ||
+        draft.description.trim() ||
+        draft.dockerImage.trim() ||
+        draft.selectedRuntimeId ||
+        draft.selectedAddonIds.length > 0 ||
+        draft.setupScript.trim()
+    );
   }
 
   goBack(): void {

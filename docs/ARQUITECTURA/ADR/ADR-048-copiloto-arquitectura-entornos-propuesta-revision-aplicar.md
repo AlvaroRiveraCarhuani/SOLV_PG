@@ -34,3 +34,22 @@ La sección «Copiloto IA para Arquitectura de Entornos» del Studio de Plantill
 - **Positivas:** el administrador ve *qué* se va a aplicar antes de que se toque el constructor, incluidas las piezas ausentes del catálogo (educa el prompt y evita stacks rotos en silencio); el endpoint queda alineado con los budgets de `suggest-template` ya reservados; el saneo de slugs y memoria ocurre en servidor, con tests (`TestAICopilot_SuggestTemplate_ReturnsProposalWithSanitizedSlugs`).
 - **Negativas / Reducción de impacto:** un paso más entre «sugerir» y «aplicar» (revisión explícita), compensado porque la propuesta descarta piezas no disponibles de forma visible; los slugs canónicos del LLM pueden no empatar con slugs de catálogo personalizados, que se marcan como «no disponible» y exigen selección manual (comportamiento intencionado, no silencioso).
 - **No cubierto:** no se persiste la propuesta ni existe historial de sugerencias; el Copiloto sigue siendo una asistencia de autoría, no un automatismo de publicación (la publicación mantiene el blindaje de «Comprobar funcionamiento» previo del ADR-046).
+
+## Actualización — Operación desacoplada de la vista (2026-10-28)
+
+### Contexto y problema
+
+El estado del Copiloto vivía en `TemplateStudioComponent`. Como el endpoint `suggest-template` tiene un presupuesto de 90–120 s (`AIEngineAutoTimeoutSeconds`), el administrador podía salir de la vista mientras esperaba, y eso destruía el trabajo: `ngOnDestroy` desuscribía `suggestSub`, lo que aborta el request HTTP, y la propuesta y el borrador del constructor se perdían sin aviso. Cerrar el modal, en cambio, no cancelaba nada porque el modal solo recibe `input()`/`output()` y el estado real estaba en el componente padre.
+
+### Decisión
+
+1. **El estado de la operación sale del componente.** `StudioCopilotService` (`providedIn: 'root'`) es dueño de `prompt`, `isSuggesting`, `proposal`, `applied`, `elapsedSeconds` y de la suscripción al endpoint, junto con su propio cronómetro. El componente expone esos mismos signals para no cambiar los bindings del template ni la API que consumen los tests. Navegar a otra vista ya no aborta la operación, y cerrar el modal tampoco.
+2. **El borrador del Studio también sobrevive.** `StudioCopilotService` guarda un `StudioDraft` con los campos del formulario (nombre, descripción, categoría, entorno objetivo, selección de piezas, Dockerfile, script de setup, RAM, etc.). Un `effect` del componente lo actualiza, y `ngOnInit` lo restaura cuando la ruta no es de edición ni duplicación, avisando «Borrador del Studio restaurado». Se descarta al publicar la plantilla.
+3. **Aviso global.** Se agrega `ToastService` + `ToastHostComponent` (montado en `admin-layout`), reutilizando el primitivo global `.toast-notification` de `styles.scss`. El aviso de propuesta lista, el error y la cancelación salen del servicio, no del componente, para que lleguen aunque el administrador esté en otra vista.
+4. **No se convierte en job de backend.** Se mantiene el criterio del proyecto: los jobs (`EnvTestJobService`) existen para operaciones con efectos sobre el sistema y no regenerables. `suggest-template` es una función pura sin efectos que devuelve un valor reproducible con un clic, así que el ciclo de vida vive en un store de cliente y no en la cola de trabajos.
+
+### Consecuencias
+
+- **Positivas:** el administrador puede seguir trabajando mientras el Copiloto diseña; al volver encuentra el estado real (en curso con su cronómetro, o la propuesta lista) y el constructor conserva lo que había armado. El botón «Cancelar» aborta de verdad el request.
+- **Negativas / Reducción de impacto:** el cambio no sobrevive a recargar la página ni a cerrar la pestaña, porque el estado vive en memoria del cliente. Se acepta de forma explícita: cubrirlo exigiría jobs en backend, coste que no se justifica para un valor regenerable.
+- **Efecto colateral corregido:** cancelar el Copiloto ya no limpia el cronómetro de «Corregir con Copiloto IA» (autorreparación), que compartía el mismo `timerInterval`.
