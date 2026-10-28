@@ -18,6 +18,10 @@ export interface AiOperationNotify<T> {
 export interface AiOperationOptions<T> {
   notify?: AiOperationNotify<T>;
   resolveError: (err: unknown) => string;
+  /** Se invoca de forma síncrona al recibir el resultado. */
+  onSuccess?: (result: T) => void;
+  /** Se invoca de forma síncrona al recibir un error, con el mensaje resuelto. */
+  onError?: (message: string) => void;
 }
 
 /**
@@ -64,6 +68,7 @@ export class AiOperation<T> {
         this.subscription = undefined;
         this.result.set(result);
         this.state.set('ready');
+        this.options.onSuccess?.(result);
         this.notifySuccess(result);
       },
       error: (err: unknown) => {
@@ -73,6 +78,7 @@ export class AiOperation<T> {
         const message = this.options.resolveError(err);
         this.errorMessage.set(message);
         this.state.set('error');
+        this.options.onError?.(message);
         this.notifyError(message);
       }
     });
@@ -101,6 +107,29 @@ export class AiOperation<T> {
     this.errorMessage.set(null);
     this.elapsedSeconds.set('0.0');
     this.state.set('idle');
+  }
+
+  /**
+   * Reclama el resultado listo y lo consume: devuelve el valor una sola vez y
+   * deja la operación en `idle`. Es un *claim*, no un *peek*, así dos caminos
+   * distintos de restauración no pueden aplicar el mismo resultado dos veces.
+   */
+  take(): T | null {
+    const result = this.result();
+    if (result === null || this.state() !== 'ready') return null;
+    this.reset();
+    return result;
+  }
+
+  /**
+   * Libera recursos al morir el dueño de la operación, sin avisar al usuario.
+   * A diferencia de {@link cancel}, no emite el toast de cancelación.
+   */
+  dispose(): void {
+    this.attempt += 1;
+    this.subscription?.unsubscribe();
+    this.subscription = undefined;
+    this.stopTimer();
   }
 
   private notifySuccess(result: T): void {
@@ -156,9 +185,5 @@ export class AiOperations {
     const operation = new AiOperation<T>(this.toastService, options);
     this.operations.set(key, operation as AiOperation<unknown>);
     return operation;
-  }
-
-  reset(key: string): void {
-    this.operations.get(key)?.reset();
   }
 }
