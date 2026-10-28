@@ -127,23 +127,34 @@
             </label>
           }
 
-          <label class="proposal-field">
-            <span>Base de datos</span>
-            <select
-              [value]="view.database?.id ?? ''"
-              (change)="updateProposal('database', $any($event.target).value, view)"
-            >
-              <option value="">Sin base de datos</option>
-              @for (database of view.databaseChoices ?? []; track database.id) {
-                @if (database.service_engine !== 'none') {
-                  <option [value]="database.id" [disabled]="!database.is_available">{{ database.name }}{{ database.is_available ? '' : ' (no disponible)' }}</option>
+          @if (targetEnvironment() === 'IDE_PERSISTENTE') {
+            <label class="proposal-field">
+              <span>Base de datos</span>
+              <select
+                [value]="view.database?.id ?? ''"
+                (change)="updateProposal('database', $any($event.target).value, view)"
+              >
+                <option value="">Sin base de datos</option>
+                @for (database of view.databaseChoices ?? []; track database.id) {
+                  @if (database.service_engine !== 'none') {
+                    <option [value]="database.id" [disabled]="!database.is_available">{{ database.name }}{{ database.is_available ? '' : ' (no disponible)' }}</option>
+                  }
                 }
+              </select>
+              @if (!view.database && view.databaseSlug) {
+                <small>Solicitada por IA: <code machineData>{{ view.databaseSlug }}</code></small>
               }
-            </select>
-            @if (!view.database && view.databaseSlug) {
-              <small>Solicitada por IA: <code machineData>{{ view.databaseSlug }}</code></small>
-            }
-          </label>
+            </label>
+          }
+
+          @if (targetEnvironment() !== 'IDE_PERSISTENTE' && (view.webSlug || view.databaseSlug)) {
+            <div class="ai-modal-scope-alert" role="note">
+              <svg lucideInfo class="alert-icon"></svg>
+              <span>
+                El entorno seleccionado califica por consola (<code>stdin</code>/<code>stdout</code>). Las propuestas de interfaz web o base de datos satélite no se aplicarán a este modo.
+              </span>
+            </div>
+          }
         </div>
 
         <fieldset class="addon-review">

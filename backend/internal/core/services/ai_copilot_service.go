@@ -257,9 +257,9 @@ Reglas innegociables:
 - Si se suministra un CATÁLOGO REAL INSTALADO, debes elegir ÚNICAMENTE entre los slugs listados en dicho catálogo para runtime_slug, web_platform_slug y addon_slugs.
 - Si una herramienta solicitada no está en el catálogo pero existe una alternativa directa instalada en la misma categoría (ej. un ORM o cliente alternativo), usa la del catálogo y explícalo en el rationale.
 - Solo si el usuario solicita explícitamente una tecnología o librería que NO existe ni tiene alternativa en el catálogo provisto, repórtala en "missing_components" y NO inventes slugs dentro de addon_slugs.
-- database_slug SOLO puede ser sqlite, postgres, mysql, mongodb o redis; si no hace falta base de datos, dejalo como cadena vacía.
+- database_slug SOLO puede ser sqlite, postgres, mysql, mongodb o redis; si no hace falta base de datos o si el entorno objetivo es de juez o dual (JUEZ_EFIMERO, AMBOS), dejalo como cadena vacía.
 - base_ram_mb entre 256 y 4096: 512 para entornos ligeros de juez, 1024 o más para laboratorios IDE con compilación pesada o servicios acoplados.
-- web_platform_slug SOLO tiene sentido cuando el entorno es un laboratorio IDE de tipo web (Angular, React, Vue); en jueces automáticos dejalo vacío.
+- web_platform_slug SOLO tiene sentido cuando el entorno es un laboratorio IDE de tipo web (Angular, React, Vue) y el entorno objetivo es IDE_PERSISTENTE; en jueces automáticos o entornos duales (JUEZ_EFIMERO, AMBOS) dejalo vacío.
 - setup_script es OPCIONAL y solo de preparación del espacio de trabajo (crear carpetas, alias, variables de entorno); no incluyas comandos de instalación de paquetes (eso va en capas de la imagen).
 - name y description en español, descriptivos para un catálogo académico.`
 

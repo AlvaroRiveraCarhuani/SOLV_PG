@@ -11,8 +11,9 @@
    - La Columna 1 (`Lenguaje y Web`) muestra permanentemente ambos sub-grupos en modo Laboratorio: **`Lenguaje Principal (Elija 1)`** con el botón **`+ Nuevo lenguaje`** y **`Interfaz Web / Frontend (Opcional)`** con el botón **`+ Nueva web`**.
 2. **Panel Derecho con guardrails unificados:**
    - Tanto **`Comprobar funcionamiento`** como **`Publicar Plantilla Oficial`** permanecen deshabilitados hasta seleccionar tecnologías válidas, y muestran el motivo exacto del bloqueo encima de los botones.
-3. **Capacidad Dual `AMBOS` en Paso 1:**
+3. **Capacidad Dual `AMBOS` en Paso 1 y Gobernanza Visual en Paso 2:**
    - El Paso 1 (`1. Propósito y Datos del Entorno`) ofrece las 3 tarjetas: **`Laboratorio de Práctica (Con Editor Visual)`**, **`Evaluador Automático de Ejercicios`** y **`Laboratorio + Evaluador`** (`AMBOS`), reutilizando la misma plantilla oficial para laboratorio e instancias de juez.
+   - En el Paso 2 (`2. Arquitectura y Tecnologías del Entorno`), al seleccionar `AMBOS` o `JUEZ_EFIMERO`, un banner contextual informa que la evaluación automática opera por consola estándar (`stdin`/`stdout`), y la Columna 1 marca la interfaz web como no disponible para evitar ambigüedades.
 4. **Modal contextualizado con bloqueo de clasificación y herencia de ecosistema:**
    - Al abrir desde **`+ Nuevo lenguaje`**, **`+ Nueva web`** o **`+ Nuevo`** (Columna 2), el modal fija el contexto en un banner superior (`Columna 1 · Lenguaje Principal`, `Columna 1 · Interfaz Web / Frontend` o `Columna 2 · Complemento / Librería`) con opción `Cambiar tipo`, preselecciona la tecnología compatible y ajusta automáticamente el método de instalación (`pip`, `npm`, `apt`, `cargo`, etc.).
 5. **Smart Icon Bar con autodetección y galería bajo demanda:**

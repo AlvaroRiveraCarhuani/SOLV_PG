@@ -248,6 +248,37 @@
   }
 }
 
+.ai-modal-scope-alert {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--tenant-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+
+  .alert-icon {
+    width: var(--space-4);
+    height: var(--space-4);
+    color: var(--tenant-primary);
+    flex-shrink: 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    background-color: var(--bg-surface);
+    padding: var(--space-0-5) var(--space-1);
+    border-radius: var(--radius-xs);
+    border: 1px solid var(--border-subtle);
+  }
+}
+
 .addon-review {
   min-width: 0;
   margin: 0;

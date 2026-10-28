@@ -114,6 +114,29 @@
           </div>
         </div>
 
+        @if (targetEnvironment() === 'AMBOS') {
+          <div class="info-banner studio-scope-banner" role="note">
+            <div class="banner-title-row">
+              <svg lucideInfo class="banner-icon"></svg>
+              <strong>Modo Dual activo (Laboratorio interactivo + Evaluador automático de consola)</strong>
+            </div>
+            <p>
+              Este entorno compila y califica entregas mediante ejecución por consola estándar (<code>stdin</code> / <code>stdout</code>).
+              Las interfaces web frontend y bases de datos satélite requieren servicios interactivos y están disponibles únicamente en «Laboratorio de Práctica».
+            </p>
+          </div>
+        } @else if (targetEnvironment() === 'JUEZ_EFIMERO') {
+          <div class="info-banner studio-scope-banner" role="note">
+            <div class="banner-title-row">
+              <svg lucideInfo class="banner-icon"></svg>
+              <strong>Evaluador Automático de Ejercicios</strong>
+            </div>
+            <p>
+              Entorno ultraligero sin interfaz gráfica. Evalúa código exclusivamente mediante ejecución por consola estándar (<code>stdin</code> / <code>stdout</code>).
+            </p>
+          </div>
+        }
+
         @if (studioMode() === 'visual') {
           <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO' || targetEnvironment() === 'AMBOS'">
             <div class="studio-column">
@@ -249,6 +272,11 @@
                       {{ col1SearchQuery().trim() ? 'No hay plataformas web que coincidan con la búsqueda.' : 'No hay plataformas web registradas. Puede agregar una con \'+ Nueva web\'.' }}
                     </p>
                   }
+                } @else {
+                  <div class="sub-group-header mt-group col-scope-disabled-wrap">
+                    <span class="sub-group-label text-muted">Interfaz Web / Frontend</span>
+                    <span class="scope-disabled-badge">No disponible en modo evaluador</span>
+                  </div>
                 }
               </div>
             </div>

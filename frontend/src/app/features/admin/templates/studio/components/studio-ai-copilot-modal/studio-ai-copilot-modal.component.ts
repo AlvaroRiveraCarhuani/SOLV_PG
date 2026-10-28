@@ -6,7 +6,8 @@ import {
   LucideRotateCcw,
   LucideRefreshCw,
   LucideXCircle,
-  LucidePlusCircle
+  LucidePlusCircle,
+  LucideInfo
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -28,7 +29,8 @@ import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.se
     LucideRotateCcw,
     LucideRefreshCw,
     LucideXCircle,
-    LucidePlusCircle
+    LucidePlusCircle,
+    LucideInfo
   ],
   templateUrl: './studio-ai-copilot-modal.component.html',
   styleUrl: './studio-ai-copilot-modal.component.scss',

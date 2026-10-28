@@ -38,7 +38,8 @@ import {
   LucidePencil,
   LucideSparkles,
   LucideWrench,
-  LucideNetwork
+  LucideNetwork,
+  LucideInfo
 } from '@lucide/angular';
 import {
   AiProposalView,
@@ -110,7 +111,8 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     LucidePencil,
     LucideSparkles,
     LucideWrench,
-    LucideNetwork
+    LucideNetwork,
+    LucideInfo
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
