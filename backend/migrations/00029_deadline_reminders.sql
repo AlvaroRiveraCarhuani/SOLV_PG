@@ -1,4 +1,11 @@
--- Migración 00029: Control de idempotencia para recordatorios de vencimiento académico (Slice 14 / Tarea T3)
+-- +goose Up
+-- Control de idempotencia para recordatorios de vencimiento academico.
+--
+-- Registra los recordatorios de vencimiento enviados a estudiantes para ejercicios
+-- dentro de la ventana de urgencia (~12 horas).
+-- La restriccion unica (tenant_id, exercise_id, student_id) evita envios duplicados
+-- al ejecutarse el worker periodico.
+
 CREATE TABLE IF NOT EXISTS deadline_reminders_sent (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
@@ -10,3 +17,9 @@ CREATE TABLE IF NOT EXISTS deadline_reminders_sent (
 
 CREATE INDEX IF NOT EXISTS idx_deadline_reminders_tenant_exercise 
 ON deadline_reminders_sent(tenant_id, exercise_id);
+
+-- +goose Down
+-- Reversa idempotente: se elimina la tabla y sus indices asociados.
+
+DROP TABLE IF EXISTS deadline_reminders_sent;
+

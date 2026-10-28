@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/pressly/goose/v3"
 )
 
 // Base directory of goose migrations relative to this package.
@@ -272,5 +274,19 @@ func TestJudgeMigration0020DualModality(t *testing.T) {
 		if !strings.Contains(content, marker) {
 			t.Errorf("00020 missing marker %q", marker)
 		}
+	}
+}
+
+func TestAllMigrationsParseableByGoose(t *testing.T) {
+	dir := judgeMigrationsDir(t)
+	if err := goose.SetDialect("postgres"); err != nil {
+		t.Fatalf("goose.SetDialect failed: %v", err)
+	}
+	migrations, err := goose.CollectMigrations(dir, 0, goose.MaxVersion)
+	if err != nil {
+		t.Fatalf("goose.CollectMigrations falló al parsear migraciones: %v", err)
+	}
+	if len(migrations) == 0 {
+		t.Fatal("se esperaba al menos una migración, se obtuvieron 0")
 	}
 }
