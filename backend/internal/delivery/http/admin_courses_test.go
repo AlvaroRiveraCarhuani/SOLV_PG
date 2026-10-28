@@ -105,9 +105,9 @@ func TestContainerUsageMBLeeUsoRealDeDocker(t *testing.T) {
 	h := &AdminHandler{
 		orchestrator: &fakeMetricsOrchestrator{
 			metrics: &domain.ContainerMetrics{
-				IsRunning:          true,
-				MemoryUsageBytes:   256 * 1024 * 1024,
-				MemoryLimitBytes:   512 * 1024 * 1024,
+				IsRunning:        true,
+				MemoryUsageBytes: 256 * 1024 * 1024,
+				MemoryLimitBytes: 512 * 1024 * 1024,
 			},
 		},
 	}

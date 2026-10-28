@@ -15,12 +15,12 @@ import (
 )
 
 type mockAdminGovRepoForHTTP struct {
-	admins           []*domain.AdminUserItem
-	activeCount      int
-	createAdminFunc  func(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error)
-	revokeAdminFunc  func(ctx context.Context, tenantID, targetUserID string) error
-	countActiveFunc  func(ctx context.Context, tenantID string) (int, error)
-	listAdminFunc    func(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error)
+	admins          []*domain.AdminUserItem
+	activeCount     int
+	createAdminFunc func(ctx context.Context, tenantID, email, firstName, lastName string) (*domain.AdminUserItem, error)
+	revokeAdminFunc func(ctx context.Context, tenantID, targetUserID string) error
+	countActiveFunc func(ctx context.Context, tenantID string) (int, error)
+	listAdminFunc   func(ctx context.Context, tenantID string) ([]*domain.AdminUserItem, error)
 }
 
 func (m *mockAdminGovRepoForHTTP) ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*domain.AdminStudentDirectoryItem, error) {

@@ -11,11 +11,11 @@ const (
 // Codigos estables de motivo. La interfaz los traduce a texto; nunca cambian de
 // nombre porque las alertas y el frontend dependen de la cadena.
 const (
-	HealthReasonDockerUnreachable      = "docker_unreachable"
-	HealthReasonOrphanedWorkspaces     = "orphaned_workspaces"
-	HealthReasonOOMKilledWorkspaces    = "oom_killed_workspaces"
-	HealthReasonUnknownWorkspaces      = "unknown_workspaces"
-	HealthReasonRAMAboveSafetyCeiling  = "ram_above_safety_ceiling"
+	HealthReasonDockerUnreachable     = "docker_unreachable"
+	HealthReasonOrphanedWorkspaces    = "orphaned_workspaces"
+	HealthReasonOOMKilledWorkspaces   = "oom_killed_workspaces"
+	HealthReasonUnknownWorkspaces     = "unknown_workspaces"
+	HealthReasonRAMAboveSafetyCeiling = "ram_above_safety_ceiling"
 )
 
 // HealthEvaluationInput son los hechos medidos que alimentan el veredicto.

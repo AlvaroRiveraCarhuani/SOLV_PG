@@ -95,10 +95,10 @@ func TestCountWorkspacesByStatusLiveDB(t *testing.T) {
 	}
 
 	expected := map[string]int{
-		"running":     2,
+		"running":    2,
 		"hibernated": 1,
-		"failed":      1,
-		"pending":     1,
+		"failed":     1,
+		"pending":    1,
 	}
 	// oom_killed del otro tenant NO debe aparecer en este desglose.
 	if len(counts) != len(expected) {

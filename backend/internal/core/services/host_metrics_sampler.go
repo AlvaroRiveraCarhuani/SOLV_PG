@@ -22,9 +22,9 @@ type HostMetricsSampler struct {
 	// para poder doblarla en los tests con un valor fijo.
 	activeCounter func(ctx context.Context) (int, error)
 
-	mu       sync.Mutex
-	tenantID string
-	interval time.Duration
+	mu        sync.Mutex
+	tenantID  string
+	interval  time.Duration
 	retention time.Duration
 }
 

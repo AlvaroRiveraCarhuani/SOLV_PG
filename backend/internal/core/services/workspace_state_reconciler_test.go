@@ -16,11 +16,11 @@ import (
 // activas y registra las transiciones pedidas.
 type reconcilerRepo struct {
 	domain.WorkspaceRepository
-	workspaces    []*domain.WorkspaceInstance
-	updates       []statusChange
-	oomStrikes    []string
-	getActiveErr  error
-	updateStatus  func(id, status string) error
+	workspaces   []*domain.WorkspaceInstance
+	updates      []statusChange
+	oomStrikes   []string
+	getActiveErr error
+	updateStatus func(id, status string) error
 }
 
 type statusChange struct {
@@ -67,11 +67,11 @@ func (r *reconcilerRepo) IncrementOOMStrike(_ context.Context, id string) error 
 // elimina. Los errores se inyectan por escenario.
 type reconcilerOrchestrator struct {
 	domain.WorkspaceOrchestrator
-	managed       []string
-	listErr       error
-	metrics       map[string]*domain.ContainerMetrics
-	metricsErr    error
-	removed       []string
+	managed    []string
+	listErr    error
+	metrics    map[string]*domain.ContainerMetrics
+	metricsErr error
+	removed    []string
 }
 
 func (o *reconcilerOrchestrator) ListAllManagedContainers(context.Context) ([]string, error) {

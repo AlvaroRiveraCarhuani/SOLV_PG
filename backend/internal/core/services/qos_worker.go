@@ -28,8 +28,8 @@ type QoSOrchestratorWorker struct {
 	// laboratorios porque es quien conoce la plantilla de cada sesión.
 	satelliteReconciler func(ctx context.Context)
 	history             map[string]*containerStatsHistory
-	mu                sync.Mutex
-	stopChan          chan struct{}
+	mu                  sync.Mutex
+	stopChan            chan struct{}
 }
 
 func NewQoSOrchestratorWorker(

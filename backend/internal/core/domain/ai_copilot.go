@@ -20,7 +20,7 @@ type AISuggestComponentResponseDTO struct {
 	// base de datos (misma verdad que component.service_engine, expuesta en la raíz
 	// para que la Columna 3 del constructor la consuma sin desenvolverse).
 	ServiceEngine string `json:"service_engine,omitempty"`
-	Rationale     string `json:"rationale"`                // explicación técnica en español
+	Rationale     string `json:"rationale"` // explicación técnica en español
 	LatencyMS     int64  `json:"latency_ms"`
 }
 

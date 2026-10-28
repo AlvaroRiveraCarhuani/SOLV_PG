@@ -91,10 +91,10 @@ func TestGetRuntimeCapabilities_AllEnginesAvailableWithProvisioningMode(t *testi
 	}
 
 	want := map[string]struct {
-		mode           string
-		baseRAMMB      int
-		defaultImage   string
-		requiresImage  bool
+		mode          string
+		baseRAMMB     int
+		defaultImage  string
+		requiresImage bool
 	}{
 		"sqlite":   {mode: domain.ProvisioningEmbedded, baseRAMMB: 0},
 		"postgres": {mode: domain.ProvisioningSharedHost, baseRAMMB: 50},

@@ -45,11 +45,11 @@ func TestSamplerPersistsSampleOnce(t *testing.T) {
 	store := &fakeMetricsStore{}
 	sampler := NewHostMetricsSampler(store, &fixedTelemetry{
 		snapshot: domain.HostTelemetrySnapshot{
-			RAMUsedBytes:  8 * 1024 * 1024 * 1024, // 8 GiB
+			RAMUsedBytes:      8 * 1024 * 1024 * 1024, // 8 GiB
 			RAMAvailableBytes: 6 * 1024 * 1024 * 1024,
-			RAMPercent:    42.34,
-			CPUPercent:    17.77,
-			CPUCores:      8,
+			RAMPercent:        42.34,
+			CPUPercent:        17.77,
+			CPUCores:          8,
 		},
 	}, func(context.Context) (int, error) { return 3, nil })
 

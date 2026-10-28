@@ -14,12 +14,12 @@ import (
 // modo de instalación sin exigirle conocer los detalles del contenedor.
 func TestCreateTemplateComponent_GovernsDatabaseEngines(t *testing.T) {
 	cases := []struct {
-		name               string
-		dto                domain.CreateTemplateComponentDTO
-		wantEngine         string
-		wantImage          string
-		wantSubCategory    string
-		wantRamDeltaMB     int
+		name            string
+		dto             domain.CreateTemplateComponentDTO
+		wantEngine      string
+		wantImage       string
+		wantSubCategory string
+		wantRamDeltaMB  int
 	}{
 		{
 			name:            "mysql",
