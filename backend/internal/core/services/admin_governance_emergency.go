@@ -290,7 +290,7 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Engine:           "postgres",
 			Label:            "PostgreSQL (Aula)",
 			Version:          pgVersion,
-			Description:      "Perfil sintonizado para laboratorio (~50 MB RAM) con corte de consultas largas (5s), transaccionalidad completa y aislamiento por estudiante.",
+			Description:      "Motor relacional PostgreSQL con aislamiento por estudiante y límites de seguridad para el aula.",
 			EnvVar:           "DATABASE_URL",
 			IsAvailable:      true,
 			BaseRAMMB:        50,

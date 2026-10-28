@@ -498,7 +498,8 @@
     background-color: var(--tenant-primary-subtle);
     justify-content: flex-start;
 
-    .comp-role-badge {
+    .comp-role-badge,
+    .comp-ram-badge {
       background-color: var(--bg-surface);
       color: var(--tenant-primary);
       border-color: var(--tenant-primary-border);
@@ -553,6 +554,13 @@
   background-color: var(--color-gray-100);
   color: var(--text-secondary);
   border: 1px solid var(--border-subtle);
+}
+
+.comp-meta-row {
+  display: flex;
+  align-items: center;
+  padding-left: calc(22px + var(--space-2));
+  width: 100%;
 }
 
 .comp-expanded-content {

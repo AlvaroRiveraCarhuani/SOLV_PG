@@ -529,13 +529,14 @@
                       <div class="comp-compact-row">
                         <tech-logo [iconType]="db.icon_key" [size]="22" />
                         <span class="comp-name">{{ db.name }}</span>
-                        @if (db.service_engine !== 'none') {
+                      </div>
+                      @if (db.service_engine !== 'none') {
+                        <div class="comp-meta-row">
                           <span class="comp-ram-badge" machineData>
                             {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
                           </span>
-                        }
-                        <span class="comp-role-badge">{{ getRoleBadge(db) }}</span>
-                      </div>
+                        </div>
+                      }
                       @if (selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine) {
                         <div class="comp-expanded-content">
                           @if (db.description) {

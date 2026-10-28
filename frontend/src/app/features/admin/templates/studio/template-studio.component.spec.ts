@@ -464,9 +464,9 @@ describe('TemplateStudioComponent', () => {
     const dbCards = Array.from(columns[2].querySelectorAll<HTMLButtonElement>('.tech-component-card'));
     expect(dbCards.length).toBe(7);
 
-    // Los motores gestionados se ofrecen con su badge de aprovisionamiento y son seleccionables
+    // Los motores gestionados se ofrecen con su impacto en RAM y son seleccionables
     expect(col3Text).toContain('MySQL v8.4');
-    expect(col3Text).toContain('Auto-orquestado');
+    expect(col3Text).toContain('~128 MB RAM');
     expect(col3Text).toContain('SQLite3 (Nativo) v3.x');
     component.selectDatabase('db-mysql');
     expect(component.selectedDatabaseId()).toBe('db-mysql');
