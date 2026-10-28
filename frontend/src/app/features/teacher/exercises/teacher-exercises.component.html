@@ -3,11 +3,17 @@
   <header class="exercises-header">
     <div class="header-titles">
       <h1 class="page-title">Banco Global de Ejercicios y Laboratorios</h1>
-      <p class="page-subtitle">Gestioná, editá y generá casos de prueba para todos los laboratorios de tus materias.</p>
+      <p class="page-subtitle">Gestiona, edita y genera casos de prueba para todos los laboratorios de tus materias.</p>
     </div>
 
     <div class="header-actions">
-      <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+      <button
+        type="button"
+        class="btn btn-primary"
+        [disabled]="!hasCourses()"
+        [attr.title]="!hasCourses() ? 'Debes tener al menos una materia asignada para crear laboratorios' : null"
+        (click)="openCreateModal()"
+      >
         <svg lucidePlus class="btn-icon"></svg>
         <span>Nuevo Laboratorio</span>
       </button>
@@ -43,6 +49,7 @@
         placeholder="Buscar por título, materia o tecnología..."
         [ngModel]="searchTerm()"
         (ngModelChange)="searchTerm.set($event)"
+        [disabled]="!hasCourses()"
         class="search-input"
       />
     </div>
@@ -53,6 +60,7 @@
         <combobox
           [compact]="true"
           [showSearchIcon]="false"
+          [disabled]="!hasCourses()"
           [value]="selectedCourseLabel()"
           [options]="courseComboboxOptions()"
           placeholder="Materia..."
@@ -65,6 +73,7 @@
         <combobox
           [compact]="true"
           [showSearchIcon]="false"
+          [disabled]="!hasCourses()"
           [value]="selectedModalityLabel()"
           [options]="modalityComboboxOptions()"
           placeholder="Modalidad..."
@@ -77,6 +86,7 @@
         <combobox
           [compact]="true"
           [showSearchIcon]="false"
+          [disabled]="!hasCourses()"
           [value]="selectedStatusLabel()"
           [options]="statusComboboxOptions()"
           placeholder="Estado..."
@@ -89,15 +99,25 @@
   <!-- Listado / Cuadrícula de Ejercicios -->
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="6" />
+  } @else if (!hasCourses()) {
+    <div class="empty-state">
+      <svg lucideBookOpen class="empty-icon"></svg>
+      <h3>Sin materias asignadas</h3>
+      <p>Para crear y gestionar laboratorios necesitas tener al menos una materia asignada. Contacta al administrador para que asigne tus materias.</p>
+    </div>
   } @else if (filteredExercises().length === 0) {
     <div class="empty-state">
       <svg lucideLayers class="empty-icon"></svg>
       <h3>No se encontraron laboratorios</h3>
-      <p>Creá un nuevo laboratorio o ajustá los filtros seleccionados.</p>
-      <button type="button" class="btn btn-primary" (click)="openCreateModal()">
-        <svg lucidePlus class="btn-icon"></svg>
-        <span>Crear Laboratorio</span>
-      </button>
+      @if (allExercises().length === 0) {
+        <p>Aún no tienes laboratorios creados. Comienza creando tu primer laboratorio.</p>
+        <button type="button" class="btn btn-primary" (click)="openCreateModal()">
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Crear Laboratorio</span>
+        </button>
+      } @else {
+        <p>No se encontraron laboratorios que coincidan con los filtros seleccionados.</p>
+      }
     </div>
   } @else {
     <div class="exercises-grid">

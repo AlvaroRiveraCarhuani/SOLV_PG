@@ -13,7 +13,8 @@ import {
   LucideExternalLink,
   LucideClock,
   LucideLayers,
-  LucideUsers
+  LucideUsers,
+  LucideBookOpen
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
@@ -50,6 +51,7 @@ export interface EnrichedLabItem extends TeacherLabStats {
     LucideClock,
     LucideLayers,
     LucideUsers,
+    LucideBookOpen,
     MachineDataDirective,
     DateTextPipe,
     SkeletonLoaderComponent,
@@ -65,6 +67,7 @@ export class TeacherExercisesComponent implements OnInit {
   private router = inject(Router);
 
   courses = this.dashboardService.courses;
+  hasCourses = computed(() => this.courses().length > 0);
   isLoading = signal<boolean>(false);
   allExercises = signal<EnrichedLabItem[]>([]);
 
@@ -230,6 +233,9 @@ export class TeacherExercisesComponent implements OnInit {
 
 
   openCreateModal(preselectedCourseId?: string): void {
+    if (!this.hasCourses()) {
+      return;
+    }
     const coursesList = this.courses();
     const course = coursesList.find(c => c.id === preselectedCourseId) || coursesList[0];
     const courseId = course ? course.id : 'all';

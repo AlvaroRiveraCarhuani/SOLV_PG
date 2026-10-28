@@ -51,8 +51,13 @@
     background-color: var(--tenant-primary);
     color: var(--text-inverse, var(--bg-surface));
 
-    &:hover {
+    &:hover:not(:disabled) {
       background-color: var(--tenant-primary-hover);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
     }
   }
 
@@ -144,6 +149,12 @@
       &:focus {
         outline: none;
         border-color: var(--tenant-primary);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        background-color: var(--bg-surface-subtle);
       }
     }
   }

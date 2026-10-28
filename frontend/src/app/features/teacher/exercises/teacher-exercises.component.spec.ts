@@ -170,4 +170,26 @@ describe('TeacherExercisesComponent', () => {
     component.closeFuzzingModal();
     expect(component.isFuzzingOpen()).toBe(false);
   });
+
+  it('should disable creation and show specific empty state when teacher has no courses', () => {
+    const coursesSignal = mockDashboardService.courses as ReturnType<typeof signal<TeacherCourseSummary[]>>;
+    coursesSignal.set([]);
+    fixture.detectChanges();
+
+    expect(component.hasCourses()).toBe(false);
+
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate');
+
+    component.openCreateModal();
+    expect(navSpy).not.toHaveBeenCalled();
+
+    const compiled = fixture.nativeElement as HTMLElement;
+    const headerBtn = compiled.querySelector('.exercises-header .btn-primary') as HTMLButtonElement;
+    expect(headerBtn.disabled).toBe(true);
+    expect(headerBtn.getAttribute('title')).toContain('Debes tener al menos una materia asignada');
+
+    const emptyStateText = compiled.querySelector('.empty-state h3')?.textContent;
+    expect(emptyStateText).toBe('Sin materias asignadas');
+  });
 });
