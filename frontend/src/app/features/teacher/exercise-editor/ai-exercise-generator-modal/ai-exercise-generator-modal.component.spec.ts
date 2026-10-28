@@ -187,7 +187,7 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(component.isGenerating()).toBe(false); // mock observable is synchronous
 
     // Simular que está en curso
-    component.isGenerating.set(true);
+    component.generate();
     component.cancelGeneration();
 
     expect(component.isGenerating()).toBe(false);

@@ -1,7 +1,6 @@
-import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
 import {
   LucideSparkles,
   LucideAlertTriangle,
@@ -21,6 +20,7 @@ import {
   AIAvailabilityStatus,
   AIUserOverrideDTO
 } from '../../services/teacher-ai-copilot.service';
+import { AiOperation, AiOperations } from '@shared/services/ai-operation';
 
 type AIDifficulty = 'easy' | 'medium' | 'hard';
 
@@ -78,7 +78,7 @@ const BYOK_PROVIDERS: BYOKProviderOption[] = [
   styleUrl: './ai-exercise-generator-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
+export class AiExerciseGeneratorModalComponent implements OnInit {
   private readonly copilotService = inject(TeacherAiCopilotService);
 
   @Input() defaultLanguage = 'python';
@@ -101,14 +101,25 @@ export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
   readonly publicCasesCount = signal(2);
   readonly hiddenCasesCount = signal(3);
 
-  // Estados de ejecución y telemetría
-  readonly isGenerating = signal(false);
-  readonly elapsedSeconds = signal('0.0');
-  private timerInterval: ReturnType<typeof setInterval> | null = null;
-  private generateSub: Subscription | null = null;
+  // Estados de ejecución y telemetría: la llamada vive en una operación con
+  // dueño en la raíz, así que cerrar el modal no la aborta. Al reabrirlo, el
+  // resultado y el estado siguen disponibles.
+  private readonly operation: AiOperation<AIGenerateExerciseResponse> = inject(AiOperations).get(
+    'generate-exercise',
+    {
+      resolveError: (err: unknown) => this.copilotService.resolveError(err),
+      onError: (message: string) => this.errorMessage.set(message),
+      notify: {
+        success: 'Ejercicio generado por el Copiloto IA.'
+      }
+    }
+  );
+
+  readonly isGenerating = this.operation.isRunning;
+  readonly elapsedSeconds = this.operation.elapsedSeconds;
+  readonly generatedResult = this.operation.result;
 
   readonly errorMessage = signal<string | null>(null);
-  readonly generatedResult = signal<AIGenerateExerciseResponse | null>(null);
 
   // Panel BYOK Docente
   readonly showByokPanel = signal(false);
@@ -152,13 +163,6 @@ export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
       this.language.set(this.defaultLanguage);
     }
     this.loadStatusAndSettings();
-  }
-
-  ngOnDestroy(): void {
-    this.stopTimer();
-    if (this.generateSub) {
-      this.generateSub.unsubscribe();
-    }
   }
 
   loadStatusAndSettings(): void {
@@ -298,11 +302,8 @@ export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
     }
 
     this.errorMessage.set(null);
-    this.isGenerating.set(true);
-    this.startTimer();
-
-    this.generateSub = this.copilotService
-      .generateExercise({
+    this.operation.run(
+      this.copilotService.generateExercise({
         prompt,
         language: this.language(),
         difficulty: this.difficulty(),
@@ -310,49 +311,16 @@ export class AiExerciseGeneratorModalComponent implements OnInit, OnDestroy {
         hidden_cases_count: this.hiddenCasesCount(),
         verify_with_runner: true
       })
-      .subscribe({
-        next: (res) => {
-          this.stopTimer();
-          this.generatedResult.set(res);
-          this.isGenerating.set(false);
-        },
-        error: (err: unknown) => {
-          this.stopTimer();
-          this.errorMessage.set(this.copilotService.resolveError(err));
-          this.isGenerating.set(false);
-        }
-      });
+    );
   }
 
   cancelGeneration(): void {
-    if (this.generateSub) {
-      this.generateSub.unsubscribe();
-      this.generateSub = null;
-    }
-    this.stopTimer();
-    this.isGenerating.set(false);
+    this.operation.cancel();
     this.errorMessage.set('Generación cancelada por el docente.');
   }
 
-  private startTimer(): void {
-    this.stopTimer();
-    const startTime = Date.now();
-    this.elapsedSeconds.set('0.0');
-    this.timerInterval = setInterval(() => {
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      this.elapsedSeconds.set(elapsed);
-    }, 100);
-  }
-
-  private stopTimer(): void {
-    if (this.timerInterval) {
-      clearInterval(this.timerInterval);
-      this.timerInterval = null;
-    }
-  }
-
   discardResult(): void {
-    this.generatedResult.set(null);
+    this.operation.reset();
     this.errorMessage.set(null);
   }
 
