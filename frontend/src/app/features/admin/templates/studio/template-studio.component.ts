@@ -20,6 +20,7 @@ import { ToastService } from '@shared/services/toast.service';
 import { AiOperation, AiOperations } from '@shared/services/ai-operation';
 import { TechLogoComponent } from '../components/tech-logo/tech-logo.component';
 import { ComponentFormModalComponent } from '../components/model-library/components/component-form-modal/component-form-modal.component';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AIStatusDTO } from '../../configuracion/admin-config-ia.service';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
@@ -92,6 +93,7 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     FormsModule,
     TechLogoComponent,
     ComponentFormModalComponent,
+    ModalShellComponent,
     CodeEditorComponent,
     MachineDataDirective,
     StudioPurposeStepComponent,
@@ -199,6 +201,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
   readonly aiProposal = this.copilot.proposal;
   readonly aiProposalApplied = this.copilot.applied;
   readonly aiElapsedSeconds = this.copilot.elapsedSeconds;
+  readonly aiErrorMessage = this.copilot.errorMessage;
   // La autorreparación también es una operación con dueño en la raíz.
   private readonly repairOperation: AiOperation<AIRepairTemplateResponse> = this.aiOperations.get(
     'repair-template',
@@ -229,7 +232,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       entrypoint: this.entrypoint(),
       toolsDeclared: this.toolsDeclared(),
       timeoutMS: this.timeoutMS(),
-      ramMB: this.baseRamMB()
+      ramMB: this.baseRamMB(),
+      sampleInput: this.sampleInput()
     })
   );
 
@@ -349,6 +353,28 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     const ids = new Set(this.selectedAddonIds());
     return this.compatibleAddons().filter(a => ids.has(a.id) || ids.has(a.slug));
   });
+
+  readonly selectedFrameworkAddon = computed<TemplateComponent | null>(() =>
+    this.selectedAddonComponents().find(a => classifyAddonComponent(a) === 'framework') || null
+  );
+
+  readonly selectedOrmAddons = computed<TemplateComponent[]>(() =>
+    this.selectedAddonComponents().filter(a => classifyAddonComponent(a) === 'orm')
+  );
+
+  readonly selectedToolkitAddons = computed<TemplateComponent[]>(() =>
+    this.selectedAddonComponents().filter(a => classifyAddonComponent(a) === 'toolkit')
+  );
+
+  readonly showScopeInfoModal = signal<boolean>(false);
+
+  openScopeInfoModal(): void {
+    this.showScopeInfoModal.set(true);
+  }
+
+  closeScopeInfoModal(): void {
+    this.showScopeInfoModal.set(false);
+  }
 
   readonly selectedDatabaseOption = computed<StudioDatabaseOption | null>(() => {
     if (this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') return null;
@@ -1131,9 +1157,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         this.pollSub = this.envTestService.pollJob(job.id).subscribe({
           next: updated => {
             this.activeEnvTestJob.set(updated);
-      if (updated.status === 'success') {              this.verifiedFingerprint.set(testedFingerprint);
-
-      }
+            if (updated.status === 'success') {
+              this.verifiedFingerprint.set(testedFingerprint);
+            }
             if (this.envTestService.isTerminal(updated.status)) {
               this.isVerifying.set(false);
               this.pollSub?.unsubscribe();

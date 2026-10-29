@@ -481,6 +481,65 @@ describe('TemplateStudioComponent', () => {
     expect(enginesAfterDeactivation.some(d => d.service_engine === 'postgres')).toBe(true);
   });
 
+  it('should render catalog cards as compact native toggle buttons and show description in contextual inspector when selected', () => {
+    const hostEl = fixture.nativeElement as HTMLElement;
+    const firstColumn = hostEl.querySelectorAll('.studio-column')[0] as HTMLElement;
+
+    let cards = Array.from(firstColumn.querySelectorAll<HTMLElement>('.tech-component-card'));
+    expect(cards.length).toBeGreaterThan(0);
+    cards.forEach(card => expect(card.tagName).toBe('BUTTON'));
+
+    // Sin selección previa, todas informan aria-pressed=false
+    expect(cards.every(card => card.getAttribute('aria-pressed') === 'false')).toBe(true);
+
+    // En reposo, la tarjeta es compacta y ofrece la descripción en el title accesible
+    const pythonCard = cards.find(card => card.textContent?.includes('Python 3.12'));
+    expect(pythonCard).toBeTruthy();
+    expect(pythonCard?.getAttribute('title')).toContain('ciencia de datos');
+
+    // El control de edición es hermano de la tarjeta: nunca hay botones anidados
+    expect(firstColumn.querySelector('.tech-component-card .comp-edit-btn')).toBeNull();
+    expect(firstColumn.querySelector('.tech-card-wrap > .comp-edit-btn')).toBeTruthy();
+
+    pythonCard?.click();
+    fixture.detectChanges();
+
+    cards = Array.from(firstColumn.querySelectorAll<HTMLElement>('.tech-component-card'));
+    const pressed = cards.filter(card => card.getAttribute('aria-pressed') === 'true');
+    expect(pressed).toHaveLength(1);
+    expect(pressed[0].textContent).toContain('Python 3.12');
+
+    // Al seleccionar, la franja de inspección contextual muestra la descripción técnica
+    const inspectorStrip = firstColumn.querySelector('.tech-inspector-strip');
+    expect(inspectorStrip).toBeTruthy();
+    expect(inspectorStrip?.querySelector('.inspector-desc')?.textContent).toContain('ciencia de datos');
+  });
+
+  it('should open and close the scope info modal via scope-chip-btn in AMBOS mode', () => {
+    component.targetEnvironment.set('AMBOS');
+    fixture.detectChanges();
+
+    const hostEl = fixture.nativeElement as HTMLElement;
+    const scopeBtn = hostEl.querySelector<HTMLButtonElement>('.scope-chip-btn');
+    expect(scopeBtn).toBeTruthy();
+    expect(scopeBtn?.textContent).toContain('Modo Dual');
+
+    // Inicialmente cerrado
+    expect(hostEl.querySelector('.scope-modal-body')).toBeNull();
+
+    scopeBtn?.click();
+    fixture.detectChanges();
+
+    // Abierto
+    expect(hostEl.querySelector('.scope-modal-body')).toBeTruthy();
+    expect(hostEl.querySelector('.scope-modal-body')?.textContent).toContain('stdin');
+
+    // Cerrar
+    component.closeScopeInfoModal();
+    fixture.detectChanges();
+    expect(hostEl.querySelector('.scope-modal-body')).toBeNull();
+  });
+
   it('should offer catalog-registered database engines that the node does not report yet', () => {
     const registeredEngine = {
       id: 'db-redis-72',
@@ -803,6 +862,7 @@ describe('TemplateStudioComponent', () => {
   });
 
   it('should block publication when image requires verification until env test succeeds', () => {
+    const envSvc = TestBed.inject(EnvTestJobService);
     const tplSvc = TestBed.inject(AdminTemplatesService);
     const createSpy = vi.spyOn(tplSvc, 'createOfficialTemplate');
 
@@ -817,12 +877,12 @@ describe('TemplateStudioComponent', () => {
     component.publishTemplate();
     expect(createSpy).not.toHaveBeenCalled();
 
-    // Simular que el test finaliza en éxito
-    component.activeEnvTestJob.set({
+    // El job de comprobación termina en éxito con la configuración actual
+    const successJob = {
       id: 'job-1',
       image: 'solv-local/stack:test',
       tools: [],
-      status: 'success',
+      status: 'success' as const,
       finished_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -835,8 +895,14 @@ describe('TemplateStudioComponent', () => {
         layer_current: 0,
         layers_total: 0
       }
-    });
+    };
+    vi.spyOn(envSvc, 'startJob').mockReturnValue(of(successJob));
+    vi.spyOn(envSvc, 'pollJob').mockReturnValue(of(successJob));
 
+    component.runVerificationTest();
+
+    expect(component.activeEnvTestJob()?.status).toBe('success');
+    expect(component.verifiedFingerprint()).toBe(component.currentVerificationFingerprint());
     expect(component.requiresVerificationBeforePublish()).toBe(false);
   });
 

@@ -64,7 +64,30 @@
       <section class="studio-card">
         <div class="card-section-header">
           <div>
-            <h2 class="section-title">2. Arquitectura y Tecnologías del Entorno</h2>
+            <div class="section-title-row">
+              <h2 class="section-title">2. Arquitectura y Tecnologías del Entorno</h2>
+              @if (targetEnvironment() === 'AMBOS') {
+                <button
+                  type="button"
+                  class="scope-chip-btn"
+                  (click)="openScopeInfoModal()"
+                  title="Ver especificación técnica de ejecución en Modo Dual"
+                >
+                  <svg lucideInfo class="chip-icon"></svg>
+                  <span>Modo Dual</span>
+                </button>
+              } @else if (targetEnvironment() === 'JUEZ_EFIMERO') {
+                <button
+                  type="button"
+                  class="scope-chip-btn"
+                  (click)="openScopeInfoModal()"
+                  title="Ver especificación técnica del Evaluador Automático"
+                >
+                  <svg lucideInfo class="chip-icon"></svg>
+                  <span>Evaluador Automático</span>
+                </button>
+              }
+            </div>
             <p class="section-subtitle">
               Combine el lenguaje principal, la interfaz web, los complementos y la base de datos. Ambos modos se mantienen sincronizados.
             </p>
@@ -114,29 +137,6 @@
           </div>
         </div>
 
-        @if (targetEnvironment() === 'AMBOS') {
-          <div class="info-banner studio-scope-banner" role="note">
-            <div class="banner-title-row">
-              <svg lucideInfo class="banner-icon"></svg>
-              <strong>Modo Dual activo (Laboratorio interactivo + Evaluador automático de consola)</strong>
-            </div>
-            <p>
-              Este entorno compila y califica entregas mediante ejecución por consola estándar (<code>stdin</code> / <code>stdout</code>).
-              Las interfaces web frontend y bases de datos satélite requieren servicios interactivos y están disponibles únicamente en «Laboratorio de Práctica».
-            </p>
-          </div>
-        } @else if (targetEnvironment() === 'JUEZ_EFIMERO') {
-          <div class="info-banner studio-scope-banner" role="note">
-            <div class="banner-title-row">
-              <svg lucideInfo class="banner-icon"></svg>
-              <strong>Evaluador Automático de Ejercicios</strong>
-            </div>
-            <p>
-              Entorno ultraligero sin interfaz gráfica. Evalúa código exclusivamente mediante ejecución por consola estándar (<code>stdin</code> / <code>stdout</code>).
-            </p>
-          </div>
-        }
-
         @if (studioMode() === 'visual') {
           <div class="studio-columns-grid" [class.judge-cols]="targetEnvironment() === 'JUEZ_EFIMERO'">
             <div class="studio-column">
@@ -172,27 +172,29 @@
                 </div>
                 <div class="runtimes-grid">
                   @for (rt of filteredBackendRuntimes(); track rt.id) {
-                    <div
-                      class="tech-component-card runtime-card"
-                      role="button"
-                      tabindex="0"
-                      [class.selected]="selectedRuntimeComponent()?.id === rt.id"
-                      (click)="selectRuntime(rt.id)"
-                      (keydown.enter)="selectRuntime(rt.id)"
-                      (keydown.space)="selectRuntime(rt.id); $event.preventDefault()"
-                    >
-                      <div class="comp-compact-row">
-                        <tech-logo [iconType]="rt.icon_key" [size]="24" />
-                        <span class="comp-name" [title]="rt.description || rt.name">{{ rt.name }}</span>
-                        <button
-                          type="button"
-                          class="comp-edit-btn"
-                          title="Editar tecnología"
-                          (click)="$event.stopPropagation(); openEditComponentModal(rt)"
-                        >
-                          <svg lucidePencil class="comp-edit-icon"></svg>
-                        </button>
-                      </div>
+                    <div class="tech-card-wrap">
+                      <button
+                        type="button"
+                        class="tech-component-card runtime-card"
+                        [class.selected]="selectedRuntimeComponent()?.id === rt.id"
+                        [attr.aria-pressed]="selectedRuntimeComponent()?.id === rt.id"
+                        [title]="rt.description || rt.name"
+                        (click)="selectRuntime(rt.id)"
+                      >
+                        <div class="comp-compact-row">
+                          <tech-logo [iconType]="rt.icon_key" [size]="24" />
+                          <span class="comp-name">{{ rt.name }}</span>
+                        </div>
+                      </button>
+                      <button
+                        type="button"
+                        class="comp-edit-btn"
+                        title="Editar tecnología"
+                        [attr.aria-label]="'Editar ' + rt.name"
+                        (click)="openEditComponentModal(rt)"
+                      >
+                        <svg lucidePencil class="comp-edit-icon"></svg>
+                      </button>
                     </div>
                   } @empty {
                     <p class="empty-col-hint">
@@ -200,6 +202,15 @@
                     </p>
                   }
                 </div>
+                @if (selectedRuntimeComponent(); as rt) {
+                  @if (rt.description) {
+                    <div class="tech-inspector-strip">
+                      <tech-logo [iconType]="rt.icon_key" [size]="16" class="inspector-icon" />
+                      <strong class="inspector-name">{{ rt.name }}:</strong>
+                      <span class="inspector-desc">{{ rt.description }}</span>
+                    </div>
+                  }
+                }
 
                 @if (targetEnvironment() === 'IDE_PERSISTENTE') {
                   <div class="sub-group-header mt-group">
@@ -214,27 +225,29 @@
                   </div>
                   <div class="runtimes-grid web-grid">
                     @for (web of filteredWebPlatforms(); track web.id) {
-                      <div
-                        class="tech-component-card runtime-card"
-                        role="button"
-                        tabindex="0"
-                        [class.selected]="selectedWebComponent()?.id === web.id"
-                        (click)="selectWebPlatform(web.id)"
-                        (keydown.enter)="selectWebPlatform(web.id)"
-                        (keydown.space)="selectWebPlatform(web.id); $event.preventDefault()"
-                      >
-                        <div class="comp-compact-row">
-                          <tech-logo [iconType]="web.icon_key" [size]="24" />
-                          <span class="comp-name" [title]="web.description || web.name">{{ web.name }}</span>
-                          <button
-                            type="button"
-                            class="comp-edit-btn"
-                            title="Editar tecnología"
-                            (click)="$event.stopPropagation(); openEditComponentModal(web)"
-                          >
-                            <svg lucidePencil class="comp-edit-icon"></svg>
-                          </button>
-                        </div>
+                      <div class="tech-card-wrap">
+                        <button
+                          type="button"
+                          class="tech-component-card runtime-card"
+                          [class.selected]="selectedWebComponent()?.id === web.id"
+                          [attr.aria-pressed]="selectedWebComponent()?.id === web.id"
+                          [title]="web.description || web.name"
+                          (click)="selectWebPlatform(web.id)"
+                        >
+                          <div class="comp-compact-row">
+                            <tech-logo [iconType]="web.icon_key" [size]="24" />
+                            <span class="comp-name">{{ web.name }}</span>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          class="comp-edit-btn"
+                          title="Editar tecnología"
+                          [attr.aria-label]="'Editar ' + web.name"
+                          (click)="openEditComponentModal(web)"
+                        >
+                          <svg lucidePencil class="comp-edit-icon"></svg>
+                        </button>
                       </div>
                     } @empty {
                       <p class="empty-col-hint">
@@ -242,6 +255,15 @@
                       </p>
                     }
                   </div>
+                  @if (selectedWebComponent(); as web) {
+                    @if (web.description) {
+                      <div class="tech-inspector-strip">
+                        <tech-logo [iconType]="web.icon_key" [size]="16" class="inspector-icon" />
+                        <strong class="inspector-name">{{ web.name }}:</strong>
+                        <span class="inspector-desc">{{ web.description }}</span>
+                      </div>
+                    }
+                  }
                 } @else {
                   <div class="sub-group-header mt-group col-scope-disabled-wrap">
                     <span class="sub-group-label text-muted">Interfaz Web / Frontend</span>
@@ -347,40 +369,51 @@
                     </div>
                     <div class="packages-grid">
                       @for (addon of filteredFrameworkAddons(); track addon.id) {
-                        <div
-                          class="tech-component-card package-card"
-                          role="button"
-                          tabindex="0"
-                          [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
-                          (click)="toggleAddon(addon.id)"
-                          (keydown.enter)="toggleAddon(addon.id)"
-                          (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
-                        >
-                          <div class="comp-compact-row">
-                            <div class="pkg-icon-wrap">
-                              <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                        <div class="tech-card-wrap">
+                          <button
+                            type="button"
+                            class="tech-component-card package-card"
+                            [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [attr.aria-pressed]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [title]="addon.description || addon.name"
+                            (click)="toggleAddon(addon.id)"
+                          >
+                            <div class="comp-compact-row">
+                              <div class="pkg-icon-wrap">
+                                <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                              </div>
+                              <div class="pkg-info">
+                                <span class="comp-name">{{ addon.name }}</span>
+                                <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                              </div>
+                              <div class="pkg-check-indicator">
+                                @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                                  <svg lucideCheck class="check-icon"></svg>
+                                }
+                              </div>
                             </div>
-                            <div class="pkg-info">
-                              <span class="comp-name">{{ addon.name }}</span>
-                              <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
-                            </div>
-                            <div class="pkg-check-indicator">
-                              @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
-                                <svg lucideCheck class="check-icon"></svg>
-                              }
-                            </div>
-                            <button
-                              type="button"
-                              class="comp-edit-btn"
-                              title="Editar complemento"
-                              (click)="$event.stopPropagation(); openEditComponentModal(addon)"
-                            >
-                              <svg lucidePencil class="comp-edit-icon"></svg>
-                            </button>
-                          </div>
+                          </button>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar complemento"
+                            [attr.aria-label]="'Editar ' + addon.name"
+                            (click)="openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
                         </div>
                       }
                     </div>
+                    @if (selectedFrameworkAddon(); as f) {
+                      @if (f.description) {
+                        <div class="tech-inspector-strip">
+                          <tech-logo [iconType]="f.icon_key" [size]="16" class="inspector-icon" />
+                          <strong class="inspector-name">{{ f.name }}:</strong>
+                          <span class="inspector-desc">{{ f.description }}</span>
+                        </div>
+                      }
+                    }
                   }
 
                   <!-- Grupo 2: ORMs y Conectores de Datos -->
@@ -397,40 +430,51 @@
                     </div>
                     <div class="packages-grid">
                       @for (addon of filteredOrmAddons(); track addon.id) {
-                        <div
-                          class="tech-component-card package-card"
-                          role="button"
-                          tabindex="0"
-                          [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
-                          (click)="toggleAddon(addon.id)"
-                          (keydown.enter)="toggleAddon(addon.id)"
-                          (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
-                        >
-                          <div class="comp-compact-row">
-                            <div class="pkg-icon-wrap">
-                              <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                        <div class="tech-card-wrap">
+                          <button
+                            type="button"
+                            class="tech-component-card package-card"
+                            [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [attr.aria-pressed]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [title]="addon.description || addon.name"
+                            (click)="toggleAddon(addon.id)"
+                          >
+                            <div class="comp-compact-row">
+                              <div class="pkg-icon-wrap">
+                                <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                              </div>
+                              <div class="pkg-info">
+                                <span class="comp-name">{{ addon.name }}</span>
+                                <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                              </div>
+                              <div class="pkg-check-indicator">
+                                @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                                  <svg lucideCheck class="check-icon"></svg>
+                                }
+                              </div>
                             </div>
-                            <div class="pkg-info">
-                              <span class="comp-name">{{ addon.name }}</span>
-                              <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
-                            </div>
-                            <div class="pkg-check-indicator">
-                              @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
-                                <svg lucideCheck class="check-icon"></svg>
-                              }
-                            </div>
-                            <button
-                              type="button"
-                              class="comp-edit-btn"
-                              title="Editar complemento"
-                              (click)="$event.stopPropagation(); openEditComponentModal(addon)"
-                            >
-                              <svg lucidePencil class="comp-edit-icon"></svg>
-                            </button>
-                          </div>
+                          </button>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar complemento"
+                            [attr.aria-label]="'Editar ' + addon.name"
+                            (click)="openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
                         </div>
                       }
                     </div>
+                    @for (orm of selectedOrmAddons(); track orm.id) {
+                      @if (orm.description) {
+                        <div class="tech-inspector-strip">
+                          <tech-logo [iconType]="orm.icon_key" [size]="16" class="inspector-icon" />
+                          <strong class="inspector-name">{{ orm.name }}:</strong>
+                          <span class="inspector-desc">{{ orm.description }}</span>
+                        </div>
+                      }
+                    }
                   }
 
                   <!-- Grupo 3: Kits y Herramientas Académicas -->
@@ -447,40 +491,51 @@
                     </div>
                     <div class="packages-grid">
                       @for (addon of filteredToolkitAddons(); track addon.id) {
-                        <div
-                          class="tech-component-card package-card"
-                          role="button"
-                          tabindex="0"
-                          [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
-                          (click)="toggleAddon(addon.id)"
-                          (keydown.enter)="toggleAddon(addon.id)"
-                          (keydown.space)="toggleAddon(addon.id); $event.preventDefault()"
-                        >
-                          <div class="comp-compact-row">
-                            <div class="pkg-icon-wrap">
-                              <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                        <div class="tech-card-wrap">
+                          <button
+                            type="button"
+                            class="tech-component-card package-card"
+                            [class.selected]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [attr.aria-pressed]="isAddonSelected(addon.id) || isAddonSelected(addon.slug)"
+                            [title]="addon.description || addon.name"
+                            (click)="toggleAddon(addon.id)"
+                          >
+                            <div class="comp-compact-row">
+                              <div class="pkg-icon-wrap">
+                                <tech-logo [iconType]="addon.icon_key" [size]="24" />
+                              </div>
+                              <div class="pkg-info">
+                                <span class="comp-name">{{ addon.name }}</span>
+                                <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
+                              </div>
+                              <div class="pkg-check-indicator">
+                                @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
+                                  <svg lucideCheck class="check-icon"></svg>
+                                }
+                              </div>
                             </div>
-                            <div class="pkg-info">
-                              <span class="comp-name">{{ addon.name }}</span>
-                              <span class="comp-role-badge">{{ getRoleBadge(addon) }}</span>
-                            </div>
-                            <div class="pkg-check-indicator">
-                              @if (isAddonSelected(addon.id) || isAddonSelected(addon.slug)) {
-                                <svg lucideCheck class="check-icon"></svg>
-                              }
-                            </div>
-                            <button
-                              type="button"
-                              class="comp-edit-btn"
-                              title="Editar complemento"
-                              (click)="$event.stopPropagation(); openEditComponentModal(addon)"
-                            >
-                              <svg lucidePencil class="comp-edit-icon"></svg>
-                            </button>
-                          </div>
+                          </button>
+                          <button
+                            type="button"
+                            class="comp-edit-btn"
+                            title="Editar complemento"
+                            [attr.aria-label]="'Editar ' + addon.name"
+                            (click)="openEditComponentModal(addon)"
+                          >
+                            <svg lucidePencil class="comp-edit-icon"></svg>
+                          </button>
                         </div>
                       }
                     </div>
+                    @for (t of selectedToolkitAddons(); track t.id) {
+                      @if (t.description) {
+                        <div class="tech-inspector-strip">
+                          <tech-logo [iconType]="t.icon_key" [size]="16" class="inspector-icon" />
+                          <strong class="inspector-name">{{ t.name }}:</strong>
+                          <span class="inspector-desc">{{ t.description }}</span>
+                        </div>
+                      }
+                    }
                   }
 
                   @if (
@@ -538,12 +593,14 @@
                           type="button"
                           class="tech-component-card db-card"
                           [class.selected]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
+                          [attr.aria-pressed]="selectedDatabaseId() === db.id || selectedDatabaseId() === db.slug || selectedDatabaseId() === db.service_engine"
+                          [title]="db.description || db.name"
                           (click)="selectDatabase(db.id)"
                         >
                           <div class="comp-compact-row">
                             <tech-logo [iconType]="db.icon_key" [size]="24" />
                             <div class="db-info">
-                              <span class="comp-name" [title]="db.description || db.name">{{ db.name }}</span>
+                              <span class="comp-name">{{ db.name }}</span>
                               @if (db.service_engine !== 'none') {
                                 <span class="comp-ram-badge" machineData>
                                   {{ db.ram_delta_mb === 0 ? '+0 MB RAM' : '~' + db.ram_delta_mb + ' MB RAM' }}
@@ -554,6 +611,15 @@
                         </button>
                       }
                     </div>
+                    @if (selectedDatabaseOption(); as db) {
+                      @if (db.id !== 'db-none' && db.description) {
+                        <div class="tech-inspector-strip">
+                          <tech-logo [iconType]="db.icon_key" [size]="16" class="inspector-icon" />
+                          <strong class="inspector-name">{{ db.name }}:</strong>
+                          <span class="inspector-desc">{{ db.description }}</span>
+                        </div>
+                      }
+                    }
                   }
                 </div>
               </div>
@@ -840,5 +906,45 @@
       (createMissingComponent)="openCreateMissingFromProposal($event)"
       (dismiss)="isAiCopilotModalOpen.set(false)"
     />
+  }
+
+  @if (showScopeInfoModal()) {
+    <modal-shell
+      [title]="targetEnvironment() === 'AMBOS' ? 'Modo Dual (Laboratorio + Evaluador)' : 'Evaluador Automático de Ejercicios'"
+      subtitle="Especificación técnica de ejecución y servicios"
+      intent="info"
+      maxWidth="520px"
+      [showClose]="true"
+      (close)="closeScopeInfoModal()"
+    >
+      <svg modal-icon lucideInfo class="modal-intent-icon"></svg>
+      <div class="scope-modal-body">
+        @if (targetEnvironment() === 'AMBOS') {
+          <p class="scope-modal-text">
+            Este entorno está configurado para operar en dos modalidades sincronizadas:
+          </p>
+          <ul class="scope-modal-list">
+            <li>
+              <strong>Evaluación automática de código (Juez):</strong> Ejecución ultraligera y segura por consola estándar (<code>stdin</code> / <code>stdout</code>) para calificar tareas y exámenes sin interfaz gráfica.
+            </li>
+            <li>
+              <strong>Laboratorio interactivo de práctica:</strong> Sesión completa con editor en el navegador, terminal y servicios interactivos.
+            </li>
+          </ul>
+          <div class="scope-modal-note">
+            Las interfaces web frontend y bases de datos satélite requieren servicios interactivos y están disponibles únicamente en «Laboratorio de Práctica».
+          </div>
+        } @else {
+          <p class="scope-modal-text">
+            Entorno ultraligero sin interfaz gráfica. Evalúa entregas de código exclusivamente mediante ejecución por consola estándar (<code>stdin</code> / <code>stdout</code>) contra casos de prueba en pocos segundos.
+          </p>
+        }
+      </div>
+      <ng-container modal-footer>
+        <button type="button" class="btn-primary" (click)="closeScopeInfoModal()">
+          Entendido
+        </button>
+      </ng-container>
+    </modal-shell>
   }
 </div>
