@@ -1,3 +1,10 @@
+:host {
+  display: block;
+  position: sticky;
+  top: var(--space-4);
+  z-index: 20;
+}
+
 .btn-icon-xs {
   width: var(--space-4);
   height: var(--space-4);
@@ -10,8 +17,9 @@
 }
 
 .blueprint-sidebar {
-  position: sticky;
-  top: var(--space-4);
+  max-height: calc(100vh - var(--space-8));
+  display: flex;
+  flex-direction: column;
 }
 
 .blueprint-card {

@@ -39,7 +39,8 @@ import {
   LucideSparkles,
   LucideWrench,
   LucideNetwork,
-  LucideInfo
+  LucideInfo,
+  LucideCheck
 } from '@lucide/angular';
 import {
   AiProposalView,
@@ -112,7 +113,8 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
     LucideSparkles,
     LucideWrench,
     LucideNetwork,
-    LucideInfo
+    LucideInfo,
+    LucideCheck
   ],
   templateUrl: './template-studio.component.html',
   styleUrls: ['./template-studio.component.scss']
@@ -244,7 +246,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (!isLocal) return false;
     return (
       this.activeEnvTestJob()?.status !== 'success' ||
-      this.isConfigModifiedAfterVerification()
+      this.verifiedFingerprint() !== this.currentVerificationFingerprint()
     );
   });
 
@@ -257,7 +259,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly showComponentModal = signal<boolean>(false);
   readonly modalDefaultLayer = signal<ComponentLayer>('addon');
-  readonly modalDefaultSubCategory = signal<'backend' | 'web'>('backend');
+  readonly modalDefaultSubCategory = signal<string>('backend');
   readonly modalInitialAiPrompt = signal<string>('');
   readonly modalDefaultCompatibleRuntime = computed<string>(() => {
     const rt = this.effectivePrimaryComponent();
@@ -887,6 +889,51 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     this.recalculateFromVisualSelection();
   }
 
+  getDatabaseDriverName(engine?: string): string {
+    if (!engine || engine === 'none') return '';
+    const rtSlug = (this.selectedRuntimeComponent()?.slug || this.selectedRuntimeComponent()?.icon_key || '').toLowerCase();
+
+    if (rtSlug.includes('node') || rtSlug.includes('typescript')) {
+      switch (engine.toLowerCase()) {
+        case 'postgres': return 'pg';
+        case 'mongodb': return 'mongodb';
+        case 'redis': return 'ioredis';
+        case 'mysql':
+        case 'mariadb': return 'mysql2';
+        default: return 'conector oficial';
+      }
+    }
+    if (rtSlug.includes('go')) {
+      switch (engine.toLowerCase()) {
+        case 'postgres': return 'pgx';
+        case 'mongodb': return 'mongo-driver';
+        case 'redis': return 'go-redis';
+        case 'mysql':
+        case 'mariadb': return 'go-sql-driver';
+        default: return 'conector oficial';
+      }
+    }
+    if (rtSlug.includes('java')) {
+      switch (engine.toLowerCase()) {
+        case 'postgres': return 'postgresql-jdbc';
+        case 'mongodb': return 'mongo-java-driver';
+        case 'redis': return 'jedis';
+        case 'mysql':
+        case 'mariadb': return 'mysql-connector-j';
+        default: return 'conector oficial';
+      }
+    }
+    // Default Python
+    switch (engine.toLowerCase()) {
+      case 'postgres': return 'psycopg / SQLAlchemy';
+      case 'mongodb': return 'pymongo';
+      case 'redis': return 'redis-py';
+      case 'mysql':
+      case 'mariadb': return 'pymysql';
+      default: return 'conector oficial';
+    }
+  }
+
   onNameInput(val: string): void {
     this.isNameManuallyEdited.set(val.trim().length > 0);
     this.name.set(val);
@@ -964,7 +1011,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
   readonly editingComponent = signal<TemplateComponent | null>(null);
 
-  openNewComponentModal(layer: ComponentLayer, subCategory: 'backend' | 'web' = 'backend', initialPrompt: string = ''): void {
+  openNewComponentModal(layer: ComponentLayer, subCategory: string = 'backend', initialPrompt: string = ''): void {
     this.editingComponent.set(null);
     this.modalDefaultLayer.set(layer);
     this.modalDefaultSubCategory.set(subCategory);
@@ -1074,7 +1121,8 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       timeout_ms: this.timeoutMS(),
       sample_input: this.sampleInput(),
       base_ram_mb: this.baseRamMB(),
-      dockerfile_content: this.needsLocalBuild() ? this.dockerfileContent() : undefined
+      dockerfile_content: this.dockerfileContent(),
+      setup_script: this.setupScript().trim()
     };
 
     this.envTestService.startJob(req).subscribe({
@@ -1083,9 +1131,9 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
         this.pollSub = this.envTestService.pollJob(job.id).subscribe({
           next: updated => {
             this.activeEnvTestJob.set(updated);
-            if (updated.status === 'success') {
-              this.verifiedFingerprint.set(testedFingerprint);
-            }
+      if (updated.status === 'success') {              this.verifiedFingerprint.set(testedFingerprint);
+
+      }
             if (this.envTestService.isTerminal(updated.status)) {
               this.isVerifying.set(false);
               this.pollSub?.unsubscribe();
@@ -1199,7 +1247,10 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       resource_profile: { min_mb: minMB, high_mb: highMB, max_mb: maxMB },
       setup_script: this.setupScript().trim(),
       tools_declared: this.toolsList(),
-      stack_config: stackConfig
+      stack_config: stackConfig,
+      verification_job_id: this.needsLocalBuild() || this.dockerImage().startsWith('solv-local/stack:')
+        ? this.activeEnvTestJob()?.id
+        : undefined
     };
   }
 

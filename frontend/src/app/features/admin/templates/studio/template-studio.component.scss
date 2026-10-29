@@ -325,13 +325,9 @@
 }
 
 .studio-columns-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-
-  &.judge-cols {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
 }
 
 .judge-visual-config-bar {
@@ -398,13 +394,35 @@
 }
 
 .column-body {
-  padding: var(--space-3);
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  max-height: 420px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  gap: var(--space-3);
+}
+
+.runtimes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+
+  &.web-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  }
+}
+
+.packages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
+}
+
+.databases-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: var(--space-3);
+  align-items: start;
 }
 
 .column-search-wrap {
@@ -597,6 +615,72 @@
     cursor: not-allowed;
     opacity: 0.65;
     background-color: var(--bg-surface-subtle);
+  }
+
+  &.package-card {
+    .comp-name {
+      white-space: normal;
+      word-break: break-word;
+    }
+
+    .pkg-icon-wrap {
+      width: 28px;
+      height: 28px;
+      border-radius: var(--radius-xs);
+      background-color: var(--color-gray-100);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .pkg-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-0-5);
+    }
+
+    .pkg-check-indicator {
+      width: 18px;
+      height: 18px;
+      border-radius: var(--radius-xs);
+      border: 1px solid var(--border-subtle);
+      background-color: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--text-inverse);
+
+      .check-icon {
+        width: 12px;
+        height: 12px;
+      }
+    }
+
+    &.selected .pkg-check-indicator {
+      background-color: var(--tenant-primary);
+      border-color: var(--tenant-primary);
+    }
+  }
+
+  &.db-card {
+    &.selected {
+      border-color: var(--tenant-primary);
+      background-color: var(--tenant-primary-subtle);
+      box-shadow: 0 0 0 1px var(--tenant-primary);
+    }
+
+    .db-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-2);
+    }
   }
 }
 
