@@ -106,8 +106,9 @@
 
   .form-textarea {
     min-height: 80px;
+    max-height: 130px;
     line-height: var(--leading-normal);
-    resize: vertical;
+    resize: none;
   }
 }
 

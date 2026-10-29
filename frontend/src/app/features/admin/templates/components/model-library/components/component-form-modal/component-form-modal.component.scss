@@ -150,12 +150,6 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   margin-bottom: var(--space-3);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:focus-within {
-    border-color: var(--border-focus);
-    box-shadow: 0 0 0 2px var(--tenant-primary-border);
-  }
 }
 
 .ai-assist-header {
@@ -185,6 +179,7 @@
     box-sizing: border-box;
     width: 100%;
     min-height: 72px;
+    max-height: 120px;
     padding: var(--space-2) var(--space-3);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
@@ -193,7 +188,7 @@
     background-color: var(--bg-surface);
     border: 1px solid var(--border-strong);
     border-radius: var(--radius-sm);
-    resize: vertical;
+    resize: none;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
     &:focus {
