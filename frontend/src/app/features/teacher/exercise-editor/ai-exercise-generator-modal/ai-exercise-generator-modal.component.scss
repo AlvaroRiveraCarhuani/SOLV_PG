@@ -105,8 +105,7 @@
   gap: var(--space-3);
 
   .form-textarea {
-    min-height: 72px;
-    max-height: 120px;
+    min-height: 0;
     line-height: var(--leading-normal);
     resize: none;
   }
