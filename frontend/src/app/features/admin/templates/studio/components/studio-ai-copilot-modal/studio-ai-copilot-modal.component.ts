@@ -7,7 +7,8 @@ import {
   LucideRefreshCw,
   LucideXCircle,
   LucidePlusCircle,
-  LucideInfo
+  LucideInfo,
+  LucideAlertCircle
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -30,7 +31,8 @@ import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.se
     LucideRefreshCw,
     LucideXCircle,
     LucidePlusCircle,
-    LucideInfo
+    LucideInfo,
+    LucideAlertCircle
   ],
   templateUrl: './studio-ai-copilot-modal.component.html',
   styleUrl: './studio-ai-copilot-modal.component.scss',
@@ -41,6 +43,7 @@ export class StudioAiCopilotModalComponent {
   readonly prompt = input<string>('');
   readonly isSuggesting = input<boolean>(false);
   readonly elapsedSeconds = input<string>('0.0');
+  readonly errorMessage = input<string | null>(null);
   readonly proposalView = input<AiProposalView | null>(null);
   readonly constellation = input<StackConstellation | null>(null);
   readonly isApplied = input<boolean>(false);

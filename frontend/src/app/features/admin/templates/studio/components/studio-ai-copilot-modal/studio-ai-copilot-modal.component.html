@@ -42,6 +42,16 @@
           </button>
         }
       </div>
+
+      @if (errorMessage() && !isSuggesting() && !proposalView()) {
+        <div class="ai-error-banner" role="alert">
+          <svg lucideAlertCircle class="error-banner-icon"></svg>
+          <div class="error-banner-text">
+            <strong>No se pudo generar la propuesta</strong>
+            <span>{{ errorMessage() }}</span>
+          </div>
+        </div>
+      }
     </div>
 
     @if (proposalView(); as view) {

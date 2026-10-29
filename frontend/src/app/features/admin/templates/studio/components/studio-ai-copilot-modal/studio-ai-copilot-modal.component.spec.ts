@@ -233,4 +233,15 @@ describe('StudioAiCopilotModalComponent', () => {
     applyBtn.click();
     expect(applySpy).toHaveBeenCalled();
   });
+
+  it('should display error banner when errorMessage is provided and not suggesting', () => {
+    fixture.componentRef.setInput('errorMessage', 'El motor de IA superó el tiempo límite.');
+    fixture.componentRef.setInput('isSuggesting', false);
+    fixture.componentRef.setInput('proposalView', null);
+    fixture.detectChanges();
+
+    const banner = fixture.nativeElement.querySelector('.ai-error-banner');
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain('El motor de IA superó el tiempo límite.');
+  });
 });

@@ -62,6 +62,7 @@ export class StudioCopilotService {
       resolveError: (err: unknown) => this.aiService.resolveError(err),
       notify: {
         success: 'Propuesta del Copiloto lista para revisar.',
+        error: (message: string) => message,
         cancel: 'Operación del Copiloto cancelada.'
       }
     }
@@ -70,6 +71,7 @@ export class StudioCopilotService {
   readonly isSuggesting = this.operation.isRunning;
   readonly proposal = this.operation.result;
   readonly elapsedSeconds = this.operation.elapsedSeconds;
+  readonly errorMessage = this.operation.errorMessage;
 
   suggest(targetEnvironment: TargetEnvironment): void {
     const prompt = this.prompt().trim();
