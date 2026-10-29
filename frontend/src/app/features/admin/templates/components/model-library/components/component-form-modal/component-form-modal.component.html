@@ -141,12 +141,13 @@
       </div>
 
       <div class="ai-actions-row">
-        <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
         @if (isGeneratingAi()) {
           <div class="ai-running-telemetry">
-            <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
-            <span>Generando especificación técnica...</span>
-            <span class="font-mono text-xs" machineData>Transcurrido: {{ aiElapsedSeconds() }} s</span>
+            <div class="telemetry-info">
+              <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+              <span>Generando especificación técnica...</span>
+              <span class="font-mono text-xs" machineData>{{ aiElapsedSeconds() }} s</span>
+            </div>
             <button
               type="button"
               class="btn-cancel-ai"
@@ -157,6 +158,7 @@
             </button>
           </div>
         } @else {
+          <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
           <button
             type="button"
             class="btn-primary ai-generate-btn"

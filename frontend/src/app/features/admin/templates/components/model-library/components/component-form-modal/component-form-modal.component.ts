@@ -658,7 +658,21 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   private applySuggestion(res: AISuggestComponentResponse): void {
     this.onSelectCustomMode();
     if (res.component.name) this.name.set(res.component.name);
-    if (res.component.description) this.description.set(res.component.description);
+    if (res.component.description) {
+      const trimmedDesc = res.component.description.trim();
+      const promptLower = this.aiPrompt().trim().toLowerCase();
+      const descLower = trimmedDesc.toLowerCase();
+      if (
+        descLower === promptLower ||
+        /^(quiero|necesito|favor|crear|por favor)\b/i.test(descLower)
+      ) {
+        this.description.set(
+          `${res.component.name || 'Componente'} para prácticas y evaluaciones.`
+        );
+      } else {
+        this.description.set(trimmedDesc);
+      }
+    }
     if (res.component.icon_key) this.iconKey.set(res.component.icon_key);
     if (res.component.base_image) this.baseImage.set(res.component.base_image);
     const resolvedServiceEngine = res.service_engine || res.component.service_engine;

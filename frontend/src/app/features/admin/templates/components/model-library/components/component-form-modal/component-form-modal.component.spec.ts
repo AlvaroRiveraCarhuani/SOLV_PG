@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of, throwError } from 'rxjs';
+import { NEVER, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { ComponentFormModalComponent } from './component-form-modal.component';
 import { AdminTemplatesService } from '../../../../../services/admin-templates.service';
@@ -1309,6 +1309,42 @@ describe('ComponentFormModalComponent', () => {
       component.onAiPromptKeydown(regularEnter);
       expect(preventRegular).not.toHaveBeenCalled();
       expect(spy).toHaveBeenCalledTimes(2);
+    });
+
+    it('sanitiza descripcion coloquial que replica el prompt del usuario', () => {
+      component.ngOnInit();
+      component.aiPrompt.set('quiero tener ruby, una version estable');
+      mockAiService.suggestComponent.mockReturnValue(of({
+        component: {
+          name: 'Ruby estable',
+          layer: 'runtime' as const,
+          description: 'quiero tener ruby, una version estable'
+        },
+        rationale: 'Ruby configurado',
+        latency_ms: 120
+      }));
+
+      component.generateWithAi();
+      expect(component.description()).toBe('Ruby estable para prácticas y evaluaciones.');
+    });
+
+    it('renderiza telemetria y oculta atajo mientras isGeneratingAi es true', () => {
+      component.ngOnInit();
+      component.switchModalTab('ai');
+      fixture.detectChanges();
+
+      // En estado de reposo se muestra el atajo y no la telemetría
+      expect(fixture.nativeElement.querySelector('.ai-shortcut-hint')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.ai-running-telemetry')).toBeNull();
+
+      // Simulamos estado de generación activo
+      mockAiService.suggestComponent.mockReturnValue(NEVER);
+      component.aiPrompt.set('Ruby');
+      component.generateWithAi();
+      fixture.detectChanges();
+
+      expect(fixture.nativeElement.querySelector('.ai-shortcut-hint')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.ai-running-telemetry')).toBeTruthy();
     });
   });
 });

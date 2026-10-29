@@ -209,6 +209,7 @@
   justify-content: space-between;
   gap: var(--space-3);
   margin-top: var(--space-1);
+  min-height: 32px;
 
   .ai-shortcut-hint {
     font-size: var(--text-xs);
@@ -249,10 +250,21 @@
   .ai-running-telemetry {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    width: 100%;
     gap: var(--space-2);
     font-size: var(--text-xs);
     color: var(--text-primary);
-    flex-shrink: 0;
+
+    .telemetry-info {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-2);
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
   }
 
   .btn-cancel-ai {
@@ -266,6 +278,7 @@
     font-size: var(--text-2xs);
     cursor: pointer;
     color: var(--text-secondary);
+    flex-shrink: 0;
 
     &:hover {
       color: var(--status-failed-color);

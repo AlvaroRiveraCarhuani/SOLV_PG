@@ -362,6 +362,14 @@ func (s *AICopilotService) SuggestComponent(ctx context.Context, tenantID, userI
 		dto.BaseImage = baseImage
 	}
 
+	// Si la IA devolvió el prompt del usuario en la descripción o una frase coloquial en primera persona, sanearla.
+	desc := strings.TrimSpace(dto.Description)
+	promptLower := strings.ToLower(prompt)
+	descLower := strings.ToLower(desc)
+	if desc == "" || descLower == promptLower || strings.HasPrefix(descLower, "quiero ") || strings.HasPrefix(descLower, "necesito ") || strings.HasPrefix(descLower, "crear ") {
+		dto.Description = fmt.Sprintf("Entorno y herramientas de %s para desarrollo y prácticas en laboratorios virtuales", dto.Name)
+	}
+
 	// Saneo de metadatos del catálogo y síntesis determinista de la capa de build.
 	// En la capa de base de datos el saneo es cerrado: el motor, la clasificación, la
 	// imagen versionada, la huella de memoria y el modo de instalación quedan
@@ -780,6 +788,7 @@ Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, s
 }
 Reglas innegociables:
 - PROHIBIDO el tag :latest. Toda base_image debe llevar un tag de versión fija sobre Debian Bookworm/Bullseye slim (ej: python:3.12-slim-bookworm, node:20-bookworm-slim, gcc:13.2-bookworm). En complementos (addon) la base_image puede ir vacía.
+- description: redacción técnica concisa y formal del componente para docentes y administradores (ej: "Entorno oficial de ejecución de Ruby para scripts y desarrollo de aplicaciones"). PROHIBIDO copiar la consigna informal o coloquial del administrador (como "quiero tener...", "necesito...").
 - install_mode debe corresponder al ecosistema y package_names debe listar paquetes reales sin metacaracteres de shell.
 - build_layer_snippet puede ir vacío: el backend lo sintetiza de forma determinista desde install_mode + package_names.
 - Los paquetes ocupan disco, no memoria residente: ram_delta_mb solo refleja procesos residentes (0 salvo servidores o librerías pesadas).`

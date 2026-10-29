@@ -196,6 +196,26 @@ func TestAICopilot_SuggestComponent_SynthesizesAndSanitizes(t *testing.T) {
 	}
 }
 
+func TestAICopilot_SuggestComponent_SanitizesColloquialDescription(t *testing.T) {
+	colloquialJSON := `{"component":{"name":"Ruby estable","slug":"ruby-estable","layer":"runtime","sub_category":"backend","description":"quiero tener ruby, una version estable","icon_key":"ruby","base_image":"ruby:3.3-slim-bookworm","install_mode":"none"},"rationale":"ruby 3.3 es estable"}`
+	server := newCopilotLLMServer(t, colloquialJSON)
+	svc := newEnabledCopilotSettings(t, server)
+	copilot := NewAICopilotService(svc, nil)
+
+	resp, err := copilot.SuggestComponent(context.Background(), "t-1", "u-1", domain.AISuggestComponentRequestDTO{
+		Prompt: "quiero tener ruby, una version estable",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(strings.ToLower(resp.Component.Description), "quiero") {
+		t.Errorf("la descripción no debe contener consignas coloquiales del usuario, got: %q", resp.Component.Description)
+	}
+	if !strings.Contains(resp.Component.Description, "Ruby estable") {
+		t.Errorf("esperaba descripción saneada con nombre del componente, got: %q", resp.Component.Description)
+	}
+}
+
 func TestAICopilot_SuggestComponent_RejectsLatestTag(t *testing.T) {
 	latestJSON := `{"component":{"name":"Runtime Python","layer":"runtime","sub_category":"backend","base_image":"python:latest","install_mode":"none"},"rationale":"imagen genérica"}`
 	server := newCopilotLLMServer(t, latestJSON)
