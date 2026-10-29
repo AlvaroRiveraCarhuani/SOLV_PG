@@ -17,7 +17,7 @@
 }
 
 .blueprint-sidebar {
-  max-height: calc(100vh - var(--space-8));
+  max-height: calc(100vh - 130px);
   display: flex;
   flex-direction: column;
 }
@@ -30,6 +30,8 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  max-height: calc(100vh - 130px);
+  min-height: 0;
 }
 
 .blueprint-header {
@@ -39,6 +41,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
 }
 
 .blueprint-heading {
@@ -76,6 +79,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
 }
 
 .bp-block {
@@ -484,6 +492,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex-shrink: 0;
 }
 
 .w-full {
