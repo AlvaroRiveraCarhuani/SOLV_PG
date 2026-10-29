@@ -12,7 +12,8 @@ export type SidebarIconName =
   | 'sliders'
   | 'shield-alert'
   | 'file-text'
-  | 'graduation-cap';
+  | 'graduation-cap'
+  | 'sparkles';
 
 export interface NavItem {
   label: string;

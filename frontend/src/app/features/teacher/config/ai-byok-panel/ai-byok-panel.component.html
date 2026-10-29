@@ -1,0 +1,179 @@
+@if (loading()) {
+  <div class="panel-loading">
+    <svg lucideLoader2 class="spin-icon"></svg>
+    <span>Cargando tu configuración de IA...</span>
+  </div>
+} @else {
+  <header class="panel-head">
+    <div class="head-text">
+      <h2 class="section-title">
+        <svg lucideKeyRound class="head-icon"></svg>
+        Mi API Key personal
+      </h2>
+      <p class="card-hint">
+        Mientras esté inactiva, usás el motor que configuró la institución. Al activarla, tu clave
+        prevalece y el consumo corre por tu cuenta.
+      </p>
+    </div>
+
+    <label class="switch-toggle" for="byok-enabled">
+      <input
+        type="checkbox"
+        id="byok-enabled"
+        [checked]="enabled()"
+        (change)="onToggleEnabled($any($event.target).checked)" />
+      <span class="slider"></span>
+      <span class="toggle-state font-mono" [class.on]="enabled()">
+        {{ enabled() ? 'ACTIVA' : 'INACTIVA' }}
+      </span>
+    </label>
+  </header>
+
+  @if (hasSavedKey()) {
+    <div class="key-status">
+      <span class="key-status-label">Clave guardada:</span>
+      <code class="font-mono" machineData>{{ savedKeyMasked() }}</code>
+      @if (updatedAt()) {
+        <span class="key-status-sep">·</span>
+        <span class="key-status-label">Actualizada</span>
+        <time class="key-status-date">{{ updatedAt() | dateText:'daymonthyear' }}</time>
+      }
+    </div>
+  }
+
+  <div class="form-row">
+    <form-field label="Proveedor de IA" for="byok-provider">
+      <select
+        id="byok-provider"
+        class="form-select"
+        [ngModel]="provider()"
+        (ngModelChange)="onProviderChange($event)">
+        @for (item of providers; track item.value) {
+          <option [value]="item.value">{{ item.label }}</option>
+        }
+      </select>
+    </form-field>
+
+    <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
+      <input
+        id="byok-api-key"
+        type="password"
+        class="form-input"
+        autocomplete="off"
+        placeholder="Pega tu clave privada"
+        [ngModel]="apiKey()"
+        (ngModelChange)="apiKey.set($event)" />
+    </form-field>
+  </div>
+
+  <div class="model-block">
+    <form-field label="Modelo" for="byok-model" [hint]="modelHint()">
+      @if (manualModelMode() || filteredModels().length === 0) {
+        <input
+          id="byok-model"
+          type="text"
+          class="form-input"
+          placeholder="Ej: google/gemini-2.5-flash"
+          [ngModel]="model()"
+          (ngModelChange)="model.set($event)" />
+      } @else {
+        <select
+          id="byok-model"
+          class="form-select"
+          [ngModel]="model()"
+          (ngModelChange)="model.set($event)">
+          @for (item of filteredModels(); track item) {
+            <option [value]="item">{{ item }}</option>
+          }
+        </select>
+      }
+    </form-field>
+
+    <div class="model-actions">
+      <button type="button" class="btn-outline" [disabled]="loadingModels()" (click)="fetchModels()">
+        @if (loadingModels()) {
+          <svg lucideLoader2 class="spin-icon"></svg>
+        } @else {
+          <svg lucideSearch class="btn-icon"></svg>
+        }
+        <span>{{ loadingModels() ? 'Consultando...' : 'Listar modelos' }}</span>
+      </button>
+
+      @if (availableModels().length > 0) {
+        <button
+          type="button"
+          class="btn-link"
+          (click)="manualModelMode.set(!manualModelMode())">
+          {{ manualModelMode() ? 'Elegir del catálogo' : 'Escribir el ID a mano' }}
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (availableModels().length > 0 && !manualModelMode()) {
+    <div class="model-filter">
+      <div class="filter-chips">
+        <button
+          type="button"
+          class="filter-chip"
+          [class.active]="modelFilter() === 'all'"
+          (click)="modelFilter.set('all')">
+          Todos
+        </button>
+        <button
+          type="button"
+          class="filter-chip"
+          [class.active]="modelFilter() === 'free'"
+          (click)="modelFilter.set('free')">
+          Solo gratis
+        </button>
+      </div>
+      <input
+        type="text"
+        class="form-input filter-search"
+        placeholder="Filtrar por nombre..."
+        [ngModel]="modelSearch()"
+        (ngModelChange)="modelSearch.set($event)" />
+    </div>
+  }
+
+  @if (feedbackMessage(); as message) {
+    <div class="feedback" [class.feedback-ok]="feedbackOk() === true" [class.feedback-error]="feedbackOk() === false">
+      @if (feedbackOk() === true) {
+        <svg lucideCheckCircle2 class="feedback-icon"></svg>
+      } @else {
+        <svg lucideAlertCircle class="feedback-icon"></svg>
+      }
+      <span>{{ message }}</span>
+    </div>
+  }
+
+  <div class="panel-actions">
+    <button type="button" class="btn-primary" [disabled]="saving() || testing()" (click)="save()">
+      <span>{{ saving() ? 'Guardando...' : 'Guardar configuración' }}</span>
+    </button>
+
+    <button type="button" class="btn-outline" [disabled]="testing() || saving()" (click)="testConnection()">
+      @if (testing()) {
+        <svg lucideLoader2 class="spin-icon"></svg>
+      }
+      <span>{{ testing() ? 'Probando...' : 'Probar conexión' }}</span>
+    </button>
+
+    @if (hasSavedKey()) {
+      <button type="button" class="btn-danger-link" [disabled]="clearing()" (click)="clearKey()">
+        <svg lucideTrash2 class="btn-icon"></svg>
+        <span>{{ clearing() ? 'Quitando...' : 'Quitar mi clave' }}</span>
+      </button>
+    }
+  </div>
+
+  <p class="panel-note">
+    @if (institutionalAvailable()) {
+      Al quitar tu clave volvés al motor institucional sin perder nada más de tu configuración.
+    } @else {
+      La institución no tiene la IA habilitada. Quitar tu clave te deja sin copiloto hasta que la
+      habilite un administrador.
+    }
+  </p>
+}

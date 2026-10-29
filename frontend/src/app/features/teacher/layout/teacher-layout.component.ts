@@ -27,6 +27,12 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Control de Plagio', route: '/teacher/anti-plagio', iconName: 'shield-alert' }
     ]
+  },
+  {
+    title: 'CUENTA',
+    items: [
+      { label: 'Mi Inteligencia Artificial', route: '/teacher/configuracion', iconName: 'sparkles' }
+    ]
   }
 ];
 

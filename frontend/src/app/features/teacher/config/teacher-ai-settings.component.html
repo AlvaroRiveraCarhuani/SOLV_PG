@@ -1,0 +1,72 @@
+<div class="ai-settings-view">
+  <header class="view-head">
+    <h1 class="page-title">Mi Inteligencia Artificial</h1>
+    <p class="page-subtitle">
+      El copiloto redacta borradores de ejercicios con casos de prueba validados por el Juez. La
+      institución puede ofrecer un motor compartido y vos podés sumar tu propia clave.
+    </p>
+  </header>
+
+  <div class="engine-usage" [class.engine-usage-personal]="usingPersonalKey()">
+    @if (usingPersonalKey()) {
+      <svg lucideKeyRound class="usage-icon"></svg>
+      <span class="usage-text">Estás operando con tu clave personal.</span>
+    } @else if (institutionalEnabled()) {
+      <svg lucideShieldCheck class="usage-icon"></svg>
+      <span class="usage-text">Estás operando con el motor institucional.</span>
+    } @else {
+      <svg lucideCpu class="usage-icon"></svg>
+      <span class="usage-text">
+        La institución no tiene la IA habilitada. Activá tu clave personal para usar el copiloto.
+      </span>
+    }
+  </div>
+
+  <section class="settings-card">
+    <header class="card-head">
+      <div class="head-text">
+        <h2 class="section-title">
+          <svg lucideShieldCheck class="head-icon"></svg>
+          Motor institucional
+        </h2>
+        <p class="card-hint">
+          Configurado por un administrador para toda la institución. Es de solo lectura: si necesita
+          un cambio, contactá al área de sistemas.
+        </p>
+      </div>
+      <span
+        class="engine-badge font-mono"
+        [class.engine-badge-on]="institutionalEnabled()">
+        {{ institutionalEnabled() ? 'HABILITADO' : 'DESHABILITADO' }}
+      </span>
+    </header>
+
+    @if (institutionalEnabled()) {
+      <dl class="engine-details">
+        <div class="detail-row">
+          <dt class="detail-label">Proveedor</dt>
+          <dd class="detail-value">{{ institutionalProvider() || 'Sin definir' }}</dd>
+        </div>
+        <div class="detail-row">
+          <dt class="detail-label">Modelo</dt>
+          <dd class="detail-value">
+            @if (institutionalModel()) {
+              <code class="font-mono" machineData>{{ institutionalModel() }}</code>
+            } @else {
+              Sin definir
+            }
+          </dd>
+        </div>
+      </dl>
+    } @else {
+      <p class="engine-empty">
+        Un administrador todavía no habilitó el motor institucional. Podés usar el copiloto con tu
+        propia clave mientras tanto.
+      </p>
+    }
+  </section>
+
+  <section class="settings-card">
+    <ai-byok-panel (changed)="refresh()" />
+  </section>
+</div>
