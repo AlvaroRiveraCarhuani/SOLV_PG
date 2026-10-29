@@ -31,6 +31,7 @@ export type TechIconKey =
   | 'sqlite'
   | 'redis'
   | 'sqlalchemy'
+  | 'typeorm'
   | 'numpy'
   | 'pandas'
   | 'pytest'
@@ -69,6 +70,7 @@ export const CURATED_TECH_ICONS: CuratedIconMeta[] = [
   { key: 'deno', label: 'Deno' },
   { key: 'postgres', label: 'PostgreSQL' },
   { key: 'mysql', label: 'MySQL' },
+  { key: 'mariadb', label: 'MariaDB' },
   { key: 'sqlite', label: 'SQLite' },
   { key: 'mongodb', label: 'MongoDB' },
   { key: 'redis', label: 'Redis' },
@@ -85,6 +87,7 @@ export const CURATED_TECH_ICONS: CuratedIconMeta[] = [
   { key: 'express', label: 'Express' },
   { key: 'nestjs', label: 'NestJS' },
   { key: 'prisma', label: 'Prisma' },
+  { key: 'typeorm', label: 'TypeORM' },
   { key: 'vitest', label: 'Vitest' },
   { key: 'gin', label: 'Gin' },
   { key: 'gorm', label: 'GORM' },

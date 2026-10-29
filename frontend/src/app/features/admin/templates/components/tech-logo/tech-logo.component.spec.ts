@@ -28,7 +28,12 @@ describe('TechLogoComponent', () => {
       'bun',
       'flask',
       'laravel',
-      'sqlite'
+      'sqlite',
+      'express',
+      'nestjs',
+      'prisma',
+      'typeorm',
+      'mariadb'
     ];
     for (const icon of knownIcons) {
       component.iconType = icon;
