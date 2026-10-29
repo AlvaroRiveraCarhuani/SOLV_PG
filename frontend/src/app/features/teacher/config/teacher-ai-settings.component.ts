@@ -1,5 +1,10 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
-import { LucideCpu, LucideKeyRound, LucideShieldCheck } from '@lucide/angular';
+import {
+  LucideCpu,
+  LucideKeyRound,
+  LucidePauseCircle,
+  LucideShieldCheck
+} from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import {
   AIAvailabilityStatus,
@@ -18,7 +23,14 @@ import { AiByokPanelComponent } from './ai-byok-panel/ai-byok-panel.component';
 @Component({
   selector: 'teacher-ai-settings',
   standalone: true,
-  imports: [AiByokPanelComponent, MachineDataDirective, LucideCpu, LucideKeyRound, LucideShieldCheck],
+  imports: [
+    AiByokPanelComponent,
+    MachineDataDirective,
+    LucideCpu,
+    LucideKeyRound,
+    LucidePauseCircle,
+    LucideShieldCheck
+  ],
   templateUrl: './teacher-ai-settings.component.html',
   styleUrl: './teacher-ai-settings.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -35,6 +47,18 @@ export class TeacherAiSettingsComponent implements OnInit {
   );
   readonly institutionalModel = computed(() => this.settings()?.institutional_model ?? '');
   readonly usingPersonalKey = computed(() => this.status()?.using_personal_key === true);
+
+  /**
+   * El motor institucional sigue existiendo aunque el docente use su clave
+   * personal, por eso el distintivo deja de decir "HABILITADO": informa que
+   * está en pausa para que nadie crea que se sigue consumiendo.
+   */
+  readonly institutionalBadgeLabel = computed(() => {
+    if (!this.institutionalEnabled()) {
+      return 'DESHABILITADO';
+    }
+    return this.usingPersonalKey() ? 'EN PAUSA' : 'HABILITADO';
+  });
 
   ngOnInit(): void {
     this.refresh();

@@ -74,19 +74,40 @@ interface ApiErrorBody {
   code?: string;
 }
 
+/**
+ * Modelo disponible en la cuenta personal del docente. El proveedor puede
+ * devolver solo el identificador o el objeto enriquecido del catálogo, por eso
+ * nombre, nivel de precio y etiqueta son opcionales.
+ */
+export interface AIByokModel {
+  id: string;
+  name?: string;
+  tier?: string;
+  pricing_hint?: string;
+}
+
 // El listado de modelos BYOK llega como { data: { models: [...] } }; por contrato
 // previo también se aceptan el array plano y el body { models: [...] }. Cada modelo
-// puede ser el id directamente o un objeto { id } según el proveedor.
+// puede ser el id directamente o un objeto { id, name, tier, pricing_hint } según
+// el proveedor.
 
-function toByokModelId(m: unknown): string {
+function toByokModel(m: unknown): AIByokModel {
   if (typeof m === 'string') {
-    return m;
+    return { id: m };
   }
-  if (typeof m === 'object' && m !== null && 'id' in m) {
-    const id = (m as { id?: unknown }).id;
-    return typeof id === 'string' ? id : '';
+  if (typeof m === 'object' && m !== null) {
+    const item = m as { id?: unknown; name?: unknown; tier?: unknown; pricing_hint?: unknown };
+    return {
+      id: typeof item.id === 'string' ? item.id : '',
+      name: typeof item.name === 'string' && item.name.trim() !== '' ? item.name : undefined,
+      tier: typeof item.tier === 'string' && item.tier.trim() !== '' ? item.tier : undefined,
+      pricing_hint:
+        typeof item.pricing_hint === 'string' && item.pricing_hint.trim() !== ''
+          ? item.pricing_hint
+          : undefined
+    };
   }
-  return '';
+  return { id: '' };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -126,22 +147,24 @@ export class TeacherAiCopilotService {
       .pipe(map((res) => res.data));
   }
 
-  listMyModels(payload: { provider: string; api_key?: string; base_url?: string }): Observable<string[]> {
+  listMyModels(payload: { provider: string; api_key?: string; base_url?: string }): Observable<AIByokModel[]> {
     return this.http
       .post<{ data?: unknown; models?: unknown }>('/api/v1/ai/my-settings/models', payload)
       .pipe(
         map((envelope) => {
           if (!envelope) return [];
           const body: unknown = envelope.data ?? envelope;
+          let models: unknown;
           if (Array.isArray(body)) {
-            return body.map(toByokModelId);
+            models = body;
+          } else {
+            const bodyModels = (body as { models?: unknown } | null)?.models;
+            models = bodyModels ?? envelope.models ?? [];
           }
-          const bodyModels = (body as { models?: unknown } | null)?.models;
-          const models: unknown = bodyModels ?? envelope.models ?? [];
-          if (Array.isArray(models)) {
-            return models.map(toByokModelId);
+          if (!Array.isArray(models)) {
+            return [];
           }
-          return [];
+          return models.map(toByokModel).filter((item) => item.id !== '');
         })
       );
   }

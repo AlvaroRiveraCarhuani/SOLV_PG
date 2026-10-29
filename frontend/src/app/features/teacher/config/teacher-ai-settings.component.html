@@ -36,10 +36,21 @@
       </div>
       <span
         class="engine-badge font-mono"
-        [class.engine-badge-on]="institutionalEnabled()">
-        {{ institutionalEnabled() ? 'HABILITADO' : 'DESHABILITADO' }}
+        [class.engine-badge-on]="institutionalEnabled() && !usingPersonalKey()"
+        [class.engine-badge-paused]="institutionalEnabled() && usingPersonalKey()">
+        {{ institutionalBadgeLabel() }}
       </span>
     </header>
+
+    @if (institutionalEnabled() && usingPersonalKey()) {
+      <div class="engine-paused-note">
+        <svg lucidePauseCircle class="note-icon"></svg>
+        <span>
+          No se está usando: tu clave personal tiene prioridad mientras el interruptor de «Mi API
+          Key personal» esté activo.
+        </span>
+      </div>
+    }
 
     @if (institutionalEnabled()) {
       <dl class="engine-details">

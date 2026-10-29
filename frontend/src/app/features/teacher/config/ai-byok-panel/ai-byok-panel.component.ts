@@ -11,15 +11,20 @@ import { FormsModule } from '@angular/forms';
 import {
   LucideAlertCircle,
   LucideCheckCircle2,
+  LucideCloud,
   LucideKeyRound,
   LucideLoader2,
+  LucideRefreshCw,
+  LucideSave,
   LucideSearch,
-  LucideTrash2
+  LucideTrash2,
+  LucideWifi
 } from '@lucide/angular';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
+  AIByokModel,
   AIUserOverrideDTO,
   TeacherAiCopilotService
 } from '../../services/teacher-ai-copilot.service';
@@ -46,10 +51,14 @@ import { BYOK_PROVIDERS, DEFAULT_BYOK_PROVIDER } from '../ai-byok.config';
     DateTextPipe,
     LucideKeyRound,
     LucideLoader2,
+    LucideCloud,
+    LucideRefreshCw,
     LucideSearch,
     LucideTrash2,
     LucideCheckCircle2,
-    LucideAlertCircle
+    LucideAlertCircle,
+    LucideWifi,
+    LucideSave
   ],
   templateUrl: './ai-byok-panel.component.html',
   styleUrl: './ai-byok-panel.component.scss',
@@ -68,7 +77,6 @@ export class AiByokPanelComponent implements OnInit {
   readonly provider = signal(DEFAULT_BYOK_PROVIDER);
   readonly apiKey = signal('');
   readonly model = signal('');
-  readonly baseUrl = signal('');
 
   readonly saving = signal(false);
   readonly testing = signal(false);
@@ -78,10 +86,12 @@ export class AiByokPanelComponent implements OnInit {
   readonly feedbackMessage = signal<string | null>(null);
   readonly feedbackOk = signal<boolean | null>(null);
 
-  readonly availableModels = signal<string[]>([]);
-  readonly modelFilter = signal<'all' | 'free'>('all');
+  readonly availableModels = signal<AIByokModel[]>([]);
+  readonly modelsFetchedAt = signal<string>('');
+  readonly modelTierFilter = signal<'all' | 'free' | 'paid'>('all');
   readonly modelSearch = signal('');
   readonly manualModelMode = signal(false);
+  readonly iconErrors = signal<Record<string, boolean>>({});
 
   readonly current = signal<AIUserOverrideDTO | null>(null);
 
@@ -92,29 +102,131 @@ export class AiByokPanelComponent implements OnInit {
     () => this.current()?.institutional_enabled === true
   );
 
+  /** Proveedor que efectivamente tiene la clave cifrada guardada. */
+  readonly savedKeyProvider = computed(() =>
+    this.hasSavedKey() ? (this.current()?.provider ?? '') : ''
+  );
+
+  readonly sameProviderAsSaved = computed(() => this.provider() === this.savedKeyProvider());
+
+  readonly selectedProvider = computed(() =>
+    this.providers.find((item) => item.value === this.provider())
+  );
+
+  /**
+   * Solo se puede descubrir el catálogo con una credencial propia: la clave
+   * guardada de este proveedor o una API key recién pegada. Nunca cae en el
+   * motor institucional.
+   */
+  readonly canFetchModels = computed(() => {
+    if (this.hasSavedKey() && this.sameProviderAsSaved()) {
+      return true;
+    }
+    const provider = this.selectedProvider();
+    if (!provider) {
+      return false;
+    }
+    return this.apiKey().trim().length > 0;
+  });
+
+  /**
+   * Solo se puede probar la conexión si hay una credencial disponible y un
+   * modelo seleccionado.
+   */
+  readonly canTestConnection = computed(() => {
+    return this.canFetchModels() && this.model().trim().length > 0;
+  });
+
+  /**
+   * Comprueba si el docente modificó algún valor frente a la configuración
+   * persistida actualmente.
+   */
+  readonly isDirty = computed(() => {
+    const initial = this.current();
+    if (!initial) {
+      return false;
+    }
+    if (this.enabled() !== initial.enabled) {
+      return true;
+    }
+    const initialProvider = initial.provider || DEFAULT_BYOK_PROVIDER;
+    if (this.provider() !== initialProvider) {
+      return true;
+    }
+    const initialModel = (initial.model || '').trim();
+    if (this.model().trim() !== initialModel) {
+      return true;
+    }
+    if (this.apiKey().trim().length > 0) {
+      return true;
+    }
+    return false;
+  });
+
+  /**
+   * Solo se puede guardar si hay cambios pendientes y la configuración es válida.
+   * Si está habilitada, exige credencial y modelo; si está inactiva pero se
+   * redactó una clave, exige también el modelo.
+   */
+  readonly canSave = computed(() => {
+    if (!this.isDirty()) {
+      return false;
+    }
+    if (this.enabled()) {
+      return this.canFetchModels() && this.model().trim().length > 0;
+    }
+    if (this.apiKey().trim().length > 0) {
+      return this.model().trim().length > 0;
+    }
+    return true;
+  });
+
+  readonly modelsLockedHint = computed(() => {
+    const provider = this.selectedProvider();
+    if (!provider) {
+      return 'Seleccioná un proveedor para listar sus modelos.';
+    }
+    return 'Ingresá primero tu API key personal arriba para descubrir y listar los modelos disponibles de este proveedor.';
+  });
+
   readonly filteredModels = computed(() => {
-    const raw = this.availableModels();
-    const list = Array.isArray(raw) ? raw : [];
-    const filter = this.modelFilter();
+    const list = this.availableModels();
+    const tier = this.modelTierFilter();
     const search = this.modelSearch().toLowerCase().trim();
 
     return list.filter((item) => {
-      const lower = item.toLowerCase();
-      if (filter === 'free' && !lower.includes(':free') && !lower.includes('free')) {
+      const free = this.isFreeModel(item);
+      if (tier === 'free' && !free) {
         return false;
       }
-      return !(search && !lower.includes(search));
+      if (tier === 'paid' && free) {
+        return false;
+      }
+      if (!search) {
+        return true;
+      }
+      return (
+        item.id.toLowerCase().includes(search) || (item.name ?? '').toLowerCase().includes(search)
+      );
     });
   });
 
   readonly apiKeyHint = computed(() =>
-    this.hasSavedKey() ? 'Dejá vacío para conservar la clave guardada' : 'Pega tu clave privada'
+    this.hasSavedKey() && this.sameProviderAsSaved()
+      ? 'Dejá vacío para conservar la clave guardada'
+      : 'Pega tu clave privada'
+  );
+
+  readonly apiKeyPlaceholder = computed(() =>
+    this.hasSavedKey() && this.sameProviderAsSaved()
+      ? 'Dejar en blanco para conservar la clave actual'
+      : `Ej: ${this.selectedProvider()?.placeholderKey ?? 'sk-...'}`
   );
 
   readonly modelHint = computed(() =>
     this.manualModelMode()
-      ? 'Escribe el ID del modelo manualmente'
-      : 'Elegí del catálogo o buscá por nombre'
+      ? 'Escribí el identificador exacto del modelo'
+      : 'Buscá el modelo por nombre o ID, o escríbelo manualmente'
   );
 
   ngOnInit(): void {
@@ -132,9 +244,8 @@ export class AiByokPanelComponent implements OnInit {
         }
         if (settings.model) {
           this.model.set(settings.model);
-        }
-        if (settings.base_url) {
-          this.baseUrl.set(settings.base_url);
+        } else {
+          this.model.set('');
         }
         this.loading.set(false);
       },
@@ -153,14 +264,54 @@ export class AiByokPanelComponent implements OnInit {
   }
 
   onProviderChange(value: string): void {
+    if (value === this.provider()) {
+      return;
+    }
     this.provider.set(value);
+    this.apiKey.set('');
     this.availableModels.set([]);
+    this.modelsFetchedAt.set('');
+    this.modelTierFilter.set('all');
     this.manualModelMode.set(false);
+    if (value !== this.savedKeyProvider()) {
+      this.model.set('');
+    } else {
+      this.model.set(this.current()?.model ?? '');
+    }
+    this.feedbackMessage.set(null);
+    this.feedbackOk.set(null);
+  }
+
+  onIconError(providerId: string): void {
+    this.iconErrors.update((current) => ({ ...current, [providerId]: true }));
+  }
+
+  isFreeModel(item: AIByokModel): boolean {
+    const tier = (item.tier ?? '').toLowerCase();
+    if (tier === 'free' || tier === 'local') {
+      return true;
+    }
+    if (tier === 'paid' || tier === 'by_account') {
+      return false;
+    }
+    const id = item.id.toLowerCase();
+    return id.includes(':free') || id.includes('/free');
+  }
+
+  modelName(item: AIByokModel): string {
+    return item.name && item.name !== item.id ? item.name : item.id;
+  }
+
+  selectModel(item: AIByokModel): void {
+    this.model.set(item.id);
     this.feedbackMessage.set(null);
     this.feedbackOk.set(null);
   }
 
   fetchModels(): void {
+    if (!this.canFetchModels() || this.loadingModels()) {
+      return;
+    }
     this.loadingModels.set(true);
     this.feedbackMessage.set(null);
 
@@ -168,15 +319,16 @@ export class AiByokPanelComponent implements OnInit {
       .listMyModels({
         provider: this.provider(),
         api_key: this.apiKey().trim() || undefined,
-        base_url: this.baseUrl().trim() || undefined
+        base_url: undefined
       })
       .subscribe({
         next: (models) => {
           const safe = Array.isArray(models) ? models : [];
           this.availableModels.set(safe);
+          this.modelsFetchedAt.set(new Date().toISOString());
           this.loadingModels.set(false);
           if (safe.length > 0 && !this.model()) {
-            this.model.set(safe[0]);
+            this.model.set(safe[0].id);
           }
         },
         error: (err: unknown) => {
@@ -188,6 +340,9 @@ export class AiByokPanelComponent implements OnInit {
   }
 
   testConnection(): void {
+    if (!this.canTestConnection() || this.testing()) {
+      return;
+    }
     this.testing.set(true);
     this.feedbackMessage.set(null);
     this.feedbackOk.set(null);
@@ -197,7 +352,7 @@ export class AiByokPanelComponent implements OnInit {
         provider: this.provider(),
         model: this.model().trim(),
         api_key: this.apiKey().trim() || undefined,
-        base_url: this.baseUrl().trim() || undefined
+        base_url: undefined
       })
       .subscribe({
         next: (res) => {
@@ -214,7 +369,11 @@ export class AiByokPanelComponent implements OnInit {
   }
 
   save(): void {
-    if (!this.model().trim()) {
+    if (!this.canSave()) {
+      return;
+    }
+
+    if (this.enabled() && !this.model().trim()) {
       this.feedbackOk.set(false);
       this.feedbackMessage.set('Elegí un modelo antes de guardar la configuración.');
       return;
@@ -228,7 +387,7 @@ export class AiByokPanelComponent implements OnInit {
         enabled: this.enabled(),
         provider: this.provider(),
         model: this.model().trim(),
-        base_url: this.baseUrl().trim() || undefined,
+        base_url: undefined,
         api_key: this.apiKey().trim() || undefined
       })
       .subscribe({

@@ -77,6 +77,16 @@ describe('TeacherAiSettingsComponent', () => {
     await setup({ ...institutionalStatus, using_personal_key: true }, personalSettings);
 
     expect(component.usingPersonalKey()).toBe(true);
+    expect(component.institutionalBadgeLabel()).toBe('EN PAUSA');
+    expect(fixture.nativeElement.textContent).toContain('EN PAUSA');
+    expect(fixture.nativeElement.textContent).toContain('tu clave personal tiene prioridad');
+  });
+
+  it('muestra HABILITADO cuando el motor institucional es el que se usa', async () => {
+    await setup(institutionalStatus, { ...personalSettings, enabled: false, has_api_key: false });
+
+    expect(component.institutionalBadgeLabel()).toBe('HABILITADO');
+    expect(fixture.nativeElement.textContent).not.toContain('EN PAUSA');
   });
 
   it('advierte cuando la institución no habilitó la IA', async () => {

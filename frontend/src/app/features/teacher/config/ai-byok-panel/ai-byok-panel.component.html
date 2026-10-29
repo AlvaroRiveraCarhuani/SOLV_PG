@@ -41,26 +41,58 @@
     </div>
   }
 
-  <div class="form-row">
-    <form-field label="Proveedor de IA" for="byok-provider">
-      <select
-        id="byok-provider"
-        class="form-select"
-        [ngModel]="provider()"
-        (ngModelChange)="onProviderChange($event)">
-        @for (item of providers; track item.value) {
-          <option [value]="item.value">{{ item.label }}</option>
-        }
-      </select>
-    </form-field>
+  <div class="provider-grid">
+    @for (item of providers; track item.value) {
+      <button
+        type="button"
+        class="provider-card"
+        [class.selected]="provider() === item.value"
+        [attr.aria-pressed]="provider() === item.value"
+        (click)="onProviderChange(item.value)">
+        <div class="provider-card-header">
+          <div class="provider-title-row">
+            @if (!iconErrors()[item.value]) {
+              <img
+                class="provider-logo"
+                [src]="item.iconUrl"
+                [alt]="item.label"
+                (error)="onIconError(item.value)" />
+            } @else {
+              <svg lucideCloud class="provider-icon"></svg>
+            }
+            <span class="provider-label">{{ item.label }}</span>
+          </div>
+          <span class="provider-badge">{{ item.badge }}</span>
+        </div>
 
+        <div class="provider-card-footer">
+          @if (savedKeyProvider() === item.value) {
+            <div class="configured-row">
+              @if (hasSavedKey()) {
+                <span class="saved-key-pill font-mono">Clave guardada</span>
+              }
+              @if (current()?.model) {
+                <span class="model-caption">
+                  Modelo: <code class="font-mono">{{ current()?.model }}</code>
+                </span>
+              }
+            </div>
+          } @else {
+            <span class="model-caption sin-configurar">Sin configurar</span>
+          }
+        </div>
+      </button>
+    }
+  </div>
+
+  <div class="credential-row">
     <form-field label="API Key personal" for="byok-api-key" [hint]="apiKeyHint()">
       <input
         id="byok-api-key"
         type="password"
         class="form-input"
         autocomplete="off"
-        placeholder="Pega tu clave privada"
+        [placeholder]="apiKeyPlaceholder()"
         [ngModel]="apiKey()"
         (ngModelChange)="apiKey.set($event)" />
     </form-field>
@@ -68,74 +100,141 @@
 
   <div class="model-block">
     <form-field label="Modelo" for="byok-model" [hint]="modelHint()">
-      @if (manualModelMode() || filteredModels().length === 0) {
-        <input
-          id="byok-model"
-          type="text"
-          class="form-input"
-          placeholder="Ej: google/gemini-2.5-flash"
-          [ngModel]="model()"
-          (ngModelChange)="model.set($event)" />
-      } @else {
-        <select
-          id="byok-model"
-          class="form-select"
-          [ngModel]="model()"
-          (ngModelChange)="model.set($event)">
-          @for (item of filteredModels(); track item) {
-            <option [value]="item">{{ item }}</option>
+      <div class="selected-model-bar">
+        <div class="selected-model-info">
+          <span class="model-caption">Modelo seleccionado:</span>
+          @if (model().trim()) {
+            <code class="font-mono model-pill" machineData>{{ model() }}</code>
+          } @else {
+            <span class="model-none font-mono">Sin modelo seleccionado</span>
           }
-        </select>
+        </div>
+        <button
+          type="button"
+          class="btn-toggle-manual"
+          [disabled]="!canFetchModels()"
+          (click)="canFetchModels() && manualModelMode.set(!manualModelMode())">
+          {{ manualModelMode() ? 'Elegir del catálogo' : 'Escribir el ID manualmente' }}
+        </button>
+      </div>
+
+      @if (manualModelMode() && canFetchModels()) {
+        <div class="manual-model-box">
+          <input
+            id="byok-model"
+            type="text"
+            class="form-input font-mono"
+            machineData
+            placeholder="Ej: google/gemini-2.5-flash"
+            [ngModel]="model()"
+            (ngModelChange)="model.set($event)" />
+        </div>
+      }
+
+      <div class="catalog-actions-bar">
+        <span class="catalog-timestamp">
+          @if (modelsFetchedAt(); as fetched) {
+            Actualizado: <time>{{ fetched | dateText:'time' }}</time>
+            <span class="catalog-count font-mono">({{ availableModels().length }} modelos)</span>
+          } @else {
+            Consultá el catálogo del proveedor para elegir un modelo
+          }
+        </span>
+        <button
+          type="button"
+          class="btn-catalog"
+          [disabled]="loadingModels() || !canFetchModels()"
+          (click)="fetchModels()">
+          <svg lucideRefreshCw class="btn-icon" [class.spinning]="loadingModels()"></svg>
+          <span>{{ loadingModels() ? 'Consultando...' : 'Listar modelos' }}</span>
+        </button>
+      </div>
+
+      @if (!canFetchModels() && !loadingModels()) {
+        <div class="model-locked-hint">
+          <svg lucideKeyRound class="hint-icon"></svg>
+          <span>{{ modelsLockedHint() }}</span>
+        </div>
+      }
+
+      @if (availableModels().length > 0 && !manualModelMode()) {
+        <div class="catalog-drawer">
+          <div class="model-search-box">
+            <svg lucideSearch class="search-icon"></svg>
+            <input
+              type="text"
+              class="model-search-input font-mono"
+              placeholder="Buscar modelo por nombre o ID..."
+              [ngModel]="modelSearch()"
+              (ngModelChange)="modelSearch.set($event)" />
+          </div>
+
+          <div class="tier-filter-tabs">
+            <button
+              type="button"
+              class="tier-tab"
+              [class.active]="modelTierFilter() === 'all'"
+              (click)="modelTierFilter.set('all')">
+              Todos
+            </button>
+            <button
+              type="button"
+              class="tier-tab"
+              [class.active]="modelTierFilter() === 'free'"
+              (click)="modelTierFilter.set('free')">
+              Gratis
+            </button>
+            <button
+              type="button"
+              class="tier-tab"
+              [class.active]="modelTierFilter() === 'paid'"
+              (click)="modelTierFilter.set('paid')">
+              De pago
+            </button>
+          </div>
+
+          <div class="catalog-list" role="listbox">
+            @for (m of filteredModels(); track m.id) {
+              <button
+                type="button"
+                class="catalog-item"
+                role="option"
+                [class.selected]="model() === m.id"
+                [attr.aria-selected]="model() === m.id"
+                (click)="selectModel(m)">
+                <div class="catalog-item-main">
+                  <span class="catalog-item-name">{{ modelName(m) }}</span>
+                  @if (m.name && m.name !== m.id) {
+                    <code class="font-mono">{{ m.id }}</code>
+                  }
+                </div>
+                @if (m.pricing_hint) {
+                  <span class="tier-badge" [class.tier-free]="isFreeModel(m)">{{ m.pricing_hint }}</span>
+                }
+              </button>
+            } @empty {
+              <div class="empty-catalog-hint">No se encontraron modelos con los filtros seleccionados.</div>
+            }
+          </div>
+        </div>
       }
     </form-field>
 
-    <div class="model-actions">
-      <button type="button" class="btn-outline" [disabled]="loadingModels()" (click)="fetchModels()">
-        @if (loadingModels()) {
+    <div class="card-actions-row">
+      <button
+        type="button"
+        class="btn-outline btn-test-connection"
+        [disabled]="testing() || saving() || !canTestConnection()"
+        (click)="testConnection()">
+        @if (testing()) {
           <svg lucideLoader2 class="spin-icon"></svg>
         } @else {
-          <svg lucideSearch class="btn-icon"></svg>
+          <svg lucideWifi class="btn-icon"></svg>
         }
-        <span>{{ loadingModels() ? 'Consultando...' : 'Listar modelos' }}</span>
+        <span>{{ testing() ? 'Probando...' : 'Probar Conexión' }}</span>
       </button>
-
-      @if (availableModels().length > 0) {
-        <button
-          type="button"
-          class="btn-link"
-          (click)="manualModelMode.set(!manualModelMode())">
-          {{ manualModelMode() ? 'Elegir del catálogo' : 'Escribir el ID a mano' }}
-        </button>
-      }
     </div>
   </div>
-
-  @if (availableModels().length > 0 && !manualModelMode()) {
-    <div class="model-filter">
-      <div class="filter-chips">
-        <button
-          type="button"
-          class="filter-chip"
-          [class.active]="modelFilter() === 'all'"
-          (click)="modelFilter.set('all')">
-          Todos
-        </button>
-        <button
-          type="button"
-          class="filter-chip"
-          [class.active]="modelFilter() === 'free'"
-          (click)="modelFilter.set('free')">
-          Solo gratis
-        </button>
-      </div>
-      <input
-        type="text"
-        class="form-input filter-search"
-        placeholder="Filtrar por nombre..."
-        [ngModel]="modelSearch()"
-        (ngModelChange)="modelSearch.set($event)" />
-    </div>
-  }
 
   @if (feedbackMessage(); as message) {
     <div class="feedback" [class.feedback-ok]="feedbackOk() === true" [class.feedback-error]="feedbackOk() === false">
@@ -149,15 +248,13 @@
   }
 
   <div class="panel-actions">
-    <button type="button" class="btn-primary" [disabled]="saving() || testing()" (click)="save()">
+    <button
+      type="button"
+      class="btn-primary"
+      [disabled]="saving() || testing() || !canSave()"
+      (click)="save()">
+      <svg lucideSave class="btn-icon"></svg>
       <span>{{ saving() ? 'Guardando...' : 'Guardar configuración' }}</span>
-    </button>
-
-    <button type="button" class="btn-outline" [disabled]="testing() || saving()" (click)="testConnection()">
-      @if (testing()) {
-        <svg lucideLoader2 class="spin-icon"></svg>
-      }
-      <span>{{ testing() ? 'Probando...' : 'Probar conexión' }}</span>
     </button>
 
     @if (hasSavedKey()) {
