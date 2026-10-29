@@ -35,7 +35,8 @@ import {
   OfficialEcosystemProfile,
   OfficialWebProfile,
   RUNTIME_MEMORY_PROFILE_OPTIONS,
-  SUB_CATEGORY_OPTIONS
+  SUB_CATEGORY_OPTIONS,
+  ADDON_SUB_CATEGORY_OPTIONS
 } from './component-catalog.presets';
 import {
   computeCompatibleRuntimesForComponent,
@@ -96,7 +97,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   private readonly aiService = inject(AdminConfigIaService);
 
   @Input() defaultLayer: ComponentLayer = 'addon';
-  @Input() defaultSubCategory: 'backend' | 'web' = 'backend';
+  @Input() defaultSubCategory: string = 'backend';
   @Input() defaultCompatibleRuntime: string = '';
   @Input() initialAiPrompt: string = '';
   @Input() availableRuntimes: TemplateComponent[] = [];
@@ -114,6 +115,7 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
   readonly catalogKindOptions = CATALOG_KIND_OPTIONS;
   readonly layerOptions = LAYER_OPTIONS;
   readonly subCategoryOptions = SUB_CATEGORY_OPTIONS;
+  readonly addonSubCategoryOptions = ADDON_SUB_CATEGORY_OPTIONS;
   readonly installPresetOptions = INSTALL_PRESET_OPTIONS;
   readonly databaseEngineOptions = DATABASE_ENGINE_OPTIONS;
   readonly addonMemoryProfileOptions = ADDON_MEMORY_PROFILE_OPTIONS;
@@ -713,7 +715,10 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
       this.ramDeltaMB.set(128);
     } else if (kind === 'addon') {
       this.layer.set('addon');
-      this.subCategory.set('framework');
+      const initialAddonSub = (this.defaultSubCategory && ['framework', 'orm', 'toolkit'].includes(this.defaultSubCategory))
+        ? this.defaultSubCategory
+        : 'framework';
+      this.subCategory.set(initialAddonSub);
       this.setMemoryProfile('library');
       this.onCompatibleRuntimeChange(this.defaultCompatibleRuntime || this.compatibleRuntime() || '');
     }

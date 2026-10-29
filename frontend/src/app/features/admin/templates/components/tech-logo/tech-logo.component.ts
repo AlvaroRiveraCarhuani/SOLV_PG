@@ -30,6 +30,10 @@ export type TechIconKey =
   | 'mongodb'
   | 'sqlite'
   | 'redis'
+  | 'sqlalchemy'
+  | 'numpy'
+  | 'pandas'
+  | 'pytest'
   | 'git'
   | 'db'
   | 'docker'
@@ -68,6 +72,27 @@ export const CURATED_TECH_ICONS: CuratedIconMeta[] = [
   { key: 'sqlite', label: 'SQLite' },
   { key: 'mongodb', label: 'MongoDB' },
   { key: 'redis', label: 'Redis' },
+  { key: 'sqlalchemy', label: 'SQLAlchemy' },
+  { key: 'numpy', label: 'NumPy' },
+  { key: 'pandas', label: 'Pandas' },
+  { key: 'pytest', label: 'Pytest' },
+  { key: 'ruff', label: 'Ruff' },
+  { key: 'pytorch', label: 'PyTorch' },
+  { key: 'maven', label: 'Maven' },
+  { key: 'gradle', label: 'Gradle' },
+  { key: 'hibernate', label: 'Hibernate' },
+  { key: 'junit', label: 'JUnit' },
+  { key: 'express', label: 'Express' },
+  { key: 'nestjs', label: 'NestJS' },
+  { key: 'prisma', label: 'Prisma' },
+  { key: 'vitest', label: 'Vitest' },
+  { key: 'gin', label: 'Gin' },
+  { key: 'gorm', label: 'GORM' },
+  { key: 'tokio', label: 'Tokio' },
+  { key: 'composer', label: 'Composer' },
+  { key: 'pest', label: 'Pest' },
+  { key: 'boost', label: 'Boost' },
+  { key: 'qt', label: 'Qt' },
   { key: 'docker', label: 'Estándar' }
 ];
 
@@ -76,7 +101,11 @@ export const KNOWN_TECH_ICON_KEYS = new Set<string>([
   'git',
   'db',
   'nextjs',
-  'mariadb'
+  'mariadb',
+  'mongo',
+  'nodejs',
+  'sprint',
+  'vitejs'
 ]);
 
 function isDirectAssetSource(value: string): boolean {

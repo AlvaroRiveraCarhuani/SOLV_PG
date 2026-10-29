@@ -436,17 +436,7 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
     toolsProvided: ['python3', 'pip'],
     memoryProfile: 'devserver'
   },
-  {
-    id: 'python-datascience',
-    name: 'Ciencia de Datos (NumPy + Pandas + Pytest)',
-    description: 'Librerías esenciales para procesamiento numérico, tablas y pruebas automatizadas en Python',
-    iconKey: 'python',
-    compatibleFamilies: ['python'],
-    installPreset: 'pip',
-    packageNames: ['numpy', 'pandas', 'pytest'],
-    toolsProvided: ['python3', 'pytest'],
-    memoryProfile: 'heavy'
-  },
+
   {
     id: 'typescript-tools',
     name: 'TypeScript + Linters',
@@ -482,24 +472,68 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
   },
   {
     id: 'python-sqlalchemy',
-    name: 'SQLAlchemy ORM + SQLite/Postgres',
+    name: 'SQLAlchemy (ORM)',
     description: 'Toolkit SQL y mapeador objeto-relacional (ORM) para Python con soporte asíncrono y migraciones Alembic',
-    iconKey: 'python',
+    iconKey: 'sqlalchemy',
     compatibleFamilies: ['python'],
     installPreset: 'pip',
-    packageNames: ['sqlalchemy', 'alembic', 'psycopg2-binary'],
+    packageNames: ['sqlalchemy', 'alembic', 'psycopg2-binary', 'pymysql'],
     toolsProvided: ['python3', 'alembic'],
     memoryProfile: 'library'
   },
   {
-    id: 'python-nosql-clients',
-    name: 'Clientes NoSQL (Redis + PyMongo)',
-    description: 'Controladores oficiales de conexión para bases de datos NoSQL Redis y MongoDB en Python',
-    iconKey: 'python',
+    id: 'python-pymongo',
+    name: 'PyMongo (Cliente MongoDB)',
+    description: 'Controlador oficial de MongoDB para Python con soporte de documentos y BSON',
+    iconKey: 'mongodb',
     compatibleFamilies: ['python'],
     installPreset: 'pip',
-    packageNames: ['redis', 'pymongo'],
+    packageNames: ['pymongo'],
     toolsProvided: ['python3'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-redis',
+    name: 'Redis-py (Cliente Redis)',
+    description: 'Cliente oficial de Redis para Python con soporte de caché, pub/sub y estructuras en memoria',
+    iconKey: 'redis',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['redis'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-numpy',
+    name: 'NumPy',
+    description: 'Cálculo numérico multidimensional, álgebra lineal y operaciones matriciales de alto rendimiento',
+    iconKey: 'numpy',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['numpy'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'library'
+  },
+  {
+    id: 'python-pandas',
+    name: 'Pandas',
+    description: 'Estructuras de datos DataFrame y herramientas de análisis y manipulación de datos tabulares',
+    iconKey: 'pandas',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['pandas'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'heavy'
+  },
+  {
+    id: 'python-pytest',
+    name: 'Pytest',
+    description: 'Framework estándar de pruebas unitarias y automatizadas en Python',
+    iconKey: 'pytest',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['pytest'],
+    toolsProvided: ['pytest'],
     memoryProfile: 'library'
   },
   {
@@ -514,13 +548,35 @@ export const OFFICIAL_ADDON_PRESETS: OfficialAddonPreset[] = [
     memoryProfile: 'heavy'
   },
   {
+    id: 'python-datascience',
+    name: 'Ciencia de Datos (NumPy + Pandas)',
+    description: 'Librerías esenciales para procesamiento numérico, tablas y análisis estadístico en Python',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['numpy', 'pandas'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'heavy'
+  },
+  {
+    id: 'python-nosql-clients',
+    name: 'Clientes NoSQL (MongoDB + Redis)',
+    description: 'Controladores oficiales de conexión para bases de datos NoSQL Redis y MongoDB en Python',
+    iconKey: 'python',
+    compatibleFamilies: ['python'],
+    installPreset: 'pip',
+    packageNames: ['redis', 'pymongo'],
+    toolsProvided: ['python3'],
+    memoryProfile: 'library'
+  },
+  {
     id: 'python-testing-ruff',
     name: 'Calidad y Pruebas (Pytest + Ruff)',
     description: 'Framework de pruebas unitarias pytest con linter y formateador ultrarrápido ruff',
     iconKey: 'python',
     compatibleFamilies: ['python'],
     installPreset: 'pip',
-    packageNames: ['pytest', 'pytest-cov', 'ruff'],
+    packageNames: ['pytest', 'ruff'],
     toolsProvided: ['pytest', 'ruff'],
     memoryProfile: 'library'
   },
@@ -868,6 +924,12 @@ export const LAYER_OPTIONS: ComboboxOption<ComponentLayer>[] = [
 export const SUB_CATEGORY_OPTIONS: ComboboxOption<string>[] = [
   { id: 'backend', label: 'Lenguaje Principal (Backend / General)', value: 'backend' },
   { id: 'web', label: 'Plataforma Web / Frontend', value: 'web' }
+];
+
+export const ADDON_SUB_CATEGORY_OPTIONS: ComboboxOption<string>[] = [
+  { id: 'framework', label: 'Framework Principal (máx. 1)', value: 'framework' },
+  { id: 'orm', label: 'ORM / Conector de Datos', value: 'orm' },
+  { id: 'toolkit', label: 'Kit / Herramienta Académica', value: 'toolkit' }
 ];
 
 export const INSTALL_PRESET_OPTIONS: ComboboxOption<string>[] = [

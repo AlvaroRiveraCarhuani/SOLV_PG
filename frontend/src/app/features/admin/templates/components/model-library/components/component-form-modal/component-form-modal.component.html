@@ -242,6 +242,18 @@
 
       @if (layer() === 'addon') {
         <div class="form-row">
+          <form-field label="Tipo de Complemento" for="comp-subcat" [required]="true">
+            <combobox
+              id="comp-subcat"
+              [options]="addonSubCategoryOptions"
+              [value]="subCategory()"
+              [showSearchIcon]="false"
+              [showHeader]="false"
+              [allowClear]="false"
+              (valueChange)="subCategory.set($event)"
+            />
+          </form-field>
+
           <form-field label="Compatible con la tecnología" for="comp-compat" [required]="true">
             <combobox
               id="comp-compat"
