@@ -130,9 +130,9 @@
         <textarea
           class="form-textarea"
           rows="3"
-          cdkTextareaAutosize
-          [cdkAutosizeMinRows]="3"
-          [cdkAutosizeMaxRows]="5"
+          autoGrow
+          [minRows]="3"
+          [maxRows]="5"
           placeholder="Ej: PyTorch CPU y scikit-learn con soporte para procesamiento numérico en Python..."
           [ngModel]="aiPrompt()"
           (ngModelChange)="aiPrompt.set($event)"

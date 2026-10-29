@@ -1120,9 +1120,9 @@ h4, .subsection-title {
   }
 }
 
-textarea.cdk-textarea-autosize,
-textarea[rows="1"] {
-  min-height: 0;
+textarea[autoGrow] {
+  box-sizing: border-box;
+  resize: none;
 }
 
 .form-select {

@@ -1,7 +1,7 @@
 import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
 import {
   LucideSparkles,
   LucideAlertTriangle,
@@ -47,7 +47,7 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
   imports: [
     CommonModule,
     FormsModule,
-    CdkTextareaAutosize,
+    AutoGrowDirective,
     LucideSparkles,
     LucideAlertTriangle,
     LucideShieldCheck,

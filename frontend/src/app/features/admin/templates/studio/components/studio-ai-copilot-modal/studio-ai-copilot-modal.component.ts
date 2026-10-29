@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
 import {
   LucideSparkles,
   LucideCheckCircle2,
@@ -23,7 +23,7 @@ import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.se
   standalone: true,
   imports: [
     FormsModule,
-    CdkTextareaAutosize,
+    AutoGrowDirective,
     ModalShellComponent,
     MachineDataDirective,
     StackConstellationComponent,

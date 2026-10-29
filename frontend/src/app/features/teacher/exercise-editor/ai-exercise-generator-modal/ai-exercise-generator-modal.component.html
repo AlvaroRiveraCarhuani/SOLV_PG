@@ -100,9 +100,9 @@
           id="ai-prompt"
           class="form-textarea"
           rows="3"
-          cdkTextareaAutosize
-          [cdkAutosizeMinRows]="3"
-          [cdkAutosizeMaxRows]="5"
+          autoGrow
+          [minRows]="3"
+          [maxRows]="5"
           placeholder="Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos..."
           [ngModel]="prompt()"
           (ngModelChange)="onPromptChange($event)"

@@ -1,6 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, OnDestroy, inject, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CdkTextareaAutosize } from '@angular/cdk/text-field';
+import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
 import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers, LucideRefreshCw, LucideXCircle } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminConfigIaService, AISuggestComponentResponse } from '../../../../../configuracion/admin-config-ia.service';
@@ -77,7 +77,7 @@ export {
   selector: 'component-form-modal',
   imports: [
     FormsModule,
-    CdkTextareaAutosize,
+    AutoGrowDirective,
     ModalShellComponent,
     FormFieldComponent,
     ComboboxComponent,
