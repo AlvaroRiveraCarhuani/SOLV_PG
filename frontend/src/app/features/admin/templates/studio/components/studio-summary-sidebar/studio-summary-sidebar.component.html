@@ -41,7 +41,11 @@
         <div class="bp-block">
           <span class="bp-label">Imagen Contenedora</span>
           <div class="bp-image-row">
-            <span class="bp-image-name" machineData>{{ dockerImage() || 'Pendiente de selección' }}</span>
+            <span
+              class="bp-image-name"
+              machineData
+              [title]="dockerImage()"
+            >{{ displayDockerImage() || 'Pendiente de selección' }}</span>
             @if (dockerImage()) {
               <span
                 class="bp-pill-badge"

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import {
   LucideAlertCircle,
   LucideAlertTriangle,
@@ -63,6 +63,21 @@ export class StudioSummarySidebarComponent {
   readonly aiEnabled = input<boolean>(false);
   readonly isRepairingWithAi = input<boolean>(false);
   readonly repairElapsedSeconds = input<string>('0.0');
+
+  readonly displayDockerImage = computed<string>(() => {
+    const raw = this.dockerImage().trim();
+    if (raw.startsWith('solv-local/stack:')) {
+      const primary = this.selectedStackComponents().find(c => c.layer === 'runtime' && !!c.base_image);
+      if (primary?.base_image) {
+        return primary.base_image;
+      }
+      const anyBase = this.selectedStackComponents().find(c => !!c.base_image);
+      if (anyBase?.base_image) {
+        return anyBase.base_image;
+      }
+    }
+    return raw;
+  });
 
   readonly blueprintTabChange = output<'human' | 'manifest'>();
   readonly cancelTest = output<void>();

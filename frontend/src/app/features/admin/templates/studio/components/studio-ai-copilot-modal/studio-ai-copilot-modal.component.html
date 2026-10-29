@@ -13,6 +13,7 @@
       <textarea
         id="ai-prompt-input"
         class="form-textarea"
+        rows="3"
         cdkTextareaAutosize
         [cdkAutosizeMinRows]="3"
         [cdkAutosizeMaxRows]="5"
@@ -26,7 +27,9 @@
       <div class="prompt-footer-bar">
         <div class="prompt-hint-group">
           <span class="prompt-hint">Describa los requisitos del laboratorio. La propuesta no modifica el constructor hasta que la aplique.</span>
-          <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
+          @if (!isSuggesting()) {
+            <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
+          }
         </div>
         @if (isSuggesting()) {
           <div class="ai-running-telemetry" role="status">
@@ -208,7 +211,10 @@
         </details>
       </section>
     } @else if (constellation()) {
-      <stack-constellation [model]="constellation()" title="Mapa del entorno actual" />
+      <details class="proposal-map-details">
+        <summary>Ver mapa del entorno actual</summary>
+        <stack-constellation [model]="constellation()" title="Mapa del entorno actual" />
+      </details>
     }
   </div>
 
