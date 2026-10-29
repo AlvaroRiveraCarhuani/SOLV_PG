@@ -877,13 +877,14 @@ func (s *AISettingsService) GetUserOverride(ctx context.Context, tenantID, userI
 	}
 	override, ok := stored.UserOverrides[userID]
 	if !ok || strings.TrimSpace(override.Provider) == "" {
-		// Sin override todavía: se pre-carga con la base institucional para que
-		// el docente vea un punto de partida, siempre con enabled=false.
+		// Sin override todavía: se pre-carga con el proveedor por defecto, pero
+		// sin modelo ni credenciales personales para no confundir al docente con
+		// la configuración del motor institucional.
 		override = domain.AIUserOverrideStored{
 			Enabled:  false,
 			Provider: stored.Provider,
-			Model:    stored.Model,
-			BaseURL:  stored.BaseURL,
+			Model:    "",
+			BaseURL:  "",
 		}
 	}
 	resp := domain.NewAIUserOverrideResponseDTO(override, *stored)
@@ -1021,6 +1022,9 @@ func (s *AISettingsService) GetEffectiveStatus(ctx context.Context, tenantID, us
 // usuario cuando no llegan en el payload.
 func (s *AISettingsService) TestUserConnection(ctx context.Context, tenantID, userID string, req domain.TestAIConnectionRequestDTO) (*domain.TestAIConnectionResponseDTO, error) {
 	req = s.fillUserCredentials(ctx, tenantID, userID, req.Provider, req.Model, req.BaseURL, req.APIKey)
+	if err := requireUserCredential(req.Provider, req.BaseURL, req.APIKey); err != nil {
+		return nil, err
+	}
 	return s.TestConnection(ctx, tenantID, req)
 }
 
@@ -1028,10 +1032,43 @@ func (s *AISettingsService) TestUserConnection(ctx context.Context, tenantID, us
 // del usuario cuando no llegan en el payload.
 func (s *AISettingsService) ListUserModels(ctx context.Context, tenantID, userID string, req domain.ListAIModelsRequestDTO) (*domain.ListAIModelsResponseDTO, error) {
 	filled := s.fillUserCredentials(ctx, tenantID, userID, req.Provider, "", req.BaseURL, req.APIKey)
+	if err := requireUserCredential(filled.Provider, filled.BaseURL, filled.APIKey); err != nil {
+		return nil, err
+	}
 	req.Provider = filled.Provider
 	req.BaseURL = filled.BaseURL
 	req.APIKey = filled.APIKey
 	return s.ListModels(ctx, tenantID, req)
+}
+
+// requireUserCredential corta la cascada BYOK cuando el usuario todavía no
+// aportó una credencial propia. ListModels y TestConnection completan con la
+// credencial institucional guardada, comportamiento correcto para el panel del
+// administrador pero incorrecto acá: el docente no debe descubrir el catálogo
+// del motor institucional desde su configuración personal.
+func requireUserCredential(provider, baseURL, apiKey string) error {
+	if strings.TrimSpace(provider) == "" {
+		return &AISettingsValidationError{
+			Code:    "provider_required",
+			Message: "seleccioná un proveedor de IA",
+		}
+	}
+	if domain.IsCloudAIProvider(provider) {
+		if strings.TrimSpace(apiKey) == "" {
+			return &AISettingsValidationError{
+				Code:    "api_key_required",
+				Message: domain.ErrAIMissingAPIKey.Error(),
+			}
+		}
+		return nil
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		return &AISettingsValidationError{
+			Code:    "base_url_required",
+			Message: "la URL base del servidor local es obligatoria (ej: http://10.20.1.50:11434/v1)",
+		}
+	}
+	return nil
 }
 
 // fillUserCredentials completa provider/model/base_url/api_key con la cascada

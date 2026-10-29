@@ -84,5 +84,10 @@ export const TEACHER_ROUTES: Routes = [
     path: 'templates',
     loadComponent: () =>
       import('./templates/teacher-templates.component').then(m => m.TeacherTemplatesComponent)
+  },
+  {
+    path: 'configuracion',
+    loadComponent: () =>
+      import('./config/teacher-ai-settings.component').then(m => m.TeacherAiSettingsComponent)
   }
 ];

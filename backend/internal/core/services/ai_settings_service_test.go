@@ -1698,6 +1698,80 @@ func TestAISettingsUserOverrideCascadeBYOK(t *testing.T) {
 	}
 }
 
+// TestAIUserListModelsRequiresPersonalCredential es la regresión del bug de
+// cascada: el catálogo BYOK del docente no debe caer en la credencial
+// institucional. Sin clave personal, listar modelos debe rechazarse.
+func TestAIUserListModelsRequiresPersonalCredential(t *testing.T) {
+	repo := newTestAISettingsRepo(`{}`)
+	svc := NewAISettingsService(repo)
+	ctx := context.Background()
+
+	// Base institucional con clave guardada: si la cascada filtrara esa
+	// credencial, ListUserModels la usaría y traería el catálogo del motor
+	// institucional.
+	if _, err := svc.Update(ctx, "t-1", domain.UpdateAISettingsDTO{
+		Enabled:            true,
+		Provider:           domain.AIProviderGemini,
+		Model:              "gemini-2.5-flash",
+		APIKey:             "AIzaInstitucional0000002",
+		HourlyQuotaPerUser: 5,
+		TimeoutSeconds:     60,
+	}); err != nil {
+		t.Fatalf("no se pudo configurar la base institucional: %v", err)
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data": [{"id": "gemini-2.5-pro"}]}`))
+	}))
+	defer server.Close()
+	svc.WithTransport(&rewriteAITestTransport{base: mustParseURL(t, server.URL)})
+
+	// Sin proveedor ni clave personal: rechazo, no lista el catálogo institucional.
+	_, err := svc.ListUserModels(ctx, "t-1", "u-teacher", domain.ListAIModelsRequestDTO{})
+	if err == nil {
+		t.Fatalf("esperaba rechazo sin credencial personal")
+	}
+	var vErr *AISettingsValidationError
+	if !errors.As(err, &vErr) || vErr.Code != "provider_required" {
+		t.Errorf("esperaba provider_required, got %v", err)
+	}
+
+	// Proveedor cloud sin clave personal: api_key_required.
+	_, err = svc.ListUserModels(ctx, "t-1", "u-teacher", domain.ListAIModelsRequestDTO{
+		Provider: domain.AIProviderGemini,
+	})
+	if err == nil {
+		t.Fatalf("esperaba api_key_required para cloud sin clave personal")
+	}
+	if !errors.As(err, &vErr) || vErr.Code != "api_key_required" {
+		t.Errorf("esperaba api_key_required, got %v", err)
+	}
+
+	// LAN sin URL base: base_url_required.
+	_, err = svc.ListUserModels(ctx, "t-1", "u-teacher", domain.ListAIModelsRequestDTO{
+		Provider: domain.AIProviderOllamaLAN,
+	})
+	if err == nil {
+		t.Fatalf("esperaba base_url_required para LAN sin URL")
+	}
+	if !errors.As(err, &vErr) || vErr.Code != "base_url_required" {
+		t.Errorf("esperaba base_url_required, got %v", err)
+	}
+
+	// Con clave personal sí lista y usa la credencial del docente.
+	resp, err := svc.ListUserModels(ctx, "t-1", "u-teacher", domain.ListAIModelsRequestDTO{
+		Provider: domain.AIProviderGemini,
+		APIKey:   "AIzaPersonal0000003",
+	})
+	if err != nil {
+		t.Fatalf("con clave personal debía listar: %v", err)
+	}
+	if resp.Count != 1 || resp.Models[0].ID != "gemini-2.5-pro" {
+		t.Errorf("modelo inesperado: %+v", resp)
+	}
+}
+
 // TestAISettingsUserOverrideValidation aplica al override personal las mismas
 // garantías que la configuración institucional.
 func TestAISettingsUserOverrideValidation(t *testing.T) {
