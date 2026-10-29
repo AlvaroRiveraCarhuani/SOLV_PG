@@ -34,6 +34,7 @@
 - [x] 2.2 GREEN: Extender `EnvTestService` y el adaptador Docker con `ImageBuilderPort` (`BuildLocalStackImage` y `PruneOrphanStackImages`) y actualización sin corte en `admin_governance_service.go`.
 - [x] 2.3 RED: Escribir pruebas de handlers HTTP en `backend/internal/delivery/http/admin_academic_components_test.go` para `GET/POST/PUT/DELETE /api/v1/admin/template-components` (incluyendo 422 ante nombres de paquete inválidos), `POST /api/v1/admin/templates/compose-preview` y `PUT /api/v1/admin/templates/{id}`.
 - [x] 2.4 GREEN: Conectar los endpoints en `backend/internal/delivery/http/admin_academic_handler.go` y `backend/internal/delivery/http/router.go`. Ejecutar `cd backend && go vet ./... && go test ./... -count=1`.
+- [x] 2.5 GREEN: Blindar el alta y la edición de plantillas con imagen local en `admin_governance_templates.go` y `admin_governance_components.go`: exigir un job `success` del mismo usuario y tenant cuya huella coincida con la configuración efectiva (incluida la entrada de muestra), saltar la whitelist externa solo para `solv-local/stack:*`, responder `422 verification_required` en `CreateTemplate` y `UpdateOfficialTemplate`, y cubrirlo con `admin_governance_verification_test.go` más los casos de pertenencia en `env_test_handler_test.go`. Comando: `cd backend && go test ./internal/core/services/... ./internal/delivery/http/... -run 'Verification|LocalImage|EnvTest' -count=1`.
 
 ## Fase 3: Catálogo de Iconos Vectoriales e Interfaz del Catálogo de Tecnologías
 
@@ -48,3 +49,4 @@
 - [x] 4.2 GREEN: Implementar `TemplateStudioComponent` (`selector: 'template-studio'`) y registrar `/admin/plantillas/nueva` y `/admin/plantillas/:id/editar` en `app.routes.ts`.
 - [x] 4.3 GREEN: Actualizar el flujo de solicitud docente (`frontend/src/app/features/teacher/templates/`) con selección de tecnologías del catálogo y documentar `ADR-046` en `docs/ARQUITECTURA/ADR/` + `INDEX.md`.
 - [x] 4.4 Verificación final: Ejecutar `cd backend && go vet ./... && go test ./... -count=1` y `cd frontend && npm run lint:styles && npm run lint:ts && npx ng test --watch=false && CI=true npm run build`.
+- [x] 4.5 GREEN: Convertir las tarjetas de selección de las tres columnas en `<button>` nativos con `aria-pressed`, descripción visible y el control de edición como botón hermano (sin controles anidados), y agregar las media queries de responsive en `template-studio.component.scss` (1100px y 720px). Comando: `cd frontend && npx ng test --watch=false --include='**/template-studio.component.spec.ts' && npm run lint:styles`.

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -18,6 +20,13 @@ var (
 	ErrAdminNotFound        = errors.New("admin_not_found: el administrador no existe o no tiene rol administrativo")
 	ErrInvalidAdminEmail    = errors.New("invalid_admin_email: el correo del administrador es inválido")
 	ErrAdminNamesRequired   = errors.New("admin_names_required: el nombre y apellido del administrador son obligatorios")
+
+	ErrUnsupportedServiceEngine = errors.New("unsupported_service_engine: el motor no pertenece al dominio soportado")
+	ErrServiceRoleMismatch      = errors.New("service_role_mismatch: el rol no corresponde al motor")
+	ErrMultiplePrimaryDatabase  = errors.New("multiple_primary_database: solo se admite una base de datos principal")
+	ErrDuplicateServiceEngine   = errors.New("duplicate_service_engine: el motor está declarado más de una vez")
+	ErrDuplicateServiceAlias    = errors.New("duplicate_service_alias: el alias de entorno está repetido")
+	ErrInvalidServiceAlias      = errors.New("invalid_service_alias: el alias debe empezar con letra y usar minúsculas, números o guion bajo")
 )
 
 // AdminUserItem representa a un operador con rol administrativo en el tenant.
@@ -62,16 +71,166 @@ func ResolveJudgeRamMB(baseRamMB int) int {
 	return 128
 }
 
+// ServiceRole es el rol del servicio dentro de la plantilla. El rol es el contrato con
+// el laboratorio; el motor es la implementación.
+type ServiceRole string
+
+const (
+	ServiceRolePrimaryDatabase ServiceRole = "primary_database"
+	ServiceRoleCache           ServiceRole = "cache"
+)
+
+// ServiceInitKind declara cómo se aplica el db_init_script del ejercicio en un motor.
+// La ejecución de los init NoSQL llega con los adaptadores; el contrato ya los nombra.
+type ServiceInitKind string
+
+const (
+	ServiceInitNone      ServiceInitKind = "none"
+	ServiceInitSQL       ServiceInitKind = "sql"
+	ServiceInitMongoJS   ServiceInitKind = "mongo-js"
+	ServiceInitRedisCmds ServiceInitKind = "redis-cmds"
+)
+
 // ServiceRequirement requerimiento de un servicio satélite complementario (BD, cache, message broker, etc.)
 type ServiceRequirement struct {
-	Category string `json:"category"` // "database", "cache", "message_broker", "storage", etc.
-	Engine   string `json:"engine"`   // "postgres", "mysql", "mongodb", "redis", etc.
-	Version  string `json:"version,omitempty"`
+	Role        ServiceRole `json:"role,omitempty"`         // "primary_database" | "cache"
+	Category    string      `json:"category,omitempty"`     // alias heredado: "database" | "cache"
+	Engine      string      `json:"engine"`                 // "postgres", "mysql", "mongodb", "redis", etc.
+	ComponentID string      `json:"component_id,omitempty"` // trazabilidad al catálogo
+	Version     string      `json:"version,omitempty"`
+	EnvAlias    string      `json:"env_alias,omitempty"`
 }
 
 // ServicesConfig configuración agnóstica y extensible de servicios satélite requeridos
 type ServicesConfig struct {
 	Services []ServiceRequirement `json:"services"`
+}
+
+var serviceEnvAliasRegex = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
+
+// CanonicalServiceEngine expone la resolución de alias de motor del catálogo.
+func CanonicalServiceEngine(engine string) string {
+	return canonicalServiceEngine(engine)
+}
+
+// ServiceRoleForEngine resuelve el rol que corresponde a un motor.
+func ServiceRoleForEngine(engine string) ServiceRole {
+	switch canonicalServiceEngine(engine) {
+	case "sqlite", "postgres", "mysql", "mariadb", "mongodb":
+		return ServiceRolePrimaryDatabase
+	case "redis":
+		return ServiceRoleCache
+	default:
+		return ""
+	}
+}
+
+// EffectiveRole resuelve el rol declarado o el heredado de category/engine.
+func (sr ServiceRequirement) EffectiveRole() ServiceRole {
+	if role := ServiceRole(strings.ToLower(strings.TrimSpace(string(sr.Role)))); role != "" {
+		return role
+	}
+	if strings.EqualFold(strings.TrimSpace(sr.Category), string(ServiceRoleCache)) {
+		return ServiceRoleCache
+	}
+	return ServiceRoleForEngine(sr.Engine)
+}
+
+// EffectiveEnvAlias resuelve el alias estable del binding para el laboratorio.
+func (sr ServiceRequirement) EffectiveEnvAlias() string {
+	if alias := strings.TrimSpace(sr.EnvAlias); alias != "" {
+		return alias
+	}
+	switch sr.EffectiveRole() {
+	case ServiceRolePrimaryDatabase:
+		return "db"
+	case ServiceRoleCache:
+		return "cache"
+	default:
+		return ""
+	}
+}
+
+// InitKind declara el contrato de inicialización del motor.
+func (sr ServiceRequirement) InitKind() ServiceInitKind {
+	switch canonicalServiceEngine(sr.Engine) {
+	case "postgres", "mysql", "mariadb":
+		return ServiceInitSQL
+	case "mongodb":
+		return ServiceInitMongoJS
+	case "redis":
+		return ServiceInitRedisCmds
+	default:
+		return ServiceInitNone
+	}
+}
+
+// NormalizeServiceBindings valida la cardinalidad por rol, canoniza motores y alias, y
+// deja la lista en su forma persistible. Es la única puerta de validación del contrato.
+func NormalizeServiceBindings(cfg *ServicesConfig) error {
+	if cfg == nil {
+		return nil
+	}
+
+	normalized := make([]ServiceRequirement, 0, len(cfg.Services))
+	seenEngines := make(map[string]bool, len(cfg.Services))
+	seenAliases := make(map[string]bool, len(cfg.Services))
+	primaryCount := 0
+
+	for _, raw := range cfg.Services {
+		engine := canonicalServiceEngine(raw.Engine)
+		if engine == "" {
+			return fmt.Errorf("%w: %q", ErrUnsupportedServiceEngine, raw.Engine)
+		}
+		if engine == "none" {
+			continue
+		}
+
+		role := raw.EffectiveRole()
+		expectedRole := ServiceRoleForEngine(engine)
+		if role == "" || role != expectedRole {
+			return fmt.Errorf("%w: engine=%q role=%q", ErrServiceRoleMismatch, engine, role)
+		}
+		if seenEngines[engine] {
+			return fmt.Errorf("%w: %q", ErrDuplicateServiceEngine, engine)
+		}
+		seenEngines[engine] = true
+
+		if role == ServiceRolePrimaryDatabase {
+			primaryCount++
+			if primaryCount > 1 {
+				return ErrMultiplePrimaryDatabase
+			}
+		}
+
+		alias := raw.EffectiveEnvAlias()
+		if !serviceEnvAliasRegex.MatchString(alias) {
+			return fmt.Errorf("%w: %q", ErrInvalidServiceAlias, alias)
+		}
+		if seenAliases[alias] {
+			return fmt.Errorf("%w: %q", ErrDuplicateServiceAlias, alias)
+		}
+		seenAliases[alias] = true
+
+		// `category` es solo el alias de lectura heredado de `role`: se deriva para que no
+		// pueda contradecirlo (un Redis enviado como "database" sigue siendo caché).
+		category := "database"
+		if role == ServiceRoleCache {
+			category = string(ServiceRoleCache)
+		}
+
+		normalized = append(normalized, ServiceRequirement{
+			Role:        role,
+			Category:    category,
+			Engine:      engine,
+			ComponentID: strings.TrimSpace(raw.ComponentID),
+			Version:     strings.TrimSpace(raw.Version),
+			EnvAlias:    alias,
+		})
+	}
+
+	cfg.Services = normalized
+	return nil
 }
 
 func (sc ServicesConfig) Value() (driver.Value, error) {
@@ -251,6 +410,7 @@ type CreateOfficialTemplateDTO struct {
 	SetupScript       string                   `json:"setup_script,omitempty"`
 	ToolsDeclared     []string                 `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig             `json:"stack_config,omitempty"`
+	VerificationJobID string                   `json:"verification_job_id,omitempty"`
 }
 
 // UpdateOfficialTemplateDTO DTO para actualizar una plantilla existente con versionado sin corte
@@ -268,6 +428,7 @@ type UpdateOfficialTemplateDTO struct {
 	SetupScript       string          `json:"setup_script,omitempty"`
 	ToolsDeclared     []string        `json:"tools_declared,omitempty"`
 	StackConfig       *StackConfig    `json:"stack_config,omitempty"`
+	VerificationJobID string          `json:"verification_job_id,omitempty"`
 }
 
 // AdminTemplateReviewItem modelo para listar y gestionar plantillas Docker institucionales (ADR-030)

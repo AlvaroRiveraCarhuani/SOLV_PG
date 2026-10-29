@@ -2,8 +2,10 @@ package services
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"solv-backend/internal/core/domain"
 )
@@ -28,22 +30,36 @@ func exerciseWithDBInitScript(script string) *domain.Exercise {
 	}
 }
 
-func TestTemplateDeclaresPostgres(t *testing.T) {
+func TestTemplateServiceBindings(t *testing.T) {
 	cases := []struct {
 		name     string
 		template *domain.Template
-		want     bool
+		want     []string
 	}{
-		{name: "nil template", template: nil, want: false},
-		{name: "postgres service", template: templateWithDatabase("postgres"), want: true},
-		{name: "mysql service", template: templateWithDatabase("mysql"), want: false},
-		{name: "no services", template: &domain.Template{ID: "tpl-empty"}, want: false},
+		{name: "nil template", template: nil, want: nil},
+		{name: "postgres service", template: templateWithDatabase("postgres"), want: []string{"postgres"}},
+		{name: "mysql service", template: templateWithDatabase("mysql"), want: []string{"mysql"}},
+		{name: "no services", template: &domain.Template{ID: "tpl-empty"}, want: nil},
+		{name: "unknown engine skipped", template: &domain.Template{ServicesConfig: domain.ServicesConfig{Services: []domain.ServiceRequirement{{Engine: "oracle"}}}}, want: nil},
+		{
+			name: "primary first",
+			template: &domain.Template{ServicesConfig: domain.ServicesConfig{Services: []domain.ServiceRequirement{
+				{Category: "cache", Engine: "redis"},
+				{Category: "database", Engine: "postgres"},
+			}}},
+			want: []string{"postgres", "redis"},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := templateDeclaresPostgres(tc.template); got != tc.want {
-				t.Fatalf("templateDeclaresPostgres() = %v, want %v", got, tc.want)
+			got := templateServiceBindings(tc.template)
+			var engines []string
+			for _, binding := range got {
+				engines = append(engines, binding.Engine)
+			}
+			if !reflect.DeepEqual(engines, tc.want) {
+				t.Fatalf("templateServiceBindings() = %v, want %v", engines, tc.want)
 			}
 		})
 	}
@@ -57,57 +73,91 @@ func TestEnsureExerciseSatelliteDB_SkipsWhenNotNeeded(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error without satellite requirements: %v", err)
 	}
-	if provision.PostgresDBName != "" || len(provision.Env) != 0 || provision.UsesManagedContainer {
+	if len(provision.Env) != 0 || provision.UsesManagedContainer {
 		t.Fatalf("expected empty satellite provision, got %+v", provision)
 	}
 }
 
-func TestEnsureExerciseSatelliteDB_WithoutDatabaseConnectionKeepsLegacyBehaviour(t *testing.T) {
-	// Los tests y los despliegues sin PostgreSQL inyectado construyen el
-	// servicio con db == nil: no se puede asegurar la BD satélite, pero el
-	// arranque del workspace no debe romperse por eso.
+// Un despliegue sin orquestador de satélites (tests, mocks) no rompe el arranque del
+// laboratorio: el motor se omite y queda registrado, nunca se cae a la base de la
+// plataforma.
+func TestEnsureExerciseSatelliteDB_WithoutOrchestratorOmitsEngine(t *testing.T) {
 	service := &WorkspaceService{}
 	ctx := context.Background()
 
-	provision, err := service.ensureExerciseSatelliteDB(ctx, "std-1", "subj-1", templateWithDatabase("postgres"), nil)
-	if err != nil {
-		t.Fatalf("unexpected error without DB connection: %v", err)
-	}
-	if provision.PostgresDBName != "" {
-		t.Fatalf("expected empty satellite name, got %q", provision.PostgresDBName)
-	}
-
-	provision, err = service.ensureExerciseSatelliteDB(
-		ctx, "std-1", "subj-1", nil, exerciseWithDBInitScript("CREATE TABLE t (id INT);"),
-	)
-	if err != nil {
-		t.Fatalf("unexpected error without DB connection and db_init_script: %v", err)
-	}
-	if provision.PostgresDBName != "" {
-		t.Fatalf("expected empty satellite name, got %q", provision.PostgresDBName)
+	for _, tc := range []struct {
+		name     string
+		template *domain.Template
+		exercise *domain.Exercise
+	}{
+		{name: "plantilla con postgres", template: templateWithDatabase("postgres")},
+		{name: "ejercicio con db_init_script", exercise: exerciseWithDBInitScript("CREATE TABLE t (id INT);")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			provision, err := service.ensureExerciseSatelliteDB(ctx, "std-1", "subj-1", tc.template, tc.exercise)
+			if err != nil {
+				t.Fatalf("unexpected error without satellite orchestrator: %v", err)
+			}
+			if len(provision.Env) != 0 || provision.UsesManagedContainer {
+				t.Fatalf("expected empty satellite provision, got %+v", provision)
+			}
+		})
 	}
 }
 
-func TestTemplateManagedEngineDetection(t *testing.T) {
+func TestTemplateManagedEnginesDetection(t *testing.T) {
 	cases := []struct {
 		name     string
 		template *domain.Template
-		want     string
+		want     []string
 	}{
-		{name: "nil template", template: nil, want: ""},
-		{name: "mysql gestionado", template: templateWithDatabase("mysql"), want: "mysql"},
-		{name: "mariadb gestionado", template: templateWithDatabase("mariadb"), want: "mariadb"},
-		{name: "mongodb gestionado", template: templateWithDatabase("mongodb"), want: "mongodb"},
-		{name: "postgres no es contenedor gestionado", template: templateWithDatabase("postgres"), want: ""},
-		{name: "sin servicios", template: &domain.Template{ID: "tpl-empty"}, want: ""},
+		{name: "nil template", template: nil, want: nil},
+		{name: "mysql gestionado", template: templateWithDatabase("mysql"), want: []string{"mysql"}},
+		{name: "mariadb gestionado", template: templateWithDatabase("mariadb"), want: []string{"mariadb"}},
+		{name: "mongodb gestionado", template: templateWithDatabase("mongodb"), want: []string{"mongodb"}},
+		{name: "postgres gestionado", template: templateWithDatabase("postgres"), want: []string{"postgres"}},
+		{name: "sin servicios", template: &domain.Template{ID: "tpl-empty"}, want: nil},
+		{
+			name: "dos gestionados",
+			template: &domain.Template{ServicesConfig: domain.ServicesConfig{Services: []domain.ServiceRequirement{
+				{Category: "cache", Engine: "redis"},
+				{Category: "database", Engine: "mongodb"},
+			}}},
+			want: []string{"mongodb", "redis"},
+		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := templateManagedEngine(tc.template); got != tc.want {
-				t.Fatalf("templateManagedEngine() = %q, want %q", got, tc.want)
+			if got := templateManagedEngines(tc.template); !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("templateManagedEngines() = %v, want %v", got, tc.want)
 			}
 		})
+	}
+}
+
+// El scale-to-zero no puede apagar un motor que un laboratorio acaba de pedir: mientras
+// el laboratorio se aprovisiona todavía no figura como activo en la base de datos.
+func TestManagedSatelliteUseGrace(t *testing.T) {
+	service := NewWorkspaceService(nil, nil, nil)
+
+	if service.managedSatelliteRecentlyUsed("postgres") {
+		t.Fatal("un motor nunca usado no está dentro del margen de gracia")
+	}
+
+	service.noteManagedSatelliteUse("postgres")
+	if !service.managedSatelliteRecentlyUsed("postgres") {
+		t.Fatal("un motor recién usado debe quedar protegido")
+	}
+	if service.managedSatelliteRecentlyUsed("redis") {
+		t.Fatal("el margen es por motor: lo usado en uno no protege a los demás")
+	}
+
+	service.satelliteUseMu.Lock()
+	service.satelliteLastUse["postgres"] = time.Now().Add(-managedSatelliteIdleGrace - time.Second)
+	service.satelliteUseMu.Unlock()
+	if service.managedSatelliteRecentlyUsed("postgres") {
+		t.Fatal("pasado el margen de gracia el motor vuelve a ser apagable")
 	}
 }
 

@@ -266,10 +266,12 @@ describe('TemplateStudioComponent', () => {
             engine: 'postgres',
             label: 'PostgreSQL (Aula)',
             version: '18',
-            description: 'Perfil sintonizado para laboratorio (~50 MB RAM) con corte de consultas largas (5s).',
+            description: 'Motor de aula auto-orquestado con rol, base y credenciales por alumno.',
             env_var: 'DATABASE_URL',
             is_available: true,
-            base_ram_mb: 50
+            base_ram_mb: 384,
+            provisioning_mode: 'managed_container',
+            default_image: 'postgres:18-alpine'
           },
           {
             category: 'database',
@@ -456,9 +458,10 @@ describe('TemplateStudioComponent', () => {
     const col3Text = columns[2].textContent || '';
     expect(col3Text).toContain('Sin Base de Datos');
     expect(col3Text).toContain('SQLite3 (Nativo) v3.x');
-    expect(col3Text).toContain('+0 MB RAM');
+    expect(col3Text).toContain('sin costo de nodo');
     expect(col3Text).toContain('PostgreSQL (Aula) v18');
-    expect(col3Text).toContain('~50 MB RAM');
+    // PostgreSQL de aula es un satélite del nodo (ADR-051), no memoria por alumno.
+    expect(col3Text).toContain('nodo ~384 MB');
     expect(col3Text).not.toContain('No habilitado en este nodo');
 
     const dbCards = Array.from(columns[2].querySelectorAll<HTMLButtonElement>('.tech-component-card'));
@@ -466,7 +469,7 @@ describe('TemplateStudioComponent', () => {
 
     // Los motores gestionados se ofrecen con su impacto en RAM y son seleccionables
     expect(col3Text).toContain('MySQL v8.4');
-    expect(col3Text).toContain('~128 MB RAM');
+    expect(col3Text).toContain('nodo ~128 MB');
     expect(col3Text).toContain('SQLite3 (Nativo) v3.x');
     component.selectDatabase('db-mysql');
     expect(component.selectedDatabaseId()).toBe('db-mysql');
@@ -630,7 +633,7 @@ describe('TemplateStudioComponent', () => {
     expect(errorComp.toast()?.type).toBe('error');
   });
 
-  it('should keep recommended RAM at 512 MB for Python + FastAPI + Flask (disk libraries) and raise to 768 MB when PostgreSQL Aula is selected (ADR-045)', () => {
+  it('should keep recommended RAM at 512 MB for Python + FastAPI + Flask with and without PostgreSQL Aula, because the satellite is reserved on the node (ADR-050)', () => {
     component.selectRuntime('rt-python-312');
     component.toggleAddon('ad-fastapi');
     component.toggleAddon('ad-flask');
@@ -640,9 +643,9 @@ describe('TemplateStudioComponent', () => {
     expect(component.capacityOptions().find(o => o.mb === 512)?.isRecommended).toBe(true);
 
     component.selectDatabase('db-postgres');
-    expect(component.recommendedRamMB()).toBe(768);
-    expect(component.baseRamMB()).toBe(768);
-    expect(component.capacityOptions().find(o => o.mb === 768)?.isRecommended).toBe(true);
+    expect(component.recommendedRamMB()).toBe(512);
+    expect(component.baseRamMB()).toBe(512);
+    expect(component.capacityOptions().find(o => o.mb === 512)?.isRecommended).toBe(true);
   });
 
   it('should render the 3-segment memory bar exactly matching editor + stack + usable space', () => {
@@ -659,9 +662,9 @@ describe('TemplateStudioComponent', () => {
     expect(barText).toContain('210 MB');
     expect(barText).toContain('Tecnologías elegidas');
     expect(barText).toContain('Python 3.12 + PostgreSQL');
-    expect(barText).toContain('224 MB');
+    expect(barText).toContain('174 MB');
     expect(barText).toContain('Espacio libre para los programas del alumno');
-    expect(barText).toContain('334 MB');
+    expect(barText).toContain('128 MB');
 
     const breakdown = component.resourceBreakdown();
     expect(breakdown.editorBaseMB + breakdown.stackBaseMB + breakdown.usableMB).toBe(component.baseRamMB());
@@ -685,7 +688,7 @@ describe('TemplateStudioComponent', () => {
     expect(hostEl.textContent).toContain('Seleccione tecnologías en el Paso 2');
   });
 
-  it('should calculate 2 academic profile options without fixed language names and without double counting postgresql RAM', () => {
+  it('should calculate 2 academic profile options without fixed language names and without charging postgresql to the student quota', () => {
     component.selectRuntime('rt-python-312');
     component.selectDatabase('db-postgres');
     fixture.detectChanges();
@@ -695,7 +698,7 @@ describe('TemplateStudioComponent', () => {
     expect(options.length).toBe(2);
 
     // Opción 1: Estándar
-    expect(options[0].mb).toBe(768);
+    expect(options[0].mb).toBe(512);
     expect(options[0].title).toBe('Prácticas y Ejercicios de Clase');
     expect(options[0].isRecommended).toBe(true);
     expect(options[0].title).not.toContain('Python');
@@ -703,24 +706,24 @@ describe('TemplateStudioComponent', () => {
     expect(options[0].title).not.toContain('Java');
 
     // Opción 2: Holgura
-    expect(options[1].mb).toBe(1024);
+    expect(options[1].mb).toBe(768);
     expect(options[1].title).toBe('Proyectos Integradores y Trabajos Pesados');
     expect(options[1].isRecommended).toBe(false);
 
-    // Capacidad sin duplicar dbExtra (+50 MB)
+    // Capacidad: el delta del satélite ya no infla la cuota por alumno (ADR-050)
     // maxAllowedRamMB = 16384 * 0.75 = 12288
-    // baseRamMB = 768 -> nominalConcurrentStudents = Math.floor(12288 / 768) = 16
-    expect(component.nominalConcurrentStudents()).toBe(16);
+    // baseRamMB = 512 -> nominalConcurrentStudents = Math.floor(12288 / 512) = 24
+    expect(component.nominalConcurrentStudents()).toBe(24);
+    expect(component.estimateStudentsForPreset(512)).toBe(24);
+    // Con el delta sumado a cada alumno serían 16 (12288 / 768)
     expect(component.estimateStudentsForPreset(768)).toBe(16);
-    // Si hubiera sumado 768 + 50 = 818, 12288 / 818 daría 15
-    expect(component.estimateStudentsForPreset(768)).not.toBe(15);
 
     // Suma exacta en resourceBreakdown
     const breakdown = component.resourceBreakdown();
     expect(breakdown.editorBaseMB).toBe(210);
-    expect(breakdown.stackBaseMB).toBe(224);
-    expect(breakdown.usableMB).toBe(334);
-    expect(breakdown.editorBaseMB + breakdown.stackBaseMB + breakdown.usableMB).toBe(768);
+    expect(breakdown.stackBaseMB).toBe(174);
+    expect(breakdown.usableMB).toBe(128);
+    expect(breakdown.editorBaseMB + breakdown.stackBaseMB + breakdown.usableMB).toBe(512);
   });
 
   it('should auto-elevate baseRamMB when switching to a heavier runtime whose floor exceeds previous allocation', () => {
@@ -753,8 +756,8 @@ describe('TemplateStudioComponent', () => {
 
     component.selectRuntime('rt-python-312');
     component.selectDatabase('db-postgres');
-    // Piso vital: 210 (IDE) + 174 (Python) + 50 (PostgreSQL) = 434 MB
-    expect(component.minimumFloorMB()).toBe(434);
+    // Piso vital: 210 (IDE) + 174 (Python). PostgreSQL se reserva en el nodo (ADR-050)
+    expect(component.minimumFloorMB()).toBe(384);
 
     component.onCustomRamChange(256);
     fixture.detectChanges();
@@ -779,9 +782,9 @@ describe('TemplateStudioComponent', () => {
 
     const payload = component.buildCreatePayload();
     expect(payload.resource_profile).toEqual({
-      min_mb: 434,
-      high_mb: Math.max(434, Math.floor(768 * 0.85)),
-      max_mb: 768
+      min_mb: 384,
+      high_mb: Math.max(384, Math.floor(512 * 0.85)),
+      max_mb: 512
     });
   });
 

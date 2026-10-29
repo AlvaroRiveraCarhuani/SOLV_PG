@@ -409,7 +409,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       rt: this.selectedRuntimeComponent(),
       web: this.selectedWebComponent(),
       addons: this.selectedAddonComponents(),
-      db: this.selectedDatabaseOption(),
       caps: this.runtimeCapabilities()
     })
   );
@@ -420,7 +419,6 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
       rt: this.selectedRuntimeComponent(),
       web: this.selectedWebComponent(),
       addons: this.selectedAddonComponents(),
-      db: this.selectedDatabaseOption(),
       caps: this.runtimeCapabilities()
     })
   );

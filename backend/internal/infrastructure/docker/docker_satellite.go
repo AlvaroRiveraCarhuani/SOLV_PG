@@ -39,8 +39,14 @@ const (
 
 // managedSatelliteDataPath resuelve dónde persiste cada motor sus datos dentro del
 // contenedor; el volumen nombrado se monta en esa ruta.
+//
+// Desde PostgreSQL 18 el volumen oficial es el padre /var/lib/postgresql y PGDATA vive
+// en /var/lib/postgresql/<major>/docker: montar en /var/lib/postgresql/data queda fuera
+// del contrato de la imagen y el entrypoint lo rechaza.
 func managedSatelliteDataPath(engine string) string {
 	switch engine {
+	case "postgres":
+		return "/var/lib/postgresql"
 	case "mysql", "mariadb":
 		return "/var/lib/mysql"
 	case "mongodb":
@@ -50,6 +56,17 @@ func managedSatelliteDataPath(engine string) string {
 	default:
 		return "/data"
 	}
+}
+
+// managedSatelliteStopSignal elige la señal de apagado del motor. PostgreSQL atiende
+// SIGTERM como apagado "smart": espera a que los clientes se desconecten y el stop por
+// timeout termina en SIGKILL (exit 137). SIGINT dispara el apagado "fast", que corta las
+// conexiones y cierra ordenadamente. El resto de los motores usa la señal por defecto.
+func managedSatelliteStopSignal(engine string) string {
+	if engine == "postgres" {
+		return "SIGINT"
+	}
+	return ""
 }
 
 // managedSatelliteMemoryMB es el techo de memoria del contenedor cuando el llamador no
@@ -206,6 +223,7 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 		Cmd:    spec.Cmd,
 		Labels: map[string]string{"solv.managed": "true", "solv.satellite": engine},
 	}
+	containerConfig.StopSignal = managedSatelliteStopSignal(engine)
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
 	if err != nil {

@@ -92,6 +92,7 @@ export interface VerificationParameters {
   toolsDeclared: string;
   timeoutMS: number;
   ramMB: number;
+  sampleInput: string;
 }
 
 export interface CapacityOption {
@@ -418,7 +419,8 @@ export function computeVerificationFingerprint(params: VerificationParameters): 
     (params.entrypoint || '').trim(),
     normalizedTools,
     params.timeoutMS ?? 0,
-    params.ramMB ?? 0
+    params.ramMB ?? 0,
+    params.sampleInput || ''
   ].join(':::');
 
   return fnv1aHex(canonical);
@@ -641,15 +643,18 @@ export function resolveDefaultJudgeEntrypointForRuntime(rt: TemplateComponent | 
   return '';
 }
 
+// La cuota recomendada es del contenedor del alumno: editor, runtime, web,
+// complementos y clientes de base de datos. Los motores satélite viven en un
+// contenedor compartido del nodo y se reservan una sola vez en la admisión, así
+// que su delta no entra en este número (ADR-050, D5).
 export function computeRecommendedRamMBForStack(params: {
   targetEnvironment: TargetEnvironment;
   rt: TemplateComponent | null;
   web: TemplateComponent | null;
   addons: TemplateComponent[];
-  db: StudioDatabaseOption | null;
   caps: RuntimeCapabilities | null;
 }): number {
-  const { targetEnvironment, rt, web, addons, db, caps } = params;
+  const { targetEnvironment, rt, web, addons, caps } = params;
   const isJudge = targetEnvironment === 'JUEZ_EFIMERO';
 
   if (isJudge) {
@@ -674,9 +679,8 @@ export function computeRecommendedRamMBForStack(params: {
   }
 
   const editorBaseMB = caps?.editor_base_mb ?? 210;
-  const satelliteBaseMB = db?.ram_delta_mb || 0;
   if (!rt && !web) {
-    return satelliteBaseMB > 0 ? 768 : 512;
+    return 512;
   }
 
   let activeProcessFootprintMB = 256;
@@ -684,7 +688,7 @@ export function computeRecommendedRamMBForStack(params: {
     activeProcessFootprintMB = 128;
   }
   if (isHeavyRuntimeComponent(rt)) {
-    activeProcessFootprintMB = web || addons.length > 0 || satelliteBaseMB > 0 ? 1280 : 640;
+    activeProcessFootprintMB = web || addons.length > 0 ? 1280 : 640;
   }
   if (web) {
     activeProcessFootprintMB = Math.max(activeProcessFootprintMB, 640);
@@ -702,7 +706,7 @@ export function computeRecommendedRamMBForStack(params: {
     }
   }
 
-  const rawTotal = editorBaseMB + satelliteBaseMB + activeProcessFootprintMB;
+  const rawTotal = editorBaseMB + activeProcessFootprintMB;
   if (rawTotal <= 384) return 384;
   if (rawTotal <= 512) return 512;
   if (rawTotal <= 768) return 768;
@@ -712,21 +716,21 @@ export function computeRecommendedRamMBForStack(params: {
   return 4096;
 }
 
+// Piso del contenedor del alumno. El motor satélite no suma: su memoria se reserva
+// en el nodo, no en la cuota de cada estudiante (ADR-050, D5).
 export function computeMinimumFloorMBForStack(params: {
   targetEnvironment: TargetEnvironment;
   rt: TemplateComponent | null;
   web: TemplateComponent | null;
   addons: TemplateComponent[];
-  db: StudioDatabaseOption | null;
   caps: RuntimeCapabilities | null;
 }): number {
-  const { targetEnvironment, rt, web, addons, db, caps } = params;
+  const { targetEnvironment, rt, web, addons, caps } = params;
   const isJudge = targetEnvironment === 'JUEZ_EFIMERO';
   if (isJudge) {
     return isHeavyRuntimeComponent(rt) ? 128 : 64;
   }
   const editorBase = caps?.editor_base_mb ?? 210;
-  const satelliteMB = db?.ram_delta_mb || 0;
 
   let minRuntimeProcessMB = 0;
   if (rt) {
@@ -735,7 +739,7 @@ export function computeMinimumFloorMBForStack(params: {
   if (web || addons.some(a => isResidentAddonComponent(a))) {
     minRuntimeProcessMB = Math.max(minRuntimeProcessMB, 300);
   }
-  return editorBase + satelliteMB + minRuntimeProcessMB;
+  return editorBase + minRuntimeProcessMB;
 }
 
 export function filterAndPrioritizeRuntimeItems(

@@ -483,3 +483,116 @@ func TestReviewTemplate_SuspendedSuccess(t *testing.T) {
 		t.Errorf("motivo no coincide: %s", mockRepo.lastRejectionReason)
 	}
 }
+
+// El alta persiste los bindings normalizados: PostgreSQL como base principal y Redis
+// como caché pueden convivir porque son roles distintos.
+func TestCreateOfficialTemplate_PersistsPrimaryPlusCacheBindings(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.CreateOfficialTemplateDTO{
+		Name:              "API con PostgreSQL y caché Redis",
+		DockerImage:       "python:3.12-slim",
+		BaseRamMB:         1024,
+		TargetEnvironment: "IDE_PERSISTENTE",
+		ServicesConfig: &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{
+				{Category: "database", Engine: "postgres"},
+				{Category: "database", Engine: "redis"},
+			},
+		},
+	}
+
+	item, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dto)
+	if err != nil {
+		t.Fatalf("error inesperado: %v", err)
+	}
+	if len(item.ServicesConfig.Services) != 2 {
+		t.Fatalf("esperados dos bindings persistidos, obtenidos %d", len(item.ServicesConfig.Services))
+	}
+	if primary := item.ServicesConfig.Services[0]; primary.Role != domain.ServiceRolePrimaryDatabase || primary.EnvAlias != "db" {
+		t.Errorf("binding primario inesperado: %+v", primary)
+	}
+	if cache := item.ServicesConfig.Services[1]; cache.Role != domain.ServiceRoleCache || cache.EnvAlias != "cache" || cache.Category != "cache" {
+		t.Errorf("binding de caché inesperado: %+v", cache)
+	}
+	if mockRepo.lastCreatedDTO == nil || len(mockRepo.lastCreatedDTO.ServicesConfig.Services) != 2 {
+		t.Error("el contrato normalizado debe llegar al repositorio")
+	}
+}
+
+// La validación de bindings corre antes de persistir: una configuración que el arranque
+// no sabría ejecutar no se guarda.
+func TestCreateOfficialTemplate_RejectsInvalidServiceBindings(t *testing.T) {
+	cases := []struct {
+		name     string
+		services []domain.ServiceRequirement
+		wantErr  error
+	}{
+		{
+			name:     "dos bases primarias",
+			services: []domain.ServiceRequirement{{Engine: "mysql"}, {Engine: "postgres"}},
+			wantErr:  domain.ErrMultiplePrimaryDatabase,
+		},
+		{
+			name:     "motor desconocido",
+			services: []domain.ServiceRequirement{{Engine: "oracle"}},
+			wantErr:  domain.ErrUnsupportedServiceEngine,
+		},
+		{
+			name:     "rol incoherente con el motor",
+			services: []domain.ServiceRequirement{{Role: domain.ServiceRolePrimaryDatabase, Engine: "redis"}},
+			wantErr:  domain.ErrServiceRoleMismatch,
+		},
+		{
+			name: "alias repetido",
+			services: []domain.ServiceRequirement{
+				{Engine: "postgres", EnvAlias: "data"},
+				{Engine: "redis", EnvAlias: "data"},
+			},
+			wantErr: domain.ErrDuplicateServiceAlias,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockRepo := &mockAdminGovernanceRepo{}
+			svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+			dto := domain.CreateOfficialTemplateDTO{
+				Name:              "Laboratorio inválido",
+				DockerImage:       "python:3.12-slim",
+				BaseRamMB:         1024,
+				TargetEnvironment: "IDE_PERSISTENTE",
+				ServicesConfig:    &domain.ServicesConfig{Services: tc.services},
+			}
+
+			if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dto); !errors.Is(err, tc.wantErr) {
+				t.Fatalf("esperado %v, obtenido %v", tc.wantErr, err)
+			}
+			if mockRepo.lastCreatedDTO != nil {
+				t.Error("una plantilla con bindings inválidos no debe persistirse")
+			}
+		})
+	}
+}
+
+// La edición aplica el mismo contrato que el alta.
+func TestUpdateOfficialTemplate_RejectsInvalidServiceBindings(t *testing.T) {
+	mockRepo := &mockAdminGovernanceRepo{}
+	svc := services.NewAdminGovernanceService(nil, mockRepo)
+
+	dto := domain.UpdateOfficialTemplateDTO{
+		Name:              "Laboratorio con dos bases",
+		DockerImage:       "python:3.12-slim",
+		BaseRamMB:         1024,
+		TargetEnvironment: "IDE_PERSISTENTE",
+		ServicesConfig: &domain.ServicesConfig{
+			Services: []domain.ServiceRequirement{{Engine: "mysql"}, {Engine: "postgres"}},
+		},
+	}
+
+	if _, err := svc.UpdateOfficialTemplate(context.Background(), "tenant-1", "tpl-1", "admin-1", dto); !errors.Is(err, domain.ErrMultiplePrimaryDatabase) {
+		t.Fatalf("esperado ErrMultiplePrimaryDatabase, obtenido %v", err)
+	}
+}

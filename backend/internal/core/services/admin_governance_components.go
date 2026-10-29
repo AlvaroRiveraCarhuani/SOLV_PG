@@ -343,8 +343,22 @@ func (s *AdminGovernanceService) UpdateOfficialTemplate(
 		return nil, ErrInvalidDockerImage
 	}
 
-	if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
-		return nil, err
+	if !domain.IsBuiltStackImageTag(dto.DockerImage) {
+		if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
+			return nil, err
+		}
+	}
+
+	if dto.TargetEnvironment == "" {
+		dto.TargetEnvironment = "IDE_PERSISTENTE"
+	}
+	if dto.TimeoutMS <= 0 {
+		dto.TimeoutMS = 5000
+	}
+	if domain.IsBuiltStackImageTag(dto.DockerImage) {
+		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForUpdate(dto), true); err != nil {
+			return nil, err
+		}
 	}
 
 	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
@@ -360,8 +374,12 @@ func (s *AdminGovernanceService) UpdateOfficialTemplate(
 		}
 	}
 
+	if err := domain.NormalizeServiceBindings(dto.ServicesConfig); err != nil {
+		return nil, err
+	}
+
 	if dto.BaseRamMB > 0 {
-		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment, dto.ServicesConfig)
+		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment)
 		if dto.BaseRamMB < minFloorMB {
 			return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, dto.BaseRamMB, minFloorMB)
 		}

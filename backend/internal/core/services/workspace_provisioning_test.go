@@ -194,6 +194,11 @@ func (m *mockOrchestrator) StopManagedSatellite(ctx context.Context, engine stri
 
 func (m *mockOrchestrator) ExecInManagedSatellite(ctx context.Context, engine string, cmd []string) (string, error) {
 	m.satelliteExecs = append(m.satelliteExecs, satelliteExec{engine: engine, cmd: cmd})
+	if engine == "mongodb" {
+		// El init de MongoDB se evalúa dentro de mongosh; el mock solo registra la
+		// invocación para que el test verifique el guard y el sellado.
+		return "", nil
+	}
 	sql := ""
 	if len(cmd) > 0 {
 		sql = cmd[len(cmd)-1]
@@ -204,12 +209,32 @@ func (m *mockOrchestrator) ExecInManagedSatellite(ctx context.Context, engine st
 			return "1\n", nil
 		}
 		return "0\n", nil
-	case strings.Contains(sql, "_solv_exercise_migrations") || strings.Contains(sql, "CREATE DATABASE IF NOT EXISTS"):
+	case strings.Contains(sql, "SELECT 1 FROM _solv_exercise_migrations"):
+		if m.satelliteScriptRuns > 0 {
+			return "1\n", nil
+		}
+		return "", nil
+	case strings.Contains(sql, "_solv_exercise_migrations") ||
+		strings.Contains(sql, "CREATE DATABASE") ||
+		strings.Contains(sql, "pg_roles") ||
+		strings.Contains(sql, "pg_database") ||
+		strings.Contains(sql, "REVOKE CONNECT"):
 		return "", nil
 	default:
 		m.satelliteScriptRuns++
 		return "", nil
 	}
+}
+
+// satelliteExecsWith devuelve los comandos ejecutados con el binario indicado.
+func (m *mockOrchestrator) satelliteExecsWith(binary string) []satelliteExec {
+	var found []satelliteExec
+	for _, exec := range m.satelliteExecs {
+		if len(exec.cmd) > 0 && exec.cmd[0] == binary {
+			found = append(found, exec)
+		}
+	}
+	return found
 }
 
 // satelliteExecutedSQL indica si algún comando ejecutado contiene el fragmento dado.
@@ -320,7 +345,7 @@ func TestWorkspaceService_TemplateProvisioning(t *testing.T) {
 	}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, monitor).
-		WithProvisioning(subjRepo, tplRepo, nil)
+		WithProvisioning(subjRepo, tplRepo)
 
 	ws, err := svc.StartWorkspace(context.Background(), "student-1", "subj-101")
 	if err != nil {
@@ -365,7 +390,7 @@ func TestWorkspaceService_DefaultFallbackWithoutTemplate(t *testing.T) {
 	tplRepo := &mockTemplateRepo{templates: map[string]*domain.Template{}}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, monitor).
-		WithProvisioning(subjRepo, tplRepo, nil)
+		WithProvisioning(subjRepo, tplRepo)
 
 	ws, err := svc.StartWorkspace(context.Background(), "student-2", "subj-general")
 	if err != nil {
@@ -388,7 +413,7 @@ func TestWorkspaceService_PoliciesAdmission(t *testing.T) {
 	newSvcWithPolicies := func(wsRepo *mockWorkspaceRepo, subjRepo *mockSubjectRepo, tplRepo *mockTemplateRepo) *services.WorkspaceService {
 		polSvc := services.NewServerPoliciesService(&mockTenantRepo{config: policiesJSON})
 		return services.NewWorkspaceService(wsRepo, &mockOrchestrator{}, &mockHostMonitor{}).
-			WithProvisioning(subjRepo, tplRepo, nil).
+			WithProvisioning(subjRepo, tplRepo).
 			SetPoliciesService(polSvc)
 	}
 
@@ -498,7 +523,7 @@ func TestWorkspaceService_StartWorkspace_RamExceedsHost(t *testing.T) {
 	}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, monitor).
-		WithProvisioning(subjRepo, tplRepo, nil)
+		WithProvisioning(subjRepo, tplRepo)
 
 	_, err := svc.StartWorkspace(context.Background(), "student-excess-ram", targetSubjectID)
 	if err == nil {

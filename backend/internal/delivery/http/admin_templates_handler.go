@@ -168,6 +168,10 @@ func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Req
 			SendError(w, http.StatusBadRequest, "ram_exceeds_host", err.Error())
 			return
 		}
+		if errors.Is(err, services.ErrTemplateVerificationRequired) {
+			SendError(w, http.StatusUnprocessableEntity, "verification_required", err.Error())
+			return
+		}
 		status := http.StatusInternalServerError
 		if errors.Is(err, services.ErrInvalidDockerImage) || errors.Is(err, services.ErrLatestTagForbidden) || strings.Contains(err.Error(), "requerido") {
 			status = http.StatusUnprocessableEntity

@@ -41,6 +41,11 @@ func (d *dummyRunner) RunJudgeSmokeTest(ctx context.Context, imageRef string, en
 	return "OK: judge passed", 12, 0, nil
 }
 
+func jobCtx(userID, tenantID string) context.Context {
+	ctx := context.WithValue(context.Background(), domain.UserIDKey, userID)
+	return context.WithValue(ctx, domain.TenantIDKey, tenantID)
+}
+
 func TestEnvTestHandler_Endpoints(t *testing.T) {
 	repo := memory.NewEnvTestJobMemoryRepository(time.Hour)
 	reg := &dummyRegistry{}
@@ -55,7 +60,7 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 
 	// 1. Iniciar Job
 	reqBody := []byte(`{"image":"python:3.12-slim","tools":["python","pip"]}`)
-	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/jobs/env-test", bytes.NewBuffer(reqBody))
+	req := httptest.NewRequestWithContext(jobCtx("admin-1", "tenant-1"), "POST", "/api/v1/jobs/env-test", bytes.NewBuffer(reqBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	mux.ServeHTTP(w, req)
@@ -78,7 +83,7 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 	}
 
 	// 2. Consultar Job
-	getReq := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/jobs/env-test/"+jobID, nil)
+	getReq := httptest.NewRequestWithContext(jobCtx("admin-1", "tenant-1"), "GET", "/api/v1/jobs/env-test/"+jobID, nil)
 	getW := httptest.NewRecorder()
 	mux.ServeHTTP(getW, getReq)
 
@@ -86,8 +91,26 @@ func TestEnvTestHandler_Endpoints(t *testing.T) {
 		t.Fatalf("expected 200 OK, got %d: %s", getW.Code, getW.Body.String())
 	}
 
-	// 3. Cancelar Job
-	cancelReq := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/jobs/env-test/"+jobID+"/cancel", nil)
+	// 3. Un usuario distinto no puede leer el job (404, sin filtrar existencia)
+	foreignReq := httptest.NewRequestWithContext(jobCtx("admin-2", "tenant-1"), "GET", "/api/v1/jobs/env-test/"+jobID, nil)
+	foreignW := httptest.NewRecorder()
+	mux.ServeHTTP(foreignW, foreignReq)
+
+	if foreignW.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for foreign owner, got %d: %s", foreignW.Code, foreignW.Body.String())
+	}
+
+	// 4. El mismo usuario de otro tenant tampoco puede leer el job
+	foreignTenantReq := httptest.NewRequestWithContext(jobCtx("admin-1", "tenant-2"), "GET", "/api/v1/jobs/env-test/"+jobID, nil)
+	foreignTenantW := httptest.NewRecorder()
+	mux.ServeHTTP(foreignTenantW, foreignTenantReq)
+
+	if foreignTenantW.Code != http.StatusNotFound {
+		t.Fatalf("expected 404 for foreign tenant, got %d: %s", foreignTenantW.Code, foreignTenantW.Body.String())
+	}
+
+	// 5. Cancelar Job
+	cancelReq := httptest.NewRequestWithContext(jobCtx("admin-1", "tenant-1"), "POST", "/api/v1/jobs/env-test/"+jobID+"/cancel", nil)
 	cancelW := httptest.NewRecorder()
 	mux.ServeHTTP(cancelW, cancelReq)
 

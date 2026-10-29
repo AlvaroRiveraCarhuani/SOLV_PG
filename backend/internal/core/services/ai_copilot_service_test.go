@@ -257,7 +257,7 @@ func TestAICopilot_SuggestComponent_GovernsDatabaseEngines(t *testing.T) {
 		{requested: "mongodb", wantEngine: "mongodb", wantImage: "mongo:7.0", wantCategory: "nosql", wantRamDeltaMB: 128},
 		{requested: "redis", wantEngine: "redis", wantImage: "redis:7.2-alpine", wantCategory: "nosql", wantRamDeltaMB: 64},
 		// Un motor fuera del catálogo cae en el PostgreSQL de aula, nunca en un motor inventado.
-		{requested: "sqlserver", wantEngine: "postgres", wantImage: "", wantCategory: "relational", wantRamDeltaMB: 50},
+		{requested: "sqlserver", wantEngine: "postgres", wantImage: "postgres:18-alpine", wantCategory: "relational", wantRamDeltaMB: 384},
 	}
 
 	for _, tc := range cases {

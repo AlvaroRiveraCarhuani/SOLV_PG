@@ -269,10 +269,12 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 	// Catálogo real de servicios satélite soportados en la plataforma. Los motores de
 	// contenedor se levantan bajo demanda y se apagan cuando ningún laboratorio los usa
 	// (Scale-to-Zero), así que todos los motores están disponibles en el nodo sin que un
-	// administrador de sistema tenga que declarar hosts a mano. Un sysadmin todavía
-	// puede fijar MYSQL_SATELLITE_HOST / MARIADB_SATELLITE_HOST / MONGODB_SATELLITE_HOST
-	// / REDIS_SATELLITE_HOST para apuntar a un host externo: en ese caso es un override
-	// de destino y no un requisito de disponibilidad.
+	// administrador de sistema tenga que declarar hosts a mano. PostgreSQL de aula entra
+	// en ese conjunto: es un satélite dedicado y nunca la base de la plataforma
+	// (ADR-051). Un sysadmin todavía puede fijar MYSQL_SATELLITE_HOST /
+	// MARIADB_SATELLITE_HOST / MONGODB_SATELLITE_HOST / POSTGRES_SATELLITE_HOST /
+	// REDIS_SATELLITE_HOST para apuntar a un host externo: en ese caso es un override de
+	// destino y no un requisito de disponibilidad.
 	satellites := []domain.SatelliteServiceCapability{
 		{
 			Category:         "database",
@@ -290,11 +292,12 @@ func (s *AdminGovernanceService) GetRuntimeCapabilities(ctx context.Context) (*d
 			Engine:           "postgres",
 			Label:            "PostgreSQL (Aula)",
 			Version:          pgVersion,
-			Description:      "Motor relacional PostgreSQL con aislamiento por estudiante y límites de seguridad para el aula.",
+			Description:      "Motor relacional auto-orquestado para el aula: rol, base y credenciales exclusivos por alumno y materia, separado de la base de la plataforma.",
 			EnvVar:           "DATABASE_URL",
 			IsAvailable:      true,
-			BaseRAMMB:        50,
-			ProvisioningMode: domain.ProvisioningSharedHost,
+			BaseRAMMB:        384,
+			ProvisioningMode: domain.ProvisioningManagedContainer,
+			DefaultImage:     "postgres:18-alpine",
 		},
 		{
 			Category:         "database",

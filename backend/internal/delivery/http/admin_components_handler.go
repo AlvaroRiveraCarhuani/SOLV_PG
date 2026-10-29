@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"solv-backend/internal/core/domain"
+	"solv-backend/internal/core/services"
 	"strings"
 )
 
@@ -179,6 +180,10 @@ func (h *AdminAcademicHandler) UpdateOfficialTemplate(w http.ResponseWriter, r *
 	if err != nil {
 		if errors.Is(err, domain.ErrRamExceedsHostCapacity) {
 			SendError(w, http.StatusUnprocessableEntity, "ram_exceeds_host", err.Error())
+			return
+		}
+		if errors.Is(err, services.ErrTemplateVerificationRequired) {
+			SendError(w, http.StatusUnprocessableEntity, "verification_required", err.Error())
 			return
 		}
 		SendError(w, http.StatusUnprocessableEntity, "update_failed", err.Error())

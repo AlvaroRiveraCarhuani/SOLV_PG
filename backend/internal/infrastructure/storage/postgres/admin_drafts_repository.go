@@ -176,6 +176,17 @@ func (r *PostgresAdminGovernanceRepository) GetTemplateByID(ctx context.Context,
 	return &t, nil
 }
 
+func (r *PostgresAdminGovernanceRepository) GetTemplateByIDAndTenant(ctx context.Context, tenantID, id string) (*domain.AdminTemplateReviewItem, error) {
+	template, err := r.GetTemplateByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if template.TenantID != nil && *template.TenantID != tenantID {
+		return nil, errors.New("template not found")
+	}
+	return template, nil
+}
+
 func (r *PostgresAdminGovernanceRepository) GetTemplateForLanguage(ctx context.Context, environmentType, language string) (*domain.AdminTemplateReviewItem, error) {
 	langLower := strings.ToLower(strings.TrimSpace(language))
 	query := `

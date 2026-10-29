@@ -450,3 +450,68 @@ func TestExerciseTemplateGovernance_AprobadaStatusAndRunnerPropagation(t *testin
 		t.Errorf("expected runner Entrypoint='rustc -O solution.rs -o solution && ./solution', got %q", runner.lastConfig.Entrypoint)
 	}
 }
+
+// El db_init_script exige un primario que sepa aplicarlo: SQL en PostgreSQL o JavaScript
+// en MongoDB. SQLite, Redis o un primario ausente no admiten init y se rechazan antes de
+// guardar el ejercicio, en lugar de ignorar el script en silencio al arrancar.
+func TestExerciseTemplateGovernance_DBInitScriptRequiresInitCapablePrimary(t *testing.T) {
+	cases := []struct {
+		name    string
+		engine  string
+		wantErr bool
+	}{
+		{name: "postgres acepta init sql", engine: "postgres"},
+		{name: "mongodb acepta init js", engine: "mongodb"},
+		{name: "sqlite rechaza init", engine: "sqlite", wantErr: true},
+		{name: "redis rechaza init", engine: "redis", wantErr: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			exRepo := &mockExerciseRepoGov{exercises: make(map[string]*domain.Exercise)}
+			govRepo := &mockGovRepoForTemplate{
+				templates: map[string]*domain.AdminTemplateReviewItem{
+					"tpl-init": {
+						ID:                "tpl-init",
+						Name:              "Laboratorio " + tc.engine,
+						DockerImage:       "python:3.12-slim",
+						Status:            "approved",
+						TargetEnvironment: domain.TargetEnvironmentIDEPersistente,
+						BaseRamMB:         1024,
+						ServicesConfig: domain.ServicesConfig{
+							Services: []domain.ServiceRequirement{{Engine: tc.engine}},
+						},
+					},
+				},
+			}
+			svc := services.NewEvaluationService(exRepo, nil, nil, nil)
+			svc.SetAdminGovernanceRepository(govRepo)
+
+			ex := &domain.Exercise{
+				Title:           "Tabla de materias",
+				EnvironmentType: domain.TargetEnvironmentIDEPersistente,
+				TemplateID:      "tpl-init",
+				Config: domain.ExerciseConfig{
+					IDE: &domain.IDEConfig{DBInitScript: "CREATE TABLE materias (id INT PRIMARY KEY);"},
+				},
+			}
+
+			err := svc.CreateExercise(context.Background(), ex)
+			if tc.wantErr {
+				if !errors.Is(err, services.ErrDBInitScriptUnsupported) {
+					t.Fatalf("esperado ErrDBInitScriptUnsupported, obtenido: %v", err)
+				}
+				if len(exRepo.exercises) != 0 {
+					t.Error("un ejercicio con init no soportado no debe persistirse")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("error inesperado: %v", err)
+			}
+			if ex.TemplateID != "tpl-init" {
+				t.Errorf("esperaba la plantilla resuelta, obtenido %q", ex.TemplateID)
+			}
+		})
+	}
+}

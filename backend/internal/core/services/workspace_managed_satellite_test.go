@@ -54,7 +54,7 @@ func managedSatelliteFixture(engine string, dbInitScript string) (*mockWorkspace
 	}}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
-		WithProvisioning(subjRepo, tplRepo, nil).
+		WithProvisioning(subjRepo, tplRepo).
 		WithExerciseSubmission(exRepo, &fakeSubmissionRepo{})
 	return wsRepo, orch, svc
 }
@@ -199,18 +199,97 @@ func TestStartWorkspaceForExercise_ProvisionsManagedSatelliteEngines(t *testing.
 		}
 	})
 
-	t.Run("postgres no levanta contenedores", func(t *testing.T) {
-		_, orch, svc := managedSatelliteFixture("postgres", "")
+	// PostgreSQL de aula es un satélite dedicado más: nunca la base de la plataforma
+	// (ADR-051). El alumno recibe rol y base propios dentro del motor de aula.
+	t.Run("postgres", func(t *testing.T) {
+		const script = "CREATE TABLE IF NOT EXISTS materias (id INT PRIMARY KEY);"
+		_, orch, svc := managedSatelliteFixture("postgres", script)
+		ctx := context.Background()
 
-		if _, err := svc.StartWorkspaceForExercise(context.Background(), "std0001", "subj001", "ex-sat"); err != nil {
+		if _, err := svc.StartWorkspaceForExercise(ctx, "std0001", "subj001", "ex-sat"); err != nil {
 			t.Fatalf("error inesperado al iniciar el laboratorio: %v", err)
 		}
 
-		if len(orch.satelliteSpecs) != 0 {
-			t.Errorf("PostgreSQL de aula no debe levantar contenedores satélite: %+v", orch.satelliteSpecs)
+		if len(orch.satelliteSpecs) != 1 {
+			t.Fatalf("PostgreSQL de aula debe levantarse como satélite dedicado: %+v", orch.satelliteSpecs)
 		}
-		if orch.lastConfig == nil || orch.lastConfig.AttachSatellitesNet {
-			t.Error("un laboratorio sin satélite gestionado no se conecta a la red interna")
+		spec := orch.satelliteSpecs[0]
+		if spec.Engine != "postgres" || spec.Image != "postgres:18-alpine" {
+			t.Errorf("satélite inesperado: engine=%q image=%q", spec.Engine, spec.Image)
+		}
+		if spec.ContainerName != "solv-sat-postgres" || spec.VolumeName != "solv_sat_data_postgres" {
+			t.Errorf("contenedor/volumen inesperados: %q / %q", spec.ContainerName, spec.VolumeName)
+		}
+		if spec.MemoryLimitMB != 384 || spec.Port != 5432 {
+			t.Errorf("tuning inesperado: %d MB puerto %d", spec.MemoryLimitMB, spec.Port)
+		}
+		if len(spec.ReadyCmd) == 0 || spec.ReadyCmd[0] != "pg_isready" {
+			t.Errorf("el satélite debe declarar readiness con pg_isready: %v", spec.ReadyCmd)
+		}
+		if strings.Contains(spec.Image, ":latest") {
+			t.Errorf("la imagen del satélite no puede usar :latest: %q", spec.Image)
+		}
+		if cmd := strings.Join(spec.Cmd, " "); !strings.Contains(cmd, "shared_buffers") {
+			t.Errorf("el motor debe arrancar con buffers acotados: %q", cmd)
+		}
+		// La imagen 18+ mueve el volumen al padre y PGDATA al subdirectorio de la versión.
+		if env := strings.Join(spec.Env, " "); !strings.Contains(env, "PGDATA=/var/lib/postgresql/18/docker") {
+			t.Errorf("PGDATA debe usar el layout oficial de la imagen 18+: %q", env)
+		}
+		if env := strings.Join(spec.Env, " "); strings.Contains(env, "PGDATA=/var/lib/postgresql/data") {
+			t.Errorf("PGDATA no puede quedar en el layout heredado: %q", env)
+		}
+
+		// Rol y base exclusivos del alumno, nunca el superusuario del motor.
+		if !orch.satelliteExecutedSQL("CREATE ROLE") {
+			t.Error("debe crearse un rol exclusivo por alumno y materia")
+		}
+		if !orch.satelliteExecutedSQL("NOSUPERUSER NOCREATEDB NOCREATEROLE") {
+			t.Error("el rol del alumno debe nacer sin privilegios de administración")
+		}
+		if !orch.satelliteExecutedSQL(`CREATE DATABASE "solv_std_std0001_subj001" OWNER`) {
+			t.Error("debe crearse la base del alumno con su rol como dueño")
+		}
+		if !orch.satelliteExecutedSQL("REVOKE CONNECT ON DATABASE") {
+			t.Error("la base del alumno no debe aceptar conexiones de PUBLIC")
+		}
+		if !orch.satelliteExecutedSQL("_solv_exercise_migrations") || !orch.satelliteExecutedSQL("CREATE TABLE IF NOT EXISTS materias") {
+			t.Error("el db_init_script debe aplicarse dentro de la base del alumno con su sello")
+		}
+		if orch.satelliteScriptRuns != 1 {
+			t.Fatalf("el db_init_script debe aplicarse una vez, aplicado %d veces", orch.satelliteScriptRuns)
+		}
+
+		config := orch.lastConfig
+		if config == nil {
+			t.Fatal("no se envió configuración de contenedor al orquestador")
+		}
+		if !config.AttachSatellitesNet {
+			t.Error("el laboratorio debe conectarse a la red interna de satélites")
+		}
+		dsn, ok := envValue(config.Env, "DATABASE_URL")
+		if !ok {
+			t.Fatal("el laboratorio debe recibir DATABASE_URL")
+		}
+		if strings.Contains(dsn, "postgres:postgres@") {
+			t.Errorf("DATABASE_URL no puede usar el superusuario del motor: %q", dsn)
+		}
+		user, _ := envValue(config.Env, "PGUSER")
+		password, _ := envValue(config.Env, "PGPASSWORD")
+		wantPrefix := "postgresql://" + user + ":" + password + "@solv-sat-postgres:5432/solv_std_std0001_subj001"
+		if !strings.HasPrefix(dsn, wantPrefix) {
+			t.Errorf("DATABASE_URL inyectada inesperada: %q", dsn)
+		}
+		if db, _ := envValue(config.Env, "PGDATABASE"); db != "solv_std_std0001_subj001" {
+			t.Errorf("PGDATABASE inyectado inesperado: %q", db)
+		}
+
+		// Segundo arranque: el sello impide reaplicar el script del ejercicio.
+		if _, err := svc.StartWorkspaceForExercise(ctx, "std0001", "subj001", "ex-sat"); err != nil {
+			t.Fatalf("error inesperado al reabrir el laboratorio: %v", err)
+		}
+		if orch.satelliteScriptRuns != 1 {
+			t.Fatalf("el db_init_script no debe reaplicarse: aplicado %d veces", orch.satelliteScriptRuns)
 		}
 	})
 }
@@ -273,7 +352,7 @@ func TestHibernateWorkspace_StopsManagedSatelliteWhenNoLabUsesIt(t *testing.T) {
 	}}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
-		WithProvisioning(subjRepo, tplRepo, nil).
+		WithProvisioning(subjRepo, tplRepo).
 		WithExerciseSubmission(exRepo, &fakeSubmissionRepo{})
 
 	ctx := context.Background()
@@ -324,7 +403,7 @@ func TestTerminateWorkspace_StopsManagedSatelliteWhenNoLabUsesIt(t *testing.T) {
 	}}
 
 	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
-		WithProvisioning(subjRepo, tplRepo, nil).
+		WithProvisioning(subjRepo, tplRepo).
 		WithExerciseSubmission(exRepo, &fakeSubmissionRepo{})
 
 	ctx := context.Background()

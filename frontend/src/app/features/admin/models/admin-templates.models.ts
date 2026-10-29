@@ -337,6 +337,7 @@ export interface CreateOfficialTemplateDTO {
   model_id?: string;
   sample_input?: string;
   stack_config?: StackConfig;
+  verification_job_id?: string;
 }
 
 export interface TemplateCategory {

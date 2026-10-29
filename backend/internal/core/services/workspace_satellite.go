@@ -8,28 +8,58 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"sort"
 	"strings"
+	"time"
 
 	"solv-backend/internal/core/domain"
 )
 
 // managedSatelliteEngines son los motores que SOLV levanta por demanda como contenedor
-// satélite. PostgreSQL de aula vive en el host compartido y Redis comparte el mismo
-// mecanismo; SQLite es un archivo dentro del laboratorio.
-var managedSatelliteEngines = []string{"mysql", "mariadb", "mongodb", "redis"}
+// satélite. PostgreSQL de aula tiene motor propio desde ADR-051: no comparte instancia
+// con la base de la plataforma. SQLite es un archivo dentro del laboratorio.
+var managedSatelliteEngines = []string{"postgres", "mysql", "mariadb", "mongodb", "redis"}
 
-// satelliteProvision es el resultado de asegurar el motor declarado por la plantilla
-// para un laboratorio: la base compartida de PostgreSQL cuando aplica y las variables de
-// entorno con credenciales aisladas que recibe el contenedor del alumno.
+// managedSatelliteIdleGrace es el margen que el scale-to-zero respeta desde el último
+// uso de un motor. Un laboratorio que se está aprovisionando todavía no figura como
+// activo en la base de datos, y sin este margen el motor podía apagarse a mitad del
+// arranque y arruinar la sesión del alumno.
+const managedSatelliteIdleGrace = 2 * time.Minute
+
+// satelliteProvision es el resultado de asegurar los motores declarados por la
+// plantilla para un laboratorio: las variables de entorno con credenciales aisladas que
+// recibe el contenedor del alumno.
 type satelliteProvision struct {
-	// PostgresDBName es la base del aula creada para el par alumno/materia.
-	PostgresDBName string
 	// Env son las variables de entorno inyectadas al laboratorio (DATABASE_URL y
 	// afines) que apuntan al motor con usuario, base y contraseña exclusivos.
 	Env []string
 	// UsesManagedContainer indica que el laboratorio debe conectarse a la red interna
 	// de satélites para alcanzar el motor gestionado.
 	UsesManagedContainer bool
+}
+
+// noteManagedSatelliteUse registra que un laboratorio pidió el motor en este momento.
+func (s *WorkspaceService) noteManagedSatelliteUse(engine string) {
+	if strings.TrimSpace(engine) == "" {
+		return
+	}
+	s.satelliteUseMu.Lock()
+	if s.satelliteLastUse == nil {
+		s.satelliteLastUse = make(map[string]time.Time)
+	}
+	s.satelliteLastUse[engine] = time.Now()
+	s.satelliteUseMu.Unlock()
+}
+
+// managedSatelliteRecentlyUsed indica si el motor se pidió dentro del margen de gracia.
+func (s *WorkspaceService) managedSatelliteRecentlyUsed(engine string) bool {
+	s.satelliteUseMu.Lock()
+	last, ok := s.satelliteLastUse[engine]
+	s.satelliteUseMu.Unlock()
+	if !ok {
+		return false
+	}
+	return time.Since(last) < managedSatelliteIdleGrace
 }
 
 func isManagedSatelliteEngine(engine string) bool {
@@ -41,29 +71,52 @@ func isManagedSatelliteEngine(engine string) bool {
 	return false
 }
 
-// templateSatelliteEngine resuelve el motor de base de datos declarado por la plantilla
-// en services_config.services (postgres, mysql, mariadb, mongodb o redis).
-func templateSatelliteEngine(template *domain.Template) string {
+// templateServiceBindings resuelve todos los servicios declarados por la plantilla, con
+// el motor canonizado y la base principal primero. Los motores desconocidos y 'none' se
+// descartan: la validación de alta ya los rechaza, pero una plantilla antigua puede
+// tenerlos y el arranque no debe romperse por eso.
+func templateServiceBindings(template *domain.Template) []domain.ServiceRequirement {
 	if template == nil {
-		return ""
+		return nil
 	}
+	var bindings []domain.ServiceRequirement
 	for _, service := range template.ServicesConfig.Services {
-		engine := strings.ToLower(strings.TrimSpace(service.Engine))
-		if engine == "postgres" || isManagedSatelliteEngine(engine) {
-			return engine
+		engine := domain.CanonicalServiceEngine(service.Engine)
+		if engine == "" || engine == "none" {
+			continue
 		}
+		service.Engine = engine
+		bindings = append(bindings, service)
 	}
-	return ""
+	sort.SliceStable(bindings, func(i, j int) bool {
+		return serviceRoleRank(bindings[i]) < serviceRoleRank(bindings[j])
+	})
+	return bindings
 }
 
-// templateManagedEngine resuelve el motor de contenedor declarado por la plantilla,
-// vacío cuando el laboratorio no depende de un satélite gestionado.
-func templateManagedEngine(template *domain.Template) string {
-	engine := templateSatelliteEngine(template)
-	if isManagedSatelliteEngine(engine) {
-		return engine
+func serviceRoleRank(binding domain.ServiceRequirement) int {
+	if binding.EffectiveRole() == domain.ServiceRolePrimaryDatabase {
+		return 0
 	}
-	return ""
+	return 1
+}
+
+// templateManagedEngines devuelve los motores de contenedor que la plantilla declara,
+// sin duplicados. La lista vacía significa que el laboratorio no depende de un satélite
+// gestionado.
+func templateManagedEngines(template *domain.Template) []string {
+	bindings := templateServiceBindings(template)
+	var engines []string
+	seen := make(map[string]bool, len(bindings))
+	for _, binding := range bindings {
+		engine := domain.CanonicalServiceEngine(binding.Engine)
+		if !isManagedSatelliteEngine(engine) || seen[engine] {
+			continue
+		}
+		seen[engine] = true
+		engines = append(engines, engine)
+	}
+	return engines
 }
 
 // managedSatelliteHostOverride resuelve el destino externo declarado por un
@@ -80,6 +133,8 @@ func managedSatelliteHostOverride(engine string) string {
 		return strings.TrimSpace(os.Getenv("MYSQL_SATELLITE_HOST"))
 	case "mongodb":
 		return strings.TrimSpace(os.Getenv("MONGODB_SATELLITE_HOST"))
+	case "postgres":
+		return strings.TrimSpace(os.Getenv("POSTGRES_SATELLITE_HOST"))
 	case "redis":
 		return strings.TrimSpace(os.Getenv("REDIS_SATELLITE_HOST"))
 	default:
@@ -139,6 +194,31 @@ func managedSatelliteSpec(engine string) (domain.ManagedSatelliteSpec, bool) {
 	rootPassword := satelliteRootPassword()
 
 	switch engine {
+	case "postgres":
+		return domain.ManagedSatelliteSpec{
+			Engine:        "postgres",
+			Image:         "postgres:18-alpine",
+			ContainerName: "solv-sat-postgres",
+			VolumeName:    "solv_sat_data_postgres",
+			NetworkName:   "solv-satellites-net",
+			MemoryLimitMB: 384,
+			Port:          5432,
+			Env: []string{
+				"POSTGRES_PASSWORD=" + rootPassword,
+				// Layout oficial de la imagen 18+: el volumen se monta en el padre y
+				// PGDATA vive en el subdirectorio de la versión mayor. Fijarlo evita
+				// depender del default de la imagen y del layout heredado que la 18
+				// rechaza.
+				"PGDATA=/var/lib/postgresql/18/docker",
+			},
+			Cmd: []string{
+				"-c", "shared_buffers=96MB",
+				"-c", "max_connections=100",
+				"-c", "work_mem=2MB",
+				"-c", "maintenance_work_mem=32MB",
+			},
+			ReadyCmd: []string{"pg_isready", "-h", "127.0.0.1", "-U", "postgres"},
+		}, true
 	case "mysql":
 		return domain.ManagedSatelliteSpec{
 			Engine:        "mysql",
@@ -215,6 +295,7 @@ func (s *WorkspaceService) provisionManagedSatellite(
 	engine, studentID, subjectID string,
 	exercise *domain.Exercise,
 ) (satelliteProvision, error) {
+	s.noteManagedSatelliteUse(engine)
 	dbName := satelliteDatabaseName(studentID, subjectID)
 	spec, hasSpec := managedSatelliteSpec(engine)
 	orchestrator, hasOrchestrator := s.docker.(domain.ManagedSatelliteOrchestrator)
@@ -237,14 +318,38 @@ func (s *WorkspaceService) provisionManagedSatellite(
 	}
 
 	switch engine {
+	case "postgres":
+		user, password := satelliteIsolationIdentity(studentID, subjectID)
+		if usesManagedContainer && hasSpec && orchestrator != nil {
+			if err := s.ensurePostgresIsolatedDatabase(ctx, orchestrator, spec, dbName, user, password, exercise); err != nil {
+				return satelliteProvision{}, err
+			}
+		} else {
+			log.Printf("[Satellites] Motor postgres sin aprovisionamiento local (host %q): se inyectan credenciales sin base aislada", host)
+		}
+		port := spec.Port
+		if port == 0 {
+			port = 5432
+		}
+		return satelliteProvision{
+			UsesManagedContainer: usesManagedContainer,
+			Env: []string{
+				fmt.Sprintf("DATABASE_URL=postgresql://%s:%s@%s:%d/%s?sslmode=disable", user, password, host, port, dbName),
+				fmt.Sprintf("PGHOST=%s", host),
+				fmt.Sprintf("PGPORT=%d", port),
+				fmt.Sprintf("PGUSER=%s", user),
+				fmt.Sprintf("PGPASSWORD=%s", password),
+				fmt.Sprintf("PGDATABASE=%s", dbName),
+			},
+		}, nil
 	case "mysql", "mariadb":
 		user, password := satelliteIsolationIdentity(studentID, subjectID)
-		if host != "" && hasSpec && orchestrator != nil {
+		if usesManagedContainer && hasSpec && orchestrator != nil {
 			if err := s.ensureMySQLIsolatedDatabase(ctx, orchestrator, spec, dbName, user, password, exercise); err != nil {
 				return satelliteProvision{}, err
 			}
 		} else {
-			log.Printf("[Satellites] Motor %s apunta a un host externo %q: se inyectan credenciales sin aprovisionar", engine, host)
+			log.Printf("[Satellites] Motor %s sin aprovisionamiento local (host %q): se inyectan credenciales sin base aislada", engine, host)
 		}
 		port := spec.Port
 		if port == 0 {
@@ -263,6 +368,11 @@ func (s *WorkspaceService) provisionManagedSatellite(
 		}, nil
 
 	case "mongodb":
+		if usesManagedContainer && hasSpec && orchestrator != nil {
+			if err := s.applyManagedMongoExerciseDBInitScript(ctx, orchestrator, spec, dbName, exercise); err != nil {
+				return satelliteProvision{}, err
+			}
+		}
 		return satelliteProvision{
 			UsesManagedContainer: usesManagedContainer,
 			Env: []string{
@@ -285,6 +395,155 @@ func (s *WorkspaceService) provisionManagedSatellite(
 	default:
 		return satelliteProvision{}, nil
 	}
+}
+
+// managedSatelliteMigrationCollection sella, dentro de cada base del alumno, qué
+// ejercicio ya aplicó su db_init_script. Es el equivalente NoSQL de
+// _solv_exercise_migrations en SQL.
+const managedSatelliteMigrationCollection = "_solv_exercise_migrations"
+
+// applyManagedMongoExerciseDBInitScript aplica el db_init_script del ejercicio
+// (JavaScript de mongosh) una sola vez sobre la base aislada del alumno. El guard y el
+// sellado viajan en la misma invocación: si el script falla a mitad, el ejercicio no
+// queda registrado y se reintenta en el próximo arranque.
+func (s *WorkspaceService) applyManagedMongoExerciseDBInitScript(
+	ctx context.Context,
+	orchestrator domain.ManagedSatelliteOrchestrator,
+	spec domain.ManagedSatelliteSpec,
+	dbName string,
+	exercise *domain.Exercise,
+) error {
+	script := exerciseDBInitScript(exercise)
+	if script == "" {
+		return nil
+	}
+	if kind := (domain.ServiceRequirement{Engine: spec.Engine}).InitKind(); kind != domain.ServiceInitMongoJS {
+		return fmt.Errorf("el motor %s no admite db_init_script (init %s)", spec.Engine, kind)
+	}
+
+	exerciseID := escapeJSString(exercise.ID)
+	eval := fmt.Sprintf(
+		"if (db.getCollection(\"%s\").findOne({ exercise_id: \"%s\" }) === null) {\n%s\n  db.getCollection(\"%s\").insertOne({ exercise_id: \"%s\", applied_at: new Date() });\n}",
+		managedSatelliteMigrationCollection, exerciseID, script, managedSatelliteMigrationCollection, exerciseID,
+	)
+
+	port := spec.Port
+	if port == 0 {
+		port = 27017
+	}
+	args := []string{
+		"mongosh", "--quiet",
+		fmt.Sprintf("mongodb://127.0.0.1:%d/%s", port, dbName),
+		"--eval", eval,
+	}
+	if _, err := orchestrator.ExecInManagedSatellite(ctx, spec.Engine, args); err != nil {
+		return fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
+	}
+	log.Printf("[Satellites] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
+	return nil
+}
+
+// ensurePostgresIsolatedDatabase crea el rol y la base exclusivos del alumno y aplica
+// una sola vez el db_init_script del ejercicio. Todo el SQL viaja a psql dentro del
+// contenedor: el backend no abre conexiones al motor de aula ni usa la base de la
+// plataforma para las prácticas (ADR-051).
+func (s *WorkspaceService) ensurePostgresIsolatedDatabase(
+	ctx context.Context,
+	orchestrator domain.ManagedSatelliteOrchestrator,
+	spec domain.ManagedSatelliteSpec,
+	dbName, user, password string,
+	exercise *domain.Exercise,
+) error {
+	port := spec.Port
+	if port == 0 {
+		port = 5432
+	}
+	rootURL := fmt.Sprintf("postgresql://postgres:%s@127.0.0.1:%d/postgres?sslmode=disable", satelliteRootPassword(), port)
+
+	roleSQL := fmt.Sprintf(
+		"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '%s') THEN "+
+			"CREATE ROLE \"%s\" LOGIN PASSWORD '%s' NOSUPERUSER NOCREATEDB NOCREATEROLE; "+
+			"ELSE ALTER ROLE \"%s\" WITH LOGIN PASSWORD '%s' NOSUPERUSER NOCREATEDB NOCREATEROLE; END IF; END $$;",
+		escapeSQLString(user), user, password, user, password,
+	)
+	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, rootURL, roleSQL); err != nil {
+		return fmt.Errorf("no se pudo preparar el rol aislado %s en el satélite postgres: %w", user, err)
+	}
+
+	existsSQL := fmt.Sprintf("SELECT 1 FROM pg_database WHERE datname = '%s';", escapeSQLString(dbName))
+	exists, err := execPostgresSQL(ctx, orchestrator, spec.Engine, rootURL, existsSQL)
+	if err != nil {
+		return fmt.Errorf("no se pudo verificar la base aislada %s: %w", dbName, err)
+	}
+	if strings.TrimSpace(exists) != "1" {
+		createSQL := fmt.Sprintf("CREATE DATABASE \"%s\" OWNER \"%s\";", dbName, user)
+		if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, rootURL, createSQL); err != nil {
+			return fmt.Errorf("no se pudo crear la base aislada %s: %w", dbName, err)
+		}
+	}
+
+	grantSQL := fmt.Sprintf(
+		"REVOKE CONNECT ON DATABASE \"%s\" FROM PUBLIC; GRANT CONNECT ON DATABASE \"%s\" TO \"%s\";",
+		dbName, dbName, user,
+	)
+	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, rootURL, grantSQL); err != nil {
+		return fmt.Errorf("no se pudieron ajustar los permisos de %s: %w", dbName, err)
+	}
+
+	script := exerciseDBInitScript(exercise)
+	if script == "" {
+		return nil
+	}
+	studentURL := fmt.Sprintf("postgresql://%s:%s@127.0.0.1:%d/%s?sslmode=disable", user, password, port, dbName)
+	if err := s.applyManagedPostgresExerciseDBInitScript(ctx, orchestrator, spec, studentURL, exercise.ID, script); err != nil {
+		return fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
+	}
+	log.Printf("[Satellites] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
+	return nil
+}
+
+// execPostgresSQL ejecuta un statement con psql dentro del satélite y devuelve stdout.
+// ON_ERROR_STOP hace que un error del script corte la ejecución y no se selle.
+func execPostgresSQL(ctx context.Context, orchestrator domain.ManagedSatelliteOrchestrator, engine, url, sql string) (string, error) {
+	return orchestrator.ExecInManagedSatellite(ctx, engine, []string{"psql", url, "-v", "ON_ERROR_STOP=1", "-tAc", sql})
+}
+
+// applyManagedPostgresExerciseDBInitScript aplica el script del ejercicio una sola vez
+// por exercise_id, dentro de la base aislada y con el rol del alumno.
+func (s *WorkspaceService) applyManagedPostgresExerciseDBInitScript(
+	ctx context.Context,
+	orchestrator domain.ManagedSatelliteOrchestrator,
+	spec domain.ManagedSatelliteSpec,
+	studentURL, exerciseID, script string,
+) error {
+	const migrationsDDL = "CREATE TABLE IF NOT EXISTS _solv_exercise_migrations " +
+		"(exercise_id TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW());"
+
+	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, studentURL, migrationsDDL); err != nil {
+		return fmt.Errorf("failed to ensure exercise migrations table: %w", err)
+	}
+
+	checkSQL := fmt.Sprintf("SELECT 1 FROM _solv_exercise_migrations WHERE exercise_id = '%s';", escapeSQLString(exerciseID))
+	applied, err := execPostgresSQL(ctx, orchestrator, spec.Engine, studentURL, checkSQL)
+	if err != nil {
+		return fmt.Errorf("failed to check applied db_init_script: %w", err)
+	}
+	if strings.TrimSpace(applied) == "1" {
+		return nil
+	}
+
+	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, studentURL, script); err != nil {
+		return fmt.Errorf("db_init_script failed: %w", err)
+	}
+
+	registerSQL := fmt.Sprintf(
+		"INSERT INTO _solv_exercise_migrations (exercise_id) VALUES ('%s') ON CONFLICT (exercise_id) DO NOTHING;",
+		escapeSQLString(exerciseID),
+	)
+	if _, err := execPostgresSQL(ctx, orchestrator, spec.Engine, studentURL, registerSQL); err != nil {
+		return fmt.Errorf("failed to register applied db_init_script: %w", err)
+	}
+	return nil
 }
 
 // ensureMySQLIsolatedDatabase crea la base y el usuario exclusivos del alumno y aplica
@@ -376,10 +635,28 @@ func escapeSQLString(value string) string {
 	return strings.ReplaceAll(value, "'", "''")
 }
 
+// escapeJSString neutraliza los caracteres que rompen un literal JavaScript construido
+// en Go.
+func escapeJSString(value string) string {
+	return strings.NewReplacer(`\`, `\\`, `"`, `\"`, "\n", `\n`, "\r", `\r`).Replace(value)
+}
+
 // ReconcileIdleManagedSatellites apaga los motores de contenedor que ya no usa ningún
-// laboratorio en ejecución, liberando toda su memoria del host. El volumen nombrado y los
-// datos sobreviven; la próxima sesión reactiva el mismo contenedor.
+// laboratorio en ejecución, liberando toda su memoria del host. Se llama desde una acción
+// explícita (hibernar, pausar o terminar un laboratorio), así que apaga en el acto. El
+// volumen nombrado y los datos sobreviven; la próxima sesión reactiva el mismo contenedor.
 func (s *WorkspaceService) ReconcileIdleManagedSatellites(ctx context.Context) {
+	s.reconcileIdleManagedSatellites(ctx, false)
+}
+
+// ReconcileIdleManagedSatellitesScheduled es la variante que corre el worker de QoS. Como
+// pasa cada pocos segundos y un laboratorio en aprovisionamiento todavía no figura como
+// activo en la base de datos, respeta el margen de gracia desde el último uso del motor.
+func (s *WorkspaceService) ReconcileIdleManagedSatellitesScheduled(ctx context.Context) {
+	s.reconcileIdleManagedSatellites(ctx, true)
+}
+
+func (s *WorkspaceService) reconcileIdleManagedSatellites(ctx context.Context, respectGrace bool) {
 	orchestrator, ok := s.docker.(domain.ManagedSatelliteOrchestrator)
 	if !ok || s.repo == nil {
 		return
@@ -396,7 +673,7 @@ func (s *WorkspaceService) ReconcileIdleManagedSatellites(ctx context.Context) {
 		if workspace == nil {
 			continue
 		}
-		if engine := s.managedEngineForWorkspace(ctx, workspace); engine != "" {
+		for _, engine := range s.managedEnginesForWorkspace(ctx, workspace) {
 			inUse[engine]++
 		}
 	}
@@ -404,6 +681,11 @@ func (s *WorkspaceService) ReconcileIdleManagedSatellites(ctx context.Context) {
 	var stopped []string
 	for _, engine := range managedSatelliteEngines {
 		if inUse[engine] > 0 {
+			continue
+		}
+		// Un motor recién usado por un laboratorio que aún no figura como activo sigue
+		// siendo necesario: se apaga en el siguiente ciclo, ya fuera del arranque.
+		if respectGrace && s.managedSatelliteRecentlyUsed(engine) {
 			continue
 		}
 		// Un destino externo declarado por el sysadmin no es un contenedor del nodo.
@@ -422,16 +704,16 @@ func (s *WorkspaceService) ReconcileIdleManagedSatellites(ctx context.Context) {
 	}
 }
 
-// managedEngineForWorkspace resuelve el motor gestionado que un laboratorio concreto
-// mantiene en uso, resolviendo primero la plantilla del propio laboratorio.
-func (s *WorkspaceService) managedEngineForWorkspace(ctx context.Context, workspace *domain.WorkspaceInstance) string {
+// managedEnginesForWorkspace resuelve todos los motores gestionados que un laboratorio
+// concreto mantiene en uso, resolviendo primero la plantilla del propio laboratorio.
+func (s *WorkspaceService) managedEnginesForWorkspace(ctx context.Context, workspace *domain.WorkspaceInstance) []string {
 	if workspace == nil {
-		return ""
+		return nil
 	}
 	if workspace.TemplateID != nil && strings.TrimSpace(*workspace.TemplateID) != "" && s.templateRepo != nil {
 		if template, err := s.templateRepo.GetTemplateByID(ctx, strings.TrimSpace(*workspace.TemplateID)); err == nil && template != nil {
-			return templateManagedEngine(template)
+			return templateManagedEngines(template)
 		}
 	}
-	return templateManagedEngine(s.resolveTemplate(ctx, workspace.SubjectID))
+	return templateManagedEngines(s.resolveTemplate(ctx, workspace.SubjectID))
 }

@@ -65,9 +65,9 @@ func TestCreateTemplateComponent_GovernsDatabaseEngines(t *testing.T) {
 			name:            "alias postgresql",
 			dto:             domain.CreateTemplateComponentDTO{Name: "Relacional del aula", Slug: "aula-sql", Layer: domain.ComponentLayerDatabase, ServiceEngine: "postgresql"},
 			wantEngine:      "postgres",
-			wantImage:       "",
+			wantImage:       "postgres:18-alpine",
 			wantSubCategory: "relational",
-			wantRamDeltaMB:  50,
+			wantRamDeltaMB:  384,
 		},
 		{
 			name:            "sqlite en archivo",
@@ -89,9 +89,9 @@ func TestCreateTemplateComponent_GovernsDatabaseEngines(t *testing.T) {
 			name:            "motor no reconocible cae en PostgreSQL de aula",
 			dto:             domain.CreateTemplateComponentDTO{Name: "Motor genérico del curso", Slug: "motor-generico", Layer: domain.ComponentLayerDatabase, InstallMode: domain.InstallModePip, PackageNames: []string{"psycopg"}},
 			wantEngine:      "postgres",
-			wantImage:       "",
+			wantImage:       "postgres:18-alpine",
 			wantSubCategory: "relational",
-			wantRamDeltaMB:  50,
+			wantRamDeltaMB:  384,
 		},
 	}
 

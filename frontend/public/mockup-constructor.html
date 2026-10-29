@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mockup Interactivo · Rediseño Constructor de Laboratorio SOLV</title>
+  <style>
+    :root {
+      --bg-page: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: #e2e8f0;
+      --border-focus: #3b82f6;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-subtle: #eff6ff;
+      --primary-border: #bfdbfe;
+      --success: #15803d;
+      --success-subtle: #f0fdf4;
+      --success-border: #bbf7d0;
+      --warning: #b45309;
+      --warning-subtle: #fffbeb;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 14px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.07), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.08), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      line-height: 1.5;
+      font-size: 14px;
+      padding-bottom: 90px; /* Espacio para barra inferior si está activa */
+    }
+
+    /* BARRA SUPERIOR DE PRUEBAS / SWITCHER DE LAYOUT */
+    .prototype-bar {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      font-size: 13px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    .prototype-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+    .prototype-badge {
+      background: #3b82f6;
+      color: white;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .layout-switcher {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.1);
+      padding: 3px;
+      border-radius: 8px;
+    }
+    .layout-btn {
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      padding: 5px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .layout-btn:hover { color: #ffffff; }
+    .layout-btn.active {
+      background: #3b82f6;
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    /* BARRA PRINCIPAL DEL CONSTRUCTOR */
+    .app-header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-color);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-title h1 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .mode-pills {
+      display: flex;
+      background: #f1f5f9;
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+    .mode-pill {
+      border: none;
+      background: transparent;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+    }
+    .mode-pill.active {
+      background: white;
+      color: var(--primary);
+      font-weight: 600;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    }
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .btn-secondary {
+      background: white;
+      border: 1px solid var(--border-color);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-main);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-secondary:hover { background: #f8fafc; }
+    .btn-admin {
+      color: #475569;
+      border-style: dashed;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 8px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    /* CONTENEDOR PRINCIPAL CON 2 VARIANTES DE LAYOUT */
+    .main-container {
+      max-width: 1440px;
+      margin: 0 auto;
+      padding: 24px;
+      display: grid;
+      gap: 24px;
+      transition: all 0.25s ease-out;
+    }
+
+    /* LAYOUT 1: SPLIT 70/30 (Panel derecho fijo) */
+    .layout-split {
+      grid-template-columns: 1fr 340px;
+      align-items: start;
+    }
+
+    /* LAYOUT 2: FULL WIDTH 100% (Con barra inferior docked) */
+    .layout-full {
+      grid-template-columns: 1fr;
+    }
+
+    /* LAYOUT 3: COLLAPSIBLE SIDEBAR */
+    .layout-collapsible {
+      grid-template-columns: 1fr auto;
+      align-items: start;
+    }
+
+    /* PANEL IZQUIERDO DE CONSTRUCCIÓN */
+    .canvas-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    /* SECCIONES NUMERADAS DEL COMPOSITOR */
+    .builder-step-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      box-shadow: var(--shadow-sm);
+    }
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .step-title-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .step-number {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--primary-subtle);
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .step-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .step-subtitle {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* GRILLAS DE TARJETAS */
+    .runtimes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 12px;
+    }
+    .tech-card {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .tech-card:hover {
+      border-color: #cbd5e1;
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+    .tech-card.selected {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+    }
+    .tech-card .icon-wrap {
+      width: 36px;
+      height: 36px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .tech-card .icon-wrap svg {
+      width: 32px;
+      height: 32px;
+    }
+    .tech-card .name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 2px;
+    }
+    .tech-card .tag {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      background: #f1f5f9;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    /* KITS DE 1-CLIC (SECCIÓN ATRACTIVA) */
+    .kits-banner {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      margin-bottom: 18px;
+    }
+    .kits-banner-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+    }
+    .kits-banner-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .kits-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+    .kit-btn {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      transition: all 0.15s;
+    }
+    .kit-btn:hover {
+      border-color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+    .kit-btn.active {
+      background: var(--primary-subtle);
+      border-color: var(--primary);
+    }
+    .kit-btn-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .kit-btn-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .kit-btn-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.3;
+      margin-top: 2px;
+    }
+
+    /* FILTROS Y BÚSQUEDA DE LIBRERÍAS */
+    .filter-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .search-input-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 200px;
+    }
+    .search-input-wrap input {
+      width: 100%;
+      padding: 8px 12px 8px 32px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      outline: none;
+    }
+    .search-input-wrap input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+    }
+    .search-icon-svg {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-light);
+    }
+    .category-pills {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+    }
+    .pill-btn {
+      background: white;
+      border: 1px solid var(--border-color);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .pill-btn:hover { color: var(--text-main); border-color: #cbd5e1; }
+    .pill-btn.active {
+      background: #0f172a;
+      color: white;
+      border-color: #0f172a;
+      font-weight: 600;
+    }
+
+    /* GRILLA DE LIBRERÍAS ATÓMICAS */
+    .packages-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 12px;
+    }
+    .pkg-card {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.15s;
+      position: relative;
+    }
+    .pkg-card:hover {
+      border-color: #94a3b8;
+      box-shadow: var(--shadow-sm);
+    }
+    .pkg-card.selected {
+      border-color: var(--primary);
+      background: var(--primary-subtle);
+    }
+    .pkg-card .pkg-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .pkg-card .pkg-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .pkg-card .pkg-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .pkg-card .pkg-category {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .pkg-card .pkg-check {
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      border: 1.5px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .pkg-card.selected .pkg-check {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: white;
+    }
+
+    /* SECCIÓN 3: BASES DE DATOS Y CONECTORES INTELIGENTES */
+    .databases-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .db-card {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .db-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: var(--shadow-sm);
+    }
+    .db-card.selected {
+      border-color: var(--success);
+      background: #fafdfb;
+      box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.15);
+    }
+    .db-card-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .db-icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .db-info {
+      flex: 1;
+    }
+    .db-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .db-ram {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .db-wiring-badge {
+      display: none;
+      background: var(--success-subtle);
+      border: 1px solid var(--success-border);
+      color: var(--success);
+      font-size: 11px;
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-weight: 500;
+      align-items: center;
+      gap: 6px;
+    }
+    .db-card.selected .db-wiring-badge {
+      display: flex;
+    }
+
+    /* PANEL DERECHO DE RESUMEN (LAYOUT 70/30) */
+    .summary-sidebar {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      position: sticky;
+      top: 70px;
+      box-shadow: var(--shadow-sm);
+    }
+    .summary-header {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* MEDIDOR DE RAM */
+    .ram-meter-box {
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 18px;
+    }
+    .ram-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+    .ram-label { color: var(--text-muted); font-weight: 500; }
+    .ram-value { font-family: var(--font-mono); font-weight: 700; color: var(--text-main); }
+    .ram-progress-track {
+      height: 8px;
+      background: #e2e8f0;
+      border-radius: 999px;
+      overflow: hidden;
+      display: flex;
+    }
+    .ram-bar-base { background: var(--primary); height: 100%; transition: width 0.3s; }
+    .ram-bar-db { background: var(--success); height: 100%; transition: width 0.3s; }
+
+    /* MINI TOPOLOGÍA VISUAL (ESTILO RAILWAY) */
+    .topology-box {
+      margin-bottom: 18px;
+      border: 1px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      background: #fcfdfe;
+    }
+    .topology-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .topology-nodes {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+    }
+    .topo-node {
+      background: white;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: var(--shadow-sm);
+    }
+    .topo-node.app { border-color: var(--primary-border); background: var(--primary-subtle); color: var(--primary); }
+    .topo-node.db { border-color: var(--success-border); background: var(--success-subtle); color: var(--success); }
+    .topo-wire {
+      flex: 1;
+      height: 2px;
+      background: #94a3b8;
+      position: relative;
+    }
+    .topo-wire::after {
+      content: 'LINK';
+      position: absolute;
+      top: -7px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0f172a;
+      color: white;
+      font-size: 8px;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+    }
+
+    /* LISTA DE ITEMS SELECCIONADOS */
+    .selected-items-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 20px;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+    .selected-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 6px 8px;
+      background: #f8fafc;
+      border-radius: 6px;
+    }
+    .selected-item-remove {
+      color: var(--text-light);
+      cursor: pointer;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .selected-item-remove:hover { color: #ef4444; background: #fee2e2; }
+
+    /* BARRA INFERIOR DOCKED (LAYOUT FULL 100%) */
+    .docked-footer-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border-top: 1px solid var(--border-color);
+      box-shadow: 0 -4px 12px rgba(0,0,0,0.06);
+      padding: 12px 28px;
+      display: none; /* Se activa en modo docked */
+      align-items: center;
+      justify-content: space-between;
+      z-index: 90;
+    }
+    .docked-footer-bar.visible {
+      display: flex;
+    }
+    .docked-summary-chips {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+    }
+    .docked-chip {
+      background: #f1f5f9;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .docked-chip.active-lang {
+      background: var(--primary-subtle);
+      color: var(--primary);
+      font-weight: 600;
+    }
+    .docked-chip.active-db {
+      background: var(--success-subtle);
+      color: var(--success);
+      font-weight: 600;
+    }
+
+    /* DRAWER LATERAL SLIDE-OVER */
+    .drawer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      backdrop-filter: blur(2px);
+      z-index: 200;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+    .drawer-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .drawer-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 380px;
+      background: white;
+      box-shadow: var(--shadow-lg);
+      z-index: 210;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .drawer-panel.open {
+      transform: translateX(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- BARRA DE EXPERIMENTACIÓN / SWITCHER DE LAYOUTS -->
+  <div class="prototype-bar">
+    <div class="prototype-title">
+      <span class="prototype-badge">MOCKUP V2</span>
+      <span>Prototipo Interactivo de Evaluación UX · SOLV Studio</span>
+    </div>
+    <div class="layout-switcher">
+      <span style="font-size: 11px; color: #94a3b8; margin-right: 6px;">Posición del Resumen:</span>
+      <button class="layout-btn active" id="btn-layout-split" onclick="setLayout('split')">Panel Lateral 70/30</button>
+      <button class="layout-btn" id="btn-layout-docked" onclick="setLayout('docked')">Barra Inferior Flotante (100% Ancho)</button>
+      <button class="layout-btn" id="btn-layout-drawer" onclick="setLayout('drawer')">Drawer Oculto (Abre por botón)</button>
+    </div>
+  </div>
+
+  <!-- HEADER DEL CONSTRUCTOR -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="header-title">
+        <h1>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          Constructor de Plantillas de Laboratorio
+        </h1>
+        <p>Configuración modular de entorno contenedorizado para asignaturas universitarias</p>
+      </div>
+      <div class="mode-pills">
+        <button class="mode-pill active">Modo Visual</button>
+        <button class="mode-pill">Modo Avanzado (Dockerfile)</button>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-secondary">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path></svg>
+        Asistir con IA
+      </button>
+      <!-- Único acceso administrativo desacoplado -->
+      <button class="btn-secondary btn-admin" title="Visible solo para administradores del tenant">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+        Gestionar Catálogo
+      </button>
+    </div>
+  </header>
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <main class="main-container layout-split" id="main-container">
+
+    <!-- PANEL IZQUIERDO: LIENZO DE CONSTRUCCIÓN POR CAPAS -->
+    <div class="canvas-panel">
+
+      <!-- PASO 1: ENTORNO BASE -->
+      <section class="builder-step-card">
+        <div class="step-header">
+          <div class="step-title-group">
+            <span class="step-number">1</span>
+            <div>
+              <h2 class="step-title">Lenguaje y Entorno Base</h2>
+              <p class="step-subtitle">Seleccione el runtime principal del contenedor</p>
+            </div>
+          </div>
+          <span style="font-size: 12px; color: var(--primary); font-weight: 600;">Python 3.12 activo</span>
+        </div>
+
+        <div class="runtimes-grid">
+          <!-- Python -->
+          <div class="tech-card selected" onclick="selectRuntime('python')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#387eb8" d="M11.9 2c-5.3 0-5 2.3-5 2.3l0 2.4 5.1 0 0 .7-7.2 0c-2.3 0-4.1 1.4-4.1 4.1 0 2.7 1.8 3.9 4.1 3.9l1.4 0 0-2c0-2.3 2-2.3 2-2.3l4.9 0c1.9 0 2-.7 2-2.3l0-4.8c0-1.6-.8-2-3.2-2zm-2.7 1.4c.5 0 .9.4.9.9 0 .5-.4.9-.9.9-.5 0-.9-.4-.9-.9 0-.5.4-.9.9-.9z"/><path fill="#ffe052" d="M12.1 22c5.3 0 5-2.3 5-2.3l0-2.4-5.1 0 0-.7 7.2 0c2.3 0 4.1-1.4 4.1-4.1 0-2.7-1.8-3.9-4.1-3.9l-1.4 0 0 2c0 2.3-2 2.3-2 2.3l-4.9 0c-1.9 0-2 .7-2 2.3l0 4.8c0 1.6.8 2 3.2 2zm2.7-1.4c-.5 0-.9-.4-.9-.9 0-.5.4-.9.9-.9.5 0 .9.4.9.9 0 .5-.4.9-.9.9z"/></svg>
+            </div>
+            <span class="name">Python 3.12</span>
+            <span class="tag">pip · py3</span>
+          </div>
+
+          <!-- Java -->
+          <div class="tech-card" onclick="selectRuntime('java')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#e76f00" d="M8.8 17.5c0 0-1.2.1-1.8.6-.6.5.6.9 1.1 1 2 .4 5.7.2 7.7-.2.6-.1 1.2-.4.8-.8-.6-.6-2.8-.7-2.8-.7s1.7-.5 3.3-.1c1.6.4 1.7 1.2 1.3 1.7-.7 1-3.8 1.4-7.4 1.4-3.5 0-6.1-.5-6.6-1.5-.4-.9.4-1.8 2.2-2.1 1.8-.4 2.2-.3 2.2-.3zM9 13.9c-1.8.4-3.1 1-3.4 1.5-.4.7.2 1.4 1.6 1.7 2 .4 5.8.3 8-.1.7-.1 1.4-.4 1-.9-.6-.7-3.1-.7-3.1-.7s1.8-.4 3.7.1c1.8.4 1.8 1.4 1.2 2-.9 1-4.5 1.3-8.4 1.3-3.8 0-6.8-.4-7.5-1.5-.6-1 .5-2.1 2.5-2.5 2.1-.5 4.4-.9 4.4-.9z"/></svg>
+            </div>
+            <span class="name">Java 21 LTS</span>
+            <span class="tag">mvn · jdk</span>
+          </div>
+
+          <!-- Go -->
+          <div class="tech-card" onclick="selectRuntime('go')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#00acd7" d="M1.8 10.5h4.6v2.1H1.8zm0-4.2h6.8v2.1H1.8zm8.7 10.3c-.6.6-1.4.9-2.3.9-1.8 0-3.1-1.4-3.1-3.2 0-1.8 1.3-3.2 3.1-3.2.9 0 1.6.3 2.2.8l1.4-1.6c-1-1-2.2-1.4-3.6-1.4-3.1 0-5.5 2.3-5.5 5.4s2.4 5.4 5.5 5.4c1.5 0 2.8-.5 3.8-1.5l-1.5-1.6z"/></svg>
+            </div>
+            <span class="name">Go 1.22</span>
+            <span class="tag">go build</span>
+          </div>
+
+          <!-- C++ -->
+          <div class="tech-card" onclick="selectRuntime('cpp')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#00599c" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14h-2v-3H8v-2h3V8h2v3h3v2h-3z"/></svg>
+            </div>
+            <span class="name">C++ (GCC 13)</span>
+            <span class="tag">g++ · make</span>
+          </div>
+
+          <!-- Rust -->
+          <div class="tech-card" onclick="selectRuntime('rust')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#dea584" d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm-1 15H9V7h2zm4 0h-2V7h2z"/></svg>
+            </div>
+            <span class="name">Rust 1.77</span>
+            <span class="tag">cargo</span>
+          </div>
+
+          <!-- Node -->
+          <div class="tech-card" onclick="selectRuntime('node')">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24"><path fill="#539e43" d="M12 2 3.5 7v10L12 22l8.5-5V7L12 2zm0 2.2 6.5 3.8v7.6L12 19.4 5.5 15.6V8L12 4.2z"/></svg>
+            </div>
+            <span class="name">Node.js 20</span>
+            <span class="tag">npm · tsx</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- PASO 2: LIBRERÍAS Y KITS ACADÉMICOS ATÓMICOS -->
+      <section class="builder-step-card">
+        <div class="step-header">
+          <div class="step-title-group">
+            <span class="step-number">2</span>
+            <div>
+              <h2 class="step-title">Librerías y Herramientas del Código</h2>
+              <p class="step-subtitle">Cada herramienta posee su propio paquete atómico y su icono oficial</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- TOOLBAR DE BÚSQUEDA Y FILTRADO POR CATEGORÍA -->
+        <div class="filter-toolbar">
+          <div class="search-input-wrap">
+            <svg class="search-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" placeholder="Buscar librerías (ej. pandas, sqlalchemy, pytest)..." oninput="filterPackages(this.value)">
+          </div>
+          <div class="category-pills">
+            <button class="pill-btn active" onclick="filterCategory('all', this)">Todos</button>
+            <button class="pill-btn" onclick="filterCategory('data', this)">Datos & Cálculo</button>
+            <button class="pill-btn" onclick="filterCategory('web', this)">Frameworks & APIs</button>
+            <button class="pill-btn" onclick="filterCategory('orm', this)">ORMs & BD</button>
+            <button class="pill-btn" onclick="filterCategory('qa', this)">Testing & Calidad</button>
+          </div>
+        </div>
+
+        <!-- CATÁLOGO ATÓMICO: LIBRERÍAS CON LOGO INDIVIDUAL (SIN TRUNCAMIENTOS) -->
+        <div class="packages-grid" id="packages-grid">
+
+          <!-- NumPy -->
+          <div class="pkg-card selected" id="pkg-numpy" data-cat="data" onclick="togglePackage('numpy', 'NumPy', 'pip', 30)">
+            <div class="pkg-icon" style="background: #eef2ff;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="4" fill="#013243"/><path d="M7 6h2.5l5 12H12L7 6zm8 0h2v12h-2z" fill="#4dabcf"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">NumPy</div>
+              <div class="pkg-category">Cálculo matricial</div>
+            </div>
+            <div class="pkg-check">✓</div>
+          </div>
+
+          <!-- Pandas -->
+          <div class="pkg-card selected" id="pkg-pandas" data-cat="data" onclick="togglePackage('pandas', 'Pandas', 'pip', 45)">
+            <div class="pkg-icon" style="background: #fdf2f8;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="4" fill="#150458"/><path d="M6 16h2V8H6v8zm4 0h2V5h-2v11zm4 0h2v-6h-2v6zm4 0h2v-3h-2v3z" fill="#e70488"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">Pandas</div>
+              <div class="pkg-category">DataFrames & Análisis</div>
+            </div>
+            <div class="pkg-check">✓</div>
+          </div>
+
+          <!-- Matplotlib -->
+          <div class="pkg-card selected" id="pkg-matplotlib" data-cat="data" onclick="togglePackage('matplotlib', 'Matplotlib', 'pip', 35)">
+            <div class="pkg-icon" style="background: #f0fdfa;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="4" fill="#11557c"/><circle cx="8" cy="14" r="2" fill="#ff7f0e"/><circle cx="12" cy="10" r="2" fill="#2ca02c"/><circle cx="16" cy="7" r="2" fill="#d62728"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">Matplotlib</div>
+              <div class="pkg-category">Gráficos & Visualización</div>
+            </div>
+            <div class="pkg-check">✓</div>
+          </div>
+
+          <!-- Pytest -->
+          <div class="pkg-card" id="pkg-pytest" data-cat="qa" onclick="togglePackage('pytest', 'Pytest', 'pip', 10)">
+            <div class="pkg-icon" style="background: #fefce8;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="#0096d6" stroke-width="2" fill="none"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">Pytest</div>
+              <div class="pkg-category">Testing unitario</div>
+            </div>
+            <div class="pkg-check"></div>
+          </div>
+
+          <!-- SQLAlchemy -->
+          <div class="pkg-card" id="pkg-sqlalchemy" data-cat="orm" onclick="togglePackage('sqlalchemy', 'SQLAlchemy', 'pip', 25)">
+            <div class="pkg-icon" style="background: #f8fafc;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2c-4 0-7 2.5-7 6 0 2.5 1.5 4.5 4 5.5L7 17l4 1-1.5 4 4.5-3 2 3 2.5-5.5c2.5-1 4-3 4-5.5 0-3.5-3-6-7-6z" fill="#d71f00"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">SQLAlchemy</div>
+              <div class="pkg-category">ORM Relacional</div>
+            </div>
+            <div class="pkg-check"></div>
+          </div>
+
+          <!-- FastAPI -->
+          <div class="pkg-card" id="pkg-fastapi" data-cat="web" onclick="togglePackage('fastapi', 'FastAPI', 'pip', 20)">
+            <div class="pkg-icon" style="background: #f0fdf4;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 14.5L10 12h3V7.5L16 12h-3z" fill="#059669"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">FastAPI</div>
+              <div class="pkg-category">Framework APIs REST</div>
+            </div>
+            <div class="pkg-check"></div>
+          </div>
+
+          <!-- Ruff -->
+          <div class="pkg-card" id="pkg-ruff" data-cat="qa" onclick="togglePackage('ruff', 'Ruff', 'pip', 5)">
+            <div class="pkg-icon" style="background: #faf5ff;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="#9333ea"/><path d="M8 12l3 3 5-5" stroke="white" stroke-width="2" fill="none"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">Ruff</div>
+              <div class="pkg-category">Linter ultrarrápido</div>
+            </div>
+            <div class="pkg-check"></div>
+          </div>
+
+          <!-- HTTPX -->
+          <div class="pkg-card" id="pkg-httpx" data-cat="web" onclick="togglePackage('httpx', 'HTTPX', 'pip', 12)">
+            <div class="pkg-icon" style="background: #f1f5f9;">
+              <svg width="24" height="24" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="4" fill="#475569"/><path d="M8 12h8M12 8l4 4-4 4" stroke="white" stroke-width="2" fill="none"/></svg>
+            </div>
+            <div class="pkg-info">
+              <div class="pkg-name">HTTPX</div>
+              <div class="pkg-category">Cliente HTTP asíncrono</div>
+            </div>
+            <div class="pkg-check"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- PASO 3: SERVICIOS SATÉLITE (BASES DE DATOS + VINCULACIÓN INTELIGENTE) -->
+      <section class="builder-step-card">
+        <div class="step-header">
+          <div class="step-title-group">
+            <span class="step-number">3</span>
+            <div>
+              <h2 class="step-title">Servicio Satélite de Base de Datos</h2>
+              <p class="step-subtitle">Al activar un motor, el sistema auto-incluye el driver para Python automáticamente</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="databases-grid">
+          <!-- PostgreSQL -->
+          <div class="db-card" id="db-postgres" onclick="toggleDatabase('postgres', 'PostgreSQL v18', 'psycopg3', 50)">
+            <div class="db-card-top">
+              <div class="db-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24"><path fill="#336791" d="M12 2C6.5 2 2 6.5 2 12c0 3.7 2 7 5 8.7V17c-.6-.4-1-1.1-1-2 0-1.7 1.3-3 3-3s3 1.3 3 3c0 .9-.4 1.6-1 2v3.7c3-1.7 5-5 5-8.7 0-5.5-4.5-10-10-10z"/></svg>
+              </div>
+              <div class="db-info">
+                <div class="db-name">PostgreSQL 18</div>
+                <div class="db-ram">+50 MB RAM</div>
+              </div>
+            </div>
+            <div class="db-wiring-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Driver <strong>psycopg3</strong> auto-vinculado</span>
+            </div>
+          </div>
+
+          <!-- MongoDB -->
+          <div class="db-card" id="db-mongo" onclick="toggleDatabase('mongo', 'MongoDB 7.0', 'pymongo', 128)">
+            <div class="db-card-top">
+              <div class="db-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24"><path fill="#13aa52" d="M12 2c-.4 1.2-2 4.2-3.2 7-1.5 3.5-1.8 5.6-1 7.6 1.3 3.1 3.5 4.9 4.2 5.4.7-.5 2.9-2.3 4.2-5.4.8-2 .5-4.1-1-7.6C14 6.2 12.4 3.2 12 2z"/></svg>
+              </div>
+              <div class="db-info">
+                <div class="db-name">MongoDB 7.0</div>
+                <div class="db-ram">+128 MB RAM</div>
+              </div>
+            </div>
+            <div class="db-wiring-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Driver <strong>pymongo</strong> auto-vinculado</span>
+            </div>
+          </div>
+
+          <!-- Redis -->
+          <div class="db-card" id="db-redis" onclick="toggleDatabase('redis', 'Redis 7.2', 'redis-py', 64)">
+            <div class="db-card-top">
+              <div class="db-icon">
+                <svg width="28" height="28" viewBox="0 0 24 24"><path fill="#dc382d" d="M12 3 3 8l9 5 9-5-9-5zm0 8-9 5 9 5 9-5-9-5z"/></svg>
+              </div>
+              <div class="db-info">
+                <div class="db-name">Redis 7.2</div>
+                <div class="db-ram">+64 MB RAM</div>
+              </div>
+            </div>
+            <div class="db-wiring-badge">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>
+              <span>Driver <strong>redis-py</strong> auto-vinculado</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- PANEL DERECHO: INSPECTOR DE MANIFIESTO Y TOPOLOGÍA (70/30) -->
+    <aside class="summary-sidebar" id="summary-sidebar">
+      <div class="summary-header">
+        <span>Resumen de Arquitectura</span>
+        <span style="font-size: 11px; color: var(--success); font-weight: 600; display: flex; align-items: center; gap: 4px;">
+          <span style="width: 6px; height: 6px; background: var(--success); border-radius: 50%;"></span>
+          Válido
+        </span>
+      </div>
+
+      <!-- MEDIDOR DE RAM SEGMENTADO -->
+      <div class="ram-meter-box">
+        <div class="ram-header">
+          <span class="ram-label">Presupuesto RAM Nodo:</span>
+          <span class="ram-value" id="ram-text">160 MB / 1024 MB</span>
+        </div>
+        <div class="ram-progress-track">
+          <div class="ram-bar-base" id="ram-bar-base" style="width: 15%;" title="Runtime + Librerías"></div>
+          <div class="ram-bar-db" id="ram-bar-db" style="width: 0%;" title="Base de Datos"></div>
+        </div>
+      </div>
+
+      <!-- MINI TOPOLOGÍA ESTILO RAILWAY -->
+      <div class="topology-box">
+        <div class="topology-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+          Topología de Contenedores
+        </div>
+        <div class="topology-nodes" id="topology-nodes">
+          <div class="topo-node app" id="topo-app">App: Python</div>
+          <div class="topo-wire" id="topo-wire" style="display: none;"></div>
+          <div class="topo-node db" id="topo-db" style="display: none;">BD: Mongo</div>
+        </div>
+      </div>
+
+      <!-- LISTA DE PIEZAS INSTALADAS -->
+      <div style="font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;">
+        Componentes Seleccionados (<span id="pkg-count">3</span>)
+      </div>
+      <div class="selected-items-list" id="selected-list">
+        <!-- Renderizado dinámico -->
+      </div>
+
+      <button class="btn-primary" style="width: 100%; justify-content: center; padding: 10px;">
+        Guardar Plantilla Oficial
+      </button>
+    </aside>
+
+  </main>
+
+  <!-- BARRA INFERIOR DOCKED FLOTANTE (SE ACTIVA EN MODO 'DOCKED') -->
+  <footer class="docked-footer-bar" id="docked-bar">
+    <div class="docked-summary-chips">
+      <div class="docked-chip active-lang">
+        <svg width="14" height="14" viewBox="0 0 24 24"><path fill="#387eb8" d="M12 2C6.5 2 6 4.3 6 4.3l0 2.4 5.1 0 0 .7-7.2 0C1.6 7.4 0 8.8 0 11.5c0 2.7 1.8 3.9 4.1 3.9l1.4 0 0-2c0-2.3 2-2.3 2-2.3l4.9 0c1.9 0 2-.7 2-2.3l0-4.8c0-1.6-.8-2-3.2-2z"/></svg>
+        <span id="docked-lang">Python 3.12</span>
+      </div>
+      <div class="docked-chip" id="docked-pkgs-chip">
+        <span id="docked-pkg-count">3</span> librerías seleccionadas
+      </div>
+      <div class="docked-chip" id="docked-db-chip" style="display: none;">
+        <span id="docked-db-name">Sin BD</span>
+      </div>
+      <div style="height: 18px; width: 1px; background: var(--border-color); margin: 0 4px;"></div>
+      <div style="font-size: 12px; color: var(--text-muted);">
+        RAM Estimada: <strong style="color: var(--text-main);" id="docked-ram-text">160 MB</strong> / 1024 MB
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button class="btn-secondary" onclick="openDrawer()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+        Ver Topología & Detalles
+      </button>
+      <button class="btn-primary">
+        Guardar Plantilla
+      </button>
+    </div>
+  </footer>
+
+  <!-- DRAWER OVERLAY (SLIDE-OVER LATERAL) -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="closeDrawer()"></div>
+  <div class="drawer-panel" id="drawer-panel">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+      <h3 style="font-size: 16px; font-weight: 700;">Inspección del Entorno</h3>
+      <button onclick="closeDrawer()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted);">✕</button>
+    </div>
+    <div id="drawer-content">
+      <!-- Mismo contenido del sidebar clonado dinámicamente -->
+    </div>
+  </div>
+
+  <script>
+    // ESTADO REACTIVO DEL MOCKUP
+    const state = {
+      runtime: 'python',
+      packages: new Map([
+        ['numpy', { name: 'NumPy', installer: 'pip', ram: 30 }],
+        ['pandas', { name: 'Pandas', installer: 'pip', ram: 45 }]
+      ]),
+      database: null, // { id: 'mongo', name: 'MongoDB 7.0', driver: 'pymongo', ram: 128 }
+      layoutMode: 'split' // 'split', 'docked', 'drawer'
+    };
+
+    // CAMBIAR MODO DE LAYOUT
+    function setLayout(mode) {
+      state.layoutMode = mode;
+      document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById('btn-layout-' + mode).classList.add('active');
+
+      const container = document.getElementById('main-container');
+      const sidebar = document.getElementById('summary-sidebar');
+      const dockedBar = document.getElementById('docked-bar');
+
+      if (mode === 'split') {
+        container.className = 'main-container layout-split';
+        sidebar.style.display = 'block';
+        dockedBar.classList.remove('visible');
+        document.body.style.paddingBottom = '0px';
+      } else if (mode === 'docked') {
+        container.className = 'main-container layout-full';
+        sidebar.style.display = 'none';
+        dockedBar.classList.add('visible');
+        document.body.style.paddingBottom = '90px';
+      } else if (mode === 'drawer') {
+        container.className = 'main-container layout-full';
+        sidebar.style.display = 'none';
+        dockedBar.classList.add('visible');
+        openDrawer();
+      }
+      render();
+    }
+
+    function openDrawer() {
+      document.getElementById('drawer-overlay').classList.add('open');
+      document.getElementById('drawer-panel').classList.add('open');
+      // Copiar contenido del sidebar al drawer
+      document.getElementById('drawer-content').innerHTML = document.getElementById('summary-sidebar').innerHTML;
+    }
+
+    function closeDrawer() {
+      document.getElementById('drawer-overlay').classList.remove('open');
+      document.getElementById('drawer-panel').classList.remove('open');
+    }
+
+    // INTERACCIÓN DE PAQUETES ATÓMICOS
+    function togglePackage(id, name, installer, ram) {
+      if (state.packages.has(id)) {
+        state.packages.delete(id);
+      } else {
+        state.packages.set(id, { name, installer, ram });
+      }
+      render();
+    }
+
+    // INTERACCIÓN DE BASES DE DATOS + VINCULACIÓN INTELIGENTE
+    function toggleDatabase(id, name, driver, ram) {
+      if (state.database && state.database.id === id) {
+        // Desactivar
+        state.packages.delete(state.database.driver);
+        state.database = null;
+      } else {
+        // Si había otra BD antes, sacar su driver
+        if (state.database) state.packages.delete(state.database.driver);
+        state.database = { id, name, driver, ram };
+        // Auto-vincular driver para Python
+        state.packages.set(driver, { name: driver + ' (driver)', installer: 'pip', ram: 10 });
+      }
+      render();
+    }
+
+    function selectRuntime(rt) {
+      state.runtime = rt;
+      document.querySelectorAll('.tech-card').forEach(c => c.classList.remove('selected'));
+      event.currentTarget.classList.add('selected');
+      render();
+    }
+
+    // FILTRO DE CATEGORÍAS
+    function filterCategory(cat, btn) {
+      document.querySelectorAll('.pill-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.pkg-card').forEach(card => {
+        if (cat === 'all' || card.dataset.cat === cat) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    }
+
+    function filterPackages(query) {
+      const q = query.toLowerCase().trim();
+      document.querySelectorAll('.pkg-card').forEach(card => {
+        const text = card.innerText.toLowerCase();
+        card.style.display = text.includes(q) ? 'flex' : 'none';
+      });
+    }
+
+    // RENDERIZADO REACTIVO DEL MANIFIESTO Y RAM
+    function render() {
+      // 1. Tarjetas de librerías
+      document.querySelectorAll('.pkg-card').forEach(card => {
+        const id = card.id.replace('pkg-', '');
+        if (state.packages.has(id)) {
+          card.classList.add('selected');
+          card.querySelector('.pkg-check').innerText = '✓';
+        } else {
+          card.classList.remove('selected');
+          card.querySelector('.pkg-check').innerText = '';
+        }
+      });
+
+      // 2. Tarjetas de Bases de Datos
+      document.querySelectorAll('.db-card').forEach(card => {
+        const id = card.id.replace('db-', '');
+        if (state.database && state.database.id === id) {
+          card.classList.add('selected');
+        } else {
+          card.classList.remove('selected');
+        }
+      });
+
+      // 3. Cálculo de RAM
+      let baseRam = 50; // Python base
+      let pkgsRam = 0;
+      state.packages.forEach(p => pkgsRam += p.ram);
+      let dbRam = state.database ? state.database.ram : 0;
+      let totalRam = baseRam + pkgsRam + dbRam;
+
+      document.getElementById('ram-text').innerText = `${totalRam} MB / 1024 MB`;
+      document.getElementById('docked-ram-text').innerText = `${totalRam} MB`;
+
+      const basePct = Math.min((baseRam + pkgsRam) / 1024 * 100, 100);
+      const dbPct = Math.min(dbRam / 1024 * 100, 100);
+      document.getElementById('ram-bar-base').style.width = basePct + '%';
+      document.getElementById('ram-bar-db').style.width = dbPct + '%';
+
+      // 5. Lista seleccionada
+      const listEl = document.getElementById('selected-list');
+      listEl.innerHTML = '';
+      state.packages.forEach((pkg, id) => {
+        const row = document.createElement('div');
+        row.className = 'selected-item-row';
+        row.innerHTML = `
+          <span><strong>${pkg.name}</strong> <span style="color:#94a3b8; font-family:var(--font-mono)">(${pkg.installer})</span></span>
+          <span class="selected-item-remove" onclick="togglePackage('${id}')">✕</span>
+        `;
+        listEl.appendChild(row);
+      });
+      document.getElementById('pkg-count').innerText = state.packages.size;
+      document.getElementById('docked-pkg-count').innerText = state.packages.size;
+
+      // 6. Topología Mini
+      const wire = document.getElementById('topo-wire');
+      const topoDb = document.getElementById('topo-db');
+      const dockedDbChip = document.getElementById('docked-db-chip');
+      if (state.database) {
+        wire.style.display = 'block';
+        topoDb.style.display = 'flex';
+        topoDb.innerText = 'BD: ' + state.database.name;
+        dockedDbChip.style.display = 'flex';
+        document.getElementById('docked-db-name').innerText = state.database.name;
+      } else {
+        wire.style.display = 'none';
+        topoDb.style.display = 'none';
+        dockedDbChip.style.display = 'none';
+      }
+    }
+
+    // Inicializar
+    render();
+  </script>
+</body>
+</html>

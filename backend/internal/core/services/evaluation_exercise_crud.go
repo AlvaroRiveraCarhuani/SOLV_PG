@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -50,6 +51,33 @@ func (s *EvaluationService) getHostTotalRAM(ctx context.Context) int {
 
 var ErrZeroPublicTestCases = fmt.Errorf("cannot publish exercise with 0 public test cases")
 
+// ErrDBInitScriptUnsupported rechaza un db_init_script que el primario declarado por la
+// plantilla no sabe aplicar.
+var ErrDBInitScriptUnsupported = errors.New("db_init_script no soportado por el motor primario de la plantilla")
+
+// validateExerciseDBInitScript exige que el primario de la plantilla tenga un init
+// declarado (sql o mongo-js). Una plantilla sin bindings conserva la ruta heredada de
+// PostgreSQL de aula; SQLite, Redis o un primario ausente no admiten init.
+func validateExerciseDBInitScript(ex *domain.Exercise, template *domain.AdminTemplateReviewItem) error {
+	if ex == nil || template == nil || exerciseDBInitScript(ex) == "" {
+		return nil
+	}
+
+	bindings := templateServiceBindings(&domain.Template{ServicesConfig: template.ServicesConfig})
+	if len(bindings) == 0 {
+		return nil
+	}
+	for _, binding := range bindings {
+		if binding.EffectiveRole() != domain.ServiceRolePrimaryDatabase {
+			continue
+		}
+		if kind := binding.InitKind(); kind == domain.ServiceInitSQL || kind == domain.ServiceInitMongoJS {
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: %s", ErrDBInitScriptUnsupported, template.Name)
+}
+
 func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *domain.Exercise) error {
 	if s.adminGovRepo == nil {
 		return nil
@@ -79,6 +107,9 @@ func (s *EvaluationService) resolveAndApplyTemplate(ctx context.Context, ex *dom
 		}
 		if !domain.TemplateSupportsEnvironment(template.TargetEnvironment, ex.EnvironmentType) {
 			return domain.ErrTemplateEnvironmentMismatch
+		}
+		if err := validateExerciseDBInitScript(ex, template); err != nil {
+			return err
 		}
 
 		ex.TemplateID = template.ID

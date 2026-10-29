@@ -76,3 +76,30 @@ func TestImageShipsOpenVSCode(t *testing.T) {
 		}
 	}
 }
+
+// Los satélites gestionados comparten la etiqueta solv.managed con los laboratorios, pero
+// su ciclo de vida es del orquestador de satélites: el colector de zombies no debe
+// listarlos ni destruirlos.
+func TestIsWorkspaceManagedContainer(t *testing.T) {
+	cases := []struct {
+		name   string
+		names  []string
+		labels map[string]string
+		want   bool
+	}{
+		{name: "workspace por nombre", names: []string{"/solv-workspace-abc123"}, want: true},
+		{name: "workspace por etiqueta", names: []string{"/cualquier-cosa"}, labels: map[string]string{"solv.managed": "true"}, want: true},
+		{name: "workspace publicado por traefik", names: []string{"/otro"}, labels: map[string]string{"traefik.enable": "true"}, want: true},
+		{name: "satélite postgres excluido", names: []string{"/solv-sat-postgres"}, labels: map[string]string{"solv.managed": "true", "solv.satellite": "postgres"}, want: false},
+		{name: "satélite con nombre de workspace excluido igual", names: []string{"/solv-workspace-falso"}, labels: map[string]string{"solv.managed": "true", "solv.satellite": "redis"}, want: false},
+		{name: "contenedor ajeno", names: []string{"/traefik"}, labels: map[string]string{}, want: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isWorkspaceManagedContainer(tc.names, tc.labels); got != tc.want {
+				t.Fatalf("isWorkspaceManagedContainer() = %v, esperado %v", got, tc.want)
+			}
+		})
+	}
+}

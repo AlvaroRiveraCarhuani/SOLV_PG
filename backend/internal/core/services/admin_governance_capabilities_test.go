@@ -51,8 +51,8 @@ func TestGetRuntimeCapabilities(t *testing.T) {
 			if s.Description == "" {
 				t.Error("descripción de postgres no debe estar vacía")
 			}
-			if s.BaseRAMMB != 50 {
-				t.Errorf("BaseRAMMB de postgres debe ser 50 según ADR-045, obtenido: %d", s.BaseRAMMB)
+			if s.BaseRAMMB != 384 {
+				t.Errorf("BaseRAMMB de postgres debe ser 384 (techo de cgroup del satélite, ADR-051), obtenido: %d", s.BaseRAMMB)
 			}
 			if s.Version != "18" {
 				t.Errorf("versión de postgres debe ser 18 (resuelta en vivo), obtenido: %s", s.Version)
@@ -97,7 +97,7 @@ func TestGetRuntimeCapabilities_AllEnginesAvailableWithProvisioningMode(t *testi
 		requiresImage bool
 	}{
 		"sqlite":   {mode: domain.ProvisioningEmbedded, baseRAMMB: 0},
-		"postgres": {mode: domain.ProvisioningSharedHost, baseRAMMB: 50},
+		"postgres": {mode: domain.ProvisioningManagedContainer, baseRAMMB: 384, defaultImage: "postgres:18-alpine", requiresImage: true},
 		"mysql":    {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mysql:8.4", requiresImage: true},
 		"mariadb":  {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mariadb:11.4", requiresImage: true},
 		"mongodb":  {mode: domain.ProvisioningManagedContainer, baseRAMMB: 128, defaultImage: "mongo:7.0", requiresImage: true},

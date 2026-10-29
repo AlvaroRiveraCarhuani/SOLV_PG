@@ -91,9 +91,11 @@ func TestCreateOfficialTemplate_RamBelowVitalFloor(t *testing.T) {
 		t.Fatalf("esperado ErrRamBelowVitalFloor para IDE con 128 MB, obtenido: %v", err)
 	}
 
-	// 2. IDE_PERSISTENTE con PostgreSQL (210 + 50 = 260 MB) usando 240 MB -> error
+	// 2. El satélite no suma al piso del laboratorio: 240 MB sobre los 210 MB del editor
+	// es válido aunque la plantilla declare PostgreSQL, porque el motor se reserva una
+	// sola vez en el nodo y no en la cuota del alumno.
 	dtoIDEPg := domain.CreateOfficialTemplateDTO{
-		Name:              "IDE Postgres Bajo Piso Vital",
+		Name:              "IDE Postgres Sobre Piso Del Editor",
 		DockerImage:       "python:3.12-slim",
 		BaseRamMB:         240,
 		TargetEnvironment: "IDE_PERSISTENTE",
@@ -103,8 +105,8 @@ func TestCreateOfficialTemplate_RamBelowVitalFloor(t *testing.T) {
 			},
 		},
 	}
-	if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoIDEPg); !errors.Is(err, services.ErrRamBelowVitalFloor) {
-		t.Fatalf("esperado ErrRamBelowVitalFloor para IDE + Postgres con 240 MB (piso 260 MB), obtenido: %v", err)
+	if _, err := svc.CreateOfficialTemplate(context.Background(), "tenant-1", "admin-1", dtoIDEPg); err != nil {
+		t.Fatalf("el satélite no debe sumar al piso vital del laboratorio, obtenido: %v", err)
 	}
 
 	// 3. JUEZ_EFIMERO por debajo de 64 MB -> error

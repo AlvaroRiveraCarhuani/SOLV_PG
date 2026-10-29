@@ -75,7 +75,7 @@ func main() {
 	evaluationService.SetScriptSandboxRunner(scriptSandboxRunner)
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
 	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
-		WithProvisioning(subjectRepo, templateRepo, db.GetDB()).
+		WithProvisioning(subjectRepo, templateRepo).
 		WithExerciseSubmission(exerciseRepo, submissionRepo)
 	subjectService := services.NewSubjectService(subjectRepo)
 	keystrokeRepo := postgres.NewPostgresKeystrokeRepository(db.GetDB())
@@ -94,7 +94,7 @@ func main() {
 	workspaceService.SetPoliciesService(serverPoliciesService)
 	// Scale-to-Zero de motores de base de datos auto-orquestados: el worker de QoS apaga
 	// los satélites (mysql, mariadb, mongodb, redis) que ya no usa ningún laboratorio.
-	qosWorker.SetManagedSatelliteReconciler(workspaceService.ReconcileIdleManagedSatellites)
+	qosWorker.SetManagedSatelliteReconciler(workspaceService.ReconcileIdleManagedSatellitesScheduled)
 	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
 		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
 		if err != nil {
@@ -210,6 +210,7 @@ func main() {
 	templateCacheService := services.NewTemplateCacheService(govRepo, dockerClient)
 	templateCacheService.SetImageBuilder(envTestAdapter)
 	govService.SetCacheService(templateCacheService)
+	govService.SetEnvTestJobRepository(envTestJobRepo)
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, govService).
 		WithImageService(imageVerificationService).
 		WithAuditLogRepo(auditLogRepo).

@@ -793,9 +793,9 @@ func suggestDatabaseComponentRules() string {
 Reglas adicionales para un componente de capa database:
 - service_engine SOLO puede ser sqlite, postgres, mysql, mariadb, mongodb o redis.
 - sub_category es "relational" (sqlite, postgres, mysql, mariadb) o "nosql" (mongodb, redis).
-- base_image lleva tag de versión fija para los motores de contenedor (mysql:8.4, mariadb:11.4, mongo:7.0, redis:7.2-alpine) y va vacía en sqlite y en el PostgreSQL de aula.
+- base_image lleva tag de versión fija para los motores de contenedor (postgres:18-alpine, mysql:8.4, mariadb:11.4, mongo:7.0, redis:7.2-alpine) y va vacía solo en sqlite, que vive en un archivo del laboratorio.
 - install_mode siempre "none" y package_names vacío: el motor se aprovisiona como servicio acoplado, no se instala en la imagen.
-- compatible_runtimes debe ser ["universal"] y ram_delta_mb la huella residente del motor (0 sqlite, 50 postgres, 64 redis, 128 mysql/mariadb/mongodb).`
+- compatible_runtimes debe ser ["universal"] y ram_delta_mb el techo de cgroup del satélite del motor (0 sqlite, 384 postgres, 64 redis, 128 mysql/mariadb/mongodb).`
 }
 
 func generateExerciseSystemPrompt(publicCount, hiddenCount int, difficulty string) string {

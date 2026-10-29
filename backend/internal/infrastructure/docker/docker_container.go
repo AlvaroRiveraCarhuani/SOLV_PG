@@ -370,6 +370,23 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	return maxRAM, nil
 }
 
+// isWorkspaceManagedContainer indica si un contenedor pertenece al ciclo de vida de un
+// laboratorio. Los motores satélite (mysql, mariadb, mongodb, redis y el PostgreSQL de
+// aula) también llevan la etiqueta solv.managed, pero su vida la gobierna el orquestador
+// de satélites: si el colector de zombies los listara, los destruiría a los 30 segundos.
+func isWorkspaceManagedContainer(names []string, labels map[string]string) bool {
+	if labels["solv.satellite"] != "" {
+		return false
+	}
+	for _, name := range names {
+		trimmed := strings.TrimPrefix(name, "/")
+		if strings.HasPrefix(trimmed, "solv-workspace-") {
+			return true
+		}
+	}
+	return labels["solv.managed"] == "true" || labels["traefik.enable"] == "true"
+}
+
 func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error) {
 	containers, err := c.cli.ContainerList(ctx, container.ListOptions{All: true})
 	if err != nil {
@@ -377,24 +394,8 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 	}
 
 	var managedIDs []string
-
 	for _, cnt := range containers {
-		// Filtrar contenedores gestionados por SOLV (por label o por prefijo /solv-workspace-)
-		isSolvManaged := false
-		for _, name := range cnt.Names {
-			if len(name) > 0 && (name[0] == '/' && (len(name) > 16 && name[1:16] == "solv-workspace-") || (len(name) > 15 && name[0:15] == "solv-workspace-")) {
-				isSolvManaged = true
-				break
-			}
-		}
-
-		if !isSolvManaged {
-			if cnt.Labels != nil && (cnt.Labels["solv.managed"] == "true" || cnt.Labels["traefik.enable"] == "true") {
-				isSolvManaged = true
-			}
-		}
-
-		if isSolvManaged {
+		if isWorkspaceManagedContainer(cnt.Names, cnt.Labels) {
 			managedIDs = append(managedIDs, cnt.ID)
 		}
 	}

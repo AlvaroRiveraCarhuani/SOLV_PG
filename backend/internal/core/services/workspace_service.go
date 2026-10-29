@@ -8,10 +8,10 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/shirou/gopsutil/v3/mem"
 
 	"solv-backend/internal/core/domain"
@@ -25,23 +25,28 @@ type WorkspaceService struct {
 	templateRepo    domain.TemplateRepository
 	exerciseRepo    domain.ExerciseRepository
 	submissionRepo  domain.SubmissionRepository
-	db              *sqlx.DB
 	policiesService *ServerPoliciesService
+
+	// satelliteUseMu protege satelliteLastUse: el último momento en que un
+	// laboratorio pidió un motor. Evita que el scale-to-zero apague el satélite en
+	// el hueco entre el aprovisionamiento y el registro del laboratorio como activo.
+	satelliteUseMu   sync.Mutex
+	satelliteLastUse map[string]time.Time
 }
 
 func NewWorkspaceService(repo domain.WorkspaceRepository, docker domain.WorkspaceOrchestrator, hostMonitor domain.HostMonitor) *WorkspaceService {
 	return &WorkspaceService{
-		repo:        repo,
-		docker:      docker,
-		hostMonitor: hostMonitor,
+		repo:             repo,
+		docker:           docker,
+		hostMonitor:      hostMonitor,
+		satelliteLastUse: make(map[string]time.Time),
 	}
 }
 
 // WithProvisioning extiende el servicio para resolver plantillas y bases de datos satélite en tiempo de ejecución
-func (s *WorkspaceService) WithProvisioning(subjectRepo domain.SubjectRepository, templateRepo domain.TemplateRepository, db *sqlx.DB) *WorkspaceService {
+func (s *WorkspaceService) WithProvisioning(subjectRepo domain.SubjectRepository, templateRepo domain.TemplateRepository) *WorkspaceService {
 	s.subjectRepo = subjectRepo
 	s.templateRepo = templateRepo
-	s.db = db
 	return s
 }
 
@@ -190,52 +195,39 @@ func (s *WorkspaceService) resolveTemplateForWorkspace(ctx context.Context, subj
 	return s.resolveTemplate(ctx, subjectID)
 }
 
-// templateDeclaresPostgres indica si la plantilla declara una base PostgreSQL
-// satélite en services_config.services.
-func templateDeclaresPostgres(template *domain.Template) bool {
-	if template == nil {
-		return false
-	}
-	for _, service := range template.ServicesConfig.Services {
-		if service.Category == "database" && service.Engine == "postgres" {
-			return true
-		}
-	}
-	return false
-}
-
-// ensureExerciseSatelliteDB asegura el motor de base de datos que declara la plantilla
-// del laboratorio y devuelve las credenciales aisladas del alumno: para mysql, mariadb,
-// mongodb y redis levanta el contenedor satélite bajo demanda; para PostgreSQL usa la
-// base del aula. El db_init_script del ejercicio se aplica una sola vez (hard-fail: si el
-// script falla, el inicio o la reactivación se aborta).
+// ensureExerciseSatelliteDB asegura todos los servicios que declara la plantilla y
+// devuelve el entorno combinado del laboratorio. Cada motor gestionado, incluido
+// PostgreSQL de aula, se levanta como satélite del nodo con credenciales por alumno
+// (ADR-051); sqlite y 'none' no aprovisionan nada. El db_init_script del ejercicio se
+// aplica dentro de la base del alumno (hard-fail: si falla, el inicio o la reactivación
+// se aborta).
 func (s *WorkspaceService) ensureExerciseSatelliteDB(ctx context.Context, studentID, subjectID string, template *domain.Template, exercise *domain.Exercise) (satelliteProvision, error) {
-	if engine := templateManagedEngine(template); engine != "" {
-		return s.provisionManagedSatellite(ctx, engine, studentID, subjectID, exercise)
+	bindings := templateServiceBindings(template)
+
+	// Compatibilidad: un ejercicio puede declarar su db_init_script sin que la plantilla
+	// enumere servicios. Ese caso conserva el PostgreSQL de aula, ahora como satélite
+	// dedicado y no como la base de la plataforma (ADR-051).
+	if len(bindings) == 0 {
+		if exerciseDBInitScript(exercise) == "" {
+			return satelliteProvision{}, nil
+		}
+		return s.provisionManagedSatellite(ctx, "postgres", studentID, subjectID, exercise)
 	}
 
-	script := exerciseDBInitScript(exercise)
-	if script == "" && !templateDeclaresPostgres(template) {
-		return satelliteProvision{}, nil
-	}
-	if s.db == nil {
-		if script != "" {
-			log.Printf("[Satellite DB Warning] no hay conexión a PostgreSQL configurada: db_init_script del ejercicio %s omitido", exercise.ID)
+	merged := satelliteProvision{}
+	for _, binding := range bindings {
+		engine := domain.CanonicalServiceEngine(binding.Engine)
+		if !isManagedSatelliteEngine(engine) {
+			continue
 		}
-		return satelliteProvision{}, nil
-	}
-
-	dbName := satelliteDatabaseName(studentID, subjectID)
-	if err := ensureSatellitePostgresDatabase(ctx, s.db, dbName); err != nil {
-		return satelliteProvision{}, fmt.Errorf("failed to ensure satellite database %s: %w", dbName, err)
-	}
-	if script != "" {
-		if err := applyExerciseDBInitScript(ctx, dbName, exercise.ID, script); err != nil {
-			return satelliteProvision{}, fmt.Errorf("exercise %s db_init_script failed on %s: %w", exercise.ID, dbName, err)
+		provision, err := s.provisionManagedSatellite(ctx, engine, studentID, subjectID, exercise)
+		if err != nil {
+			return satelliteProvision{}, err
 		}
-		log.Printf("[Satellite DB] db_init_script del ejercicio %s aplicado/verificado en %s", exercise.ID, dbName)
+		merged.Env = append(merged.Env, provision.Env...)
+		merged.UsesManagedContainer = merged.UsesManagedContainer || provision.UsesManagedContainer
 	}
-	return satelliteProvision{PostgresDBName: dbName}, nil
+	return merged, nil
 }
 
 func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string, subjectID string) (*domain.WorkspaceInstance, error) {
@@ -341,7 +333,9 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		return nil, fmt.Errorf("%w: tenant %s tiene %d activos (techo %d)", ErrMaxContainersReached, tenantID, len(active), policies.MaxContainers)
 	}
 
-	// Control de Admisión por Presupuesto Comprometido (Host Safety Ceiling)
+	// Control de Admisión por Presupuesto Comprometido (Host Safety Ceiling).
+	// Los satélites son contenedores compartidos: su reserva se descuenta una sola
+	// vez por motor, no por cada laboratorio que declara ese motor.
 	if s.policiesService != nil && hostTotalMB() > 0 {
 		var committedMB int64
 		for _, ws := range active {
@@ -349,8 +343,8 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 				committedMB += ws.MemoryLimitMB
 			}
 		}
-		allocatableMB := int64(hostTotalMB() * ceilingPct / 100)
-		if committedMB+ramLimitMB > allocatableMB {
+		reserveMB := s.nodeSatelliteReserveMB(ctx, active, template)
+		if admissionBudgetDenied(committedMB, ramLimitMB, reserveMB, int64(hostTotalMB()), int64(ceilingPct)) {
 			return nil, ErrHostMemoryExhausted
 		}
 	}
@@ -422,19 +416,6 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	// compartido. El helper ensureExerciseSatelliteDB ya creó la base y aplicó el
 	// db_init_script del ejercicio en modo hard-fail.
 	envVars = append(envVars, provision.Env...)
-	if provision.PostgresDBName != "" && s.db != nil {
-		pgHost := getPostgresContainerHost()
-		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, provision.PostgresDBName)
-		envVars = append(envVars,
-			fmt.Sprintf("DATABASE_URL=%s", dbURL),
-			fmt.Sprintf("PGHOST=%s", pgHost),
-			"PGPORT=5432",
-			"PGUSER=postgres",
-			"PGPASSWORD=postgres",
-			fmt.Sprintf("PGDATABASE=%s", provision.PostgresDBName),
-		)
-		log.Printf("[Satellite DB] Injected DATABASE_URL for workspace %s (db: %s)", workspaceID, provision.PostgresDBName)
-	}
 
 	// 9. Configuración del contenedor OpenVSCode Server
 	config := domain.WorkspaceContainerConfig{

@@ -22,6 +22,7 @@ type AdminGovernanceService struct {
 	dockerPruner func(ctx context.Context) (containersPruned int64, spaceReclaimedMB int64, err error)
 	poolResetter func(ctx context.Context) (connectionsRecycled int64, err error)
 	cacheService *TemplateCacheService
+	envTestJobs  domain.EnvTestJobRepository
 }
 
 func NewAdminGovernanceService(
@@ -32,6 +33,11 @@ func NewAdminGovernanceService(
 		subjectRepo: subjectRepo,
 		govRepo:     govRepo,
 	}
+}
+
+func (s *AdminGovernanceService) SetEnvTestJobRepository(repo domain.EnvTestJobRepository) *AdminGovernanceService {
+	s.envTestJobs = repo
+	return s
 }
 
 func (s *AdminGovernanceService) SetCacheService(cache *TemplateCacheService) *AdminGovernanceService {

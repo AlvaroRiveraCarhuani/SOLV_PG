@@ -114,15 +114,22 @@ type UpdateTemplateComponentDTO struct {
 	SortOrder          *int     `json:"sort_order,omitempty"`
 }
 
+// StackServiceSelection declara un servicio del stack por rol y componente.
+type StackServiceSelection struct {
+	Role        string `json:"role,omitempty"`
+	ComponentID string `json:"component_id,omitempty"`
+}
+
 // StackConfig configuración de componentes tecnológicos persistida junto con la plantilla o modelo.
 type StackConfig struct {
-	Mode              string   `json:"mode,omitempty"`               // "visual" | "code"
-	RuntimeID         string   `json:"runtime_id,omitempty"`         // ID o slug del lenguaje principal
-	WebPlatformID     string   `json:"web_platform_id,omitempty"`    // ID o slug del framework web opcional (Angular/React/Vue)
-	AddonIDs          []string `json:"addon_ids,omitempty"`          // IDs o slugs de los complementos seleccionados
-	DatabaseID        string   `json:"database_id,omitempty"`        // ID o slug del servicio de base de datos acoplado
-	WorkspaceFolders  []string `json:"workspace_folders,omitempty"`  // Carpetas iniciales en /home/workspace
-	DockerfileContent string   `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
+	Mode              string                  `json:"mode,omitempty"`               // "visual" | "code"
+	RuntimeID         string                  `json:"runtime_id,omitempty"`         // ID o slug del lenguaje principal
+	WebPlatformID     string                  `json:"web_platform_id,omitempty"`    // ID o slug del framework web opcional (Angular/React/Vue)
+	AddonIDs          []string                `json:"addon_ids,omitempty"`          // IDs o slugs de los complementos seleccionados
+	Services          []StackServiceSelection `json:"services,omitempty"`           // Bindings por rol; reemplaza a DatabaseID
+	DatabaseID        string                  `json:"database_id,omitempty"`        // Alias heredado de un único servicio primario
+	WorkspaceFolders  []string                `json:"workspace_folders,omitempty"`  // Carpetas iniciales en /home/workspace
+	DockerfileContent string                  `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
 func (sc StackConfig) Value() (driver.Value, error) {
@@ -329,10 +336,12 @@ func DefaultDatabaseSubCategory(engine string) string {
 }
 
 // DefaultDatabaseBaseImage devuelve la imagen con tag fijo del motor cuando el
-// administrador no la declara. SQLite (archivo local) y PostgreSQL de aula (host
-// compartido) no usan imagen propia.
+// administrador no la declara. Solo SQLite, que es un archivo dentro del laboratorio,
+// no usa imagen propia: PostgreSQL de aula es un satélite dedicado más (ADR-051).
 func DefaultDatabaseBaseImage(engine string) string {
 	switch canonicalServiceEngine(engine) {
+	case "postgres":
+		return "postgres:18-alpine"
 	case "mysql":
 		return "mysql:8.4"
 	case "mariadb":
@@ -347,12 +356,12 @@ func DefaultDatabaseBaseImage(engine string) string {
 }
 
 // DefaultDatabaseRamDeltaMB es la huella de memoria residente del motor cuando el
-// administrador no la declara. Los motores de contenedor satélite se levantan bajo
-// demanda y solo consumen RAM mientras hay laboratorios activos usándolos.
+// administrador no la declara. Es el techo de cgroup del satélite compartido del nodo:
+// se reserva una sola vez en la admisión, nunca por laboratorio.
 func DefaultDatabaseRamDeltaMB(engine string) int {
 	switch canonicalServiceEngine(engine) {
 	case "postgres":
-		return 50
+		return 384
 	case "redis":
 		return 64
 	case "mysql", "mariadb", "mongodb":

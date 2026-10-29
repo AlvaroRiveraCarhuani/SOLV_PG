@@ -111,15 +111,33 @@ func (s *EnvTestService) StartJob(ctx context.Context, req domain.StartEnvTestRe
 	}
 
 	jobID := uuid.New().String()
-	job := &domain.EnvTestJob{
-		ID:                jobID,
+	verificationConfig := domain.EnvTestVerificationConfig{
 		Image:             imageRef,
 		Tools:             cleanTools,
 		TargetEnvironment: targetEnv,
 		Entrypoint:        strings.TrimSpace(req.Entrypoint),
 		TimeoutMS:         timeoutMS,
 		SampleInput:       req.SampleInput,
-		Status:            domain.EnvTestStatusPending,
+		BaseRamMB:         req.BaseRamMB,
+		DockerfileContent: strings.TrimSpace(req.DockerfileContent),
+		SetupScript:       strings.TrimSpace(req.SetupScript),
+	}
+	if verificationConfig.BaseRamMB <= 0 {
+		verificationConfig.BaseRamMB = 512
+	}
+	job := &domain.EnvTestJob{
+		ID:                      jobID,
+		Image:                   imageRef,
+		Tools:                   cleanTools,
+		TargetEnvironment:       targetEnv,
+		Entrypoint:              strings.TrimSpace(req.Entrypoint),
+		TimeoutMS:               timeoutMS,
+		SampleInput:             req.SampleInput,
+		VerificationFingerprint: verificationConfig.Fingerprint(),
+		VerificationConfig:      verificationConfig,
+		OwnerID:                 req.OwnerID,
+		TenantID:                req.TenantID,
+		Status:                  domain.EnvTestStatusPending,
 		Progress: domain.EnvTestProgress{
 			CurrentAction: "Encolado, esperando slot de ejecución...",
 		},

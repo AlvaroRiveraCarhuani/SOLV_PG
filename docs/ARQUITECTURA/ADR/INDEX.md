@@ -54,5 +54,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 048 | [Copiloto IA para Arquitectura de Entornos — Flujo Propuesta → Revisión → Aplicar y Primitivo Compartido de Operaciones de IA](ADR-048-copiloto-arquitectura-entornos-propuesta-revision-aplicar.md) | Aprobado | Core |
 | 047 | [Gobierna del Límite de Tiempo por Caso — Validación en Servidor y Contrato de Plantilla como Arquitectura Objetivo](ADR-047-time-limit-governanza-y-contrato-plantilla.md) | Aprobado | Core |
 | 049 | [Telemetría de Host Persistida y Estados de Reconciliación (`unknown` / `orphaned`)](ADR-049-telemetria-de-host-persistida-y-estados-de-reconciliacion.md) | Aprobado | Core |
+| 050 | [Servicios Satélite Declarativos por Rol, Pin del Entorno y Contratos de Capacidad y Aislamiento](ADR-050-servicios-satelite-por-rol.md) | Aprobado | Core |
+| 051 | [PostgreSQL de Aula como Satélite Dedicado y Separación del Motor de Plataforma](ADR-051-postgresql-aula-como-satelite-dedicado.md) | Aprobado | Core |
 
 

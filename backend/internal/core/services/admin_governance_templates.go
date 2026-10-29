@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/shirou/gopsutil/v3/mem"
 	"log"
 	"regexp"
-	"solv-backend/internal/core/domain"
 	"strings"
 	"time"
+
+	"github.com/shirou/gopsutil/v3/mem"
+	"solv-backend/internal/core/domain"
 )
 
 var (
@@ -49,7 +50,7 @@ func (s *AdminGovernanceService) ReviewTemplate(
 	if dto.BaseRamMB != nil && *dto.BaseRamMB > 0 {
 		if status == "approved" || status == "pending_audit" || status == "paused" {
 			if existing, err := s.govRepo.GetTemplateByID(ctx, templateID); err == nil && existing != nil {
-				minFloorMB := calculateMinimumVitalFloorMB(existing.TargetEnvironment, &existing.ServicesConfig)
+				minFloorMB := calculateMinimumVitalFloorMB(existing.TargetEnvironment)
 				if *dto.BaseRamMB < minFloorMB {
 					return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, *dto.BaseRamMB, minFloorMB)
 				}
@@ -81,25 +82,66 @@ var (
 	ErrRamBelowVitalFloor = errors.New("la memoria asignada es inferior al piso vital requerido por el entorno")
 )
 
-func calculateMinimumVitalFloorMB(targetEnvironment string, servicesCfg *domain.ServicesConfig) int {
+// calculateMinimumVitalFloorMB es el piso del contenedor del alumno: editor y procesos.
+// Los motores satélite viven en contenedores compartidos y su reserva se descuenta una
+// vez en la admisión del nodo, así que no suman a la cuota de cada laboratorio.
+func calculateMinimumVitalFloorMB(targetEnvironment string) int {
 	env := strings.TrimSpace(targetEnvironment)
 	if env == "JUEZ_EFIMERO" || env == "JUEZ_VIRTUAL" {
 		return 64
 	}
-	floorMB := 210
-	if servicesCfg != nil {
-		for _, svc := range servicesCfg.Services {
-			switch strings.ToLower(strings.TrimSpace(svc.Engine)) {
-			case "postgres":
-				floorMB += 50
-			case "mysql", "mongodb":
-				floorMB += 128
-			case "redis":
-				floorMB += 64
-			}
-		}
+	return 210
+}
+
+var ErrTemplateVerificationRequired = errors.New("la configuración técnica requiere una comprobación exitosa vigente")
+
+func validateTemplateVerification(
+	ctx context.Context,
+	repo domain.EnvTestJobRepository,
+	tenantID, jobID string,
+	config domain.EnvTestVerificationConfig,
+	requiresVerification bool,
+) error {
+	if !requiresVerification {
+		return nil
 	}
-	return floorMB
+	if repo == nil || strings.TrimSpace(jobID) == "" {
+		return ErrTemplateVerificationRequired
+	}
+	job, err := repo.GetByID(ctx, strings.TrimSpace(jobID))
+	if err != nil || job == nil || job.Status != domain.EnvTestStatusSuccess {
+		return ErrTemplateVerificationRequired
+	}
+	if job.TenantID != tenantID || job.OwnerID == "" || job.OwnerID != domain.GetUserID(ctx) || job.VerificationFingerprint == "" || job.VerificationFingerprint != config.Fingerprint() {
+		return ErrTemplateVerificationRequired
+	}
+	return nil
+}
+
+func verificationConfigForCreate(dto domain.CreateOfficialTemplateDTO) domain.EnvTestVerificationConfig {
+	var dockerfileContent string
+	if dto.StackConfig != nil {
+		dockerfileContent = dto.StackConfig.DockerfileContent
+	}
+	return domain.EnvTestVerificationConfig{
+		Image: dto.DockerImage, Tools: dto.ToolsDeclared, TargetEnvironment: dto.TargetEnvironment,
+		Entrypoint: dto.Entrypoint, TimeoutMS: dto.TimeoutMS, SampleInput: dto.SampleInput,
+		BaseRamMB: dto.BaseRamMB, SetupScript: dto.SetupScript,
+		DockerfileContent: dockerfileContent,
+	}
+}
+
+func verificationConfigForUpdate(dto domain.UpdateOfficialTemplateDTO) domain.EnvTestVerificationConfig {
+	var dockerfileContent string
+	if dto.StackConfig != nil {
+		dockerfileContent = dto.StackConfig.DockerfileContent
+	}
+	return domain.EnvTestVerificationConfig{
+		Image: dto.DockerImage, Tools: dto.ToolsDeclared, TargetEnvironment: dto.TargetEnvironment,
+		Entrypoint: dto.Entrypoint, TimeoutMS: dto.TimeoutMS, SampleInput: dto.SampleInput,
+		BaseRamMB: dto.BaseRamMB, SetupScript: dto.SetupScript,
+		DockerfileContent: dockerfileContent,
+	}
 }
 
 func (s *AdminGovernanceService) CreateOfficialTemplate(
@@ -126,12 +168,22 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		return nil, ErrInvalidDockerImage
 	}
 
-	if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
-		return nil, err
+	if !domain.IsBuiltStackImageTag(dto.DockerImage) {
+		if err := ValidateAllowedRegistry(dto.DockerImage); err != nil {
+			return nil, err
+		}
 	}
 
 	if dto.TargetEnvironment == "" {
 		dto.TargetEnvironment = "IDE_PERSISTENTE"
+	}
+	if dto.TimeoutMS <= 0 {
+		dto.TimeoutMS = 5000
+	}
+	if domain.IsBuiltStackImageTag(dto.DockerImage) {
+		if err := validateTemplateVerification(ctx, s.envTestJobs, tenantID, dto.VerificationJobID, verificationConfigForCreate(dto), true); err != nil {
+			return nil, err
+		}
 	}
 
 	if dto.TargetEnvironment == "JUEZ_EFIMERO" || dto.TargetEnvironment == "JUEZ_VIRTUAL" || dto.TargetEnvironment == "AMBOS" {
@@ -147,10 +199,14 @@ func (s *AdminGovernanceService) CreateOfficialTemplate(
 		}
 	}
 
+	if err := domain.NormalizeServiceBindings(dto.ServicesConfig); err != nil {
+		return nil, err
+	}
+
 	if dto.BaseRamMB <= 0 {
 		dto.BaseRamMB = 512
 	} else {
-		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment, dto.ServicesConfig)
+		minFloorMB := calculateMinimumVitalFloorMB(dto.TargetEnvironment)
 		if dto.BaseRamMB < minFloorMB {
 			return nil, fmt.Errorf("%w: base_ram_mb=%d es inferior al piso vital requerido (%d MB)", ErrRamBelowVitalFloor, dto.BaseRamMB, minFloorMB)
 		}

@@ -33,6 +33,8 @@ func (h *EnvTestHandler) StartEnvTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	req.OwnerID = domain.GetUserID(r.Context())
+	req.TenantID = getTenantFromCtx(r)
 	job, err := h.svc.StartJob(r.Context(), req)
 	if err != nil {
 		SendError(w, http.StatusBadRequest, "validation_error", err.Error())
@@ -65,7 +67,7 @@ func (h *EnvTestHandler) GetEnvTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	job, err := h.svc.GetJob(r.Context(), id)
-	if err != nil {
+	if err != nil || !ownsEnvTestJob(r, job) {
 		SendError(w, http.StatusNotFound, "job_not_found", "El job de prueba especificado no existe")
 		return
 	}
@@ -94,10 +96,23 @@ func (h *EnvTestHandler) CancelEnvTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	job, err := h.svc.GetJob(r.Context(), id)
+	if err != nil || !ownsEnvTestJob(r, job) {
+		SendError(w, http.StatusNotFound, "job_not_found", "El job de prueba especificado no existe")
+		return
+	}
 	if err := h.svc.CancelJob(r.Context(), id); err != nil {
 		SendError(w, http.StatusInternalServerError, "cancel_error", "Error al cancelar el job")
 		return
 	}
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "canceled"}, "Job cancelado correctamente")
+}
+
+func ownsEnvTestJob(r *http.Request, job *domain.EnvTestJob) bool {
+	if job == nil {
+		return false
+	}
+	ownerID := domain.GetUserID(r.Context())
+	return ownerID != "" && job.OwnerID == ownerID && job.TenantID == getTenantFromCtx(r)
 }

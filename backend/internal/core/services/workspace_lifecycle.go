@@ -65,18 +65,6 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
 	envVars = append(envVars, provision.Env...)
-	if provision.PostgresDBName != "" {
-		pgHost := getPostgresContainerHost()
-		dbURL := fmt.Sprintf("postgresql://postgres:postgres@%s:5432/%s?sslmode=disable", pgHost, provision.PostgresDBName)
-		envVars = append(envVars,
-			fmt.Sprintf("DATABASE_URL=%s", dbURL),
-			fmt.Sprintf("PGHOST=%s", pgHost),
-			"PGPORT=5432",
-			"PGUSER=postgres",
-			"PGPASSWORD=postgres",
-			fmt.Sprintf("PGDATABASE=%s", provision.PostgresDBName),
-		)
-	}
 
 	config := domain.WorkspaceContainerConfig{
 		Image:               imageName,
