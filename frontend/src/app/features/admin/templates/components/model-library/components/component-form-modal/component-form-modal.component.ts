@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, OnInit, OnDestroy, inject, Output, computed, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import { LucideBoxes, LucideAlertTriangle, LucideSparkles, LucideLayers, LucideRefreshCw, LucideXCircle } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminConfigIaService, AISuggestComponentResponse } from '../../../../../configuracion/admin-config-ia.service';
@@ -76,6 +77,7 @@ export {
   selector: 'component-form-modal',
   imports: [
     FormsModule,
+    CdkTextareaAutosize,
     ModalShellComponent,
     FormFieldComponent,
     ComboboxComponent,
@@ -626,6 +628,13 @@ export class ComponentFormModalComponent implements OnInit, OnDestroy {
 
   cancelAiGeneration(): void {
     this.aiOperation.cancel();
+  }
+
+  onAiPromptKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      this.generateWithAi();
+    }
   }
 
   generateWithAi(): void {

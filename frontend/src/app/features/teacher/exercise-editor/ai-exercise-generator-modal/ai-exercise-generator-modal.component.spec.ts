@@ -198,4 +198,24 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(store.hasInteracted()).toBe(true);
   });
 
+  it('dispara generate al presionar Ctrl+Enter o Cmd+Enter en el prompt', () => {
+    const generateSpy = vi.spyOn(component, 'generate');
+    const eventCtrl = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true });
+    const preventCtrl = vi.spyOn(eventCtrl, 'preventDefault');
+    component.onPromptKeydown(eventCtrl);
+    expect(preventCtrl).toHaveBeenCalled();
+    expect(generateSpy).toHaveBeenCalledTimes(1);
+
+    const eventMeta = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true });
+    const preventMeta = vi.spyOn(eventMeta, 'preventDefault');
+    component.onPromptKeydown(eventMeta);
+    expect(preventMeta).toHaveBeenCalled();
+    expect(generateSpy).toHaveBeenCalledTimes(2);
+
+    const regularEnter = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: false, metaKey: false });
+    const preventRegular = vi.spyOn(regularEnter, 'preventDefault');
+    component.onPromptKeydown(regularEnter);
+    expect(preventRegular).not.toHaveBeenCalled();
+    expect(generateSpy).toHaveBeenCalledTimes(2);
+  });
 });

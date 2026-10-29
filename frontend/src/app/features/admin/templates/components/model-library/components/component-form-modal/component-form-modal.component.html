@@ -129,15 +129,19 @@
       <div class="ai-input-row">
         <textarea
           class="form-textarea"
-          rows="2"
+          cdkTextareaAutosize
+          [cdkAutosizeMinRows]="3"
+          [cdkAutosizeMaxRows]="6"
           placeholder="Ej: PyTorch CPU y scikit-learn con soporte para procesamiento numérico en Python..."
           [ngModel]="aiPrompt()"
           (ngModelChange)="aiPrompt.set($event)"
+          (keydown)="onAiPromptKeydown($event)"
           [disabled]="isGeneratingAi()"
         ></textarea>
       </div>
 
       <div class="ai-actions-row">
+        <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
         @if (isGeneratingAi()) {
           <div class="ai-running-telemetry">
             <svg lucideRefreshCw class="btn-icon-xs spin"></svg>

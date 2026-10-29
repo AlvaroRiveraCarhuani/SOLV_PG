@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import {
   LucideSparkles,
   LucideCheckCircle2,
@@ -22,6 +23,7 @@ import { AIMissingComponent } from '../../../../configuracion/admin-config-ia.se
   standalone: true,
   imports: [
     FormsModule,
+    CdkTextareaAutosize,
     ModalShellComponent,
     MachineDataDirective,
     StackConstellationComponent,
@@ -57,6 +59,15 @@ export class StudioAiCopilotModalComponent {
   readonly dismiss = output<void>();
   readonly proposalChange = output<Omit<AiProposalView, 'latencyMs'> & { latencyMs: number }>();
   readonly createMissingComponent = output<{ name: string; missing?: AIMissingComponent }>();
+
+  onPromptKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      if (this.prompt().trim().length >= 3 && !this.isSuggesting()) {
+        this.suggest.emit();
+      }
+    }
+  }
 
   onCreateMissing(name: string, view: AiProposalView): void {
     const item = view.missingComponents?.find(m => m.name.toLowerCase() === name.toLowerCase());

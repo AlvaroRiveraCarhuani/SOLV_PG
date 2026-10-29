@@ -13,15 +13,21 @@
       <textarea
         id="ai-prompt-input"
         class="form-textarea"
-        rows="3"
+        cdkTextareaAutosize
+        [cdkAutosizeMinRows]="3"
+        [cdkAutosizeMaxRows]="7"
         placeholder="Ej: Entorno para algoritmos avanzados con Python, PyTest y SQLite..."
         [ngModel]="prompt()"
         (ngModelChange)="promptChange.emit($event)"
+        (keydown)="onPromptKeydown($event)"
         [disabled]="isSuggesting()"
       ></textarea>
 
       <div class="prompt-footer-bar">
-        <span class="prompt-hint">Describa los requisitos del laboratorio. La propuesta no modifica el constructor hasta que la aplique.</span>
+        <div class="prompt-hint-group">
+          <span class="prompt-hint">Describa los requisitos del laboratorio. La propuesta no modifica el constructor hasta que la aplique.</span>
+          <span class="ai-shortcut-hint">Presioná <kbd>Ctrl</kbd> + <kbd>Enter</kbd> para generar</span>
+        </div>
         @if (isSuggesting()) {
           <div class="ai-running-telemetry" role="status">
             <svg lucideRefreshCw class="btn-icon-xs spin"></svg>

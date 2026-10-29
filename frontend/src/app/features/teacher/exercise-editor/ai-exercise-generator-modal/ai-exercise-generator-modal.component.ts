@@ -1,6 +1,7 @@
 import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { CdkTextareaAutosize } from '@angular/cdk/text-field';
 import {
   LucideSparkles,
   LucideAlertTriangle,
@@ -46,6 +47,7 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
   imports: [
     CommonModule,
     FormsModule,
+    CdkTextareaAutosize,
     LucideSparkles,
     LucideAlertTriangle,
     LucideShieldCheck,
@@ -133,6 +135,13 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
 
   onPromptChange(value: string): void {
     this.prompt.set(value);
+  }
+
+  onPromptKeydown(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      event.preventDefault();
+      this.generate();
+    }
   }
 
   onPublicCountChange(value: number): void {

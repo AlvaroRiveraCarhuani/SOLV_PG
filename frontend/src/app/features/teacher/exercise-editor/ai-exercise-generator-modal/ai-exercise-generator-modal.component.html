@@ -95,14 +95,17 @@
   } @else {
     <!-- Paso A: formulario de generación -->
     <div class="modal-body-form">
-      <form-field label="Consigna pedagógica" for="ai-prompt" [required]="true" hint="Describe el tema del ejercicio (5 a 1500 caracteres).">
+      <form-field label="Consigna pedagógica" for="ai-prompt" [required]="true" hint="Describe el tema del ejercicio (5 a 1500 caracteres). Presioná Ctrl + Enter para generar.">
         <textarea
           id="ai-prompt"
           class="form-textarea"
-          rows="3"
+          cdkTextareaAutosize
+          [cdkAutosizeMinRows]="3"
+          [cdkAutosizeMaxRows]="7"
           placeholder="Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos..."
           [ngModel]="prompt()"
           (ngModelChange)="onPromptChange($event)"
+          (keydown)="onPromptKeydown($event)"
           name="prompt"
         ></textarea>
       </form-field>

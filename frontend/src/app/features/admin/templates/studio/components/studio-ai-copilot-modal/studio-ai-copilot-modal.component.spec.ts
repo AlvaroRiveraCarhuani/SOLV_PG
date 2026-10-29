@@ -244,4 +244,29 @@ describe('StudioAiCopilotModalComponent', () => {
     expect(banner).toBeTruthy();
     expect(banner.textContent).toContain('El motor de IA superó el tiempo límite.');
   });
+
+  it('emite suggest al presionar Ctrl+Enter o Cmd+Enter si el prompt tiene al menos 3 caracteres', () => {
+    const suggestSpy = vi.fn();
+    component.suggest.subscribe(suggestSpy);
+
+    fixture.componentRef.setInput('prompt', 'Python 3.12');
+    fixture.componentRef.setInput('isSuggesting', false);
+
+    const eventCtrl = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true });
+    const preventCtrl = vi.spyOn(eventCtrl, 'preventDefault');
+    component.onPromptKeydown(eventCtrl);
+    expect(preventCtrl).toHaveBeenCalled();
+    expect(suggestSpy).toHaveBeenCalledTimes(1);
+
+    const eventMeta = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true });
+    const preventMeta = vi.spyOn(eventMeta, 'preventDefault');
+    component.onPromptKeydown(eventMeta);
+    expect(preventMeta).toHaveBeenCalled();
+    expect(suggestSpy).toHaveBeenCalledTimes(2);
+
+    // No emite si está sugiriendo
+    fixture.componentRef.setInput('isSuggesting', true);
+    component.onPromptKeydown(eventCtrl);
+    expect(suggestSpy).toHaveBeenCalledTimes(2);
+  });
 });

@@ -1289,5 +1289,26 @@ describe('ComponentFormModalComponent', () => {
       expect(component.errorMessage()).toBe('Error en el servicio de IA');
       expect(component.isGeneratingAi()).toBe(false);
     });
+
+    it('dispara generateWithAi al presionar Ctrl+Enter o Cmd+Enter en el prompt', () => {
+      const spy = vi.spyOn(component, 'generateWithAi');
+      const eventCtrl = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true });
+      const preventCtrl = vi.spyOn(eventCtrl, 'preventDefault');
+      component.onAiPromptKeydown(eventCtrl);
+      expect(preventCtrl).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(1);
+
+      const eventMeta = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true });
+      const preventMeta = vi.spyOn(eventMeta, 'preventDefault');
+      component.onAiPromptKeydown(eventMeta);
+      expect(preventMeta).toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(2);
+
+      const regularEnter = new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: false, metaKey: false });
+      const preventRegular = vi.spyOn(regularEnter, 'preventDefault');
+      component.onAiPromptKeydown(regularEnter);
+      expect(preventRegular).not.toHaveBeenCalled();
+      expect(spy).toHaveBeenCalledTimes(2);
+    });
   });
 });
