@@ -172,29 +172,6 @@ export interface AIRepairTemplateResponse {
   latency_ms: number;
 }
 
-export interface AIUserOverrideDTO {
-  enabled: boolean;
-  provider: AIProviderType;
-  provider_label?: string;
-  model: string;
-  base_url: string;
-  has_api_key: boolean;
-  api_key_masked: string;
-  updated_at?: string;
-  institutional_enabled?: boolean;
-  institutional_provider_label?: string;
-  institutional_model?: string;
-}
-
-export interface UpdateAIUserOverridePayload {
-  enabled: boolean;
-  provider: AIProviderType;
-  model: string;
-  base_url?: string;
-  api_key?: string;
-  clear_api_key?: boolean;
-}
-
 export type AIModelTier = 'free' | 'paid' | 'local' | 'by_account';
 
 export interface AIModelItemDTO {
@@ -308,48 +285,6 @@ export class AdminConfigIaService {
       )
       .pipe(
         map((res) => (res as ApiEnvelope<AIRepairTemplateResponse>).data ?? (res as AIRepairTemplateResponse))
-      );
-  }
-
-  /** GET my settings (BYOK override) */
-  getMySettings(): Observable<AIUserOverrideDTO> {
-    return this.http
-      .get<ApiEnvelope<AIUserOverrideDTO> | AIUserOverrideDTO>('/api/v1/ai/my-settings')
-      .pipe(
-        map((res) => (res as ApiEnvelope<AIUserOverrideDTO>).data ?? (res as AIUserOverrideDTO))
-      );
-  }
-
-  /** PUT my settings (BYOK override) */
-  updateMySettings(dto: UpdateAIUserOverridePayload): Observable<AIUserOverrideDTO> {
-    return this.http
-      .put<ApiEnvelope<AIUserOverrideDTO> | AIUserOverrideDTO>('/api/v1/ai/my-settings', dto)
-      .pipe(
-        map((res) => (res as ApiEnvelope<AIUserOverrideDTO>).data ?? (res as AIUserOverrideDTO))
-      );
-  }
-
-  /** POST test my connection (BYOK) */
-  testMyConnection(payload: TestAIConnectionPayload): Observable<TestAIConnectionResponse> {
-    return this.http
-      .post<ApiEnvelope<TestAIConnectionResponse> | TestAIConnectionResponse>(
-        '/api/v1/ai/my-settings/test-connection',
-        payload
-      )
-      .pipe(
-        map((res) => (res as ApiEnvelope<TestAIConnectionResponse>).data ?? (res as TestAIConnectionResponse))
-      );
-  }
-
-  /** POST list my models (BYOK) */
-  listMyModels(payload: ListAIModelsPayload): Observable<ListAIModelsResponse> {
-    return this.http
-      .post<ApiEnvelope<ListAIModelsResponse> | ListAIModelsResponse>(
-        '/api/v1/ai/my-settings/models',
-        payload
-      )
-      .pipe(
-        map((res) => (res as ApiEnvelope<ListAIModelsResponse>).data ?? (res as ListAIModelsResponse))
       );
   }
 

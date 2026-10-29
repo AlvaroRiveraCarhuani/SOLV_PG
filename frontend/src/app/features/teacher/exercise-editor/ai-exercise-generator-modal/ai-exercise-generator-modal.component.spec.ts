@@ -102,12 +102,23 @@ describe('AiExerciseGeneratorModalComponent', () => {
     fixture.detectChanges();
   });
 
-  it('debe inicializar cargando el status y los settings de BYOK del usuario', () => {
+  it('debe inicializar cargando el estado del motor de IA', () => {
     expect(mockService.getStatus).toHaveBeenCalled();
-    expect(mockService.getMySettings).toHaveBeenCalled();
-    expect(component.byokEnabled()).toBe(true);
-    expect(component.byokProvider()).toBe('openrouter');
-    expect(component.byokModel()).toBe('meta-llama/llama-3.3-70b-instruct:free');
+    expect(component.aiStatus()?.using_personal_key).toBe(true);
+  });
+
+  it('delega la credencial personal al panel compartido y refresca el estado al guardar', () => {
+    expect(component.showByokPanel()).toBe(false);
+    expect(fixture.nativeElement.querySelector('ai-byok-panel')).toBeNull();
+
+    component.toggleByokPanel();
+    fixture.detectChanges();
+    expect(component.showByokPanel()).toBe(true);
+    expect(fixture.nativeElement.querySelector('ai-byok-panel')).toBeTruthy();
+
+    const callsBefore = mockService.getStatus.mock.calls.length;
+    component.onByokChanged();
+    expect(mockService.getStatus.mock.calls.length).toBe(callsBefore + 1);
   });
 
   it('debe invocar generateExercise con los parámetros seleccionados y mostrar el resultado en la tarjeta estructurada', () => {
@@ -141,44 +152,6 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
     expect(seal?.textContent).toContain('selladas por el ejecutor del Juez Virtual');
-  });
-
-  it('debe filtrar modelos BYOK correctamente por texto y filtro Gratis', () => {
-    component.byokAvailableModels.set([
-      'google/gemini-2.0-flash-exp:free',
-      'meta-llama/llama-3.3-70b-instruct:free',
-      'openai/gpt-4o-mini',
-      'deepseek/deepseek-chat'
-    ]);
-
-    component.byokModelFilter.set('free');
-    expect(component.filteredByokModels().length).toBe(2);
-    expect(component.filteredByokModels()).toContain('google/gemini-2.0-flash-exp:free');
-    expect(component.filteredByokModels()).toContain('meta-llama/llama-3.3-70b-instruct:free');
-
-    component.byokModelSearch.set('gemini');
-    expect(component.filteredByokModels().length).toBe(1);
-    expect(component.filteredByokModels()[0]).toBe('google/gemini-2.0-flash-exp:free');
-  });
-
-  it('debe permitir probar conexión y guardar la configuración BYOK', () => {
-    component.byokProvider.set('openrouter');
-    component.byokModel.set('meta-llama/llama-3.3-70b-instruct:free');
-    component.byokApiKey.set('sk-or-nueva-clave');
-
-    component.testConnection();
-    expect(mockService.testMyConnection).toHaveBeenCalled();
-    expect(component.byokTestOk()).toBe(true);
-
-    component.saveByokSettings();
-    expect(mockService.updateMySettings).toHaveBeenCalledWith({
-      enabled: true,
-      provider: 'openrouter',
-      model: 'meta-llama/llama-3.3-70b-instruct:free',
-      base_url: undefined,
-      api_key: 'sk-or-nueva-clave'
-    });
-    expect(component.byokApiKey()).toBe('');
   });
 
   it('debe cancelar la generación en curso al llamar cancelGeneration()', () => {
@@ -225,15 +198,4 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(store.hasInteracted()).toBe(true);
   });
 
-  it('no crashea si listMyModels devuelve datos no array y filteredByokModels opera de forma segura', () => {
-    // El signal está tipado string[]; el cast evita el `any` y ejercita la
-    // rama defensiva (Array.isArray) con una entrada fuera de contrato.
-    component.byokAvailableModels.set(null as unknown as string[]);
-    expect(() => component.filteredByokModels()).not.toThrow();
-    expect(component.filteredByokModels()).toEqual([]);
-
-    component.byokAvailableModels.set(['gemini-1.5-flash:free', 'gpt-4o']);
-    component.byokModelFilter.set('free');
-    expect(component.filteredByokModels()).toEqual(['gemini-1.5-flash:free']);
-  });
 });
