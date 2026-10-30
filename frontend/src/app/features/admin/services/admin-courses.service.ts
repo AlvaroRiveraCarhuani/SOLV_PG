@@ -48,6 +48,7 @@ export interface SubjectRaw {
   teacher_id?: string;
   teacher_name?: string;
   academic_period_id?: string;
+  template_id?: string;
   is_archived: boolean;
   classroom_course_id?: string;
   created_at?: string;
@@ -148,8 +149,18 @@ export class AdminCoursesService {
           }
         }
 
+        // Mapa rápido de plantillas para resolver nombres reales en la vista
+        const templateList = Array.isArray(templates) ? templates : [];
+        const templateMap = new Map<string, string>();
+        for (const tmpl of templateList) {
+          if (tmpl && tmpl.id && tmpl.name) {
+            templateMap.set(tmpl.id, tmpl.name);
+          }
+        }
+
         const enrichedCourses: AdminCourseItem[] = validSubjects.map(s => {
           const metric = loadMap.get(s.id);
+          const resolvedTemplateName = s.template_id ? (templateMap.get(s.template_id) || 'Personalizada') : 'Sin plantilla';
           return {
             id: s.id,
             name: s.name,
@@ -161,7 +172,7 @@ export class AdminCoursesService {
             active_students: metric ? metric.active_students : 0,
             hibernated_students: metric ? metric.hibernated_students : 0,
             ram_used_mb: metric ? metric.ram_used_mb : 0,
-            template_name: 'Linux / Docker Base'
+            template_name: resolvedTemplateName
           };
         });
 

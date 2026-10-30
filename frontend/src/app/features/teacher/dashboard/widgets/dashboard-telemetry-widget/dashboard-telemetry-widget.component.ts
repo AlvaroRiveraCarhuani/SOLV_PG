@@ -9,8 +9,6 @@ import {
   LucideTerminal, 
   LucidePause, 
   LucidePlay, 
-  LucideCpu, 
-  LucideHardDrive, 
   LucideAlertCircle, 
   LucideAlertTriangle 
 } from '@lucide/angular';
@@ -32,8 +30,6 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     LucideTerminal,
     LucidePause,
     LucidePlay,
-    LucideCpu,
-    LucideHardDrive,
     LucideAlertCircle,
     LucideAlertTriangle,
     SparklineComponent,

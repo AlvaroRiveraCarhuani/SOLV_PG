@@ -37,7 +37,7 @@
 
       <button class="btn-outline btn-import-lab" (click)="openImportModal()" title="Importar ejercicios masivamente desde JSON o YAML">
         <svg lucideUploadCloud class="btn-icon-sm"></svg>
-        <span>Importar Ejercicios</span>
+        <span>Importar</span>
       </button>
 
       <a [routerLink]="['/teacher/cursos', subjectId(), 'analytics']" class="btn-outline btn-analytics" title="Ver analítica y métricas del curso">
@@ -45,20 +45,35 @@
         <span>Métricas</span>
       </a>
 
-      <button class="btn-outline btn-plagiarism" (click)="openPlagiarismModal()" title="Escanear similitud estructural AST">
-        <svg lucideShieldAlert class="btn-icon-sm"></svg>
-        <span>Anti-Plagio AST</span>
-      </button>
+      <!-- Menú Desplegable de Gestión -->
+      <div class="more-actions-dropdown">
+        <button 
+          type="button" 
+          class="btn-outline btn-more-toggle" 
+          (click)="showMoreActions.update(v => !v)"
+          title="Opciones adicionales de gestión del curso"
+        >
+          <span>Más acciones</span>
+          <svg lucideChevronDown class="btn-icon-xs"></svg>
+        </button>
 
-      <button class="btn-outline btn-pause" (click)="openPauseConfirmModal()" title="Hibernar contenedores de la clase">
-        <svg lucidePauseCircle class="btn-icon-sm"></svg>
-        <span>Pausar Entornos</span>
-      </button>
-
-      <button class="btn-outline" [disabled]="isExporting()" (click)="exportGrades()">
-        <svg lucideDownload class="btn-icon-sm"></svg>
-        <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
-      </button>
+        @if (showMoreActions()) {
+          <div class="dropdown-menu animate-fade">
+            <button type="button" class="dropdown-item" (click)="openPlagiarismModal(); showMoreActions.set(false)">
+              <svg lucideShieldAlert class="btn-icon-sm"></svg>
+              <span>Auditoría Anti-Plagio AST</span>
+            </button>
+            <button type="button" class="dropdown-item" (click)="openPauseConfirmModal(); showMoreActions.set(false)">
+              <svg lucidePauseCircle class="btn-icon-sm text-warning"></svg>
+              <span>Pausar Entornos de Clase</span>
+            </button>
+            <button type="button" class="dropdown-item" [disabled]="isExporting()" (click)="exportGrades(); showMoreActions.set(false)">
+              <svg lucideDownload class="btn-icon-sm"></svg>
+              <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
+            </button>
+          </div>
+        }
+      </div>
     </div>
   </header>
 
@@ -233,7 +248,7 @@
               <th>Veredicto</th>
               <th>Puntaje</th>
               <th>Fecha Entrega</th>
-              <th>Comentarios</th>
+              <th class="text-center">Comentarios</th>
               <th>Acción</th>
             </tr>
           </thead>
@@ -254,11 +269,13 @@
                 <td>
                   <time>{{ sub.submitted_at | dateText:'datetime' }}</time>
                 </td>
-                <td><span machineData>{{ sub.comments_count }}</span></td>
+                <td class="text-center">
+                  <span class="comments-badge font-mono" machineData>{{ sub.comments_count }}</span>
+                </td>
                 <td>
-                  <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade">
-                    <span>SpeedGrader</span>
-                    <svg lucideExternalLink class="btn-icon-sm"></svg>
+                  <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade" title="Revisar entrega y rúbrica">
+                    <span>Revisar</span>
+                    <svg lucideExternalLink class="btn-icon-xs"></svg>
                   </a>
                 </td>
               </tr>
@@ -379,59 +396,66 @@
   }
 </div>
 
-<!-- Modal para Crear Módulo -->
+<!-- Modal para Crear Módulo con Shell Estándar -->
 @if (showCreateModuleModal()) {
-  <div class="modal-overlay" (click)="closeCreateModuleModal()">
-    <div class="modal-card" (click)="$event.stopPropagation()">
-      <div class="modal-header">
-        <h3>Nuevo Módulo Curricular</h3>
-        <button type="button" class="btn-close" (click)="closeCreateModuleModal()">✕</button>
+  <modal-shell
+    title="Nuevo Módulo Curricular"
+    subtitle="Agrupe ejercicios por unidades temáticas y configure prerrequisitos"
+    intent="info"
+    [maxWidth]="'540px'"
+    (close)="closeCreateModuleModal()"
+  >
+    <svg modal-icon lucideLayers class="modal-icon-svg"></svg>
+
+    @if (moduleErrorMessage()) {
+      <div class="error-banner">
+        <svg lucideAlertTriangle class="error-icon"></svg>
+        <span>{{ moduleErrorMessage() }}</span>
       </div>
-      <div class="modal-body">
-        @if (moduleErrorMessage()) {
-          <div class="error-banner">
-            <svg lucideAlertTriangle class="error-icon"></svg>
-            <span>{{ moduleErrorMessage() }}</span>
-          </div>
-        }
-        <div class="form-group">
-          <label for="moduleTitle">Título del Módulo *</label>
-          <input
-            id="moduleTitle"
-            type="text"
-            class="form-control"
-            [(ngModel)]="newModuleTitle"
-            placeholder="Ej. Introducción a la Programación"
-          />
-        </div>
-        <div class="form-group">
-          <label for="moduleDescription">Descripción (opcional)</label>
-          <textarea
-            id="moduleDescription"
-            class="form-control"
-            rows="2"
-            [(ngModel)]="newModuleDescription"
-            placeholder="Breve descripción del contenido temático"
-          ></textarea>
-        </div>
-        <div class="form-group">
-          <label for="modulePassScore">Puntaje mínimo de aprobación (%)</label>
-          <input
-            id="modulePassScore"
-            type="number"
-            min="1"
-            max="100"
-            class="form-control"
-            [(ngModel)]="newModulePassScore"
-          />
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn-secondary" (click)="closeCreateModuleModal()">Cancelar</button>
-        <button type="button" class="btn-primary" [disabled]="!newModuleTitle().trim()" (click)="submitCreateModule()">Crear Módulo</button>
-      </div>
+    }
+
+    <div class="form-group">
+      <label for="moduleTitle" class="form-label">Título del Módulo *</label>
+      <input
+        id="moduleTitle"
+        type="text"
+        class="form-input"
+        [ngModel]="newModuleTitle()"
+        (ngModelChange)="newModuleTitle.set($event)"
+        placeholder="Ej. Introducción a la Programación"
+      />
     </div>
-  </div>
+
+    <div class="form-group">
+      <label for="moduleDescription" class="form-label">Descripción (opcional)</label>
+      <textarea
+        id="moduleDescription"
+        class="form-textarea"
+        rows="2"
+        [ngModel]="newModuleDescription()"
+        (ngModelChange)="newModuleDescription.set($event)"
+        placeholder="Breve descripción del contenido temático"
+      ></textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="modulePassScore" class="form-label">Puntaje mínimo de aprobación (%)</label>
+      <input
+        id="modulePassScore"
+        type="number"
+        min="1"
+        max="100"
+        class="form-input"
+        [ngModel]="newModulePassScore()"
+        (ngModelChange)="newModulePassScore.set($event)"
+      />
+    </div>
+
+    <ng-container modal-footer>
+      <button type="button" class="btn-outline" (click)="closeCreateModuleModal()">Cancelar</button>
+      <button type="button" class="btn-primary" [disabled]="!newModuleTitle().trim()" (click)="submitCreateModule()">Crear Módulo</button>
+    </ng-container>
+  </modal-shell>
 }
 
 

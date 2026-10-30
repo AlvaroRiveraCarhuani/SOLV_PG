@@ -130,7 +130,7 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     if (standard > 0) {
       return {
         type: 'warning',
-        text: `Tenés ${standard} entrega(s) pendiente(s) de revisión.`
+        text: `Tiene ${standard} entrega(s) pendiente(s) de revisión.`
       };
     }
     return {

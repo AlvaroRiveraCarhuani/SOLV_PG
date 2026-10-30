@@ -25,7 +25,8 @@ import {
   LucideTrash2,
   LucideUploadCloud,
   LucideLoader2,
-  LucideCheck
+  LucideCheck,
+  LucideChevronDown
 } from '@lucide/angular';
 import { TeacherCourseService } from '../../services/teacher-course.service';
 import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
@@ -37,6 +38,7 @@ import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-m
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
 import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
@@ -72,6 +74,8 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     LucideUploadCloud,
     LucideLoader2,
     LucideCheck,
+    LucideChevronDown,
+    ModalShellComponent,
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
@@ -95,6 +99,7 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   readonly verdictOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
 
+  showMoreActions = signal<boolean>(false);
   subjectId = signal<string>('');
   courseInfo = signal<TeacherCourseSummary | null>(null);
   activeTab = signal<'labs' | 'submissions' | 'modules'>('labs');

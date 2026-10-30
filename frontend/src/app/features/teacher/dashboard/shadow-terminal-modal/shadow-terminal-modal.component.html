@@ -8,10 +8,10 @@
         </div>
         <div>
           <div class="title-row">
-            <h2 class="modal-title">Shadow Mode · Terminal en Vivo</h2>
+            <h2 class="modal-title">Consola del Estudiante · Asistencia en Vivo</h2>
             <span class="live-pill" [class.is-live]="isConnected()">
               <span class="live-indicator"></span>
-              <span>{{ isConnected() ? 'STREAM EN VIVO' : 'CONEXIÓN ESTABLECIDA' }}</span>
+              <span>{{ isConnected() ? 'EN VIVO' : 'SIN SESIÓN ACTIVA' }}</span>
             </span>
           </div>
           <p class="modal-subtitle">
@@ -20,7 +20,7 @@
         </div>
       </div>
 
-      <!-- Selector de Modo de Operación: Espejo vs Intervención -->
+      <!-- Selector de Modo de Operación: Observador vs Intervención -->
       <div class="mode-switcher" role="tablist">
         <button 
           type="button" 
@@ -29,7 +29,7 @@
           (click)="setMode('mirror')"
           title="Modo observador pasivo (Solo Lectura)">
           <svg lucideLock class="icon-xs"></svg>
-          <span>Espejo (Solo Lectura)</span>
+          <span>Modo Observador (Solo Lectura)</span>
         </button>
         <button 
           type="button" 
@@ -38,7 +38,7 @@
           (click)="setMode('tutor')"
           title="Modo intervención interactiva (Inyección de comandos)">
           <svg lucideUnlock class="icon-xs"></svg>
-          <span>Intervención (Tutor R/W)</span>
+          <span>Modo Tutor (Intervención)</span>
         </button>
       </div>
 
@@ -60,37 +60,23 @@
       </div>
     </header>
 
-    <!-- Barra de Telemetría y Cgroups del Contenedor -->
+    <!-- Barra de Estado del Entorno del Alumno -->
     <div class="telemetry-bar">
       <div class="telemetry-item">
-        <span class="telemetry-label">Contenedor:</span>
-        <code class="telemetry-val font-mono" machineData>{{ session.container_id ? (session.container_id | slice:0:12) : 'N/A' }}</code>
-      </div>
-
-      <div class="telemetry-item mem-telemetry-item">
-        <span class="telemetry-label">RAM Cgroup:</span>
-        <div class="mem-gauge-wrapper">
-          <div class="mem-gauge-track">
-            <div 
-              class="mem-gauge-fill" 
-              [style.width.%]="memoryPercent()"
-              [class.gauge-warn]="memoryPercent() >= 75 && memoryPercent() < 90"
-              [class.gauge-danger]="memoryPercent() >= 90">
-            </div>
-          </div>
-          <span class="telemetry-val font-mono" machineData>{{ session.memory_used_mb || 0 }} / {{ session.memory_limit_mb }} MB ({{ memoryPercent() }}%)</span>
-        </div>
+        <span class="telemetry-label">Entorno:</span>
+        <code class="telemetry-val font-mono" machineData>{{ session.container_id ? 'Contenedor asignado' : 'Sin contenedor activo' }}</code>
       </div>
 
       <div class="telemetry-item">
-        <span class="telemetry-label">Strikes OOM:</span>
-        <span class="telemetry-val font-mono" [class.text-danger]="session.oom_strikes > 0" machineData>{{ session.oom_strikes }}</span>
-      </div>
-
-      <div class="telemetry-item">
-        <span class="telemetry-label">Último Heartbeat:</span>
+        <span class="telemetry-label">Última actividad:</span>
         <time class="telemetry-val font-mono">{{ session.last_heartbeat | dateText:'time' }}</time>
       </div>
+
+      @if (session.oom_strikes > 0) {
+        <div class="telemetry-item">
+          <span class="telemetry-val font-mono text-danger" machineData>⚠️ {{ session.oom_strikes }} reinicios por memoria</span>
+        </div>
+      }
 
       @if (session.activity_state) {
         <div class="telemetry-item status-pill-item">
@@ -216,6 +202,8 @@
           <span class="cursor-pulse">_</span>
           @if (searchQuery()) {
             <span>No se encontraron líneas que coincidan con "{{ searchQuery() }}"</span>
+          } @else if (!isConnected()) {
+            <span>Sin sesión interactiva activa: El alumno no tiene un contenedor en ejecución en este momento.</span>
           } @else {
             <span>Esperando actividad del contenedor del alumno...</span>
           }
@@ -265,11 +253,11 @@
         <div class="mirror-mode-banner">
           <svg lucideLock class="banner-icon"></svg>
           <div class="banner-text">
-            <strong>Modo Espejo Activo:</strong> Estás observando en tiempo real sin alterar el estado del contenedor.
+            <strong>Modo Observador Activo:</strong> Visualización en tiempo real sin alterar el entorno del estudiante.
           </div>
           <button type="button" class="btn-enable-tutor" (click)="setMode('tutor')">
             <svg lucideUnlock class="icon-xs"></svg>
-            <span>Habilitar Intervención</span>
+            <span>Habilitar Modo Tutor</span>
           </button>
         </div>
       }

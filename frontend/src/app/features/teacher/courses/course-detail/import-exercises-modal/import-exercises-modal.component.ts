@@ -11,7 +11,6 @@ import { CommonModule } from '@angular/common';
 import {
   LucideUploadCloud,
   LucideFileCode,
-  LucideX,
   LucideCheckCircle2,
   LucideAlertTriangle,
   LucideAlertCircle,
@@ -21,6 +20,7 @@ import { TeacherCourseService } from '../../../services/teacher-course.service';
 import { ExerciseImportResponse } from '../../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
+import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 
 @Component({
   selector: 'import-exercises-modal',
@@ -29,13 +29,13 @@ import { DismissibleDirective } from '@shared/directives/dismissible.directive';
     CommonModule,
     LucideUploadCloud,
     LucideFileCode,
-    LucideX,
     LucideCheckCircle2,
     LucideAlertTriangle,
     LucideAlertCircle,
     LucideRefreshCw,
     MachineDataDirective,
-    DismissibleDirective
+    DismissibleDirective,
+    ModalShellComponent
   ],
   templateUrl: './import-exercises-modal.component.html',
   styleUrl: './import-exercises-modal.component.scss'

@@ -158,69 +158,37 @@
             </span>
           </div>
 
-          <!-- Medidor de RAM y Sparkline -->
-          <div class="telemetry-metrics-section">
-            <div class="metric-row">
-              <span class="metric-label">
-                <svg lucideHardDrive class="metric-icon"></svg>
-                <span>RAM (cgroups)</span>
-              </span>
-              <span class="metric-value font-mono" machineData>
-                {{ session.memory_used_mb || 0 }} / {{ session.memory_limit_mb }} MB 
-                ({{ getMemoryPercent(session) }}%)
-              </span>
-            </div>
-
-            <!-- Barra de saturación de cgroups -->
-            <div class="ram-progress-track">
-              <div 
-                class="ram-progress-fill" 
-                [style.width.%]="getMemoryPercent(session)"
-                [class.fill-warning]="getMemoryPercent(session) >= 70 && getMemoryPercent(session) < 90"
-                [class.fill-danger]="getMemoryPercent(session) >= 90"
-              ></div>
-            </div>
-
-            <!-- Fila de CPU y Sparkline -->
-            <div class="cpu-sparkline-row">
-              <div class="cpu-stat">
-                <svg lucideCpu class="metric-icon"></svg>
-                <span class="font-mono" machineData>{{ session.cpu_percent || 0 }}% CPU</span>
+          <!-- Indicador pedagógico de estado -->
+          <div class="telemetry-pedagogical-section">
+            @if (getMemoryPercent(session) >= 90 || session.oom_strikes > 0) {
+              <div class="oom-alert-row text-danger">
+                <svg lucideAlertTriangle class="alert-icon"></svg>
+                <span>Alto consumo de memoria @if (session.oom_strikes > 0) { ({{ session.oom_strikes }} reinicios) }</span>
               </div>
-              <div class="sparkline-wrapper">
-                <sparkline 
-                  [data]="session.memory_history || []" 
-                  [color]="getMemoryPercent(session) >= 90 ? 'var(--color-error)' : 'var(--tenant-primary)'" 
-                  [width]="84" 
-                  [height]="22"
-                />
+            } @else {
+              <div class="pedagogical-info-row">
+                <span class="info-label">Entorno:</span>
+                <span class="info-status text-success">Conectado y listo</span>
               </div>
-            </div>
+            }
           </div>
 
-          <!-- Footer con acción directa de Shadow Terminal -->
+          <!-- Footer con acción directa de Consola del Estudiante -->
           <div class="card-footer-row">
             <div class="strikes-info">
-              @if (session.oom_strikes > 0) {
-                <span class="strike-warning-badge" machineData>
-                  <svg lucideAlertTriangle class="strike-icon"></svg>
-                  {{ session.oom_strikes }} strikes
-                </span>
-              } @else {
-                <span class="heartbeat-hint font-mono">
-                  Latido: <time>{{ session.last_heartbeat | dateText:'compact-datetime' }}</time>
-                </span>
-              }
+              <span class="heartbeat-hint font-mono">
+                Última actividad: <time>{{ session.last_heartbeat | dateText:'compact-datetime' }}</time>
+              </span>
             </div>
 
             <button
               type="button"
               class="btn-shadow-terminal"
               (click)="openTerminal.emit(session)"
-              title="Abrir Shadow Terminal para tutoría remota"
+              title="Abrir consola remota para tutoría y asistencia"
             >
               <svg lucideTerminal class="btn-icon-xs"></svg>
-              <span>Shadow Terminal</span>
+              <span>Consola del Estudiante</span>
             </button>
           </div>
         </div>
@@ -316,10 +284,10 @@
                   type="button"
                   class="btn-terminal-sm"
                   (click)="openTerminal.emit(session)"
-                  title="Abrir terminal remota de tutoría (Shadow Terminal)"
+                  title="Abrir consola remota del estudiante para tutoría"
                 >
                   <svg lucideTerminal class="btn-icon-xs"></svg>
-                  <span>Terminal</span>
+                  <span>Consola</span>
                 </button>
               </td>
             </tr>
