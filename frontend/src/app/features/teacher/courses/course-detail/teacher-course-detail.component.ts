@@ -147,6 +147,10 @@ export class TeacherCourseDetailComponent implements OnInit {
       this.subjectId.set(id);
       this.loadData();
     }
+    const tabParam = this.route.snapshot.queryParamMap.get('tab');
+    if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs') {
+      this.activeTab.set(tabParam);
+    }
   }
 
   loadData(): void {

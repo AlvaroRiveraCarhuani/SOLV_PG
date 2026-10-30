@@ -44,7 +44,7 @@ describe('DashboardAttentionWidgetComponent', () => {
     expect(component.totalAlertsCount()).toBe(2);
 
     const compiled = fixture.nativeElement as HTMLElement;
-    expect(compiled.textContent).toContain('Exceso de Memoria (OOM)');
+    expect(compiled.textContent).toContain('Bloqueo de Ejecución');
     expect(compiled.textContent).toContain('Carlos Alumno');
   });
 });

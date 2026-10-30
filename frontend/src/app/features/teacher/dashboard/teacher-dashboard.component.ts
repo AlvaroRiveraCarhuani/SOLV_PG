@@ -123,19 +123,19 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     if (critical > 0) {
       return {
         type: 'critical',
-        text: `Atención: ${critical} contenedor(es) excedieron el límite de memoria en tus cursos.`
+        text: `Atención: ${critical} estudiante(s) presentaron bloqueos de ejecución en sus prácticas.`
       };
     }
     const standard = this.standardCount();
     if (standard > 0) {
       return {
         type: 'warning',
-        text: `Tiene ${standard} entrega(s) pendiente(s) de revisión.`
+        text: `Tiene ${standard} entrega(s) pendiente(s) de calificación en sus materias.`
       };
     }
     return {
       type: 'info',
-      text: `Panel docente activo · ${this.courses().length} materia(s) asignadas en el semestre en curso.`
+      text: `Todo al día · ${this.courses().length} materia(s) asignadas en el semestre en curso.`
     };
   });
 

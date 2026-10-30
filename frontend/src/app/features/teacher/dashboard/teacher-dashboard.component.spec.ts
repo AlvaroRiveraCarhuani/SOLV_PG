@@ -71,7 +71,7 @@ describe('TeacherDashboardComponent', () => {
     expect(component.totalStudentsCount()).toBe(20);
     expect(component.activeNowCount()).toBe(5);
     expect(component.totalPendingReviews()).toBe(2);
-    expect(component.greetingMessage().text).toContain('Panel docente activo');
+    expect(component.greetingMessage().text).toContain('Todo al día');
   });
 
   it('should toggle customize mode', () => {
