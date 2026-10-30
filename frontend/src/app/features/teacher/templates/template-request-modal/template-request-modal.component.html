@@ -1,5 +1,5 @@
 <modal-shell
-  title="Solicitar Nueva Plantilla Docker"
+  title="Solicitar Nuevo Entorno"
   subtitle="Envía una propuesta de entorno para revisión y homologación por la administración del sistema."
   maxWidth="600px"
   [disableClose]="isSubmitting()"
@@ -149,7 +149,7 @@
           />
         </form-field>
 
-        <form-field label="Imagen Docker Base (Docker Hub / Registro)" for="reqImage" [required]="true" hint="Usa tags fijados, no :latest (ej: rust:1.80-slim, gcc:13-bookworm)">
+        <form-field label="Imagen Contenedora Base" for="reqImage" [required]="true" hint="Usa tags fijados, no :latest (ej: rust:1.80-slim, gcc:13-bookworm)">
           <input
             id="reqImage"
             type="text"

@@ -11,10 +11,13 @@ type CreateTemplateDTO struct {
 type TemplateResponseDTO struct {
 	ID                string          `json:"id"`
 	Name              string          `json:"name"`
+	Description       string          `json:"description"`
+	Category          string          `json:"category"`
 	DockerImage       string          `json:"docker_image"`
 	BaseRamMB         int             `json:"base_ram_mb"`
 	TargetEnvironment string          `json:"target_environment"`
 	Status            string          `json:"status"`
+	IsOfficial        bool            `json:"is_official"`
 	Entrypoint        string          `json:"entrypoint,omitempty"`
 	ServicesConfig    json.RawMessage `json:"services_config,omitempty"`
 }

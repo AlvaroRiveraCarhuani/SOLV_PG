@@ -2,37 +2,17 @@
   <!-- Header Principal -->
   <header class="templates-header">
     <div class="header-titles">
-      <h1 class="page-title">Catálogo de Plantillas y Entornos</h1>
-      <p class="page-subtitle">Explorá las imágenes Docker y stacks preconfigurados disponibles para tus laboratorios.</p>
+      <h1 class="page-title">Catálogo de Entornos</h1>
+      <p class="page-subtitle">Explorá los entornos preconfigurados y herramientas disponibles para tus cursos.</p>
     </div>
 
     <div class="header-actions">
       <button type="button" class="btn btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Solicitar Nueva Plantilla</span>
+        <span>Solicitar Nuevo Entorno</span>
       </button>
     </div>
   </header>
-
-  <!-- KPIs Resumen -->
-  <div class="kpi-summary-grid">
-    <div class="kpi-box">
-      <span class="kpi-label">Total de Plantillas</span>
-      <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Entornos IDE Persistentes</span>
-      <span class="kpi-val text-primary" machineData>{{ kpiStats().persistent }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Juez / Algoritmos Efímeros</span>
-      <span class="kpi-val text-success" machineData>{{ kpiStats().ephemeral }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Plantillas Oficiales</span>
-      <span class="kpi-val text-accent" machineData>{{ kpiStats().official }}</span>
-    </div>
-  </div>
 
   <!-- Barra de Filtros -->
   <div class="filters-toolbar">
@@ -40,7 +20,7 @@
       <svg lucideSearch class="search-icon"></svg>
       <input
         type="text"
-        placeholder="Buscar por nombre, descripción o imagen Docker..."
+        placeholder="Buscar por nombre, tecnología o materia..."
         [ngModel]="searchTerm()"
         (ngModelChange)="searchTerm.set($event)"
         class="search-input"
@@ -61,30 +41,30 @@
       </div>
 
       <div class="filter-item">
-        <label class="filter-label">Tipo de Entorno:</label>
+        <label class="filter-label">Modalidad:</label>
         <combobox
           [compact]="true"
           [showSearchIcon]="false"
           [value]="selectedEnvTypeLabel()"
           [options]="envTypeComboboxOptions()"
-          placeholder="Entorno..."
+          placeholder="Modalidad..."
           (optionSelected)="onEnvTypeSelected($event)"
         />
       </div>
     </div>
   </div>
 
-  <!-- Listado de Plantillas en Cuadrícula -->
+  <!-- Listado de Entornos en Cuadrícula -->
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="6" />
   } @else if (filteredTemplates().length === 0) {
     <div class="empty-state">
       <svg lucideLayers class="empty-icon"></svg>
-      <h3>No se encontraron plantillas</h3>
-      <p>Ajustá los filtros o solicitá una imagen Docker al administrador.</p>
+      <h3>No se encontraron entornos</h3>
+      <p>Ajustá los filtros o solicitá una nueva tecnología al administrador.</p>
       <button type="button" class="btn btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Solicitar Plantilla</span>
+        <span>Solicitar Entorno</span>
       </button>
     </div>
   } @else {
@@ -96,48 +76,50 @@
             <div class="category-meta">
               <span class="category-pill">{{ tpl.category || 'General' }}</span>
               @if (tpl.is_official) {
-                <span class="official-badge" title="Plantilla Oficial Verificada">
+                <span class="official-badge" title="Entorno Oficial Institucional">
                   <svg lucideBadgeCheck class="badge-icon"></svg>
                   <span>Oficial</span>
+                </span>
+              } @else {
+                <span class="custom-badge" title="Entorno Personalizado o Propuesta Docente">
+                  <svg lucideUser class="badge-icon"></svg>
+                  <span>Personalizada</span>
                 </span>
               }
             </div>
 
-            <span class="env-type-pill font-mono">
-              {{ tpl.environment_type === 'IDE_PERSISTENTE' ? 'IDE' : 'Juez' }}
+            <span class="env-type-pill" [class]="(tpl.environment_type | environmentLabel:'badgeClass')">
+              {{ tpl.environment_type | environmentLabel:'short' }}
             </span>
           </div>
 
           <!-- Card Body -->
           <div class="card-body">
-            <h2 class="template-title">{{ tpl.name }}</h2>
+            <div class="card-main-info">
+              <div class="logo-wrapper">
+                <tech-logo [iconType]="tpl.primaryIcon || 'docker'" [size]="40" />
+              </div>
+              <div class="title-wrap">
+                <h2 class="template-title">{{ tpl.name }}</h2>
+              </div>
+            </div>
 
             @if (tpl.description) {
               <p class="template-desc">{{ tpl.description }}</p>
             }
 
-            <div class="docker-image-row">
-              <span class="docker-label">Imagen:</span>
-              <code class="docker-image font-mono" machineData>{{ tpl.docker_image }}</code>
-            </div>
-
-            <div class="specs-grid">
-              <div class="spec-item">
-                <svg lucideHardDrive class="spec-icon"></svg>
-                <span class="spec-val font-mono" machineData>{{ tpl.default_memory_mb || 512 }} MB RAM</span>
+            <div class="tech-stack-section">
+              <span class="tech-stack-label">Herramientas incluidas:</span>
+              <div class="tech-chips-row">
+                @for (chip of tpl.techChips; track chip.name) {
+                  <span class="tech-chip">
+                    @if (chip.iconKey) {
+                      <tech-logo [iconType]="chip.iconKey" [size]="16" />
+                    }
+                    <span class="chip-label">{{ chip.name }}</span>
+                  </span>
+                }
               </div>
-
-              <div class="spec-item">
-                <svg lucideCpu class="spec-icon"></svg>
-                <span class="spec-val font-mono" machineData>{{ tpl.default_cpu_cores || 1 }} CPU Core(s)</span>
-              </div>
-
-              @if (tpl.ports) {
-                <div class="spec-item">
-                  <svg lucideServer class="spec-icon"></svg>
-                  <span class="spec-val font-mono" machineData>Puertos: {{ tpl.ports }}</span>
-                </div>
-              }
             </div>
           </div>
 
@@ -145,9 +127,19 @@
           <div class="card-footer">
             <button
               type="button"
+              class="btn-detail"
+              (click)="openDetailModal(tpl)"
+              title="Ver especificaciones y herramientas detalladas"
+            >
+              <svg lucideInfo class="btn-icon-xs"></svg>
+              <span>Ver detalle</span>
+            </button>
+
+            <button
+              type="button"
               class="btn-use-template"
               (click)="createLabFromTemplate(tpl)"
-              title="Crear un nuevo laboratorio a partir de este entorno"
+              title="Crear un nuevo laboratorio con este entorno"
             >
               <svg lucideSparkles class="btn-icon-xs"></svg>
               <span>Usar en Laboratorio</span>
@@ -159,6 +151,15 @@
   }
 </div>
 
+<!-- Modal de Detalle de Entorno (Pedagógico + Técnico) -->
+@if (selectedTemplateForDetail(); as detailTpl) {
+  <template-detail-modal
+    [template]="detailTpl"
+    (closed)="closeDetailModal()"
+    (useTemplate)="onUseFromDetail($event)"
+  />
+}
+
 <!-- Modal de Solicitud de Plantilla al Admin -->
 @if (isRequestModalOpen()) {
   <template-request-modal
@@ -167,4 +168,31 @@
   />
 }
 
-
+<!-- Modal Selector de Materia para Crear Actividad -->
+@if (isCoursePickerOpen() && targetTemplateForCourse(); as targetTpl) {
+  <modal-shell
+    title="Seleccionar Curso"
+    subtitle="Elige la materia en la que deseas crear una nueva actividad con este entorno."
+    maxWidth="520px"
+    (close)="closeCoursePicker()"
+  >
+    <div class="course-picker-list">
+      @for (c of courses(); track c.id) {
+        <button
+          type="button"
+          class="course-picker-btn"
+          (click)="selectCourseForLab(c.id)"
+        >
+          <div class="course-picker-meta">
+            <svg lucideBookOpen class="course-icon"></svg>
+            <div class="course-texts">
+              <span class="course-code font-mono">{{ c.code }}</span>
+              <span class="course-name">{{ c.name }}</span>
+            </div>
+          </div>
+          <svg lucideArrowRight class="action-icon"></svg>
+        </button>
+      }
+    </div>
+  </modal-shell>
+}

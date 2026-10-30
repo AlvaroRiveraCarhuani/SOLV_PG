@@ -138,4 +138,26 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.templates().length).toBe(2);
     expect(component.isLoading()).toBe(false);
   });
+
+  it('should open and close detail modal', () => {
+    component.openDetailModal(mockTemplates[0]);
+    expect(component.selectedTemplateForDetail()).toEqual(expect.objectContaining({ id: 'tpl-1' }));
+
+    component.closeDetailModal();
+    expect(component.selectedTemplateForDetail()).toBeNull();
+  });
+
+  it('should trigger navigation and close modal when onUseFromDetail is called', () => {
+    const router = TestBed.inject(Router);
+    const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+
+    component.openDetailModal(mockTemplates[0]);
+    component.onUseFromDetail(mockTemplates[0]);
+
+    expect(component.selectedTemplateForDetail()).toBeNull();
+    expect(navSpy).toHaveBeenCalledWith(
+      ['/teacher/courses', 'course-1', 'exercises', 'new'],
+      { queryParams: { template_id: 'tpl-1' } }
+    );
+  });
 });

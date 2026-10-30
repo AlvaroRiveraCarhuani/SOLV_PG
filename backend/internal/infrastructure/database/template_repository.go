@@ -22,8 +22,24 @@ func (db *Database) CreateTemplate(ctx context.Context, dto domain.CreateTemplat
 
 	return id, nil
 }
+
 func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateResponseDTO, error) {
-	query := `SELECT id, name, docker_image, base_ram_mb, COALESCE(target_environment, 'IDE_PERSISTENTE'), COALESCE(status, 'approved'), COALESCE(entrypoint, ''), COALESCE(services_config, '{"services": []}'::jsonb) FROM lab_templates`
+	query := `
+		SELECT 
+			lt.id, 
+			lt.name, 
+			COALESCE(lt.description, ''),
+			COALESCE(tc.name, 'General'),
+			lt.docker_image, 
+			lt.base_ram_mb, 
+			COALESCE(lt.target_environment, 'IDE_PERSISTENTE'), 
+			COALESCE(lt.status, 'approved'),
+			(lt.requested_by IS NULL) AS is_official,
+			COALESCE(lt.entrypoint, ''), 
+			COALESCE(lt.services_config, '{"services": []}'::jsonb) 
+		FROM lab_templates lt
+		LEFT JOIN template_categories tc ON tc.id = lt.category_id
+	`
 
 	rows, err := db.db.QueryContext(ctx, query)
 	if err != nil {
@@ -34,7 +50,19 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 	var templates []domain.TemplateResponseDTO
 	for rows.Next() {
 		var t domain.TemplateResponseDTO
-		if err := rows.Scan(&t.ID, &t.Name, &t.DockerImage, &t.BaseRamMB, &t.TargetEnvironment, &t.Status, &t.Entrypoint, &t.ServicesConfig); err != nil {
+		if err := rows.Scan(
+			&t.ID, 
+			&t.Name, 
+			&t.Description, 
+			&t.Category, 
+			&t.DockerImage, 
+			&t.BaseRamMB, 
+			&t.TargetEnvironment, 
+			&t.Status, 
+			&t.IsOfficial,
+			&t.Entrypoint, 
+			&t.ServicesConfig,
+		); err != nil {
 			return nil, fmt.Errorf("failed to scan lab template row: %w", err)
 		}
 		templates = append(templates, t)
@@ -52,9 +80,37 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 
 // GetTemplateByID retrieves a template by UUID.
 func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.TemplateResponseDTO, error) {
-	query := `SELECT id, name, docker_image, base_ram_mb, COALESCE(target_environment, 'IDE_PERSISTENTE'), COALESCE(status, 'approved'), COALESCE(entrypoint, ''), COALESCE(services_config, '{"services": []}'::jsonb) FROM lab_templates WHERE id = $1`
+	query := `
+		SELECT 
+			lt.id, 
+			lt.name, 
+			COALESCE(lt.description, ''),
+			COALESCE(tc.name, 'General'),
+			lt.docker_image, 
+			lt.base_ram_mb, 
+			COALESCE(lt.target_environment, 'IDE_PERSISTENTE'), 
+			COALESCE(lt.status, 'approved'),
+			(lt.requested_by IS NULL) AS is_official,
+			COALESCE(lt.entrypoint, ''), 
+			COALESCE(lt.services_config, '{"services": []}'::jsonb) 
+		FROM lab_templates lt
+		LEFT JOIN template_categories tc ON tc.id = lt.category_id
+		WHERE lt.id = $1
+	`
 	var t domain.TemplateResponseDTO
-	err := db.db.QueryRowContext(ctx, query, id).Scan(&t.ID, &t.Name, &t.DockerImage, &t.BaseRamMB, &t.TargetEnvironment, &t.Status, &t.Entrypoint, &t.ServicesConfig)
+	err := db.db.QueryRowContext(ctx, query, id).Scan(
+		&t.ID, 
+		&t.Name, 
+		&t.Description, 
+		&t.Category, 
+		&t.DockerImage, 
+		&t.BaseRamMB, 
+		&t.TargetEnvironment, 
+		&t.Status, 
+		&t.IsOfficial,
+		&t.Entrypoint, 
+		&t.ServicesConfig,
+	)
 	if err != nil {
 		return domain.TemplateResponseDTO{}, fmt.Errorf("failed to get template by id: %w", err)
 	}

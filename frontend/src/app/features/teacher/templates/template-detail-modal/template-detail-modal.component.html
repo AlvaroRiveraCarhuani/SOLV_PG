@@ -1,0 +1,142 @@
+<modal-shell
+  [title]="template().name"
+  [subtitle]="template().environment_type | environmentLabel"
+  maxWidth="640px"
+  (close)="closed.emit()"
+>
+  <div modal-icon class="modal-tech-icon">
+    <tech-logo [iconType]="template().primaryIcon || 'docker'" [size]="32" />
+  </div>
+
+  <div class="detail-modal-content">
+    <!-- Pestañas de Navegación -->
+    <div class="tabs-nav" role="tablist">
+      <button
+        type="button"
+        class="tab-btn"
+        role="tab"
+        [class.active]="activeTab() === 'pedagogical'"
+        [attr.aria-selected]="activeTab() === 'pedagogical'"
+        (click)="setTab('pedagogical')"
+      >
+        <svg lucideGraduationCap class="tab-icon"></svg>
+        <span>Resumen Pedagógico</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn"
+        role="tab"
+        [class.active]="activeTab() === 'technical'"
+        [attr.aria-selected]="activeTab() === 'technical'"
+        (click)="setTab('technical')"
+      >
+        <svg lucideTerminal class="tab-icon"></svg>
+        <span>Especificaciones Técnicas</span>
+      </button>
+    </div>
+
+    <!-- Pestaña 1: Resumen Pedagógico -->
+    @if (activeTab() === 'pedagogical') {
+      <div class="tab-pane" role="tabpanel">
+        <!-- Tarjeta de Propósito Formativo -->
+        <div class="info-card purpose-card">
+          <div class="card-title-row">
+            <svg lucideGraduationCap class="card-icon text-primary"></svg>
+            <h3 class="card-heading">Propósito en el Aula</h3>
+          </div>
+          <p class="purpose-text">
+            {{ template().description || 'Entorno optimizado para prácticas académicas de programación y desarrollo de proyectos.' }}
+          </p>
+        </div>
+
+        <!-- Herramientas y Tecnologías -->
+        <div class="info-card tools-card">
+          <div class="card-title-row">
+            <svg lucideLayers class="card-icon text-secondary"></svg>
+            <h3 class="card-heading">Herramientas y Tecnologías Incluidas</h3>
+          </div>
+          <div class="tools-grid">
+            @for (chip of template().techChips; track chip.name) {
+              <div class="tool-item">
+                @if (chip.iconKey) {
+                  <tech-logo [iconType]="chip.iconKey" [size]="24" />
+                }
+                <div class="tool-info">
+                  <strong class="tool-name">{{ chip.name }}</strong>
+                  <span class="tool-badge">Instalado</span>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Dinámica del Alumno -->
+        <div class="info-card modality-card">
+          <div class="card-title-row">
+            <svg lucideCode2 class="card-icon text-accent"></svg>
+            <h3 class="card-heading">Dinámica de Trabajo del Alumno</h3>
+          </div>
+          <p class="modality-text">
+            @if (template().environment_type === 'IDE_PERSISTENTE') {
+              El estudiante cuenta con un <strong>espacio de trabajo persistente (editor VS Code)</strong> con terminal integrada, almacenamiento de archivos entre clases y soporte para ejecución de servicios locales.
+            } @else {
+              El estudiante resuelve desafíos puntuales con <strong>evaluación y corrección automática</strong> basada en casos de prueba de entrada y salida estándar.
+            }
+          </p>
+        </div>
+      </div>
+    }
+
+    <!-- Pestaña 2: Especificaciones Técnicas -->
+    @if (activeTab() === 'technical') {
+      <div class="tab-pane" role="tabpanel">
+        <div class="tech-specs-list">
+          <div class="spec-row">
+            <span class="spec-label">Imagen Contenedora:</span>
+            <code class="spec-code font-mono" machineData>{{ template().docker_image }}</code>
+          </div>
+
+          <div class="spec-row">
+            <span class="spec-label">Categoría Asignada:</span>
+            <span class="spec-value">{{ template().category || 'General' }}</span>
+          </div>
+
+          <div class="spec-row">
+            <span class="spec-label">Memoria RAM Base:</span>
+            <span class="spec-value font-mono" machineData>{{ template().default_memory_mb || 512 }} MB</span>
+          </div>
+
+          <div class="spec-row">
+            <span class="spec-label">Núcleos de CPU:</span>
+            <span class="spec-value font-mono" machineData>{{ template().default_cpu_cores || 1 }} Core(s)</span>
+          </div>
+
+          @if (template().ports) {
+            <div class="spec-row">
+              <span class="spec-label">Puertos Red Habilitados:</span>
+              <span class="spec-value font-mono" machineData>{{ template().ports }}</span>
+            </div>
+          }
+
+          <div class="spec-row">
+            <span class="spec-label">Estado Oficial:</span>
+            <span class="spec-value">
+              {{ template().is_official ? 'Plantilla Institucional Oficial' : 'Personalizada' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div modal-footer class="modal-footer-actions">
+    <button type="button" class="btn btn-secondary" (click)="closed.emit()">
+      Cerrar
+    </button>
+    <button type="button" class="btn btn-primary" (click)="onUse()">
+      <svg lucideSparkles class="btn-icon"></svg>
+      <span>Usar en Laboratorio</span>
+    </button>
+  </div>
+</modal-shell>
