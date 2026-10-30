@@ -4,16 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
-import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
-import {
-  TeacherSubmissionReviewDTO,
-  SubmissionComment,
-  SubmissionTimeline,
-  BenchmarkReport
-} from '../../../../models/teacher.models';
 import { DiffLine } from '@shared/utils/diff.utils';
-
-type BenchmarkPreset = 'small' | 'standard' | 'stress';
+import { BenchmarkReport, SubmissionComment, SubmissionTimeline, TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 
 @Component({
   selector: 'speed-grader-code-viewer',
@@ -23,8 +15,7 @@ type BenchmarkPreset = 'small' | 'standard' | 'stress';
     FormsModule,
     DateTextPipe,
     CodeEditorComponent,
-    TimeTravelReplayComponent,
-    ComplexityBenchmarkComponent
+    TimeTravelReplayComponent
   ],
   templateUrl: './speed-grader-code-viewer.component.html',
   styleUrl: './speed-grader-code-viewer.component.scss'
@@ -32,7 +23,6 @@ type BenchmarkPreset = 'small' | 'standard' | 'stress';
 export class SpeedGraderCodeViewerComponent {
   readonly review = input.required<TeacherSubmissionReviewDTO>();
   readonly showReplayPlayer = input<boolean>(false);
-  readonly showBenchmark = input<boolean>(false);
   readonly showDiffView = input<boolean>(false);
   readonly timeline = input<SubmissionTimeline | null>(null);
   readonly isLoadingTimeline = input<boolean>(false);
@@ -51,8 +41,6 @@ export class SpeedGraderCodeViewerComponent {
   readonly newCommentTextChange = output<string>();
   readonly toggleDiff = output<void>();
   readonly toggleReplay = output<void>();
-  readonly toggleBenchmark = output<void>();
-  readonly runBenchmark = output<BenchmarkPreset>();
 
   readonly detectedLanguage = computed(() => {
     const code = this.review()?.code || '';

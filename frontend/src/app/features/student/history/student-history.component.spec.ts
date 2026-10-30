@@ -142,10 +142,10 @@ describe('StudentHistoryComponent', () => {
     // Nota vacía y veredicto en lenguaje humano.
     expect(rowFor('Práctica de árboles')?.textContent).toContain('—');
     expect(rowFor('Recorrido de listas')?.querySelector('verdict-badge')?.textContent).toContain(
-      'Solución correcta'
+      'Cumple'
     );
     expect(rowFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain(
-      'Restricción de código incumplida'
+      'Usó algo no permitido'
     );
 
     const time = rowFor('Recorrido de listas')?.querySelector('time');

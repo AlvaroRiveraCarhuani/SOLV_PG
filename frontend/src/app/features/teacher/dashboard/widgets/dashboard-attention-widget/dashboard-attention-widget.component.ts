@@ -55,16 +55,19 @@ export class DashboardAttentionWidgetComponent {
     const map = new Map<string, GroupedPendingReview>();
     for (const item of list) {
       const title = item.exercise_title || 'Práctica sin título';
+      // Criterio unificado: solo suma como pendiente si review_status es pending o in_review
+      const rs = item.review_status;
+      const isPending = rs === 'pending' || rs === 'in_review';
       const existing = map.get(title);
       if (!existing) {
         map.set(title, {
           exercise_title: title,
-          count: 1,
+          count: isPending ? 1 : 0,
           first_submission_id: item.submission_id,
           latest_submitted_at: item.submitted_at
         });
       } else {
-        existing.count++;
+        existing.count = isPending ? existing.count + 1 : existing.count;
         if (new Date(item.submitted_at) > new Date(existing.latest_submitted_at)) {
           existing.latest_submitted_at = item.submitted_at;
         }

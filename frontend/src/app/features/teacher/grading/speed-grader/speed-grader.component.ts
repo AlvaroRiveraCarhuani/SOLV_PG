@@ -120,11 +120,6 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   timeline = signal<SubmissionTimeline | null>(null);
   isLoadingTimeline = signal<boolean>(false);
 
-  // Algorithmic Complexity Benchmark State
-  showBenchmark = signal<boolean>(false);
-  benchmarkReport = this.gradingService.benchmarkReport;
-  isLoadingBenchmark = this.gradingService.isRunningBenchmark;
-
   selectedLineNumber = signal<number | null>(null);
   newCommentText = signal<string>('');
   isAddingComment = signal<boolean>(false);
@@ -320,17 +315,6 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
       })
     );
 
-    // B: Alternar Benchmark de Complejidad Asintótica O(N)
-    this.unregisterFns.push(
-      this.hotkeysService.register({
-        key: 'b',
-        description: 'Alternar Benchmark de Complejidad Asintótica O(N)',
-        category: 'SpeedGrader',
-        scope: 'speed-grader',
-        action: () => this.toggleBenchmark()
-      })
-    );
-
     // Ctrl+Enter: Guardar nota en modal o comentario
     this.unregisterFns.push(
       this.hotkeysService.register({
@@ -425,46 +409,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     });
   }
 
-  toggleBenchmark(): void {
-    const nextVal = !this.showBenchmark();
-    this.showBenchmark.set(nextVal);
-    if (nextVal) {
-      this.showReplayPlayer.set(false);
-      this.showDiffView.set(false);
-      if (!this.benchmarkReport()) {
-        this.runBenchmark('standard');
-      }
-    }
-  }
-
-  runBenchmark(preset: 'small' | 'standard' | 'stress'): void {
-    const id = this.submissionId();
-    if (!id) return;
-    this.gradingService.runComplexityBenchmark(id, { submission_id: id, preset }).subscribe({
-      error: () => {
-        // Mock fallback report for interactive frontend exploration if backend endpoint is unavailable
-        this.gradingService.benchmarkReport.set({
-          submission_id: id,
-          expected_time_complexity: 'O(N log N)',
-          detected_time_complexity: 'O(N log N)',
-          expected_space_complexity: 'O(1)',
-          detected_space_complexity: 'O(1)',
-          r_squared: 0.992,
-          is_optimal: true,
-          summary: 'Complejidad asintótica O(N log N) verificada exitosamente. El algoritmo escala de forma óptima con volúmenes de prueba hasta N=200,000.',
-          analyzed_at: new Date().toISOString(),
-          samples: [
-            { input_size: 10, execution_time_ms: 0.08, memory_used_kb: 64, status: 'pass' },
-            { input_size: 100, execution_time_ms: 0.65, memory_used_kb: 96, status: 'pass' },
-            { input_size: 1000, execution_time_ms: 8.2, memory_used_kb: 180, status: 'pass' },
-            { input_size: 10000, execution_time_ms: 95.4, memory_used_kb: 340, status: 'pass' },
-            { input_size: 50000, execution_time_ms: 540.0, memory_used_kb: 512, status: 'pass' }
-          ]
-        });
-        this.gradingService.isRunningBenchmark.set(false);
-      }
-    });
-  }
+  
 
   openShortcutsGuide(): void {
     this.hotkeysService.openHelpModal();

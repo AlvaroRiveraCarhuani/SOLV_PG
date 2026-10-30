@@ -5,12 +5,11 @@
     <speed-grader-header
       [review]="r"
       [showReplayPlayer]="showReplayPlayer()"
-      [showBenchmark]="showBenchmark()"
       [showDiffView]="showDiffView()"
       [isRunningEphemeral]="isRunningEphemeral()"
       (openKeystrokeReplay)="openKeystrokeReplay()"
       (toggleReplay)="toggleReplay()"
-      (toggleBenchmark)="toggleBenchmark()"
+      
       (runEphemeral)="runEphemeralSandbox()"
       (openShadowTerminal)="openShadowTerminal()"
       (openOverrideModal)="openOverrideModal()"
@@ -21,12 +20,14 @@
       <speed-grader-code-viewer
         [review]="r"
         [showReplayPlayer]="showReplayPlayer()"
-        [showBenchmark]="showBenchmark()"
-        [showDiffView]="showDiffView()"
         [timeline]="timeline()"
-        [isLoadingTimeline]="isLoadingTimeline()"
-        [benchmarkReport]="benchmarkReport()"
-        [isLoadingBenchmark]="isLoadingBenchmark()"
+        [selectedLineNumber]="selectedLineNumber()"
+        [newCommentText]="newCommentText()"
+        [isAddingComment]="isAddingComment()"
+        [codeLines]="codeLines()"
+        [diffLines]="diffLines()"
+        [commentsByLine]="commentsByLine()"
+        [starterBoilerplate]="starterBoilerplate()"
         [selectedLineNumber]="selectedLineNumber()"
         [newCommentText]="newCommentText()"
         [isAddingComment]="isAddingComment()"
@@ -39,8 +40,7 @@
         (newCommentTextChange)="newCommentText.set($event)"
         (toggleDiff)="showDiffView.update(v => !v)"
         (toggleReplay)="toggleReplay()"
-        (toggleBenchmark)="toggleBenchmark()"
-        (runBenchmark)="runBenchmark($event)"
+      
       />
       <speed-grader-eval-panel
         [rubric]="rubric()"

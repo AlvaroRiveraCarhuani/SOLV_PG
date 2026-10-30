@@ -175,6 +175,7 @@ func main() {
 	teacherService.SetEvaluationService(evaluationService)
 	teacherService.SetMailer(smtpMailer)
 	teacherService.SetTenantRepository(tenantRepo)
+	teacherService.SetAuditRepository(auditLogRepo)
 	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)

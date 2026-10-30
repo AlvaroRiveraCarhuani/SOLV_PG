@@ -44,6 +44,7 @@ export interface AttentionStandardAlert {
   student_name: string;
   exercise_title: string;
   submitted_at: string;
+  review_status?: ReviewStatus;
 }
 
 export interface TeacherAttentionWidget {
@@ -120,6 +121,35 @@ export interface SubmissionQueueItem {
   memory_used_mb: number;
   submitted_at: string;
   comments_count: number;
+  review_status?: ReviewStatus;
+}
+
+export type ReviewStatus = 'not_required' | 'pending' | 'in_review' | 'graded' | 'returned';
+
+/** Entrega que espera corrección, agrupada por práctica. */
+export interface ReviewQueueGroup {
+  exercise_id: string;
+  exercise_title: string;
+  subject_id: string;
+  subject_name: string;
+  environment_type: string;
+  pending: number;
+  total: number;
+  oldest_submitted_at: string;
+}
+
+/** Nota declarada de un alumno en una práctica. */
+export interface ExerciseGradeCell {
+  selected_submission_id?: string;
+  score: number | null;
+  source: 'auto' | 'manual';
+  reason?: string;
+}
+
+export interface SelectExerciseGradeRequest {
+  selected_submission_id: string;
+  score?: number;
+  reason?: string;
 }
 
 export interface TestCaseReview {
@@ -500,8 +530,11 @@ export interface StudentGradesRow {
   student_id: string;
   student_name: string;
   student_email: string;
-  grades: Record<string, number>;
+  /** `null` significa sin corregir; nunca se representa como 0. */
+  grades: Record<string, number | null>;
   average: number;
+  graded_count: number;
+  pending_count: number;
 }
 
 export interface CourseGradesMatrix {

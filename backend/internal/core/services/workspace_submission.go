@@ -84,7 +84,6 @@ func (s *WorkspaceService) SubmitWorkspaceProject(ctx context.Context, workspace
 		tenantID = domain.DefaultTenantID
 	}
 
-	zeroScore := 0
 	submission := &domain.Submission{
 		ID:                 uuid.NewString(),
 		TenantID:           tenantID,
@@ -93,10 +92,10 @@ func (s *WorkspaceService) SubmitWorkspaceProject(ctx context.Context, workspace
 		WorkspaceID:        &workspace.ID,
 		Code:               snapshot,
 		Verdict:            projectSubmissionVerdict,
+		ReviewStatus:       string(domain.ReviewPending),
 		ASTResult:          json.RawMessage("{}"),
 		GeneratedCases:     json.RawMessage("{}"),
 		ComplexityAnalysis: json.RawMessage("{}"),
-		Score:              &zeroScore,
 	}
 
 	if err := s.submissionRepo.Create(ctx, submission); err != nil {

@@ -2,14 +2,27 @@ import { CourseGradesMatrix, StudentGradesRow } from '../../../models/teacher.mo
 import { ColumnExportConfig, PALETTE_PRESETS } from './gradebook-export.presets';
 import { formatSolvDate } from '@shared/pipes/date-text.pipe';
 
-export function getStudentScore(student: StudentGradesRow, col: ColumnExportConfig): number {
+/**
+ * Nota de una celda o `null` cuando la práctica está sin corregir. La celda
+ * vacía nunca se representa como 0: 0 es una nota, "sin corregir" no lo es.
+ */
+export function getStudentGrade(student: StudentGradesRow, col: ColumnExportConfig): number | null {
   if (col.key === 'average') {
-    return student.average;
+    return student.graded_count > 0 ? student.average : null;
   }
   if (col.exerciseId) {
-    return student.grades[col.exerciseId] ?? 0;
+    return student.grades[col.exerciseId] ?? null;
   }
-  return 0;
+  return null;
+}
+
+export function hasGrade(student: StudentGradesRow, col: ColumnExportConfig): boolean {
+  return getStudentGrade(student, col) !== null;
+}
+
+/** Nota numérica para cálculos de exportación; las celdas vacías se omiten. */
+export function getStudentScore(student: StudentGradesRow, col: ColumnExportConfig): number {
+  return getStudentGrade(student, col) ?? 0;
 }
 
 export function initializeDefaultColumns(data: CourseGradesMatrix): ColumnExportConfig[] {
@@ -183,7 +196,12 @@ export function buildExcelSpreadsheetXml(
       } else if (col.key === 'student_email') {
         xml += `    <Cell ss:StyleID="DataCell"><Data ss:Type="String">${student.student_email}</Data></Cell>\n`;
       } else {
-        const score = getStudentScore(student, col);
+        const grade = getStudentGrade(student, col);
+        if (grade === null) {
+          xml += '    <Cell ss:StyleID="DataCell"/>\n';
+          continue;
+        }
+        const score = grade;
         const isFailing = highlightFailing && score < failingThreshold;
         const isPassing = highlightPassing && score >= failingThreshold;
         let style = 'DataCell';
@@ -219,7 +237,8 @@ export function buildCsvContent(
       if (col.key === 'student_id') return `"${student.student_id}"`;
       if (col.key === 'student_name') return `"${student.student_name}"`;
       if (col.key === 'student_email') return `"${student.student_email}"`;
-      return `${getStudentScore(student, col)}`;
+      const grade = getStudentGrade(student, col);
+      return grade === null ? '' : `${grade}`;
     });
     csvContent += rowValues.join(',') + '\r\n';
   }

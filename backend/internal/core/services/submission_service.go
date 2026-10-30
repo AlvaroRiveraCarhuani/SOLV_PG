@@ -81,6 +81,7 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		WorkspaceID:        dto.WorkspaceID,
 		Code:               dto.Code,
 		Verdict:            dto.Verdict,
+		ReviewStatus:       string(domain.ReviewNotRequired),
 		ASTResult:          dto.ASTResult,
 		GeneratedCases:     dto.GeneratedCases,
 		ComplexityAnalysis: dto.ComplexityAnalysis,

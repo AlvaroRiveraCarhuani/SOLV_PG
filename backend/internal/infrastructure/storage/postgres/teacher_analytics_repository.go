@@ -72,68 +72,62 @@ func (r *PostgresTeacherRepository) GetCourseGradesMatrix(ctx context.Context, t
 		return nil, fmt.Errorf("failed to list students: %w", err)
 	}
 
-	// 4. Obtener entregas
+	// 4. Leer las celdas de nota declaradas. Una celda ausente o sin nota es
+	//    "sin corregir": no se fabrica un 0 a partir de la falta de corrección.
 	type gradeRecord struct {
-		StudentID      string        `db:"student_id"`
-		ExerciseID     string        `db:"exercise_id"`
-		Verdict        string        `db:"verdict"`
-		Score          sql.NullInt64 `db:"score"`
-		ManualOverride sql.NullBool  `db:"manual_override"`
+		StudentID  string        `db:"student_id"`
+		ExerciseID string        `db:"exercise_id"`
+		Score      sql.NullInt64 `db:"score"`
 	}
-	var submissions []gradeRecord
-	subQuery := `
-		SELECT sub.student_id, sub.exercise_id, sub.verdict, sub.score, sub.manual_override
-		FROM submissions sub
-		JOIN exercises ex ON sub.exercise_id = ex.id
-		WHERE ex.subject_id = $1 AND sub.tenant_id = $2
-		ORDER BY sub.submitted_at ASC
+	var cells []gradeRecord
+	cellQuery := `
+		SELECT student_id, exercise_id, score
+		FROM exercise_grades
+		WHERE subject_id = $1 AND tenant_id = $2
 	`
-	_ = r.db.SelectContext(ctx, &submissions, subQuery, subjectID, tenantID)
-
-	// Mapear mejor nota por estudiante y ejercicio
-	gradesMap := make(map[string]map[string]int) // studentID -> exerciseID -> score
-	for _, sub := range submissions {
-		if _, ok := gradesMap[sub.StudentID]; !ok {
-			gradesMap[sub.StudentID] = make(map[string]int)
-		}
-		var finalScore int
-		if sub.Score.Valid {
-			finalScore = int(sub.Score.Int64)
-		} else if sub.Verdict == "AC" || (sub.ManualOverride.Valid && sub.ManualOverride.Bool) {
-			finalScore = 100
-		} else {
-			finalScore = 0
-		}
-
-		// Mantener la mejor nota obtenida
-		if curr, ok := gradesMap[sub.StudentID][sub.ExerciseID]; !ok || finalScore > curr {
-			gradesMap[sub.StudentID][sub.ExerciseID] = finalScore
-		}
+	if err := r.db.SelectContext(ctx, &cells, cellQuery, subjectID, tenantID); err != nil {
+		return nil, fmt.Errorf("failed to list grade cells: %w", err)
 	}
 
-	// 5. Construir filas de estudiantes con cálculo de promedio
+	gradesMap := make(map[string]map[string]*int) // studentID -> exerciseID -> score
+	for _, cell := range cells {
+		if _, ok := gradesMap[cell.StudentID]; !ok {
+			gradesMap[cell.StudentID] = make(map[string]*int)
+		}
+		if !cell.Score.Valid {
+			gradesMap[cell.StudentID][cell.ExerciseID] = nil
+			continue
+		}
+		score := int(cell.Score.Int64)
+		gradesMap[cell.StudentID][cell.ExerciseID] = &score
+	}
+
+	// 5. Construir filas con promedio sobre prácticas calificadas
 	for _, stu := range students {
 		row := domain.StudentGradesRow{
 			StudentID:    stu.StudentID,
 			StudentName:  stu.StudentName,
 			StudentEmail: stu.StudentEmail,
-			Grades:       make(map[string]int),
+			Grades:       make(map[string]*int, len(matrix.Exercises)),
 		}
 
 		var totalScore float64
 		for _, ex := range matrix.Exercises {
-			score := 0
+			var score *int
 			if sGrades, ok := gradesMap[stu.StudentID]; ok {
-				if s, ok := sGrades[ex.ID]; ok {
-					score = s
-				}
+				score = sGrades[ex.ID]
 			}
 			row.Grades[ex.ID] = score
-			totalScore += float64(score)
+			if score != nil {
+				row.GradedCount++
+				totalScore += float64(*score)
+			} else {
+				row.PendingCount++
+			}
 		}
 
-		if len(matrix.Exercises) > 0 {
-			row.Average = totalScore / float64(len(matrix.Exercises))
+		if row.GradedCount > 0 {
+			row.Average = totalScore / float64(row.GradedCount)
 		}
 
 		matrix.Students = append(matrix.Students, row)

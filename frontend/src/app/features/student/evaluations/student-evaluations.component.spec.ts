@@ -206,9 +206,9 @@ describe('StudentEvaluationsComponent', () => {
   it('muestra el último resultado con verdict-badge en lenguaje humano', async () => {
     await setup();
 
-    expect(itemFor('Examen de grafos')?.querySelector('verdict-badge')?.textContent).toContain('Resultado incorrecto');
-    expect(itemFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain('Solución correcta');
-    expect(itemFor('Examen de ordenamiento')?.querySelector('verdict-badge')?.textContent).toContain('Tiempo límite excedido');
+    expect(itemFor('Examen de grafos')?.querySelector('verdict-badge')?.textContent).toContain('No cumple');
+    expect(itemFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain('Cumple');
+    expect(itemFor('Examen de ordenamiento')?.querySelector('verdict-badge')?.textContent).toContain('Tarda demasiado');
     expect(itemFor('Recorrido de listas')?.querySelector('verdict-badge')).toBeNull();
   });
 

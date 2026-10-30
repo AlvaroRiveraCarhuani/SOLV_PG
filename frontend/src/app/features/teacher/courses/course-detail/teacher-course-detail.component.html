@@ -122,7 +122,7 @@
       (click)="activeTab.set('submissions')"
     >
       <svg lucideListChecks class="btn-icon-sm"></svg>
-      <span>Cola de Entregas ({{ submissions().length }})</span>
+      <span>Entregas ({{ submissions().length }})</span>
     </button>
   </div>
 
@@ -227,7 +227,7 @@
     </div>
   }
 
-  <!-- Contenido: Pestaña Cola de Entregas -->
+  <!-- Contenido: Sección Entregas (historial) -->
   @if (activeTab() === 'submissions') {
     <div class="submissions-view">
       <div class="filters-bar">

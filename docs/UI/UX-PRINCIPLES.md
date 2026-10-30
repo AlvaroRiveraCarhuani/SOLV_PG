@@ -29,6 +29,24 @@ Indicadores transparentes de estado transitorio ("Actualizado hace 5s", "Reconec
 
 - **Iconografía:** Catálogo estandarizado de **Lucide Icons** (`lucide:home`, `lucide:terminal`, `lucide:book-open`, `lucide:award`, `lucide:history`, `lucide:settings`, `lucide:calendar`, `lucide:clock`).
 - **Tipografía Dual:**
-  - **Inter:** Texto de interfaz de usuario, títulos, botones y bloques descriptivos.
-  - **JetBrains Mono:** Reservada estrictamente para datos de máquina (URLs opacas, identificadores UUID, métricas en ms/MB y veredictos).
+  - **`--font-sans`:** Texto de interfaz de usuario, títulos, botones y bloques descriptivos. La familia se resuelve por token y por tenant; nunca se escribe un nombre de familia en el SCSS de una vista.
+  - **`--font-mono`:** Reservada estrictamente para datos de máquina (URLs opacas, identificadores UUID, métricas en ms/MB, códigos de veredicto cuando se piden explícitamente).
 - **Esquema de Color:** Tema claro por defecto (`#F6F7F9` fondo, `#FFFFFF` superficies). Bordes sólidos de `1px` (`#E2E5E9`) en lugar de sombras decorativas pesadas (`box-shadow`).
+
+---
+
+## 3. Lenguaje de Resultados: dos Vocabularios, una Fuente
+
+El código del juez (`AC`, `WA`, `TLE`, `MLE`, `RE`, `CE`, `VE`, `AST_BLOCKED`) es un valor técnico interno. Se conserva para comparadores, auditoría y métricas, pero **no se muestra a personas** ni se escribe a mano en templates, filtros u opciones de override.
+
+Lo que ve el docente y el estudiante es el **resultado pedagógico**: una frase que dice qué pasó y, cuando corresponde, qué hacer. La fuente única es `OUTCOME_COPY` en `frontend/src/app/core/models/verdict.model.ts`; de esa tabla derivan la etiqueta del badge, su detalle y las opciones de filtro y de override.
+
+Reglas:
+
+1. Agregar o cambiar un resultado se hace en `OUTCOME_COPY`, nunca en un componente.
+2. La etiqueta es de una línea y nombra la consecuencia, no el mecanismo: "No compila", "Se queda sin memoria", "Tarda demasiado".
+3. El detalle explica por qué ocurre sin jerga de juez y sin stacktrace crudo.
+4. La sigla solo aparece si el usuario la pide de forma explícita (`showAcronym`); en el uso normal, nunca.
+5. Un valor desconocido cae en `Sin evaluar`, no en un espacio vacío ni en el código crudo.
+
+El color sigue la semántica del sistema: `Cumple` verde, `No cumple` rojo, `Tarda demasiado` y `Se queda sin memoria` ámbar, `Se cae al ejecutar` naranja, `Usó algo no permitido` rojo intenso, `Sin calificar` neutral.

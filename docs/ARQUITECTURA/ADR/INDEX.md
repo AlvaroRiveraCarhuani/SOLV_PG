@@ -57,5 +57,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 050 | [Servicios Satélite Declarativos por Rol, Pin del Entorno y Contratos de Capacidad y Aislamiento](ADR-050-servicios-satelite-por-rol.md) | Aprobado | Core |
 | 051 | [PostgreSQL de Aula como Satélite Dedicado y Separación del Motor de Plataforma](ADR-051-postgresql-aula-como-satelite-dedicado.md) | Aprobado | Core |
 | 052 | [Banco de Ejercicios como Read Model y Discriminador de Modalidad por Entorno](ADR-052-banco-ejercicios-read-model-y-discriminador-entorno.md) | Aprobado | Core |
+| 053 | [Estado de Revisión Docente Explícito y Celda de Nota por Práctica](ADR-053-revision-docente-y-libreta-de-notas.md) | Aprobado | Docencia |
+| 054 | [Catálogo de Entornos del Docente Centrado en el Stack](ADR-054-catalogo-entornos-docente.md) | Propuesto | Docencia |
 
 

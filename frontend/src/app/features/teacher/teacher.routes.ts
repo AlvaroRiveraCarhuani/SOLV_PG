@@ -66,6 +66,11 @@ export const TEACHER_ROUTES: Routes = [
       import('./grading/speed-grader/speed-grader.component').then(m => m.SpeedGraderComponent)
   },
   {
+    path: 'por-calificar',
+    loadComponent: () =>
+      import('./reviews/teacher-reviews.component').then(m => m.TeacherReviewsComponent)
+  },
+  {
     path: 'evaluaciones',
     loadComponent: () =>
       import('./evaluations/teacher-evaluations.component').then(m => m.TeacherEvaluationsComponent)

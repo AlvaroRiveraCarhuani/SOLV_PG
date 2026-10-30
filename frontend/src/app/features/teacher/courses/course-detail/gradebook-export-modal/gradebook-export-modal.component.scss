@@ -564,6 +564,12 @@
       text-align: right;
     }
 
+    &.score-pending {
+      background-color: var(--bg-surface-subtle);
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
     &.score-failing {
       background-color: var(--color-error-subtle);
       color: var(--color-error);

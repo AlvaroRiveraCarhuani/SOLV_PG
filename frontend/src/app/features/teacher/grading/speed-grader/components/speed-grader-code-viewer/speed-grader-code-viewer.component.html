@@ -8,16 +8,6 @@
         (close)="toggleReplay.emit()"
       />
     </div>
-  } @else if (showBenchmark()) {
-    <div class="benchmark-embedded-container">
-      <complexity-benchmark
-        [report]="benchmarkReport()"
-        [submissionId]="review().id"
-        [isLoading]="isLoadingBenchmark()"
-        (runBenchmark)="runBenchmark.emit($event)"
-        (close)="toggleBenchmark.emit()"
-      />
-    </div>
   } @else {
     <div class="code-panel-header">
       <span class="panel-label">

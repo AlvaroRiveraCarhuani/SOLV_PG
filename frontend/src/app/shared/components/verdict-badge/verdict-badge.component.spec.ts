@@ -1,54 +1,62 @@
 import { describe, it, expect } from 'vitest';
-import { getVerdictHumanLabel, getVerdictBadgeClass, matchesVerdictFilter } from '../../../core/models/verdict.model';
+import {
+  OUTCOME_COPY,
+  getVerdictHumanLabel,
+  getVerdictBadgeClass,
+  getVerdictOutcomeDetail,
+  matchesVerdictFilter,
+  VERDICT_FILTER_OPTIONS,
+  VERDICT_OVERRIDE_OPTIONS
+} from '../../../core/models/verdict.model';
 
 describe('VerdictBadge mapping logic', () => {
-  it('debe mapear AC a etiqueta humana Solución correcta y clase verdict-ac', () => {
-    expect(getVerdictHumanLabel('AC')).toBe('Solución correcta');
+  it('debe mapear AC a Cumple y clase verdict-ac', () => {
+    expect(getVerdictHumanLabel('AC')).toBe('Cumple');
     expect(getVerdictBadgeClass('AC')).toBe('verdict-ac');
   });
 
-  it('debe mapear WA a Resultado incorrecto y clase verdict-wa', () => {
-    expect(getVerdictHumanLabel('WA')).toBe('Resultado incorrecto');
+  it('debe mapear WA a No cumple y clase verdict-wa', () => {
+    expect(getVerdictHumanLabel('WA')).toBe('No cumple');
     expect(getVerdictBadgeClass('WA')).toBe('verdict-wa');
   });
 
-  it('debe mapear TLE a Tiempo límite excedido y clase verdict-tle', () => {
-    expect(getVerdictHumanLabel('TLE')).toBe('Tiempo límite excedido');
+  it('debe mapear TLE a Tarda demasiado y clase verdict-tle', () => {
+    expect(getVerdictHumanLabel('TLE')).toBe('Tarda demasiado');
     expect(getVerdictBadgeClass('TLE')).toBe('verdict-tle');
   });
 
-  it('debe mapear MLE a Límite de memoria excedido y clase verdict-tle', () => {
-    expect(getVerdictHumanLabel('MLE')).toBe('Límite de memoria excedido');
+  it('debe mapear MLE a Se quedó sin memoria y clase verdict-tle', () => {
+    expect(getVerdictHumanLabel('MLE')).toBe('Se quedó sin memoria');
     expect(getVerdictBadgeClass('MLE')).toBe('verdict-tle');
   });
 
-  it('debe mapear RE a Error durante la ejecución y clase verdict-re', () => {
-    expect(getVerdictHumanLabel('RE')).toBe('Error durante la ejecución');
+  it('debe mapear RE a Se cae al ejecutar y clase verdict-re', () => {
+    expect(getVerdictHumanLabel('RE')).toBe('Se cae al ejecutar');
     expect(getVerdictBadgeClass('RE')).toBe('verdict-re');
   });
 
-  it('debe mapear CE a Error de compilación y clase verdict-re', () => {
-    expect(getVerdictHumanLabel('CE')).toBe('Error de compilación');
+  it('debe mapear CE a No compila y clase verdict-re', () => {
+    expect(getVerdictHumanLabel('CE')).toBe('No compila');
     expect(getVerdictBadgeClass('CE')).toBe('verdict-re');
   });
 
-  it('debe mapear VE a Error en validación de prueba y clase verdict-re', () => {
-    expect(getVerdictHumanLabel('VE')).toBe('Error en validación de prueba');
+  it('debe mapear VE a Caso de prueba inválido y clase verdict-re', () => {
+    expect(getVerdictHumanLabel('VE')).toBe('Caso de prueba inválido');
     expect(getVerdictBadgeClass('VE')).toBe('verdict-re');
   });
 
-  it('debe mapear AST_BLOCKED a Restricción de código incumplida y clase verdict-ast', () => {
-    expect(getVerdictHumanLabel('AST_BLOCKED')).toBe('Restricción de código incumplida');
+  it('debe mapear AST_BLOCKED a Usó algo no permitido y clase verdict-ast', () => {
+    expect(getVerdictHumanLabel('AST_BLOCKED')).toBe('Usó algo no permitido');
     expect(getVerdictBadgeClass('AST_BLOCKED')).toBe('verdict-ast');
   });
 
-  it('debe mapear AST_VIOLATION a Restricción de código incumplida y clase verdict-ast', () => {
-    expect(getVerdictHumanLabel('AST_VIOLATION')).toBe('Restricción de código incumplida');
+  it('debe mapear AST_VIOLATION a Usó algo no permitido y clase verdict-ast', () => {
+    expect(getVerdictHumanLabel('AST_VIOLATION')).toBe('Usó algo no permitido');
     expect(getVerdictBadgeClass('AST_VIOLATION')).toBe('verdict-ast');
   });
 
-  it('debe mapear PENDING a Pendiente de revisión y clase verdict-pending', () => {
-    expect(getVerdictHumanLabel('PENDING')).toBe('Pendiente de revisión');
+  it('debe mapear PENDING a Sin calificar y clase verdict-pending', () => {
+    expect(getVerdictHumanLabel('PENDING')).toBe('Sin calificar');
     expect(getVerdictBadgeClass('PENDING')).toBe('verdict-pending');
   });
 
@@ -60,8 +68,33 @@ describe('VerdictBadge mapping logic', () => {
   });
 
   it('debe ser insensible a mayúsculas y espacios en blanco', () => {
-    expect(getVerdictHumanLabel(' ac ')).toBe('Solución correcta');
+    expect(getVerdictHumanLabel(' ac ')).toBe('Cumple');
     expect(getVerdictBadgeClass(' wa ')).toBe('verdict-wa');
+  });
+
+  it('expone un detalle humano y distinto para cada resultado', () => {
+    const details = Object.values(OUTCOME_COPY).map((outcome) => outcome.detail);
+    expect(new Set(details).size).toBe(details.length);
+    expect(getVerdictOutcomeDetail('CE')).toContain('compilar');
+  });
+});
+
+describe('Vocabulario derivado de la tabla canónica', () => {
+  it('los filtros toman sus etiquetas de OUTCOME_COPY', () => {
+    const filterLabels = VERDICT_FILTER_OPTIONS.map((option) => option.label);
+    expect(filterLabels[0]).toBe('Todos los resultados');
+    expect(filterLabels).toContain(OUTCOME_COPY.WA.label);
+    expect(filterLabels).toContain(OUTCOME_COPY.AST_BLOCKED.label);
+    expect(filterLabels).not.toContain(OUTCOME_COPY.UNKNOWN.label);
+  });
+
+  it('los overrides toman sus etiquetas de OUTCOME_COPY', () => {
+    expect(VERDICT_OVERRIDE_OPTIONS.map((option) => option.label)).toEqual([
+      OUTCOME_COPY.AC.label,
+      OUTCOME_COPY.WA.label,
+      OUTCOME_COPY.RE.label,
+      OUTCOME_COPY.TLE.label
+    ]);
   });
 });
 

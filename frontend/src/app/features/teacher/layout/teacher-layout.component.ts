@@ -12,7 +12,8 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
     title: 'DOCENCIA',
     items: [
       { label: 'Panel de Control', route: '/teacher/dashboard', iconName: 'activity', exact: true },
-      { label: 'Evaluaciones & Entregas', route: '/teacher/evaluaciones', iconName: 'award' }
+      { label: 'Por calificar', route: '/teacher/por-calificar', iconName: 'file-text' },
+      { label: 'Entregas', route: '/teacher/entregas', iconName: 'award' }
     ]
   },
   {

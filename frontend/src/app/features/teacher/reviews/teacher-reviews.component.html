@@ -1,0 +1,148 @@
+<div class="reviews-container">
+  <header class="reviews-header">
+    <div class="header-titles">
+      <h1 class="page-title">Por calificar</h1>
+      <p class="page-subtitle">
+        Lo que espera tu corrección, agrupado por práctica.
+        @if (totalPending() > 0) {
+          <span class="pending-summary">
+            <strong machineData>{{ totalPending() }}</strong> entregas en espera
+          </span>
+        }
+      </p>
+    </div>
+
+    <button type="button" class="btn-outline btn-refresh" (click)="load()" [disabled]="isLoading()">
+      Actualizar
+    </button>
+  </header>
+
+  @if (error()) {
+    <div class="state-panel" role="alert">
+      <p>{{ error() }}</p>
+      <button type="button" class="btn-outline" (click)="load()">Reintentar</button>
+    </div>
+  } @else if (isLoading()) {
+    <skeleton-loader variant="list" [count]="4" />
+  } @else if (groups().length === 0) {
+    <div class="state-panel state-empty">
+      <span class="state-icon" aria-hidden="true">
+        <svg lucideCheckCircle2></svg>
+      </span>
+      <h2 class="state-title">No hay entregas por calificar</h2>
+      <p class="state-copy">
+        Cuando un alumno entregue un laboratorio que requiere tu corrección, aparecerá aquí.
+      </p>
+    </div>
+  } @else {
+    <div class="reviews-layout">
+      <section class="queue-pane" aria-label="Prácticas con entregas pendientes">
+        <ul class="queue-list">
+          @for (group of groups(); track trackGroup($index, group)) {
+            <li>
+              <button
+                type="button"
+                class="queue-item"
+                [class.is-selected]="isSelected(group)"
+                [attr.aria-pressed]="isSelected(group)"
+                (click)="select(group)"
+              >
+                <div class="queue-content">
+                  <span class="queue-subject">{{ group.subject_name }}</span>
+                  <span class="queue-title">{{ group.exercise_title }}</span>
+                  <span class="queue-meta">
+                    <span class="queue-count">
+                      <strong machineData>{{ group.pending }}</strong> de <span machineData>{{ group.total }}</span>
+                    </span>
+                    <span class="queue-waiting">
+                      <svg lucideClock aria-hidden="true"></svg>
+                      <time [attr.datetime]="group.oldest_submitted_at">
+                        {{ group.oldest_submitted_at | dateText:'compact-datetime' }}
+                      </time>
+                    </span>
+                  </span>
+                </div>
+                <svg lucideArrowRight class="queue-chevron" aria-hidden="true"></svg>
+              </button>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <section class="work-pane" aria-live="polite">
+        @if (selectedGroup(); as group) {
+          <header class="work-header">
+            <div class="work-header-info">
+              <p class="work-subject">{{ group.subject_name }}</p>
+              <h2 class="work-title">{{ group.exercise_title }}</h2>
+            </div>
+            <a class="btn-outline" [routerLink]="courseLink(group)">Abrir práctica</a>
+          </header>
+
+          @if (isLoadingSubmissions()) {
+            <div class="submission-skeleton">
+              <skeleton-loader variant="list" [count]="3" />
+            </div>
+          } @else if (submissions().length === 0) {
+            <div class="state-panel state-empty">
+              <h3 class="state-title">Sin entregas en esta práctica</h3>
+              <p class="state-copy">Es posible que otro docente ya las haya corregido.</p>
+            </div>
+          } @else {
+            <div class="submission-table">
+              <div class="submission-table-header">
+                <div class="col-student">NOMBRE</div>
+                <div class="col-verdict">VEREDICTO</div>
+                <div class="col-date">FECHA DE ENTREGA</div>
+                <div class="col-action">ACCIÓN</div>
+              </div>
+              <ul class="submission-list">
+                @for (item of submissions(); track trackSubmission($index, item)) {
+                  <li class="submission-row">
+                    <div class="submission-identity">
+                      <span class="student-name">{{ item.student_name }}</span>
+                      <span class="student-email">{{ item.student_email }}</span>
+                    </div>
+                    <div class="submission-verdict">
+                      <verdict-badge
+                        [verdict]="item.verdict"
+                        size="sm"
+                        [showHumanLabel]="false"
+                        [showAcronym]="true"
+                      />
+                      @if (item.score !== undefined && item.score !== null) {
+                        <span class="submission-score" machineData>{{ item.score }}</span>
+                      }
+                    </div>
+                    <div class="submission-date">
+                      <span class="submission-when">
+                        <svg lucideClock aria-hidden="true"></svg>
+                        <time [attr.datetime]="item.submitted_at">
+                          {{ item.submitted_at | dateText:'compact-datetime' }}
+                        </time>
+                      </span>
+                      @if (item.review_status === 'in_review') {
+                        <span class="review-flag">En revisión</span>
+                      }
+                    </div>
+                    <div class="submission-action">
+                      <a class="btn-primary btn-grade" [routerLink]="reviewLink(item)">
+                        <span class="btn-grade-text">Calificar</span>
+                        <svg lucideArrowRight aria-hidden="true"></svg>
+                      </a>
+                    </div>
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        } @else {
+          <div class="work-placeholder">
+            <svg lucideListChecks aria-hidden="true"></svg>
+            <p>Elige una práctica de la izquierda para ver sus entregas.</p>
+          </div>
+        }
+      </section>
+    </div>
+  }
+</div>

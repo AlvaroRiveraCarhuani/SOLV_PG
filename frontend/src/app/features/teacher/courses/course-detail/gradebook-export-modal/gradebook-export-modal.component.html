@@ -233,12 +233,17 @@
                       } @else {
                         <td 
                           class="font-mono text-right"
-                          [class.score-failing]="highlightFailing() && getStudentScore(student, col) < failingThreshold()"
-                          [class.score-passing]="highlightPassing() && getStudentScore(student, col) >= failingThreshold()"
-                          [class.score-average]="col.key === 'average'"
+                          [class.score-pending]="!hasGrade(student, col)"
+                          [class.score-failing]="hasGrade(student, col) && highlightFailing() && getStudentScore(student, col) < failingThreshold()"
+                          [class.score-passing]="hasGrade(student, col) && highlightPassing() && getStudentScore(student, col) >= failingThreshold()"
+                          [class.score-average]="col.key === 'average' && hasGrade(student, col)"
                           machineData
                         >
-                          {{ getStudentScore(student, col) }}
+                          @if (hasGrade(student, col)) {
+                            {{ getStudentScore(student, col) }}
+                          } @else {
+                            <span class="score-pending-mark" aria-label="Sin corregir">—</span>
+                          }
                         </td>
                       }
                     }

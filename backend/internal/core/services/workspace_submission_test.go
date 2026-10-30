@@ -107,8 +107,11 @@ func TestSubmitWorkspaceProject_CreatesPendingSubmissionWithSnapshot(t *testing.
 	if subRepo.created.Verdict != "PENDING" {
 		t.Errorf("esperado verdict PENDING, obtenido: %s", subRepo.created.Verdict)
 	}
-	if subRepo.created.Score == nil || *subRepo.created.Score != 0 {
-		t.Errorf("esperado score 0, obtenido: %v", subRepo.created.Score)
+	if subRepo.created.ReviewStatus != string(domain.ReviewPending) {
+		t.Errorf("esperado review_status pending para una entrega IDE, obtenido: %q", subRepo.created.ReviewStatus)
+	}
+	if subRepo.created.Score != nil {
+		t.Errorf("una entrega sin corregir no debe llevar nota, obtenido: %v", *subRepo.created.Score)
 	}
 	if subRepo.created.WorkspaceID == nil || *subRepo.created.WorkspaceID != workspace.ID {
 		t.Errorf("esperado workspace_id %s, obtenido: %v", workspace.ID, subRepo.created.WorkspaceID)

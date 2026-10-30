@@ -1855,3 +1855,69 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
 | `orphaned` | El daemon respondió y el contenedor del registro ya no existe. | Libera cupo; el alumno lo recrea con restart; transición auditada. |
 
 `GET /api/v1/admin/dashboard/containers` expone ambos estados en `status` del DTO (ya no colapsan a `hibernated`).
+
+---
+
+## Revisión Docente y Libreta de Notas (ADR-053)
+
+El trabajo manual del docente deja de deducirse del veredicto del juez. `submissions.review_status` declara el estado (`not_required | pending | in_review | graded | returned`) y `exercise_grades` guarda qué entrega cuenta para la nota de cada alumno en cada práctica.
+
+### `GET /api/v1/teacher/reviews`
+
+Cola real de corrección agrupada por práctica. Parámetro opcional `subject_id`.
+
+```json
+{
+  "data": [
+    {
+      "exercise_id": "uuid",
+      "exercise_title": "Lista enlazada",
+      "subject_id": "uuid",
+      "subject_name": "Programación I",
+      "environment_type": "IDE_PERSISTENTE",
+      "pending": 7,
+      "total": 12,
+      "oldest_submitted_at": "2026-10-28T10:00:00Z"
+    }
+  ]
+}
+```
+
+`pending` cuenta `review_status IN ('pending','in_review')`; `total` es el número de inscritos en la materia.
+
+### `PATCH /api/v1/teacher/submissions/{id}/review`
+
+```json
+{ "status": "graded", "feedback_summary": "Buen trabajo", "score": 85 }
+```
+
+- Transiciones válidas: `pending → in_review | graded`, `in_review → pending | graded`, `graded → in_review | returned`, `returned → in_review | graded`. Reintentar el mismo estado es idempotente.
+- Al pasar a `graded` o `returned` se actualiza la celda de nota y se registra auditoría.
+- Respuesta: `{ "submission_id", "review_status", "cell": { "selected_submission_id", "score", "source", "reason" } | null }`.
+
+### `PUT /api/v1/teacher/grades/{studentId}/exercises/{exerciseId}`
+
+```json
+{ "selected_submission_id": "uuid", "score": 90, "reason": "Corrigió en clase y volvió a entregar" }
+```
+
+- Fija qué entrega cuenta para la nota. La nota es opcional: sin `score` se usa la de la entrega elegida.
+- Cambiar la nota respecto de la entrega exige `reason` de al menos 10 caracteres.
+- Respuesta: la celda resultante.
+
+### Errores
+
+| Código | Cuándo |
+| --- | --- |
+| `409` | Transición de revisión no permitida o entrega modificada por otro docente. |
+| `422` | Estado desconocido, nota fuera de 0–100 o falta el motivo del cambio de nota. |
+| `400` | La entrega elegida no pertenece a ese alumno y esa práctica. |
+| `403` | Rol estudiante o materia ajena al docente. |
+| `503` | El almacén de revisión no está configurado. |
+
+### Efectos en contratos existentes
+
+- `GET /api/v1/teacher/courses/{id}/grades/matrix`: `grades[exercise_id]` puede ser `null` (sin corregir). Cada fila añade `graded_count` y `pending_count`; `average` se calcula solo sobre prácticas calificadas.
+- `GET /api/v1/teacher/courses/{id}/grades/export`: la celda sin corregir se exporta vacía.
+- `GET /api/v1/teacher/courses/{id}/submissions`: cada entrega incluye `review_status`.
+- El resumen de materias (`pending_review`) ahora cuenta el estado de revisión, no los veredictos.

@@ -167,6 +167,8 @@ Al pulsar `[Emitir Avance a la Clase]`:
 
 ### 4.3 Pestaña 2: Cola de Revisión de Entregas (Modo Solo Lectura `:ro`)
 
+> **Actualización (ADR-053):** la cola ya no se deduce del veredicto. Una entrega entra a la cola cuando su estado de revisión es `pending` o `in_review`; las entregas de juez calificadas solas no aparecen. La cola global vive en [POR_CALIFICAR.md](POR_CALIFICAR.md) y esta pestaña conserva la vista por materia.
+
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ [< Volver a Cursos]  Programación II · 35 Estudiantes                                            │
@@ -236,6 +238,9 @@ El panel del docente se alimenta de endpoints reales con autenticación basada e
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/v1/academic-periods` | `?active_only=false` | Lista períodos académicos registrados (Slice 14). |
 | `GET` | `/api/v1/teacher/dashboard` | `?period_id={id}` | Resumen macro: cursos, conteo de heartbeats activos y cola de atención. |
+| `GET` | `/api/v1/teacher/reviews` | `?subject_id={id}` | Cola real de corrección agrupada por práctica (ver [POR_CALIFICAR.md](POR_CALIFICAR.md) y ADR-053). |
+| `PATCH` | `/api/v1/teacher/submissions/{id}/review` | `{status, feedback_summary, score?}` | Cambia el estado de revisión de una entrega. |
+| `PUT` | `/api/v1/teacher/grades/{studentId}/exercises/{exerciseId}` | `{selected_submission_id, score?, reason?}` | Fija qué entrega cuenta para la nota de la práctica. |
 | `GET` | `/api/v1/courses/{id}/labs` | — | Lista de guías y laboratorios asignados con métricas de entrega. |
 | `POST` | `/api/v1/courses/{id}/pause-all` | — | Acción masiva de contingencia: hiberna todos los contenedores de la clase. |
 | `POST` | `/api/v1/courses/{id}/teacher-workspace` | — | Aprovisiona o reanuda el contenedor propio del docente para la clase. |

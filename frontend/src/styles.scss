@@ -275,6 +275,11 @@ input, select, textarea, optgroup, option, button {
 
   &:hover:not(:disabled) {
     background-color: var(--tenant-primary-hover);
+
+    // `a:hover` (0,1,1) gana a `.btn-primary` (0,1,0): sin fijar el color acá,
+    // un `<a class="btn-primary">` hereda el azul del enlace y su icono
+    // `stroke="currentColor"` desaparece sobre el fondo del mismo color.
+    color: var(--text-inverse);
   }
 
   &:active:not(:disabled) {

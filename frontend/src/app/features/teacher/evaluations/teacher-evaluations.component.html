@@ -27,7 +27,7 @@
       (click)="activeTab.set('queue')"
     >
       <svg lucideListChecks class="tab-icon"></svg>
-      <span>Cola de Entregas ({{ kpiStats().total }})</span>
+      <span>Entregas ({{ kpiStats().total }})</span>
       @if (kpiStats().pending > 0) {
         <span class="pending-pill" machineData>{{ kpiStats().pending }}</span>
       }
@@ -50,7 +50,7 @@
       <!-- KPIs Resumen de la Cola -->
       <div class="kpi-summary-grid">
         <div class="kpi-box">
-          <span class="kpi-label">Total Entregas</span>
+          <span class="kpi-label">Total de Entregas</span>
           <span class="kpi-val" machineData>{{ kpiStats().total }}</span>
         </div>
         <div class="kpi-box">

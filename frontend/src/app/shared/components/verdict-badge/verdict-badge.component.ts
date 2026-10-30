@@ -11,7 +11,8 @@ import {
 import {
   JudgeVerdict,
   getVerdictBadgeClass,
-  getVerdictHumanLabel
+  getVerdictHumanLabel,
+  getVerdictOutcomeDetail
 } from '../../../core/models/verdict.model';
 import { MachineDataDirective } from '../../directives/machine-data.directive';
 
@@ -107,6 +108,7 @@ export class VerdictBadgeComponent {
   });
 
   readonly fullTitle = computed<string>(() => {
-    return this.showAcronym() ? `${this.humanLabel()} (${this.acronym()})` : this.humanLabel();
+    const detail = getVerdictOutcomeDetail(this.normalizedVerdict());
+    return this.showAcronym() ? `${detail} (${this.acronym()})` : detail;
   });
 }

@@ -10,6 +10,9 @@ import {
   BulkTestCasesRequestDTO,
   PlagiarismReport,
   CourseGradesMatrix,
+  ReviewQueueGroup,
+  ExerciseGradeCell,
+  SelectExerciseGradeRequest,
   CourseAnalyticsDTO,
   TeacherCourseModule,
   CreateModuleDTO,
@@ -191,6 +194,40 @@ export class TeacherCourseService {
     return this.http.get<ApiResponse<CourseGradesMatrix>>(`/api/v1/teacher/courses/${subjectId}/grades/matrix`).pipe(
       map(res => res.data)
     );
+  }
+
+  /** Cola real de corrección: sale del estado de revisión, no del veredicto. */
+  getReviewQueue(subjectId?: string): Observable<ReviewQueueGroup[]> {
+    let params = new HttpParams();
+    if (subjectId) {
+      params = params.set('subject_id', subjectId);
+    }
+    return this.http.get<ApiResponse<ReviewQueueGroup[]>>('/api/v1/teacher/reviews', { params }).pipe(
+      map(res => res.data || [])
+    );
+  }
+
+  /** Cambia el estado de revisión de una entrega (en revisión, calificada, devuelta). */
+  updateSubmissionReview(
+    submissionId: string,
+    dto: { status: string; feedback_summary?: string; score?: number }
+  ): Observable<ExerciseGradeCell | null> {
+    return this.http.patch<ApiResponse<{ cell: ExerciseGradeCell | null }>>(
+      `/api/v1/teacher/submissions/${submissionId}/review`,
+      dto
+    ).pipe(map(res => res.data?.cell ?? null));
+  }
+
+  /** Fija qué entrega cuenta para la nota de la práctica. */
+  setExerciseGrade(
+    studentId: string,
+    exerciseId: string,
+    dto: SelectExerciseGradeRequest
+  ): Observable<ExerciseGradeCell> {
+    return this.http.put<ApiResponse<ExerciseGradeCell>>(
+      `/api/v1/teacher/grades/${studentId}/exercises/${exerciseId}`,
+      dto
+    ).pipe(map(res => res.data));
   }
 
   exportGradesCsv(subjectId: string): Observable<Blob> {

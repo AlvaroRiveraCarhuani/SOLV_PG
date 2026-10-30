@@ -36,6 +36,7 @@ type Submission struct {
 	WorkspaceID        *string         `db:"workspace_id" json:"workspace_id,omitempty"`
 	Code               string          `db:"code" json:"code"`
 	Verdict            string          `db:"verdict" json:"verdict"`
+	ReviewStatus       string          `db:"review_status" json:"review_status"`
 	ASTResult          json.RawMessage `db:"ast_result" json:"ast_result"`
 	GeneratedCases     json.RawMessage `db:"generated_cases" json:"generated_cases,omitempty"`
 	ComplexityAnalysis json.RawMessage `db:"complexity_analysis" json:"complexity_analysis,omitempty"`

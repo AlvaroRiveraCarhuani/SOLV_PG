@@ -141,7 +141,13 @@ export class TeacherEvaluationsComponent implements OnInit {
   kpiStats = computed(() => {
     const queue = this.queueList();
     const total = queue.length;
-    const pending = queue.filter(q => q.score === undefined || q.score === null).length;
+    // Pendiente = estado de revisión declarado. El respaldo por nota solo cubre
+    // respuestas antiguas sin review_status.
+    const pending = queue.filter(q =>
+      q.review_status
+        ? q.review_status === 'pending' || q.review_status === 'in_review'
+        : q.score === undefined || q.score === null
+    ).length;
     const graded = total - pending;
     const atRisk = queue.filter(q => q.verdict === 'WA' || q.verdict === 'TLE' || q.verdict === 'AST_BLOCKED' || q.verdict === 'AST_VIOLATION').length;
     return { total, pending, graded, atRisk };

@@ -33,6 +33,7 @@ type SubmissionQueueItem struct {
 	MemoryUsedMB    int       `json:"memory_used_mb" db:"memory_used_mb"`
 	SubmittedAt     time.Time `json:"submitted_at" db:"submitted_at"`
 	CommentsCount   int       `json:"comments_count" db:"comments_count"`
+	ReviewStatus    string    `json:"review_status" db:"review_status"`
 }
 
 // TestCaseReview representa un caso de prueba desenmascarado para la vista docente.
@@ -112,13 +113,16 @@ type CourseExerciseHeader struct {
 	Title string `json:"title"`
 }
 
-// StudentGradesRow fila de notas por estudiante en el curso.
+// StudentGradesRow fila de notas por estudiante en el curso. Una celda nula
+// significa "sin corregir" y nunca se presenta como 0.
 type StudentGradesRow struct {
-	StudentID    string         `json:"student_id"`
-	StudentName  string         `json:"student_name"`
-	StudentEmail string         `json:"student_email"`
-	Grades       map[string]int `json:"grades"`
-	Average      float64        `json:"average"`
+	StudentID    string          `json:"student_id"`
+	StudentName  string          `json:"student_name"`
+	StudentEmail string          `json:"student_email"`
+	Grades       map[string]*int `json:"grades"`
+	Average      float64         `json:"average"`
+	GradedCount  int             `json:"graded_count"`
+	PendingCount int             `json:"pending_count"`
 }
 
 // CourseGradesMatrix estructura consolidada para la exportación de notas del curso.

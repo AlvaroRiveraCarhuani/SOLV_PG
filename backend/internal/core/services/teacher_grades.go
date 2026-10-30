@@ -56,8 +56,13 @@ func (s *TeacherService) ExportCourseGradesCSV(ctx context.Context, tenantID, te
 	for _, stu := range matrix.Students {
 		row := []string{stu.StudentID, stu.StudentName, stu.StudentEmail}
 		for _, ex := range matrix.Exercises {
+			// Sin corregir se exporta como celda vacía, nunca como 0.
 			score := stu.Grades[ex.ID]
-			row = append(row, fmt.Sprintf("%d", score))
+			if score == nil {
+				row = append(row, "")
+				continue
+			}
+			row = append(row, fmt.Sprintf("%d", *score))
 		}
 		row = append(row, fmt.Sprintf("%.2f", stu.Average))
 

@@ -36,6 +36,7 @@ import {
 } from './gradebook-export.presets';
 import {
   getStudentScore,
+  hasGrade,
   initializeDefaultColumns,
   buildExcelSpreadsheetXml,
   buildCsvContent,
@@ -99,21 +100,27 @@ export class GradebookExportModalComponent implements OnInit {
 
   totalStudentsCount = computed(() => this.matrix()?.students?.length ?? 0);
 
+  // El promedio y la tasa de aprobación se calculan solo sobre alumnos con al
+  // menos una práctica corregida: contar a quien no tiene notas como 0 sería
+  // inventar un dato académico.
+  private gradersOnly(): StudentGradesRow[] {
+    return (this.matrix()?.students || []).filter((s) => s.graded_count > 0);
+  }
+
   courseAverage = computed(() => {
-    const students = this.matrix()?.students || [];
+    const students = this.gradersOnly();
     if (students.length === 0) return 0;
     const sum = students.reduce((acc, s) => acc + s.average, 0);
     return Math.round((sum / students.length) * 10) / 10;
   });
 
   passingCount = computed(() => {
-    const students = this.matrix()?.students || [];
     const threshold = this.failingThreshold();
-    return students.filter(s => s.average >= threshold).length;
+    return this.gradersOnly().filter(s => s.average >= threshold).length;
   });
 
   passingPercentage = computed(() => {
-    const total = this.totalStudentsCount();
+    const total = this.gradersOnly().length;
     if (total === 0) return 0;
     return Math.round((this.passingCount() / total) * 100);
   });
@@ -189,6 +196,10 @@ export class GradebookExportModalComponent implements OnInit {
 
   getStudentScore(student: StudentGradesRow, col: ColumnExportConfig): number {
     return getStudentScore(student, col);
+  }
+
+  hasGrade(student: StudentGradesRow, col: ColumnExportConfig): boolean {
+    return hasGrade(student, col);
   }
 
   exportExcel(): void {

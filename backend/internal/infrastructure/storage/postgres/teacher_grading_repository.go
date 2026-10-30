@@ -32,6 +32,7 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 		       COALESCE(u.email, '') AS student_email,
 		       sub.verdict, sub.score, COALESCE(sub.manual_override, FALSE) AS manual_override,
 		       sub.execution_time_ms, sub.memory_used_mb, sub.submitted_at,
+		       COALESCE(sub.review_status, 'not_required') AS review_status,
 		       (SELECT COUNT(*) FROM submission_comments sc WHERE sc.submission_id = sub.id) AS comments_count
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
@@ -56,6 +57,7 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 		MemoryUsedMB    int           `db:"memory_used_mb"`
 		SubmittedAt     time.Time     `db:"submitted_at"`
 		CommentsCount   int           `db:"comments_count"`
+		ReviewStatus    string        `db:"review_status"`
 	}
 
 	var rows []itemRow
@@ -78,6 +80,7 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 			MemoryUsedMB:    row.MemoryUsedMB,
 			SubmittedAt:     row.SubmittedAt,
 			CommentsCount:   row.CommentsCount,
+			ReviewStatus:    row.ReviewStatus,
 		}
 		if row.Score.Valid {
 			s := int(row.Score.Int64)

@@ -39,10 +39,10 @@ import {
 import { AuthService } from '@core/services/auth.service';
 
 interface KeystrokeEventPayload {
-  event_type: 'keystroke' | 'paste';
+  event_type: 'insert' | 'delete' | 'paste';
   timestamp_ms: number;
-  char_delta: number;
-  cursor_line: number;
+  position: number;
+  content: string;
 }
 
 interface ProjectFile {
@@ -264,11 +264,14 @@ export class StudentExerciseSolverComponent implements OnInit {
     this.sourceCode.set(nextCode);
 
     if (delta !== 0) {
+      const lines = nextCode.split('\n');
+      const newLines = nextCode.split('\n').length;
+      const isPaste = Math.abs(delta) > 25;
       this.keystrokeBuffer.push({
-        event_type: Math.abs(delta) > 25 ? 'paste' : 'keystroke',
+        event_type: isPaste ? 'paste' : (delta > 0 ? 'insert' : 'delete'),
         timestamp_ms: Date.now(),
-        char_delta: delta,
-        cursor_line: nextCode.split('\n').length
+        position: lines.length - 1,
+        content: isPaste ? nextCode : ''
       });
     }
   }

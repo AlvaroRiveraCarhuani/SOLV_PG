@@ -18,17 +18,33 @@ type TeacherService struct {
 	metricsSnapshotService *MetricsSnapshotService
 	mailer                 domain.Mailer
 	tenantRepo             domain.TenantRepository
+	reviewStore            domain.TeacherReviewStore
+	auditRepo              domain.AuditLogRepository
 }
 
 func NewTeacherService(
 	repo domain.TeacherRepository,
 	subRepo domain.SubmissionRepository,
 ) *TeacherService {
-	return &TeacherService{
+	svc := &TeacherService{
 		repo:          repo,
 		subRepo:       subRepo,
 		mirrorService: NewTerminalMirrorService(nil),
 	}
+	// El repositorio de revisión se declara en el consumidor: si la
+	// implementación lo soporta, se activa sin cambiar el wiring existente.
+	if store, ok := repo.(domain.TeacherReviewStore); ok {
+		svc.reviewStore = store
+	}
+	return svc
+}
+
+func (s *TeacherService) SetReviewStore(store domain.TeacherReviewStore) {
+	s.reviewStore = store
+}
+
+func (s *TeacherService) SetAuditRepository(auditRepo domain.AuditLogRepository) {
+	s.auditRepo = auditRepo
 }
 
 func (s *TeacherService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {

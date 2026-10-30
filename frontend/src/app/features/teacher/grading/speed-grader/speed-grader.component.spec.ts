@@ -65,19 +65,6 @@ describe('SpeedGraderComponent', () => {
     ]
   };
 
-  const mockBenchmarkReport: BenchmarkReport = {
-    submission_id: 'rev-1',
-    detected_time_complexity: 'O(N log N)',
-    detected_space_complexity: 'O(1)',
-    r_squared: 0.99,
-    is_optimal: true,
-    summary: 'Óptimo',
-    analyzed_at: new Date().toISOString(),
-    samples: [
-      { input_size: 10, execution_time_ms: 0.1, memory_used_kb: 32, status: 'pass' }
-    ]
-  };
-
   beforeEach(async () => {
     const mockGradingService = {
       currentReview: () => mockReview,
@@ -85,7 +72,7 @@ describe('SpeedGraderComponent', () => {
       isLoading: () => false,
       isRunningEphemeral: () => false,
       ephemeralResult: () => null,
-      benchmarkReport: () => mockBenchmarkReport,
+      benchmarkReport: () => null,
       isRunningBenchmark: () => false,
       getSubmissionReview: vi.fn().mockReturnValue(of(mockReview)),
       getSubmissionTimeline: vi.fn().mockReturnValue(of(mockTimeline)),
@@ -98,7 +85,6 @@ describe('SpeedGraderComponent', () => {
         total_chars_pasted: 0,
         events: []
       })),
-      runComplexityBenchmark: vi.fn().mockReturnValue(of(mockBenchmarkReport)),
       addComment: vi.fn().mockReturnValue(of({})),
       overrideSubmission: vi.fn().mockReturnValue(of(void 0))
     };
@@ -128,14 +114,6 @@ describe('SpeedGraderComponent', () => {
     expect(component.showReplayPlayer()).toBe(false);
     component.toggleReplay();
     expect(component.showReplayPlayer()).toBe(true);
-  });
-
-  it('toggles asymptotic complexity benchmark view', () => {
-    expect(component.showBenchmark()).toBe(false);
-    component.toggleBenchmark();
-    expect(component.showBenchmark()).toBe(true);
-    expect(component.showReplayPlayer()).toBe(false);
-    expect(component.showDiffView()).toBe(false);
   });
 
   it('handles line selection for comments', () => {

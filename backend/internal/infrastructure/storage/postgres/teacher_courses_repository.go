@@ -88,14 +88,13 @@ func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenan
 			  AND last_heartbeat_at >= NOW() - INTERVAL '2 minutes'
 		`, s.ID, tenantID)
 
-		// Pending review (WA, RE, TLE sin override manual)
+		// Pendientes de corrección: estado de revisión declarado, no veredicto.
 		_ = r.db.GetContext(ctx, &summary.PendingReview, `
 			SELECT COUNT(DISTINCT sub.id)
 			FROM submissions sub
 			JOIN exercises ex ON sub.exercise_id = ex.id
 			WHERE ex.subject_id = $1 AND sub.tenant_id = $2
-			  AND sub.verdict IN ('WA', 'RE', 'TLE', 'failed', 'oom_killed')
-			  AND (sub.manual_override IS FALSE OR sub.manual_override IS NULL)
+			  AND sub.review_status IN ('pending', 'in_review')
 		`, s.ID, tenantID)
 
 		// At risk: Estudiantes matriculados sin submission para ejercicios con entrega en <24h Y sin heartbeat en <24h

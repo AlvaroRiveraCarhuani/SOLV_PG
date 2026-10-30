@@ -84,10 +84,40 @@ func (s *TeacherService) OverrideSubmission(ctx context.Context, tenantID, submi
 		return err
 	}
 
+	s.syncReviewAfterOverride(ctx, tenantID, submissionID, reason, score, gradedBy)
+
 	// Despacho asíncrono de notificación al estudiante (desacoplado de la persistencia de la nota)
 	s.notifyGradePublished(ctx, tenantID, submissionID, gradedBy)
 
 	return nil
+}
+
+// syncReviewAfterOverride alinea el estado de revisión y la libreta con una
+// calificación hecha en SpeedGrader: corregir la entrega es haberla revisado.
+func (s *TeacherService) syncReviewAfterOverride(ctx context.Context, tenantID, submissionID, reason string, score *int, gradedBy *string) {
+	if s.reviewStore == nil {
+		return
+	}
+	actorID := ""
+	if gradedBy != nil {
+		actorID = *gradedBy
+	}
+
+	if current, err := s.reviewStore.GetSubmissionReviewState(ctx, tenantID, actorID, submissionID); err == nil {
+		if current == domain.ReviewPending || current == domain.ReviewInReview {
+			_ = s.reviewStore.UpdateSubmissionReview(
+				ctx, tenantID, actorID, submissionID,
+				current, domain.ReviewGraded, reason, score, actorID,
+			)
+		}
+	}
+
+	_ = s.reviewStore.RecordGradeFromSubmission(ctx, tenantID, submissionID)
+
+	s.auditReviewAction(ctx, tenantID, actorID, "SUBMISSION_GRADE_OVERRIDDEN", submissionID, map[string]interface{}{
+		"reason": reason,
+		"score":  score,
+	})
 }
 
 func (s *TeacherService) notifyGradePublished(ctx context.Context, tenantID, submissionID string, gradedBy *string) {
