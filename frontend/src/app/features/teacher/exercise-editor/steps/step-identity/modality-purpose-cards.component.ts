@@ -47,9 +47,9 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
               <svg lucideCpu class="choice-icon"></svg>
             </div>
             <div class="card-text">
-              <span class="card-name">Juez Virtual (I/O)</span>
+              <span class="card-name">Entorno de Evaluación</span>
               <span class="card-desc">
-                Ejecución aislada y evaluación automática de entrada/salida estándar por casos de prueba.
+                Ejecución aislada y corrección automática de entrada/salida estándar por casos de prueba.
               </span>
             </div>
           </div>
@@ -71,9 +71,9 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
               <svg lucideTerminal class="choice-icon"></svg>
             </div>
             <div class="card-text">
-              <span class="card-name">Workspace Interactivo</span>
+              <span class="card-name">Entorno de Desarrollo</span>
               <span class="card-desc">
-                Entorno persistente con OpenVSCode Server.
+                Espacio de trabajo interactivo y continuo con editor VS Code.
               </span>
             </div>
           </div>

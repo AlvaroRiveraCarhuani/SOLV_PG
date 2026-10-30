@@ -66,7 +66,7 @@
     @if (isRamBelowFloor()) {
       <div class="validation-alert alert-danger">
         <svg lucideAlertTriangle class="alert-icon"></svg>
-        <span>Asignación inferior al mínimo permitido (<span machineData>{{ minimumFloorMB() }} MB</span> para {{ isJudge() ? 'Juez Virtual' : 'Laboratorio IDE' }}). Aumente el valor para aprobar.</span>
+        <span>Asignación inferior al mínimo permitido (<span machineData>{{ minimumFloorMB() }} MB</span> para {{ isJudge() ? 'Entorno de Evaluación' : 'Entorno de Desarrollo' }}). Aumente el valor para aprobar.</span>
       </div>
     }
     @if (isRamExceedingHost()) {

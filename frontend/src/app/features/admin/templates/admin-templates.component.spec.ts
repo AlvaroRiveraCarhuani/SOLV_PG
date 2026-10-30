@@ -274,23 +274,23 @@ describe('AdminTemplatesComponent Spec', () => {
 
   it('getPurposeBadge retorna la etiqueta y variante correcta para cada propósito', () => {
     expect(component.getPurposeBadge('IDE_PERSISTENTE')).toEqual({
-      label: 'Laboratorio IDE',
-      shortLabel: 'LAB IDE',
+      label: 'Entorno de Desarrollo',
+      shortLabel: 'DESARROLLO',
       variant: 'ide'
     });
     expect(component.getPurposeBadge('JUEZ_EFIMERO')).toEqual({
-      label: 'Evaluador Juez',
-      shortLabel: 'JUEZ',
+      label: 'Entorno de Evaluación',
+      shortLabel: 'EVALUACIÓN',
       variant: 'judge'
     });
     expect(component.getPurposeBadge('AMBOS')).toEqual({
-      label: 'Dual: Lab + Juez',
+      label: 'Dual: Desarrollo + Evaluación',
       shortLabel: 'DUAL',
       variant: 'dual'
     });
     expect(component.getPurposeBadge()).toEqual({
-      label: 'Laboratorio IDE',
-      shortLabel: 'LAB IDE',
+      label: 'Entorno de Desarrollo',
+      shortLabel: 'DESARROLLO',
       variant: 'ide'
     });
   });

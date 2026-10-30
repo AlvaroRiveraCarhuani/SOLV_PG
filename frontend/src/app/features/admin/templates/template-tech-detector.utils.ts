@@ -158,12 +158,12 @@ export function getTemplatePurposeBadge(targetEnv?: string): {
   variant: 'ide' | 'judge' | 'dual';
 } {
   if (targetEnv === 'AMBOS') {
-    return { label: 'Dual: Lab + Juez', shortLabel: 'DUAL', variant: 'dual' };
+    return { label: 'Dual: Desarrollo + Evaluación', shortLabel: 'DUAL', variant: 'dual' };
   }
   if (targetEnv === 'JUEZ_EFIMERO' || targetEnv === 'JUEZ_VIRTUAL') {
-    return { label: 'Evaluador Juez', shortLabel: 'JUEZ', variant: 'judge' };
+    return { label: 'Entorno de Evaluación', shortLabel: 'EVALUACIÓN', variant: 'judge' };
   }
-  return { label: 'Laboratorio IDE', shortLabel: 'LAB IDE', variant: 'ide' };
+  return { label: 'Entorno de Desarrollo', shortLabel: 'DESARROLLO', variant: 'ide' };
 }
 
 export function formatByteSize(bytes: number): string {

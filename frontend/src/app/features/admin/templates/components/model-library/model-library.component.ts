@@ -155,9 +155,9 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly purposeFilterComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'ALL', label: 'Todos los propósitos', value: 'ALL' },
-    { id: 'IDE_PERSISTENTE', label: 'IDE Persistente', value: 'IDE_PERSISTENTE' },
-    { id: 'JUEZ_VIRTUAL', label: 'Juez Virtual', value: 'JUEZ_VIRTUAL' },
-    { id: 'AMBOS', label: 'Laboratorio + Evaluador', value: 'AMBOS' }
+    { id: 'IDE_PERSISTENTE', label: 'Entorno de Desarrollo', value: 'IDE_PERSISTENTE' },
+    { id: 'JUEZ_VIRTUAL', label: 'Entorno de Evaluación', value: 'JUEZ_VIRTUAL' },
+    { id: 'AMBOS', label: 'Dual (Desarrollo y Evaluación)', value: 'AMBOS' }
   ]);
 
   readonly selectedPurposeFilterLabel = computed<string>(() => {

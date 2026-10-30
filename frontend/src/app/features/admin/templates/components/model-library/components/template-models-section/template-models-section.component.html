@@ -70,9 +70,9 @@
                   @if (m.target_environment === 'AMBOS') {
                     DUAL
                   } @else if (m.target_environment === 'IDE_PERSISTENTE') {
-                    IDE
+                    DESARROLLO
                   } @else {
-                    JUEZ
+                    EVALUACIÓN
                   }
                 </span>
 
@@ -175,11 +175,11 @@
                   [class.purpose-both]="m.target_environment === 'AMBOS'"
                 >
                   @if (m.target_environment === 'AMBOS') {
-                    Laboratorio + Evaluador
+                    Dual (Desarrollo y Evaluación)
                   } @else if (m.target_environment === 'IDE_PERSISTENTE') {
-                    IDE Persistente
+                    Entorno de Desarrollo
                   } @else {
-                    Juez Virtual
+                    Entorno de Evaluación
                   }
                 </span>
               </td>

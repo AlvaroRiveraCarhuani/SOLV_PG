@@ -29,11 +29,11 @@
           <strong class="bp-env-name">{{ name() || 'Sin nombre definido' }}</strong>
           <span class="bp-meta-pill">
             @if (targetEnvironment() === 'AMBOS') {
-              Laboratorio + Evaluador
+              Dual: Desarrollo + Evaluación
             } @else if (targetEnvironment() === 'IDE_PERSISTENTE') {
-              Laboratorio con Editor
+              Entorno de Desarrollo
             } @else {
-              Evaluador Automático
+              Entorno de Evaluación
             }
           </span>
         </div>

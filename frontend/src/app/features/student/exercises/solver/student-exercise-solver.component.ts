@@ -448,7 +448,7 @@ export class StudentExerciseSolverComponent implements OnInit {
         }
       }
     } catch {
-      this.submitError.set('No se pudo evaluar la solución en el Juez Virtual.');
+      this.submitError.set('No se pudo evaluar la solución en el Entorno de Evaluación.');
     } finally {
       this.isSubmitting.set(false);
     }
