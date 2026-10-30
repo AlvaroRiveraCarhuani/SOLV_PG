@@ -113,7 +113,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   }
 
   showDiffView = signal<boolean>(false);
-  starterBoilerplate = signal<string>('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escribe tu solución aquí\n    return 0;\n}');
+  starterBoilerplate = signal<string>('// Plantilla base del laboratorio\n');
 
   // Time-Travel Replay State
   showReplayPlayer = signal<boolean>(false);
@@ -133,6 +133,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   overrideVerdict = signal<string>('AC');
   overrideScore = signal<number>(100);
   overrideReason = signal<string>('');
+  overrideNotifyStudent = signal<boolean>(true);
   overrideError = signal<string | null>(null);
   isSubmittingOverride = signal<boolean>(false);
 
@@ -361,8 +362,18 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
     this.gradingService.getSubmissionReview(id).subscribe({
       next: (rev) => {
-        if (rev && rev.exercise_id) {
-          this.loadRubric(rev.exercise_id);
+        if (rev) {
+          const code = rev.code || '';
+          if (/^\s*(import\s+|def\s+|class\s+.*:|print\(|from\s+.*import)/m.test(code)) {
+            this.starterBoilerplate.set('def busqueda_binaria(arr, x):\n    # Escriba su solución aquí\n    pass\n');
+          } else if (/^\s*(#include|int\s+main)/m.test(code)) {
+            this.starterBoilerplate.set('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escriba su solución aquí\n    return 0;\n}');
+          } else {
+            this.starterBoilerplate.set('// Plantilla base del laboratorio\n');
+          }
+          if (rev.exercise_id) {
+            this.loadRubric(rev.exercise_id);
+          }
         }
       }
     });
@@ -497,7 +508,16 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.gradingService.runEphemeral(curr.id, {
       code: curr.code,
       language: 'python'
-    }).subscribe();
+    }).subscribe({
+      next: () => {
+        setTimeout(() => {
+          const el = document.querySelector('.ephemeral-result-box');
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 100);
+      }
+    });
   }
 
   openOverrideModal(): void {

@@ -1,6 +1,6 @@
 <modal-shell
-  title="Auditoría Forense: Replay de Escritura"
-  subtitle="Reproducción interactiva de la escritura de código y análisis forense de pegados."
+  title="Auditoría de Escritura y Replay"
+  subtitle="Reproducción interactiva de la escritura de código y análisis forense de inserciones."
   intent="info"
   maxWidth="1020px"
   [showClose]="true"
@@ -16,7 +16,14 @@
       <span>{{ error() }}</span>
     </div>
   } @else if (report(); as rep) {
-    <div class="forensic-replay-container">
+    @if (!rep.events || rep.events.length === 0) {
+      <div class="empty-keystrokes-card">
+        <svg lucideFilm class="empty-icon"></svg>
+        <h3>Sin registro de escritura en vivo</h3>
+        <p>Esta entrega no contiene eventos de tipeo en vivo registrados (posible carga externa o entrega directa de archivo).</p>
+      </div>
+    } @else {
+      <div class="forensic-replay-container">
       <!-- Barra superior de Métricas Forenses -->
       <div class="metrics-grid">
         <div class="metric-card">
@@ -136,6 +143,7 @@
       </div>
     </div>
   }
+}
 
   <div modal-footer class="modal-footer-actions">
     <button type="button" class="btn-outline" (click)="closed.emit()">Cerrar Auditoría</button>

@@ -148,7 +148,7 @@
   }
 
   <!-- Panel de Infracción de Restricciones de Código -->
-  @if (review().verdict === 'AST_BLOCKED' || review().verdict === 'AST_VIOLATION' || review().ast_result) {
+  @if (astViolation(); as violation) {
     <div class="ast-violations-box">
       <div class="ast-header">
         <svg lucideAlertTriangle class="btn-icon-sm text-danger"></svg>
@@ -160,9 +160,9 @@
         <div class="ast-rule-card">
           <div class="rule-title-row">
             <span class="rule-label">Regla violada:</span>
-            <code class="font-mono text-danger" machineData>solv.security.forbidden-system-call</code>
+            <code class="font-mono text-danger" machineData>{{ violation.ruleId }}</code>
           </div>
-          <p class="rule-detail">Detección de invocación prohibida o función no permitida en entorno académico.</p>
+          <p class="rule-detail">{{ violation.detail }}</p>
         </div>
       </div>
     </div>
@@ -191,64 +191,73 @@
     </div>
   }
 
-  <!-- Casos de Prueba (Públicos, Privados o Generados por Semilla) -->
+  <!-- Casos de Prueba (Públicos y Ocultos) -->
   <div class="test-cases-panel">
     <h3 class="panel-section-title">
       Casos de Prueba ({{ review().test_cases.length }})
       @if (review().generated_cases) {
-        <span class="badge-unmasked">Snapshot Generado (Examen)</span>
+        <span class="badge-unmasked">Variante generada por examen</span>
       } @else {
-        <span class="badge-unmasked">Desenmascarados para Docente</span>
+        <span class="badge-unmasked">Casos ocultos visibles para docente</span>
       }
     </h3>
 
     <div class="test-cases-scroll">
-      @for (tc of review().test_cases; track $index; let cIdx = $index) {
-        <div class="test-case-card" [class.tc-passed]="tc.passed" [class.tc-failed]="!tc.passed">
-          <div class="tc-header">
-            <div class="tc-title-box">
-              @if (tc.passed) {
-                <svg lucideCheckCircle class="tc-icon text-success"></svg>
-              } @else {
-                <svg lucideXCircle class="tc-icon text-danger"></svg>
-              }
-              <strong>Caso #{{ cIdx + 1 }}</strong>
-            </div>
-            <div class="tc-header-right">
-              @if (tc.is_hidden) {
-                <span class="badge-hidden">Privado</span>
-              } @else {
-                <span class="badge-public">Público</span>
-              }
-              <button
-                type="button"
-                class="btn-copy-input"
-                (click)="copyCaseInput.emit({ input: tc.input, index: cIdx })"
-                title="Copiar entrada al portapapeles"
-              >
-                <svg lucideCopy class="copy-icon"></svg>
-                <span>{{ copiedIndex() === cIdx ? '¡Copiado!' : 'Copiar' }}</span>
-              </button>
-            </div>
-          </div>
-
-          <div class="tc-body">
-            <div class="io-block">
-              <span class="io-label">Entrada (Input):</span>
-              <pre class="io-content font-mono">{{ tc.input }}</pre>
-            </div>
-            <div class="io-block">
-              <span class="io-label">Salida Esperada:</span>
-              <pre class="io-content font-mono">{{ tc.expected_output }}</pre>
-            </div>
-            @if (tc.actual_output) {
-              <div class="io-block">
-                <span class="io-label">Salida Obtenida:</span>
-                <pre class="io-content font-mono" [class.error-out]="!tc.passed">{{ tc.actual_output }}</pre>
-              </div>
-            }
-          </div>
+      @if (orderedTestCases().length === 0) {
+        <div class="empty-cases-box">
+          <p>No se encontraron casos de prueba automáticos registrados para este ejercicio.</p>
         </div>
+      } @else {
+        @for (tc of orderedTestCases(); track tc.originalIndex) {
+          <div class="test-case-card" [class.tc-passed]="tc.passed" [class.tc-failed]="!tc.passed">
+            <div class="tc-header">
+              <div class="tc-title-box">
+                @if (tc.passed) {
+                  <svg lucideCheckCircle class="tc-icon text-success"></svg>
+                } @else {
+                  <svg lucideXCircle class="tc-icon text-danger"></svg>
+                }
+                <strong>Caso #{{ tc.originalIndex + 1 }}</strong>
+                @if (!tc.passed) {
+                  <span class="status-chip chip-error">Fallido</span>
+                }
+              </div>
+              <div class="tc-header-right">
+                @if (tc.is_hidden) {
+                  <span class="badge-hidden">Oculto</span>
+                } @else {
+                  <span class="badge-public">Público</span>
+                }
+                <button
+                  type="button"
+                  class="btn-copy-input"
+                  (click)="copyCaseInput.emit({ input: tc.input, index: tc.originalIndex })"
+                  title="Copiar entrada al portapapeles"
+                >
+                  <svg lucideCopy class="copy-icon"></svg>
+                  <span>{{ copiedIndex() === tc.originalIndex ? '¡Copiado!' : 'Copiar' }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="tc-body">
+              <div class="io-block">
+                <span class="io-label">Entrada (Input):</span>
+                <pre class="io-content font-mono">{{ tc.input }}</pre>
+              </div>
+              <div class="io-block">
+                <span class="io-label">Salida Esperada:</span>
+                <pre class="io-content font-mono">{{ tc.expected_output }}</pre>
+              </div>
+              @if (tc.actual_output) {
+                <div class="io-block">
+                  <span class="io-label">Salida Obtenida:</span>
+                  <pre class="io-content font-mono" [class.error-out]="!tc.passed">{{ tc.actual_output }}</pre>
+                </div>
+              }
+            </div>
+          </div>
+        }
       }
     </div>
   </div>

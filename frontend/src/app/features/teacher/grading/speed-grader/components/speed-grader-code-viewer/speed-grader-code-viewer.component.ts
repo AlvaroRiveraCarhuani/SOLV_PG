@@ -1,7 +1,8 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { TimeTravelReplayComponent } from '@shared/components/time-travel-replay/time-travel-replay.component';
 import { ComplexityBenchmarkComponent } from '@shared/components/complexity-benchmark/complexity-benchmark.component';
 import {
@@ -21,6 +22,7 @@ type BenchmarkPreset = 'small' | 'standard' | 'stress';
     CommonModule,
     FormsModule,
     DateTextPipe,
+    CodeEditorComponent,
     TimeTravelReplayComponent,
     ComplexityBenchmarkComponent
   ],
@@ -51,4 +53,21 @@ export class SpeedGraderCodeViewerComponent {
   readonly toggleReplay = output<void>();
   readonly toggleBenchmark = output<void>();
   readonly runBenchmark = output<BenchmarkPreset>();
+
+  readonly detectedLanguage = computed(() => {
+    const code = this.review()?.code || '';
+    if (/^\s*(import\s+|def\s+|class\s+.*:|print\(|from\s+.*import)/m.test(code)) {
+      return 'python';
+    }
+    if (/^\s*(#include|int\s+main|std::|void\s+|using\s+namespace)/m.test(code)) {
+      return 'cpp';
+    }
+    if (/^\s*(public\s+class|System\.out\.println|package\s+)/m.test(code)) {
+      return 'java';
+    }
+    if (/^\s*(const\s+|let\s+|function\s+|console\.log|import\s+.*from)/m.test(code)) {
+      return 'javascript';
+    }
+    return 'python';
+  });
 }

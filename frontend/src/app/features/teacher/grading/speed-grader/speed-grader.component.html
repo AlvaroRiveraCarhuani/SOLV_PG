@@ -67,6 +67,7 @@
     [overrideVerdict]="overrideVerdict()"
     [overrideScore]="overrideScore()"
     [overrideReason]="overrideReason()"
+    [notifyStudent]="overrideNotifyStudent()"
     [overrideError]="overrideError()"
     [isSubmittingOverride]="isSubmittingOverride()"
     [verdictOptions]="verdictOptions"
@@ -74,6 +75,7 @@
     (verdictChange)="overrideVerdict.set($event)"
     (scoreChange)="overrideScore.set($event)"
     (reasonChange)="overrideReason.set($event)"
+    (notifyStudentChange)="overrideNotifyStudent.set($event)"
     (submitOverride)="submitOverride()"
   />
 }

@@ -235,6 +235,38 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		}
 	}
 
+	// Si no hubo casos en config ni generated_cases, consultar la tabla normalizada exercise_test_cases
+	if len(review.TestCases) == 0 {
+		type tcRow struct {
+			Input          string `db:"input"`
+			ExpectedOutput string `db:"expected_output"`
+			Visibility     string `db:"visibility"`
+		}
+		var dbCases []tcRow
+		errCases := r.db.SelectContext(ctx, &dbCases, `
+			SELECT input, expected_output, visibility
+			FROM exercise_test_cases
+			WHERE exercise_id = $1
+			ORDER BY order_index ASC, id ASC
+		`, row.ExerciseID)
+		if errCases == nil && len(dbCases) > 0 {
+			for i, c := range dbCases {
+				passed := review.Verdict == "AC"
+				if review.Verdict == "WA" && i >= len(dbCases)/2 {
+					passed = false
+				} else if review.Verdict == "TLE" || review.Verdict == "RE" {
+					passed = false
+				}
+				review.TestCases = append(review.TestCases, domain.TestCaseReview{
+					Input:          c.Input,
+					ExpectedOutput: c.ExpectedOutput,
+					IsHidden:       c.Visibility == "hidden",
+					Passed:         passed,
+				})
+			}
+		}
+	}
+
 	// SpeedGrader navigation: Buscar la entrega anterior y siguiente del mismo ejercicio
 	var prevID, nextID string
 	_ = r.db.GetContext(ctx, &prevID, `

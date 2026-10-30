@@ -1,10 +1,11 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
   LucideArrowLeft,
   LucideChevronLeft,
   LucideChevronRight,
+  LucideChevronDown,
   LucidePlay,
   LucideHistory,
   LucideTrendingUp,
@@ -12,7 +13,9 @@ import {
   LucideTerminal,
   LucideEdit3,
   LucideKeyboard,
-  LucideFilm
+  LucideFilm,
+  LucideSlidersHorizontal,
+  LucideLoader2
 } from '@lucide/angular';
 import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 
@@ -25,6 +28,7 @@ import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
     LucideArrowLeft,
     LucideChevronLeft,
     LucideChevronRight,
+    LucideChevronDown,
     LucidePlay,
     LucideHistory,
     LucideTrendingUp,
@@ -32,7 +36,9 @@ import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
     LucideTerminal,
     LucideEdit3,
     LucideKeyboard,
-    LucideFilm
+    LucideFilm,
+    LucideSlidersHorizontal,
+    LucideLoader2
   ],
   templateUrl: './speed-grader-header.component.html',
   styleUrl: './speed-grader-header.component.scss'
@@ -43,6 +49,8 @@ export class SpeedGraderHeaderComponent {
   readonly showBenchmark = input<boolean>(false);
   readonly showDiffView = input<boolean>(false);
   readonly isRunningEphemeral = input<boolean>(false);
+
+  showToolsMenu = signal<boolean>(false);
 
   readonly goBack = output<void>();
   readonly openKeystrokeReplay = output<void>();

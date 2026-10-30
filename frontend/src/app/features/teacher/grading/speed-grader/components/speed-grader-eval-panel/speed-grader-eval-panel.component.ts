@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -63,4 +63,25 @@ export class SpeedGraderEvalPanelComponent {
   readonly rubricCommentsChange = output<string>();
   readonly saveRubricEvaluation = output<void>();
   readonly copyCaseInput = output<CopyCaseEvent>();
+
+  readonly astViolation = computed<{ ruleId: string; detail: string } | null>(() => {
+    const rev = this.review();
+    if (!rev) return null;
+    if (rev.verdict !== 'AST_BLOCKED' && rev.verdict !== 'AST_VIOLATION') {
+      return null;
+    }
+    const ast = rev.ast_result as Record<string, unknown> | null;
+    const ruleId = (ast?.['rule_id'] as string) || 'solv.security.forbidden-system-call';
+    const detail = (ast?.['message'] as string) || (ast?.['detail'] as string) || 'Detección de invocación prohibida o función no permitida en entorno académico.';
+    return { ruleId, detail };
+  });
+
+  readonly orderedTestCases = computed(() => {
+    const cases = this.review()?.test_cases || [];
+    // Prioridad pedagógica: casos fallidos al inicio para visibilidad inmediata del docente
+    return cases.map((tc, originalIndex) => ({ ...tc, originalIndex })).sort((a, b) => {
+      if (a.passed === b.passed) return a.originalIndex - b.originalIndex;
+      return a.passed ? 1 : -1;
+    });
+  });
 }

@@ -94,14 +94,14 @@ export class KeystrokeReplayModalComponent implements OnInit, OnDestroy {
 
   totalDurationMS = computed<number>(() => {
     const rep = this.report();
-    if (!rep || rep.events.length === 0) return 0;
+    if (!rep || !rep.events || rep.events.length === 0) return 0;
     return rep.total_time_ms > 0 ? rep.total_time_ms : rep.events[rep.events.length - 1].timestamp_ms;
   });
 
   // Events filtered up to the current timestamp
   activeEvents = computed<SubmissionKeystrokeEvent[]>(() => {
     const rep = this.report();
-    if (!rep) return [];
+    if (!rep || !rep.events) return [];
     const t = this.currentTimeMS();
     return rep.events.filter(e => e.timestamp_ms <= t);
   });

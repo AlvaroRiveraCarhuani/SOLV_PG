@@ -48,6 +48,19 @@
         class="form-textarea"
       ></textarea>
     </div>
+
+    <div class="form-checkbox-group">
+      <label class="checkbox-label">
+        <input
+          type="checkbox"
+          [ngModel]="notifyStudent()"
+          (ngModelChange)="notifyStudentChange.emit($event)"
+          class="form-checkbox"
+        />
+        <span>Notificar al estudiante por correo electrónico</span>
+      </label>
+      <span class="checkbox-hint">Envía un resumen de la calificación y retroalimentación al correo del alumno.</span>
+    </div>
   </div>
 
   <div modal-footer class="modal-footer-actions">

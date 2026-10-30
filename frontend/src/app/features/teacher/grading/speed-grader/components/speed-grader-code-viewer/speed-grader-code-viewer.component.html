@@ -22,11 +22,11 @@
     <div class="code-panel-header">
       <span class="panel-label">
         @if (showReplayPlayer()) {
-          Time-Travel Replay: Visualizando evolución en vivo del código
+          Evolución temporal del código del estudiante
         } @else if (showDiffView()) {
-          Diferencias respecto a la Plantilla Base (<span class="diff-tag-add">+ Código alumno</span> / <span class="diff-tag-base">Base</span>)
+          Diferencias respecto a la plantilla base (<span class="diff-tag-add">+ Código del alumno</span> / <span class="diff-tag-base">Plantilla base</span>)
         } @else {
-          Código Fuente Entregado (Hacé clic en el número de línea para comentar <kbd>C</kbd>)
+          Código entregado (Haga clic en una línea para agregar un comentario <kbd>C</kbd>)
         }
       </span>
       <span class="code-time">
@@ -55,61 +55,67 @@
           </tbody>
         </table>
       } @else {
-        <!-- Vista Estándar de Código con Comentarios -->
-        <table class="code-table">
-          <tbody>
-            @for (line of codeLines(); track $index; let idx = $index) {
-              <tr class="code-row" [class.line-selected]="selectedLineNumber() === (idx + 1)">
-                <td class="line-number font-mono" (click)="lineSelected.emit(idx + 1)" title="Comentar en línea {{ idx + 1 }}">
-                  {{ idx + 1 }}
-                </td>
-                <td class="line-content font-mono">
-                  <pre>{{ line || ' ' }}</pre>
-                </td>
-              </tr>
+        <!-- Vista Estándar de Código con CodeMirror -->
+        <div class="code-editor-viewport">
+          <code-editor
+            [value]="review().code"
+            [language]="detectedLanguage()"
+            [readonly]="true"
+            minHeight="420px"
+            maxHeight="none"
+            (lineClick)="lineSelected.emit($event)"
+          />
+        </div>
 
-              <!-- Formulario de Nuevo Comentario In-line -->
-              @if (selectedLineNumber() === (idx + 1)) {
-                <tr class="inline-comment-form-row">
-                  <td colspan="2">
-                    <div class="comment-input-box">
-                      <textarea
-                        rows="2"
-                        placeholder="Escribí un comentario pedagógico para la línea {{ idx + 1 }} (Ctrl+Enter para guardar)..."
-                        [ngModel]="newCommentText()"
-                        (ngModelChange)="newCommentTextChange.emit($event)"
-                        class="form-textarea"
-                      ></textarea>
-                      <div class="comment-actions">
-                        <button class="btn-cancel-sm" (click)="lineSelected.emit(null)">Cancelar</button>
-                        <button class="btn-submit-sm" [disabled]="isAddingComment() || !newCommentText().trim()" (click)="commentSubmitted.emit(idx + 1)">
-                          {{ isAddingComment() ? 'Guardando...' : 'Publicar Comentario' }}
-                        </button>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              }
+        <!-- Formulario de Nuevo Comentario In-line -->
+        @if (selectedLineNumber() !== null) {
+          <div class="inline-comment-section">
+            <div class="comment-input-box">
+              <div class="comment-input-header">
+                <span class="comment-target-badge font-mono">Comentario pedagógico en Línea {{ selectedLineNumber() }}</span>
+              </div>
+              <textarea
+                rows="2"
+                placeholder="Escribí un comentario pedagógico para la línea {{ selectedLineNumber() }} (Ctrl+Enter para guardar)..."
+                [ngModel]="newCommentText()"
+                (ngModelChange)="newCommentTextChange.emit($event)"
+                class="form-textarea"
+              ></textarea>
+              <div class="comment-actions">
+                <button type="button" class="btn-cancel-sm" (click)="lineSelected.emit(null)">Cancelar</button>
+                <button
+                  type="button"
+                  class="btn-submit-sm"
+                  [disabled]="isAddingComment() || !newCommentText().trim()"
+                  (click)="commentSubmitted.emit(selectedLineNumber()!)"
+                >
+                  {{ isAddingComment() ? 'Guardando...' : 'Publicar Comentario' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        }
 
-              <!-- Comentarios Existentes en esta Línea -->
-              @if (commentsByLine().get(idx + 1); as lineComms) {
-                @for (comm of lineComms; track comm.id) {
-                  <tr class="inline-comment-row">
-                    <td colspan="2">
-                      <div class="comment-bubble">
-                        <div class="comment-header">
-                          <span class="comment-author">{{ comm.author_name }}</span>
-                          <time class="comment-date">{{ comm.created_at | dateText:'compact-datetime' }}</time>
-                        </div>
-                        <p class="comment-text">{{ comm.comment }}</p>
-                      </div>
-                    </td>
-                  </tr>
-                }
-              }
+        <!-- Comentarios Existentes en esta Entrega -->
+        @if (review().comments && review().comments.length > 0) {
+          <div class="comments-list-section">
+            <div class="comments-list-header">
+              <span class="comments-count-badge font-mono">{{ review().comments.length }} comentarios pedagógicos</span>
+            </div>
+            @for (comm of review().comments; track comm.id) {
+              <div class="comment-bubble">
+                <div class="comment-header">
+                  <span class="comment-author">
+                    {{ comm.author_name }}
+                    <span class="comment-line-badge font-mono">Línea {{ comm.line_number }}</span>
+                  </span>
+                  <time class="comment-date">{{ comm.created_at | dateText:'compact-datetime' }}</time>
+                </div>
+                <p class="comment-text">{{ comm.comment }}</p>
+              </div>
             }
-          </tbody>
-        </table>
+          </div>
+        }
       }
     </div>
   }

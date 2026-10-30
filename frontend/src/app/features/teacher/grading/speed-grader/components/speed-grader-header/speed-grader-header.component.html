@@ -12,95 +12,135 @@
 
   <div class="header-nav">
     <button
-      class="nav-btn"
+      type="button"
+      class="nav-arrow-btn"
       [disabled]="!review().prev_submission_id"
       [routerLink]="review().prev_submission_id ? ['/teacher/revision', review().prev_submission_id] : null"
-      title="Entrega anterior (K)"
+      title="Entrega anterior (Atajo: K)"
+      aria-label="Entrega anterior"
     >
       <svg lucideChevronLeft class="btn-icon-sm"></svg>
-      <span>Anterior <kbd>K</kbd></span>
     </button>
 
     <div class="student-badge">
-      <strong>{{ review().student_name }}</strong>
+      <strong class="student-name">{{ review().student_name }}</strong>
       <span class="student-email">{{ review().student_email }}</span>
     </div>
 
     <button
-      class="nav-btn"
+      type="button"
+      class="nav-arrow-btn"
       [disabled]="!review().next_submission_id"
       [routerLink]="review().next_submission_id ? ['/teacher/revision', review().next_submission_id] : null"
-      title="Siguiente entrega (J)"
+      title="Siguiente entrega (Atajo: J)"
+      aria-label="Siguiente entrega"
     >
-      <span>Siguiente <kbd>J</kbd></span>
       <svg lucideChevronRight class="btn-icon-sm"></svg>
     </button>
   </div>
 
   <div class="header-actions">
+    <!-- Re-ejecutar prueba rápida -->
     <button
-      class="btn-outline"
-      (click)="openKeystrokeReplay.emit()"
-      title="Ver replay de escritura y auditoría forense de pegados"
-    >
-      <svg lucideFilm class="btn-icon-sm"></svg>
-      <span>Replay de Escritura</span>
-    </button>
-
-    <button
-      class="btn-outline btn-replay-toggle"
-      [class.active]="showReplayPlayer()"
-      (click)="toggleReplay.emit()"
-      title="Time-Travel Replay de Escritura (T)"
-    >
-      <svg lucideHistory class="btn-icon-sm"></svg>
-      <span>Time-Travel Replay <kbd>T</kbd></span>
-    </button>
-
-    <button
-      class="btn-outline"
-      [class.active]="showBenchmark()"
-      (click)="toggleBenchmark.emit()"
-      title="Benchmark de Complejidad Asintótica O(N) (B)"
-    >
-      <svg lucideTrendingUp class="btn-icon-sm"></svg>
-      <span>Benchmark O(N) <kbd>B</kbd></span>
-    </button>
-
-    <button
-      class="btn-outline"
-      [class.active]="showDiffView()"
-      (click)="toggleDiff.emit()"
-      title="Alternar comparación de código (D)"
-    >
-      <svg lucideGitCompare class="btn-icon-sm"></svg>
-      <span>{{ showDiffView() ? 'Código Completo' : 'Comparar con Código Inicial' }} <kbd>D</kbd></span>
-    </button>
-
-    <button
+      type="button"
       class="btn-outline"
       [disabled]="isRunningEphemeral()"
       (click)="runEphemeral.emit()"
+      title="Ejecutar prueba rápida en contenedor"
     >
-      <svg lucidePlay class="btn-icon-sm"></svg>
-      <span>{{ isRunningEphemeral() ? 'Ejecutando...' : 'Re-ejecutar Prueba' }}</span>
+      @if (isRunningEphemeral()) {
+        <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+        <span>Ejecutando...</span>
+      } @else {
+        <svg lucidePlay class="btn-icon-sm"></svg>
+        <span>Re-ejecutar</span>
+      }
     </button>
 
-    <button
-      class="btn-outline"
-      (click)="openShadowTerminal.emit()"
-      title="Inspeccionar Terminal en Vivo (Shadow Mode)"
-    >
-      <svg lucideTerminal class="btn-icon-sm"></svg>
-      <span>Terminal (Shadow)</span>
-    </button>
+    <!-- Menú Desplegable: Herramientas de Análisis -->
+    <div class="tools-dropdown">
+      <button
+        type="button"
+        class="btn-outline btn-tools-toggle"
+        (click)="showToolsMenu.update(v => !v)"
+        [class.active]="showReplayPlayer() || showBenchmark() || showDiffView()"
+        title="Herramientas adicionales de inspección y auditoría"
+      >
+        <svg lucideSlidersHorizontal class="btn-icon-sm"></svg>
+        <span>Herramientas</span>
+        <svg lucideChevronDown class="btn-icon-xs"></svg>
+      </button>
 
-    <button class="btn-primary" (click)="openOverrideModal.emit()" title="Modificar Nota (A)">
+      @if (showToolsMenu()) {
+        <div class="dropdown-menu animate-fade">
+          <button
+            type="button"
+            class="dropdown-item"
+            [class.active]="showDiffView()"
+            (click)="toggleDiff.emit(); showToolsMenu.set(false)"
+            title="Comparar código con la plantilla base (Atajo: D)"
+          >
+            <svg lucideGitCompare class="btn-icon-sm"></svg>
+            <span>{{ showDiffView() ? 'Ver Código Completo' : 'Comparar con Plantilla' }}</span>
+            <kbd>D</kbd>
+          </button>
+
+          <button
+            type="button"
+            class="dropdown-item"
+            [class.active]="showReplayPlayer()"
+            (click)="toggleReplay.emit(); showToolsMenu.set(false)"
+            title="Ver evolución temporal paso a paso (Atajo: T)"
+          >
+            <svg lucideHistory class="btn-icon-sm"></svg>
+            <span>Evolución Temporal del Código</span>
+            <kbd>T</kbd>
+          </button>
+
+          <button
+            type="button"
+            class="dropdown-item"
+            (click)="openKeystrokeReplay.emit(); showToolsMenu.set(false)"
+            title="Abrir auditoría forense de tipeo y pegados"
+          >
+            <svg lucideFilm class="btn-icon-sm"></svg>
+            <span>Auditoría de Escritura (Replay)</span>
+          </button>
+
+          <button
+            type="button"
+            class="dropdown-item"
+            [class.active]="showBenchmark()"
+            (click)="toggleBenchmark.emit(); showToolsMenu.set(false)"
+            title="Análisis de complejidad algorítmica (Atajo: B)"
+          >
+            <svg lucideTrendingUp class="btn-icon-sm"></svg>
+            <span>Análisis de Complejidad Asintótica</span>
+            <kbd>B</kbd>
+          </button>
+
+          <button
+            type="button"
+            class="dropdown-item"
+            (click)="openShadowTerminal.emit(); showToolsMenu.set(false)"
+            title="Abrir consola de supervisión en vivo del alumno"
+          >
+            <svg lucideTerminal class="btn-icon-sm"></svg>
+            <span>Consola del Estudiante</span>
+          </button>
+        </div>
+      }
+    </div>
+
+    <!-- Botón Primario: Calificar -->
+    <button type="button" class="btn-primary" (click)="openOverrideModal.emit()" title="Ajustar calificación o veredicto (Atajo: A)">
       <svg lucideEdit3 class="btn-icon-sm"></svg>
-      <span>Calificar <kbd>A</kbd></span>
+      <span>Calificar</span>
+      <kbd>A</kbd>
     </button>
 
-    <button class="btn-icon-only" (click)="openShortcutsGuide.emit()" title="Guía de Atajos de Teclado (?)">
+    <!-- Atajos de teclado -->
+    <button type="button" class="btn-icon-only" (click)="openShortcutsGuide.emit()" title="Guía de Atajos de Teclado (?)">
       <svg lucideKeyboard class="btn-icon-sm"></svg>
     </button>
   </div>

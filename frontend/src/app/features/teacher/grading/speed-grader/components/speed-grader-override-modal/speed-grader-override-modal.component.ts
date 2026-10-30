@@ -23,6 +23,7 @@ export class SpeedGraderOverrideModalComponent {
   readonly overrideVerdict = input<string>('AC');
   readonly overrideScore = input<number>(100);
   readonly overrideReason = input<string>('');
+  readonly notifyStudent = input<boolean>(true);
   readonly overrideError = input<string | null>(null);
   readonly isSubmittingOverride = input<boolean>(false);
   readonly verdictOptions = input<ComboboxOption[]>([]);
@@ -31,5 +32,6 @@ export class SpeedGraderOverrideModalComponent {
   readonly verdictChange = output<string>();
   readonly scoreChange = output<number>();
   readonly reasonChange = output<string>();
+  readonly notifyStudentChange = output<boolean>();
   readonly submitOverride = output<void>();
 }
