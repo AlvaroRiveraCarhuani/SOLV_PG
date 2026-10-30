@@ -273,10 +273,17 @@
                   <span class="comments-badge font-mono" machineData>{{ sub.comments_count }}</span>
                 </td>
                 <td>
-                  <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade" title="Revisar entrega y rúbrica">
-                    <span>Revisar</span>
-                    <svg lucideExternalLink class="btn-icon-xs"></svg>
-                  </a>
+                  @if (sub.score === undefined || sub.score === null) {
+                    <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade btn-pending" title="Calificar entrega y rúbrica">
+                      <span>Calificar</span>
+                      <svg lucideEdit3 class="btn-icon-xs"></svg>
+                    </a>
+                  } @else {
+                    <a [routerLink]="['/teacher/revision', sub.id]" class="btn-grade btn-evaluated" title="Ver entrega y detalles de calificación">
+                      <span>Ver entrega</span>
+                      <svg lucideExternalLink class="btn-icon-xs"></svg>
+                    </a>
+                  }
                 </td>
               </tr>
             }

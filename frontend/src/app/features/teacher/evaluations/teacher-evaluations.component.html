@@ -175,14 +175,25 @@
                     }
                   </td>
                   <td>
-                    <a
-                      [routerLink]="['/teacher/revision', item.id]"
-                      class="btn-review-action"
-                      title="Abrir panel de revisión para evaluar código y rúbrica"
-                    >
-                      <span>Revisar</span>
-                      <svg lucideExternalLink class="btn-icon-xs"></svg>
-                    </a>
+                    @if (item.score === undefined || item.score === null) {
+                      <a
+                        [routerLink]="['/teacher/revision', item.id]"
+                        class="btn-review-action btn-pending"
+                        title="Calificar entrega del estudiante"
+                      >
+                        <span>Calificar</span>
+                        <svg lucideEdit3 class="btn-icon-xs"></svg>
+                      </a>
+                    } @else {
+                      <a
+                        [routerLink]="['/teacher/revision', item.id]"
+                        class="btn-review-action btn-evaluated"
+                        title="Ver entrega y detalles de calificación"
+                      >
+                        <span>Ver entrega</span>
+                        <svg lucideExternalLink class="btn-icon-xs"></svg>
+                      </a>
+                    }
                   </td>
                 </tr>
               }

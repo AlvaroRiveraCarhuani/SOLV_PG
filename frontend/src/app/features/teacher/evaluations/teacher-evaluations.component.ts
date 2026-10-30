@@ -9,7 +9,8 @@ import {
   LucideAward, 
   LucideSearch, 
   LucideExternalLink,
-  LucideCheckCircle
+  LucideCheckCircle,
+  LucideEdit3
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
@@ -50,6 +51,7 @@ export interface EnrichedQueueItem extends SubmissionQueueItem {
     LucideSearch,
     LucideExternalLink,
     LucideCheckCircle,
+    LucideEdit3,
     MachineDataDirective,
     DateTextPipe,
     SkeletonLoaderComponent,
