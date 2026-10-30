@@ -19,6 +19,8 @@ type TeacherService struct {
 	mailer                 domain.Mailer
 	tenantRepo             domain.TenantRepository
 	reviewStore            domain.TeacherReviewStore
+	overviewStore          domain.TeacherOverviewStore
+	classSessionStore      domain.ClassSessionStore
 	auditRepo              domain.AuditLogRepository
 }
 
@@ -36,6 +38,9 @@ func NewTeacherService(
 	if store, ok := repo.(domain.TeacherReviewStore); ok {
 		svc.reviewStore = store
 	}
+	if store, ok := repo.(domain.TeacherOverviewStore); ok {
+		svc.overviewStore = store
+	}
 	return svc
 }
 
@@ -45,6 +50,12 @@ func (s *TeacherService) SetReviewStore(store domain.TeacherReviewStore) {
 
 func (s *TeacherService) SetAuditRepository(auditRepo domain.AuditLogRepository) {
 	s.auditRepo = auditRepo
+}
+
+// SetClassSessionStore habilita la fila de aula del panel. Sin este almacén el
+// resumen sigue funcionando y simplemente no muestra aula abierta.
+func (s *TeacherService) SetClassSessionStore(store domain.ClassSessionStore) {
+	s.classSessionStore = store
 }
 
 func (s *TeacherService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {
@@ -92,6 +103,62 @@ func (s *TeacherService) GetCoursesSummary(ctx context.Context, tenantID, teache
 		courses = make([]*domain.TeacherCourseSummary, 0)
 	}
 	return courses, nil
+}
+
+// GetTeacherOverview devuelve el read model del panel con los conteos resueltos.
+// Es una sola respuesta: la vista no suma ni agrupa nada.
+func (s *TeacherService) GetTeacherOverview(ctx context.Context, tenantID, teacherID, periodID string) (*domain.TeacherOverview, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if periodID != "" {
+		if _, err := uuid.Parse(periodID); err != nil {
+			return nil, domain.ErrInvalidTenant
+		}
+	}
+	if s.overviewStore == nil {
+		return nil, fmt.Errorf("el repositorio del docente no implementa el resumen del panel")
+	}
+
+	overview, err := s.overviewStore.GetTeacherOverview(ctx, tenantID, teacherID, periodID)
+	if err != nil {
+		return nil, fmt.Errorf("error al obtener el resumen del panel docente: %w", err)
+	}
+	if overview == nil {
+		return nil, domain.ErrNotFound
+	}
+
+	// La fila de aula del panel sale de la misma sesión que usa la pantalla de
+	// aula: dos superficies, un solo hecho. Un fallo aquí no tumba el resumen.
+	if s.classSessionStore != nil {
+		session, err := s.classSessionStore.GetOpenSessionForTeacher(ctx, tenantID, teacherID)
+		if err != nil {
+			return nil, fmt.Errorf("error al obtener el aula abierta del panel: %w", err)
+		}
+		if session != nil {
+			overview.Session = &domain.TeacherOverviewSession{
+				ID:            session.ID,
+				SubjectID:     session.SubjectID,
+				SubjectName:   session.SubjectName,
+				ExerciseTitle: derefString(session.ExerciseTitle),
+				OpensAt:       session.OpensAt,
+				ClosesAt:      session.ClosesAt,
+				Enrolled:      session.Enrolled,
+				Present:       session.Present,
+			}
+		}
+	}
+
+	return overview, nil
+}
+
+// derefString devuelve el valor del puntero o cadena vacía. Existe para no
+// arrastrar punteros al contrato JSON del panel.
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 func (s *TeacherService) GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*domain.TeacherAttentionWidget, error) {

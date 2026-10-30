@@ -16,6 +16,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 			_ = s.repo.UpdateStatus(ctx, instance.ID, domain.WorkspaceStatusRunning)
 			_ = s.repo.RecordHeartbeat(ctx, instance.ID)
 			instance.Status = domain.WorkspaceStatusRunning
+			s.linkSessionToAula(ctx, instance)
 			return instance, nil
 		}
 	}
@@ -93,6 +94,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	instance.ContainerID = &containerID
 	instance.Status = domain.WorkspaceStatusRunning
 	instance.MemoryLimitMB = ramLimitMB
+	s.linkSessionToAula(ctx, instance)
 	return instance, nil
 }
 

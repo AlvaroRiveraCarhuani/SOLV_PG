@@ -24,6 +24,7 @@ type Handlers struct {
 	SubmissionHandler             *SubmissionHandler
 	TeacherInvitationHandler      *TeacherInvitationHandler
 	ClassroomHandler              *ClassroomHandler
+	ClassSessionHandler           *ClassSessionHandler
 	AdminHandler                  *AdminHandler
 	AdminAcademicHandler          *AdminAcademicHandler
 	StudentHandler                *StudentHandler
@@ -58,6 +59,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
+	registerClassSessionRoutes(mux, deps)
 	registerCourseModuleRoutes(mux, deps)
 	registerRubricRoutes(mux, deps)
 	registerNotificationRoutes(mux, deps)
@@ -284,12 +286,22 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 }
 
 func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
-	if deps.StudentHandler == nil {
-		return
-	}
 	tm := deps.TenantMiddleware
 	if tm == nil {
 		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+
+	// Aula de la clase: el alumno consulta si hay aula abierta y emite su
+	// presencia. Sin señal, el tablero del docente no puede decir quién falta.
+	// Se registra aparte del panel del alumno para que el aula funcione aunque
+	// ese handler no esté montado.
+	if deps.ClassSessionHandler != nil {
+		mux.Handle("GET /api/v1/student/sessions/active", tm(http.HandlerFunc(deps.ClassSessionHandler.GetActiveAulas)))
+		mux.Handle("POST /api/v1/student/sessions/{id}/heartbeat", tm(http.HandlerFunc(deps.ClassSessionHandler.PostHeartbeat)))
+	}
+
+	if deps.StudentHandler == nil {
+		return
 	}
 
 	mux.Handle("GET /api/v1/student/dashboard", tm(http.HandlerFunc(deps.StudentHandler.GetDashboard)))
@@ -297,6 +309,27 @@ func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/student/evaluations", tm(http.HandlerFunc(deps.StudentHandler.GetEvaluations)))
 	mux.Handle("GET /api/v1/student/submissions", tm(http.HandlerFunc(deps.StudentHandler.GetSubmissions)))
 	mux.Handle("GET /api/v1/student/courses/{id}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
+}
+
+// registerClassSessionRoutes expone el aula del docente: apertura, cierre,
+// tablero y la sesión abierta actual.
+func registerClassSessionRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.ClassSessionHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("GET /api/v1/teacher/sessions/open", tm(http.HandlerFunc(deps.ClassSessionHandler.GetCurrentAula)))
+	mux.Handle("GET /api/v1/teacher/sessions/{id}/board", tm(http.HandlerFunc(deps.ClassSessionHandler.GetBoard)))
+	mux.Handle("POST /api/v1/teacher/sessions", am(tm(http.HandlerFunc(deps.ClassSessionHandler.OpenAula))))
+	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/close", am(tm(http.HandlerFunc(deps.ClassSessionHandler.CloseAula))))
 }
 
 func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -438,6 +471,7 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	mux.Handle("GET /api/v1/teacher/courses", tm(http.HandlerFunc(deps.TeacherHandler.GetCourses)))
+	mux.Handle("GET /api/v1/teacher/overview", tm(http.HandlerFunc(deps.TeacherHandler.GetOverview)))
 	mux.Handle("GET /api/v1/teacher/attention", tm(http.HandlerFunc(deps.TeacherHandler.GetAttention)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
 	mux.Handle("GET /api/v1/teacher/exercises/bank", tm(http.HandlerFunc(deps.TeacherHandler.GetExerciseBank)))

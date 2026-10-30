@@ -26,6 +26,9 @@ type WorkspaceService struct {
 	exerciseRepo    domain.ExerciseRepository
 	submissionRepo  domain.SubmissionRepository
 	policiesService *ServerPoliciesService
+	// sessionLinker deja constancia de en qué aula nació el entorno. Es opcional:
+	// sin él el ciclo de vida del contenedor funciona igual.
+	sessionLinker domain.ClassSessionWorkspaceLinker
 
 	// satelliteUseMu protege satelliteLastUse: el último momento en que un
 	// laboratorio pidió un motor. Evita que el scale-to-zero apague el satélite en
@@ -66,6 +69,26 @@ func (s *WorkspaceService) WithExerciseSubmission(exerciseRepo domain.ExerciseRe
 func (s *WorkspaceService) SetPoliciesService(policies *ServerPoliciesService) *WorkspaceService {
 	s.policiesService = policies
 	return s
+}
+
+// WithClassSessions enlaza el ciclo de vida del entorno con el aula abierta de
+// la materia, si la hay. El enlace es best-effort: un fallo al registrar la
+// sesión nunca impide que el alumno trabaje.
+func (s *WorkspaceService) WithClassSessions(linker domain.ClassSessionWorkspaceLinker) *WorkspaceService {
+	s.sessionLinker = linker
+	return s
+}
+
+// linkSessionToAula registra el entorno en el aula abierta de la materia y marca
+// la presencia del alumno. Sin aula abierta no hace nada: el trabajo fuera de
+// clase no pertenece a ninguna sesión.
+func (s *WorkspaceService) linkSessionToAula(ctx context.Context, instance *domain.WorkspaceInstance) {
+	if s.sessionLinker == nil || instance == nil {
+		return
+	}
+	if err := s.sessionLinker.AttachWorkspaceToOpenSession(ctx, instance.TenantID, instance.StudentID, instance.SubjectID, instance.ID); err != nil {
+		log.Printf("[Workspace] WARNING: no se pudo enlazar el entorno %s con el aula de la materia %s: %v", instance.ID, instance.SubjectID, err)
+	}
 }
 
 // effectivePolicies resuelve las políticas vigentes del tenant con fallback a
@@ -452,5 +475,9 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 
 	instance.ContainerID = &containerID
 	instance.Status = domain.WorkspaceStatusRunning
+
+	// El entorno acaba de nacer: si la materia tiene aula abierta, se registra
+	// dentro de ella. Es el único momento en que el entorno se asigna a la clase.
+	s.linkSessionToAula(ctx, instance)
 	return instance, nil
 }

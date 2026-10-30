@@ -60,6 +60,35 @@ func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusOK, courses, "Cursos del docente obtenidos exitosamente")
 }
 
+// GetOverview devuelve el resumen del panel docente: aula, cola de corrección,
+// entornos abiertos y materias con sus conteos, en una sola respuesta.
+func (h *TeacherHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	teacherID := r.Header.Get("X-User-Id")
+	periodID := r.URL.Query().Get("period_id")
+
+	if periodID != "" {
+		if _, err := uuid.Parse(periodID); err != nil {
+			SendError(w, http.StatusBadRequest, "invalid period_id", "period_id debe ser un UUID válido")
+			return
+		}
+	}
+
+	overview, err := h.service.GetTeacherOverview(r.Context(), tenantID, teacherID, periodID)
+	if err != nil {
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener el resumen del panel docente")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, overview, "Resumen del panel docente obtenido exitosamente")
+}
+
 func (h *TeacherHandler) GetAttention(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {

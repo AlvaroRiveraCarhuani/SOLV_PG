@@ -169,8 +169,16 @@ func main() {
 	adminHandler.SetOrchestrator(dockerClient)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
 
+	// Aula de la clase: sesión, presencia y tablero. El ciclo de vida del entorno
+	// se enlaza al aula cuando nace dentro de una sesión abierta.
+	classSessionRepo := postgres.NewPostgresClassSessionRepository(db.GetDB())
+	classSessionService := services.NewClassSessionService(classSessionRepo)
+	classSessionHandler := httpdelivery.NewClassSessionHandler(classSessionService)
+	workspaceService.WithClassSessions(classSessionRepo)
+
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
+	teacherService.SetClassSessionStore(classSessionRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
 	teacherService.SetEvaluationService(evaluationService)
 	teacherService.SetMailer(smtpMailer)
@@ -322,6 +330,7 @@ func main() {
 		SubmissionHandler:             subHandler,
 		TeacherInvitationHandler:      httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:              httpdelivery.NewClassroomHandler(),
+		ClassSessionHandler:           classSessionHandler,
 		AdminHandler:                  adminHandler,
 		ServerPoliciesHandler:         serverPoliciesHandler,
 		AISettingsHandler:             aiSettingsHandler,

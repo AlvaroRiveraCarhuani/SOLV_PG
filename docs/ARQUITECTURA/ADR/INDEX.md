@@ -59,5 +59,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 052 | [Banco de Ejercicios como Read Model y Discriminador de Modalidad por Entorno](ADR-052-banco-ejercicios-read-model-y-discriminador-entorno.md) | Aprobado | Core |
 | 053 | [Estado de Revisión Docente Explícito y Celda de Nota por Práctica](ADR-053-revision-docente-y-libreta-de-notas.md) | Aprobado | Docencia |
 | 054 | [Catálogo de Entornos del Docente Centrado en el Stack](ADR-054-catalogo-entornos-docente.md) | Propuesto | Docencia |
+| 055 | [Panel Docente como Read Model por Pregunta y Dueño Declarado de Excepciones](ADR-055-panel-docente-read-model-por-pregunta.md) | Aprobado | Docencia |
+| 056 | [Sesión de Aula como Envoltorio Opcional y Presencia Acotada](ADR-056-sesion-de-aula-y-presencia-acotada.md) | Aprobado | Docencia |
 
 
