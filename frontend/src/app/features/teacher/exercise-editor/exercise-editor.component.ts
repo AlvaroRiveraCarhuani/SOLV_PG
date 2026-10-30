@@ -339,8 +339,8 @@ export class ExerciseEditorComponent implements OnInit {
         this.store.loadExercise(exId, cId);
       }
     } else {
-      // Si es nuevo ejercicio, recuperar borrador local persistido automáticamente si existe
-      this.store.restoreDraftFromStorage();
+      // Al ingresar a crear nuevo laboratorio, iniciar con formulario completamente limpio
+      this.store.resetToNew(cId);
     }
 
     this.aiCopilotService.getStatus().subscribe({

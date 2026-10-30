@@ -192,6 +192,17 @@
                     }
                   </button>
                 }
+                <button
+                  class="btn-review"
+                  (click)="viewLabSubmissions(lab.id)"
+                  [title]="lab.pending_review > 0 ? 'Revisar entregas pendientes de este laboratorio' : 'Ver entregas de este laboratorio'"
+                >
+                  <svg lucideListChecks class="btn-icon-sm"></svg>
+                  <span>{{ lab.pending_review > 0 ? 'Revisar entregas' : 'Ver entregas' }}</span>
+                  @if (lab.pending_review > 0) {
+                    <span class="badge-count font-mono" machineData>{{ lab.pending_review }}</span>
+                  }
+                </button>
                 <a
                   class="btn-outline btn-open-lab"
                   [routerLink]="['/teacher/courses', subjectId(), 'exercises', lab.id, 'preview']"
@@ -220,16 +231,32 @@
   @if (activeTab() === 'submissions') {
     <div class="submissions-view">
       <div class="filters-bar">
-        <label class="filter-label">Filtrar por Veredicto:</label>
-        <div class="filter-combobox-wrapper">
-          <combobox
-            [options]="verdictOptions"
-            [value]="verdictFilter()"
-            (valueChange)="verdictFilter.set($event)"
-            [compact]="true"
-            [showSearchIcon]="false"
-            placeholder="Todos los veredictos"
-          />
+        <div class="filter-group">
+          <label class="filter-label">Laboratorio:</label>
+          <div class="filter-combobox-wrapper">
+            <combobox
+              [options]="labOptions()"
+              [value]="labFilter()"
+              (valueChange)="labFilter.set($event)"
+              [compact]="true"
+              [showSearchIcon]="false"
+              placeholder="Todos los laboratorios"
+            />
+          </div>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Veredicto:</label>
+          <div class="filter-combobox-wrapper">
+            <combobox
+              [options]="verdictOptions"
+              [value]="verdictFilter()"
+              (valueChange)="verdictFilter.set($event)"
+              [compact]="true"
+              [showSearchIcon]="false"
+              placeholder="Todos los resultados"
+            />
+          </div>
         </div>
       </div>
 

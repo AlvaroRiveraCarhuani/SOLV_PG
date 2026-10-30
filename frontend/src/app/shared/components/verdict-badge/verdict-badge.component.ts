@@ -6,7 +6,6 @@ import {
   LucideClock,
   LucideAlertTriangle,
   LucideShieldAlert,
-  LucideLoader2,
   LucideHelpCircle
 } from '@lucide/angular';
 import {
@@ -28,7 +27,6 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
     LucideClock,
     LucideAlertTriangle,
     LucideShieldAlert,
-    LucideLoader2,
     LucideHelpCircle,
     MachineDataDirective
   ],
@@ -63,7 +61,7 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
           <svg lucideShieldAlert class="verdict-icon"></svg>
         }
         @case ('PENDING') {
-          <svg lucideLoader2 class="verdict-icon spin-icon"></svg>
+          <svg lucideClock class="verdict-icon"></svg>
         }
         @default {
           <svg lucideHelpCircle class="verdict-icon"></svg>

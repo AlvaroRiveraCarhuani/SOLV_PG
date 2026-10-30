@@ -53,7 +53,7 @@ export function getVerdictHumanLabel(verdict: string): string {
     case 'VE':
       return 'Error en validación de prueba';
     case 'PENDING':
-      return 'Evaluando entrega';
+      return 'Pendiente de revisión';
     default:
       return 'Sin evaluar';
   }
@@ -78,6 +78,7 @@ export function matchesVerdictFilter(verdict: string | undefined | null, filter:
 
 export const VERDICT_FILTER_OPTIONS: { id: string; label: string; value: string }[] = [
   { id: 'all', label: 'Todos los resultados', value: 'all' },
+  { id: 'PENDING', label: 'Pendiente de revisión', value: 'PENDING' },
   { id: 'AC', label: 'Solución correcta', value: 'AC' },
   { id: 'WA', label: 'Resultado incorrecto', value: 'WA' },
   { id: 'TLE', label: 'Tiempo límite excedido', value: 'TLE' },

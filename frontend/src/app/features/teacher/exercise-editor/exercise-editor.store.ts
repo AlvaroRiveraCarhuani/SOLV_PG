@@ -1114,6 +1114,9 @@ export class ExerciseEditorStore {
     this.rubric.set(null);
     this.checklistReport.set(null);
     this.acceptedWarnings.set(false);
+    this.stepAttempted.set(false);
+    this.hasInteracted.set(false);
+    this.touchedFields.set(new Set<string>());
     if (this.autoSaveTimeout) {
       clearTimeout(this.autoSaveTimeout);
       this.autoSaveTimeout = null;
@@ -1121,6 +1124,17 @@ export class ExerciseEditorStore {
     this.clearLocalDraft();
     this.currentStep.set(1);
     this.initialSnapshot.set(this.serializeState());
+  }
+
+  resetToNew(courseId?: string) {
+    if (courseId) {
+      this.courseId.set(courseId);
+    }
+    this.exerciseId.set(null);
+    this.status.set('draft');
+    this.publishError.set(null);
+    this.publishSuccess.set(false);
+    this.resetDraft();
   }
 
   private serializeState(): string {

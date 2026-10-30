@@ -120,6 +120,7 @@ export class TeacherCourseDetailComponent implements OnInit {
   selectedFuzzExercise = signal<{ id: string; title: string } | null>(null);
 
   verdictFilter = signal<string>('all');
+  labFilter = signal<string>('all');
   publishError = signal<string | null>(null);
   publishSuccessMessage = signal<string | null>(null);
   selectedLabToPublish = signal<TeacherLabStats | null>(null);
@@ -136,9 +137,24 @@ export class TeacherCourseDetailComponent implements OnInit {
   moduleErrorMessage = signal<string | null>(null);
   moduleSuccessMessage = signal<string | null>(null);
 
+  readonly labOptions = computed<ComboboxOption[]>(() => {
+    const defaultOpt: ComboboxOption = { id: 'all', label: 'Todos los laboratorios', value: 'all' };
+    const labOpts: ComboboxOption[] = this.labs().map(l => ({
+      id: l.id,
+      label: l.title,
+      value: l.id
+    }));
+    return [defaultOpt, ...labOpts];
+  });
+
   filteredSubmissions = computed(() => {
-    const filter = this.verdictFilter();
-    return this.submissions().filter(s => matchesVerdictFilter(s.verdict, filter));
+    const verdict = this.verdictFilter();
+    const labId = this.labFilter();
+    return this.submissions().filter(s => {
+      const matchVerdict = matchesVerdictFilter(s.verdict, verdict);
+      const matchLab = labId === 'all' || s.exercise_id === labId;
+      return matchVerdict && matchLab;
+    });
   });
 
   ngOnInit(): void {
@@ -151,6 +167,15 @@ export class TeacherCourseDetailComponent implements OnInit {
     if (tabParam === 'submissions' || tabParam === 'modules' || tabParam === 'labs') {
       this.activeTab.set(tabParam);
     }
+    const labParam = this.route.snapshot.queryParamMap.get('labId');
+    if (labParam) {
+      this.labFilter.set(labParam);
+    }
+  }
+
+  viewLabSubmissions(labId: string): void {
+    this.labFilter.set(labId);
+    this.activeTab.set('submissions');
   }
 
   loadData(): void {

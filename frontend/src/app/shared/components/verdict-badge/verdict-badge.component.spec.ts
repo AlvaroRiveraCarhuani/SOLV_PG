@@ -47,8 +47,8 @@ describe('VerdictBadge mapping logic', () => {
     expect(getVerdictBadgeClass('AST_VIOLATION')).toBe('verdict-ast');
   });
 
-  it('debe mapear PENDING a Evaluando entrega y clase verdict-pending', () => {
-    expect(getVerdictHumanLabel('PENDING')).toBe('Evaluando entrega');
+  it('debe mapear PENDING a Pendiente de revisión y clase verdict-pending', () => {
+    expect(getVerdictHumanLabel('PENDING')).toBe('Pendiente de revisión');
     expect(getVerdictBadgeClass('PENDING')).toBe('verdict-pending');
   });
 

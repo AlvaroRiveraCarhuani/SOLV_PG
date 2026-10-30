@@ -91,3 +91,23 @@ Para evitar la copia entre estudiantes durante parciales o exámenes finales:
 1. En el Paso 1 del Editor, activar la opción **"Generar semilla determinista por estudiante"** (disponible solo si `purpose = 'exam'`).
 2. Cada alumno recibirá un conjunto de datos de prueba único derivado determinísticamente de su ID de estudiante.
 3. El snapshot exacto de casos se almacena en la entrega (`generated_cases`), permitiendo re-ejecutar o auditar la evaluación ante cualquier reclamo.
+
+---
+
+## 8. Gestión de Entregas y Creación de Laboratorios
+
+### Acceso Directo a Entregas por Laboratorio
+- En la pestaña **Guías y Laboratorios** de cada curso, cada tarjeta de laboratorio incluye el botón directo **"Revisar entregas"** (o "Ver entregas"), con un contador visible si existen entregas con revisión manual pendiente.
+- Al pulsar este botón, la interfaz pasa directamente a la pestaña **Cola de Entregas** con el filtro de laboratorio ya seleccionado para ese ejercicio en particular.
+
+### Filtros en la Cola de Entregas
+- La cola de entregas dispone de dos selectores independientes:
+  - **Laboratorio:** Permite aislar las entregas de un ejercicio específico o visualizar todos los laboratorios del curso.
+  - **Veredicto:** Permite filtrar según el resultado (Solución correcta, Resultado incorrecto, Error durante la ejecución, Restricción de código incumplida o Pendiente de revisión).
+
+### Semántica de Entregas en Laboratorios IDE
+- En ejercicios con entorno de desarrollo persistente (IDE), las entregas de los estudiantes esperan la calificación manual con rúbrica del docente. Su estado se muestra claramente como **"Pendiente de revisión"** con un ícono de reloj ámbar, diferenciándolo de procesos en curso.
+
+### Creación Limpia de Laboratorios
+- Al seleccionar **"Nuevo Laboratorio"**, el editor limpia cualquier borrador anterior no publicado y presenta el formulario en blanco listo para comenzar la configuración pedagógica.
+
