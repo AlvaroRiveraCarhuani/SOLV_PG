@@ -732,4 +732,34 @@ INSERT INTO submission_keystroke_events (
 (gen_random_uuid(), 'a2000000-0000-0000-0000-000000000005', 25100, 'insert', 205, '        else:\n            r = m - 1\n', false, NOW() - INTERVAL '4 hours'),
 (gen_random_uuid(), 'a2000000-0000-0000-0000-000000000005', 28900, 'insert', 247, '    return -1\n', false, NOW() - INTERVAL '4 hours');
 
+-- ============================================================================
+-- Remediación idempotente: los laboratorios IDE_PERSISTENTE se corrigen con
+-- rúbrica manual en SpeedGrader, no contra el juez I/O. Se normalizan sus
+-- veredictos automáticos y se retiran sus casos de prueba de demo.
+-- ============================================================================
+UPDATE submissions su
+SET verdict = 'PENDING',
+    score = 0,
+    execution_time_ms = 0,
+    memory_used_mb = 0,
+    graded_by = NULL,
+    manual_override = FALSE,
+    override_reason = ''
+FROM exercises e
+WHERE su.exercise_id = e.id
+  AND e.environment_type = 'IDE_PERSISTENTE'
+  AND su.verdict <> 'PENDING';
+
+DELETE FROM exercise_test_cases tc
+USING exercises e
+WHERE tc.exercise_id = e.id
+  AND e.environment_type = 'IDE_PERSISTENTE';
+
+UPDATE exercises SET type = 'project'
+WHERE type = 'code' AND environment_type = 'IDE_PERSISTENTE';
+
+UPDATE exercises SET type = 'algorithm'
+WHERE type = 'code'
+  AND (environment_type = 'JUEZ_EFIMERO' OR environment_type IS NULL OR environment_type = '');
+
 COMMIT;

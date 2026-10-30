@@ -3,6 +3,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable, tap, map } from 'rxjs';
 import {
   TeacherLabStats,
+  TeacherExerciseBankItem,
   SubmissionQueueItem,
   CreateExerciseRequestDTO,
   UpdateExerciseRequestDTO,
@@ -46,6 +47,13 @@ export class TeacherCourseService {
         this.labs.set(labs);
         this.isLoading.set(false);
       })
+    );
+  }
+
+  /** Banco global de ejercicios del docente (read model agregado por materias). */
+  getExerciseBank(): Observable<TeacherExerciseBankItem[]> {
+    return this.http.get<ApiResponse<TeacherExerciseBankItem[]>>('/api/v1/teacher/exercises/bank').pipe(
+      map(res => res.data || [])
     );
   }
 

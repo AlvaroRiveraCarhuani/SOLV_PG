@@ -144,18 +144,21 @@
             <h2 class="exercise-card-title">{{ lab.title }}</h2>
 
             <div class="tech-spec-tags">
-              <span class="tech-tag font-mono">
-                @if (lab.type === 'DATABASE') {
-                  <svg lucideDatabase class="tag-icon"></svg>
-                  <span>SQL</span>
-                } @else if (lab.type === 'WORKSPACE') {
+              @if (lab.environment_type === 'IDE_PERSISTENTE') {
+                <span class="tech-tag font-mono">
                   <svg lucideTerminal class="tag-icon"></svg>
-                  <span>Workspace</span>
-                } @else {
+                  <span>Workspace Persistente</span>
+                </span>
+              } @else {
+                <span class="tech-tag font-mono">
                   <svg lucideCode class="tag-icon"></svg>
-                  <span>{{ lab.language || 'Python' }}</span>
-                }
-              </span>
+                  <span>Juez Virtual</span>
+                </span>
+              }
+
+              @if (lab.language) {
+                <span class="tech-tag font-mono">{{ lab.language }}</span>
+              }
 
               @if (lab.memory_limit_mb) {
                 <span class="resource-tag font-mono" machineData>{{ lab.memory_limit_mb }} MB RAM</span>
@@ -174,11 +177,11 @@
                 </span>
               </div>
 
-              @if (lab.pending_review > 0) {
+              @if (lab.review_pending > 0) {
                 <div class="stat-item text-warning">
                   <svg lucideClock class="stat-icon"></svg>
                   <span class="stat-text">
-                    <strong machineData>{{ lab.pending_review }}</strong> por revisar
+                    <strong machineData>{{ lab.review_pending }}</strong> por revisar
                   </span>
                 </div>
               }
@@ -196,15 +199,17 @@
 
           <!-- Card Footer Actions -->
           <div class="card-footer">
-            <button
-              type="button"
-              class="btn-card-action"
-              (click)="openFuzzingModal(lab)"
-              title="Generar casos de prueba automáticos mediante Fuzzing"
-            >
-              <svg lucideSparkles class="action-icon"></svg>
-              <span>Fuzzing</span>
-            </button>
+            @if (canFuzz(lab)) {
+              <button
+                type="button"
+                class="btn-card-action"
+                (click)="openFuzzingModal(lab)"
+                title="Generar casos de prueba automáticos mediante Fuzzing"
+              >
+                <svg lucideSparkles class="action-icon"></svg>
+                <span>Fuzzing</span>
+              </button>
+            }
 
             <button
               type="button"

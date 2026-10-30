@@ -6,7 +6,6 @@ import {
   LucidePlus,
   LucideSearch,
   LucideCode,
-  LucideDatabase,
   LucideTerminal,
   LucideSparkles,
   LucideEdit,
@@ -18,20 +17,14 @@ import {
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
-import { TeacherLabStats } from '../models/teacher.models';
+import { TeacherExerciseBankItem, TeacherLabStats } from '../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { FuzzingModalComponent } from '../evaluations/fuzzing-modal/fuzzing-modal.component';
-import { forkJoin, of } from 'rxjs';
-import { catchError } from 'rxjs/operators';
 
-export interface EnrichedLabItem extends TeacherLabStats {
-  subject_id: string;
-  subject_name: string;
-  subject_code: string;
-}
+export type EnrichedLabItem = TeacherExerciseBankItem;
 
 @Component({
   selector: 'teacher-exercises',
@@ -43,7 +36,6 @@ export interface EnrichedLabItem extends TeacherLabStats {
     LucidePlus,
     LucideSearch,
     LucideCode,
-    LucideDatabase,
     LucideTerminal,
     LucideSparkles,
     LucideEdit,
@@ -100,8 +92,8 @@ export class TeacherExercisesComponent implements OnInit {
 
     if (modality !== 'all') {
       items = items.filter(e => {
-        const type = (e.type || 'ALGORITMO').toUpperCase();
-        return type === modality;
+        const env = (e.environment_type || 'JUEZ_EFIMERO').toUpperCase();
+        return env === modality;
       });
     }
 
@@ -149,14 +141,14 @@ export class TeacherExercisesComponent implements OnInit {
 
   modalityComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos', value: 'all' },
-    { id: 'ALGORITMO', label: 'Juez Automático', value: 'ALGORITMO' },
-    { id: 'WORKSPACE', label: 'Laboratorio VS Code', value: 'WORKSPACE' }
+    { id: 'JUEZ_EFIMERO', label: 'Juez Virtual', value: 'JUEZ_EFIMERO' },
+    { id: 'IDE_PERSISTENTE', label: 'IDE Persistente (Workspace)', value: 'IDE_PERSISTENTE' }
   ]);
 
   selectedModalityLabel = computed(() => {
     const sel = this.modalityFilter();
-    if (sel === 'ALGORITMO') return 'Juez Automático';
-    if (sel === 'WORKSPACE') return 'Laboratorio VS Code';
+    if (sel === 'JUEZ_EFIMERO') return 'Juez Virtual';
+    if (sel === 'IDE_PERSISTENTE') return 'IDE Persistente (Workspace)';
     return 'Todos';
   });
 
@@ -199,28 +191,10 @@ export class TeacherExercisesComponent implements OnInit {
           this.isLoading.set(false);
           return;
         }
-
-        const requests = coursesList.map(c =>
-          this.courseService.getCourseLabs(c.id).pipe(
-            catchError(() => of([] as TeacherLabStats[]))
-          )
-        );
-
-        forkJoin(requests).subscribe({
-          next: responses => {
-            const aggregated: EnrichedLabItem[] = [];
-            responses.forEach((labs, index) => {
-              const course = coursesList[index];
-              labs.forEach(lab => {
-                aggregated.push({
-                  ...lab,
-                  subject_id: course.id,
-                  subject_name: course.name,
-                  subject_code: course.code
-                });
-              });
-            });
-            this.allExercises.set(aggregated);
+        // Read model del banco: agrega materias y semántica de revisión por entorno.
+        this.courseService.getExerciseBank().subscribe({
+          next: (bank) => {
+            this.allExercises.set(bank);
             this.isLoading.set(false);
           },
           error: () => this.isLoading.set(false)
@@ -228,6 +202,12 @@ export class TeacherExercisesComponent implements OnInit {
       },
       error: () => this.isLoading.set(false)
     });
+  }
+
+  // Los casos de prueba I/O pertenecen al juez virtual; los laboratorios IDE
+  // se corrigen con rúbrica en SpeedGrader y no ofrecen fuzzing.
+  canFuzz(lab: EnrichedLabItem): boolean {
+    return (lab.environment_type || 'JUEZ_EFIMERO').toUpperCase() === 'JUEZ_EFIMERO';
   }
 
 

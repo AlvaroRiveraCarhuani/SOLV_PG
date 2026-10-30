@@ -1704,6 +1704,40 @@ SET action = EXCLUDED.action, metadata = EXCLUDED.metadata, created_at = EXCLUDE
 COMMIT;
 
 -- ============================================================================
+-- B13b. Normalización del entorno IDE (remediación idempotente de demo)
+-- Los laboratorios IDE_PERSISTENTE se corrigen con rúbrica manual en
+-- SpeedGrader: no pasan por el juez I/O. Las submissions con veredictos
+-- automáticos (AC/WA/RE/TLE/AST_BLOCKED) y casos de prueba de ejercicios IDE
+-- eran data de demo; se normalizan a la semántica real (PENDING y sin casos).
+-- Re-ejecutable sin efectos secundarios.
+-- ============================================================================
+UPDATE submissions su
+SET verdict = 'PENDING',
+    score = 0,
+    execution_time_ms = 0,
+    memory_used_mb = 0,
+    graded_by = NULL,
+    manual_override = FALSE,
+    override_reason = ''
+FROM exercises e
+WHERE su.exercise_id = e.id
+  AND e.environment_type = 'IDE_PERSISTENTE'
+  AND su.verdict <> 'PENDING';
+
+DELETE FROM exercise_test_cases tc
+USING exercises e
+WHERE tc.exercise_id = e.id
+  AND e.environment_type = 'IDE_PERSISTENTE';
+
+-- Type canónico según entorno (aliado de la migración 00033)
+UPDATE exercises SET type = 'project'
+WHERE type = 'code' AND environment_type = 'IDE_PERSISTENTE';
+
+UPDATE exercises SET type = 'algorithm'
+WHERE type = 'code'
+  AND (environment_type = 'JUEZ_EFIMERO' OR environment_type IS NULL OR environment_type = '');
+
+-- ============================================================================
 -- B14. Verificación (para validación visual)
 -- ============================================================================
 -- 1. Resumen por curso de Carlos:

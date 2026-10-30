@@ -298,6 +298,7 @@ type TeacherRepository interface {
 	GetCoursesSummary(ctx context.Context, tenantID, teacherID, periodID string) ([]*TeacherCourseSummary, error)
 	GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*TeacherAttentionWidget, error)
 	GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*TeacherLabStats, error)
+	GetTeacherExerciseBank(ctx context.Context, tenantID, teacherID string) ([]*TeacherExerciseBankItem, error)
 	ListCourseSubmissions(ctx context.Context, tenantID, teacherID, subjectID, exerciseID, verdict string) ([]*SubmissionQueueItem, error)
 	GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*TeacherSubmissionReviewDTO, error)
 	AddComment(ctx context.Context, comment *SubmissionComment) error

@@ -56,7 +56,7 @@ export interface TeacherLabStats {
   id: string;
   title: string;
   status: 'draft' | 'published';
-  type?: 'algorithm' | 'database' | 'workspace' | string;
+  type?: 'algorithm' | 'database' | 'project' | string;
   language?: string;
   boilerplate?: string;
   template_id?: string;
@@ -69,6 +69,30 @@ export interface TeacherLabStats {
   pending_review: number;
   at_risk: number;
   verdicts_summary?: Record<string, number>;
+}
+
+/**
+ * Read model del banco de ejercicios del docente. La modalidad se deriva de
+ * `environment_type` (JUEZ_EFIMERO | IDE_PERSISTENTE); `review_pending` usa la
+ * semántica de cada entorno (veredictos por revisar en juez, entregas PENDING
+ * de SpeedGrader en IDE).
+ */
+export interface TeacherExerciseBankItem {
+  id: string;
+  title: string;
+  status: 'draft' | 'published' | 'closed';
+  type: 'algorithm' | 'database' | 'project' | string;
+  environment_type: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE' | string;
+  language: string;
+  memory_limit_mb: number;
+  time_limit_ms: number;
+  due_date?: string;
+  subject_id: string;
+  subject_code: string;
+  subject_name: string;
+  submissions_count: number;
+  students_count: number;
+  review_pending: number;
 }
 
 export interface SubmissionComment {

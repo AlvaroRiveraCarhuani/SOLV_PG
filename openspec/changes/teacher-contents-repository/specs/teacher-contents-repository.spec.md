@@ -3,7 +3,7 @@
 ## Requirements
 
 ### R1: Banco Global de Ejercicios (`/teacher/exercises`)
-1. El componente `TeacherExercisesComponent` debe cargar y agregar en una sola lista reactiva todos los ejercicios y laboratorios pertenecientes a los cursos asignados al docente.
+1. El componente `TeacherExercisesComponent` debe consumir el read model `GET /api/v1/teacher/exercises/bank`, que agrega en una sola lista todos los ejercicios y laboratorios de las materias asignadas al docente, con datos reales: `environment_type`, `type`, lenguaje, límites RAM/tiempo, materia (código/nombre) y métricas de entrega.
 2. Debe proveer KPIs agregados:
    - Total de Ejercicios
    - Laboratorios Publicados
@@ -11,13 +11,16 @@
    - Total de Entregas Recibidas
 3. Debe permitir filtrar por:
    - Materia / Curso asignado
-   - Modalidad (`ALGORITMO`, `DATABASE`, `WORKSPACE`)
+   - Entorno (`environment_type`): `JUEZ_EFIMERO` (Juez Virtual) y `IDE_PERSISTENTE` (IDE Persistente)
    - Estado (`all`, `published`, `draft`)
    - Búsqueda textual por título o descripción del ejercicio.
-4. Cada tarjeta o fila de ejercicio debe exponer:
-   - Título, tipo de laboratorio, lenguaje/runtime, límites de recursos (RAM/tiempo).
-   - Cantidad de entregas y estudiantes.
-   - Acciones: Editar ejercicio (abre `ExerciseEditorModalComponent`), Generar Casos Fuzzing (abre `FuzzingModalComponent`), e Ir al curso.
+4. La modalidad se deriva únicamente de `environment_type`; la columna `type` queda acotada a `algorithm | database | project` (CHECK en base de datos, migración `00033`).
+5. El contador de revisión por tarjeta usa `review_pending` con semántica por entorno: juez → veredictos `WA/RE/TLE` sin override; IDE → entregas `PENDING` en la cola de SpeedGrader.
+6. Cada tarjeta o fila de ejercicio debe exponer:
+   - Título, entorno (Juez Virtual / Workspace Persistente), lenguaje/runtime real, límites de recursos (RAM/tiempo).
+   - Cantidad de entregas y `review_pending`.
+   - Acciones: **Fuzzing solo para entornos `JUEZ_EFIMERO`** (abre `FuzzingModalComponent`), Editar ejercicio (abre el editor), e Ir al curso.
+7. Los casos de prueba I/O y el fuzzing son exclusivos del juez virtual: `BulkAddTestCases` rechaza ejercicios `IDE_PERSISTENTE` (error `ErrTestCasesRequireJudge`), que se corrigen con rúbrica en SpeedGrader.
 
 ### R2: Catálogo de Plantillas Docentes (`/teacher/templates`)
 1. El componente `TeacherTemplatesComponent` debe consumir las plantillas disponibles vía servicio o API `/api/v1/templates`.

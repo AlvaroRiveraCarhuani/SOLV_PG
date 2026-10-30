@@ -26,6 +26,10 @@ func (m *mockTeacherAnalyticsRepo) GetAttentionWidget(ctx context.Context, tenan
 func (m *mockTeacherAnalyticsRepo) GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*domain.TeacherLabStats, error) {
 	return nil, nil
 }
+
+func (m *mockTeacherAnalyticsRepo) GetTeacherExerciseBank(ctx context.Context, tenantID, teacherID string) ([]*domain.TeacherExerciseBankItem, error) {
+	return nil, nil
+}
 func (m *mockTeacherAnalyticsRepo) ListCourseSubmissions(ctx context.Context, tenantID, teacherID, subjectID, exerciseID, verdict string) ([]*domain.SubmissionQueueItem, error) {
 	return nil, nil
 }

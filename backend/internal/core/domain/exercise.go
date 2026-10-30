@@ -235,6 +235,7 @@ var (
 	ErrMissingReferenceSolution          = errors.New("el ejercicio requiere una solución de referencia antes de ser publicado")
 	ErrExerciseStale                     = errors.New("el ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
 	ErrPayloadMismatchForEnvironmentType = errors.New("payload_mismatch_for_environment_type: los campos del payload no coinciden con el tipo de entorno (environment_type) seleccionado")
+	ErrTestCasesRequireJudge             = errors.New("test_cases_require_judge_environment: los casos de prueba I/O solo aplican a ejercicios de juez virtual (JUEZ_EFIMERO); los laboratorios IDE se corrigen con rúbrica en SpeedGrader")
 )
 
 type DryRunJobStatus string

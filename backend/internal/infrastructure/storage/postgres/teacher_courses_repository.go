@@ -315,6 +315,100 @@ func (r *PostgresTeacherRepository) GetAttentionWidget(ctx context.Context, tena
 	return widget, nil
 }
 
+// GetTeacherExerciseBank consolida el read model del banco de ejercicios del
+// docente a través de todas sus materias. ReviewPending usa la semántica de cada
+// entorno: juez -> veredictos WA/RE/TLE sin override; IDE -> entregas PENDING
+// esperando corrección manual en SpeedGrader.
+func (r *PostgresTeacherRepository) GetTeacherExerciseBank(ctx context.Context, tenantID, teacherID string) ([]*domain.TeacherExerciseBankItem, error) {
+	type bankRow struct {
+		ID               string       `db:"id"`
+		Title            string       `db:"title"`
+		Status           string       `db:"status"`
+		Type             string       `db:"type"`
+		EnvironmentType  string       `db:"environment_type"`
+		Language         string       `db:"language"`
+		MemoryLimitMB    int          `db:"memory_limit_mb"`
+		TimeLimitMS      int          `db:"time_limit_ms"`
+		DueDate          sql.NullTime `db:"due_date"`
+		SubjectID        string       `db:"subject_id"`
+		SubjectCode      string       `db:"subject_code"`
+		SubjectName      string       `db:"subject_name"`
+		SubmissionsCount int          `db:"submissions_count"`
+		StudentsCount    int          `db:"students_count"`
+		ReviewPending    int          `db:"review_pending"`
+	}
+
+	query := `
+		SELECT
+			e.id,
+			e.title,
+			COALESCE(e.status, 'draft') AS status,
+			e.type,
+			e.environment_type,
+			e.language,
+			e.memory_limit_mb,
+			e.time_limit_ms,
+			e.due_date,
+			s.id AS subject_id,
+			s.code AS subject_code,
+			s.name AS subject_name,
+			(SELECT COUNT(*) FROM submissions su WHERE su.exercise_id = e.id AND su.tenant_id = $1) AS submissions_count,
+			(SELECT COUNT(DISTINCT en.student_id) FROM enrollments en WHERE en.subject_id = e.subject_id AND en.tenant_id = $1) AS students_count,
+			CASE
+				WHEN e.environment_type = 'IDE_PERSISTENTE' THEN
+					(SELECT COUNT(*) FROM submissions su
+					 WHERE su.exercise_id = e.id AND su.tenant_id = $1 AND su.verdict = 'PENDING')
+				ELSE
+					(SELECT COUNT(*) FROM submissions su
+					 WHERE su.exercise_id = e.id AND su.tenant_id = $1
+					   AND su.verdict IN ('WA', 'RE', 'TLE')
+					   AND (su.manual_override IS FALSE OR su.manual_override IS NULL))
+			END AS review_pending
+		FROM exercises e
+		JOIN subjects s ON s.id = e.subject_id
+		WHERE e.tenant_id = $1
+		  AND s.tenant_id = $1
+	`
+	args := []any{tenantID}
+	if teacherID != "" {
+		query += ` AND s.teacher_id = $2`
+		args = append(args, teacherID)
+	}
+	query += `
+		ORDER BY s.code, e.created_at ASC
+	`
+
+	var rows []bankRow
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, fmt.Errorf("failed to list teacher exercise bank: %w", err)
+	}
+
+	items := make([]*domain.TeacherExerciseBankItem, 0, len(rows))
+	for _, row := range rows {
+		item := &domain.TeacherExerciseBankItem{
+			ID:               row.ID,
+			Title:            row.Title,
+			Status:           row.Status,
+			Type:             row.Type,
+			EnvironmentType:  row.EnvironmentType,
+			Language:         row.Language,
+			MemoryLimitMB:    row.MemoryLimitMB,
+			TimeLimitMS:      row.TimeLimitMS,
+			SubjectID:        row.SubjectID,
+			SubjectCode:      row.SubjectCode,
+			SubjectName:      row.SubjectName,
+			SubmissionsCount: row.SubmissionsCount,
+			StudentsCount:    row.StudentsCount,
+			ReviewPending:    row.ReviewPending,
+		}
+		if row.DueDate.Valid {
+			item.DueDate = &row.DueDate.Time
+		}
+		items = append(items, item)
+	}
+	return items, nil
+}
+
 func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*domain.TeacherLabStats, error) {
 	// Verificar existencia de la materia y aislamiento por tenant
 	var exists bool

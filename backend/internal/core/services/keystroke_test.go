@@ -76,6 +76,9 @@ func (r *stubTeacherRepoForKeystroke) GetAttentionWidget(_ context.Context, _, _
 func (r *stubTeacherRepoForKeystroke) GetCourseLabsStats(_ context.Context, _, _, _ string) ([]*domain.TeacherLabStats, error) {
 	return nil, nil
 }
+func (r *stubTeacherRepoForKeystroke) GetTeacherExerciseBank(_ context.Context, _, _ string) ([]*domain.TeacherExerciseBankItem, error) {
+	return nil, nil
+}
 func (r *stubTeacherRepoForKeystroke) ListCourseSubmissions(_ context.Context, _, _, _, _, _ string) ([]*domain.SubmissionQueueItem, error) {
 	return nil, nil
 }

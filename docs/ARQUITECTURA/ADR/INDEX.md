@@ -56,5 +56,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 049 | [Telemetría de Host Persistida y Estados de Reconciliación (`unknown` / `orphaned`)](ADR-049-telemetria-de-host-persistida-y-estados-de-reconciliacion.md) | Aprobado | Core |
 | 050 | [Servicios Satélite Declarativos por Rol, Pin del Entorno y Contratos de Capacidad y Aislamiento](ADR-050-servicios-satelite-por-rol.md) | Aprobado | Core |
 | 051 | [PostgreSQL de Aula como Satélite Dedicado y Separación del Motor de Plataforma](ADR-051-postgresql-aula-como-satelite-dedicado.md) | Aprobado | Core |
+| 052 | [Banco de Ejercicios como Read Model y Discriminador de Modalidad por Entorno](ADR-052-banco-ejercicios-read-model-y-discriminador-entorno.md) | Aprobado | Core |
 
 

@@ -24,6 +24,15 @@ Permite a los docentes diseñar laboratorios, monitorear el estado de los alumno
 - **Estado:** Activo
 - **Decisión:** Los casos de prueba con `is_hidden = true` se desenmascaran únicamente para peticiones autenticadas con rol `teacher` o `admin`. El rol `student` recibe `403 Forbidden` en rutas de revisión docente.
 
+### ADR-052: Banco de Ejercicios como Read Model y Discriminador de Modalidad por Entorno
+- **Estado:** Aprobado / Implementado
+- **Decisión:**
+  1. `environment_type` (`JUEZ_EFIMERO | IDE_PERSISTENTE`) es el discriminador único de modalidad; `type` queda acotado a `algorithm | database | project` con CHECK (migración `00033`), eliminando el valor legacy `'code'` de los seeds.
+  2. El banco del docente consume un read model dedicado (`GET /api/v1/teacher/exercises/bank`) con datos reales (entorno, lenguaje, límites, materia) y `review_pending` con semántica por entorno (juez: WA/RE/TLE sin override; IDE: entregas PENDING de SpeedGrader).
+  3. El fuzzing y los casos I/O son exclusivos del juez virtual: `BulkAddTestCases` rechaza ejercicios `IDE_PERSISTENTE` (`ErrTestCasesRequireJudge`).
+  4. Los seeds normalizan de forma idempotente los laboratorios IDE (veredictos automáticos → `PENDING`, sin casos de prueba).
+  5. La UI filtra por entorno y expone Fuzzing solo en tarjetas de juez.
+
 ---
 
 ## Restricciones y Reglas Invariables

@@ -265,6 +265,12 @@ func (s *EvaluationService) BulkAddTestCases(ctx context.Context, exerciseID, te
 			MemoryLimitMB: ex.MemoryLimitMB,
 		}
 	}
+	// Invariante de modalidad: los casos de prueba I/O pertenecen al juez
+	// virtual (JUEZ_EFIMERO). Los laboratorios IDE_PERSISTENTE se corrigen con
+	// rúbrica en SpeedGrader, no contra casos I/O.
+	if ex.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) {
+		return domain.ErrTestCasesRequireJudge
+	}
 	for i := range testCases {
 		testCases[i].Normalize()
 		if err := testCases[i].Validate(); err != nil {

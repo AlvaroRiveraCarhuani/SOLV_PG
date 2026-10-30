@@ -6,7 +6,7 @@ import { RouterTestingModule } from '@angular/router/testing';
 import { Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
-import { TeacherCourseSummary, TeacherLabStats } from '../models/teacher.models';
+import { TeacherCourseSummary, TeacherExerciseBankItem } from '../models/teacher.models';
 
 describe('TeacherExercisesComponent', () => {
   let component: TeacherExercisesComponent;
@@ -27,7 +27,7 @@ describe('TeacherExercisesComponent', () => {
     {
       id: 'course-2',
       code: 'CS102',
-      name: 'Bases de Datos',
+      name: 'Desarrollo Web',
       students_count: 30,
       active_now: 6,
       pending_review: 0,
@@ -35,51 +35,54 @@ describe('TeacherExercisesComponent', () => {
     }
   ];
 
-  const mockLabsCourse1: TeacherLabStats[] = [
+  const mockBank: TeacherExerciseBankItem[] = [
     {
       id: 'lab-1',
       title: 'Árboles Binarios AVL',
       status: 'published',
-      type: 'ALGORITMO',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
       language: 'python',
       memory_limit_mb: 256,
       time_limit_ms: 2000,
+      subject_id: 'course-1',
+      subject_code: 'CS101',
+      subject_name: 'Estructuras de Datos',
       submissions_count: 15,
       students_count: 25,
-      auto_graded: 10,
-      pending_review: 2,
-      at_risk: 1
+      review_pending: 2
     },
     {
       id: 'lab-2',
       title: 'Grafos y Dijkstra',
       status: 'draft',
-      type: 'ALGORITMO',
+      type: 'algorithm',
+      environment_type: 'JUEZ_EFIMERO',
       language: 'cpp',
       memory_limit_mb: 128,
       time_limit_ms: 1000,
+      subject_id: 'course-1',
+      subject_code: 'CS101',
+      subject_name: 'Estructuras de Datos',
       submissions_count: 0,
       students_count: 25,
-      auto_graded: 0,
-      pending_review: 0,
-      at_risk: 0
-    }
-  ];
-
-  const mockLabsCourse2: TeacherLabStats[] = [
+      review_pending: 0
+    },
     {
       id: 'lab-3',
-      title: 'Consultas Complejas SQL',
+      title: 'API REST y Modelo de Dominio',
       status: 'published',
-      type: 'DATABASE',
-      language: 'sql',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE',
+      language: 'typescript',
       memory_limit_mb: 512,
-      time_limit_ms: 3000,
+      time_limit_ms: 5000,
+      subject_id: 'course-2',
+      subject_code: 'CS102',
+      subject_name: 'Desarrollo Web',
       submissions_count: 20,
       students_count: 30,
-      auto_graded: 20,
-      pending_review: 0,
-      at_risk: 0
+      review_pending: 20
     }
   ];
 
@@ -90,11 +93,7 @@ describe('TeacherExercisesComponent', () => {
     };
 
     mockCourseService = {
-      getCourseLabs: vi.fn().mockImplementation((courseId: string) => {
-        if (courseId === 'course-1') return of(mockLabsCourse1);
-        if (courseId === 'course-2') return of(mockLabsCourse2);
-        return of([]);
-      })
+      getExerciseBank: vi.fn().mockReturnValue(of(mockBank))
     };
 
     await TestBed.configureTestingModule({
@@ -110,7 +109,7 @@ describe('TeacherExercisesComponent', () => {
     fixture.detectChanges();
   });
 
-  it('should aggregate all labs from all courses and calculate KPI metrics correctly', () => {
+  it('should load the bank read model and calculate KPI metrics correctly', () => {
     expect(component.courses().length).toBe(2);
     expect(component.allExercises().length).toBe(3);
 
@@ -127,15 +126,15 @@ describe('TeacherExercisesComponent', () => {
 
     component.courseFilter.set('course-2');
     expect(component.filteredExercises().length).toBe(1);
-    expect(component.filteredExercises()[0].title).toBe('Consultas Complejas SQL');
+    expect(component.filteredExercises()[0].title).toBe('API REST y Modelo de Dominio');
   });
 
-  it('should filter exercises by modality', () => {
-    component.modalityFilter.set('DATABASE');
+  it('should filter exercises by environment (juez vs IDE persistente)', () => {
+    component.modalityFilter.set('IDE_PERSISTENTE');
     expect(component.filteredExercises().length).toBe(1);
     expect(component.filteredExercises()[0].id).toBe('lab-3');
 
-    component.modalityFilter.set('ALGORITMO');
+    component.modalityFilter.set('JUEZ_EFIMERO');
     expect(component.filteredExercises().length).toBe(2);
   });
 
@@ -151,6 +150,14 @@ describe('TeacherExercisesComponent', () => {
     expect(component.filteredExercises()[0].id).toBe('lab-1');
   });
 
+  it('should expose fuzzing only for juez virtual exercises, not IDE persistente', () => {
+    const juez = component.allExercises().find(e => e.id === 'lab-1')!;
+    const ide = component.allExercises().find(e => e.id === 'lab-3')!;
+
+    expect(component.canFuzz(juez)).toBe(true);
+    expect(component.canFuzz(ide)).toBe(false);
+  });
+
   it('should navigate to create and edit routes correctly', () => {
     const router = TestBed.inject(Router);
     const navSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -162,7 +169,7 @@ describe('TeacherExercisesComponent', () => {
     expect(navSpy).toHaveBeenCalledWith(['/teacher/courses', 'course-1', 'exercises', 'lab-1', 'edit']);
   });
 
-  it('should open and close fuzzing modal correctly', () => {
+  it('should open and close fuzzing modal for a judge exercise', () => {
     component.openFuzzingModal(component.allExercises()[0]);
     expect(component.isFuzzingOpen()).toBe(true);
     expect(component.exerciseForFuzzing()?.id).toBe('lab-1');

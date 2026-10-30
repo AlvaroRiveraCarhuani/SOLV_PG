@@ -106,6 +106,22 @@ func (s *TeacherService) GetCourseLabsStats(ctx context.Context, tenantID, teach
 	return stats, nil
 }
 
+// GetTeacherExerciseBank devuelve el banco de ejercicios del docente con
+// semántica de revisión por entorno (juez vs IDE).
+func (s *TeacherService) GetTeacherExerciseBank(ctx context.Context, tenantID, teacherID string) ([]*domain.TeacherExerciseBankItem, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	items, err := s.repo.GetTeacherExerciseBank(ctx, tenantID, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = make([]*domain.TeacherExerciseBankItem, 0)
+	}
+	return items, nil
+}
+
 func (s *TeacherService) GetLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
 	if tenantID == "" {
 		return nil, domain.ErrInvalidTenant
