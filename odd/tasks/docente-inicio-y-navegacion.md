@@ -45,11 +45,18 @@ Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§2.4, §3.1
 
 ## Tasks
 
-- [ ] **S1**: navegación por horizonte de trabajo con conteo de pendientes.
-- [ ] **S2**: pantalla Hoy con sus cinco estados.
-- [ ] **S3**: retiro de widgets, del servicio de layout y del endpoint sin consumidor.
-- [ ] **S4**: materias como lista con búsqueda y orden por pendientes.
-- [ ] **S5**: actualizar `DASHBOARD.md` y `MAPA_DE_VISTAS.md`.
+- [x] **S1**: navegación por horizonte de trabajo. Entregado con los bloques `HOY` (Inicio), `DOCENCIA` (Aula · Por calificar), `CONTENIDOS`, `SUPERVISIÓN` y `CUENTA`. Los destinos "Mis materias" y "Notas" no entran porque no existen como pantalla: la tabla de materias del inicio las cubre hasta la etapa 3, cuando la materia tenga sus pestañas.
+- [x] **S2**: pantalla Hoy con sus estados. Se alimenta de `GET /api/v1/teacher/overview`, que resuelve período, fila de trabajo, cola y materias en cuatro consultas agregadas sin bucle por materia. Estados: esqueleto al cargar, filas ocultas sin contenido, vacío de materias con el selector de período, error con reintento que conserva lo cargado.
+- [x] **S3**: retiro de widgets y del uso docente del servicio de layout. `dashboard-kpi-widget`, `dashboard-attention-widget` y `dashboard-courses-widget` se eliminan; la telemetría y la terminal de sombra pasan a `aula/`. `GET /api/v1/teacher/attention` se conserva **con motivo declarado y sin consumidor**: retirarlo arrastra la suite de integración de la entrega anterior y su reemplazo (`signals` del resumen) llega en la etapa 2. Queda anotado en `REDISENO_PANEL_DOCENTE.md` §12.
+- [x] **S4**: sustituido por la tabla de materias del inicio con inscritos, entornos abiertos, por calificar y sin entregar. Se descarta la lista con buscador: con los conteos resueltos en el servidor, la tabla se lee sin desplazar y no hace falta una pantalla propia de materias hasta la etapa 3.
+- [x] **S5**: `DASHBOARD.md` congelado con puntero al rediseño; `MAPA_DE_VISTAS.md` con las rutas reales del rol docente y las fichas de Hoy y Aula.
+
+## Verificación ejecutada (2026-10-30)
+
+- `npx ng build` sin errores.
+- `npm run lint:styles` en verde: inline-styles, date-format, machine-data y stylelint.
+- Specs del área: 17 tests en 3 archivos (Hoy, aula-telemetry-widget, shadow-terminal-modal) en verde.
+- `go build ./...` y `TestSlice18_TeacherOverview_ReadModel` contra base real: la cola, los entornos abiertos y la tabla no discrepan; 403 para estudiante; 400 para `period_id` inválido.
 
 ## Log
 

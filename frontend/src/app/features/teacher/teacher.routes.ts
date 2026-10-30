@@ -12,6 +12,10 @@ export const TEACHER_ROUTES: Routes = [
       import('./dashboard/teacher-dashboard.component').then(m => m.TeacherDashboardComponent)
   },
   {
+    path: 'aula',
+    loadComponent: () => import('./aula/aula.component').then(m => m.AulaComponent)
+  },
+  {
     path: 'cursos/:id',
     loadComponent: () =>
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)

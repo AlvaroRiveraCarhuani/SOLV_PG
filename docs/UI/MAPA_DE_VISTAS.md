@@ -49,13 +49,16 @@ graph TD
 │   ├── /admin/configuracion ............ Períodos académicos, marca institucional y servidor
 │   └── /admin/auditoria ................ Registro inmutable de eventos y trazabilidad
 │
-├── /docente (Rol: Docente)
-│   ├── /docente/dashboard .............. Resumen de cursos, cola de revisión y alertas críticas
-│   ├── /docente/cursos/:id ............. Detalle de curso (estudiantes, laboratorios y métricas)
-│   ├── /docente/laboratorios/nuevo ..... Asistente de configuración de laboratorio (IDE o Juez)
-│   ├── /docente/laboratorios/:id/editar  Modificación de parámetros y fechas de entrega
-│   ├── /docente/laboratorios/:id/monitoreo Radar en tiempo real de contenedores de alumnos
-│   └── /docente/juez ................... Banco de problemas algorítmicos, tests y auditoría
+├── /teacher (Rol: Docente)
+│   ├── /teacher/dashboard .............. Hoy: qué espera al docente, con la tabla de materias
+│   ├── /teacher/aula ................... Qué pasa ahora en clase: entornos abiertos y telemetría
+│   ├── /teacher/por-calificar .......... Cola de corrección agrupada por práctica
+│   ├── /teacher/cursos/:id ............. Materia: prácticas, entregas, alumnos y libreta
+│   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
+│   ├── /teacher/exercises .............. Banco de ejercicios del docente
+│   ├── /teacher/templates .............. Catálogo de plantillas de entorno
+│   ├── /teacher/anti-plagio ............ Similitud estructural entre entregas
+│   └── /teacher/configuracion .......... Preferencias de asistencia con IA
 │
 └── /estudiante (Rol: Estudiante)
     ├── /estudiante/dashboard ........... Cuaderno académico (cursos, hojas de trabajo y entregas)
@@ -115,16 +118,19 @@ graph TD
 
 ## 4. Rol Docente: Fichas Técnicas de Pantallas
 
-### 4.1. Dashboard del Docente (`/docente/dashboard`)
-* **Propósito:** Centro de control diario del profesor para gestionar sus cursos y atender requerimientos urgentes de alumnos.
+### 4.1. Hoy (`/teacher/dashboard`)
+* **Propósito:** Responder una sola pregunta: qué espera al docente hoy. Especificación completa en [DOCENTE/REDISENO_PANEL_DOCENTE.md](DOCENTE/REDISENO_PANEL_DOCENTE.md).
 * **Información que muestra:**
-  * Saludo contextual con alertas priorizadas (entregas por revisar, bloqueos de Semgrep, contenedores caídos).
-  * Selector de Período Académico activo.
-  * Grilla de Cursos a Cargo: Tarjetas con nombre de materia, código de comisión, total de alumnos inscritos y cantidad de laboratorios abiertos.
-  * Panel Lateral "Atención Requerida": Lista de incidentes pedagógicos o técnicos que demandan intervención inmediata.
+  * Una línea de cabecera con la fecha y el período académico.
+  * Filas de trabajo que se ocultan sin contenido: la práctica por vencer (o el aula abierta), la cola de corrección y los entornos abiertos.
+  * Tabla de materias con inscritos, entornos abiertos ahora, entregas por calificar y alumnos sin entregar.
+* **Contratos:** `GET /api/v1/teacher/overview?period_id=`, refrescado cada 60 segundos. Todas las cifras las calcula el servidor.
 * **Acciones:**
-  * `[+ Crear Laboratorio]` — Acceso directo al asistente de creación.
-  * Clic en tarjeta de curso — Navega a `/docente/cursos/:id`.
+  * Clic en el nombre de la materia — Navega a `/teacher/cursos/:id`.
+  * `[Calificar]` — Navega a `/teacher/por-calificar`.
+  * `[Ver entornos]` — Navega a `/teacher/aula`.
+  * `[Abrir aula]` en la cabecera, solo cuando no hay aula abierta — Navega a `/teacher/aula` para abrir la sesión.
+  * `[Ir al aula]` en la fila de sesión — Navega a `/teacher/aula` con el tablero de la clase en curso.
 
 ### 4.2. Detalle de Curso (`/docente/cursos/:id`)
 * **Propósito:** Gestión interna de una materia específica mediante 3 pestañas:
@@ -144,13 +150,22 @@ graph TD
   * `[Guardar Borrador]` — Guarda los cambios sin hacer visible el laboratorio a los alumnos.
   * `[Publicar a la Clase]` — Habilita el laboratorio en el calendario de los estudiantes.
 
-### 4.4. Radar de Monitoreo en Tiempo Real (`/docente/laboratorios/:id/monitoreo`)
-* **Propósito:** Observar en directo a la clase durante el desarrollo de una sesión de laboratorio.
-* **Información que muestra:**
-  * Grilla de Alumnos: Tarjeta por estudiante indicando si está conectado, tiempo de actividad, estado del contenedor (`running`, `hibernated`, `failed`).
-* **Acciones por Alumno:**
-  * `[Auditar Entorno]` — Abre una sesión de inspección en modo lectura sobre el contenedor del alumno.
-  * `[Reiniciar Contenedor]` — Permite levantar nuevamente el contenedor de un estudiante en caso de bloqueo.
+### 4.4. Aula (`/teacher/aula`)
+* **Propósito:** Responder una sola pregunta mientras ocurre la clase: quién está, quién falta y quién se trabó. Con aula abierta muestra el tablero de la sesión; sin aula muestra el formulario de apertura y, si hay entornos encendidos, su telemetría, sin lista de faltantes y sin botón de cerrar.
+* **Contratos:** `GET /api/v1/teacher/sessions/open`, `GET /api/v1/teacher/sessions/{id}/board` (refresco cada 5 segundos), `POST /api/v1/teacher/sessions` y `PATCH /api/v1/teacher/sessions/{id}/close`.
+* **Información que muestra (con aula):**
+  * Cabecera con materia, hora de apertura y de fin, práctica de la sesión, presentes sobre inscritos y `[Cerrar aula]`.
+  * Marcador: "Todo en orden: N de M entregaron, 0 trabados" o los chips de trabados, sin entregar, sin empezar y salieron.
+  * Tabla de alumnos con estado (trabado, sin empezar, salió, entregó, trabajando), hora y veredicto de la entrega, intentos y entorno, con filtros y búsqueda.
+  * Telemetría acotada a los entornos de la materia de la sesión.
+* **Información que muestra (sin aula):** formulario de apertura —materia y práctica publicada opcional— y los entornos abiertos ahora de todas las materias.
+* **Acciones:**
+  * `[Abrir aula]` — Abre la sesión de una materia con una duración (por defecto 1 h 30); una segunda aula abierta en la misma materia responde conflicto.
+  * `[Cerrar aula]` — Cierra la sesión; es idempotente y corta la presencia de esa clase.
+  * Cierre por vencimiento — al llegar a `ends_at` el aula se cierra sola en la siguiente lectura o apertura, sin proceso periódico. La pantalla deja el modo en vivo y avisa a qué hora se cerró; la materia queda libre para abrir otra aula.
+  * `[Consola]` — Abre la terminal de sombra del entorno del alumno, con la sesión auditada.
+* **Presencia:** la emite el cliente del alumno cada minuto sobre el aula abierta de sus materias (`GET /api/v1/student/sessions/active`, `POST /api/v1/student/sessions/{id}/heartbeat`). Una señal de más de 120 segundos no cuenta.
+* **Fuera de alcance:** reiniciar contenedores y ajustar recursos son acciones del administrador; el docente no opera infraestructura. El modo proyección, la agrupación de excepciones por causa y la actualización por SSE están especificados y pendientes.
 
 ### 4.5. Juez Virtual — Auditoría y Calificación (`/docente/juez`)
 * **Propósito:** Banco de ejercicios algorítmicos y revisión manual de código entregado.
@@ -176,6 +191,7 @@ graph TD
 * **Acciones:**
   * `[Iniciar Laboratorio]` / `[Continuar Trabajo]` — Abre la vista inmersiva del laboratorio activo.
   * `[Ver Retroalimentación]` — Muestra los comentarios y la nota otorgada por el docente.
+* **Presencia en el aula:** el layout del estudiante consulta cada minuto si sus materias tienen un aula abierta (`GET /api/v1/student/sessions/active`) y emite su señal (`POST /api/v1/student/sessions/{id}/heartbeat`) mientras la pestaña está visible. Esa señal es la que el docente ve como "dentro" en `/teacher/aula`; se corta al cerrarse el aula o al dejar de estar matriculado.
 
 ### 5.2. Laboratorio Activo en Modo Inmersivo (`/estudiante/laboratorios/:id`)
 * **Propósito:** Espacio de desarrollo libre de distracciones donde el 95%+ del área visual corresponde a **OpenVSCode Server**.

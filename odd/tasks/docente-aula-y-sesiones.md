@@ -1,85 +1,52 @@
-# Feature: Aula en Vivo por Sesión de Laboratorio
+# Feature: Aula en Vivo por Sesión de Clase
 
 Objetivo: que el docente pueda entrar a una práctica mientras ocurre, ver el estado real de sus alumnos y actuar sobre lo que pasa ahora, sin mezclarlo con el trabajo pendiente del curso.
-Branch: `feat/teacher-live-session` (desde `main` tras `feat/teacher-review-and-gradebook`) | Delivery strategy: ask-on-risk | Test runner: `go test ./...` & `npm run test:ci`
 
-Forecast de líneas autoradas: ~1800 (backend ~900, frontend ~800, docs ~100). Supera el presupuesto de 400 → entrega en cadena por spec, no en un solo cambio.
-
-Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§2.2, §3.2, §5).
+Estado: **etapa 2 entregada (2026-10-30)**. Alcance cerrado: `class_sessions` con abrir y cerrar, presencia acotada a la sesión y la pantalla de aula con faltantes y trabados. Lo que no entró está en §Pendientes.
+Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§5.2, §6, §12.1) · [ADR-056](../../docs/ARQUITECTURA/ADR/ADR-056-sesion-de-aula-y-presencia-acotada.md).
 
 ## Decisiones cerradas
 
-- **La sesión es la unidad que faltaba.** `lab_sessions` + `session_participants`. Una sesión abierta por materia (índice único parcial). Motivo: hoy no existe nada que signifique "esta clase está pasando", así que lo "en vivo" se aproxima con heartbeats globales y dos widgets dan cifras distintas de activos.
-- **La sesión se ata al alumno, no al contenedor.** El workspace se enlaza si ya existe; no se crea ni se migra ninguno. Motivo: no tocar el ciclo de vida de Docker que hoy funciona.
-- **Estar en la sesión y tener entorno vivo son dos cosas.** El read model expone `in_session` y `has_live_environment` por separado. Motivo: en un juez efímero no hay contenedor y aun así el alumno está en clase; si se mezclan, se reproduce la contradicción actual.
-- **Un entorno abierto fuera de sesión no aparece en el aula.** Aparece en Materia.
-- **Solo las excepciones con dueño docente entran al aula.** OOM y contenedor caído son de admin; la regla de código bloqueada dentro de sesión es del docente; fuera de sesión es bitácora.
-- **Presencia con ventana.** Participante con `last_seen_at` dentro de 120 s. Sin heartbeat de workspace, la fila sigue mostrando al alumno como presente pero sin entorno.
-- **Ver código en vivo exige consentimiento.** El código entregado es visible siempre; el editor sin entregar requiere que el alumno acepte por sesión, y cada acceso queda auditado con actor y hora.
-- **Asistencia registrada, sin módulo de asistencia.** Se guarda `joined_at` y `left_at`, con exportación CSV y política de retención documentada. No hay pantalla de pasar lista.
-- **La lista tiene un orden que sirve para dar clase.** Excepciones del docente primero (trabados, sin empezar), luego quienes entregaron, luego el resto; alfabético dentro de cada grupo.
-- **El aula es consola, no grid.** Lista maestra a la izquierda, detalle a la derecha. Treinta tarjetas no se escanean; treinta filas de 44 px sí.
+- **La sesión es la unidad que faltaba.** Se llama `class_sessions`, no `lab_sessions`: la clase es la que tiene hora, no la práctica. Una sesión abierta por materia, garantizada por índice parcial único. Motivo: sin esa entidad nada significa "esta clase está pasando" y lo "en vivo" se aproxima con heartbeats globales.
+- **La sesión es opcional.** Una práctica se trabaja sin aula abierta y el panel no se rompe: sin sesión, la pantalla muestra los entornos encendidos y ninguna lista de faltantes, porque no hay conjunto contra el cual contar.
+- **La sesión se ata al alumno, no al contenedor.** `class_session_participants` es la presencia; `workspaces.session_id` solo deja constancia de en qué aula nació un entorno. Un fallo al enlazar nunca impide que el alumno trabaje.
+- **Presencia con ventana.** Participante con `last_seen_at` dentro de 120 s. El alumno consulta sus aulas abiertas cada minuto y late solo con la pestaña visible; un 409 (aula cerrada) o un 403 (dejó de estar matriculado) corta el latido.
+- **Estar en el aula y tener entorno vivo son dos cosas.** La fila muestra las dos por separado: un juez efímero no tiene contenedor y el alumno sigue en clase.
+- **Solo las excepciones con dueño docente entran al aula.** OOM y contenedor caído son del admin; el bloqueo de código o el error repetido dentro de la clase son del docente.
+- **El aula es lista, no grid.** Una fila por alumno con un solo punto de color por estado.
+- **El cliente no suma ni recorta.** El estado de cada fila y los conteos del marcador se resuelven en SQL, sobre las mismas filas que la pantalla pinta.
 
-## Specs
+## Specs entregadas
 
-- **S1 — Esquema de sesión.**
-  - Migración `backend/migrations/00035_lab_sessions.sql` (Up/Down):
-    - `lab_sessions(id, tenant_id, subject_id, exercise_id NULL, module_id NULL, opened_by, status CHECK ('scheduled','open','closed'), opens_at, closes_at, instructions TEXT DEFAULT '', created_at, updated_at)`.
-    - Índice único parcial `(subject_id) WHERE status='open'`.
-    - `session_participants(session_id, student_id, joined_at, last_seen_at, left_at, workspace_id NULL, code_view_consented_at NULL)` con PK `(session_id, student_id)`.
-  - Criterio: abrir una segunda sesión en la misma materia falla con conflicto de dominio, no con error de base de datos.
-
-- **S2 — Dominio y ciclo de vida.**
-  - `domain/lab_session.go` con transiciones `scheduled → open → closed`, apertura y cierre idempotentes, y validación de que `exercise_id` pertenece a la materia.
-  - Unirse con sesión abierta o programada; si está cerrada, se rechaza salvo configuración de la sesión (`allow_late_join`, por defecto falso).
-  - Criterio: cerrar dos veces devuelve el mismo estado sin error; unirse a una sesión cerrada sin permiso devuelve 409.
-
-- **S3 — Presencia y tablero.**
-  - `TeacherSessionStore.Board(ctx, tenantID, sessionID)` con una sola consulta agregada (sin N+1): por alumno `{student_id, name, joined_at, last_seen_at, in_session, has_live_environment, submitted_at, exercise_state, outcome, exceptions[]}`.
-  - Estado del alumno: `sin_empezar | empezando | trabado | entregado | ausente`.
-  - Criterio: con 30 participantes y 30 workspaces, el tablero se resuelve en una consulta y responde por debajo de 150 ms en local.
-
-- **S4 — Excepciones con dueño.**
-  - Read model de excepciones con `owner ∈ {docente, alumno, sistema, admin}` y filtro fijo `owner='docente'` en el tablero.
-  - Agrupación por causa: mismo error de compilación en N alumnos, misma regla bloqueada, mismo caso de prueba fallido.
-  - Criterio: 8 alumnos con el mismo error aparecen como una fila de grupo con "8", no como 8 filas.
-
-- **S5 — Acciones del aula.**
-  - `POST /api/v1/teacher/sessions` (abrir), `PATCH /{id}/close`, `POST /{id}/join` (alumno), `PATCH /{id}/heartbeat`, `GET /{id}/board`.
-  - `POST /{id}/messages` con destinatario individual o grupo (`student_ids`), que crea notificación `in_app` con `event_type` y `metadata`.
-  - `POST /{id}/participants/{student_id}/consent` para habilitar la vista de código en vivo; `GET /{id}/participants/{student_id}/code` exige consentimiento vigente y escribe auditoría.
-  - Modalidad IDE: `POST /api/v1/teacher/workspaces/{id}/extend-memory` y `/restart`, reutilizando el servicio de workspaces existente.
-  - Criterio: sin consentimiento, el endpoint de código devuelve 403 y deja rastro en auditoría; la consigna al grupo crea una notificación por alumno.
-
-- **S6 — Frontend: consola del aula.**
-  - `teacher/session/:id` con `session-header`, `student-row` y `exception-row`; filtros con `status-tabs`, búsqueda con `search-bar`, detalle sin modal.
-  - Un solo punto de color por fila según estado; todo lo demás con `var(--text-*)` y `var(--border-subtle)`; valores técnicos con `[machineData]`; fechas con `dateText` dentro de `<time>`.
-  - Estado silencioso "Todo en orden: 24 de 28 entregaron, 0 trabados" cuando no hay excepciones.
-  - Teclado: flechas para moverse, Enter para abrir, foco visible; `aria-live="polite"` en el contador de excepciones.
-  - Modo proyección: oculta el sidebar, sube la tipografía y muestra solo el avance del grupo.
-  - Criterio: la pantalla cabe sin scroll horizontal a 1100×640 útiles; con datos de 30 alumnos se ve el estado del grupo sin desplazarse.
-
-- **S7 — Actualización en vivo.**
-  - Tablero por SSE (`GET /api/v1/teacher/sessions/{id}/stream`) con evento cada cambio de estado; reconexión con `EventSource` y fallback a sondeo de 5 s.
-  - Indicador de frescura: "actualizado hace N s" en ámbar cuando la conexión cae, sin borrar la lista.
-  - Criterio: cortar la red deja la lista visible con el indicador; al volver, se recupera sin recargar.
-
-- **S8 — Verificación y documentación indivisible.**
-  - `go vet ./...` + `go test ./...`; integración nueva sobre `solv_test` con una sesión de dos alumnos, cierre y reintento de unión.
-  - `npm run lint:styles && npm run lint:ts && npm run test:ci && CI=true npm run build`.
-  - ADR nuevo (sesión de laboratorio, presencia y propiedad de excepciones, con alternativas descartadas: atar workspace a sesión, presencia por heartbeat global) y entrada en `INDEX.md`.
-  - `docs/API_CONTRACTS.md` con el bloque de sesiones; `docs/UI/DOCENTE/` con la vista del aula y su política de retención de asistencia.
+- **S1 — Esquema de sesión.** `backend/migrations/00036_class_sessions.sql` (Up/Down): `class_sessions(id, tenant_id, subject_id, exercise_id NULL, status CHECK ('open','closed'), opens_at, closes_at NULL, created_by, instructions, created_at, updated_at)`, índice parcial único `(tenant_id, subject_id) WHERE status='open'`, `class_session_participants` con PK `(session_id, student_id)` y `workspaces.session_id` nullable. `backend/migrations/00037_class_session_ends_at.sql` agrega `ends_at` (fin previsto), rellena las filas existentes con su cierre o 90 minutos desde la apertura, y lo declara `NOT NULL`.
+- **S2 — Dominio y ciclo de vida.** `core/domain/class_session.go` y `core/services/class_session_service.go`: abrir dos veces la misma materia devuelve `ErrSessionAlreadyOpen` (409), cerrar dos veces devuelve el mismo estado, y un docente ajeno no ve ni cierra el aula. La práctica de la sesión debe pertenecer a la materia. La duración se elige al abrir (90 min por defecto, 15–480); fuera de rango es `ErrSessionDurationInvalid` (400).
+- **S2.1 — Cierre por vencimiento.** El repositorio cierra las aulas vencidas de la institución antes de abrir, leer el aula actual, armar el tablero, listar las aulas del alumno o registrar un latido: `UPDATE ... WHERE status='open' AND ends_at <= NOW()` más el `left_at` de sus participantes, en una sola sentencia con CTE. No hay proceso periódico que operar.
+- **S3 — Presencia y tablero.** `PostgresClassSessionRepository.Board` resuelve sesión y alumnos en dos consultas fijas, sin bucle por alumno. Estado por fila: `trabado | sin_empezar | ausente | entregado | trabajando`, calculado en SQL y devuelto ya ordenado por urgencia docente.
+- **S4 — Endpoints.** `POST /api/v1/teacher/sessions` (`subject_id`, `exercise_id?`, `duration_minutes?`), `PATCH /api/v1/teacher/sessions/{id}/close`, `GET /api/v1/teacher/sessions/open`, `GET /api/v1/teacher/sessions/{id}/board`, `GET /api/v1/student/sessions/active`, `POST /api/v1/student/sessions/{id}/heartbeat`.
+- **S5 — Frontend.** `/teacher/aula` con cabecera de sesión (apertura y fin), marcador silencioso ("Todo en orden: N de M entregaron, 0 trabados"), filtros por estado, búsqueda, tabla de alumnos y telemetría acotada a la materia de la sesión. Sin aula, formulario de apertura con duración y entornos abiertos; si el aula anterior venció, lo dice con su hora. La cabecera de "Hoy" lleva `[Abrir aula]` cuando no hay sesión y la fila de sesión cuando la hay.
+- **S6 — Presencia del alumno.** `ClassPresenceService` arranca con el layout del estudiante y late cada minuto.
+- **S7 — Verificación.** `go build ./...`, `TestSlice19_ClassSession_Aula` (apertura, conflicto, docente ajeno, presencia por señal, alumno no matriculado, orden del tablero, cierre idempotente, duración fuera de rango y aula vencida que deja abrir otra), `ng build`, `npm run lint:styles`, `eslint` y las pruebas del panel.
 
 ## Tasks
 
-- [ ] **S1**: migración de sesiones y participantes con su índice único parcial.
-- [ ] **S2**: ciclo de vida de la sesión y reglas de unión, con tests de transición.
-- [ ] **S3**: read model del tablero en una sola consulta.
-- [ ] **S4**: excepciones con dueño y agrupación por causa.
-- [ ] **S5**: endpoints de apertura, tablero, consigna, consentimiento y acciones de entorno.
-- [ ] **S6**: consola del aula con orden por excepción, estado silencioso, teclado y modo proyección.
-- [ ] **S7**: SSE con fallback y comunicación de frescura.
-- [ ] **S8**: matriz de verificación, ADR, contratos y documentación de la vista.
+- [x] **S1**: migración de sesiones y participantes con su índice parcial único.
+- [x] **S2**: ciclo de vida de la sesión con errores de dominio y no de base de datos.
+- [x] **S3**: tablero en dos consultas fijas, con el estado calculado en SQL.
+- [x] **S4**: endpoints de apertura, cierre, sesión actual, tablero y latido del alumno.
+- [x] **S5**: consola del aula con orden por excepción, estado silencioso y filtros.
+- [x] **S6**: señal de presencia desde el cliente del alumno.
+- [x] **S7**: matriz de verificación, ADR-056, contratos y documentación de la vista.
+- [x] **S8**: hora de fin al abrir y cierre por vencimiento, sin proceso periódico.
+
+## Pendientes
+
+- Modo proyección (sidebar oculto, tipografía mayor, avance del grupo con nombres grandes).
+- Agrupación de excepciones por causa y bloque `signals` en el resumen del panel.
+- Código sin entregar con consentimiento del alumno y acceso auditado.
+- Actualización por SSE con marca de frescura; hoy es sondeo de 5 s.
+- Resumen de trabados para el trabajo fuera de clase ("3 alumnos se trabaron desde tu última visita").
+- Prórroga de una clase en curso: hoy, si la clase se extiende, el docente cierra y abre otra aula.
+- Exportación de asistencia en CSV.
 
 ## Log
 
@@ -87,5 +54,5 @@ Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§2.2, §3.2
 - **L2 (verbatim):** "Solo lo entregado, y en vivo solo con consentimiento (Recomendado)" — respuesta a la visibilidad del código del alumno.
 - **L3 (verbatim):** "Sí, registro exportable (Recomendado)" — respuesta sobre asistencia.
 - **L4 (verbatim):** "ahora mimso el sistema no es para poner asistencias ni nada parecido, si hay paralelos, la idea tambien es que un docente con un curso pueda tener muchos laboratorios, asi esta en la bd" — de ahí el supuesto de un paralelo por materia y la ausencia de módulo de asistencia.
-- **Hallazgo verificado:** no existe tabla de sesión ni de participantes; lo "en vivo" sale de `workspaces.last_heartbeat_at`, y la telemetría cuenta `running|active|pending`, de ahí las dos cifras distintas de activos.
-- **Hallazgo verificado:** `notifications` guarda `event_type`, `metadata` y `link`, suficiente para que la consigna se componga con el vocabulario del cliente sin prosa en el backend.
+- **Hallazgo verificado:** no existía tabla de sesión ni de participantes; lo "en vivo" salía de `workspaces.last_heartbeat_at`, y la telemetría contaba `running|active|pending`, de ahí las dos cifras distintas de activos.
+- **Hallazgo verificado:** un mismo docente puede tener varias materias con aula abierta, así que la pantalla toma una sesión por vez (la más reciente) y la fila del panel muestra esa misma.

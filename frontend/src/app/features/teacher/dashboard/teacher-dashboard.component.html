@@ -1,67 +1,76 @@
 <div class="dashboard-container">
-  <!-- Header / Greeting Reactivo -->
+  <!-- Header: Título, fecha, período, botón Abrir Aula y Personalizar -->
   <header class="dashboard-header">
-    <div class="header-titles">
-      <h1 class="page-title">Panel de Control Docente</h1>
-      <p class="page-subtitle">Monitoreo de cohortes, alertas del juez y gestión académica de materias.</p>
+    <div class="header-left">
+      <div class="title-with-date">
+        <h1 class="page-title">Panel de Control</h1>
+        <time class="header-date font-mono">{{ today | dateText:'daymonthyear' }}</time>
+      </div>
+      <p class="page-subtitle">Gestión de cursos, revisiones pendientes e incidencias académicas.</p>
     </div>
 
-    @if (greetingMessage(); as msg) {
-      <div class="alert-banner" [class.banner-critical]="msg.type === 'critical'" [class.banner-warning]="msg.type === 'warning'" [class.banner-info]="msg.type === 'info'">
-        @if (msg.type === 'critical') {
-          <svg lucideAlertTriangle class="banner-icon"></svg>
-        } @else if (msg.type === 'warning') {
-          <svg lucideClock class="banner-icon"></svg>
-        } @else {
-          <svg lucideCheckCircle class="banner-icon"></svg>
-        }
-        <span>{{ msg.text }}</span>
-      </div>
-    }
-  </header>
+    <div class="header-right">
+      @if (periodOptions().length > 0) {
+        <div class="period-combobox-wrapper">
+          <combobox
+            class="period-picker"
+            [options]="periodOptions()"
+            [value]="selectedPeriodId()"
+            (valueChange)="onPeriodChange($event)"
+            [compact]="true"
+            [showSearchIcon]="false"
+            placeholder="Período activo"
+          />
+        </div>
+      }
 
-  <!-- Barra de Control y Modo Personalización -->
-  <div class="control-bar">
-    <div class="control-left">
-      <div class="period-combobox-wrapper">
-        <combobox
-          [options]="periodOptions()"
-          [value]="selectedPeriodId()"
-          (valueChange)="onPeriodChange($event)"
-          [compact]="true"
-          [showSearchIcon]="false"
-          placeholder="Semestre Actual (Activo)"
-        />
-      </div>
-    </div>
+      <div class="header-actions">
+        <a class="btn-open-aula" [routerLink]="['/teacher/aula']" title="Abrir y gestionar el aula virtual">
+          <span>Abrir Aula</span>
+          <svg lucideArrowRight class="btn-icon-xs"></svg>
+        </a>
 
-    <div class="control-right">
-      <button
-        type="button"
-        class="btn-customize-toggle"
-        [class.active]="isCustomizing()"
-        (click)="toggleCustomizing()"
-        title="Personalizar orden y tamaño de widgets del panel"
-      >
-        <svg lucideSliders class="btn-icon-xs"></svg>
-        <span>{{ isCustomizing() ? 'Guardar Diseño' : 'Personalizar Panel' }}</span>
-      </button>
-
-      @if (isCustomizing()) {
         <button
           type="button"
-          class="btn-reset-layout"
-          (click)="resetLayout()"
-          title="Restablecer diseño por defecto"
+          class="btn-customize-toggle"
+          [class.active]="isCustomizing()"
+          (click)="toggleCustomizing()"
+          title="Personalizar orden y ancho de los bloques"
         >
-          <svg lucideRotateCcw class="btn-icon-xs"></svg>
-          <span>Restablecer</span>
+          <svg lucideSliders class="btn-icon-xs"></svg>
+          <span>{{ isCustomizing() ? 'Guardar Diseño' : 'Personalizar' }}</span>
         </button>
-      }
-    </div>
-  </div>
 
-  <!-- Bento Grid de 12 Columnas con Drag & Drop -->
+        @if (isCustomizing()) {
+          <button
+            type="button"
+            class="btn-reset-layout"
+            (click)="resetLayout()"
+            title="Restablecer diseño por defecto"
+          >
+            <svg lucideRotateCcw class="btn-icon-xs"></svg>
+            <span>Restablecer</span>
+          </button>
+        }
+      </div>
+    </div>
+  </header>
+
+  <!-- Banner contextual de estado -->
+  @if (greetingMessage(); as msg) {
+    <div class="alert-banner" [class.banner-critical]="msg.type === 'critical'" [class.banner-warning]="msg.type === 'warning'" [class.banner-info]="msg.type === 'info'">
+      @if (msg.type === 'critical') {
+        <svg lucideAlertTriangle class="banner-icon"></svg>
+      } @else if (msg.type === 'warning') {
+        <svg lucideClock class="banner-icon"></svg>
+      } @else {
+        <svg lucideCheckCircle class="banner-icon"></svg>
+      }
+      <span>{{ msg.text }}</span>
+    </div>
+  }
+
+  <!-- Bento Grid de 12 Columnas con Drag & Drop y Animaciones -->
   <div
     cdkDropList
     class="bento-grid-12"
@@ -76,10 +85,10 @@
         [class]="'col-span-' + widget.colSpan"
         [class.widget-hidden]="!widget.visible"
       >
-        <!-- Barra de herramientas de personalización (Visible solo en modo edición) -->
+        <!-- Toolbar de Personalización (visible solo en modo edición) -->
         @if (isCustomizing()) {
           <div class="widget-customize-toolbar">
-            <div class="drag-handle" cdkDragHandle title="Arrastrar para reordenar">
+            <div class="drag-handle" cdkDragHandle>
               <svg lucideGripVertical class="handle-icon"></svg>
               <span class="widget-name-label">{{ widget.title }}</span>
             </div>
@@ -124,7 +133,7 @@
                 class="visibility-toggle-btn"
                 [class.is-hidden]="!widget.visible"
                 (click)="toggleWidgetVisibility(widget.id)"
-                [title]="widget.visible ? 'Ocultar widget' : 'Mostrar widget'"
+                [title]="widget.visible ? 'Ocultar bloque' : 'Mostrar bloque'"
               >
                 @if (widget.visible) {
                   <svg lucideEye class="vis-icon"></svg>
@@ -136,16 +145,8 @@
           </div>
         }
 
-        <!-- CONTENIDO MODULARIZADO DE LOS WIDGETS -->
+        <!-- Contenido de los widgets -->
         @switch (widget.id) {
-          @case ('kpis') {
-            <dashboard-kpi-widget
-              [totalStudents]="totalStudentsCount()"
-              [activeNow]="activeNowCount()"
-              [pendingReviews]="totalPendingReviews()"
-              [atRisk]="totalAtRisk()"
-            />
-          }
           @case ('courses') {
             <dashboard-courses-widget
               [courses]="courses()"
@@ -158,27 +159,8 @@
               [isLoading]="isLoading()"
             />
           }
-          @case ('live_sessions') {
-            <dashboard-telemetry-widget
-              [sessions]="liveSessions()"
-              [isLoading]="isLoading()"
-              [isPollingActive]="isPollingActive()"
-              [pollingRateMs]="pollingRateMs()"
-              (pollingRateChange)="setPollingRate($event)"
-              (refresh)="refreshLiveSessions()"
-              (openTerminal)="openTerminal($event)"
-            />
-          }
         }
       </div>
     }
   </div>
 </div>
-
-<!-- Modal Terminal de Sombra (Shadow Terminal) -->
-@if (selectedLiveSession(); as session) {
-  <shadow-terminal-modal
-    [session]="session"
-    (closed)="closeTerminal()"
-  />
-}

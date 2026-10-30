@@ -1,10 +1,11 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, map } from 'rxjs';
+import { Observable, tap, map, finalize } from 'rxjs';
 import {
   TeacherCourseSummary,
   TeacherAttentionWidget,
-  AcademicPeriod
+  AcademicPeriod,
+  TeacherOverview
 } from '../models/teacher.models';
 
 interface ApiResponse<T> {
@@ -23,6 +24,7 @@ export class TeacherDashboardService {
   readonly attention = signal<TeacherAttentionWidget | null>(null);
   readonly periods = signal<AcademicPeriod[]>([]);
   readonly activePeriod = signal<AcademicPeriod | null>(null);
+  readonly overview = signal<TeacherOverview | null>(null);
   readonly isLoading = signal<boolean>(false);
 
   getAcademicPeriods(): Observable<AcademicPeriod[]> {
@@ -36,6 +38,22 @@ export class TeacherDashboardService {
     );
   }
 
+  /**
+   * Carga el resumen del panel docente. Una sola respuesta: aula, cola,
+   * entornos abiertos y materias con sus conteos. Un error de red no borra el
+   * resumen ya cargado.
+   */
+  loadOverview(periodId?: string): Observable<TeacherOverview> {
+    this.isLoading.set(true);
+    const params = periodId ? `?period_id=${periodId}` : '';
+    return this.http.get<ApiResponse<TeacherOverview>>(`/api/v1/teacher/overview${params}`).pipe(
+      map(res => res.data),
+      tap(overview => this.overview.set(overview)),
+      finalize(() => this.isLoading.set(false))
+    );
+  }
+
+  /** Resumen de materias del docente y tareas de atención requerida. */
   loadDashboardData(periodId?: string): Observable<{ courses: TeacherCourseSummary[]; attention: TeacherAttentionWidget }> {
     this.isLoading.set(true);
     const params = periodId ? `?period_id=${periodId}` : '';
@@ -54,14 +72,8 @@ export class TeacherDashboardService {
       map(courses => ({
         courses,
         attention: this.attention() ?? { critical: [], warning: [], standard: [] }
-      }))
-    );
-  }
-
-  getCourses(): Observable<TeacherCourseSummary[]> {
-    return this.http.get<ApiResponse<TeacherCourseSummary[]>>('/api/v1/teacher/courses').pipe(
-      map(res => res.data || []),
-      tap(courses => this.courses.set(courses))
+      })),
+      finalize(() => this.isLoading.set(false))
     );
   }
 
@@ -69,6 +81,13 @@ export class TeacherDashboardService {
     return this.http.get<ApiResponse<TeacherAttentionWidget>>('/api/v1/teacher/attention').pipe(
       map(res => res.data),
       tap(widget => this.attention.set(widget))
+    );
+  }
+
+  getCourses(): Observable<TeacherCourseSummary[]> {
+    return this.http.get<ApiResponse<TeacherCourseSummary[]>>('/api/v1/teacher/courses').pipe(
+      map(res => res.data || []),
+      tap(courses => this.courses.set(courses))
     );
   }
 }

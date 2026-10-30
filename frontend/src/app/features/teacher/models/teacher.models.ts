@@ -20,6 +20,72 @@ export interface TeacherCourseSummary {
   at_risk: number;
 }
 
+/**
+ * Read model del panel docente: responde "¿qué me espera hoy?" con los conteos
+ * ya resueltos. La vista no suma, no agrupa y no recorta.
+ */
+export interface TeacherOverviewPeriod {
+  id: string;
+  name: string;
+  code: string;
+  is_active: boolean;
+}
+
+export interface TeacherOverviewSession {
+  id: string;
+  subject_id: string;
+  subject_name: string;
+  exercise_title?: string;
+  opens_at: string;
+  closes_at?: string | null;
+  enrolled: number;
+  present: number;
+}
+
+export interface TeacherOverviewNextDue {
+  subject_id: string;
+  subject_name: string;
+  exercise_title: string;
+  due_at: string;
+}
+
+export interface TeacherOverviewQueue {
+  pending: number;
+  practices: number;
+  oldest_submitted_at: string | null;
+}
+
+export interface TeacherOverviewEnvironments {
+  open_now: number;
+}
+
+export interface TeacherOverviewSubject {
+  id: string;
+  code: string;
+  name: string;
+  enrolled: number;
+  open_environments: number;
+  pending_review: number;
+  /** `null` cuando la materia no tiene una práctica por vencer. */
+  without_submission: number | null;
+  next_due_at: string | null;
+}
+
+export interface TeacherOverviewSignal {
+  type: string;
+  message: string;
+}
+
+export interface TeacherOverview {
+  period: TeacherOverviewPeriod | null;
+  session: TeacherOverviewSession | null;
+  next_due: TeacherOverviewNextDue | null;
+  queue: TeacherOverviewQueue;
+  environments: TeacherOverviewEnvironments;
+  subjects: TeacherOverviewSubject[];
+  signals: TeacherOverviewSignal[];
+}
+
 export interface AttentionCriticalAlert {
   type: 'oom_killed' | string;
   student_id: string;
@@ -701,6 +767,73 @@ export interface DryRunJobDTO {
   error?: string;
   created_at?: string;
   updated_at?: string;
+}
+
+/**
+ * Aula de una clase. Es una envoltura opcional de la práctica: sin sesión el
+ * alumno trabaja igual, y el aula solo agrega el conjunto contra el que se
+ * puede contar quién falta.
+ */
+export type ClassSessionStatus = 'open' | 'closed';
+
+/**
+ * Estado de un alumno en el aula. Los tres primeros son excepciones con dueño
+ * docente; el orden del servidor ya los pone arriba.
+ */
+export type ClassSessionStudentState =
+  | 'sin_empezar'
+  | 'trabajando'
+  | 'trabado'
+  | 'entregado'
+  | 'ausente';
+
+export interface ClassSession {
+  id: string;
+  subject_id: string;
+  subject_code: string;
+  subject_name: string;
+  exercise_id: string | null;
+  exercise_title?: string;
+  status: ClassSessionStatus;
+  opens_at: string;
+  /** Fin previsto: al vencer, el aula se cierra sola. */
+  ends_at: string;
+  closes_at: string | null;
+  enrolled: number;
+  present: number;
+}
+
+export interface ClassSessionSummary {
+  enrolled: number;
+  present: number;
+  not_started: number;
+  working: number;
+  submitted: number;
+  stuck: number;
+  absent: number;
+  without_submission: number;
+}
+
+export interface ClassSessionStudent {
+  student_id: string;
+  name: string;
+  email: string;
+  state: ClassSessionStudentState;
+  present: boolean;
+  joined_at: string | null;
+  last_seen_at: string | null;
+  workspace_id: string | null;
+  workspace_status: string | null;
+  submitted_at: string | null;
+  verdict: string | null;
+  review_status: string | null;
+  attempts: number;
+}
+
+export interface ClassSessionBoard {
+  session: ClassSession;
+  summary: ClassSessionSummary;
+  students: ClassSessionStudent[];
 }
 
 

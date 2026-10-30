@@ -8,7 +8,7 @@ import { HotkeysService } from '@core/services/hotkeys.service';
 import { SubmissionComment, SubmissionTimeline, LiveWorkspaceSession } from '../../models/teacher.models';
 import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
-import { ShadowTerminalModalComponent } from '../../dashboard/shadow-terminal-modal/shadow-terminal-modal.component';
+import { ShadowTerminalModalComponent } from '../../aula/shadow-terminal-modal/shadow-terminal-modal.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
 import { SpeedGraderHeaderComponent } from './components/speed-grader-header/speed-grader-header.component';
 import { SpeedGraderCodeViewerComponent } from './components/speed-grader-code-viewer/speed-grader-code-viewer.component';

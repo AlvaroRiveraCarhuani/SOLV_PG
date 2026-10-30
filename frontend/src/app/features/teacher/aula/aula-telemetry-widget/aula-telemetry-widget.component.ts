@@ -12,13 +12,13 @@ import {
   LucideAlertCircle, 
   LucideAlertTriangle 
 } from '@lucide/angular';
-import { LiveWorkspaceSession } from '../../../models/teacher.models';
+import { LiveWorkspaceSession } from '../../models/teacher.models';
 import { SparklineComponent } from '@shared/components/sparkline/sparkline.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
 @Component({
-  selector: 'dashboard-telemetry-widget',
+  selector: 'aula-telemetry-widget',
   standalone: true,
   imports: [
     CommonModule,
@@ -36,11 +36,11 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     DateTextPipe,
     MachineDataDirective
   ],
-  templateUrl: './dashboard-telemetry-widget.component.html',
-  styleUrl: './dashboard-telemetry-widget.component.scss',
+  templateUrl: './aula-telemetry-widget.component.html',
+  styleUrl: './aula-telemetry-widget.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class DashboardTelemetryWidgetComponent {
+export class AulaTelemetryWidgetComponent {
   readonly sessions = input<LiveWorkspaceSession[]>([]);
   readonly isLoading = input<boolean>(false);
   readonly isPollingActive = input<boolean>(true);

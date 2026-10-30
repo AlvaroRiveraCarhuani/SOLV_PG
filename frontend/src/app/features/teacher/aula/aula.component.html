@@ -1,0 +1,267 @@
+<div class="aula-screen">
+  @if (session(); as aula) {
+    <!-- Cabecera del aula: materia, hora de apertura y cierre en un solo lugar. -->
+    <header class="aula-header">
+      <div class="header-main">
+        <span class="header-eyebrow">Aula abierta</span>
+        <h1 class="page-title">{{ aula.subject_name }}</h1>
+        <p class="header-meta">
+          <span class="meta-code" machineData>{{ aula.subject_code }}</span>
+          <span class="meta-sep">·</span>
+          <span>desde</span>
+          <time class="meta-time">{{ aula.opens_at | dateText:'time' }}</time>
+          <span class="meta-sep">·</span>
+          <span>hasta</span>
+          <time class="meta-time">{{ aula.ends_at | dateText:'time' }}</time>
+          @if (aula.exercise_title) {
+            <span class="meta-sep">·</span>
+            <span class="meta-practice">{{ aula.exercise_title }}</span>
+          }
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <span class="presence">
+          <span class="presence-count" machineData>{{ summary().present }}</span>
+          <span class="presence-label">de</span>
+          <span class="presence-count" machineData>{{ summary().enrolled }}</span>
+          <span class="presence-label">dentro</span>
+        </span>
+        <button type="button" class="btn btn-secondary" (click)="closeAula()">Cerrar aula</button>
+      </div>
+    </header>
+
+    <!-- Marcador: cuando todo está en orden lo dice en una línea, sin alarmas. -->
+    <div class="aula-summary" role="status" aria-live="polite">
+      @if (!hasExceptions()) {
+        <span class="summary-ok">
+          <svg lucideCheckCircle2 class="summary-icon"></svg>
+          Todo en orden:
+          <span machineData>{{ summary().submitted }}</span> de
+          <span machineData>{{ summary().enrolled }}</span> entregaron, 0 trabados.
+        </span>
+      } @else {
+        @if (summary().stuck > 0) {
+          <span class="summary-chip summary-chip--error">
+            <svg lucideAlertTriangle class="summary-icon"></svg>
+            <span machineData>{{ summary().stuck }}</span> trabados
+          </span>
+        }
+        @if (summary().without_submission > 0) {
+          <span class="summary-chip summary-chip--warning">
+            <span machineData>{{ summary().without_submission }}</span> sin entregar
+          </span>
+        }
+        @if (summary().not_started > 0) {
+          <span class="summary-chip">
+            <span machineData>{{ summary().not_started }}</span> sin empezar
+          </span>
+        }
+        @if (summary().absent > 0) {
+          <span class="summary-chip">
+            <span machineData>{{ summary().absent }}</span> salieron del aula
+          </span>
+        }
+        <button type="button" class="summary-refresh" (click)="refreshBoard()" [disabled]="isLoading()">
+          <svg lucideRotateCcw class="action-icon"></svg>
+          Actualizar
+        </button>
+      }
+    </div>
+
+    <div class="aula-toolbar">
+      <status-tabs [tabs]="tabs()" [activeTab]="activeTab()" (tabChange)="setTab($event)" />
+      <search-bar
+        [query]="searchTerm()"
+        (queryChange)="onSearch($event)"
+        placeholder="Buscar alumno"
+        [compact]="true"
+        ariaLabel="Buscar alumno en el aula"
+      />
+    </div>
+
+    @if (visibleStudents().length === 0) {
+      <div class="empty-state">
+        <p>
+          @if (searchTerm()) {
+            Ningún alumno coincide con la búsqueda.
+          } @else {
+            No hay alumnos en este filtro.
+          }
+        </p>
+      </div>
+    } @else {
+      <table class="aula-table">
+        <thead>
+          <tr>
+            <th scope="col">Alumno</th>
+            <th scope="col">Estado</th>
+            <th scope="col">Entrega</th>
+            <th scope="col" class="num">Intentos</th>
+            <th scope="col">Entorno</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (student of visibleStudents(); track student.student_id) {
+            <tr [class.row-stuck]="student.state === 'trabado'">
+              <td class="col-student">
+                <span class="student-name">{{ student.name }}</span>
+                <span class="student-email">{{ student.email }}</span>
+              </td>
+              <td>
+                <span class="state" [class]="'state state-' + student.state">
+                  <span class="state-dot"></span>
+                  {{ stateLabel(student.state) }}
+                </span>
+              </td>
+              <td>
+                @if (student.submitted_at; as submittedAt) {
+                  <span class="submission">
+                    <time class="submission-time">{{ submittedAt | dateText:'time' }}</time>
+                    @if (student.verdict; as verdict) {
+                      <verdict-badge [verdict]="verdict" [size]="'sm'" [showHumanLabel]="false" />
+                    }
+                  </span>
+                } @else {
+                  <span class="empty-cell">—</span>
+                }
+              </td>
+              <td class="num">
+                <span machineData>{{ student.attempts }}</span>
+              </td>
+              <td>
+                @if (student.workspace_id) {
+                  <button type="button" class="row-action" (click)="openConsole(student)">
+                    <svg lucideTerminal class="action-icon"></svg>
+                    Consola
+                  </button>
+                } @else {
+                  <span class="muted">Sin entorno</span>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+
+    <!-- Telemetría de la clase: solo los entornos de esta materia. -->
+    @if (sessionEnvironments().length > 0) {
+      <section class="environments">
+        <h2 class="section-title">
+          Entornos de esta clase
+          <span class="section-count" machineData>({{ sessionEnvironments().length }})</span>
+        </h2>
+        <aula-telemetry-widget
+          [sessions]="sessionEnvironments()"
+          [isLoading]="false"
+          [isPollingActive]="isPollingActive()"
+          [pollingRateMs]="pollingRateMs()"
+          (pollingRateChange)="setPollingRate($event)"
+          (refresh)="refreshEnvironments()"
+          (openTerminal)="selectedWorkspace.set($event)"
+        />
+      </section>
+    }
+  } @else {
+    <!-- Sin aula: abrirla es una decisión del docente, no un requisito del alumno. -->
+    <header class="aula-header aula-header--empty">
+      <div class="header-main">
+        <span class="header-eyebrow">Aula</span>
+        <h1 class="page-title">Sin aula abierta</h1>
+        <p class="header-meta">
+          Abrí el aula cuando empieza la clase. Mientras no haya una, los alumnos
+          pueden trabajar en su práctica y aquí solo se ven los entornos encendidos.
+        </p>
+      </div>
+    </header>
+
+    @if (lastClosedAt(); as closedAt) {
+      <div class="aula-closed-note" role="status">
+        El aula anterior se cerró a las
+        <time class="closed-time">{{ closedAt | dateText:'time' }}</time>.
+        Si la clase sigue, abrí otra.
+      </div>
+    }
+
+    <section class="open-form">
+      <div class="form-field">
+        <label class="field-label" for="aula-subject">Materia</label>
+        <combobox
+          id="aula-subject"
+          [options]="subjectOptions()"
+          [value]="selectedSubjectId()"
+          (valueChange)="onSubjectChange($event)"
+          placeholder="Elegir materia"
+          [compact]="true"
+          [showSearchIcon]="false"
+        />
+      </div>
+
+      <div class="form-field">
+        <label class="field-label" for="aula-practice">Práctica</label>
+        <combobox
+          id="aula-practice"
+          [options]="practiceOptions()"
+          [value]="selectedExerciseId()"
+          (valueChange)="onExerciseChange($event)"
+          placeholder="Sin práctica asignada"
+          [compact]="true"
+          [showSearchIcon]="false"
+          [allowClear]="true"
+          [disabled]="practiceOptions().length === 0"
+        />
+        <span class="field-hint">Opcional. Con práctica, el aula muestra entregas y trabados.</span>
+      </div>
+
+      <div class="form-field">
+        <label class="field-label" for="aula-duration">Duración</label>
+        <combobox
+          id="aula-duration"
+          [options]="durationOptions"
+          [value]="selectedDuration()"
+          (valueChange)="onDurationChange($event)"
+          placeholder="1 hora 30 min"
+          [compact]="true"
+          [showSearchIcon]="false"
+        />
+        <span class="field-hint">El aula se cierra sola cuando vence.</span>
+      </div>
+
+      <button
+        type="button"
+        class="btn btn-primary open-button"
+        [disabled]="!selectedSubjectId() || isOpening()"
+        (click)="openAula()"
+      >
+        Abrir aula
+      </button>
+    </section>
+
+    @if (error(); as message) {
+      <div class="error-panel" role="alert">{{ message }}</div>
+    }
+
+    @if (liveSessions().length > 0) {
+      <section class="environments">
+        <h2 class="section-title">
+          Entornos abiertos ahora
+          <span class="section-count" machineData>({{ liveSessions().length }})</span>
+        </h2>
+        <aula-telemetry-widget
+          [sessions]="liveSessions()"
+          [isLoading]="false"
+          [isPollingActive]="isPollingActive()"
+          [pollingRateMs]="pollingRateMs()"
+          (pollingRateChange)="setPollingRate($event)"
+          (refresh)="refreshEnvironments()"
+          (openTerminal)="selectedWorkspace.set($event)"
+        />
+      </section>
+    }
+  }
+
+  @if (selectedWorkspace(); as workspace) {
+    <shadow-terminal-modal [session]="workspace" (closed)="closeConsole()" />
+  }
+</div>

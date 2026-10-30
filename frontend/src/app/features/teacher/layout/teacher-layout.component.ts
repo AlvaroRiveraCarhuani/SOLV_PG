@@ -9,18 +9,23 @@ import { HotkeysModalComponent } from '@shared/components/hotkeys-modal/hotkeys-
 
 export const TEACHER_NAV_SECTIONS: NavSection[] = [
   {
+    title: 'HOY',
+    items: [
+      { label: 'Inicio', route: '/teacher/dashboard', iconName: 'home', exact: true }
+    ]
+  },
+  {
     title: 'DOCENCIA',
     items: [
-      { label: 'Panel de Control', route: '/teacher/dashboard', iconName: 'activity', exact: true },
-      { label: 'Por calificar', route: '/teacher/por-calificar', iconName: 'file-text' },
-      { label: 'Entregas', route: '/teacher/entregas', iconName: 'award' }
+      { label: 'Aula', route: '/teacher/aula', iconName: 'terminal' },
+      { label: 'Por calificar', route: '/teacher/por-calificar', iconName: 'file-text' }
     ]
   },
   {
     title: 'CONTENIDOS',
     items: [
       { label: 'Banco de Ejercicios', route: '/teacher/exercises', iconName: 'boxes' },
-      { label: 'Plantillas de Entorno', route: '/teacher/templates', iconName: 'layers' }
+      { label: 'Catálogo de Entornos', route: '/teacher/templates', iconName: 'layers' }
     ]
   },
   {

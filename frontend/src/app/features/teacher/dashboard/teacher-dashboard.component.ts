@@ -1,6 +1,7 @@
-import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular/core';
+import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { CdkDropList, CdkDrag, CdkDragHandle, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { 
   LucideAlertTriangle, 
@@ -10,26 +11,21 @@ import {
   LucideGripVertical,
   LucideRotateCcw,
   LucideEye,
-  LucideEyeOff
+  LucideEyeOff,
+  LucideArrowRight
 } from '@lucide/angular';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
-import { TeacherLiveService } from '../services/teacher-live.service';
 import { DashboardLayoutService, WidgetLayoutItem, WidgetColSpan } from '@core/services/dashboard-layout.service';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { LiveWorkspaceSession } from '../models/teacher.models';
-import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
-import { DashboardKpiWidgetComponent } from './widgets/dashboard-kpi-widget/dashboard-kpi-widget.component';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { DashboardCoursesWidgetComponent } from './widgets/dashboard-courses-widget/dashboard-courses-widget.component';
 import { DashboardAttentionWidgetComponent } from './widgets/dashboard-attention-widget/dashboard-attention-widget.component';
-import { DashboardTelemetryWidgetComponent } from './widgets/dashboard-telemetry-widget/dashboard-telemetry-widget.component';
 
-export const TEACHER_DASHBOARD_STORAGE_KEY = 'solv_teacher_dashboard_bento_layout';
+export const TEACHER_DASHBOARD_STORAGE_KEY = 'solv_teacher_dashboard_bento_layout_v2';
 
 export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
-  { id: 'kpis', title: 'Métricas Generales', colSpan: 12, visible: true },
   { id: 'courses', title: 'Mis Materias Asignadas', colSpan: 8, visible: true },
-  { id: 'attention', title: 'Atención Requerida', colSpan: 4, visible: true },
-  { id: 'live_sessions', title: 'Sesiones en Vivo y Telemetría', colSpan: 12, visible: true }
+  { id: 'attention', title: 'Tareas Pendientes', colSpan: 4, visible: true }
 ];
 
 @Component({
@@ -38,6 +34,7 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
   imports: [
     CommonModule, 
     FormsModule,
+    RouterLink,
     CdkDropList,
     CdkDrag,
     CdkDragHandle,
@@ -49,31 +46,26 @@ export const TEACHER_DEFAULT_WIDGETS: WidgetLayoutItem[] = [
     LucideRotateCcw,
     LucideEye,
     LucideEyeOff,
+    LucideArrowRight,
     ComboboxComponent,
-    ShadowTerminalModalComponent,
-    DashboardKpiWidgetComponent,
+    DateTextPipe,
     DashboardCoursesWidgetComponent,
-    DashboardAttentionWidgetComponent,
-    DashboardTelemetryWidgetComponent
+    DashboardAttentionWidgetComponent
   ],
   templateUrl: './teacher-dashboard.component.html',
   styleUrl: './teacher-dashboard.component.scss'
 })
-export class TeacherDashboardComponent implements OnInit, OnDestroy {
+export class TeacherDashboardComponent implements OnInit {
   private dashboardService = inject(TeacherDashboardService);
-  private liveService = inject(TeacherLiveService);
   private layoutService = inject(DashboardLayoutService);
 
   courses = this.dashboardService.courses;
   attention = this.dashboardService.attention;
   periods = this.dashboardService.periods;
   isLoading = this.dashboardService.isLoading;
-  liveSessions = this.liveService.liveSessions;
-  isPollingActive = this.liveService.isPollingActive;
-  pollingRateMs = this.liveService.pollingIntervalMs;
 
   selectedPeriodId = signal<string>('');
-  selectedLiveSession = signal<LiveWorkspaceSession | null>(null);
+  today = new Date();
 
   periodOptions = computed<ComboboxOption[]>(() => {
     const list = this.periods();
@@ -95,25 +87,9 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
   warningCount = computed(() => this.attention()?.warning?.length ?? 0);
   standardCount = computed(() => this.attention()?.standard?.length ?? 0);
 
-  totalStudentsCount = computed(() => {
-    return this.courses().reduce((sum, c) => sum + (c.students_count || 0), 0);
-  });
-
-  activeNowCount = computed(() => {
-    return this.courses().reduce((sum, c) => sum + (c.active_now || 0), 0);
-  });
-
-  totalPendingReviews = computed(() => {
-    return this.courses().reduce((sum, c) => sum + (c.pending_review || 0), 0);
-  });
-
-  totalAtRisk = computed(() => {
-    return this.courses().reduce((sum, c) => sum + (c.at_risk || 0), 0);
-  });
-
   visibleWidgets = computed(() => {
     if (this.isCustomizing()) {
-      return this.widgets(); // Mostrar todos en modo edición para poder reactivarlos
+      return this.widgets();
     }
     return this.widgets().filter(w => w.visible);
   });
@@ -130,12 +106,12 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     if (standard > 0) {
       return {
         type: 'warning',
-        text: `Tiene ${standard} entrega(s) pendiente(s) de calificación en sus materias.`
+        text: `Tenés ${standard} entrega(s) pendiente(s) de calificación en tus materias.`
       };
     }
     return {
       type: 'info',
-      text: `Todo al día · ${this.courses().length} materia(s) asignadas en el semestre en curso.`
+      text: `Todo al día · ${this.courses().length} materia(s) asignadas en el período activo.`
     };
   });
 
@@ -154,12 +130,6 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
       },
       error: () => this.loadData()
     });
-
-    this.liveService.startPolling(3000);
-  }
-
-  ngOnDestroy(): void {
-    this.liveService.pausePolling();
   }
 
   loadLayout(): void {
@@ -167,12 +137,8 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
     this.widgets.set(loaded);
   }
 
-  toggleCustomize(): void {
-    this.isCustomizing.update(v => !v);
-  }
-
   toggleCustomizing(): void {
-    this.toggleCustomize();
+    this.isCustomizing.update(v => !v);
   }
 
   setWidgetColSpan(widgetId: string, span: WidgetColSpan): void {
@@ -216,21 +182,5 @@ export class TeacherDashboardComponent implements OnInit, OnDestroy {
   onPeriodChange(periodId: string): void {
     this.selectedPeriodId.set(periodId);
     this.loadData(periodId);
-  }
-
-  setPollingRate(rateMs: number): void {
-    this.liveService.setPollingInterval(rateMs);
-  }
-
-  refreshLiveSessions(): void {
-    this.liveService.loadLiveSessions().subscribe();
-  }
-
-  openTerminal(session: LiveWorkspaceSession): void {
-    this.selectedLiveSession.set(session);
-  }
-
-  closeTerminal(): void {
-    this.selectedLiveSession.set(null);
   }
 }

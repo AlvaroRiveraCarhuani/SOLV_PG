@@ -3,9 +3,9 @@ import { provideRouter } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
 import { of } from 'rxjs';
+import { vi } from 'vitest';
 import { TeacherDashboardComponent, TEACHER_DEFAULT_WIDGETS, TEACHER_DASHBOARD_STORAGE_KEY } from './teacher-dashboard.component';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
-import { TeacherLiveService } from '../services/teacher-live.service';
 import { DashboardLayoutService } from '@core/services/dashboard-layout.service';
 import { CourseColorService } from '@core/services/course-color.service';
 
@@ -28,20 +28,6 @@ describe('TeacherDashboardComponent', () => {
       loadDashboardData: () => of({ courses: [], attention: { critical: [], warning: [], standard: [] } })
     };
 
-    const mockLiveService = {
-      liveSessions: () => [],
-      isLoading: () => false,
-      pollingIntervalMs: () => 3000,
-      isPollingActive: () => true,
-      lastUpdated: () => new Date(),
-      loadLiveSessions: () => of([]),
-      startPolling: vi.fn(),
-      stopPolling: vi.fn(),
-      setPollingInterval: vi.fn(),
-      pausePolling: vi.fn(),
-      resumePolling: vi.fn()
-    };
-
     await TestBed.configureTestingModule({
       imports: [TeacherDashboardComponent],
       providers: [
@@ -49,7 +35,6 @@ describe('TeacherDashboardComponent', () => {
         provideHttpClient(),
         provideHttpClientTesting(),
         { provide: TeacherDashboardService, useValue: mockDashboardService },
-        { provide: TeacherLiveService, useValue: mockLiveService },
         DashboardLayoutService,
         CourseColorService
       ]
@@ -68,15 +53,12 @@ describe('TeacherDashboardComponent', () => {
   it('should initialize with default widgets and compute reactive stats', () => {
     expect(component).toBeTruthy();
     expect(component.widgets().length).toBe(TEACHER_DEFAULT_WIDGETS.length);
-    expect(component.totalStudentsCount()).toBe(20);
-    expect(component.activeNowCount()).toBe(5);
-    expect(component.totalPendingReviews()).toBe(2);
     expect(component.greetingMessage().text).toContain('Todo al día');
   });
 
   it('should toggle customize mode', () => {
     expect(component.isCustomizing()).toBe(false);
-    component.toggleCustomize();
+    component.toggleCustomizing();
     expect(component.isCustomizing()).toBe(true);
   });
 

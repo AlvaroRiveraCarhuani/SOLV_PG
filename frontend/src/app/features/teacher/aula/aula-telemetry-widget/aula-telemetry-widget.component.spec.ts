@@ -1,10 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { DashboardTelemetryWidgetComponent } from './dashboard-telemetry-widget.component';
-import { LiveWorkspaceSession } from '../../../models/teacher.models';
+import { AulaTelemetryWidgetComponent } from './aula-telemetry-widget.component';
+import { LiveWorkspaceSession } from '../../models/teacher.models';
 
-describe('DashboardTelemetryWidgetComponent', () => {
-  let component: DashboardTelemetryWidgetComponent;
-  let fixture: ComponentFixture<DashboardTelemetryWidgetComponent>;
+describe('AulaTelemetryWidgetComponent', () => {
+  let component: AulaTelemetryWidgetComponent;
+  let fixture: ComponentFixture<AulaTelemetryWidgetComponent>;
 
   const mockSessions: LiveWorkspaceSession[] = [
     {
@@ -31,10 +31,10 @@ describe('DashboardTelemetryWidgetComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [DashboardTelemetryWidgetComponent]
+      imports: [AulaTelemetryWidgetComponent]
     }).compileComponents();
 
-    fixture = TestBed.createComponent(DashboardTelemetryWidgetComponent);
+    fixture = TestBed.createComponent(AulaTelemetryWidgetComponent);
     component = fixture.componentInstance;
     fixture.componentRef.setInput('sessions', mockSessions);
     fixture.detectChanges();

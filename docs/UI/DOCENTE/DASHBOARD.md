@@ -1,8 +1,10 @@
 # Vista 1: Dashboard del Docente (Centro de Mando y Gestión Académica)
 
-> **Especificación Oficial de Interfaz, Componentes y Wireframes**  
+> **Documento congelado. No describe el destino del área docente.**  
 > **Rol:** Docente  
 > **Gobernanza:** SDD / Docs-as-Code / SOLV Design System / Slice 13 / Slice 14 / ADR-007  
+> **Reemplazado por:** [REDISENO_PANEL_DOCENTE.md](REDISENO_PANEL_DOCENTE.md) (ADR-055, ADR-056).  
+> Se conserva como registro de la implementación anterior: la franja de KPIs, el banner de alertas y la columna lateral de tareas que describe este documento se retiran por etapas.  
 
 ---
 
