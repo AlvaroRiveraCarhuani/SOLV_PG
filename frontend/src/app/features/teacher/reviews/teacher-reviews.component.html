@@ -107,8 +107,6 @@
                       <verdict-badge
                         [verdict]="item.verdict"
                         size="sm"
-                        [showHumanLabel]="false"
-                        [showAcronym]="true"
                       />
                       @if (item.score !== undefined && item.score !== null) {
                         <span class="submission-score" machineData>{{ item.score }}</span>

@@ -139,10 +139,11 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		t.Fatalf("Failed to create exercises: %v", err)
 	}
 
-	// 5. Crear Entregas:
+	// 5. Crear Entregas y celdas de nota declaradas (exercise_grades). La libreta
+	// no fabrica ceros: una celda ausente es "sin corregir" y se exporta vacía.
 	// - Estudiante 1: Lab 1 (AC -> 100), Lab 2 (WA -> 0) => Promedio: 50.00
-	// - Estudiante 2: Lab 1 (AC -> 100), Lab 2 (WA con Override a 90) => Promedio: 95.00
-	// - Estudiante 3: Sin entregas => Promedio: 0.00
+	// - Estudiante 2: Lab 1 (AC -> 100), Lab 2 (override a 90) => Promedio: 95.00
+	// - Estudiante 3: Sin entregas ni celdas => celdas vacías, Promedio: 0.00
 	sub1ID := uuid.NewString()
 	sub2ID := uuid.NewString()
 	sub3ID := uuid.NewString()
@@ -158,6 +159,19 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 	`, sub1ID, sub2ID, sub3ID, sub4ID, tenantID, lab1ID, student1ID, lab2ID, student2ID)
 	if err != nil {
 		t.Fatalf("Failed to seed submissions: %v", err)
+	}
+
+	// Celdas declaradas de la libreta (solo Carlos y Ana tienen nota; María no).
+	_, err = db.GetDB().Exec(`
+		INSERT INTO exercise_grades (student_id, exercise_id, subject_id, tenant_id, selected_submission_id, score, source)
+		VALUES 
+			($1, $2, $3, $4, $5, 100, 'auto'),
+			($1, $6, $3, $4, $7, 0, 'auto'),
+			($8, $2, $3, $4, $9, 100, 'auto'),
+			($8, $6, $3, $4, $10, 90, 'manual')
+	`, student1ID, lab1ID, subjectID, tenantID, sub1ID, lab2ID, sub2ID, student2ID, sub3ID, sub4ID)
+	if err != nil {
+		t.Fatalf("Failed to seed grade cells: %v", err)
 	}
 
 	client := &http.Client{}
@@ -298,13 +312,13 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 			t.Errorf("Ana Torres expected [100, 90, 95.00], got [%s, %s, %s]", anaRow[3], anaRow[4], anaRow[5])
 		}
 
-		// Validar notas de María López (Lab1: 0, Lab2: 0, Promedio: 0.00)
+		// Validar notas de María López (sin corregir -> celdas vacías, Promedio: 0.00)
 		mariaRow := studentRows["María López"]
 		if mariaRow == nil {
 			t.Fatalf("María López not found in CSV rows")
 		}
-		if mariaRow[3] != "0" || mariaRow[4] != "0" || mariaRow[5] != "0.00" {
-			t.Errorf("María López expected [0, 0, 0.00], got [%s, %s, %s]", mariaRow[3], mariaRow[4], mariaRow[5])
+		if mariaRow[3] != "" || mariaRow[4] != "" || mariaRow[5] != "0.00" {
+			t.Errorf("María López expected [, , 0.00] (celdas vacías), got [%s, %s, %s]", mariaRow[3], mariaRow[4], mariaRow[5])
 		}
 
 		// 2.3 Seguridad: Estudiante intentando exportar notas -> 403 Forbidden

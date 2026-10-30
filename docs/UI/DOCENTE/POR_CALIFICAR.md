@@ -30,7 +30,7 @@ Lo que espera tu corrección, agrupado por práctica. 12 entregas en espera
 ```
 
 - **Panel izquierdo:** una fila por práctica con materia, título, `pendientes de inscritos` y la entrega más antigua. La práctica seleccionada se marca con borde izquierdo del color del tenant.
-- **Panel derecho:** las entregas pendientes de la práctica, de la más antigua a la más nueva, con el alumno y la fecha de entrega. La acción abre el SpeedGrader existente en `/teacher/revision/:submissionId`.
+- **Panel derecho:** las entregas pendientes de la práctica, de la más antigua a la más nueva, con el alumno, el resultado pedagógico (`verdict-badge` con etiqueta humana) y la fecha de entrega. La acción abre el SpeedGrader existente en `/teacher/revision/:submissionId`.
 - El total de entregas en espera se muestra en el subtítulo y es la suma de todas las prácticas.
 
 ---
@@ -62,6 +62,7 @@ No hay refresco automático: la cola cambia cuando el docente actúa. "Actualiza
 
 - Un solo color de acento (el del tenant) y los tokens semánticos de estado; sin sombras ni gradientes.
 - Fechas con el pipe `dateText` dentro de `<time>`; conteos con `[machineData]`.
+- El `verdict-badge` usa la etiqueta humana de `OUTCOME_COPY` (UX-PRINCIPLES §3): la sigla técnica (`AC`, `WA`, `TLE`, ...) no se muestra salvo pedido explícito.
 - Sin modales: el detalle de corrección vive en la ruta del SpeedGrader, no encima de la lista.
 - A 1024 px o menos, los paneles se apilan en una columna.
 

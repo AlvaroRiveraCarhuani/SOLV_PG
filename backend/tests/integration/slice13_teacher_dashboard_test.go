@@ -173,12 +173,14 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		t.Fatalf("Failed to create lab 1: %v", err)
 	}
 
-	// Submissions para Lab 1:
-	// - Estudiante 1: AC
-	// - Estudiante 2: WA (pending review)
-	// - Estudiante 3: AST_BLOCKED
-	// - Estudiante 4: RE (pending review)
-	// - Estudiante 5: Tiene submission AC previa
+	// Submissions para Lab 1: el estado de revisión es declarado (review_status),
+	// no se deduce del veredicto. Solamente las entregas en 'pending'/'in_review'
+	// cuentan como pendientes de corrección.
+	// - Estudiante 1: AC -> not_required
+	// - Estudiante 2: WA -> pending (en cola de corrección)
+	// - Estudiante 3: AST_BLOCKED -> not_required
+	// - Estudiante 4: RE -> pending (en cola de corrección)
+	// - Estudiante 5: AC previa -> not_required
 	// - Estudiante 6: NO TIENE SUBMISSION Y NO TIENE HEARTBEAT -> AT RISK = 1 !
 	sub1 := uuid.NewString()
 	sub2 := uuid.NewString()
@@ -187,13 +189,13 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	sub5 := uuid.NewString()
 
 	_, _ = db.GetDB().Exec(`
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, code, verdict, ast_result, submitted_at, manual_override)
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, code, verdict, ast_result, submitted_at, manual_override, review_status)
 		VALUES 
-			($1, $6, $7, $8, 'code1', 'AC', '{}'::jsonb, NOW(), FALSE),
-			($2, $6, $7, $9, 'code2', 'WA', '{}'::jsonb, NOW(), FALSE),
-			($3, $6, $7, $10, 'code3', 'AST_BLOCKED', '{"rule_id": "no_import_os"}'::jsonb, NOW(), FALSE),
-			($4, $6, $7, $11, 'code4', 'RE', '{}'::jsonb, NOW(), FALSE),
-			($5, $6, $7, $12, 'code5', 'AC', '{}'::jsonb, NOW(), FALSE)
+			($1, $6, $7, $8, 'code1', 'AC', '{}'::jsonb, NOW(), FALSE, 'not_required'),
+			($2, $6, $7, $9, 'code2', 'WA', '{}'::jsonb, NOW(), FALSE, 'pending'),
+			($3, $6, $7, $10, 'code3', 'AST_BLOCKED', '{"rule_id": "no_import_os"}'::jsonb, NOW(), FALSE, 'not_required'),
+			($4, $6, $7, $11, 'code4', 'RE', '{}'::jsonb, NOW(), FALSE, 'pending'),
+			($5, $6, $7, $12, 'code5', 'AC', '{}'::jsonb, NOW(), FALSE, 'not_required')
 	`, sub1, sub2, sub3, sub4, sub5, tenantID, lab1ID, studentsSub1[0], studentsSub1[1], studentsSub1[2], studentsSub1[3], studentsSub1[4])
 
 	client := &http.Client{}
@@ -243,9 +245,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		if int(course1["active_now"].(float64)) != 2 {
 			t.Errorf("Expected active_now = 2, got %v", course1["active_now"])
 		}
-		// WA y RE = 2 pending_review
+		// review_status = pending (WA y RE) -> 2 pending_review
 		if int(course1["pending_review"].(float64)) != 2 {
-			t.Errorf("Expected pending_review = 2 (WA y RE), got %v", course1["pending_review"])
+			t.Errorf("Expected pending_review = 2 (review_status pending), got %v", course1["pending_review"])
 		}
 		// Estudiante 6 = exactly 1 at_risk
 		if int(course1["at_risk"].(float64)) != 1 {
