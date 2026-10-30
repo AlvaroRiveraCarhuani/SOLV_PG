@@ -57,8 +57,15 @@
     }
   }
 
-  <!-- Barra de Controles y Scrubber Interactivo -->
-  <div class="replay-control-bar">
+  @if (!timeline() || !timeline()?.keyframes || timeline()?.keyframes?.length === 0) {
+    <div class="empty-timeline-card">
+      <svg lucideHistory class="empty-icon"></svg>
+      <h4>Sin eventos de evolución temporal</h4>
+      <p>Esta entrega no tiene keyframes registrados para reconstruir la línea de tiempo paso a paso.</p>
+    </div>
+  } @else {
+    <!-- Barra de Controles y Scrubber Interactivo -->
+    <div class="replay-control-bar">
     <div class="playback-controls">
       <button 
         type="button" 
@@ -274,4 +281,5 @@
       </div>
     }
   </div>
+  }
 </div>

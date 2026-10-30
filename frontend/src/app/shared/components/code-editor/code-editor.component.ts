@@ -7,7 +7,8 @@ import {
   computed,
   effect,
   input,
-  model
+  model,
+  output
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EditorView, basicSetup } from 'codemirror';
@@ -113,6 +114,7 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   readonly minHeight = input<string>('240px');
   readonly maxHeight = input<string>('600px');
   readonly fontSize = input<number | string | null>(null);
+  readonly lineClick = output<number>();
 
   readonly computedFontSize = computed(() => {
     const sz = this.fontSize();
@@ -187,6 +189,24 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
         keymap.of([indentWithTab, ...defaultKeymap]),
         this.langCompartment.of(this.getLanguageExtension(this.language())),
         this.readOnlyCompartment.of(EditorState.readOnly.of(this.readonly())),
+        EditorView.domEventHandlers({
+          click: (event, view) => {
+            const target = event.target as HTMLElement | null;
+            const gutterEl = target?.closest('.cm-gutterElement');
+            if (gutterEl && gutterEl.textContent) {
+              const lineNum = parseInt(gutterEl.textContent.trim(), 10);
+              if (!isNaN(lineNum)) {
+                this.lineClick.emit(lineNum);
+                return;
+              }
+            }
+            const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+            if (typeof pos === 'number') {
+              const line = view.state.doc.lineAt(pos);
+              this.lineClick.emit(line.number);
+            }
+          }
+        }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
             const newDoc = update.state.doc.toString();
