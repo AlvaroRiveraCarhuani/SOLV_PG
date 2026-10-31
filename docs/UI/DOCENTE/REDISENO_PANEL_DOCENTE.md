@@ -3,7 +3,7 @@
 > **Especificación de arquitectura de información y diseño objetivo**
 > **Rol:** Docente (con impacto en Estudiante)
 > **Gobernanza:** SDD / Docs-as-Code / SOLV Design System / [UX-PRINCIPLES](../UX-PRINCIPLES.md)
-> **ADRs:** [055](../../ARQUITECTURA/ADR/ADR-055-panel-docente-read-model-por-pregunta.md), [056](../../ARQUITECTURA/ADR/ADR-056-sesion-de-aula-y-presencia-acotada.md)
+> **ADRs:** [055](../../ARQUITECTURA/ADR/ADR-055-panel-docente-read-model-por-pregunta.md), [056](../../ARQUITECTURA/ADR/ADR-056-sesion-de-aula-y-presencia-acotada.md), [057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)
 > **Estado:** especificación cerrada, implementación por etapas (§12)
 > **Sustituye a:** [DASHBOARD.md](DASHBOARD.md), congelado
 
@@ -74,12 +74,12 @@ Referencia de trabajo: portátil de 1366 x 768 con la barra del navegador, que d
 | Banner de alerta | 56 px | 0 |
 | Barra de control | 72 px | 0, el selector sube a la cabecera |
 | Franja de KPIs | 100 px | 0 |
-| Cabecera de la tabla de materias | 32 px | 32 px |
-| **Chrome antes del contenido** | **320 px** | **88 px** |
+| Franja de sesión | — | 44 px, solo con aula abierta |
+| **Chrome antes del contenido** | **320 px** | **88 px sin aula, 132 px con aula** |
 
 Regla: **dos filas de chrome arriba del pliegue como máximo**, la cabecera y una fila de acción. Nada de banners.
 
-Con 88 px de chrome quedan 552 px para el contenido: la línea de sesión (44 px), dos filas de trabajo (44 px cada una) y alrededor de nueve filas de tabla visibles sin desplazar.
+Con 88 px de chrome quedan 552 px para el contenido y, con el aula abierta, 508 px: alcanzan para la primera fila de tarjetas completa y los tres bloques de la columna de pendientes, que es lo que el docente necesita ver sin desplazar (§5.1).
 
 ---
 
@@ -106,25 +106,76 @@ Cuando una misma persona aparece con más de un aviso, la superficie muestra un 
 
 Ruta `/teacher/dashboard`. Pregunta: **¿qué me espera hoy?** Se refresca cada 60 segundos.
 
+La pantalla tiene dos superficies y una sola jerarquía: el canvas de materias, que se reconoce por posición, y la columna de pendientes, que es la única lista accionable. Ninguna de las dos muestra datos de ejecución: los contenedores viven en [Aula](#52-aula), donde hay una acción posible para el docente.
+
 ```
-Hoy   30 oct 2026                       Gestión 2026 · 2026-II (activo) ▾          44 px
-────────────────────────────────────────────────────────────────────────────────────────
- Vence  SIS-420 · Práctica 3 · 31/10/2026 23:59                  [Ver práctica >]   44 px
- Por calificar  21 entregas en 4 prácticas · la más antigua       [Calificar >]    44 px
- Entornos  4 abiertos ahora                                    [Ver entornos >]   44 px
-────────────────────────────────────────────────────────────────────────────────────────
- Materias (2)                                                                      32 px
-
- Código    Materia                          Inscritos  Ahora  Por calificar  Sin entregar
- SIS-420   Desarrollo Web Fullstack              9       0         15              —
- SIS-211   Estructuras de Datos y Algoritmos     9       0          6              —
+Hoy   30 oct 2026              Gestión 2026 · 2026-II (activo) ▾      [Abrir aula]   56 px
+──────────────────────────────────────────────────────────────────────────────────────────
+ SIS-211 · 10:00–11:30 · Práctica 3       20 de 28 dentro      [Ir al aula]        44 px
+──────────────────────────────────────────────────────────────────────────────────────────
+┌ Canvas de materias ──────────────────────────────────┐  ┌ Pendientes ──────────┐
+│ ┌────────────┐ ┌────────────┐ ┌────────────┐         │  │ Aula ahora           │
+│ │ SIS-211    │ │ SIS-420    │ │ SIS-310    │         │  │ SIS-211 · 20 dentro  │
+│ │ Estructuras│ │ Desarrollo │ │ Bases de   │         │  │ cierra 11:30         │
+│ │ de Datos   │ │ Web        │ │ Datos      │         │  │ [Ir al aula]         │
+│ │ 28 insc    │ │ 9 insc     │ │ 12 insc    │         │  │                      │
+│ │ 6 faltan   │ │ 15 cola    │ │ al día     │         │  │ Vencimientos         │
+│ │ Vence 31/10│ │ Vence 31/10│ │            │         │  │ SIS-420 · Práctica 3 │
+│ │ [Calificar]│ │ [Calificar]│ │ [Abrir aula│         │  │ vence 31/10 · 23:59  │
+│ └────────────┘ └────────────┘ └────────────┘         │  │                      │
+└──────────────────────────────────────────────────────┘  │ Por calificar        │
+                                                          │ 21 en 4 prácticas    │
+                                                          │ [Calificar]          │
+                                                          └──────────────────────┘
 ```
 
-Regla de sustitución de la primera fila: si hay aula abierta, muestra la sesión con sus presentes; si no, la práctica abierta más próxima a vencer; si tampoco hay, la fila no se dibuja. La cabecera lleva la acción `[Abrir aula]` cuando no hay sesión abierta; con el aula abierta, la acción es la fila de sesión ("Ir al aula").
+**Composición.** Canvas a la izquierda con `repeat(auto-fill, minmax(260px, 320px))` y `justify-content: start`: la tarjeta no crece más de 320 px, así que con una o dos materias no se estira hasta ocupar media pantalla. La columna mide 320 px fijos y la separación es de 24 px. Arriba va la franja de sesión, que solo existe con aula abierta; sin franja, el canvas empieza a 88 px del borde superior.
 
-Las filas de trabajo se ocultan cuando no tienen contenido. Una pantalla sin cola ni entornos abiertos no muestra ceros.
+**Tarjeta de materia.** Un solo componente para todas, sin variantes por estado. De arriba hacia abajo: código, nombre, línea de cifras, línea de vencimiento y acciones.
 
-La tabla nunca se recorta: muestra todas las materias del período, así que no lleva "Ver todas" mientras no exista una pantalla propia de Materias (etapa 3).
+- **Código** en monocromo y con semántica de dato técnico (`<code>`), porque se compara contra el sílabo y contra la pantalla del alumno.
+- **Nombre** en hasta dos líneas; si excede, el nombre completo viaja en `title` y la tarjeta no crece. La altura de la tarjeta es uniforme por fila.
+- **Cifras**: inscritos, por calificar y sin entregar. Se dibujan solo las que existen: **una cifra en cero no aparece** y `without_submission` nulo se omite, porque significa que la materia no tiene práctica por vencer y no hay conjunto que contar. Sin cola y sin faltantes, la tarjeta dice "Al día" en el verde semántico de éxito de los tokens de estado; con alumnos sin entregar no lo afirma, porque las dos cosas juntas se leen como una contradicción.
+- **Vencimiento**: solo con `next_due_at`, como `Vence 31/10 · Práctica 3`, con `dateText:'daymonth'` dentro de un `<time>`.
+- **Acciones**: como máximo dos. `Calificar` cuando hay entregas en la cola, hacia `/teacher/por-calificar?subject_id=`; `Abrir aula` hacia `/teacher/aula?subject_id=` cuando la materia no tiene aula abierta y tiene cola que mover; `Ir al aula` cuando la sesión abierta es la suya. Sin cola y sin aula la tarjeta no lleva acción: su acción es abrir la materia, y abrir una clase sin trabajo pendiente queda en la cabecera.
+- **Superficie**: el nombre es un enlace estirado sobre la tarjeta (`::after`), de modo que la tarjeta entera abre `/teacher/cursos/:id` con un solo tab stop; las acciones quedan por encima y conservan el suyo.
+- **Sin color propio por materia.** Se descarta el acento cromático por curso: seis acentos sin regla semántica no se distinguen entre sí y compiten con el rojo de "se trabó". El canvas se reconoce por código, nombre y posición. Si más adelante hace falta, entra por tokens de estado, no por estilos de la tarjeta.
+
+**Columna de pendientes.** Tres bloques, en orden fijo.
+
+1. `Aula ahora`: solo con sesión abierta. Materia, "N de M dentro", hora de cierre y `[Ir al aula]`. Encabeza la columna porque es lo único que cambia mientras el docente mira.
+2. `Vencimientos`: prácticas publicadas vencidas o con vencimiento próximo, ordenadas por urgencia y luego por fecha. Implementa paginación compacta de a 4 ítems y enlace directo a la pestaña de entregas de la materia (`/teacher/cursos/:id?tab=submissions&labId=:exercise_id`). Si el total excede el tope de 50 del backend, declara "y N más".
+3. `Por calificar`: entregas en `pending` o `in_review`, prácticas distintas y la más antigua, con `[Calificar]`.
+
+Reglas de la columna: cada bloque se oculta sin contenido; el orden no cambia entre refrescos ni con el cursor encima; sin nada pendiente la columna no se dibuja, el canvas ocupa el ancho y queda una línea de estado bajo la cabecera. La columna no repite cifras del canvas: aquí solo entra lo que tiene una acción a un clic.
+
+**Orden y estabilidad.** El servidor ordena las materias por código ascendente y la vista no reordena por urgencia. Mover tarjetas entre cargas rompe la memoria de posición, que es lo único que un canvas aporta sobre una tabla. Sin arrastrar, sin personalizar y sin ocultar bloques. La urgencia se expresa en la columna, no moviendo el mapa.
+
+**Regla de sustitución de la franja.** Con aula abierta, la franja muestra la sesión con sus presentes. Sin aula, no se dibuja: la cabecera lleva `[Abrir aula]` y el canvas empieza arriba. Una práctica por vencer se anuncia en la columna, no como franja propia.
+
+**Responsive.** Por encima de 1280 px, canvas y columna conviven. Entre 1024 y 1279 px la columna sube sobre el canvas y ocupa el ancho completo con sus bloques en fila. Por debajo de 768 px, una tarjeta por fila y la columna queda primero, porque es lo accionable. El canvas nunca cambia su composición interna.
+
+**Accesibilidad.** El orden del documento es columna y después canvas, porque es el orden de prioridad; la grilla coloca el canvas a la izquierda sin alterar ese orden. Cada bloque de la columna es un `section` con `h2`. Cada tarjeta anuncia su enlace como "SIS-211, Estructuras de Datos, 15 por calificar" para no obligar a recorrer las cifras. Ningún estado se comunica solo por color. La franja de sesión usa `aria-live="polite"` y el refresco no mueve el foco.
+
+**Estados.** Cargando: esqueleto con la forma de tres tarjetas y un bloque, sin salto de diseño. Período sin materias: estado vacío con el selector de período. Sin pendientes: una línea "Nada pendiente en el período" y el canvas a todo el ancho. Error de red: panel con reintento que conserva lo ya cargado.
+
+**Lo que no está en esta pantalla.** Sin ejecución, sin entornos, sin telemetría, sin KPIs, sin banner de alertas, sin grilla reordenable. Ninguna cifra aquí se puede sumar con otra: cada una responde a un hecho distinto.
+
+**Qué dejó la etapa 1.** Construida el 2026-10-30 sobre el resumen que ya existía:
+
+| Cambio | Dónde | Resultado |
+| --- | --- | --- |
+| `session.ends_at` y `session.subject_code` | read model | La franja dice la materia y a qué hora cierra |
+| `due_soon[]`, `due_soon_total` y `due_soon_hidden` | read model | La columna recibe la lista ordenada y el corte ya restado |
+| `subjects[].next_due_title` | read model | La tarjeta nombra la práctica que vence |
+| `environments` y `subjects[].open_environments` | read model | Retirados: ninguna cifra de contenedores se dibuja en Hoy |
+| Pantalla Hoy | `features/teacher/dashboard` | Canvas y columna sobre el resumen; salieron la grilla, el banner y `Personalizar` |
+| `subject-card` y `pending-column` | `dashboard/subject-card`, `dashboard/pending-column` | Componentes de presentación, sin estado propio |
+| `?subject_id=` en `/teacher/aula` y `/teacher/por-calificar` | frontend | Las acciones abren el destino con la materia ya elegida |
+
+`due_soon_hidden` es la diferencia entre el total y lo entregado, restada por el servidor: la columna dice "y N más" sin contar ni restar filas.
+
+El archivo de trabajo, con su matriz de verificación y lo que quedó fuera, está en [docente-hoy-canvas.md](../../../odd/tasks/docente-hoy-canvas.md).
 
 ### 5.2 Aula
 
@@ -182,10 +233,10 @@ Ruta `/teacher/cursos/:id`. Pregunta: **¿qué contiene y cómo va?** Cuatro pes
 ### 5.5 Qué se retira
 
 - La franja de KPIs y el banner de alertas del panel.
-- La columna lateral de tareas pendientes.
 - La grilla de widgets reordenables, el botón "Personalizar Panel" y su almacenamiento de diseño.
 - La telemetría como widget: pasa a ser la pantalla de §5.2.
-- Las tarjetas de materia en el panel: quedan solo en la tabla.
+- La tabla de materias del panel: el canvas de tarjetas la sustituye ([ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)).
+- La cifra de entornos abiertos en el panel: el docente no opera contenedores y no tiene acción sobre ellos.
 - El indicador "En riesgo" en todo el área docente.
 - La pestaña de entregas de `/teacher/evaluaciones`; su planilla se muda a la pestaña Libreta de la materia.
 
@@ -217,19 +268,28 @@ Un read model por pregunta. Ninguno devuelve listas crudas para que el cliente l
     "closes_at": null, "enrolled": 28, "present": 20
   },
   "queue": { "pending": 21, "practices": 4, "oldest_submitted_at": "2026-10-28T10:00:00Z" },
-  "environments": { "open_now": 4 },
+  "due_soon": [
+    {
+      "subject_id": "uuid", "subject_code": "SIS-420", "subject_name": "Desarrollo Web Fullstack",
+      "exercise_id": "uuid", "exercise_title": "Práctica 3", "due_at": "2026-10-31T23:59:00Z"
+    }
+  ],
+  "due_soon_total": 6,
+  "due_soon_hidden": 1,
   "subjects": [
     {
       "id": "uuid", "code": "SIS-420", "name": "Desarrollo Web Fullstack",
-      "enrolled": 9, "present_now": 0, "pending_review": 15,
-      "without_submission": 0, "next_due_at": "2026-10-31T23:59:00Z"
+      "enrolled": 9, "pending_review": 15, "without_submission": 4,
+      "next_due_at": "2026-10-31T23:59:00Z", "next_due_title": "Práctica 3"
     }
   ],
   "signals": []
 }
 ```
 
-`session` es `null` cuando no hay aula abierta; el resumen toma la sesión del mismo almacén que la pantalla de aula, así que la fila y el aula no pueden discrepar. `signals` sigue vacío: la agrupación de excepciones por causa no está implementada.
+`session` es `null` cuando no hay aula abierta; el resumen toma la sesión del mismo almacén que la pantalla de aula, así que la franja y el aula no pueden discrepar. `due_soon` viene ordenado y limitado por el servidor, `due_soon_total` declara el corte y `due_soon_hidden` cuántos quedaron fuera, ya restado: la columna dice "y N más" sin contar nada. `subjects` viene ordenado por código; la vista no reordena. `signals` sigue vacío: la agrupación de excepciones por causa no está implementada.
+
+**Diferencia con el contrato en uso.** Lo entregado en la etapa 1 devuelve `next_due` en singular, `environments.open_now`, `subjects[].open_environments` y una sesión sin `ends_at`. Este contrato los sustituye: `due_soon` con su total, `next_due_title` por materia, la hora de fin y el código de la materia en la sesión, y ninguna cifra de contenedores. El motivo está en el [ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md).
 
 ### 6.1.1 Contrato del tablero
 
@@ -266,14 +326,13 @@ Un read model por pregunta. Ninguno devuelve listas crudas para que el cliente l
 | Cifra | Definición |
 | --- | --- |
 | Inscritos | Alumnos matriculados en la materia |
-| Ahora | Entornos de la materia en estado `running`, `active` o `pending`: la misma condición que usa la vista en vivo. Es una cifra de contenedores, no de personas, y por eso la columna se llama "Ahora" y su encabezado dice qué cuenta. |
-| Presentes (aula) | Alumnos con `last_seen_at` dentro de 120 s en `class_session_participants`. La señal la emite el cliente del alumno cada minuto mientras la pestaña está visible. |
+| Vence pronto | Prácticas publicadas de las materias del docente con vencimiento futuro, sin ventana de fechas. La columna muestra hasta cinco y declara el resto con `due_soon_hidden`. |
+| Presentes (aula) | Alumnos con `last_seen_at` dentro de 120 s en `class_session_participants` de esa sesión. La señal la emite el cliente del alumno cada minuto mientras la pestaña está visible. En Hoy es la presencia de la materia con aula abierta, y sin aula no se dibuja: no hay conjunto que contar. |
 | Fin del aula | `ends_at`, fijado al abrir con la duración elegida (90 min por defecto, entre 15 y 480). Al vencer, la sesión pasa a `closed` con `closes_at = ends_at` en la siguiente lectura o apertura; no hay proceso periódico. |
 | Entregaron | Alumnos con al menos una entrega de la práctica de la sesión desde que se abrió el aula |
 | Trabado | Última entrega de la práctica en la sesión con veredicto `RE`, `TLE` o `AST_BLOCKED` en los últimos 10 minutos |
 | Sin empezar | Inscritos sin fila en `class_session_participants` para esa sesión |
 | Salieron | Participantes cuya última señal tiene más de 120 s. No es lo mismo que no haber entrado nunca |
-| Entornos abiertos | Suma de "Ahora" sobre las materias del docente. El resumen y la tabla no pueden discrepar. |
 | Por calificar | Entregas con `review_status` en `pending` o `in_review` |
 | Prácticas con pendientes | Prácticas distintas que tienen al menos una entrega por calificar |
 | Sin entregar | Inscritos menos alumnos distintos con al menos una entrega en esa práctica |
@@ -283,7 +342,7 @@ Un read model por pregunta. Ninguno devuelve listas crudas para que el cliente l
 
 ### 6.3 Rendimiento
 
-El resumen se resuelve en dos consultas agregadas, sin recorrer materias en un bucle. Con 30 materias, la carga deja de pedir 121 viajes a la base.
+El resumen se resuelve en tres consultas agregadas —período, materias y cola—, sin recorrer materias en un bucle. `due_soon` sale de la consulta de materias, no de una cuarta. Con 30 materias, la carga deja de pedir 121 viajes a la base.
 
 ---
 
@@ -331,7 +390,9 @@ La planilla de notas sigue accesible durante la transición a través del destin
 | Error de red | Panel con el mensaje y botón de reintento, sin borrar lo ya cargado |
 | Dato con más de un minuto | Marca de frescura en ámbar, según la Ley 5 de [UX-PRINCIPLES](../UX-PRINCIPLES.md) |
 
-Densidad: filas de 44 px en la pantalla de aula, 40 px en tablas de registro, cabecera de tabla en `var(--text-xs)` en mayúsculas. Sin tarjetas anidadas ni columnas laterales permanentes. El espacio se gana con acciones, no con simetría.
+Densidad: filas de 44 px en la pantalla de aula, 40 px en tablas de registro, cabecera de tabla en `var(--text-xs)` en mayúsculas, tarjetas de 260 a 320 px de ancho en el canvas. Sin tarjetas anidadas. Una sola columna lateral admitida: la de pendientes de Hoy, que existe solo con trabajo pendiente y cuyo contenido tiene acción y dueño declarados ([ADR-057](../../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md)); cualquier otra necesita su propio ADR. El espacio se gana con acciones, no con simetría.
+
+Anchos: por encima de 1280 px el canvas y la columna conviven; entre 1024 y 1279 px la columna sube sobre el canvas con sus bloques en fila; por debajo de 768 px, una tarjeta por fila y la columna primero. El canvas no cambia su composición interna en ningún ancho.
 
 ---
 
@@ -355,12 +416,17 @@ Chat o videollamada dentro del aula; edición colaborativa del código; analíti
 
 | Etapa | Alcance | Retira | Estado |
 | --- | --- | --- | --- |
-| 0 | El panel deja de mentir: sin KPIs, sin banner, sin personalización; la cola lee el estado de revisión; el acceso "Entregas" apunta a un destino real | Franja de KPIs, banner, grilla reordenable | Hecho (2026-10-30) |
-| 1 | Pantalla "Hoy" con el resumen agregado; la telemetría se muda a `/teacher/aula` | Columna de tareas pendientes, tarjetas de materia, telemetría como widget, "En riesgo" | Hecho (2026-10-30) |
+| 0 | El panel deja de mentir: sin KPIs, sin banner, sin personalización; la cola lee el estado de revisión; el acceso "Entregas" apunta a un destino real | Franja de KPIs, banner, grilla reordenable | Hecho (2026-10-30): la franja de KPIs, el banner de atención y `Personalizar` salieron del panel |
+| 1 | Pantalla "Hoy" con el resumen agregado: canvas de materias y columna de pendientes | Tabla de materias, columna de tareas anterior, telemetría como widget, "En riesgo" | Hecho (2026-10-30) |
 | 2 | Aula con `class_sessions`, presencia acotada y tablero de faltantes y trabados | Definición doble de "activo" | Hecho (2026-10-30), con pendientes en §12.1 |
 | 3 | Materia con sus cuatro pestañas y la libreta; se retira `/teacher/evaluaciones` | Pestaña de entregas del centro de evaluaciones | Pendiente |
 
-Lo entregado en las etapas 0 y 1: `GET /api/v1/teacher/overview` resuelve período, fila de trabajo y materias en cuatro consultas agregadas —sin bucle por materia— y la pantalla `Hoy` solo pinta esa respuesta. La telemetría vive en `/teacher/aula`, con destino propio en la navegación, y refresca cada 5 segundos; el panel refresca cada 60.
+Estado verificado en el árbol al 2026-10-30:
+
+- `GET /api/v1/teacher/overview` resuelve período, materias, cola y vencimientos en cuatro consultas agregadas, sin bucle por materia, y ya no publica cifras de contenedores.
+- La pantalla `Hoy` pinta el canvas y la columna desde ese resumen, con refresco de 60 s; la grilla reordenable, el banner de atención y `Personalizar` salieron del panel.
+- Los widgets `dashboard-courses-widget` y `dashboard-attention-widget` se retiraron con la grilla; el panel del estudiante conserva su propio uso de `dashboard-layout.service.ts`.
+- `GET /api/v1/teacher/attention` se retiró. Ninguna pantalla leía su resultado; `loadDashboardData` lo pedía y lo descartaba. Sus alertas quedan cubiertas por `signals` del resumen de `overview`.
 
 ### 12.1 Qué dejó la etapa 2
 
@@ -375,15 +441,14 @@ Queda pendiente, y no se declara hecho:
 - **Resumen de trabados para el trabajo fuera de clase** ("3 alumnos se trabaron desde tu última visita").
 - **Exportación de asistencia** en CSV.
 
-`GET /api/v1/teacher/attention` sigue en pie, sin consumidor en el área docente; se retira cuando `signals` tome el relevo de las excepciones.
-
 Cada etapa se abre como archivo de trabajo en `odd/tasks/` antes de escribir código, con su matriz de verificación y su actualización de documentación.
 
 ---
 
 ## 13. Componentes
 
-- **Reutilizados:** `status-badge`, `verdict-badge`, `empty-state`, `search-bar`, `status-tabs`, `pagination-bar`, `resource-meter`, `skeleton-loader`, `combobox`, `dateText`.
-- **Nuevos:** `session-header`, `student-row`, `exception-row`. La tabla de materias se resuelve dentro de la pantalla `Hoy`, porque tiene un solo consumidor.
-- **Retirados del área docente:** `dashboard-kpi-widget`, `dashboard-attention-widget`, `dashboard-courses-widget` en su modo tarjeta, la grilla `cdkDropList` del panel y el uso docente del servicio de diseño de panel, que sigue vivo para el panel del estudiante.
+- **Reutilizados:** `empty-state`, `search-bar`, `status-tabs`, `pagination-bar`, `resource-meter`, `skeleton-loader`, `combobox`, `dateText`, `verdict-badge` y `status-badge` en el aula.
+- **Nuevos:** `subject-card` (tarjeta del canvas), `pending-column` (columna con sus tres bloques), `student-row` y `exception-row` (aula). La franja de sesión de Hoy se resuelve en su plantilla, sin componente propio.
+- **Retirados del área docente:** `dashboard-kpi-widget`, `dashboard-attention-widget`, `dashboard-courses-widget`, la grilla `cdkDropList` del panel y el uso docente de `dashboard-layout.service.ts`, que sigue vivo para el panel del estudiante.
 - **Mudado:** `dashboard-telemetry-widget` pasa a `aula/aula-telemetry-widget`, con la terminal de sombra y la pantalla `aula` que las aloja.
+- **Nombres:** kebab-case de dominio, sin prefijo `solv-` (`subject-card`, no `solv-subject-card`).

@@ -34,19 +34,28 @@ export interface TeacherOverviewPeriod {
 export interface TeacherOverviewSession {
   id: string;
   subject_id: string;
+  subject_code: string;
   subject_name: string;
   exercise_title?: string;
   opens_at: string;
-  closes_at?: string | null;
+  ends_at: string;
+  closes_at: string | null;
   enrolled: number;
   present: number;
 }
 
-export interface TeacherOverviewNextDue {
+/** Práctica publicada que vence dentro de la ventana de la columna de pendientes. */
+export interface TeacherOverviewDue {
   subject_id: string;
+  subject_code: string;
   subject_name: string;
+  exercise_id: string;
   exercise_title: string;
-  due_at: string;
+  /** Urgencia calculada en el servidor: overdue | today | soon | later | none. */
+  urgency: 'overdue' | 'today' | 'soon' | 'later' | 'none';
+  /** Entregas por calificar de la práctica. */
+  pending_review: number;
+  due_at: string | null;
 }
 
 export interface TeacherOverviewQueue {
@@ -55,20 +64,17 @@ export interface TeacherOverviewQueue {
   oldest_submitted_at: string | null;
 }
 
-export interface TeacherOverviewEnvironments {
-  open_now: number;
-}
-
 export interface TeacherOverviewSubject {
   id: string;
   code: string;
   name: string;
   enrolled: number;
-  open_environments: number;
   pending_review: number;
   /** `null` cuando la materia no tiene una práctica por vencer. */
   without_submission: number | null;
   next_due_at: string | null;
+  /** Práctica que vence: la tarjeta la nombra junto a la fecha. */
+  next_due_title?: string;
 }
 
 export interface TeacherOverviewSignal {
@@ -79,44 +85,14 @@ export interface TeacherOverviewSignal {
 export interface TeacherOverview {
   period: TeacherOverviewPeriod | null;
   session: TeacherOverviewSession | null;
-  next_due: TeacherOverviewNextDue | null;
   queue: TeacherOverviewQueue;
-  environments: TeacherOverviewEnvironments;
+  /** Ordenado por fecha y limitado por el servidor: la vista no elige ni recorta. */
+  due_soon: TeacherOverviewDue[];
+  due_soon_total: number;
+  /** Cuántos vencimientos quedaron fuera del límite, ya restado por el servidor. */
+  due_soon_hidden: number;
   subjects: TeacherOverviewSubject[];
   signals: TeacherOverviewSignal[];
-}
-
-export interface AttentionCriticalAlert {
-  type: 'oom_killed' | string;
-  student_id: string;
-  student_name: string;
-  workspace_id: string;
-  subject_id: string;
-  occurred_at: string;
-}
-
-export interface AttentionWarningAlert {
-  type: 'ast_blocked' | string;
-  student_id: string;
-  student_name: string;
-  exercise_id: string;
-  rule_violated: string;
-  occurred_at: string;
-}
-
-export interface AttentionStandardAlert {
-  type: 'pending_review' | string;
-  submission_id: string;
-  student_name: string;
-  exercise_title: string;
-  submitted_at: string;
-  review_status?: ReviewStatus;
-}
-
-export interface TeacherAttentionWidget {
-  critical: AttentionCriticalAlert[];
-  warning: AttentionWarningAlert[];
-  standard: AttentionStandardAlert[];
 }
 
 export interface TeacherLabStats {
@@ -799,8 +775,72 @@ export interface ClassSession {
   /** Fin previsto: al vencer, el aula se cierra sola. */
   ends_at: string;
   closes_at: string | null;
+  /** Congelación manual del docente: con hora, no se emiten avances nuevos. */
+  frozen_at?: string | null;
+  /** Fin de la ventana de rezago; se fija al cerrar el aula. */
+  grace_until?: string | null;
   enrolled: number;
   present: number;
+}
+
+/** A quién va dirigido un avance: toda la clase o los alumnos elegidos. */
+export type AdvanceScope = 'class' | 'selected';
+
+export interface EmitAdvanceRequest {
+  exercise_id: string;
+  scope: AdvanceScope;
+  /** Solo con alcance `selected`; el servidor exige que estén en el aula. */
+  student_ids?: string[];
+}
+
+export interface ClassAdvance {
+  id: string;
+  session_id: string;
+  exercise_id: string;
+  scope: AdvanceScope;
+  snapshot_key: string;
+  snapshot_sha256: string;
+  snapshot_size_bytes: number;
+  file_count: number;
+  created_at: string;
+}
+
+/** Respuesta de la emisión: el avance y los alumnos que lo recibieron. */
+export interface ClassAdvanceEmission {
+  advance: ClassAdvance;
+  recipients: string[];
+}
+
+/** Estado de un alumno frente a un avance emitido (ADR-058 §9). */
+export type AdvanceRecipientStatus = 'pending' | 'applied' | 'dismissed' | 'failed' | 'expired';
+
+export interface AdvanceRecipient {
+  student_id: string;
+  name: string;
+  email: string;
+  status: AdvanceRecipientStatus;
+  decided_at: string | null;
+}
+
+export interface AdvanceRecipientCounts {
+  total: number;
+  applied: number;
+  dismissed: number;
+  pending: number;
+  failed: number;
+  expired: number;
+}
+
+/** Una emisión del aula con el estado de cada destinatario. */
+export interface SessionAdvance {
+  id: string;
+  exercise_id: string;
+  exercise_title: string;
+  scope: AdvanceScope;
+  file_count: number;
+  created_at: string;
+  counts: AdvanceRecipientCounts;
+  recipients: AdvanceRecipient[];
 }
 
 export interface ClassSessionSummary {

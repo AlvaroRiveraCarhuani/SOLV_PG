@@ -5,8 +5,23 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"solv-backend/internal/core/domain"
 )
+
+// overviewTimeZone devuelve la zona que define "hoy" y "mañana" para el panel.
+// Se configura con APP_TIMEZONE; por defecto, la zona de Bolivia.
+func overviewTimeZone() string {
+	if tz := strings.TrimSpace(os.Getenv("APP_TIMEZONE")); tz != "" {
+		if _, err := time.LoadLocation(tz); err == nil {
+			return tz
+		}
+	}
+	return "America/La_Paz"
+}
 
 // teacherScopeClause agrega los filtros opcionales de docente y período sobre el
 // alias `s` (subjects). startIdx es el número del primer placeholder libre.
@@ -32,6 +47,7 @@ func teacherScopeClause(teacherID, periodID string, startIdx int) (string, []any
 func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tenantID, teacherID, periodID string) (*domain.TeacherOverview, error) {
 	overview := &domain.TeacherOverview{
 		Subjects: make([]domain.TeacherOverviewSubject, 0),
+		DueSoon:  make([]domain.TeacherOverviewDue, 0),
 		Signals:  make([]domain.TeacherOverviewSignal, 0),
 	}
 
@@ -44,7 +60,6 @@ func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tena
 		Code              string         `db:"code"`
 		Name              string         `db:"name"`
 		Enrolled          int            `db:"enrolled"`
-		OpenEnvironments  int            `db:"open_environments"`
 		PendingReview     int            `db:"pending_review"`
 		WithoutSubmission sql.NullInt64  `db:"without_submission"`
 		NextDueAt         sql.NullTime   `db:"next_due_at"`
@@ -59,9 +74,6 @@ func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tena
 			s.name,
 			(SELECT COUNT(DISTINCT en.student_id) FROM enrollments en
 			   WHERE en.subject_id = s.id AND en.tenant_id = $1) AS enrolled,
-			(SELECT COUNT(*) FROM workspaces w
-			   WHERE w.subject_id = s.id AND w.tenant_id = $1
-			     AND w.status IN ('running', 'active', 'pending')) AS open_environments,
 			(SELECT COUNT(*) FROM submissions sub
 			   JOIN exercises ex ON sub.exercise_id = ex.id
 			   WHERE ex.subject_id = s.id AND sub.tenant_id = $1
@@ -99,12 +111,11 @@ func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tena
 	}
 	for _, row := range rows {
 		item := domain.TeacherOverviewSubject{
-			ID:               row.ID,
-			Code:             row.Code,
-			Name:             row.Name,
-			Enrolled:         row.Enrolled,
-			OpenEnvironments: row.OpenEnvironments,
-			PendingReview:    row.PendingReview,
+			ID:            row.ID,
+			Code:          row.Code,
+			Name:          row.Name,
+			Enrolled:      row.Enrolled,
+			PendingReview: row.PendingReview,
 		}
 		if row.WithoutSubmission.Valid {
 			value := int(row.WithoutSubmission.Int64)
@@ -113,15 +124,8 @@ func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tena
 		if row.NextDueAt.Valid {
 			due := row.NextDueAt.Time
 			item.NextDueAt = &due
-			// El vencimiento más cercano se resuelve aquí, no en la vista.
-			if overview.NextDue == nil || due.Before(overview.NextDue.DueAt) {
-				overview.NextDue = &domain.TeacherOverviewNextDue{
-					SubjectID:     row.ID,
-					SubjectName:   row.Name,
-					ExerciseTitle: row.NextDueTitle.String,
-					DueAt:         due,
-				}
-			}
+			// El título viaja con su fecha: la tarjeta nombra la práctica que vence.
+			item.NextDueTitle = row.NextDueTitle.String
 		}
 		overview.Subjects = append(overview.Subjects, item)
 	}
@@ -157,19 +161,85 @@ func (r *PostgresTeacherRepository) GetTeacherOverview(ctx context.Context, tena
 		overview.Queue.OldestSubmittedAt = &oldest
 	}
 
-	// 4. Entornos abiertos, con la misma definición que usa la tabla de materias:
-	// contenedor en estado running, active o pending.
-	envScope, envScopeArgs := teacherScopeClause(teacherID, periodID, 2)
-	envQuery := `
-		SELECT COUNT(*)
-		FROM workspaces w
-		JOIN subjects s ON w.subject_id = s.id
-		WHERE w.tenant_id = $1
-		  AND w.status IN ('running', 'active', 'pending')` + envScope
-	envArgs := append([]any{tenantID}, envScopeArgs...)
-	if err := r.db.GetContext(ctx, &overview.Environments.OpenNow, envQuery, envArgs...); err != nil {
-		return nil, fmt.Errorf("failed to count open environments: %w", err)
+	// 4. Vencimientos próximos: todas las prácticas publicadas aún no vencidas,
+	// igual que la próxima práctica de cada materia en el canvas. El total viaja
+	// antes del límite, para que la vista declare el corte sin contar filas.
+	dueScope, dueScopeArgs := teacherScopeClause(teacherID, periodID, 2)
+	// La zona define "hoy" y "mañana" para el panel, no el reloj de la base.
+	tzParam := fmt.Sprintf("$%d", 2+len(dueScopeArgs))
+	dueQuery := `
+		SELECT d.* FROM (
+		SELECT
+			ex.subject_id,
+			s.code AS subject_code,
+			s.name AS subject_name,
+			ex.id AS exercise_id,
+			ex.title AS exercise_title,
+			ex.due_date AS due_at,
+			COUNT(*) OVER () AS total,
+			CASE
+			  WHEN ex.due_date IS NULL THEN 'none'
+			  WHEN ex.due_date <= NOW() THEN 'overdue'
+			  WHEN (ex.due_date AT TIME ZONE ` + tzParam + `)::date = (NOW() AT TIME ZONE ` + tzParam + `)::date THEN 'today'
+			  WHEN ex.due_date <= NOW() + INTERVAL '7 days' THEN 'soon'
+			  ELSE 'later'
+			END AS urgency,
+			(SELECT COUNT(*) FROM submissions sub
+			   WHERE sub.exercise_id = ex.id AND sub.tenant_id = $1
+			     AND sub.review_status IN ('pending', 'in_review')) AS pending_review
+		FROM exercises ex
+		JOIN subjects s ON s.id = ex.subject_id
+		WHERE ex.tenant_id = $1
+		  AND s.tenant_id = $1
+		  AND COALESCE(ex.status, 'draft') = 'published'
+		  AND (
+		    ex.due_date > NOW()
+		    OR EXISTS (
+		      SELECT 1 FROM submissions sub
+		      WHERE sub.exercise_id = ex.id AND sub.tenant_id = $1
+		        AND sub.review_status IN ('pending', 'in_review')
+		    )
+		  )` + dueScope + `
+		) d
+		ORDER BY
+		  CASE d.urgency WHEN 'overdue' THEN 0 WHEN 'today' THEN 1 WHEN 'soon' THEN 2 WHEN 'later' THEN 3 ELSE 4 END ASC,
+		  d.due_at ASC NULLS LAST,
+		  d.subject_code ASC
+		LIMIT 50
+	`
+	dueArgs := append(append([]any{tenantID}, dueScopeArgs...), overviewTimeZone())
+	var dueRows []struct {
+		SubjectID     string       `db:"subject_id"`
+		SubjectCode   string       `db:"subject_code"`
+		SubjectName   string       `db:"subject_name"`
+		ExerciseID    string       `db:"exercise_id"`
+		ExerciseTitle string       `db:"exercise_title"`
+		DueAt         sql.NullTime `db:"due_at"`
+		Total         int          `db:"total"`
+		Urgency       string       `db:"urgency"`
+		PendingReview int          `db:"pending_review"`
 	}
+	if err := r.db.SelectContext(ctx, &dueRows, dueQuery, dueArgs...); err != nil {
+		return nil, fmt.Errorf("failed to build teacher overview due list: %w", err)
+	}
+	for _, row := range dueRows {
+		due := domain.TeacherOverviewDue{
+			SubjectID:     row.SubjectID,
+			SubjectCode:   row.SubjectCode,
+			SubjectName:   row.SubjectName,
+			ExerciseID:    row.ExerciseID,
+			ExerciseTitle: row.ExerciseTitle,
+			Urgency:       row.Urgency,
+			PendingReview: row.PendingReview,
+		}
+		if row.DueAt.Valid {
+			due.DueAt = row.DueAt.Time
+		}
+		overview.DueSoon = append(overview.DueSoon, due)
+		overview.DueSoonTotal = row.Total
+	}
+	// El corte también viaja resuelto: la columna dice "y N más" sin restar filas.
+	overview.DueSoonHidden = overview.DueSoonTotal - len(overview.DueSoon)
 
 	return overview, nil
 }

@@ -1,0 +1,67 @@
+<article class="subject-card">
+  <code class="card-code">{{ subject().code }}</code>
+
+  <h2 class="card-name">
+    <a
+      class="card-link"
+      [routerLink]="subjectLink()"
+      [attr.title]="subject().name"
+      [attr.aria-label]="linkLabel()"
+    >{{ subject().name }}</a>
+  </h2>
+
+  <p class="card-figures">
+    @if (subject().enrolled > 0) {
+      <span class="figure">
+        <strong machineData>{{ subject().enrolled }}</strong> inscritos
+      </span>
+    }
+    @if (hasQueue()) {
+      <span class="figure figure-queue">
+        <strong machineData>{{ subject().pending_review }}</strong> por calificar
+      </span>
+    }
+    @if (hasMissing()) {
+      <span class="figure">
+        <strong machineData>{{ subject().without_submission }}</strong> sin entregar
+      </span>
+    }
+    @if (isClear()) {
+      <span class="figure figure-clear">Al día</span>
+    }
+  </p>
+
+  @if (subject().next_due_at; as dueAt) {
+    <p class="card-due">
+      <span>Vence</span>
+      <time class="due-date" [attr.datetime]="dueAt">{{ dueAt | dateText:'daymonth' }}</time>
+      @if (subject().next_due_title) {
+        <span class="due-sep" aria-hidden="true">·</span>
+        <span class="due-practice">{{ subject().next_due_title }}</span>
+      }
+    </p>
+  }
+
+  @if (showGradeAction() || showAulaAction()) {
+    <div class="card-actions">
+      @if (showGradeAction()) {
+        <a
+          class="action action-primary"
+          [routerLink]="['/teacher/por-calificar']"
+          [queryParams]="{ subject_id: subject().id }"
+        >Calificar</a>
+      }
+      @if (showAulaAction()) {
+        @if (hasAula()) {
+          <a class="action" [routerLink]="['/teacher/aula']">Ir al aula</a>
+        } @else {
+          <a
+            class="action"
+            [routerLink]="['/teacher/aula']"
+            [queryParams]="{ subject_id: subject().id }"
+          >Abrir aula</a>
+        }
+      }
+    </div>
+  }
+</article>

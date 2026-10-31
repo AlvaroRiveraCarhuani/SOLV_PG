@@ -1,0 +1,103 @@
+<aside class="pending-column" aria-label="Pendientes de hoy">
+  @if (session(); as aula) {
+    <section class="pending-block">
+      <h2 class="block-title">Aula ahora</h2>
+      <p class="block-line">
+        <code class="block-code">{{ aula.subject_code }}</code>
+        <span class="block-sep" aria-hidden="true">·</span>
+        <span machineData>{{ aula.present }}</span> de
+        <span machineData>{{ aula.enrolled }}</span> dentro
+      </p>
+      <p class="block-meta">
+        cierra <time [attr.datetime]="aula.ends_at">{{ aula.ends_at | dateText:'time' }}</time>
+      </p>
+      <a class="block-action" [routerLink]="['/teacher/aula']">Ir al aula</a>
+    </section>
+  }
+
+  @if (dueSoon().length > 0) {
+    <section class="pending-block">
+      <div class="block-header">
+        <h2 class="block-title">Vencimientos</h2>
+        @if (totalPages() > 1) {
+          <div class="due-pagination" aria-label="Paginación de vencimientos">
+            <button
+              type="button"
+              class="pagination-btn"
+              [disabled]="page() <= 1"
+              (click)="prevPage()"
+              aria-label="Página anterior"
+            >
+              <svg lucideChevronLeft class="pagination-icon"></svg>
+            </button>
+            <span class="pagination-info font-mono">
+              <span machineData>{{ page() }}</span>/<span machineData>{{ totalPages() }}</span>
+            </span>
+            <button
+              type="button"
+              class="pagination-btn"
+              [disabled]="page() >= totalPages()"
+              (click)="nextPage()"
+              aria-label="Página siguiente"
+            >
+              <svg lucideChevronRight class="pagination-icon"></svg>
+            </button>
+          </div>
+        }
+      </div>
+
+      <ul class="due-list">
+        @for (due of pagedDueSoon(); track due.exercise_id) {
+          <li>
+            <a
+              class="due-item"
+              [routerLink]="['/teacher/cursos', due.subject_id]"
+              [queryParams]="{ tab: 'submissions', labId: due.exercise_id }"
+              [title]="'Ver entregas de ' + due.exercise_title"
+            >
+              <span class="due-title">
+                <code class="block-code">{{ due.subject_code }}</code>
+                <span class="block-sep" aria-hidden="true">·</span>
+                <span class="exercise-name">{{ due.exercise_title }}</span>
+              </span>
+              <span class="due-when">
+                {{ urgencyLabel(due.urgency) }}
+                @if (due.due_at) {
+                  <time [attr.datetime]="due.due_at">{{ due.due_at | dateText:'daymonth' }}</time>
+                  <span class="block-sep" aria-hidden="true">·</span>
+                  <time [attr.datetime]="due.due_at">{{ due.due_at | dateText:'time' }}</time>
+                }
+                @if (due.pending_review > 0) {
+                  <span class="block-sep" aria-hidden="true">·</span>
+                  <span machineData>{{ due.pending_review }}</span> por calificar
+                }
+              </span>
+            </a>
+          </li>
+        }
+      </ul>
+      @if (dueSoonHidden() > 0) {
+        <p class="block-more">y <span machineData>{{ dueSoonHidden() }}</span> más</p>
+      }
+    </section>
+  }
+
+  @if (queue().pending > 0) {
+    <section class="pending-block">
+      <h2 class="block-title">Por calificar</h2>
+      <p class="block-line">
+        <span machineData>{{ queue().pending }}</span> en
+        <span machineData>{{ queue().practices }}</span> prácticas
+      </p>
+      @if (queue().oldest_submitted_at; as oldest) {
+        <p class="block-meta">
+          la más antigua
+          <time [attr.datetime]="oldest">{{ oldest | dateText:'daymonth' }}</time>
+          <span class="block-sep" aria-hidden="true">·</span>
+          <time [attr.datetime]="oldest">{{ oldest | dateText:'time' }}</time>
+        </p>
+      }
+      <a class="block-action" [routerLink]="['/teacher/por-calificar']">Calificar</a>
+    </section>
+  }
+</aside>

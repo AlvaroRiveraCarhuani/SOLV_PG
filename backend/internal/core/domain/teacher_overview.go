@@ -9,22 +9,30 @@ import (
 // ("¿qué me espera hoy?") con los conteos ya resueltos. Ninguna cifra de este
 // contrato se recalcula en el cliente.
 type TeacherOverview struct {
-	Period       *TeacherOverviewPeriod      `json:"period"`
-	Session      *TeacherOverviewSession     `json:"session"`
-	NextDue      *TeacherOverviewNextDue     `json:"next_due"`
-	Queue        TeacherOverviewQueue        `json:"queue"`
-	Environments TeacherOverviewEnvironments `json:"environments"`
-	Subjects     []TeacherOverviewSubject    `json:"subjects"`
-	Signals      []TeacherOverviewSignal     `json:"signals"`
+	Period       *TeacherOverviewPeriod   `json:"period"`
+	Session      *TeacherOverviewSession  `json:"session"`
+	Queue        TeacherOverviewQueue     `json:"queue"`
+	DueSoon       []TeacherOverviewDue     `json:"due_soon"`
+	DueSoonTotal  int                      `json:"due_soon_total"`
+	DueSoonHidden int                      `json:"due_soon_hidden"`
+	Subjects     []TeacherOverviewSubject `json:"subjects"`
+	Signals      []TeacherOverviewSignal  `json:"signals"`
 }
 
-// TeacherOverviewNextDue es la práctica publicada con el vencimiento más cercano,
-// resuelta en el servidor para que la vista no elija entre filas.
-type TeacherOverviewNextDue struct {
-	SubjectID     string    `json:"subject_id"`
-	SubjectName   string    `json:"subject_name"`
-	ExerciseTitle string    `json:"exercise_title"`
-	DueAt         time.Time `json:"due_at"`
+// TeacherOverviewDue es una práctica publicada que vence dentro de la ventana de
+// la columna de pendientes. El servidor la ordena y la limita, y declara el
+// total para que la vista no tenga que contar ni recortar.
+type TeacherOverviewDue struct {
+	SubjectID     string    `json:"subject_id" db:"subject_id"`
+	SubjectCode   string    `json:"subject_code" db:"subject_code"`
+	SubjectName   string    `json:"subject_name" db:"subject_name"`
+	ExerciseID    string    `json:"exercise_id" db:"exercise_id"`
+	ExerciseTitle string    `json:"exercise_title" db:"exercise_title"`
+	DueAt         time.Time `json:"due_at" db:"due_at"`
+	// Urgency es overdue | today | soon | later | none, calculada en el servidor.
+	Urgency string `json:"urgency" db:"urgency"`
+	// PendingReview cuenta las entregas por calificar de la práctica.
+	PendingReview int `json:"pending_review" db:"pending_review"`
 }
 
 // TeacherOverviewPeriod identifica el período académico que enmarca la pantalla.
@@ -40,9 +48,11 @@ type TeacherOverviewPeriod struct {
 type TeacherOverviewSession struct {
 	ID            string     `json:"id"`
 	SubjectID     string     `json:"subject_id"`
+	SubjectCode   string     `json:"subject_code"`
 	SubjectName   string     `json:"subject_name"`
 	ExerciseTitle string     `json:"exercise_title,omitempty"`
 	OpensAt       time.Time  `json:"opens_at"`
+	EndsAt        time.Time  `json:"ends_at"`
 	ClosesAt      *time.Time `json:"closes_at"`
 	Enrolled      int        `json:"enrolled"`
 	Present       int        `json:"present"`
@@ -55,13 +65,6 @@ type TeacherOverviewQueue struct {
 	OldestSubmittedAt *time.Time `json:"oldest_submitted_at"`
 }
 
-// TeacherOverviewEnvironments cuenta los entornos abiertos: contenedores en
-// estado running, active o pending. La presencia con heartbeat pertenece a la
-// sesión de aula y se resuelve cuando exista.
-type TeacherOverviewEnvironments struct {
-	OpenNow int `json:"open_now"`
-}
-
 // TeacherOverviewSubject es una fila de la tabla de materias. WithoutSubmission
 // es nulo cuando la materia no tiene una práctica por vencer, porque en ese
 // caso no hay conjunto contra el cual contar.
@@ -70,10 +73,10 @@ type TeacherOverviewSubject struct {
 	Code              string     `json:"code" db:"code"`
 	Name              string     `json:"name" db:"name"`
 	Enrolled          int        `json:"enrolled" db:"enrolled"`
-	OpenEnvironments  int        `json:"open_environments" db:"open_environments"`
 	PendingReview     int        `json:"pending_review" db:"pending_review"`
 	WithoutSubmission *int       `json:"without_submission" db:"without_submission"`
 	NextDueAt         *time.Time `json:"next_due_at" db:"next_due_at"`
+	NextDueTitle      string     `json:"next_due_title,omitempty" db:"next_due_title"`
 }
 
 // TeacherOverviewSignal es una excepción con dueño docente. Queda vacío hasta

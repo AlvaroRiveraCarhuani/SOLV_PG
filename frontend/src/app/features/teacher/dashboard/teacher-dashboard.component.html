@@ -1,166 +1,86 @@
-<div class="dashboard-container">
-  <!-- Header: Título, fecha, período, botón Abrir Aula y Personalizar -->
-  <header class="dashboard-header">
-    <div class="header-left">
-      <div class="title-with-date">
-        <h1 class="page-title">Panel de Control</h1>
-        <time class="header-date font-mono">{{ today | dateText:'daymonthyear' }}</time>
-      </div>
-      <p class="page-subtitle">Gestión de cursos, revisiones pendientes e incidencias académicas.</p>
+<div class="hoy">
+  <header class="hoy-header">
+    <div class="header-title">
+      <h1 class="page-title">Hoy</h1>
+      <time class="header-date" [attr.datetime]="todayIso">{{ today | dateText:'daymonthyear' }}</time>
     </div>
 
-    <div class="header-right">
+    <div class="header-actions">
       @if (periodOptions().length > 0) {
-        <div class="period-combobox-wrapper">
-          <combobox
-            class="period-picker"
-            [options]="periodOptions()"
-            [value]="selectedPeriodId()"
-            (valueChange)="onPeriodChange($event)"
-            [compact]="true"
-            [showSearchIcon]="false"
-            placeholder="Período activo"
-          />
-        </div>
+        <combobox
+          class="period-picker"
+          [options]="periodOptions()"
+          [value]="selectedPeriodId()"
+          (valueChange)="onPeriodChange($event)"
+          [compact]="true"
+          [showSearchIcon]="false"
+          placeholder="Período"
+          inputAriaLabel="Período académico"
+        />
       }
-
-      <div class="header-actions">
-        <a class="btn-open-aula" [routerLink]="['/teacher/aula']" title="Abrir y gestionar el aula virtual">
-          <span>Abrir Aula</span>
-          <svg lucideArrowRight class="btn-icon-xs"></svg>
-        </a>
-
-        <button
-          type="button"
-          class="btn-customize-toggle"
-          [class.active]="isCustomizing()"
-          (click)="toggleCustomizing()"
-          title="Personalizar orden y ancho de los bloques"
-        >
-          <svg lucideSliders class="btn-icon-xs"></svg>
-          <span>{{ isCustomizing() ? 'Guardar Diseño' : 'Personalizar' }}</span>
-        </button>
-
-        @if (isCustomizing()) {
-          <button
-            type="button"
-            class="btn-reset-layout"
-            (click)="resetLayout()"
-            title="Restablecer diseño por defecto"
-          >
-            <svg lucideRotateCcw class="btn-icon-xs"></svg>
-            <span>Restablecer</span>
-          </button>
-        }
-      </div>
+      <a class="btn-aula" [routerLink]="['/teacher/aula']">Abrir aula</a>
     </div>
   </header>
 
-  <!-- Banner contextual de estado -->
-  @if (greetingMessage(); as msg) {
-    <div class="alert-banner" [class.banner-critical]="msg.type === 'critical'" [class.banner-warning]="msg.type === 'warning'" [class.banner-info]="msg.type === 'info'">
-      @if (msg.type === 'critical') {
-        <svg lucideAlertTriangle class="banner-icon"></svg>
-      } @else if (msg.type === 'warning') {
-        <svg lucideClock class="banner-icon"></svg>
-      } @else {
-        <svg lucideCheckCircle class="banner-icon"></svg>
-      }
-      <span>{{ msg.text }}</span>
-    </div>
+  @if (session(); as aula) {
+    <a class="hoy-session" [routerLink]="['/teacher/aula']" aria-live="polite">
+      <span class="session-subject">
+        <code>{{ aula.subject_code }}</code>
+        <span class="session-sep" aria-hidden="true">·</span>
+        <time [attr.datetime]="aula.opens_at">{{ aula.opens_at | dateText:'time' }}</time>
+        <span aria-hidden="true">–</span>
+        <time [attr.datetime]="aula.ends_at">{{ aula.ends_at | dateText:'time' }}</time>
+        @if (aula.exercise_title) {
+          <span class="session-sep" aria-hidden="true">·</span>
+          <span class="session-practice">{{ aula.exercise_title }}</span>
+        }
+      </span>
+      <span class="session-presence">
+        <span machineData>{{ aula.present }}</span> de
+        <span machineData>{{ aula.enrolled }}</span> dentro
+      </span>
+      <span class="session-cta">Ir al aula</span>
+    </a>
   }
 
-  <!-- Bento Grid de 12 Columnas con Drag & Drop y Animaciones -->
-  <div
-    cdkDropList
-    class="bento-grid-12"
-    [class.customizing-mode]="isCustomizing()"
-    (cdkDropListDropped)="onDropWidget($event)"
-  >
-    @for (widget of visibleWidgets(); track widget.id) {
-      <div
-        cdkDrag
-        [cdkDragDisabled]="!isCustomizing()"
-        class="bento-widget-card"
-        [class]="'col-span-' + widget.colSpan"
-        [class.widget-hidden]="!widget.visible"
-      >
-        <!-- Toolbar de Personalización (visible solo en modo edición) -->
-        @if (isCustomizing()) {
-          <div class="widget-customize-toolbar">
-            <div class="drag-handle" cdkDragHandle>
-              <svg lucideGripVertical class="handle-icon"></svg>
-              <span class="widget-name-label">{{ widget.title }}</span>
-            </div>
+  @if (!hasPending() && !showSkeleton() && !showEmpty() && !loadError()) {
+    <p class="hoy-quiet">Nada pendiente en el período.</p>
+  }
 
-            <div class="widget-size-controls">
-              <span class="size-label">Ancho:</span>
-              <button
-                type="button"
-                class="size-pill-btn"
-                [class.active]="widget.colSpan === 4"
-                (click)="setWidgetColSpan(widget.id, 4)"
-              >
-                33%
-              </button>
-              <button
-                type="button"
-                class="size-pill-btn"
-                [class.active]="widget.colSpan === 6"
-                (click)="setWidgetColSpan(widget.id, 6)"
-              >
-                50%
-              </button>
-              <button
-                type="button"
-                class="size-pill-btn"
-                [class.active]="widget.colSpan === 8"
-                (click)="setWidgetColSpan(widget.id, 8)"
-              >
-                66%
-              </button>
-              <button
-                type="button"
-                class="size-pill-btn"
-                [class.active]="widget.colSpan === 12"
-                (click)="setWidgetColSpan(widget.id, 12)"
-              >
-                100%
-              </button>
+  @if (loadError(); as error) {
+    <div class="state-panel" role="alert">
+      <p class="state-copy">{{ error }}</p>
+      <button type="button" class="btn-outline" (click)="reload()">Reintentar</button>
+    </div>
+  } @else if (showSkeleton()) {
+    <div class="hoy-skeleton" aria-hidden="true">
+      <skeleton-loader variant="cards" [count]="3" />
+    </div>
+  } @else if (showEmpty()) {
+    <div class="state-panel">
+      <h2 class="state-title">Sin materias en este período</h2>
+      <p class="state-copy">Elige otro período para ver tus materias y su trabajo pendiente.</p>
+    </div>
+  } @else {
+    <div class="hoy-layout">
+      @if (hasPending()) {
+        <pending-column
+          class="hoy-aside"
+          [session]="session()"
+          [queue]="queue()"
+          [dueSoon]="dueSoon()"
+          [dueSoonHidden]="dueSoonHidden()"
+        />
+      }
 
-              <button
-                type="button"
-                class="visibility-toggle-btn"
-                [class.is-hidden]="!widget.visible"
-                (click)="toggleWidgetVisibility(widget.id)"
-                [title]="widget.visible ? 'Ocultar bloque' : 'Mostrar bloque'"
-              >
-                @if (widget.visible) {
-                  <svg lucideEye class="vis-icon"></svg>
-                } @else {
-                  <svg lucideEyeOff class="vis-icon"></svg>
-                }
-              </button>
-            </div>
-          </div>
+      <section class="hoy-canvas" aria-label="Materias del período">
+        @for (subject of subjects(); track subject.id) {
+          <subject-card
+            [subject]="subject"
+            [openSessionSubjectId]="session()?.subject_id ?? null"
+          />
         }
-
-        <!-- Contenido de los widgets -->
-        @switch (widget.id) {
-          @case ('courses') {
-            <dashboard-courses-widget
-              [courses]="courses()"
-              [isLoading]="isLoading()"
-            />
-          }
-          @case ('attention') {
-            <dashboard-attention-widget
-              [attention]="attention()"
-              [isLoading]="isLoading()"
-            />
-          }
-        }
-      </div>
-    }
-  </div>
+      </section>
+    </div>
+  }
 </div>

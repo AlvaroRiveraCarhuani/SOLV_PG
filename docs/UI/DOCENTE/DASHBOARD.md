@@ -21,7 +21,7 @@ graph TD
                 GreetingDocente["HeaderGreeting Reactivo: P1 Alertas Críticas / P2 Cola Revisión / P3 Contexto General"]
                 FiltrosHeader["Barra de Control: Selector Período Académico (Slice 14) + Toggle Archivados + Alternador Tarjetas/Lista"]
                 ColCursos["Contenedor Cursos: Grilla de Tarjetas o Lista Compacta"]
-                ColAtencion["Columna Lateral: Widget de Atención Requerida (Violaciones AST / OOM / Revisiones)"]
+                ColAtencion["Columna Lateral: Pendientes (retirada del widget de atención en S3)"]
             end
             
             subgraph VistaCursoDetail ["Vista 2: Detalle de Curso (Pestañas)"]
