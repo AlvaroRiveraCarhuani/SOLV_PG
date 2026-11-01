@@ -261,8 +261,25 @@ export class AulaComponent implements OnInit, OnDestroy {
         if (session) {
           this.startSession(session);
         } else {
-          this.watchEnvironments();
+          this.loadLastClosedAula();
         }
+      },
+      error: () => this.watchEnvironments()
+    });
+  }
+
+  /** Sin aula abierta, recupera la última cerrada para su historial y su ventana. */
+  private loadLastClosedAula(): void {
+    this.sessionService.loadLastClosed().subscribe({
+      next: closed => {
+        if (closed) {
+          this.historySession.set(closed);
+          this.refreshHistory();
+          if (closed.purpose === 'exam') {
+            this.loadClosedExam(closed.id);
+          }
+        }
+        this.watchEnvironments();
       },
       error: () => this.watchEnvironments()
     });

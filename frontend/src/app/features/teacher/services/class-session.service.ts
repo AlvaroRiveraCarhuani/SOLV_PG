@@ -69,6 +69,26 @@ export class ClassSessionService {
   }
 
   /**
+   * Última aula cerrada del docente, con su ventana de disponibilidad. Se usa al
+   * recargar la página, cuando ya no hay aula abierta que mostrar.
+   */
+  loadLastClosed(): Observable<ClassSession | null> {
+    return this.http.get<ApiResponse<ClassSession | null>>('/api/v1/teacher/sessions/last-closed').pipe(
+      map(res => res.data ?? null),
+      tap(session => {
+        if (session) {
+          this.lastClosedAt.set(session.closes_at ?? session.ends_at);
+          this.lastClosedSession.set(session);
+        }
+      }),
+      catchError(err => {
+        this.error.set(this.describe(err));
+        return throwError(() => err);
+      })
+    );
+  }
+
+  /**
    * Tablero del aula: marcador y alumnos ordenados por urgencia docente. Si la
    * sesión ya venció, se devuelve cerrada y la pantalla deja el modo en vivo.
    */

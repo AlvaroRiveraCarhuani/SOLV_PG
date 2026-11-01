@@ -224,4 +224,43 @@ describe('ClassSessionService', () => {
 
     expect(service.isExtendingGrace()).toBe(false);
   });
+
+  it('restores the last closed aula with its availability window after a reload', () => {
+    let result: ClassSession | null | undefined;
+    service.loadLastClosed().subscribe(s => (result = s));
+
+    const req = httpMock.expectOne('/api/v1/teacher/sessions/last-closed');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      data: session({ status: 'closed', closes_at: '2026-10-31T16:00:00Z', grace_until: '2026-10-31T16:30:00Z' })
+    });
+
+    expect(result?.id).toBe(SESSION_ID);
+    expect(service.lastClosedSession()?.grace_until).toBe('2026-10-31T16:30:00Z');
+    expect(service.lastClosedAt()).toBe('2026-10-31T16:00:00Z');
+  });
+
+  it('leaves the signals empty when the teacher has no closed aula', () => {
+    let result: ClassSession | null | undefined;
+    service.loadLastClosed().subscribe(s => (result = s));
+
+    httpMock.expectOne('/api/v1/teacher/sessions/last-closed').flush({ data: null });
+
+    expect(result).toBeNull();
+    expect(service.lastClosedSession()).toBeNull();
+    expect(service.lastClosedAt()).toBeNull();
+  });
+
+  it('reports the error without touching the last closed aula', () => {
+    let failed = false;
+    service.loadLastClosed().subscribe({ error: () => (failed = true) });
+
+    httpMock
+      .expectOne('/api/v1/teacher/sessions/last-closed')
+      .flush({ error: 'Error al obtener la última aula cerrada' }, { status: 500, statusText: 'Server Error' });
+
+    expect(failed).toBe(true);
+    expect(service.lastClosedSession()).toBeNull();
+    expect(service.error()).toBe('Error al obtener la última aula cerrada');
+  });
 });
