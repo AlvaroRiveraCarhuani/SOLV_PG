@@ -10,14 +10,13 @@ import {
   LucideHistory,
   LucideTrendingUp,
   LucideGitCompare,
-  LucideTerminal,
   LucideEdit3,
   LucideKeyboard,
   LucideFilm,
   LucideSlidersHorizontal,
   LucideLoader2
 } from '@lucide/angular';
-import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
+import { ReviewMode, TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 
 @Component({
   selector: 'speed-grader-header',
@@ -33,7 +32,6 @@ import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
     LucideHistory,
     LucideTrendingUp,
     LucideGitCompare,
-    LucideTerminal,
     LucideEdit3,
     LucideKeyboard,
     LucideFilm,
@@ -45,9 +43,12 @@ import { TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 })
 export class SpeedGraderHeaderComponent {
   readonly review = input.required<TeacherSubmissionReviewDTO>();
+  readonly mode = input.required<ReviewMode>();
   readonly showReplayPlayer = input<boolean>(false);
   readonly showBenchmark = input<boolean>(false);
   readonly showDiffView = input<boolean>(false);
+  /** Hay una base real contra la que comparar (boilerplate o archivo base IDE). */
+  readonly diffAvailable = input<boolean>(true);
   readonly isRunningEphemeral = input<boolean>(false);
 
   showToolsMenu = signal<boolean>(false);
@@ -57,7 +58,6 @@ export class SpeedGraderHeaderComponent {
   readonly toggleReplay = output<void>();
   readonly toggleBenchmark = output<void>();
   readonly runEphemeral = output<void>();
-  readonly openShadowTerminal = output<void>();
   readonly openOverrideModal = output<void>();
   readonly openShortcutsGuide = output<void>();
   readonly toggleDiff = output<void>();

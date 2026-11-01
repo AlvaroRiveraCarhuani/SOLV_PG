@@ -6,7 +6,10 @@
     </a>
     <div class="exercise-info">
       <h1 class="page-title">{{ review().exercise_title }}</h1>
-      <span class="subject-subtitle">{{ review().subject_name }}</span>
+      <span class="subject-subtitle">
+        {{ review().subject_name }}
+        <span class="mode-badge">{{ mode() === 'project' ? 'Entorno de Desarrollo' : 'Evaluador Automático' }}</span>
+      </span>
     </div>
   </div>
 
@@ -40,22 +43,24 @@
   </div>
 
   <div class="header-actions">
-    <!-- Re-ejecutar prueba rápida -->
-    <button
-      type="button"
-      class="btn-outline"
-      [disabled]="isRunningEphemeral()"
-      (click)="runEphemeral.emit()"
-      title="Ejecutar prueba rápida en contenedor"
-    >
-      @if (isRunningEphemeral()) {
-        <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
-        <span>Ejecutando...</span>
-      } @else {
-        <svg lucidePlay class="btn-icon-sm"></svg>
-        <span>Re-ejecutar</span>
-      }
-    </button>
+    <!-- Re-ejecutar prueba rápida: solo el juez ejecuta casos I/O. -->
+    @if (mode() === 'judge') {
+      <button
+        type="button"
+        class="btn-outline"
+        [disabled]="isRunningEphemeral()"
+        (click)="runEphemeral.emit()"
+        title="Ejecutar prueba rápida en contenedor"
+      >
+        @if (isRunningEphemeral()) {
+          <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+          <span>Ejecutando...</span>
+        } @else {
+          <svg lucidePlay class="btn-icon-sm"></svg>
+          <span>Re-ejecutar</span>
+        }
+      </button>
+    }
 
     <!-- Menú Desplegable: Herramientas de Análisis -->
     <div class="tools-dropdown">
@@ -73,17 +78,21 @@
 
       @if (showToolsMenu()) {
         <div class="dropdown-menu animate-dropdown">
-          <button
-            type="button"
-            class="dropdown-item"
-            [class.active]="showDiffView()"
-            (click)="toggleDiff.emit(); showToolsMenu.set(false)"
-            title="Comparar código con la plantilla base (Atajo: D)"
-          >
-            <svg lucideGitCompare class="btn-icon-sm"></svg>
-            <span>{{ showDiffView() ? 'Ver Código Completo' : 'Comparar con Plantilla' }}</span>
-            <kbd>D</kbd>
-          </button>
+          @if (diffAvailable()) {
+            <button
+              type="button"
+              class="dropdown-item"
+              [class.active]="showDiffView()"
+              (click)="toggleDiff.emit(); showToolsMenu.set(false)"
+              [title]="mode() === 'judge' ? 'Comparar código con la plantilla base (Atajo: D)' : 'Comparar el archivo con el proyecto base (Atajo: D)'"
+            >
+              <svg lucideGitCompare class="btn-icon-sm"></svg>
+              <span>
+                {{ showDiffView() ? 'Ver Código Completo' : (mode() === 'judge' ? 'Comparar con Plantilla' : 'Comparar con Proyecto Base') }}
+              </span>
+              <kbd>D</kbd>
+            </button>
+          }
 
           <button
             type="button"
@@ -107,35 +116,32 @@
             <span>Auditoría de Escritura (Replay)</span>
           </button>
 
-          <button
-            type="button"
-            class="dropdown-item"
-            [class.active]="showBenchmark()"
-            (click)="toggleBenchmark.emit(); showToolsMenu.set(false)"
-            title="Análisis de complejidad algorítmica (Atajo: B)"
-          >
-            <svg lucideTrendingUp class="btn-icon-sm"></svg>
-            <span>Análisis de Complejidad Asintótica</span>
-            <kbd>B</kbd>
-          </button>
-
-          <button
-            type="button"
-            class="dropdown-item"
-            (click)="openShadowTerminal.emit(); showToolsMenu.set(false)"
-            title="Abrir consola de supervisión en vivo del alumno"
-          >
-            <svg lucideTerminal class="btn-icon-sm"></svg>
-            <span>Consola del Estudiante</span>
-          </button>
+          @if (mode() === 'judge') {
+            <button
+              type="button"
+              class="dropdown-item"
+              [class.active]="showBenchmark()"
+              (click)="toggleBenchmark.emit(); showToolsMenu.set(false)"
+              title="Análisis de complejidad algorítmica (Atajo: B)"
+            >
+              <svg lucideTrendingUp class="btn-icon-sm"></svg>
+              <span>Análisis de Complejidad Asintótica</span>
+              <kbd>B</kbd>
+            </button>
+          }
         </div>
       }
     </div>
 
-    <!-- Botón Primario: Calificar -->
-    <button type="button" class="btn-primary" (click)="openOverrideModal.emit()" title="Ajustar calificación o veredicto (Atajo: A)">
+    <!-- En IDE la acción primaria es guardar la rúbrica; el override es la excepción. -->
+    <button
+      type="button"
+      [class]="mode() === 'project' ? 'btn-outline' : 'btn-primary'"
+      (click)="openOverrideModal.emit()"
+      [title]="mode() === 'project' ? 'Ajuste manual excepcional de la nota (Atajo: A)' : 'Ajustar calificación o veredicto (Atajo: A)'"
+    >
       <svg lucideEdit3 class="btn-icon-sm"></svg>
-      <span>Calificar</span>
+      <span>{{ mode() === 'project' ? 'Ajuste manual' : 'Calificar' }}</span>
       <kbd>A</kbd>
     </button>
 

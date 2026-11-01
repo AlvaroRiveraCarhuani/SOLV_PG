@@ -16,32 +16,45 @@
 
       <ast-rules-builder />
     </section>
-
-    <!-- Sección 2: Plantilla de Código Inicial -->
-    <section class="form-section">
-      <div class="section-header">
-        <div class="header-left">
-          <div class="title-row">
-            <svg lucideCode2 class="section-icon"></svg>
-            <h3 class="section-title">2. Plantilla de Código Inicial</h3>
-          </div>
-          <p class="section-desc">
-            Plantilla base por lenguaje permitido que se presentará al estudiante en el editor.
-          </p>
-        </div>
-      </div>
-
-      <boilerplate-tabs />
-    </section>
   }
 
-  <!-- Sección 3: Verificación Previa a la Publicación -->
+  <!-- Proyecto base del IDE o plantilla inicial del juez -->
+  <section class="form-section">
+    <div class="section-header">
+      <div class="header-left">
+        <div class="title-row">
+          <svg lucideCode2 class="section-icon"></svg>
+          <h3 class="section-title">
+            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? '1' : '2' }}.
+            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? 'Proyecto Base para el Diff' : 'Plantilla de Código Inicial' }}
+          </h3>
+        </div>
+        <p class="section-desc">
+          @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+            Código de partida del proyecto. SpeedGrader compara cada archivo entregado contra este proyecto para mostrar el diff de la revisión.
+          } @else {
+            Plantilla base por lenguaje permitido que se presentará al estudiante en el editor.
+          }
+        </p>
+      </div>
+    </div>
+
+    @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
+      <ide-base-snapshot />
+    } @else {
+      <boilerplate-tabs />
+    }
+  </section>
+
+  <!-- Verificación Previa a la Publicación -->
   <section class="form-section">
     <div class="section-header">
       <div class="header-left">
         <div class="title-row">
           <svg lucideCheckSquare class="section-icon"></svg>
-          <h3 class="section-title">3. Verificación Previa a la Publicación</h3>
+          <h3 class="section-title">
+            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? '2' : '3' }}. Verificación Previa a la Publicación
+          </h3>
         </div>
         <p class="section-desc">
           Verificación de requisitos técnicos, advertencias pedagógicas y calibración de límites.

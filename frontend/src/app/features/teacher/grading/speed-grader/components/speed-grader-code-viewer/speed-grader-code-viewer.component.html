@@ -11,12 +11,16 @@
   } @else {
     <div class="code-panel-header">
       <span class="panel-label">
-        @if (showReplayPlayer()) {
-          Evolución temporal del código del estudiante
+        @if (activeFile(); as file) {
+          <code class="file-path">{{ file.path }}</code>
+          <span class="file-language font-mono" machineData>{{ file.language }}</span>
+          <span class="file-lines">
+            Líneas: <span class="font-mono" machineData>{{ file.line_count }}</span>
+          </span>
         } @else if (showDiffView()) {
-          Diferencias respecto a la plantilla base (<span class="diff-tag-add">+ Código del alumno</span> / <span class="diff-tag-base">Plantilla base</span>)
+          Diferencias respecto al {{ activeFile() ? 'proyecto base' : 'código base' }} del ejercicio
         } @else {
-          Código entregado (Haga clic en una línea para agregar un comentario <kbd>C</kbd>)
+          Código entregado (Haga clic o arrastre para comentar <kbd>C</kbd>)
         }
       </span>
       <span class="code-time">
@@ -24,49 +28,44 @@
       </span>
     </div>
 
+    @if (flatSnapshot()) {
+      <p class="flat-notice">
+        No se pudo separar el snapshot en archivos reconocibles. Se muestra el código completo de la entrega.
+      </p>
+    }
+
     <div class="code-scroll">
       @if (showDiffView()) {
-        <!-- Vista de Diferencias -->
-        <table class="code-table diff-table">
-          <tbody>
-            @for (dline of diffLines(); track $index) {
-              <tr class="code-row" [class.diff-row-added]="dline.type === 'added'" [class.diff-row-removed]="dline.type === 'removed'">
-                <td class="line-number font-mono">
-                  {{ dline.newLineNumber || dline.oldLineNumber || ' ' }}
-                </td>
-                <td class="diff-marker font-mono">
-                  {{ dline.type === 'added' ? '+' : (dline.type === 'removed' ? '-' : ' ') }}
-                </td>
-                <td class="line-content font-mono">
-                  <pre>{{ dline.content || ' ' }}</pre>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
+        <code-diff-viewer
+          [original]="diffOriginal()"
+          [modified]="diffModified()"
+          [language]="diffLanguage()"
+          height="560px"
+        />
       } @else {
         <!-- Vista Estándar de Código con CodeMirror -->
         <div class="code-editor-viewport">
           <code-editor
-            [value]="review().code"
-            [language]="detectedLanguage()"
+            [value]="editorCode()"
+            [language]="editorLanguage()"
             [readonly]="true"
             minHeight="420px"
             maxHeight="none"
-            (lineClick)="lineSelected.emit($event)"
+            (lineClick)="onEditorLineClick($event)"
+            (lineRangeSelected)="onEditorRangeSelected($event)"
           />
         </div>
 
         <!-- Formulario de Nuevo Comentario In-line -->
-        @if (selectedLineNumber() !== null) {
+        @if (commentTargetLabel() !== null) {
           <div class="inline-comment-section">
             <div class="comment-input-box">
               <div class="comment-input-header">
-                <span class="comment-target-badge font-mono">Comentario pedagógico en Línea {{ selectedLineNumber() }}</span>
+                <span class="comment-target-badge font-mono">Comentario pedagógico en {{ commentTargetLabel() }}</span>
               </div>
               <textarea
                 rows="2"
-                placeholder="Escribí un comentario pedagógico para la línea {{ selectedLineNumber() }} (Ctrl+Enter para guardar)..."
+                placeholder="Escribí un comentario pedagógico para {{ commentTargetLabel() }} (Ctrl+Enter para guardar)..."
                 [ngModel]="newCommentText()"
                 (ngModelChange)="newCommentTextChange.emit($event)"
                 class="form-textarea"
@@ -77,7 +76,7 @@
                   type="button"
                   class="btn-submit-sm"
                   [disabled]="isAddingComment() || !newCommentText().trim()"
-                  (click)="commentSubmitted.emit(selectedLineNumber()!)"
+                  (click)="submitComment()"
                 >
                   {{ isAddingComment() ? 'Guardando...' : 'Publicar Comentario' }}
                 </button>
@@ -86,18 +85,39 @@
           </div>
         }
 
-        <!-- Comentarios Existentes en esta Entrega -->
-        @if (review().comments && review().comments.length > 0) {
+        <!-- Comentarios Existentes en el Archivo Visible -->
+        @if (displayedComments().length > 0) {
           <div class="comments-list-section">
             <div class="comments-list-header">
-              <span class="comments-count-badge font-mono">{{ review().comments.length }} comentarios pedagógicos</span>
+              <span class="comments-count-badge font-mono">{{ displayedComments().length }} comentarios pedagógicos</span>
             </div>
-            @for (comm of review().comments; track comm.id) {
+            @for (entry of displayedComments(); track entry.comment.id) {
+              <div class="comment-bubble">
+                <div class="comment-header">
+                  <span class="comment-author">
+                    {{ entry.comment.author_name }}
+                    <span class="comment-line-badge font-mono">{{ entry.rangeLabel }}</span>
+                  </span>
+                  <time class="comment-date">{{ entry.comment.created_at | dateText:'compact-datetime' }}</time>
+                </div>
+                <p class="comment-text">{{ entry.comment.comment }}</p>
+              </div>
+            }
+          </div>
+        }
+
+        <!-- Comentarios que no pertenecen a ningún archivo (cabeceras o nota general) -->
+        @if (activeFile() && generalComments().length > 0) {
+          <div class="comments-list-section general-comments">
+            <div class="comments-list-header">
+              <span class="comments-count-badge font-mono">{{ generalComments().length }} comentarios generales</span>
+            </div>
+            @for (comm of generalComments(); track comm.id) {
               <div class="comment-bubble">
                 <div class="comment-header">
                   <span class="comment-author">
                     {{ comm.author_name }}
-                    <span class="comment-line-badge font-mono">Línea {{ comm.line_number }}</span>
+                    <span class="comment-line-badge font-mono">General</span>
                   </span>
                   <time class="comment-date">{{ comm.created_at | dateText:'compact-datetime' }}</time>
                 </div>

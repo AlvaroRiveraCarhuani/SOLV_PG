@@ -1,11 +1,18 @@
 <aside class="evaluation-panel">
-  <!-- Panel de Evaluación por Rúbrica (IDE Persistente) -->
-  @if (rubric(); as rub) {
+  @if (mode() === 'project') {
+    <!-- Panel de Evaluación por Rúbrica (IDE Persistente) -->
+    @if (rubric(); as rub) {
     <div class="rubric-grader-box">
       <div class="rubric-header">
         <svg lucideClipboardList class="btn-icon-sm"></svg>
         <span>Evaluación por Rúbrica</span>
       </div>
+
+      @if (rubricErrorMessage()) {
+        <div class="error-banner-sm">
+          <span>{{ rubricErrorMessage() }}</span>
+        </div>
+      }
 
       @if (rubricSuccessMessage()) {
         <div class="success-banner-sm">
@@ -62,8 +69,27 @@
         <span>{{ isSubmittingRubric() ? 'Guardando...' : 'Guardar Calificación' }}</span>
       </button>
     </div>
+    } @else {
+      <div class="rubric-empty-box">
+        <svg lucideAlertTriangle class="btn-icon-sm"></svg>
+        <div>
+          <h3>Esta práctica no tiene rúbrica configurada</h3>
+          <p>Sin criterios no se puede calcular la nota. Configurá la rúbrica en la práctica antes de corregir.</p>
+          @if (rubricErrorMessage()) {
+            <p class="rubric-load-error">{{ rubricErrorMessage() }}</p>
+          }
+          <a
+            class="btn-outline"
+            [routerLink]="['/teacher/cursos', review().subject_id, 'practicas', review().exercise_id]"
+          >
+            Abrir la práctica
+          </a>
+        </div>
+      </div>
+    }
   }
 
+  @if (mode() === 'judge') {
   <!-- Veredicto General -->
   <div class="verdict-card" [class]="'card-' + review().verdict.toLowerCase().replace('_', '-')">
     <div class="verdict-header">
@@ -78,11 +104,15 @@
       </div>
       <div class="meta-row">
         <span>Tiempo de ejecución:</span>
-        <span class="font-mono">{{ review().execution_time_ms }} ms</span>
+        <span class="font-mono">
+          {{ review().metrics_available ? review().execution_time_ms + ' ms' : '—' }}
+        </span>
       </div>
       <div class="meta-row">
         <span>Memoria utilizada:</span>
-        <span class="font-mono">{{ review().memory_used_mb }} MB</span>
+        <span class="font-mono">
+          {{ review().metrics_available ? review().memory_used_mb + ' MB' : '—' }}
+        </span>
       </div>
       @if (review().manual_override) {
         <div class="override-info">
@@ -261,4 +291,5 @@
       }
     </div>
   </div>
+  }
 </aside>

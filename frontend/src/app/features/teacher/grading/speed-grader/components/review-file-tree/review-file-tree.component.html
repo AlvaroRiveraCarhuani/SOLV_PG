@@ -1,0 +1,57 @@
+<aside class="file-tree-panel" aria-label="Archivos de la entrega">
+  <header class="tree-header">
+    <span class="tree-title">Archivos</span>
+    <span class="tree-count font-mono" machineData>{{ files().length }}</span>
+    <button
+      type="button"
+      class="tree-collapse"
+      (click)="collapse.emit()"
+      title="Ocultar el árbol de archivos"
+      aria-label="Ocultar el árbol de archivos"
+    >
+      <svg lucidePanelLeftClose class="tree-icon"></svg>
+    </button>
+  </header>
+
+  <div
+    class="tree-scroll"
+    role="tree"
+    aria-label="Archivos del proyecto"
+    (keydown)="onKeydown($event)"
+  >
+    @if (visibleNodes().length === 0) {
+      <p class="tree-empty">No hay archivos para mostrar.</p>
+    }
+
+    @for (node of visibleNodes(); track node.path) {
+      <button
+        type="button"
+        role="treeitem"
+        class="tree-item"
+        [class.is-dir]="node.kind === 'dir'"
+        [class.is-selected]="node.kind === 'file' && node.path === selectedPath()"
+        [attr.aria-level]="node.depth + 1"
+        [attr.aria-expanded]="node.kind === 'dir' ? isExpanded(node) : null"
+        [attr.aria-selected]="node.kind === 'file' ? node.path === selectedPath() : null"
+        [attr.tabindex]="node.path === tabbablePath() ? 0 : -1"
+        [style.--tree-depth]="node.depth"
+        (click)="onNodeClick(node)"
+        (focus)="focusedPath.set(node.path)"
+      >
+        @if (node.kind === 'dir') {
+          @if (isExpanded(node)) {
+            <svg lucideChevronDown class="tree-chevron"></svg>
+            <svg lucideFolderOpen class="tree-icon"></svg>
+          } @else {
+            <svg lucideChevronRight class="tree-chevron"></svg>
+            <svg lucideFolder class="tree-icon"></svg>
+          }
+        } @else {
+          <span class="tree-chevron-spacer" aria-hidden="true"></span>
+          <svg lucideFileCode class="tree-icon"></svg>
+        }
+        <span class="node-name font-mono">{{ node.name }}</span>
+      </button>
+    }
+  </div>
+</aside>

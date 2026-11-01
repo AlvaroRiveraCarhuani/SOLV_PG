@@ -44,7 +44,7 @@ export const solvHighlightStyle = HighlightStyle.define([
   { tag: t.invalid, color: 'var(--color-error)' }
 ]);
 
-const solvEditorTheme = EditorView.theme({
+export const solvEditorTheme = EditorView.theme({
   '&': {
     height: '100%',
     fontSize: 'var(--code-editor-font-size, var(--text-sm))',
@@ -115,6 +115,8 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   readonly maxHeight = input<string>('600px');
   readonly fontSize = input<number | string | null>(null);
   readonly lineClick = output<number>();
+  /** Bloque seleccionado con arrastre o Shift+clic. Líneas 1-based del documento. */
+  readonly lineRangeSelected = output<{ start: number; end: number }>();
 
   readonly computedFontSize = computed(() => {
     const sz = this.fontSize();
@@ -129,6 +131,7 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   private readonly langCompartment = new Compartment();
   private readonly readOnlyCompartment = new Compartment();
   private isInternalUpdate = false;
+  private suppressNextClick = false;
 
   constructor() {
     // Sincronizar cambios externos de valor hacia CodeMirror
@@ -190,7 +193,30 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
         this.langCompartment.of(this.getLanguageExtension(this.language())),
         this.readOnlyCompartment.of(EditorState.readOnly.of(this.readonly())),
         EditorView.domEventHandlers({
+          mouseup: (event, view) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest('.cm-gutterElement')) return;
+
+            const selection = view.state.selection.main;
+            if (selection.empty) return;
+
+            const start = view.state.doc.lineAt(selection.from).number;
+            let end = view.state.doc.lineAt(selection.to).number;
+            // Seleccionar hasta la columna 0 de la línea siguiente no incluye
+            // esa línea en el bloque comentado.
+            if (view.state.doc.lineAt(selection.to).from === selection.to) {
+              end -= 1;
+            }
+            if (end <= start) return;
+
+            this.suppressNextClick = true;
+            this.lineRangeSelected.emit({ start, end });
+          },
           click: (event, view) => {
+            if (this.suppressNextClick) {
+              this.suppressNextClick = false;
+              return;
+            }
             const target = event.target as HTMLElement | null;
             const gutterEl = target?.closest('.cm-gutterElement');
             if (gutterEl && gutterEl.textContent) {
@@ -226,32 +252,40 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   }
 
   private getLanguageExtension(lang: string) {
-    const normalized = (lang || '').toLowerCase().trim();
-    switch (normalized) {
-      case 'python':
-      case 'py':
-        return python();
-      case 'cpp':
-      case 'c':
-      case 'c++':
-        return cpp();
-      case 'java':
-        return java();
-      case 'javascript':
-      case 'typescript':
-      case 'js':
-      case 'ts':
-        return javascript({ typescript: normalized.includes('ts') });
-      case 'json':
-        return json();
-      case 'dockerfile':
-        return StreamLanguage.define(dockerFile);
-      case 'shell':
-      case 'sh':
-      case 'bash':
-        return StreamLanguage.define(shell);
-      default:
-        return [];
-    }
+    return codeMirrorLanguageExtension(lang);
+  }
+}
+
+/**
+ * Extensión de lenguaje compartida por el editor y el visor de diferencias.
+ * Mantener el mapeo en un solo lugar evita que ambos resalten distinto.
+ */
+export function codeMirrorLanguageExtension(lang: string) {
+  const normalized = (lang || '').toLowerCase().trim();
+  switch (normalized) {
+    case 'python':
+    case 'py':
+      return python();
+    case 'cpp':
+    case 'c':
+    case 'c++':
+      return cpp();
+    case 'java':
+      return java();
+    case 'javascript':
+    case 'typescript':
+    case 'js':
+    case 'ts':
+      return javascript({ typescript: normalized.includes('ts') });
+    case 'json':
+      return json();
+    case 'dockerfile':
+      return StreamLanguage.define(dockerFile);
+    case 'shell':
+    case 'sh':
+    case 'bash':
+      return StreamLanguage.define(shell);
+    default:
+      return [];
   }
 }

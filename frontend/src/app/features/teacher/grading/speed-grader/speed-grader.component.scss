@@ -13,6 +13,64 @@
   min-height: 0;
 }
 
+/* IDE: código flexible y rúbrica fija; sin archivos reconocibles no hay árbol. */
+.grader-body-project {
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+}
+
+.grader-body-tree {
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(360px, 420px);
+}
+
+.grader-body-tree-collapsed {
+  grid-template-columns: 44px minmax(0, 1fr) minmax(360px, 420px);
+}
+
+.tree-rail {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-3) var(--space-1);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--bg-surface-subtle);
+    color: var(--tenant-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--tenant-primary);
+    outline-offset: 1px;
+  }
+}
+
+@media (max-width: 1280px) {
+  .grader-body-tree {
+    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr) minmax(340px, 380px);
+  }
+}
+
+@media (max-width: 1024px) {
+  .speed-grader-container {
+    height: auto;
+    min-height: calc(100vh - 100px);
+  }
+
+  .grader-body-project,
+  .grader-body-tree,
+  .grader-body-tree-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .file-tree {
+    max-height: 220px;
+  }
+}
+
 .loading-state {
   display: flex;
   flex-direction: column;

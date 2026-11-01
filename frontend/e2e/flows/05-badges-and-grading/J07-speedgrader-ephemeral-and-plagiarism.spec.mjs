@@ -148,10 +148,11 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
         );
         forensic.attachToPage(secondStudentSession.page, 'student2');
 
-        await apiJson(teacherPage.request, teacherSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
+        // La matrícula es una acción de administración, no del docente titular.
+        await apiJson(adminPage.request, adminSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
           student_id: CANONICAL_ACTORS.student.id
         });
-        await apiJson(teacherPage.request, teacherSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
+        await apiJson(adminPage.request, adminSession.token, 'POST', `/api/v1/subjects/${sharedState.courseId}/enroll`, {
           student_id: sharedState.secondStudentId
         });
 
@@ -211,7 +212,9 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
         await teacherPage.goto(`/teacher/revision/${sharedState.submissionA}`, { waitUntil: 'domcontentloaded' });
         await expect(teacherPage.locator('speed-grader-header')).toBeVisible({ timeout: 45000 });
         await expect(teacherPage.locator('speed-grader-code-viewer')).toBeVisible({ timeout: 45000 });
-        await expect(teacherPage.locator('.code-table .code-row').first()).toBeVisible({ timeout: 45000 });
+        await expect(teacherPage.locator('speed-grader-code-viewer code-editor .cm-content')).toBeVisible({
+          timeout: 45000
+        });
       });
 
       await test.step('Paso 3: El docente ejecuta la prueba efímera', async () => {
@@ -222,7 +225,7 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
           { timeout: 120000 }
         );
 
-        await teacherPage.locator('speed-grader-header button', { hasText: 'Re-ejecutar Prueba' }).click();
+        await teacherPage.locator('speed-grader-header button', { hasText: 'Re-ejecutar' }).click();
 
         const [ephemeralRes] = await Promise.all([ephemeralResponse]);
         expect(ephemeralRes.ok()).toBeTruthy();
@@ -245,11 +248,11 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
           { timeout: 45000 }
         );
 
-        await teacherPage.locator('.code-table .code-row .line-number').nth(1).click();
-        const textarea = teacherPage.locator('.inline-comment-form-row textarea.form-textarea');
+        await teacherPage.locator('speed-grader-code-viewer .cm-line').nth(1).click();
+        const textarea = teacherPage.locator('.inline-comment-section textarea.form-textarea');
         await expect(textarea).toBeVisible({ timeout: 45000 });
         await textarea.fill('Buen uso de la iteración; explicá mejor el acumulado en la entrega escrita.');
-        await teacherPage.locator('.inline-comment-form-row button.btn-submit-sm').click();
+        await teacherPage.locator('.inline-comment-section button.btn-submit-sm').click();
 
         const [commentRes] = await Promise.all([commentResponse]);
         expect(commentRes.ok()).toBeTruthy();

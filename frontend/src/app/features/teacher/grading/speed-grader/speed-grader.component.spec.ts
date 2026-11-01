@@ -1,11 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
 import { SpeedGraderComponent } from './speed-grader.component';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { TeacherSubmissionReviewDTO, SubmissionTimeline } from '../../models/teacher.models';
+import {
+  TeacherSubmissionReviewDTO,
+  SubmissionComment,
+  SubmissionTimeline
+} from '../../models/teacher.models';
 
 describe('SpeedGraderComponent', () => {
   let component: SpeedGraderComponent;
@@ -20,6 +25,9 @@ describe('SpeedGraderComponent', () => {
     student_id: 'std-1',
     student_name: 'Santiago Morales',
     student_email: 'santiago@uab.edu.bo',
+    environment_type: 'JUEZ_EFIMERO',
+    language: 'cpp',
+    boilerplate: '',
     code: '#include <iostream>\nint main() { return 0; }',
     verdict: 'AC',
     score: 100,
@@ -40,6 +48,11 @@ describe('SpeedGraderComponent', () => {
     test_cases: [
       { input: '5 6', expected_output: '12', is_hidden: false, passed: true }
     ],
+    files_available: false,
+    metrics_available: true,
+    files: [],
+    base_files: [],
+    base_files_available: false,
     comments: [],
     submitted_at: new Date().toISOString()
   };
@@ -65,10 +78,16 @@ describe('SpeedGraderComponent', () => {
     ]
   };
 
+  const reviewSignal = signal<TeacherSubmissionReviewDTO>(mockReview);
+  const commentSignal = signal<SubmissionComment[]>([]);
+
   beforeEach(async () => {
+    reviewSignal.set(mockReview);
+    commentSignal.set([]);
+
     const mockGradingService = {
-      currentReview: () => mockReview,
-      comments: () => [],
+      currentReview: reviewSignal,
+      comments: commentSignal,
       isLoading: () => false,
       isRunningEphemeral: () => false,
       ephemeralResult: () => null,
@@ -86,6 +105,7 @@ describe('SpeedGraderComponent', () => {
         events: []
       })),
       addComment: vi.fn().mockReturnValue(of({})),
+      runEphemeral: vi.fn(),
       overrideSubmission: vi.fn().mockReturnValue(of(void 0))
     };
 
@@ -110,6 +130,76 @@ describe('SpeedGraderComponent', () => {
     expect(component.codeLines().length).toBeGreaterThan(0);
   });
 
+  it('resolves judge mode from the exercise environment', () => {
+    expect(component.reviewMode()).toBe('judge');
+    expect(component.isJudge()).toBe(true);
+  });
+
+  it('hides judge-only actions when the submission belongs to an IDE project', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    reviewSignal.set({ ...mockReview, environment_type: 'IDE_PERSISTENTE', test_cases: [] });
+    fixture.detectChanges();
+
+    expect(component.reviewMode()).toBe('project');
+
+    component.toggleDiffView();
+    expect(component.showDiffView()).toBe(false);
+
+    component.runEphemeralSandbox();
+    expect(gradingService.runEphemeral).not.toHaveBeenCalled();
+  });
+
+  it('selects the first IDE file and resets the line when switching files', () => {
+    const files = [
+      {
+        path: 'src/main.py',
+        language: 'python',
+        content: 'print("main")\n',
+        start_line: 2,
+        line_count: 1
+      },
+      {
+        path: 'src/helper.py',
+        language: 'python',
+        content: 'VALUE = 1\n',
+        start_line: 4,
+        line_count: 1
+      }
+    ];
+
+    reviewSignal.set({
+      ...mockReview,
+      environment_type: 'IDE_PERSISTENTE',
+      files_available: true,
+      files,
+      test_cases: []
+    });
+    commentSignal.set([
+      {
+        id: 'comment-1',
+        submission_id: 'rev-1',
+        author_id: 'teacher-1',
+        author_name: 'Docente',
+        line_number: 2,
+        comment: 'Comentario en main.py',
+        created_at: new Date().toISOString()
+      }
+    ]);
+    fixture.detectChanges();
+
+    expect(component.showFileTree()).toBe(true);
+    expect(component.activeFile()?.path).toBe('src/main.py');
+    expect(component.activeFileComments().length).toBe(1);
+    expect(component.generalComments()).toEqual([]);
+
+    component.selectLine(2);
+    component.selectFile('src/helper.py');
+
+    expect(component.activeFile()?.path).toBe('src/helper.py');
+    expect(component.selectedLineNumber()).toBeNull();
+    expect(component.activeFileComments()).toEqual([]);
+  });
+
   it('toggles time-travel replay view and loads timeline', () => {
     expect(component.showReplayPlayer()).toBe(false);
     component.toggleReplay();
@@ -122,6 +212,55 @@ describe('SpeedGraderComponent', () => {
 
     component.selectLine(2);
     expect(component.selectedLineNumber()).toBeNull();
+  });
+
+  it('keeps the end line only when the selection is a real block', () => {
+    component.selectLineRange({ start: 2, end: 4 });
+    expect(component.selectedLineNumber()).toBe(2);
+    expect(component.selectedLineEndNumber()).toBe(4);
+    expect(component.currentCommentRange()).toEqual({ line: 2, endLine: 4 });
+
+    component.selectLine(2);
+    expect(component.selectedLineNumber()).toBeNull();
+    expect(component.selectedLineEndNumber()).toBeNull();
+  });
+
+  it('submits a multiline comment with end_line_number', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    component.selectLineRange({ start: 2, end: 4 });
+    component.newCommentText.set('El bloque no valida el body');
+
+    component.submitComment(component.currentCommentRange()!);
+
+    expect(gradingService.addComment).toHaveBeenCalledWith('rev-1', {
+      line_number: 2,
+      end_line_number: 4,
+      comment: 'El bloque no valida el body'
+    });
+  });
+
+  it('enables the native diff in IDE only when the active file has a base', () => {
+    reviewSignal.set({
+      ...mockReview,
+      environment_type: 'IDE_PERSISTENTE',
+      files_available: true,
+      files: [
+        { path: 'src/main.py', language: 'python', content: 'print("nuevo")\n', start_line: 2, line_count: 1 }
+      ],
+      base_files: [
+        { path: 'src/main.py', language: 'python', content: 'print("base")\n', start_line: 1, line_count: 1 }
+      ],
+      base_files_available: true,
+      test_cases: []
+    });
+    fixture.detectChanges();
+
+    expect(component.canShowDiff()).toBe(true);
+    expect(component.diffOriginal()).toContain('base');
+    expect(component.diffModified()).toContain('nuevo');
+
+    component.toggleDiffView();
+    expect(component.showDiffView()).toBe(true);
   });
 
   it('opens and closes override modal', () => {

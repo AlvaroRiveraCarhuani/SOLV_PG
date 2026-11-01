@@ -1,6 +1,7 @@
 import { Component, computed, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   LucideClipboardList,
   LucideTrendingUp,
@@ -14,6 +15,7 @@ import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { RubricDTO } from '../../../../exercise-editor/exercise-editor.store';
 import {
+  ReviewMode,
   TeacherSubmissionReviewDTO,
   EphemeralRunResult
 } from '../../../../models/teacher.models';
@@ -34,6 +36,7 @@ export interface CopyCaseEvent {
   imports: [
     CommonModule,
     FormsModule,
+    RouterLink,
     LucideClipboardList,
     LucideTrendingUp,
     LucideAlertTriangle,
@@ -48,8 +51,10 @@ export interface CopyCaseEvent {
   styleUrl: './speed-grader-eval-panel.component.scss'
 })
 export class SpeedGraderEvalPanelComponent {
+  readonly mode = input.required<ReviewMode>();
   readonly rubric = input<RubricDTO | null>(null);
   readonly rubricSuccessMessage = input<string | null>(null);
+  readonly rubricErrorMessage = input<string | null>(null);
   readonly isSubmittingRubric = input<boolean>(false);
   readonly calculatedRubricScore = input<number>(0);
   readonly review = input.required<TeacherSubmissionReviewDTO>();

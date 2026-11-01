@@ -146,6 +146,8 @@ export interface SubmissionComment {
   author_id: string;
   author_name: string;
   line_number: number;
+  /** Cierre opcional del bloque comentado; la línea inicial sigue siendo global. */
+  end_line_number?: number;
   comment: string;
   created_at: string;
 }
@@ -168,6 +170,13 @@ export interface SubmissionQueueItem {
 }
 
 export type ReviewStatus = 'not_required' | 'pending' | 'in_review' | 'graded' | 'returned';
+
+export type ReviewMode = 'judge' | 'project';
+
+/** El modo de revisión sale del entorno del ejercicio, nunca de la rúbrica ni de los casos. */
+export function reviewModeFromEnvironment(environmentType: string | null | undefined): ReviewMode {
+  return environmentType === 'IDE_PERSISTENTE' ? 'project' : 'judge';
+}
 
 /** Entrega que espera corrección, agrupada por práctica. */
 export interface ReviewQueueGroup {
@@ -203,6 +212,14 @@ export interface TestCaseReview {
   passed: boolean;
 }
 
+export interface ProjectFile {
+  path: string;
+  language: string;
+  content: string;
+  start_line: number;
+  line_count: number;
+}
+
 export interface TeacherSubmissionReviewDTO {
   id: string;
   exercise_id: string;
@@ -212,6 +229,9 @@ export interface TeacherSubmissionReviewDTO {
   student_id: string;
   student_name: string;
   student_email: string;
+  environment_type: string;
+  language: string;
+  boilerplate: string;
   code: string;
   verdict: string;
   score?: number;
@@ -226,6 +246,12 @@ export interface TeacherSubmissionReviewDTO {
   expected_complexity?: string;
   complexity_analysis?: ComplexityAnalysis;
   test_cases: TestCaseReview[];
+  files_available: boolean;
+  metrics_available: boolean;
+  files: ProjectFile[];
+  /** Proyecto base del ejercicio (IDE) para el diff por archivo. */
+  base_files: ProjectFile[];
+  base_files_available: boolean;
   comments: SubmissionComment[];
   next_submission_id?: string;
   prev_submission_id?: string;
@@ -240,6 +266,7 @@ export interface OverrideRequestDTO {
 
 export interface AddCommentRequestDTO {
   line_number: number;
+  end_line_number?: number;
   comment: string;
 }
 

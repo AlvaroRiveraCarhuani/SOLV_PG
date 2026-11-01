@@ -70,9 +70,31 @@ docente acotado a una práctica, desde su ficha:
 - Si llegan `files`, se escriben en el volumen del workspace; el snapshot que se guarda es
   determinista (orden alfabético, cabeceras `# === FILE: <ruta> ===`, ignora `.git`,
   `node_modules`, `__pycache__`, `.venv`, binarios, tope 512 KB).
-- Crea una `submission` con `verdict: "PENDING"` y `score: 0`, sin migración nueva. La calificación
-  por rúbrica se hace después en SpeedGrader.
+- Crea una `submission` con `verdict: "PENDING"`, `review_status: "pending"` y sin `score`, sin
+  migración nueva. La calificación por rúbrica se hace después en SpeedGrader.
 - Respuesta: `{ submission_id, workspace_id, exercise_id, verdict, score }`.
+
+### 3.1 Lectura para SpeedGrader
+
+`GET /api/v1/teacher/submissions/{id}/review` arma el read model de la revisión sin tocar la base:
+
+- `ParseProjectSnapshot` separa `submissions.code` en `files[]` (`path`, `language`, `content`,
+  `start_line`, `line_count`) usando las cabeceras `# === FILE: <ruta> ===`. El arreglo se ordena por
+  ruta; `start_line` es la línea 1-based de la primera línea de contenido dentro de `code`.
+- `files_available` queda en `false` si el snapshot no tiene cabeceras reconocibles, excede 2 MiB o
+  500 archivos, repite rutas, tiene rutas absolutas, con `..`, con `\` o con caracteres de control.
+  En ese caso la vista muestra el visor plano de `code`.
+- En esta modalidad `test_cases` va vacío y `metrics_available` es `false`: no hay veredicto de
+  ejecución ni tiempos que mostrar.
+- `exercises.boilerplate` guarda el proyecto base en el mismo formato de snapshot. El read model lo
+  separa en `base_files[]` con el mismo parser y lo expone junto a `base_files_available`; el diff
+  compara cada archivo entregado contra el homónimo. Si la práctica no define una base, la vista
+  oculta el diff y no inventa una comparación.
+- Los comentarios siguen anclados a la **línea global** de `code` (`submission_comments.line_number`).
+  El visor traduce esa línea a la línea local del archivo visible y, al guardar, vuelve a la global.
+  Un comentario puede cubrir un bloque con `end_line_number`; el backend exige que el rango exista y
+  que, en IDE, empiece y termine en el mismo archivo. `POST /comments` responde `422
+  line_range_spans_files` si cruza archivos y `422 line_out_of_range` si el ancla no existe.
 
 ## 4. Experiencia del alumno
 

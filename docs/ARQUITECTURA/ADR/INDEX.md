@@ -64,5 +64,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 057 | [Hoy como Canvas de Materias y Columna de Pendientes](ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md) | Aprobado | Docencia |
 | 058 | [Avance Voluntario del Docente en el Aula](ADR-058-avance-voluntario-del-docente-en-aula.md) | Implementado | Docencia |
 | 059 | [Entornos Acotados a una Práctica (Docente y Alumno)](ADR-059-entornos-por-practica.md) | Implementado | Docencia |
+| 060 | [Diff Nativo y Comentarios por Rango en SpeedGrader](ADR-060-diff-nativo-y-comentarios-por-rango.md) | Implementado | Docencia |
 
 

@@ -1,0 +1,30 @@
+<div class="ide-base-card">
+  <p class="base-hint">
+    Pegá el proyecto base con una cabecera por archivo, igual que el snapshot de entrega:
+    <code class="format-sample"># === FILE: ruta/del/archivo.ext ===</code>.
+    SpeedGrader compara cada archivo entregado contra el archivo base con la misma ruta.
+  </p>
+
+  <div class="base-editor">
+    <code-editor
+      [value]="code()"
+      language="plaintext"
+      minHeight="260px"
+      maxHeight="none"
+      (valueChange)="onCodeChange($event)"
+    />
+  </div>
+
+  <footer class="base-footer">
+    @if (hasFormatWarning()) {
+      <p class="format-warning">
+        El contenido no tiene cabeceras reconocibles. El diff por archivo quedará deshabilitado hasta que uses el formato indicado.
+      </p>
+    } @else {
+      <p class="base-count">
+        Archivos base:
+        <span class="font-mono" machineData>{{ fileCount() }}</span>
+      </p>
+    }
+  </footer>
+</div>

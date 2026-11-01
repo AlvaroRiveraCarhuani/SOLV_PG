@@ -5,10 +5,17 @@ import { HttpClient } from '@angular/common/http';
 import { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { SubmissionComment, SubmissionTimeline, LiveWorkspaceSession } from '../../models/teacher.models';
-import { computeLineDiff, DiffLine } from '@shared/utils/diff.utils';
+import { LucidePanelLeftOpen } from '@lucide/angular';
+import {
+  ProjectFile,
+  ReviewMode,
+  reviewModeFromEnvironment,
+  SubmissionComment,
+  SubmissionTimeline
+} from '../../models/teacher.models';
+import { commentsForFile, commentsOutsideFiles } from './review-line-map';
+import { ReviewFileTreeComponent } from './components/review-file-tree/review-file-tree.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
-import { ShadowTerminalModalComponent } from '../../aula/shadow-terminal-modal/shadow-terminal-modal.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
 import { SpeedGraderHeaderComponent } from './components/speed-grader-header/speed-grader-header.component';
 import { SpeedGraderCodeViewerComponent } from './components/speed-grader-code-viewer/speed-grader-code-viewer.component';
@@ -21,9 +28,10 @@ import { VERDICT_OVERRIDE_OPTIONS } from '@core/models/verdict.model';
   standalone: true,
   imports: [
     CommonModule,
+    LucidePanelLeftOpen,
     SkeletonLoaderComponent,
-    ShadowTerminalModalComponent,
     KeystrokeReplayModalComponent,
+    ReviewFileTreeComponent,
     SpeedGraderHeaderComponent,
     SpeedGraderCodeViewerComponent,
     SpeedGraderEvalPanelComponent,
@@ -44,6 +52,54 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   submissionId = signal<string>('');
   review = this.gradingService.currentReview;
+  readonly reviewMode = computed<ReviewMode>(() =>
+    reviewModeFromEnvironment(this.review()?.environment_type)
+  );
+  readonly isJudge = computed(() => this.reviewMode() === 'judge');
+  readonly isProject = computed(() => this.reviewMode() === 'project');
+
+  // Archivos del proyecto (solo IDE). En juez el payload llega con files = [].
+  readonly selectedFilePath = signal<string | null>(null);
+  readonly treeCollapsed = signal<boolean>(false);
+  readonly files = computed<ProjectFile[]>(() => this.review()?.files ?? []);
+  readonly filesAvailable = computed(
+    () => this.review()?.files_available === true && this.files().length > 0
+  );
+  readonly showFileTree = computed(() => this.isProject() && this.filesAvailable());
+  readonly activeFile = computed<ProjectFile | null>(() => {
+    if (!this.showFileTree()) return null;
+    const files = this.files();
+    return files.find((file) => file.path === this.selectedFilePath()) ?? files[0] ?? null;
+  });
+
+  /** Base del diff: boilerplate en juez, archivo homónimo del proyecto base en IDE. */
+  readonly activeBaseFile = computed<ProjectFile | null>(() => {
+    const file = this.activeFile();
+    if (!file) return null;
+    return (this.review()?.base_files ?? []).find((base) => base.path === file.path) ?? null;
+  });
+  readonly diffOriginal = computed<string>(() =>
+    this.isProject() ? (this.activeBaseFile()?.content ?? '') : this.starterBoilerplate()
+  );
+  readonly diffModified = computed<string>(() =>
+    this.isProject() ? (this.activeFile()?.content ?? '') : (this.review()?.code ?? '')
+  );
+  readonly diffLanguage = computed<string>(() =>
+    this.isProject() ? (this.activeFile()?.language ?? 'plaintext') : (this.review()?.language ?? 'plaintext')
+  );
+  readonly canShowDiff = computed<boolean>(() => {
+    if (this.isProject()) return !!this.activeBaseFile();
+    return this.starterBoilerplate().trim().length > 0;
+  });
+  readonly activeFileComments = computed<SubmissionComment[]>(() => {
+    const file = this.activeFile();
+    return file ? commentsForFile(this.comments(), file) : [];
+  });
+  readonly generalComments = computed<SubmissionComment[]>(() => {
+    if (!this.isProject()) return [];
+    return commentsOutsideFiles(this.comments(), this.files());
+  });
+
   comments = this.gradingService.comments;
   isLoading = this.gradingService.isLoading;
   isRunningEphemeral = this.gradingService.isRunningEphemeral;
@@ -55,6 +111,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   rubricComments = signal<string>('');
   isSubmittingRubric = signal<boolean>(false);
   rubricSuccessMessage = signal<string | null>(null);
+  rubricErrorMessage = signal<string | null>(null);
 
   calculatedRubricScore = computed(() => {
     const rub = this.rubric();
@@ -82,6 +139,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
     this.isSubmittingRubric.set(true);
     this.rubricSuccessMessage.set(null);
+    this.rubricErrorMessage.set(null);
 
     const payload = {
       selections: this.selections(),
@@ -92,7 +150,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.isSubmittingRubric.set(false);
         const score = res?.data?.score ?? this.calculatedRubricScore();
-        this.rubricSuccessMessage.set(`Calificación guardada exitosamente (${score} / 100 pts)`);
+        this.rubricSuccessMessage.set(`Calificación guardada: ${score} / 100 pts. La entrega quedó en la libreta.`);
         const currentRev = this.review();
         if (currentRev) {
           this.gradingService.currentReview.set({
@@ -107,14 +165,17 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
           this.gradingService.getComments(id).subscribe();
         }
       },
-      error: () => {
+      error: (err) => {
         this.isSubmittingRubric.set(false);
+        this.rubricErrorMessage.set(
+          err?.error?.message || 'No se pudo guardar la calificación. Revisá la libreta e intentá de nuevo.'
+        );
       }
     });
   }
 
   showDiffView = signal<boolean>(false);
-  starterBoilerplate = signal<string>('// Plantilla base del laboratorio\n');
+  starterBoilerplate = computed<string>(() => this.review()?.boilerplate ?? '');
 
   // Time-Travel Replay State
   showReplayPlayer = signal<boolean>(false);
@@ -122,6 +183,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   isLoadingTimeline = signal<boolean>(false);
 
   selectedLineNumber = signal<number | null>(null);
+  selectedLineEndNumber = signal<number | null>(null);
   newCommentText = signal<string>('');
   isAddingComment = signal<boolean>(false);
 
@@ -133,7 +195,6 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   overrideError = signal<string | null>(null);
   isSubmittingOverride = signal<boolean>(false);
 
-  showShadowTerminal = signal<boolean>(false);
   showKeystrokeReplay = signal<boolean>(false);
 
   copiedIndex = signal<number | null>(null);
@@ -175,39 +236,15 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     }
   }
 
-  currentLiveSession = computed<LiveWorkspaceSession | null>(() => {
-    const rev = this.review();
-    if (!rev) return null;
-    return {
-      workspace_id: rev.id,
-      container_id: rev.student_id ? `workspace-${rev.student_id.slice(0, 8)}` : '',
-      student_id: rev.student_id,
-      student_name: rev.student_name,
-      student_email: rev.student_email,
-      subject_id: rev.subject_id,
-      subject_name: rev.subject_name,
-      status: 'running',
-      memory_limit_mb: 256,
-      oom_strikes: 0,
-      last_heartbeat: rev.submitted_at,
-      is_attached: true
-    };
-  });
-
-  openShadowTerminal(): void {
-    this.showShadowTerminal.set(true);
-  }
-
-  closeShadowTerminal(): void {
-    this.showShadowTerminal.set(false);
-  }
-
   codeLines = computed(() => {
     return (this.review()?.code || '').split('\n');
   });
 
-  diffLines = computed<DiffLine[]>(() => {
-    return computeLineDiff(this.starterBoilerplate(), this.review()?.code || '');
+  currentCommentRange = computed<{ line: number; endLine: number | null } | null>(() => {
+    const line = this.selectedLineNumber();
+    if (line === null) return null;
+    const end = this.selectedLineEndNumber();
+    return { line, endLine: end !== null && end > line ? end : null };
   });
 
   commentsByLine = computed(() => {
@@ -287,7 +324,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         description: 'Enfocar comentario in-line',
         category: 'SpeedGrader',
         scope: 'speed-grader',
-        action: () => this.selectLine(1)
+        action: () => this.selectLine(this.defaultCommentLine())
       })
     );
 
@@ -299,6 +336,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         category: 'SpeedGrader',
         scope: 'speed-grader',
         action: () => {
+          if (!this.canShowDiff()) return;
           this.showReplayPlayer.set(false);
           this.showDiffView.update(v => !v);
         }
@@ -327,8 +365,8 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         action: () => {
           if (this.showOverrideModal()) {
             this.submitOverride();
-          } else if (this.selectedLineNumber()) {
-            this.submitComment(this.selectedLineNumber()!);
+          } else if (this.currentCommentRange()) {
+            this.submitComment(this.currentCommentRange()!);
           }
         }
       })
@@ -337,6 +375,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   loadSubmission(id: string): void {
     this.selectedLineNumber.set(null);
+    this.selectedLineEndNumber.set(null);
     this.newCommentText.set('');
     this.overrideError.set(null);
     this.timeline.set(null);
@@ -344,18 +383,17 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.selections.set({});
     this.rubricComments.set('');
     this.rubricSuccessMessage.set(null);
+    this.rubricErrorMessage.set(null);
+    this.showDiffView.set(false);
+    this.showReplayPlayer.set(false);
+    this.selectedFilePath.set(null);
+    this.treeCollapsed.set(false);
 
     this.gradingService.getSubmissionReview(id).subscribe({
       next: (rev) => {
-        if (rev) {
-          const code = rev.code || '';
-          if (/^\s*(import\s+|def\s+|class\s+.*:|print\(|from\s+.*import)/m.test(code)) {
-            this.starterBoilerplate.set('def busqueda_binaria(arr, x):\n    # Escriba su solución aquí\n    pass\n');
-          } else if (/^\s*(#include|int\s+main)/m.test(code)) {
-            this.starterBoilerplate.set('#include <iostream>\nusing namespace std;\n\nint main() {\n    // Escriba su solución aquí\n    return 0;\n}');
-          } else {
-            this.starterBoilerplate.set('// Plantilla base del laboratorio\n');
-          }
+        if (!rev) return;
+        if (rev.environment_type === 'IDE_PERSISTENTE') {
+          this.selectedFilePath.set(rev.files?.[0]?.path ?? null);
           if (rev.exercise_id) {
             this.loadRubric(rev.exercise_id);
           }
@@ -379,8 +417,20 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
           this.selections.set(initialSel);
         }
       },
-      error: () => {}
+      error: (err) => {
+        if (err?.status && err.status !== 404) {
+          this.rubricErrorMessage.set(
+            'No se pudo cargar la rúbrica de la práctica. Recargá la página para reintentar.'
+          );
+        }
+      }
     });
+  }
+
+  toggleDiffView(): void {
+    if (!this.canShowDiff()) return;
+    this.showReplayPlayer.set(false);
+    this.showDiffView.update(v => !v);
   }
 
   toggleReplay(): void {
@@ -416,16 +466,45 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.hotkeysService.openHelpModal();
   }
 
+  selectFile(path: string): void {
+    if (this.selectedFilePath() === path) return;
+    this.selectedFilePath.set(path);
+    this.selectedLineNumber.set(null);
+    this.selectedLineEndNumber.set(null);
+    this.newCommentText.set('');
+    if (this.showDiffView() && !this.canShowDiff()) {
+      this.showDiffView.set(false);
+    }
+  }
+
+  private defaultCommentLine(): number {
+    const file = this.activeFile();
+    return file ? file.start_line : 1;
+  }
+
   selectLine(lineNumber: number | null): void {
     if (lineNumber === null || this.selectedLineNumber() === lineNumber) {
       this.selectedLineNumber.set(null);
+      this.selectedLineEndNumber.set(null);
     } else {
       this.selectedLineNumber.set(lineNumber);
+      this.selectedLineEndNumber.set(null);
       this.newCommentText.set('');
     }
   }
 
-  submitComment(lineNumber: number): void {
+  /** El visor emite líneas globales, ya traducidas desde el archivo activo. */
+  selectLineRange(range: { start: number; end: number }): void {
+    if (range.end <= range.start) {
+      this.selectLine(range.start);
+      return;
+    }
+    this.selectedLineNumber.set(range.start);
+    this.selectedLineEndNumber.set(range.end);
+    this.newCommentText.set('');
+  }
+
+  submitComment(range: { line: number; endLine: number | null }): void {
     const text = this.newCommentText().trim();
     if (!text) return;
 
@@ -433,12 +512,14 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     this.isAddingComment.set(true);
 
     this.gradingService.addComment(id, {
-      line_number: lineNumber,
+      line_number: range.line,
+      ...(range.endLine !== null ? { end_line_number: range.endLine } : {}),
       comment: text
     }).subscribe({
       next: () => {
         this.newCommentText.set('');
         this.selectedLineNumber.set(null);
+        this.selectedLineEndNumber.set(null);
         this.isAddingComment.set(false);
       },
       error: () => {
@@ -449,11 +530,11 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   runEphemeralSandbox(): void {
     const curr = this.review();
-    if (!curr) return;
+    if (!curr || !this.isJudge()) return;
 
     this.gradingService.runEphemeral(curr.id, {
       code: curr.code,
-      language: 'python'
+      language: curr.language || 'python'
     }).subscribe({
       next: () => {
         setTimeout(() => {
@@ -469,7 +550,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   openOverrideModal(): void {
     const curr = this.review();
     this.overrideVerdict.set(curr?.verdict || 'AC');
-    this.overrideScore.set(curr?.score || 100);
+    this.overrideScore.set(curr?.score ?? 100);
     this.overrideReason.set(curr?.override_reason || '');
     this.overrideError.set(null);
     this.showOverrideModal.set(true);

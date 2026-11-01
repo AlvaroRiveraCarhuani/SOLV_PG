@@ -4,47 +4,77 @@
   } @else if (review(); as r) {
     <speed-grader-header
       [review]="r"
+      [mode]="reviewMode()"
       [showReplayPlayer]="showReplayPlayer()"
       [showDiffView]="showDiffView()"
+      [diffAvailable]="canShowDiff()"
       [isRunningEphemeral]="isRunningEphemeral()"
       (openKeystrokeReplay)="openKeystrokeReplay()"
       (toggleReplay)="toggleReplay()"
-      
       (runEphemeral)="runEphemeralSandbox()"
-      (openShadowTerminal)="openShadowTerminal()"
       (openOverrideModal)="openOverrideModal()"
       (openShortcutsGuide)="openShortcutsGuide()"
-      (toggleDiff)="showDiffView.update(v => !v)"
+      (toggleDiff)="toggleDiffView()"
     />
-    <div class="grader-body">
+    <div
+      class="grader-body"
+      [class.grader-body-project]="isProject()"
+      [class.grader-body-tree]="showFileTree() && !treeCollapsed()"
+      [class.grader-body-tree-collapsed]="showFileTree() && treeCollapsed()"
+    >
+      @if (showFileTree()) {
+        @if (treeCollapsed()) {
+          <button
+            type="button"
+            class="tree-rail"
+            (click)="treeCollapsed.set(false)"
+            title="Mostrar el árbol de archivos"
+            aria-label="Mostrar el árbol de archivos"
+          >
+            <svg lucidePanelLeftOpen class="btn-icon-sm"></svg>
+          </button>
+        } @else {
+          <review-file-tree
+            class="file-tree"
+            [files]="files()"
+            [selectedPath]="selectedFilePath()"
+            (fileSelected)="selectFile($event)"
+            (collapse)="treeCollapsed.set(true)"
+          />
+        }
+      }
+
       <speed-grader-code-viewer
         [review]="r"
+        [activeFile]="isProject() ? activeFile() : null"
+        [fileComments]="isProject() ? activeFileComments() : []"
+        [generalComments]="isProject() ? generalComments() : []"
+        [flatSnapshot]="isProject() && !showFileTree()"
+        [showDiffView]="showDiffView()"
         [showReplayPlayer]="showReplayPlayer()"
         [timeline]="timeline()"
         [selectedLineNumber]="selectedLineNumber()"
+        [selectedLineEndNumber]="selectedLineEndNumber()"
         [newCommentText]="newCommentText()"
         [isAddingComment]="isAddingComment()"
         [codeLines]="codeLines()"
-        [diffLines]="diffLines()"
         [commentsByLine]="commentsByLine()"
         [starterBoilerplate]="starterBoilerplate()"
-        [selectedLineNumber]="selectedLineNumber()"
-        [newCommentText]="newCommentText()"
-        [isAddingComment]="isAddingComment()"
-        [codeLines]="codeLines()"
-        [diffLines]="diffLines()"
-        [commentsByLine]="commentsByLine()"
-        [starterBoilerplate]="starterBoilerplate()"
+        [diffOriginal]="diffOriginal()"
+        [diffModified]="diffModified()"
+        [diffLanguage]="diffLanguage()"
         (lineSelected)="selectLine($event)"
+        (lineRangeSelected)="selectLineRange($event)"
         (commentSubmitted)="submitComment($event)"
         (newCommentTextChange)="newCommentText.set($event)"
-        (toggleDiff)="showDiffView.update(v => !v)"
+        (toggleDiff)="toggleDiffView()"
         (toggleReplay)="toggleReplay()"
-      
       />
       <speed-grader-eval-panel
+        [mode]="reviewMode()"
         [rubric]="rubric()"
         [rubricSuccessMessage]="rubricSuccessMessage()"
+        [rubricErrorMessage]="rubricErrorMessage()"
         [isSubmittingRubric]="isSubmittingRubric()"
         [calculatedRubricScore]="calculatedRubricScore()"
         [review]="r"
@@ -77,13 +107,6 @@
     (reasonChange)="overrideReason.set($event)"
     (notifyStudentChange)="overrideNotifyStudent.set($event)"
     (submitOverride)="submitOverride()"
-  />
-}
-
-@if (showShadowTerminal() && currentLiveSession(); as session) {
-  <shadow-terminal-modal
-    [session]="session"
-    (closed)="closeShadowTerminal()"
   />
 }
 

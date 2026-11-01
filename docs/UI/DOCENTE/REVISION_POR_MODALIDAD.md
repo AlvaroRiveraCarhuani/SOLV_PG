@@ -2,7 +2,7 @@
 
 > **Especificación de interfaz y contrato de datos**
 > **Rol:** Docente
-> **Estado:** Propuesta para implementación
+> **Estado:** Fases 0–3 implementadas (contrato, parser, cierre de rúbrica, corte por modalidad, árbol, comentarios por línea y por rango, diff nativo y regresión de juez); fase 4 (entorno de prueba del alumno) pendiente
 > **Gobernanza:** SOLV Design System / [UX-PRINCIPLES](../UX-PRINCIPLES.md) / [ADR-043](../../ARQUITECTURA/ADR/ADR-043-modalidad-dual-y-gobernanza-de-recursos.md) / [ADR-052](../../ARQUITECTURA/ADR/ADR-052-banco-ejercicios-read-model-y-discriminador-entorno.md) / [ADR-053](../../ARQUITECTURA/ADR/ADR-053-revision-docente-y-libreta-de-notas.md)
 > **Ruta:** `/teacher/revision/:submissionId`
 > **Reemplaza el plan de:** `proyecto-grado/Observaciones/Revision de Entregas e Inconsistencias en SpeedGrader.md` (nota local, fuera del repositorio)
@@ -57,12 +57,12 @@ La decisión es una sola ruta y un solo shell, con dos paneles de revisión seg�
 | Casos de prueba | Sí | No | Ocultar en IDE y no enviarlos en el payload. |
 | Complejidad asintótica | Sí | Hoy no hay datos | Ocultar en IDE. Si se agregan restricciones, generar el análisis antes de mostrarlo. |
 | Rúbrica | No | Sí | Mostrar solo en IDE. El backend ya rechaza rúbricas en juez. |
-| Diff contra la base | Sí, con el `boilerplate` real del ejercicio | Por archivo, fuera de alcance en esta entrega | Corregir la fuente del código base; no adivinarla con regex. |
+| Diff contra la base | Sí, con el `boilerplate` real del ejercicio | Sí, por archivo contra `base_files` | El proyecto base se edita en el paso de publicación y viaja en el payload; si falta, el diff no se muestra. |
 | Evolución temporal | Sí, si hay datos | Sí, si hay datos | Mantener en ambas. |
 | Auditoría de escritura | Sí, si hay datos | Sí, si hay datos | Mantener en ambas. |
 | Consola del estudiante | No | Solo con un workspace real | Quitar la sesión fabricada; ocultar si no hay workspace vivo. |
 | Re-ejecutar sandbox | Sí, con el lenguaje del ejercicio | No | Ocultar en IDE. El endpoint responde 409 en IDE. |
-| Comentarios inline | Sí | Sí, por archivo visible | Mantener el número de línea global y traducir en la vista. |
+| Comentarios inline | Sí | Sí, por archivo visible | Mantener el número de línea global, traducir en la vista y permitir bloques con `end_line_number`. |
 | Calificar / override | Sí | Sí, como excepción | La acción primaria en IDE es guardar la rúbrica. |
 | Estado de revisión | Sí | Sí | Guardar la rúbrica mueve la entrega a `graded` y actualiza la libreta. |
 
@@ -135,7 +135,7 @@ Campos nuevos:
 | --- | --- | --- | --- | --- |
 | `environment_type` | string | `JUEZ_EFIMERO` | `IDE_PERSISTENTE` | Siempre presente. Sale de `exercises.environment_type`; si falta, `JUEZ_EFIMERO`. |
 | `language` | string | Lenguaje del ejercicio | Lenguaje del ejercicio | Siempre presente; vacío si no está definido. |
-| `boilerplate` | string | Código base del ejercicio | `""` | Fuente del diff en juez. En IDE va vacío; el diff por archivo queda fuera de alcance. |
+| `boilerplate` | string | Código base del ejercicio | Proyecto base multiarchivo | Fuente del diff. En IDE usa el formato `# === FILE: ruta ===`. |
 | `files_available` | bool | `false` | `true` si el snapshot se pudo estructurar | La UI decide árbol o visor plano con este campo. |
 | `metrics_available` | bool | `true` si la entrega tiene veredicto de ejecución | `false` | La UI muestra tiempo y memoria solo si es `true`. En juez sin medición, muestra `—`. |
 | `files` | array | `[]` | Array de archivos | Solo IDE. Es un read model derivado de `code`; no se persiste. |
@@ -144,6 +144,8 @@ Campos nuevos:
 | `files[].content` | string | — | Contenido del archivo | Sin cabecera ni separador; saltos normalizados a `\n`. |
 | `files[].start_line` | int | — | Línea 1-based de la primera línea de contenido en `code` | Permite traducir comentarios. |
 | `files[].line_count` | int | — | Cantidad de líneas de contenido | Puede ser 0 para un archivo vacío. |
+| `base_files` | array | `[]` | Array de archivos base | Solo IDE. Read model derivado de `exercises.boilerplate` con el mismo formato y reglas que `files`. |
+| `base_files_available` | bool | `false` | `true` si el proyecto base se pudo estructurar | La UI habilita el diff por archivo solo con este campo. |
 
 Reglas del contrato:
 
@@ -153,7 +155,7 @@ Reglas del contrato:
 - `execution_time_ms` y `memory_used_mb` se mantienen; la UI de IDE los ignora. No se presenta `0` como medición.
 - `metrics_available` es `true` cuando la modalidad es juez y `verdict` no es `PENDING`; es `false` en IDE o en una entrega que aún no se ejecutó. Es el campo que decide si se muestran tiempo y memoria.
 - `comments` no cambia; `line_number` sigue siendo global sobre `code`.
-- `boilerplate` reemplaza la heurística de regex del visor. En IDE se envía vacío y el diff por archivo no se muestra.
+- `boilerplate` reemplaza la heurística de regex del visor. En IDE es el proyecto base y se separa en `base_files`; si no hay base, el diff por archivo no se muestra.
 - `files_available = false` si el snapshot está vacío, no tiene cabeceras reconocibles, tiene rutas duplicadas o supera 500 archivos o 2 MiB. En ese caso la UI usa el visor plano y muestra un aviso.
 - El contenido se escapa en Angular y en CodeMirror. No se renderiza HTML.
 
@@ -204,6 +206,7 @@ Ejemplo abreviado:
         "author_id": "11111111-1111-4111-8111-111111111111",
         "author_name": "Docente",
         "line_number": 2,
+        "end_line_number": 5,
         "comment": "Falta validar el body antes de responder.",
         "created_at": "2026-11-01T10:15:00Z"
       }
@@ -219,21 +222,22 @@ Ejemplo abreviado:
 
 ### 5.2 Comentarios
 
-`POST /api/v1/teacher/submissions/{id}/comments` no cambia de forma:
+`POST /api/v1/teacher/submissions/{id}/comments` acepta una línea o un bloque:
 
 ```json
 {
   "line_number": 2,
+  "end_line_number": 5,
   "comment": "Falta validar el body antes de responder."
 }
 ```
 
-- `line_number` es global, 1-based, sobre `code`, incluidas las cabeceras.
+- `line_number` es la línea global inicial, 1-based, sobre `code`, incluidas las cabeceras. `end_line_number` es opcional; si falta, el comentario aplica a una sola línea. La migración `00043_submission_comment_ranges.sql` agrega la columna y su restricción de orden.
 - Traducción en la vista: `global = start_line + local - 1`; `local = global - start_line + 1`.
-- Al comentar en IDE, la UI envía la línea global del archivo seleccionado. Al mostrar, resta el mismo offset.
-- El backend valida que la línea exista en `code`. Fuera de rango: `422 line_out_of_range`.
-- Un comentario cuya línea cae en una cabecera, como el comentario general de la rúbrica en la línea 1, se muestra en la lista de comentarios generales y no se ancla a un archivo.
-- Los comentarios existentes siguen funcionando; no hay migración.
+- Al comentar en IDE, la UI envía las líneas globales del bloque seleccionado. Al mostrar, resta el mismo offset.
+- El backend valida que el rango exista y no esté invertido: `422 line_range_invalid`. En IDE exige que empiece y termine en el mismo archivo: `422 line_range_spans_files`. Fuera de `code`: `422 line_out_of_range`.
+- Un comentario cuya línea cae en una cabecera, como el comentario general de la rúbrica en la línea 1, se muestra en la lista de comentarios generales y no se ancla a un archivo. Los rangos no pueden cruzar cabeceras.
+- Los comentarios existentes quedan como comentarios de una línea; `end_line_number` es nulo y no requiere backfill.
 - Queda fuera de esta entrega agregar `file_path` y guardar la línea local. Si se necesita, se hace con migración y backfill.
 
 ### 5.3 `POST /api/v1/teacher/submissions/{id}/run-ephemeral`
@@ -261,6 +265,8 @@ Ejemplo abreviado:
 | `404 rubric_not_found` | La práctica IDE no tiene rúbrica | Mensaje con enlace a la práctica |
 | `409 ephemeral_not_supported_for_ide` | Se intenta ejecutar el sandbox en IDE | Mensaje de acción no aplicable |
 | `422 line_out_of_range` | Comentario fuera del código | Mensaje con el rango válido |
+| `422 line_range_invalid` | Rango invertido o línea inicial inválida | Mensaje con el rango válido |
+| `422 line_range_spans_files` | El bloque IDE cruza archivos o cabeceras | Mensaje con el archivo del bloque |
 
 ---
 
@@ -332,19 +338,27 @@ import express from "express";
 
 ## 7. Criterios de aceptación
 
-- [ ] **AC-01:** `GET /api/v1/teacher/submissions/{id}/review` incluye `environment_type` y `language` en ambas modalidades. Los valores coinciden con el ejercicio. Un tipo faltante o desconocido cae en `JUEZ_EFIMERO` sin `500`.
-- [ ] **AC-02:** Una entrega IDE con dos o más archivos devuelve `files_available = true` y `files` con las rutas en orden alfabético. `start_line` y `line_count` ubican cada archivo dentro de `code`. La reconstrucción desde `files` coincide con `code` salvo el separador normalizado.
-- [ ] **AC-03:** El panel IDE no renderiza veredicto, tiempo, memoria, casos, complejidad ni resultado efímero. Renderiza el árbol y la rúbrica. El panel juez renderiza casos, veredicto y métricas solo cuando `metrics_available` es `true`; si no, muestra `—`. No renderiza la rúbrica.
-- [ ] **AC-04:** El header IDE no muestra "Re-ejecutar". El header juez sí lo muestra y envía el lenguaje del ejercicio. `run-ephemeral` responde `409` en IDE.
-- [ ] **AC-05:** Seleccionar un archivo muestra su contenido y su lenguaje. El árbol funciona con teclado y a 1024 px sin scroll horizontal. No hay selectores `solv-` ni colores hex; `npm run lint:styles` pasa.
-- [ ] **AC-06:** Un comentario en la línea local 3 de `src/app.js` se guarda con la línea global correcta, reaparece en la misma línea al recargar y se lista en los comentarios. Un comentario de juez sigue funcionando.
-- [ ] **AC-07:** Guardar la rúbrica devuelve `200` solo después de escribir `score`, `review_status = graded`, `reviewed_at`, `reviewed_by` y la celda de `exercise_grades`. La entrega sale de la cola de pendientes y el banner de éxito aparece solo en ese caso.
-- [ ] **AC-08:** Si la práctica IDE no tiene rúbrica, el panel muestra un estado vacío explícito y deshabilita el guardado. No queda un panel en blanco ni un `500` sin tratar.
-- [ ] **AC-09:** `currentLiveSession` no fabrica un workspace. "Consola del Estudiante" se oculta en IDE salvo que exista un workspace real.
-- [ ] **AC-10:** El flujo e2e J08 sigue pasando y suma aserciones de revisión IDE: sin bloques de juez, árbol visible, cambio de archivo y guardado de rúbrica. J07 cubre la regresión de juez.
-- [ ] **AC-11:** No hay migración de base de datos en esta entrega. `code`, `line_number` y los comentarios existentes siguen siendo compatibles.
-- [ ] **AC-12:** Pasan los tests de Go de los paquetes tocados, los tests de Angular de los componentes modificados y los dos flujos e2e. No se agregan imágenes `:latest` ni dominios hardcodeados.
-- [ ] **AC-13:** El diff de juez usa `boilerplate` del payload. El componente no adivina el código base con regex. En IDE no se muestra diff por archivo.
+- [x] **AC-01:** `GET /api/v1/teacher/submissions/{id}/review` incluye `environment_type` y `language` en ambas modalidades. Los valores coinciden con el ejercicio. Un tipo faltante o desconocido cae en `JUEZ_EFIMERO` sin `500`.
+- [x] **AC-02:** Una entrega IDE con dos o más archivos devuelve `files_available = true` y `files` con las rutas en orden alfabético. `start_line` y `line_count` ubican cada archivo dentro de `code`. La reconstrucción desde `files` coincide con `code` salvo el separador normalizado.
+- [x] **AC-03:** El panel IDE no renderiza veredicto, tiempo, memoria, casos, complejidad ni resultado efímero. Renderiza el árbol y la rúbrica. El panel juez renderiza casos, veredicto y métricas solo cuando `metrics_available` es `true`; si no, muestra `—`. No renderiza la rúbrica.
+- [x] **AC-04:** El header IDE no muestra "Re-ejecutar". El header juez sí lo muestra y envía el lenguaje del ejercicio. `run-ephemeral` responde `409` en IDE.
+- [x] **AC-05:** Seleccionar un archivo muestra su contenido y su lenguaje. El árbol funciona con teclado y a 1024 px sin scroll horizontal. No hay selectores `solv-` ni colores hex; `npm run lint:styles` pasa.
+- [x] **AC-06:** Un comentario en la línea local 3 de `src/app.js` se guarda con la línea global correcta, reaparece en la misma línea al recargar y se lista en los comentarios. Un comentario de juez sigue funcionando.
+- [x] **AC-07:** Guardar la rúbrica devuelve `200` solo después de escribir `score`, `review_status = graded`, `reviewed_at`, `reviewed_by` y la celda de `exercise_grades`. La entrega sale de la cola de pendientes y el banner de éxito aparece solo en ese caso.
+- [x] **AC-08:** Si la práctica IDE no tiene rúbrica, el panel muestra un estado vacío explícito y deshabilita el guardado. No queda un panel en blanco ni un `500` sin tratar.
+- [x] **AC-09:** `currentLiveSession` no fabrica un workspace. "Consola del Estudiante" se oculta en IDE salvo que exista un workspace real.
+- [x] **AC-10:** El flujo e2e J08 sigue pasando y suma aserciones de revisión IDE: sin bloques de juez, árbol visible, cambio de archivo y guardado de rúbrica. J07 cubre la regresión de juez.
+- [x] **AC-11:** La migración `00043_submission_comment_ranges.sql` es idempotente y agrega `end_line_number` sin backfill. `code`, `line_number` y los comentarios existentes siguen siendo compatibles.
+- [x] **AC-12:** Pasan los tests de Go de los paquetes tocados, los tests de Angular de los componentes modificados y los dos flujos e2e. No se agregan imágenes `:latest` ni dominios hardcodeados.
+- [x] **AC-13:** El diff de juez usa `boilerplate` del payload. El componente no adivina el código base con regex.
+- [x] **AC-14:** Un comentario de bloque se guarda con `line_number` y `end_line_number`, reaparece con la etiqueta `L12–L18` y se lista con el mismo rango. Un rango invertido responde `422 line_range_invalid`; uno que cruza archivos en IDE responde `422 line_range_spans_files`.
+- [x] **AC-15:** En IDE, el diff compara el archivo activo contra `base_files` y solo se habilita si existe el homónimo. Sin base, la acción no aparece y no se inventa una comparación.
+- [x] **AC-16:** El paso de publicación de un ejercicio IDE permite editar el proyecto base con el formato `# === FILE: ruta ===`; al guardar, el read model devuelve `base_files_available = true` y los archivos con sus offsets.
+- [x] **AC-17:** J08 ejercita el diff por archivo y un comentario de bloque; J07 sigue cubriendo el SpeedGrader de juez. Los tests unitarios de la traducción de líneas cubren rangos.
+
+Verificación de la fase 2 (2026-11-01): pasan `npm run build`, los specs del SpeedGrader (21 tests, incluidos el árbol y la traducción de líneas), Template Studio (72 tests, incluida la inyección de OpenVSCode), `npm run lint:styles`, `go build ./...`, `go test` de los paquetes tocados y `go vet` con los tests de integración compilados. J08 se ejecutó contra el stack local con Docker real y pasó completo (1.5 min): plantilla IDE verificada y publicada, workspace iniciado, entrega `PENDING`, reconexión idempotente y SpeedGrader con árbol, cambio de archivo, ausencia de bloques de juez y rúbrica guardada. J07 también pasó (1.4 min): prueba efímera, comentario por línea, override auditado y detección anti-plagio.
+
+Verificación de la fase 3 (2026-11-01): pasan `npm run build`, `npm run lint:styles` y los 26 tests del SpeedGrader (`speed-grader.component.spec.ts`, `review-line-map.spec.ts`, árbol de archivos y repetición de teclas). En backend pasan `go build ./...` y las suites completas de `internal/core/domain`, `internal/core/services`, `internal/delivery/http` e `internal/infrastructure/storage/postgres`, más Slice 13 de integración contra `solv_test` con las migraciones 42 y 43 aplicadas. J08 pasó completo (1.5 min) con árbol de dos archivos, diff nativo contra `base_files` y comentario de bloque L2–L5 guardado con `end_line_number`; J07 pasó (1.2 min) con prueba efímera, comentario por línea, override auditado y detección anti-plagio.
 
 ---
 
@@ -355,23 +369,28 @@ import express from "express";
 | 0 | Contrato, parser y cierre de revisión | `backend/internal/core/domain/teacher_review.go`, `backend/internal/core/domain/project_snapshot.go`, `backend/internal/core/services/rubric_service.go`, `backend/internal/infrastructure/storage/postgres/teacher_grading_repository.go`, `frontend/src/app/features/teacher/models/teacher.models.ts` | AC-01, AC-02, AC-07 |
 | 1 | Corte por modalidad | `frontend/src/app/features/teacher/grading/speed-grader/speed-grader.component.*`, `components/speed-grader-header/*`, `components/speed-grader-eval-panel/*`, `backend/internal/core/services/teacher_ephemeral.go` | AC-03, AC-04, AC-08, AC-09 |
 | 2 | Árbol de archivos y comentarios | `frontend/src/app/features/teacher/grading/speed-grader/components/review-file-tree/`, `components/speed-grader-code-viewer/*`, `speed-grader.component.html` | AC-05, AC-06, AC-10, AC-11 |
-| 3 | Entorno de prueba del alumno (diferido) | Job nuevo sobre el patrón de `practice_env_test`, ADR propia | Criterios de la ADR de la fase 3 |
+| 3 | Diff nativo y comentarios por rango | `backend/migrations/00043_submission_comment_ranges.sql`, `backend/internal/core/services/teacher_submissions.go`, `frontend/src/app/shared/components/code-diff-viewer/`, `components/speed-grader-code-viewer/*`, `step-publication/ide-base-snapshot/` | AC-13, AC-14, AC-15, AC-16, AC-17 |
+| 4 | Entorno de prueba del alumno (diferido) | Job nuevo sobre el patrón de `practice_env_test`, ADR propia | Criterios de la ADR de la fase 4 |
 
 Notas de implementación:
 
 - En la fase 1, limpiar los inputs duplicados de `<speed-grader-code-viewer>` en `speed-grader.component.html`.
 - El parser se integra en el servicio o repositorio de revisión, no en el handler HTTP. El handler solo transporta el DTO.
+- Cierre de la fase 1: el modo sale de `environment_type` (`reviewModeFromEnvironment`), no de la presencia de rúbrica. El shell no pide la rúbrica en juez ni dibuja los bloques de juez en IDE. El diff usa `boilerplate` real del payload; se quitó la heurística por regex y la consola fabricada. `runEphemeralSandbox` y el atajo `D` no ejecutan nada en IDE, y `POST /run-ephemeral` responde `409`. El header muestra la modalidad y esconde "Re-ejecutar", diff y complejidad en IDE.
+- En juez, tiempo y memoria se muestran solo si `metrics_available`; si no, `—`. El atajo `D` y la vista de diff no existen en IDE aunque se llegue por teclado.
+- La fase 1 no toca el esquema ni los comentarios: sigue vigente la línea global de `code` hasta la fase 2.
 - La fase 2 no cambia el esquema de comentarios. La traducción de líneas vive en la vista y tiene tests unitarios.
-- La fase 3 no se mezcla con las anteriores. Su contrato se define en una ADR aparte.
+- Cierre de la fase 2: `ParseProjectSnapshot` deriva `files[]` del snapshot sin persistir nada; el repositorio solo lo hace en IDE y deja `files_available = false` si el formato no es reconocible. El visor muestra el archivo activo, traduce la línea local a global al comentar y agrupa como generales los comentarios que caen fuera de los archivos. `AddComment` valida el rango contra `code` y responde `422 line_out_of_range`. El árbol usa `role="tree"`, flechas, Home/End y Enter/Espacio, y colapsa a una columna a 1024 px.
+- Cierre de la fase 3: el diff nativo usa `unifiedMergeView` de `@codemirror/merge` en modo solo lectura. En juez compara `boilerplate` contra `code`; en IDE compara el archivo activo contra su homónimo de `base_files`. El proyecto base se edita en el paso de publicación con el formato de snapshot y se guarda en `exercises.boilerplate`; no hay un segundo formato ni una tabla nueva. Los comentarios de bloque usan `end_line_number` y siguen anclados a la línea global; el backend rechaza rangos invertidos o que cruzan archivos. La migración es idempotente y no toca los comentarios existentes.
 
 ---
 
 ## 9. Documentación y gobernanza
 
 - **Esta especificación:** `docs/UI/DOCENTE/REVISION_POR_MODALIDAD.md`.
-- **ADR:** nueva ADR de revisión por modalidad o actualización de [ADR-053](../../ARQUITECTURA/ADR/ADR-053-revision-docente-y-libreta-de-notas.md) antes de implementar la fase 2.
-- **Contrato de API:** actualizar `docs/API_CONTRACTS.md` con los campos nuevos al cerrar la fase 0.
-- **IDE persistente:** actualizar `docs/ARQUITECTURA/IDE_PERSISTENTE.md` con el read model `files[]` y la traducción de líneas al cerrar la fase 2.
+- **ADR:** [ADR-060](../../ARQUITECTURA/ADR/ADR-060-diff-nativo-y-comentarios-por-rango.md) documenta el diff nativo, el proyecto base y `end_line_number`.
+- **Contrato de API:** `docs/API_CONTRACTS.md` incluye `base_files[]`, `base_files_available` y `end_line_number`.
+- **IDE persistente:** `docs/ARQUITECTURA/IDE_PERSISTENTE.md` documenta `base_files[]` y los bloques de comentarios.
 - **Mapa de vistas:** no cambia la ruta; solo se ajusta la descripción si el alcance de la vista cambia.
 - **E2E:** ampliar `frontend/e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs` y mantener J07 como regresión de juez.
 
@@ -379,8 +398,8 @@ Notas de implementación:
 
 ## 10. Fuera de alcance y decisiones abiertas
 
-- **Entorno de prueba del alumno:** queda para la fase 3. Hay que elegir entre conectarse al workspace vivo en modo sombra, crear un contenedor efímero desde el snapshot o superponer el snapshot sobre la plantilla. También queda abierto si la app se muestra en iframe o en pestaña; muchas aplicaciones bloquean iframe por CSP o `X-Frame-Options`.
-- **Diff por archivo en IDE:** necesita los archivos de la plantilla base. En juez, el diff debe usar `exercise.boilerplate`, no una heurística.
+- **Entorno de prueba del alumno:** queda para la fase 4. Hay que elegir entre conectarse al workspace vivo en modo sombra, crear un contenedor efímero desde el snapshot o superponer el snapshot sobre la plantilla. También queda abierto si la app se muestra en iframe o en pestaña; muchas aplicaciones bloquean iframe por CSP o `X-Frame-Options`.
+- **Diff sin proyecto base:** una práctica IDE creada antes de esta fase no tiene `boilerplate` multiarchivo. El diff no se muestra; el docente puede cargar la base desde el paso de publicación, pero no se infiere desde la plantilla Docker ni desde la primera entrega.
 - **Anclaje por archivo de comentarios:** se mantiene la línea global en esta entrega. Agregar `file_path` y línea local requiere migración y backfill.
 - **Tercera modalidad:** si aparece, introducir un `review_mode` explícito en lugar de repartir otro booleano por el componente.
 - **Duplicación de `code` y `files`:** es aceptable por ahora. Si el payload crece, se evalúa omitir `code` en IDE en una versión posterior.
@@ -395,3 +414,4 @@ Notas de implementación:
 - **Densidad de la vista:** tres columnas a 1366 px dejan poco ancho para el código. Se prueba a 1024, 1280 y 1440 px, y el árbol se colapsa.
 - **Accesibilidad:** el árbol es el componente nuevo con más riesgo. Se prueba con teclado y con foco visible, no solo con mouse.
 - **E2E con CodeMirror:** usar selectores estables y esperar por texto del archivo, no por clases internas del editor.
+- **Base del diff:** si el docente no define el proyecto base o lo pega sin cabeceras, el diff no aparece. La UI lo advierte en el paso de publicación; el sistema no inventa una base desde la imagen de la plantilla.

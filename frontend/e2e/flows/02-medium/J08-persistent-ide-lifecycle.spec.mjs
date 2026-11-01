@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { expect, test } from '@playwright/test';
 import {
   CANONICAL_ACTORS,
@@ -25,16 +26,17 @@ test.describe.configure({ mode: 'serial' });
  *    DDL/DML real, configura la rúbrica con suma de pesos = 100% y publica.
  * 3. Estudiante entra a /student/exercises/:id, verifica la vista de IDE
  *    Persistente (sin invocar /api/v1/evaluations), inicia el contenedor real
- *    (running + http://localhost:<port>), edita y agrega archivos del proyecto
- *    y entrega el proyecto (POST /api/v1/workspaces/{id}/submit -> PENDING).
+ *    (running + http://localhost:<port>), escribe los archivos del proyecto en
+ *    el volumen del IDE y los entrega desde la UI
+ *    (POST /api/v1/workspaces/{id}/submit -> PENDING).
  * 4. Estudiante pulsa Reconectar sobre el workspace activo y comprueba que la
  *    reactivación/reconexión es idempotente (_solv_exercise_migrations) y no
  *    falla ni duplica el db_init_script.
- * 5. Docente abre la entrega en SpeedGrader, verifica el snapshot determinista
- *    con cabeceras '# === FILE: <ruta> ===', evalúa con la rúbrica y un
- *    comentario general (POST /api/v1/submissions/{id}/rubric-evaluation) y
- *    comprueba que la nota ponderada y el comentario con author_id del docente
- *    quedan persistidos.
+ * 5. Docente abre la entrega en SpeedGrader, verifica el árbol de archivos del
+ *    snapshot, cambia de archivo, comprueba que no hay bloques del juez, evalúa
+ *    con la rúbrica y un comentario general
+ *    (POST /api/v1/submissions/{id}/rubric-evaluation) y comprueba que la nota
+ *    ponderada y el comentario con author_id del docente quedan persistidos.
  */
 test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y Rúbrica en SpeedGrader', () => {
   const runId = Date.now().toString().slice(-6);
@@ -65,6 +67,34 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
   ].join('\n');
 
   const generalRubricComment = `Excelente modelado SQL y estructura modular del proyecto (#${runId}).`;
+  const blockComment = `El bloque de acceso a items debe validar la conexión antes de consultar (#${runId}).`;
+
+  // Proyecto base del ejercicio: el diff compara cada archivo entregado contra
+  // su homónimo. Las versiones son distintas a las del alumno a propósito.
+  const ideBaseSnapshot = [
+    '# === FILE: helper.py ===',
+    '# Módulo auxiliar sincronizado en el volumen del workspace',
+    'SCHEMA_VERSION = 0',
+    '',
+    '# === FILE: main.py ===',
+    '# Solución principal del proyecto IDE Persistente',
+    'def fetch_items():',
+    '    return []',
+    ''
+  ].join('\n');
+
+  // El alumno edita dentro de OpenVSCode; la prueba deposita los archivos en el
+  // mismo volumen del workspace porque manejar el editor web completo está
+  // fuera del alcance del flujo. La entrega sí se dispara desde la UI.
+  function writeWorkspaceFile(workspaceId, relativePath, content) {
+    const container = `solv-workspace-${workspaceId}`;
+    const absolutePath = `/home/workspace/${relativePath}`;
+    const directory = absolutePath.slice(0, absolutePath.lastIndexOf('/'));
+    execFileSync('docker', ['exec', container, 'mkdir', '-p', directory]);
+    execFileSync('docker', ['exec', '-i', container, 'sh', '-c', `cat > '${absolutePath}'`], {
+      input: content
+    });
+  }
 
   const sharedState = {
     courseId: '',
@@ -99,7 +129,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         });
 
         const idePurposeCard = adminPage.locator('.purpose-option-card', {
-          hasText: 'Laboratorio de Práctica (Con Editor Visual)'
+          hasText: 'Entorno de Desarrollo (Con Editor VS Code)'
         });
         await expect(idePurposeCard).toBeVisible({ timeout: 45000 });
         await idePurposeCard.click();
@@ -155,7 +185,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
 
       await test.step('Paso 2 (Docente UI): Crea ejercicio IDE_PERSISTENTE con plantilla+BD, db_init_script y rúbrica al 100%', async () => {
         await teacherPage.bringToFront();
-        forensic.recordStep('Docente abre el editor y selecciona modalidad Workspace Interactivo (IDE_PERSISTENTE)');
+        forensic.recordStep('Docente abre el editor y selecciona la modalidad Entorno de Desarrollo (IDE_PERSISTENTE)');
 
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}`, { waitUntil: 'domcontentloaded' });
         await expect(teacherPage.locator('h1.page-title')).toContainText(courseName, { timeout: 45000 });
@@ -165,9 +195,9 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
 
-        // Elegir modalidad Workspace Interactivo (IDE_PERSISTENTE)
+        // Elegir modalidad Entorno de Desarrollo (IDE_PERSISTENTE)
         const workspaceCard = teacherPage.locator('modality-purpose-cards .choice-card', {
-          hasText: 'Workspace Interactivo'
+          hasText: 'Entorno de Desarrollo'
         });
         await expect(workspaceCard).toBeVisible({ timeout: 45000 });
         await workspaceCard.click();
@@ -227,6 +257,16 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(checklist.locator('.section-blockers .section-name')).toHaveText('Sin Bloqueantes', {
           timeout: 45000
         });
+
+        // Proyecto base multiarchivo: es la referencia del diff en SpeedGrader.
+        const baseSnapshot = teacherPage.locator('ide-base-snapshot');
+        await expect(baseSnapshot).toBeVisible({ timeout: 45000 });
+        await typeInCodeMirror(
+          teacherPage,
+          baseSnapshot.locator('code-editor .cm-content').first(),
+          ideBaseSnapshot
+        );
+        await expect(baseSnapshot.locator('.base-count .font-mono')).toHaveText('2', { timeout: 45000 });
 
         const ackCheckbox = checklist.locator('input.ack-checkbox');
         if (await ackCheckbox.isVisible().catch(() => false)) {
@@ -293,7 +333,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(solver.locator('h1.page-title')).toContainText(exerciseTitle, { timeout: 45000 });
 
         // Verificar que renderiza la vista de IDE Persistente (isIdeExercise) y no el botón del Juez Efímero
-        await expect(solver.locator('h2.section-title', { hasText: 'Proyecto en IDE Persistente' })).toBeVisible({
+        await expect(solver.locator('h2.section-title', { hasText: 'Proyecto en Entorno de Desarrollo' })).toBeVisible({
           timeout: 45000
         });
         await expect(solver.locator('[data-testid="btn-submit-solution"]')).toHaveCount(0);
@@ -322,18 +362,10 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(solver.locator('.ide-status-grid')).toContainText('running', { timeout: 45000 });
         await expect(solver.locator('.ide-status-grid code.ide-url')).toHaveText(sharedState.accessUrl);
 
-        // Editar main.py en el editor del proyecto
-        const editor = solver.locator('.project-editor-body code-editor .cm-content').first();
-        await expect(editor).toBeVisible({ timeout: 45000 });
-        await typeInCodeMirror(studentPage, editor, mainPyContent);
-
-        // Agregar un segundo archivo (helper.py) y escribir su contenido
-        const newFileInput = solver.locator('input[aria-label="Nombre de archivo nuevo"]');
-        await newFileInput.fill('helper.py');
-        await solver.locator('.project-file-actions button', { hasText: 'Agregar' }).click();
-
-        await expect(solver.locator('.project-file-bar .file-chip', { hasText: 'helper.py' })).toBeVisible();
-        await typeInCodeMirror(studentPage, editor, helperPyContent);
+        // El alumno trabaja en el IDE: los dos archivos quedan en el volumen real del workspace.
+        await expect(solver.locator('[data-testid="btn-open-ide"]')).toBeVisible({ timeout: 45000 });
+        writeWorkspaceFile(sharedState.workspaceId, 'main.py', mainPyContent);
+        writeWorkspaceFile(sharedState.workspaceId, 'helper.py', helperPyContent);
 
         // Entregar Proyecto (POST /api/v1/workspaces/{id}/submit)
         const submitBtn = solver.locator('[data-testid="btn-submit-project"]');
@@ -385,19 +417,88 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(solver.locator('.ide-error')).toHaveCount(0);
       });
 
-      await test.step('Paso 5 (Docente UI — SpeedGrader): Verifica snapshot con cabeceras # === FILE: ... === y califica con rúbrica', async () => {
+      await test.step('Paso 5 (Docente UI — SpeedGrader): Verifica el árbol de archivos del snapshot y califica con rúbrica', async () => {
         await teacherPage.bringToFront();
-        forensic.recordStep('Docente abre la entrega en SpeedGrader, revisa el snapshot y evalúa con rúbrica');
+        forensic.recordStep('Docente abre la entrega en SpeedGrader, revisa el árbol de archivos y evalúa con rúbrica');
 
         await teacherPage.goto(`/teacher/revision/${sharedState.submissionId}`, { waitUntil: 'domcontentloaded' });
         await expect(teacherPage.locator('speed-grader-header')).toBeVisible({ timeout: 45000 });
+        await expect(teacherPage.locator('speed-grader-header')).toContainText('Entorno de Desarrollo');
+
         const codeViewer = teacherPage.locator('speed-grader-code-viewer');
         await expect(codeViewer).toBeVisible({ timeout: 45000 });
 
-        // El snapshot determinista incluye las cabeceras de los archivos del volumen en orden alfabético
-        await expect(codeViewer).toContainText('# === FILE: helper.py ===', { timeout: 45000 });
-        await expect(codeViewer).toContainText('# === FILE: main.py ===', { timeout: 45000 });
-        await expect(codeViewer).toContainText('def fetch_items():');
+        // IDE: el snapshot se separa en un árbol; no se muestran los bloques del juez.
+        const fileTree = teacherPage.locator('review-file-tree');
+        await expect(fileTree).toBeVisible({ timeout: 45000 });
+        await expect(fileTree.locator('.node-name', { hasText: 'helper.py' })).toBeVisible();
+        await expect(fileTree.locator('.node-name', { hasText: 'main.py' })).toBeVisible();
+        await expect(teacherPage.locator('speed-grader-eval-panel .verdict-card')).toHaveCount(0);
+        await expect(teacherPage.locator('speed-grader-header button', { hasText: 'Re-ejecutar' })).toHaveCount(0);
+
+        // El árbol abre el primer archivo (helper.py, orden alfabético) y permite cambiar a main.py.
+        await expect(codeViewer.locator('code.file-path')).toHaveText('helper.py', { timeout: 45000 });
+        await expect(codeViewer.locator('.cm-content')).toContainText('SCHEMA_VERSION = 1');
+
+        await fileTree.locator('[role="treeitem"]', { hasText: 'main.py' }).click();
+        await expect(codeViewer.locator('code.file-path')).toHaveText('main.py');
+        await expect(codeViewer.locator('.cm-content')).toContainText('def fetch_items():');
+
+        // Diff nativo contra el proyecto base: muestra el cambio real del archivo.
+        const toolsButton = teacherPage.locator('speed-grader-header button', { hasText: 'Herramientas' });
+        await toolsButton.click();
+        const diffItem = teacherPage.locator('speed-grader-header .dropdown-item', {
+          hasText: 'Comparar con Proyecto Base'
+        });
+        await expect(diffItem).toBeVisible({ timeout: 45000 });
+        await diffItem.click();
+
+        const diffViewer = codeViewer.locator('code-diff-viewer');
+        await expect(diffViewer).toBeVisible({ timeout: 45000 });
+        await expect(diffViewer).toContainText('return []', { timeout: 45000 });
+        await expect(diffViewer).toContainText('fetch_items', { timeout: 45000 });
+
+        // Volver al código para seleccionar un bloque y comentarlo.
+        await toolsButton.click();
+        await teacherPage
+          .locator('speed-grader-header .dropdown-item', { hasText: 'Ver Código Completo' })
+          .click();
+        await expect(codeViewer.locator('.cm-content')).toContainText('def fetch_items():');
+
+        // Selección por arrastre de las líneas locales 2 a 5 del archivo main.py.
+        // La línea 4 está vacía: el bloque la incluye al terminar dentro de la 5.
+        const codeLines = codeViewer.locator('.cm-line');
+        const startBox = await codeLines.nth(1).boundingBox();
+        const endBox = await codeLines.nth(4).boundingBox();
+        expect(startBox).toBeTruthy();
+        expect(endBox).toBeTruthy();
+        await teacherPage.mouse.move(startBox.x + 4, startBox.y + startBox.height / 2);
+        await teacherPage.mouse.down();
+        await teacherPage.mouse.move(endBox.x + Math.min(60, endBox.width - 2), endBox.y + endBox.height / 2, {
+          steps: 12
+        });
+        await teacherPage.mouse.up();
+
+        await expect(codeViewer.locator('.comment-target-badge')).toHaveText('Comentario pedagógico en L2–L5', {
+          timeout: 45000
+        });
+
+        const blockCommentRequest = teacherPage.waitForRequest(
+          (req) =>
+            req.url().includes(`/api/v1/teacher/submissions/${sharedState.submissionId}/comments`) &&
+            req.method() === 'POST',
+          { timeout: 45000 }
+        );
+        await codeViewer.locator('textarea.form-textarea').fill(blockComment);
+        await codeViewer.locator('button.btn-submit-sm').click();
+
+        const blockRequest = await blockCommentRequest;
+        const blockPayload = JSON.parse(blockRequest.postData() || '{}');
+        expect(blockPayload.line_number).toBeGreaterThanOrEqual(1);
+        expect(blockPayload.end_line_number).toBe(blockPayload.line_number + 3);
+        await expect(codeViewer.locator('.comment-line-badge', { hasText: 'L2–L5' })).toBeVisible({
+          timeout: 45000
+        });
 
         // Panel de Evaluación por Rúbrica
         const evalPanel = teacherPage.locator('speed-grader-eval-panel');
@@ -426,7 +527,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const rubricEvalData = rubricEvalJson?.data ?? rubricEvalJson;
         expect(rubricEvalData.score).toBe(100);
 
-        await expect(rubricBox.locator('.success-banner-sm')).toContainText('Calificación guardada exitosamente', {
+        await expect(rubricBox.locator('.success-banner-sm')).toContainText('Calificación guardada', {
           timeout: 45000
         });
 
@@ -451,6 +552,10 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const teacherComment = commentsList.find((c) => c.comment === generalRubricComment);
         expect(teacherComment).toBeTruthy();
         expect(teacherComment.author_id).toBe(CANONICAL_ACTORS.teacher.id);
+
+        const blockSaved = commentsList.find((c) => c.comment === blockComment);
+        expect(blockSaved).toBeTruthy();
+        expect(blockSaved.end_line_number).toBe(blockSaved.line_number + 3);
       });
     } catch (err) {
       await forensic.flushOnTestEnd(
