@@ -9,14 +9,14 @@ import (
 // ("¿qué me espera hoy?") con los conteos ya resueltos. Ninguna cifra de este
 // contrato se recalcula en el cliente.
 type TeacherOverview struct {
-	Period       *TeacherOverviewPeriod   `json:"period"`
-	Session      *TeacherOverviewSession  `json:"session"`
-	Queue        TeacherOverviewQueue     `json:"queue"`
+	Period        *TeacherOverviewPeriod   `json:"period"`
+	Session       *TeacherOverviewSession  `json:"session"`
+	Queue         TeacherOverviewQueue     `json:"queue"`
 	DueSoon       []TeacherOverviewDue     `json:"due_soon"`
 	DueSoonTotal  int                      `json:"due_soon_total"`
 	DueSoonHidden int                      `json:"due_soon_hidden"`
-	Subjects     []TeacherOverviewSubject `json:"subjects"`
-	Signals      []TeacherOverviewSignal  `json:"signals"`
+	Subjects      []TeacherOverviewSubject `json:"subjects"`
+	Signals       []TeacherOverviewSignal  `json:"signals"`
 }
 
 // TeacherOverviewDue es una práctica publicada que vence dentro de la ventana de

@@ -20,13 +20,13 @@ import (
 
 type aulaEnvelope struct {
 	Data struct {
-		ID         string `json:"id"`
-		Status     string `json:"status"`
-		SubjectID  string `json:"subject_id"`
-		Enrolled   int    `json:"enrolled"`
-		Present    int    `json:"present"`
-		EndsAt     string `json:"ends_at"`
-		ClosesAt   string `json:"closes_at"`
+		ID        string `json:"id"`
+		Status    string `json:"status"`
+		SubjectID string `json:"subject_id"`
+		Enrolled  int    `json:"enrolled"`
+		Present   int    `json:"present"`
+		EndsAt    string `json:"ends_at"`
+		ClosesAt  string `json:"closes_at"`
 	} `json:"data"`
 }
 
@@ -365,7 +365,7 @@ func TestSlice19_ClassSession_Aula(t *testing.T) {
 
 	t.Run("un aula fuera de rango de duración se rechaza", func(t *testing.T) {
 		res := do(http.MethodPost, "/api/v1/teacher/sessions", teacherID, "teacher", map[string]any{
-			"subject_id":        subjectID,
+			"subject_id":       subjectID,
 			"duration_minutes": 5,
 		})
 		defer res.Body.Close()
@@ -376,7 +376,7 @@ func TestSlice19_ClassSession_Aula(t *testing.T) {
 
 	t.Run("un aula vencida se cierra sola y deja abrir otra en la misma materia", func(t *testing.T) {
 		res := do(http.MethodPost, "/api/v1/teacher/sessions", teacherID, "teacher", map[string]any{
-			"subject_id":        subjectID,
+			"subject_id":       subjectID,
 			"duration_minutes": 45,
 		})
 		if res.StatusCode != http.StatusCreated {

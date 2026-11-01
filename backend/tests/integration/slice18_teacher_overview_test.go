@@ -44,7 +44,7 @@ type overviewEnvelope struct {
 		} `json:"due_soon"`
 		DueSoonTotal  int `json:"due_soon_total"`
 		DueSoonHidden int `json:"due_soon_hidden"`
-		Subjects     []struct {
+		Subjects      []struct {
 			ID                string `json:"id"`
 			Code              string `json:"code"`
 			Enrolled          int    `json:"enrolled"`

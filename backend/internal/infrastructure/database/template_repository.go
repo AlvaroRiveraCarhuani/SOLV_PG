@@ -51,16 +51,16 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 	for rows.Next() {
 		var t domain.TemplateResponseDTO
 		if err := rows.Scan(
-			&t.ID, 
-			&t.Name, 
-			&t.Description, 
-			&t.Category, 
-			&t.DockerImage, 
-			&t.BaseRamMB, 
-			&t.TargetEnvironment, 
-			&t.Status, 
+			&t.ID,
+			&t.Name,
+			&t.Description,
+			&t.Category,
+			&t.DockerImage,
+			&t.BaseRamMB,
+			&t.TargetEnvironment,
+			&t.Status,
 			&t.IsOfficial,
-			&t.Entrypoint, 
+			&t.Entrypoint,
 			&t.ServicesConfig,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan lab template row: %w", err)
@@ -99,16 +99,16 @@ func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.Temp
 	`
 	var t domain.TemplateResponseDTO
 	err := db.db.QueryRowContext(ctx, query, id).Scan(
-		&t.ID, 
-		&t.Name, 
-		&t.Description, 
-		&t.Category, 
-		&t.DockerImage, 
-		&t.BaseRamMB, 
-		&t.TargetEnvironment, 
-		&t.Status, 
+		&t.ID,
+		&t.Name,
+		&t.Description,
+		&t.Category,
+		&t.DockerImage,
+		&t.BaseRamMB,
+		&t.TargetEnvironment,
+		&t.Status,
 		&t.IsOfficial,
-		&t.Entrypoint, 
+		&t.Entrypoint,
 		&t.ServicesConfig,
 	)
 	if err != nil {
