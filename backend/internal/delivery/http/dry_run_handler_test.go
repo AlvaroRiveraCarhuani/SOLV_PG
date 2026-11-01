@@ -83,7 +83,8 @@ func (m *mockExerciseRepoHTTP) UpdateExerciseLastValidDryRun(ctx context.Context
 func (m *mockExerciseRepoHTTP) CreateDryRunJob(ctx context.Context, job *domain.DryRunJob) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.jobs[job.ID] = job
+	stored := *job
+	m.jobs[job.ID] = &stored
 	return nil
 }
 
@@ -94,7 +95,8 @@ func (m *mockExerciseRepoHTTP) GetDryRunJob(ctx context.Context, jobID string) (
 	if !ok {
 		return nil, domain.ErrUnknownLanguage
 	}
-	return j, nil
+	copied := *j
+	return &copied, nil
 }
 
 func (m *mockExerciseRepoHTTP) UpdateDryRunJobProgress(ctx context.Context, jobID string, status domain.DryRunJobStatus, current, total int, result *domain.EvaluationResult, errMsg string) error {

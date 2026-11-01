@@ -206,6 +206,35 @@ func (r *PostgresClassSessionRepository) GetOpenSessionForTeacher(ctx context.Co
 	return session, nil
 }
 
+// GetLastClosedSessionForTeacher devuelve el aula cerrada más reciente del
+// docente, o nil si nunca tuvo una. Es la lectura que permite a la pantalla
+// recuperar el historial y la ventana tras recargar sin aula abierta.
+func (r *PostgresClassSessionRepository) GetLastClosedSessionForTeacher(ctx context.Context, tenantID, teacherID string) (*domain.ClassSession, error) {
+	if err := r.expireSessions(ctx, tenantID); err != nil {
+		return nil, err
+	}
+
+	query := `
+		SELECT ` + sessionColumns + `
+		FROM class_sessions cs
+		JOIN subjects s ON s.id = cs.subject_id
+		LEFT JOIN exercises ex ON ex.id = cs.exercise_id
+		WHERE cs.tenant_id = $1
+		  AND cs.status = 'closed'
+		  AND ($2 = '' OR s.teacher_id = $2::uuid)
+		ORDER BY COALESCE(cs.closes_at, cs.ends_at) DESC
+		LIMIT 1
+	`
+	session := &domain.ClassSession{}
+	if err := r.db.GetContext(ctx, session, query, tenantID, teacherID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to load last closed class session: %w", err)
+	}
+	return session, nil
+}
+
 // GetSession devuelve una sesión del docente por identificador, esté abierta o
 // cerrada. Una sesión vencida se devuelve cerrada: la pantalla deja el modo en
 // vivo en el siguiente refresco, sin esperar a que el docente cierre.

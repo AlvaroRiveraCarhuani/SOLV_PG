@@ -29,6 +29,10 @@ func (f *fakeAdvanceSessions) GetOpenSessionForTeacher(ctx context.Context, tena
 	return f.session, nil
 }
 
+func (f *fakeAdvanceSessions) GetLastClosedSessionForTeacher(ctx context.Context, tenantID, teacherID string) (*domain.ClassSession, error) {
+	return f.session, nil
+}
+
 func (f *fakeAdvanceSessions) GetSession(ctx context.Context, tenantID, teacherID, sessionID string) (*domain.ClassSession, error) {
 	if f.session == nil {
 		return nil, domain.ErrSessionNotFound

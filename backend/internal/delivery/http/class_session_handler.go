@@ -148,6 +148,26 @@ func (h *ClassSessionHandler) GetCurrentAula(w http.ResponseWriter, r *http.Requ
 	SendJSON(w, http.StatusOK, session, "Aula abierta obtenida")
 }
 
+// GetLastClosedAula devuelve el aula cerrada más reciente del docente, con su
+// ventana de disponibilidad. Sin aula cerrada, data es nulo.
+func (h *ClassSessionHandler) GetLastClosedAula(w http.ResponseWriter, r *http.Request) {
+	if role := requestRole(r); role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden consultar la última aula cerrada")
+		return
+	}
+
+	session, err := h.service.LastClosedAula(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r))
+	if err != nil {
+		h.writeSessionError(w, err, "Error al obtener la última aula cerrada")
+		return
+	}
+	if session == nil {
+		SendJSON(w, http.StatusOK, nil, "No hay aula cerrada")
+		return
+	}
+	SendJSON(w, http.StatusOK, session, "Última aula cerrada obtenida")
+}
+
 // GetBoard devuelve el tablero del aula: marcador y alumnos ordenados por
 // urgencia docente.
 func (h *ClassSessionHandler) GetBoard(w http.ResponseWriter, r *http.Request) {

@@ -212,6 +212,14 @@ func (s *ClassAdvanceService) Apply(ctx context.Context, tenantID, studentID, ad
 		return nil, domain.ErrAdvanceWorkspaceStopped
 	}
 
+	// Las aplicaciones simultáneas se acotan aquí: el resto espera su turno.
+	select {
+	case s.applySlots <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-s.applySlots }()
+
 	// Un fallo al leer el snapshot deja el aviso pendiente: nada se tocó y el
 	// alumno puede reintentar cuando el almacén responda.
 	incoming, err := s.readSnapshot(ctx, delivery)

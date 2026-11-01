@@ -135,6 +135,15 @@ func (s *ClassSessionService) CurrentAula(ctx context.Context, tenantID, teacher
 	return s.store.GetOpenSessionForTeacher(ctx, tenantID, teacherScope(role, teacherID))
 }
 
+// LastClosedAula devuelve el aula cerrada más reciente del docente, o nil. La
+// pantalla la usa al recargar para retomar el historial y la ventana.
+func (s *ClassSessionService) LastClosedAula(ctx context.Context, tenantID, teacherID, role string) (*domain.ClassSession, error) {
+	if strings.TrimSpace(tenantID) == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	return s.store.GetLastClosedSessionForTeacher(ctx, tenantID, teacherScope(role, teacherID))
+}
+
 // Board resuelve el aula completa: sesión, marcador y alumnos por urgencia.
 func (s *ClassSessionService) Board(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSessionBoard, error) {
 	if strings.TrimSpace(tenantID) == "" {

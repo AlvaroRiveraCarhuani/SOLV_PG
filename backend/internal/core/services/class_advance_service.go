@@ -27,11 +27,32 @@ type ClassAdvanceService struct {
 	snapshots  domain.AdvanceSnapshotStore
 	workspaces domain.WorkspaceRepository
 	volumes    domain.WorkspaceVolumeStore
+	// applySlots limita cuántas aplicaciones leen y escriben volúmenes a la vez.
+	// Las demás esperan su turno en cola; ninguna se rechaza por esto.
+	applySlots chan struct{}
 	now        func() time.Time
 }
 
+// defaultAdvanceApplyConcurrency es cuántas aplicaciones de avance corren a la
+// vez por defecto (ADR-058 §A13). Se ajusta con ADVANCE_APPLY_CONCURRENCY.
+const defaultAdvanceApplyConcurrency = 4
+
 func NewClassAdvanceService(store domain.ClassAdvanceStore, sessions domain.ClassSessionStore) *ClassAdvanceService {
-	return &ClassAdvanceService{store: store, sessions: sessions, now: time.Now}
+	return &ClassAdvanceService{
+		store:      store,
+		sessions:   sessions,
+		applySlots: make(chan struct{}, defaultAdvanceApplyConcurrency),
+		now:        time.Now,
+	}
+}
+
+// SetApplyConcurrency fija cuántas aplicaciones de avance corren en paralelo.
+// Valores menores o iguales a cero dejan el valor por defecto.
+func (s *ClassAdvanceService) SetApplyConcurrency(n int) {
+	if n <= 0 {
+		n = defaultAdvanceApplyConcurrency
+	}
+	s.applySlots = make(chan struct{}, n)
 }
 
 // SetAuditRepository engancha el registro de auditoría. Sin él, las acciones

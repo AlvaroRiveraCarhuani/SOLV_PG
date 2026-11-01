@@ -200,6 +200,7 @@ func main() {
 	var advanceVolumes domain.WorkspaceVolumeStore = dockerClient
 	if snapshots := newAdvanceSnapshotStore(ctx); snapshots != nil {
 		classAdvanceService.WithApplier(snapshots, workspaceRepo, advanceVolumes)
+		classAdvanceService.SetApplyConcurrency(envInt("ADVANCE_APPLY_CONCURRENCY", 4))
 		classAdvanceService.SetRetentionStore(classAdvanceRepo)
 		retentionWorker := services.NewAdvanceRetentionWorker(classAdvanceService)
 		go retentionWorker.Start(ctx)
@@ -444,6 +445,14 @@ func resolveMigrationsDir() string {
 	}
 	// Último recurso: devolver el path relativo y dejar que goose falle con mensaje claro.
 	return "migrations"
+}
+
+// envInt lee un entero positivo; sin valor válido devuelve el respaldo.
+func envInt(name string, fallback int) int {
+	if parsed, err := strconv.Atoi(strings.TrimSpace(os.Getenv(name))); err == nil && parsed > 0 {
+		return parsed
+	}
+	return fallback
 }
 
 // envList lee una lista separada por comas; sin valor devuelve el respaldo por

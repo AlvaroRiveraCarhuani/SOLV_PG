@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -263,6 +264,63 @@ func TestApplyAdvance_RequiresRunningWorkspace(t *testing.T) {
 	}
 	if len(store.decisions) != 0 {
 		t.Error("el aviso debe seguir pendiente hasta abrir el laboratorio")
+	}
+}
+
+// gatedAdvanceSnapshots bloquea cada lectura del snapshot hasta liberarla, para
+// observar cuántas aplicaciones están dentro del semáforo a la vez.
+type gatedAdvanceSnapshots struct {
+	fakeAdvanceSnapshotsFiles
+	calls   int32
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (g *gatedAdvanceSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+	atomic.AddInt32(&g.calls, 1)
+	g.entered <- struct{}{}
+	<-g.release
+	return g.files, nil
+}
+
+func TestApplyAdvance_LimitsConcurrentApplications(t *testing.T) {
+	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
+	gated := &gatedAdvanceSnapshots{
+		fakeAdvanceSnapshotsFiles: fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}}},
+		entered: make(chan struct{}, 2),
+		release: make(chan struct{}),
+	}
+	volumes := &fakeAdvanceVolumes{}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(gated, newRunningWorkspace(t), volumes)
+	svc.SetApplyConcurrency(1)
+
+	first := make(chan error, 1)
+	second := make(chan error, 1)
+	go func() {
+		_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+		first <- err
+	}()
+	<-gated.entered // la primera aplicación ya ocupa el único turno
+
+	go func() {
+		_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+		second <- err
+	}()
+	time.Sleep(50 * time.Millisecond)
+	if got := atomic.LoadInt32(&gated.calls); got != 1 {
+		t.Fatalf("la segunda aplicación no debe leer el snapshot mientras la primera ocupa el turno, lecturas: %d", got)
+	}
+
+	close(gated.release)
+	if err := <-first; err != nil {
+		t.Fatalf("primera aplicación falló: %v", err)
+	}
+	if err := <-second; err != nil {
+		t.Fatalf("segunda aplicación falló: %v", err)
+	}
+	if got := atomic.LoadInt32(&gated.calls); got != 2 {
+		t.Errorf("esperadas 2 lecturas del snapshot al terminar la cola, obtenidas %d", got)
 	}
 }
 

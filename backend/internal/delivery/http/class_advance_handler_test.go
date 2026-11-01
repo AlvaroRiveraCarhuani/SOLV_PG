@@ -100,6 +100,10 @@ func (s *sessionStoreForHTTP) GetOpenSessionForTeacher(context.Context, string, 
 	return s.session, nil
 }
 
+func (s *sessionStoreForHTTP) GetLastClosedSessionForTeacher(context.Context, string, string) (*domain.ClassSession, error) {
+	return s.session, nil
+}
+
 func (s *sessionStoreForHTTP) GetSession(_ context.Context, _, _, sessionID string) (*domain.ClassSession, error) {
 	if s.session == nil || sessionID != s.session.ID {
 		return nil, domain.ErrSessionNotFound

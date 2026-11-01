@@ -169,6 +169,9 @@ type ClassSessionStore interface {
 	CloseSession(ctx context.Context, tenantID, teacherID, sessionID string) (*ClassSession, error)
 	// GetOpenSessionForTeacher devuelve el aula abierta del docente, o nil.
 	GetOpenSessionForTeacher(ctx context.Context, tenantID, teacherID string) (*ClassSession, error)
+	// GetLastClosedSessionForTeacher devuelve el aula cerrada más reciente del
+	// docente, con su ventana de disponibilidad, o nil.
+	GetLastClosedSessionForTeacher(ctx context.Context, tenantID, teacherID string) (*ClassSession, error)
 	// GetSession devuelve una sesión del docente, abierta o cerrada.
 	GetSession(ctx context.Context, tenantID, teacherID, sessionID string) (*ClassSession, error)
 	// Board resuelve el tablero del aula sin recorrer alumnos en un bucle.

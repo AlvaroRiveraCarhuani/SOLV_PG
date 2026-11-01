@@ -329,6 +329,7 @@ func registerClassSessionRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	mux.Handle("GET /api/v1/teacher/sessions/open", tm(http.HandlerFunc(deps.ClassSessionHandler.GetCurrentAula)))
+	mux.Handle("GET /api/v1/teacher/sessions/last-closed", tm(http.HandlerFunc(deps.ClassSessionHandler.GetLastClosedAula)))
 	mux.Handle("GET /api/v1/teacher/sessions/{id}/board", tm(http.HandlerFunc(deps.ClassSessionHandler.GetBoard)))
 	mux.Handle("POST /api/v1/teacher/sessions", am(tm(http.HandlerFunc(deps.ClassSessionHandler.OpenAula))))
 	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/close", am(tm(http.HandlerFunc(deps.ClassSessionHandler.CloseAula))))

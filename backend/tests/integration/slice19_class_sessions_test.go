@@ -429,3 +429,133 @@ func TestSlice19_ClassSession_Aula(t *testing.T) {
 		}
 	})
 }
+
+// TestSlice19_LastClosedAula comprueba que la pantalla recupera la última aula
+// cerrada del docente al recargar, sin mostrar aulas de otros docentes.
+func TestSlice19_LastClosedAula(t *testing.T) {
+	server, db := setupClassSessionTestServer(t)
+	if server == nil {
+		return
+	}
+	defer server.Close()
+
+	ctx := context.Background()
+	tenantID := "00000000-0000-0000-0000-000000000001"
+	teacherID := uuid.NewString()
+	otherTeacherID := uuid.NewString()
+	subjectID := uuid.NewString()
+
+	for _, id := range []string{teacherID, otherTeacherID} {
+		_, err := db.GetDB().ExecContext(ctx, `
+			INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
+			VALUES ($1, 'Docente', 'Último', $2, 'teacher', $3)
+		`, id, fmt.Sprintf("docente_ultimo_%s@uab.edu.bo", id[:8]), tenantID)
+		if err != nil {
+			t.Fatalf("no se pudo crear el docente: %v", err)
+		}
+	}
+
+	_, err := db.GetDB().ExecContext(ctx, `
+		INSERT INTO subjects (id, tenant_id, name, code, teacher_id)
+		VALUES ($1, $2, 'Última Aula', $3, $4)
+	`, subjectID, tenantID, "ULT-"+subjectID[:8], teacherID)
+	if err != nil {
+		t.Fatalf("no se pudo crear la materia: %v", err)
+	}
+
+	do := func(method, path, userID, role string, payload any) *http.Response {
+		t.Helper()
+		var body *bytes.Reader
+		if payload != nil {
+			encoded, _ := json.Marshal(payload)
+			body = bytes.NewReader(encoded)
+		} else {
+			body = bytes.NewReader(nil)
+		}
+		req, reqErr := http.NewRequestWithContext(ctx, method, server.URL+path, body)
+		if reqErr != nil {
+			t.Fatalf("no se pudo armar la petición: %v", reqErr)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-User-Id", userID)
+		req.Header.Set("X-User-Role", role)
+
+		res, errReq := http.DefaultClient.Do(req)
+		if errReq != nil {
+			t.Fatalf("la petición %s %s falló: %v", method, path, errReq)
+		}
+		return res
+	}
+
+	lastClosed := func(userID, role string) aulaEnvelope {
+		t.Helper()
+		res := do(http.MethodGet, "/api/v1/teacher/sessions/last-closed", userID, role, nil)
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("last-closed: se esperaba 200, se obtuvo %d", res.StatusCode)
+		}
+		var body aulaEnvelope
+		if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+			t.Fatalf("respuesta ilegible: %v", err)
+		}
+		return body
+	}
+
+	t.Run("sin aula cerrada responde data nulo", func(t *testing.T) {
+		if got := lastClosed(teacherID, "teacher"); got.Data.ID != "" {
+			t.Fatalf("se esperaba data nulo, se obtuvo la sesión %s", got.Data.ID)
+		}
+	})
+
+	var sessionID string
+	t.Run("tras cerrar, el docente recupera esa aula", func(t *testing.T) {
+		res := do(http.MethodPost, "/api/v1/teacher/sessions", teacherID, "teacher", map[string]string{
+			"subject_id": subjectID,
+		})
+		var opened aulaEnvelope
+		_ = json.NewDecoder(res.Body).Decode(&opened)
+		res.Body.Close()
+		sessionID = opened.Data.ID
+		if sessionID == "" {
+			t.Fatal("no se pudo abrir el aula")
+		}
+
+		resClose := do(http.MethodPatch, "/api/v1/teacher/sessions/"+sessionID+"/close", teacherID, "teacher", nil)
+		resClose.Body.Close()
+		if resClose.StatusCode != http.StatusOK {
+			t.Fatalf("cierre: se esperaba 200, se obtuvo %d", resClose.StatusCode)
+		}
+
+		got := lastClosed(teacherID, "teacher")
+		if got.Data.ID != sessionID {
+			t.Fatalf("última aula cerrada: se esperaba %s, se obtuvo %q", sessionID, got.Data.ID)
+		}
+		if got.Data.Status != domain.ClassSessionStatusClosed {
+			t.Fatalf("estado: se esperaba closed, se obtuvo %q", got.Data.Status)
+		}
+		if got.Data.ClosesAt == "" {
+			t.Fatal("la aula cerrada no trae hora de cierre para la ventana")
+		}
+	})
+
+	t.Run("un docente ajeno no recibe el aula cerrada", func(t *testing.T) {
+		if got := lastClosed(otherTeacherID, "teacher"); got.Data.ID != "" {
+			t.Fatalf("el docente ajeno no debe ver el aula, se obtuvo %s", got.Data.ID)
+		}
+	})
+
+	t.Run("un alumno recibe 403 y no ve aulas", func(t *testing.T) {
+		res := do(http.MethodGet, "/api/v1/teacher/sessions/last-closed", otherTeacherID, "student", nil)
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusForbidden {
+			t.Fatalf("alumno: se esperaba 403, se obtuvo %d", res.StatusCode)
+		}
+	})
+
+	t.Run("el admin ve la última aula cerrada del tenant", func(t *testing.T) {
+		if got := lastClosed(otherTeacherID, "admin"); got.Data.ID != sessionID {
+			t.Fatalf("admin: se esperaba %s, se obtuvo %q", sessionID, got.Data.ID)
+		}
+	})
+}
