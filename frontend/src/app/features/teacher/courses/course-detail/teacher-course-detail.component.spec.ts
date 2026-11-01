@@ -136,7 +136,7 @@ describe('TeacherCourseDetailComponent', () => {
                 get: (key: string) => (key === 'id' ? 'course-101' : null)
               },
               queryParamMap: {
-                get: (key: string) => null
+                get: (_key: string) => null
               }
             }
           }

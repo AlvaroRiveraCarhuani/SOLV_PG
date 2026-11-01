@@ -16,9 +16,11 @@ export const TEACHER_ROUTES: Routes = [
     loadComponent: () => import('./aula/aula.component').then(m => m.AulaComponent)
   },
   {
+    // "Mi entorno" se absorbió en la ficha de cada práctica (ADR-059). La ruta
+    // queda como redirección para los enlaces y marcadores anteriores.
     path: 'entorno',
-    loadComponent: () =>
-      import('./environment/teacher-environment.component').then(m => m.TeacherEnvironmentComponent)
+    pathMatch: 'full',
+    redirectTo: 'dashboard'
   },
   {
     path: 'cursos/:id',
@@ -68,6 +70,16 @@ export const TEACHER_ROUTES: Routes = [
     path: 'cursos/:courseId/ejercicios/:id/probar',
     loadComponent: () =>
       import('./exercise-preview/exercise-preview.component').then(m => m.ExercisePreviewComponent)
+  },
+  {
+    path: 'courses/:courseId/exercises/:id',
+    loadComponent: () =>
+      import('./courses/practice-detail/practice-detail.component').then(m => m.PracticeDetailComponent)
+  },
+  {
+    path: 'cursos/:courseId/practicas/:id',
+    loadComponent: () =>
+      import('./courses/practice-detail/practice-detail.component').then(m => m.PracticeDetailComponent)
   },
   {
     path: 'revision/:submissionId',

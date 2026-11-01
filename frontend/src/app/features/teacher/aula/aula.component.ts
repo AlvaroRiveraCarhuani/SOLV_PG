@@ -162,6 +162,8 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly graceError = signal<string>('');
 
   private refreshTimer?: ReturnType<typeof setInterval>;
+  /** Práctica pedida por URL: se aplica cuando llegan las opciones de su materia. */
+  private pendingExerciseId = '';
 
   /** Conteos del tablero. Sin aula, todo cero: la vista no inventa cifras. */
   readonly summary = computed(() => this.board()?.summary ?? {
@@ -610,24 +612,23 @@ export class AulaComponent implements OnInit, OnDestroy {
       clearInterval(this.refreshTimer);
       this.refreshTimer = undefined;
     }
-  }
-
-  /**
-   * Materias del docente y, si la URL trae una, la preselección del formulario.
-   * Un identificador que no es suyo no se convierte en error de permiso: cae
-   * al comportamiento sin preselección. Con aula abierta la URL no manda.
-   */
-  private loadSubjects(): void {
-    this.dashboardService.getCourses().subscribe({
-      next: courses => {
-        const preselected = this.route.snapshot.queryParamMap.get('subject_id') ?? '';
-        if (preselected && !this.session() && courses.some(course => course.id === preselected)) {
-          this.onSubjectChange(preselected);
-        }
-      },
-      error: () => undefined
-    });
-  }
+  }	/**
+	 * Materias del docente y, si la URL trae una, la preselección del formulario.
+	 * Un identificador que no es suyo no se convierte en error de permiso: cae
+	 * al comportamiento sin preselección. Con aula abierta la URL no manda.
+	 */
+	private loadSubjects(): void {
+		this.dashboardService.getCourses().subscribe({
+			next: courses => {
+				const preselected = this.route.snapshot.queryParamMap.get('subject_id') ?? '';
+				if (preselected && !this.session() && courses.some(course => course.id === preselected)) {
+					this.pendingExerciseId = this.route.snapshot.queryParamMap.get('exercise_id') ?? '';
+					this.onSubjectChange(preselected);
+				}
+			},
+			error: () => undefined
+		});
+	}
 
   /** Prácticas publicadas de la materia elegida, desde el banco del docente. */
   private loadPractices(subjectId: string): void {
@@ -636,13 +637,25 @@ export class AulaComponent implements OnInit, OnDestroy {
         const options = bank
           .filter(item => item.subject_id === subjectId && item.status === 'published')
           .map(item => ({
-            id: item.id,
-            label: item.title,
-            value: item.id
-          }));
-        this.practiceOptions.set(options);
-      },
-      error: () => this.practiceOptions.set([])
-    });
-  }
+            id: item.id,						label: item.title,
+						value: item.id
+					}));
+				this.practiceOptions.set(options);
+				this.applyPendingExercise(options);
+			},
+			error: () => this.practiceOptions.set([])
+		});
+	}
+
+	/**
+	 * La práctica de la URL se elige solo si pertenece a la materia y está
+	 * publicada: el enlace viejo o de otra materia no deja un formulario cojo.
+	 */
+	private applyPendingExercise(options: ComboboxOption[]): void {
+		const pending = this.pendingExerciseId;
+		this.pendingExerciseId = '';
+		if (pending && options.some(option => option.value === pending)) {
+			this.selectedExerciseId.set(pending);
+		}
+	}
 }

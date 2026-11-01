@@ -5,7 +5,7 @@ import { vi, describe, beforeEach, it, expect } from 'vitest';
 import { SpeedGraderComponent } from './speed-grader.component';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { TeacherSubmissionReviewDTO, SubmissionTimeline, BenchmarkReport } from '../../models/teacher.models';
+import { TeacherSubmissionReviewDTO, SubmissionTimeline } from '../../models/teacher.models';
 
 describe('SpeedGraderComponent', () => {
   let component: SpeedGraderComponent;

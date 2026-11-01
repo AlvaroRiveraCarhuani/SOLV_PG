@@ -10,6 +10,20 @@ interface ApiResponse<T> {
 }
 
 /**
+ * Entorno de una práctica concreta del docente: su volumen, su plantilla y la
+ * URL para abrirlo en una pestaña nueva.
+ */
+export interface PracticeIDESession {
+  workspace_id: string;
+  exercise_id?: string | null;
+  subject_id?: string;
+  template_id?: string | null;
+  status: string;
+  access_url: string;
+  volume_name?: string;
+}
+
+/**
  * Entorno de clase del docente en una materia. Es el mismo entorno desde el que
  * se emite un avance (ADR-058 §5): lo que el docente escribe acá es lo que se
  * copia al aula, así que la pantalla lo lee antes de ofrecer abrirlo. Sin
@@ -57,6 +71,31 @@ export class TeacherEnvironmentService {
         return throwError(() => err);
       }),
       finalize(() => this.isStarting.set(false))
+    );
+  }
+
+  /**
+   * Abre el IDE de una práctica. Levanta el contenedor con el volumen y la
+   * plantilla de esa práctica y devuelve la URL de acceso; el volumen es propio
+   * por ejercicio, así que el código de una práctica no aparece en otra.
+   */
+  openPracticeIDE(courseId: string, exerciseId: string): Observable<PracticeIDESession> {
+    return this.http
+      .post<ApiResponse<PracticeIDESession>>(
+        `/api/v1/teacher/courses/${courseId}/exercises/${exerciseId}/ide`,
+        {}
+      )
+      .pipe(map(res => res.data));
+  }
+
+  /** Mensaje del backend para un fallo al abrir el IDE de una práctica. */
+  describePracticeIDEError(err: unknown): string {
+    const typed = err as { error?: { message?: string; error?: string }; message?: string };
+    return (
+      typed?.error?.message ||
+      typed?.error?.error ||
+      typed?.message ||
+      'No se pudo abrir el IDE de la práctica.'
     );
   }
 

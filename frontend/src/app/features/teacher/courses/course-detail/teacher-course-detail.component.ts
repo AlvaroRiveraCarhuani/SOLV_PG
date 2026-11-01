@@ -17,8 +17,6 @@ import {
   LucidePauseCircle,
   LucideCheckCircle,
   LucideShieldAlert,
-  LucideSparkles,
-  LucideLaptop,
   LucideBarChart3,
   LucideLayers,
   LucideLock,
@@ -34,7 +32,6 @@ import { TeacherLabStats, TeacherCourseSummary, TeacherCourseModule } from '../.
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { PlagiarismModalComponent } from '../../evaluations/plagiarism-modal/plagiarism-modal.component';
-import { FuzzingModalComponent } from '../../evaluations/fuzzing-modal/fuzzing-modal.component';
 import { GradebookExportModalComponent } from './gradebook-export-modal/gradebook-export-modal.component';
 import { ImportExercisesModalComponent } from './import-exercises-modal/import-exercises-modal.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
@@ -66,8 +63,6 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     LucidePauseCircle,
     LucideCheckCircle,
     LucideShieldAlert,
-    LucideSparkles,
-    LucideLaptop,
     LucideBarChart3,
     LucideLayers,
     LucideLock,
@@ -83,7 +78,6 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     DismissibleDirective,
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
-    FuzzingModalComponent,
     GradebookExportModalComponent,
     ImportExercisesModalComponent,
     ComboboxComponent,
@@ -119,7 +113,6 @@ export class TeacherCourseDetailComponent implements OnInit {
   pauseSuccessMessage = signal<string | null>(null);
 
   isPlagiarismModalOpen = signal<boolean>(false);
-  selectedFuzzExercise = signal<{ id: string; title: string } | null>(null);
 
   verdictFilter = signal<string>('all');
   labFilter = signal<string>('all');
@@ -201,10 +194,6 @@ export class TeacherCourseDetailComponent implements OnInit {
     this.router.navigate(['/teacher/courses', this.subjectId(), 'exercises', 'new']);
   }
 
-  openEditExerciseModal(lab: TeacherLabStats): void {
-    this.router.navigate(['/teacher/courses', this.subjectId(), 'exercises', lab.id, 'edit']);
-  }
-
   closeEditorModal(): void {
     this.selectedExerciseToEdit.set(null);
   }
@@ -281,26 +270,6 @@ export class TeacherCourseDetailComponent implements OnInit {
 
   closePlagiarismModal(): void {
     this.isPlagiarismModalOpen.set(false);
-  }
-
-  openFuzzingModal(exerciseId: string, title: string): void {
-    this.selectedFuzzExercise.set({ id: exerciseId, title });
-  }
-
-  closeFuzzingModal(): void {
-    this.selectedFuzzExercise.set(null);
-  }
-
-  openLabEnvironment(lab: TeacherLabStats): void {
-    const courseId = this.subjectId();
-    this.router.navigate(['/teacher/courses', courseId, 'exercises', lab.id, 'preview']);
-  }
-
-  onFuzzCasesApplied(_count: number): void {
-    const id = this.subjectId();
-    if (id) {
-      this.courseService.getCourseLabs(id).subscribe();
-    }
   }
 
   loadModules(): void {

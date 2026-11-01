@@ -159,7 +159,15 @@
                     </span>
                   }
                 </div>
-                <h3 class="lab-title">{{ lab.title }}</h3>
+                <h3 class="lab-title">
+                  <a
+                    class="lab-open"
+                    [routerLink]="['/teacher/cursos', subjectId(), 'practicas', lab.id]"
+                    [attr.aria-label]="'Abrir la ficha de ' + lab.title"
+                  >
+                    {{ lab.title }}
+                  </a>
+                </h3>
                 
                 <div class="lab-metrics">
                   <span class="metric-item">
@@ -179,8 +187,8 @@
                 </div>
               </div>
 
-              <div class="lab-actions">
-                @if (lab.status === 'draft') {
+              @if (lab.status === 'draft') {
+                <div class="lab-actions">
                   <button
                     class="btn-publish"
                     (click)="requestPublishExercise(lab)"
@@ -195,35 +203,8 @@
                       <span>Publicar</span>
                     }
                   </button>
-                }
-                <button
-                  class="btn-review"
-                  (click)="viewLabSubmissions(lab.id)"
-                  [title]="lab.pending_review > 0 ? 'Revisar entregas pendientes de este laboratorio' : 'Ver entregas de este laboratorio'"
-                >
-                  <svg lucideListChecks class="btn-icon-sm"></svg>
-                  <span>{{ lab.pending_review > 0 ? 'Revisar entregas' : 'Ver entregas' }}</span>
-                  @if (lab.pending_review > 0) {
-                    <span class="badge-count font-mono" machineData>{{ lab.pending_review }}</span>
-                  }
-                </button>
-                <a
-                  class="btn-outline btn-open-lab"
-                  [routerLink]="['/teacher/courses', subjectId(), 'exercises', lab.id, 'preview']"
-                  title="Abrir entorno de prueba y proyección para este laboratorio"
-                >
-                  <svg lucideLaptop class="btn-icon-sm"></svg>
-                  <span>Probar Entorno</span>
-                </a>
-                <button class="btn-fuzz" (click)="openFuzzingModal(lab.id, lab.title)" title="Generar casos de prueba y fuzzing">
-                  <svg lucideSparkles class="btn-icon-sm"></svg>
-                  <span>Fuzzing</span>
-                </button>
-                <button class="btn-edit" (click)="openEditExerciseModal(lab)">
-                  <svg lucideEdit3 class="btn-icon-sm"></svg>
-                  <span>Editar</span>
-                </button>
-              </div>
+                </div>
+              }
             </div>
           }
         </div>
@@ -528,15 +509,6 @@
     [subjectId]="subjectId()"
     [labs]="labs()"
     (closed)="closePlagiarismModal()"
-  />
-}
-
-@if (selectedFuzzExercise(); as fuzz) {
-  <fuzzing-modal
-    [exerciseId]="fuzz.id"
-    [exerciseTitle]="fuzz.title"
-    (closed)="closeFuzzingModal()"
-    (applied)="onFuzzCasesApplied($event)"
   />
 }
 

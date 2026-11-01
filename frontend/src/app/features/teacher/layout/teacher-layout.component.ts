@@ -18,7 +18,6 @@ export const TEACHER_NAV_SECTIONS: NavSection[] = [
     title: 'DOCENCIA',
     items: [
       { label: 'Aula', route: '/teacher/aula', iconName: 'terminal' },
-      { label: 'Mi entorno', route: '/teacher/entorno', iconName: 'code' },
       { label: 'Por calificar', route: '/teacher/por-calificar', iconName: 'file-text' }
     ]
   },

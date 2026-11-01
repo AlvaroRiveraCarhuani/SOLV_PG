@@ -100,6 +100,7 @@ export interface TeacherLabStats {
   title: string;
   status: 'draft' | 'published';
   type?: 'algorithm' | 'database' | 'project' | string;
+  environment_type?: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE' | string;
   language?: string;
   boilerplate?: string;
   template_id?: string;
