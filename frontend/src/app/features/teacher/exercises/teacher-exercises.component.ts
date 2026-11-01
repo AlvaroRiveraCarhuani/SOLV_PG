@@ -141,14 +141,14 @@ export class TeacherExercisesComponent implements OnInit {
 
   modalityComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos', value: 'all' },
-    { id: 'JUEZ_EFIMERO', label: 'Juez Virtual', value: 'JUEZ_EFIMERO' },
-    { id: 'IDE_PERSISTENTE', label: 'IDE Persistente (Workspace)', value: 'IDE_PERSISTENTE' }
+    { id: 'JUEZ_EFIMERO', label: 'Evaluador Automático', value: 'JUEZ_EFIMERO' },
+    { id: 'IDE_PERSISTENTE', label: 'Entorno de Desarrollo (IDE)', value: 'IDE_PERSISTENTE' }
   ]);
 
   selectedModalityLabel = computed(() => {
     const sel = this.modalityFilter();
-    if (sel === 'JUEZ_EFIMERO') return 'Juez Virtual';
-    if (sel === 'IDE_PERSISTENTE') return 'IDE Persistente (Workspace)';
+    if (sel === 'JUEZ_EFIMERO') return 'Evaluador Automático';
+    if (sel === 'IDE_PERSISTENTE') return 'Entorno de Desarrollo (IDE)';
     return 'Todos';
   });
 
