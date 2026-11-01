@@ -41,6 +41,35 @@
       <p>{{ loadError() }}</p>
     </div>
   } @else if (exercise(); as ex) {
+    @for (advance of practiceAdvances(); track advance.id) {
+      <section class="advance-callout" aria-live="polite">
+        <svg lucideFileCode class="advance-icon"></svg>
+        <div class="advance-copy">
+          <p class="advance-title">Tu docente emitió un avance de esta práctica</p>
+          <p class="advance-hint">
+            Trae <span machineData>{{ advance.file_count }}</span> archivos y no cambia nada hasta que lo confirmes.
+            Los archivos se escriben en el entorno de esta práctica.
+          </p>
+          <p class="advance-meta">
+            Emitido a las <time>{{ advance.created_at | dateText:'time' }}</time>
+          </p>
+        </div>
+        <div class="advance-actions">
+          <button
+            type="button"
+            class="btn-outline"
+            (click)="dismissAdvance(advance)"
+            [disabled]="isDismissingAdvance()"
+          >
+            Descartar
+          </button>
+          <button type="button" class="btn-primary" (click)="openAdvance(advance)">
+            Ver archivos
+          </button>
+        </div>
+      </section>
+    }
+
     <div class="solver-split-grid">
       <!-- Columna izquierda: Consigna y ejemplos públicos -->
       <section class="statement-panel">
@@ -114,11 +143,12 @@
               <h2 class="section-title">Proyecto en Entorno de Desarrollo</h2>
             </div>
             <p class="ide-hint">
-              El ejercicio se resuelve dentro de tu workspace interactivo. Escribí los archivos del
-              proyecto y entregalos para que el docente los califique con la rúbrica.
+              El ejercicio se resuelve dentro de tu entorno de desarrollo. Trabajá en el IDE y
+              entregá: se envía el contenido del entorno de esta práctica para que el docente lo
+              califique con la rúbrica.
             </p>
             <ul class="ide-rules-list">
-              <li>Los archivos se sincronizan con el volumen del workspace al entregar.</li>
+              <li>Se entrega el entorno de esta práctica tal como está en el IDE; no hay que copiar archivos.</li>
               <li>La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta la calificación docente.</li>
               <li>
                 @if (isExamProject()) {
@@ -204,74 +234,6 @@
           <div class="editor-card">
             <div class="editor-toolbar">
               <div class="toolbar-left">
-                <svg lucideFileCode class="toolbar-icon"></svg>
-                <span class="file-label">Archivos del proyecto</span>
-                <span class="meta-badge" machineData>{{ projectFilesCount() }}</span>
-              </div>
-            </div>
-
-            <div class="editor-body">
-              <div class="project-file-bar">
-                @for (file of projectFiles(); track file.name) {
-                  <button
-                    type="button"
-                    class="file-chip"
-                    [class.file-chip-active]="file.name === selectedFileName()"
-                    (click)="selectProjectFile(file.name)"
-                  >
-                    <span class="font-mono" machineData>{{ file.name }}</span>
-                  </button>
-                }
-              </div>
-
-              <div class="project-file-actions">
-                <input
-                  class="form-input font-mono"
-                  type="text"
-                  [ngModel]="newFileName()"
-                  (ngModelChange)="newFileName.set($event)"
-                  placeholder="nuevo_archivo.py"
-                  aria-label="Nombre de archivo nuevo"
-                />
-                <button type="button" class="btn-outline" (click)="addProjectFile()">
-                  <svg lucidePlus class="btn-icon"></svg>
-                  <span>Agregar</span>
-                </button>
-                <button
-                  type="button"
-                  class="btn-outline btn-danger"
-                  [disabled]="projectFilesCount() <= 1"
-                  (click)="removeProjectFile(selectedFileName())"
-                >
-                  <svg lucideTrash2 class="btn-icon"></svg>
-                  <span>Quitar</span>
-                </button>
-              </div>
-
-              <div class="project-editor-body">
-                @defer {
-                  <code-editor
-                    [value]="selectedFileContent()"
-                    [language]="projectEditorLanguage()"
-                    minHeight="320px"
-                    (valueChange)="onProjectFileChange($event)"
-                  />
-                } @placeholder {
-                  <textarea
-                    class="form-textarea font-mono"
-                    rows="12"
-                    [ngModel]="selectedFileContent()"
-                    (ngModelChange)="onProjectFileChange($event)"
-                    aria-label="Contenido del archivo seleccionado"
-                  ></textarea>
-                }
-              </div>
-            </div>
-          </div>
-
-          <div class="editor-card">
-            <div class="editor-toolbar">
-              <div class="toolbar-left">
                 <svg lucideLayers class="toolbar-icon"></svg>
                 <span class="file-label">Entrega del proyecto</span>
               </div>
@@ -331,6 +293,10 @@
                   <p class="empty-note">Este ejercicio admite una única entrega.</p>
                 }
               } @else {
+                <p class="empty-note">
+                  Se entrega el contenido actual de tu entorno de esta práctica. No hay que copiar
+                  archivos a mano: lo que está en el IDE es lo que recibe el docente.
+                </p>
                 <p class="empty-note">
                   La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta que el docente la califique con la rúbrica.
                 </p>
@@ -445,5 +411,9 @@
         }
       </section>
     </div>
+  }
+
+  @if (selectedAdvance(); as advance) {
+    <advance-confirm-modal [advance]="advance" (closed)="closeAdvanceModal()" />
   }
 </div>

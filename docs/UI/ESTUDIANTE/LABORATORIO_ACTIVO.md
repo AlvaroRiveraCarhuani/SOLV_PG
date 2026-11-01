@@ -108,6 +108,10 @@ El topbar contiene los elementos esenciales de navegación, estado y la acción 
 
 Durante una clase, el docente puede emitir un avance desde el aula. El alumno lo ve como una franja ámbar sobre el editor, una por aviso pendiente; nada se escribe en su entorno sin su confirmación (ADR-058).
 
+El solver de la práctica muestra la misma franja, filtrada por el ejercicio del avance, porque es la pantalla donde el alumno trabaja el entorno de esa práctica; al confirmarla, los archivos se escriben en el volumen de la práctica (ADR-059). La pantalla de laboratorio por materia conserva la franja general de la materia.
+
+El avance se aplica con el entorno de la práctica en ejecución. Si el alumno abre la confirmación con el entorno detenido, el modal muestra el motivo y el aviso sigue pendiente; la tarjeta `Workspace del alumno` de la misma pantalla ofrece `Iniciar IDE`, y después puede aplicar sin perder el aviso.
+
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ [← Laboratorios]  Programación II · SIS-301 · Activo        [Abrir en pestaña nueva]  [Pausar]  │

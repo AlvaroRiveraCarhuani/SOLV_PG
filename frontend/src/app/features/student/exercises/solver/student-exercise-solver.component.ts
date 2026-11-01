@@ -18,9 +18,7 @@ import {
   LucideLayers,
   LucideShield,
   LucideExternalLink,
-  LucideRefreshCw,
-  LucidePlus,
-  LucideTrash2
+  LucideRefreshCw
 } from '@lucide/angular';
 import { marked } from 'marked';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -37,16 +35,16 @@ import {
   WorkspaceProjectSubmissionDTO
 } from '@core/services/student.service';
 import { AuthService } from '@core/services/auth.service';
+import {
+  ClassAdvanceNoticeService,
+  PendingClassAdvance
+} from '../../services/class-advance-notice.service';
+import { AdvanceConfirmModalComponent } from '../../workspaces/active-lab/advance-confirm-modal/advance-confirm-modal.component';
 
 interface KeystrokeEventPayload {
   event_type: 'insert' | 'delete' | 'paste';
   timestamp_ms: number;
   position: number;
-  content: string;
-}
-
-interface ProjectFile {
-  name: string;
   content: string;
 }
 
@@ -81,13 +79,12 @@ function encodeUtf8Base64(text: string): string {
     LucideShield,
     LucideExternalLink,
     LucideRefreshCw,
-    LucidePlus,
-    LucideTrash2,
     MachineDataDirective,
     CodeEditorComponent,
     ComboboxComponent,
     VerdictBadgeComponent,
-    DateTextPipe
+    DateTextPipe,
+    AdvanceConfirmModalComponent
   ],
   templateUrl: './student-exercise-solver.component.html',
   styleUrl: './student-exercise-solver.component.scss'
@@ -97,6 +94,7 @@ export class StudentExerciseSolverComponent implements OnInit {
   private readonly studentService = inject(StudentService);
   private readonly authService = inject(AuthService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly advances = inject(ClassAdvanceNoticeService);
 
   readonly exerciseId = signal<string>('');
   readonly exercise = signal<StudentPublicExerciseDTO | null>(null);
@@ -116,9 +114,6 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly workspace = signal<WorkspaceInstance | null>(null);
   readonly isStartingWorkspace = signal<boolean>(false);
   readonly workspaceError = signal<string | null>(null);
-  readonly projectFiles = signal<ProjectFile[]>([]);
-  readonly selectedFileName = signal<string>('');
-  readonly newFileName = signal<string>('');
   readonly isSubmittingProject = signal<boolean>(false);
   readonly projectError = signal<string | null>(null);
   readonly projectSubmission = signal<WorkspaceProjectSubmissionDTO | null>(null);
@@ -128,6 +123,13 @@ export class StudentExerciseSolverComponent implements OnInit {
    * queda en solo lectura y no se puede seguir editando (ADR-005 §5.2).
    */
   readonly examSubmitPending = signal<boolean>(false);
+
+  /** Avisos de avance del docente que corresponden a esta práctica. */
+  readonly practiceAdvances = computed<PendingClassAdvance[]>(() =>
+    this.advances.pending().filter(advance => advance.exercise_id === this.exerciseId())
+  );
+  readonly selectedAdvance = signal<PendingClassAdvance | null>(null);
+  readonly isDismissingAdvance = signal<boolean>(false);
 
   readonly languageOptions = computed<ComboboxOption[]>(() => {
     const baseLang = (this.exercise()?.language || 'python').toLowerCase();
@@ -167,44 +169,12 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly workspaceIsRunning = computed<boolean>(() => this.workspace()?.status === 'running');
 
-  readonly projectFilesCount = computed<number>(() => this.projectFiles().length);
-
-  readonly selectedFileContent = computed<string>(() => {
-    const name = this.selectedFileName();
-    return this.projectFiles().find(file => file.name === name)?.content ?? '';
-  });
-
-  readonly projectEditorLanguage = computed<string>(() => {
-    const name = this.selectedFileName().toLowerCase();
-    const extension = name.includes('.') ? name.split('.').pop() ?? '' : '';
-    const byExtension: Record<string, string> = {
-      py: 'python',
-      sql: 'sql',
-      js: 'javascript',
-      ts: 'typescript',
-      cpp: 'cpp',
-      c: 'c',
-      java: 'java',
-      go: 'go',
-      json: 'json',
-      md: 'markdown',
-      html: 'html',
-      css: 'css',
-      sh: 'shell'
-    };
-    return byExtension[extension] || 'plaintext';
-  });
-
   readonly canResubmitProject = computed<boolean>(() => this.exercise()?.allow_resubmit ?? true);
 
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
 
   readonly canSubmitProject = computed<boolean>(() => {
     if (!this.workspaceIsRunning() || this.isSubmittingProject()) {
-      return false;
-    }
-    const hasFiles = this.projectFiles().some(file => file.name.trim() !== '' && file.content.trim() !== '');
-    if (!hasFiles) {
       return false;
     }
     // En un examen la entrega es final: el volumen queda en solo lectura, así
@@ -230,6 +200,12 @@ export class StudentExerciseSolverComponent implements OnInit {
   });
 
   ngOnInit(): void {
+    // El aviso llega a la pantalla donde el alumno trabaja la práctica, no solo
+    // al laboratorio por materia. La consulta corre con el mismo ciclo que en
+    // esa pantalla (ADR-058 §8).
+    this.advances.start();
+    this.destroyRef.onDestroy(() => this.advances.stop());
+
     this.route.paramMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((params) => {
       const id = params.get('exerciseId') || params.get('id') || '';
       this.exerciseId.set(id);
@@ -253,7 +229,6 @@ export class StudentExerciseSolverComponent implements OnInit {
     this.exercise.set(data);
 
     if (this.isIdeExercise()) {
-      this.ensureDefaultProjectFile();
       return;
     }
 
@@ -288,32 +263,26 @@ export class StudentExerciseSolverComponent implements OnInit {
     this.sourceCode.set(this.exercise()?.boilerplate || '');
   }
 
-  private defaultProjectFileName(): string {
-    const ex = this.exercise();
-    const language = (ex?.language || '').toLowerCase();
-    if (language === 'sql' || language === 'postgresql') {
-      return 'solution.sql';
-    }
-    const extensionByLanguage: Record<string, string> = {
-      python: 'py',
-      cpp: 'cpp',
-      c: 'c',
-      java: 'java',
-      javascript: 'js',
-      typescript: 'ts',
-      go: 'go'
-    };
-    return `main.${extensionByLanguage[language] || 'py'}`;
+  openAdvance(advance: PendingClassAdvance): void {
+    this.selectedAdvance.set(advance);
   }
 
-  private ensureDefaultProjectFile(): void {
-    if (this.projectFiles().length > 0) {
+  closeAdvanceModal(): void {
+    this.selectedAdvance.set(null);
+  }
+
+  async dismissAdvance(advance: PendingClassAdvance): Promise<void> {
+    if (this.isDismissingAdvance()) {
       return;
     }
-    const name = this.defaultProjectFileName();
-    const boilerplate = this.exercise()?.boilerplate?.trim() ? this.exercise()?.boilerplate ?? '' : '';
-    this.projectFiles.set([{ name, content: boilerplate }]);
-    this.selectedFileName.set(name);
+    this.isDismissingAdvance.set(true);
+    try {
+      await this.advances.dismiss(advance.id);
+    } catch {
+      // Si el descarte falla, el aviso sigue visible y se puede reintentar.
+    } finally {
+      this.isDismissingAdvance.set(false);
+    }
   }
 
   async startIdeWorkspace(): Promise<void> {
@@ -333,7 +302,6 @@ export class StudentExerciseSolverComponent implements OnInit {
     try {
       const workspace = await this.studentService.startWorkspace(subjectId, ex.id);
       this.workspace.set(workspace);
-      this.ensureDefaultProjectFile();
     } catch {
       this.workspaceError.set('No se pudo iniciar el IDE. Intentá de nuevo en unos segundos.');
     } finally {
@@ -347,43 +315,6 @@ export class StudentExerciseSolverComponent implements OnInit {
       return;
     }
     window.open(url, '_blank', 'noopener');
-  }
-
-  selectProjectFile(name: string): void {
-    this.selectedFileName.set(name);
-  }
-
-  onProjectFileChange(content: string): void {
-    const name = this.selectedFileName();
-    this.projectFiles.update(files =>
-      files.map(file => (file.name === name ? { ...file, content } : file))
-    );
-  }
-
-  addProjectFile(): void {
-    const name = this.newFileName().trim().replace(/\s+/g, '-');
-    if (!name) {
-      return;
-    }
-    if (this.projectFiles().some(file => file.name === name)) {
-      this.selectedFileName.set(name);
-      this.newFileName.set('');
-      return;
-    }
-    this.projectFiles.update(files => [...files, { name, content: '' }]);
-    this.selectedFileName.set(name);
-    this.newFileName.set('');
-  }
-
-  removeProjectFile(name: string): void {
-    const remaining = this.projectFiles().filter(file => file.name !== name);
-    if (remaining.length === 0) {
-      return;
-    }
-    this.projectFiles.set(remaining);
-    if (this.selectedFileName() === name) {
-      this.selectedFileName.set(remaining[0].name);
-    }
   }
 
   /**
@@ -412,21 +343,15 @@ export class StudentExerciseSolverComponent implements OnInit {
       return;
     }
 
-    const files: Record<string, string> = {};
-    for (const file of this.projectFiles()) {
-      const name = file.name.trim();
-      if (name) {
-        files[name] = file.content;
-      }
-    }
-
     this.isSubmittingProject.set(true);
     this.projectError.set(null);
 
     try {
+      // La entrega es el volumen de la práctica: el backend lo fotografía tal
+      // como está. No se mandan archivos desde el navegador, para no pisar lo
+      // que el alumno escribió en el IDE.
       const submission = await this.studentService.submitWorkspaceProject(workspace.id, {
-        exercise_id: ex.id,
-        files
+        exercise_id: ex.id
       });
       this.examSubmitPending.set(false);
       this.projectSubmission.set(submission);
