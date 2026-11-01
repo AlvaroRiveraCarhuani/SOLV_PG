@@ -136,6 +136,8 @@ graph LR
     Conf -- Confirmar --> Eval
 ```
 
+**Entrega de proyecto (IDE Persistente).** `[Entregar Proyecto]` guarda el snapshot del volumen y lo envía a la revisión docente. Si el ejercicio es un examen, la entrega es final: el primer clic muestra la advertencia de que el entorno queda en solo lectura y el botón pasa a `[Confirmar entrega]`. Al confirmar, solo ese volumen se cierra; el resto de la clase sigue trabajando y el docente puede reabrir a un alumno con un motivo (ADR-005 §5.2). Después de entregar, el botón queda deshabilitado y una segunda entrega responde `409`.
+
 ---
 
 ## 5. Taxonomía de Veredictos y Colores Inmutables

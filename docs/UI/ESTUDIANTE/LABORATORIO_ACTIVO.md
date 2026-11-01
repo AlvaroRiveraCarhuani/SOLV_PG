@@ -52,17 +52,28 @@ sequenceDiagram
         end
     end
 
-    opt Sincronización de Avance Docente (ADR-007 - 100% Opcional)
-        B-->>S: Notificación WebSocket: Docente publicó nuevo snapshot
-        S->>U: Muestra toast sutil: "Avance del docente disponible" + activa botón [Sincronizar]
-        alt Estudiante decide sincronizar
-            U->>S: Clic en [Sincronizar con Docente]
-            S->>U: Muestra Modal Preventivo de Respaldo (.solv_backups/)
-            U->>S: Confirma acción
-            S->>B: POST /api/v1/workspaces/{id}/sync-snapshot
-            B-->>S: Snapshot aplicado y archivos recargados
-        else Estudiante decide continuar por su cuenta
-            U->>S: Ignora o cierra aviso y continúa programando a su ritmo
+    loop Avisos de avance del docente (cada minuto)
+        S->>B: GET /api/v1/class-advances/pending
+        B-->>S: Avisos cuyo alcance incluye al alumno
+    end
+
+    opt Avance del docente en el aula (ADR-058)
+        S->>U: Franja sobre el editor: "Tu docente emitió un avance de esta clase"
+        alt Estudiante pide ver los archivos
+            U->>S: Clic en [Ver archivos]
+            S->>B: GET /api/v1/class-advances/{id}/files
+            B-->>S: Archivos que se agregan y que se reemplazan
+            S->>U: Modal de confirmación con las dos listas
+            alt Estudiante confirma
+                U->>S: Clic en [Aplicar avance]
+                S->>B: POST /api/v1/class-advances/{id}/apply
+                B-->>S: Respaldo en .solv_backups/<avance_id>/ y archivos copiados
+            else Estudiante cancela
+                U->>S: Cierra el modal y sigue trabajando como estaba
+            end
+        else Estudiante descarta el aviso
+            U->>S: Clic en [Descartar]
+            S->>B: POST /api/v1/class-advances/{id}/dismiss
         end
     end
 ```
@@ -76,7 +87,7 @@ El topbar contiene los elementos esenciales de navegación, estado y la acción 
 
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ [← Volver al Dashboard]  │  Lab #04 · Programación II  │  [Sincronizar]  │  [Conectado]  │  Guardado│
+│ [← Volver al Dashboard]  │  Lab #04 · Programación II  │  [Conectado]  │  Guardado         │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
 │                                                                                                  │
 │                                IFRAME OPENVSCODE SERVER                                          │
@@ -87,9 +98,90 @@ El topbar contiene los elementos esenciales de navegación, estado y la acción 
 
 1. **`[← Volver al Dashboard]`:** Regresa al panel principal. Si hay cambios pendientes, activa guard de salida.
 2. **Contexto Académico:** `Lab #04 · Programación II` (nombre de práctica y materia).
-3. **Acción Contextual de Sincronización (ADR-007):** Botón `[Sincronizar]` que se ilumina únicamente cuando el docente emite un nuevo avance de clase (100% opcional).
+3. **Aviso de avance del docente (ADR-058):** va en una franja sobre el editor, no en el topbar, porque es una decisión pendiente y no un estado del entorno. Ver §3.7.
 4. **Semáforo de Conexión:** Estado en tiempo real del enlace de red/WebSocket.
 5. **Estado de Guardado:** `Guardado` permanente tras confirmación de `STATE_SAVED`.
+
+---
+
+### 3.7. Franja de Avance del Docente y Confirmación
+
+Durante una clase, el docente puede emitir un avance desde el aula. El alumno lo ve como una franja ámbar sobre el editor, una por aviso pendiente; nada se escribe en su entorno sin su confirmación (ADR-058).
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [← Laboratorios]  Programación II · SIS-301 · Activo        [Abrir en pestaña nueva]  [Pausar]  │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ Tu docente emitió un avance de esta clase                                                        │
+│ Trae 2 archivos y no cambia nada hasta que lo confirmes. Puede tardar hasta un minuto en          │
+│ aparecer: el laboratorio consulta los avisos cada minuto.                                        │
+│ Emitido a las 15:30                                                       [Descartar] [Ver archivos] │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│                                                                                                  │
+│                                IFRAME OPENVSCODE SERVER                                          │
+│                                                                                                  │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Confirmación.** `[Ver archivos]` abre el modal con lo que cambiaría, leído del snapshot y comparado con el volumen vigente:
+
+```text
+┌────────────────────────────────────────────────────────────┐
+│ Avance de la clase                                          │
+│ Revisa qué archivos cambian en tu laboratorio antes de      │
+│ aplicarlo.                                                  │
+├────────────────────────────────────────────────────────────┤
+│ El avance trae 2 archivos del ejercicio. Nada cambia en tu  │
+│ entorno hasta que confirmes.                                │
+│                                                             │
+│ Se reemplazan                                               │
+│ Tu versión actual se guarda en una copia dentro del         │
+│ laboratorio antes de reemplazarse.                          │
+│   main.py                                                   │
+│                                                             │
+│ Se agregan                                                  │
+│ Estos archivos todavía no están en tu laboratorio.          │
+│   utils.py                                                  │
+├────────────────────────────────────────────────────────────┤
+│                                   [Cancelar] [Aplicar avance]│
+└────────────────────────────────────────────────────────────┘
+```
+
+**Estados del aviso:**
+
+| Situación | Qué ve el alumno |
+| :--- | :--- |
+| Aviso pendiente | Franja ámbar con la cantidad de archivos y la hora de emisión. |
+| Ventana de rezago vencida | El aviso deja de aparecer: el servidor lo cierra como `expired` en la consulta del minuto. |
+| Sin almacén de snapshots | El aviso aparece, pero la confirmación explica que los archivos no se pueden leer. |
+| Laboratorio pausado | La confirmación se puede leer; al aplicar, el servidor pide abrir el laboratorio. |
+| Aplicado | El modal informa cuántos archivos se escribieron y dónde quedó la copia anterior. |
+| Descartado | La franja desaparece y el entorno no cambia. |
+
+El respaldo queda en `.solv_backups/<avance_id>/` dentro del volumen del alumno y solo existe cuando el avance reemplazó algo. La política conserva los 5 respaldos más recientes por volumen; al aplicar el sexto, se borra el más viejo. El detalle está en [retencion-snapshots-y-respaldos.md](../../../proyecto-grado/avances/retencion-snapshots-y-respaldos.md).
+
+---
+
+### 3.8. Aviso de Examen Cerrado
+
+Cuando el examen termina, el volumen del alumno queda montado en solo lectura (ADR-005 §5). La pantalla deja de ofrecer el editor y muestra, en el mismo espacio:
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                              [candado]                                       │
+│              El examen terminó: tu entorno quedó en solo lectura             │
+│                                                                              │
+│   Tu trabajo quedó guardado tal como estaba. El docente todavía puede        │
+│   consultarlo y tú no necesitas hacer nada más.                              │
+│                                                                              │
+│                       Cerrado el 31/10/2026 16:05                            │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+- No hay iframe ni `[Iniciar entorno de práctica]`: el bloqueo es del montaje, no de la pantalla, así que reintentar no devuelve la escritura.
+- Tampoco se ofrece `[Abrir en pestaña nueva]`; el enlace al editor existiría, pero cualquier guardado fallaría.
+- La hora sale de `frozen_at` y se pinta con `dateText` dentro de un `<time>`. El estado `frozen` usa la semántica neutra del semáforo: es un cierre buscado, no un error.
+- `[Pausar y salir]` sigue disponible para liberar memoria; el volumen conserva el trabajo y sigue en solo lectura al volver.
 
 ---
 

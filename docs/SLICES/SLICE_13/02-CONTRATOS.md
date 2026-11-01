@@ -9,8 +9,7 @@
 | 3 | `/api/v1/exercises/{id}/test-cases/bulk` | `POST` | Importación masiva de casos de prueba (CSV / JSON) |
 | 4 | `/api/v1/exercises/{id}/publish` | `POST` | Transición `draft` -> `published` (valida $\ge 1$ caso público) |
 | 5 | `/api/v1/teacher/courses` | `GET` | Listado de materias con métricas agregadas (`students`, `active`, `pending`, `at_risk`) |
-| 6 | `/api/v1/teacher/attention` | `GET` | Widget de atención prioritaria por severidad (`critical`, `warning`, `standard`) |
-| 7 | `/api/v1/teacher/courses/{id}/labs` | `GET` | Estadísticas por laboratorio de un curso |
+| 6 | `/api/v1/teacher/courses/{id}/labs` | `GET` | Estadísticas por laboratorio de un curso |
 | 8 | `/api/v1/teacher/courses/{id}/submissions` | `GET` | Cola de entregas con filtros por veredicto y ejercicio |
 | 9 | `/api/v1/teacher/submissions/{id}/review` | `GET` | Detalle SpeedGrader con casos privados desenmascarados y punteros prev/next |
 | 10 | `/api/v1/submissions/{id}/override` | `POST` | Override manual de calificación con validación $\ge 10$ caracteres |

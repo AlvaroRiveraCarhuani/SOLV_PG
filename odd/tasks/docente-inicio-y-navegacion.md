@@ -47,7 +47,7 @@ Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§2.4, §3.1
 
 - [x] **S1**: navegación por horizonte de trabajo. Entregado con los bloques `HOY` (Inicio), `DOCENCIA` (Aula · Por calificar), `CONTENIDOS`, `SUPERVISIÓN` y `CUENTA`. Los destinos "Mis materias" y "Notas" no entran porque no existen como pantalla: la tabla de materias del inicio las cubre hasta la etapa 3, cuando la materia tenga sus pestañas.
 - [x] **S2**: pantalla Hoy con sus estados. Se alimenta de `GET /api/v1/teacher/overview`, que resuelve período, fila de trabajo, cola y materias en cuatro consultas agregadas sin bucle por materia. Estados: esqueleto al cargar, filas ocultas sin contenido, vacío de materias con el selector de período, error con reintento que conserva lo cargado.
-- [x] **S3**: retiro de widgets y del uso docente del servicio de layout. `dashboard-kpi-widget`, `dashboard-attention-widget` y `dashboard-courses-widget` se eliminan; la telemetría y la terminal de sombra pasan a `aula/`. `GET /api/v1/teacher/attention` se conserva **con motivo declarado y sin consumidor**: retirarlo arrastra la suite de integración de la entrega anterior y su reemplazo (`signals` del resumen) llega en la etapa 2. Queda anotado en `REDISENO_PANEL_DOCENTE.md` §12.
+- [x] **S3**: retiro de widgets y del uso docente del servicio de layout. `dashboard-kpi-widget`, `dashboard-attention-widget` y `dashboard-courses-widget` se eliminan; la telemetría y la terminal de sombra pasan a `aula/`. `GET /api/v1/teacher/attention` se retira: ninguna pantalla leía su resultado, y su reemplazo es `signals` del resumen de `overview`. Se quitan la ruta, el read model, los tests y la llamada en `loadDashboardData`.
 - [x] **S4**: sustituido por la tabla de materias del inicio con inscritos, entornos abiertos, por calificar y sin entregar. Se descarta la lista con buscador: con los conteos resueltos en el servidor, la tabla se lee sin desplazar y no hace falta una pantalla propia de materias hasta la etapa 3.
 - [x] **S5**: `DASHBOARD.md` congelado con puntero al rediseño; `MAPA_DE_VISTAS.md` con las rutas reales del rol docente y las fichas de Hoy y Aula.
 
@@ -65,3 +65,7 @@ Diseño de referencia: `docs/UI/DOCENTE/REDISENO_PANEL_DOCENTE.md` (§2.4, §3.1
 - **L3 (verbatim):** "Ahora, para arrancar hay cuatro decisiones que cambian el esquema" → respuestas registradas en las otras dos tareas; esta no introduce esquema nuevo.
 - **Dependencia:** esta feature consume la cola de calificación (S3 de `docente-revision-y-libreta.md`) y el aula (S6 de `docente-aula-y-sesiones.md`). Implementarla antes deja "Hoy" sin destino para sus dos acciones.
 - **Hallazgo verificado:** la grilla de materias usa `repeat(auto-fill, minmax(260px, 1fr))` dentro de 8 de 12 columnas; con 30 materias produce más de 2.000 px de alto sin buscador ni orden.
+
+## Actualización (2026-10-30)
+
+La pantalla `Hoy` no está en el árbol: sigue la grilla de widgets con su banner de atención y `Personalizar`. Los puntos S2 y S4 describen el objetivo de la etapa 1, no lo entregado, y S4 queda superado: la tabla se sustituye por el canvas de materias con columna de pendientes, especificado en [docente-hoy-canvas.md](docente-hoy-canvas.md) y en el ADR-057. Lo que sí quedó de esta feature es la navegación por horizonte de trabajo y el read model del resumen.

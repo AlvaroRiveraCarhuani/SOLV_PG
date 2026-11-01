@@ -251,56 +251,6 @@ Retorna la lista de materias del docente autenticado con métricas agregadas (`s
 
 ---
 
-### 6. Widget de Atención Prioritaria (`GET /api/v1/teacher/attention`)
-
-Provee alertas clasificadas por severidad (`critical`, `warning`, `standard`) siguiendo el patrón *Exception-Based Reporting*.
-
-- **Método:** `GET`
-- **Ruta:** `/api/v1/teacher/attention`
-- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
-- **Código de Respuesta:** `200 OK`
-
-#### Ejemplo de Respuesta
-```json
-{
-  "data": {
-    "critical": [
-      {
-        "type": "oom_killed",
-        "student_id": "77777777-7777-4777-a777-777777777777",
-        "student_name": "Carlos Ruiz",
-        "workspace_id": "99999999-9999-4999-a999-999999999999",
-        "subject_id": "88888888-8888-4888-a888-888888888888",
-        "occurred_at": "2026-09-02T10:15:00Z"
-      }
-    ],
-    "warning": [
-      {
-        "type": "ast_blocked",
-        "student_id": "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa",
-        "student_name": "Ana Torres",
-        "exercise_id": "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb",
-        "rule_violated": "no_import_os",
-        "occurred_at": "2026-09-02T09:30:00Z"
-      }
-    ],
-    "standard": [
-      {
-        "type": "pending_review",
-        "submission_id": "cccccccc-cccc-4ccc-cccc-cccccccccccc",
-        "student_name": "María López",
-        "exercise_title": "Lab #01: Árboles AVL",
-        "submitted_at": "2026-09-02T08:45:00Z"
-      }
-    ]
-  },
-  "error": "",
-  "message": "Alertas de atencion obtenidas exitosamente"
-}
-```
-
----
-
 ### 7. Estadísticas por Laboratorio de un Curso (`GET /api/v1/teacher/courses/{id}/labs`)
 
 Retorna el desglose de métricas, entregas y veredictos para cada laboratorio del curso.
@@ -1921,3 +1871,208 @@ Cola real de corrección agrupada por práctica. Parámetro opcional `subject_id
 - `GET /api/v1/teacher/courses/{id}/grades/export`: la celda sin corregir se exporta vacía.
 - `GET /api/v1/teacher/courses/{id}/submissions`: cada entrega incluye `review_status`.
 - El resumen de materias (`pending_review`) ahora cuenta el estado de revisión, no los veredictos.
+
+
+## Avances del docente en el aula (ADR-058)
+
+Durante el aula, el docente congela la clase cuando empieza un examen y decide cuánto tiempo más queda disponible un avance después de cerrar la sesión. Los tres endpoints siguientes responden con la sesión resultante.
+
+### `PATCH /api/v1/teacher/sessions/{id}/freeze`
+
+Sin cuerpo. Devuelve `200` con la sesión y `frozen_at` con la hora de la congelación. Congelar dos veces conserva la hora de la primera; congela la emisión de avances nuevos, no el editor del alumno.
+
+```json
+{ "data": { "id": "uuid", "status": "open", "frozen_at": "2026-10-31T15:04:05Z" }, "error": "", "message": "Clase congelada" }
+```
+
+### `PATCH /api/v1/teacher/sessions/{id}/unfreeze`
+
+Sin cuerpo. Devuelve `200` con la sesión y `frozen_at` en `null`.
+
+### `PATCH /api/v1/teacher/sessions/{id}/grace`
+
+Ajusta la ventana de disponibilidad de un aula cerrada. El cuerpo lleva exactamente una acción:
+
+```json
+{ "add_minutes": 20 }
+```
+
+```json
+{ "until": "2026-11-02T23:00:00Z" }
+```
+
+```json
+{ "close": true }
+```
+
+- Al cerrar el aula —a mano o al vencer `ends_at`— el servidor fija `grace_until = cierre + 30 minutos`. No hay que pulsar nada.
+- `add_minutes` va de 1 a 480 y suma al final vigente. Si la ventana ya venció, cuenta desde ahora.
+- `until` es una fecha futura que reemplaza el final vigente. El máximo es de 7 días desde el cierre de la clase.
+- `close` fija el final en el momento.
+- Solo aplica con el aula cerrada. Con la sesión abierta responde `409`.
+- Al reabrir la ventana, los destinatarios `expired` vuelven a `pending`; al cerrarla, los `pending` pasan a `expired`. `applied`, `dismissed` y `failed` no se revierten.
+- Devuelve `200` con la sesión y su `grace_until`.
+
+```json
+{ "data": { "id": "uuid", "status": "closed", "grace_until": "2026-10-31T16:30:00Z" }, "error": "", "message": "Ventana de disponibilidad actualizada" }
+```
+
+### Errores
+
+| Código | Cuándo |
+| --- | --- |
+| `403` | Rol estudiante en cualquiera de las tres rutas. |
+| `404` | La sesión no existe, es de otra institución o pertenece a otro docente. |
+| `409` | La ventana se intenta ajustar con el aula abierta. |
+| `400` | Cuerpo JSON inválido, más de una acción o `add_minutes` fuera de 1–480. |
+| `422` | La fecha límite no es futura o la ventana supera los 7 días desde el cierre. |
+
+### Rutas relacionadas
+
+`POST /api/v1/teacher/sessions/{id}/advances` emite el avance, y `/api/v1/class-advances/pending`, `/{id}/files`, `/{id}/apply` y `/{id}/dismiss` son el lado del alumno. Su contrato está en [ADR-058](ARQUITECTURA/ADR/ADR-058-avance-voluntario-del-docente-en-aula.md) §10.
+
+### `GET /api/v1/teacher/sessions/{id}/advances`
+
+Emisiones del aula con el estado de cada destinatario: quién aplicó, quién descartó y quién sigue pendiente.
+
+```json
+{ "data": [ { "id": "uuid", "exercise_id": "uuid", "exercise_title": "Recorridos", "scope": "class", "file_count": 2, "created_at": "2026-10-31T15:30:00Z", "counts": { "total": 4, "applied": 1, "dismissed": 1, "pending": 1, "failed": 0, "expired": 1 }, "recipients": [ { "student_id": "uuid", "name": "Ana Pérez", "email": "ana@solv.test", "status": "applied", "decided_at": "2026-10-31T15:32:00Z" } ] } ], "error": "", "message": "Avances del aula obtenidos" }
+```
+
+- Del más nuevo al más viejo; dentro de cada emisión, los destinatarios van por nombre.
+- `status` es `pending`, `applied`, `dismissed`, `failed` o `expired`. `decided_at` es `null` mientras el aviso siga pendiente.
+- `403` para el rol estudiante; `404` si el aula no existe o pertenece a otro docente.
+
+### `GET /api/v1/teacher/sessions/{id}/history`
+
+Historial de la clase: emisiones, congelaciones, cambios de ventana y decisiones de los alumnos, del más nuevo al más viejo. El alumno no lo ve.
+
+```json
+{ "data": [ { "id": "uuid", "action": "CLASS_ADVANCE_GRACE_EXTENDED", "actor_id": "uuid", "actor_name": "Prof. García", "actor_email": "garcia@solv.test", "actor_role": "teacher", "created_at": "2026-10-31T15:42:00Z", "advance_id": "uuid", "exercise_id": "uuid", "minutes": 20, "previous_until": "2026-10-31T16:30:00Z", "until": "2026-10-31T16:50:00Z" } ], "error": "", "message": "Historial de la clase obtenido" }
+```
+
+- `action` es una de `CLASS_ADVANCE_EMITTED`, `CLASS_FROZEN`, `CLASS_UNFROZEN`, `CLASS_ADVANCE_GRACE_EXTENDED`, `CLASS_ADVANCE_GRACE_DEADLINE_SET`, `CLASS_ADVANCE_GRACE_CLOSED`, `CLASS_ADVANCE_APPLIED` o `CLASS_ADVANCE_DISMISSED`.
+- `actor_name`, `actor_email` y `actor_role` vienen resueltos de la misma consulta. En emitir, aplicar y descartar se agrega el `advance_id`; en emitir, `recipients` y `file_count`; en aplicar, `files_written`; en los cambios de ventana, `minutes`, `previous_until` y `until`.
+- El historial no guarda el código del avance, solo sus datos y los cambios de la ventana. Devuelve hasta 200 movimientos; el registro completo queda en `/api/v1/admin/audit-logs`.
+- `403` para el rol estudiante; `404` si el aula no existe o pertenece a otro docente. El administrador puede leer cualquier aula de su institución.
+- La pantalla refresca la lectura al abrir la clase, al emitir, al congelar o descongelar, al ajustar la ventana y con `[Actualizar]`.
+
+### `GET /api/v1/class-advances/{id}/files`
+
+Lectura previa del aviso: qué archivos se agregan y cuáles se reemplazan en el laboratorio del alumno. No escribe nada.
+
+```json
+{ "data": { "advance_id": "uuid", "exercise_id": "uuid", "file_count": 2, "added": ["utils.py"], "overwritten": ["main.py"] }, "error": "", "message": "Archivos del avance obtenidos" }
+```
+
+- `404` si el avance no existe o no está dirigido al alumno autenticado; un avance ajeno no se revela.
+- `409` si ya fue aplicado o descartado, si el ejercicio es de examen o si la ventana de rezago venció (el destinatario pasa a `expired`).
+- `503` si el backend arrancó sin el almacén de snapshots: el aviso sigue visible, pero no se puede leer su contenido.
+
+`GET /api/v1/class-advances/pending` solo devuelve avisos que todavía se pueden aplicar: los vencidos se cierran como `expired` en esa misma consulta y dejan de mostrarse.
+
+El historial de la clase es de solo lectura: no se edita ni se borra desde la pantalla. El administrador conserva el registro completo en `/api/v1/admin/audit-logs`.
+
+---
+
+## Congelamiento del examen (ADR-005 §5)
+
+Al terminar un examen, el volumen de cada alumno se monta en solo lectura y el laboratorio pasa a `frozen` con `frozen_at`. El bloqueo lo aplica el sistema de archivos: no se recupera recargando la página ni pidiendo reanudar.
+
+Las respuestas de sesión (`GET /teacher/sessions/open`, `POST /teacher/sessions`, `GET /teacher/sessions/{id}/board` y `PATCH /close`) incluyen `purpose`, que vale `exam` cuando la práctica de la sesión es un examen y `class` en el resto de los casos, incluida un aula sin práctica. La pantalla del docente usa ese campo para mostrar los controles del examen.
+
+### `POST /api/v1/teacher/sessions/{id}/exam-freeze`
+
+Sin cuerpo. Repite el cierre del examen sobre los participantes y devuelve el conteo real:
+
+```json
+{ "data": { "frozen": 28, "skipped": 5, "failed": 2 }, "error": "", "message": "Examen congelado" }
+```
+
+- `frozen`: volúmenes que quedaron en solo lectura en esta llamada.
+- `skipped`: ya estaban congelados; es idempotente.
+- `failed`: no se pudieron reconstruir. El barrido de 15 minutos los reintenta.
+- `409` si el aula no es un examen o si sigue abierta.
+- `403` para el rol estudiante; `404` si el aula no existe o pertenece a otro docente.
+
+### `POST /api/v1/teacher/sessions/{id}/students/{studentID}/unfreeze`
+
+Excepción individual: devuelve la escritura al laboratorio de un alumno de ese examen.
+
+```json
+{ "reason": "Se le cortó la luz a mitad del examen" }
+```
+
+- `reason` es obligatorio y queda en `audit_logs` con el docente, el alumno y el aula.
+- Responde `200` con el mismo conteo.
+- `400` sin motivo; `404` si el alumno no participó de esa aula.
+
+### Entrega anticipada: `POST /api/v1/workspaces/{id}/submit`
+
+La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-005 §5.2). El cuerpo sigue siendo el de la entrega del IDE:
+
+```json
+{ "exercise_id": "uuid", "files": { "main.py": "print(1)\n" } }
+```
+
+- Si el ejercicio de la entrega tiene `purpose = exam`, después de registrar la entrega el servidor monta el volumen de ese alumno en solo lectura. El resto de la clase sigue escribiendo.
+- Una entrega posterior sobre un volumen congelado responde `409` con `El examen terminó: tu entorno quedó en solo lectura`: escribir por esta vía sería seguir editando después del cierre.
+- La respuesta de la entrega no cambia; el cierre se ve en el laboratorio (`status: "frozen"` y `frozen_at`).
+
+### `PATCH /api/v1/teacher/sessions/{id}/close`
+
+El cierre del aula conserva su contrato y suma `freeze_report` cuando el aula era un examen:
+
+```json
+{ "data": { "id": "uuid", "status": "closed", "ends_at": "2026-10-31T16:00:00Z", "freeze_report": { "frozen": 28, "skipped": 5, "failed": 2 } }, "error": "", "message": "Aula cerrada" }
+```
+
+Un aula de práctica no congela volúmenes y responde sin `freeze_report`.
+
+### Estado del laboratorio
+
+`GET /api/v1/workspaces?subject_id={uuid}` y el dashboard del alumno incluyen `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/workspaces/start` o `POST /api/v1/workspaces/{id}/restart` con el volumen congelado, la respuesta es `409` con `El examen terminó: tu entorno quedó en solo lectura`.
+
+---
+
+## Entorno de clase del docente
+
+El avance que se emite desde el aula sale del entorno del docente en la materia del aula (ADR-058 §5), así que la pantalla `/teacher/entorno` necesita leer ese entorno antes de ofrecer abrirlo. La lectura es una consulta por materia; el alta y la reanudación siguen usando el arranque de siempre.
+
+### `GET /api/v1/workspaces?subject_id={uuid}`
+
+- Sin cuerpo. La identidad se resuelve desde la sesión (`X-User-Id` o el token): el parámetro elige la materia, nunca a la persona.
+- Responde `200` con el entorno vigente en esa materia, o con `data: null` si el usuario todavía no abrió uno. Un entorno leído no levanta contenedores.
+- `400` si falta `subject_id` o no es un UUID.
+- `401` si no se puede resolver la identidad.
+
+```json
+{
+  "data": {
+    "workspace_id": "uuid",
+    "student_id": "uuid",
+    "subject_id": "uuid",
+    "status": "running",
+    "access_url": "https://<workspace-id>.<dominio-base>",
+    "memory_limit_mb": 512,
+    "last_heartbeat_at": "2026-10-31T15:04:05Z"
+  },
+  "error": "",
+  "message": "Entorno de la materia obtenido"
+}
+```
+
+Sin entorno en la materia:
+
+```json
+{ "data": null, "error": "", "message": "No hay entorno en esta materia" }
+```
+
+### Rutas que usa la pantalla para operar el entorno
+
+| Método | Ruta | Efecto |
+| --- | --- | --- |
+| `POST` | `/api/v1/workspaces/start` | Abre el entorno de la materia con `{ "subject_id": "uuid" }`. Con uno corriendo devuelve el mismo; con uno en pausa lo reanuda. |
+| `POST` | `/api/v1/workspaces/{id}/pause` | Lo deja en `hibernated` sin perder el volumen: el código del docente queda guardado. |
+
+El entorno vive sobre el volumen `solv_workspace_<usuario>_<materia>`, que es exactamente el que lee la emisión de avances. Por eso lo que el docente escribe en esta pantalla es lo que se copia al aula, y sin entorno abierto la emisión responde `409`.

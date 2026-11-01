@@ -197,6 +197,7 @@ SIS-211 · 10:00–11:30 · Práctica 3               20 de 28 dentro        [Ce
 ```
 
 - La cabecera lleva la materia, la hora de apertura y de fin, la práctica de la sesión, `presentes de inscritos` y `Cerrar aula`.
+- **Examen.** Si la práctica de la sesión es un examen, la cabecera lleva la marca «Examen» y el cierre pasa a `[Cerrar examen]`, con un aviso de que los entornos de los alumnos quedan en solo lectura (ADR-005 §5). Cerrado, la pantalla suma el panel **Entornos del examen**: cuántos volúmenes quedaron en solo lectura, el resultado del cierre y la lista de alumnos con entorno, con `[Reabrir]` para la excepción individual —motivo obligatorio, registrado en el historial—. Si algún volumen no se pudo cerrar, `[Reintentar congelamiento]` repite la operación sin reabrir la clase; el servidor también lo reintenta cada 15 minutos.
 - El aula se abre con una duración (1 h, 1 h 30, 2 h o 3 h; por defecto 1 h 30) y **se cierra sola al vencer**. El docente puede cerrarla antes; si la clase se alarga, cierra y abre otra. Al vencer, la pantalla deja el modo en vivo en el siguiente refresco y avisa a qué hora se cerró.
 - Marcador: sin excepciones de dueño docente escribe "Todo en orden: N de M entregaron, 0 trabados" en una línea, con `aria-live="polite"`. Con excepciones, cada una es un chip con su cuenta: trabados, sin entregar, sin empezar, salieron.
 - Filtros: `Todos`, `Trabados`, `Sin empezar`, `Salieron`, `Entregaron`, `Trabajando`, más búsqueda por nombre o correo.

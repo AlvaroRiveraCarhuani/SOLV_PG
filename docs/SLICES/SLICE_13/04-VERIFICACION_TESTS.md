@@ -7,7 +7,7 @@ Ubicación: `backend/tests/integration/`
 | Archivo de Prueba | Cobertura / Alcance |
 | :--- | :--- |
 | `slice13_teacher_exercise_creation_test.go` | Creación de ejercicios, bulk import CSV RFC 4180, validación de 0 casos públicos en `publish`, aislamiento cross-tenant. |
-| `slice13_teacher_dashboard_test.go` | Métricas de materias (`active_now`, `pending_review`, `at_risk`), widget de atención prioritaria por severidad, estadísticas de laboratorio. |
+| `slice13_teacher_dashboard_test.go` | Métricas de materias (`active_now`, `pending_review`, `at_risk`), estadísticas de laboratorio. |
 | `slice13_teacher_review_test.go` | Cola de entregas, vista SpeedGrader con desenmascaramiento privado, navegación temporal prev/next, validación 422 de override ($\ge 10$ chars), comentarios in-line. |
 | `slice13_teacher_runner_and_export_test.go` | Runner efímero en memoria (comprobación de no persistencia en BD) y exportación de calificaciones en CSV con UTF-8 BOM y promedios exactos. |
 

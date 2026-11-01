@@ -11,7 +11,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 004 | [Enrutamiento Dinamico Proxy Inverso Traefik](ADR-004-enrutamiento-dinamico-proxy-inverso-traefik.md) | Activo | Slice 1, Slice 4, Slice 8 |
 | 005 | [Sistema Evaluacion Juez Virtual Dual](ADR-005-sistema-evaluacion-juez-virtual-dual.md) | Activo | Slice 3 |
 | 006 | [Estrategia Aprovisionamiento Gestion Entornos](ADR-006-estrategia-aprovisionamiento-gestion-entornos.md) | Activo | Slice 4 |
-| 007 | [Estrategia Sincronizacion Control Sesiones](ADR-007-estrategia-sincronizacion-control-sesiones.md) | Activo | Slice 5 |
+| 007 | [Estrategia Sincronizacion Control Sesiones](ADR-007-estrategia-sincronizacion-control-sesiones.md) | Reemplazado por 058 | Slice 5 |
 | 008 | [Estrategia Asignacion Limitacion Recursos](ADR-008-estrategia-asignacion-limitacion-recursos.md) | Activo | Slice 5 |
 | 009 | [Estrategia Persistencia Motor Base Datos](ADR-009-estrategia-persistencia-motor-base-datos.md) | Activo | Slice 3, Slice 6 |
 | 010 | [Arquitectura Evaluacion Segura Aislamiento](ADR-010-arquitectura-evaluacion-segura-aislamiento.md) | Activo | Slice 3 |
@@ -61,5 +61,7 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 054 | [Catálogo de Entornos del Docente Centrado en el Stack](ADR-054-catalogo-entornos-docente.md) | Propuesto | Docencia |
 | 055 | [Panel Docente como Read Model por Pregunta y Dueño Declarado de Excepciones](ADR-055-panel-docente-read-model-por-pregunta.md) | Aprobado | Docencia |
 | 056 | [Sesión de Aula como Envoltorio Opcional y Presencia Acotada](ADR-056-sesion-de-aula-y-presencia-acotada.md) | Aprobado | Docencia |
+| 057 | [Hoy como Canvas de Materias y Columna de Pendientes](ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md) | Aprobado | Docencia |
+| 058 | [Avance Voluntario del Docente en el Aula](ADR-058-avance-voluntario-del-docente-en-aula.md) | Aprobado | Docencia |
 
 

@@ -46,7 +46,19 @@ SANDBOX_TIME_LIMIT_MS=3000
 
 # Proxy & ForwardAuth (Traefik)
 ALLOWED_ORIGINS=https://solv.uab.edu.bo
+
+# Almacenamiento de snapshots de avances (SeaweedFS, ADR-058)
+# Sin estas cuatro primeras, emitir y aplicar avances responde 503.
+SEAWEEDFS_ENDPOINT=http://127.0.0.1:8333
+SEAWEEDFS_BUCKET=solv-advances
+SEAWEEDFS_ACCESS_KEY=cambiar_en_.env
+SEAWEEDFS_SECRET_KEY=cambiar_en_.env
+ADVANCE_SNAPSHOT_MAX_BYTES=4194304
+ADVANCE_SNAPSHOT_MAX_FILES=512
+ADVANCE_SNAPSHOT_EXCLUDES=.vscode/,.solv_*,.git/,node_modules/
 ```
+
+Las credenciales son las mismas que usa el servicio `seaweedfs` de `compose.yml`. El backend crea el bucket al arrancar si no existe, así que no hace falta prepararlo a mano.
 
 ---
 

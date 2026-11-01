@@ -50,8 +50,9 @@ graph TD
 │   └── /admin/auditoria ................ Registro inmutable de eventos y trazabilidad
 │
 ├── /teacher (Rol: Docente)
-│   ├── /teacher/dashboard .............. Hoy: qué espera al docente, con la tabla de materias
+│   ├── /teacher/dashboard .............. Hoy: canvas de materias y columna de pendientes
 │   ├── /teacher/aula ................... Qué pasa ahora en clase: entornos abiertos y telemetría
+│   ├── /teacher/entorno ................ Entorno de clase del docente: abrirlo, escribir y pausar
 │   ├── /teacher/por-calificar .......... Cola de corrección agrupada por práctica
 │   ├── /teacher/cursos/:id ............. Materia: prácticas, entregas, alumnos y libreta
 │   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
@@ -119,18 +120,20 @@ graph TD
 ## 4. Rol Docente: Fichas Técnicas de Pantallas
 
 ### 4.1. Hoy (`/teacher/dashboard`)
-* **Propósito:** Responder una sola pregunta: qué espera al docente hoy. Especificación completa en [DOCENTE/REDISENO_PANEL_DOCENTE.md](DOCENTE/REDISENO_PANEL_DOCENTE.md).
+* **Propósito:** Responder una sola pregunta: qué espera al docente hoy. Especificación completa en [DOCENTE/REDISENO_PANEL_DOCENTE.md](DOCENTE/REDISENO_PANEL_DOCENTE.md) y decisión de composición en [ADR-057](../ARQUITECTURA/ADR/ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md). Pantalla construida el 2026-10-30 sobre el resumen del servidor: canvas de materias y columna de pendientes.
 * **Información que muestra:**
-  * Una línea de cabecera con la fecha y el período académico.
-  * Filas de trabajo que se ocultan sin contenido: la práctica por vencer (o el aula abierta), la cola de corrección y los entornos abiertos.
-  * Tabla de materias con inscritos, entornos abiertos ahora, entregas por calificar y alumnos sin entregar.
-* **Contratos:** `GET /api/v1/teacher/overview?period_id=`, refrescado cada 60 segundos. Todas las cifras las calcula el servidor.
+  * Cabecera con la fecha, el selector de período y `[Abrir aula]`.
+  * Franja de sesión, solo con aula abierta: materia, hora de inicio y fin, práctica y presentes sobre inscritos.
+  * Canvas de materias: una tarjeta por materia con código, nombre, inscritos, entregas por calificar, alumnos sin entregar, próximo vencimiento y hasta dos acciones. Orden por código, sin reordenar ni personalizar.
+  * Columna de pendientes con tres bloques que se ocultan sin contenido: `Aula ahora`, `Vencimientos` (vencidas y próximas, con urgencia y entregas por calificar; hasta cinco, con total declarado) y `Por calificar`.
+  * Sin ejecución: ni entornos, ni contenedores, ni telemetría. Esos datos viven en Aula.
+* **Contratos:** `GET /api/v1/teacher/overview?period_id=`, refrescado cada 60 segundos. Todas las cifras y el orden los resuelve el servidor; el cliente no suma, no agrupa y no recorta.
+* **Estados:** esqueleto al cargar, período sin materias con el selector, sin pendientes con la columna retirada, error de red con reintento que conserva lo cargado.
 * **Acciones:**
-  * Clic en el nombre de la materia — Navega a `/teacher/cursos/:id`.
-  * `[Calificar]` — Navega a `/teacher/por-calificar`.
-  * `[Ver entornos]` — Navega a `/teacher/aula`.
-  * `[Abrir aula]` en la cabecera, solo cuando no hay aula abierta — Navega a `/teacher/aula` para abrir la sesión.
-  * `[Ir al aula]` en la fila de sesión — Navega a `/teacher/aula` con el tablero de la clase en curso.
+  * Tarjeta de materia — Navega a `/teacher/cursos/:id`.
+  * `[Calificar]` en la tarjeta o en el bloque de la cola — Navega a `/teacher/por-calificar` con `?subject_id=`.
+  * `[Abrir aula]` en la tarjeta o en la cabecera — Navega a `/teacher/aula` con `?subject_id=` para abrir la sesión de esa materia.
+  * `[Ir al aula]` en la tarjeta o en la franja — Navega a `/teacher/aula` con el tablero de la clase en curso.
 
 ### 4.2. Detalle de Curso (`/docente/cursos/:id`)
 * **Propósito:** Gestión interna de una materia específica mediante 3 pestañas:
@@ -152,22 +155,48 @@ graph TD
 
 ### 4.4. Aula (`/teacher/aula`)
 * **Propósito:** Responder una sola pregunta mientras ocurre la clase: quién está, quién falta y quién se trabó. Con aula abierta muestra el tablero de la sesión; sin aula muestra el formulario de apertura y, si hay entornos encendidos, su telemetría, sin lista de faltantes y sin botón de cerrar.
-* **Contratos:** `GET /api/v1/teacher/sessions/open`, `GET /api/v1/teacher/sessions/{id}/board` (refresco cada 5 segundos), `POST /api/v1/teacher/sessions` y `PATCH /api/v1/teacher/sessions/{id}/close`.
+* **Contratos:** `GET /api/v1/teacher/sessions/open`, `GET /api/v1/teacher/sessions/{id}/board` (refresco cada 5 segundos; también se lee con el aula cerrada para el examen), `POST /api/v1/teacher/sessions`, `PATCH /api/v1/teacher/sessions/{id}/close`, `/freeze`, `/unfreeze`, `/grace`, `POST /api/v1/teacher/sessions/{id}/exam-freeze`, `POST /api/v1/teacher/sessions/{id}/students/{studentID}/unfreeze`, `POST /api/v1/teacher/sessions/{id}/advances`, `GET /api/v1/teacher/sessions/{id}/advances` y `GET /api/v1/teacher/sessions/{id}/history`.
 * **Información que muestra (con aula):**
-  * Cabecera con materia, hora de apertura y de fin, práctica de la sesión, presentes sobre inscritos y `[Cerrar aula]`.
+  * Cabecera con materia, hora de apertura y de fin, práctica de la sesión, presentes sobre inscritos, `[Emitir avance]`, `[Congelar]` / `[Descongelar]` y `[Cerrar aula]`. Cuando la práctica es un examen, la cabecera lo marca y el botón pasa a `[Cerrar examen]`, con un aviso de que los entornos quedan en solo lectura (ADR-005 §5).
+  * Con la clase congelada, un aviso ámbar con la hora de congelación: no se emiten avances nuevos, el editor del alumno sigue igual y el botón de emisión queda deshabilitado.
+  * Tras emitir, una línea verde con la práctica emitida y a cuántos alumnos llegó, que se puede cerrar.
   * Marcador: "Todo en orden: N de M entregaron, 0 trabados" o los chips de trabados, sin entregar, sin empezar y salieron.
   * Tabla de alumnos con estado (trabado, sin empezar, salió, entregó, trabajando), hora y veredicto de la entrega, intentos y entorno, con filtros y búsqueda.
+  * Avances de esta clase: una fila por emisión con la práctica, la hora, los archivos y cuántos aplicaron, descartaron y quedan pendientes.
+  * Historial de esta clase: emisiones, congelaciones, cambios de ventana y decisiones de los alumnos, con nombre, rol, detalle y hora, del más nuevo al más viejo. El alumno no lo ve.
   * Telemetría acotada a los entornos de la materia de la sesión.
-* **Información que muestra (sin aula):** formulario de apertura —materia y práctica publicada opcional— y los entornos abiertos ahora de todas las materias.
+* **Información que muestra (examen cerrado):** un panel con cuántos entornos quedaron en solo lectura, el resultado del cierre (`frozen`, `skipped`, `failed`) y la lista de alumnos con entorno, cada uno con su estado y la acción de reabrir. Si algún volumen no se pudo cerrar, el panel lo dice y permite reintentar.
+* **Información que muestra (sin aula):** formulario de apertura —materia y práctica publicada opcional—, la ventana de disponibilidad del aula cerrada —hasta cuándo se pueden aplicar sus avances, con el campo libre de minutos, la fecha límite y el cierre manual—, el historial de la última clase cerrada mientras la pestaña siga abierta y los entornos abiertos ahora de todas las materias.
 * **Acciones:**
+  * `[Emitir avance]` — Abre el modal de emisión: práctica publicada de la materia (la del aula, ya elegida) y alcance: toda la clase o alumnos elegidos entre quienes pasaron por el aula. Emitir guarda el código del entorno de clase como snapshot; el alumno recibe esa versión aunque el docente siga editando.
+  * `[Congelar]` / `[Descongelar]` — Corta o restablece las emisiones nuevas sin tocar el trabajo del alumno. Congelar dos veces conserva la hora de la primera.
+  * Ventana de disponibilidad — Al cerrar el aula quedan 30 minutos automáticos. Con el aula cerrada, el bloque ofrece `[Sumar]` sobre un campo libre de 1 a 480 minutos, `[Fijar]` una fecha límite para una tarea y `[Cerrar ventana ahora]`. Se rige por [ADR-058 §4](../ARQUITECTURA/ADR/ADR-058-avance-voluntario-del-docente-en-aula.md).
   * `[Abrir aula]` — Abre la sesión de una materia con una duración (por defecto 1 h 30); una segunda aula abierta en la misma materia responde conflicto.
   * `[Cerrar aula]` — Cierra la sesión; es idempotente y corta la presencia de esa clase.
+  * `[Cerrar examen]` — El mismo cierre cuando la práctica es un examen: además deja el volumen de cada alumno en solo lectura y devuelve el conteo. Un fallo parcial se puede reintentar con `[Reintentar congelamiento]` sin reabrir la clase.
+  * `[Reabrir]` — Excepción individual sobre un alumno del examen cerrado. Pide un motivo obligatorio, lo deja en el historial y devuelve la escritura solo a ese volumen.
   * Cierre por vencimiento — al llegar a `ends_at` el aula se cierra sola en la siguiente lectura o apertura, sin proceso periódico. La pantalla deja el modo en vivo y avisa a qué hora se cerró; la materia queda libre para abrir otra aula.
+  * `[Ver detalle]` — Abre el estado de una emisión: cada alumno con su estado (aplicó, descartó, pendiente, venció, falló) y la hora en que decidió. La lista se refresca al emitir y con `[Actualizar]`, no en el bucle de 5 segundos.
+  * Historial de esta clase — Lo que pasó en el aula, con el actor y la hora. Se refresca al abrir la clase, al emitir, al congelar o descongelar, al ajustar la ventana y con `[Actualizar]`; las decisiones de los alumnos aparecen al pedir la actualización. Solo lo ve el docente o el administrador.
   * `[Consola]` — Abre la terminal de sombra del entorno del alumno, con la sesión auditada.
 * **Presencia:** la emite el cliente del alumno cada minuto sobre el aula abierta de sus materias (`GET /api/v1/student/sessions/active`, `POST /api/v1/student/sessions/{id}/heartbeat`). Una señal de más de 120 segundos no cuenta.
 * **Fuera de alcance:** reiniciar contenedores y ajustar recursos son acciones del administrador; el docente no opera infraestructura. El modo proyección, la agrupación de excepciones por causa y la actualización por SSE están especificados y pendientes.
 
-### 4.5. Juez Virtual — Auditoría y Calificación (`/docente/juez`)
+### 4.5. Entorno de Clase (`/teacher/entorno`)
+* **Propósito:** Abrir el entorno del docente en una materia y usarlo para preparar el avance que después se muestra en el aula. Es el mismo volumen del que sale el código emitido (ADR-058 §5): sin entorno abierto, la emisión responde `409`.
+* **Contratos:** `GET /api/v1/workspaces?subject_id=` (lectura previa, devuelve `null` sin entorno) y, al abrir o reanudar, `POST /api/v1/workspaces/start` con la materia. `POST /api/v1/workspaces/{id}/pause` lo deja en pausa sin perder el volumen.
+* **Información que muestra:**
+  * Cabecera con la materia elegida y una línea que explica el vínculo con el avance del aula.
+  * Estado del entorno (`running`, `pending`, `hibernated`, `failed`) con su RAM asignada.
+  * El editor de OpenVSCode embebido mientras el entorno corre.
+* **Acciones:**
+  * `[Abrir entorno]` / `[Reanudar entorno]` — Levanta o reactiva el entorno de la materia. Es idempotente: dos clics no crean dos contenedores.
+  * `[Abrir en pestaña nueva]` — Abre el editor fuera del marco, para pantallas chicas.
+  * `[Pausar]` — Deja el entorno en `hibernated`; el código queda guardado.
+* **Estados sin editor:** sin materia elegida pide una; con el entorno en pausa ofrece reanudarlo; con el entorno detenido aclara que el volumen se conserva; mientras prepara, avisa que puede tardar unos segundos.
+* **Fuera de alcance:** emitir el avance, congelar la clase y extender la ventana viven en el aula. Los reinicios y los recursos son acciones del administrador.
+
+### 4.6. Juez Virtual — Auditoría y Calificación (`/docente/juez`)
 * **Propósito:** Banco de ejercicios algorítmicos y revisión manual de código entregado.
 * **Información que muestra:**
   * Banco de Problemas del profesor clasificados por dificultad y etiquetas.
@@ -201,6 +230,9 @@ graph TD
     * Indicador de tiempo restante de la sesión.
     * Botón `[Extender Tiempo]` (añade tiempo si las políticas del laboratorio lo permiten).
     * Botón `[Guardar y Salir]` (hiberna el contenedor de forma segura y regresa al dashboard).
+  * **Franja de avance del docente:** una por aviso pendiente, sobre el editor. Dice que el docente emitió un avance, cuántos archivos trae y que puede tardar hasta un minuto en aparecer (la consulta es cada minuto, ADR-058 §8). Con `[Ver archivos]` y `[Descartar]`.
+  * **Confirmación del avance:** modal con dos listas, los archivos que se reemplazan —en ámbar, con el aviso de que la versión actual queda respaldada— y los que se agregan, y `[Aplicar avance]`. Después informa cuántos archivos se escribieron y dónde quedó la copia anterior.
+  * **Aviso de examen cerrado:** con el estado `frozen`, el área del editor se reemplaza por el motivo y la hora del cierre, sin `[Iniciar entorno]` ni enlace al editor (ADR-005 §5).
   * **Área Central Completa:**
     * Iframe seguro comunicándose mediante `window.postMessage` para sincronización de estado, sin exponer identificadores de contenedor, puertos ni consumo interno.
 
@@ -228,6 +260,7 @@ graph TD
 | `running` | Verde éxito | Contenedor o servicio funcionando con normalidad |
 | `pending` | Amarillo advertencia | Contenedor levantando, comprobación en cola o invitación enviada |
 | `hibernated` | Gris neutro | Contenedor pausado en disco para preservar recursos |
+| `frozen` | Gris neutro | Examen cerrado: el volumen quedó en solo lectura y el trabajo se conserva |
 | `failed` / `oom_killed` | Rojo error | Proceso finalizado por error o falta de memoria |
 | `AC` | Verde éxito | Solución aprobada en todos los casos |
 | `WA` | Rojo error | La salida generada no coincide con la esperada |

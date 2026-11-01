@@ -1,4 +1,4 @@
-**Estado:** Aprobado
+**Estado:** Reemplazado por ADR-058 (avance voluntario del docente en el aula). La sobrescritura forzada de volúmenes queda descartada.
 
 **1. Contexto y Origen de la Necesidad** El sistema SOLV debe resolver el problema de que los estudiantes se queden rezagados copiando código, equilibrando esta flexibilidad con el aislamiento de los contenedores.
 
