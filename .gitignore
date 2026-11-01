@@ -26,3 +26,6 @@ frontend/e2e/test-results/
 frontend/playwright-report/
 frontend/test-results//backup/
 /backup/
+
+# Respaldos locales de base de datos y volúmenes (datos sensibles)
+/.solv_backups/

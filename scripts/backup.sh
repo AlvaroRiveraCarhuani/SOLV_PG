@@ -9,6 +9,7 @@ DB_HOST="${DB_HOST:-127.0.0.1}"
 DB_PORT="${DB_PORT:-5432}"
 FILES_DIR="${FILES_DIR:-/var/lib/solv/files}"
 CONTAINER_NAME="${CONTAINER_NAME:-solv_db}"
+SEAWEED_VOLUME="${SEAWEED_VOLUME:-solv_pg_seaweed_data}"
 
 mkdir -p "$BACKUP_DIR" 2>/dev/null || true
 
@@ -22,6 +23,10 @@ else
   docker exec "$CONTAINER_NAME" pg_dump -U "$DB_USER" -d "$DB_NAME" -Fc > "$BACKUP_DIR/solv_db_$DATE.dump"
 fi
 
+echo "Iniciando backup del volumen SeaweedFS $SEAWEED_VOLUME..."
+docker run --rm -v "$SEAWEED_VOLUME:/data:ro" -v "$BACKUP_DIR:/backup" --entrypoint /bin/sh chrislusf/seaweedfs:4.51 \
+  -c "tar -czf /backup/seaweed_data_$DATE.tar.gz -C /data ."
+
 if [ -d "$FILES_DIR" ]; then
   echo "Iniciando backup de archivos adjuntos desde $FILES_DIR..."
   tar -czf "$BACKUP_DIR/solv_files_$DATE.tar.gz" -C "$(dirname "$FILES_DIR")" "$(basename "$FILES_DIR")"
@@ -30,6 +35,7 @@ fi
 echo "Rotando backups antiguos (manteniendo ultimos 7 dias)..."
 find "$BACKUP_DIR" -name "solv_db_*.dump" -mtime +7 -delete 2>/dev/null || true
 find "$BACKUP_DIR" -name "solv_files_*.tar.gz" -mtime +7 -delete 2>/dev/null || true
+find "$BACKUP_DIR" -name "seaweed_data_*.tar.gz" -mtime +7 -delete 2>/dev/null || true
 
 if [ -n "${S3_BUCKET:-}" ]; then
   echo "Subiendo backup a s3://$S3_BUCKET/backups/..."
