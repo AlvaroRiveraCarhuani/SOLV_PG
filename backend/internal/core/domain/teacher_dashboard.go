@@ -42,6 +42,7 @@ type TeacherLabStats struct {
 	ID               string         `json:"id" db:"id"`
 	Title            string         `json:"title" db:"title"`
 	Status           string         `json:"status" db:"status"`
+	EnvironmentType  string         `json:"environment_type" db:"environment_type"`
 	DueDate          *time.Time     `json:"due_date,omitempty" db:"due_date"`
 	SubmissionsCount int            `json:"submissions_count" db:"submissions_count"`
 	StudentsCount    int            `json:"students_count" db:"students_count"`

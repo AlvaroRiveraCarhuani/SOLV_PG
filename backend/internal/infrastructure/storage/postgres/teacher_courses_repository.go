@@ -256,14 +256,15 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 
 	// Listar ejercicios del curso
 	type exRow struct {
-		ID      string       `db:"id"`
-		Title   string       `db:"title"`
-		Status  string       `db:"status"`
-		DueDate sql.NullTime `db:"due_date"`
+		ID              string       `db:"id"`
+		Title           string       `db:"title"`
+		Status          string       `db:"status"`
+		EnvironmentType string       `db:"environment_type"`
+		DueDate         sql.NullTime `db:"due_date"`
 	}
 	var exRows []exRow
 	exercisesQuery := `
-		SELECT id, title, COALESCE(status, 'draft') AS status, due_date
+		SELECT id, title, COALESCE(status, 'draft') AS status, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type, due_date
 		FROM exercises
 		WHERE subject_id = $1 AND tenant_id = $2
 		ORDER BY created_at ASC
@@ -275,10 +276,11 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 	result := make([]*domain.TeacherLabStats, 0, len(exRows))
 	for _, ex := range exRows {
 		stat := &domain.TeacherLabStats{
-			ID:            ex.ID,
-			Title:         ex.Title,
-			Status:        ex.Status,
-			StudentsCount: totalStudents,
+			ID:              ex.ID,
+			Title:           ex.Title,
+			Status:          ex.Status,
+			EnvironmentType: ex.EnvironmentType,
+			StudentsCount:   totalStudents,
 			VerdictsSummary: map[string]int{
 				"AC":          0,
 				"WA":          0,

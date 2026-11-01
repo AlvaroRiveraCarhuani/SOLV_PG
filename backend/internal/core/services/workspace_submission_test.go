@@ -300,3 +300,20 @@ func TestSubmitWorkspaceProject_RejectsForeignWorkspace(t *testing.T) {
 		t.Fatalf("esperado ErrWorkspaceForbidden, obtenido: %v", err)
 	}
 }
+
+// Un entorno ausente no es un fallo interno: el servicio devuelve ErrNotFound
+// (404 en el transporte) y no persiste ninguna entrega.
+func TestSubmitWorkspaceProject_UnknownWorkspaceIsNotFound(t *testing.T) {
+	wsRepo := newMockWorkspaceRepo()
+	subRepo := &fakeSubmissionRepo{}
+	svc := services.NewWorkspaceService(wsRepo, &fakeVolumeOrchestrator{mockOrchestrator: &mockOrchestrator{}}, &mockHostMonitor{}).
+		WithExerciseSubmission(nil, subRepo)
+
+	_, err := svc.SubmitWorkspaceProject(context.Background(), "99999999-9999-4999-8999-999999999999", "student-1", testExerciseID, nil)
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("esperado domain.ErrNotFound, obtenido: %v", err)
+	}
+	if subRepo.created != nil {
+		t.Error("un entorno inexistente no debe generar una entrega")
+	}
+}

@@ -101,6 +101,75 @@ func (h *WorkspaceHandler) StartWorkspace(w http.ResponseWriter, r *http.Request
 	SendJSON(w, http.StatusOK, instance, "Entorno de desarrollo interactivo iniciado exitosamente")
 }
 
+// OpenPracticeIDE abre (o reutiliza) el IDE propio del docente para una práctica
+// concreta y devuelve la URL para abrirlo en una pestaña nueva. El contenedor
+// arranca con el volumen y la plantilla de esa práctica: el repositorio de una
+// práctica no se mezcla con el de otra de la misma materia.
+// POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide
+func (h *WorkspaceHandler) OpenPracticeIDE(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		SendError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Método no permitido")
+		return
+	}
+
+	role := strings.TrimSpace(domain.GetUserRole(r.Context()))
+	if role == "" {
+		role = strings.TrimSpace(r.Header.Get("X-User-Role"))
+	}
+	if role != "teacher" && role != "admin" {
+		SendError(w, http.StatusForbidden, "forbidden", "Solo docentes y administradores pueden abrir el IDE de una práctica")
+		return
+	}
+
+	exerciseID := strings.TrimSpace(r.PathValue("exerciseId"))
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "missing_exercise", "Identificador de práctica requerido")
+		return
+	}
+
+	teacherID := resolveRequestStudentID(r)
+	if teacherID == "" {
+		SendError(w, http.StatusUnauthorized, "missing_identity", "No se pudo resolver la identidad del docente desde la sesión")
+		return
+	}
+
+	instance, err := h.service.StartTeacherPracticeWorkspace(r.Context(), teacherID, "", exerciseID, role)
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrPracticeTestForbidden):
+			SendError(w, http.StatusForbidden, "forbidden", "La práctica pertenece a la materia de otro docente")
+		case errors.Is(err, services.ErrPracticeIDENotProject):
+			SendError(w, http.StatusBadRequest, "not_project_practice", err.Error())
+		case errors.Is(err, domain.ErrWorkspaceFrozen):
+			SendError(w, http.StatusConflict, "workspace_frozen", "El entorno de esa práctica quedó en solo lectura")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, "practice_not_found", "La práctica o su materia no existen")
+		case errors.Is(err, services.ErrHostMemoryExhausted):
+			SendError(w, http.StatusServiceUnavailable, "host_memory_exhausted", "Servidor saturado: la memoria del host no alcanza para abrir el entorno")
+		case errors.Is(err, services.ErrMaxContainersReached):
+			SendError(w, http.StatusServiceUnavailable, "max_containers_reached", "Cupo institucional lleno: se alcanzó el máximo de entornos concurrentes")
+		default:
+			SendError(w, http.StatusInternalServerError, "workspace_start_failed", "No se pudo abrir el IDE de la práctica")
+		}
+		return
+	}
+
+	if strings.TrimSpace(instance.AccessURL) == "" {
+		SendError(w, http.StatusServiceUnavailable, "workspace_url_unavailable", "El entorno arrancó pero todavía no tiene una URL de acceso")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, map[string]any{
+		"workspace_id": instance.ID,
+		"exercise_id":  instance.ExerciseID,
+		"subject_id":   instance.SubjectID,
+		"template_id":  instance.TemplateID,
+		"status":       instance.Status,
+		"access_url":   instance.AccessURL,
+		"volume_name":  instance.VolumeName(),
+	}, "IDE de la práctica listo")
+}
+
 // GetWorkspaceForSubject devuelve el entorno del usuario autenticado en una
 // materia, o nulo si todavía no abrió ninguno. La pantalla la usa antes de
 // ofrecer abrir: cargar la vista no debe levantar un contenedor que nadie pidió.
@@ -116,8 +185,10 @@ func (h *WorkspaceHandler) GetWorkspaceForSubject(w http.ResponseWriter, r *http
 		switch {
 		case errors.Is(err, services.ErrWorkspaceSubjectRequired):
 			SendError(w, http.StatusBadRequest, err.Error(), "Se requiere el subject_id para consultar el entorno")
-		case errors.Is(err, domain.ErrNotFound):
+		case errors.Is(err, domain.ErrInvalidResourceID):
 			SendError(w, http.StatusBadRequest, err.Error(), "La materia indicada no es un identificador válido")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, err.Error(), "La materia indicada no existe en esta institución")
 		default:
 			SendError(w, http.StatusInternalServerError, err.Error(), "Error al consultar el entorno de la materia")
 		}
@@ -139,6 +210,10 @@ func (h *WorkspaceHandler) TerminateWorkspace(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := h.service.TerminateWorkspace(r.Context(), workspaceID); err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "workspace_not_found", "El laboratorio no existe o ya fue eliminado")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudo finalizar el workspace")
 		return
 	}
@@ -155,6 +230,10 @@ func (h *WorkspaceHandler) GetSemgrepAudit(w http.ResponseWriter, r *http.Reques
 
 	ws, err := h.service.GetSemgrepAudit(r.Context(), workspaceID)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "workspace_not_found", "El laboratorio no existe o ya fue eliminado")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener auditoría AST")
 		return
 	}
@@ -202,6 +281,10 @@ func (h *WorkspaceHandler) RestartWorkspace(w http.ResponseWriter, r *http.Reque
 			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
 			return
 		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "workspace_not_found", "El laboratorio no existe o ya fue eliminado")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al reiniciar el entorno")
 		return
 	}
@@ -231,6 +314,10 @@ func (h *WorkspaceHandler) PauseWorkspace(w http.ResponseWriter, r *http.Request
 
 	instance, err := h.service.PauseWorkspace(r.Context(), workspaceID)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "workspace_not_found", "El laboratorio no existe o ya fue eliminado")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al pausar el workspace")
 		return
 	}
@@ -275,6 +362,8 @@ func (h *WorkspaceHandler) SubmitWorkspaceProject(w http.ResponseWriter, r *http
 			SendError(w, http.StatusForbidden, err.Error(), "No tiene permisos para entregar este workspace")
 		case errors.Is(err, services.ErrInvalidExerciseID):
 			SendError(w, http.StatusBadRequest, err.Error(), "El exercise_id no es un UUID válido")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, err.Error(), "El entorno que intentas entregar no existe")
 		case errors.Is(err, domain.ErrWorkspaceFrozen):
 			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
 		case errors.Is(err, services.ErrSubmissionNotConfigured), errors.Is(err, services.ErrWorkspaceVolumeUnavailable):

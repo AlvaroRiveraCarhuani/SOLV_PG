@@ -56,7 +56,9 @@ type fakeExamWorkspaces struct {
 func (f *fakeExamWorkspaces) GetByID(_ context.Context, id string) (*domain.WorkspaceInstance, error) {
 	instance, ok := f.byID[id]
 	if !ok {
-		return nil, errors.New("workspace not found")
+		// Igual que el repositorio: una fila que no existe se informa como
+		// dominio, no como un fallo de lectura.
+		return nil, domain.ErrNotFound
 	}
 	return instance, nil
 }
@@ -161,6 +163,27 @@ func TestFreezeSession_RejectsClassSession(t *testing.T) {
 	}
 	if len(mounts.calls) != 0 {
 		t.Fatal("una clase no debía congelar volúmenes")
+	}
+}
+
+// Un participante cuyo laboratorio ya no existe no es un fallo del cierre: no
+// hay volumen que congelar y el barrido no tiene que reintentarlo.
+func TestFreezeSession_SkipsWorkspaceThatNoLongerExists(t *testing.T) {
+	service, store, mounts, _ := newExamFreezeFixture(t)
+	delete(service.workspaces.(*fakeExamWorkspaces).byID, "ws-b")
+
+	report, err := service.FreezeSession(context.Background(), "tenant-1", "teacher-1", "teacher", "11111111-1111-1111-1111-111111111111")
+	if err != nil {
+		t.Fatalf("FreezeSession falló: %v", err)
+	}
+	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
+		t.Fatalf("conteo inesperado: %+v", report)
+	}
+	if len(mounts.calls) != 1 || mounts.calls[0].workspaceID != "ws-a" {
+		t.Fatalf("solo el laboratorio existente debía montarse: %+v", mounts.calls)
+	}
+	if len(store.frozenMarks) != 1 || !store.frozenMarks["ws-a"] {
+		t.Fatalf("solo el laboratorio existente debía marcarse: %v", store.frozenMarks)
 	}
 }
 

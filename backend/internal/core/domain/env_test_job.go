@@ -30,6 +30,8 @@ const (
 	EnvTestErrRegistryUnreach = "registry_unreachable"
 	EnvTestErrTestOOM         = "test_oom"
 	EnvTestErrTestCrash       = "test_crash"
+	EnvTestErrSetupFailed     = "setup_failed"
+	EnvTestErrSatelliteFailed = "satellite_failed"
 	EnvTestErrToolMissing     = "tool_missing"
 	EnvTestErrInternal        = "internal"
 )
@@ -79,9 +81,14 @@ type EnvTestResult struct {
 	DurationMs int64        `json:"duration_ms"`
 }
 
+// ErrEnvTestJobNotFound indica que no existe un job con el identificador pedido.
+var ErrEnvTestJobNotFound = errors.New("job de prueba de entorno no encontrado")
+
 // EnvTestJob entidad raíz del job de verificación asíncrona de entorno.
 type EnvTestJob struct {
 	ID                      string                    `json:"id"`
+	ExerciseID              string                    `json:"exercise_id,omitempty"`
+	SubjectID               string                    `json:"subject_id,omitempty"`
 	Image                   string                    `json:"image"`
 	Tools                   []string                  `json:"tools"`
 	TargetEnvironment       string                    `json:"target_environment,omitempty"` // "IDE_PERSISTENTE" | "JUEZ_EFIMERO"

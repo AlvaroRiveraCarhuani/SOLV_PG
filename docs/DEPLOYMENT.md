@@ -55,7 +55,7 @@ SEAWEEDFS_ACCESS_KEY=cambiar_en_.env
 SEAWEEDFS_SECRET_KEY=cambiar_en_.env
 ADVANCE_SNAPSHOT_MAX_BYTES=4194304
 ADVANCE_SNAPSHOT_MAX_FILES=512
-ADVANCE_SNAPSHOT_EXCLUDES=.vscode/,.solv_*,.git/,node_modules/
+ADVANCE_SNAPSHOT_EXCLUDES=.vscode/,.solv_*,.git/,node_modules/,.cache/,.openvscode-server/
 ADVANCE_APPLY_CONCURRENCY=4
 ```
 

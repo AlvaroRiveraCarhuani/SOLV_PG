@@ -2,7 +2,6 @@ package memory
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
@@ -10,7 +9,7 @@ import (
 )
 
 var (
-	ErrJobNotFound = errors.New("job de prueba de entorno no encontrado")
+	ErrJobNotFound = domain.ErrEnvTestJobNotFound
 )
 
 // EnvTestJobMemoryRepository implementa domain.EnvTestJobRepository en memoria
@@ -83,6 +82,26 @@ func (r *EnvTestJobMemoryRepository) GetByID(ctx context.Context, id string) (*d
 	return cloneJob(job), nil
 }
 
+// GetLatestByExercise devuelve el job más reciente asociado a una práctica.
+func (r *EnvTestJobMemoryRepository) GetLatestByExercise(ctx context.Context, exerciseID string) (*domain.EnvTestJob, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	var latest *domain.EnvTestJob
+	for _, job := range r.jobs {
+		if job.ExerciseID != exerciseID {
+			continue
+		}
+		if latest == nil || job.CreatedAt.After(latest.CreatedAt) {
+			latest = job
+		}
+	}
+	if latest == nil {
+		return nil, ErrJobNotFound
+	}
+	return cloneJob(latest), nil
+}
+
 func (r *EnvTestJobMemoryRepository) UpdateProgress(ctx context.Context, id string, progress domain.EnvTestProgress) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -97,6 +116,25 @@ func (r *EnvTestJobMemoryRepository) UpdateProgress(ctx context.Context, id stri
 
 	job.Progress = progress
 	job.Status = domain.EnvTestStatusPulling
+	job.UpdatedAt = time.Now()
+	return nil
+}
+
+// MarkTesting deja el job en la fase de ejecución del setup del workspace.
+func (r *EnvTestJobMemoryRepository) MarkTesting(ctx context.Context, id string, progress domain.EnvTestProgress) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	job, exists := r.jobs[id]
+	if !exists {
+		return ErrJobNotFound
+	}
+	if job.IsTerminal() {
+		return nil
+	}
+
+	job.Progress = progress
+	job.Status = domain.EnvTestStatusTesting
 	job.UpdatedAt = time.Now()
 	return nil
 }

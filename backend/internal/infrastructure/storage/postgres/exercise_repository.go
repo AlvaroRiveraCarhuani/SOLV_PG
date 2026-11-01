@@ -28,7 +28,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 	var args []interface{}
 	if tenantID != "" {
 		query = `
-			SELECT id, subject_id, title, description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+			SELECT id, subject_id, title, COALESCE(description, '') AS description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
 			       template_id, difficulty, 
 			       COALESCE(tags, '{}') AS tags,
 			       COALESCE(purpose, 'class') AS purpose,
@@ -49,7 +49,7 @@ func (r *PostgresExerciseRepository) GetByIDAndTenant(ctx context.Context, id, t
 		args = []interface{}{id, tenantID}
 	} else {
 		query = `
-			SELECT id, subject_id, title, description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
+			SELECT id, subject_id, title, COALESCE(description, '') AS description, type, COALESCE(environment_type, 'JUEZ_EFIMERO') AS environment_type,
 			       template_id, difficulty, 
 			       COALESCE(tags, '{}') AS tags,
 			       COALESCE(purpose, 'class') AS purpose,

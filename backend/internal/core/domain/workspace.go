@@ -3,6 +3,8 @@ package domain
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -53,11 +55,35 @@ type WorkspaceInstance struct {
 	SemgrepAudit    []byte     `db:"semgrep_audit" json:"semgrep_audit,omitempty"`
 	TenantID        string     `db:"tenant_id" json:"tenant_id"`
 	TemplateID      *string    `db:"template_id" json:"template_id,omitempty"`
+	// ExerciseID acota el entorno a una práctica concreta, con su propio
+	// volumen. Es nulo en el entorno por materia: docentes y alumnos tienen un
+	// entorno por cada práctica que abren, no uno compartido por materia.
+	ExerciseID *string `db:"exercise_id" json:"exercise_id,omitempty"`
 	// FrozenAt es la hora en que el examen se cerró y el volumen pasó a solo
 	// lectura. Nulo mientras el alumno puede editar.
 	FrozenAt  *time.Time `db:"frozen_at" json:"frozen_at,omitempty"`
 	CreatedAt time.Time  `db:"created_at" json:"created_at"`
 	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
+}
+
+// WorkspaceVolumeName arma el volumen nombrado de un entorno. El entorno por
+// práctica usa un volumen propio para no mezclar el código de dos prácticas de
+// la misma materia; el entorno por materia conserva el nombre histórico.
+func WorkspaceVolumeName(studentID, subjectID string, exerciseID *string) string {
+	if exerciseID != nil {
+		if trimmed := strings.TrimSpace(*exerciseID); trimmed != "" {
+			return fmt.Sprintf("solv_workspace_%s_%s_%s", studentID, subjectID, trimmed)
+		}
+	}
+	return fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
+}
+
+// VolumeName devuelve el volumen del entorno según su alcance.
+func (w *WorkspaceInstance) VolumeName() string {
+	if w == nil {
+		return ""
+	}
+	return WorkspaceVolumeName(w.StudentID, w.SubjectID, w.ExerciseID)
 }
 
 var (

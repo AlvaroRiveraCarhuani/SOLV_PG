@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"solv-backend/internal/core/domain"
+	"strings"
 	"time"
 )
 
@@ -93,6 +94,12 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 }
 
 func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*domain.TeacherSubmissionReviewDTO, error) {
+	// Un id mal formado no puede corresponder a ninguna entrega: es validación
+	// y responde 400, no un fallo interno del servidor.
+	if _, err := uuid.Parse(strings.TrimSpace(submissionID)); err != nil {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, submissionID)
+	}
+
 	type subDetailRow struct {
 		ID                 string         `db:"id"`
 		ExerciseID         string         `db:"exercise_id"`

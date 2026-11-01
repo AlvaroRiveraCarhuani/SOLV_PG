@@ -27,12 +27,26 @@ func (m *mockWorkspaceRepo) GetByStudentAndSubject(ctx context.Context, studentI
 	return m.workspaces[key], nil
 }
 
+// GetByStudentSubjectExercise busca el entorno de una práctica concreta. El
+// entorno por materia se guarda bajo otra clave, así que nunca devuelve el de
+// la materia cuando existe el de la práctica.
+func (m *mockWorkspaceRepo) GetByStudentSubjectExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error) {
+	ws, ok := m.workspaces[studentID+":"+subjectID+":"+exerciseID]
+	if !ok {
+		return nil, errors.New("workspace not found")
+	}
+	return ws, nil
+}
+
 func (m *mockWorkspaceRepo) GetByID(ctx context.Context, id string) (*domain.WorkspaceInstance, error) {
 	return m.workspaces[id], nil
 }
 
 func (m *mockWorkspaceRepo) Create(ctx context.Context, ws *domain.WorkspaceInstance) error {
 	key := ws.StudentID + ":" + ws.SubjectID
+	if ws.ExerciseID != nil {
+		key += ":" + *ws.ExerciseID
+	}
 	m.workspaces[key] = ws
 	m.workspaces[ws.ID] = ws
 	return nil
@@ -531,5 +545,132 @@ func TestWorkspaceService_StartWorkspace_RamExceedsHost(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "excede la capacidad estructural del host") {
 		t.Errorf("mensaje de error esperado con explicación clara, obtenido: %v", err)
+	}
+}
+
+// TestStartWorkspaceForExercise_SeparaLaPracticaDelEntornoDeMateria fija el
+// cambio: abrir una práctica con ejercicio acotado crea su propio entorno y su
+// propio volumen, en vez de devolver el de la materia. Sin ejercicio se conserva
+// el entorno por materia de los laboratorios anteriores.
+func TestStartWorkspaceForExercise_SeparaLaPracticaDelEntornoDeMateria(t *testing.T) {
+	ctx := context.Background()
+	wsRepo := newMockWorkspaceRepo()
+	orch := &mockOrchestrator{}
+	subjectID := "subj-310"
+	exerciseID := "ex-0022"
+	secondExerciseID := "ex-0023"
+
+	subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{
+		subjectID: {ID: subjectID, Name: "Bases de Datos"},
+	}}
+	tplRepo := &mockTemplateRepo{templates: map[string]*domain.Template{}}
+	exRepo := &mockExerciseRepo{exercises: map[string]*domain.Exercise{
+		exerciseID:       {ID: exerciseID, Title: "Práctica 2: Índices y planes", SubjectID: stringPtr(subjectID)},
+		secondExerciseID: {ID: secondExerciseID, Title: "Práctica 3: Transacciones", SubjectID: stringPtr(subjectID)},
+	}}
+
+	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
+		WithProvisioning(subjRepo, tplRepo).
+		WithExerciseSubmission(exRepo, &fakeSubmissionRepo{})
+
+	subjectWorkspace, err := svc.StartWorkspace(ctx, "std-1", subjectID)
+	if err != nil {
+		t.Fatalf("error inesperado al abrir el entorno de la materia: %v", err)
+	}
+	if subjectWorkspace.ExerciseID != nil {
+		t.Fatalf("el entorno por materia no debe tener ejercicio, got %v", *subjectWorkspace.ExerciseID)
+	}
+	subjectVolume := orch.lastConfig.VolumeName
+
+	practiceWorkspace, err := svc.StartWorkspaceForExercise(ctx, "std-1", subjectID, exerciseID)
+	if err != nil {
+		t.Fatalf("error inesperado al abrir la práctica: %v", err)
+	}
+	if practiceWorkspace.ID == subjectWorkspace.ID {
+		t.Fatalf("la práctica reutilizó el entorno de la materia (%s)", subjectWorkspace.ID)
+	}
+	if practiceWorkspace.ExerciseID == nil || *practiceWorkspace.ExerciseID != exerciseID {
+		t.Fatalf("esperado entorno acotado a la práctica %s, got %v", exerciseID, practiceWorkspace.ExerciseID)
+	}
+	if orch.lastConfig.VolumeName == subjectVolume {
+		t.Fatalf("la práctica reutilizó el volumen de la materia (%s)", subjectVolume)
+	}
+
+	// Volver a abrir la misma práctica devuelve el mismo entorno, no uno nuevo.
+	again, err := svc.StartWorkspaceForExercise(ctx, "std-1", subjectID, exerciseID)
+	if err != nil {
+		t.Fatalf("error inesperado al reabrir la práctica: %v", err)
+	}
+	if again.ID != practiceWorkspace.ID {
+		t.Fatalf("esperado el mismo entorno de práctica (%s), got %s", practiceWorkspace.ID, again.ID)
+	}
+
+	// Otra práctica de la misma materia tampoco comparte entorno ni volumen.
+	secondPractice, err := svc.StartWorkspaceForExercise(ctx, "std-1", subjectID, secondExerciseID)
+	if err != nil {
+		t.Fatalf("error inesperado al abrir la segunda práctica: %v", err)
+	}
+	if secondPractice.ID == practiceWorkspace.ID {
+		t.Fatalf("la segunda práctica reutilizó el entorno de la primera (%s)", practiceWorkspace.ID)
+	}
+	if secondPractice.ExerciseID == nil || *secondPractice.ExerciseID != secondExerciseID {
+		t.Fatalf("esperado entorno acotado a la práctica %s, got %v", secondExerciseID, secondPractice.ExerciseID)
+	}
+	if orch.lastConfig.VolumeName == practiceWorkspace.VolumeName() {
+		t.Fatalf("la segunda práctica reutilizó el volumen de la primera (%s)", practiceWorkspace.VolumeName())
+	}
+}
+
+// recordingSessionLinker anota qué entornos se enlazan al aula abierta.
+type recordingSessionLinker struct {
+	attached []string
+}
+
+func (r *recordingSessionLinker) AttachWorkspaceToOpenSession(_ context.Context, _, _, _, workspaceID string) error {
+	r.attached = append(r.attached, workspaceID)
+	return nil
+}
+
+// TestStartWorkspaceForExercise_EntraAlAulaYElIdeDelDocenteNo fija el lado de
+// presencia: abrir la práctica del alumno lo registra en el aula abierta, pero
+// abrir el IDE de la práctica del docente no lo mete en el roster de alumnos.
+func TestStartWorkspaceForExercise_EntraAlAulaYElIdeDelDocenteNo(t *testing.T) {
+	ctx := context.Background()
+	wsRepo := newMockWorkspaceRepo()
+	subjectID := "subj-410"
+	studentExerciseID := "ex-0101"
+	teacherExerciseID := "ex-0102"
+	teacherID := "tea-1"
+
+	subjRepo := &mockSubjectRepo{subjects: map[string]*domain.Subject{
+		subjectID: {ID: subjectID, Name: "Redes", TeacherID: stringPtr(teacherID)},
+	}}
+	exRepo := &mockExerciseRepo{exercises: map[string]*domain.Exercise{
+		studentExerciseID: {ID: studentExerciseID, SubjectID: stringPtr(subjectID)},
+		teacherExerciseID: {
+			ID:              teacherExerciseID,
+			SubjectID:       stringPtr(subjectID),
+			EnvironmentType: string(domain.EnvironmentTypeIDEPersistente),
+		},
+	}}
+	linker := &recordingSessionLinker{}
+	svc := services.NewWorkspaceService(wsRepo, &mockOrchestrator{}, &mockHostMonitor{}).
+		WithProvisioning(subjRepo, &mockTemplateRepo{templates: map[string]*domain.Template{}}).
+		WithExerciseSubmission(exRepo, &fakeSubmissionRepo{}).
+		WithClassSessions(linker)
+
+	studentWorkspace, err := svc.StartWorkspaceForExercise(ctx, "std-9", subjectID, studentExerciseID)
+	if err != nil {
+		t.Fatalf("error inesperado al abrir la práctica del alumno: %v", err)
+	}
+	if len(linker.attached) != 1 || linker.attached[0] != studentWorkspace.ID {
+		t.Fatalf("la práctica del alumno debió enlazarse al aula, enlaces: %v", linker.attached)
+	}
+
+	if _, err := svc.StartTeacherPracticeWorkspace(ctx, teacherID, subjectID, teacherExerciseID, "teacher"); err != nil {
+		t.Fatalf("error inesperado al abrir el IDE de la práctica del docente: %v", err)
+	}
+	if len(linker.attached) != 1 {
+		t.Fatalf("el IDE del docente no debe entrar al roster del aula, enlaces: %v", linker.attached)
 	}
 }

@@ -77,6 +77,20 @@ func TestFreezeWorkspace_SkipsAlreadyFrozen(t *testing.T) {
 	}
 }
 
+// Un laboratorio que ya no existe no es un error interno: el cierre responde
+// not-found para que el llamador no lo trate como una caída del servidor.
+func TestFreezeWorkspace_ReturnsNotFoundForVanishedWorkspace(t *testing.T) {
+	service, store, mounts, _ := newFreezeWorkspaceFixture(nil)
+
+	err := service.FreezeWorkspace(context.Background(), domain.DefaultTenantID, "student-a", "bbbbbbbb-2222-4222-8222-222222222222")
+	if !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("esperado ErrNotFound, obtenido: %v", err)
+	}
+	if len(mounts.calls) != 0 || len(store.frozenMarks) != 0 {
+		t.Fatal("un laboratorio inexistente no debía montarse ni marcarse")
+	}
+}
+
 // Si el contenedor no se puede reconstruir, la fila no se marca: el estado no
 // puede mentir sobre un volumen que sigue escribible.
 func TestFreezeWorkspace_ReportsMountFailureWithoutMarking(t *testing.T) {

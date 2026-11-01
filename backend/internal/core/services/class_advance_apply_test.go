@@ -118,10 +118,13 @@ func (f *fakeAdvanceSnapshotsFiles) Delete(ctx context.Context, key string) erro
 type fakeAdvanceVolumes struct {
 	existing []domain.WorkspaceVolumeFile
 	writes   []map[string]string
-	err      error
+	// snapshots conserva los volúmenes leídos para comprobar cuál se usó.
+	snapshots []string
+	err       error
 }
 
 func (f *fakeAdvanceVolumes) SnapshotWorkspaceVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.WorkspaceVolumeFile, error) {
+	f.snapshots = append(f.snapshots, volumeName)
 	return f.existing, nil
 }
 
@@ -287,8 +290,8 @@ func TestApplyAdvance_LimitsConcurrentApplications(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
 	gated := &gatedAdvanceSnapshots{
 		fakeAdvanceSnapshotsFiles: fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}}},
-		entered: make(chan struct{}, 2),
-		release: make(chan struct{}),
+		entered:                   make(chan struct{}, 2),
+		release:                   make(chan struct{}),
 	}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).

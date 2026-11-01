@@ -13,7 +13,7 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, provision satelliteProvision) (*domain.WorkspaceInstance, error) {
+func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, provision satelliteProvision, linkSession bool) (*domain.WorkspaceInstance, error) {
 	// La reanudación nunca deshace el cierre de un examen, ni por un contenedor
 	// pausado ni por el reconciliador (ADR-005 §5).
 	if instance.FrozenAt != nil || instance.Status == domain.WorkspaceStatusFrozen {
@@ -21,17 +21,26 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	}
 
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
-	if instance.ContainerID != nil && *instance.ContainerID != "" {
+	//
+	// El adapter no considera error que el contenedor ya no exista, así que la
+	// comprobación de existencia va antes: sin contenedor en el daemon no hay
+	// nada que despausar y el entorno se reconstruye con una URL viva.
+	if instance.ContainerID != nil && *instance.ContainerID != "" && s.containerAlive(ctx, instance.ContainerID) {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
 			_ = s.repo.UpdateStatus(ctx, instance.ID, domain.WorkspaceStatusRunning)
 			_ = s.repo.RecordHeartbeat(ctx, instance.ID)
 			instance.Status = domain.WorkspaceStatusRunning
-			s.linkSessionToAula(ctx, instance)
+			if linkSession {
+				s.linkSessionToAula(ctx, instance)
+			}
 			return instance, nil
 		}
 	}
 
-	template := s.resolveTemplate(ctx, instance.SubjectID)
+	// La reactivación preserva la plantilla con la que nació el entorno: una
+	// práctica abierta antes de un cambio de plantilla no se reconstruye con la
+	// imagen de otra práctica de la materia.
+	template := s.resolveTemplateForInstance(ctx, instance)
 	// La reactivación preserva el límite vigente en BD (refleja política,
 	// plantilla y auto-bursting acumulados); solo recalcula si no hay valor.
 	ramLimitMB := instance.MemoryLimitMB
@@ -49,7 +58,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	}
 
 	containerName := fmt.Sprintf("solv-workspace-%s", instance.ID)
-	volumeName := fmt.Sprintf("solv_workspace_%s_%s", instance.StudentID, instance.SubjectID)
+	volumeName := instance.VolumeName()
 	networkName := "solv-traefik-net"
 	baseDomain := getBaseDomain()
 
@@ -104,7 +113,9 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	instance.ContainerID = &containerID
 	instance.Status = domain.WorkspaceStatusRunning
 	instance.MemoryLimitMB = ramLimitMB
-	s.linkSessionToAula(ctx, instance)
+	if linkSession {
+		s.linkSessionToAula(ctx, instance)
+	}
 	return instance, nil
 }
 
@@ -112,10 +123,27 @@ func (s *WorkspaceService) RecordHeartbeat(ctx context.Context, workspaceID stri
 	return s.repo.RecordHeartbeat(ctx, workspaceID)
 }
 
-func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
-	ws, err := s.repo.GetByID(ctx, workspaceID)
+// workspaceOrNotFound lee el entorno por id y traduce la ausencia de fila a
+// domain.ErrNotFound. Un laboratorio que ya no existe no es un fallo del
+// servidor: el transporte responde 404 en lugar de 500.
+func (s *WorkspaceService) workspaceOrNotFound(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
+	instance, err := s.repo.GetByID(ctx, workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("workspace not found: %w", err)
+		if isMissingRow(err) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	if instance == nil {
+		return nil, domain.ErrNotFound
+	}
+	return instance, nil
+}
+
+func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
+	ws, err := s.workspaceOrNotFound(ctx, workspaceID)
+	if err != nil {
+		return nil, err
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {
@@ -124,18 +152,24 @@ func (s *WorkspaceService) RestartWorkspace(ctx context.Context, workspaceID str
 
 	_ = s.repo.UpdateStatus(ctx, workspaceID, domain.WorkspaceStatusPending)
 
-	template := s.resolveTemplate(ctx, ws.SubjectID)
-	provision, dbErr := s.ensureExerciseSatelliteDB(ctx, ws.StudentID, ws.SubjectID, template, nil)
+	template := s.resolveTemplateForInstance(ctx, ws)
+	var exercise *domain.Exercise
+	if ws.ExerciseID != nil {
+		exercise = s.resolveExercise(ctx, *ws.ExerciseID, ws.TenantID)
+	}
+	provision, dbErr := s.ensureExerciseSatelliteDB(ctx, ws.StudentID, ws.SubjectID, template, exercise)
 	if dbErr != nil {
 		return nil, dbErr
 	}
-	return s.reactivateWorkspace(ctx, ws, provision)
+	// Un reinicio administrativo no crea presencia: el aula la resuelve el
+	// latido del alumno. Solo los entornos de materia se enlazan aquí.
+	return s.reactivateWorkspace(ctx, ws, provision, ws.ExerciseID == nil)
 }
 
 func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID string) error {
-	ws, err := s.repo.GetByID(ctx, workspaceID)
+	ws, err := s.workspaceOrNotFound(ctx, workspaceID)
 	if err != nil {
-		return fmt.Errorf("workspace not found: %w", err)
+		return err
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {
@@ -154,9 +188,9 @@ func (s *WorkspaceService) TerminateWorkspace(ctx context.Context, workspaceID s
 }
 
 func (s *WorkspaceService) HibernateWorkspace(ctx context.Context, workspaceID string) error {
-	ws, err := s.repo.GetByID(ctx, workspaceID)
+	ws, err := s.workspaceOrNotFound(ctx, workspaceID)
 	if err != nil {
-		return fmt.Errorf("workspace not found: %w", err)
+		return err
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {
@@ -192,7 +226,7 @@ func (s *WorkspaceService) WorkspaceForSubject(ctx context.Context, userID, subj
 		return nil, ErrWorkspaceSubjectRequired
 	}
 	if _, err := uuid.Parse(subjectID); err != nil {
-		return nil, fmt.Errorf("%w: %s", domain.ErrNotFound, subjectID)
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, subjectID)
 	}
 
 	instance, err := s.repo.GetByStudentAndSubject(ctx, userID, subjectID)
@@ -206,9 +240,9 @@ func (s *WorkspaceService) WorkspaceForSubject(ctx context.Context, userID, subj
 }
 
 func (s *WorkspaceService) PauseWorkspace(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
-	ws, err := s.repo.GetByID(ctx, workspaceID)
+	ws, err := s.workspaceOrNotFound(ctx, workspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("workspace not found: %w", err)
+		return nil, err
 	}
 
 	if ws.ContainerID != nil && *ws.ContainerID != "" {
@@ -229,9 +263,5 @@ func (s *WorkspaceService) PauseWorkspace(ctx context.Context, workspaceID strin
 }
 
 func (s *WorkspaceService) GetSemgrepAudit(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
-	ws, err := s.repo.GetByID(ctx, workspaceID)
-	if err != nil {
-		return nil, fmt.Errorf("workspace not found: %w", err)
-	}
-	return ws, nil
+	return s.workspaceOrNotFound(ctx, workspaceID)
 }

@@ -68,8 +68,8 @@ func TestWorkspaceForSubject(t *testing.T) {
 
 	t.Run("una materia que no es uuid se rechaza", func(t *testing.T) {
 		_, err := service.WorkspaceForSubject(context.Background(), teacherID, "programacion-1")
-		if !errors.Is(err, domain.ErrNotFound) {
-			t.Fatalf("esperaba ErrNotFound, llegó %v", err)
+		if !errors.Is(err, domain.ErrInvalidResourceID) {
+			t.Fatalf("esperaba ErrInvalidResourceID, llegó %v", err)
 		}
 	})
 }

@@ -202,7 +202,13 @@ func (s *ExamFreezeService) UnfreezeStudent(ctx context.Context, tenantID, teach
 
 	instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), target.WorkspaceID)
 	if err != nil {
+		if isMissingRow(err) {
+			return report, domain.ErrNotFound
+		}
 		return report, err
+	}
+	if instance == nil {
+		return report, domain.ErrNotFound
 	}
 	if err := s.mounts.SetWorkspaceMount(ctx, instance, false); err != nil {
 		report.Failed++
@@ -232,11 +238,14 @@ func (s *ExamFreezeService) FreezeWorkspace(ctx context.Context, tenantID, actor
 	}
 	workspaceID = strings.TrimSpace(workspaceID)
 	if _, err := uuid.Parse(workspaceID); err != nil {
-		return domain.ErrNotFound
+		return domain.ErrInvalidResourceID
 	}
 
 	instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), workspaceID)
 	if err != nil {
+		if isMissingRow(err) {
+			return domain.ErrNotFound
+		}
 		return err
 	}
 	if instance == nil {
@@ -296,7 +305,13 @@ func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, se
 			continue
 		}
 		instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), row.WorkspaceID)
-		if err != nil {
+		if err != nil || instance == nil {
+			// El laboratorio ya no existe: no hay volumen que congelar y no es un
+			// fallo del cierre. Solo una lectura rota se cuenta como fallo.
+			if isMissingRow(err) {
+				report.Skipped++
+				continue
+			}
 			report.Failed++
 			log.Printf("[Exam Freeze] no se pudo leer el laboratorio %s: %v", row.WorkspaceID, err)
 			continue

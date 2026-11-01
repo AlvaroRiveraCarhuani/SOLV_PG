@@ -36,7 +36,7 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 		return nil, nil, domain.ErrSessionNotFound
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(in.ExerciseID)); err != nil {
-		return nil, nil, domain.ErrNotFound
+		return nil, nil, domain.ErrInvalidResourceID
 	}
 	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
 		return nil, nil, ErrAdvanceStorageUnavailable
@@ -55,7 +55,7 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 		return nil, nil, domain.ErrAdvanceFrozen
 	}
 
-	source, err := s.teacherEnvironment(ctx, in, session.SubjectID)
+	source, err := s.teacherEnvironment(ctx, in, session)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -92,14 +92,14 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 // teacherEnvironment lee el código del entorno de clase del docente. El avance
 // sale de lo que el docente tiene abierto, no de una copia aparte, así que hace
 // falta que ese entorno exista en la materia del aula.
-func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdvanceInput, subjectID string) (map[string]string, error) {
+func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdvanceInput, session *domain.ClassSession) (map[string]string, error) {
 	teacherID := strings.TrimSpace(in.TeacherID)
-	workspace, err := s.workspaces.GetByStudentAndSubject(ctx, teacherID, subjectID)
+	workspace, err := s.teacherWorkspace(ctx, teacherID, session)
 	if err != nil || workspace == nil {
 		return nil, domain.ErrAdvanceSourceMissing
 	}
 
-	volumeName := fmt.Sprintf("solv_workspace_%s_%s", workspace.StudentID, workspace.SubjectID)
+	volumeName := workspace.VolumeName()
 	files, err := s.volumes.SnapshotWorkspaceVolume(ctx, volumeName, maxAdvanceSourceBytes)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrAdvanceSourceMissing, err)
@@ -113,4 +113,23 @@ func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdv
 		source[file.Path] = string(file.Content)
 	}
 	return source, nil
+}
+
+// teacherWorkspace elige el entorno del docente que corresponde a la clase.
+// Desde ADR-059 el IDE se abre por práctica, así que una sesión con ejercicio
+// se lee de ese entorno y no del de la materia. El entorno por materia solo
+// queda como respaldo para aulas anteriores al entorno por práctica.
+func (s *ClassAdvanceService) teacherWorkspace(ctx context.Context, teacherID string, session *domain.ClassSession) (*domain.WorkspaceInstance, error) {
+	if session.ExerciseID != nil {
+		exerciseID := strings.TrimSpace(*session.ExerciseID)
+		if exerciseID != "" {
+			if repo, ok := s.workspaces.(workspaceExerciseRepository); ok {
+				workspace, err := repo.GetByStudentSubjectExercise(ctx, teacherID, session.SubjectID, exerciseID)
+				if err == nil && workspace != nil {
+					return workspace, nil
+				}
+			}
+		}
+	}
+	return s.workspaces.GetByStudentAndSubject(ctx, teacherID, session.SubjectID)
 }

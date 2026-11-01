@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -16,6 +17,17 @@ import (
 
 	"solv-backend/internal/core/domain"
 )
+
+// ErrPracticeIDENotProject indica que se intentó abrir el IDE de una práctica
+// que no usa entorno de proyecto persistente.
+var ErrPracticeIDENotProject = errors.New("la práctica no es de IDE persistente")
+
+// workspaceExerciseRepository es una capacidad opcional del repositorio:
+// resuelve el entorno de una práctica sin ensanchar la interfaz base que usan
+// los dobles de test del ciclo de vida por materia.
+type workspaceExerciseRepository interface {
+	GetByStudentSubjectExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error)
+}
 
 type WorkspaceService struct {
 	repo            domain.WorkspaceRepository
@@ -199,20 +211,30 @@ func (s *WorkspaceService) resolveTemplate(ctx context.Context, subjectID string
 }
 
 // resolveExercise carga el ejercicio del tenant cuando el workspace se inicia
-// desde una actividad concreta.
+// desde una actividad concreta. Que la práctica no exista es una respuesta
+// normal (el llamador devuelve 404), no un fallo del entorno: solo se registra
+// cuando la lectura falla de verdad y el servicio no puede distinguir el caso.
 func (s *WorkspaceService) resolveExercise(ctx context.Context, exerciseID, tenantID string) *domain.Exercise {
 	if s.exerciseRepo == nil || strings.TrimSpace(exerciseID) == "" {
 		return nil
 	}
 	exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, exerciseID, tenantID)
-	if err != nil || exercise == nil {
-		exercise, err = s.exerciseRepo.GetByID(ctx, exerciseID)
-		if err != nil || exercise == nil {
-			log.Printf("[Workspace] exercise %s not found: %v", exerciseID, err)
-			return nil
-		}
+	if err == nil && exercise != nil {
+		return exercise
 	}
-	return exercise
+
+	fallback, fallbackErr := s.exerciseRepo.GetByID(ctx, exerciseID)
+	if fallback != nil {
+		return fallback
+	}
+
+	switch {
+	case !isMissingRow(err):
+		log.Printf("[Workspace] no se pudo leer el ejercicio %s: %v", exerciseID, err)
+	case !isMissingRow(fallbackErr):
+		log.Printf("[Workspace] no se pudo leer el ejercicio %s: %v", exerciseID, fallbackErr)
+	}
+	return nil
 }
 
 // resolveTemplateForWorkspace prioriza la plantilla del ejercicio sobre la de la
@@ -285,8 +307,8 @@ func (s *WorkspaceService) StartWorkspace(ctx context.Context, studentID string,
 	return s.StartWorkspaceForExercise(ctx, studentID, subjectID, "")
 }
 
-// StartWorkspaceForExercise inicia (o reactiva) el IDE persistente resolviendo
-// plantilla y db_init_script desde el ejercicio cuando se provee exerciseID.
+// sanitizeWorkspaceSetupScript devuelve el script de arranque de la plantilla
+// sin espacios sobrantes; una plantilla sin script no arranca con "".
 func sanitizeWorkspaceSetupScript(template *domain.Template) string {
 	if template == nil {
 		return ""
@@ -294,7 +316,93 @@ func sanitizeWorkspaceSetupScript(template *domain.Template) string {
 	return strings.TrimSpace(template.SetupScript)
 }
 
+// StartWorkspaceForExercise abre el entorno del alumno acotado a la práctica
+// cuando llega el ejercicio. Abrir la práctica 2 no debe devolver el entorno de
+// la materia (que mezcla el código de todas las prácticas) ni reutilizar su
+// volumen: el entorno y el volumen se separan por (alumno, materia, práctica),
+// igual que el del docente (ADR-059). Sin práctica se conserva el entorno por
+// materia de los laboratorios anteriores.
 func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error) {
+	return s.startWorkspace(ctx, studentID, subjectID, exerciseID, strings.TrimSpace(exerciseID) != "", true)
+}
+
+// StartTeacherPracticeWorkspace abre (o reutiliza) el entorno propio del docente
+// para una práctica concreta. A diferencia del entorno de materia, el volumen se
+// separa por ejercicio: dos prácticas de la misma materia no comparten repo.
+func (s *WorkspaceService) StartTeacherPracticeWorkspace(ctx context.Context, teacherID, subjectID, exerciseID, role string) (*domain.WorkspaceInstance, error) {
+	teacherID = strings.TrimSpace(teacherID)
+	subjectID = strings.TrimSpace(subjectID)
+	exerciseID = strings.TrimSpace(exerciseID)
+	if teacherID == "" {
+		return nil, errors.New("la identidad del docente es requerida")
+	}
+	if exerciseID == "" {
+		return nil, errors.New("la práctica es requerida")
+	}
+
+	tenantID := domain.GetTenantID(ctx)
+	if tenantID == "" {
+		tenantID = domain.DefaultTenantID
+	}
+	exercise := s.resolveExercise(ctx, exerciseID, tenantID)
+	if exercise == nil {
+		return nil, domain.ErrNotFound
+	}
+	if exercise.SubjectID != nil && strings.TrimSpace(*exercise.SubjectID) != "" {
+		subjectID = strings.TrimSpace(*exercise.SubjectID)
+	}
+	if subjectID == "" {
+		return nil, errors.New("la práctica no tiene materia asociada")
+	}
+	if exercise.EnvironmentType != string(domain.EnvironmentTypeIDEPersistente) {
+		return nil, ErrPracticeIDENotProject
+	}
+	if s.subjectRepo == nil {
+		return nil, errors.New("la materia de la práctica no está disponible")
+	}
+	subject, err := s.subjectRepo.GetByID(ctx, tenantID, subjectID)
+	if err != nil || subject == nil {
+		return nil, domain.ErrNotFound
+	}
+	if role != "admin" {
+		if subject.TeacherID == nil || strings.TrimSpace(*subject.TeacherID) != teacherID {
+			return nil, ErrPracticeTestForbidden
+		}
+	}
+
+	// El IDE de la práctica es del docente, no de un alumno: no se inscribe
+	// como participante del aula ni pisa la presencia del roster.
+	return s.startWorkspace(ctx, teacherID, subjectID, exerciseID, true, false)
+}
+
+// containerAlive dice si el contenedor del entorno todavía existe en el daemon.
+// Un fallo al listar no se interpreta como ausencia: ante la duda se conserva el
+// entorno y se devuelve el registro, para no reconstruir por una caída del daemon.
+func (s *WorkspaceService) containerAlive(ctx context.Context, containerID *string) bool {
+	if s.docker == nil {
+		return true
+	}
+	id := ""
+	if containerID != nil {
+		id = strings.TrimSpace(*containerID)
+	}
+	if id == "" {
+		return false
+	}
+	ids, err := s.docker.ListAllManagedContainers(ctx)
+	if err != nil {
+		log.Printf("[Workspace] WARNING: no se pudo listar contenedores, se conserva el entorno %s: %v", id, err)
+		return true
+	}
+	for _, candidate := range ids {
+		if candidate == id {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *WorkspaceService) startWorkspace(ctx context.Context, userID, subjectID, exerciseID string, scopeByExercise, linkSession bool) (*domain.WorkspaceInstance, error) {
 	tenantID := domain.GetTenantID(ctx)
 	if tenantID == "" {
 		tenantID = domain.DefaultTenantID
@@ -306,6 +414,18 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	}
 	if strings.TrimSpace(subjectID) == "" && exercise != nil && exercise.SubjectID != nil {
 		subjectID = strings.TrimSpace(*exercise.SubjectID)
+	}
+	if exercise != nil && exercise.SubjectID != nil && strings.TrimSpace(*exercise.SubjectID) != "" && strings.TrimSpace(*exercise.SubjectID) != subjectID {
+		return nil, domain.ErrNotFound
+	}
+
+	var exerciseIDPtr *string
+	if scopeByExercise {
+		trimmed := strings.TrimSpace(exerciseID)
+		if trimmed == "" {
+			return nil, errors.New("la práctica del entorno es requerida")
+		}
+		exerciseIDPtr = &trimmed
 	}
 
 	// 0. Resolución de plantilla: el ejercicio manda sobre la materia.
@@ -350,8 +470,19 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		return nil, ErrHostMemoryExhausted
 	}
 
-	// 2. Verificación de Idempotencia y Estado Previos
-	existing, err := s.repo.GetByStudentAndSubject(ctx, studentID, subjectID)
+	// 2. Verificación de Idempotencia y Estado Previos. El entorno por
+	// práctica se busca por ejercicio para no reutilizar el de otra práctica.
+	var existing *domain.WorkspaceInstance
+	var err error
+	if scopeByExercise {
+		repo, ok := s.repo.(workspaceExerciseRepository)
+		if !ok {
+			return nil, errors.New("el repositorio de entornos no soporta entornos por práctica")
+		}
+		existing, err = repo.GetByStudentSubjectExercise(ctx, userID, subjectID, strings.TrimSpace(exerciseID))
+	} else {
+		existing, err = s.repo.GetByStudentAndSubject(ctx, userID, subjectID)
+	}
 	if err == nil && existing != nil {
 		// Un examen cerrado no se reabre por recargar la página: el volumen quedó
 		// en solo lectura y la escritura vuelve únicamente con la excepción del
@@ -360,17 +491,25 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 			return nil, domain.ErrWorkspaceFrozen
 		}
 
-		// El workspace es único por (student_id, subject_id): si ya existía, la
+		// El entorno por materia es único por (student_id, subject_id) y el de
+		// práctica por (student_id, subject_id, exercise_id). Si ya existía, la
 		// base satélite y el db_init_script del ejercicio también deben quedar
 		// asegurados antes de devolverlo o reactivarlo. El registro de
 		// _solv_exercise_migrations hace la operación idempotente.
-		provision, dbErr := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+		provision, dbErr := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
 		if dbErr != nil {
 			return nil, dbErr
 		}
 
 		if existing.Status == domain.WorkspaceStatusRunning {
-			return existing, nil
+			// El registro puede sobrevivir al contenedor (limpieza de Docker,
+			// reinicio del nodo). Antes de devolver la URL se comprueba que el
+			// contenedor siga en el daemon; si ya no está, se reconstruye en vez
+			// de entregar un enlace que no carga.
+			if s.containerAlive(ctx, existing.ContainerID) {
+				return existing, nil
+			}
+			return s.reactivateWorkspace(ctx, existing, provision, linkSession)
 		}
 
 		// Verificación de Castigo por OOMKilled (Sistema de 3 Strikes = 5 minutos de bloqueo)
@@ -382,7 +521,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 			_ = s.repo.ResetOOMStrikes(ctx, existing.ID)
 		}
 
-		return s.reactivateWorkspace(ctx, existing, provision)
+		return s.reactivateWorkspace(ctx, existing, provision, linkSession)
 	}
 
 	// 0.1 Techo de concurrencia del tenant (max_containers): hard gate.
@@ -407,7 +546,7 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 		}
 	}
 
-	provision, err := s.ensureExerciseSatelliteDB(ctx, studentID, subjectID, template, exercise)
+	provision, err := s.ensureExerciseSatelliteDB(ctx, userID, subjectID, template, exercise)
 	if err != nil {
 		return nil, err
 	}
@@ -421,15 +560,16 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	}
 	accessURL := buildWorkspaceAccessURL(workspaceID, hostPort)
 	containerName := fmt.Sprintf("solv-workspace-%s", workspaceID)
-	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
+	volumeName := domain.WorkspaceVolumeName(userID, subjectID, exerciseIDPtr)
 	networkName := "solv-traefik-net"
 
 	instance := &domain.WorkspaceInstance{
 		ID:              workspaceID,
 		TenantID:        tenantID,
-		StudentID:       studentID,
+		StudentID:       userID,
 		SubjectID:       subjectID,
 		TemplateID:      templateIDStr,
+		ExerciseID:      exerciseIDPtr,
 		Status:          domain.WorkspaceStatusPending,
 		AccessURL:       accessURL,
 		MemoryLimitMB:   ramLimitMB,
@@ -512,7 +652,10 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	instance.Status = domain.WorkspaceStatusRunning
 
 	// El entorno acaba de nacer: si la materia tiene aula abierta, se registra
-	// dentro de ella. Es el único momento en que el entorno se asigna a la clase.
-	s.linkSessionToAula(ctx, instance)
+	// dentro de ella. El IDE de práctica del docente queda fuera del roster;
+	// el del alumno sí entra, porque ese tablero es de alumnos.
+	if linkSession {
+		s.linkSessionToAula(ctx, instance)
+	}
 	return instance, nil
 }

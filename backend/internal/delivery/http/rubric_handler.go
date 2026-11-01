@@ -109,6 +109,10 @@ func (h *RubricHandler) EvaluateSubmission(w http.ResponseWriter, r *http.Reques
 			SendError(w, http.StatusBadRequest, err.Error(), "Falta seleccionar una opción para cada criterio de la rúbrica")
 			return
 		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe en esta institución")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al evaluar la entrega por rúbrica")
 		return
 	}

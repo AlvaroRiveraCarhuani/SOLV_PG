@@ -49,7 +49,9 @@ func (s *WorkspaceService) SubmitWorkspaceProject(ctx context.Context, workspace
 
 	workspace, err := s.repo.GetByID(ctx, workspaceID)
 	if err != nil || workspace == nil {
-		return nil, fmt.Errorf("workspace %s not found", workspaceID)
+		// Un workspace ausente es un 404 del transporte, no un fallo interno:
+		// el repositorio ya distingue "no existe" de "id mal formado".
+		return nil, fmt.Errorf("%w: workspace %s", domain.ErrNotFound, workspaceID)
 	}
 	if studentID != "" && workspace.StudentID != studentID {
 		return nil, ErrWorkspaceForbidden
@@ -75,7 +77,7 @@ func (s *WorkspaceService) SubmitWorkspaceProject(ctx context.Context, workspace
 		return nil, ErrWorkspaceVolumeUnavailable
 	}
 
-	volumeName := fmt.Sprintf("solv_workspace_%s_%s", workspace.StudentID, workspace.SubjectID)
+	volumeName := workspace.VolumeName()
 	if len(files) > 0 {
 		if err := volumeStore.WriteWorkspaceVolumeFiles(ctx, volumeName, files); err != nil {
 			return nil, fmt.Errorf("failed to write project files: %w", err)

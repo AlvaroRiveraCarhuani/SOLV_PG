@@ -18,7 +18,7 @@ import (
 // acá: la escribe el servicio del examen en la misma operación.
 func (s *WorkspaceService) SetWorkspaceMount(ctx context.Context, instance *domain.WorkspaceInstance, readOnly bool) error {
 	if instance == nil {
-		return fmt.Errorf("workspace not found")
+		return domain.ErrNotFound
 	}
 	if instance.ContainerID != nil && strings.TrimSpace(*instance.ContainerID) != "" {
 		if err := s.docker.StopAndRemoveContainer(ctx, *instance.ContainerID); err != nil {
@@ -75,7 +75,7 @@ func (s *WorkspaceService) SetWorkspaceMount(ctx context.Context, instance *doma
 	config := domain.WorkspaceContainerConfig{
 		Image:               imageName,
 		ContainerName:       fmt.Sprintf("solv-workspace-%s", instance.ID),
-		VolumeName:          fmt.Sprintf("solv_workspace_%s_%s", instance.StudentID, instance.SubjectID),
+		VolumeName:          instance.VolumeName(),
 		MemoryLimitMB:       ramLimitMB,
 		NetworkName:         "solv-traefik-net",
 		Labels:              labels,

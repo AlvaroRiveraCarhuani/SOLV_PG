@@ -119,7 +119,7 @@ func (s *ClassAdvanceService) Preview(ctx context.Context, tenantID, studentID, 
 		return nil, domain.ErrAdvanceGraceExpired
 	}
 
-	workspace, err := s.workspaces.GetByStudentAndSubject(ctx, studentID, delivery.SubjectID)
+	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
 	if err != nil || workspace == nil {
 		return nil, domain.ErrAdvanceWorkspaceStopped
 	}
@@ -204,7 +204,7 @@ func (s *ClassAdvanceService) Apply(ctx context.Context, tenantID, studentID, ad
 		return nil, domain.ErrAdvanceGraceExpired
 	}
 
-	workspace, err := s.workspaces.GetByStudentAndSubject(ctx, studentID, delivery.SubjectID)
+	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
 	if err != nil || workspace == nil {
 		return nil, domain.ErrAdvanceWorkspaceStopped
 	}
@@ -310,7 +310,22 @@ func (s *ClassAdvanceService) pruneAdvanceBackups(ctx context.Context, volumeNam
 // workspaceVolumeName arma el nombre del volumen del alumno en la materia, que
 // es el mismo que usa el ciclo de vida de los entornos.
 func workspaceVolumeName(workspace *domain.WorkspaceInstance) string {
-	return fmt.Sprintf("solv_workspace_%s_%s", workspace.StudentID, workspace.SubjectID)
+	return workspace.VolumeName()
+}
+
+// studentWorkspace elige el entorno del alumno para el avance. Con práctica se
+// prefiere el de esa práctica (ADR-059), que es el que el alumno abre hoy; el
+// entorno por materia queda como respaldo de laboratorios anteriores.
+func (s *ClassAdvanceService) studentWorkspace(ctx context.Context, studentID string, delivery *domain.AdvanceDelivery) (*domain.WorkspaceInstance, error) {
+	if exerciseID := strings.TrimSpace(delivery.ExerciseID); exerciseID != "" {
+		if repo, ok := s.workspaces.(workspaceExerciseRepository); ok {
+			workspace, err := repo.GetByStudentSubjectExercise(ctx, studentID, delivery.SubjectID, exerciseID)
+			if err == nil && workspace != nil {
+				return workspace, nil
+			}
+		}
+	}
+	return s.workspaces.GetByStudentAndSubject(ctx, studentID, delivery.SubjectID)
 }
 
 // volumeFiles lee el estado vigente del volumen del alumno, acotado al mismo

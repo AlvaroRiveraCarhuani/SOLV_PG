@@ -333,7 +333,9 @@ type BackupRepository interface {
 type EnvTestJobRepository interface {
 	Save(ctx context.Context, job *EnvTestJob) error
 	GetByID(ctx context.Context, id string) (*EnvTestJob, error)
+	GetLatestByExercise(ctx context.Context, exerciseID string) (*EnvTestJob, error)
 	UpdateProgress(ctx context.Context, id string, progress EnvTestProgress) error
+	MarkTesting(ctx context.Context, id string, progress EnvTestProgress) error
 	Complete(ctx context.Context, id string, result *EnvTestResult) error
 	Fail(ctx context.Context, id string, errorCode, errorMessage string) error
 	Cancel(ctx context.Context, id string) error
@@ -351,6 +353,33 @@ type ImageRegistryPort interface {
 type ContainerRunnerPort interface {
 	RunSmokeTest(ctx context.Context, imageRef string, tools []string, memoryLimitMB int64) (results []ToolResult, exitCode int, err error)
 	RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (output string, durationMs int64, exitCode int, err error)
+}
+
+// WorkspaceSetupTestSpec describe la prueba efímera de una práctica IDE: el setup de
+// la plantilla se ejecuta sobre un volumen temporal, con los satélites ya inyectados.
+type WorkspaceSetupTestSpec struct {
+	Image         string
+	VolumeName    string
+	NetworkName   string
+	Env           []string
+	SetupScript   string
+	MemoryLimitMB int64
+	TimeoutMS     int
+}
+
+// WorkspaceSetupTestResult es el reporte de la prueba de preparación del workspace.
+type WorkspaceSetupTestResult struct {
+	ExitCode       int
+	DurationMs     int64
+	Output         string
+	RepoReady      bool
+	OpenVSCodeSeen bool
+}
+
+// WorkspaceTestRunnerPort ejecuta el setup de una práctica en un contenedor efímero.
+// El contenedor y el volumen temporal se eliminan al terminar, incluso si falla.
+type WorkspaceTestRunnerPort interface {
+	RunWorkspaceSetupTest(ctx context.Context, spec WorkspaceSetupTestSpec) (WorkspaceSetupTestResult, error)
 }
 
 // ImageBuilderPort abstrae la construcción local determinista de imágenes compuestas y la poda de imágenes huérfanas.

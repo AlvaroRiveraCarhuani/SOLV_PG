@@ -241,8 +241,10 @@ func main() {
 		return idle, nil
 	})
 
-	// Prueba asíncrona de entorno para plantillas (DA-01, DA-06) y constructor de imágenes
-	envTestJobRepo := memory.NewEnvTestJobMemoryRepository(2 * time.Hour)
+	// Prueba asíncrona de entorno para plantillas (DA-01, DA-06), pruebas de
+	// prácticas IDE y constructor de imágenes. El TTL conserva la última prueba
+	// de cada práctica durante la jornada docente.
+	envTestJobRepo := memory.NewEnvTestJobMemoryRepository(24 * time.Hour)
 	envTestAdapter := docker.NewEnvTestDockerAdapter(cli, 60*time.Second)
 
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
@@ -323,7 +325,21 @@ func main() {
 		MemoryLimitMB:     256,
 	})
 	envTestService.SetImageBuilder(envTestAdapter)
-	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService)
+	practiceEnvTestService := services.NewPracticeEnvTestService(
+		envTestJobRepo,
+		envTestAdapter,
+		envTestAdapter,
+		workspaceService,
+		exerciseRepo,
+		subjectRepo,
+		templateRepo,
+		services.PracticeEnvTestConfig{
+			MaxConcurrentJobs: 1,
+			TotalJobTimeout:   10 * time.Minute,
+			SetupTimeout:      5 * time.Minute,
+		},
+	)
+	envTestHandler := httpdelivery.NewEnvTestHandler(envTestService).SetPracticeService(practiceEnvTestService)
 
 	// Juez de ejercicios: perfiles de lenguaje versionados y auditoría
 	langProfileRepo := postgres.NewPostgresLanguageProfileRepository(db.GetDB())
@@ -507,7 +523,7 @@ func newAdvanceSnapshotStore(ctx context.Context) *seaweedfs.AdvanceSnapshotStor
 		MaxBytes:  maxBytes,
 		// Las exclusiones del avance viven en configuración (ADR-058 §5).
 		Archive: seaweedfs.ArchiveOptions{
-			ExcludePrefixes: envList("ADVANCE_SNAPSHOT_EXCLUDES", ".vscode/,.solv_*,.git/,node_modules/"),
+			ExcludePrefixes: envList("ADVANCE_SNAPSHOT_EXCLUDES", ".vscode/,.solv_*,.git/,node_modules/,.cache/,.openvscode-server/"),
 			MaxFiles:        maxFiles,
 		},
 	})

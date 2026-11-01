@@ -204,3 +204,53 @@ func TestEmitAdvance_DeletesSnapshotWhenRecipientsAreRejected(t *testing.T) {
 		t.Errorf("el snapshot debía borrarse al fallar la emisión: %v", snapshots.deleted)
 	}
 }
+
+// La sesión con práctica se lee del entorno de esa práctica: desde ADR-059 el
+// IDE del docente se acota al ejercicio y el entorno por materia ya no se crea.
+func TestEmitAdvance_ReadsThePracticeEnvironment(t *testing.T) {
+	exerciseID := "11111111-1111-1111-1111-111111111111"
+	session := newOpenSession()
+	session.ExerciseID = &exerciseID
+
+	store := &fakeAdvanceStore{
+		participants: []string{advanceStudentID},
+		purpose:      "class",
+	}
+	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+		{Path: "practica.py", Content: []byte("print(2)\n")},
+	}}
+	snapshots := &fakeAdvanceSnapshotsFiles{}
+
+	practice := &domain.WorkspaceInstance{
+		ID:         "99999999-9999-9999-9999-999999999998",
+		StudentID:  advanceTeacherID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &exerciseID,
+		Status:     domain.WorkspaceStatusRunning,
+	}
+	repo := newPracticeWorkspaceRepo()
+	if err := repo.Create(context.Background(), practice); err != nil {
+		t.Fatalf("no se pudo preparar el entorno de la práctica: %v", err)
+	}
+
+	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: session}).
+		WithApplier(snapshots, repo, volumes)
+
+	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
+		TenantID:   advanceTenantID,
+		TeacherID:  advanceTeacherID,
+		Role:       "teacher",
+		SessionID:  session.ID,
+		ExerciseID: exerciseID,
+		Scope:      domain.AdvanceScopeClass,
+	})
+	if err != nil {
+		t.Fatalf("error inesperado al emitir: %v", err)
+	}
+	if len(volumes.snapshots) != 1 || volumes.snapshots[0] != practice.VolumeName() {
+		t.Fatalf("se esperaba leer el volumen de la práctica %q, se leyó %v", practice.VolumeName(), volumes.snapshots)
+	}
+	if _, ok := snapshots.putFiles["practica.py"]; !ok {
+		t.Errorf("el snapshot debía salir del entorno de la práctica: %v", snapshots.putFiles)
+	}
+}

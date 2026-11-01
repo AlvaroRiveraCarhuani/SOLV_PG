@@ -166,3 +166,38 @@ func TestPendingAdvances_KeepsNoticesInsideTheWindow(t *testing.T) {
 		t.Fatalf("un aviso vigente no se decide: %+v", store.decisions)
 	}
 }
+
+// El avance con práctica se lee contra el volumen de esa práctica: desde
+// ADR-059 el alumno abre su laboratorio por ejercicio y el entorno por materia
+// ya no es el que tiene su código.
+func TestPreviewAdvance_PrefersTheStudentPracticeWorkspace(t *testing.T) {
+	delivery := newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)
+	delivery.ExerciseID = "11111111-1111-1111-1111-111111111111"
+
+	repo := newPracticeWorkspaceRepo()
+	practice := &domain.WorkspaceInstance{
+		ID:         "66666666-6666-6666-6666-666666666667",
+		StudentID:  advanceStudentID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &delivery.ExerciseID,
+		Status:     domain.WorkspaceStatusRunning,
+	}
+	if err := repo.Create(context.Background(), practice); err != nil {
+		t.Fatalf("no se pudo preparar el entorno de la práctica: %v", err)
+	}
+
+	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+		{Path: "main.py", Content: []byte("del alumno\n")},
+	}}
+	svc := services.NewClassAdvanceService(&fakeAdvanceStore{delivery: delivery}, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+			{Path: "main.py", Content: []byte("nuevo\n")},
+		}}, repo, volumes)
+
+	if _, err := svc.Preview(context.Background(), advanceTenantID, advanceStudentID, advanceID); err != nil {
+		t.Fatalf("error inesperado al previsualizar: %v", err)
+	}
+	if len(volumes.snapshots) == 0 || volumes.snapshots[0] != practice.VolumeName() {
+		t.Fatalf("se esperaba leer el volumen de la práctica %q, se leyó %v", practice.VolumeName(), volumes.snapshots)
+	}
+}

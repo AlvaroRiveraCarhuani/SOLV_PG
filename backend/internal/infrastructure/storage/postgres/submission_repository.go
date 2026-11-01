@@ -2,9 +2,13 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"solv-backend/internal/core/domain"
+	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -29,6 +33,12 @@ func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.S
 }
 
 func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Submission, error) {
+	// Leer con un id mal formado es validación, no una entrega ausente ni un
+	// fallo del servidor; el transporte puede responder 400 con este error.
+	if _, err := uuid.Parse(strings.TrimSpace(id)); err != nil {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, id)
+	}
+
 	var sub domain.Submission
 	query := `
 		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status,
@@ -42,7 +52,12 @@ func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id
 	`
 	err := r.db.GetContext(ctx, &sub, query, tenantID, id)
 	if err != nil {
-		return nil, fmt.Errorf("submission not found: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			// Una entrega que no existe (o es de otra institución) es un 404,
+			// no un fallo interno del servidor.
+			return nil, fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, id)
+		}
+		return nil, fmt.Errorf("failed to load submission: %w", err)
 	}
 	return &sub, nil
 }
@@ -108,6 +123,12 @@ func (r *PostgresSubmissionRepository) ListByStudent(ctx context.Context, tenant
 }
 
 func (r *PostgresSubmissionRepository) UpdateOverride(ctx context.Context, tenantID, id, verdict, reason string, score *int, gradedBy *string) error {
+	// Un id mal formado no puede alcanzar ninguna fila: es validación, no una
+	// entrega ausente ni un fallo del servidor.
+	if _, err := uuid.Parse(strings.TrimSpace(id)); err != nil {
+		return fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, id)
+	}
+
 	query := `
 		UPDATE submissions
 		SET verdict = $1, manual_override = TRUE, override_reason = $2, score = $3, graded_by = $4
@@ -122,7 +143,9 @@ func (r *PostgresSubmissionRepository) UpdateOverride(ctx context.Context, tenan
 		return fmt.Errorf("failed to verify affected rows: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("submission not found")
+		// Sin fila no hubo override: el servicio no debe notificar ni
+		// responder como si la nota se hubiera guardado.
+		return fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, id)
 	}
 	return nil
 }

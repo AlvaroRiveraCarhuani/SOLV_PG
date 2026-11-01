@@ -284,6 +284,15 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("POST /api/v1/jobs/env-test", am(tm(http.HandlerFunc(deps.EnvTestHandler.StartEnvTest))))
 		mux.Handle("GET /api/v1/jobs/env-test/{id}", tm(http.HandlerFunc(deps.EnvTestHandler.GetEnvTest)))
 		mux.Handle("POST /api/v1/jobs/env-test/{id}/cancel", am(tm(http.HandlerFunc(deps.EnvTestHandler.CancelEnvTest))))
+		mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test", am(tm(http.HandlerFunc(deps.EnvTestHandler.StartPracticeEnvTest))))
+		mux.Handle("GET /api/v1/teacher/exercises/{exerciseId}/env-test/latest", tm(http.HandlerFunc(deps.EnvTestHandler.GetLatestPracticeEnvTest)))
+	}
+
+	// IDE de una práctica: el docente abre el repositorio de esa práctica en una
+	// pestaña nueva, con su plantilla y su volumen, sin pasar por el entorno de
+	// la materia.
+	if deps.WorkspaceHandler != nil {
+		mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide", am(tm(http.HandlerFunc(deps.WorkspaceHandler.OpenPracticeIDE))))
 	}
 }
 
