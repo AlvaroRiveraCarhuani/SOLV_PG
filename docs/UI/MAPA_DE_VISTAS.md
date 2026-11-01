@@ -51,8 +51,7 @@ graph TD
 │
 ├── /teacher (Rol: Docente)
 │   ├── /teacher/dashboard .............. Hoy: canvas de materias y columna de pendientes
-│   ├── /teacher/aula ................... Qué pasa ahora en clase: entornos abiertos y telemetría
-│   ├── /teacher/entorno ................ Entorno de clase del docente: abrirlo, escribir y pausar
+│   ├── /teacher/aula ................... Qué pasa ahora en clase: entornos abiertos y telemetría (ancla permanente)
 │   ├── /teacher/por-calificar .......... Cola de corrección agrupada por práctica
 │   ├── /teacher/cursos/:id ............. Materia: prácticas, entregas, alumnos y libreta
 │   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
@@ -182,19 +181,12 @@ graph TD
 * **Presencia:** la emite el cliente del alumno cada minuto sobre el aula abierta de sus materias (`GET /api/v1/student/sessions/active`, `POST /api/v1/student/sessions/{id}/heartbeat`). Una señal de más de 120 segundos no cuenta.
 * **Fuera de alcance:** reiniciar contenedores y ajustar recursos son acciones del administrador; el docente no opera infraestructura. El modo proyección, la agrupación de excepciones por causa y la actualización por SSE están especificados y pendientes.
 
-### 4.5. Entorno de Clase (`/teacher/entorno`)
-* **Propósito:** Abrir el entorno del docente en una materia y usarlo para preparar el avance que después se muestra en el aula. Es el mismo volumen del que sale el código emitido (ADR-058 §5): sin entorno abierto, la emisión responde `409`.
-* **Contratos:** `GET /api/v1/workspaces?subject_id=` (lectura previa, devuelve `null` sin entorno) y, al abrir o reanudar, `POST /api/v1/workspaces/start` con la materia. `POST /api/v1/workspaces/{id}/pause` lo deja en pausa sin perder el volumen.
-* **Información que muestra:**
-  * Cabecera con la materia elegida y una línea que explica el vínculo con el avance del aula.
-  * Estado del entorno (`running`, `pending`, `hibernated`, `failed`) con su RAM asignada.
-  * El editor de OpenVSCode embebido mientras el entorno corre.
-* **Acciones:**
-  * `[Abrir entorno]` / `[Reanudar entorno]` — Levanta o reactiva el entorno de la materia. Es idempotente: dos clics no crean dos contenedores.
-  * `[Abrir en pestaña nueva]` — Abre el editor fuera del marco, para pantallas chicas.
-  * `[Pausar]` — Deja el entorno en `hibernated`; el código queda guardado.
-* **Estados sin editor:** sin materia elegida pide una; con el entorno en pausa ofrece reanudarlo; con el entorno detenido aclara que el volumen se conserva; mientras prepara, avisa que puede tardar unos segundos.
-* **Fuera de alcance:** emitir el avance, congelar la clase y extender la ventana viven en el aula. Los reinicios y los recursos son acciones del administrador.
+### 4.5. Entorno de Clase (`/teacher/entorno`) — retirada
+* **Estado:** la pantalla se retiró. El entorno del docente se abre desde la ficha de cada práctica con `[Abrir IDE]`, acotado a esa práctica y no a la materia (ADR-059). `/teacher/entorno` redirige a Hoy para no romper marcadores ni enlaces anteriores.
+* **Motivo:** un curso no tiene un entorno monolítico; cada práctica trae su plantilla y su stack. El código que se emite en el aula sale del entorno de la práctica de la sesión (ADR-058 §5).
+* **Contratos que siguen vivos:** `GET /api/v1/workspaces?subject_id=` (lectura por materia, sin levantar contenedores) y, al abrir o reanudar, `POST /api/v1/workspaces/start`. La ficha usa `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`.
+* **Dónde vive ahora cada acción:** abrir o reanudar el entorno, en la ficha de la práctica; emitir el avance, congelar la clase y extender la ventana, en el aula.
+* **Fuera de alcance:** los reinicios y los recursos son acciones del administrador.
 
 ### 4.6. Juez Virtual — Auditoría y Calificación (`/docente/juez`)
 * **Propósito:** Banco de ejercicios algorítmicos y revisión manual de código entregado.

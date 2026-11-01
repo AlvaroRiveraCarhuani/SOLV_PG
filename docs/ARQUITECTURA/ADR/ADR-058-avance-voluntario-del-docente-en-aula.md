@@ -78,10 +78,12 @@ Se copian los archivos de código del ejercicio del docente. Se excluyen las rut
 | `.solv_*` (incluye `.solv_initialized`, `.solv_setup.log`, `.solv_backups/`) | Archivos internos de la plataforma |
 | `.git/` | Historial del docente; copiarlo mezcla dos repositorios |
 | `node_modules/` | Dependencias instaladas; se reconstruyen en el entorno del alumno |
+| `.cache/` | Estado y telemetría del servidor de editor; no es código de la práctica |
+| `.openvscode-server/` | Binarios y datos del servidor de editor que corre dentro del volumen |
 
-La lista de exclusión vive en configuración del backend, no en código fijo.
+La lista de exclusión vive en configuración del backend, no en código fijo. Las dos últimas rutas importan porque el IDE escribe su runtime dentro del propio volumen del ejercicio: sin excluirlas, el avance reemplazaría el identificador de dispositivo y la configuración del editor del alumno con los del docente.
 
-**Origen del código.** El snapshot sale del entorno de clase del docente en la materia del aula (`solv_workspace_<docente>_<materia>`), que es donde programa en vivo. No se copia desde una carpeta aparte ni desde la base: lo que se emite es lo que el docente tiene abierto. Sin ese entorno la emisión responde 409, porque no hay código que mostrar. El entorno se abre desde la pantalla **Mi entorno** (`/teacher/entorno`), que lee su estado antes de ofrecer abrirlo (`GET /api/v1/workspaces?subject_id=`) para no levantar contenedores con solo cargar la vista.
+**Origen del código.** El snapshot sale del entorno de clase del docente de la práctica de la sesión (`solv_workspace_<docente>_<materia>_<práctica>`, ADR-059), que es donde programa en vivo. No se copia desde una carpeta aparte ni desde la base: lo que se emite es lo que el docente tiene abierto. Sin ese entorno la emisión responde 409, porque no hay código que mostrar. El entorno se abre desde la ficha de la práctica (**Abrir IDE**), que reutiliza el contenedor si ya existe; la lectura por materia (`GET /api/v1/workspaces?subject_id=`) sigue disponible para consultar el entorno vigente sin levantar contenedores. Una sesión sin práctica conserva el respaldo del entorno por materia.
 
 ### 6. Snapshot al emitir
 
@@ -99,10 +101,10 @@ Cuando el alumno aplica un avance:
 
 1. El frontend muestra cuántos archivos cambiarán y cuáles se sobrescriben o se agregan. El alumno confirma o cancela.
 2. Antes de copiar, el backend guarda el estado actual de los archivos que se van a sobrescribir en `.solv_backups/<avance_id>/`.
-3. El backend copia el snapshot al volumen del alumno con su contenedor en ejecución. No se pausa ni se reinicia el contenedor.
+3. El backend copia el snapshot al volumen del alumno con su contenedor en ejecución. No se pausa ni se reinicia el contenedor. El volumen es el de la práctica que el alumno abrió (`solv_workspace_<alumno>_<materia>_<práctica>`, ADR-059); si el alumno todavía no tiene entorno de esa práctica, se usa el de la materia.
 4. El resultado queda registrado (aplicado o fallido). Si falla la copia, el respaldo permite recuperar el estado previo.
 
-El contenedor debe estar en ejecución para aplicar. El alumno aplica desde su laboratorio, así que ya lo tiene activo; si no lo está, el aviso queda pendiente hasta que lo abra.
+El contenedor debe estar en ejecución para aplicar. El alumno aplica desde su laboratorio, así que ya lo tiene activo; si lo intenta desde el solver con el entorno de la práctica detenido, el aviso sigue pendiente y el modal lo explica: la misma pantalla ofrece `Iniciar IDE`, y al abrirlo puede aplicar sin perder el aviso.
 
 **Confirmación previa.** El paso 1 necesita nombres de archivo, y `/pending` solo conoce la cantidad. `GET /api/v1/class-advances/{id}/files` devuelve `advance_id`, `exercise_id`, `file_count`, `added[]` y `overwritten[]`: lee el snapshot y lo compara con el volumen vigente del alumno, sin escribir nada. Es la lectura que alimenta la confirmación. Un aviso ya decidido responde 409; en examen, 409; con la ventana vencida, 409 y el destinatario pasa a `expired`. Sin almacén de snapshots responde 503 y el aviso sigue visible.
 
@@ -121,6 +123,8 @@ El contenedor debe estar en ejecución para aplicar. El alumno aplica desde su l
 El cliente del alumno consulta cada minuto sus avances pendientes, con el mismo ciclo que el latido de sesión de ADR-056. No se usa WebSocket ni SSE para este flujo. Un aviso puede tardar hasta un minuto en aparecer, y así se documenta en la interfaz.
 
 La consulta solo entrega avisos que todavía se pueden aplicar. Uno cuya ventana de disponibilidad venció se cierra como `expired` en ese momento, de modo que deja de mostrarse sin esperar a que el alumno lo intente. Un aviso de examen se oculta pero no se marca vencido: es una prohibición, no un plazo.
+
+El aviso aparece en la pantalla donde el alumno trabaja: el solver de la práctica muestra solo los avisos de su `exercise_id` y los aplica en el volumen de esa práctica (ADR-059). La pantalla de laboratorio por materia conserva la franja general de la materia. Ambas superficies comparten la consulta periódica y el mismo modal de confirmación.
 
 ### 9. Modelo de datos
 
@@ -257,7 +261,7 @@ El registro es de solo lectura. Si la escritura de una entrada falla, la acción
 - ADR-007: pasa a estado **Reemplazado por ADR-058**.
 - `docs/ARQUITECTURA/ADR/INDEX.md`: se agrega la fila 058 y el nuevo estado de 007.
 - `docs/UI/DOCENTE/DASHBOARD.md` (sección 4.2) y `docs/UI/ESTUDIANTE/LABORATORIO_ACTIVO.md`: describen el flujo implementado, incluida la ventana automática y sus tres acciones.
-- `docs/UI/MAPA_DE_VISTAS.md` §4.4 y §4.5, y `docs/API_CONTRACTS.md`: fichas del aula (emisión, congelación y ventana), del entorno de clase y de su lectura por materia.
+- `docs/UI/MAPA_DE_VISTAS.md` §4.4 y §4.5, y `docs/API_CONTRACTS.md`: fichas del aula (emisión, congelación y ventana), del entorno de la práctica y de su lectura por materia.
 - `proyecto-grado/avances/retencion-snapshots-y-respaldos.md`: política de retención de snapshots y respaldos, con plazos, poda y criterios de implementación.
 
 ---
@@ -280,7 +284,7 @@ El registro es de solo lectura. Si la escritura de una entrada falla, la acción
 - Un docente de otra materia recibe 404 al emitir, congelar o leer los avances del aula.
 - Un alumno no ve avances ajenos y recibe 404 si intenta aplicar uno que no es suyo.
 - Aplicar crea `.solv_backups/<avance_id>/` con los archivos previos antes de copiar.
-- Las rutas excluidas (`.vscode/`, `.solv_*`, `.git/`, `node_modules/`) no cambian en el volumen del alumno.
+- Las rutas excluidas (`.vscode/`, `.solv_*`, `.git/`, `node_modules/`, `.cache/`, `.openvscode-server/`) no cambian en el volumen del alumno.
 - Un avance emitido no cambia cuando el docente edita su código después.
 
 Estos casos se cubren en `backend/tests/integration/class_advance_edges_test.go` (recorrido HTTP completo contra PostgreSQL) y en los subcasos de `class_advance_repository_test.go`. Las exclusiones de rutas y las rutas inseguras del snapshot se prueban en `backend/internal/infrastructure/storage/seaweedfs/archive_test.go`.

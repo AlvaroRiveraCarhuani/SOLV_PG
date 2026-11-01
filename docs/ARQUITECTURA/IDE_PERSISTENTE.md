@@ -38,8 +38,29 @@ guardado; en publicación sí aborta con mensaje explícito.
 - Sin `BASE_DOMAIN` el workspace publica `3000/tcp` en `127.0.0.1:<puerto dinámico>` y
   `access_url = http://localhost:<puerto>`. No se emiten labels Traefik ni dominios `.local` en ese
   camino.
-- El workspace es único por `(student_id, subject_id)`, por eso el `db_init_script` se re-verifica
-  en cada arranque en lugar de depender de que el contenedor sea nuevo.
+- El workspace por materia es único por `(student_id, subject_id)`; el de la práctica, por
+  `(student_id, subject_id, exercise_id)` (ADR-059). Por eso el `db_init_script` se re-verifica en cada
+  arranque en lugar de depender de que el contenedor sea nuevo.
+
+### 2.1 Entorno por práctica
+
+`POST /api/v1/workspaces/start` con `exercise_id` abre el entorno del alumno acotado a la práctica:
+volumen `solv_workspace_<alumno>_<materia>_<práctica>` y reutilización por
+`(alumno, materia, práctica)`. Abrir otra práctica no reutiliza el entorno ni el volumen de la
+materia. Sin `exercise_id` se mantiene el entorno por materia.
+
+`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` (ADR-059) abre el entorno del
+docente acotado a una práctica, desde su ficha:
+
+- `workspaces.exercise_id` acota el entorno; el volumen pasa a
+  `solv_workspace_<docente>_<materia>_<práctica>` y la clave de reutilización es
+  `(tenant_id, student_id, subject_id, exercise_id)`.
+- Plantilla y `db_init_script` salen del ejercicio. El entorno existente se devuelve tal cual o se
+  reanuda; no se crean contenedores duplicados.
+- Solo prácticas `IDE_PERSISTENTE`; un volumen congelado responde `409` y la materia de otro docente
+  `403`. El entorno por práctica no se inscribe en el aula.
+- El docente abre la URL en una pestaña nueva; *Probar Entorno* sigue siendo la validación efímera
+  que no crea workspace ni entrega.
 
 ## 3. Entrega del proyecto
 
@@ -66,8 +87,9 @@ Cuando es IDE:
 - No invoca `/api/v1/evaluations` ni muestra el panel del juez.
 - Inicia/reconecta el workspace con `startWorkspace(subject_id, exercise_id)` y muestra `status`,
   `access_url` y `last_activity_at`; botón para abrir el IDE en otra pestaña.
-- Editor por archivo del proyecto (alta/baja de archivos, lenguaje derivado de la extensión) que se
-  envía como `files` al entregar.
+- La entrega es el volumen de la práctica: el alumno trabaja en el IDE y el solver no le pide
+  copiar archivos en el navegador. `POST /workspaces/{id}/submit` fotografía el volumen tal como
+  está; `files` sigue siendo opcional en la API para herramientas, pero el solver no lo envía.
 - "Entregar Proyecto" registra la entrega y muestra `verdict: PENDING` con `submission_id` y fecha.
   Si `allow_resubmit` es `false`, la entrega queda bloqueada tras la primera.
 

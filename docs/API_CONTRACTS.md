@@ -95,6 +95,7 @@ Pausa un contenedor activo de OpenVSCode Server liberando memoria RAM en el serv
 - **Headers Requeridos:**
   - `X-User-Id: <uuid_del_usuario>`
   - `X-User-Role: student | teacher | admin`
+- **Respuestas:** `200` con el entorno en `hibernated`; `404 workspace_not_found` cuando el laboratorio no existe (un id desconocido no es un fallo interno); `500` solo si Docker o la persistencia fallan de verdad.
 
 #### Ejemplo de Respuesta (`200 OK`)
 ```json
@@ -292,6 +293,95 @@ Retorna el desglose de métricas, entregas y veredictos para cada laboratorio de
 
 ---
 
+### 7.1 Prueba de entorno de una práctica IDE (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`)
+
+Valida una práctica `IDE_PERSISTENTE` sin crear entregas ni un workspace persistente. El servidor resuelve la plantilla del ejercicio (con la de la materia como respaldo), aprovisiona sus bases satélite con una identidad de prueba aislada, ejecuta el `setup_script` de la plantilla sobre un volumen temporal, comprueba que `/home/workspace` se puede escribir y que la imagen trae OpenVSCode Server. El montaje del volumen es la comprobación de repositorio base: un volumen no escribible falla el job, igual que un setup con error.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Cuerpo:** vacío. La identidad y el tenant salen de la sesión.
+- **Respuestas:**
+  - `202 Accepted`: job creado en `pending`.
+  - `400 invalid_environment`: la práctica no es de IDE persistente.
+  - `403 forbidden`: el docente no está asignado a la materia.
+  - `404 practice_not_found`: la práctica o la materia no existen en el tenant.
+  - `400 validation_error`: falta plantilla, imagen o la plantilla pide más RAM que la del host.
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "id": "job-uuid",
+    "exercise_id": "exercise-uuid",
+    "subject_id": "subject-uuid",
+    "image": "python:3.12-slim",
+    "target_environment": "IDE_PERSISTENTE",
+    "status": "pending",
+    "progress": { "bytes_done": 0, "bytes_total": 0, "layer_current": 0, "layers_total": 0, "percent": 0, "current_action": "Encolado, esperando slot de ejecución..." },
+    "created_at": "2026-11-01T11:00:00Z",
+    "updated_at": "2026-11-01T11:00:00Z"
+  },
+  "error": "",
+  "message": "Prueba de entorno de la práctica iniciada"
+}
+```
+
+El progreso y el resultado se consultan con los endpoints genéricos del job:
+
+| Método | Ruta | Uso |
+| --- | --- | --- |
+| `GET` | `/api/v1/jobs/env-test/{jobId}` | Estado, progreso y resultado. |
+| `POST` | `/api/v1/jobs/env-test/{jobId}/cancel` | Cancelación del job en curso. |
+
+Estados: `pending` (en cola), `pulling` (imagen), `testing` (satélites y setup), `success`, `failed`, `canceled`. El resultado exitoso lista `repositorio base` (volumen escribible), `openvscode-server` y un elemento por cada satélite asegurado; una dependencia que falle en el `setup_script` deja el job en `failed`. Un fallo de setup conserva la salida del comando en `error_message`.
+
+### 7.2 Última prueba de la práctica (`GET /api/v1/teacher/exercises/{exerciseId}/env-test/latest`)
+
+Devuelve el job más reciente de esa práctica para el docente autenticado. Sin pruebas responde `200` con `data: null`; otro docente no ve el job aunque comparta la materia.
+
+```json
+{ "data": null, "error": "", "message": "Última prueba de entorno de la práctica" }
+```
+
+### 7.3 IDE de una práctica del docente (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`)
+
+Abre el entorno del docente acotado a una práctica y devuelve la URL para abrirlo en una pestaña nueva. El contenedor usa el volumen propio del ejercicio (`solv_workspace_<docente>_<materia>_<práctica>`), la plantilla del ejercicio y su `db_init_script`; dos prácticas de la misma materia no comparten repositorio. Si el entorno de esa práctica ya existe corriendo devuelve el mismo, y si estaba pausado lo reanuda. No crea entregas ni inscribe al docente en el aula de la materia.
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Cuerpo:** vacío. La identidad y el tenant salen de la sesión.
+- **Respuestas:**
+  - `200 OK`: el IDE quedó disponible y `access_url` apunta al contenedor.
+  - `400 not_project_practice`: la práctica es del juez virtual y no tiene repositorio persistente.
+  - `403 forbidden`: la materia no está asignada a ese docente.
+  - `404 practice_not_found`: la práctica o su materia no existen en el tenant.
+  - `409 workspace_frozen`: el entorno de esa práctica quedó en solo lectura.
+  - `503 host_memory_exhausted` / `503 max_containers_reached`: el host o el cupo del tenant no admiten otro contenedor.
+  - `503 workspace_url_unavailable`: el contenedor arrancó pero no se pudo resolver su URL.
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "workspace_id": "b7c1e5f2-9a53-4f0e-9a5b-3f5b0f0e7c11",
+    "exercise_id": "exercise-uuid",
+    "subject_id": "subject-uuid",
+    "template_id": "template-uuid",
+    "status": "running",
+    "access_url": "http://localhost:49153",
+    "volume_name": "solv_workspace_teacher-uuid_subject-uuid_exercise-uuid"
+  },
+  "error": "",
+  "message": "IDE de la práctica listo"
+}
+```
+
+`access_url` sale del dominio configurado (`BASE_DOMAIN`) cuando hay Traefik, y del puerto publicado en `127.0.0.1` cuando se trabaja en local.
+
+---
+
 ### 8. Cola de Entregas del Curso (`GET /api/v1/teacher/courses/{id}/submissions`)
 
 Permite al docente inspeccionar y filtrar todas las entregas de su materia.
@@ -337,6 +427,8 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
 - **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
 - **Respuestas:**
   - `200 OK`: Detalle completo para revisión.
+  - `400 Bad Request`: El id de la entrega no es un UUID.
+  - `404 Not Found`: La entrega no existe o no pertenece a una materia del docente.
   - `403 Forbidden`: Si un estudiante intenta consultar este endpoint.
 
 #### Ejemplo de Respuesta
@@ -397,7 +489,9 @@ Permite a un docente o administrador rectificar o convalidar el veredicto y nota
 - **Ruta:** `/api/v1/submissions/{id}/override`
 - **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
 - **Respuestas:**
-  - `200 OK`: Calificación actualizada.
+  - `200 OK`: Calificación actualizada. Solo se responde así cuando la fila se actualizó de verdad.
+  - `400 Bad Request`: El id de la entrega no es un UUID.
+  - `404 Not Found`: La entrega no existe en la institución del docente. El repositorio devuelve aquí, no deja pasar el override como si hubiera guardado la nota.
   - `422 Unprocessable Entity`: Si la justificación tiene menos de 10 caracteres.
   - `403 Forbidden`: Si el rol es student.
 
@@ -409,6 +503,8 @@ Permite a un docente o administrador rectificar o convalidar el veredicto y nota
   "score": 90
 }
 ```
+
+**La lectura sigue el mismo criterio.** `GET /api/v1/submissions/{id}`, el detalle de revisión del docente y el registro de keystrokes responden `400` si el id no es un UUID y `404` si la entrega no existe en la institución. La evaluación por rúbrica de una entrega ausente también responde `404`. Un fallo real del almacén sigue siendo `500`: no se disfraza de ausencia.
 
 ---
 
@@ -442,7 +538,11 @@ Ejecuta código en el sandbox efímero sin persistir una nueva entrega en la bas
 - **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
 - **Respuestas:**
   - `200 OK`: Veredicto y salida de ejecución en memoria.
+  - `400 Bad Request`: El id de la entrega no es un UUID.
+  - `404 Not Found`: La entrega no existe en la institución del docente.
   - `403 Forbidden`: Si el rol es student.
+
+`GET /api/v1/teacher/submissions/{id}/timeline` y `/keystroke-events` comparten ese contrato: `400` con un id mal formado y `404` cuando la entrega no existe.
 
 #### Ejemplo de Solicitud
 ```json
@@ -1981,6 +2081,8 @@ Al terminar un examen, el volumen de cada alumno se monta en solo lectura y el l
 
 Las respuestas de sesión (`GET /teacher/sessions/open`, `POST /teacher/sessions`, `GET /teacher/sessions/{id}/board` y `PATCH /close`) incluyen `purpose`, que vale `exam` cuando la práctica de la sesión es un examen y `class` en el resto de los casos, incluida un aula sin práctica. La pantalla del docente usa ese campo para mostrar los controles del examen.
 
+**Aula y laboratorio: 400 no es 404.** Los endpoints del aula y del entorno distinguen dos casos. Un identificador con formato inválido responde `400` con `identificador con formato inválido`: en el cuerpo de `POST /teacher/sessions` (`subject_id`, `exercise_id`) y en el `subject_id` de consulta de `GET /api/v1/workspaces` y del entorno por práctica. Un aula o una materia que no existe responde `404`: el id del aula no corresponde a ninguna fila, o el almacén no encuentra la materia del entorno. Así el panel no confunde "no existe" con "el servidor falló" ni con "la petición está mal armada".
+
 ### `GET /api/v1/teacher/sessions/last-closed`
 
 Devuelve la última aula cerrada del docente, con su `grace_until` y `purpose`, para que al recargar la página el aula muestre su historial y su ventana de disponibilidad. Si no hay ninguna aula cerrada, `data` es `null`. Solo lo usa el rol `teacher` con el alcance de sus materias; el alumno recibe 403.
@@ -2009,18 +2111,20 @@ Excepción individual: devuelve la escritura al laboratorio de un alumno de ese 
 
 - `reason` es obligatorio y queda en `audit_logs` con el docente, el alumno y el aula.
 - Responde `200` con el mismo conteo.
-- `400` sin motivo; `404` si el alumno no participó de esa aula.
+- `400` sin motivo o con un identificador de ruta mal formado; `404` si el alumno no participó de esa aula o si su laboratorio ya no existe.
 
 ### Entrega anticipada: `POST /api/v1/workspaces/{id}/submit`
 
 La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-005 §5.2). El cuerpo sigue siendo el de la entrega del IDE:
 
 ```json
-{ "exercise_id": "uuid", "files": { "main.py": "print(1)\n" } }
+{ "exercise_id": "uuid" }
 ```
 
+- `files` es opcional y queda para herramientas que necesiten escribir archivos en el volumen justo antes de la entrega. El solver del alumno no lo envía: entrega el volumen de la práctica tal como está en el IDE. Si se manda, esos archivos se escriben primero y reemplazan los que tengan el mismo nombre.
 - Si el ejercicio de la entrega tiene `purpose = exam`, después de registrar la entrega el servidor monta el volumen de ese alumno en solo lectura. El resto de la clase sigue escribiendo.
 - Una entrega posterior sobre un volumen congelado responde `409` con `El examen terminó: tu entorno quedó en solo lectura`: escribir por esta vía sería seguir editando después del cierre.
+- `404` si el entorno no existe, y `403` si pertenece a otro alumno. Un entorno ausente no es un fallo del servidor: la entrega responde lo mismo que cualquier otro recurso que no está.
 - La respuesta de la entrega no cambia; el cierre se ve en el laboratorio (`status: "frozen"` y `frozen_at`).
 
 ### `PATCH /api/v1/teacher/sessions/{id}/close`
@@ -2033,21 +2137,26 @@ El cierre del aula conserva su contrato y suma `freeze_report` cuando el aula er
 
 Un aula de práctica no congela volúmenes y responde sin `freeze_report`.
 
+- `404` si el aula no existe o pertenece a otro docente. Un id que no es UUID tampoco identifica ningún aula y responde el mismo `404`: la diferencia con el `400` de validación está en lo que la petición declara, no en el formato del camino.
+
 ### Estado del laboratorio
 
 `GET /api/v1/workspaces?subject_id={uuid}` y el dashboard del alumno incluyen `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/workspaces/start` o `POST /api/v1/workspaces/{id}/restart` con el volumen congelado, la respuesta es `409` con `El examen terminó: tu entorno quedó en solo lectura`.
+
+**Entorno por práctica del alumno.** `POST /api/v1/workspaces/start` acepta `exercise_id`. Con práctica, el entorno y el volumen se acotan a `(alumno, materia, práctica)` y la respuesta incluye `exercise_id`; abrir otra práctica no reutiliza el entorno de la materia ni escribe en su volumen. Reabrir la misma práctica devuelve el mismo entorno. Sin `exercise_id` se conserva el entorno por materia. La emisión y la aplicación de avances (ADR-058) usan el volumen de la práctica cuando existe.
 
 ---
 
 ## Entorno de clase del docente
 
-El avance que se emite desde el aula sale del entorno del docente en la materia del aula (ADR-058 §5), así que la pantalla `/teacher/entorno` necesita leer ese entorno antes de ofrecer abrirlo. La lectura es una consulta por materia; el alta y la reanudación siguen usando el arranque de siempre.
+El avance que se emite desde el aula sale del entorno del docente de la práctica de la sesión (ADR-058 §5, ADR-059). Ese entorno se abre desde la ficha de la práctica (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`); la pantalla `/teacher/entorno` se retiró y su ruta redirige a Hoy. La lectura por materia que describe este apartado sigue disponible para consultar el entorno vigente sin levantar contenedores.
 
 ### `GET /api/v1/workspaces?subject_id={uuid}`
 
 - Sin cuerpo. La identidad se resuelve desde la sesión (`X-User-Id` o el token): el parámetro elige la materia, nunca a la persona.
 - Responde `200` con el entorno vigente en esa materia, o con `data: null` si el usuario todavía no abrió uno. Un entorno leído no levanta contenedores.
 - `400` si falta `subject_id` o no es un UUID.
+- `404` si el almacén no encuentra la materia indicada.
 - `401` si no se puede resolver la identidad.
 
 ```json

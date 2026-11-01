@@ -130,17 +130,100 @@ En esta vista el docente cuenta con el botón **`[Abrir Mi Entorno de Clase]`** 
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ PESTAÑAS:  [x] 1. Guías y Laboratorios  |  [ ] 2. Cola de Revisión  |  [ ] 3. Alumnos y Classroom │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ LABS ASIGNADOS                                                                                   │
+│ LABS ASIGNADOS                                    La fila completa abre la ficha de la práctica │
 │ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
 │ │ Lab #04: Estructuras de Datos Avanzadas   [Publicado]                                        │ │
 │ │ Entregas: 28/35 (80%)  |  Auto-calificados: 24  |  Pendientes audit: 4  |  En riesgo: 2      │ │
-│ │ [lucide:edit] Editar  |  [lucide:eye] Vista previa  |  [lucide:list] Ver cola de entregas    │ │
 │ ├──────────────────────────────────────────────────────────────────────────────────────────────┤ │
 │ │ Lab #03: Algoritmos de Búsqueda           [Cerrado]                                          │ │
 │ │ Entregas: 35/35 (100%) |  Nota Promedio: 88/100                                              │ │
 │ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
+
+La lista no repite acciones: toda la fila abre la ficha de la práctica con un clic y el contador de pendientes se lee como dato, sin botón. `Publicar` sigue en la fila únicamente mientras la práctica es borrador.
+
+---
+
+### 4.1.1 Ficha de la práctica (detalle del laboratorio)
+
+Toda la fila de cada laboratorio en la lista abre su ficha en `/teacher/cursos/{cursoId}/practicas/{labId}` (alias `/teacher/courses/{cursoId}/exercises/{labId}`). Es el mismo documento para las dos modalidades: la cabecera, la consigna y las métricas de entrega son comunes, y debajo aparece la sección propia del entorno.
+
+**Juez automático (`JUEZ_EFIMERO`):** firma inicial provista al estudiante (boilerplate) y casos de prueba en pestañas, cada uno con su visibilidad (`Público`, `Oculto`, `Ejemplo`) y su peso. Los casos ocultos se muestran aquí porque la vista es del docente; el estudiante sigue sin verlos.
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [< Volver a la materia]  Práctica 1: Búsqueda Binaria  [Probar Solución] [Fuzzing de Casos]  │
+│ Publicado · Juez Virtual (Algoritmia) · Python · Vence: 13 nov · Tiempo: 2000 ms · O(log n)      │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 12 entregas registradas · 35 estudiantes · [4] pendientes de revisión   → Ir a Entregas          │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ CONSIGNA DEL PROBLEMA                                                                            │
+│ Implementar la búsqueda binaria sobre un arreglo ordenado…                                       │
+│                                                                                                  │
+│ Firma inicial provista al estudiante (Boilerplate)                                               │
+│ ┌──────────────────────────────────────────────────────────────────────────────────────────────┐ │
+│ │ def busqueda_binaria(arr, objetivo): …                                                       │ │
+│ └──────────────────────────────────────────────────────────────────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ CASOS DE PRUEBA (20 configurados)                                         Puntaje total: 100 pts│
+│ [Caso 1 · Público] [Caso 2 · Público] [Caso 3 · Oculto] …                                       │
+│ Caso 1: Elemento en posición intermedia                                              5 pts      │
+│ ┌───────────────────────────────────────────┬────────────────────────────────────────────────┐ │
+│ │ ENTRADA (STDIN)                           │ SALIDA ESPERADA (STDOUT)                       │ │
+│ │ [1, 3, 5, 7, 9, 11]                       │ 3                                              │ │
+│ │ 7                                         │                                                │ │
+│ └───────────────────────────────────────────┴────────────────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Editor persistente (`IDE_PERSISTENTE`):** parámetros del entorno y rúbrica de calificación. Las tarjetas de parámetros solo aparecen si el dato está configurado: plantilla, base de datos satélite (con su script de inicialización), política de re-entregas y límites de ejecución.
+
+```text
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ [< Volver a la materia]  Práctica 1: Endpoints REST  [Abrir IDE] [Probar Entorno] [Editar]   │
+│ Publicado · Entorno de Proyecto (IDE) · TypeScript · Vence: 18 nov                              │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ 9 entregas registradas · 35 estudiantes · [6] pendientes de revisión   → Ir a Entregas           │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ✓ Entorno listo · Repositorio, dependencias y satélites verificados · 01 nov 11:04               │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ ┌───────────────────────────┐ ┌───────────────────────────┐ ┌───────────────────────────┐        │
+│ │ PLANTILLA                 │ │ BASE DE DATOS SATÉLITE    │ │ POLÍTICA DE ENTREGAS      │        │
+│ │ PostgreSQL & TypeScript   │ │ PostgreSQL                │ │ Re-entregas habilitadas   │        │
+│ │ node:20-alpine            │ │ Incluye script inicial    │ │ allow_resubmit: true      │        │
+│ └───────────────────────────┘ └───────────────────────────┘ └───────────────────────────┘        │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ CONSIGNA DE LA PRÁCTICA                                                                          │
+│ Construir un módulo de catálogo de productos en TypeScript…                                      │
+├──────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ RÚBRICA DE CALIFICACIÓN                                                   Puntaje total: 100 pts│
+│ ┌───────────────────────────────────┐ ┌───────────────────────────────────┐                      │
+│ │ • 1. Diseño y Tipado   ▓▓▓▓ 40 pts│ │ • 2. Precisión        ▓▓▓  35 pts│                      │
+│ │ Uso de interfaces claras…         │ │ Redondeo a dos decimales…         │                      │
+│ └───────────────────────────────────┘ └───────────────────────────────────┘                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Origen de los datos y comportamiento**
+
+| Dato | Origen |
+| :--- | :--- |
+| Título, estado, consigna, plantilla, límites y `test_cases` | `GET /api/v1/exercises/{id}` |
+| Rúbrica (criterios y pesos) | `GET /api/v1/exercises/{id}/rubric`; si no existe, la sección aparece vacía en IDE y se omite en juez |
+| Entregas, estudiantes y pendientes de revisión | `GET /api/v1/teacher/courses/{subjectId}/labs`, fila del laboratorio |
+| Prueba de entorno de la práctica IDE | `POST /api/v1/teacher/courses/{courseId}/exercises/{id}/env-test`; estado en `GET /api/v1/jobs/env-test/{jobId}` |
+| Última prueba conocida | `GET /api/v1/teacher/exercises/{id}/env-test/latest` |
+| IDE de la práctica (solo IDE) | `POST /api/v1/teacher/courses/{courseId}/exercises/{id}/ide`; devuelve `access_url` |
+
+- Los pesos de la rúbrica y de los casos se muestran tal como están guardados; la barra de la rúbrica reparte 100 % entre el total configurado y no inventa un puntaje cuando todos los pesos son cero.
+- El enlace **Ir a Entregas** navega al detalle de la materia con `tab=submissions` y `labId` para dejar el filtro aplicado.
+- La ficha no crea ni publica nada: las acciones son **Probar Entorno/Solución**, **Fuzzing de Casos** (solo juez virtual) y **Editar Laboratorio** (wizard existente). En el juez, Fuzzing abre el modal existente y recarga los casos al aplicar los seleccionados.
+- **Abrir IDE (solo IDE)** abre en una pestaña nueva el entorno del docente para esa práctica. El backend levanta un contenedor acotado a la práctica: volumen propio por ejercicio (`solv_workspace_<docente>_<materia>_<práctica>`), plantilla y `db_init_script` del ejercicio, sin mezclar el código con otra práctica de la misma materia. Si el entorno ya existe corriendo, devuelve el mismo y no duplica contenedores. La pestaña se abre antes de esperar la respuesta y se cierra si la apertura falla, para no dejar una pestaña en blanco ni una ventana emergente bloqueada.
+  - Solo abre prácticas `IDE_PERSISTENTE` de la materia del docente: una práctica del juez responde `400` y la materia de otro docente `403`.
+  - Un fallo se informa en la misma cabecera de la ficha y el botón vuelve a su estado normal.
+- **Probar Entorno (solo IDE)** inicia un job efímero: resuelve la plantilla del ejercicio, aprovisiona sus satélites con una base de prueba aislada, ejecuta el `setup_script` sobre un volumen temporal, comprueba que `/home/workspace` sea escribible y que la imagen traiga OpenVSCode Server. No crea una entrega ni un workspace persistente, y no es el botón que abre VS Code. La ficha muestra el estado del último job (`Sin pruebas`, en cola, descargando imagen, validando, listo o falló) con su hora y permite cancelarlo mientras corre.
+- El estado de la prueba no se confunde con la publicación: el badge de la cabecera sigue diciendo `Publicado` o `Borrador`.
 
 ---
 
