@@ -47,6 +47,38 @@ func (s *TeacherService) AddComment(ctx context.Context, comment *domain.Submiss
 	if comment.SubmissionID == "" || strings.TrimSpace(comment.Comment) == "" {
 		return fmt.Errorf("comentario y submission_id son requeridos")
 	}
+
+	endLine := comment.LineNumber
+	if comment.EndLineNumber != nil {
+		endLine = *comment.EndLineNumber
+	}
+	if comment.LineNumber < 1 || endLine < comment.LineNumber {
+		return domain.ErrLineRangeInvalid
+	}
+
+	// La vista IDE traduce la línea local del archivo a la línea global del
+	// snapshot. El rango se valida sobre `code`, que es lo que persiste la tabla.
+	review, err := s.repo.GetTeacherSubmissionReview(ctx, comment.TenantID, comment.AuthorID, comment.SubmissionID)
+	if err != nil {
+		return err
+	}
+	if review != nil {
+		totalLines := strings.Count(review.Code, "\n") + 1
+		if endLine > totalLines {
+			return domain.ErrLineOutOfRange
+		}
+		// Un bloque IDE no puede cruzar cabeceras ni archivos: el comentario se
+		// ancla a una fila del árbol, no a dos. Los comentarios de una sola línea
+		// siguen pudiendo caer en una cabecera (nota general de la rúbrica).
+		if review.FilesAvailable && endLine > comment.LineNumber {
+			startFile := domain.ProjectFileForGlobalLine(review.Files, comment.LineNumber)
+			endFile := domain.ProjectFileForGlobalLine(review.Files, endLine)
+			if startFile == nil || endFile == nil || startFile.Path != endFile.Path {
+				return domain.ErrLineRangeSpansFiles
+			}
+		}
+	}
+
 	return s.repo.AddComment(ctx, comment)
 }
 

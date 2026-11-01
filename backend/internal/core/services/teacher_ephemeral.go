@@ -23,12 +23,19 @@ func (s *TeacherService) RunEphemeral(ctx context.Context, tenantID, teacherID, 
 		return nil, err
 	}
 
+	if review.EnvironmentType == domain.WorkspaceTypeIDEPersistente {
+		return nil, domain.ErrEphemeralNotSupportedForIDE
+	}
+
 	sourceCode := code
 	if strings.TrimSpace(sourceCode) == "" {
 		sourceCode = review.Code
 	}
 
-	if language == "" {
+	if strings.TrimSpace(language) == "" {
+		language = review.Language
+	}
+	if strings.TrimSpace(language) == "" {
 		language = "python"
 	}
 

@@ -120,15 +120,24 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	req domain.RubricEvaluationRequest,
 ) (*domain.RubricEvaluationResponse, error) {
 	var subMeta struct {
-		ExerciseID uuid.UUID `db:"exercise_id"`
-		TenantID   uuid.UUID `db:"tenant_id"`
+		ExerciseID uuid.UUID      `db:"exercise_id"`
+		TenantID   uuid.UUID      `db:"tenant_id"`
+		SubjectID  sql.NullString `db:"subject_id"`
 	}
-	err := s.db.GetContext(ctx, &subMeta, "SELECT exercise_id, tenant_id FROM submissions WHERE id = $1", submissionID)
+	err := s.db.GetContext(ctx, &subMeta, `
+		SELECT sub.exercise_id, sub.tenant_id, ex.subject_id::text AS subject_id
+		FROM submissions sub
+		JOIN exercises ex ON ex.id = sub.exercise_id
+		WHERE sub.id = $1
+	`, submissionID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, submissionID)
 		}
 		return nil, fmt.Errorf("failed to load submission: %w", err)
+	}
+	if !subMeta.SubjectID.Valid || strings.TrimSpace(subMeta.SubjectID.String) == "" {
+		return nil, fmt.Errorf("la entrega %s no tiene materia para escribir la libreta", submissionID)
 	}
 
 	rubric, err := s.rubricRepo.GetByExerciseID(ctx, subMeta.ExerciseID)
@@ -147,22 +156,72 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	}
 
 	roundedScoreInt := int(math.Round(score))
-	_, err = s.db.ExecContext(ctx, `
+	feedback := strings.TrimSpace(req.Comments)
+
+	tx, err := s.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin rubric transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.ExecContext(ctx, `
 		UPDATE submissions
-		SET score = $1, verdict = 'AC', manual_override = TRUE, override_reason = 'Evaluado por rúbrica', graded_by = COALESCE($3, graded_by)
+		SET score = $1,
+		    verdict = 'AC',
+		    manual_override = TRUE,
+		    override_reason = 'Evaluado por rúbrica',
+		    graded_by = COALESCE($3, graded_by),
+		    review_status = 'graded',
+		    reviewed_at = NOW(),
+		    reviewed_by = COALESCE($3, reviewed_by),
+		    feedback_summary = $4
 		WHERE id = $2
-	`, roundedScoreInt, submissionID, authorID)
+	`, roundedScoreInt, submissionID, authorID, feedback)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update submission score: %w", err)
 	}
+	if affected, err := result.RowsAffected(); err == nil && affected == 0 {
+		return nil, fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, submissionID)
+	}
 
-	if strings.TrimSpace(req.Comments) != "" && authorID != nil {
-		if _, err := s.db.ExecContext(ctx, `
+	if feedback != "" && authorID != nil {
+		if _, err := tx.ExecContext(ctx, `
 			INSERT INTO submission_comments (tenant_id, submission_id, author_id, line_number, comment, created_at)
 			VALUES ($1, $2, $3, 1, $4, NOW())
-		`, subMeta.TenantID, submissionID, authorID, req.Comments); err != nil {
+		`, subMeta.TenantID, submissionID, authorID, feedback); err != nil {
 			return nil, fmt.Errorf("failed to insert rubric comment: %w", err)
 		}
+	}
+
+	// La nota de la entrega y la celda de la libreta se escriben en la misma
+	// transacción: si la libreta falla, la entrega no queda como calificada.
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO exercise_grades (
+		    student_id, exercise_id, subject_id, tenant_id,
+		    selected_submission_id, score, source, updated_at
+		)
+		SELECT sub.student_id,
+		       sub.exercise_id,
+		       ex.subject_id,
+		       sub.tenant_id,
+		       sub.id,
+		       $1,
+		       'auto',
+		       NOW()
+		FROM submissions sub
+		JOIN exercises ex ON ex.id = sub.exercise_id
+		WHERE sub.id = $2 AND sub.tenant_id = $3 AND ex.subject_id IS NOT NULL
+		ON CONFLICT (student_id, exercise_id) DO UPDATE
+		SET selected_submission_id = EXCLUDED.selected_submission_id,
+		    score = EXCLUDED.score,
+		    updated_at = NOW()
+		WHERE exercise_grades.source <> 'manual'
+	`, roundedScoreInt, submissionID, subMeta.TenantID); err != nil {
+		return nil, fmt.Errorf("failed to update gradebook: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("failed to commit rubric evaluation: %w", err)
 	}
 
 	// Despacho asíncrono desacoplado de aviso al estudiante

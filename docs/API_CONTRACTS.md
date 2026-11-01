@@ -442,6 +442,9 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
     "subject_name": "Estructuras de Datos",
     "student_id": "stu-uuid-1",
     "student_name": "Carlos Ruiz",
+    "environment_type": "JUEZ_EFIMERO",
+    "language": "python",
+    "boilerplate": "def insert(root, key):\n    pass\n",
     "code": "def insert(root, key): ...",
     "verdict": "WA",
     "score": null,
@@ -461,10 +464,16 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
         "passed": false
       }
     ],
+    "files_available": false,
+    "metrics_available": true,
+    "files": [],
+    "base_files": [],
+    "base_files_available": false,
     "comments": [
       {
         "id": "c-uuid-1",
         "line_number": 15,
+        "end_line_number": 18,
         "comment": "Revisar rotación doble a la izquierda",
         "author_name": "Profesor Revisor",
         "created_at": "2026-09-02T18:40:00Z"
@@ -478,6 +487,19 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
   "message": "Detalle de revisión SpeedGrader obtenido exitosamente"
 }
 ```
+
+#### Campos de modalidad
+
+- `environment_type`: `JUEZ_EFIMERO` o `IDE_PERSISTENTE`. Sale de `exercises.environment_type`; si falta o es desconocido, el backend responde `JUEZ_EFIMERO`.
+- `language`: lenguaje del ejercicio. Vacío si no está definido.
+- `boilerplate`: código base del ejercicio. En juez es el texto único contra el que se calcula el diff. En IDE es el proyecto base multiarchivo (formato `# === FILE: ruta ===`); el diff compara cada archivo entregado contra su homónimo.
+- `files_available`: `true` solo en IDE cuando el snapshot se pudo separar en archivos. Si es `false`, la vista usa el visor plano de `code`.
+- `metrics_available`: `true` en juez cuando la entrega ya tiene veredicto de ejecución. En IDE es `false`. La vista muestra tiempo y memoria solo con este campo; no interpreta `0` como medición.
+- `files`: arreglo derivado de `code` (`path`, `language`, `content`, `start_line`, `line_count`). En juez es `[]`. `start_line` es 1-based y permite traducir los comentarios, que siguen usando la línea global de `code`.
+- `base_files`: arreglo con el mismo formato que `files`, derivado de `boilerplate` en IDE. En juez es `[]`. `base_files_available` indica si el proyecto base se pudo separar; si es `false`, el diff por archivo no se muestra.
+- En IDE, `test_cases` es `[]`: los casos I/O no aplican y el backend no los busca en `exercise_config`.
+
+El parser que arma `files` y `base_files` vive en `internal/core/domain/project_snapshot.go`. Rechaza rutas absolutas, rutas con `..`, caracteres de control, rutas duplicadas, más de 500 archivos o un snapshot mayor a 2 MiB; en esos casos el arreglo correspondiente queda vacío y su bandera en `false`.
 
 ---
 
@@ -510,22 +532,36 @@ Permite a un docente o administrador rectificar o convalidar el veredicto y nota
 
 ### 11. Comentarios In-line Anclados a Código (`POST & GET /api/v1/teacher/submissions/{id}/comments`)
 
-Permite registrar y consultar comentarios pedagógicos anclados a líneas específicas del código fuente.
+Permite registrar y consultar comentarios pedagógicos anclados a una línea o a un bloque de líneas del código fuente.
 
 - **Método:** `POST` / `GET`
 - **Ruta:** `/api/v1/teacher/submissions/{id}/comments`
 - **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
 - **Respuestas:**
-  - `POST`: `201 Created`
+  - `POST`: `201 Created`.
   - `GET`: `200 OK` con lista de comentarios ordenados por `line_number`.
+  - `400 Bad Request`: El id de la entrega no es un UUID (`invalid_submission_id`).
+  - `404 Not Found`: La entrega no existe en la institución del docente (`submission_not_found`).
+  - `422 Unprocessable Entity`: `line_number` cae fuera del rango de líneas de `submissions.code` (`line_out_of_range`), el rango está invertido (`line_range_invalid`) o el bloque cruza archivos en IDE (`line_range_spans_files`). En IDE la vista traduce las líneas locales del archivo a globales antes de enviarlas; el backend valida contra `code`, que es lo que persiste.
 
-#### Ejemplo de Solicitud POST
+#### Ejemplo de Solicitud POST (una línea)
 ```json
 {
   "line_number": 42,
   "comment": "Cuidado con la condición de corte en el caso base"
 }
 ```
+
+#### Ejemplo de Solicitud POST (bloque)
+```json
+{
+  "line_number": 42,
+  "end_line_number": 47,
+  "comment": "El bloque no valida el body antes de responder"
+}
+```
+
+`end_line_number` es opcional. Cuando se omite, el comentario aplica a una sola línea. En IDE el bloque debe pertenecer a un único archivo; se ancla a la línea global del snapshot, igual que los comentarios de una línea.
 
 ---
 
@@ -540,6 +576,7 @@ Ejecuta código en el sandbox efímero sin persistir una nueva entrega en la bas
   - `200 OK`: Veredicto y salida de ejecución en memoria.
   - `400 Bad Request`: El id de la entrega no es un UUID.
   - `404 Not Found`: La entrega no existe en la institución del docente.
+  - `409 Conflict`: La entrega pertenece a un proyecto IDE Persistente (`ephemeral_not_supported_for_ide`). Los proyectos se corrigen con rúbrica, no re-ejecutando casos I/O.
   - `403 Forbidden`: Si el rol es student.
 
 `GET /api/v1/teacher/submissions/{id}/timeline` y `/keystroke-events` comparten ese contrato: `400` con un id mal formado y `404` cuando la entrega no existe.

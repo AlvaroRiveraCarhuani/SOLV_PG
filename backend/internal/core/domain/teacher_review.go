@@ -7,15 +7,27 @@ import (
 )
 
 // SubmissionComment representa un comentario pedagógico docente anclado a una línea de código.
+// EndLineNumber es opcional: null comenta una sola línea; con valor comenta el
+// bloque [LineNumber, EndLineNumber]. La línea sigue siendo global sobre `code`.
 type SubmissionComment struct {
-	ID           string    `json:"id" db:"id"`
-	TenantID     string    `json:"tenant_id" db:"tenant_id"`
-	SubmissionID string    `json:"submission_id" db:"submission_id"`
-	AuthorID     string    `json:"author_id" db:"author_id"`
-	AuthorName   string    `json:"author_name" db:"author_name"`
-	LineNumber   int       `json:"line_number" db:"line_number"`
-	Comment      string    `json:"comment" db:"comment"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	ID            string    `json:"id" db:"id"`
+	TenantID      string    `json:"tenant_id" db:"tenant_id"`
+	SubmissionID  string    `json:"submission_id" db:"submission_id"`
+	AuthorID      string    `json:"author_id" db:"author_id"`
+	AuthorName    string    `json:"author_name" db:"author_name"`
+	LineNumber    int       `json:"line_number" db:"line_number"`
+	EndLineNumber *int      `json:"end_line_number,omitempty" db:"end_line_number"`
+	Comment       string    `json:"comment" db:"comment"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+}
+
+// RangeEnd devuelve la última línea del comentario. Un comentario de una sola
+// línea devuelve su propia línea, también cuando el puntero es nil o inválido.
+func (c SubmissionComment) RangeEnd() int {
+	if c.EndLineNumber != nil && *c.EndLineNumber >= c.LineNumber {
+		return *c.EndLineNumber
+	}
+	return c.LineNumber
 }
 
 // SubmissionQueueItem representa un elemento en la cola de revisión del curso.
@@ -55,6 +67,9 @@ type TeacherSubmissionReviewDTO struct {
 	StudentID          string              `json:"student_id" db:"student_id"`
 	StudentName        string              `json:"student_name" db:"student_name"`
 	StudentEmail       string              `json:"student_email" db:"student_email"`
+	EnvironmentType    string              `json:"environment_type" db:"environment_type"`
+	Language           string              `json:"language" db:"language"`
+	Boilerplate        string              `json:"boilerplate" db:"boilerplate"`
 	Code               string              `json:"code" db:"code"`
 	Verdict            string              `json:"verdict" db:"verdict"`
 	Score              *int                `json:"score,omitempty" db:"score"`
@@ -69,6 +84,14 @@ type TeacherSubmissionReviewDTO struct {
 	ExpectedComplexity string              `json:"expected_complexity,omitempty" db:"expected_complexity"`
 	ComplexityAnalysis *ComplexityAnalysis `json:"complexity_analysis,omitempty" db:"complexity_analysis"`
 	TestCases          []TestCaseReview    `json:"test_cases"`
+	FilesAvailable     bool                `json:"files_available"`
+	MetricsAvailable   bool                `json:"metrics_available"`
+	Files              []ProjectFile       `json:"files"`
+	// BaseFiles es el proyecto base del ejercicio (IDE) derivado de
+	// `exercises.boilerplate` con el mismo parser del snapshot. Es lo que usa
+	// el diff por archivo; no se persiste ni se toca el disco.
+	BaseFiles          []ProjectFile       `json:"base_files"`
+	BaseFilesAvailable bool                `json:"base_files_available"`
 	Comments           []SubmissionComment `json:"comments"`
 	NextSubmissionID   *string             `json:"next_submission_id,omitempty"`
 	PrevSubmissionID   *string             `json:"prev_submission_id,omitempty"`
@@ -82,13 +105,30 @@ type OverrideRequestDTO struct {
 	Score          *int   `json:"score,omitempty"`
 }
 
-// AddCommentRequestDTO payload para agregar un comentario in-line.
+// AddCommentRequestDTO payload para agregar un comentario in-line o de bloque.
 type AddCommentRequestDTO struct {
-	LineNumber int    `json:"line_number"`
-	Comment    string `json:"comment"`
+	LineNumber    int    `json:"line_number"`
+	EndLineNumber *int   `json:"end_line_number,omitempty"`
+	Comment       string `json:"comment"`
 }
 
 var ErrInvalidOverrideReason = errors.New("override reason must be at least 10 characters")
+
+// ErrLineOutOfRange: el comentario apunta fuera de las líneas de la entrega.
+// La vista traduce líneas locales a globales, pero el backend valida el rango
+// real de `code` para no aceptar anclas inexistentes.
+var ErrLineOutOfRange = errors.New("line_out_of_range")
+
+// ErrLineRangeInvalid: el rango está invertido o la línea inicial no es válida.
+var ErrLineRangeInvalid = errors.New("line_range_invalid")
+
+// ErrLineRangeSpansFiles: en IDE el bloque debe vivir dentro de un solo archivo;
+// un rango que cruza cabeceras o archivos no se puede anclar en el árbol.
+var ErrLineRangeSpansFiles = errors.New("line_range_spans_files")
+
+// ErrEphemeralNotSupportedForIDE: el runner efímero es una capacidad del juez.
+// Un proyecto IDE se revisa con la rúbrica, no re-ejecutando casos I/O.
+var ErrEphemeralNotSupportedForIDE = errors.New("ephemeral run is only available for JUEZ_EFIMERO")
 
 // EphemeralRunRequestDTO payload para ejecutar código en sandbox efímero sin persistir.
 type EphemeralRunRequestDTO struct {

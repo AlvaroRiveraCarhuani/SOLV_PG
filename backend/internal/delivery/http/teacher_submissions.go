@@ -107,14 +107,35 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 	}
 
 	comment := &domain.SubmissionComment{
-		TenantID:     tenantID,
-		SubmissionID: submissionID,
-		AuthorID:     authorID,
-		LineNumber:   dto.LineNumber,
-		Comment:      dto.Comment,
+		TenantID:      tenantID,
+		SubmissionID:  submissionID,
+		AuthorID:      authorID,
+		LineNumber:    dto.LineNumber,
+		EndLineNumber: dto.EndLineNumber,
+		Comment:       dto.Comment,
 	}
 
 	if err := h.service.AddComment(r.Context(), comment); err != nil {
+		if errors.Is(err, domain.ErrLineRangeInvalid) {
+			SendError(w, http.StatusUnprocessableEntity, "line_range_invalid", "El rango del comentario debe empezar en una línea válida y terminar en una línea igual o posterior")
+			return
+		}
+		if errors.Is(err, domain.ErrLineRangeSpansFiles) {
+			SendError(w, http.StatusUnprocessableEntity, "line_range_spans_files", "El bloque comentado debe pertenecer a un solo archivo")
+			return
+		}
+		if errors.Is(err, domain.ErrLineOutOfRange) {
+			SendError(w, http.StatusUnprocessableEntity, "line_out_of_range", "La línea del comentario no existe en la entrega")
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe en esta institución")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al guardar comentario")
 		return
 	}

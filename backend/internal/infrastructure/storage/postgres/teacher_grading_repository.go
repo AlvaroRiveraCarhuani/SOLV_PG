@@ -110,6 +110,9 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		StudentID          string         `db:"student_id"`
 		StudentName        string         `db:"student_name"`
 		StudentEmail       string         `db:"student_email"`
+		EnvironmentType    string         `db:"environment_type"`
+		Language           string         `db:"language"`
+		Boilerplate        string         `db:"boilerplate"`
 		Code               string         `db:"code"`
 		Verdict            string         `db:"verdict"`
 		Score              sql.NullInt64  `db:"score"`
@@ -131,6 +134,9 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       s.id AS subject_id, s.name AS subject_name,
 		       sub.student_id, COALESCE(u.first_name || ' ' || u.last_name, 'Estudiante') AS student_name,
 		       COALESCE(u.email, '') AS student_email,
+		       COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
+		       COALESCE(ex.language, '') AS language,
+		       COALESCE(ex.boilerplate, '') AS boilerplate,
 		       sub.code, sub.verdict, sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
 		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.generated_cases,
@@ -163,6 +169,9 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		expComp = row.ExpectedComplexity.String
 	}
 
+	environmentType := normalizeReviewEnvironment(row.EnvironmentType)
+	isJudge := environmentType == domain.WorkspaceTypeJuezEfimero
+
 	review := &domain.TeacherSubmissionReviewDTO{
 		ID:                 row.ID,
 		ExerciseID:         row.ExerciseID,
@@ -172,8 +181,15 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		StudentID:          row.StudentID,
 		StudentName:        row.StudentName,
 		StudentEmail:       row.StudentEmail,
+		EnvironmentType:    environmentType,
+		Language:           strings.TrimSpace(row.Language),
+		Boilerplate:        row.Boilerplate,
 		Code:               row.Code,
 		Verdict:            row.Verdict,
+		MetricsAvailable:   isJudge && strings.TrimSpace(row.Verdict) != "" && row.Verdict != "PENDING",
+		FilesAvailable:     false,
+		Files:              make([]domain.ProjectFile, 0),
+		BaseFiles:          make([]domain.ProjectFile, 0),
 		ManualOverride:     row.ManualOverride.Valid && row.ManualOverride.Bool,
 		ExecutionTimeMS:    row.ExecutionTimeMS,
 		MemoryUsedMB:       row.MemoryUsedMB,
@@ -201,8 +217,22 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		review.GradedByName = row.GradedByName.String
 	}
 
+	if !isJudge {
+		// El snapshot de la entrega se deriva en archivos navegables. El
+		// `boilerplate` del ejercicio es el proyecto base que usa el diff por
+		// archivo; se envía para que la vista no tenga que adivinarlo.
+		if files, ok := domain.ParseProjectSnapshot(row.Code, review.Language); ok {
+			review.FilesAvailable = true
+			review.Files = files
+		}
+		if baseFiles, ok := domain.ParseProjectSnapshot(row.Boilerplate, review.Language); ok {
+			review.BaseFiles = baseFiles
+			review.BaseFilesAvailable = true
+		}
+	}
+
 	// Si existen casos generados snapshot (examen con semilla), usarlos prioritariamente
-	if len(row.GeneratedCases) > 0 {
+	if isJudge && len(row.GeneratedCases) > 0 {
 		var genCases []domain.TestCase
 		if err := json.Unmarshal(row.GeneratedCases, &genCases); err == nil && len(genCases) > 0 {
 			for _, gc := range genCases {
@@ -217,7 +247,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	}
 
 	// Si no hubo casos generados o test_cases sigue vacío, desenmascarar desde exercise_config
-	if len(review.TestCases) == 0 && len(row.ExerciseConfig) > 0 {
+	if isJudge && len(review.TestCases) == 0 && len(row.ExerciseConfig) > 0 {
 		var cfg map[string]interface{}
 		if err := json.Unmarshal(row.ExerciseConfig, &cfg); err == nil {
 			var tcRaw []interface{}
@@ -246,7 +276,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	}
 
 	// Si no hubo casos en config ni generated_cases, consultar la tabla normalizada exercise_test_cases
-	if len(review.TestCases) == 0 {
+	if isJudge && len(review.TestCases) == 0 {
 		type tcRow struct {
 			Input          string `db:"input"`
 			ExpectedOutput string `db:"expected_output"`
@@ -312,13 +342,23 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	return review, nil
 }
 
+// normalizeReviewEnvironment reduce un environment_type faltante o desconocido
+// a una de las dos modalidades que la vista sabe renderizar. El fallback es el
+// evaluador automático, igual que el default del esquema.
+func normalizeReviewEnvironment(raw string) string {
+	if strings.TrimSpace(raw) == domain.WorkspaceTypeIDEPersistente {
+		return domain.WorkspaceTypeIDEPersistente
+	}
+	return domain.WorkspaceTypeJuezEfimero
+}
+
 func (r *PostgresTeacherRepository) AddComment(ctx context.Context, comment *domain.SubmissionComment) error {
 	if comment.ID == "" {
 		comment.ID = uuid.NewString()
 	}
 	query := `
-		INSERT INTO submission_comments (id, tenant_id, submission_id, author_id, line_number, comment, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW())
+		INSERT INTO submission_comments (id, tenant_id, submission_id, author_id, line_number, end_line_number, comment, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		comment.ID,
@@ -326,6 +366,7 @@ func (r *PostgresTeacherRepository) AddComment(ctx context.Context, comment *dom
 		comment.SubmissionID,
 		comment.AuthorID,
 		comment.LineNumber,
+		comment.EndLineNumber,
 		comment.Comment,
 	)
 	if err != nil {
@@ -338,21 +379,22 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 	query := `
 		SELECT sc.id, sc.tenant_id, sc.submission_id, sc.author_id,
 		       COALESCE(u.first_name || ' ' || u.last_name, 'Docente') AS author_name,
-		       sc.line_number, sc.comment, sc.created_at
+		       sc.line_number, sc.end_line_number, sc.comment, sc.created_at
 		FROM submission_comments sc
 		LEFT JOIN users u ON sc.author_id = u.id
 		WHERE sc.submission_id = $1 AND sc.tenant_id = $2
 		ORDER BY sc.line_number ASC, sc.created_at ASC
 	`
 	type cRow struct {
-		ID           string    `db:"id"`
-		TenantID     string    `db:"tenant_id"`
-		SubmissionID string    `db:"submission_id"`
-		AuthorID     string    `db:"author_id"`
-		AuthorName   string    `db:"author_name"`
-		LineNumber   int       `db:"line_number"`
-		Comment      string    `db:"comment"`
-		CreatedAt    time.Time `db:"created_at"`
+		ID            string        `db:"id"`
+		TenantID      string        `db:"tenant_id"`
+		SubmissionID  string        `db:"submission_id"`
+		AuthorID      string        `db:"author_id"`
+		AuthorName    string        `db:"author_name"`
+		LineNumber    int           `db:"line_number"`
+		EndLineNumber sql.NullInt64 `db:"end_line_number"`
+		Comment       string        `db:"comment"`
+		CreatedAt     time.Time     `db:"created_at"`
 	}
 
 	var rows []cRow
@@ -362,7 +404,7 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 
 	result := make([]*domain.SubmissionComment, 0, len(rows))
 	for _, r := range rows {
-		result = append(result, &domain.SubmissionComment{
+		comment := &domain.SubmissionComment{
 			ID:           r.ID,
 			TenantID:     r.TenantID,
 			SubmissionID: r.SubmissionID,
@@ -371,7 +413,12 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 			LineNumber:   r.LineNumber,
 			Comment:      r.Comment,
 			CreatedAt:    r.CreatedAt,
-		})
+		}
+		if r.EndLineNumber.Valid {
+			end := int(r.EndLineNumber.Int64)
+			comment.EndLineNumber = &end
+		}
+		result = append(result, comment)
 	}
 	return result, nil
 }

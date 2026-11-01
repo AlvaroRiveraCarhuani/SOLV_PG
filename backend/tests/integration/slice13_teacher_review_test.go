@@ -154,7 +154,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	_, err = db.GetDB().Exec(`
 		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, code, verdict, ast_result, execution_time_ms, memory_used_mb, submitted_at)
 		VALUES 
-			($1, $4, $5, $6, 'def fact(n): return 1 if n<=1 else n*fact(n-1) # sub1', 'WA', '{"rule_id": "none"}'::jsonb, 12, 24, $7),
+			($1, $4, $5, $6, E'def fact(n):\n    if n <= 1:\n        return 1\n    return n * fact(n - 1) # sub1', 'WA', '{"rule_id": "none"}'::jsonb, 12, 24, $7),
 			($2, $4, $5, $8, 'def fact(n): return 1 if n<=1 else n*fact(n-1) # sub2', 'AC', '{"rule_id": "none"}'::jsonb, 10, 22, $9),
 			($3, $4, $5, $10, 'def fact(n): return 1 if n<=1 else n*fact(n-1) # sub3', 'WA', '{"rule_id": "none"}'::jsonb, 15, 25, $11)
 	`, sub1ID, sub2ID, sub3ID, tenantID, exerciseID, student1ID, t1, student2ID, t2, student3ID, t3)
@@ -247,6 +247,23 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		}
 		if privateCount != 2 {
 			t.Errorf("Expected exactly 2 private test cases, got %d", privateCount)
+		}
+
+		// Contrato de modalidad: el juez viaja con su lenguaje y sin archivos.
+		if review["environment_type"] != "JUEZ_EFIMERO" {
+			t.Errorf("Expected environment_type JUEZ_EFIMERO, got %v", review["environment_type"])
+		}
+		if review["language"] != "python" {
+			t.Errorf("Expected language python, got %v", review["language"])
+		}
+		if review["files_available"] != false {
+			t.Errorf("Expected files_available false for judge, got %v", review["files_available"])
+		}
+		if review["metrics_available"] != true {
+			t.Errorf("Expected metrics_available true for executed judge submission, got %v", review["metrics_available"])
+		}
+		if files, ok := review["files"].([]interface{}); !ok || len(files) != 0 {
+			t.Errorf("Expected empty files for judge, got %v", review["files"])
 		}
 
 		// Verificar punteros de navegación SpeedGrader
@@ -347,8 +364,8 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	// 4. TEST Comentarios In-line Anclados a Código (POST & GET)
 	// =========================================================================
 	t.Run("4. Comentarios In-line Anclados a Líneas de Código", func(t *testing.T) {
-		// 4.1 Docente agrega comentario en línea 15
-		c1Payload := []byte(`{"line_number": 15, "comment": "Ojo con el caso base cuando n == 0"}`)
+		// 4.1 Docente agrega comentario en la segunda línea del bloque
+		c1Payload := []byte(`{"line_number": 2, "comment": "Ojo con el caso base cuando n == 0"}`)
 		reqC1, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c1Payload))
 		reqC1.Header.Set("Content-Type", "application/json")
 		reqC1.Header.Set("X-User-Id", teacherID)
@@ -364,8 +381,8 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 			t.Fatalf("Expected 201 Created for comment 1, got %d", respC1.StatusCode)
 		}
 
-		// 4.2 Docente agrega comentario en línea 28
-		c2Payload := []byte(`{"line_number": 28, "comment": "Excelente optimización de memoria"}`)
+		// 4.2 Docente agrega comentario en la cuarta línea del bloque
+		c2Payload := []byte(`{"line_number": 4, "comment": "Excelente optimización de memoria"}`)
 		reqC2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c2Payload))
 		reqC2.Header.Set("Content-Type", "application/json")
 		reqC2.Header.Set("X-User-Id", teacherID)
@@ -396,13 +413,13 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		}
 
 		comment1 := comments[0].(map[string]interface{})
-		if int(comment1["line_number"].(float64)) != 15 {
-			t.Errorf("Expected line_number = 15, got %v", comment1["line_number"])
+		if int(comment1["line_number"].(float64)) != 2 {
+			t.Errorf("Expected line_number = 2, got %v", comment1["line_number"])
 		}
 
 		comment2 := comments[1].(map[string]interface{})
-		if int(comment2["line_number"].(float64)) != 28 {
-			t.Errorf("Expected line_number = 28, got %v", comment2["line_number"])
+		if int(comment2["line_number"].(float64)) != 4 {
+			t.Errorf("Expected line_number = 4, got %v", comment2["line_number"])
 		}
 	})
 }

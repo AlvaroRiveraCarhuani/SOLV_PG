@@ -45,6 +45,10 @@ func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
 			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe")
 			return
 		}
+		if errors.Is(err, domain.ErrEphemeralNotSupportedForIDE) {
+			SendError(w, http.StatusConflict, "ephemeral_not_supported_for_ide", "La ejecución efímera solo aplica al Evaluador Automático; los proyectos se corrigen con rúbrica")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error en ejecución efímera")
 		return
 	}

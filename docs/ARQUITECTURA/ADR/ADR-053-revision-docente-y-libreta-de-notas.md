@@ -97,3 +97,17 @@ La prueba contra la base real mostró dos huecos de la primera implementación:
 - La entrega de un laboratorio IDE se creaba con `score = 0`. El backfill leyó ese 0 como una nota real y marcó la entrega como `not_required`; la libreta creó una celda con 0 para cada una.
 
 La migración `00035_teacher_review_correction.sql` devuelve esas 21 entregas a `pending`, borra el score fabricado y elimina las 21 celdas que nacieron de él. El alta de la entrega ya no asigna `Score` y declara el estado inicial según la modalidad: IDE → `pending`, juez → `not_required`.
+
+---
+
+## Cierre de la rúbrica (2026-11-01)
+
+La corrección anterior dejó un hueco en el camino de la rúbrica: `DefaultRubricService.EvaluateSubmission` escribía `score`, `verdict`, `manual_override` y `graded_by` en `submissions`, pero no `review_status`, `reviewed_at`, `reviewed_by` ni la celda de `exercise_grades`. El docente guardaba la nota y la entrega seguía en la cola, mientras la libreta no cambiaba.
+
+Ahora la evaluación por rúbrica escribe todo en una sola transacción:
+
+- `submissions`: `score`, `verdict = 'AC'`, `manual_override`, `override_reason`, `graded_by`, `review_status = 'graded'`, `reviewed_at`, `reviewed_by` y `feedback_summary`.
+- `exercise_grades`: inserta o actualiza la celda de la pareja alumno/práctica con la entrega seleccionada y la nota. Si la celda es `manual`, no la pisa.
+- El comentario general de la rúbrica se inserta en la misma transacción.
+
+La respuesta `200` de `POST /api/v1/submissions/{id}/rubric-evaluation` solo se devuelve después del `commit`. Si falla la libreta, la entrega no queda como calificada. La cobertura está en `tests/integration/slice13_teacher_review_modality_test.go`.
