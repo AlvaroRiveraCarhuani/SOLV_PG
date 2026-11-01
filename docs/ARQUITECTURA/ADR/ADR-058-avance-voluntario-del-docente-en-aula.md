@@ -1,8 +1,8 @@
 # ADR 058: Avance Voluntario del Docente en el Aula
 
-> **Estado:** Aprobado
+> **Estado:** Implementado
 > **Fecha:** 2026-10-30
-> **Actualizado:** 2026-10-31 — ventana de disponibilidad, modo tarea acotado y retención de snapshots y respaldos
+> **Actualizado:** 2026-10-31 — ventana de disponibilidad, modo tarea acotado, retención de snapshots y respaldos, y límite de aplicaciones simultáneas
 > **Ámbito:** Docencia, Core, Workspaces, Aula
 > **Reemplaza:** ADR-007 (sincronización forzada por instantáneas de volumen)
 > **Relacionado:** ADR-056 (sesión de aula y presencia acotada), ADR-005 (examen y congelación de clase), ADR-041 (examen con semilla por estudiante), ADR-027 (audit logs), ADR-011 (ciclo de vida y hibernación)
@@ -196,7 +196,7 @@ Reglas de autorización:
 
 La emisión guarda un solo snapshot; no copia el código a cada volumen en ese momento. La copia al volumen del alumno ocurre cuando cada alumno aplica el avance. Cuando muchos alumnos aplican a la vez, el backend limita cuántas copias corren en paralelo, para no saturar la red ni el disco del servidor On-Premise. El valor vive en configuración, no en código. Valor por defecto: 4.
 
-El límite no bloquea a nadie: los pedidos esperan turno y cada alumno recibe su copia. Es una decisión de capacidad del servidor, no una opción del docente ni un plazo para el alumno. El valor 4 está acordado y todavía no está implementado: hoy cada aplicación copia en su propia petición.
+El límite no bloquea a nadie: los pedidos esperan turno y cada alumno recibe su copia. Es una decisión de capacidad del servidor, no una opción del docente ni un plazo para el alumno. El valor se configura con `ADVANCE_APPLY_CONCURRENCY` (4 por defecto). El semáforo se toma después de validar el aviso y antes de leer el snapshot, así que una aplicación en espera no toca el volumen del alumno.
 
 ### 12. Auditoría
 

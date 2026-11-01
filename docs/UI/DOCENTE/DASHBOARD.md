@@ -144,7 +144,7 @@ En esta vista el docente cuenta con el botón **`[Abrir Mi Entorno de Clase]`** 
 
 ---
 
-### 4.2 Topbar del Entorno Docente en Vivo: Emisión de Avance (ADR-007)
+### 4.2 Topbar del Entorno Docente en Vivo: Emisión de Avance (ADR-058, que reemplaza al ADR-007)
 
 Cuando el docente hace clic en `[Abrir Mi Entorno de Clase]`, se abre su propio contenedor OpenVSCode Server con una barra superior que contiene la acción para publicar su avance a los estudiantes:
 

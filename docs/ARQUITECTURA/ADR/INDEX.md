@@ -62,6 +62,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 055 | [Panel Docente como Read Model por Pregunta y Dueño Declarado de Excepciones](ADR-055-panel-docente-read-model-por-pregunta.md) | Aprobado | Docencia |
 | 056 | [Sesión de Aula como Envoltorio Opcional y Presencia Acotada](ADR-056-sesion-de-aula-y-presencia-acotada.md) | Aprobado | Docencia |
 | 057 | [Hoy como Canvas de Materias y Columna de Pendientes](ADR-057-hoy-canvas-de-materias-y-columna-de-pendientes.md) | Aprobado | Docencia |
-| 058 | [Avance Voluntario del Docente en el Aula](ADR-058-avance-voluntario-del-docente-en-aula.md) | Aprobado | Docencia |
+| 058 | [Avance Voluntario del Docente en el Aula](ADR-058-avance-voluntario-del-docente-en-aula.md) | Implementado | Docencia |
 
 

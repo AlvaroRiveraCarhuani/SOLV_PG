@@ -1981,6 +1981,10 @@ Al terminar un examen, el volumen de cada alumno se monta en solo lectura y el l
 
 Las respuestas de sesión (`GET /teacher/sessions/open`, `POST /teacher/sessions`, `GET /teacher/sessions/{id}/board` y `PATCH /close`) incluyen `purpose`, que vale `exam` cuando la práctica de la sesión es un examen y `class` en el resto de los casos, incluida un aula sin práctica. La pantalla del docente usa ese campo para mostrar los controles del examen.
 
+### `GET /api/v1/teacher/sessions/last-closed`
+
+Devuelve la última aula cerrada del docente, con su `grace_until` y `purpose`, para que al recargar la página el aula muestre su historial y su ventana de disponibilidad. Si no hay ninguna aula cerrada, `data` es `null`. Solo lo usa el rol `teacher` con el alcance de sus materias; el alumno recibe 403.
+
 ### `POST /api/v1/teacher/sessions/{id}/exam-freeze`
 
 Sin cuerpo. Repite el cierre del examen sobre los participantes y devuelve el conteo real:

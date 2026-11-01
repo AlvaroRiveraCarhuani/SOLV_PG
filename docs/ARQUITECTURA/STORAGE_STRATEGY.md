@@ -76,7 +76,7 @@ Credenciales: definirlas en el archivo `.env` del servidor, nunca en el reposito
 * `backend/internal/infrastructure/storage/seaweedfs/advance_snapshot_store.go`: implementa `domain.AdvanceSnapshotStore`. Calcula SHA-256 al subir, rechaza objetos por encima de `MaxBytes` y verifica el hash al leer (`GetVerified`). Un hash que no coincide devuelve `ErrChecksumMismatch`. Borrar un objeto inexistente no es error. `PutFiles` empaqueta los archivos del entorno del docente y los sube en un solo paso; al construir el almacén se crea el bucket si no existe.
 * `backend/internal/infrastructure/storage/seaweedfs/archive.go`: empaqueta el ejercicio en tar.gz. Aplica las exclusiones y el tope de archivos que llegan por `ArchiveOptions`, y omite enlaces simbólicos. Un patrón terminado en `*` excluye cualquier segmento de la ruta con ese prefijo, así que `.solv_*` también filtra `.solv_backups/<avance>/`.
 
-Ninguno de los dos lee variables de entorno. `cmd/api` los construye con `SEAWEEDFS_ENDPOINT`, `SEAWEEDFS_BUCKET`, `SEAWEEDFS_ACCESS_KEY`, `SEAWEEDFS_SECRET_KEY`, `SEAWEEDFS_REGION`, `ADVANCE_SNAPSHOT_MAX_BYTES`, `ADVANCE_SNAPSHOT_MAX_FILES` y `ADVANCE_SNAPSHOT_EXCLUDES`. Sin endpoint, bucket o credenciales el backend arranca igual: emitir y aplicar avances responde 503.
+Ninguno de los dos lee variables de entorno. `cmd/api` los construye con `SEAWEEDFS_ENDPOINT`, `SEAWEEDFS_BUCKET`, `SEAWEEDFS_ACCESS_KEY`, `SEAWEEDFS_SECRET_KEY`, `SEAWEEDFS_REGION`, `ADVANCE_SNAPSHOT_MAX_BYTES`, `ADVANCE_SNAPSHOT_MAX_FILES`, `ADVANCE_SNAPSHOT_EXCLUDES` y `ADVANCE_APPLY_CONCURRENCY` (aplicaciones simultáneas, 4 por defecto; el resto espera en cola). Sin endpoint, bucket o credenciales el backend arranca igual: emitir y aplicar avances responde 503.
 
 ### Retención
 

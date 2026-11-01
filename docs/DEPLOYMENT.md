@@ -56,6 +56,7 @@ SEAWEEDFS_SECRET_KEY=cambiar_en_.env
 ADVANCE_SNAPSHOT_MAX_BYTES=4194304
 ADVANCE_SNAPSHOT_MAX_FILES=512
 ADVANCE_SNAPSHOT_EXCLUDES=.vscode/,.solv_*,.git/,node_modules/
+ADVANCE_APPLY_CONCURRENCY=4
 ```
 
 Las credenciales son las mismas que usa el servicio `seaweedfs` de `compose.yml`. El backend crea el bucket al arrancar si no existe, así que no hace falta prepararlo a mano.
