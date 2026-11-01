@@ -139,9 +139,11 @@ func (s *TeacherService) GetTeacherOverview(ctx context.Context, tenantID, teach
 			overview.Session = &domain.TeacherOverviewSession{
 				ID:            session.ID,
 				SubjectID:     session.SubjectID,
+				SubjectCode:   session.SubjectCode,
 				SubjectName:   session.SubjectName,
 				ExerciseTitle: derefString(session.ExerciseTitle),
 				OpensAt:       session.OpensAt,
+				EndsAt:        session.EndsAt,
 				ClosesAt:      session.ClosesAt,
 				Enrolled:      session.Enrolled,
 				Present:       session.Present,
@@ -159,17 +161,6 @@ func derefString(value *string) string {
 		return ""
 	}
 	return *value
-}
-
-func (s *TeacherService) GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*domain.TeacherAttentionWidget, error) {
-	if tenantID == "" {
-		return nil, domain.ErrInvalidTenant
-	}
-	widget, err := s.repo.GetAttentionWidget(ctx, tenantID, teacherID)
-	if err != nil {
-		return nil, fmt.Errorf("error al obtener widget de atencion: %w", err)
-	}
-	return widget, nil
 }
 
 func (s *TeacherService) GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*domain.TeacherLabStats, error) {

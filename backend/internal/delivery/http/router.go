@@ -25,6 +25,7 @@ type Handlers struct {
 	TeacherInvitationHandler      *TeacherInvitationHandler
 	ClassroomHandler              *ClassroomHandler
 	ClassSessionHandler           *ClassSessionHandler
+	ClassAdvanceHandler           *ClassAdvanceHandler
 	AdminHandler                  *AdminHandler
 	AdminAcademicHandler          *AdminAcademicHandler
 	StudentHandler                *StudentHandler
@@ -60,6 +61,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
 	registerClassSessionRoutes(mux, deps)
+	registerClassAdvanceRoutes(mux, deps)
 	registerCourseModuleRoutes(mux, deps)
 	registerRubricRoutes(mux, deps)
 	registerNotificationRoutes(mux, deps)
@@ -330,6 +332,39 @@ func registerClassSessionRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/sessions/{id}/board", tm(http.HandlerFunc(deps.ClassSessionHandler.GetBoard)))
 	mux.Handle("POST /api/v1/teacher/sessions", am(tm(http.HandlerFunc(deps.ClassSessionHandler.OpenAula))))
 	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/close", am(tm(http.HandlerFunc(deps.ClassSessionHandler.CloseAula))))
+	// Congelamiento del examen (ADR-005 §5): al cerrar, los volúmenes pasan a
+	// solo lectura. La ruta explícita repite la operación y la de alumnos es la
+	// excepción individual con motivo.
+	mux.Handle("POST /api/v1/teacher/sessions/{id}/exam-freeze", am(tm(http.HandlerFunc(deps.ClassSessionHandler.FreezeExam))))
+	mux.Handle("POST /api/v1/teacher/sessions/{id}/students/{studentID}/unfreeze", am(tm(http.HandlerFunc(deps.ClassSessionHandler.UnfreezeExamStudent))))
+}
+
+// registerClassAdvanceRoutes expone el avance voluntario del docente (ADR-058):
+// emitir, congelar la clase y extender la ventana de rezago del lado docente, y
+// ver, aplicar con respaldo o descartar el aviso del lado del alumno.
+func registerClassAdvanceRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.ClassAdvanceHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("POST /api/v1/teacher/sessions/{id}/advances", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.PostAdvance))))
+	mux.Handle("GET /api/v1/teacher/sessions/{id}/advances", tm(http.HandlerFunc(deps.ClassAdvanceHandler.GetSessionAdvances)))
+	mux.Handle("GET /api/v1/teacher/sessions/{id}/history", tm(http.HandlerFunc(deps.ClassAdvanceHandler.GetSessionHistory)))
+	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/freeze", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.FreezeSession))))
+	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/unfreeze", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.UnfreezeSession))))
+	mux.Handle("PATCH /api/v1/teacher/sessions/{id}/grace", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.ExtendGrace))))
+	mux.Handle("GET /api/v1/class-advances/pending", tm(http.HandlerFunc(deps.ClassAdvanceHandler.GetPendingAdvances)))
+	mux.Handle("GET /api/v1/class-advances/{id}/files", tm(http.HandlerFunc(deps.ClassAdvanceHandler.PreviewAdvance)))
+	mux.Handle("POST /api/v1/class-advances/{id}/apply", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.ApplyAdvance))))
+	mux.Handle("POST /api/v1/class-advances/{id}/dismiss", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.DismissAdvance))))
 }
 
 func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -422,6 +457,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 		rateLimitMiddleware = func(next http.Handler) http.Handler { return next }
 	}
 	if tenantMiddleware != nil {
+		mux.Handle("GET /api/v1/workspaces", tenantMiddleware(http.HandlerFunc(h.GetWorkspaceForSubject)))
 		mux.Handle("POST /api/v1/workspaces/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
 		mux.Handle("POST /api/v1/workspaces/{id}/pause", tenantMiddleware(http.HandlerFunc(h.PauseWorkspace)))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", tenantMiddleware(http.HandlerFunc(h.TerminateWorkspace)))
@@ -430,6 +466,7 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 		mux.Handle("POST /api/v1/workspaces/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartWorkspace)))
 		mux.Handle("POST /api/v1/workspaces/{id}/submit", tenantMiddleware(WithAuth(http.HandlerFunc(h.SubmitWorkspaceProject))))
 	} else {
+		mux.Handle("GET /api/v1/workspaces", WithAuth(http.HandlerFunc(h.GetWorkspaceForSubject)))
 		mux.Handle("POST /api/v1/workspaces/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
 		mux.Handle("POST /api/v1/workspaces/{id}/pause", WithAuth(http.HandlerFunc(h.PauseWorkspace)))
 		mux.Handle("DELETE /api/v1/workspaces/{id}", WithAuth(http.HandlerFunc(h.TerminateWorkspace)))
@@ -472,7 +509,6 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	mux.Handle("GET /api/v1/teacher/courses", tm(http.HandlerFunc(deps.TeacherHandler.GetCourses)))
 	mux.Handle("GET /api/v1/teacher/overview", tm(http.HandlerFunc(deps.TeacherHandler.GetOverview)))
-	mux.Handle("GET /api/v1/teacher/attention", tm(http.HandlerFunc(deps.TeacherHandler.GetAttention)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
 	mux.Handle("GET /api/v1/teacher/exercises/bank", tm(http.HandlerFunc(deps.TeacherHandler.GetExerciseBank)))
 	mux.Handle("GET /api/v1/teacher/reviews", tm(http.HandlerFunc(deps.TeacherHandler.GetReviewQueue)))

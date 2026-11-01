@@ -80,6 +80,17 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	return resp.ID, nil
 }
 
+// workspaceVolumeBind arma el montaje del volumen del alumno. En un examen
+// cerrado va en solo lectura: el sistema de archivos es el que bloquea la
+// escritura, no la pantalla (ADR-005 §5).
+func workspaceVolumeBind(volumeName string, readOnly bool) string {
+	mode := "rw"
+	if readOnly {
+		mode = "ro"
+	}
+	return fmt.Sprintf("%s:/home/workspace:%s", volumeName, mode)
+}
+
 func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
 	memLimit := config.MemoryLimitMB
 	if memLimit <= 0 {
@@ -93,7 +104,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	}
 	hostConfig := &container.HostConfig{
 		Binds: []string{
-			fmt.Sprintf("%s:/home/workspace:rw", config.VolumeName),
+			workspaceVolumeBind(config.VolumeName, config.ReadOnly),
 		},
 		Resources: container.Resources{
 			Memory:            memLimit * 1024 * 1024,

@@ -90,11 +90,45 @@ func (h *WorkspaceHandler) StartWorkspace(w http.ResponseWriter, r *http.Request
 			SendError(w, http.StatusTooManyRequests, err.Error(), "Memoria Excedida: Has superado la cuota de RAM (OOMKilled) 3 veces seguidas. Espera 5 minutos antes de reiniciar.")
 			return
 		}
+		if errors.Is(err, domain.ErrWorkspaceFrozen) {
+			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al iniciar el entorno de desarrollo interactivo")
 		return
 	}
 
 	SendJSON(w, http.StatusOK, instance, "Entorno de desarrollo interactivo iniciado exitosamente")
+}
+
+// GetWorkspaceForSubject devuelve el entorno del usuario autenticado en una
+// materia, o nulo si todavía no abrió ninguno. La pantalla la usa antes de
+// ofrecer abrir: cargar la vista no debe levantar un contenedor que nadie pidió.
+func (h *WorkspaceHandler) GetWorkspaceForSubject(w http.ResponseWriter, r *http.Request) {
+	userID := resolveRequestStudentID(r)
+	if userID == "" {
+		SendError(w, http.StatusUnauthorized, "Missing student identity", "No se pudo resolver la identidad del usuario desde la sesión")
+		return
+	}
+
+	instance, err := h.service.WorkspaceForSubject(r.Context(), userID, r.URL.Query().Get("subject_id"))
+	if err != nil {
+		switch {
+		case errors.Is(err, services.ErrWorkspaceSubjectRequired):
+			SendError(w, http.StatusBadRequest, err.Error(), "Se requiere el subject_id para consultar el entorno")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusBadRequest, err.Error(), "La materia indicada no es un identificador válido")
+		default:
+			SendError(w, http.StatusInternalServerError, err.Error(), "Error al consultar el entorno de la materia")
+		}
+		return
+	}
+
+	if instance == nil {
+		SendJSON(w, http.StatusOK, nil, "No hay entorno en esta materia")
+		return
+	}
+	SendJSON(w, http.StatusOK, instance, "Entorno de la materia obtenido")
 }
 
 func (h *WorkspaceHandler) TerminateWorkspace(w http.ResponseWriter, r *http.Request) {
@@ -162,6 +196,10 @@ func (h *WorkspaceHandler) RestartWorkspace(w http.ResponseWriter, r *http.Reque
 		}
 		if errors.Is(err, services.ErrOOMKilledCooldownPenalty) {
 			SendError(w, http.StatusTooManyRequests, err.Error(), "Memoria Excedida: Has alcanzado el límite de 3 strikes por OOMKilled. Debes esperar el tiempo de enfriamiento (5 minutos).")
+			return
+		}
+		if errors.Is(err, domain.ErrWorkspaceFrozen) {
+			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
 			return
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al reiniciar el entorno")
@@ -237,6 +275,8 @@ func (h *WorkspaceHandler) SubmitWorkspaceProject(w http.ResponseWriter, r *http
 			SendError(w, http.StatusForbidden, err.Error(), "No tiene permisos para entregar este workspace")
 		case errors.Is(err, services.ErrInvalidExerciseID):
 			SendError(w, http.StatusBadRequest, err.Error(), "El exercise_id no es un UUID válido")
+		case errors.Is(err, domain.ErrWorkspaceFrozen):
+			SendError(w, http.StatusConflict, err.Error(), "El examen terminó: tu entorno quedó en solo lectura")
 		case errors.Is(err, services.ErrSubmissionNotConfigured), errors.Is(err, services.ErrWorkspaceVolumeUnavailable):
 			SendError(w, http.StatusServiceUnavailable, err.Error(), "La entrega de proyecto no está disponible en este momento")
 		default:

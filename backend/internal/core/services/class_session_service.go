@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/google/uuid"
@@ -18,10 +19,28 @@ import (
 // puede contar — faltantes, sin empezar, trabados.
 type ClassSessionService struct {
 	store domain.ClassSessionStore
+	// examFreezer congela los volúmenes cuando el aula cerrada es un examen.
+	// Es opcional: sin él, el aula se cierra igual y el barrido lo resuelve
+	// después.
+	examFreezer ExamFreezer
+}
+
+// ExamFreezer es la capacidad que el aula consume al cerrar un examen y al
+// reabrir a un alumno puntual.
+type ExamFreezer interface {
+	FreezeSession(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error)
+	UnfreezeStudent(ctx context.Context, tenantID, teacherID, role, sessionID, studentID, reason string) (FreezeReport, error)
 }
 
 func NewClassSessionService(store domain.ClassSessionStore) *ClassSessionService {
 	return &ClassSessionService{store: store}
+}
+
+// WithExamFreezer habilita el congelamiento al cerrar. Sin esta inyección el
+// cierre funciona como antes y los volúmenes los congela el barrido.
+func (s *ClassSessionService) WithExamFreezer(freezer ExamFreezer) *ClassSessionService {
+	s.examFreezer = freezer
+	return s
 }
 
 // teacherScope devuelve el filtro de propiedad del aula: el docente solo opera
@@ -60,14 +79,52 @@ func (s *ClassSessionService) OpenAula(ctx context.Context, tenantID, teacherID,
 }
 
 // CloseAula cierra el aula. Cerrar dos veces devuelve el mismo estado.
-func (s *ClassSessionService) CloseAula(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, error) {
+//
+// Devuelve además el conteo del congelamiento para que el cierre no se dé por
+// hecho: el aula reporta cuántos volúmenes quedaron en solo lectura y cuántos
+// fallaron (ADR-005 §5.5).
+func (s *ClassSessionService) CloseAula(ctx context.Context, tenantID, teacherID, role, sessionID string) (*domain.ClassSession, FreezeReport, error) {
+	var report FreezeReport
 	if strings.TrimSpace(tenantID) == "" {
-		return nil, domain.ErrInvalidTenant
+		return nil, report, domain.ErrInvalidTenant
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(sessionID)); err != nil {
-		return nil, domain.ErrSessionNotFound
+		return nil, report, domain.ErrSessionNotFound
 	}
-	return s.store.CloseSession(ctx, tenantID, teacherScope(role, teacherID), sessionID)
+	session, err := s.store.CloseSession(ctx, tenantID, teacherScope(role, teacherID), sessionID)
+	if err != nil {
+		return nil, report, err
+	}
+
+	// El examen se cierra con los volúmenes en solo lectura. Un aula de clase
+	// devuelve "no es examen" y no pasa nada. Si el congelamiento falla, el
+	// cierre ya ocurrió: el barrido lo reintenta y el aula no se reabre.
+	if s.examFreezer != nil && session != nil {
+		frozen, freezeErr := s.examFreezer.FreezeSession(ctx, tenantID, teacherID, role, sessionID)
+		report = frozen
+		if freezeErr != nil && !errFreezeIgnored(freezeErr) {
+			log.Printf("[Exam Freeze] el aula %s se cerró pero no se pudo congelar: %v", sessionID, freezeErr)
+		}
+	}
+	return session, report, nil
+}
+
+// FreezeExam congela los volúmenes de un examen ya cerrado. Es la acción que
+// se puede repetir: los que ya estaban en solo lectura cuentan como omitidos.
+func (s *ClassSessionService) FreezeExam(ctx context.Context, tenantID, teacherID, role, sessionID string) (FreezeReport, error) {
+	if s.examFreezer == nil {
+		return FreezeReport{}, domain.ErrExamFreezeNotAllowed
+	}
+	return s.examFreezer.FreezeSession(ctx, tenantID, teacherID, role, sessionID)
+}
+
+// UnfreezeExamStudent devuelve la escritura a un alumno. Es la excepción
+// individual del docente y exige motivo.
+func (s *ClassSessionService) UnfreezeExamStudent(ctx context.Context, tenantID, teacherID, role, sessionID, studentID, reason string) (FreezeReport, error) {
+	if s.examFreezer == nil {
+		return FreezeReport{}, domain.ErrExamFreezeNotAllowed
+	}
+	return s.examFreezer.UnfreezeStudent(ctx, tenantID, teacherID, role, sessionID, studentID, reason)
 }
 
 // CurrentAula devuelve el aula abierta del docente, o nil si no hay ninguna.

@@ -32,6 +32,8 @@ func setupTeacherDashboardTestServer(t *testing.T) (*httptest.Server, *database.
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, nil)
+	// El resumen toma la fila de aula del mismo almacén que la pantalla de aula.
+	teacherService.SetClassSessionStore(postgres.NewPostgresClassSessionRepository(db.GetDB()))
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, nil)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
@@ -252,64 +254,6 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		// Estudiante 6 = exactly 1 at_risk
 		if int(course1["at_risk"].(float64)) != 1 {
 			t.Errorf("Expected at_risk = 1 (Student 6), got %v", course1["at_risk"])
-		}
-	})
-
-	// =========================================================================
-	// 2. TEST GET /api/v1/teacher/attention
-	// =========================================================================
-	t.Run("2. GET /api/v1/teacher/attention - Clasificación por Severidad", func(t *testing.T) {
-		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/attention", nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
-
-		resp, err := client.Do(req)
-		if err != nil {
-			t.Fatalf("Failed request: %v", err)
-		}
-		defer func() { _ = resp.Body.Close() }()
-		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("Expected 200 OK, got %d", resp.StatusCode)
-		}
-
-		var body map[string]interface{}
-		_ = json.NewDecoder(resp.Body).Decode(&body)
-		data := body["data"].(map[string]interface{})
-
-		critical := data["critical"].([]interface{})
-		warning := data["warning"].([]interface{})
-		standard := data["standard"].([]interface{})
-
-		// Verificar Critical (OOM_Killed)
-		if len(critical) == 0 {
-			t.Errorf("Expected at least 1 critical alert (OOM_Killed), got 0")
-		} else {
-			crit1 := critical[0].(map[string]interface{})
-			if crit1["type"] != "oom_killed" {
-				t.Errorf("Expected type 'oom_killed', got %v", crit1["type"])
-			}
-			if crit1["workspace_id"] != wsOOM {
-				t.Errorf("Expected workspace_id %s, got %v", wsOOM, crit1["workspace_id"])
-			}
-		}
-
-		// Verificar Warning (AST_BLOCKED)
-		if len(warning) == 0 {
-			t.Errorf("Expected at least 1 warning alert (AST_BLOCKED), got 0")
-		} else {
-			warn1 := warning[0].(map[string]interface{})
-			if warn1["type"] != "ast_blocked" {
-				t.Errorf("Expected type 'ast_blocked', got %v", warn1["type"])
-			}
-			if warn1["rule_violated"] != "no_import_os" {
-				t.Errorf("Expected rule_violated 'no_import_os', got %v", warn1["rule_violated"])
-			}
-		}
-
-		// Verificar Standard (WA y RE pendientes)
-		if len(standard) < 2 {
-			t.Errorf("Expected at least 2 standard alerts (WA y RE), got %d", len(standard))
 		}
 	})
 

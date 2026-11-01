@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"solv-backend/internal/infrastructure/mailer"
 	"solv-backend/internal/infrastructure/storage/memory"
 	"solv-backend/internal/infrastructure/storage/postgres"
+	"solv-backend/internal/infrastructure/storage/seaweedfs"
 	"solv-backend/internal/infrastructure/system"
 )
 
@@ -175,6 +177,36 @@ func main() {
 	classSessionService := services.NewClassSessionService(classSessionRepo)
 	classSessionHandler := httpdelivery.NewClassSessionHandler(classSessionService)
 	workspaceService.WithClassSessions(classSessionRepo)
+
+	// Congelamiento del examen (ADR-005 §5): al cerrar el aula de un examen, el
+	// volumen del alumno se reconstruye montado en solo lectura. El worker cubre
+	// el cierre por vencimiento y lo que quedó pendiente con el backend apagado.
+	examFreezeRepo := postgres.NewPostgresExamFreezeRepository(db.GetDB())
+	examFreezeService := services.NewExamFreezeService(examFreezeRepo, classSessionRepo, workspaceRepo, workspaceService)
+	examFreezeService.SetAuditRepository(auditLogRepo)
+	classSessionService.WithExamFreezer(examFreezeService)
+	// Entrega anticipada: el alumno que termina antes cierra solo su volumen y
+	// la clase sigue escribiendo para los demás (ADR-005 §5.2).
+	workspaceService.SetExamSubmissionFreezer(examFreezeService)
+	go services.NewExamFreezeWorker(examFreezeService).Start(ctx)
+
+	// Avance voluntario del docente (ADR-058). Emitir y congelar viven en el
+	// servicio; la aplicación en el entorno del alumno necesita el snapshots de
+	// SeaweedFS y la capacidad de escribir en el volumen sin pausar el contenedor.
+	classAdvanceRepo := postgres.NewPostgresClassAdvanceRepository(db.GetDB(), classSessionRepo)
+	classAdvanceService := services.NewClassAdvanceService(classAdvanceRepo, classSessionRepo)
+	classAdvanceService.SetAuditRepository(auditLogRepo)
+	classAdvanceService.SetHistoryStore(classAdvanceRepo)
+	var advanceVolumes domain.WorkspaceVolumeStore = dockerClient
+	if snapshots := newAdvanceSnapshotStore(ctx); snapshots != nil {
+		classAdvanceService.WithApplier(snapshots, workspaceRepo, advanceVolumes)
+		classAdvanceService.SetRetentionStore(classAdvanceRepo)
+		retentionWorker := services.NewAdvanceRetentionWorker(classAdvanceService)
+		go retentionWorker.Start(ctx)
+	} else {
+		log.Printf("[Advance] SeaweedFS no está configurado: los avances no se podrán aplicar ni retener")
+	}
+	classAdvanceHandler := httpdelivery.NewClassAdvanceHandler(classAdvanceService)
 
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
@@ -331,6 +363,7 @@ func main() {
 		TeacherInvitationHandler:      httpdelivery.NewTeacherInvitationHandler(teacherInvService),
 		ClassroomHandler:              httpdelivery.NewClassroomHandler(),
 		ClassSessionHandler:           classSessionHandler,
+		ClassAdvanceHandler:           classAdvanceHandler,
 		AdminHandler:                  adminHandler,
 		ServerPoliciesHandler:         serverPoliciesHandler,
 		AISettingsHandler:             aiSettingsHandler,
@@ -411,4 +444,67 @@ func resolveMigrationsDir() string {
 	}
 	// Último recurso: devolver el path relativo y dejar que goose falle con mensaje claro.
 	return "migrations"
+}
+
+// envList lee una lista separada por comas; sin valor devuelve el respaldo por
+// defecto que la propia configuración documenta.
+func envList(name, fallback string) []string {
+	raw := strings.TrimSpace(os.Getenv(name))
+	if raw == "" {
+		raw = fallback
+	}
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if value := strings.TrimSpace(part); value != "" {
+			out = append(out, value)
+		}
+	}
+	return out
+}
+
+// newAdvanceSnapshotStore arma el almacén de snapshots de avances con la
+// configuración de SeaweedFS (ADR-058 §6). Sin configuración devuelve nil: el
+// aula sigue funcionando y aplicar un avance responde 503.
+func newAdvanceSnapshotStore(ctx context.Context) *seaweedfs.AdvanceSnapshotStore {
+	endpoint := strings.TrimSpace(os.Getenv("SEAWEEDFS_ENDPOINT"))
+	bucket := strings.TrimSpace(os.Getenv("SEAWEEDFS_BUCKET"))
+	accessKey := strings.TrimSpace(os.Getenv("SEAWEEDFS_ACCESS_KEY"))
+	secretKey := strings.TrimSpace(os.Getenv("SEAWEEDFS_SECRET_KEY"))
+	if endpoint == "" || bucket == "" || accessKey == "" || secretKey == "" {
+		return nil
+	}
+
+	maxBytes := int64(4 << 20)
+	if raw := strings.TrimSpace(os.Getenv("ADVANCE_SNAPSHOT_MAX_BYTES")); raw != "" {
+		if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil && parsed > 0 {
+			maxBytes = parsed
+		}
+	}
+
+	maxFiles := 512
+	if raw := strings.TrimSpace(os.Getenv("ADVANCE_SNAPSHOT_MAX_FILES")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 {
+			maxFiles = parsed
+		}
+	}
+
+	store, err := seaweedfs.NewAdvanceSnapshotStore(ctx, seaweedfs.Config{
+		Endpoint:  endpoint,
+		Region:    strings.TrimSpace(os.Getenv("SEAWEEDFS_REGION")),
+		Bucket:    bucket,
+		AccessKey: accessKey,
+		SecretKey: secretKey,
+		MaxBytes:  maxBytes,
+		// Las exclusiones del avance viven en configuración (ADR-058 §5).
+		Archive: seaweedfs.ArchiveOptions{
+			ExcludePrefixes: envList("ADVANCE_SNAPSHOT_EXCLUDES", ".vscode/,.solv_*,.git/,node_modules/"),
+			MaxFiles:        maxFiles,
+		},
+	})
+	if err != nil {
+		log.Printf("[Advance] no se pudo inicializar el almacén de snapshots: %v", err)
+		return nil
+	}
+	return store
 }

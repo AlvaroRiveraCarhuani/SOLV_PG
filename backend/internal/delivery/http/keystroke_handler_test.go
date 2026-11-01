@@ -75,9 +75,6 @@ type stubTeacherRepoForHTTP struct {
 func (r *stubTeacherRepoForHTTP) GetCoursesSummary(_ context.Context, _, _ string, _ string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
-func (r *stubTeacherRepoForHTTP) GetAttentionWidget(_ context.Context, _, _ string) (*domain.TeacherAttentionWidget, error) {
-	return nil, nil
-}
 func (r *stubTeacherRepoForHTTP) GetCourseLabsStats(_ context.Context, _, _, _ string) ([]*domain.TeacherLabStats, error) {
 	return nil, nil
 }

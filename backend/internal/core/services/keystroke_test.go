@@ -70,9 +70,6 @@ type stubTeacherRepoForKeystroke struct {
 func (r *stubTeacherRepoForKeystroke) GetCoursesSummary(_ context.Context, _, _ string, _ string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
-func (r *stubTeacherRepoForKeystroke) GetAttentionWidget(_ context.Context, _, _ string) (*domain.TeacherAttentionWidget, error) {
-	return nil, nil
-}
 func (r *stubTeacherRepoForKeystroke) GetCourseLabsStats(_ context.Context, _, _, _ string) ([]*domain.TeacherLabStats, error) {
 	return nil, nil
 }

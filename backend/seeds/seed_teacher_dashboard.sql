@@ -1748,7 +1748,7 @@ WHERE type = 'code'
 --    SELECT u.first_name, ex.title, sub.verdict FROM submissions sub
 --    JOIN exercises ex ON ex.id = sub.exercise_id JOIN users u ON u.id = sub.student_id
 --    WHERE sub.graded_by IS NULL ORDER BY sub.submitted_at DESC;
--- 3. Alerta crítica (OOM) del widget de atención:
+-- 3. Alerta crítica (OOM) de workspaces:
 --    SELECT w.status, u.first_name FROM workspaces w JOIN subjects s ON s.id = w.subject_id
 --    LEFT JOIN users u ON u.id = w.student_id
 --    WHERE s.teacher_id = '0e5e6bde-1933-4084-82b0-d481b4309ca7' AND w.status IN ('oom_killed','failed');

@@ -29,6 +29,9 @@ type WorkspaceService struct {
 	// sessionLinker deja constancia de en qué aula nació el entorno. Es opcional:
 	// sin él el ciclo de vida del contenedor funciona igual.
 	sessionLinker domain.ClassSessionWorkspaceLinker
+	// examFreezer cierra el volumen de un examen cuando el alumno entrega antes.
+	// Es opcional: sin él, la entrega se registra y el cierre llega con el aula.
+	examFreezer ExamWorkspaceFreezer
 
 	// satelliteUseMu protege satelliteLastUse: el último momento en que un
 	// laboratorio pidió un motor. Evita que el scale-to-zero apague el satélite en
@@ -60,6 +63,13 @@ func (s *WorkspaceService) WithProvisioning(subjectRepo domain.SubjectRepository
 func (s *WorkspaceService) WithExerciseSubmission(exerciseRepo domain.ExerciseRepository, submissionRepo domain.SubmissionRepository) *WorkspaceService {
 	s.exerciseRepo = exerciseRepo
 	s.submissionRepo = submissionRepo
+	return s
+}
+
+// SetExamSubmissionFreezer habilita el cierre anticipado por alumno: al entregar
+// un examen, solo su volumen pasa a solo lectura (ADR-005 §5.2).
+func (s *WorkspaceService) SetExamSubmissionFreezer(freezer ExamWorkspaceFreezer) *WorkspaceService {
+	s.examFreezer = freezer
 	return s
 }
 
@@ -218,6 +228,24 @@ func (s *WorkspaceService) resolveTemplateForWorkspace(ctx context.Context, subj
 	return s.resolveTemplate(ctx, subjectID)
 }
 
+// resolveTemplateForInstance prefiere la plantilla con la que nació el
+// laboratorio. Reconstruir el montaje (congelar o descongelar) tiene que usar la
+// misma imagen y los mismos servicios, aunque la materia haya cambiado de
+// plantilla después.
+func (s *WorkspaceService) resolveTemplateForInstance(ctx context.Context, instance *domain.WorkspaceInstance) *domain.Template {
+	if instance != nil && s.templateRepo != nil && instance.TemplateID != nil {
+		if templateID := strings.TrimSpace(*instance.TemplateID); templateID != "" {
+			if tpl, err := s.templateRepo.GetTemplateByID(ctx, templateID); err == nil && tpl != nil {
+				return tpl
+			}
+		}
+	}
+	if instance == nil {
+		return nil
+	}
+	return s.resolveTemplate(ctx, instance.SubjectID)
+}
+
 // ensureExerciseSatelliteDB asegura todos los servicios que declara la plantilla y
 // devuelve el entorno combinado del laboratorio. Cada motor gestionado, incluido
 // PostgreSQL de aula, se levanta como satélite del nodo con credenciales por alumno
@@ -325,6 +353,13 @@ func (s *WorkspaceService) StartWorkspaceForExercise(ctx context.Context, studen
 	// 2. Verificación de Idempotencia y Estado Previos
 	existing, err := s.repo.GetByStudentAndSubject(ctx, studentID, subjectID)
 	if err == nil && existing != nil {
+		// Un examen cerrado no se reabre por recargar la página: el volumen quedó
+		// en solo lectura y la escritura vuelve únicamente con la excepción del
+		// docente (ADR-005 §5).
+		if existing.FrozenAt != nil || existing.Status == domain.WorkspaceStatusFrozen {
+			return nil, domain.ErrWorkspaceFrozen
+		}
+
 		// El workspace es único por (student_id, subject_id): si ya existía, la
 		// base satélite y el db_init_script del ejercicio también deben quedar
 		// asegurados antes de devolverlo o reactivarlo. El registro de

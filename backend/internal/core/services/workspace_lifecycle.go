@@ -2,14 +2,24 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
+
+	"github.com/google/uuid"
 
 	"solv-backend/internal/core/domain"
 )
 
 func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *domain.WorkspaceInstance, provision satelliteProvision) (*domain.WorkspaceInstance, error) {
+	// La reanudación nunca deshace el cierre de un examen, ni por un contenedor
+	// pausado ni por el reconciliador (ADR-005 §5).
+	if instance.FrozenAt != nil || instance.Status == domain.WorkspaceStatusFrozen {
+		return nil, domain.ErrWorkspaceFrozen
+	}
+
 	// Optimización ADR / Memory Governance: intentar despausar el contenedor congelado (instantáneo <50ms)
 	if instance.ContainerID != nil && *instance.ContainerID != "" {
 		if err := s.docker.UnpauseContainer(ctx, *instance.ContainerID); err == nil {
@@ -166,6 +176,33 @@ func (s *WorkspaceService) HibernateWorkspace(ctx context.Context, workspaceID s
 
 func (s *WorkspaceService) GetWorkspaceByID(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {
 	return s.repo.GetByID(ctx, workspaceID)
+}
+
+// ErrWorkspaceSubjectRequired indica que falta la materia de la consulta.
+var ErrWorkspaceSubjectRequired = errors.New("subject_id is required")
+
+// WorkspaceForSubject devuelve el entorno del usuario en una materia, o nil si
+// todavía no abrió ninguno. Es la lectura previa a abrir: la pantalla puede
+// mostrar el entorno vigente sin levantar un contenedor que nadie pidió. El
+// usuario se resuelve siempre desde la sesión, así que nunca devuelve el de otro.
+func (s *WorkspaceService) WorkspaceForSubject(ctx context.Context, userID, subjectID string) (*domain.WorkspaceInstance, error) {
+	userID = strings.TrimSpace(userID)
+	subjectID = strings.TrimSpace(subjectID)
+	if subjectID == "" {
+		return nil, ErrWorkspaceSubjectRequired
+	}
+	if _, err := uuid.Parse(subjectID); err != nil {
+		return nil, fmt.Errorf("%w: %s", domain.ErrNotFound, subjectID)
+	}
+
+	instance, err := s.repo.GetByStudentAndSubject(ctx, userID, subjectID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return instance, nil
 }
 
 func (s *WorkspaceService) PauseWorkspace(ctx context.Context, workspaceID string) (*domain.WorkspaceInstance, error) {

@@ -14,42 +14,6 @@ type TeacherCourseSummary struct {
 	AtRisk           int     `json:"at_risk" db:"at_risk"`
 }
 
-// AttentionCriticalAlert representa una alerta crítica de infraestructura o fallo grave.
-type AttentionCriticalAlert struct {
-	Type        string    `json:"type"` // "oom_killed"
-	StudentID   string    `json:"student_id"`
-	StudentName string    `json:"student_name"`
-	WorkspaceID string    `json:"workspace_id"`
-	SubjectID   string    `json:"subject_id"`
-	OccurredAt  time.Time `json:"occurred_at"`
-}
-
-// AttentionWarningAlert representa una alerta de advertencia académica/AST.
-type AttentionWarningAlert struct {
-	Type         string    `json:"type"` // "ast_blocked"
-	StudentID    string    `json:"student_id"`
-	StudentName  string    `json:"student_name"`
-	ExerciseID   string    `json:"exercise_id"`
-	RuleViolated string    `json:"rule_violated"`
-	OccurredAt   time.Time `json:"occurred_at"`
-}
-
-// AttentionStandardAlert representa una entrega pendiente de revisión manual docente.
-type AttentionStandardAlert struct {
-	Type          string    `json:"type"` // "pending_review"
-	SubmissionID  string    `json:"submission_id"`
-	StudentName   string    `json:"student_name"`
-	ExerciseTitle string    `json:"exercise_title"`
-	SubmittedAt   time.Time `json:"submitted_at"`
-}
-
-// TeacherAttentionWidget agrupa las alertas clasificadas por nivel de severidad.
-type TeacherAttentionWidget struct {
-	Critical []AttentionCriticalAlert `json:"critical"`
-	Warning  []AttentionWarningAlert  `json:"warning"`
-	Standard []AttentionStandardAlert `json:"standard"`
-}
-
 // TeacherExerciseBankItem es el read model del banco de ejercicios del docente:
 // consolida datos del laboratorio y métricas de entrega a través de todas sus
 // materias. La modalidad se deriva de EnvironmentType (JUEZ_EFIMERO |

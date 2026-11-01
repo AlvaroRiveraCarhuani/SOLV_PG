@@ -76,3 +76,37 @@ func TestParseWorkspaceSnapshotTar_EnforcesByteBudget(t *testing.T) {
 		t.Fatalf("esperado solo el primer archivo dentro del presupuesto, obtenido: %+v", files)
 	}
 }
+
+func TestIsDirectWorkspaceChild(t *testing.T) {
+	cases := []struct {
+		name string
+		rel  string
+		root string
+		want bool
+	}{
+		{name: "hija directa", rel: ".solv_backups/abc", root: ".solv_backups", want: true},
+		{name: "raíz sola", rel: ".solv_backups", root: ".solv_backups", want: false},
+		{name: "nieta", rel: ".solv_backups/abc/main.py", root: ".solv_backups", want: false},
+		{name: "otra carpeta", rel: "src/abc", root: ".solv_backups", want: false},
+		{name: "escape", rel: "../.solv_backups/abc", root: ".solv_backups", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := isDirectWorkspaceChild(tc.rel, tc.root); got != tc.want {
+				t.Fatalf("isDirectWorkspaceChild(%q, %q) = %v, quería %v", tc.rel, tc.root, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	cases := map[string]string{
+		"/workspace/.solv_backups/abc": "'/workspace/.solv_backups/abc'",
+		"/workspace/a'b":               "'/workspace/a'\\''b'",
+	}
+	for value, want := range cases {
+		if got := shellQuote(value); got != want {
+			t.Fatalf("shellQuote(%q) = %q, quería %q", value, got, want)
+		}
+	}
+}

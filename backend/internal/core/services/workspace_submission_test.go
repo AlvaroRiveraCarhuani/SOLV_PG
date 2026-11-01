@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -124,6 +125,158 @@ func TestSubmitWorkspaceProject_CreatesPendingSubmissionWithSnapshot(t *testing.
 	}
 	if strings.Index(subRepo.created.Code, "main.py") > strings.Index(subRepo.created.Code, "utils.py") {
 		t.Errorf("el snapshot no quedó ordenado alfabéticamente: %q", subRepo.created.Code)
+	}
+}
+
+type fakeExerciseRepo struct {
+	domain.ExerciseRepository
+	exercise *domain.Exercise
+	err      error
+}
+
+func (f *fakeExerciseRepo) GetByIDAndTenant(_ context.Context, _, _ string) (*domain.Exercise, error) {
+	return f.exercise, f.err
+}
+
+type workspaceFreezeCall struct {
+	tenantID    string
+	actorID     string
+	workspaceID string
+}
+
+type fakeWorkspaceExamFreezer struct {
+	calls []workspaceFreezeCall
+	err   error
+}
+
+func (f *fakeWorkspaceExamFreezer) FreezeWorkspace(_ context.Context, tenantID, actorID, workspaceID string) error {
+	f.calls = append(f.calls, workspaceFreezeCall{tenantID: tenantID, actorID: actorID, workspaceID: workspaceID})
+	return f.err
+}
+
+func newProjectSubmissionService(t *testing.T, purpose string) (*services.WorkspaceService, *fakeVolumeOrchestrator, *fakeSubmissionRepo, *fakeWorkspaceExamFreezer, *domain.WorkspaceInstance) {
+	t.Helper()
+	wsRepo := newMockWorkspaceRepo()
+	orch := &fakeVolumeOrchestrator{
+		mockOrchestrator: &mockOrchestrator{},
+		snapshotFiles: []domain.WorkspaceVolumeFile{
+			{Path: "main.py", Content: []byte("print(1)\n")},
+		},
+	}
+	subRepo := &fakeSubmissionRepo{}
+	examRepo := &fakeExerciseRepo{exercise: &domain.Exercise{ID: testExerciseID, Purpose: purpose}}
+	freezer := &fakeWorkspaceExamFreezer{}
+	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
+		WithExerciseSubmission(examRepo, subRepo).
+		SetExamSubmissionFreezer(freezer)
+
+	workspace := &domain.WorkspaceInstance{
+		ID:        "44444444-4444-4444-8444-444444444444",
+		TenantID:  domain.DefaultTenantID,
+		StudentID: "student-1",
+		SubjectID: "subject-1",
+		Status:    domain.WorkspaceStatusRunning,
+	}
+	if err := wsRepo.Create(context.Background(), workspace); err != nil {
+		t.Fatalf("no se pudo preparar el workspace: %v", err)
+	}
+	return svc, orch, subRepo, freezer, workspace
+}
+
+// Entregar un examen cierra solo el volumen de quien entrega: el aula sigue
+// abierta para el resto (ADR-005 §5.2).
+func TestSubmitWorkspaceProject_FreezesExamWorkspace(t *testing.T) {
+	svc, _, subRepo, freezer, workspace := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
+
+	if _, err := svc.SubmitWorkspaceProject(context.Background(), workspace.ID, "student-1", testExerciseID, nil); err != nil {
+		t.Fatalf("la entrega del examen no debía fallar: %v", err)
+	}
+	if subRepo.created == nil {
+		t.Fatal("la entrega debía quedar registrada")
+	}
+	if len(freezer.calls) != 1 {
+		t.Fatalf("el volumen del alumno debía congelarse una vez: %+v", freezer.calls)
+	}
+	call := freezer.calls[0]
+	if call.workspaceID != workspace.ID || call.actorID != workspace.StudentID || call.tenantID != domain.DefaultTenantID {
+		t.Fatalf("el cierre debía apuntar al alumno y su institución: %+v", call)
+	}
+}
+
+// Una práctica de clase no congela nada: entregar no termina el laboratorio.
+func TestSubmitWorkspaceProject_DoesNotFreezeClassWorkspace(t *testing.T) {
+	svc, _, subRepo, freezer, workspace := newProjectSubmissionService(t, string(domain.ExercisePurposeClass))
+
+	if _, err := svc.SubmitWorkspaceProject(context.Background(), workspace.ID, "student-1", testExerciseID, nil); err != nil {
+		t.Fatalf("la entrega de clase no debía fallar: %v", err)
+	}
+	if subRepo.created == nil {
+		t.Fatal("la entrega debía quedar registrada")
+	}
+	if len(freezer.calls) != 0 {
+		t.Fatalf("un aula de clase no debía congelar volúmenes: %+v", freezer.calls)
+	}
+}
+
+// Un volumen congelado no acepta entregas: escribir por esta vía sería seguir
+// editando después del cierre.
+// Un examen de otra materia no cierra el laboratorio de esta: el cierre apunta
+// al entorno donde se trabajó, no a cualquier entrega con purpose exam.
+func TestSubmitWorkspaceProject_DoesNotFreezeExamOfAnotherSubject(t *testing.T) {
+	wsRepo := newMockWorkspaceRepo()
+	orch := &fakeVolumeOrchestrator{
+		mockOrchestrator: &mockOrchestrator{},
+		snapshotFiles:    []domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("print(1)\n")}},
+	}
+	subRepo := &fakeSubmissionRepo{}
+	otherSubject := "subject-2"
+	examRepo := &fakeExerciseRepo{exercise: &domain.Exercise{
+		ID:        testExerciseID,
+		Purpose:   string(domain.ExercisePurposeExam),
+		SubjectID: &otherSubject,
+	}}
+	freezer := &fakeWorkspaceExamFreezer{}
+	svc := services.NewWorkspaceService(wsRepo, orch, &mockHostMonitor{}).
+		WithExerciseSubmission(examRepo, subRepo).
+		SetExamSubmissionFreezer(freezer)
+
+	workspace := &domain.WorkspaceInstance{
+		ID:        "55555555-5555-4555-8555-555555555555",
+		TenantID:  domain.DefaultTenantID,
+		StudentID: "student-1",
+		SubjectID: "subject-1",
+		Status:    domain.WorkspaceStatusRunning,
+	}
+	if err := wsRepo.Create(context.Background(), workspace); err != nil {
+		t.Fatalf("no se pudo preparar el workspace: %v", err)
+	}
+
+	if _, err := svc.SubmitWorkspaceProject(context.Background(), workspace.ID, "student-1", testExerciseID, nil); err != nil {
+		t.Fatalf("la entrega no debía fallar: %v", err)
+	}
+	if len(freezer.calls) != 0 {
+		t.Fatalf("un examen de otra materia no debía congelar este volumen: %+v", freezer.calls)
+	}
+}
+
+func TestSubmitWorkspaceProject_RejectsFrozenWorkspace(t *testing.T) {
+	svc, orch, subRepo, freezer, workspace := newProjectSubmissionService(t, string(domain.ExercisePurposeExam))
+	frozenAt := time.Date(2026, 10, 31, 16, 0, 0, 0, time.UTC)
+	workspace.FrozenAt = &frozenAt
+	workspace.Status = domain.WorkspaceStatusFrozen
+
+	_, err := svc.SubmitWorkspaceProject(context.Background(), workspace.ID, "student-1", testExerciseID, nil)
+	if !errors.Is(err, domain.ErrWorkspaceFrozen) {
+		t.Fatalf("esperado ErrWorkspaceFrozen, obtenido: %v", err)
+	}
+	if orch.snapshotCalled {
+		t.Fatal("un volumen congelado no debía leerse para entregar")
+	}
+	if subRepo.created != nil {
+		t.Fatal("un volumen congelado no debía registrar la entrega")
+	}
+	if len(freezer.calls) != 0 {
+		t.Fatalf("una entrega rechazada no debía volver a congelar: %+v", freezer.calls)
 	}
 }
 

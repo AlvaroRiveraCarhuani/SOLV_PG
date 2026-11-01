@@ -89,26 +89,6 @@ func (h *TeacherHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusOK, overview, "Resumen del panel docente obtenido exitosamente")
 }
 
-func (h *TeacherHandler) GetAttention(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
-		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
-		return
-	}
-
-	tenantID := getTenantFromCtx(r)
-
-	teacherID := r.Header.Get("X-User-Id")
-
-	widget, err := h.service.GetAttentionWidget(r.Context(), tenantID, teacherID)
-	if err != nil {
-		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener widget de atencion")
-		return
-	}
-
-	SendJSON(w, http.StatusOK, widget, "Alertas de atencion obtenidas exitosamente")
-}
-
 // GetExerciseBank devuelve el read model del banco de ejercicios del docente
 // con semántica de revisión por entorno (juez vs IDE).
 func (h *TeacherHandler) GetExerciseBank(w http.ResponseWriter, r *http.Request) {

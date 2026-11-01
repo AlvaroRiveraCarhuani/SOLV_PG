@@ -60,6 +60,13 @@ func (h *ClassSessionHandler) OpenAula(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusCreated, session, "Aula abierta")
 }
 
+// closeAulaResponse conserva los campos de la sesión y suma el resultado del
+// congelamiento. Los clientes que ya leen la sesión ignoran el campo nuevo.
+type closeAulaResponse struct {
+	*domain.ClassSession
+	FreezeReport *services.FreezeReport `json:"freeze_report,omitempty"`
+}
+
 // CloseAula cierra el aula de la materia. Cerrar dos veces responde lo mismo.
 func (h *ClassSessionHandler) CloseAula(w http.ResponseWriter, r *http.Request) {
 	if role := requestRole(r); role == "student" {
@@ -68,13 +75,62 @@ func (h *ClassSessionHandler) CloseAula(w http.ResponseWriter, r *http.Request) 
 	}
 
 	sessionID := r.PathValue("id")
-	session, err := h.service.CloseAula(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r), sessionID)
+	session, freezeReport, err := h.service.CloseAula(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r), sessionID)
 	if err != nil {
 		h.writeSessionError(w, err, "Error al cerrar el aula")
 		return
 	}
 
-	SendJSON(w, http.StatusOK, session, "Aula cerrada")
+	response := closeAulaResponse{ClassSession: session}
+	if freezeReport.Frozen+freezeReport.Skipped+freezeReport.Failed > 0 {
+		response.FreezeReport = &freezeReport
+	}
+	SendJSON(w, http.StatusOK, response, "Aula cerrada")
+}
+
+type unfreezeExamRequest struct {
+	// Reason explica por qué se reabre un volumen ya cerrado. Queda en la
+	// auditoría junto al docente y el alumno.
+	Reason string `json:"reason"`
+}
+
+// FreezeExam congela los volúmenes de un examen ya cerrado. Es idempotente y
+// responde el conteo real: cuántos quedaron en solo lectura, cuántos ya estaban
+// y cuántos fallaron.
+func (h *ClassSessionHandler) FreezeExam(w http.ResponseWriter, r *http.Request) {
+	if role := requestRole(r); role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden cerrar un examen")
+		return
+	}
+
+	report, err := h.service.FreezeExam(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r), r.PathValue("id"))
+	if err != nil {
+		h.writeSessionError(w, err, "Error al congelar el examen")
+		return
+	}
+	SendJSON(w, http.StatusOK, report, "Examen congelado")
+}
+
+// UnfreezeExamStudent es la excepción individual: devuelve la escritura al
+// laboratorio de un alumno con un motivo que queda registrado.
+func (h *ClassSessionHandler) UnfreezeExamStudent(w http.ResponseWriter, r *http.Request) {
+	if role := requestRole(r); role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden reabrir un entorno")
+		return
+	}
+
+	var req unfreezeExamRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición JSON inválido")
+		return
+	}
+
+	report, err := h.service.UnfreezeExamStudent(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r), r.PathValue("id"), r.PathValue("studentID"), req.Reason)
+	if err != nil {
+		h.writeSessionError(w, err, "Error al reabrir el entorno del alumno")
+		return
+	}
+	SendJSON(w, http.StatusOK, report, "Entorno reabierto")
 }
 
 // GetCurrentAula devuelve el aula abierta del docente. Sin aula, data es nulo:
@@ -159,6 +215,14 @@ func (h *ClassSessionHandler) writeSessionError(w http.ResponseWriter, err error
 		SendError(w, http.StatusForbidden, err.Error(), "El alumno no está inscrito en la materia del aula")
 	case errors.Is(err, domain.ErrSessionDurationInvalid):
 		SendError(w, http.StatusBadRequest, err.Error(), "La duración del aula está fuera del rango permitido")
+	case errors.Is(err, domain.ErrExamFreezeNotAllowed):
+		SendError(w, http.StatusConflict, err.Error(), "Solo se congelan los exámenes del docente")
+	case errors.Is(err, domain.ErrExamSessionOpen):
+		SendError(w, http.StatusConflict, err.Error(), "El examen sigue abierto")
+	case errors.Is(err, domain.ErrFreezeReasonRequired):
+		SendError(w, http.StatusBadRequest, err.Error(), "Escribí el motivo para reabrir el entorno")
+	case errors.Is(err, domain.ErrFreezeStudentNotInSession):
+		SendError(w, http.StatusNotFound, err.Error(), "El alumno no participó de ese examen")
 	case errors.Is(err, domain.ErrNotFound):
 		SendError(w, http.StatusBadRequest, err.Error(), "La materia o la práctica indicada no corresponden")
 	default:

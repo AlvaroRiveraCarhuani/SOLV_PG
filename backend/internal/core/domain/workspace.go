@@ -2,6 +2,7 @@ package domain
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
@@ -18,6 +19,10 @@ const (
 	// WorkspaceStatusOrphaned marca un laboratorio cuyo contenedor ya no existe en
 	// el daemon. Libera el cupo y deja el registro para que el alumno lo recree.
 	WorkspaceStatusOrphaned = "orphaned"
+	// WorkspaceStatusFrozen marca el laboratorio de un examen ya cerrado: el
+	// volumen quedó montado en solo lectura y la edición no se reabre sola
+	// (ADR-005 §5). Es un estado buscado, no un fallo.
+	WorkspaceStatusFrozen = "frozen"
 
 	WorkspaceTypeIDEPersistente = "IDE_PERSISTENTE"
 	WorkspaceTypeJuezEfimero    = "JUEZ_EFIMERO"
@@ -48,9 +53,19 @@ type WorkspaceInstance struct {
 	SemgrepAudit    []byte     `db:"semgrep_audit" json:"semgrep_audit,omitempty"`
 	TenantID        string     `db:"tenant_id" json:"tenant_id"`
 	TemplateID      *string    `db:"template_id" json:"template_id,omitempty"`
-	CreatedAt       time.Time  `db:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `db:"updated_at" json:"updated_at"`
+	// FrozenAt es la hora en que el examen se cerró y el volumen pasó a solo
+	// lectura. Nulo mientras el alumno puede editar.
+	FrozenAt  *time.Time `db:"frozen_at" json:"frozen_at,omitempty"`
+	CreatedAt time.Time  `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time  `db:"updated_at" json:"updated_at"`
 }
+
+var (
+	// ErrWorkspaceFrozen: el examen terminó y el entorno quedó en solo lectura.
+	// Se devuelve al intentar abrir o reanudar el laboratorio, para que el
+	// alumno no reciba un contenedor en escritura por recargar la página.
+	ErrWorkspaceFrozen = errors.New("el examen terminó: el entorno quedó en solo lectura")
+)
 
 type WorkspaceContainerConfig struct {
 	Image         string
@@ -71,6 +86,10 @@ type WorkspaceContainerConfig struct {
 	// su plantilla declara (solv-sat-<engine>). Falso cuando el laboratorio no usa
 	// un satélite gestionado.
 	AttachSatellitesNet bool
+	// ReadOnly monta el volumen del alumno sin permiso de escritura. Se usa al
+	// cerrar un examen: el bloqueo lo aplica el sistema de archivos, no la
+	// pantalla (ADR-005 §5).
+	ReadOnly bool
 }
 
 // WorkspaceVolumeFile es un archivo leído del volumen de un workspace.
@@ -86,6 +105,19 @@ type WorkspaceVolumeFile struct {
 type WorkspaceVolumeStore interface {
 	SnapshotWorkspaceVolume(ctx context.Context, volumeName string, maxBytes int64) ([]WorkspaceVolumeFile, error)
 	WriteWorkspaceVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error
+}
+
+// WorkspaceBackupPruner es una capacidad opcional del almacén de volúmenes:
+// permite listar las carpetas de respaldo de un volumen y borrar las que ya no
+// se conservan. Se resuelve por type-assertion para no ampliar
+// WorkspaceVolumeStore ni romper sus dobles.
+type WorkspaceBackupPruner interface {
+	// ListWorkspaceBackupDirs devuelve las carpetas de root, de la más nueva a
+	// la más vieja. root es una ruta relativa dentro del volumen.
+	ListWorkspaceBackupDirs(ctx context.Context, volumeName, root string) ([]string, error)
+	// DeleteWorkspaceVolumePaths borra rutas relativas dentro del volumen. La
+	// implementación solo acepta carpetas de respaldo.
+	DeleteWorkspaceVolumePaths(ctx context.Context, volumeName string, paths []string) error
 }
 
 type ContainerMetrics struct {

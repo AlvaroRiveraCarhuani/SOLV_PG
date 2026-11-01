@@ -20,9 +20,6 @@ type mockTeacherAnalyticsRepo struct {
 func (m *mockTeacherAnalyticsRepo) GetCoursesSummary(ctx context.Context, tenantID, teacherID string, periodID string) ([]*domain.TeacherCourseSummary, error) {
 	return nil, nil
 }
-func (m *mockTeacherAnalyticsRepo) GetAttentionWidget(ctx context.Context, tenantID, teacherID string) (*domain.TeacherAttentionWidget, error) {
-	return nil, nil
-}
 func (m *mockTeacherAnalyticsRepo) GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*domain.TeacherLabStats, error) {
 	return nil, nil
 }

@@ -33,10 +33,13 @@ const sessionColumns = `
 	s.name AS subject_name,
 	cs.exercise_id,
 	ex.title AS exercise_title,
+	COALESCE(ex.purpose, 'class') AS purpose,
 	cs.status,
 	cs.opens_at,
 	cs.ends_at,
 	cs.closes_at,
+	cs.frozen_at,
+	cs.grace_until,
 	COALESCE(cs.created_by::text, '') AS created_by,
 	(SELECT COUNT(*) FROM enrollments en
 	   WHERE en.tenant_id = cs.tenant_id AND en.subject_id = cs.subject_id) AS enrolled,
@@ -56,7 +59,10 @@ func (r *PostgresClassSessionRepository) expireSessions(ctx context.Context, ten
 	if _, err := r.db.ExecContext(ctx, `
 		WITH expired AS (
 			UPDATE class_sessions
-			SET status = 'closed', closes_at = ends_at, updated_at = NOW()
+			SET status = 'closed',
+			    closes_at = ends_at,
+			    grace_until = COALESCE(grace_until, ends_at + make_interval(mins => $2)),
+			    updated_at = NOW()
 			WHERE tenant_id = $1
 			  AND status = 'open'
 			  AND ends_at <= NOW()
@@ -66,7 +72,7 @@ func (r *PostgresClassSessionRepository) expireSessions(ctx context.Context, ten
 		SET left_at = COALESCE(p.left_at, NOW())
 		FROM expired e
 		WHERE p.session_id = e.id AND p.left_at IS NULL
-	`, tenantID); err != nil {
+	`, tenantID, domain.DefaultAdvanceGraceMinutes); err != nil {
 		return fmt.Errorf("failed to expire class sessions: %w", err)
 	}
 	return nil
@@ -141,14 +147,17 @@ func (r *PostgresClassSessionRepository) CloseSession(ctx context.Context, tenan
 	var closedID string
 	err := r.db.GetContext(ctx, &closedID, `
 		UPDATE class_sessions cs
-		SET status = 'closed', closes_at = COALESCE(cs.closes_at, NOW()), updated_at = NOW()
+		SET status = 'closed',
+		    closes_at = COALESCE(cs.closes_at, NOW()),
+		    grace_until = COALESCE(cs.grace_until, COALESCE(cs.closes_at, NOW()) + make_interval(mins => $4)),
+		    updated_at = NOW()
 		FROM subjects s
 		WHERE cs.id = $1::uuid AND cs.tenant_id = $2
 		  AND s.id = cs.subject_id
 		  AND ($3 = '' OR s.teacher_id = $3::uuid)
 		  AND cs.status = 'open'
 		RETURNING cs.id
-	`, sessionID, tenantID, teacherID)
+	`, sessionID, tenantID, teacherID, domain.DefaultAdvanceGraceMinutes)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, fmt.Errorf("failed to close class session: %w", err)
 	}

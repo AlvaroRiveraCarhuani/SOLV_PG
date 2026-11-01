@@ -25,6 +25,9 @@ const (
 	// volumen del workspace sin depender del estado del contenedor principal.
 	workspaceVolumeHelperImage = "alpine:3.20"
 	workspaceVolumeMountPoint  = "/workspace"
+	// workspaceBackupRoot es la única carpeta del volumen donde la poda puede
+	// borrar. Los respaldos de avances viven ahí.
+	workspaceBackupRoot = ".solv_backups"
 	// maxWorkspaceTarBytes acota cuánto se lee del tar del volumen antes de
 	// parsearlo (protege la RAM del backend frente a volúmenes con binarios).
 	maxWorkspaceTarBytes = 64 * 1024 * 1024
@@ -168,6 +171,147 @@ func (c *Client) WriteWorkspaceVolumeFiles(ctx context.Context, volumeName strin
 	}
 
 	return nil
+}
+
+// ListWorkspaceBackupDirs devuelve las carpetas de respaldo de root, de la más
+// nueva a la más vieja. Se ejecuta con la misma imagen efímera que el resto de
+// las operaciones de volumen y no depende de que el workspace esté corriendo.
+func (c *Client) ListWorkspaceBackupDirs(ctx context.Context, volumeName, root string) ([]string, error) {
+	cleanRoot := normalizeWorkspacePath(root)
+	if cleanRoot == "" {
+		return nil, fmt.Errorf("invalid workspace backup root %q", root)
+	}
+	if err := c.ensureWorkspaceHelperImage(ctx); err != nil {
+		return nil, err
+	}
+
+	mountRoot := path.Join(workspaceVolumeMountPoint, cleanRoot)
+	script := fmt.Sprintf("if [ -d %s ]; then ls -1dt %s/*/ 2>/dev/null || true; fi",
+		shellQuote(mountRoot), shellQuote(mountRoot))
+	output, err := c.runWorkspaceVolumeShell(ctx, volumeName, true, script)
+	if err != nil {
+		return nil, err
+	}
+
+	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	dirs := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		rel := strings.TrimPrefix(line, workspaceVolumeMountPoint+"/")
+		rel = strings.TrimSuffix(rel, "/")
+		rel = normalizeWorkspacePath(rel)
+		if !isDirectWorkspaceChild(rel, cleanRoot) {
+			continue
+		}
+		dirs = append(dirs, rel)
+	}
+	return dirs, nil
+}
+
+// DeleteWorkspaceVolumePaths borra carpetas de respaldo ya validadas. La lista
+// viene del servicio de avances; esta capa vuelve a comprobar que cada ruta sea
+// una hija directa de .solv_backups para que un error de llamada no pueda
+// borrar código del alumno.
+func (c *Client) DeleteWorkspaceVolumePaths(ctx context.Context, volumeName string, paths []string) error {
+	if len(paths) == 0 {
+		return nil
+	}
+	if err := c.ensureWorkspaceHelperImage(ctx); err != nil {
+		return err
+	}
+
+	quoted := make([]string, 0, len(paths))
+	for _, raw := range paths {
+		rel := normalizeWorkspacePath(raw)
+		if !isDirectWorkspaceChild(rel, workspaceBackupRoot) {
+			return fmt.Errorf("refusing to delete non-backup workspace path %q", raw)
+		}
+		quoted = append(quoted, shellQuote(path.Join(workspaceVolumeMountPoint, rel)))
+	}
+
+	script := "rm -rf " + strings.Join(quoted, " ")
+	_, err := c.runWorkspaceVolumeShell(ctx, volumeName, false, script)
+	return err
+}
+
+// runWorkspaceVolumeShell ejecuta un comando corto en un contenedor efímero
+// montado sobre el volumen. readOnly evita que una consulta pueda escribir.
+func (c *Client) runWorkspaceVolumeShell(ctx context.Context, volumeName string, readOnly bool, script string) ([]byte, error) {
+	if strings.TrimSpace(volumeName) == "" {
+		return nil, fmt.Errorf("workspace volume name is required")
+	}
+
+	mode := "rw"
+	if readOnly {
+		mode = "ro"
+	}
+	hostConfig := &container.HostConfig{
+		Binds:       []string{fmt.Sprintf("%s:%s:%s", volumeName, workspaceVolumeMountPoint, mode)},
+		NetworkMode: "none",
+		SecurityOpt: []string{"no-new-privileges:true"},
+	}
+	containerConfig := &container.Config{
+		Image: workspaceVolumeHelperImage,
+		User:  "0",
+		Cmd:   []string{"sh", "-c", script},
+	}
+
+	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create workspace volume container: %w", err)
+	}
+	containerID := resp.ID
+	defer func() {
+		_ = c.cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
+	}()
+
+	if err := c.cli.ContainerStart(ctx, containerID, container.StartOptions{}); err != nil {
+		return nil, fmt.Errorf("failed to start workspace volume container: %w", err)
+	}
+
+	statusCh, errCh := c.cli.ContainerWait(ctx, containerID, container.WaitConditionNotRunning)
+	var statusCode int64
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return nil, fmt.Errorf("error waiting for workspace volume container: %w", err)
+		}
+	case status := <-statusCh:
+		statusCode = status.StatusCode
+	}
+
+	outStream, err := c.cli.ContainerLogs(ctx, containerID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workspace volume output: %w", err)
+	}
+	defer func() { _ = outStream.Close() }()
+
+	var stdout, stderr bytes.Buffer
+	if _, err := stdcopy.StdCopy(&stdout, &stderr, outStream); err != nil {
+		return nil, fmt.Errorf("failed to demultiplex workspace volume output: %w", err)
+	}
+	if statusCode != 0 {
+		return nil, fmt.Errorf("workspace volume command failed (%d): %s", statusCode, strings.TrimSpace(stderr.String()))
+	}
+	return stdout.Bytes(), nil
+}
+
+// isDirectWorkspaceChild dice si rel es una carpeta inmediata de root. Evita
+// que una ruta con ../ o con más segmentos llegue al borrado.
+func isDirectWorkspaceChild(rel, root string) bool {
+	prefix := root + "/"
+	if !strings.HasPrefix(rel, prefix) {
+		return false
+	}
+	remainder := strings.TrimPrefix(rel, prefix)
+	return remainder != "" && !strings.Contains(remainder, "/")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 // parseWorkspaceSnapshotTar convierte el tar del volumen en archivos de código

@@ -73,21 +73,30 @@ var (
 // ClassSession es un aula abierta o cerrada de una materia. Enrolled y Present
 // vienen resueltos del servidor: la vista no cuenta filas por su cuenta.
 type ClassSession struct {
-	ID            string     `db:"id" json:"id"`
-	TenantID      string     `db:"tenant_id" json:"-"`
-	SubjectID     string     `db:"subject_id" json:"subject_id"`
-	SubjectCode   string     `db:"subject_code" json:"subject_code"`
-	SubjectName   string     `db:"subject_name" json:"subject_name"`
-	ExerciseID    *string    `db:"exercise_id" json:"exercise_id"`
-	ExerciseTitle *string    `db:"exercise_title" json:"exercise_title,omitempty"`
-	Status        string     `db:"status" json:"status"`
-	OpensAt       time.Time  `db:"opens_at" json:"opens_at"`
+	ID            string  `db:"id" json:"id"`
+	TenantID      string  `db:"tenant_id" json:"-"`
+	SubjectID     string  `db:"subject_id" json:"subject_id"`
+	SubjectCode   string  `db:"subject_code" json:"subject_code"`
+	SubjectName   string  `db:"subject_name" json:"subject_name"`
+	ExerciseID    *string `db:"exercise_id" json:"exercise_id"`
+	ExerciseTitle *string `db:"exercise_title" json:"exercise_title,omitempty"`
+	// Purpose es el propósito de la práctica de la sesión: "exam" cierra los
+	// volúmenes al terminar; "class" no. Sin práctica asignada, "class".
+	Purpose string    `db:"purpose" json:"purpose"`
+	Status  string    `db:"status" json:"status"`
+	OpensAt time.Time `db:"opens_at" json:"opens_at"`
 	// EndsAt es el fin previsto: al vencer, el aula se cierra sola.
 	EndsAt   time.Time  `db:"ends_at" json:"ends_at"`
 	ClosesAt *time.Time `db:"closes_at" json:"closes_at"`
-	CreatedBy     string     `db:"created_by" json:"-"`
-	Enrolled      int        `db:"enrolled" json:"enrolled"`
-	Present       int        `db:"present" json:"present"`
+	// FrozenAt es la congelación manual del docente; nulo si la clase no está congelada.
+	FrozenAt *time.Time `db:"frozen_at" json:"frozen_at"`
+	// GraceUntil es el fin de la ventana de disponibilidad de los avances
+	// emitidos: se fija sola al cerrar y el docente puede sumarle minutos,
+	// fijar una fecha límite o cerrarla antes.
+	GraceUntil *time.Time `db:"grace_until" json:"grace_until"`
+	CreatedBy  string     `db:"created_by" json:"-"`
+	Enrolled   int        `db:"enrolled" json:"enrolled"`
+	Present    int        `db:"present" json:"present"`
 }
 
 // IsOpen dice si el aula todavía admite presencia.
