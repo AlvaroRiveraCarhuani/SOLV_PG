@@ -2,6 +2,7 @@ package httpdelivery
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"solv-backend/internal/core/domain"
@@ -75,6 +76,10 @@ func (h *TeacherHandler) ApplyFuzzCases(w http.ResponseWriter, r *http.Request) 
 
 	addedCount, err := h.service.ApplyFuzzCases(r.Context(), tenantID, teacherID, exerciseID, req.Cases)
 	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "exercise_not_found", "La práctica indicada no existe en esta institución")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al aplicar casos de prueba")
 		return
 	}

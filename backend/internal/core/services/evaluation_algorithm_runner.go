@@ -115,8 +115,16 @@ func (s *EvaluationService) evaluateAlgorithm(ctx context.Context, exercise *dom
 	}
 	var tplImage, tplEntrypoint string
 	if exercise.Template != nil && (exercise.Language == "" || strings.EqualFold(language, exercise.Language)) {
-		tplImage = exercise.Template.DockerImage
-		tplEntrypoint = exercise.Template.Entrypoint
+		// Un template de IDE no ejecuta la solución: su imagen arranca el
+		// servidor del editor, que no termina nunca y el juez corta por
+		// timeout. Solo una plantilla declarada para juez (o para ambos
+		// entornos) aporta imagen y entrypoint al runner; en el resto manda
+		// el perfil de lenguaje.
+		target := strings.TrimSpace(exercise.Template.TargetEnvironment)
+		if target == "" || target == domain.TargetEnvironmentJuezEfimero || target == domain.TargetEnvironmentAmbos {
+			tplImage = exercise.Template.DockerImage
+			tplEntrypoint = exercise.Template.Entrypoint
+		}
 	}
 
 	// 0. Frontera ValidateRamAgainstHost para evaluación

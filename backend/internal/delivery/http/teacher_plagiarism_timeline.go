@@ -58,6 +58,10 @@ func (h *TeacherHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 
 	timeline, err := h.service.GetSubmissionTimeline(r.Context(), tenantID, teacherID, submissionID)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe")
 			return
@@ -86,6 +90,10 @@ func (h *TeacherHandler) GetKeystrokeEvents(w http.ResponseWriter, r *http.Reque
 
 	report, err := h.service.GetKeystrokeEvents(r.Context(), tenantID, teacherID, submissionID)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe")
 			return

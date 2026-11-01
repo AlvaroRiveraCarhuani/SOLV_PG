@@ -37,6 +37,10 @@ func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.service.RunEphemeral(r.Context(), tenantID, teacherID, submissionID, dto.Code, dto.Language)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe")
 			return

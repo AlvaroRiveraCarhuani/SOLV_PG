@@ -59,11 +59,11 @@ func (s *ClassSessionService) OpenAula(ctx context.Context, tenantID, teacherID,
 		return nil, domain.ErrInvalidTenant
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(subjectID)); err != nil {
-		return nil, domain.ErrNotFound
+		return nil, domain.ErrInvalidResourceID
 	}
 	if exerciseID != nil && strings.TrimSpace(*exerciseID) != "" {
 		if _, err := uuid.Parse(strings.TrimSpace(*exerciseID)); err != nil {
-			return nil, domain.ErrNotFound
+			return nil, domain.ErrInvalidResourceID
 		}
 	}
 
@@ -162,7 +162,7 @@ func (s *ClassSessionService) StudentAulas(ctx context.Context, tenantID, studen
 		return nil, domain.ErrInvalidTenant
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(studentID)); err != nil {
-		return nil, domain.ErrNotFound
+		return nil, domain.ErrInvalidResourceID
 	}
 	aulas, err := s.store.OpenSessionsForStudent(ctx, tenantID, studentID)
 	if err != nil {
@@ -181,7 +181,7 @@ func (s *ClassSessionService) Heartbeat(ctx context.Context, tenantID, studentID
 		return domain.ErrInvalidTenant
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(studentID)); err != nil {
-		return domain.ErrNotFound
+		return domain.ErrInvalidResourceID
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(sessionID)); err != nil {
 		return domain.ErrSessionNotFound

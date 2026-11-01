@@ -53,6 +53,12 @@ func (h *ClassSessionHandler) OpenAula(w http.ResponseWriter, r *http.Request) {
 
 	session, err := h.service.OpenAula(r.Context(), getTenantFromCtx(r), resolveRequestStudentID(r), requestRole(r), req.SubjectID, exerciseID, req.DurationMinutes)
 	if err != nil {
+		// Abrir un aula es la primera operación del aula: si falta la materia o
+		// la práctica, el 404 habla de eso y no de un aula que todavía no existe.
+		if errors.Is(err, domain.ErrSessionNotFound) {
+			SendError(w, http.StatusNotFound, err.Error(), "La materia o la práctica no existen en esta institución")
+			return
+		}
 		h.writeSessionError(w, err, "Error al abrir el aula")
 		return
 	}
@@ -243,8 +249,10 @@ func (h *ClassSessionHandler) writeSessionError(w http.ResponseWriter, err error
 		SendError(w, http.StatusBadRequest, err.Error(), "Escribí el motivo para reabrir el entorno")
 	case errors.Is(err, domain.ErrFreezeStudentNotInSession):
 		SendError(w, http.StatusNotFound, err.Error(), "El alumno no participó de ese examen")
+	case errors.Is(err, domain.ErrInvalidResourceID):
+		SendError(w, http.StatusBadRequest, err.Error(), "El identificador indicado no tiene un formato válido")
 	case errors.Is(err, domain.ErrNotFound):
-		SendError(w, http.StatusBadRequest, err.Error(), "La materia o la práctica indicada no corresponden")
+		SendError(w, http.StatusNotFound, err.Error(), "La materia, la práctica o el laboratorio no existen en esta institución")
 	default:
 		SendError(w, http.StatusInternalServerError, err.Error(), message)
 	}

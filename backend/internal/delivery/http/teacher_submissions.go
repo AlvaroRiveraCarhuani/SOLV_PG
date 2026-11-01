@@ -60,6 +60,10 @@ func (h *TeacherHandler) GetSubmissionReview(w http.ResponseWriter, r *http.Requ
 
 	review, err := h.service.GetTeacherSubmissionReview(r.Context(), tenantID, teacherID, submissionID)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "Submission not found", "La entrega solicitada no existe o no pertenece a una materia del docente")
 			return

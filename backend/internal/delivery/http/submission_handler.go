@@ -139,7 +139,15 @@ func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Req
 
 	sub, err := h.service.GetSubmissionByID(r.Context(), tenantID, submissionID)
 	if err != nil {
-		http.Error(w, `{"error":"Submission not found"}`, http.StatusNotFound)
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			http.Error(w, `{"error":"Submission not found"}`, http.StatusNotFound)
+			return
+		}
+		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener la entrega")
 		return
 	}
 
@@ -201,6 +209,14 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 
 	err := h.service.OverrideSubmission(r.Context(), tenantID, submissionID, dto.Verdict, dto.OverrideReason, dto.Score, gradedBy)
 	if err != nil {
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe en esta institución")
+			return
+		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar override de calificacion")
 		return
 	}
@@ -251,6 +267,14 @@ func (h *SubmissionHandler) SaveKeystrokeEvents(w http.ResponseWriter, r *http.R
 				"message": "Máximo 10,000 eventos de escritura permitidos por submission",
 				"limit":   10000,
 			})
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidResourceID) {
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no tiene un formato válido")
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe en esta institución")
 			return
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar eventos de escritura")

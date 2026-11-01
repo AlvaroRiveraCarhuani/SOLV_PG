@@ -284,6 +284,8 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 	switch {
 	case errors.Is(err, domain.ErrInvalidTenant):
 		SendError(w, http.StatusUnauthorized, err.Error(), "No se pudo resolver la institución de la sesión")
+	case errors.Is(err, domain.ErrInvalidResourceID):
+		SendError(w, http.StatusBadRequest, err.Error(), "El identificador indicado no tiene un formato válido")
 	case errors.Is(err, domain.ErrAdvanceNotFound):
 		SendError(w, http.StatusNotFound, err.Error(), "El avance no existe o no está dirigido a este alumno")
 	case errors.Is(err, domain.ErrSessionNotFound):

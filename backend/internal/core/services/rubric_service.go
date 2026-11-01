@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -123,7 +125,10 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	}
 	err := s.db.GetContext(ctx, &subMeta, "SELECT exercise_id, tenant_id FROM submissions WHERE id = $1", submissionID)
 	if err != nil {
-		return nil, fmt.Errorf("submission not found: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, submissionID)
+		}
+		return nil, fmt.Errorf("failed to load submission: %w", err)
 	}
 
 	rubric, err := s.rubricRepo.GetByExerciseID(ctx, subMeta.ExerciseID)

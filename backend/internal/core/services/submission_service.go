@@ -45,7 +45,9 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 		return len(events), nil
 	}
 	if _, err := s.repo.GetByID(ctx, tenantID, submissionID); err != nil {
-		return 0, fmt.Errorf("submission not found: %w", err)
+		// El repositorio ya distingue "no existe" de "id mal formado"; el
+		// transporte necesita ese error intacto para responder 404 o 400.
+		return 0, err
 	}
 	if err := s.keystrokeRepo.SaveBatch(ctx, submissionID, events); err != nil {
 		return 0, fmt.Errorf("failed to save keystroke events: %w", err)

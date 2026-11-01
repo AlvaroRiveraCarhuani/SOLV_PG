@@ -104,7 +104,7 @@ func (s *ClassAdvanceService) Issue(ctx context.Context, in IssueAdvanceInput) (
 		return nil, nil, domain.ErrSessionNotFound
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(in.ExerciseID)); err != nil {
-		return nil, nil, domain.ErrNotFound
+		return nil, nil, domain.ErrInvalidResourceID
 	}
 
 	session, err := s.sessions.GetSession(ctx, in.TenantID, teacherScope(in.Role, in.TeacherID), in.SessionID)

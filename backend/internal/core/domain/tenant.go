@@ -138,4 +138,13 @@ func GetUserRole(ctx context.Context) string {
 
 var ErrTenantIDMissing = errors.New("missing tenant_id in context")
 var ErrInvalidTenant = errors.New("invalid tenant")
+
+// ErrNotFound: el recurso no existe, no es de la institución o no pertenece a
+// quien lo pide. El transporte responde 404.
 var ErrNotFound = errors.New("resource not found")
+
+// ErrInvalidResourceID: el identificador de la petición no tiene formato
+// válido. Es una validación de la entrada (400), no un recurso ausente (404):
+// separar los dos casos evita que un aula o un laboratorio inexistente se
+// confunda con una petición mal armada.
+var ErrInvalidResourceID = errors.New("identificador con formato inválido")
