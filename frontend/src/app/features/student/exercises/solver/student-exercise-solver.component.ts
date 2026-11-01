@@ -123,6 +123,11 @@ export class StudentExerciseSolverComponent implements OnInit {
   readonly projectError = signal<string | null>(null);
   readonly projectSubmission = signal<WorkspaceProjectSubmissionDTO | null>(null);
   readonly projectSubmittedAt = signal<Date | null>(null);
+  /**
+   * Entrega de un examen: el primer clic pide confirmación porque el volumen
+   * queda en solo lectura y no se puede seguir editando (ADR-005 §5.2).
+   */
+  readonly examSubmitPending = signal<boolean>(false);
 
   readonly languageOptions = computed<ComboboxOption[]>(() => {
     const baseLang = (this.exercise()?.language || 'python').toLowerCase();
@@ -192,6 +197,8 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly canResubmitProject = computed<boolean>(() => this.exercise()?.allow_resubmit ?? true);
 
+  readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
+
   readonly canSubmitProject = computed<boolean>(() => {
     if (!this.workspaceIsRunning() || this.isSubmittingProject()) {
       return false;
@@ -200,7 +207,9 @@ export class StudentExerciseSolverComponent implements OnInit {
     if (!hasFiles) {
       return false;
     }
-    if (this.projectSubmission() && !this.canResubmitProject()) {
+    // En un examen la entrega es final: el volumen queda en solo lectura, así
+    // que no hay segunda entrega aunque el ejercicio la permita.
+    if (this.projectSubmission() && (this.isExamProject() || !this.canResubmitProject())) {
       return false;
     }
     return true;
@@ -265,7 +274,6 @@ export class StudentExerciseSolverComponent implements OnInit {
 
     if (delta !== 0) {
       const lines = nextCode.split('\n');
-      const newLines = nextCode.split('\n').length;
       const isPaste = Math.abs(delta) > 25;
       this.keystrokeBuffer.push({
         event_type: isPaste ? 'paste' : (delta > 0 ? 'insert' : 'delete'),
@@ -378,6 +386,25 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
   }
 
+  /**
+   * Entrada del botón de entrega. En un examen no entrega al primer clic: pide
+   * una confirmación porque el entorno se cierra para ese alumno.
+   */
+  requestSubmitProject(): void {
+    if (!this.canSubmitProject()) {
+      return;
+    }
+    if (this.isExamProject() && !this.examSubmitPending()) {
+      this.examSubmitPending.set(true);
+      return;
+    }
+    void this.submitProject();
+  }
+
+  cancelExamSubmit(): void {
+    this.examSubmitPending.set(false);
+  }
+
   async submitProject(): Promise<void> {
     const ex = this.exercise();
     const workspace = this.workspace();
@@ -401,9 +428,11 @@ export class StudentExerciseSolverComponent implements OnInit {
         exercise_id: ex.id,
         files
       });
+      this.examSubmitPending.set(false);
       this.projectSubmission.set(submission);
       this.projectSubmittedAt.set(new Date());
     } catch {
+      this.examSubmitPending.set(false);
       this.projectError.set('No se pudo registrar la entrega del proyecto.');
     } finally {
       this.isSubmittingProject.set(false);

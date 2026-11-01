@@ -5,7 +5,7 @@ import { TeacherDashboardService } from '../../services/teacher-dashboard.servic
 import { ActivatedRoute, Router } from '@angular/router';
 import { of } from 'rxjs';
 import { signal } from '@angular/core';
-import { TeacherLabStats, SubmissionQueueItem, TeacherAttentionWidget } from '../../models/teacher.models';
+import { TeacherLabStats, SubmissionQueueItem } from '../../models/teacher.models';
 
 describe('TeacherCourseDetailComponent', () => {
   let component: TeacherCourseDetailComponent;
@@ -111,8 +111,7 @@ describe('TeacherCourseDetailComponent', () => {
           pending_review: 4,
           at_risk: 1
         }
-      ],
-      attention: { critical: [], warning: [], standard: [] } as TeacherAttentionWidget
+      ]
     };
 
     mockDashboardService = {
@@ -201,5 +200,30 @@ describe('TeacherCourseDetailComponent', () => {
     expect(component.labFilter()).toBe('lab-2');
     expect(component.filteredSubmissions().length).toBe(1);
     expect(component.filteredSubmissions()[0].exercise_id).toBe('lab-2');
+  });
+
+  it('debe cerrar el menú de más acciones al hacer click fuera del dropdown', () => {
+    component.showMoreActions.set(true);
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.dropdown-menu') as HTMLElement;
+    expect(menu).toBeTruthy();
+
+    const metricasLink = fixture.nativeElement.querySelector('a.btn-analytics') as HTMLElement;
+    metricasLink.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.showMoreActions()).toBe(false);
+  });
+
+  it('debe mantener abierto el menú al hacer click dentro del dropdown', () => {
+    component.showMoreActions.set(true);
+    fixture.detectChanges();
+
+    const menu = fixture.nativeElement.querySelector('.dropdown-menu') as HTMLElement;
+    menu.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+
+    expect(component.showMoreActions()).toBe(true);
   });
 });

@@ -1,0 +1,71 @@
+<modal-shell
+  title="Estado del avance"
+  intent="info"
+  maxWidth="680px"
+  (close)="onClose()"
+>
+  <svg modal-icon lucideUsers class="modal-icon"></svg>
+
+  <span modal-subtitle>
+    {{ advance().exercise_title }} · emitido a las
+    <time>{{ advance().created_at | dateText:'time' }}</time>
+  </span>
+
+  <div class="counts">
+    <span class="count count-applied">
+      <span machineData>{{ advance().counts.applied }}</span> aplicaron
+    </span>
+    <span class="count count-dismissed">
+      <span machineData>{{ advance().counts.dismissed }}</span> descartaron
+    </span>
+    <span class="count count-pending">
+      <span machineData>{{ advance().counts.pending }}</span> pendientes
+    </span>
+    @if (advance().counts.expired > 0) {
+      <span class="count count-expired">
+        <span machineData>{{ advance().counts.expired }}</span> vencieron
+      </span>
+    }
+    @if (advance().counts.failed > 0) {
+      <span class="count count-failed">
+        <span machineData>{{ advance().counts.failed }}</span> fallaron
+      </span>
+    }
+  </div>
+
+  <table class="recipients-table">
+    <thead>
+      <tr>
+        <th scope="col">Alumno</th>
+        <th scope="col">Estado</th>
+        <th scope="col">Decidido</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (recipient of advance().recipients; track recipient.student_id) {
+        <tr>
+          <td>
+            <span class="name">{{ recipient.name }}</span>
+            <span class="email">{{ recipient.email }}</span>
+          </td>
+          <td>
+            <span [class]="'status status-' + recipient.status">
+              {{ statusLabel(recipient.status) }}
+            </span>
+          </td>
+          <td>
+            @if (recipient.decided_at; as decidedAt) {
+              <time>{{ decidedAt | dateText:'time' }}</time>
+            } @else {
+              <span class="muted">—</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+
+  <ng-container modal-footer>
+    <button type="button" class="btn btn-primary" (click)="onClose()">Cerrar</button>
+  </ng-container>
+</modal-shell>

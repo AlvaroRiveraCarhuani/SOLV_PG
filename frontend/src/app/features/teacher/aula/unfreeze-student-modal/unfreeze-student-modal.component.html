@@ -1,0 +1,40 @@
+<modal-shell
+  title="Reabrir entorno"
+  intent="warning"
+  maxWidth="560px"
+  [disableClose]="isSending()"
+  (close)="onClose()"
+>
+  <svg modal-icon lucideLockOpen class="modal-icon"></svg>
+
+  <span modal-subtitle>
+    {{ student().name }} · el examen ya cerró, así que su volumen está en solo lectura.
+  </span>
+
+  <label class="reason-label" for="unfreeze-reason">Motivo</label>
+  <textarea
+    id="unfreeze-reason"
+    class="reason-input"
+    rows="3"
+    [ngModel]="reason()"
+    (ngModelChange)="onReasonChange($event)"
+    placeholder="Por qué se le devuelve la escritura a este alumno"
+    [disabled]="isSending()"
+  ></textarea>
+  <p class="reason-hint">
+    Queda en el historial de la clase con tu nombre y la hora en que se reabrió.
+  </p>
+
+  @if (errorMessage(); as message) {
+    <p class="reason-error" role="alert">{{ message }}</p>
+  }
+
+  <ng-container modal-footer>
+    <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isSending()">
+      Cancelar
+    </button>
+    <button type="button" class="btn btn-primary" (click)="submit()" [disabled]="!canSubmit()">
+      {{ isSending() ? 'Reabriendo…' : 'Reabrir entorno' }}
+    </button>
+  </ng-container>
+</modal-shell>

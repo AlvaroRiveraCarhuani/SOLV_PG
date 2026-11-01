@@ -1,4 +1,11 @@
-export type WorkspaceStatus = 'running' | 'pending' | 'hibernated' | 'failed' | 'oom_killed' | 'terminated';
+export type WorkspaceStatus =
+  | 'running'
+  | 'pending'
+  | 'hibernated'
+  | 'failed'
+  | 'oom_killed'
+  | 'terminated'
+  | 'frozen';
 
 export interface Workspace {
   id: string;
@@ -18,6 +25,8 @@ export interface Workspace {
   oom_strikes?: number;
   last_activity_at?: string;
   last_heartbeat_at?: string;
+  /** Hora del cierre del examen. Con valor, el volumen quedó en solo lectura. */
+  frozen_at?: string | null;
   created_at: string;
 }
 

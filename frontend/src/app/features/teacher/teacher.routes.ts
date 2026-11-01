@@ -16,6 +16,11 @@ export const TEACHER_ROUTES: Routes = [
     loadComponent: () => import('./aula/aula.component').then(m => m.AulaComponent)
   },
   {
+    path: 'entorno',
+    loadComponent: () =>
+      import('./environment/teacher-environment.component').then(m => m.TeacherEnvironmentComponent)
+  },
+  {
     path: 'cursos/:id',
     loadComponent: () =>
       import('./courses/course-detail/teacher-course-detail.component').then(m => m.TeacherCourseDetailComponent)

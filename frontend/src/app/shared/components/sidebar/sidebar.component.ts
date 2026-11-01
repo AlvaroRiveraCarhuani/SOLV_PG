@@ -4,6 +4,7 @@ import { RouterModule } from '@angular/router';
 import { 
   LucideHome, 
   LucideTerminal, 
+  LucideCode,
   LucideBookOpen, 
   LucideAward, 
   LucideHistory, 
@@ -46,6 +47,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     RouterModule, 
     LucideHome, 
     LucideTerminal, 
+    LucideCode,
     LucideBookOpen, 
     LucideAward, 
     LucideHistory, 
@@ -81,6 +83,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
                 @switch (item.iconName) {
                   @case ('home') { <svg lucideHome class="nav-icon"></svg> }
                   @case ('terminal') { <svg lucideTerminal class="nav-icon"></svg> }
+                  @case ('code') { <svg lucideCode class="nav-icon"></svg> }
                   @case ('book') { <svg lucideBookOpen class="nav-icon"></svg> }
                   @case ('award') { <svg lucideAward class="nav-icon"></svg> }
                   @case ('history') { <svg lucideHistory class="nav-icon"></svg> }

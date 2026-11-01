@@ -22,6 +22,8 @@ export class StatusBadgeComponent {
     switch (s) {
       case 'running':
         return 'status-running';
+      case 'frozen':
+        return 'status-frozen';
       case 'hibernated':
         return 'status-hibernated';
       case 'pending':
@@ -43,6 +45,8 @@ export class StatusBadgeComponent {
     switch (s) {
       case 'running':
         return 'Activo';
+      case 'frozen':
+        return 'Examen cerrado';
       case 'hibernated':
         return 'En Pausa';
       case 'pending':

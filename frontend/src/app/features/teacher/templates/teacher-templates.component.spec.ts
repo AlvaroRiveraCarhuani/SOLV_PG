@@ -121,7 +121,7 @@ describe('TeacherTemplatesComponent', () => {
     component.createLabFromTemplate(mockTemplates[0]);
     expect(navSpy).toHaveBeenCalledWith(
       ['/teacher/courses', 'course-1', 'exercises', 'new'],
-      { queryParams: { template_id: 'tpl-1' } }
+      { queryParams: { template_id: 'tpl-1', environment_type: 'IDE_PERSISTENTE' } }
     );
   });
 
@@ -157,7 +157,7 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.selectedTemplateForDetail()).toBeNull();
     expect(navSpy).toHaveBeenCalledWith(
       ['/teacher/courses', 'course-1', 'exercises', 'new'],
-      { queryParams: { template_id: 'tpl-1' } }
+      { queryParams: { template_id: 'tpl-1', environment_type: 'IDE_PERSISTENTE' } }
     );
   });
 });

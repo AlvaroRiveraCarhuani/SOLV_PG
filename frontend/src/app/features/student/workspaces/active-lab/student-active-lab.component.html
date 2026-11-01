@@ -21,7 +21,7 @@
     </div>
 
     <div class="lab-toolbar-actions">
-      @if (rawUrl()) {
+      @if (rawUrl() && !isFrozen()) {
         <a class="btn btn-outline" [href]="rawUrl()" target="_blank" rel="noopener noreferrer">
           <svg lucideExternalLink class="btn-icon"></svg>
           <span>Abrir en pestaña nueva</span>
@@ -45,8 +45,46 @@
     </div>
   </header>
 
+  @for (advance of advances.pending(); track advance.id) {
+    <section class="advance-callout" aria-live="polite">
+      <svg lucideFileCode class="advance-icon"></svg>
+      <div class="advance-copy">
+        <p class="advance-title">Tu docente emitió un avance de esta clase</p>
+        <p class="advance-hint">
+          Trae <span machineData>{{ advance.file_count }}</span> archivos y no cambia nada hasta que lo confirmes.
+          Puede tardar hasta un minuto en aparecer: el laboratorio consulta los avisos cada minuto.
+        </p>
+        <p class="advance-meta">
+          Emitido a las <time>{{ advance.created_at | dateText:'time' }}</time>
+        </p>
+      </div>
+      <div class="advance-actions">
+        <button type="button" class="btn btn-outline" (click)="dismissAdvance(advance)" [disabled]="isDismissing()">
+          Descartar
+        </button>
+        <button type="button" class="btn btn-primary" (click)="openAdvance(advance)">
+          Ver archivos
+        </button>
+      </div>
+    </section>
+  }
+
   <main class="lab-viewport">
-    @if (safeLabUrl()) {
+    @if (isFrozen()) {
+      <div class="lab-frozen" role="status">
+        <svg lucideLock class="lab-frozen-icon"></svg>
+        <p class="lab-frozen-title">El examen terminó: tu entorno quedó en solo lectura</p>
+        <p class="lab-frozen-hint">
+          Tu trabajo quedó guardado tal como estaba. El docente todavía puede consultarlo y tú no
+          necesitas hacer nada más.
+        </p>
+        @if (frozenAt(); as closedAt) {
+          <p class="lab-frozen-meta">
+            Cerrado el <time>{{ closedAt | dateText:'datetime' }}</time>
+          </p>
+        }
+      </div>
+    } @else if (safeLabUrl()) {
       <iframe class="lab-iframe" [src]="safeLabUrl()" title="Entorno de práctica"></iframe>
     } @else {
       <div class="lab-empty">
@@ -60,4 +98,8 @@
       </div>
     }
   </main>
+
+  @if (selectedAdvance(); as advance) {
+    <advance-confirm-modal [advance]="advance" (closed)="closeAdvanceModal()" />
+  }
 </section>

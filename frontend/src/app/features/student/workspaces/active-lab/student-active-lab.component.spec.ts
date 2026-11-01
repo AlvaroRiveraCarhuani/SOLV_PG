@@ -1,8 +1,24 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { signal } from '@angular/core';
 import { ActivatedRoute, Router, provideRouter } from '@angular/router';
 import { StudentActiveLabComponent } from './student-active-lab.component';
 import { StudentDashboardData, StudentService } from '@core/services/student.service';
 import { WorkspaceInstance } from '@core/models/workspace.model';
+import { ClassAdvanceNoticeService, PendingClassAdvance } from '../../services/class-advance-notice.service';
+
+const ADVANCE_ID = '33333333-3333-3333-3333-333333333333';
+
+const ADVANCE: PendingClassAdvance = {
+  id: ADVANCE_ID,
+  session_id: '55555555-5555-5555-5555-555555555555',
+  exercise_id: '11111111-1111-1111-1111-111111111111',
+  file_count: 2,
+  created_at: '2026-10-31T15:30:00Z',
+  subject_id: 's1',
+  session_status: 'open',
+  grace_until: null,
+  purpose: 'class'
+};
 
 const RUNNING_WORKSPACE = {
   id: 'w1',
@@ -14,6 +30,13 @@ const RUNNING_WORKSPACE = {
 const PENDING_WORKSPACE = {
   id: 'w2',
   status: 'pending'
+} as unknown as WorkspaceInstance;
+
+const FROZEN_WORKSPACE = {
+  id: 'w3',
+  status: 'frozen',
+  frozen_at: '2026-10-31T16:05:00Z',
+  access_url: 'https://lab.example/w3'
 } as unknown as WorkspaceInstance;
 
 function dashboardFor(workspace: WorkspaceInstance | undefined): StudentDashboardData {
@@ -39,13 +62,26 @@ describe('StudentActiveLabComponent', () => {
   let router: Router;
   let startWorkspace: ReturnType<typeof vi.fn>;
   let pauseWorkspace: ReturnType<typeof vi.fn>;
+  let dismissAdvance: ReturnType<typeof vi.fn>;
+  let startNotices: ReturnType<typeof vi.fn>;
 
-  async function setup(workspace: WorkspaceInstance | undefined): Promise<void> {
+  async function setup(workspace: WorkspaceInstance | undefined, advances: PendingClassAdvance[] = []): Promise<void> {
     localStorage.clear();
     TestBed.resetTestingModule();
 
     startWorkspace = vi.fn().mockResolvedValue(RUNNING_WORKSPACE);
     pauseWorkspace = vi.fn().mockResolvedValue(undefined);
+    dismissAdvance = vi.fn().mockResolvedValue(undefined);
+    startNotices = vi.fn();
+
+    const mockNotices = {
+      pending: signal(advances),
+      start: startNotices,
+      stop: vi.fn(),
+      dismiss: dismissAdvance,
+      preview: vi.fn(),
+      apply: vi.fn()
+    };
 
     const mockStudentService = {
       dashboardData: () => dashboardFor(workspace),
@@ -69,6 +105,7 @@ describe('StudentActiveLabComponent', () => {
       providers: [
         provideRouter([]),
         { provide: StudentService, useValue: mockStudentService },
+        { provide: ClassAdvanceNoticeService, useValue: mockNotices },
         { provide: ActivatedRoute, useValue: routeStub }
       ]
     }).compileComponents();
@@ -122,6 +159,47 @@ describe('StudentActiveLabComponent', () => {
     fixture.detectChanges();
     await fixture.whenStable();
     expect(startWorkspace).toHaveBeenCalledWith('s1');
+  });
+
+  it('con el examen cerrado muestra el aviso y no ofrece el editor', async () => {
+    await setup(FROZEN_WORKSPACE);
+
+    expect(component.isFrozen()).toBe(true);
+    expect(component.safeLabUrl()).toBeNull();
+    expect(fixture.nativeElement.querySelector('iframe.lab-iframe')).toBeNull();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('El examen terminó');
+    expect(text).toContain('Cerrado el');
+    expect(fixture.nativeElement.querySelector('.lab-frozen time')).toBeTruthy();
+
+    const startButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(btn => btn.textContent?.includes('Iniciar entorno de práctica'));
+    expect(startButton).toBeUndefined();
+  });
+
+  it('consulta los avisos del docente al entrar al laboratorio', async () => {
+    await setup(RUNNING_WORKSPACE);
+
+    expect(startNotices).toHaveBeenCalled();
+  });
+
+  it('avisa del avance de la clase y deja descartarlo', async () => {
+    await setup(RUNNING_WORKSPACE, [ADVANCE]);
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Tu docente emitió un avance de esta clase');
+    expect(text).toContain('2 archivos');
+    expect(text).toContain('hasta un minuto');
+
+    const dismissButton = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button'))
+      .find(btn => btn.textContent?.includes('Descartar'));
+    expect(dismissButton).toBeTruthy();
+    dismissButton?.dispatchEvent(new Event('click'));
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(dismissAdvance).toHaveBeenCalledWith(ADVANCE_ID);
   });
 
   it('pausa el entorno y navega de vuelta a laboratorios', async () => {

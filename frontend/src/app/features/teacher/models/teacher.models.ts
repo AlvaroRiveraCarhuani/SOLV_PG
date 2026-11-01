@@ -770,6 +770,8 @@ export interface ClassSession {
   subject_name: string;
   exercise_id: string | null;
   exercise_title?: string;
+  /** Propósito de la práctica de la sesión: `exam` congela los volúmenes al cerrar. */
+  purpose?: 'class' | 'exam';
   status: ClassSessionStatus;
   opens_at: string;
   /** Fin previsto: al vencer, el aula se cierra sola. */
@@ -843,6 +845,37 @@ export interface SessionAdvance {
   recipients: AdvanceRecipient[];
 }
 
+/** Acciones que deja el aula en el historial (ADR-058 §12). */
+export type ClassHistoryAction =
+  | 'CLASS_ADVANCE_EMITTED'
+  | 'CLASS_FROZEN'
+  | 'CLASS_UNFROZEN'
+  | 'CLASS_ADVANCE_GRACE_EXTENDED'
+  | 'CLASS_ADVANCE_GRACE_DEADLINE_SET'
+  | 'CLASS_ADVANCE_GRACE_CLOSED'
+  | 'CLASS_ADVANCE_APPLIED'
+  | 'CLASS_ADVANCE_DISMISSED';
+
+/** Un movimiento del aula: quién lo hizo, cuándo y qué cambió. */
+export interface ClassHistoryEvent {
+  id: string;
+  action: ClassHistoryAction;
+  actor_id: string;
+  actor_name: string;
+  actor_email: string;
+  actor_role: string;
+  created_at: string;
+  advance_id?: string;
+  exercise_id?: string;
+  scope?: AdvanceScope;
+  recipients?: number;
+  file_count?: number;
+  files_written?: number;
+  minutes?: number;
+  previous_until?: string;
+  until?: string;
+}
+
 export interface ClassSessionSummary {
   enrolled: number;
   present: number;
@@ -874,6 +907,13 @@ export interface ClassSessionBoard {
   session: ClassSession;
   summary: ClassSessionSummary;
   students: ClassSessionStudent[];
+}
+
+/** Resultado del congelamiento: cuántos entornos quedaron en solo lectura. */
+export interface FreezeReport {
+  frozen: number;
+  skipped: number;
+  failed: number;
 }
 
 

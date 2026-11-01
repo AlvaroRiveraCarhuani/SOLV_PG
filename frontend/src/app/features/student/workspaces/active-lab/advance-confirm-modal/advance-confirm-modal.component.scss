@@ -1,0 +1,105 @@
+// El shell (fondo, cabecera, pie) lo provee modal-shell: aquí solo el contenido.
+:host {
+  display: block;
+}
+
+.modal-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.advance-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.block-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.block-text {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.advance-loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.file-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background-color: var(--bg-surface-subtle);
+}
+
+// Los archivos que se reemplazan llevan el ámbar de aviso: el alumno pierde
+// algo que ya tenía, aunque quede respaldado.
+.file-group-warning {
+  border-color: var(--status-pending-border);
+  background-color: var(--status-pending-bg);
+}
+
+.group-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.group-hint {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.file-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+  }
+
+  code {
+    word-break: break-all;
+  }
+}
+
+.advance-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-failed-border);
+  border-radius: var(--radius-md);
+  background-color: var(--status-failed-bg);
+
+  p {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: var(--leading-normal);
+    color: var(--status-failed-color);
+  }
+}

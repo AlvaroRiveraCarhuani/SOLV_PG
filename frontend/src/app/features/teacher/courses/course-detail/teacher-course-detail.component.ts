@@ -40,6 +40,7 @@ import { ImportExercisesModalComponent } from './import-exercises-modal/import-e
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdict.model';
@@ -79,6 +80,7 @@ import { VERDICT_FILTER_OPTIONS, matchesVerdictFilter } from '@core/models/verdi
     ConfirmModalComponent,
     DateTextPipe,
     MachineDataDirective,
+    DismissibleDirective,
     SkeletonLoaderComponent,
     PlagiarismModalComponent,
     FuzzingModalComponent,

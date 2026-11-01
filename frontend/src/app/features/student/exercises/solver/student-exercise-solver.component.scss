@@ -500,6 +500,28 @@
   color: var(--color-error);
 }
 
+// Entrega de examen: el cierre del volumen es irreversible para el alumno, así
+// que la advertencia aparece antes de entregar (ADR-005 §5.2).
+.exam-submit-warning {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--status-pending-border);
+  border-radius: var(--radius-md);
+  background: var(--status-pending-bg);
+}
+
+.exam-submit-text {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--status-pending-color);
+}
+
 .editor-card .editor-toolbar .toolbar-left .meta-badge {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--border-color);

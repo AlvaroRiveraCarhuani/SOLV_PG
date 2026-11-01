@@ -17,6 +17,9 @@
             <span class="meta-sep">·</span>
             <span class="meta-practice">{{ aula.exercise_title }}</span>
           }
+          @if (isExamSession()) {
+            <span class="exam-chip">Examen</span>
+          }
         </p>
       </div>
 
@@ -27,9 +30,74 @@
           <span class="presence-count" machineData>{{ summary().enrolled }}</span>
           <span class="presence-label">dentro</span>
         </span>
-        <button type="button" class="btn btn-secondary" (click)="closeAula()">Cerrar aula</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          (click)="openAdvanceModal()"
+          [disabled]="!canEmit()"
+          [title]="aula.frozen_at ? 'Descongelá la clase para emitir' : 'Enviar tu código a los alumnos'">
+          <svg lucideSend class="btn-icon"></svg>
+          Emitir avance
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="toggleFreeze()"
+          [disabled]="isChangingFreeze()"
+          [title]="aula.frozen_at ? 'Volver a permitir emisiones' : 'Cortar las emisiones nuevas sin tocar el trabajo del alumno'"
+        >
+          @if (aula.frozen_at) {
+            <svg lucideSun class="btn-icon"></svg>
+            Descongelar
+          } @else {
+            <svg lucideSnowflake class="btn-icon"></svg>
+            Congelar
+          }
+        </button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          (click)="closeAula()"
+          [title]="isExamSession() ? 'Al cerrar, los entornos de los alumnos quedan en solo lectura' : 'Cerrar el aula de esta clase'"
+        >
+          {{ isExamSession() ? 'Cerrar examen' : 'Cerrar aula' }}
+        </button>
       </div>
     </header>
+
+    <!-- Examen: el cierre congela los volúmenes, no solo cierra la lista. -->
+    @if (isExamSession()) {
+      <div class="exam-note" role="status">
+        <svg lucideLock class="summary-icon"></svg>
+        <span>
+          Examen en curso. Al cerrar, los entornos de los alumnos quedan en solo lectura.
+          Después podés reabrir uno con un motivo.
+        </span>
+      </div>
+    }
+
+    <!-- Emisión: el aviso confirma a quiénes llegó lo que el docente acaba de emitir. -->
+    @if (lastEmission(); as notice) {
+      <div class="advance-notice" role="status">
+        <svg lucideCheckCircle2 class="summary-icon"></svg>
+        <span>
+          Avance de <strong>{{ notice.title }}</strong> emitido a
+          <span machineData>{{ notice.recipients }}</span> alumnos.
+        </span>
+        <button type="button" class="notice-dismiss" (click)="dismissEmissionNotice()">Cerrar</button>
+      </div>
+    }
+
+    @if (aula.frozen_at) {
+      <div class="frozen-note" role="status">
+        <svg lucideSnowflake class="summary-icon"></svg>
+        <span>
+          Clase congelada desde
+          <time class="frozen-time">{{ aula.frozen_at | dateText:'time' }}</time>.
+          No se emiten avances nuevos; el editor del alumno sigue funcionando.
+        </span>
+      </div>
+    }
 
     <!-- Marcador: cuando todo está en orden lo dice en una línea, sin alarmas. -->
     <div class="aula-summary" role="status" aria-live="polite">
@@ -145,6 +213,61 @@
       </table>
     }
 
+    <!-- Avances emitidos: quién aplicó, quién descartó y quién sigue pendiente. -->
+    @if (sessionAdvances().length > 0) {
+      <section class="advance-status">
+        <header class="advance-status-head">
+          <h2 class="section-title">
+            Avances de esta clase
+            <span class="section-count" machineData>({{ sessionAdvances().length }})</span>
+          </h2>
+          <button
+            type="button"
+            class="advance-refresh"
+            (click)="refreshAdvances()"
+            [disabled]="isLoadingAdvances()"
+          >
+            <svg lucideRotateCcw class="action-icon"></svg>
+            Actualizar
+          </button>
+        </header>
+
+        @for (advance of sessionAdvances(); track advance.id) {
+          <article class="advance-row">
+            <div class="advance-row-main">
+              <p class="advance-row-title">{{ advance.exercise_title }}</p>
+              <p class="advance-row-meta">
+                Emitido a las <time>{{ advance.created_at | dateText:'time' }}</time>
+                · <span machineData>{{ advance.file_count }}</span> archivos
+              </p>
+            </div>
+            <div class="advance-row-counts">
+              <span class="advance-count advance-count-applied">
+                <span machineData>{{ advance.counts.applied }}</span> aplicaron
+              </span>
+              <span class="advance-count advance-count-dismissed">
+                <span machineData>{{ advance.counts.dismissed }}</span> descartaron
+              </span>
+              <span class="advance-count advance-count-pending">
+                <span machineData>{{ advance.counts.pending }}</span> pendientes
+              </span>
+            </div>
+            <button type="button" class="btn btn-secondary" (click)="openAdvanceDetail(advance)">
+              Ver detalle
+            </button>
+          </article>
+        }
+      </section>
+    }
+
+    <!-- Historial: lo que pasó en la clase, con nombre y hora. -->
+    <class-history
+      [events]="history()"
+      [isLoading]="isLoadingHistory()"
+      [error]="historyError()"
+      (refresh)="refreshHistory()"
+    />
+
     <!-- Telemetría de la clase: solo los entornos de esta materia. -->
     @if (sessionEnvironments().length > 0) {
       <section class="environments">
@@ -182,6 +305,178 @@
         <time class="closed-time">{{ closedAt | dateText:'time' }}</time>.
         Si la clase sigue, abrí otra.
       </div>
+    }
+
+    <!-- Con la clase cerrada, los avances ya emitidos tienen una hora límite. -->
+    @if (lastClosedSession(); as closed) {
+      @if (lastClosedIsExam()) {
+        <section class="exam-panel" aria-labelledby="exam-panel-title">
+          <header class="exam-panel-head">
+            <div>
+              <h2 class="section-title" id="exam-panel-title">Entornos del examen</h2>
+              <p class="exam-panel-sub">
+                <span class="section-count" machineData>{{ frozenCount() }}</span>
+                en solo lectura
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              (click)="freezeExamAgain(closed)"
+              [disabled]="isFreezingExam()"
+            >
+              {{ isFreezingExam() ? 'Congelando…' : (freezeReport()?.failed ? 'Reintentar congelamiento' : 'Congelar entornos') }}
+            </button>
+          </header>
+
+          @if (freezeReport(); as report) {
+            <p class="exam-report" role="status">
+              <span machineData>{{ report.frozen }}</span> quedaron en solo lectura.
+              @if (report.skipped > 0) {
+                <span><span machineData>{{ report.skipped }}</span> ya estaban cerrados.</span>
+              }
+              @if (report.failed > 0) {
+                <span class="exam-report-failed">
+                  <span machineData>{{ report.failed }}</span> no se pudieron cerrar; el servidor los
+                  reintenta cada 15 minutos.
+                </span>
+              }
+            </p>
+          }
+
+          @if (isLoadingClosedBoard()) {
+            <p class="exam-empty">Leyendo los entornos…</p>
+          } @else if (examStudents().length === 0) {
+            <p class="exam-empty">Ningún alumno de este examen tiene entorno.</p>
+          } @else {
+            <table class="exam-table">
+              <thead>
+                <tr>
+                  <th scope="col">Alumno</th>
+                  <th scope="col">Entorno</th>
+                  <th scope="col" class="num"></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (student of examStudents(); track student.student_id) {
+                  <tr>
+                    <td class="col-student">
+                      <span class="student-name">{{ student.name }}</span>
+                      <span class="student-email">{{ student.email }}</span>
+                    </td>
+                    <td>
+                      @if (student.workspace_status === 'frozen') {
+                        <span class="exam-state exam-state-frozen">Solo lectura</span>
+                      } @else {
+                        <span class="exam-state" machineData>{{ student.workspace_status || 'Sin estado' }}</span>
+                      }
+                    </td>
+                    <td class="num">
+                      @if (student.workspace_status === 'frozen') {
+                        <button type="button" class="row-action" (click)="openUnfreeze(student)">
+                          <svg lucideLockOpen class="action-icon"></svg>
+                          Reabrir
+                        </button>
+                      } @else {
+                        <span class="muted">—</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          }
+        </section>
+      }
+
+      <section class="grace-panel" aria-labelledby="grace-title">
+        <div class="grace-info">
+          <span class="grace-title" id="grace-title">Ventana de los avances</span>
+          @if (isGraceActive(closed) && closed.grace_until) {
+            <p class="grace-text">
+              Los avances de esta clase se pueden aplicar hasta
+              <time class="grace-time">{{ closed.grace_until | dateText:'datetime' }}</time>.
+            </p>
+          } @else {
+            <p class="grace-text">La ventana está cerrada: los avances pendientes ya no se aplican.</p>
+          }
+          <p class="grace-hint">
+            Al cerrar el aula quedan 30 minutos automáticos. Podés sumar minutos,
+            poner una fecha límite para una tarea o cerrarla antes.
+          </p>
+        </div>
+
+        <div class="grace-actions">
+          <div class="grace-action">
+            <label class="grace-label" for="grace-minutes">Sumar minutos</label>
+            <div class="grace-row">
+              <input
+                id="grace-minutes"
+                class="form-input grace-input"
+                type="number"
+                min="1"
+                max="480"
+                step="1"
+                inputmode="numeric"
+                [ngModel]="graceMinutes()"
+                (ngModelChange)="onGraceMinutesChange($event)"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary"
+                (click)="addGrace()"
+                [disabled]="isExtendingGrace()"
+              >
+                Sumar
+              </button>
+            </div>
+          </div>
+
+          <div class="grace-action">
+            <label class="grace-label" for="grace-deadline">Fecha límite</label>
+            <div class="grace-row">
+              <input
+                id="grace-deadline"
+                class="form-input grace-input"
+                type="datetime-local"
+                [ngModel]="graceDeadline()"
+                (ngModelChange)="onGraceDeadlineChange($event)"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary"
+                (click)="applyGraceDeadline()"
+                [disabled]="isExtendingGrace() || !graceDeadline()"
+              >
+                Fijar
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-secondary grace-close"
+            (click)="closeGraceNow()"
+            [disabled]="isExtendingGrace() || !isGraceActive(closed)"
+          >
+            Cerrar ventana ahora
+          </button>
+        </div>
+
+        @if (graceError(); as message) {
+          <p class="grace-error" role="alert">{{ message }}</p>
+        }
+      </section>
+    }
+
+    <!-- La clase cerró, pero su historial sigue disponible para el docente. -->
+    @if (historySession()) {
+      <class-history
+        [events]="history()"
+        [isLoading]="isLoadingHistory()"
+        [error]="historyError()"
+        (refresh)="refreshHistory()"
+      />
     }
 
     <section class="open-form">
@@ -263,5 +558,33 @@
 
   @if (selectedWorkspace(); as workspace) {
     <shadow-terminal-modal [session]="workspace" (closed)="closeConsole()" />
+  }
+
+  @if (unfreezeTarget(); as student) {
+    @if (lastClosedSession(); as closed) {
+      <unfreeze-student-modal
+        [sessionId]="closed.id"
+        [student]="student"
+        (closed)="closeUnfreeze()"
+        (unfrozen)="onStudentUnfrozen()"
+      />
+    }
+  }
+
+  @if (session(); as aula) {
+    @if (isAdvanceModalOpen()) {
+      <class-advance-modal
+        [sessionId]="aula.id"
+        [practices]="practiceOptions()"
+        [students]="board()?.students ?? []"
+        [defaultExerciseId]="aula.exercise_id"
+        (closed)="closeAdvanceModal()"
+        (emitted)="onAdvanceEmitted()"
+      />
+    }
+
+    @if (advanceDetail(); as advance) {
+      <advance-recipients-modal [advance]="advance" (closed)="closeAdvanceDetail()" />
+    }
   }
 </div>

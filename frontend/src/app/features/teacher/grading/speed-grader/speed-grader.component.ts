@@ -62,7 +62,8 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     const sel = this.selections();
     let total = 0;
     for (const c of rub.criteria) {
-      const selectedName = sel[c.id || ''] || (c.levels[0] ? c.levels[0].name : '');
+      if (!c.levels || c.levels.length === 0) continue;
+      const selectedName = sel[c.id || ''] || c.levels[0].name;
       const lvl = c.levels.find(l => l.name === selectedName);
       if (lvl) {
         total += (c.weight / 100.0) * lvl.score;

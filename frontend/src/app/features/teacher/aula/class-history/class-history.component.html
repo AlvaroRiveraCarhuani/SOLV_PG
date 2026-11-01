@@ -1,0 +1,78 @@
+<section class="class-history" aria-labelledby="class-history-title">
+  <header class="history-head">
+    <h2 class="section-title" id="class-history-title">
+      Historial de esta clase
+      <span class="section-count" machineData>({{ events().length }})</span>
+    </h2>
+    <button
+      type="button"
+      class="history-refresh"
+      (click)="onRefresh()"
+      [disabled]="isLoading()"
+    >
+      <svg lucideRotateCcw class="action-icon"></svg>
+      Actualizar
+    </button>
+  </header>
+
+  @if (error(); as message) {
+    <p class="history-error" role="alert">{{ message }}</p>
+  }
+
+  @if (isLoading() && events().length === 0) {
+    <p class="history-empty">Cargando historial…</p>
+  } @else if (events().length === 0) {
+    <p class="history-empty">Todavía no hay movimientos en esta clase.</p>
+  } @else {
+    <ol class="history-list">
+      @for (event of events(); track event.id) {
+        <li class="history-row">
+          <div class="history-main">
+            <span class="history-action">{{ actionLabel(event.action) }}</span>
+            <span class="history-actor">
+              @if (event.actor_name || event.actor_email) {
+                {{ event.actor_name || event.actor_email }}
+              } @else {
+                <span machineData>{{ event.actor_id }}</span>
+              }
+              <span class="history-role">{{ actorRoleLabel(event.actor_role) }}</span>
+            </span>
+          </div>
+
+          <span class="history-detail">
+            @switch (event.action) {
+              @case ('CLASS_ADVANCE_EMITTED') {
+                a <span machineData>{{ event.recipients }}</span> alumnos
+                · <span machineData>{{ event.file_count }}</span> archivos
+              }
+              @case ('CLASS_ADVANCE_GRACE_EXTENDED') {
+                +<span machineData>{{ event.minutes }}</span> minutos
+                @if (event.until) {
+                  · hasta <time class="history-time">{{ event.until | dateText:'datetime' }}</time>
+                }
+              }
+              @case ('CLASS_ADVANCE_GRACE_DEADLINE_SET') {
+                @if (event.until) {
+                  hasta <time class="history-time">{{ event.until | dateText:'datetime' }}</time>
+                }
+              }
+              @case ('CLASS_ADVANCE_GRACE_CLOSED') {
+                @if (event.until) {
+                  a las <time class="history-time">{{ event.until | dateText:'time' }}</time>
+                }
+              }
+              @case ('CLASS_ADVANCE_APPLIED') {
+                <span machineData>{{ event.files_written }}</span> archivos escritos
+              }
+              @case ('CLASS_ADVANCE_DISMISSED') {
+                sin cambios en su entorno
+              }
+            }
+          </span>
+
+          <time class="history-time">{{ event.created_at | dateText:'time' }}</time>
+        </li>
+      }
+    </ol>
+  }
+</section>

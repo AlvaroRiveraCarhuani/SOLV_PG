@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   LucideArrowRight,
   LucideCheckCircle2,
@@ -12,6 +13,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { TeacherCourseService } from '../services/teacher-course.service';
+import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models';
 
 @Component({
@@ -35,6 +37,13 @@ import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models'
 })
 export class TeacherReviewsComponent implements OnInit {
   private courseService = inject(TeacherCourseService);
+  private dashboardService = inject(TeacherDashboardService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
+  private destroyRef = inject(DestroyRef);
+
+  /** Materia preseleccionada desde el panel: filtra la cola en el servidor. */
+  readonly subjectFilter = signal<string | null>(null);
 
   readonly groups = signal<ReviewQueueGroup[]>([]);
   readonly selectedGroup = signal<ReviewQueueGroup | null>(null);
@@ -47,15 +56,40 @@ export class TeacherReviewsComponent implements OnInit {
     this.groups().reduce((total, group) => total + group.pending, 0)
   );
 
+  readonly filterName = computed(() => {
+    const subjectId = this.subjectFilter();
+    if (!subjectId) {
+      return '';
+    }
+    return (
+      this.dashboardService.courses().find(course => course.id === subjectId)?.name ??
+      this.groups()[0]?.subject_name ??
+      'Materia elegida'
+    );
+  });
+
   ngOnInit(): void {
-    this.load();
+    this.route.queryParamMap.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
+      const subjectId = params.get('subject_id');
+      this.subjectFilter.set(subjectId);
+      if (subjectId) {
+        // Solo el nombre: el filtro de la cola lo aplica el servidor.
+        this.dashboardService.getCourses().subscribe({ error: () => undefined });
+      }
+      this.load();
+    });
+  }
+
+  /** Quitar el filtro vuelve a la cola completa del período. */
+  clearFilter(): void {
+    this.router.navigate([], { relativeTo: this.route, queryParams: {} });
   }
 
   load(): void {
     this.isLoading.set(true);
     this.error.set(null);
 
-    this.courseService.getReviewQueue().subscribe({
+    this.courseService.getReviewQueue(this.subjectFilter() ?? undefined).subscribe({
       next: (groups) => {
         this.groups.set(groups);
         this.isLoading.set(false);

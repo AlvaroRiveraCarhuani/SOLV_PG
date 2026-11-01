@@ -85,7 +85,7 @@ describe('TeacherPlagiarismComponent', () => {
   beforeEach(async () => {
     mockDashboardService = {
       courses: signal<TeacherCourseSummary[]>(mockCourses),
-      loadDashboardData: vi.fn().mockReturnValue(of({ courses: mockCourses, attention: { critical: [], warning: [], standard: [] } }))
+      loadDashboardData: vi.fn().mockReturnValue(of({ courses: mockCourses }))
     };
 
     mockCourseService = {

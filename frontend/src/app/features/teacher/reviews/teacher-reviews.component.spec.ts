@@ -1,8 +1,10 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { signal } from '@angular/core';
 import { of } from 'rxjs';
 import { TeacherReviewsComponent } from './teacher-reviews.component';
 import { TeacherCourseService } from '../services/teacher-course.service';
+import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { ReviewQueueGroup, SubmissionQueueItem } from '../models/teacher.models';
 
 describe('TeacherReviewsComponent', () => {
@@ -82,7 +84,7 @@ describe('TeacherReviewsComponent', () => {
     }
   ];
 
-  async function setup(queue: ReviewQueueGroup[]): Promise<void> {
+  async function setup(queue: ReviewQueueGroup[], subjectId: string | null = null): Promise<void> {
     mockCourseService = {
       getReviewQueue: vi.fn().mockReturnValue(of(queue)),
       getCourseSubmissions: vi.fn().mockReturnValue(of(submissions))
@@ -92,7 +94,15 @@ describe('TeacherReviewsComponent', () => {
       imports: [TeacherReviewsComponent],
       providers: [
         provideRouter([]),
-        { provide: TeacherCourseService, useValue: mockCourseService }
+        { provide: TeacherCourseService, useValue: mockCourseService },
+        {
+          provide: TeacherDashboardService,
+          useValue: { courses: signal([]), getCourses: () => of([]) }
+        },
+        {
+          provide: ActivatedRoute,
+          useValue: { queryParamMap: of(convertToParamMap(subjectId ? { subject_id: subjectId } : {})) }
+        }
       ]
     }).compileComponents();
 
@@ -116,6 +126,15 @@ describe('TeacherReviewsComponent', () => {
     const pending = component.submissions();
     expect(pending.map((s) => s.id)).toEqual(['sub-old', 'sub-new']);
     expect(pending.some((s) => s.id === 'sub-done')).toBe(false);
+  });
+
+  it('usa la materia de la URL como filtro de la cola y lo deja quitar', async () => {
+    await setup(groups, 'subj-1');
+
+    expect(mockCourseService.getReviewQueue).toHaveBeenCalledWith('subj-1');
+    const chip = fixture.nativeElement.querySelector('.filter-value');
+    expect(chip?.textContent).toContain('Programación I');
+    expect(fixture.nativeElement.querySelector('.filter-clear')).not.toBeNull();
   });
 
   it('muestra el estado vacío cuando no hay nada por calificar', async () => {

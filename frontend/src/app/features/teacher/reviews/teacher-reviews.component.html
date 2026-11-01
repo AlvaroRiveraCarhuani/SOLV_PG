@@ -17,6 +17,14 @@
     </button>
   </header>
 
+  @if (subjectFilter()) {
+    <div class="filter-bar">
+      <span class="filter-label">Materia</span>
+      <span class="filter-value">{{ filterName() }}</span>
+      <button type="button" class="filter-clear" (click)="clearFilter()">Ver todas</button>
+    </div>
+  }
+
   @if (error()) {
     <div class="state-panel" role="alert">
       <p>{{ error() }}</p>

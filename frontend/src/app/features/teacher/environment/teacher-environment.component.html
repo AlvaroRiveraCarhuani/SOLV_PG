@@ -1,0 +1,85 @@
+<div class="environment-screen">
+  <header class="environment-header">
+    <div class="header-main">
+      <span class="header-eyebrow">Entorno de clase</span>
+      <h1 class="page-title">{{ subject()?.name || 'Tu entorno de clase' }}</h1>
+      <p class="header-meta">
+        Escribí acá el código que después mostrás en el aula. El avance sale de este
+        entorno: si no está abierto, no hay nada que emitir.
+      </p>
+    </div>
+
+    @if (environment(); as env) {
+      <div class="header-actions">
+        <span class="environment-memory">
+          <span machineData>{{ env.memory_limit_mb }}</span>
+          <span class="memory-unit">MB</span>
+        </span>
+        <status-badge [status]="env.status" />
+      </div>
+    }
+  </header>
+
+  <section class="environment-toolbar">
+    <div class="form-field">
+      <label class="field-label" for="environment-subject">Materia</label>
+      <combobox
+        id="environment-subject"
+        [options]="subjectOptions()"
+        [value]="subjectId()"
+        (valueChange)="onSubjectChange($event)"
+        placeholder="Elegir materia"
+        [compact]="true"
+        [showSearchIcon]="false"
+      />
+    </div>
+
+    @if (showOpenButton()) {
+      <button
+        type="button"
+        class="btn btn-primary open-button"
+        [disabled]="isStarting()"
+        (click)="open()"
+      >{{ openLabel() }}</button>
+    }
+
+    @if (isRunning()) {
+      <div class="toolbar-actions">
+        @if (rawUrl(); as url) {
+          <a class="btn btn-outline" [href]="url" target="_blank" rel="noopener noreferrer">
+            <svg lucideExternalLink class="action-icon"></svg>
+            <span>Abrir en pestaña nueva</span>
+          </a>
+        }
+        <button type="button" class="btn btn-outline" [disabled]="isStarting()" (click)="pause()">
+          <svg lucidePause class="action-icon"></svg>
+          <span>Pausar</span>
+        </button>
+      </div>
+    }
+  </section>
+
+  @if (error(); as message) {
+    <div class="error-panel" role="alert">{{ message }}</div>
+  }
+
+  @if (isRunning() && frameUrl()) {
+    <div class="environment-viewport">
+      <iframe
+        class="environment-frame"
+        [src]="frameUrl()"
+        title="Entorno de clase del docente"
+      ></iframe>
+    </div>
+  } @else {
+    <div class="environment-empty" role="status">
+      @if (isLoading()) {
+        <p class="empty-title">Buscando tu entorno en esta materia</p>
+        <p class="empty-copy">Un momento: se consulta el entorno guardado antes de ofrecer abrirlo.</p>
+      } @else {
+        <p class="empty-title">{{ emptyTitle() }}</p>
+        <p class="empty-copy">{{ emptyCopy() }}</p>
+      }
+    </div>
+  }
+</div>

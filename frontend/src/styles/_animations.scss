@@ -22,13 +22,20 @@
   }
 }
 
-@keyframes solv-scale-up {
+@keyframes solv-dropdown-enter {
   from {
     opacity: 0;
-    transform: scale(0.98);
+    transform: translateY(-4px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: scale(1);
+    transform: translateY(0) scale(1);
   }
+}
+
+// Utilidad global para menús desplegables y popovers
+.animate-dropdown,
+.dropdown-enter {
+  transform-origin: top right;
+  animation: solv-dropdown-enter 120ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

@@ -1,0 +1,113 @@
+<modal-shell
+  title="Avance de la clase"
+  subtitle="Revisa qué archivos cambian en tu laboratorio antes de aplicarlo."
+  intent="info"
+  maxWidth="620px"
+  [disableClose]="isApplying()"
+  (close)="onClose()"
+>
+  <svg modal-icon lucideDownload class="modal-icon"></svg>
+
+  @if (result(); as applyResult) {
+    <section class="advance-block" role="status">
+      <p class="block-title">El avance está en tu laboratorio</p>
+      <p class="block-text">
+        Se escribieron <span machineData>{{ applyResult.files_written }}</span> archivos.
+        @if (applyResult.overwritten.length > 0 && applyResult.backup_path) {
+          Tu versión anterior quedó guardada en <code>{{ applyResult.backup_path }}</code>, por si necesitas volver atrás.
+        }
+      </p>
+    </section>
+
+    @if (applyResult.overwritten.length > 0) {
+      <section class="file-group">
+        <h3 class="group-title">Reemplazados</h3>
+        <ul class="file-list">
+          @for (path of applyResult.overwritten; track path) {
+            <li><code>{{ path }}</code></li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (applyResult.added.length > 0) {
+      <section class="file-group">
+        <h3 class="group-title">Agregados</h3>
+        <ul class="file-list">
+          @for (path of applyResult.added; track path) {
+            <li><code>{{ path }}</code></li>
+          }
+        </ul>
+      </section>
+    }
+  } @else if (isLoading()) {
+    <p class="advance-loading">
+      <svg lucideRefreshCw class="spin-icon"></svg>
+      <span>Revisando qué archivos cambian...</span>
+    </p>
+  } @else if (loadError(); as message) {
+    <div class="advance-error" role="alert">
+      <p>{{ message }}</p>
+      <button type="button" class="btn btn-outline" (click)="loadPreview()">Reintentar</button>
+    </div>
+  } @else if (preview(); as files) {
+    <p class="block-text">
+      El avance trae <span machineData>{{ files.file_count }}</span> archivos del ejercicio.
+      Nada cambia en tu entorno hasta que confirmes.
+    </p>
+
+    @if (files.overwritten.length > 0) {
+      <section class="file-group file-group-warning">
+        <h3 class="group-title">Se reemplazan</h3>
+        <p class="group-hint">Tu versión actual se guarda en una copia dentro del laboratorio antes de reemplazarse.</p>
+        <ul class="file-list">
+          @for (path of files.overwritten; track path) {
+            <li><code>{{ path }}</code></li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (files.added.length > 0) {
+      <section class="file-group">
+        <h3 class="group-title">Se agregan</h3>
+        <p class="group-hint">Estos archivos todavía no están en tu laboratorio.</p>
+        <ul class="file-list">
+          @for (path of files.added; track path) {
+            <li><code>{{ path }}</code></li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (applyError(); as message) {
+      <div class="advance-error" role="alert">
+        <p>{{ message }}</p>
+      </div>
+    }
+  }
+
+  <ng-container modal-footer>
+    @if (result()) {
+      <button type="button" class="btn btn-primary" (click)="onClose()">Cerrar</button>
+    } @else {
+      <button type="button" class="btn btn-outline" (click)="onClose()" [disabled]="isApplying()">
+        Cancelar
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        (click)="apply()"
+        [disabled]="isLoading() || isApplying() || !!loadError()"
+      >
+        @if (isApplying()) {
+          <svg lucideRefreshCw class="btn-icon spin-icon"></svg>
+          <span>Aplicando...</span>
+        } @else {
+          <svg lucideFileCode class="btn-icon"></svg>
+          <span>Aplicar avance</span>
+        }
+      </button>
+    }
+  </ng-container>
+</modal-shell>

@@ -1,0 +1,90 @@
+<modal-shell
+  title="Emitir avance"
+  subtitle="Se guarda el código de tu entorno de clase y llega al aula tal como está ahora."
+  [disableClose]="isEmitting()"
+  (close)="onClose()"
+>
+  <svg modal-icon lucideSend></svg>
+
+  <form-field
+    label="Práctica"
+    for="advance-practice"
+    [required]="true"
+    hint="El alumno recibe el código de esta práctica. Las prácticas de examen no se emiten."
+  >
+    <combobox
+      id="advance-practice"
+      [options]="practices()"
+      [value]="exerciseId()"
+      (valueChange)="exerciseId.set($event)"
+      placeholder="Elegir práctica"
+      [compact]="true"
+      [showSearchIcon]="false"
+    />
+  </form-field>
+
+  @if (practices().length === 0) {
+    <field-message variant="warning" message="Esta materia no tiene prácticas publicadas." />
+  }
+
+  <div class="scope-block">
+    <span class="field-label">Alcance</span>
+    <div class="scope-options" role="group" aria-label="Alcance del avance">
+      <button
+        type="button"
+        class="scope-option"
+        [class.is-active]="scope() === 'class'"
+        [attr.aria-pressed]="scope() === 'class'"
+        (click)="setScope('class')"
+      >
+        <span class="scope-title">Toda la clase</span>
+        <span class="scope-hint">{{ participants().length }} en el aula ahora</span>
+      </button>
+      <button
+        type="button"
+        class="scope-option"
+        [class.is-active]="scope() === 'selected'"
+        [attr.aria-pressed]="scope() === 'selected'"
+        (click)="setScope('selected')"
+      >
+        <span class="scope-title">Alumnos elegidos</span>
+        <span class="scope-hint">{{ selectedCount() }} marcados</span>
+      </button>
+    </div>
+  </div>
+
+  @if (participants().length === 0) {
+    <field-message
+      variant="warning"
+      message="Todavía no hay alumnos dentro del aula: nadie puede recibir el avance."
+    />
+  } @else if (scope() === 'selected') {
+    <div class="student-picker">
+      @for (student of participants(); track student.student_id) {
+        <label class="student-option">
+          <input
+            type="checkbox"
+            [checked]="isSelected(student.student_id)"
+            (change)="toggleStudent(student.student_id)"
+          />
+          <span class="student-name">{{ student.name }}</span>
+          <span class="student-email">{{ student.email }}</span>
+        </label>
+      }
+    </div>
+  }
+
+  @if (serviceError(); as message) {
+    <field-message variant="error" [message]="message" />
+  }
+
+  <ng-container modal-footer>
+    <button type="button" class="btn btn-secondary" (click)="onClose()" [disabled]="isEmitting()">
+      Cancelar
+    </button>
+    <button type="button" class="btn btn-primary" (click)="emit()" [disabled]="!canEmit()">
+      <svg lucideSend></svg>
+      <span>{{ isEmitting() ? 'Emitiendo…' : 'Emitir avance' }}</span>
+    </button>
+  </ng-container>
+</modal-shell>

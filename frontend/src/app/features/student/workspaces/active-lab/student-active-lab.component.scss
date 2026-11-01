@@ -60,6 +60,53 @@
   flex-wrap: wrap;
 }
 
+// Aviso del avance del docente: ocupa una franja sobre el editor porque es una
+// decisión pendiente, no un detalle de la cabecera.
+.advance-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-pending-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--status-pending-bg);
+}
+
+.advance-icon {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--status-pending-color);
+}
+
+.advance-copy {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.advance-title {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.advance-hint,
+.advance-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
+}
+
+.advance-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+}
+
 .lab-viewport {
   flex: 1 1 auto;
   min-height: 480px;
@@ -75,6 +122,44 @@
   height: 100%;
   min-height: 480px;
   border: 0;
+}
+
+// Examen cerrado (ADR-005 §5): el volumen quedó en solo lectura. El estado es
+// neutro, como la pausa, y la pantalla explica el motivo en lugar de ofrecer
+// reabrir.
+.lab-frozen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  height: 100%;
+  min-height: 480px;
+  padding: var(--space-6);
+  text-align: center;
+  background-color: var(--status-hibernated-bg);
+}
+
+.lab-frozen-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--status-hibernated-color);
+}
+
+.lab-frozen-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lab-frozen-hint,
+.lab-frozen-meta {
+  margin: 0;
+  max-width: 46ch;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--text-secondary);
 }
 
 .lab-empty {
@@ -103,5 +188,14 @@
 
   .lab-toolbar-actions {
     justify-content: flex-start;
+  }
+
+  .advance-callout {
+    flex-wrap: wrap;
+  }
+
+  .advance-actions {
+    width: 100%;
+    justify-content: flex-end;
   }
 }

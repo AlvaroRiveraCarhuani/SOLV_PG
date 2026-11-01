@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, input, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute, Router } from '@angular/router';
 import {
@@ -23,6 +23,7 @@ import { StudentPreviewModalComponent } from './student-preview-modal/student-pr
 import { AiExerciseGeneratorModalComponent } from './ai-exercise-generator-modal/ai-exercise-generator-modal.component';
 import { ConfirmModalComponent } from '@shared/components/confirm-modal/confirm-modal.component';
 import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
+import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 
 @Component({
   selector: 'exercise-editor',
@@ -54,9 +55,9 @@ import { TeacherAiCopilotService, AIGenerateExerciseResponse } from '../services
       <!-- Top Navigation & Actions Bar -->
       <header class="editor-topbar">
         <div class="topbar-left">
-          <a [routerLink]="['/teacher/cursos', courseId()]" class="back-link">
+          <a [routerLink]="['/teacher/cursos', store.courseId()]" class="back-link">
             <svg lucideArrowLeft class="back-icon"></svg>
-            <span>Volver al curso</span>
+            <span>Volver al curso{{ courseName() ? ' · ' + courseName() : '' }}</span>
           </a>
 
           <div class="title-meta">
@@ -264,8 +265,17 @@ export class ExerciseEditorComponent implements OnInit {
   courseId = input<string>('');
   id = input<string | null>(null);
 
+  private readonly dashboardService = inject(TeacherDashboardService);
+
   readonly aiEnabled = signal(false);
   readonly aiModalOpen = signal(false);
+
+  /** Nombre del curso resuelto desde el catálogo del panel docente. */
+  readonly courseName = computed(() => {
+    const cId = this.store.courseId();
+    if (!cId) return '';
+    return this.dashboardService.courses().find(c => c.id === cId)?.name || '';
+  });
 
   showDeleteModal = signal<boolean>(false);
   toastMessage = signal<string | null>(null);
@@ -320,8 +330,11 @@ export class ExerciseEditorComponent implements OnInit {
   }
 
   ngOnInit() {
-    const cId = this.courseId() || this.route.snapshot.paramMap.get('courseId') || '';
-    const exId = this.id() || this.route.snapshot.paramMap.get('id') || null;
+    const snapshot = this.route.snapshot;
+    const cId = this.courseId() || snapshot.paramMap.get('courseId') || '';
+    const exId = this.id() || snapshot.paramMap.get('id') || null;
+    const tplId = snapshot.queryParamMap.get('template_id') || '';
+    const envType = snapshot.queryParamMap.get('environment_type') || '';
 
     // Tracking de telemetría de uso
     console.info('[AuditLog] exercise_editor_opened', {
@@ -341,6 +354,8 @@ export class ExerciseEditorComponent implements OnInit {
     } else {
       // Al ingresar a crear nuevo laboratorio, iniciar con formulario completamente limpio
       this.store.resetToNew(cId);
+      // Preselección desde el Catálogo de Entornos ("Usar en Laboratorio")
+      this.store.preselectTemplate(tplId, envType);
     }
 
     this.aiCopilotService.getStatus().subscribe({

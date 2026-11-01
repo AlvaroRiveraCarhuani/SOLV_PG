@@ -116,9 +116,14 @@ export class TeacherGradingService {
       dto
     ).pipe(
       map(res => res.data),
-      tap(result => {
-        this.ephemeralResult.set(result);
-        this.isRunningEphemeral.set(false);
+      tap({
+        next: result => {
+          this.ephemeralResult.set(result);
+          this.isRunningEphemeral.set(false);
+        },
+        error: () => {
+          this.isRunningEphemeral.set(false);
+        }
       })
     );
   }

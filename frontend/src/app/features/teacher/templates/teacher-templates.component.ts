@@ -361,7 +361,7 @@ export class TeacherTemplatesComponent implements OnInit {
     const coursesList = this.courses();
     if (coursesList.length === 1) {
       this.router.navigate(['/teacher/courses', coursesList[0].id, 'exercises', 'new'], {
-        queryParams: { template_id: template.id }
+        queryParams: { template_id: template.id, environment_type: template.environment_type || undefined }
       });
     } else if (coursesList.length > 1) {
       this.targetTemplateForCourse.set(template);
@@ -376,7 +376,7 @@ export class TeacherTemplatesComponent implements OnInit {
     this.closeCoursePicker();
     if (tpl) {
       this.router.navigate(['/teacher/courses', courseId, 'exercises', 'new'], {
-        queryParams: { template_id: tpl.id }
+        queryParams: { template_id: tpl.id, environment_type: tpl.environment_type || undefined }
       });
     }
   }

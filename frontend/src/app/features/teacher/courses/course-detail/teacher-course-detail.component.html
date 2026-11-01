@@ -46,7 +46,11 @@
       </a>
 
       <!-- Menú Desplegable de Gestión -->
-      <div class="more-actions-dropdown">
+      <div
+        class="more-actions-dropdown"
+        dismissible
+        (dismiss)="showMoreActions.set(false)"
+      >
         <button 
           type="button" 
           class="btn-outline btn-more-toggle" 
@@ -58,17 +62,17 @@
         </button>
 
         @if (showMoreActions()) {
-          <div class="dropdown-menu animate-fade">
+          <div class="dropdown-menu animate-dropdown">
             <button type="button" class="dropdown-item" (click)="openPlagiarismModal(); showMoreActions.set(false)">
-              <svg lucideShieldAlert class="btn-icon-sm"></svg>
+              <svg lucideShieldAlert class="btn-icon-xs"></svg>
               <span>Auditoría Anti-Plagio AST</span>
             </button>
             <button type="button" class="dropdown-item" (click)="openPauseConfirmModal(); showMoreActions.set(false)">
-              <svg lucidePauseCircle class="btn-icon-sm text-warning"></svg>
+              <svg lucidePauseCircle class="btn-icon-xs text-warning"></svg>
               <span>Pausar Entornos de Clase</span>
             </button>
             <button type="button" class="dropdown-item" [disabled]="isExporting()" (click)="exportGrades(); showMoreActions.set(false)">
-              <svg lucideDownload class="btn-icon-sm"></svg>
+              <svg lucideDownload class="btn-icon-xs"></svg>
               <span>{{ isExporting() ? 'Exportando...' : 'Exportar Notas (CSV)' }}</span>
             </button>
           </div>

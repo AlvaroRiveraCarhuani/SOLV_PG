@@ -1,6 +1,7 @@
 export type SidebarIconName = 
   | 'home'
   | 'terminal'
+  | 'code'
   | 'book'
   | 'award'
   | 'history'

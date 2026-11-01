@@ -3,6 +3,7 @@ import { provideRouter, ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 import { StudentExerciseSolverComponent } from './student-exercise-solver.component';
 import { StudentService } from '@core/services/student.service';
+import { WorkspaceInstance } from '@core/models/workspace.model';
 import { AuthService } from '@core/services/auth.service';
 import { signal } from '@angular/core';
 
@@ -11,6 +12,7 @@ describe('StudentExerciseSolverComponent', () => {
   let fixture: ComponentFixture<StudentExerciseSolverComponent>;
   let evaluateCalls: unknown[] = [];
   let submitCalls: unknown[] = [];
+  let projectSubmitCalls: string[] = [];
 
   const mockStudentService = {
     getPublicExercise: () =>
@@ -44,6 +46,15 @@ describe('StudentExerciseSolverComponent', () => {
       submitCalls.push(payload);
       return Promise.resolve({ id: 'sub-909' });
     },
+    submitWorkspaceProject: (workspaceId: string) => {
+      projectSubmitCalls.push(workspaceId);
+      return Promise.resolve({
+        submission_id: 'sub-exam',
+        workspace_id: workspaceId,
+        exercise_id: 'ex-101',
+        verdict: 'PENDING'
+      });
+    },
     saveKeystrokeEvents: () => Promise.resolve()
   };
 
@@ -60,6 +71,7 @@ describe('StudentExerciseSolverComponent', () => {
   beforeEach(async () => {
     evaluateCalls = [];
     submitCalls = [];
+    projectSubmitCalls = [];
 
     await TestBed.configureTestingModule({
       imports: [StudentExerciseSolverComponent],
@@ -80,6 +92,37 @@ describe('StudentExerciseSolverComponent', () => {
     component = fixture.componentInstance;
     fixture.detectChanges();
     await fixture.whenStable();
+  });
+
+  it('pide confirmación antes de entregar un examen y no deja reentregar', async () => {
+    const current = component.exercise();
+    component.exercise.set({
+      ...current!,
+      purpose: 'exam',
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    component.workspace.set({ id: 'ws-1', status: 'running' } as unknown as WorkspaceInstance);
+    component.projectFiles.set([{ name: 'main.py', content: 'print(1)' }]);
+    fixture.detectChanges();
+
+    expect(component.isExamProject()).toBe(true);
+    expect(component.canSubmitProject()).toBe(true);
+
+    // Primer clic: solo avisa que el entorno queda en solo lectura.
+    component.requestSubmitProject();
+    expect(projectSubmitCalls.length).toBe(0);
+    expect(component.examSubmitPending()).toBe(true);
+
+    // Segundo clic: entrega y el volumen queda cerrado para ese alumno.
+    component.requestSubmitProject();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    fixture.detectChanges();
+
+    expect(projectSubmitCalls).toEqual(['ws-1']);
+    expect(component.projectSubmission()?.submission_id).toBe('sub-exam');
+    expect(component.examSubmitPending()).toBe(false);
+    expect(component.canSubmitProject()).toBe(false);
   });
 
   it('should load public exercise without hidden test cases and submit solution through the judge', async () => {

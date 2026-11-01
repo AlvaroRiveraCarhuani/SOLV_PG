@@ -653,6 +653,24 @@ export class ExerciseEditorStore {
     this.scheduleAutoSave();
   }
 
+  /**
+   * Preselecciona una plantilla de entorno al crear un laboratorio desde el
+   * Catálogo de Entornos ("Usar en Laboratorio"). El paso de Entorno IDE
+   * hidrata la plantilla completa cuando carga el catálogo aprobado.
+   */
+  preselectTemplate(templateId: string, environmentType?: string): void {
+    if (!templateId) return;
+    const env =
+      environmentType === 'IDE_PERSISTENTE' || environmentType === 'JUEZ_EFIMERO'
+        ? environmentType
+        : undefined;
+    this.metadata.update(curr => ({
+      ...curr,
+      template_id: templateId,
+      ...(env ? { environment_type: env } : {})
+    }));
+  }
+
   loadRunnerTemplates(): void {
     if (this.runnerTemplates().length > 0) return;
 

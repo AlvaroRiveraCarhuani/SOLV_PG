@@ -30,8 +30,9 @@
   }
 }
 
-/* hibernated = neutral */
-.status-hibernated {
+/* hibernated / frozen = neutral (el cierre del examen es un estado buscado) */
+.status-hibernated,
+.status-frozen {
   background-color: var(--status-hibernated-bg);
   color: var(--status-hibernated-color);
   border-color: var(--status-hibernated-border);

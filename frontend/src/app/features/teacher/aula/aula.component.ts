@@ -1,10 +1,16 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import {
   LucideAlertTriangle,
   LucideCheckCircle2,
+  LucideLock,
+  LucideLockOpen,
   LucideRotateCcw,
+  LucideSnowflake,
+  LucideSun,
+  LucideSend,
   LucideTerminal
 } from '@lucide/angular';
 
@@ -16,6 +22,7 @@ import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-ta
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 
 import { ClassSessionService } from '../services/class-session.service';
+import { ClassAdvanceService } from '../services/class-advance.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
@@ -23,10 +30,15 @@ import {
   ClassSession,
   ClassSessionStudent,
   ClassSessionStudentState,
-  LiveWorkspaceSession
+  LiveWorkspaceSession,
+  SessionAdvance
 } from '../models/teacher.models';
 import { AulaTelemetryWidgetComponent } from './aula-telemetry-widget/aula-telemetry-widget.component';
 import { ShadowTerminalModalComponent } from './shadow-terminal-modal/shadow-terminal-modal.component';
+import { ClassAdvanceModalComponent } from './class-advance-modal/class-advance-modal.component';
+import { AdvanceRecipientsModalComponent } from './advance-recipients-modal/advance-recipients-modal.component';
+import { ClassHistoryComponent } from './class-history/class-history.component';
+import { UnfreezeStudentModalComponent } from './unfreeze-student-modal/unfreeze-student-modal.component';
 
 const REFRESH_MS = 5000;
 
@@ -39,6 +51,15 @@ const DURATION_OPTIONS: ComboboxOption[] = [
 ];
 
 const DEFAULT_DURATION = '90';
+
+/**
+ * La ventana de disponibilidad se abre sola al cerrar el aula. El campo de la
+ * pantalla arranca en esos mismos 30 minutos y el docente decide cuánto sumar,
+ * sin bloques fijos: si la clase necesita 20, escribe 20.
+ */
+const DEFAULT_GRACE_MINUTES = 30;
+const MIN_GRACE_MINUTES = 1;
+const MAX_GRACE_MINUTES = 480;
 
 const STATE_LABELS: Record<ClassSessionStudentState, string> = {
   trabajando: 'Trabajando',
@@ -64,7 +85,12 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
     FormsModule,
     LucideAlertTriangle,
     LucideCheckCircle2,
+    LucideLock,
+    LucideLockOpen,
     LucideRotateCcw,
+    LucideSnowflake,
+    LucideSun,
+    LucideSend,
     LucideTerminal,
     DateTextPipe,
     MachineDataDirective,
@@ -73,13 +99,19 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
     StatusTabsComponent,
     VerdictBadgeComponent,
     AulaTelemetryWidgetComponent,
-    ShadowTerminalModalComponent
+    ShadowTerminalModalComponent,
+    ClassAdvanceModalComponent,
+    AdvanceRecipientsModalComponent,
+    ClassHistoryComponent,
+    UnfreezeStudentModalComponent
   ],
   templateUrl: './aula.component.html',
   styleUrl: './aula.component.scss'
 })
 export class AulaComponent implements OnInit, OnDestroy {
+  private readonly route = inject(ActivatedRoute);
   private readonly sessionService = inject(ClassSessionService);
+  private readonly advanceService = inject(ClassAdvanceService);
   private readonly dashboardService = inject(TeacherDashboardService);
   private readonly courseService = inject(TeacherCourseService);
   private readonly liveService = inject(TeacherLiveService);
@@ -90,6 +122,24 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly isOpening = this.sessionService.isOpening;
   readonly error = this.sessionService.error;
   readonly lastClosedAt = this.sessionService.lastClosedAt;
+  readonly lastClosedSession = this.sessionService.lastClosedSession;
+  readonly history = this.sessionService.history;
+  readonly isLoadingHistory = this.sessionService.isLoadingHistory;
+  readonly historyError = this.sessionService.historyError;
+  /** Aula cuyo historial se está mirando: la abierta o la última cerrada. */
+  readonly historySession = signal<ClassSession | null>(null);
+  readonly isChangingFreeze = this.sessionService.isChangingFreeze;
+  readonly isExtendingGrace = this.sessionService.isExtendingGrace;
+  readonly freezeReport = this.sessionService.lastFreezeReport;
+  readonly isFreezingExam = this.sessionService.isFreezingExam;
+  readonly closedBoard = this.sessionService.closedBoard;
+  readonly isLoadingClosedBoard = this.sessionService.isLoadingClosedBoard;
+  /** Alumno al que se le va a devolver la escritura, si el docente lo pidió. */
+  readonly unfreezeTarget = signal<ClassSessionStudent | null>(null);
+
+  readonly lastEmission = this.advanceService.lastEmission;
+  readonly sessionAdvances = this.advanceService.sessionAdvances;
+  readonly isLoadingAdvances = this.advanceService.isLoadingAdvances;
 
   readonly liveSessions = this.liveService.liveSessions;
   readonly isPollingActive = this.liveService.isPollingActive;
@@ -105,6 +155,11 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly durationOptions = DURATION_OPTIONS;
   readonly practiceOptions = signal<ComboboxOption[]>([]);
   readonly selectedWorkspace = signal<LiveWorkspaceSession | null>(null);
+  readonly isAdvanceModalOpen = signal<boolean>(false);
+  readonly advanceDetail = signal<SessionAdvance | null>(null);
+  readonly graceMinutes = signal<number | null>(DEFAULT_GRACE_MINUTES);
+  readonly graceDeadline = signal<string>('');
+  readonly graceError = signal<string>('');
 
   private refreshTimer?: ReturnType<typeof setInterval>;
 
@@ -153,6 +208,23 @@ export class AulaComponent implements OnInit, OnDestroy {
       return student.name.toLowerCase().includes(term) || student.email.toLowerCase().includes(term);
     });
   });
+
+  /** El cierre de un examen deja los volúmenes en solo lectura; una clase no. */
+  readonly isExamSession = computed(() => {
+    const aula = this.session();
+    return !!aula && aula.purpose === 'exam';
+  });
+
+  readonly lastClosedIsExam = computed(() => this.lastClosedSession()?.purpose === 'exam');
+
+  /** Alumnos del examen cerrado con entorno: los únicos que se pueden reabrir. */
+  readonly examStudents = computed<ClassSessionStudent[]>(() =>
+    (this.closedBoard()?.students ?? []).filter(student => !!student.workspace_id)
+  );
+
+  readonly frozenCount = computed(
+    () => this.examStudents().filter(student => student.workspace_status === 'frozen').length
+  );
 
   /** Entornos de la clase abierta: la telemetría se mira una materia por vez. */
   readonly sessionEnvironments = computed<LiveWorkspaceSession[]>(() => {
@@ -229,10 +301,18 @@ export class AulaComponent implements OnInit, OnDestroy {
       return;
     }
     this.sessionService.closeAula(aula.id).subscribe({
-      next: () => {
+      next: closed => {
         this.stopRefresh();
         this.activeTab.set('todos');
+        this.resetGraceForm();
+        this.historySession.set(closed);
+        this.refreshHistory();
         this.watchEnvironments();
+        // Un examen cerrado conserva su lista de entornos para el conteo y la
+        // excepción individual, aunque el tablero en vivo ya no aplique.
+        if (closed.purpose === 'exam') {
+          this.loadClosedExam(closed.id);
+        }
       },
       error: () => undefined
     });
@@ -276,9 +356,24 @@ export class AulaComponent implements OnInit, OnDestroy {
     this.liveService.loadLiveSessions().subscribe();
   }
 
+  /**
+   * Emitir exige el aula abierta y sin congelar: congelada, el servidor rechaza
+   * la emisión y la pantalla no ofrece un botón que vaya a fallar.
+   */
+  readonly canEmit = computed(() => {
+    const aula = this.session();
+    return !!aula && aula.status === 'open' && !aula.frozen_at;
+  });
+
   private startSession(session: ClassSession): void {
     this.stopRefresh();
+    this.historySession.set(session);
+    this.refreshHistory();
     this.sessionService.loadBoard(session.id).subscribe({ error: () => undefined });
+    // La emisión elige entre las prácticas publicadas de la materia del aula.
+    this.loadPractices(session.subject_id);
+    this.advanceService.clearNotice();
+    this.refreshAdvances();
 
     // Una clase se mira cada 5 segundos: es el ritmo de la presencialidad.
     this.refreshTimer = setInterval(() => {
@@ -300,10 +395,190 @@ export class AulaComponent implements OnInit, OnDestroy {
     this.liveService.setPollingInterval(REFRESH_MS);
   }
 
+  openAdvanceModal(): void {
+    if (!this.canEmit()) {
+      return;
+    }
+    this.advanceService.clearError();
+    this.isAdvanceModalOpen.set(true);
+  }
+
+  closeAdvanceModal(): void {
+    this.isAdvanceModalOpen.set(false);
+  }
+
+  /** El aviso ya quedó para los alumnos: se refresca el tablero y se cierra. */
+  onAdvanceEmitted(): void {
+    this.isAdvanceModalOpen.set(false);
+    this.refreshBoard();
+    this.refreshAdvances();
+    this.refreshHistory();
+  }
+
+  /** Historial del aula abierta o de la última cerrada. */
+  refreshHistory(): void {
+    const session = this.historySession();
+    if (!session) {
+      return;
+    }
+    this.sessionService.loadHistory(session.id).subscribe({ error: () => undefined });
+  }
+
+  /** Estado de cada destinatario de las emisiones de esta aula. */
+  refreshAdvances(): void {
+    const aula = this.session();
+    if (!aula) {
+      return;
+    }
+    this.advanceService.loadSessionAdvances(aula.id).subscribe({ error: () => undefined });
+  }
+
+  openAdvanceDetail(advance: SessionAdvance): void {
+    this.advanceDetail.set(advance);
+  }
+
+  closeAdvanceDetail(): void {
+    this.advanceDetail.set(null);
+  }
+
+  dismissEmissionNotice(): void {
+    this.advanceService.clearNotice();
+  }
+
+  /** Tablero del examen cerrado: estado de cada entorno y hora de la lista. */
+  private loadClosedExam(sessionId: string): void {
+    this.sessionService.loadClosedBoard(sessionId).subscribe({ error: () => undefined });
+  }
+
+  /** Reintenta el congelamiento sin reabrir la clase; el conteo se actualiza. */
+  freezeExamAgain(closed: ClassSession): void {
+    this.sessionService.freezeExam(closed.id).subscribe({
+      next: () => {
+        this.loadClosedExam(closed.id);
+        this.refreshHistory();
+      },
+      error: () => undefined
+    });
+  }
+
+  openUnfreeze(student: ClassSessionStudent): void {
+    this.unfreezeTarget.set(student);
+  }
+
+  closeUnfreeze(): void {
+    this.unfreezeTarget.set(null);
+  }
+
+  /** La escritura volvió a un alumno: se relee el estado real de los entornos. */
+  onStudentUnfrozen(): void {
+    const closed = this.lastClosedSession();
+    this.unfreezeTarget.set(null);
+    if (closed) {
+      this.loadClosedExam(closed.id);
+      this.refreshHistory();
+    }
+  }
+
+  /** Congelar corta las emisiones nuevas; el trabajo del alumno sigue igual. */
+  toggleFreeze(): void {
+    const aula = this.session();
+    if (!aula) {
+      return;
+    }
+    this.sessionService.setFrozen(aula.id, !aula.frozen_at).subscribe({
+      next: () => this.refreshHistory(),
+      error: () => undefined
+    });
+  }
+
+  /** Una ventana con hora pasada ya no deja aplicar, aunque conserve el valor. */
+  isGraceActive(session: ClassSession): boolean {
+    return !!session.grace_until && new Date(session.grace_until).getTime() > Date.now();
+  }
+
+  onGraceMinutesChange(minutes: number | null): void {
+    this.graceMinutes.set(minutes);
+    this.graceError.set('');
+  }
+
+  onGraceDeadlineChange(value: string): void {
+    this.graceDeadline.set(value);
+    this.graceError.set('');
+  }
+
+  /** Suma minutos al final vigente de la ventana del aula cerrada. */
+  addGrace(): void {
+    const closed = this.lastClosedSession();
+    const minutes = this.graceMinutes();
+    if (!closed) {
+      return;
+    }
+    if (minutes === null || !Number.isInteger(minutes) || minutes < MIN_GRACE_MINUTES || minutes > MAX_GRACE_MINUTES) {
+      this.graceError.set(`Escribí un número entero entre ${MIN_GRACE_MINUTES} y ${MAX_GRACE_MINUTES} minutos.`);
+      return;
+    }
+    this.graceError.set('');
+    this.sessionService.addGrace(closed.id, minutes).subscribe({
+      next: () => this.refreshHistory(),
+      error: () => this.graceFailed()
+    });
+  }
+
+  /** Fija una fecha límite concreta para una tarea. */
+  applyGraceDeadline(): void {
+    const closed = this.lastClosedSession();
+    const value = this.graceDeadline();
+    if (!closed || !value) {
+      return;
+    }
+    const until = new Date(value);
+    if (Number.isNaN(until.getTime())) {
+      this.graceError.set('Elegí una fecha y una hora válidas.');
+      return;
+    }
+    this.graceError.set('');
+    this.sessionService.setGraceDeadline(closed.id, until.toISOString()).subscribe({
+      next: () => this.refreshHistory(),
+      error: () => this.graceFailed()
+    });
+  }
+
+  /** Cierra la ventana en el momento, sin esperar a que venza. */
+  closeGraceNow(): void {
+    const closed = this.lastClosedSession();
+    if (!closed) {
+      return;
+    }
+    this.graceError.set('');
+    this.sessionService.closeGrace(closed.id).subscribe({
+      next: () => this.refreshHistory(),
+      error: () => this.graceFailed()
+    });
+  }
+
+  /** El motivo del servidor se muestra junto a la ventana, no al pie del aula. */
+  private graceFailed(): void {
+    this.graceError.set(this.sessionService.error() ?? 'No se pudo ajustar la ventana.');
+    this.sessionService.clearError();
+  }
+
+  /** Cada aula cerrada vuelve a arrancar con la ventana automática de 30 minutos. */
+  private resetGraceForm(): void {
+    this.graceMinutes.set(DEFAULT_GRACE_MINUTES);
+    this.graceDeadline.set('');
+    this.graceError.set('');
+  }
+
   /** El aula dejó el modo en vivo: se vuelve al estado sin sesión. */
   private onAulaEnded(): void {
     this.stopRefresh();
     this.activeTab.set('todos');
+    this.resetGraceForm();
+    const closed = this.lastClosedSession();
+    if (closed) {
+      this.historySession.set(closed);
+      this.refreshHistory();
+    }
     this.watchEnvironments();
   }
 
@@ -320,8 +595,21 @@ export class AulaComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Materias del docente y, si la URL trae una, la preselección del formulario.
+   * Un identificador que no es suyo no se convierte en error de permiso: cae
+   * al comportamiento sin preselección. Con aula abierta la URL no manda.
+   */
   private loadSubjects(): void {
-    this.dashboardService.getCourses().subscribe({ error: () => undefined });
+    this.dashboardService.getCourses().subscribe({
+      next: courses => {
+        const preselected = this.route.snapshot.queryParamMap.get('subject_id') ?? '';
+        if (preselected && !this.session() && courses.some(course => course.id === preselected)) {
+          this.onSubjectChange(preselected);
+        }
+      },
+      error: () => undefined
+    });
   }
 
   /** Prácticas publicadas de la materia elegida, desde el banco del docente. */

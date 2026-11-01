@@ -121,7 +121,9 @@
               <li>Los archivos se sincronizan con el volumen del workspace al entregar.</li>
               <li>La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta la calificación docente.</li>
               <li>
-                @if (canResubmitProject()) {
+                @if (isExamProject()) {
+                  Al entregar, tu entorno queda en solo lectura. El docente puede reabrirte con un motivo.
+                } @else if (canResubmitProject()) {
                   Podés volver a entregar mientras el docente lo permita.
                 } @else {
                   Solo se permite una entrega para este ejercicio.
@@ -279,11 +281,14 @@
                   class="btn-primary"
                   data-testid="btn-submit-project"
                   [disabled]="!canSubmitProject()"
-                  (click)="submitProject()"
+                  (click)="requestSubmitProject()"
                 >
                   @if (isSubmittingProject()) {
                     <svg lucideLoader2 class="btn-icon spin-icon"></svg>
                     <span>Entregando...</span>
+                  } @else if (examSubmitPending()) {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Confirmar entrega</span>
                   } @else {
                     <svg lucidePlay class="btn-icon"></svg>
                     <span>Entregar Proyecto</span>
@@ -293,6 +298,18 @@
             </div>
 
             <div class="editor-body">
+              @if (examSubmitPending()) {
+                <div class="exam-submit-warning" role="alert">
+                  <p class="exam-submit-text">
+                    Al entregar el examen, tu entorno queda en solo lectura y no vas a poder seguir
+                    editando. El docente puede reabrirte con un motivo.
+                  </p>
+                  <button type="button" class="btn-outline" (click)="cancelExamSubmit()">
+                    Cancelar
+                  </button>
+                </div>
+              }
+
               @if (projectSubmission(); as submission) {
                 <div class="submission-saved-banner">
                   <svg lucideCheckCircle2 class="saved-icon"></svg>
@@ -306,7 +323,9 @@
                     <time class="metric-chip font-mono" machineData>{{ submittedAt | dateText:'long-datetime' }}</time>
                   }
                 </div>
-                @if (canResubmitProject()) {
+                @if (isExamProject()) {
+                  <p class="empty-note">Entregaste el examen: tu entorno quedó en solo lectura.</p>
+                } @else if (canResubmitProject()) {
                   <p class="empty-note">Podés reemplazar la entrega con los archivos actuales.</p>
                 } @else {
                   <p class="empty-note">Este ejercicio admite una única entrega.</p>
