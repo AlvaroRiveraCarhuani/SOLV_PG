@@ -838,6 +838,22 @@ export function synthesizeVisualStackState(params: {
     if (addon.build_layer_snippet) buildLayers.push(addon.build_layer_snippet);
   }
 
+  // Los entornos IDE necesitan el editor dentro de la imagen. El composer del
+  // backend lo inyecta al publicar; la verificación previa usa este Dockerfile,
+  // así que ambos caminos deben coincidir o el smoke test falla por ausencia de
+  // openvscode-server.
+  if (!isJudge && baseImage) {
+    const openVSCodeMarker = 'openvscode-server';
+    const alreadyCopied = buildLayers.some((layer) =>
+      layer.includes('/home/.openvscode-server /home/.openvscode-server')
+    );
+    if (!baseImage.toLowerCase().includes(openVSCodeMarker) && !alreadyCopied) {
+      buildLayers.push(
+        'COPY --from=gitpod/openvscode-server:1.96.0 /home/.openvscode-server /home/.openvscode-server'
+      );
+    }
+  }
+
   const needsBuild = buildLayers.length > 0;
   let dockerImage = baseImage;
   let dockerfileContent = baseImage ? `FROM ${baseImage}` : '';

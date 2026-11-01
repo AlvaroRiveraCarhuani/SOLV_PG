@@ -429,6 +429,20 @@ describe('TemplateStudioComponent', () => {
     expect(component.dockerfileContent()).toContain('@angular/cli');
   });
 
+  it('should inject OpenVSCode into IDE images and omit it for the automatic judge', () => {
+    component.selectRuntime('rt-python-312');
+
+    expect(component.targetEnvironment()).toBe('IDE_PERSISTENTE');
+    expect(component.dockerfileContent()).toContain(
+      'COPY --from=gitpod/openvscode-server:1.96.0 /home/.openvscode-server /home/.openvscode-server'
+    );
+
+    component.setTargetEnvironment('JUEZ_EFIMERO');
+
+    expect(component.dockerfileContent()).not.toContain('openvscode-server');
+    expect(component.dockerfileContent()).not.toContain('COPY --from=');
+  });
+
   it('should govern Column 3 database engines from the node capabilities and the active catalog, with + Nuevo opening the modal', () => {
     const hostEl = fixture.nativeElement as HTMLElement;
     const columns = hostEl.querySelectorAll('.studio-column');
@@ -1162,7 +1176,8 @@ describe('TemplateStudioComponent', () => {
     // Dockerfile usa la imagen base de la web y su capa de build sin inyección redundante de Node
     expect(component.dockerfileContent()).toContain('FROM node:20-bookworm-slim');
     expect(component.dockerfileContent()).toContain('RUN npm install -g --no-audit --no-fund @angular/cli');
-    expect(component.dockerfileContent()).not.toContain('COPY --from=');
+    expect(component.dockerfileContent()).not.toContain('COPY --from=node');
+    expect(component.dockerfileContent()).toContain('COPY --from=gitpod/openvscode-server:1.96.0');
     expect(component.dockerfileContent()).not.toContain('apt-get');
 
     // Nombre sugerido automático
