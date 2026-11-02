@@ -38,3 +38,15 @@ En la barra lateral de la vista del curso encontrarás el panel **"💡 Práctic
 
 - **¿Cómo funciona?:** Si tenés intentos en temas donde tu tasa de éxito es menor al 60%, el sistema te sugerirá ejercicios de práctica extracurricular etiquetados con esos temas.
 - **Sin impacto académico:** Estas recomendaciones son **100% opcionales**. No afectan tu nota, tu avance en el mapa curricular ni el desbloqueo de módulos. Podés realizarlas cuando desees para reforzar tus conocimientos.
+
+---
+
+## 4. SOLV Companion en el editor
+
+En las prácticas con IDE persistente podés instalar **SOLV Companion**, la extensión que muestra los comentarios del docente dentro de OpenVSCode Server.
+
+1. Ejecutá `SOLV: Configurar conexión`.
+2. Indicá la URL de la API, el identificador de tu entrega y tu token de sesión.
+3. Los comentarios anclados a un archivo aparecen en el margen de la línea y al pasar el mouse.
+
+El token se guarda cifrado en el almacenamiento del editor. La extensión también registra la cadencia de escritura de los archivos del proyecto para la revisión del docente. La guía técnica está en [SOLV_COMPANION.md](UI/SOLV_COMPANION.md).

@@ -175,7 +175,7 @@ func main() {
 	aiCopilotHandler := httpdelivery.NewAICopilotHandler(aiCopilotService)
 	tenantLogoHandler := httpdelivery.NewTenantLogoHandler(tenantRepo)
 	adminHandler.SetOrchestrator(dockerClient)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo, teacherRepo)
 
 	// Aula de la clase: sesión, presencia y tablero. El ciclo de vida del entorno
 	// se enlaza al aula cuando nace dentro de una sesión abierta.

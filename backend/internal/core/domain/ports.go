@@ -294,6 +294,12 @@ type TeacherInvitationRepository interface {
 	CheckAndConsumeInvitation(ctx context.Context, tenantID, email string) (bool, error)
 }
 
+// SubmissionCommentReader expone los comentarios de una entrega sin acoplar al
+// consumidor el resto del repositorio docente.
+type SubmissionCommentReader interface {
+	GetCommentsBySubmission(ctx context.Context, tenantID, submissionID string) ([]*SubmissionComment, error)
+}
+
 type TeacherRepository interface {
 	GetCoursesSummary(ctx context.Context, tenantID, teacherID, periodID string) ([]*TeacherCourseSummary, error)
 	GetCourseLabsStats(ctx context.Context, tenantID, teacherID, subjectID string) ([]*TeacherLabStats, error)

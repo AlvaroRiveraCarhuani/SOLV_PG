@@ -319,6 +319,7 @@ func registerStudentRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/student/assignments/due", tm(http.HandlerFunc(deps.StudentHandler.GetDueAssignments)))
 	mux.Handle("GET /api/v1/student/evaluations", tm(http.HandlerFunc(deps.StudentHandler.GetEvaluations)))
 	mux.Handle("GET /api/v1/student/submissions", tm(http.HandlerFunc(deps.StudentHandler.GetSubmissions)))
+	mux.Handle("GET /api/v1/student/submissions/{id}/comments", tm(http.HandlerFunc(deps.StudentHandler.GetSubmissionComments)))
 	mux.Handle("GET /api/v1/student/courses/{id}/recommendations", tm(http.HandlerFunc(deps.StudentHandler.GetRecommendations)))
 }
 

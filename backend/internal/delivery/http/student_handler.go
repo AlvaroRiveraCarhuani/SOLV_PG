@@ -15,6 +15,7 @@ type StudentHandler struct {
 	workspaceRepo  domain.WorkspaceRepository
 	submissionRepo domain.SubmissionRepository
 	exerciseRepo   domain.ExerciseRepository
+	commentReader  domain.SubmissionCommentReader
 }
 
 func NewStudentHandler(
@@ -22,13 +23,18 @@ func NewStudentHandler(
 	workspaceRepo domain.WorkspaceRepository,
 	submissionRepo domain.SubmissionRepository,
 	exerciseRepo domain.ExerciseRepository,
+	commentReaders ...domain.SubmissionCommentReader,
 ) *StudentHandler {
-	return &StudentHandler{
+	handler := &StudentHandler{
 		subjectRepo:    subjectRepo,
 		workspaceRepo:  workspaceRepo,
 		submissionRepo: submissionRepo,
 		exerciseRepo:   exerciseRepo,
 	}
+	if len(commentReaders) > 0 {
+		handler.commentReader = commentReaders[0]
+	}
+	return handler
 }
 
 type StudentSubjectItem struct {
@@ -554,4 +560,45 @@ func (h *StudentHandler) GetSubmissions(w http.ResponseWriter, r *http.Request) 
 	}
 
 	SendJSON(w, http.StatusOK, historyItems, "Historial de entregas obtenido exitosamente")
+}
+
+// GetSubmissionComments entrega al estudiante los comentarios de una entrega
+// propia. La ruta docente no se reutiliza: aquí el dueño se valida contra la
+// entrega y un identificador ajeno responde igual que uno inexistente.
+func (h *StudentHandler) GetSubmissionComments(w http.ResponseWriter, r *http.Request) {
+	tenantID, userID := studentIdentity(r)
+	if tenantID == "" || userID == "" {
+		SendError(w, http.StatusUnauthorized, "student_identity_missing", "No se pudo identificar al estudiante de la sesión")
+		return
+	}
+
+	submissionID := r.PathValue("id")
+	if submissionID == "" {
+		SendError(w, http.StatusBadRequest, "missing_submission_id", "El identificador de la entrega es requerido")
+		return
+	}
+	if h.submissionRepo == nil {
+		SendError(w, http.StatusInternalServerError, "submission_repo_unavailable", "No se pudo consultar la entrega")
+		return
+	}
+
+	submission, err := h.submissionRepo.GetByID(r.Context(), tenantID, submissionID)
+	if err != nil || submission == nil || submission.StudentID != userID {
+		SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe o no pertenece al estudiante")
+		return
+	}
+
+	comments := make([]*domain.SubmissionComment, 0)
+	if h.commentReader != nil {
+		listed, err := h.commentReader.GetCommentsBySubmission(r.Context(), tenantID, submissionID)
+		if err != nil {
+			SendError(w, http.StatusInternalServerError, "comments_unavailable", "No se pudieron obtener los comentarios")
+			return
+		}
+		if listed != nil {
+			comments = listed
+		}
+	}
+
+	SendJSON(w, http.StatusOK, comments, "Comentarios de la entrega obtenidos exitosamente")
 }

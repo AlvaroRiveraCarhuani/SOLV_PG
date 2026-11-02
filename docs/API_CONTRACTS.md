@@ -583,6 +583,14 @@ La modalidad IDE acepta además `file_path`, `local_line_number` y `local_end_li
 - En juez, `file_path` y `local_line_number` no se aceptan: el comentario solo usa líneas globales.
 - Los comentarios anteriores a la migración `00045_submission_comment_anchors.sql` no se migran: el backend deriva su ancla al leer cuando el snapshot sigue disponible.
 
+#### Lectura del estudiante (SOLV Companion)
+
+`GET /api/v1/student/submissions/{id}/comments` devuelve los mismos comentarios al estudiante dueño de la entrega. La extensión SOLV Companion los usa para pintar el margen y el hover del editor.
+
+- **Headers:** sesión del estudiante (`Authorization: Bearer <token>` o cookie de sesión) y `X-Tenant-Id`.
+- **Respuestas:** `200 OK` con la lista, `400` sin identificador, `401` sin identidad y `404` cuando la entrega no existe o pertenece a otro estudiante.
+- Los comentarios sin `file_path` o `local_line_number` (rúbrica o modalidad juez) se devuelven igual, pero la extensión no los ancla a una línea.
+
 ---
 
 ### 12. Runner Efímero Docente (`POST /api/v1/teacher/submissions/{id}/run-ephemeral`)
