@@ -27,6 +27,8 @@ type advanceDecision struct {
 type fakeAdvanceStore struct {
 	delivery        *domain.AdvanceDelivery
 	decisions       []advanceDecision
+	reopened        []string
+	reopenErr       error
 	decideErr       error
 	participants    []string
 	purpose         string
@@ -79,6 +81,17 @@ func (f *fakeAdvanceStore) DecideRecipient(ctx context.Context, tenantID, studen
 
 func (f *fakeAdvanceStore) SessionAdvances(ctx context.Context, tenantID, teacherID, sessionID string) ([]domain.AdvanceWithRecipients, error) {
 	return f.sessionAdvances, nil
+}
+
+func (f *fakeAdvanceStore) ReopenRecipient(ctx context.Context, tenantID, studentID, advanceID string) error {
+	if f.reopenErr != nil {
+		return f.reopenErr
+	}
+	f.reopened = append(f.reopened, advanceID)
+	if f.delivery != nil {
+		f.delivery.Status = domain.AdvanceRecipientPending
+	}
+	return nil
 }
 
 type fakeAdvanceSnapshotsFiles struct {

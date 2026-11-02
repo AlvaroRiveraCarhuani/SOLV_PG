@@ -28,6 +28,9 @@ type advanceStoreForHTTP struct {
 	frozenCalls []bool
 	graceCalled []time.Time
 	advances    []domain.AdvanceWithRecipients
+	delivery    *domain.AdvanceDelivery
+	reopened    []string
+	decisions   []string
 }
 
 func (s *advanceStoreForHTTP) CreateAdvance(context.Context, domain.ClassAdvance, []string) error {
@@ -72,10 +75,20 @@ func (s *advanceStoreForHTTP) PendingAdvances(context.Context, string, string) (
 }
 
 func (s *advanceStoreForHTTP) AdvanceForStudent(context.Context, string, string, string) (*domain.AdvanceDelivery, error) {
-	return nil, domain.ErrAdvanceNotFound
+	if s.delivery == nil {
+		return nil, domain.ErrAdvanceNotFound
+	}
+	return s.delivery, nil
 }
 
-func (s *advanceStoreForHTTP) DecideRecipient(context.Context, string, string, string, string, *string) error {
+func (s *advanceStoreForHTTP) DecideRecipient(_ context.Context, _, _, _ string, status string, _ *string) error {
+	s.decisions = append(s.decisions, status)
+	return nil
+}
+
+func (s *advanceStoreForHTTP) ReopenRecipient(_ context.Context, _, _, advanceID string) error {
+	s.reopened = append(s.reopened, advanceID)
+	s.delivery.Status = domain.AdvanceRecipientPending
 	return nil
 }
 

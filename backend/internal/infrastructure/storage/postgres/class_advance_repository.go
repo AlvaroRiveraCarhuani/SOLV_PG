@@ -154,6 +154,25 @@ func (r *PostgresClassAdvanceRepository) DecideRecipient(ctx context.Context, te
 	return nil
 }
 
+// ReopenRecipient devuelve a pendiente un destinatario aplicado y limpia la
+// ruta del respaldo que ya se restauró. La condición status = 'applied' evita
+// reabrir un aviso que el alumno nunca aplicó.
+func (r *PostgresClassAdvanceRepository) ReopenRecipient(ctx context.Context, tenantID, studentID, advanceID string) error {
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE class_advance_recipients
+		SET status = 'pending', decided_at = NULL, backup_path = NULL
+		WHERE advance_id = $1::uuid AND student_id = $2::uuid AND tenant_id = $3
+		  AND status = 'applied'
+	`, advanceID, studentID, tenantID)
+	if err != nil {
+		return fmt.Errorf("failed to reopen advance recipient: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return domain.ErrAdvanceRollbackNotApplied
+	}
+	return nil
+}
+
 // advanceRecipientRow es una fila plana de emisión y destinatario. La consulta
 // trae nombre y correo para que el docente no cruce identificadores.
 type advanceRecipientRow struct {

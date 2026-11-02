@@ -34,6 +34,7 @@ const (
 	AuditClassAdvanceGraceClosed   = "CLASS_ADVANCE_GRACE_CLOSED"
 	AuditClassAdvanceApplied       = "CLASS_ADVANCE_APPLIED"
 	AuditClassAdvanceDismissed     = "CLASS_ADVANCE_DISMISSED"
+	AuditClassAdvanceRollback      = "CLASS_ADVANCE_ROLLBACK"
 )
 
 // Ventana de rezago por defecto al cerrar el aula, y extensiones válidas.
@@ -89,6 +90,12 @@ var (
 	ErrAdvanceNotFound = errors.New("avance no encontrado")
 	// ErrAdvanceNotPending: el alumno ya aplicó o descartó el avance.
 	ErrAdvanceNotPending = errors.New("el avance ya fue decidido")
+	// ErrAdvanceSelectionInvalid: la lista de archivos elegidos no corresponde al avance.
+	ErrAdvanceSelectionInvalid = errors.New("la selección de archivos no corresponde al avance")
+	// ErrAdvanceRollbackNotApplied: deshacer exige un avance aplicado por este alumno.
+	ErrAdvanceRollbackNotApplied = errors.New("el avance no está aplicado, no hay nada que deshacer")
+	// ErrAdvanceBackupMissing: no quedó respaldo de los archivos que el avance reemplazó.
+	ErrAdvanceBackupMissing = errors.New("el avance no tiene respaldo para deshacer")
 	// ErrAdvanceWorkspaceStopped: aplicar exige el laboratorio del alumno en ejecución.
 	ErrAdvanceWorkspaceStopped = errors.New("el laboratorio debe estar en ejecución para aplicar el avance")
 	// ErrAdvanceSnapshotInvalid: el snapshot no se pudo leer o no coincide con su hash.
@@ -279,6 +286,10 @@ type ClassAdvanceStore interface {
 	// DecideRecipient fija el estado final del destinatario una sola vez. Si ya
 	// estaba decidido devuelve ErrAdvanceNotPending.
 	DecideRecipient(ctx context.Context, tenantID, studentID, advanceID, status string, backupPath *string) error
+	// ReopenRecipient devuelve a pendiente un destinatario que ya aplicó el
+	// avance, para que pueda volver a aplicarlo después de deshacerlo. Si el
+	// destinatario no estaba aplicado devuelve ErrAdvanceRollbackNotApplied.
+	ReopenRecipient(ctx context.Context, tenantID, studentID, advanceID string) error
 	// SessionAdvances lista las emisiones del aula con el estado de cada
 	// destinatario, del más nuevo al más viejo, filtradas por el docente dueño
 	// de la materia. Un teacherID vacío (administrador) no filtra.

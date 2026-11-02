@@ -88,6 +88,10 @@ type AdvancePreview struct {
 	FileCount   int      `json:"file_count"`
 	Added       []string `json:"added"`
 	Overwritten []string `json:"overwritten"`
+	// Files trae el contenido emitido de cada archivo, para que el editor arme
+	// el diff en memoria sin escribir archivos temporales en el disco del
+	// alumno.
+	Files map[string]string `json:"files"`
 }
 
 // Preview lee el snapshot y el volumen vigente del alumno para decir qué
@@ -142,6 +146,7 @@ func (s *ClassAdvanceService) Preview(ctx context.Context, tenantID, studentID, 
 		FileCount:   len(incoming),
 		Added:       added,
 		Overwritten: overwritten,
+		Files:       incoming,
 	}, nil
 }
 
@@ -171,10 +176,18 @@ func (s *ClassAdvanceService) Dismiss(ctx context.Context, tenantID, studentID, 
 	}
 }
 
-// Apply copia el avance al volumen del alumno sin pausar ni reiniciar su
-// contenedor. Antes de escribir respalda en .solv_backups/<avance_id>/ los
-// archivos que se van a sobrescribir, y deja el resultado en el destinatario.
+// Apply copia el avance completo al volumen del alumno. Es el camino de
+// compatibilidad hacia atrás de la entrega sin selección de archivos.
 func (s *ClassAdvanceService) Apply(ctx context.Context, tenantID, studentID, advanceID string) (*AdvanceApplyResult, error) {
+	return s.ApplySelection(ctx, tenantID, studentID, advanceID, nil)
+}
+
+// ApplySelection copia al volumen del alumno solo los archivos elegidos, sin
+// pausar ni reiniciar su contenedor. Antes de escribir respalda en
+// .solv_backups/<avance_id>/ los archivos que se van a sobrescribir, y deja el
+// resultado en el destinatario. Con la lista vacía aplica el avance completo,
+// que es lo que hacía la ruta antes del checklist.
+func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, studentID, advanceID string, selectedFiles []string) (*AdvanceApplyResult, error) {
 	if err := requireStudentIdentity(tenantID, studentID); err != nil {
 		return nil, err
 	}
@@ -225,6 +238,16 @@ func (s *ClassAdvanceService) Apply(ctx context.Context, tenantID, studentID, ad
 	incoming, err := s.readSnapshot(ctx, delivery)
 	if err != nil {
 		return nil, err
+	}
+
+	// El checklist del editor llega como una lista de rutas. Se acota antes de
+	// leer el volumen: una ruta que no está en el avance se rechaza en vez de
+	// aplicarse en silencio.
+	if len(selectedFiles) > 0 {
+		incoming, err = selectAdvanceFiles(incoming, selectedFiles)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	volumeName := workspaceVolumeName(workspace)
@@ -283,6 +306,175 @@ func (s *ClassAdvanceService) Apply(ctx context.Context, tenantID, studentID, ad
 		Added:        added,
 		BackupPath:   backupPath,
 	}, nil
+}
+
+// AdvanceRollbackResult resume qué se restauró al deshacer un avance.
+type AdvanceRollbackResult struct {
+	AdvanceID     string   `json:"advance_id"`
+	FilesRestored int      `json:"files_restored"`
+	Restored      []string `json:"restored"`
+	BackupPath    string   `json:"backup_path"`
+}
+
+// Rollback deshace el último avance aplicado: devuelve al volumen del alumno el
+// contenido que quedó en .solv_backups/<avance_id>/ y deja el destinatario en
+// pendiente para que pueda volver a aplicarlo. El respaldo se borra recién
+// cuando el estado ya quedó actualizado.
+func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID, advanceID string) (*AdvanceRollbackResult, error) {
+	if err := requireStudentIdentity(tenantID, studentID); err != nil {
+		return nil, err
+	}
+	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
+		return nil, ErrAdvanceStorageUnavailable
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(advanceID)); err != nil {
+		return nil, domain.ErrAdvanceNotFound
+	}
+
+	delivery, err := s.store.AdvanceForStudent(ctx, tenantID, studentID, advanceID)
+	if err != nil {
+		return nil, err
+	}
+	if delivery.Status != domain.AdvanceRecipientApplied {
+		return nil, domain.ErrAdvanceRollbackNotApplied
+	}
+
+	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
+	if err != nil || workspace == nil {
+		return nil, domain.ErrAdvanceWorkspaceStopped
+	}
+	if workspace.Status != domain.WorkspaceStatusRunning {
+		return nil, domain.ErrAdvanceWorkspaceStopped
+	}
+
+	select {
+	case s.applySlots <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-s.applySlots }()
+
+	volumeName := workspaceVolumeName(workspace)
+	backupRoot := advanceBackupRoot + "/" + delivery.ID
+	current, err := s.volumeFiles(ctx, volumeName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read student volume before rolling back advance: %w", err)
+	}
+
+	restored, err := advanceBackupFiles(current, backupRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.volumes.WriteWorkspaceVolumeFiles(ctx, volumeName, restored); err != nil {
+		return nil, fmt.Errorf("failed to restore advance backup into student volume: %w", err)
+	}
+
+	// Reabrir el destinatario es lo que permite volver a aplicar. Si falla, el
+	// respaldo se conserva y el alumno puede reintentar deshacer.
+	if err := s.store.ReopenRecipient(ctx, tenantID, studentID, delivery.ID); err != nil {
+		return nil, err
+	}
+
+	s.dropAdvanceBackup(ctx, volumeName, backupRoot)
+
+	paths := make([]string, 0, len(restored))
+	for path := range restored {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+
+	s.recordAudit(ctx, tenantID, studentID, domain.AuditClassAdvanceRollback, delivery.SessionID, map[string]any{
+		"advance_id":     delivery.ID,
+		"exercise_id":    delivery.ExerciseID,
+		"files_restored": len(paths),
+		"backup_path":    backupRoot,
+	})
+
+	return &AdvanceRollbackResult{
+		AdvanceID:     delivery.ID,
+		FilesRestored: len(paths),
+		Restored:      paths,
+		BackupPath:    backupRoot,
+	}, nil
+}
+
+// advanceBackupFiles extrae del volumen los archivos del respaldo y los
+// devuelve con su ruta original, lista para volver a escribirlos. Sin respaldo
+// no hay nada que deshacer: el avance solo agregó archivos nuevos.
+func advanceBackupFiles(current map[string]string, backupRoot string) (map[string]string, error) {
+	prefix := backupRoot + "/"
+	restored := make(map[string]string)
+	for path, content := range current {
+		if !strings.HasPrefix(path, prefix) {
+			continue
+		}
+		original, err := normalizeAdvancePath(strings.TrimPrefix(path, prefix))
+		if err != nil {
+			continue
+		}
+		restored[original] = content
+	}
+	if len(restored) == 0 {
+		return nil, domain.ErrAdvanceBackupMissing
+	}
+	return restored, nil
+}
+
+// dropAdvanceBackup borra la carpeta del respaldo ya restaurado. Es
+// best-effort: si el almacén no ofrece la poda, el respaldo queda en disco y no
+// afecta al rollback que ya terminó.
+func (s *ClassAdvanceService) dropAdvanceBackup(ctx context.Context, volumeName, backupRoot string) {
+	pruner, ok := s.volumes.(domain.WorkspaceBackupPruner)
+	if !ok {
+		return
+	}
+	if err := pruner.DeleteWorkspaceVolumePaths(ctx, volumeName, []string{backupRoot}); err != nil {
+		log.Printf("[Advance Rollback] no se pudo borrar el respaldo %s de %s: %v", backupRoot, volumeName, err)
+	}
+}
+
+// selectAdvanceFiles deja solo los archivos elegidos del snapshot. Una ruta
+// fuera del avance invalida la selección completa: aplicar la mitad de lo
+// pedido es peor que rechazar el checklist.
+func selectAdvanceFiles(incoming map[string]string, selected []string) (map[string]string, error) {
+	chosen := make(map[string]string, len(selected))
+	for _, raw := range selected {
+		path, err := normalizeAdvancePath(raw)
+		if err != nil {
+			return nil, domain.ErrAdvanceSelectionInvalid
+		}
+		content, ok := incoming[path]
+		if !ok {
+			return nil, domain.ErrAdvanceSelectionInvalid
+		}
+		chosen[path] = content
+	}
+	if len(chosen) == 0 {
+		return nil, domain.ErrAdvanceSelectionInvalid
+	}
+	return chosen, nil
+}
+
+// normalizeAdvancePath acepta la ruta relativa que muestra el editor y
+// descarta rutas absolutas, retrocesos y nombres con unidad de disco.
+func normalizeAdvancePath(raw string) (string, error) {
+	path := strings.ReplaceAll(strings.TrimSpace(raw), "\\", "/")
+	for strings.HasPrefix(path, "./") {
+		path = strings.TrimPrefix(path, "./")
+	}
+	if path == "" || strings.HasPrefix(path, "/") {
+		return "", domain.ErrAdvanceSelectionInvalid
+	}
+	if len(path) >= 2 && path[1] == ':' {
+		return "", domain.ErrAdvanceSelectionInvalid
+	}
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "" || segment == "." || segment == ".." {
+			return "", domain.ErrAdvanceSelectionInvalid
+		}
+	}
+	return path, nil
 }
 
 // pruneAdvanceBackups conserva los respaldos más recientes del volumen y borra

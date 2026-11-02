@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -144,8 +145,14 @@ func (h *ClassAdvanceHandler) PreviewAdvance(w http.ResponseWriter, r *http.Requ
 	SendJSON(w, http.StatusOK, preview, "Archivos del avance obtenidos")
 }
 
+// applyAdvanceRequest es el checklist del editor. Sin cuerpo o con la lista
+// vacía se aplica el avance completo, que es el contrato anterior.
+type applyAdvanceRequest struct {
+	SelectedFiles []string `json:"selected_files"`
+}
+
 // ApplyAdvance copia el avance al laboratorio del alumno con respaldo previo y
-// sin pausar el contenedor.
+// sin pausar el contenedor. Con selected_files solo toca los archivos elegidos.
 func (h *ClassAdvanceHandler) ApplyAdvance(w http.ResponseWriter, r *http.Request) {
 	studentID := resolveRequestStudentID(r)
 	if strings.TrimSpace(studentID) == "" {
@@ -153,12 +160,35 @@ func (h *ClassAdvanceHandler) ApplyAdvance(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := h.service.Apply(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"))
+	var req applyAdvanceRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "El cuerpo debe indicar selected_files como lista de rutas")
+		return
+	}
+
+	result, err := h.service.ApplySelection(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"), req.SelectedFiles)
 	if err != nil {
 		h.writeAdvanceError(w, err, "Error al aplicar el avance")
 		return
 	}
 	SendJSON(w, http.StatusOK, result, "Avance aplicado")
+}
+
+// RollbackAdvance deshace el último avance aplicado desde el respaldo del
+// propio avance y deja el aviso pendiente otra vez.
+func (h *ClassAdvanceHandler) RollbackAdvance(w http.ResponseWriter, r *http.Request) {
+	studentID := resolveRequestStudentID(r)
+	if strings.TrimSpace(studentID) == "" {
+		SendError(w, http.StatusUnauthorized, "Missing student identity", "No se pudo resolver la identidad del alumno desde la sesión")
+		return
+	}
+
+	result, err := h.service.Rollback(r.Context(), getTenantFromCtx(r), studentID, r.PathValue("id"))
+	if err != nil {
+		h.writeAdvanceError(w, err, "Error al deshacer el avance")
+		return
+	}
+	SendJSON(w, http.StatusOK, result, "Avance deshecho")
 }
 
 // DismissAdvance descarta el aviso sin tocar el entorno del alumno.
@@ -306,6 +336,12 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Algún alumno elegido no está en el aula")
 	case errors.Is(err, domain.ErrAdvanceNotPending):
 		SendError(w, http.StatusConflict, err.Error(), "El avance ya fue aplicado o descartado")
+	case errors.Is(err, domain.ErrAdvanceSelectionInvalid):
+		SendError(w, http.StatusUnprocessableEntity, err.Error(), "Los archivos elegidos no pertenecen al avance")
+	case errors.Is(err, domain.ErrAdvanceRollbackNotApplied):
+		SendError(w, http.StatusConflict, err.Error(), "Solo se deshace un avance que ya aplicaste")
+	case errors.Is(err, domain.ErrAdvanceBackupMissing):
+		SendError(w, http.StatusConflict, err.Error(), "El avance no reemplazó archivos: no hay versión anterior para restaurar")
 	case errors.Is(err, domain.ErrAdvanceExamBlocked):
 		SendError(w, http.StatusConflict, err.Error(), "En examen no se aplican avances")
 	case errors.Is(err, domain.ErrAdvanceGraceExpired):

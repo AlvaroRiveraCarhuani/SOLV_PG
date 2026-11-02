@@ -375,6 +375,7 @@ func registerClassAdvanceRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/class-advances/pending", tm(http.HandlerFunc(deps.ClassAdvanceHandler.GetPendingAdvances)))
 	mux.Handle("GET /api/v1/class-advances/{id}/files", tm(http.HandlerFunc(deps.ClassAdvanceHandler.PreviewAdvance)))
 	mux.Handle("POST /api/v1/class-advances/{id}/apply", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.ApplyAdvance))))
+	mux.Handle("POST /api/v1/class-advances/{id}/rollback", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.RollbackAdvance))))
 	mux.Handle("POST /api/v1/class-advances/{id}/dismiss", am(tm(http.HandlerFunc(deps.ClassAdvanceHandler.DismissAdvance))))
 }
 
