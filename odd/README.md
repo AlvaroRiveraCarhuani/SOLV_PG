@@ -53,6 +53,7 @@ Son las fichas que cambian la experiencia del docente. Se relacionan entre sí; 
 1. Terminar la línea docente en este orden: ficha 1 → 2 → 3 → 4 → 5, y después la ficha 6 pendiente.
 2. Entorno por práctica (sección 5), que depende del catálogo (ficha 5) y del arranque por ejercicio (`persistent-ide-backend-oa1`).
 3. Calidad: `lint-harness` puede ir en cualquier momento; el refactor se planifica una sola vez tras revisar la continuación.
+4. Revisión por modalidad (sección 6): cerrar primero el preview en vivo, que ya está implementado; después los comentarios por archivo y la auditoría de similitud, que dependen de decisiones abiertas.
 
 ## 5. Flujo de laboratorio docente (por definir)
 
@@ -61,6 +62,20 @@ Ficha: [docente-flujo-laboratorio.md](tasks/docente-flujo-laboratorio.md) (en cu
 - **Entorno por práctica: confirmado.** Cada práctica tiene su propio entorno; no es uno por materia. Un laboratorio puede usar una tecnología y otro, otra. La vista del docente es por práctica (`proyecto-grado/Observaciones/INICIO.md`). Consecuencia: el avance voluntario (ficha 7) y ADR-058 deben revisarse, porque hoy asumen un entorno por sesión de aula. Lo mismo para el volumen de avance.
 - **Probar entorno: entorno separado de los alumnos.** Se acordó que el docente tenga un entorno propio para probar la práctica y no reutilizar el arranque de alumnos con `exercise_id`. Así no se mezcla con las entregas.
 - **Regla de Fuzzing en la pestaña de la materia.** Sin decidir: unificarla antes de la tarea de entorno o dentro de ella. No depende de las decisiones anteriores.
+
+## 6. Revisión por modalidad (fase 4 y siguientes)
+
+Fichas derivadas de las decisiones del 2026-11-01 sobre revisión docente. La fase 4 está implementada en el árbol de trabajo, sin commit; las demás están planificadas y bloqueadas por decisiones explícitas en cada ficha.
+
+| Orden | Ficha | Objetivo corto | Estado declarado | Depende de / relacionada con |
+|---|---|---|---|---|
+| 1 | [docente-preview-entrega-en-vivo.md](tasks/docente-preview-entrega-en-vivo.md) | Ejecutar la entrega IDE en un contenedor desechable y abrir su app desde SpeedGrader | **Implementada (2026-11-01), sin commit**; migración 00044 sin aplicar; e2e pendiente | ADR-061; ADR-011; ADR-059 |
+| 2 | [docente-comentarios-por-archivo.md](tasks/docente-comentarios-por-archivo.md) | Anclar cada comentario a `file_path` + línea local y dejar de duplicar `code` en IDE | Planificada; bloqueada por D1–D3 | ADR-060; fase 3 de `REVISION_POR_MODALIDAD.md` |
+| 3 | [docente-auditoria-similitud-en-practica.md](tasks/docente-auditoria-similitud-en-practica.md) | Mover el anti-plagio a la práctica, restar el código base y devolver rangos de línea | Planificada; bloqueada por D1–D4; dos entregas | Motor de plagio; J07 y flujo 12 desactualizados |
+| 4 | [docente-aula-abrir-ide.md](tasks/docente-aula-abrir-ide.md) | Abrir el IDE de la práctica desde la cabecera del Aula | Planificada; bloqueada por D1 | ADR-059; `TeacherEnvironmentService.openPracticeIDE` |
+| 5 | [docente-vocabulario-residual.md](tasks/docente-vocabulario-residual.md) | Barrer «Juez Virtual» y «Laboratorio IDE» del copy visible | Planificada; bloqueada por D1 (alcance admin) | `Corregir.md`; `Reestructuracion Entorno Docente y Vocabulario.md` |
+
+Fuera de alcance de esta sección: el **Banco de Ejercicios** como biblioteca maestra (rediseño de modelo, no de copy) y la extensión **SOLV Companion**, que no está en el repositorio. Ambas quedan como fichas futuras.
 
 ## Pendientes transversales
 
