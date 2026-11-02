@@ -23,6 +23,8 @@ Fuentes:
    - **En exámenes (congelados/contrarreloj):** no se emiten avances ni se comentan líneas; el alumno programa contra el tiempo y el entorno pasa a solo lectura al sonar la campana (ADR-059).
    - **En clase guiada (laboratorio en vivo):** el docente programa en su propio entorno y emite avances con código base o soluciones intermedias. El alumno recibe el aviso en tiempo real y decide si acepta el código, qué archivos incorporar y cómo comparar sus cambios.
    - **En revisión asíncrona (post-entrega):** el alumno abre su entrega calificada para revisar observaciones pedagógicas dejadas por el docente en el SpeedGrader.
+3. **Regla Estricta de Aislamiento de Roles:**
+   Esta ficha implementa exclusivamente la experiencia del **ESTUDIANTE** (recepción de avances, diff, checklist, rollback, comentarios y entrega). El docente emite avances desde la plataforma web (`/teacher/aula`). El agente implementador **no debe mezclar ni implementar controles de emisión docente adentro de la extensión** en esta fase para evitar contaminar la sesión del alumno.
 
 ---
 
@@ -58,6 +60,10 @@ La interfaz se construye con **HTML + CSS Nativo** utilizando las variables CSS 
 - Elemento discreto izquierdo: `$(mortar-board) SOLV: SIS-420` (al hacer click enfoca el panel de SOLV).
 - Elemento de acción: `$(cloud-upload) Entregar Práctica` (gatilla el diálogo de confirmación y entrega).
 - Monitor de conexión: `$(check) SOLV` o `$(sync~spin) Conectando...`. En caso de microcorte, reintenta en silencio y solo muestra advertencia discreta si el fallo persiste más de 2 minutos. Cero popups flotantes intrusivos.
+
+### C. Modo Pestaña Completa (Editor Tab / Split View)
+- La extensión permite abrir la consigna y el estado del laboratorio como una pestaña completa en el editor (`vscode.window.createWebviewPanel` con comando `SOLV: Abrir Consigna en Pestaña`).
+- **Ergonomía de pantalla dividida:** El estudiante puede trabajar con la consigna a la izquierda y su código a la derecha (`Split Editor`), o maximizarla para leer enunciados largos, diagramas y tablas sin estrecharse en la barra lateral.
 
 ---
 
