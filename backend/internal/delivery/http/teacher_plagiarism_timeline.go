@@ -41,6 +41,54 @@ func (h *TeacherHandler) AnalyzePlagiarism(w http.ResponseWriter, r *http.Reques
 	SendJSON(w, http.StatusOK, report, "Análisis de similitud estructural AST completado exitosamente")
 }
 
+// GetPlagiarismPair entrega el documento del visor: las dos entregas, sus
+// tramos compartidos y la telemetría resumida. No expone casos de prueba,
+// rúbrica ni comentarios.
+func (h *TeacherHandler) GetPlagiarismPair(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	teacherID := r.Header.Get("X-User-Id")
+	if role == "admin" {
+		teacherID = ""
+	} else if teacherID == "" {
+		SendError(w, http.StatusForbidden, "plagiarism_pair_forbidden", "No se pudo identificar al docente de la sesión")
+		return
+	}
+
+	submissionA := r.PathValue("submission_a")
+	submissionB := r.PathValue("submission_b")
+	if submissionA == "" || submissionB == "" {
+		SendError(w, http.StatusBadRequest, "missing_submissions", "Las dos entregas del par son requeridas")
+		return
+	}
+
+	pair, err := h.service.GetPlagiarismPair(r.Context(), tenantID, teacherID, submissionA, submissionB)
+	if err != nil {
+		switch {
+		case errors.Is(err, domain.ErrPlagiarismPairForbidden):
+			SendError(w, http.StatusForbidden, "plagiarism_pair_forbidden", "Alguna de las entregas no pertenece a tus materias")
+		case errors.Is(err, domain.ErrPlagiarismPairDifferentExercise):
+			SendError(w, http.StatusUnprocessableEntity, "plagiarism_pair_different_exercise", "Las entregas pertenecen a prácticas distintas")
+		case errors.Is(err, domain.ErrPlagiarismPairSameSubmission):
+			SendError(w, http.StatusBadRequest, "plagiarism_pair_same_submission", "El par necesita dos entregas distintas")
+		case errors.Is(err, domain.ErrInvalidResourceID):
+			SendError(w, http.StatusBadRequest, "invalid_submission_id", "El identificador de la entrega no es válido")
+		case errors.Is(err, domain.ErrNotFound):
+			SendError(w, http.StatusNotFound, "plagiarism_pair_not_found", "El par de entregas no existe")
+		default:
+			SendError(w, http.StatusInternalServerError, "plagiarism_pair_failed", "No se pudo cargar el par de entregas")
+		}
+		return
+	}
+
+	SendJSON(w, http.StatusOK, pair, "Par de entregas listo")
+}
+
 func (h *TeacherHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {

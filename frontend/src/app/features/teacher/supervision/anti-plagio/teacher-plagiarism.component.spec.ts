@@ -4,7 +4,7 @@ import { of } from 'rxjs';
 
 import { TeacherPlagiarismComponent } from './teacher-plagiarism.component';
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { PlagiarismReport } from '../../models/teacher.models';
+import { PlagiarismPair, PlagiarismReport } from '../../models/teacher.models';
 
 describe('TeacherPlagiarismComponent', () => {
   let component: TeacherPlagiarismComponent;
@@ -68,9 +68,91 @@ describe('TeacherPlagiarismComponent', () => {
     ]
   };
 
+  const mockPair: PlagiarismPair = {
+    exercise: {
+      id: 'lab-1',
+      title: 'Árboles Binarios',
+      subject_id: 'course-1',
+      subject_name: 'CS101 — Estructuras de Datos',
+      environment_type: 'IDE_PERSISTENTE',
+      expected_complexity: 'O(log n)',
+      base_files: [
+        { path: 'src/node.py', language: 'python', content: 'class Node:\n    pass\n', start_line: 1, line_count: 2 }
+      ],
+      base_files_available: true
+    },
+    a: {
+      submission_id: 'sub-1',
+      student_id: 'std-1',
+      student_name: 'Estudiante Alfa',
+      student_email: 'alfa@solv.test',
+      verdict: 'AC',
+      language: 'python',
+      complexity: 'O(log n)',
+      execution_time_ms: 120,
+      memory_used_mb: 18,
+      files_available: true,
+      files: [
+        {
+          path: 'src/tree.py',
+          language: 'python',
+          content: 'def insert(node, value):\n    if node is None:\n        return value\n    return node\n',
+          start_line: 1,
+          line_count: 4
+        }
+      ],
+      metrics: {
+        total_time_ms: 65000,
+        total_keystrokes: 42,
+        paste_events_count: 1,
+        paste_percentage: 12.5,
+        events_available: true
+      }
+    },
+    b: {
+      submission_id: 'sub-2',
+      student_id: 'std-2',
+      student_name: 'Estudiante Beta',
+      student_email: 'beta@solv.test',
+      verdict: 'WA',
+      language: 'python',
+      complexity: 'O(n)',
+      execution_time_ms: 180,
+      memory_used_mb: 22,
+      files_available: true,
+      files: [
+        {
+          path: 'src/tree.py',
+          language: 'python',
+          content: 'def insert(node, value):\n    if node is None:\n        return value\n    return node\n',
+          start_line: 1,
+          line_count: 4
+        }
+      ],
+      metrics: {
+        total_time_ms: 48000,
+        total_keystrokes: 30,
+        paste_events_count: 0,
+        paste_percentage: 0,
+        events_available: true
+      }
+    },
+    similarity: 92,
+    risk_level: 'critical',
+    ranges: [
+      {
+        source_a: { file_path: 'src/tree.py', start_line: 1, end_line: 4 },
+        source_b: { file_path: 'src/tree.py', start_line: 1, end_line: 4 },
+        token_count: 140,
+        exact_match: true
+      }
+    ]
+  };
+
   beforeEach(async () => {
     const mockCourseService = {
-      analyzePlagiarism: vi.fn().mockReturnValue(of(mockReport))
+      analyzePlagiarism: vi.fn().mockReturnValue(of(mockReport)),
+      getPlagiarismPair: vi.fn().mockReturnValue(of(mockPair))
     };
 
     await TestBed.configureTestingModule({
@@ -131,9 +213,35 @@ describe('TeacherPlagiarismComponent', () => {
   });
 
   it('muestra los tramos compartidos con archivo y líneas', () => {
-    const ranges = component.selectedMatch()?.ranges ?? [];
+    const ranges = component.pairRanges();
     expect(ranges.length).toBe(1);
     expect(ranges[0].source_a.file_path).toBe('src/tree.py');
-    expect(ranges[0].source_a.start_line).toBe(10);
+    expect(ranges[0].source_a.start_line).toBe(1);
+  });
+
+  it('carga el par y arma el árbol de archivos afectados con la base descartada', () => {
+    expect(component.pair()).toEqual(mockPair);
+    expect(component.isIde()).toBe(true);
+    expect(component.affectedFiles().map(file => file.path)).toEqual(['src/tree.py']);
+    expect(component.baseFiles().map(file => file.path)).toEqual(['src/node.py']);
+  });
+
+  it('resalta en cada lado solo el tramo del archivo elegido', () => {
+    component.selectPath('src/tree.py');
+    expect(component.highlightsA()).toEqual([{ start: 1, end: 4 }]);
+    expect(component.highlightsB()).toEqual([{ start: 1, end: 4 }]);
+    expect(component.codeA()).toContain('def insert');
+  });
+
+  it('resume la cadencia de escritura de cada entrega', () => {
+    expect(component.formatDuration(65000)).toBe('1 min 5 s');
+    expect(component.formatPercent(12.5)).toBe('12.5%');
+    expect(component.pair()?.a.metrics.paste_events_count).toBe(1);
+  });
+
+  it('traduce los veredictos del juez a texto para el docente', () => {
+    expect(component.verdictText('AC')).toBe('Todos los tests pasan');
+    expect(component.verdictText('AST_BLOCKED')).toBe('Bloqueado por análisis');
+    expect(component.verdictClass('WA')).toBe('verdict-error');
   });
 });

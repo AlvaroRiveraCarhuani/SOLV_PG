@@ -63,7 +63,6 @@
     </div>
   </div>
 
-  <!-- Panel Dual: Lista de Coincidencias + Visor AST -->
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="4" />
   } @else if (filteredMatches().length === 0) {
@@ -73,52 +72,135 @@
       <p>El escaneo de árboles sintácticos no encontró similitudes anómalas entre las entregas evaluadas.</p>
     </div>
   } @else {
-    <div class="dual-panel-layout">
-      <!-- Columna Izquierda: Lista de Pares -->
-      <aside class="matches-list-panel">
-        <div class="panel-header">
-          <h2 class="panel-title">Entregas con alta similitud ({{ filteredMatches().length }})</h2>
-        </div>
+    <div class="review-layout">
+      <!-- Columna 1: pares y archivos del par -->
+      <aside class="pair-column">
+        <section class="surface-panel pairs-panel">
+          <div class="panel-header">
+            <h2 class="panel-title">Pares con alta similitud ({{ filteredMatches().length }})</h2>
+          </div>
 
-        <div class="matches-list">
-          @for (match of filteredMatches(); track match.submission_id_a + '-' + match.submission_id_b) {
-            <div
-              class="match-item-card"
-              [class.active]="selectedMatch()?.submission_id_a === match.submission_id_a && selectedMatch()?.submission_id_b === match.submission_id_b"
-              [class.border-critical]="match.risk_level === 'critical'"
-              [class.border-warning]="match.risk_level === 'warning'"
-              (click)="selectMatch(match)"
-            >
-              <div class="match-item-header">
-                <span
-                  class="risk-badge"
-                  [class.risk-critical]="match.risk_level === 'critical'"
-                  [class.risk-warning]="match.risk_level === 'warning'"
-                >
-                  <span class="font-mono" machineData>{{ match.similarity }}%</span> similitud
+          <div class="matches-list">
+            @for (match of filteredMatches(); track match.submission_id_a + '-' + match.submission_id_b) {
+              <button
+                type="button"
+                class="match-item-card"
+                [class.active]="selectedMatch()?.submission_id_a === match.submission_id_a && selectedMatch()?.submission_id_b === match.submission_id_b"
+                [class.border-critical]="match.risk_level === 'critical'"
+                [class.border-warning]="match.risk_level === 'warning'"
+                (click)="selectMatch(match)"
+              >
+                <span class="match-item-header">
+                  <span
+                    class="risk-badge"
+                    [class.risk-critical]="match.risk_level === 'critical'"
+                    [class.risk-warning]="match.risk_level === 'warning'"
+                  >
+                    <span class="font-mono" machineData>{{ match.similarity }}%</span> similitud
+                  </span>
+                  <span class="exercise-name">{{ match.exercise_title }}</span>
                 </span>
-                <span class="exercise-name">{{ match.exercise_title }}</span>
+
+                <span class="students-pair">
+                  <span class="student-name">{{ match.student_name_a }}</span>
+                  <span class="versus-divider">vs</span>
+                  <span class="student-name">{{ match.student_name_b }}</span>
+                </span>
+              </button>
+            }
+          </div>
+        </section>
+
+        @if (selectedMatch(); as match) {
+          @if (isIde()) {
+            <section class="surface-panel file-tree-panel">
+              <div class="panel-header">
+                <h2 class="panel-title">
+                  <svg lucideFiles class="panel-icon"></svg>
+                  <span>Archivos afectados ({{ affectedFiles().length }})</span>
+                </h2>
               </div>
 
-              <div class="students-pair">
-                <div class="student-entry">
-                  <span class="student-name">{{ match.student_name_a }}</span>
+              @if (affectedFiles().length === 0) {
+                <p class="panel-hint">Las entregas de este par no tienen archivos con tramos compartidos.</p>
+              } @else {
+                <div class="file-tree">
+                  @for (file of affectedFiles(); track file.path) {
+                    <button
+                      type="button"
+                      class="file-tab"
+                      [class.active]="selectedPath() === file.path"
+                      (click)="selectPath(file.path)"
+                    >
+                      <svg lucideFileCode class="file-icon"></svg>
+                      <code class="file-path" machineData>{{ file.path }}</code>
+                      <span class="file-count" machineData>{{ file.rangesA + file.rangesB }}</span>
+                    </button>
+                  }
                 </div>
-                <div class="versus-divider">vs</div>
-                <div class="student-entry">
-                  <span class="student-name">{{ match.student_name_b }}</span>
-                </div>
+              }
+
+              @if (baseFiles().length > 0) {
+                <details class="base-files">
+                  <summary>
+                    <span class="base-title">Base descartada</span>
+                    <span class="base-count" machineData>{{ baseFiles().length }}</span>
+                  </summary>
+                  <p class="base-note">El proyecto base no se compara: se resta de ambas entregas antes del análisis.</p>
+                  <ul class="base-list">
+                    @for (file of baseFiles(); track file.path) {
+                      <li>
+                        <code machineData>{{ file.path }}</code>
+                      </li>
+                    }
+                  </ul>
+                </details>
+              }
+            </section>
+          } @else if (pair(); as data) {
+            <section class="surface-panel sides-summary">
+              <div class="panel-header">
+                <h2 class="panel-title">Entregas del par</h2>
               </div>
-            </div>
+
+              @for (side of [data.a, data.b]; track side.submission_id) {
+                <div class="side-summary">
+                  <div class="side-summary-head">
+                    <span class="student-name">{{ side.student_name }}</span>
+                    <span class="verdict-badge" [ngClass]="verdictClass(side.verdict)">
+                      <code machineData>{{ side.verdict }}</code>
+                      <span>{{ verdictText(side.verdict) }}</span>
+                    </span>
+                  </div>
+                  <dl class="side-metrics">
+                    <div>
+                      <dt>Complejidad</dt>
+                      <dd><code machineData>{{ side.complexity || 'sin dato' }}</code></dd>
+                    </div>
+                    <div>
+                      <dt>Tiempo de ejecución</dt>
+                      <dd machineData>{{ side.execution_time_ms }} ms</dd>
+                    </div>
+                    <div>
+                      <dt>Memoria</dt>
+                      <dd machineData>{{ side.memory_used_mb }} MB</dd>
+                    </div>
+                    <div>
+                      <dt>Keystrokes</dt>
+                      <dd machineData>{{ side.metrics.total_keystrokes }}</dd>
+                    </div>
+                  </dl>
+                </div>
+              }
+            </section>
           }
-        </div>
+        }
       </aside>
 
-      <!-- Columna Derecha: Inspector Detallado de AST -->
-      <main class="ast-detail-panel">
+      <!-- Columna 2: diff con tramos compartidos -->
+      <main class="diff-column">
         @if (selectedMatch(); as match) {
-          <div class="detail-card">
-            <!-- Header Detalle -->
+          <section class="surface-panel diff-panel">
             <div class="detail-header">
               <div class="detail-title-group">
                 <h3 class="detail-title">{{ match.exercise_title }}</h3>
@@ -128,99 +210,278 @@
                   [class.risk-warning]="match.risk_level === 'warning'"
                   machineData
                 >
-                  {{ match.similarity }}% de Similitud Estructural
+                  {{ match.similarity }}% de similitud estructural
                 </span>
               </div>
 
-              <div class="detail-actions">
-                <a
-                  [routerLink]="['/teacher/revision', match.submission_id_a]"
-                  class="btn-review"
-                  title="Abrir entrega del Estudiante A para revisión"
-                >
-                  <span>Revisar {{ match.student_name_a }}</span>
-                  <svg lucideExternalLink class="action-icon-xs"></svg>
-                </a>
-                <a
-                  [routerLink]="['/teacher/revision', match.submission_id_b]"
-                  class="btn-review"
-                  title="Abrir entrega del Estudiante B para revisión"
-                >
-                  <span>Revisar {{ match.student_name_b }}</span>
-                  <svg lucideExternalLink class="action-icon-xs"></svg>
-                </a>
+              <div class="match-students">
+                <span>{{ match.student_name_a }}</span>
+                <svg lucideArrowLeftRight class="inline-icon"></svg>
+                <span>{{ match.student_name_b }}</span>
               </div>
             </div>
 
-            <!-- Métricas Técnicas de Similitud -->
-            <div class="ast-metrics-grid">
-              <div class="ast-metric-box">
-                <span class="ast-metric-label">Elementos coincidentes</span>
-                <span class="ast-metric-val font-mono" machineData>{{ match.matching_tokens }}</span>
-              </div>
-              <div class="ast-metric-box">
-                <span class="ast-metric-label">Total elementos Estudiante A</span>
-                <span class="ast-metric-val font-mono" machineData>{{ match.total_tokens_a }}</span>
-              </div>
-              <div class="ast-metric-box">
-                <span class="ast-metric-label">Total elementos Estudiante B</span>
-                <span class="ast-metric-val font-mono" machineData>{{ match.total_tokens_b }}</span>
-              </div>
-            </div>
-
-            <!-- Tramos de código compartidos, con líneas del fuente -->
-            @if (match.ranges && match.ranges.length > 0) {
-              <div class="structures-section">
-                <h4 class="section-title">
-                  <svg lucideCode class="section-icon"></svg>
-                  <span>Tramos de código compartidos</span>
-                </h4>
-                <div class="range-list">
-                  @for (range of match.ranges; track $index) {
-                    <div class="range-row">
-                      <span class="range-side">
-                        <span class="range-student">{{ match.student_name_a }}</span>
-                        @if (range.source_a.file_path) {
-                          <code class="range-file" machineData>{{ range.source_a.file_path }}</code>
-                        }
-                        <span class="range-lines">
-                          líneas
-                          <span machineData>{{ range.source_a.start_line }}–{{ range.source_a.end_line }}</span>
-                        </span>
-                      </span>
-                      <span class="range-sep">↔</span>
-                      <span class="range-side">
-                        <span class="range-student">{{ match.student_name_b }}</span>
-                        @if (range.source_b.file_path) {
-                          <code class="range-file" machineData>{{ range.source_b.file_path }}</code>
-                        }
-                        <span class="range-lines">
-                          líneas
-                          <span machineData>{{ range.source_b.start_line }}–{{ range.source_b.end_line }}</span>
-                        </span>
-                      </span>
-                      <span class="range-tokens">
-                        <span machineData>{{ range.token_count }}</span> tokens
-                      </span>
-                    </div>
+            @if (counterpartOptions().length > 0) {
+              <div class="counterparts">
+                <span class="counterparts-label">Cambiar contraparte</span>
+                <div class="counterparts-list">
+                  @for (other of counterpartOptions(); track other.submission_id_a + '-' + other.submission_id_b) {
+                    <button type="button" class="counterpart-chip" (click)="selectMatch(other)">
+                      <span>{{ other.student_name_a }} / {{ other.student_name_b }}</span>
+                      <span class="font-mono" machineData>{{ other.similarity }}%</span>
+                    </button>
                   }
                 </div>
               </div>
             }
 
-            <!-- Nota Explicativa -->
-            <div class="info-alert">
-              <svg lucideInfo class="info-icon"></svg>
-              <p>El análisis de similitud estructural normaliza nombres de variables, funciones y comentarios, comparando la lógica algorítmica y la estructura del código.</p>
-            </div>
-          </div>
+            @if (pairError()) {
+              <div class="pair-error">{{ pairError() }}</div>
+            } @else if (isLoadingPair()) {
+              <skeleton-loader variant="cards" [count]="2" />
+            } @else if (pair(); as data) {
+              @if (isIde()) {
+                @if (affectedFiles().length > 1) {
+                  <div class="file-strip">
+                    @for (file of affectedFiles(); track file.path) {
+                      <button
+                        type="button"
+                        class="file-tab"
+                        [class.active]="selectedPath() === file.path"
+                        (click)="selectPath(file.path)"
+                      >
+                        <svg lucideFileCode class="file-icon"></svg>
+                        <code class="file-path" machineData>{{ file.path }}</code>
+                      </button>
+                    }
+                  </div>
+                }
+
+                <div class="code-stack">
+                  <div class="code-pane">
+                    <div class="code-pane-head">
+                      <span class="pane-student">{{ data.a.student_name }}</span>
+                      <code class="pane-file" machineData>{{ selectedPath() || data.a.language }}</code>
+                    </div>
+                    <code-editor
+                      [value]="codeA()"
+                      [language]="languageA()"
+                      [readonly]="true"
+                      [highlightRanges]="highlightsA()"
+                      [scrollRatio]="syncScroll() ? scrollRatio() : null"
+                      (scrollRatioChange)="onScrollRatioChange($event)"
+                      minHeight="250px"
+                      maxHeight="380px"
+                    />
+                  </div>
+
+                  <div class="code-pane">
+                    <div class="code-pane-head">
+                      <span class="pane-student">{{ data.b.student_name }}</span>
+                      <code class="pane-file" machineData>{{ selectedPath() || data.b.language }}</code>
+                    </div>
+                    <code-editor
+                      [value]="codeB()"
+                      [language]="languageB()"
+                      [readonly]="true"
+                      [highlightRanges]="highlightsB()"
+                      [scrollRatio]="syncScroll() ? scrollRatio() : null"
+                      (scrollRatioChange)="onScrollRatioChange($event)"
+                      minHeight="250px"
+                      maxHeight="380px"
+                    />
+                  </div>
+                </div>
+              } @else {
+                <div class="code-pane single">
+                  <div class="code-pane-head">
+                    <span class="pane-student">{{ data.a.student_name }}</span>
+                    <span class="verdict-badge" [ngClass]="verdictClass(data.a.verdict)">
+                      <code machineData>{{ data.a.verdict }}</code>
+                      <span>{{ verdictText(data.a.verdict) }}</span>
+                    </span>
+                  </div>
+                  <code-editor
+                    [value]="codeA()"
+                    [language]="languageA()"
+                    [readonly]="true"
+                    [highlightRanges]="highlightsA()"
+                    minHeight="420px"
+                    maxHeight="560px"
+                  />
+                </div>
+              }
+
+              @if (pairRanges().length > 0) {
+                <div class="range-list">
+                  @for (range of pairRanges(); track $index) {
+                    <div class="range-row">
+                      <span class="range-side">
+                        <span class="range-student">{{ data.a.student_name }}</span>
+                        @if (range.source_a.file_path) {
+                          <code class="range-file" machineData>{{ range.source_a.file_path }}</code>
+                        }
+                        <span class="range-lines">
+                          líneas <span machineData>{{ range.source_a.start_line }}–{{ range.source_a.end_line }}</span>
+                        </span>
+                      </span>
+                      <span class="range-sep">↔</span>
+                      <span class="range-side">
+                        <span class="range-student">{{ data.b.student_name }}</span>
+                        @if (range.source_b.file_path) {
+                          <code class="range-file" machineData>{{ range.source_b.file_path }}</code>
+                        }
+                        <span class="range-lines">
+                          líneas <span machineData>{{ range.source_b.start_line }}–{{ range.source_b.end_line }}</span>
+                        </span>
+                      </span>
+                      <span class="range-tokens"><span machineData>{{ range.token_count }}</span> tokens</span>
+                    </div>
+                  }
+                </div>
+              }
+            }
+          </section>
         } @else {
-          <div class="empty-selection">
+          <div class="surface-panel empty-selection">
             <svg lucideGitCompare class="empty-icon"></svg>
             <p>Seleccioná un par de la lista izquierda para inspeccionar los bloques de código coincidentes.</p>
           </div>
         }
       </main>
+
+      <!-- Columna 3: cadencia, contraparte y decisión docente -->
+      <aside class="context-column">
+        @if (selectedMatch(); as match) {
+          @if (pair(); as data) {
+            @if (isIde()) {
+              <section class="surface-panel cadence-panel">
+                <div class="panel-header">
+                  <h2 class="panel-title">
+                    <svg lucideGauge class="panel-icon"></svg>
+                    <span>Cadencia de escritura</span>
+                  </h2>
+                  <button
+                    type="button"
+                    class="sync-toggle"
+                    [class.active]="syncScroll()"
+                    [attr.aria-pressed]="syncScroll()"
+                    (click)="toggleSyncScroll()"
+                  >
+                    Scroll {{ syncScroll() ? 'sincronizado' : 'libre' }}
+                  </button>
+                </div>
+
+                @for (side of [data.a, data.b]; track side.submission_id) {
+                  <div class="cadence-side">
+                    <div class="side-summary-head">
+                      <span class="student-name">{{ side.student_name }}</span>
+                      <span class="verdict-badge" [ngClass]="verdictClass(side.verdict)">
+                        <code machineData>{{ side.verdict }}</code>
+                        <span>{{ verdictText(side.verdict) }}</span>
+                      </span>
+                    </div>
+
+                    @if (side.metrics.events_available) {
+                      <dl class="cadence-metrics">
+                        <div>
+                          <dt><svg lucideClock class="metric-icon"></svg> Tiempo activo</dt>
+                          <dd machineData>{{ formatDuration(side.metrics.total_time_ms) }}</dd>
+                        </div>
+                        <div>
+                          <dt><svg lucideKeyboard class="metric-icon"></svg> Keystrokes</dt>
+                          <dd machineData>{{ side.metrics.total_keystrokes }}</dd>
+                        </div>
+                        <div>
+                          <dt><svg lucideClipboardPaste class="metric-icon"></svg> Pegado</dt>
+                          <dd machineData>{{ formatPercent(side.metrics.paste_percentage) }}</dd>
+                        </div>
+                        <div>
+                          <dt>Eventos de pegado</dt>
+                          <dd machineData>{{ side.metrics.paste_events_count }}</dd>
+                        </div>
+                      </dl>
+                    } @else {
+                      <p class="panel-hint">Sin telemetría de teclado para esta entrega.</p>
+                    }
+                  </div>
+                }
+
+                <div class="info-alert">
+                  <svg lucideInfo class="info-icon"></svg>
+                  <p>La similitud ordena la revisión, no califica. La decisión final es tuya.</p>
+                </div>
+
+                <div class="grade-actions">
+                  <a [routerLink]="['/teacher/revision', data.a.submission_id]" class="btn-grade">
+                    <span>Calificar a {{ data.a.student_name }}</span>
+                    <svg lucideExternalLink class="action-icon-xs"></svg>
+                  </a>
+                  <a [routerLink]="['/teacher/revision', data.b.submission_id]" class="btn-grade">
+                    <span>Calificar a {{ data.b.student_name }}</span>
+                    <svg lucideExternalLink class="action-icon-xs"></svg>
+                  </a>
+                </div>
+              </section>
+            } @else {
+              <section class="surface-panel code-side-panel">
+                <div class="code-pane-head">
+                  <span class="pane-student">{{ data.b.student_name }}</span>
+                  <span class="verdict-badge" [ngClass]="verdictClass(data.b.verdict)">
+                    <code machineData>{{ data.b.verdict }}</code>
+                    <span>{{ verdictText(data.b.verdict) }}</span>
+                  </span>
+                </div>
+                <code-editor
+                  [value]="codeB()"
+                  [language]="languageB()"
+                  [readonly]="true"
+                  [highlightRanges]="highlightsB()"
+                  minHeight="420px"
+                  maxHeight="560px"
+                />
+              </section>
+
+              <section class="surface-panel">
+                <dl class="side-metrics">
+                  <div>
+                    <dt>Complejidad esperada</dt>
+                    <dd><code machineData>{{ data.exercise.expected_complexity || 'sin dato' }}</code></dd>
+                  </div>
+                  <div>
+                    <dt>Tiempo de {{ data.b.student_name }}</dt>
+                    <dd machineData>{{ data.b.execution_time_ms }} ms</dd>
+                  </div>
+                  <div>
+                    <dt>Memoria de {{ data.b.student_name }}</dt>
+                    <dd machineData>{{ data.b.memory_used_mb }} MB</dd>
+                  </div>
+                </dl>
+
+                <div class="grade-actions">
+                  <a [routerLink]="['/teacher/revision', data.a.submission_id]" class="btn-grade">
+                    <span>Calificar a {{ data.a.student_name }}</span>
+                    <svg lucideExternalLink class="action-icon-xs"></svg>
+                  </a>
+                  <a [routerLink]="['/teacher/revision', data.b.submission_id]" class="btn-grade">
+                    <span>Calificar a {{ data.b.student_name }}</span>
+                    <svg lucideExternalLink class="action-icon-xs"></svg>
+                  </a>
+                </div>
+
+                <div class="info-alert">
+                  <svg lucideInfo class="info-icon"></svg>
+                  <p>Los tests y la complejidad se muestran tal como los reportó el juez. La decisión final es tuya.</p>
+                </div>
+              </section>
+            }
+          } @else if (!isLoadingPair() && !pairError()) {
+            <div class="surface-panel empty-selection">
+              <p>Sin datos del par.</p>
+            </div>
+          }
+        }
+      </aside>
     </div>
   }
 </div>

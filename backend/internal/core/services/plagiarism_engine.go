@@ -448,6 +448,24 @@ func (e *ASTPlagiarismEngine) AnalyzeSubmissions(submissions []*domain.Submissio
 	return matches
 }
 
+// CompareSubmissions enfrenta dos entregas concretas y devuelve la similitud,
+// los tramos compartidos y los totales posteriores a restar el código base. Es
+// la operación que consume el visor del par.
+func (e *ASTPlagiarismEngine) CompareSubmissions(a, b *domain.SubmissionForPlagiarism) (float64, int, []domain.PlagiarismRange, int, int) {
+	tokensA, filesA := e.prepareTokens(a)
+	tokensB, filesB := e.prepareTokens(b)
+	if len(tokensA) < e.KGramSize || len(tokensB) < e.KGramSize {
+		return 0.0, 0, nil, len(tokensA), len(tokensB)
+	}
+
+	score, matchingTokens := e.score(tokensA, tokensB)
+	if score <= 0 {
+		return score, matchingTokens, nil, len(tokensA), len(tokensB)
+	}
+
+	return score, matchingTokens, e.buildRanges(tokensA, tokensB, filesA, filesB), len(tokensA), len(tokensB)
+}
+
 // prepareTokens tokeniza la entrega y le resta el código base de la práctica. En
 // IDE se resta archivo por archivo, con la línea global de cada archivo; si
 // alguna de las dos partes no tiene cabeceras, se resta de forma global.

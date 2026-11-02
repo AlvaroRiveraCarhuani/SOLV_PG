@@ -4,7 +4,7 @@ Objetivo: que el control de plagio se abra desde una práctica concreta, con su 
 
 Branch: `feat/plagiarism-practice-scope` (desde `main`) | Delivery strategy: ask-on-risk | Test runner: `go test ./...` & `npm run test:ci`
 
-Estado: **Entrega 1 implementada (2026-11-02)**. Motor con sustracción de base y rangos, numeración estable y navegación desde la práctica. La Entrega 2 (endpoint del par y visor) sigue pendiente. `go build`, `go vet`, tests de backend y frontend, `lint:styles` y `CI=true npm run build` en verde; los e2e no se ejecutaron en esta sesión.
+Estado: **Entregas 1 y 2 implementadas (2026-11-02)**. Motor con sustracción de base y rangos, numeración estable y navegación desde la práctica. El endpoint del par entrega las dos entregas y la telemetría resumida; el visor enfrenta código, archivos y cadencia en tres columnas según la modalidad. `go build`, `go vet`, tests de backend y frontend, `lint:styles` y `CI=true npm run build` en verde; los e2e no se ejecutaron en esta sesión. S7 (clústeres) quedó fuera de alcance.
 
 Fuente: `proyecto-grado/Observaciones/Control de Plagio y Deteccion de Similitud.md`. Decisión del usuario: «Sacarlo del menú lateral, moverlo a la práctica y sustraer el código base del cálculo».
 
@@ -83,8 +83,8 @@ Fuente: `proyecto-grado/Observaciones/Control de Plagio y Deteccion de Similitud
 - [x] **T2 — S2**: `SubmissionForPlagiarism` con `Boilerplate` y `EnvironmentType`; el repositorio los selecciona; el motor resta por archivo en IDE y global en juez.
 - [x] **T3 — S3**: `removeComments` conserva una línea por línea; `PlagiarismRange` reemplaza `common_structures`; tramos maximales sin solape, máximo 10.
 - [x] **T4 — S4**: 4 tests nuevos de motor, specs del frontend, ADR-062 con entrada en `INDEX.md`, `docs/API_CONTRACTS.md` y `docs/UI/MAPA_DE_VISTAS.md`.
-- [ ] **T5 — S5**: handler + servicio + ruta del par, con permisos y tests.
-- [ ] **T6 — S6**: visor de tres columnas y spec.
+- [x] **T5 — S5**: `GetPlagiarismPair` en servicio y handler, ruta `GET /api/v1/teacher/plagiarism/pairs/{submission_a}/{submission_b}`, validación de dueño en la consulta, `403`/`422` y tests de servicio y handler.
+- [x] **T6 — S6**: visor de tres columnas por modalidad, `code-editor` con `highlightRanges` y `scrollRatio`, spec de la pantalla y ADR-062/API_CONTRACTS actualizados.
 - [ ] **T7 — S7**: clústeres, si se confirma el alcance.
 
 ## Referencias obligatorias para la Entrega 2

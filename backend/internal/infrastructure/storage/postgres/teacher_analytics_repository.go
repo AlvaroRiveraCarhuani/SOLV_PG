@@ -3,7 +3,13 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
 	"solv-backend/internal/core/domain"
 )
 
@@ -170,6 +176,102 @@ func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx cont
 		list = make([]*domain.SubmissionForPlagiarism, 0)
 	}
 
+	return list, nil
+}
+
+// GetPlagiarismPairSubmissions lee las dos entregas del visor de similitud. El
+// filtro por docente forma parte de la consulta: una entrega de otra materia no
+// se devuelve y el servicio la trata como no accesible.
+func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Context, tenantID, teacherID, submissionA, submissionB string) ([]*domain.PlagiarismPairSubmission, error) {
+	if _, err := uuid.Parse(strings.TrimSpace(submissionA)); err != nil {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, submissionA)
+	}
+	if _, err := uuid.Parse(strings.TrimSpace(submissionB)); err != nil {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidResourceID, submissionB)
+	}
+
+	query := `
+		SELECT sub.id AS submission_id,
+		       sub.exercise_id,
+		       ex.title AS exercise_title,
+		       s.id AS subject_id,
+		       s.name AS subject_name,
+		       sub.student_id,
+		       COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS student_name,
+		       COALESCE(u.email, '') AS student_email,
+		       COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
+		       COALESCE(ex.language, 'python') AS language,
+		       COALESCE(sub.code, '') AS code,
+		       COALESCE(ex.boilerplate, '') AS boilerplate,
+		       COALESCE(sub.verdict, '') AS verdict,
+		       COALESCE(sub.execution_time_ms, 0) AS execution_time_ms,
+		       COALESCE(sub.memory_used_mb, 0) AS memory_used_mb,
+		       COALESCE(ex.expected_complexity, '') AS expected_complexity,
+		       sub.complexity_analysis,
+		       sub.submitted_at
+		FROM submissions sub
+		JOIN exercises ex ON sub.exercise_id = ex.id
+		JOIN subjects s ON ex.subject_id = s.id
+		JOIN users u ON sub.student_id = u.id
+		WHERE sub.tenant_id = $1
+		  AND sub.id IN ($2::uuid, $3::uuid)
+		  AND ($4 = '' OR s.teacher_id::text = $4)
+	`
+
+	type pairRow struct {
+		SubmissionID       string    `db:"submission_id"`
+		ExerciseID         string    `db:"exercise_id"`
+		ExerciseTitle      string    `db:"exercise_title"`
+		SubjectID          string    `db:"subject_id"`
+		SubjectName        string    `db:"subject_name"`
+		StudentID          string    `db:"student_id"`
+		StudentName        string    `db:"student_name"`
+		StudentEmail       string    `db:"student_email"`
+		EnvironmentType    string    `db:"environment_type"`
+		Language           string    `db:"language"`
+		Code               string    `db:"code"`
+		Boilerplate        string    `db:"boilerplate"`
+		Verdict            string    `db:"verdict"`
+		ExecutionTimeMS    int       `db:"execution_time_ms"`
+		MemoryUsedMB       int       `db:"memory_used_mb"`
+		ExpectedComplexity string    `db:"expected_complexity"`
+		ComplexityAnalysis []byte    `db:"complexity_analysis"`
+		SubmittedAt        time.Time `db:"submitted_at"`
+	}
+	var rows []pairRow
+	if err := r.db.SelectContext(ctx, &rows, query, tenantID, submissionA, submissionB, teacherID); err != nil {
+		return nil, fmt.Errorf("failed to fetch plagiarism pair: %w", err)
+	}
+
+	list := make([]*domain.PlagiarismPairSubmission, 0, len(rows))
+	for _, row := range rows {
+		submission := &domain.PlagiarismPairSubmission{
+			SubmissionID:       row.SubmissionID,
+			ExerciseID:         row.ExerciseID,
+			ExerciseTitle:      row.ExerciseTitle,
+			SubjectID:          row.SubjectID,
+			SubjectName:        row.SubjectName,
+			StudentID:          row.StudentID,
+			StudentName:        row.StudentName,
+			StudentEmail:       row.StudentEmail,
+			EnvironmentType:    row.EnvironmentType,
+			Language:           row.Language,
+			Code:               row.Code,
+			Boilerplate:        row.Boilerplate,
+			Verdict:            row.Verdict,
+			ExecutionTimeMS:    row.ExecutionTimeMS,
+			MemoryUsedMB:       row.MemoryUsedMB,
+			ExpectedComplexity: row.ExpectedComplexity,
+			SubmittedAt:        row.SubmittedAt,
+		}
+		if len(row.ComplexityAnalysis) > 0 && string(row.ComplexityAnalysis) != "null" {
+			var analysis domain.ComplexityAnalysis
+			if err := json.Unmarshal(row.ComplexityAnalysis, &analysis); err == nil {
+				submission.ComplexityAnalysis = &analysis
+			}
+		}
+		list = append(list, submission)
+	}
 	return list, nil
 }
 

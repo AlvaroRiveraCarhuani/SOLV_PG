@@ -539,6 +539,7 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/submissions/{id}/keystroke-events", tm(http.HandlerFunc(deps.TeacherHandler.GetKeystrokeEvents)))
 	mux.Handle("GET /api/v1/teacher/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/plagiarism", tm(http.HandlerFunc(deps.TeacherHandler.AnalyzePlagiarism)))
+	mux.Handle("GET /api/v1/teacher/plagiarism/pairs/{submission_a}/{submission_b}", tm(http.HandlerFunc(deps.TeacherHandler.GetPlagiarismPair)))
 	mux.Handle("GET /api/v1/teacher/live-sessions", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessions)))
 	mux.Handle("GET /api/v1/teacher/live-sessions/metrics", tm(http.HandlerFunc(deps.TeacherHandler.GetLiveSessionsMetrics)))
 	mux.Handle("POST /api/v1/teacher/live-sessions/{id}/exec", tm(http.HandlerFunc(deps.TeacherHandler.PostTutorExec)))

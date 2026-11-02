@@ -97,6 +97,9 @@ func (r *stubTeacherRepoForKeystroke) GetCourseGradesMatrix(_ context.Context, _
 func (r *stubTeacherRepoForKeystroke) GetExerciseSubmissionsForPlagiarism(_ context.Context, _, _, _, _ string) ([]*domain.SubmissionForPlagiarism, error) {
 	return nil, nil
 }
+func (r *stubTeacherRepoForKeystroke) GetPlagiarismPairSubmissions(_ context.Context, _, _, _, _ string) ([]*domain.PlagiarismPairSubmission, error) {
+	return nil, nil
+}
 func (r *stubTeacherRepoForKeystroke) ListLiveWorkspaceSessions(_ context.Context, _, _ string) ([]*domain.LiveWorkspaceSession, error) {
 	return nil, nil
 }

@@ -12,8 +12,8 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { EditorView, basicSetup } from 'codemirror';
-import { Compartment, EditorState } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
+import { Compartment, EditorState, Range, StateEffect, StateField, Text } from '@codemirror/state';
+import { Decoration, DecorationSet, keymap } from '@codemirror/view';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { python } from '@codemirror/lang-python';
 import { cpp } from '@codemirror/lang-cpp';
@@ -43,6 +43,45 @@ export const solvHighlightStyle = HighlightStyle.define([
   { tag: [t.processingInstruction, t.string, t.inserted], color: 'var(--color-success-dark, var(--color-success))' },
   { tag: t.invalid, color: 'var(--color-error)' }
 ]);
+
+/**
+ * Tramo de líneas 1-based que el visor de similitud resalta. El editor no sabe
+ * de plagio: solo pinta las líneas que le piden.
+ */
+export interface CodeLineRange {
+  start: number;
+  end: number;
+}
+
+const setHighlightRanges = StateEffect.define<CodeLineRange[]>();
+
+function buildHighlightDecorations(doc: Text, ranges: CodeLineRange[]): DecorationSet {
+  const total = doc.lines;
+  const marks: Range<Decoration>[] = [];
+  for (const range of ranges) {
+    if (!range) continue;
+    const start = Math.max(1, Math.min(range.start, total));
+    const end = Math.max(start, Math.min(range.end, total));
+    for (let line = start; line <= end; line++) {
+      marks.push(Decoration.line({ class: 'cm-plagiarism-match' }).range(doc.line(line).from));
+    }
+  }
+  return Decoration.set(marks, true);
+}
+
+const highlightRangesField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(value, tr) {
+    let next = value.map(tr.changes);
+    for (const effect of tr.effects) {
+      if (effect.is(setHighlightRanges)) {
+        next = buildHighlightDecorations(tr.state.doc, effect.value);
+      }
+    }
+    return next;
+  },
+  provide: field => EditorView.decorations.from(field)
+});
 
 export const solvEditorTheme = EditorView.theme({
   '&': {
@@ -76,6 +115,10 @@ export const solvEditorTheme = EditorView.theme({
   },
   '.cm-activeLine': {
     backgroundColor: 'var(--bg-surface-active)'
+  },
+  '.cm-line.cm-plagiarism-match': {
+    backgroundColor: 'var(--status-pending-bg)',
+    boxShadow: 'inset 3px 0 0 var(--status-pending-color)'
   },
   '.cm-activeLineGutter': {
     backgroundColor: 'var(--bg-surface-active)',
@@ -117,6 +160,13 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   readonly lineClick = output<number>();
   /** Bloque seleccionado con arrastre o Shift+clic. Líneas 1-based del documento. */
   readonly lineRangeSelected = output<{ start: number; end: number }>();
+  /** Líneas a resaltar, 1-based e inclusivas. */
+  readonly highlightRanges = input<CodeLineRange[]>([]);
+  /**
+   * Posición vertical compartida entre dos visores, como fracción 0..1. Un
+   * valor null desacopla el panel; el editor avisa cada scroll del usuario.
+   */
+  readonly scrollRatio = model<number | null>(null);
 
   readonly computedFontSize = computed(() => {
     const sz = this.fontSize();
@@ -132,6 +182,8 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   private readonly readOnlyCompartment = new Compartment();
   private isInternalUpdate = false;
   private suppressNextClick = false;
+  private applyingExternalScroll = false;
+  private scrollListener?: () => void;
 
   constructor() {
     // Sincronizar cambios externos de valor hacia CodeMirror
@@ -166,6 +218,19 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
         effects: this.readOnlyCompartment.reconfigure(EditorState.readOnly.of(isReadOnly))
       });
     });
+
+    // Resaltar las líneas que el visor de similitud marca como compartidas.
+    effect(() => {
+      const ranges = this.highlightRanges();
+      this.editorView?.dispatch({ effects: setHighlightRanges.of(ranges) });
+    });
+
+    // Seguir la posición del panel compañero cuando el scroll está sincronizado.
+    effect(() => {
+      const ratio = this.scrollRatio();
+      if (!this.editorView || ratio === null) return;
+      this.applyScrollRatio(ratio);
+    });
   }
 
   ngOnInit(): void {
@@ -173,6 +238,9 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.editorView && this.scrollListener) {
+      this.editorView.scrollDOM.removeEventListener('scroll', this.scrollListener);
+    }
     if (this.editorView) {
       this.editorView.destroy();
       this.editorView = undefined;
@@ -192,6 +260,7 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
         keymap.of([indentWithTab, ...defaultKeymap]),
         this.langCompartment.of(this.getLanguageExtension(this.language())),
         this.readOnlyCompartment.of(EditorState.readOnly.of(this.readonly())),
+        highlightRangesField,
         EditorView.domEventHandlers({
           mouseup: (event, view) => {
             const target = event.target as HTMLElement | null;
@@ -248,6 +317,34 @@ export class CodeEditorComponent implements OnInit, OnDestroy {
     this.editorView = new EditorView({
       state: startState,
       parent
+    });
+
+    if (this.highlightRanges().length > 0) {
+      this.editorView.dispatch({ effects: setHighlightRanges.of(this.highlightRanges()) });
+    }
+
+    this.scrollListener = () => {
+      if (this.applyingExternalScroll) return;
+      const scroller = this.editorView?.scrollDOM;
+      if (!scroller) return;
+      const max = scroller.scrollHeight - scroller.clientHeight;
+      const ratio = max > 0 ? scroller.scrollTop / max : 0;
+      if (Math.abs((this.scrollRatio() ?? 0) - ratio) > 0.001) {
+        this.scrollRatio.set(ratio);
+      }
+    };
+    this.editorView.scrollDOM.addEventListener('scroll', this.scrollListener, { passive: true });
+  }
+
+  private applyScrollRatio(ratio: number): void {
+    const scroller = this.editorView?.scrollDOM;
+    if (!scroller) return;
+    const max = scroller.scrollHeight - scroller.clientHeight;
+    this.applyingExternalScroll = true;
+    scroller.scrollTop = Math.max(0, Math.min(1, ratio)) * Math.max(0, max);
+    // El evento de scroll llega después; se libera el guard en el siguiente turno.
+    setTimeout(() => {
+      this.applyingExternalScroll = false;
     });
   }
 

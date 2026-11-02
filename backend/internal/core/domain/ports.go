@@ -304,6 +304,7 @@ type TeacherRepository interface {
 	GetCommentsBySubmission(ctx context.Context, tenantID, submissionID string) ([]*SubmissionComment, error)
 	GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseGradesMatrix, error)
 	GetExerciseSubmissionsForPlagiarism(ctx context.Context, tenantID, teacherID, subjectID, exerciseID string) ([]*SubmissionForPlagiarism, error)
+	GetPlagiarismPairSubmissions(ctx context.Context, tenantID, teacherID, submissionA, submissionB string) ([]*PlagiarismPairSubmission, error)
 	ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*LiveWorkspaceSession, error)
 	GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseAnalytics, error)
 }

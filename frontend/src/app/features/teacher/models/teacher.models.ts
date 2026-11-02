@@ -455,6 +455,50 @@ export interface PlagiarismMatch {
   ranges: PlagiarismRange[];
 }
 
+export interface PlagiarismPairMetrics {
+  total_time_ms: number;
+  total_keystrokes: number;
+  paste_events_count: number;
+  paste_percentage: number;
+  events_available: boolean;
+}
+
+export interface PlagiarismPairSide {
+  submission_id: string;
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  verdict: string;
+  language: string;
+  complexity?: string;
+  execution_time_ms: number;
+  memory_used_mb: number;
+  code?: string;
+  files?: ProjectFile[];
+  files_available: boolean;
+  metrics: PlagiarismPairMetrics;
+}
+
+export interface PlagiarismPairExercise {
+  id: string;
+  title: string;
+  subject_id: string;
+  subject_name: string;
+  environment_type: string;
+  expected_complexity?: string;
+  base_files?: ProjectFile[];
+  base_files_available: boolean;
+}
+
+export interface PlagiarismPair {
+  exercise: PlagiarismPairExercise;
+  a: PlagiarismPairSide;
+  b: PlagiarismPairSide;
+  similarity: number;
+  risk_level: 'critical' | 'warning' | 'info';
+  ranges: PlagiarismRange[];
+}
+
 export interface PlagiarismReport {
   subject_id: string;
   subject_name?: string;

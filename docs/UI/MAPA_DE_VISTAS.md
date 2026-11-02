@@ -59,7 +59,7 @@ graph TD
 │   ├── /teacher/templates .............. Catálogo de plantillas de entorno
 │   ├── /teacher/anti-plagio ............ Redirige a Por calificar (el listado global se retiró)
 │   ├── /teacher/cursos/:courseId/practicas/:exerciseId/similitud
-│   │                                      Auditoría de similitud de esa práctica, con el código base restado
+│   │                                      Auditoría de similitud en tres columnas (pares, diff y cadencia), con la base restada
 │   └── /teacher/configuracion .......... Preferencias de asistencia con IA
 │
 └── /estudiante (Rol: Estudiante)

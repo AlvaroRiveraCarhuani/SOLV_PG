@@ -2337,9 +2337,70 @@ El reporte dejó de comparar el código completo: el motor resta `exercises.boil
 - `token_count` cuenta los tokens del tramo después de restar la base de la práctica.
 - Los totales `total_tokens_a` y `total_tokens_b` también son posteriores a la sustracción.
 
+### `GET /api/v1/teacher/plagiarism/pairs/{submission_a}/{submission_b}`
+
+- El docente solo accede a entregas de sus materias; cualquier entrega ajena responde `403` sin
+  distinguirla de una inexistente. El rol `admin` consulta sin filtro de docente.
+- Las dos entregas deben pertenecer a la misma práctica. Si no, `422`. El mismo identificador dos veces
+  es `400`.
+- No devuelve `test_cases`, rúbrica, comentarios ni eventos de teclado. Las métricas son totales.
+
+```json
+{
+  "data": {
+    "exercise": {
+      "id": "uuid",
+      "title": "Árboles Binarios",
+      "subject_id": "uuid",
+      "subject_name": "Estructuras de Datos",
+      "environment_type": "IDE_PERSISTENTE",
+      "expected_complexity": "O(log n)",
+      "base_files": [
+        { "path": "src/node.py", "language": "python", "content": "...", "start_line": 1, "line_count": 12 }
+      ],
+      "base_files_available": true
+    },
+    "a": {
+      "submission_id": "uuid",
+      "student_id": "uuid",
+      "student_name": "Ana García",
+      "student_email": "ana@solv.test",
+      "verdict": "AC",
+      "language": "python",
+      "complexity": "O(log n)",
+      "execution_time_ms": 120,
+      "memory_used_mb": 18,
+      "files": [
+        { "path": "src/tree.py", "language": "python", "content": "...", "start_line": 1, "line_count": 40 }
+      ],
+      "files_available": true,
+      "metrics": {
+        "total_time_ms": 65000,
+        "total_keystrokes": 42,
+        "paste_events_count": 1,
+        "paste_percentage": 12.5,
+        "events_available": true
+      }
+    },
+    "b": { "submission_id": "uuid", "verdict": "WA", "code": "..." },
+    "similarity": 92,
+    "risk_level": "critical",
+    "ranges": []
+  },
+  "error": "",
+  "message": "Par de entregas listo"
+}
+```
+
+- En IDE cada lado trae `files` y se omite `code`; en el evaluador cada lado trae `code` y se omite
+  `files`. `base_files` solo existe en IDE.
+- `metrics` no incluye eventos: tiempo activo, keystrokes, eventos de pegado y porcentaje. Sin
+  telemetría, `events_available` es `false` y los totales quedan en cero.
+- Los `ranges` son los del par, calculados de nuevo con el código base restado.
+
 ### Rutas del cliente
 
 | Ruta | Efecto |
 | --- | --- |
-| `/teacher/cursos/:courseId/practicas/:exerciseId/similitud` | Auditoría de esa práctica, sin selector de materia |
+| `/teacher/cursos/:courseId/practicas/:exerciseId/similitud` | Auditoría de esa práctica en tres columnas, sin selector de materia |
 | `/teacher/anti-plagio` | Redirección a `/teacher/por-calificar`; no conserva el listado global |

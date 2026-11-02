@@ -243,6 +243,92 @@ type PlagiarismMatch struct {
 	Ranges         []PlagiarismRange `json:"ranges"`
 }
 
+// Errores del visor de un par de entregas.
+var (
+	// ErrPlagiarismPairForbidden: alguna de las dos entregas no pertenece a una
+	// materia del docente. No se distingue de una entrega inexistente.
+	ErrPlagiarismPairForbidden = errors.New("plagiarism_pair_forbidden")
+	// ErrPlagiarismPairDifferentExercise: las entregas son de prácticas distintas.
+	ErrPlagiarismPairDifferentExercise = errors.New("plagiarism_pair_different_exercise")
+	// ErrPlagiarismPairSameSubmission: el par apunta dos veces a la misma entrega.
+	ErrPlagiarismPairSameSubmission = errors.New("plagiarism_pair_same_submission")
+)
+
+// PlagiarismPairSubmission es la lectura de una entrega para el visor del par.
+// Vive fuera de SubmissionForPlagiarism porque agrega la metadata de revisión
+// que el motor no necesita.
+type PlagiarismPairSubmission struct {
+	SubmissionID       string              `db:"submission_id"`
+	ExerciseID         string              `db:"exercise_id"`
+	ExerciseTitle      string              `db:"exercise_title"`
+	SubjectID          string              `db:"subject_id"`
+	SubjectName        string              `db:"subject_name"`
+	StudentID          string              `db:"student_id"`
+	StudentName        string              `db:"student_name"`
+	StudentEmail       string              `db:"student_email"`
+	EnvironmentType    string              `db:"environment_type"`
+	Language           string              `db:"language"`
+	Code               string              `db:"code"`
+	Boilerplate        string              `db:"boilerplate"`
+	Verdict            string              `db:"verdict"`
+	ExecutionTimeMS    int                 `db:"execution_time_ms"`
+	MemoryUsedMB       int                 `db:"memory_used_mb"`
+	ExpectedComplexity string              `db:"expected_complexity"`
+	ComplexityAnalysis *ComplexityAnalysis `db:"complexity_analysis"`
+	SubmittedAt        time.Time           `db:"submitted_at"`
+}
+
+// PlagiarismPairMetrics resume la telemetría de escritura de una entrega. No
+// incluye los eventos: el visor solo necesita los totales.
+type PlagiarismPairMetrics struct {
+	TotalTimeMS     int64   `json:"total_time_ms"`
+	TotalKeystrokes int     `json:"total_keystrokes"`
+	PasteEvents     int     `json:"paste_events_count"`
+	PastePercentage float64 `json:"paste_percentage"`
+	EventsAvailable bool    `json:"events_available"`
+}
+
+// PlagiarismPairSide es una de las dos entregas enfrentadas. En IDE se envían
+// los archivos; en el evaluador automático, el código completo.
+type PlagiarismPairSide struct {
+	SubmissionID    string                `json:"submission_id"`
+	StudentID       string                `json:"student_id"`
+	StudentName     string                `json:"student_name"`
+	StudentEmail    string                `json:"student_email"`
+	Verdict         string                `json:"verdict"`
+	Language        string                `json:"language"`
+	Complexity      string                `json:"complexity,omitempty"`
+	ExecutionTimeMS int                   `json:"execution_time_ms"`
+	MemoryUsedMB    int                   `json:"memory_used_mb"`
+	Code            string                `json:"code,omitempty"`
+	Files           []ProjectFile         `json:"files,omitempty"`
+	FilesAvailable  bool                  `json:"files_available"`
+	Metrics         PlagiarismPairMetrics `json:"metrics"`
+}
+
+// PlagiarismPairExercise es el contexto compartido por las dos entregas.
+type PlagiarismPairExercise struct {
+	ID                 string        `json:"id"`
+	Title              string        `json:"title"`
+	SubjectID          string        `json:"subject_id"`
+	SubjectName        string        `json:"subject_name"`
+	EnvironmentType    string        `json:"environment_type"`
+	ExpectedComplexity string        `json:"expected_complexity,omitempty"`
+	BaseFiles          []ProjectFile `json:"base_files,omitempty"`
+	BaseFilesAvailable bool          `json:"base_files_available"`
+}
+
+// PlagiarismPair es el documento del visor: contexto, las dos entregas, sus
+// tramos compartidos y las métricas forenses resumidas.
+type PlagiarismPair struct {
+	Exercise   PlagiarismPairExercise `json:"exercise"`
+	A          PlagiarismPairSide     `json:"a"`
+	B          PlagiarismPairSide     `json:"b"`
+	Similarity float64                `json:"similarity"`
+	RiskLevel  string                 `json:"risk_level"`
+	Ranges     []PlagiarismRange      `json:"ranges"`
+}
+
 // PlagiarismReport reporte consolidado de similitud estructural por ejercicio o curso.
 type PlagiarismReport struct {
 	SubjectID         string            `json:"subject_id"`

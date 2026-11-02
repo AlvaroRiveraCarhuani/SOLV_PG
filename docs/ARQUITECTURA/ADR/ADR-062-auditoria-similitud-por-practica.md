@@ -81,6 +81,40 @@ fuente usando estos rangos.
   práctica.
 - `/teacher/anti-plagio` redirige a `/teacher/por-calificar`. No queda un listado global.
 
+### 5. El par se abre con un contrato propio
+
+El visor necesita el código de las dos entregas, no solo el resumen del reporte. `GET
+/api/v1/teacher/plagiarism/pairs/{submission_a}/{submission_b}` devuelve las dos entregas, el contexto
+compartido de la práctica, los tramos del par y la telemetría de escritura resumida.
+
+- La consulta filtra por `tenant_id` y por `subjects.teacher_id`; el rol `admin` consulta sin filtro de
+docente. Si una entrega no pertenece a una materia del docente, la respuesta es `403` y no se distingue
+de una entrega inexistente.
+- Las dos entregas deben ser de la misma práctica: si no, `422`. El mismo identificador repetido es
+  `400`.
+- No se devuelven `test_cases`, rúbrica, comentarios ni eventos de teclado. Las métricas son totales:
+  tiempo activo, keystrokes, eventos de pegado y porcentaje pegado. Sin eventos, `events_available` es
+  `false` y la vista no inventa un porcentaje.
+- En IDE cada lado trae `files` con el snapshot parseado y el ejercicio trae `base_files`. En el
+  evaluador cada lado trae `code`. El visor no vuelve a bajar el proyecto base desde el editor.
+
+### 6. El visor enfrenta las dos entregas en tres columnas
+
+La pantalla conserva el reporte y los filtros, y agrega el espacio de revisión:
+
+| Columna | Evaluador automático | IDE persistente |
+| --- | --- | --- |
+| Izquierda | Pares y resumen de cada entrega: veredicto, complejidad, tiempo y memoria | Pares y árbol de archivos afectados; la base descartada queda plegada |
+| Centro | Código de la entrega A con los tramos resaltados | Los dos archivos enfrentados, con tramos resaltados por lado y scroll sincronizado |
+| Derecha | Código de la entrega B, métricas del juez y acciones de calificación | Cadencia de escritura de ambas entregas, nota de decisión docente y acciones de calificación |
+
+- El alternador de contraparte aparece cuando otra entrega del reporte comparte uno de los dos
+  identificadores: permite recorrer el cluster sin volver al listado.
+- `code-editor` recibe `highlightRanges` y `scrollRatio`. El resaltado es una decoración de línea; el
+  scroll se comparte como fracción 0..1 y se puede desacoplar.
+- Los veredictos conservan su semántica (`AC` verde, `WA` rojo, `TLE` ámbar, `RE` naranja,
+  `AST_BLOCKED` rojo intenso) y se acompañan de texto para el docente.
+
 ## Contrato de API
 
 Las rutas existentes se conservan:
@@ -89,6 +123,7 @@ Las rutas existentes se conservan:
 | --- | --- | --- |
 | `GET` | `/api/v1/teacher/plagiarism?subject_id=` | Reporte por materia (sin cambios de forma) |
 | `GET` | `/api/v1/teacher/courses/{id}/plagiarism?exercise_id=` | Reporte acotado a una práctica |
+| `GET` | `/api/v1/teacher/plagiarism/pairs/{submission_a}/{submission_b}` | Documento del visor para un par de la misma práctica |
 
 `PlagiarismReport` conserva `subject_id`, `exercise_id`, `exercise_title`, `analyzed_at`,
 `total_submissions`, `suspect_pairs_count` y `matches`. Cada `PlagiarismMatch` conserva los
@@ -105,7 +140,10 @@ identificadores de las dos entregas y estudiantes, `similarity`, `risk_level`, `
   ahora mide lo que el alumno escribió, no lo que la plantilla le dio.
 - La pantalla deja de ser un listado global. Los enlaces viejos a `/teacher/anti-plagio` no rompen:
   vuelven a la cola de revisión.
-- El visor de dos columnas con resaltado y el endpoint del par quedan para la entrega siguiente.
+- El visor de tres columnas enfrenta las dos entregas sin salir de la práctica y muestra la base
+  descartada como contexto, no como coincidencia.
+- El endpoint del par vuelve a comparar solo esas dos entregas; no reutiliza el reporte completo ni
+  recalcula todos los pares.
 - El costo del motor crece con la sustracción y con la búsqueda de tramos; el tope de candidatos y de
   tramos acota el peor caso de un par.
 
@@ -124,5 +162,8 @@ identificadores de las dos entregas y estudiantes, `similarity`, `risk_level`, `
 - `go build ./...`, `go vet ./...` y `go test ./internal/core/services ./internal/delivery/http ./internal/infrastructure/storage/postgres`.
 - Tests nuevos del motor: base 100% igual no reporta, copia parcial devuelve el tramo esperado,
   comentarios multilínea no desplazan líneas y un IDE de dos archivos devuelve rangos en `main.py`.
-- Specs del frontend de la auditoría y del modal de evaluaciones.
+- Tests del par: lados y métricas, prácticas distintas (`422`), entrega ajena (`403`), archivos IDE
+  separados y ambos lados en la respuesta HTTP.
+- Specs del frontend de la auditoría: carga del par, árbol de archivos, rangos por archivo, cadencia y
+  traducción de veredictos; más el modal de evaluaciones.
 - `CI=true npm run build` y `npm run lint:styles`.

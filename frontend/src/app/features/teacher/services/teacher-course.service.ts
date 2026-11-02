@@ -9,6 +9,7 @@ import {
   UpdateExerciseRequestDTO,
   BulkTestCasesRequestDTO,
   PlagiarismReport,
+  PlagiarismPair,
   CourseGradesMatrix,
   ReviewQueueGroup,
   ExerciseGradeCell,
@@ -249,6 +250,13 @@ export class TeacherCourseService {
     ).pipe(
       map(res => res.data)
     );
+  }
+
+  /** Documento del visor: las dos entregas, sus tramos y la telemetría resumida. */
+  getPlagiarismPair(submissionA: string, submissionB: string): Observable<PlagiarismPair> {
+    return this.http.get<ApiResponse<PlagiarismPair>>(
+      `/api/v1/teacher/plagiarism/pairs/${submissionA}/${submissionB}`
+    ).pipe(map(res => res.data));
   }
 
   getCourseAnalytics(courseId: string): Observable<CourseAnalyticsDTO> {
