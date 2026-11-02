@@ -36,15 +36,15 @@ export class StatusBarController implements vscode.Disposable {
     const teacher = state.role === 'teacher';
 
     this.course.text = teacher
-      ? `$(mortar-board) ${code} · Docente`
-      : `$(mortar-board) ${code}`;
+      ? `$(mortar-board) SOLV: ${code} · Docente`
+      : `$(mortar-board) SOLV: ${code}`;
     this.course.tooltip = teacher
       ? 'SOLV: panel de cátedra'
       : `SOLV: ${state.course.title || 'laboratorio'}`;
     this.course.show();
 
     if (teacher) {
-      this.action.text = '$(broadcast) Emitir avance';
+      this.action.text = '$(broadcast) Emitir Avance';
       this.action.tooltip = 'Emitir un avance de código a la clase';
       this.action.command = this.commands.broadcast;
       this.action.show();
@@ -56,7 +56,7 @@ export class StatusBarController implements vscode.Disposable {
         : 'Sin aula abierta';
       this.presence.show();
     } else {
-      this.action.text = '$(cloud-upload) Entregar práctica';
+      this.action.text = '$(cloud-upload) Entregar Práctica';
       this.action.tooltip = 'Revisar el código y entregar la práctica';
       this.action.command = this.commands.submit;
       this.action.show();

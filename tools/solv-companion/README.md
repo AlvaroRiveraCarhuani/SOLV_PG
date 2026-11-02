@@ -59,13 +59,15 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 - Antes de comparar o aplicar se ejecuta `workspace.saveAll(false)`, para que el disco y las pestañas en memoria coincidan.
 - `Comparar y aplicar selección` aplica solo las rutas marcadas. `Descartar avance` cierra el aviso sin tocar el proyecto. `Deshacer último avance` restaura la versión anterior desde el respaldo del backend.
 - Los comentarios se agrupan por archivo; al hacer click se abre el archivo con el cursor en la línea comentada.
-- La barra de estado muestra `$(mortar-board) SIS-420` y `$(cloud-upload) Entregar práctica`, además del estado de la conexión.
+- La barra de estado muestra `$(mortar-board) SOLV: SIS-420` y `$(cloud-upload) Entregar Práctica`, además del estado de la conexión.
+- El estado de la entrega sale de `GET /api/v1/student/submissions`: sin entrega queda `Borrador`, con entrega `Entregada` y con nota `Calificada`. Esa misma consulta completa materia y práctica cuando el entorno no las trae.
+- Al arrancar, la extensión fija `files.exclude` del workspace para `**/.git`, `**/.cache`, `**/.openvscode-server` y `**/.solv_backups`, sin pisar claves ya definidas.
 
 ## Experiencia del docente
 
 - El panel muestra la cátedra, la presencia (`presentes / matriculados`), las entregas y el estado de emisión.
 - `Emitir avance` pide el título en un `showInputBox`, el alcance (`Toda la clase` o `Seleccionados`) y, con selección, los alumnos en un QuickPick.
-- La barra de estado muestra `$(mortar-board) SIS-420 · Docente`, `$(broadcast) Emitir avance` y `$(organization) N alumnos`.
+- La barra de estado muestra `$(mortar-board) SOLV: SIS-420 · Docente`, `$(broadcast) Emitir Avance` y `$(organization) N alumnos`.
 
 ## Contratos usados
 
@@ -80,6 +82,7 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 | `POST` | `/api/v1/teacher/sessions/{id}/advances` | Emisión del docente |
 | `PATCH` | `/api/v1/teacher/sessions/{id}/freeze` y `/unfreeze` | Congelación del aula |
 | `POST` | `/api/v1/workspaces/{id}/submit` | Entrega del proyecto |
+| `GET` | `/api/v1/student/submissions` | Materia, práctica y estado de la entrega del alumno |
 | `GET` | `/api/v1/student/submissions/{id}/comments` | Comentarios de la entrega |
 | `POST` | `/api/v1/submissions/{id}/keystroke-events` | Lote de eventos de escritura |
 

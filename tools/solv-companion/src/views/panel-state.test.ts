@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AdvancePreview } from '../domain/advance';
-import { applySelection, buildChecklist, selectedPaths } from './panel-state';
+import { applySelection, buildChecklist, deriveDeliveryState, selectedPaths } from './panel-state';
 
 function preview(files: Record<string, string>, added: string[], overwritten: string[]): AdvancePreview {
   return {
@@ -61,4 +61,13 @@ test('el checklist sale ordenado por ruta', () => {
     {}
   );
   assert.deepEqual(checklist.map(file => file.path), ['a.ts', 'm.ts', 'z.ts']);
+});
+
+test('una entrega con nota queda calificada', () => {
+  assert.equal(deriveDeliveryState(85), 'graded');
+});
+
+test('una entrega sin nota queda entregada', () => {
+  assert.equal(deriveDeliveryState(null), 'submitted');
+  assert.equal(deriveDeliveryState(undefined), 'submitted');
 });

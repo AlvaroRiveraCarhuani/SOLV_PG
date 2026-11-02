@@ -6,7 +6,13 @@ import { AdvanceController, describeAdvanceError } from './advances/advance-cont
 import { CommentDecorator } from './comments/comment-decorator';
 import { CommentsController } from './comments/comments-controller';
 import { SolvSettings } from './config/solv-settings';
-import { CommentView, ConnectionState, PanelState } from './views/panel-state';
+import {
+  CommentView,
+  ConnectionState,
+  DeliveryState,
+  PanelState,
+  deriveDeliveryState
+} from './views/panel-state';
 import { AssignmentTab } from './views/assignment-tab';
 import { PanelMessage, SolvPanelView } from './views/solv-panel-view';
 import { StatusBarController } from './status/status-bar-controller';
@@ -34,9 +40,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     settings.role === 'teacher' || settings.role === 'admin'
   );
 
+  await configureWorkspaceExcludes();
+
   let connection: ConnectionState = 'connecting';
   let lastOkAt = Date.now();
   let notice: PanelState['message'];
+  let progress:
+    | {
+        delivery: DeliveryState;
+        score?: number;
+        code?: string;
+        courseTitle?: string;
+        title?: string;
+      }
+    | undefined;
 
   const panel = new SolvPanelView(buildState, handleMessage);
   const tab = new AssignmentTab(buildState, handleMessage);
@@ -91,17 +108,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   async function buildState(): Promise<PanelState> {
     const snapshot = advances.snapshot();
+    const assignmentTitle = settings.assignmentTitle || progress?.title || '';
     const state: PanelState = {
       role: settings.isTeacher ? 'teacher' : 'student',
       connection,
       course: {
-        code: settings.subjectCode,
-        title: settings.subjectTitle,
+        code: settings.subjectCode || progress?.code || '',
+        title: settings.subjectTitle || progress?.courseTitle || '',
         teacher: settings.teacherName,
-        delivery: 'draft'
+        delivery: progress?.delivery ?? 'draft',
+        score: progress?.score,
+        maxScore: progress?.score === undefined ? undefined : 100
       },
       assignment: {
-        title: settings.assignmentTitle,
+        title: assignmentTitle,
         summary: settings.assignmentSummary,
         criteria: settings.assignmentCriteria
       },
@@ -112,9 +132,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     if (snapshot.advance) {
       state.advance = {
         id: snapshot.advance.delivery.id,
-        title: settings.assignmentTitle
-          ? `Avance de ${settings.assignmentTitle}`
-          : 'Avance de clase',
+        title: assignmentTitle ? `Avance de ${assignmentTitle}` : 'Avance de clase',
         createdAt: snapshot.advance.delivery.created_at,
         files: snapshot.advance.files,
         applied: false,
@@ -440,6 +458,65 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     return resolved?.id ?? '';
   }
 
+  /**
+   * Toma materia, práctica y estado de la entrega de la API del alumno. Si la
+   * consulta falla, el panel conserva lo configurado por entorno.
+   */
+  async function loadSubmissionContext(): Promise<void> {
+    if (settings.isTeacher) {
+      return;
+    }
+    try {
+      const submissions = await client.studentSubmissions();
+      const current = settings.submissionId
+        ? submissions.find(item => item.id === settings.submissionId)
+        : undefined;
+      const latest = current ?? submissions[0];
+      if (!latest) {
+        return;
+      }
+      progress = {
+        delivery: deriveDeliveryState(latest.score),
+        score: latest.score ?? undefined,
+        code: latest.subject_code,
+        courseTitle: latest.subject_name,
+        title: latest.exercise_title
+      };
+    } catch {
+      // El aviso de conexión ya lo informa refreshAll; el panel no se vacía.
+    }
+  }
+
+  /**
+   * Deja fuera del explorador las carpetas que no son código del alumno. Solo
+   * agrega claves ausentes: una preferencia explícita del workspace se respeta.
+   */
+  async function configureWorkspaceExcludes(): Promise<void> {
+    if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+      return;
+    }
+    const configuration = vscode.workspace.getConfiguration('files');
+    const current =
+      configuration.inspect<Record<string, boolean>>('exclude')?.workspaceValue ?? {};
+    const merged: Record<string, boolean> = { ...current };
+    let changed = false;
+    for (const key of ['**/.git', '**/.cache', '**/.openvscode-server', '**/.solv_backups']) {
+      if (!(key in merged)) {
+        merged[key] = true;
+        changed = true;
+      }
+    }
+    if (!changed) {
+      return;
+    }
+    try {
+      await configuration.update('exclude', merged, vscode.ConfigurationTarget.Workspace);
+    } catch {
+      // Sin permiso de escritura sobre .vscode/settings.json el editor sigue
+      // funcionando; solo se ven las carpetas internas.
+    }
+  }
+
   async function revealDiagnostic(entry: { uri: vscode.Uri; diagnostic: vscode.Diagnostic }): Promise<void> {
     try {
       const document = await vscode.workspace.openTextDocument(entry.uri);
@@ -468,6 +545,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           ? { kind: 'warning', text: describeAdvanceError(error) }
           : undefined;
     }
+    await loadSubmissionContext();
     await comments.refresh(showErrors);
     await renderAll();
   }

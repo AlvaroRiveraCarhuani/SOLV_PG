@@ -59,6 +59,14 @@ export interface PanelState {
 }
 
 /**
+ * Estado de la entrega a partir de la nota. Una entrega registrada sin nota
+ * está entregada; con nota, calificada.
+ */
+export function deriveDeliveryState(score: number | null | undefined): DeliveryState {
+  return typeof score === 'number' ? 'graded' : 'submitted';
+}
+
+/**
  * Arma el checklist del avance comparando lo emitido con lo que el alumno tiene
  * en disco. Un archivo que no existe localmente es nuevo; uno que existe y
  * cambia es modificado; uno idéntico queda sin cambios y desmarcado.

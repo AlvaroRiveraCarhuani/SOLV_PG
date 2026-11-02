@@ -1,6 +1,7 @@
 import { SolvSettings } from '../config/solv-settings';
 import { SubmissionComment } from '../domain/comment';
 import { KeystrokeEvent } from '../domain/keystroke';
+import { StudentSubmission } from '../domain/submission';
 
 export class SolvApiError extends Error {
   constructor(
@@ -81,6 +82,14 @@ export class SolvClient {
       method: 'GET'
     });
     return Array.isArray(comments) ? comments : [];
+  }
+
+  /** Entregas del alumno con materia, práctica, veredicto y nota. */
+  async studentSubmissions(): Promise<StudentSubmission[]> {
+    const submissions = await this.request<StudentSubmission[]>('/api/v1/student/submissions', {
+      method: 'GET'
+    });
+    return Array.isArray(submissions) ? submissions : [];
   }
 
   /**

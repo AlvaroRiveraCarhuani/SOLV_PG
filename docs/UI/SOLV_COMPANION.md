@@ -27,7 +27,7 @@ Los comandos de entrega y de emisión se declaran con `when` sobre esas claves, 
 - **Panel lateral:** cabecera de materia y docente, estado de la entrega, consigna con criterios, avances, comentarios y aula del docente.
 - **Checklist de avances:** `Nuevo` (verde, marcado por defecto), `Modificado` (ámbar, marcado, con `Ver diferencias`) y `Sin cambios` (neutro, desmarcado).
 - **Pestaña completa:** `SOLV: Abrir consigna en pestaña` crea un `WebviewPanel` en la columna contigua, para leer consignas largas o trabajar en pantalla dividida.
-- **Barra de estado:** `$(mortar-board) SIS-420` y `$(cloud-upload) Entregar práctica` para el alumno; `$(mortar-board) SIS-420 · Docente`, `$(broadcast) Emitir avance` y `$(organization) N alumnos` para el docente.
+- **Barra de estado:** `$(mortar-board) SOLV: SIS-420` y `$(cloud-upload) Entregar Práctica` para el alumno; `$(mortar-board) SOLV: SIS-420 · Docente`, `$(broadcast) Emitir Avance` y `$(organization) N alumnos` para el docente.
 
 El HTML y el CSS son nativos y usan solo variables `--vscode-*`: se adaptan a tema claro, oscuro y alto contraste sin librerías externas. Los iconos de la webview son SVG en línea con `currentColor`; la barra de estado usa codicons nativos de VS Code. No hay emojis en la interfaz.
 
@@ -45,6 +45,12 @@ await vscode.commands.executeCommand('vscode.diff', localUri, virtualUri, `${rel
 ```
 
 El contenido llega desde `GET /api/v1/class-advances/{id}/files`, en el mapa `files`. No se escriben archivos temporales en el volumen del alumno. Antes de abrir el diff o aplicar se ejecuta `workspace.saveAll(false)`.
+
+## Contexto de la materia y estado de la entrega
+
+El panel toma materia, práctica y estado de la entrega de `GET /api/v1/student/submissions`. Una entrega con nota se muestra como `Calificada N/100`; una entrega registrada sin nota, como `Entregada`; sin entregas, como `Borrador`. Si la consulta falla, el panel conserva lo que venga por entorno o configuración.
+
+Al arrancar, la extensión escribe `files.exclude` en `.vscode/settings.json` para `**/.git`, `**/.cache`, `**/.openvscode-server` y `**/.solv_backups`. Solo agrega claves ausentes: una preferencia explícita del workspace se respeta.
 
 ## Aplicación selectiva
 
