@@ -9,6 +9,8 @@
       [showDiffView]="showDiffView()"
       [diffAvailable]="canShowDiff()"
       [isRunningEphemeral]="isRunningEphemeral()"
+      [isStartingLiveApp]="isStartingLiveApp()"
+      (openLiveApp)="openLiveApplication()"
       (openKeystrokeReplay)="openKeystrokeReplay()"
       (toggleReplay)="toggleReplay()"
       (runEphemeral)="runEphemeralSandbox()"
@@ -16,6 +18,33 @@
       (openShortcutsGuide)="openShortcutsGuide()"
       (toggleDiff)="toggleDiffView()"
     />
+
+    @if (liveAppError(); as message) {
+      <div class="live-app-alert" role="alert">
+        <svg lucideAlertCircle class="live-app-alert-icon"></svg>
+        <span>{{ message }}</span>
+        <button type="button" class="live-app-dismiss" (click)="liveAppError.set(null)">Entendido</button>
+      </div>
+    }
+
+    @if (liveApp(); as app) {
+      <div class="live-app-banner">
+        <span class="live-app-dot" aria-hidden="true"></span>
+        <span class="live-app-text">
+          Aplicación viva disponible.
+          @if (app.expires_at) {
+            Se apaga sola a las
+            <time [attr.datetime]="app.expires_at">{{ app.expires_at | dateText: 'time' }}</time>
+            si no tiene actividad.
+          }
+        </span>
+        <a class="live-app-link" [href]="app.url" target="_blank" rel="noopener noreferrer">
+          <svg lucideExternalLink class="live-app-link-icon"></svg>
+          <span>Abrir de nuevo</span>
+        </a>
+      </div>
+    }
+
     <div
       class="grader-body"
       [class.grader-body-project]="isProject()"

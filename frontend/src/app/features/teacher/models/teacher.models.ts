@@ -275,6 +275,11 @@ export interface EphemeralRunRequestDTO {
   language: string;
 }
 
+export interface ReviewEnvironmentAccess {
+  url: string;
+  expires_at: string;
+}
+
 export interface EphemeralRunResult {
   submission_id: string;
   exercise_id: string;
@@ -402,6 +407,8 @@ export interface UpdateExerciseRequestDTO {
 export interface ExercisePayloadDTO extends CreateExerciseRequestDTO {
   environment_type?: string;
   db_init_script?: string;
+  app_run_command?: string;
+  app_port?: number;
   allow_resubmit?: boolean;
   auto_checkpoint?: boolean;
 }
@@ -722,6 +729,8 @@ export interface ExerciseIDEConfigDTO {
   allow_resubmit?: boolean;
   auto_checkpoint?: boolean;
   db_init_script?: string;
+  app_run_command?: string;
+  app_port?: number;
 }
 
 export interface ExerciseConfigDTO {

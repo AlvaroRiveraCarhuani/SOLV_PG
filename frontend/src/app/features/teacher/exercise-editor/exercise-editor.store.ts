@@ -53,6 +53,8 @@ export interface ExerciseMetadata {
   template_id: string | null;
   template: ExerciseTemplateSummary | null;
   db_init_script: string;
+  app_run_command: string;
+  app_port: number;
   allow_resubmit: boolean;
   auto_checkpoint: boolean;
   purpose: 'class' | 'exam';
@@ -109,6 +111,8 @@ export class ExerciseEditorStore {
     template_id: null,
     template: null,
     db_init_script: '',
+    app_run_command: '',
+    app_port: 0,
     allow_resubmit: true,
     auto_checkpoint: true,
     purpose: 'class',
@@ -861,6 +865,8 @@ export class ExerciseEditorStore {
             template_id: ex.template_id || null,
             template: ex.template || null,
             db_init_script: ex.config?.ide?.db_init_script || ex.config?.database?.init_script || '',
+            app_run_command: ex.config?.ide?.app_run_command || '',
+            app_port: ex.config?.ide?.app_port || 0,
             allow_resubmit: ex.config?.ide?.allow_resubmit ?? true,
             auto_checkpoint: ex.config?.ide?.auto_checkpoint ?? true,
             purpose: (ex.purpose as 'class' | 'exam') || 'class',
@@ -943,6 +949,8 @@ export class ExerciseEditorStore {
 
     if (isIDE) {
       payload.db_init_script = meta.db_init_script || undefined;
+      payload.app_run_command = meta.app_run_command.trim();
+      payload.app_port = meta.app_port || 0;
       payload.allow_resubmit = meta.allow_resubmit;
       payload.auto_checkpoint = meta.auto_checkpoint;
     } else {
@@ -1101,6 +1109,8 @@ export class ExerciseEditorStore {
       template_id: null,
       template: null,
       db_init_script: '',
+      app_run_command: '',
+      app_port: 0,
       allow_resubmit: true,
       auto_checkpoint: true,
       purpose: 'class',

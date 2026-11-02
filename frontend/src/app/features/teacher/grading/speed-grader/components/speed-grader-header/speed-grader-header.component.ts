@@ -14,7 +14,8 @@ import {
   LucideKeyboard,
   LucideFilm,
   LucideSlidersHorizontal,
-  LucideLoader2
+  LucideLoader2,
+  LucideExternalLink
 } from '@lucide/angular';
 import { ReviewMode, TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 
@@ -36,7 +37,8 @@ import { ReviewMode, TeacherSubmissionReviewDTO } from '../../../../models/teach
     LucideKeyboard,
     LucideFilm,
     LucideSlidersHorizontal,
-    LucideLoader2
+    LucideLoader2,
+    LucideExternalLink
   ],
   templateUrl: './speed-grader-header.component.html',
   styleUrl: './speed-grader-header.component.scss'
@@ -50,6 +52,7 @@ export class SpeedGraderHeaderComponent {
   /** Hay una base real contra la que comparar (boilerplate o archivo base IDE). */
   readonly diffAvailable = input<boolean>(true);
   readonly isRunningEphemeral = input<boolean>(false);
+  readonly isStartingLiveApp = input<boolean>(false);
 
   showToolsMenu = signal<boolean>(false);
 
@@ -58,6 +61,7 @@ export class SpeedGraderHeaderComponent {
   readonly toggleReplay = output<void>();
   readonly toggleBenchmark = output<void>();
   readonly runEphemeral = output<void>();
+  readonly openLiveApp = output<void>();
   readonly openOverrideModal = output<void>();
   readonly openShortcutsGuide = output<void>();
   readonly toggleDiff = output<void>();

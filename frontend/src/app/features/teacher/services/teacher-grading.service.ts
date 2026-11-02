@@ -9,7 +9,8 @@ import {
   EphemeralRunRequestDTO,
   EphemeralRunResult,
   SubmissionTimeline,
-  SubmissionKeystrokeReport
+  SubmissionKeystrokeReport,
+  ReviewEnvironmentAccess
 } from '../models/teacher.models';
 
 interface ApiResponse<T> {
@@ -29,6 +30,7 @@ export class TeacherGradingService {
   readonly isLoading = signal<boolean>(false);
   readonly isRunningEphemeral = signal<boolean>(false);
   readonly ephemeralResult = signal<EphemeralRunResult | null>(null);
+  readonly isStartingReviewEnvironment = signal<boolean>(false);
 
   getSubmissionReview(submissionId: string): Observable<TeacherSubmissionReviewDTO> {
     this.isLoading.set(true);
@@ -128,5 +130,22 @@ export class TeacherGradingService {
     );
   }
 
-  
+
+  /**
+   * Abre (o reabre) el preview de la entrega IDE. El backend devuelve una URL
+   * pública y el instante en que el QoS la apaga por inactividad.
+   */
+  startReviewEnvironment(submissionId: string): Observable<ReviewEnvironmentAccess> {
+    this.isStartingReviewEnvironment.set(true);
+    return this.http.post<ApiResponse<ReviewEnvironmentAccess>>(
+      `/api/v1/teacher/submissions/${submissionId}/test-environment`,
+      {}
+    ).pipe(
+      map(res => res.data),
+      tap({
+        next: () => this.isStartingReviewEnvironment.set(false),
+        error: () => this.isStartingReviewEnvironment.set(false)
+      })
+    );
+  }
 }

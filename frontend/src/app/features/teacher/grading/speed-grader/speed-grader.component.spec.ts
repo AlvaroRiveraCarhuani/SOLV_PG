@@ -90,6 +90,7 @@ describe('SpeedGraderComponent', () => {
       comments: commentSignal,
       isLoading: () => false,
       isRunningEphemeral: () => false,
+      isStartingReviewEnvironment: () => false,
       ephemeralResult: () => null,
       benchmarkReport: () => null,
       isRunningBenchmark: () => false,
@@ -106,6 +107,10 @@ describe('SpeedGraderComponent', () => {
       })),
       addComment: vi.fn().mockReturnValue(of({})),
       runEphemeral: vi.fn(),
+      startReviewEnvironment: vi.fn().mockReturnValue(of({
+        url: 'http://localhost:4100',
+        expires_at: new Date(Date.now() + 15 * 60 * 1000).toISOString()
+      })),
       overrideSubmission: vi.fn().mockReturnValue(of(void 0))
     };
 
@@ -302,6 +307,18 @@ describe('SpeedGraderComponent', () => {
     expect(component.showKeystrokeReplay()).toBe(true);
     component.closeKeystrokeReplay();
     expect(component.showKeystrokeReplay()).toBe(false);
+  });
+
+  it('requests the live app in a new tab and keeps the expiry for the banner', () => {
+    const gradingService = TestBed.inject(TeacherGradingService);
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+
+    component.openLiveApplication();
+
+    expect(gradingService.startReviewEnvironment).toHaveBeenCalledWith('rev-1');
+    expect(component.liveApp()?.url).toBe('http://localhost:4100');
+    expect(openSpy).toHaveBeenCalled();
+    openSpy.mockRestore();
   });
 });
 

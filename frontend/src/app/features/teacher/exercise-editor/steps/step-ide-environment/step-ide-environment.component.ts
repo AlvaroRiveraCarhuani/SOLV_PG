@@ -7,6 +7,7 @@ import { RUBRIC_PRESETS } from '@shared/rubric-presets';
 import { IdeTemplateSelectorComponent } from './components/ide-template-selector/ide-template-selector.component';
 import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db-init-script.component';
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
+import { IdePreviewConfigComponent } from './components/ide-preview-config/ide-preview-config.component';
 import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
 
 export interface ApprovedTemplate {
@@ -37,6 +38,7 @@ export interface ApprovedTemplate {
     IdeTemplateSelectorComponent,
     IdeDbInitScriptComponent,
     IdeDeliveryConfigComponent,
+    IdePreviewConfigComponent,
     IdeRubricEditorComponent,
     TemplateRequestModalComponent
   ],
@@ -61,6 +63,13 @@ export interface ApprovedTemplate {
         [dbInitScript]="store.metadata().db_init_script || ''"
         [hasDatabaseService]="hasDatabaseService()"
         (initScriptChange)="onInitScriptChange($event)"
+      />
+
+      <ide-preview-config
+        [appRunCommand]="store.metadata().app_run_command || ''"
+        [appPort]="store.metadata().app_port || 0"
+        (appRunCommandChange)="onAppRunCommandChange($event)"
+        (appPortChange)="onAppPortChange($event)"
       />
 
       <ide-delivery-config
@@ -215,6 +224,14 @@ export class StepIdeEnvironmentComponent implements OnInit {
 
   onInitScriptChange(db_init_script: string): void {
     this.store.updateMetadata({ db_init_script });
+  }
+
+  onAppRunCommandChange(app_run_command: string): void {
+    this.store.updateMetadata({ app_run_command });
+  }
+
+  onAppPortChange(app_port: number): void {
+    this.store.updateMetadata({ app_port });
   }
 
   onDueDateChange(due_date: string): void {

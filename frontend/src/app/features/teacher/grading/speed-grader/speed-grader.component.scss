@@ -5,6 +5,72 @@
   gap: var(--space-4);
 }
 
+.live-app-banner,
+.live-app-alert {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--status-running-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--status-running-bg);
+  color: var(--status-running-color);
+  font-size: var(--text-xs);
+}
+
+.live-app-alert {
+  border-color: var(--status-failed-border);
+  background-color: var(--status-failed-bg);
+  color: var(--status-failed-color);
+}
+
+.live-app-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background-color: currentcolor;
+}
+
+.live-app-text {
+  min-width: 0;
+  color: var(--text-secondary);
+}
+
+.live-app-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto;
+  color: var(--tenant-primary);
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.live-app-link-icon,
+.live-app-alert-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.live-app-dismiss {
+  margin-left: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: currentcolor;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .grader-body {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

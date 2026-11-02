@@ -5,14 +5,16 @@ import { HttpClient } from '@angular/common/http';
 import { RubricDTO } from '../../exercise-editor/exercise-editor.store';
 import { TeacherGradingService } from '../../services/teacher-grading.service';
 import { HotkeysService } from '@core/services/hotkeys.service';
-import { LucidePanelLeftOpen } from '@lucide/angular';
+import { LucideAlertCircle, LucideExternalLink, LucidePanelLeftOpen } from '@lucide/angular';
 import {
   ProjectFile,
+  ReviewEnvironmentAccess,
   ReviewMode,
   reviewModeFromEnvironment,
   SubmissionComment,
   SubmissionTimeline
 } from '../../models/teacher.models';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { commentsForFile, commentsOutsideFiles } from './review-line-map';
 import { ReviewFileTreeComponent } from './components/review-file-tree/review-file-tree.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -28,6 +30,8 @@ import { VERDICT_OVERRIDE_OPTIONS } from '@core/models/verdict.model';
   standalone: true,
   imports: [
     CommonModule,
+    LucideAlertCircle,
+    LucideExternalLink,
     LucidePanelLeftOpen,
     SkeletonLoaderComponent,
     KeystrokeReplayModalComponent,
@@ -35,7 +39,8 @@ import { VERDICT_OVERRIDE_OPTIONS } from '@core/models/verdict.model';
     SpeedGraderHeaderComponent,
     SpeedGraderCodeViewerComponent,
     SpeedGraderEvalPanelComponent,
-    SpeedGraderOverrideModalComponent
+    SpeedGraderOverrideModalComponent,
+    DateTextPipe
   ],
   templateUrl: './speed-grader.component.html',
   styleUrl: './speed-grader.component.scss'
@@ -104,6 +109,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   isLoading = this.gradingService.isLoading;
   isRunningEphemeral = this.gradingService.isRunningEphemeral;
   ephemeralResult = this.gradingService.ephemeralResult;
+  isStartingLiveApp = this.gradingService.isStartingReviewEnvironment;
+  liveApp = signal<ReviewEnvironmentAccess | null>(null);
+  liveAppError = signal<string | null>(null);
 
   // Rubrica
   rubric = signal<RubricDTO | null>(null);
@@ -201,6 +209,54 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   openKeystrokeReplay(): void {
     this.showKeystrokeReplay.set(true);
+  }
+
+  /**
+   * Abre el preview en una pestaña nueva. La pestaña se reserva en el clic para
+   * que el navegador no bloquee la apertura cuando responde la API; si la API
+   * falla, la pestaña vacía se cierra.
+   */
+  openLiveApplication(): void {
+    const active = this.liveApp();
+    if (active) {
+      this.openTab(active.url);
+      return;
+    }
+    if (this.isStartingLiveApp()) return;
+
+    this.liveAppError.set(null);
+    const tab = typeof window !== 'undefined' ? window.open('about:blank', '_blank') : null;
+    if (tab) {
+      try {
+        tab.opener = null;
+      } catch {
+        // La pestaña ya no es accesible: el enlace del aviso sigue disponible.
+      }
+    }
+
+    this.gradingService.startReviewEnvironment(this.submissionId()).subscribe({
+      next: (access) => {
+        this.liveApp.set(access);
+        if (tab && !tab.closed) {
+          tab.location.replace(access.url);
+        } else {
+          this.openTab(access.url);
+        }
+      },
+      error: (err) => {
+        if (tab && !tab.closed) {
+          tab.close();
+        }
+        this.liveAppError.set(
+          err?.error?.message || 'No se pudo abrir el entorno de prueba. Revisá la configuración del laboratorio.'
+        );
+      }
+    });
+  }
+
+  private openTab(url: string): void {
+    if (typeof window === 'undefined' || !url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
   }
 
   closeKeystrokeReplay(): void {
@@ -374,6 +430,8 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   }
 
   loadSubmission(id: string): void {
+    this.liveApp.set(null);
+    this.liveAppError.set(null);
     this.selectedLineNumber.set(null);
     this.selectedLineEndNumber.set(null);
     this.newCommentText.set('');

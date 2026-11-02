@@ -1,0 +1,47 @@
+<section class="card-section">
+  <div class="title-with-icon">
+    <svg lucideMonitorPlay class="header-icon"></svg>
+    <h3 class="card-title">Ejecución de la aplicación</h3>
+  </div>
+
+  <p class="section-desc">
+    SpeedGrader abre la aplicación en una pestaña nueva para que revises el comportamiento real de la entrega.
+    El contenedor se apaga solo cuando deja de tener actividad.
+  </p>
+
+  <div class="preview-grid">
+    <div class="form-group">
+      <label for="ide-app-run-command" class="form-label">Comando de arranque</label>
+      <input
+        id="ide-app-run-command"
+        type="text"
+        class="form-input font-mono"
+        placeholder="npm run dev"
+        [ngModel]="appRunCommand()"
+        (ngModelChange)="onCommandChange($event)"
+      />
+      <span class="field-hint">
+        Se ejecuta dentro de una copia inmutable del snapshot, nunca en el workspace del alumno.
+      </span>
+    </div>
+
+    <div class="form-group port-group">
+      <label for="ide-app-port" class="form-label">Puerto de la aplicación</label>
+      <input
+        id="ide-app-port"
+        type="number"
+        class="form-input font-mono"
+        min="1"
+        max="65535"
+        placeholder="3000"
+        [ngModel]="appPort() || null"
+        (ngModelChange)="onPortChange($event)"
+      />
+      <span class="field-hint">Puerto TCP donde escucha la app dentro del contenedor. Si se omite, se usa 3000.</span>
+    </div>
+  </div>
+
+  <p class="section-desc">
+    Sin comando de arranque no se puede probar la aplicación: el sistema no lo adivina a partir del proyecto.
+  </p>
+</section>

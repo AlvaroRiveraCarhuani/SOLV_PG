@@ -62,6 +62,25 @@
       </button>
     }
 
+    <!-- Probar la app del proyecto: se abre en pestaña nueva, nunca en iframe. -->
+    @if (mode() === 'project') {
+      <button
+        type="button"
+        class="btn-primary"
+        [disabled]="isStartingLiveApp()"
+        (click)="openLiveApp.emit()"
+        title="Ejecutar la entrega en un contenedor efímero y abrir la app en una pestaña nueva"
+      >
+        @if (isStartingLiveApp()) {
+          <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+          <span>Iniciando app...</span>
+        } @else {
+          <svg lucideExternalLink class="btn-icon-sm"></svg>
+          <span>Probar aplicación viva</span>
+        }
+      </button>
+    }
+
     <!-- Menú Desplegable: Herramientas de Análisis -->
     <div class="tools-dropdown">
       <button
