@@ -268,8 +268,7 @@ export class TeacherEvaluationsComponent implements OnInit {
                 });
               }
               const row = studentMap.get(sub.student_id)!;
-              const numericScore = sub.score ?? (sub.verdict === 'AC' ? 100 : 40);
-              row.scores[sub.exercise_id] = numericScore;
+              row.scores[sub.exercise_id] = sub.score ?? null;
             }
 
             const rows: EvaluationRow[] = Array.from(studentMap.values()).map(r => {
