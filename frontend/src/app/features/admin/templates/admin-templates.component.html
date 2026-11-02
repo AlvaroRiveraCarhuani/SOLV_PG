@@ -130,21 +130,21 @@
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'IDE_PERSISTENTE'"
         (click)="selectedPurpose.set('IDE_PERSISTENTE')">
-        Laboratorio IDE
+        Entorno de Desarrollo
       </button>
       <button
         type="button"
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'JUEZ_EFIMERO'"
         (click)="selectedPurpose.set('JUEZ_EFIMERO')">
-        Evaluador Juez
+        Evaluador Automático
       </button>
       <button
         type="button"
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'AMBOS'"
         (click)="selectedPurpose.set('AMBOS')">
-        Dual (Lab + Juez)
+        Dual (Entorno + Evaluador)
       </button>
     </div>
 
@@ -284,7 +284,7 @@
 
               @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                 <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
                   <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
                 </div>
               }
@@ -521,7 +521,7 @@
 
               @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                 <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
                   <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
                 </div>
               }
@@ -889,7 +889,7 @@
 
               @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                 <div class="judge-entrypoint-box">
-                  <span class="judge-entrypoint-label">Comando Juez:</span>
+                  <span class="judge-entrypoint-label">Comando del evaluador:</span>
                   <code class="judge-entrypoint-tag" machineData>{{ item.entrypoint }}</code>
                 </div>
               }

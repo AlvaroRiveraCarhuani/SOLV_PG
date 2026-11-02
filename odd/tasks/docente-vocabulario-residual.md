@@ -4,7 +4,7 @@ Objetivo: terminar el barrido de términos viejos («Juez Virtual», «Boilerpla
 
 Branch: `chore/teacher-vocabulary-sweep` (desde `main`) | Delivery strategy: inline | Test runner: `npm run test:ci`
 
-Estado: **planificada**. Bloqueada por D1 (alcance admin).
+Estado: **implementada (2026-11-02)**. Barrido terminado en el copy visible del docente y del admin, sin tocar contratos, selectores ni enums. `npm run lint:styles` y `CI=true npm run build` en verde.
 
 Fuente: `proyecto-grado/Observaciones/Corregir.md` §1, §2 y §5; `proyecto-grado/Observaciones/Reestructuracion Entorno Docente y Vocabulario.md` §2. Decisión del usuario: «Limpieza de vocabulario residual: Barrer los textos viejos registrados en Corregir.md».
 
@@ -55,9 +55,9 @@ Fuera del barrido: comentarios internos (`<!-- Entorno Juez Virtual -->`), ident
 
 ## Tasks
 
-- [ ] **T1 — S1**: `ai-exercise-generator-modal.component.html` (3 reemplazos).
-- [ ] **T2 — S2**: `template-studio.component.html`, `admin-templates.component.html`, `model-library.component.html`, `component-form-modal.component.html`, `template-edit-modal.component.html`, `template-review-modal.component.html`, `admin-config-ia.component.html`.
-- [ ] **T3 — S3**: barrido de control, specs afectados y build.
+- [x] **T1 — S1**: `ai-exercise-generator-modal.component.html` (3 reemplazos) y la aserción del spec que citaba el copy viejo.
+- [x] **T2 — S2**: `template-studio.component.html`, `admin-templates.component.html` (incluye los chips de propósito), `model-library.component.html`, `component-form-modal.component.html`, `template-edit-modal.component.html`, `template-review-modal.component.html`, `admin-config-ia.component.html`.
+- [x] **T3 — S3**: barrido de control sin nodos de texto viejos; spec del generador en verde; build de producción en verde.
 
 ## Dudas abiertas
 
@@ -79,3 +79,5 @@ cd frontend && npm run lint:styles && CI=true npm run build
 - **L1 (verbatim):** «Limpieza de vocabulario residual: Barrer los textos viejos registrados en Corregir.md.»
 - **Hallazgo verificado:** los badges y el visor de la ficha de práctica ya están corregidos; el inventario de `Corregir.md` está desactualizado en ese punto.
 - **Hallazgo verificado:** el copy viejo que queda está concentrado en el generador con IA y en el Studio/catálogo del admin.
+- **Cierre (2026-11-02):** D1 y D2 se resolvieron según la recomendación: el barrido incluyó el admin y reemplazó «Juez Efímero», «Laboratorio IDE» y «Evaluador Juez» en el copy, sin tocar `IDE_PERSISTENTE` / `JUEZ_EFIMERO` ni `boilerplate`. D3 se mantuvo: nada de renombres internos.
+- **Pendiente fuera de inventario:** quedan etiquetas visibles con «Juez» suelto (`Generar y Verificar con el Juez`, `Juez:` en el catálogo, `Entornos Juez`, «validados por el Juez» en la configuración de IA). No estaban en la tabla y no se tocaron; si se quiere un vocabulario único, van en una pasada aparte.

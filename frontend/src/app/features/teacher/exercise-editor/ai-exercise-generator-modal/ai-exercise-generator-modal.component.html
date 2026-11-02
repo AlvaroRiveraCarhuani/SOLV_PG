@@ -1,6 +1,6 @@
 <modal-shell
   title="Generar Borrador con Copiloto IA"
-  subtitle="Crea enunciado, solución de referencia y casos de prueba sellados por el Juez Virtual"
+  subtitle="Crea enunciado, solución de referencia y casos de prueba sellados por el Evaluador Automático"
   maxWidth="640px"
   [disableClose]="isGenerating()"
   (close)="closed.emit()"
@@ -82,12 +82,12 @@
         @if (res.runner_verified_all) {
           <div class="seal-banner seal-ok" role="status">
             <svg lucideShieldCheck class="seal-icon"></svg>
-            <span>Salidas esperadas selladas por el ejecutor del Juez Virtual (100% casos verificados)</span>
+            <span>Salidas esperadas selladas por el ejecutor del Evaluador Automático (100% casos verificados)</span>
           </div>
         } @else {
           <div class="seal-banner seal-warning" role="status">
             <svg lucideAlertTriangle class="seal-icon"></svg>
-            <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Juez Virtual. Revisa las salidas esperadas antes de aplicar.' }}</span>
+            <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Evaluador Automático. Revisa las salidas esperadas antes de aplicar.' }}</span>
           </div>
         }
       </div>

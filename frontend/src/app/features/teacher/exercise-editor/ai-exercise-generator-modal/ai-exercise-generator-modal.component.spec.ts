@@ -151,7 +151,7 @@ describe('AiExerciseGeneratorModalComponent', () => {
     const latency = fixture.nativeElement.querySelector('.chip-latency');
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
-    expect(seal?.textContent).toContain('selladas por el ejecutor del Juez Virtual');
+    expect(seal?.textContent).toContain('selladas por el ejecutor del Evaluador Automático');
   });
 
   it('debe cancelar la generación en curso al llamar cancelGeneration()', () => {

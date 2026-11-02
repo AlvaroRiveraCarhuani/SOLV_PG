@@ -18,11 +18,11 @@
       <span class="summary-label">Propósito:</span>
       <span class="summary-value">
         @if (isDual()) {
-          Entorno Dual (Laboratorio IDE + Evaluador Juez)
+          Entorno Dual (Entorno de Desarrollo + Evaluador Automático)
         } @else if (isJudge()) {
-          Evaluador Juez
+          Evaluador Automático
         } @else {
-          Laboratorio IDE
+          Entorno de Desarrollo
         }
       </span>
     </div>
@@ -58,7 +58,7 @@
       <div class="validation-alert alert-info">
         <svg lucideInfo class="alert-icon"></svg>
         <span>
-          Esta plantilla es de <strong>modalidad dual</strong>. La cuota asignada aquí aplica al <strong>Laboratorio IDE</strong> persistente. Para evaluaciones automáticas de alumnos, el <strong>Juez Efímero</strong> utilizará automáticamente un sandbox de <span machineData>{{ derivedJudgeRamMB() }} MB</span>.
+          Esta plantilla es de <strong>modalidad dual</strong>. La cuota asignada aquí aplica al <strong>Entorno de Desarrollo</strong> persistente. Para evaluaciones automáticas de alumnos, el <strong>Evaluador Automático</strong> utilizará automáticamente un sandbox de <span machineData>{{ derivedJudgeRamMB() }} MB</span>.
         </span>
       </div>
     }
