@@ -4,6 +4,7 @@
   "description": "Comentarios del docente y cadencia de escritura para las prácticas de SOLV.",
   "version": "0.1.0",
   "publisher": "solv",
+  "icon": "resources/icon.png",
   "private": true,
   "license": "UNLICENSED",
   "engines": {

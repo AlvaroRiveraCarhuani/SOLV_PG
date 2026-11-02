@@ -23,8 +23,10 @@ Fuentes:
    - **En exámenes (congelados/contrarreloj):** no se emiten avances ni se comentan líneas; el alumno programa contra el tiempo y el entorno pasa a solo lectura al sonar la campana (ADR-059).
    - **En clase guiada (laboratorio en vivo):** el docente programa en su propio entorno y emite avances con código base o soluciones intermedias. El alumno recibe el aviso en tiempo real y decide si acepta el código, qué archivos incorporar y cómo comparar sus cambios.
    - **En revisión asíncrona (post-entrega):** el alumno abre su entrega calificada para revisar observaciones pedagógicas dejadas por el docente en el SpeedGrader.
-3. **Regla Estricta de Aislamiento de Roles:**
-   Esta ficha implementa exclusivamente la experiencia del **ESTUDIANTE** (recepción de avances, diff, checklist, rollback, comentarios y entrega). El docente emite avances desde la plataforma web (`/teacher/aula`). El agente implementador **no debe mezclar ni implementar controles de emisión docente adentro de la extensión** en esta fase para evitar contaminar la sesión del alumno.
+3. **Arquitectura de Roles Aislados (`setContext`):**
+   Un solo paquete `.vsix` sirve tanto al estudiante como al docente sin duplicar código. El entorno desacopla sus capacidades mediante `context keys` nativas de VS Code (`solv:isStudent` y `solv:isTeacher`), inicializadas al arrancar leyendo la variable de entorno `SOLV_USER_ROLE`.
+   - `SOLV_USER_ROLE=student` activa `solv:isStudent`: muestra consigna, checklist de avances, diff nativo, observaciones y entrega. Oculta cualquier control de cátedra.
+   - `SOLV_USER_ROLE=teacher` activa `solv:isTeacher`: muestra presencia de alumnos en vivo, botón de emisión directa de avance y acceso a SpeedGrader. Oculta entrega y diff de alumno.
 
 ---
 
@@ -64,6 +66,22 @@ La interfaz se construye con **HTML + CSS Nativo** utilizando las variables CSS 
 ### C. Modo Pestaña Completa (Editor Tab / Split View)
 - La extensión permite abrir la consigna y el estado del laboratorio como una pestaña completa en el editor (`vscode.window.createWebviewPanel` con comando `SOLV: Abrir Consigna en Pestaña`).
 - **Ergonomía de pantalla dividida:** El estudiante puede trabajar con la consigna a la izquierda y su código a la derecha (`Split Editor`), o maximizarla para leer enunciados largos, diagramas y tablas sin estrecharse en la barra lateral.
+
+### D. Experiencia del Docente (cuando `solv:isTeacher` está activo)
+1. **Barra Lateral de Actividades (Activity Bar):**
+   - **Cabecera de Cátedra:** Materia, grupo y estado de la sesión de aula abierta.
+   - **Monitor de Presencia en Vivo:** Indicador de alumnos conectados (`X presentes / Y matriculados`) y entregas recibidas.
+   - **Módulo de Emisión Directa:**
+     - Botón principal: `[📢 Emitir Avance a la Clase]`.
+     - Al pulsar, abre un diálogo nativo (`vscode.window.showInputBox`) para ingresar el título del avance (ej. *«Paso 2: Rutas del servicio»*), selecciona el alcance (`Toda la clase` o `Seleccionados`) y envía el snapshot a `POST /api/v1/class-advances`.
+     - Notificación discreta de confirmación: *«Avance emitido a 14 alumnos»*.
+   - **Accesos Rápidos:**
+     - `[📊 Abrir SpeedGrader en Web]`: abre la interfaz de evaluación en el navegador.
+     - `[❄️ Congelar Clase]`: pausa temporal de emisiones si la clase pasa a modo debate o explicación.
+2. **Barra Inferior de Estado (Status Bar):**
+   - `$(mortar-board) SIS-420 · Docente` (enfoca panel de aula).
+   - `$(broadcast) Emitir Avance` (atajo rápido de un click).
+   - `$(organization) 14 alumnos` (muestra lista de presentes en QuickPick).
 
 ---
 
@@ -139,6 +157,16 @@ La interfaz se construye con **HTML + CSS Nativo** utilizando las variables CSS 
 3. Conectar la mensajería bidireccional entre la Webview y la extensión (`postMessage` / `onDidReceiveMessage`) para las acciones: ver diff, aplicar selección, deshacer y refrescar.
 4. Crear `src/status/status-bar-controller.ts` para los accesos directos en la barra inferior.
 
-### Paso 4: Pre-flight de Entrega y Empaquetado
-1. Implementar el comando `solv.submit` con validación de diagnostics y llamada a `POST /api/v1/workspaces/{id}/submit`.
-2. Correr `npm test` y `npm run package` para generar el `.vsix` limpio y validado.
+### Paso 4: Experiencia Docente y Pre-flight de Entrega
+1. Configurar context keys en el arranque de la extensión (`src/extension.ts`):
+   ```typescript
+   const role = process.env.SOLV_USER_ROLE || 'student';
+   await vscode.commands.executeCommand('setContext', 'solv:isStudent', role === 'student');
+   await vscode.commands.executeCommand('setContext', 'solv:isTeacher', role === 'teacher' || role === 'admin');
+   ```
+2. Implementar comando docente `solv.broadcastAdvance` que solicita título y alcance para invocar `POST /api/v1/class-advances`, condicionado con `"when": "solv:isTeacher"`.
+3. Implementar comando estudiante `solv.submit` con validación de diagnostics (`vscode.languages.getDiagnostics`), condicionado con `"when": "solv:isStudent"`.
+
+### Paso 5: Verificación y Empaquetado
+1. Correr `npm test` y `npm run package` para generar el `.vsix` empaquetado.
+2. Validar ambos roles simulando `SOLV_USER_ROLE=student` y `SOLV_USER_ROLE=teacher`.
