@@ -2279,3 +2279,67 @@ Sin entorno en la materia:
 | `POST` | `/api/v1/workspaces/{id}/pause` | Lo deja en `hibernated` sin perder el volumen: el código del docente queda guardado. |
 
 El entorno vive sobre el volumen `solv_workspace_<usuario>_<materia>`, que es exactamente el que lee la emisión de avances. Por eso lo que el docente escribe en esta pantalla es lo que se copia al aula, y sin entorno abierto la emisión responde `409`.
+
+---
+
+## Auditoría de similitud por práctica (ADR-062)
+
+El reporte dejó de comparar el código completo: el motor resta `exercises.boilerplate` antes de generar los k-gramas. Dos entregas que solo comparten la base dan 0% y no aparecen. La pantalla vive en la ficha de la práctica; `/teacher/anti-plagio` redirige a `/teacher/por-calificar`.
+
+### `GET /api/v1/teacher/courses/{id}/plagiarism?exercise_id={uuid}`
+
+- Mismos headers y permisos que el resto del panel docente: un estudiante recibe `403`.
+- `exercise_id` es opcional. La ficha siempre lo envía, así que el reporte queda acotado a esa práctica.
+- Sin `exercise_id`, el reporte conserva el alcance por materia.
+
+```json
+{
+  "data": {
+    "subject_id": "uuid",
+    "exercise_id": "uuid",
+    "exercise_title": "Árboles Binarios",
+    "analyzed_at": "2026-11-02T11:00:00Z",
+    "total_submissions": 20,
+    "suspect_pairs_count": 1,
+    "matches": [
+      {
+        "submission_id_a": "uuid",
+        "student_id_a": "uuid",
+        "student_name_a": "Ana García",
+        "submission_id_b": "uuid",
+        "student_id_b": "uuid",
+        "student_name_b": "Carlos Gómez",
+        "exercise_id": "uuid",
+        "exercise_title": "Árboles Binarios",
+        "similarity": 92,
+        "risk_level": "critical",
+        "matching_tokens": 140,
+        "total_tokens_a": 150,
+        "total_tokens_b": 155,
+        "ranges": [
+          {
+            "source_a": { "file_path": "src/tree.py", "start_line": 10, "end_line": 24 },
+            "source_b": { "file_path": "src/tree.py", "start_line": 12, "end_line": 26 },
+            "token_count": 140,
+            "exact_match": true
+          }
+        ]
+      }
+    ]
+  },
+  "error": "",
+  "message": "Análisis de similitud estructural AST completado exitosamente"
+}
+```
+
+- `ranges` reemplaza a `common_structures`. Cada par trae como máximo 10 tramos, en el orden del fuente y sin solaparse.
+- `file_path` solo aparece en modalidad IDE: las líneas son locales a ese archivo. En el evaluador automático el campo se omite y las líneas son las del envío completo.
+- `token_count` cuenta los tokens del tramo después de restar la base de la práctica.
+- Los totales `total_tokens_a` y `total_tokens_b` también son posteriores a la sustracción.
+
+### Rutas del cliente
+
+| Ruta | Efecto |
+| --- | --- |
+| `/teacher/cursos/:courseId/practicas/:exerciseId/similitud` | Auditoría de esa práctica, sin selector de materia |
+| `/teacher/anti-plagio` | Redirección a `/teacher/por-calificar`; no conserva el listado global |

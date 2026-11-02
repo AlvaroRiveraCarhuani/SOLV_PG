@@ -77,6 +77,13 @@ export const TEACHER_ROUTES: Routes = [
       import('./courses/practice-detail/practice-detail.component').then(m => m.PracticeDetailComponent)
   },
   {
+    // La auditoría vive dentro de la práctica: la ruta fija materia y práctica.
+    // Va antes del detalle para que el segmento extra no se pierda.
+    path: 'cursos/:courseId/practicas/:exerciseId/similitud',
+    loadComponent: () =>
+      import('./supervision/anti-plagio/teacher-plagiarism.component').then(m => m.TeacherPlagiarismComponent)
+  },
+  {
     path: 'cursos/:courseId/practicas/:id',
     loadComponent: () =>
       import('./courses/practice-detail/practice-detail.component').then(m => m.PracticeDetailComponent)
@@ -97,9 +104,9 @@ export const TEACHER_ROUTES: Routes = [
       import('./evaluations/teacher-evaluations.component').then(m => m.TeacherEvaluationsComponent)
   },
   {
+    // El listado global se retiró: los enlaces viejos vuelven a la cola de revisión.
     path: 'anti-plagio',
-    loadComponent: () =>
-      import('./supervision/anti-plagio/teacher-plagiarism.component').then(m => m.TeacherPlagiarismComponent)
+    redirectTo: 'por-calificar'
   },
   {
     path: 'exercises',

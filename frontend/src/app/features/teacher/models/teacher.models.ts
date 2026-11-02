@@ -425,6 +425,19 @@ export interface BulkTestCasesRequestDTO {
   test_cases: TestCaseDTO[];
 }
 
+export interface PlagiarismRangeSource {
+  file_path?: string;
+  start_line: number;
+  end_line: number;
+}
+
+export interface PlagiarismRange {
+  source_a: PlagiarismRangeSource;
+  source_b: PlagiarismRangeSource;
+  token_count: number;
+  exact_match: boolean;
+}
+
 export interface PlagiarismMatch {
   submission_id_a: string;
   student_id_a: string;
@@ -439,7 +452,7 @@ export interface PlagiarismMatch {
   matching_tokens: number;
   total_tokens_a: number;
   total_tokens_b: number;
-  common_structures: string[];
+  ranges: PlagiarismRange[];
 }
 
 export interface PlagiarismReport {

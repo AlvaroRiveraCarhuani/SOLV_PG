@@ -128,16 +128,20 @@
                   </div>
                 </div>
 
-                <!-- Patrones AST Comunes -->
-                @if (sel.common_structures && sel.common_structures.length > 0) {
+                <!-- Tramos de código compartidos -->
+                @if (sel.ranges && sel.ranges.length > 0) {
                   <div class="patterns-box">
                     <span class="patterns-label">
                       <svg lucideLayers class="icon-xs"></svg>
-                      Huellas de control coincidentes:
+                      Tramos de código compartidos:
                     </span>
                     <div class="pattern-chips">
-                      @for (pat of sel.common_structures; track pat) {
-                        <code class="pattern-chip" machineData>{{ pat }}</code>
+                      @for (range of sel.ranges; track $index) {
+                        <code class="pattern-chip" machineData>
+                          {{ range.source_a.file_path || 'código' }}:{{ range.source_a.start_line }}–{{ range.source_a.end_line }}
+                          ↔
+                          {{ range.source_b.start_line }}–{{ range.source_b.end_line }}
+                        </code>
                       }
                     </div>
                   </div>

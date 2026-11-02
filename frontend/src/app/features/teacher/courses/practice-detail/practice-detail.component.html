@@ -112,6 +112,13 @@
               <span>Fuzzing de Casos</span>
             </button>
           }
+          <a
+            class="btn-outline"
+            [routerLink]="['/teacher/cursos', courseId(), 'practicas', practice.id, 'similitud']"
+          >
+            <svg lucideShieldAlert class="btn-icon"></svg>
+            <span>Auditoría de Similitud</span>
+          </a>
           @if (practice.status === 'published') {
             <a
               class="btn-outline"

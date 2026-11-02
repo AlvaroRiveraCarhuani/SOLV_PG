@@ -192,34 +192,55 @@ type CourseGradesMatrix struct {
 
 // SubmissionForPlagiarism representa la entrega normalizada para el motor anti-plagio AST.
 type SubmissionForPlagiarism struct {
-	SubmissionID  string    `json:"submission_id" db:"submission_id"`
-	ExerciseID    string    `json:"exercise_id" db:"exercise_id"`
-	ExerciseTitle string    `json:"exercise_title" db:"exercise_title"`
-	StudentID     string    `json:"student_id" db:"student_id"`
-	StudentName   string    `json:"student_name" db:"student_name"`
-	StudentEmail  string    `json:"student_email" db:"student_email"`
-	Language      string    `json:"language" db:"language"`
-	Code          string    `json:"code" db:"code"`
-	Verdict       string    `json:"verdict" db:"verdict"`
-	SubmittedAt   time.Time `json:"submitted_at" db:"submitted_at"`
+	SubmissionID    string    `json:"submission_id" db:"submission_id"`
+	ExerciseID      string    `json:"exercise_id" db:"exercise_id"`
+	ExerciseTitle   string    `json:"exercise_title" db:"exercise_title"`
+	StudentID       string    `json:"student_id" db:"student_id"`
+	StudentName     string    `json:"student_name" db:"student_name"`
+	StudentEmail    string    `json:"student_email" db:"student_email"`
+	Language        string    `json:"language" db:"language"`
+	Code            string    `json:"code" db:"code"`
+	Boilerplate     string    `json:"boilerplate" db:"boilerplate"`
+	EnvironmentType string    `json:"environment_type" db:"environment_type"`
+	Verdict         string    `json:"verdict" db:"verdict"`
+	SubmittedAt     time.Time `json:"submitted_at" db:"submitted_at"`
+}
+
+// PlagiarismRangeSource es un tramo de líneas de una de las dos entregas. En
+// modalidad IDE FilePath identifica el archivo y las líneas son locales a ese
+// archivo; en el evaluador automático el tramo es del código completo y las
+// líneas son las del envío.
+type PlagiarismRangeSource struct {
+	FilePath  string `json:"file_path,omitempty"`
+	StartLine int    `json:"start_line"`
+	EndLine   int    `json:"end_line"`
+}
+
+// PlagiarismRange es un tramo de tokens que las dos entregas comparten. Las
+// líneas apuntan al fuente, no a tokens normalizados del compilador.
+type PlagiarismRange struct {
+	SourceA    PlagiarismRangeSource `json:"source_a"`
+	SourceB    PlagiarismRangeSource `json:"source_b"`
+	TokenCount int                   `json:"token_count"`
+	ExactMatch bool                  `json:"exact_match"`
 }
 
 // PlagiarismMatch representa un par de entregas con similitud estructural AST por encima del umbral.
 type PlagiarismMatch struct {
-	SubmissionIDA    string   `json:"submission_id_a"`
-	StudentIDA       string   `json:"student_id_a"`
-	StudentNameA     string   `json:"student_name_a"`
-	SubmissionIDB    string   `json:"submission_id_b"`
-	StudentIDB       string   `json:"student_id_b"`
-	StudentNameB     string   `json:"student_name_b"`
-	ExerciseID       string   `json:"exercise_id"`
-	ExerciseTitle    string   `json:"exercise_title"`
-	Similarity       float64  `json:"similarity"`
-	RiskLevel        string   `json:"risk_level"`
-	MatchingTokens   int      `json:"matching_tokens"`
-	TotalTokensA     int      `json:"total_tokens_a"`
-	TotalTokensB     int      `json:"total_tokens_b"`
-	CommonStructures []string `json:"common_structures"`
+	SubmissionIDA  string            `json:"submission_id_a"`
+	StudentIDA     string            `json:"student_id_a"`
+	StudentNameA   string            `json:"student_name_a"`
+	SubmissionIDB  string            `json:"submission_id_b"`
+	StudentIDB     string            `json:"student_id_b"`
+	StudentNameB   string            `json:"student_name_b"`
+	ExerciseID     string            `json:"exercise_id"`
+	ExerciseTitle  string            `json:"exercise_title"`
+	Similarity     float64           `json:"similarity"`
+	RiskLevel      string            `json:"risk_level"`
+	MatchingTokens int               `json:"matching_tokens"`
+	TotalTokensA   int               `json:"total_tokens_a"`
+	TotalTokensB   int               `json:"total_tokens_b"`
+	Ranges         []PlagiarismRange `json:"ranges"`
 }
 
 // PlagiarismReport reporte consolidado de similitud estructural por ejercicio o curso.

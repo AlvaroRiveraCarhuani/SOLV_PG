@@ -17,6 +17,7 @@ import {
   LucideListChecks,
   LucideLoader2,
   LucideRotateCcw,
+  LucideShieldAlert,
   LucideSparkles,
   LucideTerminal
 } from '@lucide/angular';
@@ -64,6 +65,7 @@ interface ApiResponse<T> {
     LucideListChecks,
     LucideLoader2,
     LucideRotateCcw,
+    LucideShieldAlert,
     LucideSparkles,
     LucideTerminal,
     FuzzingModalComponent

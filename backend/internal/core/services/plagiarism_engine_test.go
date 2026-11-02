@@ -1,6 +1,7 @@
 package services
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -154,4 +155,130 @@ def solve(arr):
 		(topMatch.StudentIDA != "student-2" && topMatch.StudentIDB != "student-2") {
 		t.Errorf("Match esperado entre student-1 y student-2, obtenido: %s y %s", topMatch.StudentIDA, topMatch.StudentIDB)
 	}
+}
+
+const boilerplateSuma = `def solve(arr):
+    total = 0
+    for v in arr:
+        total += v
+    return total
+`
+
+func submission(id, student, code string) *domain.SubmissionForPlagiarism {
+	return &domain.SubmissionForPlagiarism{
+		SubmissionID:    id,
+		ExerciseID:      "ex-suma",
+		ExerciseTitle:   "Suma de Arreglos",
+		StudentID:       student,
+		StudentName:     student,
+		Language:        "python",
+		Code:            code,
+		EnvironmentType: "JUEZ_EFIMERO",
+		SubmittedAt:     time.Now(),
+	}
+}
+
+func TestASTPlagiarismEngine_BoilerplateSubtractionRemovesFalsePositive(t *testing.T) {
+	engine := NewASTPlagiarismEngine()
+
+	subA := submission("sub-a", "student-1", boilerplateSuma)
+	subA.Boilerplate = boilerplateSuma
+	subB := submission("sub-b", "student-2", boilerplateSuma)
+	subB.Boilerplate = boilerplateSuma
+
+	matches := engine.AnalyzeSubmissions([]*domain.SubmissionForPlagiarism{subA, subB})
+
+	if len(matches) != 0 {
+		t.Fatalf("Dos entregas que solo comparten el código base no deben reportarse, obtenidos %d pares", len(matches))
+	}
+}
+
+func TestASTPlagiarismEngine_RangePointsToRealSourceLines(t *testing.T) {
+	engine := NewASTPlagiarismEngine()
+
+	copied := boilerplateWithCopy()
+	subA := submission("sub-a", "student-1", copied)
+	subA.Boilerplate = boilerplateSuma
+	subB := submission("sub-b", "student-2", copied)
+	subB.Boilerplate = boilerplateSuma
+
+	matches := engine.AnalyzeSubmissions([]*domain.SubmissionForPlagiarism{subA, subB})
+	if len(matches) != 1 {
+		t.Fatalf("Esperado 1 par con código copiado además del base, obtenidos %d", len(matches))
+	}
+
+	ranges := matches[0].Ranges
+	if len(ranges) == 0 {
+		t.Fatalf("El par debe traer al menos un tramo de líneas")
+	}
+
+	first := ranges[0]
+	if first.SourceA.StartLine < 6 || first.SourceA.EndLine > 8 {
+		t.Errorf("El tramo debe caer en la función copiada (líneas 6-7), obtenido %d-%d", first.SourceA.StartLine, first.SourceA.EndLine)
+	}
+	if first.SourceA.FilePath != "" || first.SourceB.FilePath != "" {
+		t.Errorf("En el evaluador automático los tramos no llevan archivo: A=%q B=%q", first.SourceA.FilePath, first.SourceB.FilePath)
+	}
+	if first.TokenCount <= 0 {
+		t.Errorf("El tramo debe informar sus tokens, obtenido %d", first.TokenCount)
+	}
+}
+
+func TestRemoveCommentsKeepsLineNumbers(t *testing.T) {
+	code := `int a = 1;
+/* bloque
+   de varias lineas */
+int b = 2;
+// solo comentario
+int c = 3;`
+
+	cleaned := removeComments(code, "cpp")
+	cleanedLines := strings.Split(cleaned, "\n")
+	if len(cleanedLines) < 6 || cleanedLines[3] != "int b = 2;" || cleanedLines[5] != "int c = 3;" {
+		t.Fatalf("las líneas del fuente no conservan su posición: %q", cleanedLines)
+	}
+
+	engine := NewASTPlagiarismEngine()
+	tokens := engine.Tokenize(code, "cpp")
+	last := tokens[len(tokens)-1]
+	if last.Line != 6 {
+		t.Fatalf("El último token pertenece a la línea 6, obtenido %d", last.Line)
+	}
+}
+
+func TestASTPlagiarismEngine_IDERangesPerFile(t *testing.T) {
+	engine := NewASTPlagiarismEngine()
+
+	baseSnapshot := "# === FILE: base.py ===\ndef helper(x):\n    return x + 1\n"
+	subSnapshot := "# === FILE: base.py ===\ndef helper(x):\n    return x + 1\n\n# === FILE: main.py ===\ndef solve(arr):\n    total = 0\n    for v in arr:\n        total += v\n    return total\n"
+	otherSnapshot := "# === FILE: base.py ===\ndef helper(x):\n    return x + 1\n\n# === FILE: main.py ===\ndef resolver(valores):\n    acc = 0\n    for item in valores:\n        acc += item\n    return acc\n"
+
+	subA := submission("sub-a", "student-1", subSnapshot)
+	subA.Boilerplate = baseSnapshot
+	subA.EnvironmentType = "IDE_PERSISTENTE"
+	subB := submission("sub-b", "student-2", otherSnapshot)
+	subB.Boilerplate = baseSnapshot
+	subB.EnvironmentType = "IDE_PERSISTENTE"
+
+	matches := engine.AnalyzeSubmissions([]*domain.SubmissionForPlagiarism{subA, subB})
+	if len(matches) != 1 {
+		t.Fatalf("Esperado 1 par en IDE, obtenidos %d", len(matches))
+	}
+
+	ranges := matches[0].Ranges
+	if len(ranges) == 0 {
+		t.Fatalf("El par IDE debe traer tramos")
+	}
+	for _, r := range ranges {
+		if r.SourceA.FilePath != "main.py" || r.SourceB.FilePath != "main.py" {
+			t.Errorf("El tramo debe pertenecer a main.py; A=%q B=%q", r.SourceA.FilePath, r.SourceB.FilePath)
+		}
+		if r.SourceA.StartLine < 1 || r.SourceA.EndLine > 5 {
+			t.Errorf("Las líneas deben ser locales a main.py (1-5), obtenido %d-%d", r.SourceA.StartLine, r.SourceA.EndLine)
+		}
+	}
+}
+
+func boilerplateWithCopy() string {
+	return boilerplateSuma + "def extra(n):\n    return n * 2\n"
 }

@@ -4,7 +4,7 @@ Objetivo: que el control de plagio se abra desde una práctica concreta, con su 
 
 Branch: `feat/plagiarism-practice-scope` (desde `main`) | Delivery strategy: ask-on-risk | Test runner: `go test ./...` & `npm run test:ci`
 
-Estado: **planificada**. Bloqueada por D1–D4. Se recomienda partirla en dos entregas (motor y reubicación; visor después).
+Estado: **Entrega 1 implementada (2026-11-02)**. Motor con sustracción de base y rangos, numeración estable y navegación desde la práctica. La Entrega 2 (endpoint del par y visor) sigue pendiente. `go build`, `go vet`, tests de backend y frontend, `lint:styles` y `CI=true npm run build` en verde; los e2e no se ejecutaron en esta sesión.
 
 Fuente: `proyecto-grado/Observaciones/Control de Plagio y Deteccion de Similitud.md`. Decisión del usuario: «Sacarlo del menú lateral, moverlo a la práctica y sustraer el código base del cálculo».
 
@@ -79,13 +79,20 @@ Fuente: `proyecto-grado/Observaciones/Control de Plagio y Deteccion de Similitud
 
 ## Tasks
 
-- [ ] **T1 — S1**: `teacher-layout.component.ts`, `teacher.routes.ts`, botón en `practice-detail.component.html/.ts`, modo bloqueado en `TeacherPlagiarismComponent`, actualizar J07 y flujo 12.
-- [ ] **T2 — S2**: `domain.SubmissionForPlagiarism`, `teacher_analytics_repository.go`, `plagiarism_engine.go` (firma con base) y tests.
-- [ ] **T3 — S3**: `removeComments` con numeración estable, `PlagiarismRange`, algoritmo de tramos y tests.
-- [ ] **T4 — S4**: contrato, ADR y docs.
+- [x] **T1 — S1**: se retiró la sección `SUPERVISIÓN`, se agregó `[Auditoría de Similitud]` en la ficha, la ruta contextual reemplaza el listado y J07 navega a ella. El flujo 12 solo consulta la API: no necesitaba cambios.
+- [x] **T2 — S2**: `SubmissionForPlagiarism` con `Boilerplate` y `EnvironmentType`; el repositorio los selecciona; el motor resta por archivo en IDE y global en juez.
+- [x] **T3 — S3**: `removeComments` conserva una línea por línea; `PlagiarismRange` reemplaza `common_structures`; tramos maximales sin solape, máximo 10.
+- [x] **T4 — S4**: 4 tests nuevos de motor, specs del frontend, ADR-062 con entrada en `INDEX.md`, `docs/API_CONTRACTS.md` y `docs/UI/MAPA_DE_VISTAS.md`.
 - [ ] **T5 — S5**: handler + servicio + ruta del par, con permisos y tests.
 - [ ] **T6 — S6**: visor de tres columnas y spec.
 - [ ] **T7 — S7**: clústeres, si se confirma el alcance.
+
+## Referencias obligatorias para la Entrega 2
+
+El visor se divide en dos pantallas según modalidad y debe seguir estos diseños ya aprobados:
+
+- `proyecto-grado/Observaciones/propuesta-plagio-evaluador.html` — monoarchivo/algorítmico: sin árbol de archivos, veredicto de tests y complejidad.
+- `proyecto-grado/Observaciones/propuesta-plagio-desarrollo.html` — multiarchivo IDE: árbol de archivos afectados frente al código base descartado, alternador de contrapartes en clústeres de 3+ y botones directos de calificar sin jerga.
 
 ## Dudas abiertas
 
@@ -114,3 +121,5 @@ cd frontend && npx playwright test e2e/flows/05-badges-and-grading/J07-speedgrad
 - **Hallazgo verificado:** el repositorio no selecciona `ex.boilerplate`, así que el motor no puede restar la base aunque se lo proponga; es el primer cambio de la cadena.
 - **Hallazgo verificado:** `removeComments` descarta líneas de bloque comentadas; sin corregirlo, cualquier rango posterior a un `/* ... */` apunta a la línea equivocada.
 - **Hallazgo verificado:** J07 y el flujo 12 navegan a `/teacher/anti-plagio`; retirar la ruta sin actualizarlos rompe dos e2e existentes.
+- **Corrección (2026-11-02):** el flujo 12 no visita la ruta, solo consulta la API; solo J07 necesitó el cambio de URL y de título.
+- **Cierre de la Entrega 1:** D1 se resolvió con la ruta contextual y la redirección de `/teacher/anti-plagio`; D2 mantiene dos entregas; D3 cubre juez e IDE; D4 resta por archivo con la misma ruta y cae a global cuando falta la cabecera.

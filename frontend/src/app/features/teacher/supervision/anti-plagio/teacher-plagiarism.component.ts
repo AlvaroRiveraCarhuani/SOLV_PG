@@ -1,7 +1,7 @@
 import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   LucideRefreshCw,
   LucideExternalLink,
@@ -10,13 +10,18 @@ import {
   LucideGitCompare,
   LucideInfo
 } from '@lucide/angular';
-import { TeacherDashboardService } from '../../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../../services/teacher-course.service';
-import { PlagiarismReport, PlagiarismMatch, TeacherLabStats } from '../../models/teacher.models';
+import { PlagiarismReport, PlagiarismMatch } from '../../models/teacher.models';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
+/**
+ * Auditoría de similitud de una práctica. La pantalla no elige materia: el
+ * contexto viene de la ficha de la práctica y el motor ya restó el código base
+ * antes de comparar. Sin práctica no hay auditoría global: se vuelve a la cola
+ * de revisión.
+ */
 @Component({
   selector: 'teacher-plagiarism',
   standalone: true,
@@ -38,13 +43,12 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
   styleUrl: './teacher-plagiarism.component.scss'
 })
 export class TeacherPlagiarismComponent implements OnInit {
-  private dashboardService = inject(TeacherDashboardService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   private courseService = inject(TeacherCourseService);
 
-  courses = this.dashboardService.courses;
-  selectedCourseId = signal<string>('');
-  selectedExerciseId = signal<string>('all');
-  labsList = signal<TeacherLabStats[]>([]);
+  readonly courseId = signal<string>('');
+  readonly exerciseId = signal<string>('');
 
   report = signal<PlagiarismReport | null>(null);
   selectedMatch = signal<PlagiarismMatch | null>(null);
@@ -55,31 +59,14 @@ export class TeacherPlagiarismComponent implements OnInit {
   riskFilter = signal<'all' | 'critical' | 'warning' | 'info'>('all');
   searchTerm = signal<string>('');
 
-  courseOptions = computed<ComboboxOption[]>(() => {
-    return this.courses().map(c => ({
-      id: c.id,
-      label: `${c.code} — ${c.name}`,
-      value: c.id
-    }));
-  });
-
-  exerciseOptions = computed<ComboboxOption[]>(() => {
-    return [
-      { id: 'all', label: 'Todos los laboratorios', value: 'all' },
-      ...this.labsList().map(l => ({
-        id: l.id,
-        label: l.title,
-        value: l.id
-      }))
-    ];
-  });
-
   readonly riskOptions: ComboboxOption<'all' | 'critical' | 'warning' | 'info'>[] = [
     { id: 'all', label: 'Todos', value: 'all' },
     { id: 'critical', label: 'Crítico (>= 80%)', value: 'critical' },
     { id: 'warning', label: 'Advertencia (50-79%)', value: 'warning' },
     { id: 'info', label: 'Informativo (< 50%)', value: 'info' }
   ];
+
+  readonly practiceTitle = computed(() => this.report()?.exercise_title ?? '');
 
   // Computeds
   filteredMatches = computed(() => {
@@ -130,49 +117,26 @@ export class TeacherPlagiarismComponent implements OnInit {
   });
 
   ngOnInit(): void {
-    this.dashboardService.loadDashboardData().subscribe({
-      next: data => {
-        const coursesList = data.courses || [];
-        if (coursesList.length > 0) {
-          const firstCourse = coursesList[0];
-          this.selectedCourseId.set(firstCourse.id);
-          this.loadLabsAndScan(firstCourse.id);
-        }
-      }
-    });
-  }
+    const courseId = this.route.snapshot.paramMap.get('courseId') ?? '';
+    const exerciseId = this.route.snapshot.paramMap.get('exerciseId') ?? '';
 
-  onCourseChange(courseId: string): void {
-    this.selectedCourseId.set(courseId);
-    this.selectedExerciseId.set('all');
-    this.selectedMatch.set(null);
-    this.loadLabsAndScan(courseId);
-  }
+    if (!courseId || !exerciseId) {
+      void this.router.navigate(['/teacher/por-calificar'], { replaceUrl: true });
+      return;
+    }
 
-  onExerciseChange(exerciseId: string): void {
-    this.selectedExerciseId.set(exerciseId);
-    this.selectedMatch.set(null);
+    this.courseId.set(courseId);
+    this.exerciseId.set(exerciseId);
     this.runScan();
   }
 
-  loadLabsAndScan(courseId: string): void {
-    if (!courseId) return;
-    this.courseService.getCourseLabs(courseId).subscribe({
-      next: labs => {
-        this.labsList.set(labs);
-        this.runScan();
-      },
-      error: () => this.runScan()
-    });
-  }
-
   runScan(): void {
-    const courseId = this.selectedCourseId();
-    if (!courseId) return;
+    const courseId = this.courseId();
+    const exerciseId = this.exerciseId();
+    if (!courseId || !exerciseId) return;
 
     this.isLoading.set(true);
     this.isScanning.set(true);
-    const exerciseId = this.selectedExerciseId() === 'all' ? undefined : this.selectedExerciseId();
 
     this.courseService.analyzePlagiarism(courseId, exerciseId).subscribe({
       next: report => {

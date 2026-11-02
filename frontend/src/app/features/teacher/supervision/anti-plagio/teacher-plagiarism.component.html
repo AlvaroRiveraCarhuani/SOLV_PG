@@ -2,8 +2,8 @@
   <!-- Header Principal -->
   <header class="plagiarism-header">
     <div class="header-titles">
-      <h1 class="page-title">Control de Plagio y Similitud de Código</h1>
-      <p class="page-subtitle">Detección de similitud estructural y análisis cruzado de entregas entre estudiantes.</p>
+      <h1 class="page-title">Auditoría de Similitud</h1>
+      <p class="page-subtitle">Comparación estructural de las entregas de esta práctica, con el código base ya restado.</p>
     </div>
 
     <div class="header-actions">
@@ -14,36 +14,17 @@
         (click)="runScan()"
       >
         <svg lucideRefreshCw class="btn-icon" [class.spin-animate]="isScanning()"></svg>
-        <span>{{ isScanning() ? 'Analizando entregas...' : 'Re-escanear Materia' }}</span>
+        <span>{{ isScanning() ? 'Analizando entregas...' : 'Re-escanear Práctica' }}</span>
       </button>
     </div>
   </header>
 
-  <!-- Barra de Selección y Filtros -->
+  <!-- Práctica fija del contexto y filtros -->
   <div class="control-bar">
     <div class="control-left">
-      <div class="filter-group combobox-filter">
-        <label class="control-label">Materia:</label>
-        <combobox
-          [options]="courseOptions()"
-          [value]="selectedCourseId()"
-          (valueChange)="onCourseChange($event)"
-          [compact]="true"
-          [showSearchIcon]="false"
-          placeholder="Seleccionar materia..."
-        />
-      </div>
-
-      <div class="filter-group combobox-filter">
-        <label class="control-label">Laboratorio:</label>
-        <combobox
-          [options]="exerciseOptions()"
-          [value]="selectedExerciseId()"
-          (valueChange)="onExerciseChange($event)"
-          [compact]="true"
-          [showSearchIcon]="false"
-          placeholder="Todos los laboratorios"
-        />
+      <div class="filter-group">
+        <span class="control-label">Práctica:</span>
+        <span class="locked-practice">{{ practiceTitle() || 'Cargando…' }}</span>
       </div>
     </div>
 
@@ -187,16 +168,41 @@
               </div>
             </div>
 
-            <!-- Estructuras Sintácticas Comunes -->
-            @if (match.common_structures && match.common_structures.length > 0) {
+            <!-- Tramos de código compartidos, con líneas del fuente -->
+            @if (match.ranges && match.ranges.length > 0) {
               <div class="structures-section">
                 <h4 class="section-title">
                   <svg lucideCode class="section-icon"></svg>
-                  <span>Estructuras y Bloques de Código Idénticos</span>
+                  <span>Tramos de código compartidos</span>
                 </h4>
-                <div class="structures-tags">
-                  @for (st of match.common_structures; track st) {
-                    <code class="structure-tag font-mono" machineData>{{ st }}</code>
+                <div class="range-list">
+                  @for (range of match.ranges; track $index) {
+                    <div class="range-row">
+                      <span class="range-side">
+                        <span class="range-student">{{ match.student_name_a }}</span>
+                        @if (range.source_a.file_path) {
+                          <code class="range-file" machineData>{{ range.source_a.file_path }}</code>
+                        }
+                        <span class="range-lines">
+                          líneas
+                          <span machineData>{{ range.source_a.start_line }}–{{ range.source_a.end_line }}</span>
+                        </span>
+                      </span>
+                      <span class="range-sep">↔</span>
+                      <span class="range-side">
+                        <span class="range-student">{{ match.student_name_b }}</span>
+                        @if (range.source_b.file_path) {
+                          <code class="range-file" machineData>{{ range.source_b.file_path }}</code>
+                        }
+                        <span class="range-lines">
+                          líneas
+                          <span machineData>{{ range.source_b.start_line }}–{{ range.source_b.end_line }}</span>
+                        </span>
+                      </span>
+                      <span class="range-tokens">
+                        <span machineData>{{ range.token_count }}</span> tokens
+                      </span>
+                    </div>
                   }
                 </div>
               </div>

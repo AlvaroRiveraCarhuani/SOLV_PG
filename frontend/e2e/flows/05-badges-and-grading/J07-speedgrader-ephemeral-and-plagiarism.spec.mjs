@@ -317,8 +317,11 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
         expect(flagged).toBeTruthy();
         expect(flagged.similarity).toBeGreaterThanOrEqual(50);
 
-        await teacherPage.goto('/teacher/anti-plagio', { waitUntil: 'domcontentloaded' });
-        await expect(teacherPage.locator('h1.page-title')).toContainText('Control de Plagio', { timeout: 45000 });
+        await teacherPage.goto(
+          `/teacher/cursos/${sharedState.courseId}/practicas/${sharedState.exerciseId}/similitud`,
+          { waitUntil: 'domcontentloaded' }
+        );
+        await expect(teacherPage.locator('h1.page-title')).toContainText('Auditoría de Similitud', { timeout: 45000 });
         await expect(teacherPage.locator('.kpi-summary-grid .kpi-box').first()).toBeVisible({ timeout: 45000 });
       });
     } catch (err) {

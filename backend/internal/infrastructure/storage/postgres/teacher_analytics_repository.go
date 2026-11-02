@@ -147,6 +147,8 @@ func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx cont
 			u.email AS student_email,
 			COALESCE(ex.language, 'python') AS language,
 			sub.code AS code,
+			COALESCE(ex.boilerplate, '') AS boilerplate,
+			COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
 			sub.verdict,
 			sub.submitted_at
 		FROM submissions sub

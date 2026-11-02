@@ -31,7 +31,14 @@ describe('PlagiarismModalComponent', () => {
         matching_tokens: 120,
         total_tokens_a: 140,
         total_tokens_b: 145,
-        common_structures: ['AVL::rotateLeft', 'AVL::rebalance']
+        ranges: [
+          {
+            source_a: { start_line: 12, end_line: 20 },
+            source_b: { start_line: 14, end_line: 22 },
+            token_count: 42,
+            exact_match: true
+          }
+        ]
       }
     ]
   };

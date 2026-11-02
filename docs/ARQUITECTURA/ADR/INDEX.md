@@ -66,5 +66,6 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 059 | [Entornos Acotados a una Práctica (Docente y Alumno)](ADR-059-entornos-por-practica.md) | Implementado | Docencia |
 | 060 | [Diff Nativo y Comentarios por Rango en SpeedGrader](ADR-060-diff-nativo-y-comentarios-por-rango.md) | Implementado | Docencia |
 | 061 | [Entorno de Prueba en Vivo de una Entrega IDE desde SpeedGrader](ADR-061-preview-efimero-de-entrega-desde-speedgrader.md) | Implementado | Docencia |
+| 062 | [Auditoría de Similitud por Práctica con Código Base Restado](ADR-062-auditoria-similitud-por-practica.md) | Implementado | Docencia |
 
 

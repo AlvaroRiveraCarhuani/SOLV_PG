@@ -57,7 +57,9 @@ graph TD
 │   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
 │   ├── /teacher/exercises .............. Banco de ejercicios del docente
 │   ├── /teacher/templates .............. Catálogo de plantillas de entorno
-│   ├── /teacher/anti-plagio ............ Similitud estructural entre entregas
+│   ├── /teacher/anti-plagio ............ Redirige a Por calificar (el listado global se retiró)
+│   ├── /teacher/cursos/:courseId/practicas/:exerciseId/similitud
+│   │                                      Auditoría de similitud de esa práctica, con el código base restado
 │   └── /teacher/configuracion .......... Preferencias de asistencia con IA
 │
 └── /estudiante (Rol: Estudiante)
