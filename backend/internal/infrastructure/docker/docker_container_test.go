@@ -103,3 +103,27 @@ func TestIsWorkspaceManagedContainer(t *testing.T) {
 		})
 	}
 }
+
+func TestPureRuntimeWorkspaceCmd_IncludesExtensionsDir(t *testing.T) {
+	if !strings.Contains(pureRuntimeWorkspaceCmd, `--extensions-dir /home/.openvscode-server/extensions`) {
+		t.Errorf("esperado flag --extensions-dir en arranque de openvscode-server")
+	}
+}
+
+func TestResolveCompanionExtensionMount(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("SOLV_COMPANION_HOST_PATH", tempDir)
+
+	mount := resolveCompanionExtensionMount()
+	expectedPrefix := tempDir + ":/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro"
+	if mount != expectedPrefix {
+		t.Fatalf("esperado %s, obtenido %s", expectedPrefix, mount)
+	}
+
+	// Caso ruta inexistente
+	t.Setenv("SOLV_COMPANION_HOST_PATH", "/directorio/inexistente/para/el/test")
+	mountInexistente := resolveCompanionExtensionMount()
+	if mountInexistente != "" {
+		t.Fatalf("esperado mount vacío para ruta inexistente, obtenido %s", mountInexistente)
+	}
+}

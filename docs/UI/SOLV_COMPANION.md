@@ -80,6 +80,19 @@ Para probar en el editor: abrir `tools/solv-companion/` en VS Code, presionar `F
 
 ## Límites conocidos
 
-- La extensión no descubre la entrega sola: el estudiante o el entorno deben configurar `solv.submissionId`.
-- El token se renueva a mano cuando expira; no hay flujo OAuth dentro del editor.
-- El despliegue del `.vsix` en la imagen del entorno no está automatizado en esta entrega.
+- El token se renueva cuando el estudiante vuelve a iniciar su sesión en la plataforma.
+- En producción, el despliegue final hornea la carpeta compilada dentro de la imagen base de OpenVSCode Server en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0`.
+
+## Montaje en Entornos de Laboratorio
+
+El backend de Go inyecta la extensión y su configuración sin intervención del estudiante:
+
+1. **Variables de entorno inyectadas al contenedor**:
+   - `SOLV_API_URL`: URL base de la API (`http://host.docker.internal:3000` en desarrollo o `https://api.<baseDomain>`).
+   - `SOLV_STUDENT_TOKEN`: Token JWT del estudiante obtenido desde el contexto autenticado.
+   - `SOLV_SUBMISSION_ID`: Identificador de la entrega más reciente del estudiante para la práctica en curso.
+
+2. **Carga en OpenVSCode Server**:
+   - En desarrollo, `docker_container.go` detecta `tools/solv-companion` (o `SOLV_COMPANION_HOST_PATH`) y monta la carpeta como bind mount de solo lectura en `/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro`.
+   - El flag `--extensions-dir /home/.openvscode-server/extensions` asegura que el editor cargue la extensión al iniciar.
+   - La directiva `ExtraHosts: ["host.docker.internal:host-gateway"]` permite al contenedor comunicarse con el backend local.

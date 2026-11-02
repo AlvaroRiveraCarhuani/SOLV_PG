@@ -80,6 +80,9 @@ func WithAuth(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		ctx = context.WithValue(ctx, domain.UserIDKey, userID)
+		if tokenString != "" {
+			ctx = context.WithValue(ctx, domain.UserTokenKey, tokenString)
+		}
 		r.Header.Set("X-User-Id", userID)
 
 		if email, ok := claims["email"].(string); ok && email != "" {

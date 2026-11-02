@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/docker/docker/api/types/container"
@@ -24,7 +26,7 @@ const (
 	// pureRuntimeWorkspaceCmd se usa en imágenes que no traen OpenVSCode: prepara el
 	// workspace, ejecuta el setup_script de la plantilla una sola vez y arranca
 	// OpenVSCode abriendo directamente el directorio del proyecto.
-	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace; else exec sleep infinity; fi`
+	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/.openvscode-server/extensions; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -119,6 +121,11 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 				{HostIP: "127.0.0.1", HostPort: hostPort},
 			},
 		},
+		ExtraHosts: []string{"host.docker.internal:host-gateway"},
+	}
+
+	if companionMount := resolveCompanionExtensionMount(); companionMount != "" {
+		hostConfig.Binds = append(hostConfig.Binds, companionMount)
 	}
 
 	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)
@@ -159,6 +166,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 			"--host", "0.0.0.0",
 			"--port", "3000",
 			"--default-folder", "/home/workspace",
+			"--extensions-dir", "/home/.openvscode-server/extensions",
 		}
 	} else {
 		// Runtime puro (python, node, solv-local/stack): NO se le pasa
@@ -673,4 +681,28 @@ func (c *Client) ExecuteCommandInBackground(ctx context.Context, containerID str
 
 	log.Printf("[Docker Exec] Background command started in container %s: %v", containerID, cmd)
 	return nil
+}
+
+// resolveCompanionExtensionMount resuelve el bind mount de desarrollo para la extensión
+// SOLV Companion (ADR-062). Si la carpeta existe en el host, la monta en solo lectura
+// bajo la ruta que OpenVSCode Server reconoce (/home/.openvscode-server/extensions/solv.solv-companion-0.1.0).
+// En producción (donde la imagen base ya incluye la extensión horneada) retorna cadena vacía.
+func resolveCompanionExtensionMount() string {
+	candidate := strings.TrimSpace(os.Getenv("SOLV_COMPANION_HOST_PATH"))
+	if candidate == "" {
+		for _, rel := range []string{"tools/solv-companion", "../tools/solv-companion", "../../tools/solv-companion"} {
+			if abs, err := filepath.Abs(rel); err == nil {
+				if info, err := os.Stat(abs); err == nil && info.IsDir() {
+					candidate = abs
+					break
+				}
+			}
+		}
+	}
+	if candidate != "" {
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return fmt.Sprintf("%s:/home/.openvscode-server/extensions/solv.solv-companion-0.1.0:ro", candidate)
+		}
+	}
+	return ""
 }

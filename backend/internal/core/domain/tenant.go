@@ -99,9 +99,10 @@ func (t *Tenant) ResolveBranding() EmailBranding {
 type contextKey string
 
 const (
-	TenantIDKey contextKey = "tenant_id"
-	UserIDKey   contextKey = "user_id"
-	UserRoleKey contextKey = "user_role"
+	TenantIDKey  contextKey = "tenant_id"
+	UserIDKey    contextKey = "user_id"
+	UserRoleKey  contextKey = "user_role"
+	UserTokenKey contextKey = "user_token"
 
 	DefaultTenantID = "00000000-0000-0000-0000-000000000001"
 )
@@ -131,6 +132,16 @@ func GetUserRole(ctx context.Context) string {
 		return ""
 	}
 	if val, ok := ctx.Value(UserRoleKey).(string); ok {
+		return val
+	}
+	return ""
+}
+
+func GetUserToken(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	if val, ok := ctx.Value(UserTokenKey).(string); ok {
 		return val
 	}
 	return ""

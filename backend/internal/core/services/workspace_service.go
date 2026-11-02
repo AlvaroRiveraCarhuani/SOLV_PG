@@ -608,6 +608,7 @@ func (s *WorkspaceService) startWorkspace(ctx context.Context, userID, subjectID
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
+	envVars = append(envVars, s.buildCompanionEnvVars(ctx, tenantID, exerciseID, userID)...)
 
 	// 8. Inyección de las credenciales del motor ya asegurado (ADR-030 / ADR-046):
 	// DATABASE_URL y afines del satélite gestionado, o la base del aula en PostgreSQL
@@ -658,4 +659,29 @@ func (s *WorkspaceService) startWorkspace(ctx context.Context, userID, subjectID
 		s.linkSessionToAula(ctx, instance)
 	}
 	return instance, nil
+}
+
+// buildCompanionEnvVars inyecta las variables de entorno para la extensión SOLV Companion (ADR-062).
+func (s *WorkspaceService) buildCompanionEnvVars(ctx context.Context, tenantID, exerciseID, studentID string) []string {
+	var envs []string
+	apiURL := os.Getenv("SOLV_API_URL")
+	if apiURL == "" {
+		if baseDomain := getBaseDomain(); baseDomain != "" {
+			apiURL = fmt.Sprintf("https://api.%s", baseDomain)
+		} else {
+			apiURL = "http://host.docker.internal:3000"
+		}
+	}
+	envs = append(envs, "SOLV_API_URL="+apiURL)
+
+	if studentToken := domain.GetUserToken(ctx); studentToken != "" {
+		envs = append(envs, "SOLV_STUDENT_TOKEN="+studentToken)
+	}
+
+	if exerciseID != "" && s.submissionRepo != nil {
+		if submissions, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, studentID); err == nil && len(submissions) > 0 {
+			envs = append(envs, "SOLV_SUBMISSION_ID="+submissions[0].ID)
+		}
+	}
+	return envs
 }
