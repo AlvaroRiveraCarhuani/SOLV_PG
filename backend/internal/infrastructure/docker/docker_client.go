@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
@@ -44,6 +45,18 @@ func (c *Client) EnsureVolumeExists(ctx context.Context, volumeName string) erro
 		return fmt.Errorf("failed to create local volume %q: %w", volumeName, err)
 	}
 
+	return nil
+}
+
+// RemoveVolume elimina un volumen nombrado y su contenido. Solo lo usan los
+// previews efímeros: el volumen del alumno nunca pasa por acá.
+func (c *Client) RemoveVolume(ctx context.Context, volumeName string) error {
+	if strings.TrimSpace(volumeName) == "" {
+		return fmt.Errorf("volume name is required")
+	}
+	if err := c.cli.VolumeRemove(ctx, volumeName, true); err != nil && !errdefs.IsNotFound(err) {
+		return fmt.Errorf("failed to remove volume %q: %w", volumeName, err)
+	}
 	return nil
 }
 

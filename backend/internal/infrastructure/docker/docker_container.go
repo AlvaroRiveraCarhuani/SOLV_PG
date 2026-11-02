@@ -203,6 +203,110 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	return resp.ID, nil
 }
 
+// StartReviewEnvironmentContainer ejecuta la app de una entrega en un
+// contenedor efímero montado sobre una copia del snapshot. No abre el editor ni
+// toca el volumen vivo del alumno: el único puerto publicado es el de la app.
+func (c *Client) StartReviewEnvironmentContainer(ctx context.Context, config domain.ReviewEnvironmentContainerConfig) (string, error) {
+	if config.AppPort <= 0 || config.AppPort > 65535 {
+		return "", fmt.Errorf("invalid review environment app port %d", config.AppPort)
+	}
+	if strings.TrimSpace(config.Command) == "" {
+		return "", fmt.Errorf("review environment app command is required")
+	}
+
+	memLimit := config.MemoryLimitMB
+	if memLimit <= 0 {
+		memLimit = domain.ReviewEnvironmentMinMemoryMB
+	}
+	memReservation := int64(float64(memLimit) * 0.75)
+	hostPort := strings.TrimSpace(config.HostPort)
+	if hostPort == "" {
+		hostPort = "0"
+	}
+	appPort := fmt.Sprintf("%d/tcp", config.AppPort)
+
+	portBindings := nat.PortMap{
+		nat.Port(appPort): []nat.PortBinding{
+			{HostIP: "127.0.0.1", HostPort: hostPort},
+		},
+	}
+
+	pidsLimit := int64(512)
+	hostConfig := &container.HostConfig{
+		Binds: []string{
+			fmt.Sprintf("%s:/home/workspace:rw", config.VolumeName),
+		},
+		Resources: container.Resources{
+			Memory:            memLimit * 1024 * 1024,
+			MemoryReservation: memReservation * 1024 * 1024,
+			NanoCPUs:          1_000_000_000,
+			PidsLimit:         &pidsLimit,
+		},
+		NetworkMode:  container.NetworkMode(config.NetworkName),
+		SecurityOpt:  []string{"no-new-privileges:true"},
+		CapDrop:      []string{"ALL"},
+		PortBindings: portBindings,
+	}
+
+	envList := append([]string{}, config.Env...)
+	envList = append(envList,
+		fmt.Sprintf("PORT=%d", config.AppPort),
+		"HOST=0.0.0.0",
+		fmt.Sprintf("SOLV_APP_RUN_COMMAND=%s", config.Command),
+	)
+	if strings.TrimSpace(config.SetupScript) != "" {
+		envList = append(envList, fmt.Sprintf("SOLV_SETUP_SCRIPT=%s", config.SetupScript))
+	}
+
+	// El setup de la plantilla se ejecuta una vez por copia; si falla, el error
+	// queda en los logs del contenedor en lugar de arrancar una app a medias.
+	script := "cd /home/workspace && "
+	if strings.TrimSpace(config.SetupScript) != "" {
+		script += `if ! sh -c "$SOLV_SETUP_SCRIPT" > /tmp/solv_review_setup.log 2>&1; then cat /tmp/solv_review_setup.log; exit 1; fi && `
+	}
+	script += `exec sh -c "$SOLV_APP_RUN_COMMAND"`
+
+	containerConfig := &container.Config{
+		Image:        config.Image,
+		Labels:       config.Labels,
+		Env:          envList,
+		WorkingDir:   "/home/workspace",
+		Cmd:          []string{"/bin/sh", "-c", script},
+		ExposedPorts: nat.PortSet{nat.Port(appPort): struct{}{}},
+	}
+
+	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)
+	if inspectErr != nil {
+		return "", fmt.Errorf("failed to inspect image %q: %w", config.Image, inspectErr)
+	}
+	if !cached {
+		log.Printf("[SingleFlight] Image %q not found locally. Initiating single-flight pull...", config.Image)
+		if err := c.PullImage(ctx, config.Image); err != nil {
+			return "", err
+		}
+		log.Printf("Image %q pulled successfully.", config.Image)
+	}
+
+	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, config.ContainerName)
+	if err != nil {
+		return "", fmt.Errorf("failed to create review environment container %q: %w", config.ContainerName, err)
+	}
+
+	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		return "", fmt.Errorf("failed to start review environment container %q: %w", config.ContainerName, err)
+	}
+
+	if config.AttachSatellitesNet {
+		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
+			_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			return "", fmt.Errorf("failed to attach review container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
+		}
+	}
+
+	return resp.ID, nil
+}
+
 func (c *Client) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {
 	updateConfig := container.UpdateConfig{
 		Resources: container.Resources{
@@ -387,6 +491,12 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 // de satélites: si el colector de zombies los listara, los destruiría a los 30 segundos.
 func isWorkspaceManagedContainer(names []string, labels map[string]string) bool {
 	if labels["solv.satellite"] != "" {
+		return false
+	}
+	// Los previews de SpeedGrader tienen su propio TTL y su propio volumen
+	// efímero. Si el collector los listara, los borraría como huérfanos aunque
+	// el docente los esté usando.
+	if labels["solv.review_environment"] == "true" {
 		return false
 	}
 	for _, name := range names {

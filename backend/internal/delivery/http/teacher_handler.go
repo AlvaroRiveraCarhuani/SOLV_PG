@@ -12,10 +12,11 @@ import (
 )
 
 type TeacherHandler struct {
-	service                *services.TeacherService
-	metricsSnapshotService *services.MetricsSnapshotService
-	authService            *services.AuthService
-	upgrader               websocket.Upgrader
+	service                  *services.TeacherService
+	metricsSnapshotService   *services.MetricsSnapshotService
+	reviewEnvironmentService *services.ReviewEnvironmentService
+	authService              *services.AuthService
+	upgrader                 websocket.Upgrader
 }
 
 func NewTeacherHandler(service *services.TeacherService, metricsSnapshotService *services.MetricsSnapshotService) *TeacherHandler {
@@ -28,6 +29,12 @@ func NewTeacherHandler(service *services.TeacherService, metricsSnapshotService 
 
 func (h *TeacherHandler) SetAuthService(authService *services.AuthService) {
 	h.authService = authService
+}
+
+// SetReviewEnvironmentService habilita el preview efímero de una entrega IDE.
+// Sin el servicio, la ruta responde 503 en lugar de fallar con un nil pointer.
+func (h *TeacherHandler) SetReviewEnvironmentService(service *services.ReviewEnvironmentService) {
+	h.reviewEnvironmentService = service
 }
 
 func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {

@@ -607,7 +607,40 @@ Ejecuta código en el sandbox efímero sin persistir una nueva entrega en la bas
 
 ---
 
-### 13. Exportación de Calificaciones en CSV (`GET /api/v1/teacher/courses/{id}/grades/export`)
+### 13. Entorno de Prueba en Vivo de una Entrega IDE (`POST /api/v1/teacher/submissions/{id}/test-environment`)
+
+Crea un contenedor efímero con una copia del snapshot de la entrega y devuelve la URL para abrir la aplicación en una pestaña nueva. El contenedor no monta el workspace vivo del alumno y el QoS Worker lo apaga por inactividad; no existe un endpoint de «detener».
+
+- **Método:** `POST`
+- **Ruta:** `/api/v1/teacher/submissions/{id}/test-environment`
+- **Headers:** `X-User-Id: <teacher_uuid>`, `X-User-Role: teacher | admin`, `X-Tenant-Id: <tenant_uuid>`
+- **Cuerpo:** vacío (`{}`).
+- **Respuestas:**
+  - `200 OK`: `{ "data": { "url": "...", "expires_at": "..." }, "error": "", "message": "Entorno de prueba listo" }`.
+  - `400 Bad Request`: El id de la entrega no es un UUID (`invalid_submission_id`) o el tenant no es válido (`invalid_tenant`).
+  - `403 Forbidden`: El rol es `student`.
+  - `404 Not Found`: La entrega no existe en la institución (`submission_not_found`).
+  - `409 Conflict`: La entrega es de juez (`review_environment_requires_ide`), la práctica no define `app_run_command` (`app_run_command_missing`), el snapshot no es multiarchivo (`project_snapshot_unavailable`), la práctica no resuelve imagen (`template_image_missing`), el puerto guardado está fuera de rango (`invalid_app_port`) o ya hay un preview iniciándose (`review_environment_starting`).
+  - `502 Bad Gateway`: El contenedor arrancó pero la app no escuchó en el puerto (`app_not_ready`) o el contenedor no inició (`app_start_failed`).
+  - `503 Service Unavailable`: El host no tiene memoria para el preview (`oom_guard`) o el nodo no tiene orquestador (`review_environment_unavailable`).
+
+#### Ejemplo de Respuesta
+```json
+{
+  "data": {
+    "url": "https://review-3f2a9c1b7d4e.ejemplo.edu",
+    "expires_at": "2026-11-01T18:45:00Z"
+  },
+  "error": "",
+  "message": "Entorno de prueba listo"
+}
+```
+
+`expires_at` es RFC3339. La UI lo muestra con el pipe `dateText` dentro de un `<time>`; la URL se abre con `target="_blank"` y `rel="noopener noreferrer"`, nunca en un iframe. Si la entrega ya tiene un preview `running`, el endpoint devuelve la misma URL y renueva la ventana de inactividad de 15 minutos.
+
+---
+
+### 14. Exportación de Calificaciones en CSV (`GET /api/v1/teacher/courses/{id}/grades/export`)
 
 Genera y transmite una matriz consolidada de notas en formato CSV compatible con hojas de cálculo (UTF-8 BOM y header `Content-Disposition`).
 

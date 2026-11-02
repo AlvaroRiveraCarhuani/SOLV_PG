@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -207,6 +208,11 @@ type IDEConfig struct {
 	AllowResubmit  bool   `json:"allow_resubmit"`
 	AutoCheckpoint bool   `json:"auto_checkpoint"`
 	DBInitScript   string `json:"db_init_script,omitempty"`
+	// AppRunCommand arranca la aplicación del proyecto dentro del contenedor de
+	// preview. Es docencia explícita: no se infiere del snapshot.
+	AppRunCommand string `json:"app_run_command,omitempty"`
+	// AppPort es el puerto TCP donde la app escucha dentro del contenedor.
+	AppPort int `json:"app_port,omitempty"`
 }
 
 type ExerciseConfig struct {
@@ -334,6 +340,14 @@ func (ex *Exercise) Validate() error {
 	// flujos históricos (import y DTOs que omiten el campo).
 	if ex.TimeLimitMS != 0 && (ex.TimeLimitMS < 100 || ex.TimeLimitMS > 30000) {
 		return ErrTimeLimitOutOfRange
+	}
+	if ide := ex.Config.IDE; ide != nil {
+		if ide.AppPort != 0 && (ide.AppPort < 1 || ide.AppPort > 65535) {
+			return ErrInvalidAppPort
+		}
+		if len(strings.TrimSpace(ide.AppRunCommand)) > ReviewEnvironmentMaxCommandLength {
+			return fmt.Errorf("app_run_command exceeds %d characters", ReviewEnvironmentMaxCommandLength)
+		}
 	}
 	return nil
 }

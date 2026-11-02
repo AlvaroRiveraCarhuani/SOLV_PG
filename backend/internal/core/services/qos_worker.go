@@ -27,9 +27,11 @@ type QoSOrchestratorWorker struct {
 	// ningún laboratorio activo (Scale-to-Zero). Se inyecta desde el servicio de
 	// laboratorios porque es quien conoce la plantilla de cada sesión.
 	satelliteReconciler func(ctx context.Context)
-	history             map[string]*containerStatsHistory
-	mu                  sync.Mutex
-	stopChan            chan struct{}
+	// reviewEnvReaper apaga los previews de SpeedGrader sin tráfico (ADR-011).
+	reviewEnvReaper func(ctx context.Context)
+	history         map[string]*containerStatsHistory
+	mu              sync.Mutex
+	stopChan        chan struct{}
 }
 
 func NewQoSOrchestratorWorker(
@@ -91,6 +93,12 @@ func (w *QoSOrchestratorWorker) SetPoliciesProvider(provider func(ctx context.Co
 // encendidos que nadie usa.
 func (w *QoSOrchestratorWorker) SetManagedSatelliteReconciler(reconciler func(ctx context.Context)) {
 	w.satelliteReconciler = reconciler
+}
+
+// SetReviewEnvironmentReaper inyecta el apagado de los previews efímeros de
+// SpeedGrader. Corre en el mismo ciclo que la hibernación de laboratorios.
+func (w *QoSOrchestratorWorker) SetReviewEnvironmentReaper(reaper func(ctx context.Context)) {
+	w.reviewEnvReaper = reaper
 }
 
 // effectiveInactivityTimeout resuelve el timeout vigente para este ciclo.
@@ -213,5 +221,11 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 	// el reconciliador registra internamente lo que no se pueda liberar.
 	if w.satelliteReconciler != nil {
 		w.satelliteReconciler(ctx)
+	}
+
+	// Los previews no tienen heartbeat HTTP: su actividad se mide por el
+	// contador de red y su TTL es independiente del laboratorio del alumno.
+	if w.reviewEnvReaper != nil {
+		w.reviewEnvReaper(ctx)
 	}
 }

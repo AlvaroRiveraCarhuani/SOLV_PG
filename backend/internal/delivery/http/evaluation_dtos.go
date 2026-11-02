@@ -21,6 +21,7 @@ func isValidationError(err error) bool {
 		errors.Is(err, domain.ErrTemplateEnvironmentMismatch) ||
 		errors.Is(err, domain.ErrTemplateNotApproved) ||
 		errors.Is(err, domain.ErrTimeLimitOutOfRange) ||
+		errors.Is(err, domain.ErrInvalidAppPort) ||
 		errors.Is(err, domain.ErrPayloadMismatchForEnvironmentType) ||
 		strings.Contains(err.Error(), "contrato de formato") ||
 		strings.Contains(err.Error(), "inválido según contrato") {
@@ -63,11 +64,13 @@ func normalizeExerciseConfig(body []byte, ex *domain.Exercise) {
 		DBInitScript   string                   `json:"db_init_script"`
 		AllowResubmit  bool                     `json:"allow_resubmit"`
 		AutoCheckpoint bool                     `json:"auto_checkpoint"`
+		AppRunCommand  *string                  `json:"app_run_command"`
+		AppPort        *int                     `json:"app_port"`
 	}
 	if err := json.Unmarshal(body, &raw); err != nil {
 		return
 	}
-	if ex.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) || raw.DBInitScript != "" || raw.AllowResubmit || raw.AutoCheckpoint {
+	if ex.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) || raw.DBInitScript != "" || raw.AllowResubmit || raw.AutoCheckpoint || raw.AppRunCommand != nil || raw.AppPort != nil {
 		if ex.Config.IDE == nil {
 			ex.Config.IDE = &domain.IDEConfig{}
 		}
@@ -79,6 +82,14 @@ func normalizeExerciseConfig(body []byte, ex *domain.Exercise) {
 				ex.Config.Database = &domain.DatabaseConfig{}
 			}
 			ex.Config.Database.InitScript = raw.DBInitScript
+		}
+		if raw.AppRunCommand != nil {
+			// Un comando vacío borra la receta anterior: el docente puede volver
+			// a dejar la práctica sin preview sin que quede un valor viejo.
+			ex.Config.IDE.AppRunCommand = strings.TrimSpace(*raw.AppRunCommand)
+		}
+		if raw.AppPort != nil {
+			ex.Config.IDE.AppPort = *raw.AppPort
 		}
 	}
 	if ex.Type == domain.ExerciseTypeAlgorithm || ex.Type == "" {

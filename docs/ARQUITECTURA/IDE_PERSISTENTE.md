@@ -96,6 +96,26 @@ docente acotado a una práctica, desde su ficha:
   que, en IDE, empiece y termine en el mismo archivo. `POST /comments` responde `422
   line_range_spans_files` si cruza archivos y `422 line_out_of_range` si el ancla no existe.
 
+### 3.2 Entorno de prueba del docente
+
+`POST /api/v1/teacher/submissions/{id}/test-environment` ejecuta la entrega en un contenedor efímero
+para que el docente compruebe que la aplicación arranca. El servicio copia los archivos de
+`submissions.code` a un volumen propio (`solv-review-env-<id>`), nunca al volumen del alumno.
+
+- La receta de arranque vive en `exercises.config.ide`: `app_run_command` (obligatorio) y `app_port`
+  (3000 si se omite). No se infiere del `package.json` ni del `Dockerfile`.
+- El contenedor escucha en el puerto publicado en `127.0.0.1` y, si hay `BASE_DOMAIN`, recibe una
+  ruta Traefik `review-<id>.<dominio>`. La app se abre en una pestaña nueva, nunca en un iframe.
+- El QoS Worker renueva el TTL de 15 minutos cuando crece el contador de red del contenedor; sin
+  tráfico, detiene el contenedor, borra el volumen y marca el preview como `expired`. No hay botón de
+  detener. Si el host no tiene RAM, la admisión responde `503 oom_guard` antes de crear recursos.
+- La tabla `review_test_environments` conserva el historial; un índice parcial único permite un solo
+  preview activo por entrega. El contenedor lleva `solv.review_environment=true` para que el
+  recolector de zombies no lo confunda con un laboratorio huérfano.
+- Límite de esta fase: el preview ejecuta la app y el `setup_script` de la plantilla, pero no
+  aprovisiona satélites de base de datos del nodo. Una app que dependa de un servicio satélite
+  necesita un setup local o queda fuera del preview.
+
 ## 4. Experiencia del alumno
 
 `StudentExerciseSolverComponent` detecta el ejercicio IDE con:

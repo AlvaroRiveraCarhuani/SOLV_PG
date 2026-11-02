@@ -64,6 +64,7 @@ func main() {
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
+	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 
 	authService := services.NewAuthService(db, tenantRepo).WithTeacherInvitationRepo(teacherInvRepo)
 
@@ -91,6 +92,11 @@ func main() {
 	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
 
 	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
+
+	// Preview efímero de SpeedGrader: el QoS worker es su único dueño temporal.
+	reviewEnvRepo := postgres.NewPostgresReviewEnvironmentRepository(db.GetDB())
+	reviewEnvService := services.NewReviewEnvironmentService(reviewEnvRepo, teacherRepo, dockerClient, hostMonitor)
+	qosWorker.SetReviewEnvironmentReaper(reviewEnvService.ReapExpired)
 
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
 	workspaceService.SetPoliciesService(serverPoliciesService)
@@ -209,7 +215,6 @@ func main() {
 	}
 	classAdvanceHandler := httpdelivery.NewClassAdvanceHandler(classAdvanceService)
 
-	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
 	teacherService := services.NewTeacherService(teacherRepo, submissionRepo)
 	teacherService.SetClassSessionStore(classSessionRepo)
 	teacherService.SetKeystrokeRepository(keystrokeRepo)
@@ -220,6 +225,7 @@ func main() {
 	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
+	teacherHandler.SetReviewEnvironmentService(reviewEnvService)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.

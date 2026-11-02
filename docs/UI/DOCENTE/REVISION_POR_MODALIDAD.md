@@ -2,7 +2,7 @@
 
 > **Especificación de interfaz y contrato de datos**
 > **Rol:** Docente
-> **Estado:** Fases 0–3 implementadas (contrato, parser, cierre de rúbrica, corte por modalidad, árbol, comentarios por línea y por rango, diff nativo y regresión de juez); fase 4 (entorno de prueba del alumno) pendiente
+> **Estado:** Fases 0–3 y entorno de prueba en vivo del docente implementados (contrato, parser, cierre de rúbrica, corte por modalidad, árbol, comentarios por línea y por rango, diff nativo, regresión de juez y preview efímero de la entrega); prueba del alumno diferida
 > **Gobernanza:** SOLV Design System / [UX-PRINCIPLES](../UX-PRINCIPLES.md) / [ADR-043](../../ARQUITECTURA/ADR/ADR-043-modalidad-dual-y-gobernanza-de-recursos.md) / [ADR-052](../../ARQUITECTURA/ADR/ADR-052-banco-ejercicios-read-model-y-discriminador-entorno.md) / [ADR-053](../../ARQUITECTURA/ADR/ADR-053-revision-docente-y-libreta-de-notas.md)
 > **Ruta:** `/teacher/revision/:submissionId`
 > **Reemplaza el plan de:** `proyecto-grado/Observaciones/Revision de Entregas e Inconsistencias en SpeedGrader.md` (nota local, fuera del repositorio)
@@ -62,6 +62,7 @@ La decisión es una sola ruta y un solo shell, con dos paneles de revisión seg�
 | Auditoría de escritura | Sí, si hay datos | Sí, si hay datos | Mantener en ambas. |
 | Consola del estudiante | No | Solo con un workspace real | Quitar la sesión fabricada; ocultar si no hay workspace vivo. |
 | Re-ejecutar sandbox | Sí, con el lenguaje del ejercicio | No | Ocultar en IDE. El endpoint responde 409 en IDE. |
+| Probar aplicación viva | No | Sí, si la práctica declara `app_run_command` | Contenedor efímero sobre una copia del snapshot; se abre en pestaña nueva y el QoS lo apaga por inactividad. |
 | Comentarios inline | Sí | Sí, por archivo visible | Mantener el número de línea global, traducir en la vista y permitir bloques con `end_line_number`. |
 | Calificar / override | Sí | Sí, como excepción | La acción primaria en IDE es guardar la rúbrica. |
 | Estado de revisión | Sí | Sí | Guardar la rúbrica mueve la entrega a `graded` y actualiza la libreta. |
@@ -100,7 +101,7 @@ Tres columnas:
 - **Izquierda:** árbol de archivos ordenado por ruta, carpetas colapsables, archivo seleccionado marcado. Las rutas usan `font-mono`; las etiquetas humanas, `--font-sans`.
 - **Centro:** encabezado con ruta, lenguaje y cantidad de líneas; editor de solo lectura; comentarios inline de la línea seleccionada.
 - **Derecha:** criterios y niveles de la rúbrica, comentarios generales, score ponderado y botón de guardado. La columna queda fija y con scroll independiente.
-- **Header:** sin "Re-ejecutar". El menú de herramientas oculta complejidad; replay y auditoría quedan si hay datos; la consola solo aparece con un workspace real.
+- **Header:** sin "Re-ejecutar". La acción primaria es **Probar aplicación viva**: pide el preview, lo abre en una pestaña nueva y muestra hasta qué hora sigue activo. El menú de herramientas oculta complejidad; replay y auditoría quedan si hay datos; la consola solo aparece con un workspace real.
 - **Sin rúbrica:** estado vacío explícito, guardado deshabilitado y enlace a la práctica para configurarla.
 - **Sin archivos reconocibles:** se cae al visor plano de `code` con un aviso discreto; no se inventa un árbol.
 
@@ -255,7 +256,18 @@ Ejemplo abreviado:
 - La respuesta `200` solo se devuelve si la nota, el estado y la libreta quedaron escritos. Si falla la libreta, la UI no muestra el banner de éxito.
 - `PATCH /api/v1/teacher/submissions/{id}/review` se mantiene para transiciones explícitas (`in_review`, `returned`, etc.).
 
-### 5.5 Errores
+### 5.5 Entorno de prueba en vivo
+
+`POST /api/v1/teacher/submissions/{id}/test-environment` devuelve `{ url, expires_at }` para abrir la app en una pestaña nueva.
+
+- El contenedor se crea desde `submissions.code` en un volumen propio (`solv-review-env-<id>`); nunca monta el workspace del alumno.
+- La receta sale de `exercises.config.ide`: `app_run_command` obligatorio y `app_port` con default 3000. Sin comando, la respuesta es `409 app_run_command_missing` y el botón no inventa una ejecución.
+- La pestaña se reserva en el clic (para que el navegador no la bloquee) y se navega cuando llega la URL. No se usa iframe.
+- El TTL es de 15 minutos por inactividad de red; el QoS Worker renueva o apaga el preview. No hay botón «Detener».
+- Si el host no tiene RAM, responde `503 oom_guard` antes de crear el contenedor.
+- El aviso bajo el header muestra la hora de vencimiento con `dateText` dentro de `<time>` y un enlace `target="_blank"` para reabrir la app.
+
+### 5.6 Errores
 
 | Código | Cuándo | Cuerpo |
 | --- | --- | --- |
@@ -267,6 +279,13 @@ Ejemplo abreviado:
 | `422 line_out_of_range` | Comentario fuera del código | Mensaje con el rango válido |
 | `422 line_range_invalid` | Rango invertido o línea inicial inválida | Mensaje con el rango válido |
 | `422 line_range_spans_files` | El bloque IDE cruza archivos o cabeceras | Mensaje con el archivo del bloque |
+| `409 review_environment_requires_ide` | Se pide preview en una entrega de juez | Mensaje de modalidad no aplicable |
+| `409 app_run_command_missing` | La práctica no declara cómo arrancar la app | Mensaje con los campos a configurar |
+| `409 project_snapshot_unavailable` | La entrega no tiene snapshot multiarchivo | Mensaje de entrega no ejecutable |
+| `409 invalid_app_port` | El puerto guardado está fuera de 1–65535 | Mensaje con el rango válido |
+| `409 review_environment_starting` | Ya hay un preview iniciándose | Mensaje para reintentar en unos segundos |
+| `503 oom_guard` | El host no tiene memoria | Mensaje de admisión |
+| `502 app_not_ready` | El contenedor no escucha en el puerto | Mensaje para revisar el comando |
 
 ---
 
@@ -355,10 +374,16 @@ import express from "express";
 - [x] **AC-15:** En IDE, el diff compara el archivo activo contra `base_files` y solo se habilita si existe el homónimo. Sin base, la acción no aparece y no se inventa una comparación.
 - [x] **AC-16:** El paso de publicación de un ejercicio IDE permite editar el proyecto base con el formato `# === FILE: ruta ===`; al guardar, el read model devuelve `base_files_available = true` y los archivos con sus offsets.
 - [x] **AC-17:** J08 ejercita el diff por archivo y un comentario de bloque; J07 sigue cubriendo el SpeedGrader de juez. Los tests unitarios de la traducción de líneas cubren rangos.
+- [x] **AC-18:** El SpeedGrader IDE muestra **Probar aplicación viva**; el de juez no lo muestra. La app se abre en una pestaña nueva con `target="_blank"`/`window.open`, nunca en un iframe, y el error de la API se ve en el shell.
+- [x] **AC-19:** El preview monta un volumen propio con el snapshot y no toca el volumen del alumno. El contenedor lleva `solv.review_environment=true` y el recolector de zombies lo excluye.
+- [x] **AC-20:** Sin `app_run_command` la API responde `409 app_run_command_missing` y no crea recursos. Si el host no tiene RAM, responde `503 oom_guard` antes del volumen.
+- [x] **AC-21:** El QoS renueva el TTL cuando crece el tráfico de red y apaga/borra el preview sin tráfico. No existe un botón ni un endpoint de detener.
 
 Verificación de la fase 2 (2026-11-01): pasan `npm run build`, los specs del SpeedGrader (21 tests, incluidos el árbol y la traducción de líneas), Template Studio (72 tests, incluida la inyección de OpenVSCode), `npm run lint:styles`, `go build ./...`, `go test` de los paquetes tocados y `go vet` con los tests de integración compilados. J08 se ejecutó contra el stack local con Docker real y pasó completo (1.5 min): plantilla IDE verificada y publicada, workspace iniciado, entrega `PENDING`, reconexión idempotente y SpeedGrader con árbol, cambio de archivo, ausencia de bloques de juez y rúbrica guardada. J07 también pasó (1.4 min): prueba efímera, comentario por línea, override auditado y detección anti-plagio.
 
 Verificación de la fase 3 (2026-11-01): pasan `npm run build`, `npm run lint:styles` y los 26 tests del SpeedGrader (`speed-grader.component.spec.ts`, `review-line-map.spec.ts`, árbol de archivos y repetición de teclas). En backend pasan `go build ./...` y las suites completas de `internal/core/domain`, `internal/core/services`, `internal/delivery/http` e `internal/infrastructure/storage/postgres`, más Slice 13 de integración contra `solv_test` con las migraciones 42 y 43 aplicadas. J08 pasó completo (1.5 min) con árbol de dos archivos, diff nativo contra `base_files` y comentario de bloque L2–L5 guardado con `end_line_number`; J07 pasó (1.2 min) con prueba efímera, comentario por línea, override auditado y detección anti-plagio.
+
+Verificación de la fase 4 (2026-11-01): pasan `go build ./...`, los tests nuevos del servicio de preview (comando obligatorio, modalidad IDE, OOM_GUARD, snapshot aislado, reapertura, limpieza cuando la app no escucha, renovación por tráfico y vencimiento por inactividad) y el mapeo de errores HTTP. En frontend pasan `npm run build`, `npm run lint:styles`, eslint de los archivos tocados y los 14 tests del SpeedGrader, incluido el que verifica que el preview se pide y se abre en otra pestaña. La prueba manual con Docker real queda pendiente para el cierre del piloto: requiere una práctica con `app_run_command` y un host con RAM libre.
 
 ---
 
@@ -370,7 +395,8 @@ Verificación de la fase 3 (2026-11-01): pasan `npm run build`, `npm run lint:st
 | 1 | Corte por modalidad | `frontend/src/app/features/teacher/grading/speed-grader/speed-grader.component.*`, `components/speed-grader-header/*`, `components/speed-grader-eval-panel/*`, `backend/internal/core/services/teacher_ephemeral.go` | AC-03, AC-04, AC-08, AC-09 |
 | 2 | Árbol de archivos y comentarios | `frontend/src/app/features/teacher/grading/speed-grader/components/review-file-tree/`, `components/speed-grader-code-viewer/*`, `speed-grader.component.html` | AC-05, AC-06, AC-10, AC-11 |
 | 3 | Diff nativo y comentarios por rango | `backend/migrations/00043_submission_comment_ranges.sql`, `backend/internal/core/services/teacher_submissions.go`, `frontend/src/app/shared/components/code-diff-viewer/`, `components/speed-grader-code-viewer/*`, `step-publication/ide-base-snapshot/` | AC-13, AC-14, AC-15, AC-16, AC-17 |
-| 4 | Entorno de prueba del alumno (diferido) | Job nuevo sobre el patrón de `practice_env_test`, ADR propia | Criterios de la ADR de la fase 4 |
+| 4 | Entorno de prueba en vivo del docente | `backend/migrations/00044_review_test_environments.sql`, `backend/internal/core/services/review_environment_service.go`, `backend/internal/delivery/http/teacher_review_environment.go`, `frontend/.../components/speed-grader-header/*`, `step-ide-environment/components/ide-preview-config/` | AC-18, AC-19, AC-20, AC-21 |
+| 5 | Entorno de prueba del alumno (diferido) | Job nuevo sobre el patrón de `practice_env_test`, ADR propia | Criterios de una ADR posterior |
 
 Notas de implementación:
 
@@ -382,13 +408,14 @@ Notas de implementación:
 - La fase 2 no cambia el esquema de comentarios. La traducción de líneas vive en la vista y tiene tests unitarios.
 - Cierre de la fase 2: `ParseProjectSnapshot` deriva `files[]` del snapshot sin persistir nada; el repositorio solo lo hace en IDE y deja `files_available = false` si el formato no es reconocible. El visor muestra el archivo activo, traduce la línea local a global al comentar y agrupa como generales los comentarios que caen fuera de los archivos. `AddComment` valida el rango contra `code` y responde `422 line_out_of_range`. El árbol usa `role="tree"`, flechas, Home/End y Enter/Espacio, y colapsa a una columna a 1024 px.
 - Cierre de la fase 3: el diff nativo usa `unifiedMergeView` de `@codemirror/merge` en modo solo lectura. En juez compara `boilerplate` contra `code`; en IDE compara el archivo activo contra su homónimo de `base_files`. El proyecto base se edita en el paso de publicación con el formato de snapshot y se guarda en `exercises.boilerplate`; no hay un segundo formato ni una tabla nueva. Los comentarios de bloque usan `end_line_number` y siguen anclados a la línea global; el backend rechaza rangos invertidos o que cruzan archivos. La migración es idempotente y no toca los comentarios existentes.
+- Cierre de la fase 4: el preview es un contenedor efímero por entrega, con volumen propio y receta explícita (`app_run_command`, `app_port`). La tabla `review_test_environments` concentra el TTL; el QoS Worker es el único dueño del apagado. La app se abre en pestaña nueva, nunca en iframe. El preview no aprovisiona satélites de base de datos: una app que dependa de ellos necesita un setup local o queda fuera de esta fase.
 
 ---
 
 ## 9. Documentación y gobernanza
 
 - **Esta especificación:** `docs/UI/DOCENTE/REVISION_POR_MODALIDAD.md`.
-- **ADR:** [ADR-060](../../ARQUITECTURA/ADR/ADR-060-diff-nativo-y-comentarios-por-rango.md) documenta el diff nativo, el proyecto base y `end_line_number`.
+- **ADR:** [ADR-060](../../ARQUITECTURA/ADR/ADR-060-diff-nativo-y-comentarios-por-rango.md) documenta el diff nativo, el proyecto base y `end_line_number`. [ADR-061](../../ARQUITECTURA/ADR/ADR-061-preview-efimero-de-entrega-desde-speedgrader.md) documenta el preview efímero y su ciclo de vida.
 - **Contrato de API:** `docs/API_CONTRACTS.md` incluye `base_files[]`, `base_files_available` y `end_line_number`.
 - **IDE persistente:** `docs/ARQUITECTURA/IDE_PERSISTENTE.md` documenta `base_files[]` y los bloques de comentarios.
 - **Mapa de vistas:** no cambia la ruta; solo se ajusta la descripción si el alcance de la vista cambia.
