@@ -1,7 +1,7 @@
 {
   "name": "solv-companion",
   "displayName": "SOLV Companion",
-  "description": "Comentarios del docente y cadencia de escritura para las prácticas de SOLV.",
+  "description": "Aula, avances del docente, comentarios y entrega dentro del laboratorio SOLV.",
   "version": "0.1.0",
   "publisher": "solv",
   "icon": "resources/icon.png",
@@ -19,7 +19,58 @@
     "onStartupFinished"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "solv",
+          "title": "SOLV",
+          "icon": "resources/solv-activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "solv": [
+        {
+          "id": "solv.panel",
+          "name": "Aula",
+          "type": "webview"
+        }
+      ]
+    },
     "commands": [
+      {
+        "command": "solv.openTab",
+        "title": "SOLV: Abrir consigna en pestaña"
+      },
+      {
+        "command": "solv.refreshPanel",
+        "title": "SOLV: Actualizar panel",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "solv.submit",
+        "title": "SOLV: Entregar práctica",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "solv.broadcastAdvance",
+        "title": "SOLV: Emitir avance a la clase",
+        "icon": "$(broadcast)"
+      },
+      {
+        "command": "solv.toggleFreeze",
+        "title": "SOLV: Congelar o descongelar la clase",
+        "icon": "$(debug-pause)"
+      },
+      {
+        "command": "solv.showPresence",
+        "title": "SOLV: Ver presencia del aula",
+        "icon": "$(organization)"
+      },
+      {
+        "command": "solv.openSpeedGrader",
+        "title": "SOLV: Abrir SpeedGrader en el navegador"
+      },
       {
         "command": "solv.configure",
         "title": "SOLV: Configurar conexión"
@@ -33,6 +84,37 @@
         "title": "SOLV: Estado de la telemetría"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "solv.refreshPanel",
+          "when": "view == solv.panel",
+          "group": "navigation"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "solv.submit",
+          "when": "solv:isStudent"
+        },
+        {
+          "command": "solv.broadcastAdvance",
+          "when": "solv:isTeacher"
+        },
+        {
+          "command": "solv.toggleFreeze",
+          "when": "solv:isTeacher"
+        },
+        {
+          "command": "solv.showPresence",
+          "when": "solv:isTeacher"
+        },
+        {
+          "command": "solv.openSpeedGrader",
+          "when": "solv:isTeacher"
+        }
+      ]
+    },
     "configuration": {
       "title": "SOLV Companion",
       "properties": {
@@ -46,11 +128,85 @@
           "default": "",
           "description": "Identificador de la entrega que se está revisando."
         },
+        "solv.role": {
+          "type": "string",
+          "enum": [
+            "student",
+            "teacher",
+            "admin"
+          ],
+          "default": "student",
+          "description": "Rol del editor. La variable de entorno SOLV_USER_ROLE tiene prioridad."
+        },
+        "solv.sessionId": {
+          "type": "string",
+          "default": "",
+          "description": "Aula abierta del docente o aula de la práctica del alumno."
+        },
+        "solv.exerciseId": {
+          "type": "string",
+          "default": "",
+          "description": "Ejercicio de la práctica en curso."
+        },
+        "solv.subjectId": {
+          "type": "string",
+          "default": "",
+          "description": "Materia del laboratorio, para resolver el entorno al entregar."
+        },
+        "solv.workspaceId": {
+          "type": "string",
+          "default": "",
+          "description": "Entorno del laboratorio cuando el dato viene inyectado."
+        },
+        "solv.subjectCode": {
+          "type": "string",
+          "default": "",
+          "description": "Código de la materia que se muestra en el panel y en la barra de estado."
+        },
+        "solv.subjectTitle": {
+          "type": "string",
+          "default": "",
+          "description": "Nombre de la materia que se muestra en el panel."
+        },
+        "solv.teacherName": {
+          "type": "string",
+          "default": "",
+          "description": "Docente a cargo de la materia."
+        },
+        "solv.assignmentTitle": {
+          "type": "string",
+          "default": "",
+          "description": "Título de la práctica en curso."
+        },
+        "solv.assignmentSummary": {
+          "type": "string",
+          "default": "",
+          "description": "Resumen de la consigna que muestra el panel."
+        },
+        "solv.assignmentCriteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Criterios de evaluación que muestra el panel."
+        },
+        "solv.speedGraderUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL del SpeedGrader para el acceso rápido del docente."
+        },
         "solv.comments.refreshSeconds": {
           "type": "number",
           "default": 60,
           "minimum": 15,
           "description": "Cada cuántos segundos se consultan los comentarios."
+        },
+        "solv.advances.refreshSeconds": {
+          "type": "number",
+          "default": 30,
+          "minimum": 15,
+          "description": "Cada cuántos segundos se consultan los avances del aula."
         },
         "solv.telemetry.enabled": {
           "type": "boolean",
@@ -90,7 +246,7 @@
   },
   "scripts": {
     "compile": "tsc -p .",
-    "test": "npm run compile && node --test out/telemetry/*.test.js",
+    "test": "npm run compile && node --test \"out/**/*.test.js\"",
     "watch": "tsc -w -p .",
     "clean": "rm -rf out",
     "package": "npm run compile && vsce package --allow-missing-repository",

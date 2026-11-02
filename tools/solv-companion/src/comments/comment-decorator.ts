@@ -59,9 +59,10 @@ export class CommentDecorator implements vscode.Disposable {
 
     this.anchorsByDocument.set(editor.document.uri.toString(), anchors);
 
+    // El texto del comentario viaja solo por el hover provider. Declararlo
+    // también en la decoración lo hacía aparecer dos veces en el mismo tooltip.
     const decorations = anchors.map(anchor => ({
-      range: new vscode.Range(anchor.startLine - 1, 0, anchor.endLine - 1, 0),
-      hoverMessage: this.hoverFor(anchor.comment)
+      range: new vscode.Range(anchor.startLine - 1, 0, anchor.endLine - 1, 0)
     }));
     editor.setDecorations(this.decorationType, decorations);
   }

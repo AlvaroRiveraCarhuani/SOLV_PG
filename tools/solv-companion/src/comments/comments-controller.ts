@@ -35,6 +35,11 @@ export class CommentsController implements vscode.Disposable {
     this.restartTimer();
   }
 
+  /** Comentarios vigentes, para que el panel los muestre agrupados. */
+  get currentComments(): SubmissionComment[] {
+    return this.comments;
+  }
+
   async refresh(showErrors = false): Promise<void> {
     if (!this.settings.isConfigured) {
       this.comments = [];

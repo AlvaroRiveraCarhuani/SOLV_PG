@@ -2,22 +2,45 @@ import * as vscode from 'vscode';
 
 const TOKEN_SECRET_KEY = 'solv.authToken';
 
+export type SolvRole = 'student' | 'teacher' | 'admin';
+
 /**
- * Lee primero las variables de entorno del sistema, luego la configuración del workspace.
- * Esto permite que la extensión funcione sin configuración manual cuando se ejecuta
- * dentro de OpenVSCode Server con variables de entorno inyectadas.
+ * Lee primero las variables de entorno del sistema, luego la configuración del
+ * workspace. Esto permite que la extensión funcione sin configuración manual
+ * cuando se ejecuta dentro de OpenVSCode Server con variables inyectadas.
  */
 export class SolvSettings {
   constructor(private readonly context: vscode.ExtensionContext) {
-    // Cargar desde variables de entorno si existen (para OpenVSCode Server)
     this._envApiBaseUrl = process.env.SOLV_API_URL;
     this._envSubmissionId = process.env.SOLV_SUBMISSION_ID;
     this._envToken = process.env.SOLV_STUDENT_TOKEN;
+    this._envRole = process.env.SOLV_USER_ROLE;
+    this._envSessionId = process.env.SOLV_SESSION_ID;
+    this._envExerciseId = process.env.SOLV_EXERCISE_ID;
+    this._envSubjectId = process.env.SOLV_SUBJECT_ID;
+    this._envWorkspaceId = process.env.SOLV_WORKSPACE_ID;
+    this._envSubjectCode = process.env.SOLV_SUBJECT_CODE;
+    this._envSubjectTitle = process.env.SOLV_SUBJECT_TITLE;
+    this._envTeacherName = process.env.SOLV_TEACHER_NAME;
+    this._envAssignmentTitle = process.env.SOLV_ASSIGNMENT_TITLE;
+    this._envAssignmentSummary = process.env.SOLV_ASSIGNMENT_SUMMARY;
+    this._envSpeedGraderUrl = process.env.SOLV_SPEEDGRADER_URL;
   }
 
   private readonly _envApiBaseUrl: string | undefined;
   private readonly _envSubmissionId: string | undefined;
   private readonly _envToken: string | undefined;
+  private readonly _envRole: string | undefined;
+  private readonly _envSessionId: string | undefined;
+  private readonly _envExerciseId: string | undefined;
+  private readonly _envSubjectId: string | undefined;
+  private readonly _envWorkspaceId: string | undefined;
+  private readonly _envSubjectCode: string | undefined;
+  private readonly _envSubjectTitle: string | undefined;
+  private readonly _envTeacherName: string | undefined;
+  private readonly _envAssignmentTitle: string | undefined;
+  private readonly _envAssignmentSummary: string | undefined;
+  private readonly _envSpeedGraderUrl: string | undefined;
 
   get apiBaseUrl(): string {
     return this._envApiBaseUrl?.replace(/\/+$/, '') || this.readString('apiBaseUrl').replace(/\/+$/, '');
@@ -27,11 +50,76 @@ export class SolvSettings {
     return this._envSubmissionId || this.readString('submissionId');
   }
 
+  /** Rol del entorno: decide las context keys y qué controles se muestran. */
+  get role(): SolvRole {
+    const value = (this._envRole || this.readString('role') || 'student').toLowerCase();
+    if (value === 'teacher' || value === 'admin') {
+      return value;
+    }
+    return 'student';
+  }
+
+  get isTeacher(): boolean {
+    return this.role === 'teacher' || this.role === 'admin';
+  }
+
+  get sessionId(): string {
+    return this._envSessionId || this.readString('sessionId');
+  }
+
+  get exerciseId(): string {
+    return this._envExerciseId || this.readString('exerciseId');
+  }
+
+  get subjectId(): string {
+    return this._envSubjectId || this.readString('subjectId');
+  }
+
+  get workspaceId(): string {
+    return this._envWorkspaceId || this.readString('workspaceId');
+  }
+
+  get subjectCode(): string {
+    return this._envSubjectCode || this.readString('subjectCode');
+  }
+
+  get subjectTitle(): string {
+    return this._envSubjectTitle || this.readString('subjectTitle');
+  }
+
+  get teacherName(): string {
+    return this._envTeacherName || this.readString('teacherName');
+  }
+
+  get assignmentTitle(): string {
+    return this._envAssignmentTitle || this.readString('assignmentTitle');
+  }
+
+  get assignmentSummary(): string {
+    return this._envAssignmentSummary || this.readString('assignmentSummary');
+  }
+
+  get assignmentCriteria(): string[] {
+    const fromConfig = vscode.workspace.getConfiguration('solv').get<string[]>('assignmentCriteria', []);
+    return fromConfig.map(item => item.trim()).filter(item => item !== '');
+  }
+
+  get speedGraderUrl(): string {
+    return this._envSpeedGraderUrl || this.readString('speedGraderUrl');
+  }
+
   get refreshIntervalMs(): number {
     const seconds = vscode.workspace
       .getConfiguration('solv')
       .get<number>('comments.refreshSeconds', 60);
     return Math.max(15, Number.isFinite(seconds) ? seconds : 60) * 1000;
+  }
+
+  get advanceIntervalMs(): number {
+    const seconds = vscode.workspace
+      .getConfiguration('solv')
+      .get<number>('advances.refreshSeconds', 30);
+    return Math.max(15, Number.isFinite(seconds) ? seconds : 30) * 1000;
   }
 
   get telemetryEnabled(): boolean {
@@ -53,7 +141,7 @@ export class SolvSettings {
     return (await this.context.secrets.get(TOKEN_SECRET_KEY)) ?? '';
   }
 
-  private readString(key: string | 'apiBaseUrl' | 'submissionId'): string {
+  private readString(key: string): string {
     return vscode.workspace.getConfiguration('solv').get<string>(key, '').trim();
   }
 
@@ -65,7 +153,7 @@ export class SolvSettings {
   }
 
   get isConfigured(): boolean {
-    return this.apiBaseUrl !== '' && this.submissionId !== '';
+    return this.apiBaseUrl !== '' && (this.submissionId !== '' || this.sessionId !== '');
   }
 
   async getToken(): Promise<string> {

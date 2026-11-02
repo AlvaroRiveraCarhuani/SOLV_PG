@@ -24,12 +24,16 @@ const REQUEST_TIMEOUT_MS = 10000;
 export class SolvClient {
   constructor(private readonly settings: SolvSettings) {}
 
-  private async request<T>(path: string, init: RequestInit): Promise<T> {
+  /**
+   * Punto único de salida HTTP. Los avances del aula y la sesión docente no
+   * dependen de una entrega, así que solo se exige URL y token; cada ruta
+   * valida lo suyo antes de llamar.
+   */
+  async request<T>(path: string, init: RequestInit): Promise<T> {
     const baseUrl = this.settings.apiBaseUrl;
     // Preferir token de entorno (inyectado por OpenVSCode Server), fallback a SecretStorage.
     const token = await this.settings.getTokenEnv();
-    const submissionId = this.settings.submissionId;
-    if (!baseUrl || !submissionId || !token) {
+    if (!baseUrl || !token) {
       throw new SolvApiError('Falta configurar la conexión con SOLV.');
     }
 
@@ -70,10 +74,38 @@ export class SolvClient {
   }
 
   async fetchComments(): Promise<SubmissionComment[]> {
+    if (!this.settings.submissionId) {
+      throw new SolvApiError('Falta configurar la entrega que se está revisando.');
+    }
     const comments = await this.request<SubmissionComment[]>(this.commentsPath(), {
       method: 'GET'
     });
     return Array.isArray(comments) ? comments : [];
+  }
+
+  /**
+   * Entrega el proyecto del laboratorio. Sin archivos, el backend empaqueta el
+   * volumen vigente del alumno.
+   */
+  async submitWorkspace(workspaceId: string, exerciseId: string): Promise<{ id: string }> {
+    return this.request<{ id: string }>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/submit`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ exercise_id: exerciseId })
+      }
+    );
+  }
+
+  /** Entorno del alumno en una materia, para resolver el workspace al entregar. */
+  async resolveWorkspace(subjectId: string): Promise<{ id: string } | null> {
+    if (!subjectId) {
+      return null;
+    }
+    return this.request<{ id: string } | null>(
+      `/api/v1/workspaces?subject_id=${encodeURIComponent(subjectId)}`,
+      { method: 'GET' }
+    );
   }
 
   async sendKeystrokeEvents(events: KeystrokeEvent[]): Promise<void> {
