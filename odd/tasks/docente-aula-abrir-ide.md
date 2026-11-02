@@ -4,7 +4,7 @@ Objetivo: que el docente abra el entorno de la práctica que está dando clase d
 
 Branch: `feat/aula-open-ide` (desde `main`) | Delivery strategy: ask-on-risk | Test runner: `npm run test:ci`
 
-Estado: **planificada**. Bloqueada por D1 (aula sin práctica). El resto se puede implementar ya.
+Estado: **implementada (2026-11-02)**. D1 resuelto: con el aula sin práctica el botón queda deshabilitado y explica por qué. Spec nuevo con tres casos sin Docker; build de producción en verde.
 
 Fuente: `proyecto-grado/Observaciones/Laboratorios y Flujo del Entorno Docente.md` §12. Decisión del usuario: «Acceso directo en el Aula: El botón directo para abrir el IDE sin salir de la clase».
 
@@ -50,10 +50,10 @@ Fuente: `proyecto-grado/Observaciones/Laboratorios y Flujo del Entorno Docente.m
 
 ## Tasks
 
-- [ ] **T1 — S1**: `aula.component.html` (botón, spinner, error) y `aula.component.scss` si hace falta.
-- [ ] **T2 — S2**: `aula.component.ts` (`openIde`, señales de estado, import de `TeacherEnvironmentService` y `LucideLaptop`).
-- [ ] **T3 — S3**: regla de `exercise_id` nulo y texto de ayuda.
-- [ ] **T4 — S4**: spec nuevo y documentación.
+- [x] **T1 — S1**: `aula.component.html` con el botón entre presencia y `Emitir avance`, spinner `Abriendo IDE…` y el error bajo la cabecera reutilizando `.error-panel`; sin SCSS nuevo.
+- [x] **T2 — S2**: `openIde` en `aula.component.ts` con `isOpeningIde` / `ideError`, reserva de pestaña, cierre al fallar y caída a la pestaña actual.
+- [x] **T3 — S3**: sin `exercise_id` el botón queda deshabilitado con el `title` explicativo; no se abre entorno por materia.
+- [x] **T4 — S4**: `aula.component.spec.ts` con los tres casos y `docs/UI/MAPA_DE_VISTAS.md` §4.4 actualizado.
 
 ## Dudas abiertas
 
@@ -76,3 +76,4 @@ cd frontend && CI=true npm run build
 - **L1 (verbatim):** «Acceso directo en el Aula: El botón directo para abrir el IDE sin salir de la clase.»
 - **L2 (verbatim):** «Para entender cómo debe conectarse el botón [Abrir mi IDE] adentro del Aula (/teacher/aula), y por qué el inicio de clase debe nacer directo desde la práctica sin formularios manuales.»
 - **Nota:** L2 mezcla dos temas. El botón es esta ficha; el arranque de clase sin formulario es una decisión aparte (D2).
+- **Cierre (2026-11-02):** el backend ignora `courseId` en `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide` y resuelve por práctica, así que se pasa `subject_id` como en la ficha de la práctica. D2, D3 y D4 siguen fuera de alcance.

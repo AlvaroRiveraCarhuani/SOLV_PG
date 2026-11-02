@@ -32,6 +32,20 @@
         </span>
         <button
           type="button"
+          class="btn btn-secondary"
+          (click)="openIde()"
+          [disabled]="!aula.exercise_id || isOpeningIde()"
+          [title]="aula.exercise_id ? 'Abrir el entorno de la práctica en una pestaña nueva' : 'Abrí el aula con una práctica para usar tu IDE'">
+          @if (isOpeningIde()) {
+            <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+            Abriendo IDE…
+          } @else {
+            <svg lucideLaptop class="btn-icon"></svg>
+            Abrir mi IDE
+          }
+        </button>
+        <button
+          type="button"
           class="btn btn-primary"
           (click)="openAdvanceModal()"
           [disabled]="!canEmit()"
@@ -64,6 +78,10 @@
         </button>
       </div>
     </header>
+
+    @if (ideError(); as error) {
+      <div class="error-panel" role="alert">{{ error }}</div>
+    }
 
     <!-- Examen: el cierre congela los volúmenes, no solo cierra la lista. -->
     @if (isExamSession()) {

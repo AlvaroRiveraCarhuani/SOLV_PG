@@ -5,6 +5,8 @@ import { ActivatedRoute } from '@angular/router';
 import {
   LucideAlertTriangle,
   LucideCheckCircle2,
+  LucideLaptop,
+  LucideLoader2,
   LucideLock,
   LucideLockOpen,
   LucideRotateCcw,
@@ -26,6 +28,7 @@ import { ClassAdvanceService } from '../services/class-advance.service';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { TeacherCourseService } from '../services/teacher-course.service';
 import { TeacherLiveService } from '../services/teacher-live.service';
+import { TeacherEnvironmentService } from '../services/teacher-environment.service';
 import {
   ClassSession,
   ClassSessionStudent,
@@ -85,6 +88,8 @@ const STATE_LABELS: Record<ClassSessionStudentState, string> = {
     FormsModule,
     LucideAlertTriangle,
     LucideCheckCircle2,
+    LucideLaptop,
+    LucideLoader2,
     LucideLock,
     LucideLockOpen,
     LucideRotateCcw,
@@ -115,6 +120,7 @@ export class AulaComponent implements OnInit, OnDestroy {
   private readonly dashboardService = inject(TeacherDashboardService);
   private readonly courseService = inject(TeacherCourseService);
   private readonly liveService = inject(TeacherLiveService);
+  private readonly environment = inject(TeacherEnvironmentService);
 
   readonly session = this.sessionService.session;
   readonly board = this.sessionService.board;
@@ -160,6 +166,8 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly graceMinutes = signal<number | null>(DEFAULT_GRACE_MINUTES);
   readonly graceDeadline = signal<string>('');
   readonly graceError = signal<string>('');
+  readonly isOpeningIde = signal<boolean>(false);
+  readonly ideError = signal<string | null>(null);
 
   private refreshTimer?: ReturnType<typeof setInterval>;
   /** Práctica pedida por URL: se aplica cuando llegan las opciones de su materia. */
@@ -412,6 +420,46 @@ export class AulaComponent implements OnInit, OnDestroy {
     }, REFRESH_MS);
 
     this.liveService.setPollingInterval(REFRESH_MS);
+  }
+
+  /**
+   * Abre el entorno de la práctica que la clase está dando. La pestaña se reserva
+   * antes de pedir el entorno, para que el navegador no la tome por ventana
+   * emergente y para cerrarla si la apertura falla.
+   */
+  openIde(): void {
+    const aula = this.session();
+    if (!aula?.exercise_id || this.isOpeningIde()) {
+      return;
+    }
+
+    const tab = window.open('', '_blank');
+    this.ideError.set(null);
+    this.isOpeningIde.set(true);
+
+    this.environment.openPracticeIDE(aula.subject_id, aula.exercise_id).subscribe({
+      next: session => {
+        this.isOpeningIde.set(false);
+        if (!session?.access_url) {
+          tab?.close();
+          this.ideError.set('El entorno arrancó pero todavía no tiene una URL de acceso.');
+          return;
+        }
+        if (tab) {
+          tab.opener = null;
+          tab.location.href = session.access_url;
+          return;
+        }
+        // Sin pestaña disponible (el navegador bloqueó la ventana emergente), el
+        // entorno ya está corriendo: se abre en esta misma pestaña.
+        window.location.assign(session.access_url);
+      },
+      error: err => {
+        this.isOpeningIde.set(false);
+        tab?.close();
+        this.ideError.set(this.environment.describePracticeIDEError(err));
+      }
+    });
   }
 
   openAdvanceModal(): void {
