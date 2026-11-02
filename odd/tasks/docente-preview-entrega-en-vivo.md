@@ -4,7 +4,7 @@ Objetivo: que el docente ejecute la entrega de un alumno en un contenedor desech
 
 Branch: `feat/review-live-app` (desde `main`) | Delivery strategy: ask-on-risk | Test runner: `go test ./...` & `npm run test:ci`
 
-Estado: **implementada el 2026-11-01, sin commit**. La migración `00044` está escrita pero no aplicada en la base local; el e2e del flujo no existe. Esta ficha no propone cambios de diseño: cierra lo que ya está en el árbol de trabajo.
+Estado: **implementada el 2026-11-01, sin commit**. La migración `00044` está aplicada en la base local desde el arranque del 2026-11-02 (`goose` en versión 44); el e2e del flujo no existe. Esta ficha no propone cambios de diseño: cierra lo que ya está en el árbol de trabajo.
 
 Fuente: `proyecto-grado/Observaciones/Reestructuracion Entorno Docente y Vocabulario.md` y `docs/ARQUITECTURA/ADR/ADR-061-preview-efimero-de-entrega-desde-speedgrader.md`.
 
@@ -67,14 +67,14 @@ Reglas implementadas en `Start`:
 - **S4 — Configuración de la práctica.** El editor IDE permite declarar comando y puerto; sin comando la UI lo advierte y el arranque del preview falla con mensaje accionable.
   - Estado: **cumplido** en `ide-preview-config` y `ide-preview-config.component.ts`.
 - **S5 — Cierre pendiente (lo que falta).**
-  - Aplicar `00044` en la base local al reiniciar el backend (idempotente; se validó con `ROLLBACK`).
+  - Aplicar `00044` en la base local al reiniciar el backend (idempotente). Hecho el 2026-11-02: el arranque reporta `goose: no migrations to run. current version: 44`.
   - E2E: extender J08 o crear un flujo que publique una plantilla IDE con `app_run_command`, entregue desde el alumno, abra el preview y compruebe que la URL responde y que el contenedor se apaga al vencer.
   - Commit en dos unidades revisables (ver T2).
   - Criterio: `curl` a la URL del preview devuelve 200 con el HTML de la app; `docker ps` no muestra `solv-review-env-*` después del TTL.
 
 ## Tasks
 
-- [ ] **T1 — S5**: aplicar la migración en la base local y confirmar la tabla `review_test_environments` y sus índices.
+- [x] **T1 — S5**: aplicar la migración en la base local y confirmar la tabla `review_test_environments` y sus índices. Verificado el 2026-11-02: 16 columnas y los índices `uq_review_test_environments_active`, `idx_review_test_environments_active_expiry` e `idx_review_test_environments_tenant`.
 - [ ] **T2 — S5**: commit en dos unidades. (a) Backend + migración + tests + ADR/contratos: `feat(teacher): ejecutar la entrega IDE en un contenedor efímero`. (b) Frontend + specs + guía de UI: `feat(teacher): abrir la aplicación viva de la entrega desde SpeedGrader`. Cada una compila por separado.
 - [ ] **T3 — S5**: e2e del flujo con Docker real, incluido el vencimiento por inactividad.
 - [ ] **T4 — S5**: revisar que `docs/API_CONTRACTS.md`, `IDE_PERSISTENTE.md`, `REVISION_POR_MODALIDAD.md` y ADR-061 describan el contrato final (sin cambios de código).
@@ -103,7 +103,7 @@ Estado de la última corrida (sesión del 2026-11-01, **no repetida ahora**): `g
 ## Log
 
 - **L1 (2026-11-01):** se implementó el preview efímero con snapshot aislado, receta `app_run_command`/`app_port`, TTL por inactividad y control de admisión por `OOM_GUARD_MB`.
-- **L2:** la migración se validó con `ROLLBACK`; falta aplicarla en la base local.
+- **L2:** la migración se validó con `ROLLBACK` y quedó aplicada en la base local el 2026-11-02 (versión 44); el reinicio del backend no tuvo migraciones pendientes.
 - **L3:** el árbol de trabajo contiene la implementación sin commit (8 archivos nuevos de backend, 1 migración, 1 ADR, 23 archivos modificados entre backend, frontend y docs).
 - **L4 — hallazgo:** la ruta es `POST /api/v1/teacher/submissions/{id}/test-environment`, no `.../review-environment`; cualquier cliente nuevo debe usar ese path.
 - **L5 — hallazgo:** el preview no tiene heartbeat HTTP. La actividad se mide por `last_rx_bytes`/`last_tx_bytes`; un cambio de UI que espere un ping va a romper la renovación.

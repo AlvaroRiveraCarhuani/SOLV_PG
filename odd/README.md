@@ -69,7 +69,7 @@ Fichas derivadas de las decisiones del 2026-11-01 sobre revisión docente. La fa
 
 | Orden | Ficha | Objetivo corto | Estado declarado | Depende de / relacionada con |
 |---|---|---|---|---|
-| 1 | [docente-preview-entrega-en-vivo.md](tasks/docente-preview-entrega-en-vivo.md) | Ejecutar la entrega IDE en un contenedor desechable y abrir su app desde SpeedGrader | **Implementada (2026-11-01), sin commit**; migración 00044 sin aplicar; e2e pendiente | ADR-061; ADR-011; ADR-059 |
+| 1 | [docente-preview-entrega-en-vivo.md](tasks/docente-preview-entrega-en-vivo.md) | Ejecutar la entrega IDE en un contenedor desechable y abrir su app desde SpeedGrader | **Implementada (2026-11-01), sin commit**; migración 00044 aplicada (2026-11-02); e2e pendiente | ADR-061; ADR-011; ADR-059 |
 | 2 | [docente-comentarios-por-archivo.md](tasks/docente-comentarios-por-archivo.md) | Anclar cada comentario a `file_path` + línea local y dejar de duplicar `code` en IDE | Planificada; bloqueada por D1–D3 | ADR-060; fase 3 de `REVISION_POR_MODALIDAD.md` |
 | 3 | [docente-auditoria-similitud-en-practica.md](tasks/docente-auditoria-similitud-en-practica.md) | Mover el anti-plagio a la práctica, restar el código base y devolver rangos de línea | Planificada; bloqueada por D1–D4; dos entregas | Motor de plagio; J07 y flujo 12 desactualizados |
 | 4 | [docente-aula-abrir-ide.md](tasks/docente-aula-abrir-ide.md) | Abrir el IDE de la práctica desde la cabecera del Aula | Planificada; bloqueada por D1 | ADR-059; `TeacherEnvironmentService.openPracticeIDE` |
