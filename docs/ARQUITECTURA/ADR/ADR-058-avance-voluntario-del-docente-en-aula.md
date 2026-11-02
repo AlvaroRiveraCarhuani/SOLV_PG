@@ -2,6 +2,7 @@
 
 > **Estado:** Implementado
 > **Fecha:** 2026-10-30
+> **Actualizado:** 2026-11-02 — contratos del editor: contenido del snapshot para diff en memoria, aplicación selectiva por checklist y deshacer con auditoría
 > **Actualizado:** 2026-10-31 — ventana de disponibilidad, modo tarea acotado, retención de snapshots y respaldos, y límite de aplicaciones simultáneas
 > **Ámbito:** Docencia, Core, Workspaces, Aula
 > **Reemplaza:** ADR-007 (sincronización forzada por instantáneas de volumen)
@@ -215,10 +216,27 @@ Emitir, congelar, descongelar, sumar minutos, fijar la fecha límite, cerrar la 
 | `CLASS_ADVANCE_GRACE_CLOSED` | Ventana anterior y hora de cierre |
 | `CLASS_ADVANCE_APPLIED` | Alumno, avance y archivos escritos |
 | `CLASS_ADVANCE_DISMISSED` | Alumno y avance |
+| `CLASS_ADVANCE_ROLLBACK` | Alumno, avance, archivos restaurados y ruta del respaldo |
 
 El docente lee el historial de su clase con `GET /api/v1/teacher/sessions/{id}/history`. La respuesta resuelve nombre, correo y rol del actor, y viene del más nuevo al más viejo, con un máximo de 200 movimientos. En `/teacher/aula` el bloque **Historial de esta clase** aparece con el aula abierta y con la última cerrada. El alumno recibe `403`; un aula ajena, `404`; el administrador puede leer cualquier aula de su institución y ve el registro completo en la pantalla de auditoría.
 
 El registro es de solo lectura. Si la escritura de una entrada falla, la acción del aula no se cae: el movimiento falta en el historial y la pantalla conserva la última lista que leyó. La lectura usa el índice parcial de `00039_class_session_history_index.sql`, así que no recorre todo el registro de la institución.
+
+### 13. Contratos del editor para el diff y el checklist
+
+El laboratorio abre el código en OpenVSCode Server y la extensión SOLV Companion muestra el aviso dentro del editor. Para que el alumno compare sin salir del entorno, la API entrega el contenido y acepta la selección de archivos:
+
+| Método | Ruta | Contrato |
+| --- | --- | --- |
+| `GET` | `/api/v1/class-advances/{id}/files` | Agrega `files: map[string]string` con el contenido de texto de cada archivo, además de `added` y `overwritten` |
+| `POST` | `/api/v1/class-advances/{id}/apply` | Acepta `selected_files: []string` opcional; sin lista aplica el avance completo |
+| `POST` | `/api/v1/class-advances/{id}/rollback` | Restaura desde `.solv_backups/<avance_id>/` y deja el destinatario en `pending` |
+
+La extensión registra un `TextDocumentContentProvider` con el esquema virtual `solv-advance:` y llama a `vscode.diff` con el archivo local y el virtual. El motor de diferencias de VS Code trabaja en memoria: no quedan archivos temporales en el volumen del alumno.
+
+Una ruta de `selected_files` que no pertenece al snapshot invalida la selección completa (`422`). Aplicar la mitad de un checklist es peor que rechazarlo: el alumno ve el error y vuelve a marcar.
+
+Deshacer exige que el destinatario esté en `applied` y que exista respaldo. Si el avance solo agregó archivos nuevos no hay versión anterior que restaurar y la API responde `409` con ese motivo. El respaldo se borra después de reabrir el destinatario; si la reapertura falla, el respaldo se conserva y el alumno puede reintentar.
 
 ---
 
