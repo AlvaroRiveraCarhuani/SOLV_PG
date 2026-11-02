@@ -1,0 +1,104 @@
+{
+  "name": "solv-companion",
+  "displayName": "SOLV Companion",
+  "description": "Comentarios del docente y cadencia de escritura para las prácticas de SOLV.",
+  "version": "0.1.0",
+  "publisher": "solv",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Education",
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "solv.configure",
+        "title": "SOLV: Configurar conexión"
+      },
+      {
+        "command": "solv.refreshComments",
+        "title": "SOLV: Actualizar comentarios"
+      },
+      {
+        "command": "solv.showTelemetryStatus",
+        "title": "SOLV: Estado de la telemetría"
+      }
+    ],
+    "configuration": {
+      "title": "SOLV Companion",
+      "properties": {
+        "solv.apiBaseUrl": {
+          "type": "string",
+          "default": "",
+          "description": "URL base de la API de SOLV, sin barra final."
+        },
+        "solv.submissionId": {
+          "type": "string",
+          "default": "",
+          "description": "Identificador de la entrega que se está revisando."
+        },
+        "solv.comments.refreshSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 15,
+          "description": "Cada cuántos segundos se consultan los comentarios."
+        },
+        "solv.telemetry.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Registra inserciones y pegados masivos para la cadencia forense."
+        },
+        "solv.telemetry.pasteThreshold": {
+          "type": "number",
+          "default": 50,
+          "minimum": 2,
+          "description": "Cantidad de caracteres insertados de una vez que se considera pegado masivo."
+        }
+      }
+    },
+    "colors": [
+      {
+        "id": "solv.comment.background",
+        "description": "Fondo de la línea comentada por el docente.",
+        "defaults": {
+          "light": "#FFF7E0",
+          "dark": "#3A2E12",
+          "highContrast": "#000000",
+          "highContrastLight": "#FFFFFF"
+        }
+      },
+      {
+        "id": "solv.comment.border",
+        "description": "Borde del margen de la línea comentada.",
+        "defaults": {
+          "light": "#D97706",
+          "dark": "#FBBF24",
+          "highContrast": "#FFFF00",
+          "highContrastLight": "#000000"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "npm run compile && node --test out/telemetry/*.test.js",
+    "watch": "tsc -w -p .",
+    "clean": "rm -rf out",
+    "package": "npm run compile && vsce package --allow-missing-repository",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.2.0",
+    "typescript": "^5.7.0"
+  }
+}
