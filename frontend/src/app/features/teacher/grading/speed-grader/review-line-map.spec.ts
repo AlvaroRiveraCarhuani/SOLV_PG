@@ -85,6 +85,29 @@ describe('review-line-map', () => {
     expect(localRangeForComment(appFile, comment('header', 1))).toBeNull();
   });
 
+  it('prefers the stored file anchor over the global line', () => {
+    const anchored: SubmissionComment = {
+      ...comment('anchored', 99, 101),
+      file_path: 'src/app.js',
+      local_line_number: 2
+    };
+
+    expect(commentsForFile([anchored], appFile).map((c) => c.id)).toEqual(['anchored']);
+    expect(localRangeForComment(appFile, anchored)).toEqual({ start: 2, end: 3 });
+    expect(commentsOutsideFiles([anchored], [appFile])).toEqual([]);
+  });
+
+  it('shows an anchored comment as general when its file is gone', () => {
+    const anchored: SubmissionComment = {
+      ...comment('orphan', 3),
+      file_path: 'src/removed.js',
+      local_line_number: 1
+    };
+
+    expect(commentsForFile([anchored], appFile)).toEqual([]);
+    expect(commentsOutsideFiles([anchored], [appFile]).map((c) => c.id)).toEqual(['orphan']);
+  });
+
   it('labels single lines and blocks differently', () => {
     expect(commentRangeLabel(12, 12)).toBe('L12');
     expect(commentRangeLabel(12, 18)).toBe('L12–L18');

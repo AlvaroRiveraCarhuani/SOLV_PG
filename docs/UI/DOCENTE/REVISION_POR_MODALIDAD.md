@@ -235,11 +235,12 @@ Ejemplo abreviado:
 
 - `line_number` es la línea global inicial, 1-based, sobre `code`, incluidas las cabeceras. `end_line_number` es opcional; si falta, el comentario aplica a una sola línea. La migración `00043_submission_comment_ranges.sql` agrega la columna y su restricción de orden.
 - Traducción en la vista: `global = start_line + local - 1`; `local = global - start_line + 1`.
-- Al comentar en IDE, la UI envía las líneas globales del bloque seleccionado. Al mostrar, resta el mismo offset.
-- El backend valida que el rango exista y no esté invertido: `422 line_range_invalid`. En IDE exige que empiece y termine en el mismo archivo: `422 line_range_spans_files`. Fuera de `code`: `422 line_out_of_range`.
+- En IDE, la UI envía además el ancla por archivo: `file_path`, `local_line_number` y `local_end_line_number`. El backend calcula la global y guarda las dos coordenadas; si el cliente solo manda la global, deriva el archivo y la línea local.
+- La migración `00045_submission_comment_anchors.sql` agrega `file_path` y `local_line_number`, con un check que exige ambos o ninguno. En juez quedan nulos.
+- El backend valida que el rango exista y no esté invertido: `422 line_range_invalid`. En IDE exige que empiece y termine en el mismo archivo (`422 line_range_spans_files`) y que el archivo exista (`422 comment_file_unknown`). Fuera de `code`: `422 line_out_of_range`.
 - Un comentario cuya línea cae en una cabecera, como el comentario general de la rúbrica en la línea 1, se muestra en la lista de comentarios generales y no se ancla a un archivo. Los rangos no pueden cruzar cabeceras.
-- Los comentarios existentes quedan como comentarios de una línea; `end_line_number` es nulo y no requiere backfill.
-- Queda fuera de esta entrega agregar `file_path` y guardar la línea local. Si se necesita, se hace con migración y backfill.
+- Los comentarios existentes no se migran: el backend deriva su ancla al leer mientras el snapshot siga disponible. Si el archivo ya no existe en `files`, se muestran como generales.
+- En la respuesta de revisión, IDE omite `code` y `boilerplate` cuando `files_available` es verdadero; `files` y `base_files` son la fuente. En juez, `files` y `base_files` son `null` y `code` se conserva.
 
 ### 5.3 `POST /api/v1/teacher/submissions/{id}/run-ephemeral`
 
@@ -279,6 +280,7 @@ Ejemplo abreviado:
 | `422 line_out_of_range` | Comentario fuera del código | Mensaje con el rango válido |
 | `422 line_range_invalid` | Rango invertido o línea inicial inválida | Mensaje con el rango válido |
 | `422 line_range_spans_files` | El bloque IDE cruza archivos o cabeceras | Mensaje con el archivo del bloque |
+| `422 comment_file_unknown` | El `file_path` no existe en el snapshot | Mensaje con el archivo solicitado |
 | `409 review_environment_requires_ide` | Se pide preview en una entrega de juez | Mensaje de modalidad no aplicable |
 | `409 app_run_command_missing` | La práctica no declara cómo arrancar la app | Mensaje con los campos a configurar |
 | `409 project_snapshot_unavailable` | La entrega no tiene snapshot multiarchivo | Mensaje de entrega no ejecutable |
@@ -425,11 +427,11 @@ Notas de implementación:
 
 ## 10. Fuera de alcance y decisiones abiertas
 
-- **Entorno de prueba del alumno:** queda para la fase 4. Hay que elegir entre conectarse al workspace vivo en modo sombra, crear un contenedor efímero desde el snapshot o superponer el snapshot sobre la plantilla. También queda abierto si la app se muestra en iframe o en pestaña; muchas aplicaciones bloquean iframe por CSP o `X-Frame-Options`.
+- **Entorno de prueba del alumno:** resuelto en la fase 4 con contenedor efímero desde el snapshot, pestaña nueva y TTL por inactividad (ADR-061). No se monta el workspace vivo ni se usa iframe.
 - **Diff sin proyecto base:** una práctica IDE creada antes de esta fase no tiene `boilerplate` multiarchivo. El diff no se muestra; el docente puede cargar la base desde el paso de publicación, pero no se infiere desde la plantilla Docker ni desde la primera entrega.
-- **Anclaje por archivo de comentarios:** se mantiene la línea global en esta entrega. Agregar `file_path` y línea local requiere migración y backfill.
+- **Anclaje por archivo de comentarios:** implementado con `file_path` y `local_line_number` (migración `00045`). No hay backfill: el ancla se deriva al leer y la global se conserva.
 - **Tercera modalidad:** si aparece, introducir un `review_mode` explícito en lugar de repartir otro booleano por el componente.
-- **Duplicación de `code` y `files`:** es aceptable por ahora. Si el payload crece, se evalúa omitir `code` en IDE en una versión posterior.
+- **Duplicación de `code` y `files`:** resuelta. En IDE con snapshot separado se omite `code` (y `boilerplate`); si el parseo falla, se conserva el texto crudo como respaldo.
 
 ---
 

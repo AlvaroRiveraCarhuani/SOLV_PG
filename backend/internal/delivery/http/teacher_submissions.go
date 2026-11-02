@@ -72,7 +72,23 @@ func (h *TeacherHandler) GetSubmissionReview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	sanitizeReviewPayload(review)
 	SendJSON(w, http.StatusOK, review, "Detalle de revisión SpeedGrader obtenido exitosamente")
+}
+
+// sanitizeReviewPayload evita duplicar el snapshot en modalidad IDE: el visor
+// ya recibe `files` y `base_files`, así que `code` y `boilerplate` se vacían
+// recién en la respuesta HTTP. No se toca el repositorio porque AddComment
+// valida el rango contra `code`. Si el snapshot no se pudo separar, se conserva
+// el texto crudo para que el docente nunca pierda la entrega.
+func sanitizeReviewPayload(review *domain.TeacherSubmissionReviewDTO) {
+	if review == nil {
+		return
+	}
+	if review.EnvironmentType == domain.WorkspaceTypeIDEPersistente && review.FilesAvailable {
+		review.Code = ""
+		review.Boilerplate = ""
+	}
 }
 
 func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Request) {
@@ -107,12 +123,15 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 	}
 
 	comment := &domain.SubmissionComment{
-		TenantID:      tenantID,
-		SubmissionID:  submissionID,
-		AuthorID:      authorID,
-		LineNumber:    dto.LineNumber,
-		EndLineNumber: dto.EndLineNumber,
-		Comment:       dto.Comment,
+		TenantID:           tenantID,
+		SubmissionID:       submissionID,
+		AuthorID:           authorID,
+		LineNumber:         dto.LineNumber,
+		EndLineNumber:      dto.EndLineNumber,
+		FilePath:           dto.FilePath,
+		LocalLineNumber:    dto.LocalLineNumber,
+		LocalEndLineNumber: dto.LocalEndLineNumber,
+		Comment:            dto.Comment,
 	}
 
 	if err := h.service.AddComment(r.Context(), comment); err != nil {
@@ -126,6 +145,10 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 		}
 		if errors.Is(err, domain.ErrLineOutOfRange) {
 			SendError(w, http.StatusUnprocessableEntity, "line_out_of_range", "La línea del comentario no existe en la entrega")
+			return
+		}
+		if errors.Is(err, domain.ErrCommentFileUnknown) {
+			SendError(w, http.StatusUnprocessableEntity, "comment_file_unknown", "El archivo del comentario no existe en la entrega")
 			return
 		}
 		if errors.Is(err, domain.ErrInvalidResourceID) {

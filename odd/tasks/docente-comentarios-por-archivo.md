@@ -4,7 +4,7 @@ Objetivo: que un comentario del SpeedGrader identifique **archivo y línea local
 
 Branch: `feat/review-comments-by-file` (desde `main`) | Delivery strategy: ask-on-risk | Test runner: `go test ./...` & `npm run test:ci`
 
-Estado: **planificada**. Bloqueada por D1 y D2 (ver «Dudas abiertas»). No empezar sin respuesta.
+Estado: **implementada (2026-11-02)**. Migración `00045` aplicada; backend y frontend con tests en verde. Falta commitear y, cuando exista el paquete, el consumo desde SOLV Companion.
 
 Fuente: `proyecto-grado/Observaciones/Flujo de Laboratorios del Estudiante y Propuesta Extension VSCode.md` y `proyecto-grado/Observaciones/Propuesta Tecnica Extension VSCode SOLV Companion.md` §3.B. Decisión del usuario: «file_path y local_line_number en la BD, omitiendo code en proyectos IDE».
 
@@ -72,19 +72,19 @@ Fuente: `proyecto-grado/Observaciones/Flujo de Laboratorios del Estudiante y Pro
 
 ## Tasks
 
-- [ ] **T1 — S1**: migración `00045_submission_comment_anchors.sql` con Up/Down y validación en `solv_test`.
-- [ ] **T2 — S2**: dominio + DTO + error `ErrCommentFileUnknown`.
-- [ ] **T3 — S3**: `TeacherService.AddComment` con derivación bidireccional y validación.
-- [ ] **T4 — S4**: handler `teacher_submissions.go` y lectura con campos derivados.
-- [ ] **T5 — S5**: limpieza del payload IDE en la capa HTTP; ajustar `files`/`base_files`.
-- [ ] **T6 — S6**: visor y alta de comentarios en Angular.
-- [ ] **T7 — S7**: tests, contratos y docs.
+- [x] **T1 — S1**: migración `00045_submission_comment_anchors.sql` aplicada en la base local (versión 45). Columnas, check e índice verificados.
+- [x] **T2 — S2**: dominio + DTO + `ErrCommentFileUnknown`.
+- [x] **T3 — S3**: `TeacherService.AddComment` con derivación bidireccional y validación; 5 tests nuevos.
+- [x] **T4 — S4**: handler con ancla, error `422 comment_file_unknown` y lectura de campos.
+- [x] **T5 — S5**: `code`/`boilerplate` con `omitempty`, vaciados en la capa HTTP; `files`/`base_files` nulos en juez.
+- [x] **T6 — S6**: alta de comentario con archivo y línea local; `review-line-map` prefiere el ancla persistida.
+- [x] **T7 — S7**: tests de servicio, handler y frontend; contratos, ADR-060 enmendado y guía de revisión.
 
-## Dudas abiertas
+## Decisiones resueltas (`Decisiones para el Agente.md`)
 
-- **D1 — Backfill o derivación al leer.** Recomendación: derivación al leer; no backfill. Los comentarios viejos no pierden información porque el snapshot sigue en `code`. Si se opta por backfill, hace falta un comando Go que parsee `code` y actualice filas; no se puede hacer en SQL.
-- **D2 — Aceptar las dos formas en el `POST`.** Recomendación: sí. El cliente web actual manda global; Companion mandará archivo+local. El servidor es el único que conoce `start_line`.
-- **D3 — Alcance de Companion.** Recomendación: solo contrato. La extensión no está en el repo y su construcción es una ficha aparte.
+- **D1 — Sin backfill.** El ancla se deriva al leer mientras el snapshot exista; los comentarios viejos conservan la línea global.
+- **D2 — Se aceptan las dos formas.** El cliente web manda global + archivo/local; el servidor calcula la global y exige coincidencia.
+- **D3 — Companion solo consume el contrato.** La extensión no está en el repo y su construcción es una ficha aparte.
 
 ## Verificación
 
@@ -103,3 +103,4 @@ cd frontend && CI=true npm run build
 - **L2 (verbatim):** «Si se agrega file_path y línea local a los comentarios.» — decisión abierta que esta ficha cierra.
 - **Hallazgo verificado:** `AddComment` ya distingue archivos con `ProjectFileForGlobalLine`, pero no guarda esa decisión; si el snapshot cambia de formato, el comentario se re-deriva. Persistir el ancla evita depender del parser para siempre.
 - **Hallazgo verificado:** el DTO devuelve `code` + `files` + `base_files` en IDE; `code` es el snapshot concatenado con cabeceras `# === FILE: ... ===`. Es el doble más caro del payload.
+- **Cierre (2026-11-02):** migración `00045` aplicada (versión 45). Pasan `go build`, `go vet` y los paquetes de dominio, servicios, http y postgres; 30 tests del SpeedGrader y del mapa de líneas en el frontend. Backend reconstruido y reiniciado sobre el contrato nuevo.

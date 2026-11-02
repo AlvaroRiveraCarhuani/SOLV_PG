@@ -86,7 +86,7 @@ export class SpeedGraderCodeViewerComponent {
     return 'python';
   });
 
-  readonly editorCode = computed(() => this.activeFile()?.content ?? this.review().code);
+  readonly editorCode = computed(() => this.activeFile()?.content ?? this.review().code ?? '');
 
   readonly editorLanguage = computed(() => {
     const file = this.activeFile();

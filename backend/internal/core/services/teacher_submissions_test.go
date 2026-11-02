@@ -13,6 +13,12 @@ type mockTeacherSubmissionsRepo struct {
 	domain.TeacherRepository
 	reviewResult *domain.TeacherSubmissionReviewDTO
 	reviewErr    error
+	added        *domain.SubmissionComment
+}
+
+func (m *mockTeacherSubmissionsRepo) AddComment(_ context.Context, comment *domain.SubmissionComment) error {
+	m.added = comment
+	return nil
 }
 
 func (m *mockTeacherSubmissionsRepo) GetTeacherSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string) (*domain.TeacherSubmissionReviewDTO, error) {
@@ -66,6 +72,133 @@ type mockTenantRepoForTeacher struct {
 
 func (m *mockTenantRepoForTeacher) GetByID(ctx context.Context, id string) (*domain.Tenant, error) {
 	return m.tenant, nil
+}
+
+func ideReviewFixture() *domain.TeacherSubmissionReviewDTO {
+	return &domain.TeacherSubmissionReviewDTO{
+		ID:              "sub-1",
+		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		FilesAvailable:  true,
+		Code:            "# === FILE: src/app.js ===\nline1\nline2\nline3\nline4\n",
+		Files: []domain.ProjectFile{
+			{Path: "src/app.js", StartLine: 2, LineCount: 4},
+		},
+	}
+}
+
+func TestTeacherService_AddComment_ResolvesFileAnchor(t *testing.T) {
+	repo := &mockTeacherSubmissionsRepo{reviewResult: ideReviewFixture()}
+	svc := services.NewTeacherService(repo, nil)
+
+	path := "src/app.js"
+	local := 3
+	localEnd := 4
+	comment := &domain.SubmissionComment{
+		TenantID:           "t-1",
+		SubmissionID:       "sub-1",
+		AuthorID:           "teacher-1",
+		FilePath:           &path,
+		LocalLineNumber:    &local,
+		LocalEndLineNumber: &localEnd,
+		Comment:            "Revisar este bloque",
+	}
+	if err := svc.AddComment(context.Background(), comment); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if comment.LineNumber != 4 {
+		t.Fatalf("expected global line 4, got %d", comment.LineNumber)
+	}
+	if comment.EndLineNumber == nil || *comment.EndLineNumber != 5 {
+		t.Fatalf("expected global end 5, got %v", comment.EndLineNumber)
+	}
+	if repo.added == nil || repo.added.FilePath == nil || *repo.added.FilePath != path {
+		t.Fatalf("expected persisted file anchor, got %+v", repo.added)
+	}
+}
+
+func TestTeacherService_AddComment_DerivesFileFromGlobalLine(t *testing.T) {
+	repo := &mockTeacherSubmissionsRepo{reviewResult: ideReviewFixture()}
+	svc := services.NewTeacherService(repo, nil)
+
+	comment := &domain.SubmissionComment{
+		TenantID:     "t-1",
+		SubmissionID: "sub-1",
+		AuthorID:     "teacher-1",
+		LineNumber:   4,
+		Comment:      "Comentario del cliente anterior",
+	}
+	if err := svc.AddComment(context.Background(), comment); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if comment.FilePath == nil || *comment.FilePath != "src/app.js" {
+		t.Fatalf("expected derived file path, got %v", comment.FilePath)
+	}
+	if comment.LocalLineNumber == nil || *comment.LocalLineNumber != 3 {
+		t.Fatalf("expected derived local line 3, got %v", comment.LocalLineNumber)
+	}
+}
+
+func TestTeacherService_AddComment_RejectsUnknownFile(t *testing.T) {
+	repo := &mockTeacherSubmissionsRepo{reviewResult: ideReviewFixture()}
+	svc := services.NewTeacherService(repo, nil)
+
+	path := "src/missing.js"
+	local := 1
+	err := svc.AddComment(context.Background(), &domain.SubmissionComment{
+		TenantID:        "t-1",
+		SubmissionID:    "sub-1",
+		AuthorID:        "teacher-1",
+		FilePath:        &path,
+		LocalLineNumber: &local,
+		Comment:         "Comentario",
+	})
+	if err != domain.ErrCommentFileUnknown {
+		t.Fatalf("expected ErrCommentFileUnknown, got %v", err)
+	}
+}
+
+func TestTeacherService_AddComment_RejectsMismatchedAnchor(t *testing.T) {
+	repo := &mockTeacherSubmissionsRepo{reviewResult: ideReviewFixture()}
+	svc := services.NewTeacherService(repo, nil)
+
+	path := "src/app.js"
+	local := 3
+	err := svc.AddComment(context.Background(), &domain.SubmissionComment{
+		TenantID:        "t-1",
+		SubmissionID:    "sub-1",
+		AuthorID:        "teacher-1",
+		LineNumber:      99,
+		FilePath:        &path,
+		LocalLineNumber: &local,
+		Comment:         "Comentario",
+	})
+	if err != domain.ErrLineRangeInvalid {
+		t.Fatalf("expected ErrLineRangeInvalid, got %v", err)
+	}
+}
+
+func TestTeacherService_AddComment_JudgeKeepsGlobalAnchor(t *testing.T) {
+	repo := &mockTeacherSubmissionsRepo{reviewResult: &domain.TeacherSubmissionReviewDTO{
+		ID:              "sub-2",
+		EnvironmentType: domain.WorkspaceTypeJuezEfimero,
+		FilesAvailable:  false,
+		Code:            "print(1)\nprint(2)\n",
+	}}
+	svc := services.NewTeacherService(repo, nil)
+
+	comment := &domain.SubmissionComment{
+		TenantID:     "t-1",
+		SubmissionID: "sub-2",
+		AuthorID:     "teacher-1",
+		LineNumber:   2,
+		Comment:      "Comentario de juez",
+	}
+	if err := svc.AddComment(context.Background(), comment); err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+	if comment.FilePath != nil || comment.LocalLineNumber != nil {
+		t.Fatalf("expected no file anchor in judge mode, got %v/%v", comment.FilePath, comment.LocalLineNumber)
+	}
 }
 
 func TestTeacherService_OverrideSubmission_Validations(t *testing.T) {

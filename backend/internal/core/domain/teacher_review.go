@@ -9,16 +9,23 @@ import (
 // SubmissionComment representa un comentario pedagógico docente anclado a una línea de código.
 // EndLineNumber es opcional: null comenta una sola línea; con valor comenta el
 // bloque [LineNumber, EndLineNumber]. La línea sigue siendo global sobre `code`.
+// En modalidad IDE, FilePath y LocalLineNumber guardan el ancla por archivo que
+// consume el visor y SOLV Companion; en juez ambos son nil.
 type SubmissionComment struct {
-	ID            string    `json:"id" db:"id"`
-	TenantID      string    `json:"tenant_id" db:"tenant_id"`
-	SubmissionID  string    `json:"submission_id" db:"submission_id"`
-	AuthorID      string    `json:"author_id" db:"author_id"`
-	AuthorName    string    `json:"author_name" db:"author_name"`
-	LineNumber    int       `json:"line_number" db:"line_number"`
-	EndLineNumber *int      `json:"end_line_number,omitempty" db:"end_line_number"`
-	Comment       string    `json:"comment" db:"comment"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	ID              string  `json:"id" db:"id"`
+	TenantID        string  `json:"tenant_id" db:"tenant_id"`
+	SubmissionID    string  `json:"submission_id" db:"submission_id"`
+	AuthorID        string  `json:"author_id" db:"author_id"`
+	AuthorName      string  `json:"author_name" db:"author_name"`
+	LineNumber      int     `json:"line_number" db:"line_number"`
+	EndLineNumber   *int    `json:"end_line_number,omitempty" db:"end_line_number"`
+	FilePath        *string `json:"file_path,omitempty" db:"file_path"`
+	LocalLineNumber *int    `json:"local_line_number,omitempty" db:"local_line_number"`
+	// LocalEndLineNumber solo se usa al crear: el servicio lo traduce a la línea
+	// global de EndLineNumber y no se persiste.
+	LocalEndLineNumber *int      `json:"-" db:"-"`
+	Comment            string    `json:"comment" db:"comment"`
+	CreatedAt          time.Time `json:"created_at" db:"created_at"`
 }
 
 // RangeEnd devuelve la última línea del comentario. Un comentario de una sola
@@ -69,8 +76,8 @@ type TeacherSubmissionReviewDTO struct {
 	StudentEmail       string              `json:"student_email" db:"student_email"`
 	EnvironmentType    string              `json:"environment_type" db:"environment_type"`
 	Language           string              `json:"language" db:"language"`
-	Boilerplate        string              `json:"boilerplate" db:"boilerplate"`
-	Code               string              `json:"code" db:"code"`
+	Boilerplate        string              `json:"boilerplate,omitempty" db:"boilerplate"`
+	Code               string              `json:"code,omitempty" db:"code"`
 	Verdict            string              `json:"verdict" db:"verdict"`
 	Score              *int                `json:"score,omitempty" db:"score"`
 	ManualOverride     bool                `json:"manual_override" db:"manual_override"`
@@ -106,10 +113,15 @@ type OverrideRequestDTO struct {
 }
 
 // AddCommentRequestDTO payload para agregar un comentario in-line o de bloque.
+// Acepta dos formas: coordenadas globales (clientes juez y versiones previas) o
+// ancla por archivo (modalidad IDE). Si llegan ambas, deben coincidir.
 type AddCommentRequestDTO struct {
-	LineNumber    int    `json:"line_number"`
-	EndLineNumber *int   `json:"end_line_number,omitempty"`
-	Comment       string `json:"comment"`
+	LineNumber         int     `json:"line_number"`
+	EndLineNumber      *int    `json:"end_line_number,omitempty"`
+	FilePath           *string `json:"file_path,omitempty"`
+	LocalLineNumber    *int    `json:"local_line_number,omitempty"`
+	LocalEndLineNumber *int    `json:"local_end_line_number,omitempty"`
+	Comment            string  `json:"comment"`
 }
 
 var ErrInvalidOverrideReason = errors.New("override reason must be at least 10 characters")
@@ -121,6 +133,10 @@ var ErrLineOutOfRange = errors.New("line_out_of_range")
 
 // ErrLineRangeInvalid: el rango está invertido o la línea inicial no es válida.
 var ErrLineRangeInvalid = errors.New("line_range_invalid")
+
+// ErrCommentFileUnknown: el comentario apunta a un archivo que no existe en el
+// snapshot de la entrega, o la práctica no tiene archivos navegables.
+var ErrCommentFileUnknown = errors.New("comment_file_unknown")
 
 // ErrLineRangeSpansFiles: en IDE el bloque debe vivir dentro de un solo archivo;
 // un rango que cruza cabeceras o archivos no se puede anclar en el árbol.

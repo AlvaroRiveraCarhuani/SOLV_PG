@@ -63,6 +63,19 @@ de una línea.
 - La UI muestra `L12` o `L12–L18` según el rango y conserva el ancla global, así que no requiere
   migrar la tabla ni reescribir los comentarios viejos.
 
+### 4. Enmienda 2026-11-02: ancla por archivo
+
+La extensión SOLV Companion necesita abrir un comentario por archivo sin recalcular el snapshot. Se
+agrega `file_path` y `local_line_number` con la migración `00045_submission_comment_anchors.sql`:
+
+- El check exige ambos campos o ninguno; en juez quedan nulos.
+- `POST /comments` acepta el ancla por archivo y calcula la línea global con `start_line`. Si también
+  llega `line_number`, debe coincidir. Si solo llega la global, el backend deriva el archivo al leer.
+- La coordenada global se conserva, así que no hay backfill y los comentarios anteriores siguen
+  funcionando.
+- En IDE la respuesta omite `code` y `boilerplate` cuando `files_available` es verdadero. En juez,
+  `files` y `base_files` viajan como `null` y `code` se mantiene.
+
 ## Consecuencias
 
 - El docente ve exactamente qué cambió el alumno respecto del proyecto base, sin una tabla de diff
@@ -71,8 +84,8 @@ de una línea.
   publicación, no un fallo silencioso.
 - El payload de revisión crece con `base_files`; queda acotado por el mismo límite de 2 MiB y 500
   archivos del parser.
-- Los comentarios de bloque se pueden renderizar en la extensión de VS Code con el mismo contrato
-  (`line_number` + `end_line_number`) sin un campo nuevo por archivo.
+- Los comentarios de bloque se renderizan en la extensión con `file_path` + `local_line_number` y,
+  como respaldo, con el contrato global (`line_number` + `end_line_number`).
 
 ## Alternativas descartadas
 
@@ -81,5 +94,5 @@ de una línea.
 | Seguir con la tabla de diff propia | Duplica el motor de diff, no resalta bloques como el editor y obliga a mantener dos representaciones |
 | Comparar IDE contra la imagen Docker de la plantilla | La imagen no expone el árbol de archivos del proyecto base y no es un dato de la práctica |
 | Comparar contra la primera entrega del alumno | La primera entrega no es una base pedagógica; castiga al alumno que corrige |
-| Guardar `file_path` y línea local en los comentarios | Requiere migración y backfill; la línea global ya funciona y la traducción vive en la vista. Se puede hacer después si la extensión lo necesita |
+| Guardar `file_path` y línea local en los comentarios | **Revisada el 2026-11-02**: se adoptó con la migración `00045`, sin backfill, porque la extensión necesita el ancla por archivo. La línea global se conserva |
 | Codificar el rango dentro de `comment` | Contamina el texto pedagógico y rompe la lectura de comentarios existentes |

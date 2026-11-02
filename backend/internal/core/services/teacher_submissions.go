@@ -47,23 +47,74 @@ func (s *TeacherService) AddComment(ctx context.Context, comment *domain.Submiss
 	if comment.SubmissionID == "" || strings.TrimSpace(comment.Comment) == "" {
 		return fmt.Errorf("comentario y submission_id son requeridos")
 	}
-
-	endLine := comment.LineNumber
-	if comment.EndLineNumber != nil {
-		endLine = *comment.EndLineNumber
+	if comment.FilePath != nil && strings.TrimSpace(*comment.FilePath) == "" {
+		return domain.ErrCommentFileUnknown
 	}
-	if comment.LineNumber < 1 || endLine < comment.LineNumber {
+	// El archivo y la línea local van juntos o no van: un ancla a medias no se
+	// puede resolver y ocultaría un error del cliente.
+	if (comment.FilePath == nil) != (comment.LocalLineNumber == nil) {
+		return domain.ErrLineRangeInvalid
+	}
+	if comment.LocalLineNumber != nil && *comment.LocalLineNumber < 1 {
 		return domain.ErrLineRangeInvalid
 	}
 
-	// La vista IDE traduce la línea local del archivo a la línea global del
-	// snapshot. El rango se valida sobre `code`, que es lo que persiste la tabla.
 	review, err := s.repo.GetTeacherSubmissionReview(ctx, comment.TenantID, comment.AuthorID, comment.SubmissionID)
 	if err != nil {
 		return err
 	}
 	if review != nil {
 		totalLines := strings.Count(review.Code, "\n") + 1
+
+		if comment.FilePath != nil {
+			// Ancla por archivo: el backend es el único que conoce `start_line`.
+			if !review.FilesAvailable || len(review.Files) == 0 {
+				return domain.ErrCommentFileUnknown
+			}
+			file := domain.ProjectFileByPath(review.Files, *comment.FilePath)
+			if file == nil {
+				return domain.ErrCommentFileUnknown
+			}
+			local := *comment.LocalLineNumber
+			if local > file.LineCount {
+				return domain.ErrLineOutOfRange
+			}
+			global := file.StartLine + local - 1
+			if comment.LineNumber != 0 && comment.LineNumber != global {
+				return domain.ErrLineRangeInvalid
+			}
+			comment.LineNumber = global
+
+			if comment.LocalEndLineNumber != nil {
+				localEnd := *comment.LocalEndLineNumber
+				if localEnd < local || localEnd > file.LineCount {
+					return domain.ErrLineRangeInvalid
+				}
+				globalEnd := file.StartLine + localEnd - 1
+				if comment.EndLineNumber != nil && *comment.EndLineNumber != globalEnd {
+					return domain.ErrLineRangeInvalid
+				}
+				comment.EndLineNumber = &globalEnd
+			}
+		} else if review.FilesAvailable {
+			// Cliente con coordenadas globales: se deriva el ancla por archivo
+			// cuando la línea cae dentro de uno. Una cabecera del snapshot queda
+			// sin archivo, como los comentarios generales de la rúbrica.
+			if file := domain.ProjectFileForGlobalLine(review.Files, comment.LineNumber); file != nil {
+				path := file.Path
+				local := comment.LineNumber - file.StartLine + 1
+				comment.FilePath = &path
+				comment.LocalLineNumber = &local
+			}
+		}
+
+		endLine := comment.LineNumber
+		if comment.EndLineNumber != nil {
+			endLine = *comment.EndLineNumber
+		}
+		if comment.LineNumber < 1 || endLine < comment.LineNumber {
+			return domain.ErrLineRangeInvalid
+		}
 		if endLine > totalLines {
 			return domain.ErrLineOutOfRange
 		}

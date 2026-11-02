@@ -244,6 +244,40 @@ describe('SpeedGraderComponent', () => {
     });
   });
 
+  it('adds the file anchor when the comment belongs to an IDE file', () => {
+    reviewSignal.set({
+      ...mockReview,
+      environment_type: 'IDE_PERSISTENTE',
+      files_available: true,
+      files: [
+        {
+          path: 'src/main.py',
+          language: 'python',
+          content: 'uno\ndos\ntres\n',
+          start_line: 2,
+          line_count: 3
+        }
+      ],
+      base_files: [],
+      base_files_available: false
+    });
+    fixture.detectChanges();
+
+    const gradingService = TestBed.inject(TeacherGradingService);
+    component.selectLineRange({ start: 3, end: 4 });
+    component.newCommentText.set('El bloque no valida el body');
+    component.submitComment(component.currentCommentRange()!);
+
+    expect(gradingService.addComment).toHaveBeenCalledWith('rev-1', {
+      line_number: 3,
+      end_line_number: 4,
+      file_path: 'src/main.py',
+      local_line_number: 2,
+      local_end_line_number: 3,
+      comment: 'El bloque no valida el body'
+    });
+  });
+
   it('enables the native diff in IDE only when the active file has a base', () => {
     reviewSignal.set({
       ...mockReview,

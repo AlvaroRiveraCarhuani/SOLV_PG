@@ -90,11 +90,20 @@ docente acotado a una práctica, desde su ficha:
   separa en `base_files[]` con el mismo parser y lo expone junto a `base_files_available`; el diff
   compara cada archivo entregado contra el homónimo. Si la práctica no define una base, la vista
   oculta el diff y no inventa una comparación.
-- Los comentarios siguen anclados a la **línea global** de `code` (`submission_comments.line_number`).
-  El visor traduce esa línea a la línea local del archivo visible y, al guardar, vuelve a la global.
-  Un comentario puede cubrir un bloque con `end_line_number`; el backend exige que el rango exista y
-  que, en IDE, empiece y termine en el mismo archivo. `POST /comments` responde `422
-  line_range_spans_files` si cruza archivos y `422 line_out_of_range` si el ancla no existe.
+- Los comentarios IDE guardan **archivo y línea local** además de la línea global:
+  `submission_comments.file_path` y `submission_comments.local_line_number` (migración
+  `00045_submission_comment_anchors.sql`). `line_number` sigue siendo la coordenada global sobre
+  `code` y se conserva para retrocompatibilidad y para validar el rango.
+- `POST /comments` acepta `file_path` + `local_line_number` (y `local_end_line_number` opcional); el
+  backend calcula la global con `start_line`. Si además llega `line_number`, debe coincidir. Si solo
+  llega la global, deriva el ancla al leer el snapshot. Un archivo inexistente responde `422
+  comment_file_unknown`; un bloque que cruza archivos, `422 line_range_spans_files`; una línea fuera
+  de rango, `422 line_out_of_range`.
+- La respuesta de revisión omite `code` y `boilerplate` cuando `files_available` es `true`. Si el
+  snapshot no se pudo separar, conserva `code` crudo para no perder la entrega. En juez, `files` y
+  `base_files` viajan como `null` y `code` se mantiene.
+- El ancla por archivo es la que consume SOLV Companion: la extensión abre el comentario con
+  `vscode.Uri` y la línea local, sin recalcular offsets del snapshot.
 
 ### 3.2 Entorno de prueba del docente
 

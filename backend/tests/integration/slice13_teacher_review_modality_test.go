@@ -179,6 +179,42 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 		t.Errorf("contenido de package.json inesperado: %q", review.Files[1].Content)
 	}
 
+	// Ancla por archivo: el servicio calcula la línea global desde start_line y
+	// persiste ambas coordenadas. app.js empieza en la línea 2 del snapshot.
+	teacherSvc := services.NewTeacherService(repo, nil)
+	commentPath := "app.js"
+	commentLocal := 1
+	comment := &domain.SubmissionComment{
+		TenantID:        tenantID,
+		SubmissionID:    submissionID,
+		AuthorID:        teacherID,
+		FilePath:        &commentPath,
+		LocalLineNumber: &commentLocal,
+		Comment:         "El import no valida el body.",
+	}
+	if err := teacherSvc.AddComment(context.Background(), comment); err != nil {
+		t.Fatalf("AddComment con ancla por archivo devolvió error: %v", err)
+	}
+	if comment.LineNumber != 2 {
+		t.Errorf("línea global del ancla: esperada 2, obtenida %d", comment.LineNumber)
+	}
+	var storedComment struct {
+		FilePath        sql.NullString `db:"file_path"`
+		LocalLineNumber sql.NullInt64  `db:"local_line_number"`
+	}
+	if err := db.GetDB().Get(&storedComment, `
+		SELECT file_path, local_line_number FROM submission_comments
+		WHERE submission_id = $1 ORDER BY created_at DESC LIMIT 1
+	`, submissionID); err != nil {
+		t.Fatalf("no se pudo leer el comentario anclado: %v", err)
+	}
+	if !storedComment.FilePath.Valid || storedComment.FilePath.String != "app.js" {
+		t.Errorf("file_path persistido: %+v", storedComment.FilePath)
+	}
+	if !storedComment.LocalLineNumber.Valid || storedComment.LocalLineNumber.Int64 != 1 {
+		t.Errorf("local_line_number persistido: %+v", storedComment.LocalLineNumber)
+	}
+
 	ctx := context.WithValue(context.Background(), domain.UserIDKey, teacherID)
 	rubricService := services.NewDefaultRubricService(
 		postgres.NewPostgresRubricRepository(db.GetDB()),

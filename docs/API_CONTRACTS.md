@@ -466,8 +466,8 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
     ],
     "files_available": false,
     "metrics_available": true,
-    "files": [],
-    "base_files": [],
+    "files": null,
+    "base_files": null,
     "base_files_available": false,
     "comments": [
       {
@@ -492,11 +492,12 @@ Vista de corrección para el docente con **casos de prueba privados desenmascara
 
 - `environment_type`: `JUEZ_EFIMERO` o `IDE_PERSISTENTE`. Sale de `exercises.environment_type`; si falta o es desconocido, el backend responde `JUEZ_EFIMERO`.
 - `language`: lenguaje del ejercicio. Vacío si no está definido.
-- `boilerplate`: código base del ejercicio. En juez es el texto único contra el que se calcula el diff. En IDE es el proyecto base multiarchivo (formato `# === FILE: ruta ===`); el diff compara cada archivo entregado contra su homónimo.
+- `boilerplate`: código base del ejercicio. En juez es el texto único contra el que se calcula el diff. En IDE es el proyecto base multiarchivo (formato `# === FILE: ruta ===`); el diff compara cada archivo entregado contra su homónimo. **En IDE con `files_available = true` el campo se omite**: `base_files` ya transporta el proyecto base.
+- `code`: código de la entrega. En juez es obligatorio. **En IDE con `files_available = true` se omite** para no duplicar el snapshot; si `files_available = false`, el backend envía el texto crudo para que la entrega se pueda revisar en el visor plano.
 - `files_available`: `true` solo en IDE cuando el snapshot se pudo separar en archivos. Si es `false`, la vista usa el visor plano de `code`.
 - `metrics_available`: `true` en juez cuando la entrega ya tiene veredicto de ejecución. En IDE es `false`. La vista muestra tiempo y memoria solo con este campo; no interpreta `0` como medición.
-- `files`: arreglo derivado de `code` (`path`, `language`, `content`, `start_line`, `line_count`). En juez es `[]`. `start_line` es 1-based y permite traducir los comentarios, que siguen usando la línea global de `code`.
-- `base_files`: arreglo con el mismo formato que `files`, derivado de `boilerplate` en IDE. En juez es `[]`. `base_files_available` indica si el proyecto base se pudo separar; si es `false`, el diff por archivo no se muestra.
+- `files`: arreglo derivado de `code` (`path`, `language`, `content`, `start_line`, `line_count`). En juez es `null`. `start_line` es 1-based y permite traducir los comentarios a la línea local.
+- `base_files`: arreglo con el mismo formato que `files`, derivado de `boilerplate` en IDE. En juez es `null`. `base_files_available` indica si el proyecto base se pudo separar; si es `false`, el diff por archivo no se muestra.
 - En IDE, `test_cases` es `[]`: los casos I/O no aplican y el backend no los busca en `exercise_config`.
 
 El parser que arma `files` y `base_files` vive en `internal/core/domain/project_snapshot.go`. Rechaza rutas absolutas, rutas con `..`, caracteres de control, rutas duplicadas, más de 500 archivos o un snapshot mayor a 2 MiB; en esos casos el arreglo correspondiente queda vacío y su bandera en `false`.
@@ -542,7 +543,7 @@ Permite registrar y consultar comentarios pedagógicos anclados a una línea o a
   - `GET`: `200 OK` con lista de comentarios ordenados por `line_number`.
   - `400 Bad Request`: El id de la entrega no es un UUID (`invalid_submission_id`).
   - `404 Not Found`: La entrega no existe en la institución del docente (`submission_not_found`).
-  - `422 Unprocessable Entity`: `line_number` cae fuera del rango de líneas de `submissions.code` (`line_out_of_range`), el rango está invertido (`line_range_invalid`) o el bloque cruza archivos en IDE (`line_range_spans_files`). En IDE la vista traduce las líneas locales del archivo a globales antes de enviarlas; el backend valida contra `code`, que es lo que persiste.
+  - `422 Unprocessable Entity`: `line_number` cae fuera del rango de líneas de `submissions.code` (`line_out_of_range`), el rango está invertido (`line_range_invalid`), el bloque cruza archivos en IDE (`line_range_spans_files`) o el `file_path` no existe en el snapshot (`comment_file_unknown`). El backend valida contra `code`, que es lo que persiste.
 
 #### Ejemplo de Solicitud POST (una línea)
 ```json
@@ -561,7 +562,26 @@ Permite registrar y consultar comentarios pedagógicos anclados a una línea o a
 }
 ```
 
-`end_line_number` es opcional. Cuando se omite, el comentario aplica a una sola línea. En IDE el bloque debe pertenecer a un único archivo; se ancla a la línea global del snapshot, igual que los comentarios de una línea.
+`end_line_number` es opcional. Cuando se omite, el comentario aplica a una sola línea. En IDE el bloque debe pertenecer a un único archivo.
+
+#### Ancla por archivo (IDE)
+
+La modalidad IDE acepta además `file_path`, `local_line_number` y `local_end_line_number` (1-based).
+
+```json
+{
+  "file_path": "src/app.js",
+  "local_line_number": 10,
+  "local_end_line_number": 14,
+  "comment": "El bloque no valida el body antes de responder"
+}
+```
+
+- Si llega el ancla por archivo, el backend calcula `line_number = start_line + local_line_number - 1` y valida el rango contra `code`. La respuesta guarda `file_path`, `local_line_number` y la línea global.
+- Si además llega `line_number`, debe coincidir con el calculado; si no, `422 line_range_invalid`.
+- Si solo llega la coordenada global (clientes anteriores), el backend deriva `file_path` y `local_line_number` cuando la línea cae dentro de un archivo. Una cabecera del snapshot queda sin ancla, como los comentarios generales.
+- En juez, `file_path` y `local_line_number` no se aceptan: el comentario solo usa líneas globales.
+- Los comentarios anteriores a la migración `00045_submission_comment_anchors.sql` no se migran: el backend deriva su ancla al leer cuando el snapshot sigue disponible.
 
 ---
 

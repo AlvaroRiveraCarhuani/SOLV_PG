@@ -188,8 +188,8 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		Verdict:            row.Verdict,
 		MetricsAvailable:   isJudge && strings.TrimSpace(row.Verdict) != "" && row.Verdict != "PENDING",
 		FilesAvailable:     false,
-		Files:              make([]domain.ProjectFile, 0),
-		BaseFiles:          make([]domain.ProjectFile, 0),
+		Files:              nil,
+		BaseFiles:          nil,
 		ManualOverride:     row.ManualOverride.Valid && row.ManualOverride.Bool,
 		ExecutionTimeMS:    row.ExecutionTimeMS,
 		MemoryUsedMB:       row.MemoryUsedMB,
@@ -357,8 +357,8 @@ func (r *PostgresTeacherRepository) AddComment(ctx context.Context, comment *dom
 		comment.ID = uuid.NewString()
 	}
 	query := `
-		INSERT INTO submission_comments (id, tenant_id, submission_id, author_id, line_number, end_line_number, comment, created_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+		INSERT INTO submission_comments (id, tenant_id, submission_id, author_id, line_number, end_line_number, file_path, local_line_number, comment, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 	`
 	_, err := r.db.ExecContext(ctx, query,
 		comment.ID,
@@ -367,6 +367,8 @@ func (r *PostgresTeacherRepository) AddComment(ctx context.Context, comment *dom
 		comment.AuthorID,
 		comment.LineNumber,
 		comment.EndLineNumber,
+		comment.FilePath,
+		comment.LocalLineNumber,
 		comment.Comment,
 	)
 	if err != nil {
@@ -379,22 +381,25 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 	query := `
 		SELECT sc.id, sc.tenant_id, sc.submission_id, sc.author_id,
 		       COALESCE(u.first_name || ' ' || u.last_name, 'Docente') AS author_name,
-		       sc.line_number, sc.end_line_number, sc.comment, sc.created_at
+		       sc.line_number, sc.end_line_number, sc.file_path, sc.local_line_number,
+		       sc.comment, sc.created_at
 		FROM submission_comments sc
 		LEFT JOIN users u ON sc.author_id = u.id
 		WHERE sc.submission_id = $1 AND sc.tenant_id = $2
 		ORDER BY sc.line_number ASC, sc.created_at ASC
 	`
 	type cRow struct {
-		ID            string        `db:"id"`
-		TenantID      string        `db:"tenant_id"`
-		SubmissionID  string        `db:"submission_id"`
-		AuthorID      string        `db:"author_id"`
-		AuthorName    string        `db:"author_name"`
-		LineNumber    int           `db:"line_number"`
-		EndLineNumber sql.NullInt64 `db:"end_line_number"`
-		Comment       string        `db:"comment"`
-		CreatedAt     time.Time     `db:"created_at"`
+		ID              string         `db:"id"`
+		TenantID        string         `db:"tenant_id"`
+		SubmissionID    string         `db:"submission_id"`
+		AuthorID        string         `db:"author_id"`
+		AuthorName      string         `db:"author_name"`
+		LineNumber      int            `db:"line_number"`
+		EndLineNumber   sql.NullInt64  `db:"end_line_number"`
+		FilePath        sql.NullString `db:"file_path"`
+		LocalLineNumber sql.NullInt64  `db:"local_line_number"`
+		Comment         string         `db:"comment"`
+		CreatedAt       time.Time      `db:"created_at"`
 	}
 
 	var rows []cRow
@@ -417,6 +422,14 @@ func (r *PostgresTeacherRepository) GetCommentsBySubmission(ctx context.Context,
 		if r.EndLineNumber.Valid {
 			end := int(r.EndLineNumber.Int64)
 			comment.EndLineNumber = &end
+		}
+		if r.FilePath.Valid {
+			path := r.FilePath.String
+			comment.FilePath = &path
+		}
+		if r.LocalLineNumber.Valid {
+			local := int(r.LocalLineNumber.Int64)
+			comment.LocalLineNumber = &local
 		}
 		result = append(result, comment)
 	}

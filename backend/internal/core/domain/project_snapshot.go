@@ -153,6 +153,17 @@ func validSnapshotPath(filePath string) bool {
 // ProjectFileForGlobalLine devuelve el archivo que contiene una línea global del
 // snapshot, o nil si la línea cae en una cabecera, en un separador o fuera de
 // los archivos. Sirve para validar que un comentario de bloque no cruce archivos.
+// ProjectFileByPath devuelve el archivo con la ruta exacta, o nil si el snapshot
+// no lo contiene. Es el ancla que usan los comentarios IDE.
+func ProjectFileByPath(files []ProjectFile, path string) *ProjectFile {
+	for i := range files {
+		if files[i].Path == path {
+			return &files[i]
+		}
+	}
+	return nil
+}
+
 func ProjectFileForGlobalLine(files []ProjectFile, globalLine int) *ProjectFile {
 	for i := range files {
 		file := &files[i]

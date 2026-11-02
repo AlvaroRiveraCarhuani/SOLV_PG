@@ -148,6 +148,9 @@ export interface SubmissionComment {
   line_number: number;
   /** Cierre opcional del bloque comentado; la línea inicial sigue siendo global. */
   end_line_number?: number;
+  /** Ancla por archivo en modalidad IDE; nula en juez. */
+  file_path?: string;
+  local_line_number?: number;
   comment: string;
   created_at: string;
 }
@@ -231,8 +234,9 @@ export interface TeacherSubmissionReviewDTO {
   student_email: string;
   environment_type: string;
   language: string;
-  boilerplate: string;
-  code: string;
+  /** En IDE se omite si el snapshot llegó separado en `files`. */
+  boilerplate?: string;
+  code?: string;
   verdict: string;
   score?: number;
   manual_override: boolean;
@@ -248,9 +252,10 @@ export interface TeacherSubmissionReviewDTO {
   test_cases: TestCaseReview[];
   files_available: boolean;
   metrics_available: boolean;
-  files: ProjectFile[];
+  /** En juez el backend envía null. */
+  files: ProjectFile[] | null;
   /** Proyecto base del ejercicio (IDE) para el diff por archivo. */
-  base_files: ProjectFile[];
+  base_files: ProjectFile[] | null;
   base_files_available: boolean;
   comments: SubmissionComment[];
   next_submission_id?: string;
@@ -267,6 +272,9 @@ export interface OverrideRequestDTO {
 export interface AddCommentRequestDTO {
   line_number: number;
   end_line_number?: number;
+  file_path?: string;
+  local_line_number?: number;
+  local_end_line_number?: number;
   comment: string;
 }
 

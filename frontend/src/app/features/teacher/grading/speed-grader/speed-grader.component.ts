@@ -15,7 +15,7 @@ import {
   SubmissionTimeline
 } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { commentsForFile, commentsOutsideFiles } from './review-line-map';
+import { commentsForFile, commentsOutsideFiles, globalToLocalLine } from './review-line-map';
 import { ReviewFileTreeComponent } from './components/review-file-tree/review-file-tree.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
@@ -569,9 +569,17 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     const id = this.submissionId();
     this.isAddingComment.set(true);
 
+    // En IDE se envía también el ancla por archivo: el backend la persiste y
+    // valida que coincida con la línea global que emite el visor.
+    const file = this.isProject() ? this.activeFile() : null;
+    const localLine = file ? globalToLocalLine(file, range.line) : null;
+    const localEnd = file && range.endLine !== null ? globalToLocalLine(file, range.endLine) : null;
+
     this.gradingService.addComment(id, {
       line_number: range.line,
       ...(range.endLine !== null ? { end_line_number: range.endLine } : {}),
+      ...(file && localLine !== null ? { file_path: file.path, local_line_number: localLine } : {}),
+      ...(localEnd !== null ? { local_end_line_number: localEnd } : {}),
       comment: text
     }).subscribe({
       next: () => {
@@ -591,7 +599,7 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
     if (!curr || !this.isJudge()) return;
 
     this.gradingService.runEphemeral(curr.id, {
-      code: curr.code,
+      code: curr.code ?? '',
       language: curr.language || 'python'
     }).subscribe({
       next: () => {
