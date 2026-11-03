@@ -54,6 +54,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         courseTitle?: string;
         title?: string;
         exerciseId?: string;
+        purpose?: string;
       }
     | undefined;
 
@@ -117,6 +118,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   async function buildState(): Promise<PanelState> {
     const snapshot = advances.snapshot();
     const assignmentTitle = settings.assignmentTitle || progress?.title || '';
+    const purpose =
+      settings.exercisePurpose ||
+      progress?.purpose ||
+      snapshot.board?.session.purpose ||
+      'class';
     const state: PanelState = {
       role: settings.isTeacher ? 'teacher' : 'student',
       connection,
@@ -133,7 +139,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         summary: settings.assignmentSummary,
         criteria: settings.assignmentCriteria,
         rubricCriteria: rubricCriteria.length > 0 ? rubricCriteria : undefined,
-        totalPoints: rubricCriteria.reduce((sum, item) => sum + item.weight, 0) || undefined
+        totalPoints: rubricCriteria.reduce((sum, item) => sum + item.weight, 0) || undefined,
+        purpose
       },
       comments: commentViews(),
       canSubmit: settings.role === 'student'
@@ -439,8 +446,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }
 
+    const isExam = settings.exercisePurpose === 'exam' || progress?.purpose === 'exam';
     const confirm = await vscode.window.showWarningMessage(
-      '¿Entregar la práctica? Se guarda el estado actual del proyecto.',
+      isExam
+        ? '¿Entregar el examen? Se guarda el estado actual del proyecto.'
+        : '¿Entregar la práctica? Se guarda el estado actual del proyecto.',
       { modal: true },
       'Entregar'
     );
@@ -450,19 +460,27 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
     const exerciseId = settings.exerciseId;
     if (!exerciseId) {
-      warn('Falta el ejercicio de la práctica para entregar.');
+      warn(isExam ? 'Falta el ejercicio del examen para entregar.' : 'Falta el ejercicio de la práctica para entregar.');
       return;
     }
 
     try {
       const workspaceId = await resolveWorkspaceId();
       if (!workspaceId) {
-        warn('No se encontró el laboratorio de esta práctica. Abrila desde la plataforma.');
+        warn(
+          isExam
+            ? 'No se encontró el laboratorio de este examen. Abrilo desde la plataforma.'
+            : 'No se encontró el laboratorio de esta práctica. Abrila desde la plataforma.'
+        );
         return;
       }
       await vscode.workspace.saveAll(false);
       await client.submitWorkspace(workspaceId, exerciseId);
-      info('Práctica entregada. La revisión queda disponible en la plataforma.');
+      info(
+        isExam
+          ? 'Examen entregado. La revisión queda disponible en la plataforma.'
+          : 'Práctica entregada. La revisión queda disponible en la plataforma.'
+      );
       await refreshAll(false);
     } catch (error) {
       warn(describeAdvanceError(error));
@@ -500,7 +518,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         code: latest.subject_code,
         courseTitle: latest.subject_name,
         title: latest.exercise_title,
-        exerciseId: latest.exercise_id
+        exerciseId: latest.exercise_id,
+        purpose: latest.exercise_purpose
       };
     } catch {
       // El aviso de conexión ya lo informa refreshAll; el panel no se vacía.

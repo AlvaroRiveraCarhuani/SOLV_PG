@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PanelState } from '../views/panel-state';
+import { PanelState, submissionActionText } from '../views/panel-state';
 
 /**
  * Barra de estado inferior. El alumno ve la materia y la entrega; el docente ve
@@ -44,8 +44,8 @@ export class StatusBarController implements vscode.Disposable {
     this.course.show();
 
     if (teacher) {
-      this.action.text = '$(broadcast) Emitir Avance';
-      this.action.tooltip = 'Emitir un avance de código a la clase';
+      this.action.text = '$(broadcast) Compartir Avance';
+      this.action.tooltip = 'Compartir un avance de código con la clase';
       this.action.command = this.commands.broadcast;
       this.action.show();
 
@@ -56,8 +56,9 @@ export class StatusBarController implements vscode.Disposable {
         : 'Sin aula abierta';
       this.presence.show();
     } else {
-      this.action.text = '$(cloud-upload) Entregar Práctica';
-      this.action.tooltip = 'Revisar el código y entregar la práctica';
+      const isExam = state.assignment.purpose === 'exam';
+      this.action.text = submissionActionText(state.assignment.purpose);
+      this.action.tooltip = isExam ? 'Revisar el código y entregar el examen' : 'Revisar el código y entregar la práctica';
       this.action.command = this.commands.submit;
       this.action.show();
       this.presence.hide();

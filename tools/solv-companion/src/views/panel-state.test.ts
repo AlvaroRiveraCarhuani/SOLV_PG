@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AdvancePreview } from '../domain/advance';
-import { applySelection, buildChecklist, deriveDeliveryState, selectedPaths } from './panel-state';
+import {
+  applySelection,
+  buildChecklist,
+  deriveDeliveryState,
+  rubricBadgeText,
+  rubricTitleText,
+  selectedPaths,
+  submissionActionText
+} from './panel-state';
 
 function preview(files: Record<string, string>, added: string[], overwritten: string[]): AdvancePreview {
   return {
@@ -98,4 +106,18 @@ test('los criterios de rúbrica calculan puntos y niveles correctamente', () => 
   const regularPts = Math.round((levels[1].score / 100) * criteria[0].weight * 10) / 10;
   assert.equal(excellentPts, 40);
   assert.equal(regularPts, 20);
+});
+
+test('los textos y badges se adaptan al propósito pedagógico (examen vs práctica)', () => {
+  assert.equal(rubricBadgeText('exam'), 'Rúbrica de evaluación');
+  assert.equal(rubricBadgeText('class'), 'Rúbrica de práctica');
+  assert.equal(rubricBadgeText(undefined), 'Rúbrica de práctica');
+
+  assert.equal(rubricTitleText('exam'), 'Rúbrica de Evaluación');
+  assert.equal(rubricTitleText('class'), 'Rúbrica de Práctica');
+  assert.equal(rubricTitleText(undefined), 'Rúbrica de Práctica');
+
+  assert.equal(submissionActionText('exam'), '$(cloud-upload) Entregar Examen');
+  assert.equal(submissionActionText('class'), '$(cloud-upload) Entregar Práctica');
+  assert.equal(submissionActionText(undefined), '$(cloud-upload) Entregar Práctica');
 });

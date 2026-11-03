@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { PanelState } from './panel-state';
+import { PanelState, rubricBadgeText, rubricTitleText } from './panel-state';
 
 const TIMESTAMP_FORMAT = new Intl.DateTimeFormat('es', {
   day: '2-digit',
@@ -358,9 +358,11 @@ function renderRubric(assignment: PanelState['assignment']): string {
     })
     .join('');
 
+  const rubricHeader = rubricTitleText(assignment.purpose);
+
   return `<div class="rubric-container">
     <div class="rubric-header">
-      <span class="rubric-header-title">Criterios de Evaluación</span>
+      <span class="rubric-header-title">${escapeHtml(rubricHeader)}</span>
       <span class="rubric-total-badge">Total: ${totalPoints} pts</span>
     </div>
 
@@ -471,6 +473,7 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   .badge-draft { color: var(--vscode-descriptionForeground); border-color: var(--vscode-panel-border, var(--vscode-descriptionForeground)); }
   .badge-submitted { color: var(--vscode-charts-blue); border-color: var(--vscode-charts-blue); }
   .badge-graded { color: var(--vscode-charts-green); border-color: var(--vscode-charts-green); }
+  .badge-exam { color: var(--vscode-charts-orange, #f59e0b); border-color: var(--vscode-charts-orange, #f59e0b); }
   .section { padding: 12px var(--panel-gap) 4px; }
   .section + .section { border-top: 1px solid var(--vscode-panel-border, transparent); }
   .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -866,11 +869,13 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   <section class="section" aria-labelledby="assignment-title">
     <div class="section-head">
       <h2 id="assignment-title">Consigna</h2>
-      ${state.assignment.rubricCriteria && state.assignment.rubricCriteria.length > 0
-        ? `<span class="badge badge-submitted">Rúbrica oficial</span>`
-        : ''}
+      ${
+        state.assignment.rubricCriteria && state.assignment.rubricCriteria.length > 0
+          ? `<span class="badge ${state.assignment.purpose === 'exam' ? 'badge-exam' : 'badge-submitted'}">${escapeHtml(rubricBadgeText(state.assignment.purpose))}</span>`
+          : ''
+      }
     </div>
-    <p class="summary">${escapeHtml(state.assignment.summary || 'La consigna de la práctica se publica desde la plataforma.')}</p>
+    <p class="summary">${escapeHtml(state.assignment.summary || (state.assignment.purpose === 'exam' ? 'La consigna del examen se publica desde la plataforma.' : 'La consigna de la práctica se publica desde la plataforma.'))}</p>
     ${rubricContent}
   </section>
 

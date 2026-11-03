@@ -4,6 +4,21 @@ const TOKEN_SECRET_KEY = 'solv.authToken';
 
 export type SolvRole = 'student' | 'teacher' | 'admin';
 
+function extractRoleFromJwt(token?: string): SolvRole | undefined {
+  if (!token) return undefined;
+  try {
+    const parts = token.split('.');
+    if (parts.length < 2) return undefined;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
+    if (payload.role === 'teacher' || payload.role === 'admin' || payload.role === 'student') {
+      return payload.role;
+    }
+  } catch {
+    // ignorar token con formato inválido
+  }
+  return undefined;
+}
+
 /**
  * Lee primero las variables de entorno del sistema, luego la configuración del
  * workspace. Esto permite que la extensión funcione sin configuración manual
@@ -24,6 +39,7 @@ export class SolvSettings {
     this._envTeacherName = process.env.SOLV_TEACHER_NAME;
     this._envAssignmentTitle = process.env.SOLV_ASSIGNMENT_TITLE;
     this._envAssignmentSummary = process.env.SOLV_ASSIGNMENT_SUMMARY;
+    this._envExercisePurpose = process.env.SOLV_EXERCISE_PURPOSE;
     this._envSpeedGraderUrl = process.env.SOLV_SPEEDGRADER_URL;
   }
 
@@ -31,7 +47,7 @@ export class SolvSettings {
   private readonly _envSubmissionId: string | undefined;
   private readonly _envToken: string | undefined;
   private readonly _envRole: string | undefined;
-  private readonly _envSessionId: string | undefined;
+  private _envSessionId: string | undefined;
   private readonly _envExerciseId: string | undefined;
   private readonly _envSubjectId: string | undefined;
   private readonly _envWorkspaceId: string | undefined;
@@ -40,6 +56,7 @@ export class SolvSettings {
   private readonly _envTeacherName: string | undefined;
   private readonly _envAssignmentTitle: string | undefined;
   private readonly _envAssignmentSummary: string | undefined;
+  private readonly _envExercisePurpose: string | undefined;
   private readonly _envSpeedGraderUrl: string | undefined;
 
   get apiBaseUrl(): string {
@@ -52,7 +69,12 @@ export class SolvSettings {
 
   /** Rol del entorno: decide las context keys y qué controles se muestran. */
   get role(): SolvRole {
-    const value = (this._envRole || this.readString('role') || 'student').toLowerCase();
+    const value = (
+      this._envRole ||
+      extractRoleFromJwt(this._envToken) ||
+      this.readString('role') ||
+      'student'
+    ).toLowerCase();
     if (value === 'teacher' || value === 'admin') {
       return value;
     }
@@ -65,6 +87,10 @@ export class SolvSettings {
 
   get sessionId(): string {
     return this._envSessionId || this.readString('sessionId');
+  }
+
+  setSessionId(sessionId: string): void {
+    this._envSessionId = sessionId;
   }
 
   get exerciseId(): string {
@@ -97,6 +123,14 @@ export class SolvSettings {
 
   get assignmentSummary(): string {
     return this._envAssignmentSummary || this.readString('assignmentSummary');
+  }
+
+  get exercisePurpose(): 'class' | 'exam' | undefined {
+    const value = (this._envExercisePurpose || this.readString('exercisePurpose')).toLowerCase().trim();
+    if (value === 'exam' || value === 'class') {
+      return value;
+    }
+    return undefined;
   }
 
   get assignmentCriteria(): string[] {

@@ -33,6 +33,7 @@ export interface AssignmentContext {
   criteria: string[];
   rubricCriteria?: RubricCriterionView[];
   totalPoints?: number;
+  purpose?: 'class' | 'exam' | string;
 }
 
 export interface AdvanceView {
@@ -115,4 +116,19 @@ export function selectedPaths(files: AdvanceFileEntry[]): string[] {
 export function applySelection(files: AdvanceFileEntry[], selected: string[]): AdvanceFileEntry[] {
   const chosen = new Set(selected);
   return files.map(file => ({ ...file, selected: chosen.has(file.path) }));
+}
+
+/** Texto del badge de la rúbrica según el propósito pedagógico. */
+export function rubricBadgeText(purpose?: string): string {
+  return purpose === 'exam' ? 'Rúbrica de evaluación' : 'Rúbrica de práctica';
+}
+
+/** Título del encabezado de la rúbrica según el propósito pedagógico. */
+export function rubricTitleText(purpose?: string): string {
+  return purpose === 'exam' ? 'Rúbrica de Evaluación' : 'Rúbrica de Práctica';
+}
+
+/** Texto del botón de entrega en la barra de estado según el propósito pedagógico. */
+export function submissionActionText(purpose?: string): string {
+  return purpose === 'exam' ? '$(cloud-upload) Entregar Examen' : '$(cloud-upload) Entregar Práctica';
 }

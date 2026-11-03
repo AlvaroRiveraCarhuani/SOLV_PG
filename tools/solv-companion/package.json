@@ -40,7 +40,8 @@
     "commands": [
       {
         "command": "solv.openTab",
-        "title": "SOLV: Abrir consigna en pestaña"
+        "title": "SOLV: Abrir consigna en pestaña",
+        "icon": "$(split-horizontal)"
       },
       {
         "command": "solv.refreshPanel",
@@ -54,12 +55,12 @@
       },
       {
         "command": "solv.broadcastAdvance",
-        "title": "SOLV: Emitir avance a la clase",
+        "title": "SOLV: Compartir avance con la clase",
         "icon": "$(broadcast)"
       },
       {
         "command": "solv.toggleFreeze",
-        "title": "SOLV: Congelar o descongelar la clase",
+        "title": "SOLV: Pausar o reanudar la clase",
         "icon": "$(debug-pause)"
       },
       {
@@ -69,7 +70,17 @@
       },
       {
         "command": "solv.openSpeedGrader",
-        "title": "SOLV: Abrir SpeedGrader en el navegador"
+        "title": "SOLV: Abrir evaluación en el navegador"
+      },
+      {
+        "command": "solv.openAula",
+        "title": "SOLV: Iniciar clase",
+        "icon": "$(play)"
+      },
+      {
+        "command": "solv.closeAula",
+        "title": "SOLV: Cerrar clase",
+        "icon": "$(debug-stop)"
       },
       {
         "command": "solv.configure",
@@ -183,6 +194,15 @@
           "default": "",
           "description": "Resumen de la consigna que muestra el panel."
         },
+        "solv.exercisePurpose": {
+          "type": "string",
+          "enum": [
+            "class",
+            "exam"
+          ],
+          "default": "class",
+          "description": "Propósito pedagógico del ejercicio: clase formativa o examen calificado."
+        },
         "solv.assignmentCriteria": {
           "type": "array",
           "items": {
@@ -194,7 +214,7 @@
         "solv.speedGraderUrl": {
           "type": "string",
           "default": "",
-          "description": "URL del SpeedGrader para el acceso rápido del docente."
+          "description": "URL de la evaluación para el acceso rápido del docente."
         },
         "solv.comments.refreshSeconds": {
           "type": "number",
@@ -257,5 +277,8 @@
     "@types/vscode": "^1.96.0",
     "@vscode/vsce": "^3.2.0",
     "typescript": "^5.7.0"
+  },
+  "dependencies": {
+    "@vscode-elements/elements": "^2.5.1"
   }
 }

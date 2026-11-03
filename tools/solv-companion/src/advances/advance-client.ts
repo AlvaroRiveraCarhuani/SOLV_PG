@@ -14,6 +14,7 @@ export interface SessionBoard {
     id: string;
     status: string;
     frozen_at?: string | null;
+    purpose?: string;
   };
   summary: {
     enrolled: number;

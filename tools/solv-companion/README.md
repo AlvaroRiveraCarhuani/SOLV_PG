@@ -30,9 +30,10 @@ En el laboratorio la plataforma inyecta la conexión por entorno:
 | `SOLV_SUBJECT_ID` / `SOLV_WORKSPACE_ID` | Materia y entorno, para entregar el proyecto |
 | `SOLV_SUBJECT_CODE` / `SOLV_SUBJECT_TITLE` / `SOLV_TEACHER_NAME` | Cabecera de la materia |
 | `SOLV_ASSIGNMENT_TITLE` / `SOLV_ASSIGNMENT_SUMMARY` | Consigna del panel |
+| `SOLV_EXERCISE_PURPOSE` | Propósito pedagógico (`class` para práctica o `exam` para examen) |
 | `SOLV_SPEEDGRADER_URL` | Acceso rápido del docente a la evaluación |
 
-Los mismos datos se pueden fijar en `settings.json` con las claves `solv.role`, `solv.sessionId`, `solv.exerciseId`, `solv.subjectId`, `solv.workspaceId`, `solv.subjectCode`, `solv.subjectTitle`, `solv.teacherName`, `solv.assignmentTitle`, `solv.assignmentSummary`, `solv.assignmentCriteria` y `solv.speedGraderUrl`.
+Los mismos datos se pueden fijar en `settings.json` con las claves `solv.role`, `solv.sessionId`, `solv.exerciseId`, `solv.exercisePurpose`, `solv.subjectId`, `solv.workspaceId`, `solv.subjectCode`, `solv.subjectTitle`, `solv.teacherName`, `solv.assignmentTitle`, `solv.assignmentSummary`, `solv.assignmentCriteria` y `solv.speedGraderUrl`.
 
 Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds` (30). Telemetría: `solv.telemetry.enabled` y `solv.telemetry.pasteThreshold` (50 caracteres).
 
@@ -43,10 +44,10 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 | `SOLV: Abrir consigna en pestaña` | Ambos | Abre el panel como pestaña completa para pantalla dividida |
 | `SOLV: Actualizar panel` | Ambos | Vuelve a leer avances, aula y comentarios |
 | `SOLV: Entregar práctica` | Estudiante | Revisa diagnósticos, confirma y entrega el proyecto |
-| `SOLV: Emitir avance a la clase` | Docente | Pide título y alcance, y emite el snapshot |
-| `SOLV: Congelar o descongelar la clase` | Docente | Pausa o reanuda la emisión de avances |
+| `SOLV: Compartir avance con la clase` | Docente | Pide título y alcance, y emite el snapshot |
+| `SOLV: Pausar o reanudar la clase` | Docente | Pausa o reanuda la emisión de avances |
 | `SOLV: Ver presencia del aula` | Docente | Lista los alumnos del aula con su presencia |
-| `SOLV: Abrir SpeedGrader en el navegador` | Docente | Abre la evaluación en el navegador |
+| `SOLV: Abrir evaluación en el navegador` | Docente | Abre la evaluación en el navegador |
 | `SOLV: Configurar conexión` | Ambos | URL, entrega y token |
 | `SOLV: Actualizar comentarios` | Ambos | Fuerza la consulta de comentarios |
 | `SOLV: Estado de la telemetría` | Ambos | Eventos pendientes de envío |
@@ -59,8 +60,9 @@ Intervalos: `solv.comments.refreshSeconds` (60) y `solv.advances.refreshSeconds`
 - Antes de comparar o aplicar se ejecuta `workspace.saveAll(false)`, para que el disco y las pestañas en memoria coincidan.
 - `Comparar y aplicar selección` aplica solo las rutas marcadas. `Descartar avance` cierra el aviso sin tocar el proyecto. `Deshacer último avance` restaura la versión anterior desde el respaldo del backend.
 - Los comentarios se agrupan por archivo; al hacer click se abre el archivo con el cursor en la línea comentada.
-- La barra de estado muestra `$(mortar-board) SOLV: SIS-420` y `$(cloud-upload) Entregar Práctica`, además del estado de la conexión.
-- El estado de la entrega sale de `GET /api/v1/student/submissions`: sin entrega queda `Borrador`, con entrega `Entregada` y con nota `Calificada`. Esa misma consulta completa materia y práctica cuando el entorno no las trae.
+- La barra de estado adapta su acción según el propósito: `$(cloud-upload) Entregar Examen` para evaluaciones o `$(cloud-upload) Entregar Práctica` para clases formativas, además del estado de la conexión.
+- La rúbrica oficial se adapta al propósito pedagógico: muestra el badge y título `Rúbrica de evaluación` (ámbar) para exámenes o `Rúbrica de práctica` (azul) para clases formativas.
+- El estado de la entrega sale de `GET /api/v1/student/submissions`: sin entrega queda `Borrador`, con entrega `Entregada` y con nota `Calificada`. Esa misma consulta completa materia, práctica y propósito cuando el entorno no los trae.
 - Al arrancar, la extensión fija `files.exclude` del workspace para `**/.git`, `**/.cache`, `**/.openvscode-server` y `**/.solv_backups`, sin pisar claves ya definidas.
 
 ## Experiencia del docente
