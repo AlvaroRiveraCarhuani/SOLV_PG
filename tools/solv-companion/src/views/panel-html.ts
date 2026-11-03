@@ -155,6 +155,9 @@ function renderAdvance(state: PanelState): string {
 }
 
 function renderComments(state: PanelState): string {
+  if (state.role !== 'student') {
+    return '';
+  }
   if (state.comments.length === 0) {
     return `
       <section class="section" aria-labelledby="comments-title">
@@ -407,8 +410,8 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
     font-family: var(--vscode-font-family);
     font-size: var(--vscode-font-size);
     line-height: 1.45;
-    color: var(--vscode-foreground);
-    background: transparent;
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+    background-color: var(--vscode-sideBar-background, var(--vscode-editor-background));
   }
   .icon {
     width: 15px;
@@ -520,7 +523,8 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   .rubric-accordion-item {
     border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
     border-radius: var(--panel-radius);
-    background: var(--vscode-editorWidget-background, transparent);
+    background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     overflow: hidden;
   }
   .rubric-summary {
@@ -631,7 +635,8 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
       padding: 12px 14px;
       border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
       border-radius: var(--panel-radius);
-      background: var(--vscode-editorWidget-background, transparent);
+      background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+      color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     }
     .matrix-criterion-col {
       border-right: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15));
@@ -778,10 +783,10 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
     padding: 8px 10px;
     margin-bottom: 6px;
     text-align: left;
-    border: 1px solid var(--vscode-panel-border, transparent);
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
     border-radius: var(--panel-radius);
-    background: var(--vscode-editorWidget-background, transparent);
-    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
     font-family: var(--vscode-font-family);
     font-size: 0.92em;
     cursor: pointer;
@@ -794,8 +799,10 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(88px, 1fr)); gap: 8px; margin-bottom: 10px; }
   .metric {
     padding: 8px 10px;
-    border: 1px solid var(--vscode-panel-border, transparent);
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
     border-radius: var(--panel-radius);
+    background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
+    color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
   }
   .metric-label {
     display: flex;
@@ -868,7 +875,7 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   </section>
 
   ${state.role === 'student' ? renderAdvance(state) : renderTeacher(state)}
-  ${renderComments(state)}
+  ${state.role === 'student' ? renderComments(state) : ''}
 
   <footer>
     ${icon(state.connection === 'connected' ? 'check' : 'warning')}
