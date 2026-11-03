@@ -608,7 +608,7 @@ func (s *WorkspaceService) startWorkspace(ctx context.Context, userID, subjectID
 	envVars := []string{
 		"DONT_PROMPT_WSL_INSTALL=true",
 	}
-	envVars = append(envVars, s.buildCompanionEnvVars(ctx, tenantID, exerciseID, userID)...)
+	envVars = append(envVars, s.buildCompanionEnvVars(ctx, tenantID, subjectID, exerciseID, userID)...)
 
 	// 8. Inyección de las credenciales del motor ya asegurado (ADR-030 / ADR-046):
 	// DATABASE_URL y afines del satélite gestionado, o la base del aula en PostgreSQL
@@ -662,7 +662,7 @@ func (s *WorkspaceService) startWorkspace(ctx context.Context, userID, subjectID
 }
 
 // buildCompanionEnvVars inyecta las variables de entorno para la extensión SOLV Companion (ADR-062).
-func (s *WorkspaceService) buildCompanionEnvVars(ctx context.Context, tenantID, exerciseID, studentID string) []string {
+func (s *WorkspaceService) buildCompanionEnvVars(ctx context.Context, tenantID, subjectID, exerciseID, studentID string) []string {
 	var envs []string
 	apiURL := os.Getenv("SOLV_API_URL")
 	if apiURL == "" {
@@ -678,13 +678,45 @@ func (s *WorkspaceService) buildCompanionEnvVars(ctx context.Context, tenantID, 
 		envs = append(envs, "SOLV_STUDENT_TOKEN="+studentToken)
 	}
 
-	if role := strings.TrimSpace(domain.GetUserRole(ctx)); role != "" {
+	role := strings.TrimSpace(domain.GetUserRole(ctx))
+	if role != "" {
 		envs = append(envs, "SOLV_USER_ROLE="+role)
 	}
 
-	if exerciseID != "" && s.submissionRepo != nil {
-		if submissions, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, studentID); err == nil && len(submissions) > 0 {
-			envs = append(envs, "SOLV_SUBMISSION_ID="+submissions[0].ID)
+	if exerciseID != "" {
+		envs = append(envs, "SOLV_EXERCISE_ID="+exerciseID)
+		if ex := s.resolveExercise(ctx, exerciseID, tenantID); ex != nil {
+			if title := strings.TrimSpace(ex.Title); title != "" {
+				envs = append(envs, "SOLV_ASSIGNMENT_TITLE="+title)
+			}
+			if desc := strings.TrimSpace(ex.Description); desc != "" {
+				envs = append(envs, "SOLV_ASSIGNMENT_SUMMARY="+desc)
+			}
+			if purpose := strings.TrimSpace(ex.Purpose); purpose != "" {
+				envs = append(envs, "SOLV_EXERCISE_PURPOSE="+purpose)
+			}
+			if subjectID == "" && ex.SubjectID != nil {
+				subjectID = strings.TrimSpace(*ex.SubjectID)
+			}
+		}
+		if s.submissionRepo != nil {
+			if submissions, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, studentID); err == nil && len(submissions) > 0 {
+				envs = append(envs, "SOLV_SUBMISSION_ID="+submissions[0].ID)
+			}
+		}
+	}
+
+	if subjectID != "" {
+		envs = append(envs, "SOLV_SUBJECT_ID="+subjectID)
+		if s.subjectRepo != nil {
+			if sub, err := s.subjectRepo.GetByID(ctx, tenantID, subjectID); err == nil && sub != nil {
+				if code := strings.TrimSpace(sub.Code); code != "" {
+					envs = append(envs, "SOLV_SUBJECT_CODE="+code)
+				}
+				if name := strings.TrimSpace(sub.Name); name != "" {
+					envs = append(envs, "SOLV_SUBJECT_TITLE="+name)
+				}
+			}
 		}
 	}
 	return envs

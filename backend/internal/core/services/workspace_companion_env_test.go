@@ -51,9 +51,9 @@ func TestBuildCompanionEnvVars_InjectsExpectedValues(t *testing.T) {
 
 	t.Setenv("SOLV_API_URL", "http://test-host:3000")
 
-	envs := service.buildCompanionEnvVars(ctx, "tenant-1", "ex-1", "student-1")
+	envs := service.buildCompanionEnvVars(ctx, "tenant-1", "sub-1", "ex-1", "student-1")
 
-	var foundAPI, foundToken, foundSub bool
+	var foundAPI, foundToken, foundSub, foundSubject, foundExercise bool
 	for _, env := range envs {
 		if env == "SOLV_API_URL=http://test-host:3000" {
 			foundAPI = true
@@ -63,6 +63,12 @@ func TestBuildCompanionEnvVars_InjectsExpectedValues(t *testing.T) {
 		}
 		if env == "SOLV_SUBMISSION_ID=sub-12345" {
 			foundSub = true
+		}
+		if env == "SOLV_SUBJECT_ID=sub-1" {
+			foundSubject = true
+		}
+		if env == "SOLV_EXERCISE_ID=ex-1" {
+			foundExercise = true
 		}
 	}
 
@@ -74,6 +80,12 @@ func TestBuildCompanionEnvVars_InjectsExpectedValues(t *testing.T) {
 	}
 	if !foundSub {
 		t.Errorf("esperado SOLV_SUBMISSION_ID inyectado en envVars: %+v", envs)
+	}
+	if !foundSubject {
+		t.Errorf("esperado SOLV_SUBJECT_ID inyectado en envVars: %+v", envs)
+	}
+	if !foundExercise {
+		t.Errorf("esperado SOLV_EXERCISE_ID inyectado en envVars: %+v", envs)
 	}
 }
 
@@ -89,7 +101,7 @@ func TestBuildCompanionEnvVars_FallbackWithoutSubmission(t *testing.T) {
 	ctx := context.Background()
 	t.Setenv("SOLV_API_URL", "")
 
-	envs := service.buildCompanionEnvVars(ctx, "tenant-1", "ex-1", "student-1")
+	envs := service.buildCompanionEnvVars(ctx, "tenant-1", "", "ex-1", "student-1")
 
 	var foundAPI bool
 	for _, env := range envs {

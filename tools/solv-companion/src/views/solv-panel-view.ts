@@ -60,7 +60,7 @@ export class SolvPanelView implements vscode.WebviewViewProvider, vscode.Disposa
       return;
     }
     const state = await this.provider();
-    this.view.webview.html = renderPanelHtml(this.view.webview, state);
+    this.view.webview.html = renderPanelHtml(this.view.webview, state, { isTab: false });
   }
 
   async reveal(): Promise<void> {

@@ -53,7 +53,7 @@ export class AssignmentTab implements vscode.Disposable {
       return;
     }
     const state = await this.provider();
-    this.panel.webview.html = renderPanelHtml(this.panel.webview, state);
+    this.panel.webview.html = renderPanelHtml(this.panel.webview, state, { isTab: true });
   }
 
   dispose(): void {

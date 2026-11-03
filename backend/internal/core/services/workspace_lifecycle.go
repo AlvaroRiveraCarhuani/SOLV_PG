@@ -88,7 +88,7 @@ func (s *WorkspaceService) reactivateWorkspace(ctx context.Context, instance *do
 	if instance.ExerciseID != nil {
 		exerciseIDStr = *instance.ExerciseID
 	}
-	envVars = append(envVars, s.buildCompanionEnvVars(ctx, instance.TenantID, exerciseIDStr, instance.StudentID)...)
+	envVars = append(envVars, s.buildCompanionEnvVars(ctx, instance.TenantID, instance.SubjectID, exerciseIDStr, instance.StudentID)...)
 	envVars = append(envVars, provision.Env...)
 
 	config := domain.WorkspaceContainerConfig{

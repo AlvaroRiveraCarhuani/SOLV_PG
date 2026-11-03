@@ -250,7 +250,7 @@ function renderTeacher(state: PanelState): string {
             : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
         }
       </div>
-      <button class="link-button" data-action="speedgrader">${icon('external')}Abrir SpeedGrader en el navegador</button>
+      <button class="link-button" data-action="speedgrader">${icon('external')}Abrir evaluación en la plataforma</button>
 
       ${
         teacher.lastAdvance
@@ -382,7 +382,11 @@ function renderRubric(assignment: PanelState['assignment']): string {
  * HTML del panel. Usa solo variables de tema de VS Code y SVG en línea: se
  * adapta a tema claro, oscuro y alto contraste sin librerías externas.
  */
-export function renderPanelHtml(webview: vscode.Webview, state: PanelState): string {
+export function renderPanelHtml(
+  webview: vscode.Webview,
+  state: PanelState,
+  options?: { isTab?: boolean }
+): string {
   const scriptNonce = nonce();
   const delivery = deliveryLabel(state);
   const rubricContent = renderRubric(state.assignment);
@@ -851,10 +855,19 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
     <div class="masthead-main">
       <span class="masthead-icon">${icon('book')}</span>
       <div>
-        ${state.course.code ? `<p class="course-code">${escapeHtml(state.course.code)}</p>` : ''}
-        <h1>${escapeHtml(state.course.title || 'Laboratorio SOLV')}</h1>
+        ${
+          state.assignment.title
+            ? `<p class="course-code">${escapeHtml(state.course.code ? (state.course.title ? `${state.course.code} · ${state.course.title}` : state.course.code) : (state.course.title || ''))}</p>
+               <h1>${escapeHtml(state.assignment.title)}</h1>`
+            : `${state.course.code ? `<p class="course-code">${escapeHtml(state.course.code)}</p>` : ''}
+               <h1>${escapeHtml(state.course.title || 'Laboratorio SOLV')}</h1>`
+        }
         ${state.course.teacher ? `<p class="teacher">${escapeHtml(state.course.teacher)}</p>` : ''}
-        <button type="button" class="link-button" data-action="open-tab" style="margin-top: 4px;">${icon('external')} Abrir en pestaña</button>
+        ${
+          options?.isTab
+            ? ''
+            : `<button type="button" class="link-button" data-action="open-tab" style="margin-top: 4px;">${icon('external')} Abrir en pestaña</button>`
+        }
       </div>
     </div>
     ${

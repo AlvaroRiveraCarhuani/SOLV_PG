@@ -133,7 +133,8 @@ func (h *WorkspaceHandler) OpenPracticeIDE(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	instance, err := h.service.StartTeacherPracticeWorkspace(r.Context(), teacherID, "", exerciseID, role)
+	courseID := strings.TrimSpace(r.PathValue("courseId"))
+	instance, err := h.service.StartTeacherPracticeWorkspace(r.Context(), teacherID, courseID, exerciseID, role)
 	if err != nil {
 		switch {
 		case errors.Is(err, services.ErrPracticeTestForbidden):
