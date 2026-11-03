@@ -9,11 +9,37 @@
     <div class="header-actions">
       <button type="button" class="btn btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
-        <span>Solicitar Nuevo Entorno</span>
+        <span>Solicitar entorno</span>
       </button>
     </div>
   </header>
 
+  <!-- Pestañas: catálogo y solicitudes propias -->
+  <nav class="page-tabs" aria-label="Catálogo y solicitudes">
+    <button
+      type="button"
+      class="page-tab"
+      [class.active]="activeTab() === 'catalog'"
+      (click)="setTab('catalog')"
+    >
+      <svg lucideLayers class="tab-icon"></svg>
+      <span>Catálogo</span>
+    </button>
+    <button
+      type="button"
+      class="page-tab"
+      [class.active]="activeTab() === 'requests'"
+      (click)="setTab('requests')"
+    >
+      <svg lucideInbox class="tab-icon"></svg>
+      <span>Mis solicitudes</span>
+      @if (pendingRequestsCount() > 0) {
+        <span class="tab-count">{{ pendingRequestsCount() }}</span>
+      }
+    </button>
+  </nav>
+
+  @if (activeTab() === 'catalog') {
   <!-- Barra de Filtros -->
   <div class="filters-toolbar">
     <div class="search-box">
@@ -144,10 +170,89 @@
               <svg lucideSparkles class="btn-icon-xs"></svg>
               <span>Usar en Laboratorio</span>
             </button>
+
+            <button
+              type="button"
+              class="btn-variant"
+              (click)="requestVariant(tpl)"
+              title="Pedir un entorno parecido, cambiando alguna herramienta"
+            >
+              <svg lucideWand2 class="btn-icon-xs"></svg>
+              <span>Algo así, pero con…</span>
+            </button>
           </div>
         </article>
       }
     </div>
+  }
+  } @else {
+  <!-- Mis solicitudes de entorno -->
+  <section class="requests-section">
+    @if (requestsLoading()) {
+      <skeleton-loader variant="cards" [count]="3" />
+    } @else if (requests().length === 0) {
+      <div class="empty-state">
+        <svg lucideInbox class="empty-icon"></svg>
+        <h3>Todavía no pediste ningún entorno</h3>
+        <p>Cuando necesites herramientas que no están en el catálogo, cuéntanos qué deben hacer tus estudiantes.</p>
+        <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+          <svg lucidePlus class="btn-icon"></svg>
+          <span>Solicitar entorno</span>
+        </button>
+      </div>
+    } @else {
+      <div class="requests-list">
+        @for (req of requests(); track req.id) {
+          <article class="request-card">
+            <div class="request-card-head">
+              <div class="request-title-wrap">
+                <h3 class="request-card-title">{{ req.title }}</h3>
+                <span class="request-meta">
+                  {{ req.requester_name || 'Tú' }} · <time>{{ req.created_at | dateText }}</time>
+                </span>
+              </div>
+              <span class="request-status" [class]="statusTone(req.status)">
+                {{ statusLabel(req.status) }}
+              </span>
+            </div>
+
+            <p class="request-description">{{ req.description }}</p>
+
+            <div class="request-chips">
+              @for (piece of req.components; track piece.id) {
+                <span class="request-chip">{{ piece.name }}</span>
+              }
+              @for (missing of req.missing_components; track missing.name) {
+                <span class="request-chip missing">{{ missing.name }} · la pedimos</span>
+              }
+            </div>
+
+            <div class="request-footer">
+              <span class="request-env">{{ environmentLabel(req.target_environment) }}</span>
+              @if (req.subjects.length > 1) {
+                <span class="request-subjects">
+                  La esperan {{ req.subjects.length }} materias
+                </span>
+              }
+              @if (req.status === 'APROBADA') {
+                <button type="button" class="btn-detail" (click)="setTab('catalog')">
+                  <span>Ver en el catálogo</span>
+                  <svg lucideArrowRight class="btn-icon-xs"></svg>
+                </button>
+              }
+            </div>
+
+            @if (req.review_note) {
+              <div class="request-note">
+                <strong>Respuesta de la administración:</strong>
+                <span>{{ req.review_note }}</span>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    }
+  </section>
   }
 </div>
 
@@ -163,6 +268,8 @@
 <!-- Modal de Solicitud de Plantilla al Admin -->
 @if (isRequestModalOpen()) {
   <template-request-modal
+    [presetText]="requestPreset()"
+    [presetStack]="requestPresetStack()"
     (closed)="closeRequestModal()"
     (requested)="onRequestSubmitted()"
   />

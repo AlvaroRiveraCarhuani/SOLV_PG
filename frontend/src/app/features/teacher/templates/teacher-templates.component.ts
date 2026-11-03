@@ -11,17 +11,27 @@ import {
   LucideInfo,
   LucideUser,
   LucideBookOpen,
-  LucideArrowRight
+  LucideArrowRight,
+  LucideInbox,
+  LucideWand2
 } from '@lucide/angular';
 import { Router } from '@angular/router';
 import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { TemplateRequestModalComponent } from './template-request-modal/template-request-modal.component';
 import { TemplateDetailModalComponent } from './template-detail-modal/template-detail-modal.component';
+import { EnvironmentRequestService } from '../services/environment-request.service';
+import {
+  ENVIRONMENT_REQUEST_STATUS_LABEL,
+  ENVIRONMENT_REQUEST_STATUS_TONE,
+  EnvironmentRequest,
+  EnvironmentRequestStackConfig
+} from './environment-request.models';
 
 export interface TechChip {
   name: string;
@@ -42,6 +52,8 @@ export interface PublishedTemplate {
   ports?: string;
   primaryIcon?: string;
   techChips?: TechChip[];
+  /** Piezas que componen el entorno, para arrancar una variante ya armada. */
+  stack_config?: EnvironmentRequestStackConfig | null;
 }
 
 export interface RawTemplateItem {
@@ -60,6 +72,7 @@ export interface RawTemplateItem {
   is_active?: boolean;
   ports?: string;
   tools_declared?: string[];
+  stack_config?: EnvironmentRequestStackConfig | null;
 }
 
 export type TemplateApiResponse =
@@ -165,9 +178,12 @@ export function resolveTemplateTechInfo(name: string, dockerImage: string, descr
     LucideUser,
     LucideBookOpen,
     LucideArrowRight,
+    LucideInbox,
+    LucideWand2,
     SkeletonLoaderComponent,
     ComboboxComponent,
     EnvironmentLabelPipe,
+    DateTextPipe,
     TechLogoComponent,
     ModalShellComponent,
     TemplateRequestModalComponent,
@@ -179,6 +195,7 @@ export function resolveTemplateTechInfo(name: string, dockerImage: string, descr
 export class TeacherTemplatesComponent implements OnInit {
   private http = inject(HttpClient);
   private dashboardService = inject(TeacherDashboardService);
+  private environmentRequestService = inject(EnvironmentRequestService);
   private router = inject(Router);
 
   courses = this.dashboardService.courses;
@@ -189,6 +206,17 @@ export class TeacherTemplatesComponent implements OnInit {
   categoryFilter = signal<string>('all');
   envTypeFilter = signal<string>('all');
   searchTerm = signal<string>('');
+
+  // Pestañas: catálogo de entornos y las solicitudes propias del docente
+  activeTab = signal<'catalog' | 'requests'>('catalog');
+  requests = signal<EnvironmentRequest[]>([]);
+  requestsLoading = signal<boolean>(false);
+  requestPreset = signal<string>('');
+  requestPresetStack = signal<EnvironmentRequestStackConfig | null>(null);
+
+  readonly pendingRequestsCount = computed(
+    () => this.requests().filter(item => item.status === 'EN_REVISION').length
+  );
 
   // Modales
   isRequestModalOpen = signal<boolean>(false);
@@ -281,6 +309,51 @@ export class TeacherTemplatesComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadTemplates();
+    this.loadRequests();
+  }
+
+  setTab(tab: 'catalog' | 'requests'): void {
+    this.activeTab.set(tab);
+    if (tab === 'requests') {
+      this.loadRequests();
+    }
+  }
+
+  loadRequests(): void {
+    this.requestsLoading.set(true);
+    this.environmentRequestService.listMine().subscribe({
+      next: items => {
+        this.requests.set(items || []);
+        this.requestsLoading.set(false);
+      },
+      error: () => {
+        this.requests.set([]);
+        this.requestsLoading.set(false);
+      }
+    });
+  }
+
+  statusLabel(status: string): string {
+    return ENVIRONMENT_REQUEST_STATUS_LABEL[status as EnvironmentRequest['status']] || status;
+  }
+
+  statusTone(status: string): string {
+    return ENVIRONMENT_REQUEST_STATUS_TONE[status as EnvironmentRequest['status']] || 'neutral';
+  }
+
+  environmentLabel(environment: string): string {
+    if (environment === 'AMBOS') return 'Desarrollo y evaluación';
+    if (environment === 'JUEZ_EFIMERO') return 'Evaluación';
+    return 'Desarrollo';
+  }
+
+  /** Pide una variante de un entorno que el docente ya conoce. */
+  requestVariant(template: PublishedTemplate): void {
+    this.requestPreset.set(
+      `Quiero un entorno como «${template.name}», pero con…`
+    );
+    this.requestPresetStack.set(template.stack_config || null);
+    this.isRequestModalOpen.set(true);
   }
 
   loadTemplates(): void {
@@ -318,7 +391,8 @@ export class TeacherTemplatesComponent implements OnInit {
             is_active: item.is_active !== false,
             ports: item.ports || '',
             primaryIcon: techInfo.primaryIcon,
-            techChips: techInfo.techChips
+            techChips: techInfo.techChips,
+            stack_config: item.stack_config || null
           };
         });
 
@@ -332,6 +406,8 @@ export class TeacherTemplatesComponent implements OnInit {
   }
 
   openRequestModal(): void {
+    this.requestPreset.set('');
+    this.requestPresetStack.set(null);
     this.isRequestModalOpen.set(true);
   }
 
@@ -341,7 +417,7 @@ export class TeacherTemplatesComponent implements OnInit {
 
   onRequestSubmitted(): void {
     this.closeRequestModal();
-    this.loadTemplates();
+    this.loadRequests();
   }
 
   openDetailModal(template: PublishedTemplate): void {

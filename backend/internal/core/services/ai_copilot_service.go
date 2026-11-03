@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -191,7 +192,7 @@ func (s *AICopilotService) buildCompactCatalogSummary(ctx context.Context, tenan
 		return ""
 	}
 
-	var runtimes, webs []string
+	var runtimes, webs, databases []string
 	addonsByFam := make(map[string][]string)
 
 	for _, c := range comps {
@@ -210,7 +211,24 @@ func (s *AICopilotService) buildCompactCatalogSummary(ctx context.Context, tenan
 				fam = c.CompatibleRuntimes[0]
 			}
 			addonsByFam[fam] = append(addonsByFam[fam], fmt.Sprintf("%s (%s)", c.Slug, c.Name))
+		} else if c.Layer == "database" && c.ServiceEngine != "none" {
+			// Los slugs salen del catálogo real: antes se anunciaban nombres
+			// genéricos ("sqlite") que luego no resolvían contra ninguna pieza.
+			databases = append(databases, fmt.Sprintf("%s (%s)", c.Slug, c.Name))
 		}
+	}
+
+	// Orden estable: el mismo catálogo debe producir el mismo prompt.
+	sort.Strings(runtimes)
+	sort.Strings(webs)
+	sort.Strings(databases)
+	fams := make([]string, 0, len(addonsByFam))
+	for fam := range addonsByFam {
+		fams = append(fams, fam)
+	}
+	sort.Strings(fams)
+	for _, fam := range fams {
+		sort.Strings(addonsByFam[fam])
 	}
 
 	var sb strings.Builder
@@ -221,12 +239,15 @@ func (s *AICopilotService) buildCompactCatalogSummary(ctx context.Context, tenan
 	if len(webs) > 0 {
 		sb.WriteString(fmt.Sprintf("- Plataformas Web (web_platform_slug): %s\n", strings.Join(webs, ", ")))
 	}
-	for fam, items := range addonsByFam {
+	for _, fam := range fams {
+		items := addonsByFam[fam]
 		if len(items) > 0 {
 			sb.WriteString(fmt.Sprintf("- Complementos %s (addon_slugs): %s\n", strings.Title(fam), strings.Join(items, ", ")))
 		}
 	}
-	sb.WriteString("- Motores Base de Datos (database_slug): sqlite, postgres, mysql, mongodb, redis (o vacío si no requiere)\n")
+	if len(databases) > 0 {
+		sb.WriteString(fmt.Sprintf("- Motores de Base de Datos (database_slug): %s\n", strings.Join(databases, ", ")))
+	}
 
 	return sb.String()
 }
@@ -257,9 +278,9 @@ Reglas innegociables:
 - Si se suministra un CATÁLOGO REAL INSTALADO, debes elegir ÚNICAMENTE entre los slugs listados en dicho catálogo para runtime_slug, web_platform_slug y addon_slugs.
 - Si una herramienta solicitada no está en el catálogo pero existe una alternativa directa instalada en la misma categoría (ej. un ORM o cliente alternativo), usa la del catálogo y explícalo en el rationale.
 - Solo si el usuario solicita explícitamente una tecnología o librería que NO existe ni tiene alternativa en el catálogo provisto, repórtala en "missing_components" y NO inventes slugs dentro de addon_slugs.
-- database_slug SOLO puede ser sqlite, postgres, mysql, mongodb o redis; si no hace falta base de datos o si el entorno objetivo es de juez o dual (JUEZ_EFIMERO, AMBOS), dejalo como cadena vacía.
+- database_slug SOLO puede ser uno de los slugs exactos de "Motores de Base de Datos" del CATÁLOGO REAL, nunca un nombre genérico. Si se nombra un motor que está en el catálogo, elegilo aunque el entorno sea de juez. Dejalo vacío solo si nadie pidió base de datos ni la práctica la necesita.
 - base_ram_mb entre 256 y 4096: 512 para entornos ligeros de juez, 1024 o más para laboratorios IDE con compilación pesada o servicios acoplados.
-- web_platform_slug SOLO tiene sentido cuando el entorno es un laboratorio IDE de tipo web (Angular, React, Vue) y el entorno objetivo es IDE_PERSISTENTE; en jueces automáticos o entornos duales (JUEZ_EFIMERO, AMBOS) dejalo vacío.
+- web_platform_slug SOLO puede ser uno de los slugs exactos de "Plataformas Web" del CATÁLOGO REAL. Elegilo cuando se pide explícitamente una interfaz (React, Angular, Vue) aunque el entorno sea de juez; si no se pide, dejalo vacío.
 - setup_script es OPCIONAL y solo de preparación del espacio de trabajo (crear carpetas, alias, variables de entorno); no incluyas comandos de instalación de paquetes (eso va en capas de la imagen).
 - name y description en español, descriptivos para un catálogo académico.`
 

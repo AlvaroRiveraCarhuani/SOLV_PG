@@ -69,3 +69,5 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 | 062 | [Auditoría de Similitud por Práctica con Código Base Restado](ADR-062-auditoria-similitud-por-practica.md) | Implementado | Docencia |
 
 
+| 063 | [Solicitud de Entorno del Docente como Intención y Receta](ADR-063-solicitud-de-entorno-del-docente.md) | Implementado | Docencia |
+| 064 | [Presupuesto de Tiempo Adaptativo por Motor de IA](ADR-064-presupuesto-de-tiempo-adaptativo-de-ia.md) | Implementado | Core |

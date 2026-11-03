@@ -48,6 +48,11 @@ type AISettingsService struct {
 	modelsMu    sync.RWMutex
 	modelsCache map[string]aiModelsCacheEntry
 	nowFn       func() time.Time
+
+	// Latencia aprendida: se escribe en la configuración con moderación para no
+	// tocar el documento del tenant en cada llamada.
+	latencyMu        sync.Mutex
+	latencyPersistAt map[string]time.Time
 }
 
 // aiModelsCacheEntry almacena en memoria los modelos descubiertos con TTL de 5m.
@@ -77,6 +82,8 @@ func NewAISettingsService(tenantRepo domain.TenantRepository) *AISettingsService
 		quotas:      make(map[string]*aiQuotaUsage),
 		modelsCache: make(map[string]aiModelsCacheEntry),
 		nowFn:       time.Now,
+
+		latencyPersistAt: make(map[string]time.Time),
 	}
 }
 
@@ -115,6 +122,7 @@ func (s *AISettingsService) Get(ctx context.Context, tenantID string) (*domain.A
 	if err := json.Unmarshal(rawBytes, &stored); err != nil {
 		return &defaults, nil
 	}
+	stored.LatencyProfile = sanitizeLatencyProfile(stored.LatencyProfile)
 
 	// Saneo defensivo: el catálogo de proveedores y las URLs oficiales son la
 	// fuente de verdad, no el JSON almacenado.
@@ -509,6 +517,9 @@ func (s *AISettingsService) Update(ctx context.Context, tenantID string, dto dom
 		UpdatedAt:          s.nowFn().UTC().Format(time.RFC3339),
 		ProviderProfiles:   current.ProviderProfiles,
 		CustomProviders:    finalCustomProviders,
+		// Lo medido por el servicio sobrevive a una edición del administrador:
+		// no es una preferencia, es historial de latencia.
+		LatencyProfile: current.LatencyProfile,
 		// La cascada BYOK personal pertenece al usuario, no a la configuración
 		// institucional: la actualización del administrador jamás la pisa.
 		UserOverrides: current.UserOverrides,
@@ -553,6 +564,118 @@ func (s *AISettingsService) persist(ctx context.Context, tenantID string, stored
 		return fmt.Errorf("error serializing ai settings: %w", err)
 	}
 	return s.tenantRepo.UpdateConfig(ctx, tenantID, newConfig)
+}
+
+// aiLatencyProfileMaxEntries acota el historial: el presupuesto solo necesita
+// lo último de cada motor y acción que el tenant usa.
+const aiLatencyProfileMaxEntries = 24
+
+// recordLatency aprende del motor real: guarda la latencia observada por
+// (motor, acción) y con eso ajusta el presupuesto de la próxima llamada. Un
+// plazo agotado se registra como muestreo para que la siguiente vez tenga más
+// margen en lugar de repetir el mismo límite.
+func (s *AISettingsService) recordLatency(
+	ctx context.Context, tenantID string, settings *domain.AISettingsStored, action string, latencyMS int64, timedOut bool,
+) {
+	if settings == nil {
+		return
+	}
+	if latencyMS <= 0 {
+		// Un motor local puede responder por debajo del milisegundo; se guarda el
+		// mínimo medible para que el promedio no quede en cero.
+		latencyMS = 1
+	}
+
+	key := domain.AILatencyKey(settings.Provider, settings.Model, action)
+
+	s.latencyMu.Lock()
+	if settings.LatencyProfile == nil {
+		settings.LatencyProfile = make(map[string]domain.AILatencySample)
+	}
+	sample := domain.NextAILatencySample(settings.LatencyProfile[key], latencyMS, timedOut, s.nowFn())
+	settings.LatencyProfile[key] = sample
+	pruneLatencyProfile(settings.LatencyProfile)
+
+	now := s.nowFn()
+	// Las dos primeras mediciones y los plazos agotados cambian el presupuesto,
+	// así que se guardan de inmediato; el resto, como mucho cada dos minutos.
+	shouldPersist := sample.Samples <= 2 || timedOut || now.Sub(s.latencyPersistAt[tenantID]) >= 2*time.Minute
+	if shouldPersist {
+		s.latencyPersistAt[tenantID] = now
+	}
+	s.latencyMu.Unlock()
+
+	if !shouldPersist {
+		return
+	}
+	// La escritura no debe perderse si el navegador cortó la petición.
+	persistCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	s.persistLatencyProfile(persistCtx, tenantID, settings.LatencyProfile)
+}
+
+// persistLatencyProfile mezcla solo el historial de latencia dentro de la
+// configuración vigente, sin pisar lo que el administrador haya cambiado
+// mientras la llamada al motor estaba en curso.
+func (s *AISettingsService) persistLatencyProfile(
+	ctx context.Context, tenantID string, profile map[string]domain.AILatencySample,
+) {
+	if len(profile) == 0 {
+		return
+	}
+	tenant, err := s.tenantRepo.GetByID(ctx, tenantID)
+	if err != nil || tenant == nil {
+		return
+	}
+
+	configMap := make(map[string]interface{})
+	if len(tenant.Config) > 0 {
+		if err := json.Unmarshal(tenant.Config, &configMap); err != nil {
+			configMap = make(map[string]interface{})
+		}
+	}
+
+	aiConfig := make(map[string]interface{})
+	if raw, ok := configMap[aiSettingsConfigKey]; ok {
+		if encoded, err := json.Marshal(raw); err == nil {
+			_ = json.Unmarshal(encoded, &aiConfig)
+		}
+	}
+	aiConfig["latency_profile"] = profile
+	configMap[aiSettingsConfigKey] = aiConfig
+
+	newConfig, err := json.Marshal(configMap)
+	if err != nil {
+		return
+	}
+	_ = s.tenantRepo.UpdateConfig(ctx, tenantID, newConfig)
+}
+
+// pruneLatencyProfile descarta las mediciones más viejas cuando el historial
+// supera el tope, sin tocar las que el tenant está usando ahora.
+func pruneLatencyProfile(profile map[string]domain.AILatencySample) {
+	for len(profile) > aiLatencyProfileMaxEntries {
+		oldestKey, oldestAt := "", ""
+		for key, sample := range profile {
+			if oldestKey == "" || sample.UpdatedAt < oldestAt {
+				oldestKey, oldestAt = key, sample.UpdatedAt
+			}
+		}
+		delete(profile, oldestKey)
+	}
+}
+
+// sanitizeLatencyProfile descarta muestras corruptas o incompletas que hayan
+// quedado en la configuración.
+func sanitizeLatencyProfile(profile map[string]domain.AILatencySample) map[string]domain.AILatencySample {
+	clean := make(map[string]domain.AILatencySample, len(profile))
+	for key, sample := range profile {
+		if sample.Samples <= 0 || sample.EWMAMS <= 0 {
+			continue
+		}
+		clean[key] = sample
+	}
+	return clean
 }
 
 // ConsumeQuota consume un punto de la cuota horaria del usuario dentro de la
@@ -645,8 +768,10 @@ func (s *AISettingsService) CompleteJSON(ctx context.Context, tenantID, userID, 
 	}
 	content, latencyMS, err := provider.Complete(reqCtx, payload, apiKey)
 	if err != nil {
+		s.recordLatency(ctx, tenantID, &effective, action, latencyMS, errors.Is(err, domain.ErrAITimeout))
 		return "", latencyMS, err
 	}
+	s.recordLatency(ctx, tenantID, &effective, action, latencyMS, false)
 	return content, latencyMS, nil
 }
 
@@ -704,11 +829,20 @@ func classifyAIEngine(provider, model string) string {
 // pesada ni un modelo gratuito, y un tope mayor fijado en Modo Experto se
 // respeta.
 func effectiveAITimeout(settings *domain.AISettingsStored, profile, action string) time.Duration {
-	stored := settings.TimeoutSeconds
-	if stored <= 0 {
-		stored = domain.DefaultAITimeoutSeconds
-	}
+	stored := domain.DefaultAITimeoutSeconds
 	seconds := domain.AIEngineAutoTimeoutSeconds(profile, action)
+	if settings != nil {
+		if settings.TimeoutSeconds > 0 {
+			stored = settings.TimeoutSeconds
+		}
+		// El presupuesto sigue al motor concreto: si este modelo viene tardando
+		// más que el promedio de su perfil, se le da el margen medido.
+		if sample, ok := settings.LatencyProfile[domain.AILatencyKey(settings.Provider, settings.Model, action)]; ok {
+			if adaptive := domain.AIAdaptiveTimeoutSeconds(profile, action, sample); adaptive > seconds {
+				seconds = adaptive
+			}
+		}
+	}
 	if seconds < stored {
 		seconds = stored
 	}

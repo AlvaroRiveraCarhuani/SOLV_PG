@@ -1,208 +1,495 @@
-<modal-shell
-  title="Solicitar Nuevo Entorno"
-  subtitle="Envía una propuesta de entorno para revisión y homologación por la administración del sistema."
-  maxWidth="600px"
-  [disableClose]="isSubmitting()"
-  (close)="closed.emit()"
->
-  <svg modal-icon lucideServer class="icon"></svg>
-
-  <!-- Pasos Wizard -->
-  <div class="steps-progress">
-    <div class="step-indicator" [class.active]="currentStep() === 1" [class.done]="currentStep() > 1">
-      <span class="step-num">1</span>
-      <span class="step-label">Selección de Tecnologías</span>
-    </div>
-    <div class="step-connector"></div>
-    <div class="step-indicator" [class.active]="currentStep() === 2">
-      <span class="step-num">2</span>
-      <span class="step-label">Imagen y Justificación</span>
-    </div>
-  </div>
-
-  @if (formError()) {
-    <div class="error-banner">
-      <svg lucideAlertCircle class="error-icon"></svg>
-      <span>{{ formError() }}</span>
-    </div>
-  }
-
-  @if (successMessage()) {
-    <div class="success-banner">
-      <svg lucideCheck class="success-icon"></svg>
-      <span>{{ successMessage() }}</span>
-    </div>
-  }
-
-  <div class="modal-form-body">
-    <!-- PASO 1: Selección de Tecnologías y Perfil de Carga -->
-    @if (currentStep() === 1) {
-      <div class="step-section">
-        <p class="section-intro">
-          1. Elige las tecnologías principales que necesitas para tu práctica:
+<div class="request-overlay" role="dialog" aria-modal="true" aria-labelledby="request-title" (click)="close()">
+  <section class="request-panel" (click)="$event.stopPropagation(); closePicker()">
+    <header class="request-header">
+      <span class="header-mark" aria-hidden="true">
+        <svg lucideBoxes></svg>
+      </span>
+      <div class="header-text">
+        <h2 id="request-title" class="request-title">Solicitar un entorno</h2>
+        <p class="request-subtitle">
+          Cuéntanos qué van a hacer tus estudiantes. De la parte técnica nos ocupamos nosotros.
         </p>
+      </div>
+      <button type="button" class="icon-button" aria-label="Cerrar" (click)="close()">
+        <svg lucideX></svg>
+      </button>
+    </header>
 
-        <div class="profile-cards">
-          @for (rt of backendRuntimes(); track rt.id) {
-            <div
-              class="profile-card"
-              [class.selected]="selectedRuntimeId() === rt.id || selectedRuntimeId() === rt.slug"
-              (click)="selectRuntime(rt.id)"
-            >
-              <tech-logo [iconType]="rt.icon_key" [size]="28" />
-              <div class="card-info">
-                <div class="card-header">
-                  <span class="card-title">{{ rt.name }}</span>
-                </div>
-                <p class="card-desc">{{ rt.description }}</p>
+    @if (result(); as outcome) {
+      <div class="result-panel">
+        <div class="result-icon" [class.joined]="outcome.joined">
+          <svg lucideCheck></svg>
+        </div>
+        <h3>{{ outcome.joined ? 'Te sumamos a una solicitud existente' : 'Recibimos tu solicitud' }}</h3>
+        <p>{{ outcome.message }}</p>
+        <span class="status-pill">En revisión</span>
+        <p class="result-hint">
+          Puedes seguir el estado en <strong>Mis solicitudes</strong>, aquí mismo en el catálogo.
+        </p>
+        <button type="button" class="btn-primary" (click)="close()">Volver al catálogo</button>
+      </div>
+    } @else {
+      <div class="request-body">
+        <div class="request-main">
+          @if (formError()) {
+            <div class="error-banner" role="alert">
+              <svg lucideAlertCircle class="banner-icon"></svg>
+              <span>{{ formError() }}</span>
+            </div>
+          }
+
+          <!-- 1. Práctica -->
+          <section class="block">
+            <div class="block-heading">
+              <span class="block-step">1</span>
+              <div class="block-copy">
+                <h3>Cuéntanos tu práctica</h3>
+                <p>
+                  En dos o tres frases: qué construyen, qué consultan y qué deben lograr.
+                  Con eso armamos las herramientas.
+                </p>
               </div>
             </div>
+
+            <div class="field">
+              <label class="form-label" for="practice-text">
+                ¿Qué van a hacer tus estudiantes?
+                <span class="required-mark">Obligatorio</span>
+              </label>
+              <textarea
+                #practiceText
+                id="practice-text"
+                class="form-textarea practice-text"
+                rows="4"
+                maxlength="600"
+                placeholder="Ej: Construyen una API con Django sobre PostgreSQL, la prueban desde Postman y comparan resultados entre dos motores."
+                [ngModel]="description()"
+                (ngModelChange)="description.set($event)"
+              ></textarea>
+              @if (aiLoading()) {
+                <div
+                  class="ai-progress"
+                  role="progressbar"
+                  aria-label="Consultando a la IA"
+                  [attr.aria-valuetext]="'Esperando respuesta, ' + aiElapsedSeconds() + ' segundos'"
+                >
+                  <span class="ai-progress-bar"></span>
+                </div>
+              }
+              <div class="field-foot">
+                <div class="ai-actions">
+                  <button type="button" class="ai-button" [disabled]="aiLoading()" (click)="interpret()">
+                    <svg lucideWand class="btn-icon"></svg>
+                    @if (aiLoading()) {
+                      <span>
+                        Armando la lista…
+                        <span class="ai-elapsed font-mono" machineData>{{ aiElapsedSeconds() }} s</span>
+                      </span>
+                    } @else {
+                      <span>Armar la lista con IA</span>
+                    }
+                  </button>
+                  @if (aiLoading()) {
+                    <button type="button" class="ai-cancel" (click)="cancelAI()">Cancelar</button>
+                  }
+                </div>
+                <span class="counter">{{ description().length }}/600</span>
+              </div>
+            </div>
+
+            @if (aiNotice()) {
+              <div class="note-banner">
+                <svg lucideInfo class="banner-icon"></svg>
+                <div class="banner-body">
+                  <span>{{ aiNotice() }}</span>
+                  @if (missingNames().length) {
+                    <button
+                      type="button"
+                      class="banner-toggle"
+                      [attr.aria-expanded]="showMissingNames()"
+                      (click)="showMissingNames.set(!showMissingNames())"
+                    >
+                      {{ showMissingNames() ? 'Ocultar' : 'Ver cuáles' }}
+                    </button>
+                    @if (showMissingNames()) {
+                      <ul class="banner-list">
+                        @for (name of missingNames(); track name) {
+                          <li>{{ name }}</li>
+                        }
+                      </ul>
+                    }
+                  }
+                </div>
+              </div>
+            }
+
+            <div class="pieces">
+              <div class="pieces-head">
+                <span class="pieces-label">Herramientas del entorno</span>
+                @if (chips().length) {
+                  <span class="pieces-count">{{ chips().length }}</span>
+                }
+              </div>
+
+              @if (chips().length === 0) {
+                <p class="pieces-empty">
+                  Aún no agregaste ninguna. Puedes nombrarlas arriba y usar la IA, o elegirlas a mano.
+                </p>
+              } @else {
+                <div class="chip-row">
+                  @for (chip of chips(); track chip.id) {
+                    <span class="chip" [class.missing]="chip.missing">
+                      @if (!chip.missing) {
+                        <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="16" />
+                      }
+                      <span class="chip-name">{{ chip.name }}</span>
+                      @if (chip.missing) {
+                        <span class="chip-note">no la tenemos, la pedimos</span>
+                      }
+                      <button type="button" class="chip-remove" [attr.aria-label]="'Quitar ' + chip.name" (click)="removeChip(chip)">
+                        <svg lucideX></svg>
+                      </button>
+                    </span>
+                  }
+                </div>
+              }
+
+              <button
+                type="button"
+                class="link-button picker-toggle"
+                (click)="isPickerOpen.set(!isPickerOpen()); $event.stopPropagation()"
+              >
+                <svg lucidePlus class="btn-icon"></svg>
+                {{ isPickerOpen() ? 'Cerrar la lista' : 'Agregar herramienta' }}
+              </button>
+
+
+            </div>
+          </section>
+
+          <!-- 2. Uso -->
+          <section class="block">
+            <div class="block-heading">
+              <span class="block-step">2</span>
+              <div class="block-copy">
+                <h3>¿Cómo lo van a usar?</h3>
+                <p>Elige uno o los dos. Si eliges los dos, llega como una sola solicitud.</p>
+              </div>
+            </div>
+
+            <div class="use-grid">
+              <button
+                type="button"
+                class="use-card"
+                [class.selected]="isUseSelected('practice')"
+                (click)="toggleUse('practice')"
+              >
+                <span class="use-icon">
+                  <svg lucideGraduationCap></svg>
+                </span>
+                <span class="use-body">
+                  <span class="use-title">Entorno de desarrollo</span>
+                  <span class="use-desc">
+                    Para practicar en clase: editor, terminal y sus archivos, mientras trabajan.
+                  </span>
+                </span>
+                <span class="use-check">
+                  @if (isUseSelected('practice')) {
+                    <svg lucideCheck></svg>
+                  } @else {
+                    <span class="use-check-empty"></span>
+                  }
+                </span>
+              </button>
+
+              <button
+                type="button"
+                class="use-card"
+                [class.selected]="isUseSelected('grade')"
+                (click)="toggleUse('grade')"
+              >
+                <span class="use-icon">
+                  <svg lucideFlaskConical></svg>
+                </span>
+                <span class="use-body">
+                  <span class="use-title">Entorno de evaluación</span>
+                  <span class="use-desc">
+                    Para entregar y calificar: sin editor; el sistema ejecuta la solución y corre los tests.
+                  </span>
+                </span>
+                <span class="use-check">
+                  @if (isUseSelected('grade')) {
+                    <svg lucideCheck></svg>
+                  } @else {
+                    <span class="use-check-empty"></span>
+                  }
+                </span>
+              </button>
+            </div>
+          </section>
+
+          <!-- 3. Contexto -->
+          <section class="block">
+            <div class="block-heading">
+              <span class="block-step">3</span>
+              <div class="block-copy">
+                <h3>Dónde se va a usar</h3>
+                <p>
+                  Para que la administración sepa a quién le sirve. Después podrás usar el entorno
+                  en otras materias y cursos.
+                </p>
+              </div>
+            </div>
+
+            <div class="field-grid">
+              <div class="field">
+                <span class="form-label">
+                  Materia
+                  <span class="label-hint">opcional</span>
+                </span>
+                <combobox
+                  [options]="subjectOptions()"
+                  [value]="subjectIdSelected()"
+                  (valueChange)="onSubjectChange($event)"
+                  [compact]="true"
+                  [showSearchIcon]="false"
+                  [allowClear]="true"
+                  placeholder="Sin materia asignada"
+                  inputAriaLabel="Materia para la que se pide el entorno"
+                />
+              </div>
+
+              <label class="field">
+                <span class="form-label">
+                  Nombre del entorno
+                  <span class="label-hint">opcional</span>
+                </span>
+                <input
+                  type="text"
+                  class="form-input"
+                  maxlength="160"
+                  placeholder="Laboratorio: Python + PostgreSQL"
+                  [ngModel]="title()"
+                  (ngModelChange)="onTitleChange($event)"
+                />
+              </label>
+            </div>
+          </section>
+
+          <!-- 4. Detalles técnicos, al final: es información de apoyo, no una decisión -->
+          <div class="technical">
+            <button type="button" class="technical-toggle" (click)="showTechnical.set(!showTechnical())">
+              <svg lucideChevronDown class="chevron" [class.open]="showTechnical()"></svg>
+              Detalles técnicos
+            </button>
+
+            @if (showTechnical()) {
+              <div class="technical-panel">
+                @if (technicalPieces().length === 0) {
+                  <p class="technical-empty">
+                    Elige herramientas y aquí verás con qué las resuelve el sistema.
+                  </p>
+                } @else {
+                  <ul class="technical-list">
+                    @for (piece of technicalPieces(); track piece.id) {
+                      <li>
+                        <span class="technical-name">{{ piece.name }}</span>
+                        <span class="technical-layer">{{ layerLabel(piece.layer) }}</span>
+                        @if (piece.baseImage) {
+                          <code class="technical-image">{{ piece.baseImage }}</code>
+                        }
+                      </li>
+                    }
+                  </ul>
+                }
+                <p class="technical-hint">
+                  <svg lucideWrench class="banner-icon"></svg>
+                  Estas piezas las arma el sistema. Si necesitas algo distinto, explícalo arriba y la
+                  administración lo ajusta.
+                </p>
+              </div>
+            }
+          </div>
+        </div>
+
+        <!-- Panel de resumen -->
+        <aside class="request-summary">
+          <div class="summary-head">
+            <h3>Lo que pedirás</h3>
+            <p>Así lo verá la administración.</p>
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-label">Nombre</span>
+            @if (displayName()) {
+              <p class="summary-value">{{ displayName() }}</p>
+            } @else {
+              <p class="summary-empty">Sin nombre: te proponemos uno al enviar.</p>
+            }
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-label">
+              Herramientas
+              @if (chips().length) {
+                <span class="summary-count">{{ chips().length }}</span>
+              }
+            </span>
+            @if (chips().length === 0) {
+              <p class="summary-empty">Aún no elegiste ninguna.</p>
+            } @else {
+              <ul class="summary-pieces">
+                @for (chip of chips(); track chip.id) {
+                  <li [class.missing]="chip.missing">
+                    @if (!chip.missing) {
+                      <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="14" />
+                    }
+                    {{ chip.name }}
+                    @if (chip.missing) {
+                      <span class="summary-missing">(la pedimos)</span>
+                    }
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-label">Uso</span>
+            @if (uses().length === 0) {
+              <p class="summary-empty">Sin uso marcado.</p>
+            } @else {
+              <ul class="summary-list">
+                @if (isUseSelected('practice')) {
+                  <li>Entorno de desarrollo</li>
+                }
+                @if (isUseSelected('grade')) {
+                  <li>Entorno de evaluación</li>
+                }
+              </ul>
+            }
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-label">Materia</span>
+            <p class="summary-value">{{ subjectNameSelected() || 'Sin materia asignada' }}</p>
+          </div>
+
+          <div class="summary-card">
+            <span class="summary-label">Qué deben lograr</span>
+            @if (description().trim().length >= 10) {
+              <p class="summary-value clamp">{{ description() }}</p>
+            } @else {
+              <p class="summary-empty">Todavía no lo escribiste.</p>
+            }
+          </div>
+
+          @if (preview()?.existing_template; as existing) {
+            <div class="summary-alert success">
+              <strong>Ya existe este entorno</strong>
+              <span>«{{ existing.name }}» usa las mismas herramientas. Puedes usarlo sin esperar revisión.</span>
+            </div>
+          }
+
+          @if (preview()?.duplicate_request; as duplicate) {
+            <div class="summary-alert info">
+              <strong>Otra solicitud igual está en revisión</strong>
+              @if (duplicate.subjects.length) {
+                <span>Ya la pidieron para {{ duplicate.subjects.join(', ') }}.</span>
+              }
+              <span>Al enviar, sumamos tu materia a esa solicitud en lugar de abrir otra.</span>
+            </div>
+          }
+
+          <div class="summary-actions">
+            <button type="button" class="btn-outline action-cancel" [disabled]="isSubmitting()" (click)="close()">
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="btn-primary action-submit"
+              [disabled]="isSubmitting() || description().trim().length < 10"
+              (click)="submitRequest()"
+            >
+              <svg lucideSend class="btn-icon"></svg>
+              @if (isSubmitting()) {
+                Enviando...
+              } @else {
+                Enviar solicitud
+              }
+            </button>
+          </div>
+        </aside>
+      </div>
+    }
+    @if (isPickerOpen()) {
+      <div class="picker-scrim" (click)="closePicker()"></div>
+      <aside class="picker-drawer" (click)="$event.stopPropagation()">
+        <header class="drawer-head">
+          <div>
+            <h3>Agregar herramienta</h3>
+            <p>
+              @if (selectedRuntime(); as runtime) {
+                Atenuamos lo que no aplica a {{ runtime.name }}.
+              } @else {
+                Elige las piezas del entorno; puedes marcar varias.
+              }
+            </p>
+          </div>
+          <button type="button" class="icon-button" aria-label="Cerrar la lista" (click)="closePicker()">
+            <svg lucideX></svg>
+          </button>
+        </header>
+
+        <div class="picker-search">
+          <svg lucideSearch class="search-icon"></svg>
+          <input
+            type="text"
+            class="form-input"
+            placeholder="Buscar herramienta..."
+            [ngModel]="pickerQuery()"
+            (ngModelChange)="pickerQuery.set($event)"
+          />
+        </div>
+
+        <div class="picker-list">
+          @for (group of pickerGroups(); track group.id) {
+            <div class="picker-group">
+              <div class="picker-group-head">
+                <span class="picker-group-label">{{ group.label }}</span>
+                <span class="picker-group-hint">{{ group.hint }}</span>
+                <span class="picker-group-count font-mono" machineData>{{ group.items.length }}</span>
+              </div>
+              <div class="picker-group-grid">
+                @for (item of group.items; track item.id) {
+                  <button
+                    type="button"
+                    class="picker-item"
+                    [class.selected]="isPieceSelected(item)"
+                    [class.incompatible]="!isPieceCompatible(item)"
+                    [disabled]="!isPieceCompatible(item)"
+                    [attr.title]="isPieceCompatible(item) ? null : incompatibleHint(item)"
+                    (click)="addPiece(item)"
+                  >
+                    <tech-logo [iconType]="item.icon_key || 'docker'" [size]="20" />
+                    <span class="picker-name">{{ item.name }}</span>
+                    @if (isPieceSelected(item)) {
+                      <svg lucideCheck class="picker-check"></svg>
+                    }
+                  </button>
+                }
+              </div>
+            </div>
+          } @empty {
+            <p class="picker-empty">No encontramos esa herramienta. Escríbela arriba y la pedimos.</p>
           }
         </div>
 
-        <p class="section-intro">
-          2. Selecciona la capacidad estimada para tus estudiantes:
-        </p>
-
-        <div class="profile-cards">
-          <!-- Ligera -->
-          <div
-            class="profile-card"
-            [class.selected]="loadProfile() === 'light'"
-            (click)="setProfile('light')"
-          >
-            <div class="card-radio">
-              <span class="radio-circle"></span>
-            </div>
-            <div class="card-info">
-              <div class="card-header">
-                <svg lucideZap class="card-icon icon-light"></svg>
-                <span class="card-title">Ligera</span>
-              </div>
-              <p class="card-desc">
-                Lenguajes interpretados o scripts básicos (ej: Python básico, scripts Node.js, algoritmos introductorios).
-              </p>
-            </div>
-          </div>
-
-          <!-- Estándar -->
-          <div
-            class="profile-card"
-            [class.selected]="loadProfile() === 'standard'"
-            (click)="setProfile('standard')"
-          >
-            <div class="card-radio">
-              <span class="radio-circle"></span>
-            </div>
-            <div class="card-info">
-              <div class="card-header">
-                <svg lucideLayers class="card-icon icon-standard"></svg>
-                <span class="card-title">Estándar (Recomendado)</span>
-              </div>
-              <p class="card-desc">
-                Compilación estándar, frameworks web o bases de datos ligeras (ej: Go, C++, Java, Express, PostgreSQL).
-              </p>
-            </div>
-          </div>
-
-          <!-- Intensiva -->
-          <div
-            class="profile-card"
-            [class.selected]="loadProfile() === 'intensive'"
-            (click)="setProfile('intensive')"
-          >
-            <div class="card-radio">
-              <span class="radio-circle"></span>
-            </div>
-            <div class="card-info">
-              <div class="card-header">
-                <svg lucideCpu class="card-icon icon-intensive"></svg>
-                <span class="card-title">Intensiva</span>
-              </div>
-              <p class="card-desc">
-                Procesamiento pesado, ciencia de datos, compilación masiva o modelos locales (ej: Rust, PyTorch, Spring Boot).
-              </p>
-            </div>
-          </div>
+        <div class="picker-foot">
+          <span class="picker-hint">{{ chips().length }} en la lista</span>
+          <button type="button" class="btn-outline" (click)="closePicker()">Listo</button>
         </div>
-
-        <div class="governance-note">
-          <svg lucideInfo class="note-icon"></svg>
-          <span>
-            <strong>Gobernanza de Recursos:</strong> La cuota de memoria RAM real (cgroups) y el perfil de aislamiento serán evaluados y fijados por el Administrador según la capacidad del servidor.
-          </span>
-        </div>
-      </div>
+      </aside>
     }
-
-    <!-- PASO 2: Referencia de Imagen y Justificación Académica -->
-    @if (currentStep() === 2) {
-      <div class="step-section">
-        <form-field label="Nombre Descriptivo del Entorno" for="reqName" [required]="true" hint="ej: Rust 1.80 con Herramientas de Análisis">
-          <input
-            id="reqName"
-            type="text"
-            placeholder="ej. Rust 1.80 para Sistemas Operativos"
-            [ngModel]="templateName()"
-            (ngModelChange)="templateName.set($event)"
-            class="form-input"
-          />
-        </form-field>
-
-        <form-field label="Imagen Contenedora Base" for="reqImage" [required]="true" hint="Usa tags fijados, no :latest (ej: rust:1.80-slim, gcc:13-bookworm)">
-          <input
-            id="reqImage"
-            type="text"
-            placeholder="ej. rust:1.80-slim"
-            [ngModel]="dockerImage()"
-            (ngModelChange)="dockerImage.set($event)"
-            class="form-input font-mono"
-          />
-        </form-field>
-
-        @if (subjectName()) {
-          <div class="subject-tag">
-            <span class="tag-label">Materia solicitante:</span>
-            <span class="tag-value">{{ subjectName() }}</span>
-          </div>
-        }
-
-        <form-field label="Justificación Académica" for="reqReason" [required]="true" hint="Explica los objetivos pedagógicos y requerimientos de la práctica.">
-          <textarea
-            id="reqReason"
-            rows="3"
-            placeholder="Se requiere para la práctica de concurrencia segura y manejo de memoria en la Unidad 3..."
-            [ngModel]="justification()"
-            (ngModelChange)="justification.set($event)"
-            class="form-textarea"
-          ></textarea>
-        </form-field>
-      </div>
-    }
-  </div>
-
-  <ng-container modal-footer>
-    @if (currentStep() === 1) {
-      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="closed.emit()">
-        Cancelar
-      </button>
-      <button type="button" class="btn-primary" (click)="nextStep()">
-        <span>Siguiente Paso</span>
-        <svg lucideChevronRight class="btn-icon-right"></svg>
-      </button>
-    } @else {
-      <button type="button" class="btn-outline" [disabled]="isSubmitting()" (click)="prevStep()">
-        <svg lucideChevronLeft class="btn-icon-left"></svg>
-        <span>Anterior</span>
-      </button>
-      <button type="button" class="btn-primary" [disabled]="isSubmitting()" (click)="submitRequest()">
-        @if (isSubmitting()) {
-          Enviando...
-        } @else {
-          <svg lucideCheck class="btn-icon-sm"></svg>
-          <span>Enviar Solicitud</span>
-        }
-      </button>
-    }
-  </ng-container>
-</modal-shell>
+  </section>
+</div>

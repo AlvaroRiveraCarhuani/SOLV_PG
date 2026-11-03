@@ -678,6 +678,10 @@ func (s *WorkspaceService) buildCompanionEnvVars(ctx context.Context, tenantID, 
 		envs = append(envs, "SOLV_STUDENT_TOKEN="+studentToken)
 	}
 
+	if role := strings.TrimSpace(domain.GetUserRole(ctx)); role != "" {
+		envs = append(envs, "SOLV_USER_ROLE="+role)
+	}
+
 	if exerciseID != "" && s.submissionRepo != nil {
 		if submissions, err := s.submissionRepo.ListByExerciseAndStudent(ctx, tenantID, exerciseID, studentID); err == nil && len(submissions) > 0 {
 			envs = append(envs, "SOLV_SUBMISSION_ID="+submissions[0].ID)

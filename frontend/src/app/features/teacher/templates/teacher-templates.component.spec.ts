@@ -36,7 +36,8 @@ describe('TeacherTemplatesComponent', () => {
       category: 'Programación',
       environment_type: 'IDE_PERSISTENTE',
       is_official: true,
-      is_active: true
+      is_active: true,
+      stack_config: { runtime_id: 'python-312', addon_ids: ['jupyter'] }
     },
     {
       id: 'tpl-2',
@@ -72,6 +73,11 @@ describe('TeacherTemplatesComponent', () => {
     const req = httpMock.expectOne('/api/v1/templates');
     expect(req.request.method).toBe('GET');
     req.flush({ data: mockTemplates });
+
+    // La página carga también las solicitudes propias del docente.
+    const requestsReq = httpMock.expectOne('/api/v1/teacher/environment-requests');
+    expect(requestsReq.request.method).toBe('GET');
+    requestsReq.flush({ data: [] });
   });
 
   afterEach(() => {
@@ -112,6 +118,31 @@ describe('TeacherTemplatesComponent', () => {
 
     component.closeRequestModal();
     expect(component.isRequestModalOpen()).toBe(false);
+  });
+
+  it('starts on the catalog tab and can switch to my requests', () => {
+    expect(component.activeTab()).toBe('catalog');
+
+    component.setTab('requests');
+    expect(component.activeTab()).toBe('requests');
+
+    httpMock.expectOne('/api/v1/teacher/environment-requests').flush({ data: [] });
+  });
+
+  it('prefills the request text and pieces when asking for a variant', () => {
+    component.requestVariant(mockTemplates[0]);
+    expect(component.requestPreset()).toContain(mockTemplates[0].name);
+    expect(component.requestPresetStack()?.runtime_id).toBe('python-312');
+    expect(component.isRequestModalOpen()).toBe(true);
+  });
+
+  it('clears the preset pieces when opening the form from scratch', () => {
+    component.requestVariant(mockTemplates[0]);
+    component.closeRequestModal();
+
+    component.openRequestModal();
+    expect(component.requestPreset()).toBe('');
+    expect(component.requestPresetStack()).toBeNull();
   });
 
   it('should navigate to exercise creation route from template', () => {

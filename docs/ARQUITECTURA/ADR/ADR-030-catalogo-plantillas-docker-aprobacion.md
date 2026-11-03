@@ -3,6 +3,8 @@
 ## Estado
 Aprobado
 
+> **Nota (ADR-063):** la solicitud del docente ya no crea una `docker_template` en estado `requested`. Pasa por `environment_requests`, que conserva descripción, piezas, usos, materias y quién la pidió, y se enlaza a la plantilla aprobada al resolverla. La máquina de estados de este ADR sigue vigente para la plantilla ya construida.
+
 ## Contexto
 Los laboratorios de programación requieren entornos heterogéneos según la materia (Go, Python, C++, Node.js, PostgreSQL). Si bien los docentes conocen las dependencias exactas de sus asignaturas, otorgarles permisos directos para construir imágenes Docker en el servidor Asus representa un riesgo para la estabilidad del host (agotamiento de disco por imágenes huérfanas, consumo descontrolado de CPU durante builds o inclusión de binarios no autorizados). Es necesario un flujo controlado donde el docente defina o solicite una plantilla y el administrador técnico la valide, compile y publique en el catálogo institucional.
 

@@ -134,6 +134,11 @@ export const routes: Routes = [
           import('@features/admin/templates/admin-templates.component').then((m) => m.AdminTemplatesComponent)
       },
       {
+        path: 'solicitudes-entorno',
+        loadComponent: () =>
+          import('@features/admin/environment-requests/admin-environment-requests.component').then((m) => m.AdminEnvironmentRequestsComponent)
+      },
+      {
         path: 'modelos-categorias',
         loadComponent: () =>
           import('@features/admin/templates/components/model-library/model-library.component').then((m) => m.ModelLibraryComponent)

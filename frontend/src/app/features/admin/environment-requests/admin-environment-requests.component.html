@@ -1,0 +1,185 @@
+<div class="requests-page">
+  <header class="page-header">
+    <div>
+      <h1 class="page-title">Solicitudes de entornos</h1>
+      <p class="page-subtitle">
+        Lo que los docentes piden cuando el catálogo no alcanza. Cada ficha trae las piezas
+        reconocidas, las que faltan y el uso declarado.
+      </p>
+    </div>
+  </header>
+
+  @if (notice()) {
+    <div class="notice-banner" role="status">
+      <svg lucideCheck class="banner-icon"></svg>
+      <span>{{ notice() }}</span>
+    </div>
+  }
+
+  <div class="filter-row">
+    <button
+      type="button"
+      class="filter-chip"
+      [class.active]="filter() === 'pending'"
+      (click)="setFilter('pending')"
+    >
+      <svg lucideClock class="chip-icon"></svg>
+      En revisión
+      <span class="chip-count">{{ pending().length }}</span>
+    </button>
+    <button
+      type="button"
+      class="filter-chip"
+      [class.active]="filter() === 'answered'"
+      (click)="setFilter('answered')"
+    >
+      <svg lucideInbox class="chip-icon"></svg>
+      Respondidas
+      <span class="chip-count">{{ answered().length }}</span>
+    </button>
+  </div>
+
+  @if (isLoading()) {
+    <skeleton-loader variant="cards" [count]="3" />
+  } @else if (visible().length === 0) {
+    <div class="empty-state">
+      <svg lucideInbox class="empty-icon"></svg>
+      <h3>{{ filter() === 'pending' ? 'No hay solicitudes por revisar' : 'Todavía no respondiste solicitudes' }}</h3>
+      <p>
+        {{ filter() === 'pending'
+          ? 'Cuando un docente pida un entorno que no existe, aparecerá aquí.'
+          : 'Las solicitudes que apruebes o rechaces quedan listadas en esta pestaña.' }}
+      </p>
+    </div>
+  } @else {
+    <div class="requests-list">
+      @for (request of visible(); track request.id) {
+        <article class="request-card">
+          <div class="card-head">
+            <div class="head-texts">
+              <h2 class="request-title">{{ request.title }}</h2>
+              <span class="request-meta">
+                {{ request.requester_name || 'Docente de la institución' }}
+                · <time>{{ request.created_at | dateText }}</time>
+                · {{ environmentLabel(request.target_environment) }}
+              </span>
+            </div>
+            <span class="request-status" [class]="statusTone(request.status)">
+              {{ statusLabel(request.status) }}
+            </span>
+          </div>
+
+          <div class="card-columns">
+            <div class="column">
+              <span class="column-label">Piezas reconocidas</span>
+              @if (request.components.length === 0) {
+                <p class="column-empty">Sin piezas: el docente pidió solo con texto.</p>
+              } @else {
+                <div class="chip-row">
+                  @for (piece of request.components; track piece.id) {
+                    <span class="piece-chip">{{ piece.name }}</span>
+                  }
+                </div>
+              }
+
+              @if (request.missing_components.length > 0) {
+                <span class="column-label spaced">No están en el catálogo</span>
+                <div class="chip-row">
+                  @for (missing of request.missing_components; track missing.name) {
+                    <span class="piece-chip missing">{{ missing.name }}</span>
+                  }
+                </div>
+              }
+            </div>
+
+            <div class="column">
+              <span class="column-label">Uso declarado</span>
+              <p class="column-value">{{ usesLabel(request) }}</p>
+
+              <span class="column-label spaced">Materias que lo esperan</span>
+              @if (request.subjects.length === 0) {
+                <p class="column-empty">Sin materia asignada.</p>
+              } @else {
+                <div class="chip-row">
+                  @for (subject of request.subjects; track subject.subject_name) {
+                    <span class="subject-chip">{{ subject.subject_name }}</span>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="justification">
+            <span class="column-label">Qué deben lograr los estudiantes</span>
+            <p>{{ request.description }}</p>
+            @if (request.teacher_text) {
+              <blockquote class="teacher-text">{{ request.teacher_text }}</blockquote>
+            }
+          </div>
+
+          @if (request.review_note) {
+            <div class="review-note">
+              <svg lucideMessageSquare class="banner-icon"></svg>
+              <span>{{ request.review_note }}</span>
+            </div>
+          }
+
+          @if (request.status === 'EN_REVISION') {
+            @if (selected()?.id === request.id) {
+              <div class="review-panel">
+                <label class="field">
+                  <span class="field-label">Plantilla que resuelve la solicitud</span>
+                  <select [ngModel]="selectedTemplateId()" (ngModelChange)="selectedTemplateId.set($event)">
+                    <option value="">Elegir plantilla...</option>
+                    @for (template of templates(); track template.id) {
+                      <option [value]="template.id">{{ template.name }}</option>
+                    }
+                  </select>
+                </label>
+
+                <label class="field">
+                  <span class="field-label">Respuesta para el docente</span>
+                  <textarea
+                    rows="2"
+                    placeholder="Qué se hizo, qué falta o por qué no es viable."
+                    [ngModel]="reviewNote()"
+                    (ngModelChange)="reviewNote.set($event)"
+                  ></textarea>
+                </label>
+
+                @if (error()) {
+                  <div class="error-banner" role="alert">
+                    <svg lucideAlertCircle class="banner-icon"></svg>
+                    <span>{{ error() }}</span>
+                  </div>
+                }
+
+                <div class="review-actions">
+                  <button type="button" class="btn-outline" [disabled]="isSaving()" (click)="closeReview()">
+                    Cancelar
+                  </button>
+                  <button type="button" class="btn-outline-danger" [disabled]="isSaving()" (click)="reject()">
+                    No es viable
+                  </button>
+                  <button type="button" class="btn-outline" [disabled]="isSaving()" (click)="requestChanges()">
+                    Pedir ajuste
+                  </button>
+                  <button type="button" class="btn-primary" [disabled]="isSaving()" (click)="approve()">
+                    <svg lucideCheck class="btn-icon"></svg>
+                    Aprobar con esta plantilla
+                  </button>
+                </div>
+              </div>
+            } @else {
+              <div class="card-actions">
+                <button type="button" class="btn-primary" (click)="openReview(request)">
+                  Responder
+                </button>
+              </div>
+            }
+          }
+        </article>
+      }
+    </div>
+  }
+</div>

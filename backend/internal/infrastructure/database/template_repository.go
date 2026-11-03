@@ -36,7 +36,8 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 			COALESCE(lt.status, 'approved'),
 			(lt.requested_by IS NULL) AS is_official,
 			COALESCE(lt.entrypoint, ''), 
-			COALESCE(lt.services_config, '{"services": []}'::jsonb) 
+			COALESCE(lt.services_config, '{"services": []}'::jsonb),
+			COALESCE(lt.stack_config, '{}'::jsonb)
 		FROM lab_templates lt
 		LEFT JOIN template_categories tc ON tc.id = lt.category_id
 	`
@@ -62,6 +63,7 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 			&t.IsOfficial,
 			&t.Entrypoint,
 			&t.ServicesConfig,
+			&t.StackConfig,
 		); err != nil {
 			return nil, fmt.Errorf("failed to scan lab template row: %w", err)
 		}
@@ -92,7 +94,8 @@ func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.Temp
 			COALESCE(lt.status, 'approved'),
 			(lt.requested_by IS NULL) AS is_official,
 			COALESCE(lt.entrypoint, ''), 
-			COALESCE(lt.services_config, '{"services": []}'::jsonb) 
+			COALESCE(lt.services_config, '{"services": []}'::jsonb),
+			COALESCE(lt.stack_config, '{}'::jsonb)
 		FROM lab_templates lt
 		LEFT JOIN template_categories tc ON tc.id = lt.category_id
 		WHERE lt.id = $1
@@ -110,6 +113,7 @@ func (db *Database) GetTemplateByID(ctx context.Context, id string) (domain.Temp
 		&t.IsOfficial,
 		&t.Entrypoint,
 		&t.ServicesConfig,
+		&t.StackConfig,
 	)
 	if err != nil {
 		return domain.TemplateResponseDTO{}, fmt.Errorf("failed to get template by id: %w", err)

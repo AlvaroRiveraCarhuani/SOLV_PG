@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"time"
 	"unicode/utf8"
 )
 
@@ -121,6 +122,130 @@ func AIEngineAutoTimeoutSeconds(profile, action string) int {
 		return 0
 	}
 	return table[action]
+}
+
+// AILatencySample es la latencia observada de un motor para una acción.
+//
+// El presupuesto de tiempo no puede ser una tabla fija: dos modelos del mismo
+// perfil responden a velocidades distintas y un modelo gratuito encolado puede
+// triplicar el tiempo de uno comercial. El servicio guarda aquí lo que midió y
+// ajusta el plazo con eso, no con una suposición.
+type AILatencySample struct {
+	EWMAMS    int64  `json:"ewma_ms"`
+	Samples   int    `json:"samples"`
+	TimedOut  bool   `json:"timed_out,omitempty"`
+	UpdatedAt string `json:"updated_at,omitempty"`
+}
+
+const (
+	// Margen sobre la latencia observada para cubrir la variación normal de una
+	// generación: 3× el promedio móvil.
+	aiAdaptiveBudgetFactor = 3
+	// Cuando la llamada anterior agotó el plazo, el presupuesto crece 1,4× sobre
+	// lo que ya se esperó en vez de repetir el mismo límite.
+	aiAdaptiveTimeoutFactor = 14
+	aiAdaptiveTimeoutDiv    = 10
+	// Promedio móvil con peso 0,4 para el último muestreo.
+	aiAdaptiveEWMAWeight = 4
+	aiAdaptiveEWMATotal  = 10
+	aiAdaptiveMaxSamples = 20
+
+	// AIInteractiveTimeoutSeconds es el techo de una espera frente al docente.
+	// Pasado ese punto la pantalla se percibe colgada: conviene cortar y dejar
+	// que decida con la lista a mano.
+	AIInteractiveTimeoutSeconds = 90
+)
+
+// AILatencyKey identifica la latencia que comparten las llamadas de una misma
+// acción contra el mismo motor.
+func AILatencyKey(provider, model, action string) string {
+	return strings.ToLower(strings.TrimSpace(provider)) + "|" +
+		strings.ToLower(strings.TrimSpace(model)) + "|" + strings.TrimSpace(action)
+}
+
+// AIAdaptiveTimeoutSeconds ajusta el presupuesto del perfil con la latencia
+// medida. Sin historial devuelve el presupuesto del perfil; con historial toma
+// el mayor entre ese piso y el margen sobre lo observado. Las acciones que
+// esperan a una persona en pantalla nunca pasan de AIInteractiveTimeoutSeconds.
+func AIAdaptiveTimeoutSeconds(profile, action string, sample AILatencySample) int {
+	baseline := AIEngineAutoTimeoutSeconds(profile, action)
+	if baseline == 0 {
+		return 0
+	}
+
+	seconds := baseline
+	if sample.Samples > 0 && sample.EWMAMS > 0 {
+		seconds = int((sample.EWMAMS*aiAdaptiveBudgetFactor + 999) / 1000)
+		if sample.TimedOut {
+			seconds = int((sample.EWMAMS*aiAdaptiveTimeoutFactor + 999) / (1000 * aiAdaptiveTimeoutDiv))
+		}
+		if seconds < baseline {
+			seconds = baseline
+		}
+	}
+
+	if IsAIInteractiveAction(action) && seconds > AIInteractiveTimeoutSeconds {
+		seconds = AIInteractiveTimeoutSeconds
+	}
+	return clampAITimeoutSeconds(seconds)
+}
+
+// IsAIInteractiveAction indica si la acción tiene a una persona esperando la
+// respuesta en la pantalla.
+func IsAIInteractiveAction(action string) bool {
+	switch strings.TrimSpace(action) {
+	case "suggest-template", "suggest-component":
+		return true
+	default:
+		return false
+	}
+}
+
+// NextAILatencySample incorpora una medición al promedio móvil y marca si la
+// llamada agotó el plazo.
+//
+// Una llamada que no contestó no entra al promedio: no dice cuánto tarda el
+// motor, solo que el límite quedó corto. Contarla como si hubiese tardado 120 s
+// inflaría el plazo de las siguientes y convertiría un fallo en minutos de
+// espera. El plazo agotado queda como marca para que la próxima reciba margen.
+func NextAILatencySample(prev AILatencySample, latencyMS int64, timedOut bool, at time.Time) AILatencySample {
+	next := prev
+	if timedOut {
+		next.TimedOut = true
+		if !at.IsZero() {
+			next.UpdatedAt = at.UTC().Format(time.RFC3339)
+		}
+		return next
+	}
+
+	if latencyMS < 0 {
+		latencyMS = 0
+	}
+	if prev.Samples <= 0 || prev.EWMAMS <= 0 {
+		next.EWMAMS = latencyMS
+		next.Samples = 1
+	} else {
+		next.EWMAMS = (prev.EWMAMS*(aiAdaptiveEWMATotal-aiAdaptiveEWMAWeight) + latencyMS*aiAdaptiveEWMAWeight) / aiAdaptiveEWMATotal
+		next.Samples = prev.Samples + 1
+		if next.Samples > aiAdaptiveMaxSamples {
+			next.Samples = aiAdaptiveMaxSamples
+		}
+	}
+	next.TimedOut = false
+	if !at.IsZero() {
+		next.UpdatedAt = at.UTC().Format(time.RFC3339)
+	}
+	return next
+}
+
+func clampAITimeoutSeconds(seconds int) int {
+	if seconds > MaxAITimeoutSeconds {
+		return MaxAITimeoutSeconds
+	}
+	if seconds < MinAITimeoutSeconds {
+		return MinAITimeoutSeconds
+	}
+	return seconds
 }
 
 // AIEngineAutoTimeoutRangeLabel describe en texto el rango automático de una
@@ -276,6 +401,9 @@ type AISettingsStored struct {
 	// UserOverrides indexa por userID la cascada BYOK personal (docente) que
 	// prevalece sobre la base institucional sin consumir su cuota horaria.
 	UserOverrides map[string]AIUserOverrideStored `json:"user_overrides,omitempty"`
+	// LatencyProfile guarda la latencia medida por (motor, acción) para ajustar
+	// el presupuesto de tiempo de cada llamada.
+	LatencyProfile map[string]AILatencySample `json:"latency_profile,omitempty"`
 }
 
 // AIUserOverrideStored es la credencial personal (BYOK) de un usuario sobre

@@ -461,3 +461,212 @@
     }
   }
 }
+
+// --- Pestañas del catálogo y solicitudes del docente -------------------------
+// Dos vistas del mismo lugar: lo que ya existe y lo que el docente pidió.
+.page-tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.page-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: -1px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  .tab-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  &:hover {
+    color: var(--text-primary);
+  }
+
+  &.active {
+    color: var(--tenant-primary);
+    border-bottom-color: var(--tenant-primary);
+    font-weight: 600;
+  }
+
+  .tab-count {
+    min-width: 20px;
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-full);
+    background-color: var(--status-pending-bg);
+    border: 1px solid var(--status-pending-border);
+    color: var(--status-pending-color);
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    font-weight: 700;
+    text-align: center;
+  }
+}
+
+.requests-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.request-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.request-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.request-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  .request-card-title {
+    margin: 0;
+    font-size: var(--text-base);
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .request-meta {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+}
+
+.request-status {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  white-space: nowrap;
+
+  &.warning {
+    background-color: var(--status-pending-bg);
+    border: 1px solid var(--status-pending-border);
+    color: var(--status-pending-color);
+  }
+
+  &.success {
+    background-color: var(--status-running-bg);
+    border: 1px solid var(--status-running-border);
+    color: var(--status-running-color);
+  }
+
+  &.error {
+    background-color: var(--status-failed-bg);
+    border: 1px solid var(--status-failed-border);
+    color: var(--status-failed-color);
+  }
+
+  &.neutral {
+    background-color: var(--status-hibernated-bg);
+    border: 1px solid var(--status-hibernated-border);
+    color: var(--status-hibernated-color);
+  }
+}
+
+.request-description {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.request-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.request-chip {
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+
+  &.missing {
+    border-style: dashed;
+    color: var(--text-muted);
+  }
+}
+
+.request-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+
+  .request-env,
+  .request-subjects {
+    font-size: var(--text-xs);
+    color: var(--text-muted);
+  }
+
+  .btn-detail {
+    margin-left: auto;
+  }
+}
+
+.request-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+
+  strong {
+    color: var(--text-primary);
+  }
+}
+
+.btn-variant {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  background: none;
+  border: none;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--tenant-primary);
+    text-decoration: underline;
+  }
+}

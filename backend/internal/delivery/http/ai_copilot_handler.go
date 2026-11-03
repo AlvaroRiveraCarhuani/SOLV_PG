@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -36,6 +37,12 @@ func (h *AICopilotHandler) SuggestTemplate(w http.ResponseWriter, r *http.Reques
 		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
 		return
 	}
+	if strings.TrimSpace(dto.TargetEnvironment) == "" {
+		// El docente pide un entorno para su clase, no un juez automático. Sin
+		// esto caía en JUEZ_EFIMERO y las reglas de ese entorno vaciaban la base
+		// de datos y la interfaz web que el docente sí nombró.
+		dto.TargetEnvironment = string(domain.TargetEnvironmentIDEPersistente)
+	}
 
 	resp, err := h.copilotService.SuggestTemplate(r.Context(), tenantID, userID, dto)
 	if err != nil {
@@ -44,6 +51,37 @@ func (h *AICopilotHandler) SuggestTemplate(w http.ResponseWriter, r *http.Reques
 	}
 
 	SendJSON(w, http.StatusOK, *resp, "Propuesta de arquitectura generada")
+}
+
+// SuggestEnvironmentForTeacher permite al docente describir su práctica en dos
+// o tres frases y recibir las piezas que el catálogo sí tiene, más las que no.
+// Reutiliza el mismo prompt del copiloto: el docente no ve Dockerfiles, solo
+// nombres de herramientas.
+func (h *AICopilotHandler) SuggestEnvironmentForTeacher(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "" {
+		role = domain.GetUserRole(r.Context())
+	}
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: el copiloto de entornos no está disponible para estudiantes")
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	userID := getUserIDFromCtx(r)
+
+	var dto domain.AISuggestTemplateRequestDTO
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_payload", "payload JSON inválido")
+		return
+	}
+
+	resp, err := h.copilotService.SuggestTemplate(r.Context(), tenantID, userID, dto)
+	if err != nil {
+		sendAICopilotError(w, err, "No pudimos interpretar tu descripción. Puedes elegir las herramientas a mano.")
+		return
+	}
+
+	SendJSON(w, http.StatusOK, *resp, "Herramientas reconocidas")
 }
 
 // SuggestComponent genera una sugerencia de componente de catálogo (rol admin).

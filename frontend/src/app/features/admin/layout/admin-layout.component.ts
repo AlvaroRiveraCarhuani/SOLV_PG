@@ -12,6 +12,7 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Salud y Recursos', route: '/admin/dashboard', iconName: 'activity', exact: true },
       { label: 'Plantillas Docker', route: '/admin/plantillas', iconName: 'layers' },
+      { label: 'Solicitudes docentes', route: '/admin/solicitudes-entorno', iconName: 'inbox' },
       { label: 'Modelos y Categorías', route: '/admin/modelos-categorias', iconName: 'boxes' },
       { label: 'Manual del administrador', route: '/admin/manual', iconName: 'book' }
     ]

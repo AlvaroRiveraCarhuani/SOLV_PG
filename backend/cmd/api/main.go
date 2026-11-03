@@ -228,6 +228,12 @@ func main() {
 	teacherHandler.SetReviewEnvironmentService(reviewEnvService)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
+
+	// Pedido de entorno del docente: intención + receta armada, sin imágenes ni
+	// cuotas técnicas en la vista del docente.
+	environmentRequestRepo := postgres.NewPostgresEnvironmentRequestRepository(db.GetDB())
+	environmentRequestService := services.NewEnvironmentRequestService(environmentRequestRepo, govRepo)
+	environmentRequestHandler := httpdelivery.NewEnvironmentRequestHandler(environmentRequestService)
 	// Submódulo 14.7 (ADR-032): executors de docker-prune y reset-pools.
 	govService.SetDockerPruner(dockerClient.PruneOrphans)
 	govService.SetPoolResetter(func(ctx context.Context) (int64, error) {
@@ -399,6 +405,7 @@ func main() {
 		BackupHandler:                 backupHandler,
 		WebSocketHandler:              wsHandler,
 		EnvTestHandler:                envTestHandler,
+		EnvironmentRequestHandler:     environmentRequestHandler,
 		TenantMiddleware:              tenantMiddleware,
 		MaintenanceMiddleware:         maintenanceMiddleware,
 		LoginRateLimitMiddleware:      middleware.EndpointRateLimitMiddleware(loginLimiter, "login"),

@@ -34,6 +34,7 @@ type Handlers struct {
 	BackupHandler                 *BackupHandler
 	WebSocketHandler              *WebSocketHandler
 	EnvTestHandler                *EnvTestHandler
+	EnvironmentRequestHandler     *EnvironmentRequestHandler
 	LanguageProfileHandler        *LanguageProfileHandler
 	CourseModuleHandler           *CourseModuleHandler
 	RubricHandler                 *RubricHandler
@@ -60,6 +61,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAdminRoutes(mux, deps)
 	registerStudentRoutes(mux, deps)
 	registerTeacherRoutes(mux, deps)
+	registerEnvironmentRequestRoutes(mux, deps)
 	registerClassSessionRoutes(mux, deps)
 	registerClassAdvanceRoutes(mux, deps)
 	registerCourseModuleRoutes(mux, deps)
@@ -116,6 +118,7 @@ func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	if deps.AICopilotHandler != nil {
 		mux.Handle("POST /api/v1/admin/ai/suggest-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestTemplate))))
+		mux.Handle("POST /api/v1/teacher/ai/suggest-environment", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestEnvironmentForTeacher))))
 		mux.Handle("POST /api/v1/admin/ai/suggest-component", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent))))
 		mux.Handle("POST /api/v1/admin/ai/repair-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.RepairTemplate))))
 		mux.Handle("POST /api/v1/teacher/ai/generate-exercise", am(tm(http.HandlerFunc(deps.AICopilotHandler.GenerateExerciseDraft))))
@@ -397,6 +400,33 @@ func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
 		mux.HandleFunc("POST /api/v1/templates", h.Create)
 		mux.HandleFunc("GET /api/v1/templates", h.GetAll)
 	}
+}
+
+// registerEnvironmentRequestRoutes expone el pedido de entorno del docente.
+// Vive fuera de registerTemplateRoutes a propósito: la solicitud es una
+// intención, no una plantilla, y se autentica y aísla por tenant.
+func registerEnvironmentRequestRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.EnvironmentRequestHandler == nil {
+		return
+	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	h := deps.EnvironmentRequestHandler
+
+	mux.Handle("POST /api/v1/teacher/environment-requests/preview", tm(http.HandlerFunc(h.Preview)))
+	mux.Handle("POST /api/v1/teacher/environment-requests", am(tm(http.HandlerFunc(h.Create))))
+	mux.Handle("GET /api/v1/teacher/environment-requests", tm(http.HandlerFunc(h.ListMine)))
+	mux.Handle("GET /api/v1/teacher/environment-requests/{id}", tm(http.HandlerFunc(h.GetByID)))
+
+	mux.Handle("GET /api/v1/admin/environment-requests", tm(http.HandlerFunc(h.ListForReview)))
+	mux.Handle("PATCH /api/v1/admin/environment-requests/{id}", am(tm(http.HandlerFunc(h.Review))))
 }
 
 func registerAuthRoutes(mux *http.ServeMux, deps *Handlers) {

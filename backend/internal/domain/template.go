@@ -20,4 +20,5 @@ type TemplateResponseDTO struct {
 	IsOfficial        bool            `json:"is_official"`
 	Entrypoint        string          `json:"entrypoint,omitempty"`
 	ServicesConfig    json.RawMessage `json:"services_config,omitempty"`
+	StackConfig       json.RawMessage `json:"stack_config,omitempty"`
 }
