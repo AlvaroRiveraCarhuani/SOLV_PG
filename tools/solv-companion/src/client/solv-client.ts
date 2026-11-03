@@ -3,6 +3,43 @@ import { SubmissionComment } from '../domain/comment';
 import { KeystrokeEvent } from '../domain/keystroke';
 import { StudentSubmission } from '../domain/submission';
 
+export interface RubricLevel {
+  name: string;
+  score: number;
+  description: string;
+}
+
+export interface RubricCriterion {
+  id?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  weight?: number;
+  max_score?: number;
+  levels?: RubricLevel[];
+}
+
+export interface ExerciseRubric {
+  id: string;
+  exercise_id: string;
+  criteria: RubricCriterion[];
+}
+
+export interface StudentClassSession {
+  id: string;
+  subject_id: string;
+  exercise_id?: string;
+  status: 'open' | 'closed';
+  started_at: string;
+}
+
+export interface TeacherOpenSession {
+  id: string;
+  status: string;
+  subject_id: string;
+  exercise_id?: string;
+}
+
 export class SolvApiError extends Error {
   constructor(
     message: string,
@@ -115,6 +152,55 @@ export class SolvClient {
       `/api/v1/workspaces?subject_id=${encodeURIComponent(subjectId)}`,
       { method: 'GET' }
     );
+  }
+
+  /** Consulta la rúbrica oficial y sus criterios de evaluación para un ejercicio. */
+  async fetchRubric(exerciseId: string): Promise<ExerciseRubric | null> {
+    if (!exerciseId) {
+      return null;
+    }
+    try {
+      return await this.request<ExerciseRubric>(
+        `/api/v1/exercises/${encodeURIComponent(exerciseId)}/rubric`,
+        { method: 'GET' }
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  /** Aulas de clase activas para el alumno, para emitir su presencia. */
+  async activeStudentSessions(): Promise<StudentClassSession[]> {
+    try {
+      const res = await this.request<StudentClassSession[]>('/api/v1/student/sessions/active', {
+        method: 'GET'
+      });
+      return Array.isArray(res) ? res : [];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Emite latido de presencia del alumno en un aula abierta. */
+  async sendStudentHeartbeat(sessionId: string): Promise<void> {
+    if (!sessionId) {
+      return;
+    }
+    await this.request<unknown>(
+      `/api/v1/student/sessions/${encodeURIComponent(sessionId)}/heartbeat`,
+      { method: 'POST', body: JSON.stringify({}) }
+    );
+  }
+
+  /** Sesión de aula abierta actual del docente, si existe. */
+  async currentTeacherSession(): Promise<TeacherOpenSession | null> {
+    try {
+      return await this.request<TeacherOpenSession>('/api/v1/teacher/sessions/open', {
+        method: 'GET'
+      });
+    } catch {
+      return null;
+    }
   }
 
   async sendKeystrokeEvents(events: KeystrokeEvent[]): Promise<void> {

@@ -103,4 +103,25 @@ export class AdvanceClient {
       { method: 'PATCH', body: JSON.stringify({}) }
     );
   }
+
+  currentOpenSession(): Promise<{ id: string; status: string; subject_id: string } | null> {
+    return this.client.currentTeacherSession();
+  }
+
+  openSession(subjectId: string, durationMinutes = 90): Promise<{ id: string }> {
+    return this.client.request<{ id: string }>('/api/v1/teacher/sessions', {
+      method: 'POST',
+      body: JSON.stringify({
+        subject_id: subjectId,
+        duration_minutes: durationMinutes
+      })
+    });
+  }
+
+  closeSession(sessionId: string): Promise<unknown> {
+    return this.client.request<unknown>(
+      `/api/v1/teacher/sessions/${encodeURIComponent(sessionId)}/close`,
+      { method: 'PATCH', body: JSON.stringify({}) }
+    );
+  }
 }

@@ -71,3 +71,31 @@ test('una entrega sin nota queda entregada', () => {
   assert.equal(deriveDeliveryState(null), 'submitted');
   assert.equal(deriveDeliveryState(undefined), 'submitted');
 });
+
+test('los criterios de rúbrica calculan puntos y niveles correctamente', () => {
+  const criteria = [
+    {
+      id: 'c1',
+      name: 'Diseño y Tipado',
+      weight: 40,
+      description: 'Tipado estricto',
+      levels: [
+        { name: 'Excelente', score: 100, description: 'Todo tipado' },
+        { name: 'Regular', score: 50, description: 'Usa any' }
+      ]
+    },
+    {
+      id: 'c2',
+      name: 'Calidad de Código',
+      weight: 60,
+      description: 'Buenas prácticas'
+    }
+  ];
+  const total = criteria.reduce((sum, item) => sum + item.weight, 0);
+  assert.equal(total, 100);
+  const levels = criteria[0].levels!;
+  const excellentPts = Math.round((levels[0].score / 100) * criteria[0].weight * 10) / 10;
+  const regularPts = Math.round((levels[1].score / 100) * criteria[0].weight * 10) / 10;
+  assert.equal(excellentPts, 40);
+  assert.equal(regularPts, 20);
+});

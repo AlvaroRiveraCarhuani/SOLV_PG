@@ -188,7 +188,7 @@ export class AdvanceController implements vscode.Disposable {
   async toggleFreeze(): Promise<boolean> {
     const sessionId = this.settings.sessionId;
     if (!sessionId) {
-      throw new Error('Falta el aula abierta para congelar la clase.');
+      throw new Error('Falta el aula abierta para pausar la clase.');
     }
     const frozen = Boolean(this.board?.session.frozen_at);
     await this.client.setFrozen(sessionId, !frozen);
@@ -197,9 +197,29 @@ export class AdvanceController implements vscode.Disposable {
     return !frozen;
   }
 
-  /** Presencia y entregas del aula; sin sesión configurada no se consulta. */
+  async openSession(subjectId: string, durationMinutes = 90): Promise<{ id: string }> {
+    const res = await this.client.openSession(subjectId, durationMinutes);
+    this.board = await this.loadBoard();
+    this.emitter.fire();
+    return res;
+  }
+
+  async closeSession(sessionId: string): Promise<unknown> {
+    const res = await this.client.closeSession(sessionId);
+    this.board = undefined;
+    this.emitter.fire();
+    return res;
+  }
+
+  /** Presencia y entregas del aula; si no hay sesión configurada intenta autodescubrir una abierta. */
   private async loadBoard(): Promise<SessionBoard | undefined> {
-    const sessionId = this.settings.sessionId;
+    let sessionId = this.settings.sessionId;
+    if (!sessionId) {
+      const open = await this.client.currentOpenSession();
+      if (open?.id) {
+        sessionId = open.id;
+      }
+    }
     if (!sessionId) {
       return undefined;
     }

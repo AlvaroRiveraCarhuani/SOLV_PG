@@ -34,6 +34,27 @@ type RubricCriterion struct {
 	Levels      []RubricLevel `json:"levels"`
 }
 
+func (c *RubricCriterion) UnmarshalJSON(data []byte) error {
+	type Alias RubricCriterion
+	aux := struct {
+		Title    string  `json:"title"`
+		MaxScore float64 `json:"max_score"`
+		*Alias
+	}{
+		Alias: (*Alias)(c),
+	}
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+	if c.Name == "" && aux.Title != "" {
+		c.Name = aux.Title
+	}
+	if c.Weight == 0 && aux.MaxScore != 0 {
+		c.Weight = aux.MaxScore
+	}
+	return nil
+}
+
 type Rubric struct {
 	ID         uuid.UUID         `db:"id" json:"id"`
 	ExerciseID uuid.UUID         `db:"exercise_id" json:"exercise_id"`

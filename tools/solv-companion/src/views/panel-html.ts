@@ -29,7 +29,8 @@ type IconName =
   | 'freeze'
   | 'external'
   | 'warning'
-  | 'check';
+  | 'check'
+  | 'chevron-down';
 
 const ICON_PATHS: Record<IconName, string> = {
   book: '<path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v18H6.5A2.5 2.5 0 0 1 4 18.5z"/><path d="M8 3v18"/>',
@@ -43,7 +44,8 @@ const ICON_PATHS: Record<IconName, string> = {
   freeze: '<path d="M12 2v20"/><path d="m4 6 16 12"/><path d="M20 6 4 18"/><path d="m9 4 3 2 3-2"/><path d="m9 20 3-2 3 2"/>',
   external: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
   warning: '<path d="M12 3 2.5 20h19z"/><path d="M12 9v5"/><path d="M12 17v.5"/>',
-  check: '<path d="m5 12.5 4.5 4.5L19 7"/>'
+  check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+  'chevron-down': '<path d="m6 9 6 6 6-6"/>'
 };
 
 function icon(name: IconName): string {
@@ -237,8 +239,13 @@ function renderTeacher(state: PanelState): string {
       </div>
 
       <div class="actions">
-        <button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
-        <button class="btn btn-secondary" data-action="freeze">${icon('freeze')}${teacher.frozen ? 'Descongelar clase' : 'Congelar clase'}</button>
+        ${
+          teacher.sessionOpen
+            ? `<button class="btn btn-primary" data-action="broadcast">${icon('broadcast')}Emitir avance a la clase</button>
+               <button class="btn btn-secondary" data-action="freeze">${icon('freeze')}${teacher.frozen ? 'Descongelar clase' : 'Congelar clase'}</button>
+               <button class="btn btn-ghost" data-action="close-aula">Cerrar clase</button>`
+            : `<button class="btn btn-primary" data-action="open-aula" style="width: 100%; justify-content: center;">${icon('users')}Iniciar clase</button>`
+        }
       </div>
       <button class="link-button" data-action="speedgrader">${icon('external')}Abrir SpeedGrader en el navegador</button>
 
@@ -250,6 +257,122 @@ function renderTeacher(state: PanelState): string {
     </section>`;
 }
 
+function renderRubric(assignment: PanelState['assignment']): string {
+  const rubric = assignment.rubricCriteria;
+  if (!rubric || rubric.length === 0) {
+    if (!assignment.criteria || assignment.criteria.length === 0) {
+      return '';
+    }
+    return `<ul class="criteria">${assignment.criteria
+      .map(item => `<li>${escapeHtml(item)}</li>`)
+      .join('')}</ul>`;
+  }
+
+  const totalPoints =
+    assignment.totalPoints ??
+    rubric.reduce((sum, item) => sum + (item.weight || 0), 0);
+
+  // 1. Vista Compacta (< 600px, Sidebar): Acordeón con <details>
+  const compactCards = rubric
+    .map((criterion, index) => {
+      const pts = criterion.weight;
+      const title = criterion.name;
+      const desc = criterion.description || '';
+      const levels = criterion.levels || [];
+
+      const levelsHtml =
+        levels.length > 0
+          ? `<div class="rubric-levels-chips">
+              ${levels
+                .map(lvl => {
+                  const calculated = Math.round((lvl.score / 100) * pts * 10) / 10;
+                  return `<div class="level-chip">
+                    <div class="level-chip-top">
+                      <span class="level-name">${escapeHtml(lvl.name)}</span>
+                      <span class="level-score">${lvl.score}% · ${calculated} pts</span>
+                    </div>
+                    ${lvl.description ? `<p class="level-desc">${escapeHtml(lvl.description)}</p>` : ''}
+                  </div>`;
+                })
+                .join('')}
+            </div>`
+          : '';
+
+      return `<details class="rubric-accordion-item"${index === 0 ? ' open' : ''}>
+        <summary class="rubric-summary">
+          <div class="summary-left">
+            <span class="rubric-weight-badge">${pts} pts</span>
+            <span class="criterion-name" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+          </div>
+          <span class="chevron" aria-hidden="true">${icon('chevron-down')}</span>
+        </summary>
+        <div class="rubric-accordion-body">
+          ${desc ? `<p class="criterion-description">${escapeHtml(desc)}</p>` : ''}
+          ${levelsHtml}
+        </div>
+      </details>`;
+    })
+    .join('');
+
+  // 2. Vista Matriz Ancha (>= 600px, Pestaña completa)
+  const matrixRows = rubric
+    .map(criterion => {
+      const pts = criterion.weight;
+      const title = criterion.name;
+      const desc = criterion.description || '';
+      const levels = criterion.levels || [];
+
+      const levelsGrid =
+        levels.length > 0
+          ? `<div class="matrix-levels-grid">
+              ${levels
+                .map(lvl => {
+                  const calculated = Math.round((lvl.score / 100) * pts * 10) / 10;
+                  return `<div class="matrix-level-card">
+                    <div class="matrix-level-header">
+                      <span class="matrix-level-name">${escapeHtml(lvl.name)}</span>
+                      <span class="matrix-level-pts">${lvl.score}% · ${calculated} pts</span>
+                    </div>
+                    ${lvl.description ? `<p class="matrix-level-desc">${escapeHtml(lvl.description)}</p>` : ''}
+                  </div>`;
+                })
+                .join('')}
+            </div>`
+          : '<span class="muted">Sin niveles específicos definidos</span>';
+
+      return `<div class="matrix-row">
+        <div class="matrix-criterion-col">
+          <div class="matrix-criterion-head">
+            <span class="matrix-weight-pill">${pts} pts</span>
+            <strong class="matrix-criterion-title">${escapeHtml(title)}</strong>
+          </div>
+          ${desc ? `<p class="matrix-criterion-desc">${escapeHtml(desc)}</p>` : ''}
+        </div>
+        <div class="matrix-levels-col">
+          ${levelsGrid}
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  return `<div class="rubric-container">
+    <div class="rubric-header">
+      <span class="rubric-header-title">Criterios de Evaluación</span>
+      <span class="rubric-total-badge">Total: ${totalPoints} pts</span>
+    </div>
+
+    <!-- Modo compacto (panel lateral < 600px) -->
+    <div class="rubric-compact-view">
+      ${compactCards}
+    </div>
+
+    <!-- Modo matriz ancha (pestaña del editor >= 600px) -->
+    <div class="rubric-matrix-view">
+      ${matrixRows}
+    </div>
+  </div>`;
+}
+
 /**
  * HTML del panel. Usa solo variables de tema de VS Code y SVG en línea: se
  * adapta a tema claro, oscuro y alto contraste sin librerías externas.
@@ -257,12 +380,7 @@ function renderTeacher(state: PanelState): string {
 export function renderPanelHtml(webview: vscode.Webview, state: PanelState): string {
   const scriptNonce = nonce();
   const delivery = deliveryLabel(state);
-  const criteria =
-    state.assignment.criteria.length > 0
-      ? `<ul class="criteria">${state.assignment.criteria
-          .map(item => `<li>${escapeHtml(item)}</li>`)
-          .join('')}</ul>`
-      : '';
+  const rubricContent = renderRubric(state.assignment);
   const message = state.message
     ? `<p class="notice notice-${state.message.kind}">${icon(
         state.message.kind === 'info' ? 'check' : 'warning'
@@ -367,6 +485,221 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   code { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .criteria { margin: 0; padding-left: 18px; }
   .criteria li { margin-bottom: 3px; }
+  .rubric-container { margin-top: 10px; }
+  .rubric-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .rubric-header-title {
+    font-size: 0.85em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--vscode-descriptionForeground);
+  }
+  .rubric-total-badge {
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-family: var(--vscode-editor-font-family);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82em;
+    font-weight: 600;
+  }
+  .rubric-compact-view {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .rubric-matrix-view {
+    display: none;
+  }
+  .rubric-accordion-item {
+    border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+    border-radius: var(--panel-radius);
+    background: var(--vscode-editorWidget-background, transparent);
+    overflow: hidden;
+  }
+  .rubric-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+    gap: 8px;
+  }
+  .rubric-summary::-webkit-details-marker {
+    display: none;
+  }
+  .summary-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .rubric-weight-badge {
+    background: var(--vscode-charts-blue);
+    color: #ffffff;
+    font-family: var(--vscode-editor-font-family);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.76em;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .criterion-name {
+    font-size: 0.9em;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .chevron {
+    color: var(--vscode-descriptionForeground);
+    display: flex;
+    align-items: center;
+    transition: transform 0.15s ease;
+    flex-shrink: 0;
+  }
+  .rubric-accordion-item[open] .chevron {
+    transform: rotate(180deg);
+  }
+  .rubric-accordion-body {
+    padding: 8px 10px 10px;
+    border-top: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15));
+    font-size: 0.88em;
+  }
+  .criterion-description {
+    margin: 0 0 8px;
+    color: var(--vscode-foreground);
+    line-height: 1.4;
+  }
+  .rubric-levels-chips {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .level-chip {
+    padding: 6px 8px;
+    border-radius: 4px;
+    background: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
+    border-left: 3px solid var(--vscode-charts-blue);
+  }
+  .level-chip-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: 0.86em;
+    margin-bottom: 2px;
+  }
+  .level-name {
+    font-weight: 600;
+  }
+  .level-score {
+    color: var(--vscode-descriptionForeground);
+    font-family: var(--vscode-editor-font-family);
+    font-variant-numeric: tabular-nums;
+    font-size: 0.82em;
+  }
+  .level-desc {
+    margin: 0;
+    color: var(--vscode-descriptionForeground);
+    font-size: 0.82em;
+    line-height: 1.35;
+  }
+
+  @media (min-width: 600px) {
+    .rubric-compact-view {
+      display: none;
+    }
+    .rubric-matrix-view {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .matrix-row {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.2));
+      border-radius: var(--panel-radius);
+      background: var(--vscode-editorWidget-background, transparent);
+    }
+    .matrix-criterion-col {
+      border-right: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15));
+      padding-right: 14px;
+    }
+    .matrix-criterion-head {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+    .matrix-weight-pill {
+      background: var(--vscode-charts-blue);
+      color: #ffffff;
+      font-family: var(--vscode-editor-font-family);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.78em;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+    }
+    .matrix-criterion-title {
+      font-size: 0.96em;
+    }
+    .matrix-criterion-desc {
+      margin: 0;
+      font-size: 0.86em;
+      color: var(--vscode-descriptionForeground);
+      line-height: 1.4;
+    }
+    .matrix-levels-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+    .matrix-level-card {
+      padding: 8px 10px;
+      border-radius: 4px;
+      background: var(--vscode-textBlockQuote-background, rgba(128, 128, 128, 0.08));
+      border-top: 2px solid var(--vscode-charts-blue);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .matrix-level-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .matrix-level-name {
+      font-weight: 600;
+      font-size: 0.86em;
+    }
+    .matrix-level-pts {
+      font-family: var(--vscode-editor-font-family);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.8em;
+      color: var(--vscode-descriptionForeground);
+      white-space: nowrap;
+    }
+    .matrix-level-desc {
+      margin: 0;
+      font-size: 0.82em;
+      color: var(--vscode-descriptionForeground);
+      line-height: 1.35;
+    }
+  }
   .notice {
     display: flex;
     gap: 8px;
@@ -511,6 +844,7 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
         ${state.course.code ? `<p class="course-code">${escapeHtml(state.course.code)}</p>` : ''}
         <h1>${escapeHtml(state.course.title || 'Laboratorio SOLV')}</h1>
         ${state.course.teacher ? `<p class="teacher">${escapeHtml(state.course.teacher)}</p>` : ''}
+        <button type="button" class="link-button" data-action="open-tab" style="margin-top: 4px;">${icon('external')} Abrir en pestaña</button>
       </div>
     </div>
     ${
@@ -523,9 +857,14 @@ export function renderPanelHtml(webview: vscode.Webview, state: PanelState): str
   ${message}
 
   <section class="section" aria-labelledby="assignment-title">
-    <h2 id="assignment-title">Consigna</h2>
+    <div class="section-head">
+      <h2 id="assignment-title">Consigna</h2>
+      ${state.assignment.rubricCriteria && state.assignment.rubricCriteria.length > 0
+        ? `<span class="badge badge-submitted">Rúbrica oficial</span>`
+        : ''}
+    </div>
     <p class="summary">${escapeHtml(state.assignment.summary || 'La consigna de la práctica se publica desde la plataforma.')}</p>
-    ${criteria}
+    ${rubricContent}
   </section>
 
   ${state.role === 'student' ? renderAdvance(state) : renderTeacher(state)}

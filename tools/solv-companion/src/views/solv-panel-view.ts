@@ -7,7 +7,19 @@ export type PanelMessage =
   | { type: 'apply'; paths: string[] }
   | { type: 'diff'; path: string }
   | { type: 'open-comment'; file: string; line: number; commentId: string }
-  | { type: 'dismiss' | 'rollback' | 'refresh' | 'broadcast' | 'freeze' | 'submit' | 'speedgrader' };
+  | {
+      type:
+        | 'dismiss'
+        | 'rollback'
+        | 'refresh'
+        | 'broadcast'
+        | 'freeze'
+        | 'submit'
+        | 'speedgrader'
+        | 'open-tab'
+        | 'open-aula'
+        | 'close-aula';
+    };
 
 export function isPanelMessage(value: unknown): value is PanelMessage {
   if (typeof value !== 'object' || value === null) {

@@ -70,9 +70,31 @@ Con lista, el backend respalda y sobrescribe solo esos archivos. Sin lista, apli
 
 `SOLV: Entregar práctica` evalúa `vscode.languages.getDiagnostics()`. Si hay errores de severidad `Error`, muestra una advertencia con dos salidas: `Revisar errores` (abre el archivo y posiciona el cursor en el primer error) o `Entregar igualmente`. Después pide confirmación, guarda todas las pestañas y entrega con `POST /api/v1/workspaces/{id}/submit`; la práctica se resuelve por `solv.workspaceId` o consultando el entorno de la materia.
 
-## Emisión del docente
+## Emisión y Gestión del Aula por el Docente
 
-`SOLV: Emitir avance a la clase` pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`) y, con selección, los alumnos con `canPickMany`. Después llama a `POST /api/v1/teacher/sessions/{id}/advances` y confirma con el número de destinatarios.
+- `SOLV: Iniciar clase`: Despliega un QuickPick nativo con duraciones estándar (60, 90, 120, 180 min) y opción `Personalizado...` (15 a 480 min). Ejecuta `POST /api/v1/teacher/sessions`.
+- `SOLV: Cerrar clase`: Disponible cuando el aula está abierta; pide confirmación y ejecuta `PATCH /api/v1/teacher/sessions/{id}/close`.
+- **Autodescubrimiento del aula**: Si el docente abrió el aula desde la web o se reinició el contenedor, la extensión autodescubre la sesión activa con `GET /api/v1/teacher/sessions/open` y sincroniza métricas y presencia.
+- `SOLV: Emitir avance a la clase`: Pide el título con `showInputBox`, el alcance con QuickPick (`Toda la clase` o `Seleccionados`) y alumnos con `canPickMany`. Llama a `POST /api/v1/teacher/sessions/{id}/advances`.
+- `SOLV: Pausar o reanudar la clase`: Alterna el estado de emisión mediante `PATCH /api/v1/teacher/sessions/{id}/freeze` y `unfreeze`.
+
+## Rúbrica Oficial Adaptativa en la Consigna
+
+La extensión consulta `GET /api/v1/exercises/{id}/rubric` usando el ejercicio de la entrega o de la configuración institucional. El formato se adapta responsivamente según el contenedor:
+
+1. **Modo Compacto (Panel lateral, < 600px):**
+   - Presenta un totalizador superior (`Total: N pts`).
+   - Cada criterio se muestra en una tarjeta tipo acordeón (`<details>`) con su puntaje visible y descripción concisa.
+   - Al desplegar la tarjeta, se revelan las pastillas de niveles de desempeño con su puntaje ponderado calculado (`score% · pts`).
+
+2. **Modo Matriz Panorámica (Pestaña del editor, >= 600px):**
+   - Al hacer clic en `[ Abrir en pestaña ]` (`solv.openTab`), la consigna se expande al ancho completo del editor.
+   - Los criterios se transforman mediante media queries CSS en una matriz de evaluación analítica con columnas de ponderación y tarjetas de niveles en cuadrícula horizontal.
+   - Si el ejercicio no cuenta con rúbrica registrada, se utiliza la lista definida en `solv.assignmentCriteria`.
+
+## Latido de Presencia Automático (Heartbeat)
+
+Para el rol `student`, la extensión consulta `GET /api/v1/student/sessions/active` en cada ciclo de actualización. Al detectar un aula abierta de su materia, emite un latido en segundo plano a `POST /api/v1/student/sessions/{id}/heartbeat`. Esto alimenta la tabla de presencia y actualiza el contador de alumnos presentes en el tablero del docente en tiempo real.
 
 ## Configuración
 

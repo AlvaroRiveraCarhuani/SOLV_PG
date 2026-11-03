@@ -13,10 +13,26 @@ export interface CourseContext {
   maxScore?: number;
 }
 
+export interface RubricLevelView {
+  name: string;
+  score: number;
+  description: string;
+}
+
+export interface RubricCriterionView {
+  id?: string;
+  name: string;
+  weight: number;
+  description?: string;
+  levels?: RubricLevelView[];
+}
+
 export interface AssignmentContext {
   title: string;
   summary: string;
   criteria: string[];
+  rubricCriteria?: RubricCriterionView[];
+  totalPoints?: number;
 }
 
 export interface AdvanceView {

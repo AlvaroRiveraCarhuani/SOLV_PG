@@ -17,8 +17,9 @@ export class AssignmentTab implements vscode.Disposable {
   ) {}
 
   async open(): Promise<void> {
+    const targetColumn = vscode.ViewColumn.Active;
     if (this.panel) {
-      this.panel.reveal(vscode.ViewColumn.Beside);
+      this.panel.reveal(targetColumn);
       await this.render();
       return;
     }
@@ -26,7 +27,7 @@ export class AssignmentTab implements vscode.Disposable {
     this.panel = vscode.window.createWebviewPanel(
       'solv.assignment',
       'SOLV — Consigna',
-      { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+      { viewColumn: targetColumn, preserveFocus: false },
       { enableScripts: true, retainContextWhenHidden: true }
     );
 

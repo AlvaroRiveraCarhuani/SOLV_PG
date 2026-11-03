@@ -11,6 +11,7 @@ import {
   ConnectionState,
   DeliveryState,
   PanelState,
+  RubricCriterionView,
   deriveDeliveryState
 } from './views/panel-state';
 import { AssignmentTab } from './views/assignment-tab';
@@ -52,8 +53,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         code?: string;
         courseTitle?: string;
         title?: string;
+        exerciseId?: string;
       }
     | undefined;
+
+  let rubricCriteria: RubricCriterionView[] = [];
 
   const panel = new SolvPanelView(buildState, handleMessage);
   const tab = new AssignmentTab(buildState, handleMessage);
@@ -77,6 +81,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       webviewOptions: { retainContextWhenHidden: true }
     }),
     vscode.commands.registerCommand('solv.openTab', () => tab.open()),
+    vscode.commands.registerCommand('solv.openAula', () => startClassSession()),
+    vscode.commands.registerCommand('solv.closeAula', () => closeClassSession()),
+    vscode.commands.registerCommand('solv.startSession', () => startClassSession()),
+    vscode.commands.registerCommand('solv.closeSession', () => closeClassSession()),
     vscode.commands.registerCommand('solv.refreshPanel', () => refreshAll(true)),
     vscode.commands.registerCommand('solv.submit', () => submitPractice()),
     vscode.commands.registerCommand('solv.broadcastAdvance', () => broadcastAdvance()),
@@ -123,7 +131,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       assignment: {
         title: assignmentTitle,
         summary: settings.assignmentSummary,
-        criteria: settings.assignmentCriteria
+        criteria: settings.assignmentCriteria,
+        rubricCriteria: rubricCriteria.length > 0 ? rubricCriteria : undefined,
+        totalPoints: rubricCriteria.reduce((sum, item) => sum + item.weight, 0) || undefined
       },
       comments: commentViews(),
       canSubmit: settings.role === 'student'
@@ -154,7 +164,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       state.teacher = {
         sessionOpen: board?.session.status === 'open',
         frozen: Boolean(board?.session.frozen_at),
-        sessionId: settings.sessionId,
+        sessionId: board?.session.id || settings.sessionId,
         present: board?.summary.present ?? 0,
         enrolled: board?.summary.enrolled ?? 0,
         submitted: board?.summary.submitted ?? 0
@@ -215,6 +225,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         return;
       case 'speedgrader':
         await openSpeedGrader();
+        return;
+      case 'open-tab':
+        await tab.open();
+        return;
+      case 'open-aula':
+        await startClassSession();
+        return;
+      case 'close-aula':
+        await closeClassSession();
         return;
       case 'open-comment':
         await openComment(message.file, message.line);
@@ -480,10 +499,132 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         score: latest.score ?? undefined,
         code: latest.subject_code,
         courseTitle: latest.subject_name,
-        title: latest.exercise_title
+        title: latest.exercise_title,
+        exerciseId: latest.exercise_id
       };
     } catch {
       // El aviso de conexión ya lo informa refreshAll; el panel no se vacía.
+    }
+  }
+
+  async function loadRubricCriteria(): Promise<void> {
+    const exerciseId = settings.exerciseId || progress?.exerciseId;
+    if (!exerciseId) {
+      return;
+    }
+    try {
+      const rubric = await client.fetchRubric(exerciseId);
+      if (rubric && rubric.criteria && rubric.criteria.length > 0) {
+        rubricCriteria = rubric.criteria
+          .map(c => {
+            const name = (c.name || c.title || '').trim();
+            const weight = c.weight || c.max_score || 0;
+            const description = (c.description || '').trim();
+            const levels = (c.levels || []).map(l => ({
+              name: l.name,
+              score: l.score,
+              description: l.description
+            }));
+            return {
+              id: c.id,
+              name,
+              weight,
+              description,
+              levels
+            };
+          })
+          .filter(c => c.name.length > 0);
+      }
+    } catch {
+      // Si la API falla, queda vacío y se usa la lista configurada por defecto
+    }
+  }
+
+  async function sendStudentPresenceHeartbeat(): Promise<void> {
+    if (settings.isTeacher) {
+      return;
+    }
+    try {
+      const activeSessions = await client.activeStudentSessions();
+      if (activeSessions && activeSessions.length > 0) {
+        const session = activeSessions[0];
+        await client.sendStudentHeartbeat(session.id);
+      }
+    } catch {
+      // El latido en segundo plano no bloquea la interfaz
+    }
+  }
+
+  async function startClassSession(): Promise<void> {
+    const subjectId = settings.subjectId;
+    if (!subjectId) {
+      warn('No hay una materia configurada para abrir el aula.');
+      return;
+    }
+
+    const options = [
+      { label: '60 minutos', minutes: 60, description: '1 hora de práctica' },
+      { label: '90 minutos (Recomendado)', minutes: 90, description: '1 hora y media' },
+      { label: '120 minutos', minutes: 120, description: '2 horas de examen o práctica' },
+      { label: '180 minutos', minutes: 180, description: '3 horas de laboratorio' },
+      { label: 'Personalizado...', minutes: -1, description: 'Ingresar tiempo en minutos' }
+    ];
+
+    const pick = await vscode.window.showQuickPick(options, {
+      placeHolder: 'Duración de la sesión de clase'
+    });
+    if (!pick) {
+      return;
+    }
+
+    let minutes = pick.minutes;
+    if (minutes === -1) {
+      const input = await vscode.window.showInputBox({
+        prompt: 'Duración en minutos (15 a 480)',
+        value: '90',
+        validateInput: value => {
+          const num = Number(value);
+          if (isNaN(num) || num < 15 || num > 480) {
+            return 'Ingresá un número entre 15 y 480 minutos.';
+          }
+          return null;
+        }
+      });
+      if (!input) {
+        return;
+      }
+      minutes = Number(input);
+    }
+
+    try {
+      await advances.openSession(subjectId, minutes);
+      info('Clase iniciada. La presencia de los alumnos se actualizará en vivo.');
+      await refreshAll(true);
+    } catch (error) {
+      warn(describeAdvanceError(error));
+    }
+  }
+
+  async function closeClassSession(): Promise<void> {
+    const sessionId = settings.sessionId || advances.snapshot().board?.session.id;
+    if (!sessionId) {
+      warn('No hay una sesión activa para cerrar.');
+      return;
+    }
+    const confirm = await vscode.window.showWarningMessage(
+      '¿Cerrar la sesión de clase actual? Los alumnos ya no podrán emitir avances ni asistencia.',
+      { modal: true },
+      'Cerrar clase'
+    );
+    if (confirm !== 'Cerrar clase') {
+      return;
+    }
+    try {
+      await advances.closeSession(sessionId);
+      info('Sesión de clase cerrada.');
+      await refreshAll(true);
+    } catch (error) {
+      warn(describeAdvanceError(error));
     }
   }
 
@@ -546,6 +687,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
           : undefined;
     }
     await loadSubmissionContext();
+    await loadRubricCriteria();
+    await sendStudentPresenceHeartbeat();
     await comments.refresh(showErrors);
     await renderAll();
   }
