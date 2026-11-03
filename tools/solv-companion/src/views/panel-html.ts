@@ -324,24 +324,32 @@ function renderRubric(assignment: PanelState['assignment']): string {
       const title = criterion.name;
       const desc = criterion.description || '';
       const levels = criterion.levels || [];
+      const hasLevels = levels.length > 0;
 
-      const levelsGrid =
-        levels.length > 0
-          ? `<div class="matrix-levels-grid">
-              ${levels
-                .map(lvl => {
-                  const calculated = Math.round((lvl.score / 100) * pts * 10) / 10;
-                  return `<div class="matrix-level-card">
-                    <div class="matrix-level-header">
-                      <span class="matrix-level-name">${escapeHtml(lvl.name)}</span>
-                      <span class="matrix-level-pts">${lvl.score}% · ${calculated} pts</span>
-                    </div>
-                    ${lvl.description ? `<p class="matrix-level-desc">${escapeHtml(lvl.description)}</p>` : ''}
-                  </div>`;
-                })
-                .join('')}
-            </div>`
-          : '<span class="muted">Sin niveles específicos definidos</span>';
+      if (!hasLevels) {
+        return `<div class="matrix-row matrix-row-simple">
+          <div class="matrix-criterion-head">
+            <span class="matrix-weight-pill">${pts} pts</span>
+            <strong class="matrix-criterion-title">${escapeHtml(title)}</strong>
+          </div>
+          ${desc ? `<p class="matrix-criterion-desc">${escapeHtml(desc)}</p>` : ''}
+        </div>`;
+      }
+
+      const levelsGrid = `<div class="matrix-levels-grid">
+        ${levels
+          .map(lvl => {
+            const calculated = Math.round((lvl.score / 100) * pts * 10) / 10;
+            return `<div class="matrix-level-card">
+              <div class="matrix-level-header">
+                <span class="matrix-level-name">${escapeHtml(lvl.name)}</span>
+                <span class="matrix-level-pts">${lvl.score}% · ${calculated} pts</span>
+              </div>
+              ${lvl.description ? `<p class="matrix-level-desc">${escapeHtml(lvl.description)}</p>` : ''}
+            </div>`;
+          })
+          .join('')}
+      </div>`;
 
       return `<div class="matrix-row">
         <div class="matrix-criterion-col">
@@ -360,22 +368,27 @@ function renderRubric(assignment: PanelState['assignment']): string {
 
   const rubricHeader = rubricTitleText(assignment.purpose);
 
-  return `<div class="rubric-container">
-    <div class="rubric-header">
-      <span class="rubric-header-title">${escapeHtml(rubricHeader)}</span>
+  return `<details class="rubric-details" open>
+    <summary class="rubric-summary-header">
+      <div class="rubric-header-left">
+        <span class="rubric-chevron" aria-hidden="true">${icon('chevron-down')}</span>
+        <span class="rubric-header-title">${escapeHtml(rubricHeader)}</span>
+      </div>
       <span class="rubric-total-badge">Total: ${totalPoints} pts</span>
-    </div>
+    </summary>
 
-    <!-- Modo compacto (panel lateral < 600px) -->
-    <div class="rubric-compact-view">
-      ${compactCards}
-    </div>
+    <div class="rubric-body">
+      <!-- Modo compacto (panel lateral < 600px) -->
+      <div class="rubric-compact-view">
+        ${compactCards}
+      </div>
 
-    <!-- Modo matriz ancha (pestaña del editor >= 600px) -->
-    <div class="rubric-matrix-view">
-      ${matrixRows}
+      <!-- Modo matriz ancha (pestaña del editor >= 600px) -->
+      <div class="rubric-matrix-view">
+        ${matrixRows}
+      </div>
     </div>
-  </div>`;
+  </details>`;
 }
 
 /**
@@ -495,12 +508,32 @@ export function renderPanelHtml(
   code { font-family: var(--vscode-editor-font-family); font-size: 0.92em; }
   .criteria { margin: 0; padding-left: 18px; }
   .criteria li { margin-bottom: 3px; }
-  .rubric-container { margin-top: 10px; }
-  .rubric-header {
+  .rubric-details { margin-top: 10px; }
+  .rubric-summary-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 8px;
+    cursor: pointer;
+    user-select: none;
+    list-style: none;
+  }
+  .rubric-summary-header::-webkit-details-marker {
+    display: none;
+  }
+  .rubric-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rubric-chevron {
+    color: var(--vscode-descriptionForeground);
+    display: flex;
+    align-items: center;
+    transition: transform 0.15s ease;
+  }
+  .rubric-details[open] .rubric-chevron {
+    transform: rotate(180deg);
   }
   .rubric-header-title {
     font-size: 0.85em;
@@ -644,6 +677,13 @@ export function renderPanelHtml(
       border-radius: var(--panel-radius);
       background-color: var(--vscode-editor-background, var(--vscode-sideBar-background));
       color: var(--vscode-sideBar-foreground, var(--vscode-foreground));
+    }
+    .matrix-row.matrix-row-simple {
+      display: block;
+      padding: 12px 14px;
+    }
+    .matrix-row.matrix-row-simple .matrix-criterion-head {
+      margin-bottom: 4px;
     }
     .matrix-criterion-col {
       border-right: 1px solid var(--vscode-panel-border, rgba(128, 128, 128, 0.15));
