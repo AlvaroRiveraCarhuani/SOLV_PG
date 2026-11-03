@@ -30,6 +30,7 @@ type IconName =
   | 'external'
   | 'warning'
   | 'check'
+  | 'clock'
   | 'chevron-down';
 
 const ICON_PATHS: Record<IconName, string> = {
@@ -45,6 +46,7 @@ const ICON_PATHS: Record<IconName, string> = {
   external: '<path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5"/>',
   warning: '<path d="M12 3 2.5 20h19z"/><path d="M12 9v5"/><path d="M12 17v.5"/>',
   check: '<path d="m5 12.5 4.5 4.5L19 7"/>',
+  clock: '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>'
 };
 
@@ -206,6 +208,27 @@ function renderComments(state: PanelState): string {
     </section>`;
 }
 
+function formatRemainingTime(endsAt?: string | null): string | null {
+  if (!endsAt) {
+    return null;
+  }
+  const end = new Date(endsAt).getTime();
+  if (Number.isNaN(end)) {
+    return null;
+  }
+  const diffMs = end - Date.now();
+  if (diffMs <= 0) {
+    return 'Finalizada';
+  }
+  const totalMin = Math.round(diffMs / 60000);
+  if (totalMin < 60) {
+    return `${totalMin} min`;
+  }
+  const hours = Math.floor(totalMin / 60);
+  const mins = totalMin % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
+}
+
 function renderTeacher(state: PanelState): string {
   const teacher = state.teacher;
   if (!teacher) {
@@ -214,12 +237,19 @@ function renderTeacher(state: PanelState): string {
 
   const ratio =
     teacher.enrolled > 0 ? Math.min(100, Math.round((teacher.present / teacher.enrolled) * 100)) : 0;
+  const remaining = teacher.sessionOpen ? formatRemainingTime(teacher.endsAt) : null;
 
   return `
     <section class="section" aria-labelledby="class-title">
       <div class="section-head">
         <h2 id="class-title">Aula</h2>
-        <span class="badge ${teacher.sessionOpen ? 'badge-new' : 'badge-neutral'}">${teacher.sessionOpen ? 'Sesión abierta' : 'Sin sesión'}</span>
+        <span class="badge ${teacher.sessionOpen ? 'badge-new' : 'badge-neutral'}">${
+          teacher.sessionOpen
+            ? remaining
+              ? `Sesión abierta · ${remaining}`
+              : 'Sesión abierta'
+            : 'Sin sesión'
+        }</span>
       </div>
 
       <div class="metrics">
@@ -235,6 +265,14 @@ function renderTeacher(state: PanelState): string {
           <span class="metric-label">${icon('freeze')}Emisión</span>
           <span class="metric-value">${teacher.frozen ? 'Congelada' : 'Habilitada'}</span>
         </div>
+        ${
+          teacher.sessionOpen && remaining
+            ? `<div class="metric">
+                <span class="metric-label">${icon('clock')}Restante</span>
+                <span class="metric-value">${escapeHtml(remaining)}</span>
+              </div>`
+            : ''
+        }
       </div>
 
       <div class="presence" role="img" aria-label="Presencia ${teacher.present} de ${teacher.enrolled} alumnos">

@@ -15,6 +15,8 @@ export interface SessionBoard {
     status: string;
     frozen_at?: string | null;
     purpose?: string;
+    ends_at?: string | null;
+    opens_at?: string | null;
   };
   summary: {
     enrolled: number;

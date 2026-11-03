@@ -172,6 +172,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         sessionOpen: board?.session.status === 'open',
         frozen: Boolean(board?.session.frozen_at),
         sessionId: board?.session.id || settings.sessionId,
+        endsAt: board?.session.ends_at ?? null,
         present: board?.summary.present ?? 0,
         enrolled: board?.summary.enrolled ?? 0,
         submitted: board?.summary.submitted ?? 0

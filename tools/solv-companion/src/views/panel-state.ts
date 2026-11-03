@@ -57,6 +57,7 @@ export interface TeacherView {
   sessionOpen: boolean;
   frozen: boolean;
   sessionId?: string;
+  endsAt?: string | null;
   present: number;
   enrolled: number;
   submitted: number;
