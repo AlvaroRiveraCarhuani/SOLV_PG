@@ -233,29 +233,29 @@ func (r *PostgresAdminGovernanceRepository) UpdateAuditResults(
 	return nil
 }
 
-func (r *PostgresAdminGovernanceRepository) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (r *PostgresAdminGovernanceRepository) TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	query := `
-		UPDATE workspaces
+		UPDATE environments
 		SET status = 'failed', updated_at = NOW()
 		WHERE tenant_id = $1 AND (status = 'running' OR status = 'pending')
 	`
 	res, err := r.db.ExecContext(ctx, query, tenantID)
 	if err != nil {
-		return 0, fmt.Errorf("error terminating all workspaces: %w", err)
+		return 0, fmt.Errorf("error terminating all environments: %w", err)
 	}
 	rows, _ := res.RowsAffected()
 	return rows, nil
 }
 
-func (r *PostgresAdminGovernanceRepository) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (r *PostgresAdminGovernanceRepository) HibernateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	query := `
-		UPDATE workspaces
+		UPDATE environments
 		SET status = 'hibernated', updated_at = NOW()
 		WHERE tenant_id = $1 AND status = 'running'
 	`
 	res, err := r.db.ExecContext(ctx, query, tenantID)
 	if err != nil {
-		return 0, fmt.Errorf("error hibernating all workspaces: %w", err)
+		return 0, fmt.Errorf("error hibernating all environments: %w", err)
 	}
 	rows, _ := res.RowsAffected()
 	return rows, nil

@@ -135,15 +135,15 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		tenantID, studentID, subjectID)
 	mustExec(`INSERT INTO class_session_participants (session_id, student_id, tenant_id)
 		VALUES ($1, $2, $3)`, sessionID, studentID, tenantID)
-	mustExec(`INSERT INTO workspaces (id, student_id, subject_id, tenant_id, status, type, access_url)
-		VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
-		uuid.NewString(), teacherID, subjectID, tenantID)
-	mustExec(`INSERT INTO workspaces (id, student_id, subject_id, tenant_id, status, type, access_url)
-		VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
-		uuid.NewString(), studentID, subjectID, tenantID)
+	mustExec(`INSERT INTO environments (id, student_id, subject_id, exercise_id, tenant_id, status, type, access_url)
+		VALUES ($1, $2, $3, $4, $5, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
+		uuid.NewString(), teacherID, subjectID, exerciseID, tenantID)
+	mustExec(`INSERT INTO environments (id, student_id, subject_id, exercise_id, tenant_id, status, type, access_url)
+		VALUES ($1, $2, $3, $4, $5, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
+		uuid.NewString(), studentID, subjectID, exerciseID, tenantID)
 
-	teacherVolume := fmt.Sprintf("solv_workspace_%s_%s", teacherID, subjectID)
-	studentVolume := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
+	teacherVolume := fmt.Sprintf("solv_workspace_%s_%s_%s", teacherID, subjectID, exerciseID)
+	studentVolume := fmt.Sprintf("solv_workspace_%s_%s_%s", studentID, subjectID, exerciseID)
 	for _, volumeName := range []string{teacherVolume, studentVolume} {
 		if err := dockerClient.EnsureVolumeExists(ctx, volumeName); err != nil {
 			t.Fatalf("no se pudo crear el volumen %s: %v", volumeName, err)
@@ -152,7 +152,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 
 	teacherCode := "def solve():\n    return 42\n"
 	studentCode := "def solve():\n    return 0  # intento del alumno\n"
-	if err := dockerClient.WriteWorkspaceVolumeFiles(ctx, teacherVolume, map[string]string{
+	if err := dockerClient.WritePracticeEnvironmentVolumeFiles(ctx, teacherVolume, map[string]string{
 		"main.py":                    teacherCode,
 		"README.md":                  "Solución del docente\n",
 		".vscode/settings.json":      `{"editor.tabSize": 2}`,
@@ -160,7 +160,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("no se pudo sembrar el volumen del docente: %v", err)
 	}
-	if err := dockerClient.WriteWorkspaceVolumeFiles(ctx, studentVolume, map[string]string{
+	if err := dockerClient.WritePracticeEnvironmentVolumeFiles(ctx, studentVolume, map[string]string{
 		"main.py":    studentCode,
 		"alumno.txt": "trabajo previo\n",
 	}); err != nil {
@@ -177,7 +177,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		_ = raw.VolumeRemove(cleanupCtx, teacherVolume, true)
 		_ = raw.VolumeRemove(cleanupCtx, studentVolume, true)
 		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM class_sessions WHERE id = $1`, sessionID)
-		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM workspaces WHERE subject_id = $1`, subjectID)
+		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM environments WHERE subject_id = $1`, subjectID)
 		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM enrollments WHERE subject_id = $1`, subjectID)
 		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM exercises WHERE id = $1`, exerciseID)
 		_, _ = conn.ExecContext(cleanupCtx, `DELETE FROM subjects WHERE id = $1`, subjectID)
@@ -186,17 +186,16 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 
 	sessions := postgres.NewPostgresClassSessionRepository(conn)
 	advances := postgres.NewPostgresClassAdvanceRepository(conn, sessions)
-	workspaces := postgres.NewPostgresWorkspaceRepository(conn)
+	environments := postgres.NewPostgresPracticeEnvironmentRepository(conn)
 	svc := services.NewClassAdvanceService(advances, sessions).
-		WithApplier(store, workspaces, dockerClient)
+		WithApplier(store, environments, dockerClient)
 
 	advance, recipients, err := svc.Emit(ctx, services.EmitAdvanceInput{
 		TenantID:   tenantID,
 		TeacherID:  teacherID,
 		Role:       "teacher",
-		SessionID:  sessionID,
-		ExerciseID: exerciseID,
-		Scope:      domain.AdvanceScopeClass,
+		SessionID: sessionID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if err != nil {
 		t.Fatalf("Emit falló contra Docker y SeaweedFS: %v", err)
@@ -257,7 +256,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 	if len(preview.Added) != 1 || preview.Added[0] != "README.md" {
 		t.Fatalf("el aviso debía agregar README.md: %+v", preview.Added)
 	}
-	if dirs, listErr := dockerClient.ListWorkspaceBackupDirs(ctx, studentVolume, ".solv_backups"); listErr != nil {
+	if dirs, listErr := dockerClient.ListPracticeEnvironmentBackupDirs(ctx, studentVolume, ".solv_backups"); listErr != nil {
 		t.Fatalf("no se pudieron listar los respaldos antes de aplicar: %v", listErr)
 	} else if len(dirs) != 0 {
 		t.Fatalf("la previsualización no debía crear respaldos: %v", dirs)
@@ -283,7 +282,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		t.Fatalf("ruta de respaldo inesperada: %v", result.BackupPath)
 	}
 
-	studentFiles, err := dockerClient.SnapshotWorkspaceVolume(ctx, studentVolume, maxBytes)
+	studentFiles, err := dockerClient.SnapshotPracticeEnvironmentVolume(ctx, studentVolume, maxBytes)
 	if err != nil {
 		t.Fatalf("no se pudo leer el volumen del alumno después de aplicar: %v", err)
 	}
@@ -329,9 +328,8 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		TenantID:   tenantID,
 		TeacherID:  teacherID,
 		Role:       "teacher",
-		SessionID:  sessionID,
-		ExerciseID: exerciseID,
-		Scope:      domain.AdvanceScopeClass,
+		SessionID: sessionID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if err != nil {
 		t.Fatalf("la segunda emisión falló: %v", err)
@@ -368,7 +366,7 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		t.Fatalf("un avance vencido no debía seguir como pendiente: %+v", pending)
 	}
 
-	afterExpiry, err := dockerClient.SnapshotWorkspaceVolume(ctx, studentVolume, maxBytes)
+	afterExpiry, err := dockerClient.SnapshotPracticeEnvironmentVolume(ctx, studentVolume, maxBytes)
 	if err != nil {
 		t.Fatalf("no se pudo releer el volumen después del vencimiento: %v", err)
 	}

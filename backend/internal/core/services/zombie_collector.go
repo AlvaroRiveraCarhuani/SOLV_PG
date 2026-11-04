@@ -11,15 +11,15 @@ import (
 )
 
 type ZombieCollectorWorker struct {
-	repo                 domain.WorkspaceRepository
-	orchestrator         domain.WorkspaceOrchestrator
+	repo                 domain.PracticeEnvironmentRepository
+	orchestrator         domain.PracticeEnvironmentOrchestrator
 	interval             time.Duration
 	mu                   sync.Mutex
 	reclaimedCountAtomic uint64
-	stateReconciler      *WorkspaceStateReconciler
+	stateReconciler      *PracticeEnvironmentStateReconciler
 }
 
-func NewZombieCollectorWorker(repo domain.WorkspaceRepository, orchestrator domain.WorkspaceOrchestrator, interval time.Duration) *ZombieCollectorWorker {
+func NewZombieCollectorWorker(repo domain.PracticeEnvironmentRepository, orchestrator domain.PracticeEnvironmentOrchestrator, interval time.Duration) *ZombieCollectorWorker {
 	if interval <= 0 {
 		interval = 30 * time.Second
 	}
@@ -33,7 +33,7 @@ func NewZombieCollectorWorker(repo domain.WorkspaceRepository, orchestrator doma
 // SetStateReconciler engancha la verificacion DB->Docker (estados unknown y
 // orphaned) al final del ciclo del collector, reutilizando su mutex de
 // reconciliciones superpuestas.
-func (w *ZombieCollectorWorker) SetStateReconciler(r *WorkspaceStateReconciler) {
+func (w *ZombieCollectorWorker) SetStateReconciler(r *PracticeEnvironmentStateReconciler) {
 	w.stateReconciler = r
 }
 
@@ -74,15 +74,15 @@ func (w *ZombieCollectorWorker) ReconcileOrphanContainers(ctx context.Context) {
 		return
 	}
 
-	activeWorkspaces, err := w.repo.GetActiveWorkspaces(ctx)
+	activePracticeEnvironments, err := w.repo.GetActivePracticeEnvironments(ctx)
 	if err != nil {
-		log.Printf("[Zombie Collector] Error getting active workspaces from DB: %v", err)
+		log.Printf("[Zombie Collector] Error getting active environments from DB: %v", err)
 		return
 	}
 
 	// Mapear IDs de contenedores legítimos registrados en DB
 	legitimateContainers := make(map[string]bool)
-	for _, ws := range activeWorkspaces {
+	for _, ws := range activePracticeEnvironments {
 		if ws.ContainerID != nil && *ws.ContainerID != "" {
 			legitimateContainers[*ws.ContainerID] = true
 		}

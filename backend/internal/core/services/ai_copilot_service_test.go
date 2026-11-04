@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -99,6 +100,24 @@ func (s *stubComponentRepoForTesting) UpdateTemplateComponent(ctx context.Contex
 }
 func (s *stubComponentRepoForTesting) DeleteTemplateComponent(ctx context.Context, tenantID, id string) error {
 	return nil
+}
+func (s *stubComponentRepoForTesting) ListTemplates(ctx context.Context, tenantID, status, search string) ([]*domain.AdminTemplateReviewItem, error) {
+	return []*domain.AdminTemplateReviewItem{
+		{
+			ID:                "tmpl-nestjs",
+			Name:              "NestJS + PostgreSQL",
+			Description:       "Entorno para APIs con NestJS y base de datos relacional",
+			Status:            "approved",
+			TargetEnvironment: "IDE_PERSISTENTE",
+		},
+		{
+			ID:                "tmpl-node-base",
+			Name:              "Node.js Base",
+			Description:       "Entorno base con Node.js y npm",
+			Status:            "approved",
+			TargetEnvironment: "IDE_PERSISTENTE",
+		},
+	}, nil
 }
 
 func TestAICopilot_SuggestTemplate_ReturnsProposalWithSanitizedSlugs(t *testing.T) {
@@ -437,6 +456,63 @@ func TestAICopilot_GenerateExerciseDraft_ReportsWarningWhenReferenceFailsInRunne
 	}
 	if draftNoVerify.RunnerVerifiedAll || draftNoVerify.VerificationWarning != "" {
 		t.Errorf("con verify_with_runner=false no debe haber sello ni advertencia")
+	}
+}
+
+func TestAICopilot_GenerateExerciseDraft_IDEPersistente_BalancesWeightsAndMatchesTemplate(t *testing.T) {
+	ideResponseJSON := `{
+		"title": "API de Gestión Escolar con NestJS",
+		"description": "## Consigna\nCrear un CRUD completo de materias.",
+		"difficulty": "medium",
+		"language": "typescript",
+		"template_id": "tmpl-nestjs",
+		"rubric_criteria": [
+			{"name": "Endpoints y Controladores", "description": "Rutas REST funcionales", "weight": 30},
+			{"name": "Servicio de Datos y Lógica", "description": "Inyección de dependencias", "weight": 20},
+			{"name": "Validaciones DTO", "description": "Pipes de validación", "weight": 20}
+		]
+	}`
+
+	server := newCopilotLLMServer(t, ideResponseJSON)
+	svc := newEnabledCopilotSettings(t, server)
+	mockRepo := &stubComponentRepoForTesting{}
+	copilot := NewAICopilotService(svc, nil, mockRepo)
+
+	draft, err := copilot.GenerateExerciseDraft(context.Background(), "t-1", "u-1", domain.AIGenerateExerciseRequestDTO{
+		Prompt:          "Práctica de NestJS: crear un CRUD de materias con formulario y tabla",
+		EnvironmentType: "IDE_PERSISTENTE",
+		Difficulty:      "medium",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if draft.EnvironmentType != "IDE_PERSISTENTE" {
+		t.Errorf("environment_type = %q, esperado IDE_PERSISTENTE", draft.EnvironmentType)
+	}
+	if draft.TemplateID != "tmpl-nestjs" {
+		t.Errorf("template_id = %q, esperado tmpl-nestjs", draft.TemplateID)
+	}
+	if draft.Rubric == nil {
+		t.Fatalf("se esperaba rúbrica generada")
+	}
+
+	// Verificar balanceo a 100%
+	var totalWeight float64
+	for _, c := range draft.Rubric.Criteria {
+		totalWeight += c.Weight
+		if len(c.Levels) != 3 {
+			t.Errorf("criterio %q tiene %d niveles, esperados 3 institucionales", c.Name, len(c.Levels))
+		}
+		if c.Levels[0].Name != "Logrado" || c.Levels[0].Score != 100 {
+			t.Errorf("nivel 0 inesperado: %+v", c.Levels[0])
+		}
+	}
+	if math.Abs(totalWeight-100.0) > 0.001 {
+		t.Errorf("peso total de la rúbrica = %.2f, debe ser exactamente 100.0", totalWeight)
+	}
+	if err := draft.Rubric.Validate(); err != nil {
+		t.Errorf("la rúbrica normalizada falló validación de dominio: %v", err)
 	}
 }
 

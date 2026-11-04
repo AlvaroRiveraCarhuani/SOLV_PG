@@ -17,7 +17,7 @@ const advanceHTTPAdvanceID = "99999999-9999-9999-9999-999999999999"
 
 // snapshotsForHTTP entrega el snapshot preparado por la prueba.
 type snapshotsForHTTP struct {
-	files []domain.WorkspaceVolumeFile
+	files []domain.PracticeEnvironmentVolumeFile
 }
 
 func (s *snapshotsForHTTP) Put(context.Context, string, io.Reader) (string, int64, error) {
@@ -28,7 +28,7 @@ func (s *snapshotsForHTTP) PutFiles(context.Context, string, map[string]string) 
 	return "", 0, 0, nil
 }
 
-func (s *snapshotsForHTTP) Files(context.Context, string, string, int) ([]domain.WorkspaceVolumeFile, error) {
+func (s *snapshotsForHTTP) Files(context.Context, string, string, int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	return s.files, nil
 }
 
@@ -38,42 +38,43 @@ func (s *snapshotsForHTTP) Delete(context.Context, string) error {
 
 // volumesForHTTP registra las escrituras sobre el volumen del alumno.
 type volumesForHTTP struct {
-	existing []domain.WorkspaceVolumeFile
+	existing []domain.PracticeEnvironmentVolumeFile
 	writes   []map[string]string
 }
 
-func (v *volumesForHTTP) SnapshotWorkspaceVolume(context.Context, string, int64) ([]domain.WorkspaceVolumeFile, error) {
+func (v *volumesForHTTP) SnapshotPracticeEnvironmentVolume(context.Context, string, int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	return v.existing, nil
 }
 
-func (v *volumesForHTTP) WriteWorkspaceVolumeFiles(_ context.Context, _ string, files map[string]string) error {
+func (v *volumesForHTTP) WritePracticeEnvironmentVolumeFiles(_ context.Context, _ string, files map[string]string) error {
 	v.writes = append(v.writes, files)
 	return nil
 }
 
-// stubWorkspaces resuelve solo el entorno del alumno; el resto del contrato del
+// stubPracticeEnvironments resuelve solo el entorno del alumno; el resto del contrato del
 // repositorio no lo usa este camino.
-type stubWorkspaces struct {
-	domain.WorkspaceRepository
-	workspace *domain.WorkspaceInstance
+type stubPracticeEnvironments struct {
+	domain.PracticeEnvironmentRepository
+	environment *domain.PracticeEnvironment
 }
 
-func (s stubWorkspaces) GetByStudentAndSubject(context.Context, string, string) (*domain.WorkspaceInstance, error) {
-	return s.workspace, nil
+func (s stubPracticeEnvironments) GetByStudentSubjectExercise(context.Context, string, string, string) (*domain.PracticeEnvironment, error) {
+	return s.environment, nil
 }
 
-func newAdvanceApplierHandler(delivery *domain.AdvanceDelivery, snapshots []domain.WorkspaceVolumeFile, existing []domain.WorkspaceVolumeFile) (*ClassAdvanceHandler, *advanceStoreForHTTP, *volumesForHTTP) {
+func newAdvanceApplierHandler(delivery *domain.AdvanceDelivery, snapshots []domain.PracticeEnvironmentVolumeFile, existing []domain.PracticeEnvironmentVolumeFile) (*ClassAdvanceHandler, *advanceStoreForHTTP, *volumesForHTTP) {
 	session := openClassSessionForHTTP()
 	store := &advanceStoreForHTTP{session: session, delivery: delivery}
 	service := services.NewClassAdvanceService(store, &sessionStoreForHTTP{session: session})
 	volumes := &volumesForHTTP{existing: existing}
-	workspace := &domain.WorkspaceInstance{
-		ID:        "66666666-6666-6666-6666-666666666666",
-		StudentID: advanceHTTPTeacherID,
-		SubjectID: session.SubjectID,
-		Status:    domain.WorkspaceStatusRunning,
+	environment := &domain.PracticeEnvironment{
+		ID:         "66666666-6666-6666-6666-666666666666",
+		StudentID:  advanceHTTPTeacherID,
+		SubjectID:  session.SubjectID,
+		ExerciseID: session.ExerciseID,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}
-	service.WithApplier(&snapshotsForHTTP{files: snapshots}, stubWorkspaces{workspace: workspace}, volumes)
+	service.WithApplier(&snapshotsForHTTP{files: snapshots}, stubPracticeEnvironments{environment: environment}, volumes)
 	return NewClassAdvanceHandler(service), store, volumes
 }
 
@@ -96,6 +97,7 @@ func pendingDeliveryForHTTP() *domain.AdvanceDelivery {
 			TenantID:       advanceHTTPTenantID,
 			SessionID:      advanceHTTPSessionID,
 			SnapshotSHA256: "hash",
+			ExerciseID:     advanceHTTPExerciseID,
 		},
 		Status:        domain.AdvanceRecipientPending,
 		SubjectID:     "44444444-4444-4444-4444-444444444444",
@@ -107,11 +109,11 @@ func pendingDeliveryForHTTP() *domain.AdvanceDelivery {
 func TestClassAdvanceHandler_ApplySelectionWritesChosenFiles(t *testing.T) {
 	handler, store, volumes := newAdvanceApplierHandler(
 		pendingDeliveryForHTTP(),
-		[]domain.WorkspaceVolumeFile{
+		[]domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
 			{Path: "utils.py", Content: []byte("helper\n")},
 		},
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("viejo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("viejo\n")}},
 	)
 
 	recorder := httptest.NewRecorder()
@@ -143,7 +145,7 @@ func TestClassAdvanceHandler_ApplySelectionWritesChosenFiles(t *testing.T) {
 func TestClassAdvanceHandler_ApplyWithoutBodyAppliesAll(t *testing.T) {
 	handler, _, volumes := newAdvanceApplierHandler(
 		pendingDeliveryForHTTP(),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -160,7 +162,7 @@ func TestClassAdvanceHandler_ApplyWithoutBodyAppliesAll(t *testing.T) {
 func TestClassAdvanceHandler_ApplyRejectsUnknownFiles(t *testing.T) {
 	handler, _, volumes := newAdvanceApplierHandler(
 		pendingDeliveryForHTTP(),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -190,7 +192,7 @@ func TestClassAdvanceHandler_RollbackRestoresBackup(t *testing.T) {
 	handler, store, volumes := newAdvanceApplierHandler(
 		delivery,
 		nil,
-		[]domain.WorkspaceVolumeFile{
+		[]domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("avance\n")},
 			{Path: ".solv_backups/" + advanceHTTPAdvanceID + "/main.py", Content: []byte("version previa\n")},
 		},

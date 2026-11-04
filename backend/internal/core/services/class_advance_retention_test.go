@@ -53,7 +53,7 @@ func (f *fakeRetentionSnapshots) PutFiles(ctx context.Context, key string, files
 	return "", 0, 0, nil
 }
 
-func (f *fakeRetentionSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func (f *fakeRetentionSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	return nil, nil
 }
 
@@ -196,21 +196,21 @@ type fakePruningVolumes struct {
 	deleteErr error
 }
 
-func (f *fakePruningVolumes) ListWorkspaceBackupDirs(ctx context.Context, volumeName, root string) ([]string, error) {
+func (f *fakePruningVolumes) ListPracticeEnvironmentBackupDirs(ctx context.Context, volumeName, root string) ([]string, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
 	return f.dirs, nil
 }
 
-func (f *fakePruningVolumes) DeleteWorkspaceVolumePaths(ctx context.Context, volumeName string, paths []string) error {
+func (f *fakePruningVolumes) DeletePracticeEnvironmentVolumePaths(ctx context.Context, volumeName string, paths []string) error {
 	f.deleted = append(f.deleted, paths...)
 	return f.deleteErr
 }
 
 func TestApplyAdvance_PrunesBackupsBeyondTheLimit(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
-	snapshots := &fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+	snapshots := &fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("nuevo\n")},
 	}}
 	dirs := []string{
@@ -219,13 +219,13 @@ func TestApplyAdvance_PrunesBackupsBeyondTheLimit(t *testing.T) {
 		".solv_backups/e", ".solv_backups/f", ".solv_backups/g",
 	}
 	volumes := &fakePruningVolumes{
-		fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+		fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("viejo\n")},
 		}},
 		dirs: dirs,
 	}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(snapshots, newRunningWorkspace(t), volumes)
+		WithApplier(snapshots, newRunningPracticeEnvironment(t), volumes)
 
 	if _, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID); err != nil {
 		t.Fatalf("Apply falló: %v", err)
@@ -237,18 +237,18 @@ func TestApplyAdvance_PrunesBackupsBeyondTheLimit(t *testing.T) {
 
 func TestApplyAdvance_PruneFailureDoesNotBreakApply(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
-	snapshots := &fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+	snapshots := &fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("nuevo\n")},
 	}}
 	volumes := &fakePruningVolumes{
-		fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+		fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("viejo\n")},
 		}},
 		dirs:      []string{".solv_backups/" + advanceID, ".solv_backups/b", ".solv_backups/c", ".solv_backups/d", ".solv_backups/e", ".solv_backups/f"},
 		deleteErr: errors.New("volume busy"),
 	}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(snapshots, newRunningWorkspace(t), volumes)
+		WithApplier(snapshots, newRunningPracticeEnvironment(t), volumes)
 
 	result, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if err != nil {

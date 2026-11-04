@@ -18,7 +18,7 @@ import (
 )
 
 func TestSlice11OperabilityB2B(t *testing.T) {
-	t.Run("1. Rate Limiting on Workspaces Start (5 req/min)", func(t *testing.T) {
+	t.Run("1. Rate Limiting on PracticeEnvironments Start (5 req/min)", func(t *testing.T) {
 		limiter := middleware.NewUserRateLimiter(5, 5)
 		dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
@@ -30,7 +30,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 
 		// Enviar 5 requests permitidos
 		for i := 1; i <= 5; i++ {
-			req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/workspaces/start", nil)
+			req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/environments/start", nil)
 			ctx := context.WithValue(req.Context(), domain.UserIDKey, userID)
 			req = req.WithContext(ctx)
 
@@ -50,7 +50,7 @@ func TestSlice11OperabilityB2B(t *testing.T) {
 		}
 
 		// El 6to request DEBE ser rechazado con 429
-		req6 := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/workspaces/start", nil)
+		req6 := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/environments/start", nil)
 		ctx6 := context.WithValue(req6.Context(), domain.UserIDKey, userID)
 		req6 = req6.WithContext(ctx6)
 

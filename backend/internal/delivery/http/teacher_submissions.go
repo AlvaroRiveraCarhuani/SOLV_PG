@@ -85,7 +85,7 @@ func sanitizeReviewPayload(review *domain.TeacherSubmissionReviewDTO) {
 	if review == nil {
 		return
 	}
-	if review.EnvironmentType == domain.WorkspaceTypeIDEPersistente && review.FilesAvailable {
+	if review.EnvironmentType == domain.PracticeEnvironmentTypeIDEPersistente && review.FilesAvailable {
 		review.Code = ""
 		review.Boilerplate = ""
 	}

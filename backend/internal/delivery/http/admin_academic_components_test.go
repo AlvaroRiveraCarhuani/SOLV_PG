@@ -141,7 +141,7 @@ func TestAdminAcademicHandler_ComponentsAndComposePreview(t *testing.T) {
 	}
 
 	// 3. POST compose-preview -> 200 con plan compilado
-	composeBody := `{"target_environment":"IDE_PERSISTENTE","stack_config":{"mode":"visual","runtime_id":"rt-python","addon_ids":["comp-new-1"],"workspace_folders":["backend"]}}`
+	composeBody := `{"target_environment":"IDE_PERSISTENTE","stack_config":{"mode":"visual","runtime_id":"rt-python","addon_ids":["comp-new-1"],"environment_folders":["backend"]}}`
 	reqCompose := httptest.NewRequest(http.MethodPost, "/api/v1/admin/templates/compose-preview", bytes.NewBufferString(composeBody))
 	recCompose := httptest.NewRecorder()
 	handler.ComposeTemplatePreview(recCompose, reqCompose)

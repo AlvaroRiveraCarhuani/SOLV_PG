@@ -326,7 +326,7 @@ type AdminStudentDirectoryItem struct {
 	SuspensionReason      *string    `db:"suspension_reason" json:"suspension_reason,omitempty"`
 	AcademicStatus        string     `db:"academic_status" json:"academic_status"`
 	EnrolledCoursesCount  int        `db:"enrolled_courses_count" json:"enrolled_courses_count"`
-	ActiveWorkspacesCount int        `db:"active_workspaces_count" json:"active_workspaces_count"`
+	ActivePracticeEnvironmentsCount int        `db:"active_environments_count" json:"active_environments_count"`
 	OOMStrikeCount        int        `db:"oom_strike_count" json:"oom_strike_count"`
 	LastOOMKilledAt       *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 }
@@ -367,8 +367,8 @@ type AdminStudentCourseItem struct {
 	SubjectName     string     `db:"subject_name" json:"subject_name"`
 	TeacherName     string     `db:"teacher_name" json:"teacher_name"`
 	EnrolledAt      time.Time  `db:"enrolled_at" json:"enrolled_at"`
-	WorkspaceID     *string    `db:"workspace_id" json:"workspace_id,omitempty"`
-	WorkspaceStatus *string    `db:"workspace_status" json:"workspace_status,omitempty"`
+	EnvironmentID     *string    `db:"environment_id" json:"environment_id,omitempty"`
+	PracticeEnvironmentStatus *string    `db:"environment_status" json:"environment_status,omitempty"`
 	MemoryLimitMB   *int       `db:"memory_limit_mb" json:"memory_limit_mb,omitempty"`
 	OOMStrikeCount  *int       `db:"oom_strike_count" json:"oom_strike_count,omitempty"`
 	LastOOMKilledAt *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
@@ -382,7 +382,7 @@ type ResetOOMDTO struct {
 // ResetOOMResult resultado tras resetear strikes OOM
 type ResetOOMResult struct {
 	StudentID            string `json:"student_id"`
-	WorkspacesResetCount int64  `json:"workspaces_reset_count"`
+	PracticeEnvironmentsResetCount int64  `json:"environments_reset_count"`
 	Message              string `json:"message"`
 }
 

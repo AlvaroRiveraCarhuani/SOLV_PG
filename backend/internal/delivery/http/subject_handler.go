@@ -26,6 +26,7 @@ func (h *SubjectHandler) CreateSubject(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name              string  `json:"name"`
 		Code              string  `json:"code"`
+		Section           string  `json:"section,omitempty"`
 		TeacherID         *string `json:"teacher_id,omitempty"`
 		AcademicPeriodID  *string `json:"academic_period_id,omitempty"`
 		ClassroomCourseID *string `json:"classroom_course_id,omitempty"`
@@ -36,7 +37,15 @@ func (h *SubjectHandler) CreateSubject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	subject, err := h.service.CreateSubjectWithDetails(r.Context(), tenantID, req.Name, req.Code, req.TeacherID, req.AcademicPeriodID, req.ClassroomCourseID, req.TemplateID)
+	subject, err := h.service.Create(r.Context(), tenantID, services.NewSubjectInput{
+		Name:              req.Name,
+		Code:              req.Code,
+		Section:           req.Section,
+		TeacherID:         req.TeacherID,
+		AcademicPeriodID:  req.AcademicPeriodID,
+		ClassroomCourseID: req.ClassroomCourseID,
+		TemplateID:        req.TemplateID,
+	})
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)

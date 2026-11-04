@@ -95,7 +95,7 @@ func (f *fakeAdvanceStore) ReopenRecipient(ctx context.Context, tenantID, studen
 }
 
 type fakeAdvanceSnapshotsFiles struct {
-	files    []domain.WorkspaceVolumeFile
+	files    []domain.PracticeEnvironmentVolumeFile
 	err      error
 	putKey   string
 	putFiles map[string]string
@@ -116,7 +116,7 @@ func (f *fakeAdvanceSnapshotsFiles) PutFiles(ctx context.Context, key string, fi
 	return "hash", 128, len(files), nil
 }
 
-func (f *fakeAdvanceSnapshotsFiles) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func (f *fakeAdvanceSnapshotsFiles) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	if f.err != nil {
 		return nil, f.err
 	}
@@ -129,19 +129,19 @@ func (f *fakeAdvanceSnapshotsFiles) Delete(ctx context.Context, key string) erro
 }
 
 type fakeAdvanceVolumes struct {
-	existing []domain.WorkspaceVolumeFile
+	existing []domain.PracticeEnvironmentVolumeFile
 	writes   []map[string]string
 	// snapshots conserva los volúmenes leídos para comprobar cuál se usó.
 	snapshots []string
 	err       error
 }
 
-func (f *fakeAdvanceVolumes) SnapshotWorkspaceVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.WorkspaceVolumeFile, error) {
+func (f *fakeAdvanceVolumes) SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	f.snapshots = append(f.snapshots, volumeName)
 	return f.existing, nil
 }
 
-func (f *fakeAdvanceVolumes) WriteWorkspaceVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error {
+func (f *fakeAdvanceVolumes) WritePracticeEnvironmentVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error {
 	if f.err != nil {
 		return f.err
 	}
@@ -157,6 +157,7 @@ func newAdvanceDelivery(status, purpose, sessionStatus string, graceUntil *time.
 			SessionID:      "55555555-5555-5555-5555-555555555555",
 			SnapshotKey:    "class-advances/" + advanceTenantID + "/" + advanceID + ".tar.gz",
 			SnapshotSHA256: "hash",
+			ExerciseID:     advanceExerciseID,
 		},
 		Status:        status,
 		SubjectID:     advanceSubjectID,
@@ -166,30 +167,32 @@ func newAdvanceDelivery(status, purpose, sessionStatus string, graceUntil *time.
 	}
 }
 
-func newRunningWorkspace(t *testing.T) *mockWorkspaceRepo {
+func newRunningPracticeEnvironment(t *testing.T) *mockPracticeEnvironmentRepo {
 	t.Helper()
-	repo := newMockWorkspaceRepo()
-	if err := repo.Create(context.Background(), &domain.WorkspaceInstance{
-		ID:        "66666666-6666-6666-6666-666666666666",
-		StudentID: advanceStudentID,
-		SubjectID: advanceSubjectID,
-		Status:    domain.WorkspaceStatusRunning,
+	repo := newMockPracticeEnvironmentRepo()
+	practice := advanceExerciseID
+	if err := repo.Create(context.Background(), &domain.PracticeEnvironment{
+		ID:         "66666666-6666-6666-6666-666666666666",
+		StudentID:  advanceStudentID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &practice,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}); err != nil {
-		t.Fatalf("no se pudo preparar el workspace: %v", err)
+		t.Fatalf("no se pudo preparar el environment: %v", err)
 	}
 	return repo
 }
 
 func TestApplyAdvance_BacksUpOverwrittenFilesAndWritesSnapshot(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("viejo\n")},
 	}}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
 			{Path: "utils.py", Content: []byte("helper\n")},
-		}}, newRunningWorkspace(t), volumes)
+		}}, newRunningPracticeEnvironment(t), volumes)
 
 	result, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if err != nil {
@@ -242,7 +245,7 @@ func TestApplyAdvance_ExpiresWhenGraceWindowIsOver(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusClosed, &grace)}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if !errors.Is(err, domain.ErrAdvanceGraceExpired) {
@@ -256,15 +259,17 @@ func TestApplyAdvance_ExpiresWhenGraceWindowIsOver(t *testing.T) {
 	}
 }
 
-func TestApplyAdvance_RequiresRunningWorkspace(t *testing.T) {
-	repo := newMockWorkspaceRepo()
-	if err := repo.Create(context.Background(), &domain.WorkspaceInstance{
-		ID:        "66666666-6666-6666-6666-666666666666",
-		StudentID: advanceStudentID,
-		SubjectID: advanceSubjectID,
-		Status:    domain.WorkspaceStatusHibernated,
+func TestApplyAdvance_RequiresRunningPracticeEnvironment(t *testing.T) {
+	repo := newMockPracticeEnvironmentRepo()
+	practice := advanceExerciseID
+	if err := repo.Create(context.Background(), &domain.PracticeEnvironment{
+		ID:         "66666666-6666-6666-6666-666666666666",
+		StudentID:  advanceStudentID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &practice,
+		Status:     domain.PracticeEnvironmentStatusHibernated,
 	}); err != nil {
-		t.Fatalf("no se pudo preparar el workspace: %v", err)
+		t.Fatalf("no se pudo preparar el environment: %v", err)
 	}
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
 	volumes := &fakeAdvanceVolumes{}
@@ -272,7 +277,7 @@ func TestApplyAdvance_RequiresRunningWorkspace(t *testing.T) {
 		WithApplier(&fakeAdvanceSnapshotsFiles{}, repo, volumes)
 
 	_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
-	if !errors.Is(err, domain.ErrAdvanceWorkspaceStopped) {
+	if !errors.Is(err, domain.ErrAdvancePracticeEnvironmentStopped) {
 		t.Fatalf("esperado error de laboratorio detenido, obtenido: %v", err)
 	}
 	if len(volumes.writes) != 0 {
@@ -280,6 +285,28 @@ func TestApplyAdvance_RequiresRunningWorkspace(t *testing.T) {
 	}
 	if len(store.decisions) != 0 {
 		t.Error("el aviso debe seguir pendiente hasta abrir el laboratorio")
+	}
+}
+
+// Un aviso sin práctica no tiene entorno al que aplicarse: el motivo es de
+// dominio y el aviso no se decide ni se escribe.
+func TestApplyAdvance_RequiresPracticeInDelivery(t *testing.T) {
+	delivery := newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)
+	delivery.ExerciseID = ""
+	store := &fakeAdvanceStore{delivery: delivery}
+	volumes := &fakeAdvanceVolumes{}
+	svc := services.NewClassAdvanceService(store, nil).
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
+
+	_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
+	if !errors.Is(err, domain.ErrAdvancePracticeRequired) {
+		t.Fatalf("esperado avance sin práctica, obtenido: %v", err)
+	}
+	if len(volumes.writes) != 0 {
+		t.Error("sin práctica no se escribe nada")
+	}
+	if len(store.decisions) != 0 {
+		t.Error("el aviso debe seguir pendiente")
 	}
 }
 
@@ -292,7 +319,7 @@ type gatedAdvanceSnapshots struct {
 	release chan struct{}
 }
 
-func (g *gatedAdvanceSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func (g *gatedAdvanceSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	atomic.AddInt32(&g.calls, 1)
 	g.entered <- struct{}{}
 	<-g.release
@@ -302,13 +329,13 @@ func (g *gatedAdvanceSnapshots) Files(ctx context.Context, key, expectedSHA256 s
 func TestApplyAdvance_LimitsConcurrentApplications(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)}
 	gated := &gatedAdvanceSnapshots{
-		fakeAdvanceSnapshotsFiles: fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}}},
+		fakeAdvanceSnapshotsFiles: fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}}},
 		entered:                   make(chan struct{}, 2),
 		release:                   make(chan struct{}),
 	}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(gated, newRunningWorkspace(t), volumes)
+		WithApplier(gated, newRunningPracticeEnvironment(t), volumes)
 	svc.SetApplyConcurrency(1)
 
 	first := make(chan error, 1)
@@ -344,7 +371,7 @@ func TestApplyAdvance_HidesAdvancesFromOtherStudents(t *testing.T) {
 	store := &fakeAdvanceStore{}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if !errors.Is(err, domain.ErrAdvanceNotFound) {
@@ -359,7 +386,7 @@ func TestApplyAdvance_BlocksExam(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "exam", domain.ClassSessionStatusOpen, nil)}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.Apply(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if !errors.Is(err, domain.ErrAdvanceExamBlocked) {

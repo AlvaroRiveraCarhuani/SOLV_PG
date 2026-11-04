@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -147,6 +148,47 @@ func (h *TeacherHandler) GetCourseLabs(w http.ResponseWriter, r *http.Request) {
 	SendJSON(w, http.StatusOK, stats, "Estadisticas de laboratorios obtenidas exitosamente")
 }
 
+// DuplicateExercise copia un laboratorio del docente a otra de sus materias.
+func (h *TeacherHandler) DuplicateExercise(w http.ResponseWriter, r *http.Request) {
+	role := r.Header.Get("X-User-Role")
+	if role == "student" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+
+	tenantID := getTenantFromCtx(r)
+	teacherID := r.Header.Get("X-User-Id")
+	exerciseID := r.PathValue("id")
+	if exerciseID == "" {
+		SendError(w, http.StatusBadRequest, "Missing exercise ID", "El identificador del laboratorio es requerido")
+		return
+	}
+
+	var dto struct {
+		SubjectID string `json:"subject_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid JSON", "Cuerpo de solicitud inválido")
+		return
+	}
+	if _, err := uuid.Parse(dto.SubjectID); err != nil {
+		SendError(w, http.StatusBadRequest, "Invalid subject ID", "La materia destino no es válida")
+		return
+	}
+
+	copied, err := h.service.DuplicateExercise(r.Context(), tenantID, teacherID, exerciseID, dto.SubjectID)
+	if err != nil {
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "Not found", "El laboratorio o la materia no existen o no pertenecen al docente")
+			return
+		}
+		SendError(w, http.StatusBadRequest, err.Error(), "No se pudo duplicar el laboratorio")
+		return
+	}
+
+	SendJSON(w, http.StatusCreated, copied, "Laboratorio duplicado exitosamente")
+}
+
 func (h *TeacherHandler) GetLiveSessionsMetrics(w http.ResponseWriter, r *http.Request) {
 	role := r.Header.Get("X-User-Role")
 	if role == "student" {
@@ -157,7 +199,7 @@ func (h *TeacherHandler) GetLiveSessionsMetrics(w http.ResponseWriter, r *http.R
 	tenantID := getTenantFromCtx(r)
 	teacherID := r.Header.Get("X-User-Id")
 
-	metrics, err := h.metricsSnapshotService.GetWorkspaceMetrics(r.Context(), tenantID, teacherID)
+	metrics, err := h.metricsSnapshotService.GetPracticeEnvironmentMetrics(r.Context(), tenantID, teacherID)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener métricas de sesiones en vivo")
 		return

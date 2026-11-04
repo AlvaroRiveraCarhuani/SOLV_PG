@@ -13,7 +13,7 @@ import (
 type TechnicalIncidentDTO struct {
 	ID            string `json:"id"`
 	Type          string `json:"type"`
-	WorkspaceID   string `json:"workspace_id"`
+	EnvironmentID   string `json:"environment_id"`
 	StudentName   string `json:"student_name"`
 	CourseName    string `json:"course_name"`
 	Description   string `json:"description"`
@@ -28,9 +28,9 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allWorkspaces, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	allPracticeEnvironments, err := h.environmentRepo.GetAllRunningPracticeEnvironments(r.Context())
 	if err != nil {
-		allWorkspaces = []*domain.WorkspaceInstance{}
+		allPracticeEnvironments = []*domain.PracticeEnvironment{}
 	}
 
 	incidents := make([]TechnicalIncidentDTO, 0)
@@ -38,7 +38,7 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 	// Identidades y nombres reales: nada de UUIDs de estudiantes ni de materias.
 	studentIDs := make([]string, 0)
 	subjectIDs := make([]string, 0)
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID && (ws.Status == "failed" || ws.Status == "oom_killed" || ws.OOMStrikeCount > 0) {
 			studentIDs = append(studentIDs, ws.StudentID)
 			subjectIDs = append(subjectIDs, ws.SubjectID)
@@ -47,7 +47,7 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 	identities := h.studentIdentities(r.Context(), tenantID, studentIDs)
 	courseNames := h.courseNames(r.Context(), tenantID, subjectIDs)
 
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID && (ws.Status == "failed" || ws.Status == "oom_killed" || ws.OOMStrikeCount > 0) {
 			desc := "Excedió cuota de memoria configurada (Exit code 137)"
 			ts := ws.UpdatedAt.Format(time.RFC3339)
@@ -61,7 +61,7 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 			incidents = append(incidents, TechnicalIncidentDTO{
 				ID:            "inc-" + wsID,
 				Type:          "oom_killed",
-				WorkspaceID:   ws.ID,
+				EnvironmentID:   ws.ID,
 				StudentName:   identities[ws.StudentID].Name,
 				CourseName:    courseNames[ws.SubjectID],
 				Description:   desc,
@@ -96,15 +96,15 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	allWorkspaces, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	allPracticeEnvironments, err := h.environmentRepo.GetAllRunningPracticeEnvironments(r.Context())
 	if err != nil {
-		allWorkspaces = []*domain.WorkspaceInstance{}
+		allPracticeEnvironments = []*domain.PracticeEnvironment{}
 	}
 
 	// Identidades y nombres reales para el listado del clúster.
 	studentIDs := make([]string, 0)
 	subjectIDs := make([]string, 0)
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID {
 			studentIDs = append(studentIDs, ws.StudentID)
 			subjectIDs = append(subjectIDs, ws.SubjectID)
@@ -114,7 +114,7 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 	courseNames := h.courseNames(r.Context(), tenantID, subjectIDs)
 
 	containers := make([]DockerContainerDTO, 0)
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID {
 			status := ws.Status
 			// Estados conocidos del panel pasan tal cual; unknown y orphaned entran en
@@ -152,32 +152,32 @@ func (h *AdminHandler) GetContainers(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(containers)
 }
 
-func (h *AdminHandler) GetWorkspaceLogs(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) GetPracticeEnvironmentLogs(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
 		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
 		return
 	}
 
-	workspaceID := r.PathValue("id")
-	if workspaceID == "" {
-		http.Error(w, `{"error":"Workspace ID is required"}`, http.StatusBadRequest)
+	environmentID := r.PathValue("id")
+	if environmentID == "" {
+		http.Error(w, `{"error":"PracticeEnvironment ID is required"}`, http.StatusBadRequest)
 		return
 	}
 
-	ws, err := h.workspaceRepo.GetByID(r.Context(), workspaceID)
+	ws, err := h.environmentRepo.GetByID(r.Context(), environmentID)
 	if err != nil || ws == nil {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"workspace_id": workspaceID,
+			"environment_id": environmentID,
 			"status":       "not_found",
-			"logs":         fmt.Sprintf("[%s] [solv:audit] No se encontraron registros para la instancia %s en la base de datos.", time.Now().Format("2006-01-02 15:04:05.000"), workspaceID),
+			"logs":         fmt.Sprintf("[%s] [solv:audit] No se encontraron registros para la instancia %s en la base de datos.", time.Now().Format("2006-01-02 15:04:05.000"), environmentID),
 		})
 		return
 	}
 
 	if ws.TenantID != tenantID {
-		http.Error(w, `{"error":"No autorizado para ver este workspace"}`, http.StatusForbidden)
+		http.Error(w, `{"error":"No autorizado para ver este environment"}`, http.StatusForbidden)
 		return
 	}
 
@@ -201,7 +201,7 @@ func (h *AdminHandler) GetWorkspaceLogs(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"workspace_id": ws.ID,
+		"environment_id": ws.ID,
 		"container_id": containerID,
 		"student_id":   ws.StudentID,
 		"status":       ws.Status,
@@ -216,25 +216,25 @@ func (h *AdminHandler) ResolveIncident(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	workspaceID := r.PathValue("id")
-	if workspaceID == "" {
-		http.Error(w, `{"error":"Workspace ID is required"}`, http.StatusBadRequest)
+	environmentID := r.PathValue("id")
+	if environmentID == "" {
+		http.Error(w, `{"error":"PracticeEnvironment ID is required"}`, http.StatusBadRequest)
 		return
 	}
 
-	_ = h.workspaceRepo.ResetOOMStrikes(r.Context(), workspaceID)
+	_ = h.environmentRepo.ResetOOMStrikes(r.Context(), environmentID)
 
-	ws, err := h.workspaceRepo.GetByID(r.Context(), workspaceID)
+	ws, err := h.environmentRepo.GetByID(r.Context(), environmentID)
 	if err == nil && ws != nil {
 		if ws.Status == "failed" || ws.Status == "oom_killed" {
-			_ = h.workspaceRepo.UpdateStatus(r.Context(), workspaceID, "hibernated")
+			_ = h.environmentRepo.UpdateStatus(r.Context(), environmentID, "hibernated")
 		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":       "resolved",
-		"workspace_id": workspaceID,
+		"environment_id": environmentID,
 		"message":      "Incidencia técnica resuelta y contadores OOM normalizados.",
 	})
 }

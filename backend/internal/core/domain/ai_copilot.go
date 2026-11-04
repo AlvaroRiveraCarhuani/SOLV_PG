@@ -27,8 +27,9 @@ type AISuggestComponentResponseDTO struct {
 // AIGenerateExerciseRequestDTO es el payload de POST /api/v1/teacher/ai/generate-exercise.
 type AIGenerateExerciseRequestDTO struct {
 	Prompt           string `json:"prompt"`                       // consigna o tema pedagógico (5..1500 chars)
-	Language         string `json:"language"`                     // "python", "cpp", "java", "javascript", "go", "rust", "c", "csharp"
+	Language         string `json:"language,omitempty"`           // "python", "cpp", "java", "javascript", "go", "rust", "c", "csharp"
 	Difficulty       string `json:"difficulty"`                   // "easy" | "medium" | "hard" (default "medium")
+	EnvironmentType  string `json:"environment_type,omitempty"`   // "JUEZ_EFIMERO" | "IDE_PERSISTENTE"
 	PublicCasesCount int    `json:"public_cases_count"`           // default 2, rango 1..5
 	HiddenCasesCount int    `json:"hidden_cases_count"`           // default 3, rango 1..10
 	VerifyWithRunner *bool  `json:"verify_with_runner,omitempty"` // nil o true ejecuta validación determinista
@@ -115,6 +116,11 @@ type AIGenerateExerciseResponseDTO struct {
 	Description         string                   `json:"description"` // enunciado en Markdown
 	Difficulty          string                   `json:"difficulty"`
 	Language            string                   `json:"language"`
+	EnvironmentType     string                   `json:"environment_type,omitempty"`
+	TemplateID          string                   `json:"template_id,omitempty"`
+	TemplateName        string                   `json:"template_name,omitempty"`
+	MissingTechnology   string                   `json:"missing_technology,omitempty"`
+	Rubric              *Rubric                  `json:"rubric,omitempty"`
 	Boilerplate         string                   `json:"boilerplate"`
 	ReferenceSolution   string                   `json:"reference_solution"` // lee de stdin, escribe en stdout
 	TestCases           []AIGeneratedTestCaseDTO `json:"test_cases"`

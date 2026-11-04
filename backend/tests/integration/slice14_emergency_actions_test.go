@@ -82,7 +82,7 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		ON CONFLICT (id) DO NOTHING;
 	`, adminID, fmt.Sprintf("secadmin_%s@uab.edu.bo", adminID[:6]), tenantID)
 
-	// Seed Alumno y Materia para Workspaces de Prueba
+	// Seed Alumno y Materia para PracticeEnvironments de Prueba
 	stuID := uuid.NewString()
 	subID := uuid.NewString()
 	_, _ = db.GetDB().Exec(`
@@ -103,7 +103,7 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 	t.Run("1. Validaciones - Frase Errónea, Acción Inexistente y Control de Rol", func(t *testing.T) {
 		// 1.1 Frase de confirmación errónea -> 422 Unprocessable Entity
 		payloadWrong := []byte(`{"confirmation_phrase": "terminar todo por favor", "reason": "emergencia"}`)
-		reqWrong, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadWrong))
+		reqWrong, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadWrong))
 		reqWrong.Header.Set("Content-Type", "application/json")
 		reqWrong.Header.Set("X-User-Role", "admin")
 		reqWrong.Header.Set("X-Tenant-Id", tenantID)
@@ -128,8 +128,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		}
 
 		// 1.3 Seguridad: Estudiante o docente intentando acción de pánico -> 403 Forbidden
-		payloadValid := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES"}`)
-		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadValid))
+		payloadValid := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS ENTORNOS"}`)
+		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadValid))
 		reqStudent.Header.Set("Content-Type", "application/json")
 		reqStudent.Header.Set("X-User-Role", "student")
 		reqStudent.Header.Set("X-Tenant-Id", tenantID)
@@ -142,22 +142,22 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 	})
 
 	// =========================================================================
-	// 2. TEST terminate_all_workspaces (ADR-032)
+	// 2. TEST terminate_all_environments (ADR-032)
 	// =========================================================================
-	t.Run("2. Terminar Todos los Workspaces - Apagado Masivo Inmediato", func(t *testing.T) {
-		// Sembrar 2 workspaces activos ('running' y 'pending')
+	t.Run("2. Terminar Todos los PracticeEnvironments - Apagado Masivo Inmediato", func(t *testing.T) {
+		// Sembrar 2 environments activos ('running' y 'pending')
 		ws1 := uuid.NewString()
 		ws2 := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
-			INSERT INTO workspaces (id, student_id, subject_id, type, status, access_url, memory_limit_mb, tenant_id)
+			INSERT INTO environments (id, student_id, subject_id, type, status, access_url, memory_limit_mb, tenant_id)
 			VALUES 
 				($1, $3, $4, 'IDE_PERSISTENTE', 'running', 'http://ws1.local', 512, $5),
 				($2, $3, $4, 'IDE_PERSISTENTE', 'pending', 'http://ws2.local', 512, $5)
 			ON CONFLICT (id) DO NOTHING;
 		`, ws1, ws2, stuID, subID, tenantID)
 
-		payloadTerm := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES", "reason": "Saturación crítica de memoria en host"}`)
-		reqTerm, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_workspaces", bytes.NewBuffer(payloadTerm))
+		payloadTerm := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS ENTORNOS", "reason": "Saturación crítica de memoria en host"}`)
+		reqTerm, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadTerm))
 		reqTerm.Header.Set("Content-Type", "application/json")
 		reqTerm.Header.Set("X-User-Role", "admin")
 		reqTerm.Header.Set("X-User-Id", adminID)
@@ -169,40 +169,40 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		}
 		defer func() { _ = respTerm.Body.Close() }()
 		if respTerm.StatusCode != http.StatusOK {
-			t.Fatalf("Expected 200 OK executing terminate_all_workspaces, got %d", respTerm.StatusCode)
+			t.Fatalf("Expected 200 OK executing terminate_all_environments, got %d", respTerm.StatusCode)
 		}
 
 		var bodyTerm map[string]interface{}
 		_ = json.NewDecoder(respTerm.Body).Decode(&bodyTerm)
 		data := bodyTerm["data"].(map[string]interface{})
 		if int(data["affected_count"].(float64)) < 2 {
-			t.Errorf("Expected at least 2 affected workspaces, got %v", data["affected_count"])
+			t.Errorf("Expected at least 2 affected environments, got %v", data["affected_count"])
 		}
 
-		// Verificar en BD que los workspaces pasaron a 'failed'
+		// Verificar en BD que los environments pasaron a 'failed'
 		var status1, status2 string
-		_ = db.GetDB().QueryRow("SELECT status FROM workspaces WHERE id = $1", ws1).Scan(&status1)
-		_ = db.GetDB().QueryRow("SELECT status FROM workspaces WHERE id = $1", ws2).Scan(&status2)
+		_ = db.GetDB().QueryRow("SELECT status FROM environments WHERE id = $1", ws1).Scan(&status1)
+		_ = db.GetDB().QueryRow("SELECT status FROM environments WHERE id = $1", ws2).Scan(&status2)
 		if status1 != "failed" || status2 != "failed" {
-			t.Errorf("Expected workspaces to be terminated/failed, got ws1=%s, ws2=%s", status1, status2)
+			t.Errorf("Expected environments to be terminated/failed, got ws1=%s, ws2=%s", status1, status2)
 		}
 	})
 
 	// =========================================================================
-	// 3. TEST hibernate_all_workspaces & kill_zombies (ADR-032)
+	// 3. TEST hibernate_all_environments & kill_zombies (ADR-032)
 	// =========================================================================
-	t.Run("3. Hibernar Workspaces y Limpieza de Zombies Docker", func(t *testing.T) {
-		// Sembrar workspace 'running'
+	t.Run("3. Hibernar PracticeEnvironments y Limpieza de Zombies Docker", func(t *testing.T) {
+		// Sembrar environment 'running'
 		ws3 := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
-			INSERT INTO workspaces (id, student_id, subject_id, type, status, access_url, memory_limit_mb, tenant_id)
+			INSERT INTO environments (id, student_id, subject_id, type, status, access_url, memory_limit_mb, tenant_id)
 			VALUES ($1, $2, $3, 'IDE_PERSISTENTE', 'running', 'http://ws3.local', 512, $4)
 			ON CONFLICT (id) DO NOTHING;
 		`, ws3, stuID, subID, tenantID)
 
 		// 3.1 Hibernar todos
-		payloadHib := []byte(`{"confirmation_phrase": "HIBERNAR TODOS LOS WORKSPACES"}`)
-		reqHib, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/hibernate_all_workspaces", bytes.NewBuffer(payloadHib))
+		payloadHib := []byte(`{"confirmation_phrase": "HIBERNAR TODOS LOS ENTORNOS"}`)
+		reqHib, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/hibernate_all_environments", bytes.NewBuffer(payloadHib))
 		reqHib.Header.Set("Content-Type", "application/json")
 		reqHib.Header.Set("X-User-Role", "admin")
 		reqHib.Header.Set("X-Tenant-Id", tenantID)
@@ -210,11 +210,11 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		respHib, _ := client.Do(reqHib)
 		defer func() { _ = respHib.Body.Close() }()
 		if respHib.StatusCode != http.StatusOK {
-			t.Fatalf("Expected 200 OK executing hibernate_all_workspaces, got %d", respHib.StatusCode)
+			t.Fatalf("Expected 200 OK executing hibernate_all_environments, got %d", respHib.StatusCode)
 		}
 
 		var status3 string
-		_ = db.GetDB().QueryRow("SELECT status FROM workspaces WHERE id = $1", ws3).Scan(&status3)
+		_ = db.GetDB().QueryRow("SELECT status FROM environments WHERE id = $1", ws3).Scan(&status3)
 		if status3 != "hibernated" {
 			t.Errorf("Expected ws3 status to be hibernated, got %s", status3)
 		}

@@ -59,7 +59,7 @@ var (
 )
 
 // ReviewEnvironment es una ejecución inmutable del snapshot de una entrega. No
-// comparte volumen con el workspace vivo del alumno ni con otra revisión.
+// comparte volumen con el environment vivo del alumno ni con otra revisión.
 type ReviewEnvironment struct {
 	ID             string    `db:"id" json:"id"`
 	TenantID       string    `db:"tenant_id" json:"tenant_id"`
@@ -109,7 +109,7 @@ type ReviewEnvironmentRepository interface {
 
 // ReviewEnvironmentContext es lo que SpeedGrader necesita para ejecutar la
 // entrega: el snapshot, la imagen de la práctica y la receta explícita de
-// arranque. No incluye el workspace vivo del alumno.
+// arranque. No incluye el environment vivo del alumno.
 type ReviewEnvironmentContext struct {
 	SubmissionID     string
 	ExerciseID       string
@@ -147,11 +147,11 @@ type ReviewEnvironmentContainerConfig struct {
 }
 
 // ReviewEnvironmentOrchestrator es la capacidad Docker del preview. Se declara
-// separada de WorkspaceOrchestrator para no romper sus dobles de test.
+// separada de PracticeEnvironmentOrchestrator para no romper sus dobles de test.
 type ReviewEnvironmentOrchestrator interface {
 	EnsureVolumeExists(ctx context.Context, volumeName string) error
 	EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error
-	WriteWorkspaceVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error
+	WritePracticeEnvironmentVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error
 	StartReviewEnvironmentContainer(ctx context.Context, config ReviewEnvironmentContainerConfig) (string, error)
 	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	GetContainerLogs(ctx context.Context, containerID string, tailLines int) (string, error)

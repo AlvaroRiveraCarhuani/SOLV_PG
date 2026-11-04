@@ -81,7 +81,7 @@ func (s *TemplateComposerService) Compose(
 	var setupLines []string
 	var cleanFolders []string
 	if !isJudge {
-		for _, f := range cfg.WorkspaceFolders {
+		for _, f := range cfg.PracticeEnvironmentFolders {
 			clean := strings.Trim(strings.TrimSpace(f), "/")
 			if clean != "" && validFolderRegex.MatchString(clean) {
 				cleanFolders = append(cleanFolders, "/home/workspace/"+clean)

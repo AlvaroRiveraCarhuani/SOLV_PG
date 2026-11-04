@@ -34,8 +34,8 @@ type StepMetric struct {
 }
 
 type DensityMetrics struct {
-	MaxWorkspacesIdle256MB int `json:"max_workspaces_idle_256mb"`
-	MaxWorkspacesPeak2GB   int `json:"max_workspaces_peak_2gb"`
+	MaxPracticeEnvironmentsIdle256MB int `json:"max_environments_idle_256mb"`
+	MaxPracticeEnvironmentsPeak2GB   int `json:"max_environments_peak_2gb"`
 }
 
 type AutotuneReport struct {
@@ -223,8 +223,8 @@ FinishTest:
 		CalculatedOOMGuardMB:  oomGuardMB,
 		AllocatableRAMMB:      allocatableMB,
 		TheoreticalDensity: DensityMetrics{
-			MaxWorkspacesIdle256MB: idleDensity,
-			MaxWorkspacesPeak2GB:   peakDensity,
+			MaxPracticeEnvironmentsIdle256MB: idleDensity,
+			MaxPracticeEnvironmentsPeak2GB:   peakDensity,
 		},
 		StepHistory: history,
 	}
@@ -232,8 +232,8 @@ FinishTest:
 	log.Printf("-> Motivo de parada: %s", report.CircuitBreakerTrigger)
 	log.Printf("-> OOM_GUARD_MB Calculado (Límite de Admisión): %d MB", report.CalculatedOOMGuardMB)
 	log.Printf("-> Memoria Asignable (Allocatable RAM): %d MB", report.AllocatableRAMMB)
-	log.Printf("-> Densidad Reposo (256MB/alumno): Hasta %d alumnos simultáneos", report.TheoreticalDensity.MaxWorkspacesIdle256MB)
-	log.Printf("-> Densidad Pico (2048MB/alumno): Hasta %d alumnos simultáneos", report.TheoreticalDensity.MaxWorkspacesPeak2GB)
+	log.Printf("-> Densidad Reposo (256MB/alumno): Hasta %d alumnos simultáneos", report.TheoreticalDensity.MaxPracticeEnvironmentsIdle256MB)
+	log.Printf("-> Densidad Pico (2048MB/alumno): Hasta %d alumnos simultáneos", report.TheoreticalDensity.MaxPracticeEnvironmentsPeak2GB)
 
 	// Guardar reporte JSON para Anexo de Tesis
 	reportJSON, err := json.MarshalIndent(report, "", "  ")

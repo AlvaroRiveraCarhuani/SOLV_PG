@@ -25,7 +25,7 @@ func encodeReview(t *testing.T, rec *httptest.ResponseRecorder) map[string]any {
 func TestTeacherSubmissionReview_OmitsSnapshotInIDE(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:                 "sub-ide",
-		EnvironmentType:    domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType:    domain.PracticeEnvironmentTypeIDEPersistente,
 		Language:           "javascript",
 		FilesAvailable:     true,
 		BaseFilesAvailable: true,
@@ -57,7 +57,7 @@ func TestTeacherSubmissionReview_OmitsSnapshotInIDE(t *testing.T) {
 func TestTeacherSubmissionReview_KeepsCodeInJudge(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              "sub-judge",
-		EnvironmentType: domain.WorkspaceTypeJuezEfimero,
+		EnvironmentType: domain.PracticeEnvironmentTypeJuezEfimero,
 		Code:            "print(1)\n",
 		FilesAvailable:  false,
 	}}
@@ -80,7 +80,7 @@ func TestTeacherSubmissionReview_KeepsCodeInJudge(t *testing.T) {
 func TestTeacherSubmissionReview_KeepsRawCodeWhenSnapshotNotParsed(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              "sub-fallback",
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		Code:            "texto crudo sin cabeceras",
 		FilesAvailable:  false,
 	}}
@@ -97,7 +97,7 @@ func TestTeacherSubmissionReview_KeepsRawCodeWhenSnapshotNotParsed(t *testing.T)
 func TestTeacherSubmissionComment_UnknownFileReturns422(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              "sub-ide",
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		FilesAvailable:  true,
 		Code:            "# === FILE: src/app.js ===\nconst a = 1;\n",
 		Files:           []domain.ProjectFile{{Path: "src/app.js", StartLine: 2, LineCount: 1}},

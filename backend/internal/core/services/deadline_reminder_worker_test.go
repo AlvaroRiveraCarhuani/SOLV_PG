@@ -52,7 +52,7 @@ func TestDeadlineReminderWorker_ProcessReminders_Success(t *testing.T) {
 			StudentID:           "stu-1",
 			StudentName:         "Lucas Silva",
 			StudentEmail:        "lucas.silva@uab.edu.bo",
-			HasStartedWorkspace: true,
+			HasStartedPracticeEnvironment: true,
 		},
 		{
 			TenantID:            "t-1",
@@ -64,7 +64,7 @@ func TestDeadlineReminderWorker_ProcessReminders_Success(t *testing.T) {
 			StudentID:           "stu-2",
 			StudentName:         "Maria Rodriguez",
 			StudentEmail:        "maria.rodriguez@uab.edu.bo",
-			HasStartedWorkspace: false,
+			HasStartedPracticeEnvironment: false,
 		},
 		{
 			TenantID:            "t-1",
@@ -76,7 +76,7 @@ func TestDeadlineReminderWorker_ProcessReminders_Success(t *testing.T) {
 			StudentID:           "stu-3",
 			StudentName:         "Sin Correo",
 			StudentEmail:        "", // Debe ser ignorado limpiamente
-			HasStartedWorkspace: false,
+			HasStartedPracticeEnvironment: false,
 		},
 	}
 
@@ -109,7 +109,7 @@ func TestDeadlineReminderWorker_ProcessReminders_Success(t *testing.T) {
 		t.Fatalf("expected 2 email messages dispatched, got %d", len(mailerMock.sentMessages))
 	}
 
-	// Verificar primer correo (estudiante con workspace iniciado)
+	// Verificar primer correo (estudiante con environment iniciado)
 	msg1 := mailerMock.sentMessages[0]
 	if msg1.To != "lucas.silva@uab.edu.bo" {
 		t.Errorf("expected recipient lucas.silva@uab.edu.bo, got %s", msg1.To)
@@ -124,7 +124,7 @@ func TestDeadlineReminderWorker_ProcessReminders_Success(t *testing.T) {
 		t.Errorf("msg1 leaked SOLV internal brand")
 	}
 
-	// Verificar segundo correo (estudiante sin workspace iniciado)
+	// Verificar segundo correo (estudiante sin environment iniciado)
 	msg2 := mailerMock.sentMessages[1]
 	if msg2.To != "maria.rodriguez@uab.edu.bo" {
 		t.Errorf("expected recipient maria.rodriguez@uab.edu.bo, got %s", msg2.To)

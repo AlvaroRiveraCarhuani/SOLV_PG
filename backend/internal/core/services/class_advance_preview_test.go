@@ -10,23 +10,23 @@ import (
 	"solv-backend/internal/core/services"
 )
 
-func newPreviewService(t *testing.T, delivery *domain.AdvanceDelivery, snapshots []domain.WorkspaceVolumeFile, existing []domain.WorkspaceVolumeFile) (*services.ClassAdvanceService, *fakeAdvanceStore, *fakeAdvanceVolumes) {
+func newPreviewService(t *testing.T, delivery *domain.AdvanceDelivery, snapshots []domain.PracticeEnvironmentVolumeFile, existing []domain.PracticeEnvironmentVolumeFile) (*services.ClassAdvanceService, *fakeAdvanceStore, *fakeAdvanceVolumes) {
 	t.Helper()
 	store := &fakeAdvanceStore{delivery: delivery}
 	volumes := &fakeAdvanceVolumes{existing: existing}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: snapshots}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: snapshots}, newRunningPracticeEnvironment(t), volumes)
 	return svc, store, volumes
 }
 
 func TestPreviewAdvance_SeparatesAddedFromOverwrittenWithoutWriting(t *testing.T) {
 	svc, _, volumes := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil),
-		[]domain.WorkspaceVolumeFile{
+		[]domain.PracticeEnvironmentVolumeFile{
 			{Path: "utils.py", Content: []byte("nuevo\n")},
 			{Path: "main.py", Content: []byte("nuevo\n")},
 		},
-		[]domain.WorkspaceVolumeFile{
+		[]domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("del alumno\n")},
 		},
 	)
@@ -55,8 +55,8 @@ func TestPreviewAdvance_ReadsTheSnapshotOfTheAdvance(t *testing.T) {
 	// aunque el alumno lo tenga.
 	svc, _, _ := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
-		[]domain.WorkspaceVolumeFile{{Path: "apuntes.txt", Content: []byte("mío\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "apuntes.txt", Content: []byte("mío\n")}},
 	)
 
 	preview, err := svc.Preview(context.Background(), advanceTenantID, advanceStudentID, advanceID)
@@ -74,7 +74,7 @@ func TestPreviewAdvance_ReadsTheSnapshotOfTheAdvance(t *testing.T) {
 func TestPreviewAdvance_RejectsExam(t *testing.T) {
 	svc, _, _ := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientPending, "exam", domain.ClassSessionStatusOpen, nil),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -87,7 +87,7 @@ func TestPreviewAdvance_RejectsExam(t *testing.T) {
 func TestPreviewAdvance_RejectsDecidedAdvance(t *testing.T) {
 	svc, _, _ := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientApplied, "class", domain.ClassSessionStatusOpen, nil),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -101,7 +101,7 @@ func TestPreviewAdvance_ClosesAnExpiredNotice(t *testing.T) {
 	expired := time.Now().Add(-time.Minute)
 	svc, store, _ := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusClosed, &expired),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -118,7 +118,7 @@ func TestPreviewAdvance_AllowsTheGraceWindowOfAClosedAula(t *testing.T) {
 	grace := time.Now().Add(10 * time.Minute)
 	svc, _, _ := newPreviewService(t,
 		newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusClosed, &grace),
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("nuevo\n")}},
 		nil,
 	)
 
@@ -167,30 +167,30 @@ func TestPendingAdvances_KeepsNoticesInsideTheWindow(t *testing.T) {
 	}
 }
 
-// El avance con práctica se lee contra el volumen de esa práctica: desde
-// ADR-059 el alumno abre su laboratorio por ejercicio y el entorno por materia
-// ya no es el que tiene su código.
-func TestPreviewAdvance_PrefersTheStudentPracticeWorkspace(t *testing.T) {
+// El avance se lee contra el volumen de su práctica: el alumno abre su
+// laboratorio por ejercicio (ADR-059) y todo avance pertenece a la práctica de
+// la sesión.
+func TestPreviewAdvance_PrefersTheStudentPracticePracticeEnvironment(t *testing.T) {
 	delivery := newAdvanceDelivery(domain.AdvanceRecipientPending, "class", domain.ClassSessionStatusOpen, nil)
 	delivery.ExerciseID = "11111111-1111-1111-1111-111111111111"
 
-	repo := newPracticeWorkspaceRepo()
-	practice := &domain.WorkspaceInstance{
+	repo := newPracticePracticeEnvironmentRepo()
+	practice := &domain.PracticeEnvironment{
 		ID:         "66666666-6666-6666-6666-666666666667",
 		StudentID:  advanceStudentID,
 		SubjectID:  advanceSubjectID,
 		ExerciseID: &delivery.ExerciseID,
-		Status:     domain.WorkspaceStatusRunning,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}
 	if err := repo.Create(context.Background(), practice); err != nil {
 		t.Fatalf("no se pudo preparar el entorno de la práctica: %v", err)
 	}
 
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("del alumno\n")},
 	}}
 	svc := services.NewClassAdvanceService(&fakeAdvanceStore{delivery: delivery}, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
 		}}, repo, volumes)
 

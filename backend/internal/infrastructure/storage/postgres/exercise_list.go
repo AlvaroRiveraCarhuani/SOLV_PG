@@ -2,11 +2,21 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	"solv-backend/internal/core/domain"
 )
 
+// dueAssignmentsLimit acota la lista de entregas por vencer. El inicio del alumno
+// muestra unas pocas y el resto vive en la materia; sin tope la consulta crecía
+// con todo el historial futuro de la carrera.
+const dueAssignmentsLimit = 100
+
 func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.DueAssignment, error) {
+	// Una entrega pendiente es una práctica publicada, con plazo, de una materia
+	// vigente, que el alumno todavía no entregó. Antes la consulta no filtraba
+	// nada de eso: contaba borradores, prácticas ya entregadas y materias
+	// archivadas, y el inicio las anunciaba como "entregas pendientes".
 	query := `
 		SELECT 
 			e.id AS exercise_id,
@@ -21,13 +31,22 @@ func (r *PostgresExerciseRepository) ListDueByStudent(ctx context.Context, tenan
 		JOIN subjects s ON s.id = e.subject_id AND s.tenant_id = e.tenant_id
 		JOIN enrollments en ON en.subject_id = s.id AND en.student_id = $2 AND en.tenant_id = $1
 		WHERE e.tenant_id = $1
-		  AND (e.due_date IS NULL OR e.due_date > NOW())
-		ORDER BY e.due_date ASC NULLS LAST, e.created_at DESC
+		  AND e.status = 'published'
+		  AND s.is_archived = FALSE
+		  AND e.due_date > NOW()
+		  AND NOT EXISTS (
+		      SELECT 1 FROM submissions sub
+		      WHERE sub.tenant_id = e.tenant_id
+		        AND sub.exercise_id = e.id
+		        AND sub.student_id = $2
+		  )
+		ORDER BY e.due_date ASC
+		LIMIT $3
 	`
 	var assignments []*domain.DueAssignment
-	err := r.db.SelectContext(ctx, &assignments, query, tenantID, studentID)
+	err := r.db.SelectContext(ctx, &assignments, query, tenantID, studentID, dueAssignmentsLimit)
 	if err != nil {
-		return []*domain.DueAssignment{}, nil
+		return nil, fmt.Errorf("failed to list due assignments: %w", err)
 	}
 	if assignments == nil {
 		assignments = []*domain.DueAssignment{}

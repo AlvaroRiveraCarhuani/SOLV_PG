@@ -62,7 +62,7 @@ func (s *TeacherService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {
 	s.keystrokeRepo = kr
 }
 
-func (s *TeacherService) SetWorkspaceOrchestrator(orch domain.WorkspaceOrchestrator) {
+func (s *TeacherService) SetPracticeEnvironmentOrchestrator(orch domain.PracticeEnvironmentOrchestrator) {
 	s.mirrorService = NewTerminalMirrorService(orch)
 }
 
@@ -196,17 +196,68 @@ func (s *TeacherService) GetTeacherExerciseBank(ctx context.Context, tenantID, t
 	return items, nil
 }
 
-func (s *TeacherService) GetLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+// DuplicateExercise copia un laboratorio del docente a otra materia suya. La
+// copia nace en borrador, sin entregas ni marca de validación del original. La
+// persistencia pasa por EvaluationService.CreateExercise para reusar validaciones
+// y casos de prueba.
+func (s *TeacherService) DuplicateExercise(ctx context.Context, tenantID, teacherID, exerciseID, targetSubjectID string) (*domain.Exercise, error) {
+	if tenantID == "" {
+		return nil, domain.ErrInvalidTenant
+	}
+	if exerciseID == "" || targetSubjectID == "" {
+		return nil, domain.ErrNotFound
+	}
+	if s.evalService == nil {
+		return nil, fmt.Errorf("el servicio de evaluación no está configurado")
+	}
+
+	source, err := s.evalService.GetExerciseByIDAndTenant(ctx, exerciseID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	if source == nil || source.SubjectID == nil {
+		return nil, domain.ErrNotFound
+	}
+
+	// Propiedad: GetCourseLabsStats devuelve ErrNotFound si la materia no es del docente.
+	if _, err := s.repo.GetCourseLabsStats(ctx, tenantID, teacherID, *source.SubjectID); err != nil {
+		return nil, err
+	}
+	if _, err := s.repo.GetCourseLabsStats(ctx, tenantID, teacherID, targetSubjectID); err != nil {
+		return nil, err
+	}
+
+	copied := *source
+	copied.ID = uuid.NewString()
+	copied.SubjectID = &targetSubjectID
+	copied.Status = "draft"
+	copied.Stale = false
+	copied.LastValidDryRunAt = nil
+	copied.TenantID = tenantID
+	copied.Tags = append(copied.Tags[:0:0], source.Tags...)
+	if source.Config.Algorithm != nil {
+		algo := *source.Config.Algorithm
+		algo.TestCases = append([]domain.TestCase(nil), source.Config.Algorithm.TestCases...)
+		copied.Config.Algorithm = &algo
+	}
+
+	if err := s.evalService.CreateExercise(ctx, &copied); err != nil {
+		return nil, err
+	}
+	return &copied, nil
+}
+
+func (s *TeacherService) GetLivePracticeEnvironmentSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	if tenantID == "" {
 		return nil, domain.ErrInvalidTenant
 	}
 
-	sessions, err := s.repo.ListLiveWorkspaceSessions(ctx, tenantID, teacherID)
+	sessions, err := s.repo.ListLivePracticeEnvironmentSessions(ctx, tenantID, teacherID)
 	if err != nil {
 		return nil, fmt.Errorf("error al obtener sesiones en vivo: %w", err)
 	}
 	if sessions == nil {
-		sessions = make([]*domain.LiveWorkspaceSession, 0)
+		sessions = make([]*domain.LivePracticeEnvironmentSession, 0)
 	}
 	return sessions, nil
 }

@@ -35,9 +35,9 @@ func TestExamFreezeRepository(t *testing.T) {
 	studentClosedID := uuid.NewString()
 	studentOpenID := uuid.NewString()
 	studentClassID := uuid.NewString()
-	workspaceClosedID := uuid.NewString()
-	workspaceOpenID := uuid.NewString()
-	workspaceClassID := uuid.NewString()
+	environmentClosedID := uuid.NewString()
+	environmentOpenID := uuid.NewString()
+	environmentClassID := uuid.NewString()
 
 	var templateID string
 	if err := conn.GetContext(ctx, &templateID,
@@ -55,7 +55,7 @@ func TestExamFreezeRepository(t *testing.T) {
 	t.Cleanup(func() {
 		cleanup := context.Background()
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM class_sessions WHERE id IN ($1, $2, $3)`, closedExamID, openExamID, closedClassID)
-		_, _ = conn.ExecContext(cleanup, `DELETE FROM workspaces WHERE id IN ($1, $2, $3)`, workspaceClosedID, workspaceOpenID, workspaceClassID)
+		_, _ = conn.ExecContext(cleanup, `DELETE FROM environments WHERE id IN ($1, $2, $3)`, environmentClosedID, environmentOpenID, environmentClassID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM exercises WHERE id IN ($1, $2)`, examExerciseID, classExerciseID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM subjects WHERE id = $1`, subjectID)
 		_, _ = conn.ExecContext(cleanup, `DELETE FROM users WHERE id IN ($1, $2, $3, $4)`, teacherID, studentClosedID, studentOpenID, studentClassID)
@@ -99,14 +99,14 @@ func TestExamFreezeRepository(t *testing.T) {
 		mustExec(`INSERT INTO class_session_participants (session_id, student_id, tenant_id)
 			VALUES ($1, $2, $3)`, participant.sessionID, participant.studentID, tenantID)
 	}
-	for _, workspace := range []struct{ id, studentID string }{
-		{workspaceClosedID, studentClosedID},
-		{workspaceOpenID, studentOpenID},
-		{workspaceClassID, studentClassID},
+	for _, environment := range []struct{ id, studentID string }{
+		{environmentClosedID, studentClosedID},
+		{environmentOpenID, studentOpenID},
+		{environmentClassID, studentClassID},
 	} {
-		mustExec(`INSERT INTO workspaces (id, student_id, subject_id, tenant_id, status, type, access_url)
+		mustExec(`INSERT INTO environments (id, student_id, subject_id, tenant_id, status, type, access_url)
 			VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
-			workspace.id, workspace.studentID, subjectID, tenantID)
+			environment.id, environment.studentID, subjectID, tenantID)
 	}
 
 	repo := postgres.NewPostgresExamFreezeRepository(conn)
@@ -126,11 +126,11 @@ func TestExamFreezeRepository(t *testing.T) {
 		t.Fatal("una práctica de clase no debía tratarse como examen")
 	}
 
-	participants, err := repo.ParticipantWorkspaces(ctx, tenantID, closedExamID)
+	participants, err := repo.ParticipantPracticeEnvironments(ctx, tenantID, closedExamID)
 	if err != nil {
-		t.Fatalf("ParticipantWorkspaces falló: %v", err)
+		t.Fatalf("ParticipantPracticeEnvironments falló: %v", err)
 	}
-	if len(participants) != 1 || participants[0].WorkspaceID != workspaceClosedID || participants[0].StudentID != studentClosedID {
+	if len(participants) != 1 || participants[0].EnvironmentID != environmentClosedID || participants[0].StudentID != studentClosedID {
 		t.Fatalf("los participantes del examen no eran los esperados: %+v", participants)
 	}
 
@@ -156,15 +156,15 @@ func TestExamFreezeRepository(t *testing.T) {
 		t.Fatalf("un aula de clase no debía ser candidato: %+v", candidates)
 	}
 
-	if err := repo.SetWorkspaceFrozen(ctx, tenantID, workspaceClosedID, true, time.Now()); err != nil {
-		t.Fatalf("SetWorkspaceFrozen falló: %v", err)
+	if err := repo.SetPracticeEnvironmentFrozen(ctx, tenantID, environmentClosedID, true, time.Now()); err != nil {
+		t.Fatalf("SetPracticeEnvironmentFrozen falló: %v", err)
 	}
 	var frozen struct {
 		Status   string     `db:"status"`
 		FrozenAt *time.Time `db:"frozen_at"`
 	}
 	if err := conn.GetContext(ctx, &frozen,
-		`SELECT status, frozen_at FROM workspaces WHERE id = $1`, workspaceClosedID); err != nil {
+		`SELECT status, frozen_at FROM environments WHERE id = $1`, environmentClosedID); err != nil {
 		t.Fatalf("no se pudo leer el laboratorio congelado: %v", err)
 	}
 	if frozen.Status != "frozen" || frozen.FrozenAt == nil {
@@ -197,11 +197,11 @@ func TestExamFreezeRepository(t *testing.T) {
 		t.Fatalf("un aula de clase debía traer purpose=class: %+v", classSession)
 	}
 
-	if err := repo.SetWorkspaceFrozen(ctx, tenantID, workspaceClosedID, false, time.Now()); err != nil {
-		t.Fatalf("SetWorkspaceFrozen(false) falló: %v", err)
+	if err := repo.SetPracticeEnvironmentFrozen(ctx, tenantID, environmentClosedID, false, time.Now()); err != nil {
+		t.Fatalf("SetPracticeEnvironmentFrozen(false) falló: %v", err)
 	}
 	if err := conn.GetContext(ctx, &frozen,
-		`SELECT status, frozen_at FROM workspaces WHERE id = $1`, workspaceClosedID); err != nil {
+		`SELECT status, frozen_at FROM environments WHERE id = $1`, environmentClosedID); err != nil {
 		t.Fatalf("no se pudo releer el laboratorio: %v", err)
 	}
 	if frozen.Status != "running" || frozen.FrozenAt != nil {

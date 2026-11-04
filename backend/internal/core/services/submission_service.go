@@ -58,7 +58,7 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 type CreateSubmissionDTO struct {
 	ExerciseID         string          `json:"exercise_id"`
 	StudentID          string          `json:"student_id"`
-	WorkspaceID        *string         `json:"workspace_id,omitempty"`
+	EnvironmentID        *string         `json:"environment_id,omitempty"`
 	Code               string          `json:"code"`
 	Verdict            string          `json:"verdict"`
 	ASTResult          json.RawMessage `json:"ast_result"`
@@ -80,7 +80,7 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 		TenantID:           tenantID,
 		ExerciseID:         dto.ExerciseID,
 		StudentID:          dto.StudentID,
-		WorkspaceID:        dto.WorkspaceID,
+		EnvironmentID:        dto.EnvironmentID,
 		Code:               dto.Code,
 		Verdict:            dto.Verdict,
 		ReviewStatus:       string(domain.ReviewNotRequired),

@@ -11,7 +11,7 @@ import (
 	"solv-backend/internal/delivery/http/middleware"
 )
 
-func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Request) {
+func (h *AdminHandler) GetCoursePracticeEnvironments(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
 		http.Error(w, `{"error":"Tenant ID missing in context"}`, http.StatusUnauthorized)
@@ -27,9 +27,9 @@ func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Reques
 	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("search")))
 	status := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("status")))
 
-	allWorkspaces, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	allPracticeEnvironments, err := h.environmentRepo.GetAllRunningPracticeEnvironments(r.Context())
 	if err != nil {
-		allWorkspaces = []*domain.WorkspaceInstance{}
+		allPracticeEnvironments = []*domain.PracticeEnvironment{}
 	}
 
 	sub, _ := h.subjectRepo.GetByID(r.Context(), tenantID, courseID)
@@ -43,14 +43,14 @@ func (h *AdminHandler) GetCourseWorkspaces(w http.ResponseWriter, r *http.Reques
 	// Identidades reales primero: el panel jamás expone UUIDs de estudiantes
 	// ni correos sintéticos construidos con el UUID.
 	studentIDs := make([]string, 0)
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID && ws.SubjectID == courseID {
 			studentIDs = append(studentIDs, ws.StudentID)
 		}
 	}
 	identities := h.studentIdentities(r.Context(), tenantID, studentIDs)
 
-	for _, ws := range allWorkspaces {
+	for _, ws := range allPracticeEnvironments {
 		if ws.TenantID == tenantID && ws.SubjectID == courseID {
 			wsStatus := ws.Status
 			if wsStatus != "running" && wsStatus != "hibernated" && wsStatus != "failed" && wsStatus != "oom_killed" {
@@ -157,7 +157,7 @@ func (h *AdminHandler) studentIdentities(ctx context.Context, tenantID string, s
 // containerUsageMB lee el consumo real del contenedor desde Docker. Sin
 // métricas disponibles devuelve (0, false) para que la UI muestre
 // «Sin métricas» en vez de un valor inventado.
-func (h *AdminHandler) containerUsageMB(ctx context.Context, ws *domain.WorkspaceInstance) (int64, bool) {
+func (h *AdminHandler) containerUsageMB(ctx context.Context, ws *domain.PracticeEnvironment) (int64, bool) {
 	if h.orchestrator == nil || ws.ContainerID == nil || *ws.ContainerID == "" {
 		return 0, false
 	}
@@ -197,9 +197,9 @@ func (h *AdminHandler) GetCoursesLoad(w http.ResponseWriter, r *http.Request) {
 		subjects = []*domain.Subject{}
 	}
 
-	allWorkspaces, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	allPracticeEnvironments, err := h.environmentRepo.GetAllRunningPracticeEnvironments(r.Context())
 	if err != nil {
-		allWorkspaces = []*domain.WorkspaceInstance{}
+		allPracticeEnvironments = []*domain.PracticeEnvironment{}
 	}
 
 	res := make([]CourseLoadDTO, 0, len(subjects))
@@ -208,7 +208,7 @@ func (h *AdminHandler) GetCoursesLoad(w http.ResponseWriter, r *http.Request) {
 		hibernatedCount := 0
 		var ramTotalMB int64 = 0
 
-		for _, ws := range allWorkspaces {
+		for _, ws := range allPracticeEnvironments {
 			if ws.SubjectID == sub.ID {
 				switch ws.Status {
 				case "running":

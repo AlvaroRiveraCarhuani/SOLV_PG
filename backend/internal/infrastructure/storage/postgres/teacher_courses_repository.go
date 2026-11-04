@@ -83,7 +83,7 @@ func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenan
 		// Active now (heartbeat < 2 min)
 		_ = r.db.GetContext(ctx, &summary.ActiveNow, `
 			SELECT COUNT(DISTINCT student_id)
-			FROM workspaces
+			FROM environments
 			WHERE subject_id = $1 AND tenant_id = $2
 			  AND last_heartbeat_at >= NOW() - INTERVAL '2 minutes'
 		`, s.ID, tenantID)
@@ -112,7 +112,7 @@ func (r *PostgresTeacherRepository) GetCoursesSummary(ctx context.Context, tenan
 			        )
 			  )
 			  AND NOT EXISTS (
-			      SELECT 1 FROM workspaces w
+			      SELECT 1 FROM environments w
 			      WHERE w.subject_id = $1 AND w.student_id = e.student_id AND w.tenant_id = $2
 			        AND w.last_heartbeat_at >= NOW() - INTERVAL '24 hours'
 			  )
@@ -324,7 +324,7 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 				      WHERE sub.exercise_id = $3 AND sub.student_id = e.student_id AND sub.tenant_id = $2
 				  )
 				  AND NOT EXISTS (
-				      SELECT 1 FROM workspaces w
+				      SELECT 1 FROM environments w
 				      WHERE w.subject_id = $1 AND w.student_id = e.student_id AND w.tenant_id = $2
 				        AND w.last_heartbeat_at >= NOW() - INTERVAL '24 hours'
 				  )

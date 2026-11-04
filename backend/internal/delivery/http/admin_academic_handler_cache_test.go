@@ -74,10 +74,10 @@ func (m *mockCacheGovRepo) DuplicateTemplate(ctx context.Context, tenantID, temp
 func (m *mockCacheGovRepo) UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error {
 	return nil
 }
-func (m *mockCacheGovRepo) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockCacheGovRepo) TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
-func (m *mockCacheGovRepo) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockCacheGovRepo) HibernateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
 func (m *mockCacheGovRepo) ListTemplateCategories(ctx context.Context, tenantID string) ([]*domain.TemplateCategory, error) {
@@ -140,7 +140,7 @@ func (m *mockCacheOrch) EnsureVolumeExists(ctx context.Context, volumeName strin
 func (m *mockCacheOrch) EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error {
 	return nil
 }
-func (m *mockCacheOrch) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
+func (m *mockCacheOrch) StartPracticeEnvironmentContainer(ctx context.Context, config domain.PracticeEnvironmentContainerConfig) (string, error) {
 	return "", nil
 }
 func (m *mockCacheOrch) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {

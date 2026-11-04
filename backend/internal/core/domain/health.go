@@ -12,9 +12,9 @@ const (
 // nombre porque las alertas y el frontend dependen de la cadena.
 const (
 	HealthReasonDockerUnreachable     = "docker_unreachable"
-	HealthReasonOrphanedWorkspaces    = "orphaned_workspaces"
-	HealthReasonOOMKilledWorkspaces   = "oom_killed_workspaces"
-	HealthReasonUnknownWorkspaces     = "unknown_workspaces"
+	HealthReasonOrphanedPracticeEnvironments    = "orphaned_environments"
+	HealthReasonOOMKilledPracticeEnvironments   = "oom_killed_environments"
+	HealthReasonUnknownPracticeEnvironments     = "unknown_environments"
 	HealthReasonRAMAboveSafetyCeiling = "ram_above_safety_ceiling"
 )
 
@@ -51,13 +51,13 @@ func EvaluateHealth(in HealthEvaluationInput) (string, []string) {
 		reasons = append(reasons, HealthReasonDockerUnreachable)
 	}
 	if in.OrphanedLabs > 0 {
-		reasons = append(reasons, HealthReasonOrphanedWorkspaces)
+		reasons = append(reasons, HealthReasonOrphanedPracticeEnvironments)
 	}
 	if in.OOMKilledLabs > 0 {
-		reasons = append(reasons, HealthReasonOOMKilledWorkspaces)
+		reasons = append(reasons, HealthReasonOOMKilledPracticeEnvironments)
 	}
 	if in.UnknownLabs > 0 {
-		reasons = append(reasons, HealthReasonUnknownWorkspaces)
+		reasons = append(reasons, HealthReasonUnknownPracticeEnvironments)
 	}
 	if in.RAMPercent > float64(ceiling) {
 		reasons = append(reasons, HealthReasonRAMAboveSafetyCeiling)
@@ -68,7 +68,7 @@ func EvaluateHealth(in HealthEvaluationInput) (string, []string) {
 	}
 
 	for _, r := range reasons {
-		if r == HealthReasonDockerUnreachable || r == HealthReasonOrphanedWorkspaces {
+		if r == HealthReasonDockerUnreachable || r == HealthReasonOrphanedPracticeEnvironments {
 			return HealthStatusCritical, reasons
 		}
 	}

@@ -17,12 +17,12 @@ var (
 
 type TemplateCacheService struct {
 	govRepo      domain.AdminGovernanceRepository
-	docker       domain.WorkspaceOrchestrator
+	docker       domain.PracticeEnvironmentOrchestrator
 	imageBuilder domain.ImageBuilderPort
 	warmMu       sync.Mutex
 }
 
-func NewTemplateCacheService(govRepo domain.AdminGovernanceRepository, docker domain.WorkspaceOrchestrator) *TemplateCacheService {
+func NewTemplateCacheService(govRepo domain.AdminGovernanceRepository, docker domain.PracticeEnvironmentOrchestrator) *TemplateCacheService {
 	return &TemplateCacheService{
 		govRepo: govRepo,
 		docker:  docker,

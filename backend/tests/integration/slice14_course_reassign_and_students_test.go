@@ -163,7 +163,7 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 			ON CONFLICT DO NOTHING;
 		`, sub2, tenantID, fmt.Sprintf("SIS-%s", sub2[:6]))
 
-		// Crear Estudiante 1: Matriculado en 2 materias, 1 workspace 'running', 0 strikes
+		// Crear Estudiante 1: Matriculado en 2 materias, 1 environment 'running', 0 strikes
 		stu1ID := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
 			INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
@@ -179,12 +179,12 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		ws1ID := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
-			INSERT INTO workspaces (id, student_id, subject_id, type, status, access_url, memory_limit_mb, oom_strike_count, tenant_id)
+			INSERT INTO environments (id, student_id, subject_id, type, status, access_url, memory_limit_mb, oom_strike_count, tenant_id)
 			VALUES ($1, $2, $3, 'IDE_PERSISTENTE', 'running', 'http://ws1.local', 256, 0, $4)
 			ON CONFLICT (id) DO NOTHING;
 		`, ws1ID, stu1ID, subjectID, tenantID)
 
-		// Crear Estudiante 2: 1 materia, 0 workspaces running, 2 strikes OOM
+		// Crear Estudiante 2: 1 materia, 0 environments running, 2 strikes OOM
 		stu2ID := uuid.NewString()
 		uniqueLastName := fmt.Sprintf("GomezUniq_%s", stu2ID[:6])
 		_, _ = db.GetDB().Exec(`
@@ -201,7 +201,7 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		ws2ID := uuid.NewString()
 		_, _ = db.GetDB().Exec(`
-			INSERT INTO workspaces (id, student_id, subject_id, type, status, access_url, memory_limit_mb, oom_strike_count, last_oom_killed_at, tenant_id)
+			INSERT INTO environments (id, student_id, subject_id, type, status, access_url, memory_limit_mb, oom_strike_count, last_oom_killed_at, tenant_id)
 			VALUES ($1, $2, $3, 'IDE_PERSISTENTE', 'hibernated', 'http://ws2.local', 256, 2, NOW() - INTERVAL '1 hour', $4)
 			ON CONFLICT (id) DO NOTHING;
 		`, ws2ID, stu2ID, subjectID, tenantID)
@@ -242,8 +242,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		if int(juanData["enrolled_courses_count"].(float64)) != 2 {
 			t.Errorf("Juan expected 2 enrolled courses, got %v", juanData["enrolled_courses_count"])
 		}
-		if int(juanData["active_workspaces_count"].(float64)) != 1 {
-			t.Errorf("Juan expected 1 active workspace, got %v", juanData["active_workspaces_count"])
+		if int(juanData["active_environments_count"].(float64)) != 1 {
+			t.Errorf("Juan expected 1 active environment, got %v", juanData["active_environments_count"])
 		}
 		if int(juanData["oom_strike_count"].(float64)) != 0 {
 			t.Errorf("Juan expected 0 oom strikes, got %v", juanData["oom_strike_count"])
@@ -322,14 +322,14 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		var resetBody map[string]interface{}
 		_ = json.NewDecoder(respReset.Body).Decode(&resetBody)
 		resetData := resetBody["data"].(map[string]interface{})
-		if int(resetData["workspaces_reset_count"].(float64)) != 1 {
-			t.Errorf("Expected 1 workspace reset, got %v", resetData["workspaces_reset_count"])
+		if int(resetData["environments_reset_count"].(float64)) != 1 {
+			t.Errorf("Expected 1 environment reset, got %v", resetData["environments_reset_count"])
 		}
 
 		// Verificar en BD que los strikes de Maria Gómez volvieron a 0 y last_oom_killed_at es NULL
 		var strikesAfter int
 		var lastOOMAfter *time.Time
-		_ = db.GetDB().QueryRow("SELECT oom_strike_count, last_oom_killed_at FROM workspaces WHERE id = $1", ws2ID).Scan(&strikesAfter, &lastOOMAfter)
+		_ = db.GetDB().QueryRow("SELECT oom_strike_count, last_oom_killed_at FROM environments WHERE id = $1", ws2ID).Scan(&strikesAfter, &lastOOMAfter)
 		if strikesAfter != 0 {
 			t.Errorf("Expected oom_strike_count = 0 after reset, got %d", strikesAfter)
 		}

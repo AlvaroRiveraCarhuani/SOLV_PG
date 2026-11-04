@@ -15,12 +15,14 @@ const maxAdvanceSourceBytes = 8 << 20
 
 // EmitAdvanceInput agrupa una emisión vista desde el aula: quién emite, en qué
 // sesión y a quién.
+// EmitAdvanceInput agrupa una emisión vista desde el aula. No incluye la
+// práctica: sale de la sesión, que es la única fuente de verdad, para que el
+// snapshot y el avance registrado no puedan hablar de prácticas distintas.
 type EmitAdvanceInput struct {
 	TenantID   string
 	TeacherID  string
 	Role       string
 	SessionID  string
-	ExerciseID string
 	Scope      string
 	StudentIDs []string
 }
@@ -35,10 +37,7 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 	if _, err := uuid.Parse(strings.TrimSpace(in.SessionID)); err != nil {
 		return nil, nil, domain.ErrSessionNotFound
 	}
-	if _, err := uuid.Parse(strings.TrimSpace(in.ExerciseID)); err != nil {
-		return nil, nil, domain.ErrInvalidResourceID
-	}
-	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
+	if s.snapshots == nil || s.environments == nil || s.volumes == nil {
 		return nil, nil, ErrAdvanceStorageUnavailable
 	}
 
@@ -53,6 +52,16 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 	}
 	if session.FrozenAt != nil {
 		return nil, nil, domain.ErrAdvanceFrozen
+	}
+
+	// La práctica la fija el aula. El snapshot se lee de ese entorno y el avance
+	// se registra con el mismo identificador.
+	exerciseID := ""
+	if session.ExerciseID != nil {
+		exerciseID = strings.TrimSpace(*session.ExerciseID)
+	}
+	if exerciseID == "" {
+		return nil, nil, domain.ErrAdvancePracticeRequired
 	}
 
 	source, err := s.teacherEnvironment(ctx, in, session)
@@ -73,7 +82,7 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 		TeacherID:      in.TeacherID,
 		Role:           in.Role,
 		SessionID:      in.SessionID,
-		ExerciseID:     in.ExerciseID,
+		ExerciseID:     exerciseID,
 		Scope:          in.Scope,
 		StudentIDs:     in.StudentIDs,
 		SnapshotKey:    key,
@@ -94,13 +103,16 @@ func (s *ClassAdvanceService) Emit(ctx context.Context, in EmitAdvanceInput) (*d
 // falta que ese entorno exista en la materia del aula.
 func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdvanceInput, session *domain.ClassSession) (map[string]string, error) {
 	teacherID := strings.TrimSpace(in.TeacherID)
-	workspace, err := s.teacherWorkspace(ctx, teacherID, session)
-	if err != nil || workspace == nil {
+	environment, err := s.teacherPracticeEnvironment(ctx, teacherID, session)
+	if err != nil {
+		return nil, err
+	}
+	if environment == nil {
 		return nil, domain.ErrAdvanceSourceMissing
 	}
 
-	volumeName := workspace.VolumeName()
-	files, err := s.volumes.SnapshotWorkspaceVolume(ctx, volumeName, maxAdvanceSourceBytes)
+	volumeName := environment.VolumeName()
+	files, err := s.volumes.SnapshotPracticeEnvironmentVolume(ctx, volumeName, maxAdvanceSourceBytes)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", domain.ErrAdvanceSourceMissing, err)
 	}
@@ -115,21 +127,25 @@ func (s *ClassAdvanceService) teacherEnvironment(ctx context.Context, in EmitAdv
 	return source, nil
 }
 
-// teacherWorkspace elige el entorno del docente que corresponde a la clase.
-// Desde ADR-059 el IDE se abre por práctica, así que una sesión con ejercicio
-// se lee de ese entorno y no del de la materia. El entorno por materia solo
-// queda como respaldo para aulas anteriores al entorno por práctica.
-func (s *ClassAdvanceService) teacherWorkspace(ctx context.Context, teacherID string, session *domain.ClassSession) (*domain.WorkspaceInstance, error) {
-	if session.ExerciseID != nil {
-		exerciseID := strings.TrimSpace(*session.ExerciseID)
-		if exerciseID != "" {
-			if repo, ok := s.workspaces.(workspaceExerciseRepository); ok {
-				workspace, err := repo.GetByStudentSubjectExercise(ctx, teacherID, session.SubjectID, exerciseID)
-				if err == nil && workspace != nil {
-					return workspace, nil
-				}
-			}
-		}
+// teacherPracticeEnvironment devuelve el entorno de clase del docente en la práctica de la
+// sesión. No hay respaldo por materia: sin práctica no hay entorno que emitir.
+func (s *ClassAdvanceService) teacherPracticeEnvironment(ctx context.Context, teacherID string, session *domain.ClassSession) (*domain.PracticeEnvironment, error) {
+	if session.ExerciseID == nil {
+		return nil, domain.ErrAdvancePracticeRequired
 	}
-	return s.workspaces.GetByStudentAndSubject(ctx, teacherID, session.SubjectID)
+	exerciseID := strings.TrimSpace(*session.ExerciseID)
+	if exerciseID == "" {
+		return nil, domain.ErrAdvancePracticeRequired
+	}
+	repo, ok := s.environments.(environmentExerciseRepository)
+	if !ok {
+		return nil, ErrAdvanceStorageUnavailable
+	}
+	environment, err := repo.GetByStudentSubjectExercise(ctx, teacherID, session.SubjectID, exerciseID)
+	if err != nil {
+		// Un entorno ausente no es un fallo de almacenamiento: el emisor informa
+		// que no hay código que copiar.
+		return nil, nil
+	}
+	return environment, nil
 }

@@ -70,16 +70,16 @@ func TestHostAdmissionControl15PercentMargin(t *testing.T) {
 		t.Fatalf("Failed to initialize docker client: %v", err)
 	}
 
-	repo := NewMockWorkspaceRepository()
+	repo := NewMockPracticeEnvironmentRepository()
 
 	// Simular host con solo 10% de RAM libre (< 15% umbral de seguridad)
 	depletedHostMonitor := &MockHostMonitor{FreePct: 10.0, AvailableMB: 500}
-	service := services.NewWorkspaceService(repo, dockerClient, depletedHostMonitor)
+	service := services.NewPracticeEnvironmentService(repo, dockerClient, depletedHostMonitor)
 
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()
 
-	_, err = service.StartWorkspace(ctx, studentID, subjectID)
+	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
 	if err == nil {
 		t.Fatalf("Expected ErrHostMemoryExhausted when host RAM < 15%%, got nil error")
 	}
@@ -98,27 +98,27 @@ func TestOOMKilledThreeStrikePenalty(t *testing.T) {
 		t.Fatalf("Failed to initialize docker client: %v", err)
 	}
 
-	repo := NewMockWorkspaceRepository()
+	repo := NewMockPracticeEnvironmentRepository()
 	healthyHostMonitor := &MockHostMonitor{FreePct: 50.0, AvailableMB: 8192}
-	service := services.NewWorkspaceService(repo, dockerClient, healthyHostMonitor)
+	service := services.NewPracticeEnvironmentService(repo, dockerClient, healthyHostMonitor)
 
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()
 
-	// 1. Iniciar workspace
-	ws, err := service.StartWorkspace(ctx, studentID, subjectID)
+	// 1. Iniciar environment
+	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
 	if err != nil {
-		t.Fatalf("StartWorkspace failed: %v", err)
+		t.Fatalf("StartPracticeEnvironment failed: %v", err)
 	}
 
 	// 2. Simular 3 caídas consecutivas por OOMKilled (Strike count = 3)
 	now := time.Now()
 	ws.OOMStrikeCount = 3
 	ws.LastOOMKilledAt = &now
-	ws.Status = domain.WorkspaceStatusOOMKilled
+	ws.Status = domain.PracticeEnvironmentStatusOOMKilled
 
 	// 3. Intentar reiniciar inmediatamente -> Debe ser rechazado por la penalización de 5 minutos
-	_, err = service.StartWorkspace(ctx, studentID, subjectID)
+	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
 	if err == nil {
 		t.Fatalf("Expected ErrOOMKilledCooldownPenalty when 3 strikes reached, got nil error")
 	}
@@ -142,12 +142,12 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 		t.Fatalf("Failed to initialize raw docker SDK client: %v", err)
 	}
 
-	repo := NewMockWorkspaceRepository()
+	repo := NewMockPracticeEnvironmentRepository()
 	healthyHostMonitor := &MockHostMonitor{FreePct: 50.0, AvailableMB: 8192}
-	service := services.NewWorkspaceService(repo, dockerClient, healthyHostMonitor)
+	service := services.NewPracticeEnvironmentService(repo, dockerClient, healthyHostMonitor)
 
 	// Seed the expected 256MB QoS base locally: without an injected policies
-	// service the workspace falls back to domain defaults (512MB).
+	// service the environment falls back to domain defaults (512MB).
 	policiesSvc := services.NewServerPoliciesService(&stubTenantRepo{
 		config: []byte(`{"server_policies":{"ram_limit_mb":256,"inactivity_minutes":15,"max_containers":40}}`),
 	})
@@ -157,9 +157,9 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 	subjectID := uuid.NewString()
 
 	// 1. Arrancar contenedor con 256MB base
-	ws, err := service.StartWorkspace(ctx, studentID, subjectID)
+	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
 	if err != nil {
-		t.Fatalf("StartWorkspace failed: %v", err)
+		t.Fatalf("StartPracticeEnvironment failed: %v", err)
 	}
 
 	if ws.ContainerID != nil {

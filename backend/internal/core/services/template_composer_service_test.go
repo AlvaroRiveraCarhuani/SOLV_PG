@@ -247,7 +247,7 @@ func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode(t *testing.T) {
 	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
 		Mode:             "visual",
 		RuntimeID:        "rt-python",
-		WorkspaceFolders: []string{"src"},
+		PracticeEnvironmentFolders: []string{"src"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -269,7 +269,7 @@ func TestComposeSingleRuntimeUsesDirectImage(t *testing.T) {
 	plan, err := composer.Compose(context.Background(), "default", "JUEZ_EFIMERO", domain.StackConfig{
 		Mode:             "visual",
 		RuntimeID:        "rt-python",
-		WorkspaceFolders: []string{"src"},
+		PracticeEnvironmentFolders: []string{"src"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -280,8 +280,8 @@ func TestComposeSingleRuntimeUsesDirectImage(t *testing.T) {
 	if plan.ResolvedImage != "python:3.12-slim-bookworm" {
 		t.Fatalf("expected direct image python:3.12-slim-bookworm, got %s", plan.ResolvedImage)
 	}
-	// JUEZ_EFIMERO descarta workspace folders y scripts de setup del runtime.
-	// (El script de setup se limpia igual que los workspace folders en judge, por lo que
+	// JUEZ_EFIMERO descarta environment folders y scripts de setup del runtime.
+	// (El script de setup se limpia igual que los environment folders en judge, por lo que
 	// plan.SetupScript debe estar vacío aquí.)
 	if plan.SetupScript != "" {
 		t.Fatalf("expected empty setup script in JUEZ_EFIMERO, got %q", plan.SetupScript)
@@ -299,7 +299,7 @@ func TestComposeMultiLayerBuildsDeterministicTag(t *testing.T) {
 		WebPlatformID:    "rt-angular",
 		AddonIDs:         []string{"ad-fastapi"},
 		DatabaseID:       "db-mysql",
-		WorkspaceFolders: []string{"backend", "frontend"},
+		PracticeEnvironmentFolders: []string{"backend", "frontend"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -447,7 +447,7 @@ func TestComposeSingleRuntime_IDEPersistente_InjectsOpenVSCode_WithExistingEdito
 	plan, err := composer.Compose(context.Background(), "default", "IDE_PERSISTENTE", domain.StackConfig{
 		Mode:             "visual",
 		RuntimeID:        "rt-python",
-		WorkspaceFolders: []string{"src"},
+		PracticeEnvironmentFolders: []string{"src"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -572,7 +572,7 @@ func TestComposeAmbosDualEnvironment(t *testing.T) {
 		t.Fatalf("expected default entrypoint 'python3 solution.py', got %q", plan.DefaultEntrypoint)
 	}
 	if !strings.Contains(plan.SetupScript, "PYTHONUNBUFFERED") {
-		t.Fatalf("expected dual template to preserve setup script for IDE workspace, got %q", plan.SetupScript)
+		t.Fatalf("expected dual template to preserve setup script for IDE environment, got %q", plan.SetupScript)
 	}
 }
 

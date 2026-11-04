@@ -15,14 +15,14 @@ import (
 )
 
 type MetricsHandler struct {
-	workspaceRepo   domain.WorkspaceRepository
+	environmentRepo   domain.PracticeEnvironmentRepository
 	hostMonitor     domain.HostMonitor
 	zombieCollector *services.ZombieCollectorWorker
 }
 
-func NewMetricsHandler(workspaceRepo domain.WorkspaceRepository, hostMonitor domain.HostMonitor, zombieCollector *services.ZombieCollectorWorker) *MetricsHandler {
+func NewMetricsHandler(environmentRepo domain.PracticeEnvironmentRepository, hostMonitor domain.HostMonitor, zombieCollector *services.ZombieCollectorWorker) *MetricsHandler {
 	return &MetricsHandler{
-		workspaceRepo:   workspaceRepo,
+		environmentRepo:   environmentRepo,
 		hostMonitor:     hostMonitor,
 		zombieCollector: zombieCollector,
 	}
@@ -31,11 +31,11 @@ func NewMetricsHandler(workspaceRepo domain.WorkspaceRepository, hostMonitor dom
 func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// 1. Obtener workspaces activos
-	activeWorkspaces, err := h.workspaceRepo.GetActiveWorkspaces(ctx)
+	// 1. Obtener environments activos
+	activePracticeEnvironments, err := h.environmentRepo.GetActivePracticeEnvironments(ctx)
 	activeCount := 0
 	if err == nil {
-		activeCount = len(activeWorkspaces)
+		activeCount = len(activePracticeEnvironments)
 	}
 
 	// 2. Obtener métricas del Host
@@ -66,9 +66,9 @@ func (h *MetricsHandler) HandleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 
-	_, _ = fmt.Fprintf(w, "# HELP solv_active_workspaces_total Total number of active running/pending student workspaces\n")
-	_, _ = fmt.Fprintf(w, "# TYPE solv_active_workspaces_total gauge\n")
-	_, _ = fmt.Fprintf(w, "solv_active_workspaces_total %d\n\n", activeCount)
+	_, _ = fmt.Fprintf(w, "# HELP solv_active_environments_total Total number of active running/pending student environments\n")
+	_, _ = fmt.Fprintf(w, "# TYPE solv_active_environments_total gauge\n")
+	_, _ = fmt.Fprintf(w, "solv_active_environments_total %d\n\n", activeCount)
 
 	_, _ = fmt.Fprintf(w, "# HELP solv_host_available_memory_bytes Physical host available RAM in bytes\n")
 	_, _ = fmt.Fprintf(w, "# TYPE solv_host_available_memory_bytes gauge\n")

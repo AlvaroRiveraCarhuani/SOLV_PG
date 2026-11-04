@@ -156,7 +156,7 @@ func PackageFiles(files map[string]string, opts ArchiveOptions, w io.Writer) (in
 // UnpackSnapshot lee el tar.gz emitido y devuelve sus archivos regulares. Las
 // rutas inseguras (absolutas o con ".."), los enlaces y los archivos internos de
 // la plataforma se descartan: al alumno solo viaja el código del ejercicio.
-func UnpackSnapshot(data []byte, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func UnpackSnapshot(data []byte, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	if maxFiles <= 0 {
 		maxFiles = defaultSnapshotMaxFiles
 	}
@@ -167,7 +167,7 @@ func UnpackSnapshot(data []byte, maxFiles int) ([]domain.WorkspaceVolumeFile, er
 	defer func() { _ = gz.Close() }()
 
 	reader := tar.NewReader(gz)
-	files := make([]domain.WorkspaceVolumeFile, 0, 16)
+	files := make([]domain.PracticeEnvironmentVolumeFile, 0, 16)
 	for {
 		header, err := reader.Next()
 		if err == io.EOF {
@@ -190,7 +190,7 @@ func UnpackSnapshot(data []byte, maxFiles int) ([]domain.WorkspaceVolumeFile, er
 		if err != nil {
 			return nil, fmt.Errorf("seaweedfs: leer %q del snapshot: %w", rel, err)
 		}
-		files = append(files, domain.WorkspaceVolumeFile{Path: rel, Content: content})
+		files = append(files, domain.PracticeEnvironmentVolumeFile{Path: rel, Content: content})
 	}
 	return files, nil
 }

@@ -167,7 +167,7 @@ func algorithmExerciseRepo(cases int) *stubExerciseRepo {
 
 func TestEvaluateAlgorithm_TemplateLock(t *testing.T) {
 	// D-EJ-07: Algorithm evaluation executes runner strictly based on language,
-	// ignoring any workspace template.
+	// ignoring any environment template.
 	runner := &scriptRunner{verdicts: []domain.Verdict{domain.VerdictAC}}
 	repo := algorithmExerciseRepo(1)
 	svc := NewEvaluationService(repo, allowAnalyzer{}, nil, runner)

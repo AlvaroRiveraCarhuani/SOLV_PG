@@ -74,10 +74,10 @@ func (m *mockAdminGovRepoForHTTP) DuplicateTemplate(ctx context.Context, tenantI
 func (m *mockAdminGovRepoForHTTP) UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error {
 	return nil
 }
-func (m *mockAdminGovRepoForHTTP) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockAdminGovRepoForHTTP) TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
-func (m *mockAdminGovRepoForHTTP) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockAdminGovRepoForHTTP) HibernateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
 func (m *mockAdminGovRepoForHTTP) ListTemplateCategories(ctx context.Context, tenantID string) ([]*domain.TemplateCategory, error) {

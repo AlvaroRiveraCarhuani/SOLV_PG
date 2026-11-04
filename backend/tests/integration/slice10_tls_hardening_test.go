@@ -42,15 +42,15 @@ func TestTLSAndHardening(t *testing.T) {
 		}
 
 		ctx := context.Background()
-		workspaceConfig := domain.WorkspaceContainerConfig{
+		environmentConfig := domain.PracticeEnvironmentContainerConfig{
 			Image:         domain.OpenVSCodeImage,
-			ContainerName: "solv-test-hardening-workspace",
+			ContainerName: "solv-test-hardening-environment",
 			VolumeName:    "solv_test_vol_hardening",
 			MemoryLimitMB: 256,
 			NetworkName:   "solv_net",
 		}
 
-		containerID, err := dockerClient.StartWorkspaceContainer(ctx, workspaceConfig)
+		containerID, err := dockerClient.StartPracticeEnvironmentContainer(ctx, environmentConfig)
 		if err != nil {
 			t.Skipf("Skipping container inspect test: failed to start test container: %v", err)
 		}
@@ -78,10 +78,10 @@ func TestTLSAndHardening(t *testing.T) {
 		}
 
 		if inspect.Config.User != "1000:1000" {
-			t.Errorf("Workspace container Config.User expected '1000:1000', got '%s'", inspect.Config.User)
+			t.Errorf("PracticeEnvironment container Config.User expected '1000:1000', got '%s'", inspect.Config.User)
 		}
 
-		t.Logf("PASS: Workspace container hardening verified -> SecurityOpt: %v | User: %s",
+		t.Logf("PASS: PracticeEnvironment container hardening verified -> SecurityOpt: %v | User: %s",
 			inspect.HostConfig.SecurityOpt, inspect.Config.User)
 	})
 

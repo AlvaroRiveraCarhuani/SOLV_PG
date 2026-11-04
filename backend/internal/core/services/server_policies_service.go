@@ -13,7 +13,7 @@ const serverPoliciesConfigKey = "server_policies"
 
 // ServerPoliciesService gestiona las políticas QoS del servidor persistidas en
 // tenants.config. Es la fuente de verdad del worker QoS (que las recarga en
-// cada ciclo) y del provisionamiento de workspaces nuevos (RAM).
+// cada ciclo) y del provisionamiento de environments nuevos (RAM).
 type ServerPoliciesService struct {
 	tenantRepo domain.TenantRepository
 }

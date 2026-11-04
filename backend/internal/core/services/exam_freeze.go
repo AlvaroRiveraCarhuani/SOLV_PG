@@ -31,11 +31,11 @@ func (r FreezeReport) empty() bool {
 	return r.Frozen == 0 && r.Skipped == 0 && r.Failed == 0
 }
 
-// WorkspaceMountSetter es la capacidad del servicio de entornos que el
+// PracticeEnvironmentMountSetter es la capacidad del servicio de entornos que el
 // congelamiento necesita: reconstruir el contenedor con el volumen en :ro o
 // devolverlo a :rw.
-type WorkspaceMountSetter interface {
-	SetWorkspaceMount(ctx context.Context, instance *domain.WorkspaceInstance, readOnly bool) error
+type PracticeEnvironmentMountSetter interface {
+	SetPracticeEnvironmentMount(ctx context.Context, instance *domain.PracticeEnvironment, readOnly bool) error
 }
 
 // ExamSessionReader es la lectura del aula que el congelamiento necesita.
@@ -43,15 +43,15 @@ type ExamSessionReader interface {
 	GetSession(ctx context.Context, tenantID, teacherID, sessionID string) (*domain.ClassSession, error)
 }
 
-// ExamWorkspaceReader resuelve el laboratorio por identificador.
-type ExamWorkspaceReader interface {
-	GetByID(ctx context.Context, id string) (*domain.WorkspaceInstance, error)
+// ExamPracticeEnvironmentReader resuelve el laboratorio por identificador.
+type ExamPracticeEnvironmentReader interface {
+	GetByID(ctx context.Context, id string) (*domain.PracticeEnvironment, error)
 }
 
-// ExamWorkspaceFreezer es la capacidad que la entrega anticipada necesita:
+// ExamPracticeEnvironmentFreezer es la capacidad que la entrega anticipada necesita:
 // cerrar un solo volumen sin tocar el resto de la clase.
-type ExamWorkspaceFreezer interface {
-	FreezeWorkspace(ctx context.Context, tenantID, actorID, workspaceID string) error
+type ExamPracticeEnvironmentFreezer interface {
+	FreezePracticeEnvironment(ctx context.Context, tenantID, actorID, environmentID string) error
 }
 
 // ExamAuditWriter registra el congelamiento y la excepción.
@@ -65,8 +65,8 @@ type ExamAuditWriter interface {
 type ExamFreezeService struct {
 	store      domain.ExamFreezeStore
 	sessions   ExamSessionReader
-	workspaces ExamWorkspaceReader
-	mounts     WorkspaceMountSetter
+	environments ExamPracticeEnvironmentReader
+	mounts     PracticeEnvironmentMountSetter
 	audit      ExamAuditWriter
 	now        func() time.Time
 }
@@ -74,13 +74,13 @@ type ExamFreezeService struct {
 func NewExamFreezeService(
 	store domain.ExamFreezeStore,
 	sessions ExamSessionReader,
-	workspaces ExamWorkspaceReader,
-	mounts WorkspaceMountSetter,
+	environments ExamPracticeEnvironmentReader,
+	mounts PracticeEnvironmentMountSetter,
 ) *ExamFreezeService {
 	return &ExamFreezeService{
 		store:      store,
 		sessions:   sessions,
-		workspaces: workspaces,
+		environments: environments,
 		mounts:     mounts,
 		now:        time.Now,
 	}
@@ -179,11 +179,11 @@ func (s *ExamFreezeService) UnfreezeStudent(ctx context.Context, tenantID, teach
 		return report, domain.ErrExamFreezeNotAllowed
 	}
 
-	rows, err := s.store.ParticipantWorkspaces(ctx, tenantID, sessionID)
+	rows, err := s.store.ParticipantPracticeEnvironments(ctx, tenantID, sessionID)
 	if err != nil {
 		return report, err
 	}
-	var target *domain.ExamFreezeWorkspace
+	var target *domain.ExamFreezePracticeEnvironment
 	for i := range rows {
 		if rows[i].StudentID == strings.TrimSpace(studentID) {
 			target = &rows[i]
@@ -200,7 +200,7 @@ func (s *ExamFreezeService) UnfreezeStudent(ctx context.Context, tenantID, teach
 		return report, nil
 	}
 
-	instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), target.WorkspaceID)
+	instance, err := s.environments.GetByID(withTenant(ctx, tenantID), target.EnvironmentID)
 	if err != nil {
 		if isMissingRow(err) {
 			return report, domain.ErrNotFound
@@ -210,38 +210,38 @@ func (s *ExamFreezeService) UnfreezeStudent(ctx context.Context, tenantID, teach
 	if instance == nil {
 		return report, domain.ErrNotFound
 	}
-	if err := s.mounts.SetWorkspaceMount(ctx, instance, false); err != nil {
+	if err := s.mounts.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
 		report.Failed++
 		return report, err
 	}
-	if err := s.store.SetWorkspaceFrozen(ctx, tenantID, target.WorkspaceID, false, s.now()); err != nil {
+	if err := s.store.SetPracticeEnvironmentFrozen(ctx, tenantID, target.EnvironmentID, false, s.now()); err != nil {
 		report.Failed++
 		return report, err
 	}
 	report.Frozen++
 
 	reason = strings.TrimSpace(reason)
-	s.recordAudit(ctx, tenantID, teacherID, domain.AuditExamWorkspaceUnfrozen, sessionID, map[string]any{
+	s.recordAudit(ctx, tenantID, teacherID, domain.AuditExamPracticeEnvironmentUnfrozen, sessionID, map[string]any{
 		"student_id":   target.StudentID,
-		"workspace_id": target.WorkspaceID,
+		"environment_id": target.EnvironmentID,
 		"reason":       reason,
 	})
 	return report, nil
 }
 
-// FreezeWorkspace cierra el volumen de un alumno sin cerrar el aula. Es lo que
+// FreezePracticeEnvironment cierra el volumen de un alumno sin cerrar el aula. Es lo que
 // pasa cuando entrega el examen antes: su entorno queda en solo lectura y el
 // resto de la clase sigue escribiendo (ADR-005 §5.2).
-func (s *ExamFreezeService) FreezeWorkspace(ctx context.Context, tenantID, actorID, workspaceID string) error {
+func (s *ExamFreezeService) FreezePracticeEnvironment(ctx context.Context, tenantID, actorID, environmentID string) error {
 	if strings.TrimSpace(tenantID) == "" {
 		return domain.ErrInvalidTenant
 	}
-	workspaceID = strings.TrimSpace(workspaceID)
-	if _, err := uuid.Parse(workspaceID); err != nil {
+	environmentID = strings.TrimSpace(environmentID)
+	if _, err := uuid.Parse(environmentID); err != nil {
 		return domain.ErrInvalidResourceID
 	}
 
-	instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), workspaceID)
+	instance, err := s.environments.GetByID(withTenant(ctx, tenantID), environmentID)
 	if err != nil {
 		if isMissingRow(err) {
 			return domain.ErrNotFound
@@ -251,26 +251,26 @@ func (s *ExamFreezeService) FreezeWorkspace(ctx context.Context, tenantID, actor
 	if instance == nil {
 		return domain.ErrNotFound
 	}
-	if instance.FrozenAt != nil || instance.Status == domain.WorkspaceStatusFrozen {
+	if instance.FrozenAt != nil || instance.Status == domain.PracticeEnvironmentStatusFrozen {
 		// Reabrir y volver a entregar deja el volumen en el mismo estado.
 		return nil
 	}
 
-	if err := s.mounts.SetWorkspaceMount(ctx, instance, true); err != nil {
+	if err := s.mounts.SetPracticeEnvironmentMount(ctx, instance, true); err != nil {
 		return err
 	}
-	if err := s.store.SetWorkspaceFrozen(ctx, tenantID, workspaceID, true, s.now()); err != nil {
+	if err := s.store.SetPracticeEnvironmentFrozen(ctx, tenantID, environmentID, true, s.now()); err != nil {
 		// El contenedor ya quedó en solo lectura: el barrido del aula vuelve a
 		// pasar y el montaje repetido no rompe nada.
 		return err
 	}
-	s.recordWorkspaceAudit(ctx, tenantID, actorID, workspaceID)
+	s.recordPracticeEnvironmentAudit(ctx, tenantID, actorID, environmentID)
 	return nil
 }
 
-// recordWorkspaceAudit deja la entrega anticipada en la auditoría. El recurso es
+// recordPracticeEnvironmentAudit deja la entrega anticipada en la auditoría. El recurso es
 // el laboratorio, no el aula: el examen sigue abierto para los demás.
-func (s *ExamFreezeService) recordWorkspaceAudit(ctx context.Context, tenantID, actorID, workspaceID string) {
+func (s *ExamFreezeService) recordPracticeEnvironmentAudit(ctx context.Context, tenantID, actorID, environmentID string) {
 	if s.audit == nil || strings.TrimSpace(tenantID) == "" || strings.TrimSpace(actorID) == "" {
 		return
 	}
@@ -278,12 +278,12 @@ func (s *ExamFreezeService) recordWorkspaceAudit(ctx context.Context, tenantID, 
 	if err != nil {
 		return
 	}
-	resourceID := workspaceID
+	resourceID := environmentID
 	_ = s.audit.Create(ctx, &domain.AuditLog{
 		TenantID:     tenantID,
 		ActorID:      actorID,
-		Action:       domain.AuditExamWorkspaceFrozen,
-		ResourceType: "workspace",
+		Action:       domain.AuditExamPracticeEnvironmentFrozen,
+		ResourceType: "environment",
 		ResourceID:   &resourceID,
 		StatusCode:   200,
 		Metadata:     raw,
@@ -294,7 +294,7 @@ func (s *ExamFreezeService) recordWorkspaceAudit(ctx context.Context, tenantID, 
 // todavía no lo tiene. Un fallo no aborta el resto.
 func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, sessionID, actor string) (FreezeReport, error) {
 	var report FreezeReport
-	rows, err := s.store.ParticipantWorkspaces(ctx, tenantID, sessionID)
+	rows, err := s.store.ParticipantPracticeEnvironments(ctx, tenantID, sessionID)
 	if err != nil {
 		return report, err
 	}
@@ -304,7 +304,7 @@ func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, se
 			report.Skipped++
 			continue
 		}
-		instance, err := s.workspaces.GetByID(withTenant(ctx, tenantID), row.WorkspaceID)
+		instance, err := s.environments.GetByID(withTenant(ctx, tenantID), row.EnvironmentID)
 		if err != nil || instance == nil {
 			// El laboratorio ya no existe: no hay volumen que congelar y no es un
 			// fallo del cierre. Solo una lectura rota se cuenta como fallo.
@@ -313,26 +313,26 @@ func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, se
 				continue
 			}
 			report.Failed++
-			log.Printf("[Exam Freeze] no se pudo leer el laboratorio %s: %v", row.WorkspaceID, err)
+			log.Printf("[Exam Freeze] no se pudo leer el laboratorio %s: %v", row.EnvironmentID, err)
 			continue
 		}
-		if err := s.mounts.SetWorkspaceMount(ctx, instance, true); err != nil {
+		if err := s.mounts.SetPracticeEnvironmentMount(ctx, instance, true); err != nil {
 			report.Failed++
-			log.Printf("[Exam Freeze] no se pudo montar en solo lectura el laboratorio %s: %v", row.WorkspaceID, err)
+			log.Printf("[Exam Freeze] no se pudo montar en solo lectura el laboratorio %s: %v", row.EnvironmentID, err)
 			continue
 		}
-		if err := s.store.SetWorkspaceFrozen(ctx, tenantID, row.WorkspaceID, true, s.now()); err != nil {
+		if err := s.store.SetPracticeEnvironmentFrozen(ctx, tenantID, row.EnvironmentID, true, s.now()); err != nil {
 			// El contenedor ya quedó en solo lectura: el barrido vuelve a pasar
 			// y el montaje repetido no rompe nada.
 			report.Failed++
-			log.Printf("[Exam Freeze] el laboratorio %s quedó en solo lectura pero no se pudo marcar: %v", row.WorkspaceID, err)
+			log.Printf("[Exam Freeze] el laboratorio %s quedó en solo lectura pero no se pudo marcar: %v", row.EnvironmentID, err)
 			continue
 		}
 		report.Frozen++
 
-		s.recordAudit(ctx, tenantID, actor, domain.AuditExamWorkspaceFrozen, sessionID, map[string]any{
+		s.recordAudit(ctx, tenantID, actor, domain.AuditExamPracticeEnvironmentFrozen, sessionID, map[string]any{
 			"student_id":   row.StudentID,
-			"workspace_id": row.WorkspaceID,
+			"environment_id": row.EnvironmentID,
 		})
 	}
 	return report, nil

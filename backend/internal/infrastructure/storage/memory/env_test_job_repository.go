@@ -120,7 +120,7 @@ func (r *EnvTestJobMemoryRepository) UpdateProgress(ctx context.Context, id stri
 	return nil
 }
 
-// MarkTesting deja el job en la fase de ejecución del setup del workspace.
+// MarkTesting deja el job en la fase de ejecución del setup del environment.
 func (r *EnvTestJobMemoryRepository) MarkTesting(ctx context.Context, id string, progress domain.EnvTestProgress) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

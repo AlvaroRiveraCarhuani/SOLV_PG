@@ -20,13 +20,13 @@ import (
 )
 
 const (
-	// workspaceServerPort es el único puerto que un workspace expone al host.
-	workspaceServerPort = "3000/tcp"
+	// environmentServerPort es el único puerto que un environment expone al host.
+	environmentServerPort = "3000/tcp"
 
-	// pureRuntimeWorkspaceCmd se usa en imágenes que no traen OpenVSCode: prepara el
-	// workspace, ejecuta el setup_script de la plantilla una sola vez y arranca
+	// pureRuntimePracticeEnvironmentCmd se usa en imágenes que no traen OpenVSCode: prepara el
+	// environment, ejecuta el setup_script de la plantilla una sola vez y arranca
 	// OpenVSCode abriendo directamente el directorio del proyecto.
-	pureRuntimeWorkspaceCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/.openvscode-server/extensions; else exec sleep infinity; fi`
+	pureRuntimePracticeEnvironmentCmd = `mkdir -p /home/workspace && chmod 0777 /home/workspace && if [ -n "$SOLV_SETUP_SCRIPT" ] && [ ! -f /home/workspace/.solv_initialized ]; then sh -c "$SOLV_SETUP_SCRIPT" > /home/workspace/.solv_setup.log 2>&1; touch /home/workspace/.solv_initialized; fi && if [ -x /home/.openvscode-server/bin/openvscode-server ]; then exec /home/.openvscode-server/bin/openvscode-server --without-connection-token --host 0.0.0.0 --port 3000 --default-folder /home/workspace --extensions-dir /home/.openvscode-server/extensions; else exec sleep infinity; fi`
 )
 
 // imageShipsOpenVSCode detecta si la imagen trae el servidor OpenVSCode como
@@ -43,7 +43,7 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 
 	hostConfig := &container.HostConfig{
 		Binds: []string{
-			fmt.Sprintf("%s:/workspace:%s", config.VolumeName, mountMode),
+			fmt.Sprintf("%s:/environment:%s", config.VolumeName, mountMode),
 		},
 		Resources: container.Resources{
 			Memory: config.MemoryLimitMB * 1024 * 1024, // Conversión a bytes
@@ -82,10 +82,10 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	return resp.ID, nil
 }
 
-// workspaceVolumeBind arma el montaje del volumen del alumno. En un examen
+// environmentVolumeBind arma el montaje del volumen del alumno. En un examen
 // cerrado va en solo lectura: el sistema de archivos es el que bloquea la
 // escritura, no la pantalla (ADR-005 §5).
-func workspaceVolumeBind(volumeName string, readOnly bool) string {
+func environmentVolumeBind(volumeName string, readOnly bool) string {
 	mode := "rw"
 	if readOnly {
 		mode = "ro"
@@ -93,7 +93,7 @@ func workspaceVolumeBind(volumeName string, readOnly bool) string {
 	return fmt.Sprintf("%s:/home/workspace:%s", volumeName, mode)
 }
 
-func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
+func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config domain.PracticeEnvironmentContainerConfig) (string, error) {
 	memLimit := config.MemoryLimitMB
 	if memLimit <= 0 {
 		memLimit = domain.DefaultBaseMemoryMB // 256MB base limit
@@ -106,7 +106,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	}
 	hostConfig := &container.HostConfig{
 		Binds: []string{
-			workspaceVolumeBind(config.VolumeName, config.ReadOnly),
+			environmentVolumeBind(config.VolumeName, config.ReadOnly),
 		},
 		Resources: container.Resources{
 			Memory:            memLimit * 1024 * 1024,
@@ -114,10 +114,10 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		},
 		NetworkMode: container.NetworkMode(config.NetworkName),
 		SecurityOpt: []string{"no-new-privileges:true"},
-		// Publicación local: el workspace se alcanza por 127.0.0.1 y nunca por
+		// Publicación local: el environment se alcanza por 127.0.0.1 y nunca por
 		// un dominio .local inventado.
 		PortBindings: nat.PortMap{
-			nat.Port(workspaceServerPort): []nat.PortBinding{
+			nat.Port(environmentServerPort): []nat.PortBinding{
 				{HostIP: "127.0.0.1", HostPort: hostPort},
 			},
 		},
@@ -130,7 +130,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 
 	shipsOpenVSCode := imageShipsOpenVSCode(config.Image)
 
-	// Inyección de variables de entorno del workspace.
+	// Inyección de variables de entorno del environment.
 	envList := config.Env
 	if strings.TrimSpace(config.SetupScript) != "" {
 		envList = append(envList, fmt.Sprintf("SOLV_SETUP_SCRIPT=%s", config.SetupScript))
@@ -155,7 +155,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		Image:        config.Image,
 		Labels:       config.Labels,
 		Env:          envList,
-		ExposedPorts: nat.PortSet{nat.Port(workspaceServerPort): struct{}{}},
+		ExposedPorts: nat.PortSet{nat.Port(environmentServerPort): struct{}{}},
 	}
 
 	if shipsOpenVSCode {
@@ -172,8 +172,8 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 		// Runtime puro (python, node, solv-local/stack): NO se le pasa
 		// --without-connection-token como Cmd porque el binario no existe y el
 		// contenedor moriría con "executable file not found". El shell prepara el
-		// workspace y arranca OpenVSCode solo si está disponible.
-		containerConfig.Cmd = []string{"/bin/sh", "-c", pureRuntimeWorkspaceCmd}
+		// environment y arranca OpenVSCode solo si está disponible.
+		containerConfig.Cmd = []string{"/bin/sh", "-c", pureRuntimePracticeEnvironmentCmd}
 	}
 
 	cached, _, inspectErr := c.InspectLocalImage(ctx, config.Image)
@@ -190,11 +190,11 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, config.ContainerName)
 	if err != nil {
-		return "", fmt.Errorf("failed to create workspace container %q: %w", config.ContainerName, err)
+		return "", fmt.Errorf("failed to create environment container %q: %w", config.ContainerName, err)
 	}
 
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return "", fmt.Errorf("failed to start workspace container %q: %w", config.ContainerName, err)
+		return "", fmt.Errorf("failed to start environment container %q: %w", config.ContainerName, err)
 	}
 
 	// El laboratorio que declara un motor gestionado se conecta a la red interna de
@@ -204,7 +204,7 @@ func (c *Client) StartWorkspaceContainer(ctx context.Context, config domain.Work
 	if config.AttachSatellitesNet {
 		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
 			_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
-			return "", fmt.Errorf("failed to attach workspace container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
+			return "", fmt.Errorf("failed to attach environment container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
 		}
 	}
 
@@ -493,11 +493,11 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	return maxRAM, nil
 }
 
-// isWorkspaceManagedContainer indica si un contenedor pertenece al ciclo de vida de un
+// isPracticeEnvironmentManagedContainer indica si un contenedor pertenece al ciclo de vida de un
 // laboratorio. Los motores satélite (mysql, mariadb, mongodb, redis y el PostgreSQL de
 // aula) también llevan la etiqueta solv.managed, pero su vida la gobierna el orquestador
 // de satélites: si el colector de zombies los listara, los destruiría a los 30 segundos.
-func isWorkspaceManagedContainer(names []string, labels map[string]string) bool {
+func isPracticeEnvironmentManagedContainer(names []string, labels map[string]string) bool {
 	if labels["solv.satellite"] != "" {
 		return false
 	}
@@ -509,7 +509,7 @@ func isWorkspaceManagedContainer(names []string, labels map[string]string) bool 
 	}
 	for _, name := range names {
 		trimmed := strings.TrimPrefix(name, "/")
-		if strings.HasPrefix(trimmed, "solv-workspace-") {
+		if strings.HasPrefix(trimmed, "solv-environment-") {
 			return true
 		}
 	}
@@ -524,7 +524,7 @@ func (c *Client) ListAllManagedContainers(ctx context.Context) ([]string, error)
 
 	var managedIDs []string
 	for _, cnt := range containers {
-		if isWorkspaceManagedContainer(cnt.Names, cnt.Labels) {
+		if isPracticeEnvironmentManagedContainer(cnt.Names, cnt.Labels) {
 			managedIDs = append(managedIDs, cnt.ID)
 		}
 	}

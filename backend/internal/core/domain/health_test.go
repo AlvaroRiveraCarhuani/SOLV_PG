@@ -57,8 +57,8 @@ func TestEvaluateHealthOrphanedCritical(t *testing.T) {
 	if status != HealthStatusCritical {
 		t.Fatalf("expected critical with orphans, got %q", status)
 	}
-	if !reflect.DeepEqual(reasons, []string{HealthReasonOrphanedWorkspaces}) {
-		t.Fatalf("expected [orphaned_workspaces], got %v", reasons)
+	if !reflect.DeepEqual(reasons, []string{HealthReasonOrphanedPracticeEnvironments}) {
+		t.Fatalf("expected [orphaned_environments], got %v", reasons)
 	}
 }
 
@@ -75,8 +75,8 @@ func TestEvaluateHealthOOMMetrics(t *testing.T) {
 	if status != HealthStatusDegraded {
 		t.Fatalf("expected degraded with OOMs, got %q", status)
 	}
-	if !reflect.DeepEqual(reasons, []string{HealthReasonOOMKilledWorkspaces}) {
-		t.Fatalf("expected [oom_killed_workspaces], got %v", reasons)
+	if !reflect.DeepEqual(reasons, []string{HealthReasonOOMKilledPracticeEnvironments}) {
+		t.Fatalf("expected [oom_killed_environments], got %v", reasons)
 	}
 }
 
@@ -94,8 +94,8 @@ func TestEvaluateHealthUnknownDegrades(t *testing.T) {
 	if status != HealthStatusDegraded {
 		t.Fatalf("expected degraded with unknown states, got %q", status)
 	}
-	if !reflect.DeepEqual(reasons, []string{HealthReasonUnknownWorkspaces}) {
-		t.Fatalf("expected [unknown_workspaces], got %v", reasons)
+	if !reflect.DeepEqual(reasons, []string{HealthReasonUnknownPracticeEnvironments}) {
+		t.Fatalf("expected [unknown_environments], got %v", reasons)
 	}
 }
 
@@ -164,9 +164,9 @@ func TestEvaluateHealthStackedConditions(t *testing.T) {
 	}
 	expected := []string{
 		HealthReasonDockerUnreachable,
-		HealthReasonOrphanedWorkspaces,
-		HealthReasonOOMKilledWorkspaces,
-		HealthReasonUnknownWorkspaces,
+		HealthReasonOrphanedPracticeEnvironments,
+		HealthReasonOOMKilledPracticeEnvironments,
+		HealthReasonUnknownPracticeEnvironments,
 		HealthReasonRAMAboveSafetyCeiling,
 	}
 	if !reflect.DeepEqual(reasons, expected) {

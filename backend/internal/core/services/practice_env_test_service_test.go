@@ -62,13 +62,13 @@ func (r *practiceRegistry) PullImage(context.Context, string, func(int64, int64,
 }
 
 type practiceSetupRunner struct {
-	spec   domain.WorkspaceSetupTestSpec
-	result domain.WorkspaceSetupTestResult
+	spec   domain.PracticeEnvironmentSetupTestSpec
+	result domain.PracticeEnvironmentSetupTestResult
 	err    error
 	calls  int
 }
 
-func (r *practiceSetupRunner) RunWorkspaceSetupTest(_ context.Context, spec domain.WorkspaceSetupTestSpec) (domain.WorkspaceSetupTestResult, error) {
+func (r *practiceSetupRunner) RunPracticeEnvironmentSetupTest(_ context.Context, spec domain.PracticeEnvironmentSetupTestSpec) (domain.PracticeEnvironmentSetupTestResult, error) {
 	r.spec = spec
 	r.calls++
 	return r.result, r.err
@@ -108,7 +108,7 @@ func newPracticeTestService(t *testing.T, opts ...func(*practiceTestFixture)) (*
 			SetupScript: "mkdir -p /home/workspace/src",
 		}},
 		registry: &practiceRegistry{local: true},
-		runner: &practiceSetupRunner{result: domain.WorkspaceSetupTestResult{
+		runner: &practiceSetupRunner{result: domain.PracticeEnvironmentSetupTestResult{
 			ExitCode:       0,
 			DurationMs:     1200,
 			RepoReady:      true,
@@ -225,7 +225,7 @@ func TestPracticeEnvTest_WithoutSatellitesUsesBridgeAndNoSatelliteTools(t *testi
 
 func TestPracticeEnvTest_SetupFailureIsReportedWithoutSubmissions(t *testing.T) {
 	svc, fixture := newPracticeTestService(t, func(f *practiceTestFixture) {
-		f.runner.result = domain.WorkspaceSetupTestResult{
+		f.runner.result = domain.PracticeEnvironmentSetupTestResult{
 			ExitCode: 2,
 			Output:   "pip: command not found",
 		}
@@ -250,7 +250,7 @@ func TestPracticeEnvTest_SetupFailureIsReportedWithoutSubmissions(t *testing.T) 
 
 func TestPracticeEnvTest_UnwritableRepositoryFails(t *testing.T) {
 	svc, fixture := newPracticeTestService(t, func(f *practiceTestFixture) {
-		f.runner.result = domain.WorkspaceSetupTestResult{
+		f.runner.result = domain.PracticeEnvironmentSetupTestResult{
 			ExitCode:       0,
 			OpenVSCodeSeen: true,
 			Output:         "SOLV_REPO:unwritable\nSOLV_VSCODE:present",

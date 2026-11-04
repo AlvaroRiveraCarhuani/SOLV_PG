@@ -22,8 +22,9 @@ func NewClassAdvanceHandler(service *services.ClassAdvanceService) *ClassAdvance
 	return &ClassAdvanceHandler{service: service}
 }
 
+// emitAdvanceRequest no lleva la práctica: el avance pertenece a la práctica del
+// aula y el servidor la resuelve desde la sesión.
 type emitAdvanceRequest struct {
-	ExerciseID string   `json:"exercise_id"`
 	Scope      string   `json:"scope"`
 	StudentIDs []string `json:"student_ids"`
 }
@@ -41,18 +42,12 @@ func (h *ClassAdvanceHandler) PostAdvance(w http.ResponseWriter, r *http.Request
 		SendError(w, http.StatusBadRequest, "Invalid JSON payload", "Cuerpo de la petición JSON inválido")
 		return
 	}
-	if strings.TrimSpace(req.ExerciseID) == "" {
-		SendError(w, http.StatusBadRequest, "Missing exercise_id", "El campo exercise_id es obligatorio para emitir un avance")
-		return
-	}
-
 	teacherID := resolveRequestStudentID(r)
 	advance, recipients, err := h.service.Emit(r.Context(), services.EmitAdvanceInput{
 		TenantID:   getTenantFromCtx(r),
 		TeacherID:  teacherID,
 		Role:       requestRole(r),
 		SessionID:  r.PathValue("id"),
-		ExerciseID: req.ExerciseID,
 		Scope:      req.Scope,
 		StudentIDs: req.StudentIDs,
 	})
@@ -326,6 +321,8 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusConflict, err.Error(), "El aula no está abierta: no se emiten avances")
 	case errors.Is(err, domain.ErrAdvanceFrozen):
 		SendError(w, http.StatusConflict, err.Error(), "La clase está congelada: descongélala para emitir")
+	case errors.Is(err, domain.ErrAdvancePracticeRequired):
+		SendError(w, http.StatusConflict, err.Error(), "El aula no tiene una práctica asociada: asígnala antes de emitir avances")
 	case errors.Is(err, domain.ErrAdvanceSourceMissing):
 		SendError(w, http.StatusConflict, err.Error(), "Abre tu entorno de clase y escribe el código antes de emitir")
 	case errors.Is(err, domain.ErrAdvanceScopeInvalid):
@@ -354,7 +351,7 @@ func (h *ClassAdvanceHandler) writeAdvanceError(w http.ResponseWriter, err error
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "La fecha límite debe ser futura y no superar los 7 días desde el cierre")
 	case errors.Is(err, domain.ErrAdvanceNotCloseable):
 		SendError(w, http.StatusConflict, err.Error(), "Cerrá el aula para extender la ventana de rezago")
-	case errors.Is(err, domain.ErrAdvanceWorkspaceStopped):
+	case errors.Is(err, domain.ErrAdvancePracticeEnvironmentStopped):
 		SendError(w, http.StatusConflict, err.Error(), "Abre tu laboratorio para aplicar el avance")
 	case errors.Is(err, domain.ErrAdvanceSnapshotTooLarge):
 		SendError(w, http.StatusUnprocessableEntity, err.Error(), "El avance supera el tamaño permitido")

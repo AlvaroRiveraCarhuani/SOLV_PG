@@ -93,8 +93,8 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 		auditEvent string
 		affected   int64 // -1 = no determinista (depende de la BD)
 	}{
-		{"terminate_all_workspaces", "TERMINAR TODOS LOS WORKSPACES", "EMERGENCY_TERMINATE_ALL", -1},
-		{"hibernate_all_workspaces", "HIBERNAR TODOS LOS WORKSPACES", "EMERGENCY_HIBERNATE_ALL", -1},
+		{"terminate_all_environments", "TERMINAR TODOS LOS ENTORNOS", "EMERGENCY_TERMINATE_ALL", -1},
+		{"hibernate_all_environments", "HIBERNAR TODOS LOS ENTORNOS", "EMERGENCY_HIBERNATE_ALL", -1},
 		{"kill_zombies", "LIMPIAR ZOMBIES DOCKER", "EMERGENCY_KILL_ZOMBIES", -1},
 		{"docker_prune", "PURGAR CAPAS HUERFANAS", "EMERGENCY_PRUNE_DOCKER", 3},
 		{"reset_pools", "REINICIAR POOLS", "EMERGENCY_RESET_POOLS", 4},

@@ -19,6 +19,9 @@ const (
 	advanceHTTPTenantID  = "11111111-1111-1111-1111-111111111111"
 	advanceHTTPTeacherID = "22222222-2222-2222-2222-222222222222"
 	advanceHTTPSessionID = "33333333-3333-3333-3333-333333333333"
+	// advanceHTTPExerciseID es la práctica del aula: el avance pertenece siempre
+	// a la práctica que la sesión tiene asociada.
+	advanceHTTPExerciseID = "77777777-7777-4777-8777-777777777777"
 )
 
 // advanceStoreForHTTP solo guarda lo que miran las rutas de sesión: la
@@ -136,7 +139,7 @@ func (s *sessionStoreForHTTP) TouchParticipant(context.Context, string, string, 
 	return nil
 }
 
-func (s *sessionStoreForHTTP) AttachWorkspaceToOpenSession(context.Context, string, string, string, string) error {
+func (s *sessionStoreForHTTP) AttachPracticeEnvironmentToOpenSession(context.Context, string, string, string, string) error {
 	return nil
 }
 
@@ -167,13 +170,29 @@ func newAdvanceHandlerWithHistory(session *domain.ClassSession, events []domain.
 	return NewClassAdvanceHandler(service), history
 }
 
+// Sin práctica asociada el aula responde un conflicto con el motivo de dominio
+// y no un error genérico de almacenamiento.
+func TestWriteAdvanceError_MapsMissingPracticeAsConflict(t *testing.T) {
+	rec := httptest.NewRecorder()
+	(&ClassAdvanceHandler{}).writeAdvanceError(rec, domain.ErrAdvancePracticeRequired, "No se pudo emitir el avance")
+
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("esperado 409, hubo %d", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), domain.ErrAdvancePracticeRequired.Error()) {
+		t.Fatalf("la respuesta debe llevar el motivo de dominio, fue: %s", rec.Body.String())
+	}
+}
+
 func openClassSessionForHTTP() *domain.ClassSession {
 	now := time.Now()
+	exerciseID := advanceHTTPExerciseID
 	return &domain.ClassSession{
-		ID:        advanceHTTPSessionID,
-		TenantID:  advanceHTTPTenantID,
-		SubjectID: "44444444-4444-4444-4444-444444444444",
-		Status:    domain.ClassSessionStatusOpen,
+		ID:         advanceHTTPSessionID,
+		TenantID:   advanceHTTPTenantID,
+		SubjectID:  "44444444-4444-4444-4444-444444444444",
+		ExerciseID: &exerciseID,
+		Status:     domain.ClassSessionStatusOpen,
 		OpensAt:   now,
 		EndsAt:    now.Add(90 * time.Minute),
 	}

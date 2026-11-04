@@ -24,25 +24,25 @@ var (
 )
 
 const (
-	// AuditExamWorkspaceFrozen y AuditExamWorkspaceUnfrozen registran el cierre y
+	// AuditExamPracticeEnvironmentFrozen y AuditExamPracticeEnvironmentUnfrozen registran el cierre y
 	// la excepción individual sobre el aula, igual que el resto de acciones del
 	// avance.
-	AuditExamWorkspaceFrozen   = "EXAM_WORKSPACE_FROZEN"
-	AuditExamWorkspaceUnfrozen = "EXAM_WORKSPACE_UNFROZEN"
+	AuditExamPracticeEnvironmentFrozen   = "EXAM_PRACTICE_ENVIRONMENT_FROZEN"
+	AuditExamPracticeEnvironmentUnfrozen = "EXAM_PRACTICE_ENVIRONMENT_UNFROZEN"
 )
 
-// ExamFreezeWorkspace es el laboratorio de un alumno dentro de una sesión de
+// ExamFreezePracticeEnvironment es el laboratorio de un alumno dentro de una sesión de
 // examen. Solo se usa para congelar y reabrir; no es la vista del aula.
-type ExamFreezeWorkspace struct {
-	WorkspaceID string     `db:"workspace_id"`
+type ExamFreezePracticeEnvironment struct {
+	EnvironmentID string     `db:"environment_id"`
 	StudentID   string     `db:"student_id"`
 	Status      string     `db:"status"`
 	FrozenAt    *time.Time `db:"frozen_at"`
 }
 
 // IsFrozen dice si el laboratorio ya quedó en solo lectura.
-func (w ExamFreezeWorkspace) IsFrozen() bool {
-	return w.FrozenAt != nil || w.Status == WorkspaceStatusFrozen
+func (w ExamFreezePracticeEnvironment) IsFrozen() bool {
+	return w.FrozenAt != nil || w.Status == PracticeEnvironmentStatusFrozen
 }
 
 // ExamSessionRef identifica un aula cerrada de examen que todavía tiene
@@ -53,19 +53,19 @@ type ExamSessionRef struct {
 }
 
 // ExamFreezeStore declara el almacenamiento del congelamiento de examen.
-// Se mantiene aparte de ClassSessionStore y WorkspaceRepository para no obligar
+// Se mantiene aparte de ClassSessionStore y PracticeEnvironmentRepository para no obligar
 // a sus dobles a implementar métodos que no usan.
 type ExamFreezeStore interface {
 	// SessionIsExam dice si la sesión está atada a una práctica con
 	// purpose = exam y pertenece a la institución.
 	SessionIsExam(ctx context.Context, tenantID, sessionID string) (bool, error)
-	// ParticipantWorkspaces devuelve los laboratorios de los alumnos que
+	// ParticipantPracticeEnvironments devuelve los laboratorios de los alumnos que
 	// participaron en la sesión.
-	ParticipantWorkspaces(ctx context.Context, tenantID, sessionID string) ([]ExamFreezeWorkspace, error)
+	ParticipantPracticeEnvironments(ctx context.Context, tenantID, sessionID string) ([]ExamFreezePracticeEnvironment, error)
 	// ClosedExamSessions lista aulas cerradas de examen con al menos un
 	// laboratorio sin congelar, de la más vieja a la más nueva.
 	ClosedExamSessions(ctx context.Context, limit int) ([]ExamSessionRef, error)
-	// SetWorkspaceFrozen marca o limpia frozen_at y ajusta el estado del
+	// SetPracticeEnvironmentFrozen marca o limpia frozen_at y ajusta el estado del
 	// laboratorio en la misma sentencia.
-	SetWorkspaceFrozen(ctx context.Context, tenantID, workspaceID string, frozen bool, at time.Time) error
+	SetPracticeEnvironmentFrozen(ctx context.Context, tenantID, environmentID string, frozen bool, at time.Time) error
 }

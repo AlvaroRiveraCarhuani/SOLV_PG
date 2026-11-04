@@ -48,7 +48,7 @@ func (m *mockTeacherAnalyticsRepo) GetExerciseSubmissionsForPlagiarism(ctx conte
 func (m *mockTeacherAnalyticsRepo) GetPlagiarismPairSubmissions(ctx context.Context, tenantID, teacherID, submissionA, submissionB string) ([]*domain.PlagiarismPairSubmission, error) {
 	return nil, nil
 }
-func (m *mockTeacherAnalyticsRepo) ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+func (m *mockTeacherAnalyticsRepo) ListLivePracticeEnvironmentSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	return nil, nil
 }
 func (m *mockTeacherAnalyticsRepo) GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*domain.CourseAnalytics, error) {

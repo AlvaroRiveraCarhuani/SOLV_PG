@@ -105,7 +105,7 @@ func (r *stubTeacherRepoForHTTP) GetExerciseSubmissionsForPlagiarism(_ context.C
 func (r *stubTeacherRepoForHTTP) GetPlagiarismPairSubmissions(_ context.Context, _, _, _, _ string) ([]*domain.PlagiarismPairSubmission, error) {
 	return nil, nil
 }
-func (r *stubTeacherRepoForHTTP) ListLiveWorkspaceSessions(_ context.Context, _, _ string) ([]*domain.LiveWorkspaceSession, error) {
+func (r *stubTeacherRepoForHTTP) ListLivePracticeEnvironmentSessions(_ context.Context, _, _ string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForHTTP) GetCourseAnalytics(_ context.Context, _, _, _ string) (*domain.CourseAnalytics, error) {

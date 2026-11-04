@@ -8,12 +8,12 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
-func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	if tenantID == "" {
 		return nil, domain.ErrInvalidTenant
 	}
 
-	sessions, err := s.repo.ListLiveWorkspaceSessions(ctx, tenantID, teacherID)
+	sessions, err := s.repo.ListLivePracticeEnvironmentSessions(ctx, tenantID, teacherID)
 	if err != nil {
 		return nil, fmt.Errorf("error al listar sesiones en vivo: %w", err)
 	}
@@ -21,8 +21,8 @@ func (s *TeacherService) ListLiveSessions(ctx context.Context, tenantID, teacher
 	// Completar las métricas de cada sesión usando el snapshot service
 	for _, session := range sessions {
 		if s.metricsSnapshotService != nil {
-			// Obtener el snapshot para esta workspace si existe
-			snap, exists := s.metricsSnapshotService.GetSnapshot(session.WorkspaceID)
+			// Obtener el snapshot para esta environment si existe
+			snap, exists := s.metricsSnapshotService.GetSnapshot(session.EnvironmentID)
 			if exists {
 				session.MemoryUsedMB = snap.MemoryUsedMB
 				session.CPUPercent = snap.CPUPercent

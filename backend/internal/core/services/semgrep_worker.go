@@ -15,12 +15,12 @@ import (
 )
 
 type SemgrepWorker struct {
-	repo         domain.WorkspaceRepository
-	orchestrator domain.WorkspaceOrchestrator
+	repo         domain.PracticeEnvironmentRepository
+	orchestrator domain.PracticeEnvironmentOrchestrator
 	rulesDir     string
 }
 
-func NewSemgrepWorker(repo domain.WorkspaceRepository, orchestrator domain.WorkspaceOrchestrator, rulesDir string) *SemgrepWorker {
+func NewSemgrepWorker(repo domain.PracticeEnvironmentRepository, orchestrator domain.PracticeEnvironmentOrchestrator, rulesDir string) *SemgrepWorker {
 	if rulesDir == "" {
 		rulesDir = "internal/infrastructure/semgrep/rules"
 	}
@@ -31,9 +31,9 @@ func NewSemgrepWorker(repo domain.WorkspaceRepository, orchestrator domain.Works
 	}
 }
 
-// AuditWorkspace ejecuta la auditoría AST semántica sobre el volumen de un estudiante y persiste el JSONB en PostgreSQL
-func (w *SemgrepWorker) AuditWorkspace(ctx context.Context, workspaceID string, volumeName string) ([]byte, error) {
-	log.Printf("[Semgrep Worker] Starting AST semantic code audit on workspace %s (Volume: %s)...", workspaceID, volumeName)
+// AuditPracticeEnvironment ejecuta la auditoría AST semántica sobre el volumen de un estudiante y persiste el JSONB en PostgreSQL
+func (w *SemgrepWorker) AuditPracticeEnvironment(ctx context.Context, environmentID string, volumeName string) ([]byte, error) {
+	log.Printf("[Semgrep Worker] Starting AST semantic code audit on environment %s (Volume: %s)...", environmentID, volumeName)
 
 	// 1. Ejecutar escaneo efímero en contenedor semgrep/semgrep en modo solo lectura (:ro)
 	auditJSON, err := w.orchestrator.RunSemgrepScanOnVolume(ctx, volumeName)
@@ -46,11 +46,11 @@ func (w *SemgrepWorker) AuditWorkspace(ctx context.Context, workspaceID string, 
 	}
 
 	// 2. Persistir resultado de la auditoría AST en la columna JSONB de PostgreSQL
-	if err := w.repo.SaveSemgrepAudit(ctx, workspaceID, auditJSON); err != nil {
-		return nil, fmt.Errorf("failed to persist semgrep audit for workspace %s: %w", workspaceID, err)
+	if err := w.repo.SaveSemgrepAudit(ctx, environmentID, auditJSON); err != nil {
+		return nil, fmt.Errorf("failed to persist semgrep audit for environment %s: %w", environmentID, err)
 	}
 
-	log.Printf("[Semgrep Worker] AST semantic audit completed successfully for workspace %s. Persisted %d bytes to PostgreSQL JSONB.", workspaceID, len(auditJSON))
+	log.Printf("[Semgrep Worker] AST semantic audit completed successfully for environment %s. Persisted %d bytes to PostgreSQL JSONB.", environmentID, len(auditJSON))
 	return auditJSON, nil
 }
 

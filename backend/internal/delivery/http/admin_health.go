@@ -57,9 +57,9 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	allRunning, err := h.workspaceRepo.GetAllRunningWorkspaces(r.Context())
+	allRunning, err := h.environmentRepo.GetAllRunningPracticeEnvironments(r.Context())
 	if err != nil {
-		allRunning = []*domain.WorkspaceInstance{}
+		allRunning = []*domain.PracticeEnvironment{}
 	}
 
 	// El listado de activos solo puede aportar lo que ya filtra: estado
@@ -80,10 +80,10 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
-	statusCounts := h.workspaceStatusCounts(r.Context(), tenantID)
+	statusCounts := h.environmentStatusCounts(r.Context(), tenantID)
 	hibernatedCount := statusCounts["hibernated"]
-	unknownCount := statusCounts[domain.WorkspaceStatusUnknown]
-	orphanedCount := statusCounts[domain.WorkspaceStatusOrphaned]
+	unknownCount := statusCounts[domain.PracticeEnvironmentStatusUnknown]
+	orphanedCount := statusCounts[domain.PracticeEnvironmentStatusOrphaned]
 	oomCount := oomStrikeCount + statusCounts["failed"] + statusCounts["oom_killed"]
 
 	// Las politicas se leen por el servicio que ya usa la admision, no por un
@@ -186,15 +186,15 @@ func (h *AdminHandler) GetHealthMetrics(w http.ResponseWriter, r *http.Request) 
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
-// workspaceStatusCounts devuelve el desglose por estado del tenant. Si el
+// environmentStatusCounts devuelve el desglose por estado del tenant. Si el
 // repositorio no implementa el agregado, el panel degrada a cero en vez de
 // fallar: el desglose es informativo y no debe bloquear la lectura de hardware.
-func (h *AdminHandler) workspaceStatusCounts(ctx context.Context, tenantID string) map[string]int {
-	counter, ok := h.workspaceRepo.(workspaceStatusCounter)
+func (h *AdminHandler) environmentStatusCounts(ctx context.Context, tenantID string) map[string]int {
+	counter, ok := h.environmentRepo.(environmentStatusCounter)
 	if !ok || counter == nil {
 		return nil
 	}
-	counts, err := counter.CountWorkspacesByStatus(ctx, tenantID)
+	counts, err := counter.CountPracticeEnvironmentsByStatus(ctx, tenantID)
 	if err != nil {
 		return nil
 	}

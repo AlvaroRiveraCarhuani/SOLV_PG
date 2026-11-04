@@ -364,9 +364,9 @@ type SubmissionTimeline struct {
 	Keyframes            []TimelineKeyframe `json:"keyframes"`
 }
 
-// LiveWorkspaceSession representa una sesion de contenedor activa en vivo para Shadow Mode y monitoreo en tiempo real.
-type LiveWorkspaceSession struct {
-	WorkspaceID   string    `db:"workspace_id" json:"workspace_id"`
+// LivePracticeEnvironmentSession representa una sesion de contenedor activa en vivo para Shadow Mode y monitoreo en tiempo real.
+type LivePracticeEnvironmentSession struct {
+	EnvironmentID   string    `db:"environment_id" json:"environment_id"`
 	ContainerID   string    `db:"container_id" json:"container_id"`
 	StudentID     string    `db:"student_id" json:"student_id"`
 	StudentName   string    `db:"student_name" json:"student_name"`

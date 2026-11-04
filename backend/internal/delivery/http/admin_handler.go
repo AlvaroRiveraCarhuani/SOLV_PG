@@ -21,10 +21,10 @@ type LoadSnapshot struct {
 type AdminHandler struct {
 	auditRepo     domain.AuditLogRepository
 	tenantRepo    domain.TenantRepository
-	workspaceRepo domain.WorkspaceRepository
+	environmentRepo domain.PracticeEnvironmentRepository
 	subjectRepo   domain.SubjectRepository
 	hostMonitor   domain.HostMonitor
-	orchestrator  domain.WorkspaceOrchestrator
+	orchestrator  domain.PracticeEnvironmentOrchestrator
 	studentDir    StudentDirectorySource
 
 	policiesService *services.ServerPoliciesService
@@ -59,32 +59,32 @@ type StudentDirectorySource interface {
 	ListStudentsDirectory(ctx context.Context, tenantID, search, subjectID, status, periodID string) ([]*domain.AdminStudentDirectoryItem, error)
 }
 
-// workspaceStatusCounter cuenta workspaces por estado sin depender del listado
+// environmentStatusCounter cuenta environments por estado sin depender del listado
 // de activos. Se declara en el consumidor a propósito: solo el panel de salud
 // necesita el desglose completo por estado.
-type workspaceStatusCounter interface {
-	CountWorkspacesByStatus(ctx context.Context, tenantID string) (map[string]int, error)
+type environmentStatusCounter interface {
+	CountPracticeEnvironmentsByStatus(ctx context.Context, tenantID string) (map[string]int, error)
 }
 
 func (h *AdminHandler) SetStudentDirectory(src StudentDirectorySource) {
 	h.studentDir = src
 }
 
-func (h *AdminHandler) SetOrchestrator(orch domain.WorkspaceOrchestrator) {
+func (h *AdminHandler) SetOrchestrator(orch domain.PracticeEnvironmentOrchestrator) {
 	h.orchestrator = orch
 }
 
 func NewAdminHandler(
 	auditRepo domain.AuditLogRepository,
 	tenantRepo domain.TenantRepository,
-	workspaceRepo domain.WorkspaceRepository,
+	environmentRepo domain.PracticeEnvironmentRepository,
 	subjectRepo domain.SubjectRepository,
 	hostMonitor domain.HostMonitor,
 ) *AdminHandler {
 	return &AdminHandler{
 		auditRepo:     auditRepo,
 		tenantRepo:    tenantRepo,
-		workspaceRepo: workspaceRepo,
+		environmentRepo: environmentRepo,
 		subjectRepo:   subjectRepo,
 		hostMonitor:   hostMonitor,
 	}

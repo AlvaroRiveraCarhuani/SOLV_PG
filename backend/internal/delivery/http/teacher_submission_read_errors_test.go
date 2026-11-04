@@ -83,7 +83,7 @@ func TestTeacherSubmissionReaders_MissingReturnsNotFound(t *testing.T) {
 func TestTeacherRunEphemeral_IDEReturnsConflict(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              readSubmissionID,
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 	}}
 	handler := newTeacherReadHandler(repo)
 
@@ -152,7 +152,7 @@ func TestTeacherAddComment_LineInsideSnapshotReturnsCreated(t *testing.T) {
 func TestTeacherAddComment_HeaderLineReturnsCreated(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              readSubmissionID,
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		Code:            "# === FILE: a.py ===\nx\ny\n",
 		FilesAvailable:  true,
 		Files: []domain.ProjectFile{
@@ -184,7 +184,7 @@ func TestTeacherAddComment_HeaderLineReturnsCreated(t *testing.T) {
 func TestTeacherAddComment_RangeAcrossFilesReturnsUnprocessable(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              readSubmissionID,
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		Code:            "# === FILE: a.py ===\nx\ny\n\n# === FILE: b.py ===\nz\nw\n",
 		FilesAvailable:  true,
 		Files: []domain.ProjectFile{
@@ -245,7 +245,7 @@ func TestTeacherAddComment_ReversedRangeReturnsUnprocessable(t *testing.T) {
 func TestTeacherAddComment_BlockInsideOneFileIsPersisted(t *testing.T) {
 	repo := &teacherReadRepo{review: &domain.TeacherSubmissionReviewDTO{
 		ID:              readSubmissionID,
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		Code:            "# === FILE: a.py ===\nx\ny\nz\n",
 		FilesAvailable:  true,
 		Files: []domain.ProjectFile{

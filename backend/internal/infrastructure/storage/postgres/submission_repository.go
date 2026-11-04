@@ -22,8 +22,8 @@ func NewPostgresSubmissionRepository(db *sqlx.DB) *PostgresSubmissionRepository 
 
 func (r *PostgresSubmissionRepository) Create(ctx context.Context, sub *domain.Submission) error {
 	query := `
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status, ast_result, generated_cases, complexity_analysis, score, execution_time_ms, memory_used_mb, submitted_at)
-		VALUES (:id, :tenant_id, :exercise_id, :student_id, :workspace_id, :code, :verdict, COALESCE(NULLIF(:review_status, ''), 'not_required'), :ast_result, :generated_cases, :complexity_analysis, :score, :execution_time_ms, :memory_used_mb, NOW())
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, environment_id, code, verdict, review_status, ast_result, generated_cases, complexity_analysis, score, execution_time_ms, memory_used_mb, submitted_at)
+		VALUES (:id, :tenant_id, :exercise_id, :student_id, :environment_id, :code, :verdict, COALESCE(NULLIF(:review_status, ''), 'not_required'), :ast_result, :generated_cases, :complexity_analysis, :score, :execution_time_ms, :memory_used_mb, NOW())
 	`
 	_, err := r.db.NamedExecContext(ctx, query, sub)
 	if err != nil {
@@ -41,7 +41,7 @@ func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id
 
 	var sub domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status,
+		SELECT id, tenant_id, exercise_id, student_id, environment_id, code, verdict, review_status,
 		       COALESCE(ast_result, '{}'::jsonb) AS ast_result,
 		       COALESCE(generated_cases, '{}'::jsonb) AS generated_cases,
 		       COALESCE(complexity_analysis, '{}'::jsonb) AS complexity_analysis,
@@ -65,7 +65,7 @@ func (r *PostgresSubmissionRepository) GetByID(ctx context.Context, tenantID, id
 func (r *PostgresSubmissionRepository) ListByExerciseAndStudent(ctx context.Context, tenantID, exerciseID, studentID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status,
+		SELECT id, tenant_id, exercise_id, student_id, environment_id, code, verdict, review_status,
 		       COALESCE(ast_result, '{}'::jsonb) AS ast_result,
 		       COALESCE(generated_cases, '{}'::jsonb) AS generated_cases,
 		       COALESCE(complexity_analysis, '{}'::jsonb) AS complexity_analysis,
@@ -85,7 +85,7 @@ func (r *PostgresSubmissionRepository) ListByExerciseAndStudent(ctx context.Cont
 func (r *PostgresSubmissionRepository) ListByExercise(ctx context.Context, tenantID, exerciseID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status,
+		SELECT id, tenant_id, exercise_id, student_id, environment_id, code, verdict, review_status,
 		       COALESCE(ast_result, '{}'::jsonb) AS ast_result,
 		       COALESCE(generated_cases, '{}'::jsonb) AS generated_cases,
 		       COALESCE(complexity_analysis, '{}'::jsonb) AS complexity_analysis,
@@ -105,7 +105,7 @@ func (r *PostgresSubmissionRepository) ListByExercise(ctx context.Context, tenan
 func (r *PostgresSubmissionRepository) ListByStudent(ctx context.Context, tenantID, studentID string) ([]*domain.Submission, error) {
 	var list []*domain.Submission
 	query := `
-		SELECT id, tenant_id, exercise_id, student_id, workspace_id, code, verdict, review_status,
+		SELECT id, tenant_id, exercise_id, student_id, environment_id, code, verdict, review_status,
 		       COALESCE(ast_result, '{}'::jsonb) AS ast_result,
 		       COALESCE(generated_cases, '{}'::jsonb) AS generated_cases,
 		       COALESCE(complexity_analysis, '{}'::jsonb) AS complexity_analysis,

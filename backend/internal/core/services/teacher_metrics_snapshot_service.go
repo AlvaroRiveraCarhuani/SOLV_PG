@@ -10,7 +10,7 @@ import (
 )
 
 type ContainerMetricsSnapshot struct {
-	WorkspaceID      string
+	EnvironmentID      string
 	ContainerID      string
 	StudentID        string
 	StudentName      string
@@ -28,8 +28,8 @@ type ContainerMetricsSnapshot struct {
 }
 
 type MetricsSnapshotService struct {
-	repo           domain.WorkspaceRepository
-	docker         domain.WorkspaceOrchestrator
+	repo           domain.PracticeEnvironmentRepository
+	docker         domain.PracticeEnvironmentOrchestrator
 	snapshots      map[string]ContainerMetricsSnapshot
 	mu             sync.RWMutex
 	stopChan       chan struct{}
@@ -40,8 +40,8 @@ type MetricsSnapshotService struct {
 }
 
 func NewMetricsSnapshotService(
-	repo domain.WorkspaceRepository,
-	docker domain.WorkspaceOrchestrator,
+	repo domain.PracticeEnvironmentRepository,
+	docker domain.PracticeEnvironmentOrchestrator,
 	updateInterval time.Duration,
 ) *MetricsSnapshotService {
 	if updateInterval <= 0 {
@@ -98,7 +98,7 @@ func (s *MetricsSnapshotService) SetTenantFilter(filter func(tenantID string) bo
 	s.tenantFilter = filter
 }
 
-func (s *MetricsSnapshotService) GetWorkspaceMetrics(ctx context.Context, tenantID, teacherID string) ([]*ContainerMetricsSnapshot, error) {
+func (s *MetricsSnapshotService) GetPracticeEnvironmentMetrics(ctx context.Context, tenantID, teacherID string) ([]*ContainerMetricsSnapshot, error) {
 	if s == nil {
 		return nil, nil
 	}
@@ -122,13 +122,13 @@ func (s *MetricsSnapshotService) updateSnapshots(ctx context.Context) {
 		return
 	}
 
-	activeWorkspaces, err := s.repo.GetActiveWorkspaces(ctx)
+	activePracticeEnvironments, err := s.repo.GetActivePracticeEnvironments(ctx)
 	if err != nil {
 		log.Printf("[Metrics Snapshot] Error updating snapshots: %v", err)
 		return
 	}
 
-	for _, ws := range activeWorkspaces {
+	for _, ws := range activePracticeEnvironments {
 		if ws.ContainerID == nil || *ws.ContainerID == "" {
 			continue
 		}
@@ -147,7 +147,7 @@ func (s *MetricsSnapshotService) updateSnapshots(ctx context.Context) {
 			continue
 		}
 
-		// Lock once per workspace (outside slow Docker call)
+		// Lock once per environment (outside slow Docker call)
 		s.mu.Lock()
 		wsID := ws.ID
 
@@ -166,7 +166,7 @@ func (s *MetricsSnapshotService) updateSnapshots(ctx context.Context) {
 			}
 
 			snap = ContainerMetricsSnapshot{
-				WorkspaceID:      wsID,
+				EnvironmentID:      wsID,
 				ContainerID:      containerID,
 				StudentID:        studentID,
 				StudentName:      studentName,
@@ -197,7 +197,7 @@ func (s *MetricsSnapshotService) updateSnapshots(ctx context.Context) {
 	}
 }
 
-func (s *MetricsSnapshotService) GetSnapshot(workspaceID string) (ContainerMetricsSnapshot, bool) {
+func (s *MetricsSnapshotService) GetSnapshot(environmentID string) (ContainerMetricsSnapshot, bool) {
 	if s == nil {
 		var zero ContainerMetricsSnapshot
 		return zero, false
@@ -206,6 +206,6 @@ func (s *MetricsSnapshotService) GetSnapshot(workspaceID string) (ContainerMetri
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	snap, exists := s.snapshots[workspaceID]
+	snap, exists := s.snapshots[environmentID]
 	return snap, exists
 }

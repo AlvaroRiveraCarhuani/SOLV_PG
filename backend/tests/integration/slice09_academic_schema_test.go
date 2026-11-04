@@ -34,7 +34,7 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 	// 1. Limpieza de datos de prueba previos
 	_, _ = sqlDB.Exec("DELETE FROM submissions")
 	_, _ = sqlDB.Exec("DELETE FROM enrollments")
-	_, _ = sqlDB.Exec("DELETE FROM workspaces")
+	_, _ = sqlDB.Exec("DELETE FROM environments")
 	_, _ = sqlDB.Exec("DELETE FROM subjects")
 	_, _ = sqlDB.Exec("DELETE FROM teacher_invitations")
 	_, _ = sqlDB.Exec("DELETE FROM users WHERE email LIKE '%@test-academic.edu.bo'")

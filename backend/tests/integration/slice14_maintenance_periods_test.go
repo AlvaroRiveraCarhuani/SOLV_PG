@@ -35,7 +35,7 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	academicPeriodRepo := postgres.NewPostgresAcademicPeriodRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
@@ -45,7 +45,7 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 
 	adminAcademicHandler := httpdelivery.NewAdminAcademicHandler(academicPeriodService, maintenanceService, nil).
 		WithAuditLogRepo(auditRepo)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, environmentRepo, submissionRepo, exerciseRepo)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

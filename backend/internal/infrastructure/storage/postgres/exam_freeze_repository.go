@@ -39,16 +39,16 @@ func (r *PostgresExamFreezeRepository) SessionIsExam(ctx context.Context, tenant
 	return isExam, nil
 }
 
-// ParticipantWorkspaces devuelve el laboratorio de cada participante en la
+// ParticipantPracticeEnvironments devuelve el laboratorio de cada participante en la
 // materia del aula. Los alumnos sin entorno no aparecen: no hay volumen que
 // congelar y el barrido no tiene que inventar filas.
-func (r *PostgresExamFreezeRepository) ParticipantWorkspaces(ctx context.Context, tenantID, sessionID string) ([]domain.ExamFreezeWorkspace, error) {
-	var rows []domain.ExamFreezeWorkspace
+func (r *PostgresExamFreezeRepository) ParticipantPracticeEnvironments(ctx context.Context, tenantID, sessionID string) ([]domain.ExamFreezePracticeEnvironment, error) {
+	var rows []domain.ExamFreezePracticeEnvironment
 	err := r.db.SelectContext(ctx, &rows, `
-		SELECT w.id AS workspace_id, w.student_id, w.status, w.frozen_at
+		SELECT w.id AS environment_id, w.student_id, w.status, w.frozen_at
 		FROM class_session_participants p
 		JOIN class_sessions cs ON cs.id = p.session_id AND cs.tenant_id = p.tenant_id
-		JOIN workspaces w
+		JOIN environments w
 		  ON w.student_id = p.student_id
 		 AND w.subject_id = cs.subject_id
 		 AND w.tenant_id = cs.tenant_id
@@ -56,7 +56,7 @@ func (r *PostgresExamFreezeRepository) ParticipantWorkspaces(ctx context.Context
 		ORDER BY p.student_id
 	`, sessionID, tenantID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list participant workspaces for session %s: %w", sessionID, err)
+		return nil, fmt.Errorf("failed to list participant environments for session %s: %w", sessionID, err)
 	}
 	return rows, nil
 }
@@ -74,7 +74,7 @@ func (r *PostgresExamFreezeRepository) ClosedExamSessions(ctx context.Context, l
 		FROM class_sessions cs
 		JOIN exercises e ON e.id = cs.exercise_id AND e.tenant_id = cs.tenant_id
 		JOIN class_session_participants p ON p.session_id = cs.id AND p.tenant_id = cs.tenant_id
-		JOIN workspaces w
+		JOIN environments w
 		  ON w.student_id = p.student_id
 		 AND w.subject_id = cs.subject_id
 		 AND w.tenant_id = cs.tenant_id
@@ -91,23 +91,23 @@ func (r *PostgresExamFreezeRepository) ClosedExamSessions(ctx context.Context, l
 	return rows, nil
 }
 
-// SetWorkspaceFrozen marca el congelamiento y ajusta el estado en una sola
+// SetPracticeEnvironmentFrozen marca el congelamiento y ajusta el estado en una sola
 // sentencia: no puede quedar un laboratorio con frozen_at viejo y estado
 // running, ni al revés.
-func (r *PostgresExamFreezeRepository) SetWorkspaceFrozen(ctx context.Context, tenantID, workspaceID string, frozen bool, at time.Time) error {
-	status := domain.WorkspaceStatusRunning
+func (r *PostgresExamFreezeRepository) SetPracticeEnvironmentFrozen(ctx context.Context, tenantID, environmentID string, frozen bool, at time.Time) error {
+	status := domain.PracticeEnvironmentStatusRunning
 	if frozen {
-		status = domain.WorkspaceStatusFrozen
+		status = domain.PracticeEnvironmentStatusFrozen
 	}
 	query := `
-		UPDATE workspaces
+		UPDATE environments
 		SET frozen_at = CASE WHEN $3::boolean THEN $4::timestamptz ELSE NULL END,
 		    status = $5,
 		    updated_at = NOW()
 		WHERE id = $1::uuid AND tenant_id = $2
 	`
-	if _, err := r.db.ExecContext(ctx, query, workspaceID, tenantID, frozen, at, status); err != nil {
-		return fmt.Errorf("failed to set frozen state for workspace %s: %w", workspaceID, err)
+	if _, err := r.db.ExecContext(ctx, query, environmentID, tenantID, frozen, at, status); err != nil {
+		return fmt.Errorf("failed to set frozen state for environment %s: %w", environmentID, err)
 	}
 	return nil
 }

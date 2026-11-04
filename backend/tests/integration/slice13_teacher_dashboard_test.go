@@ -136,9 +136,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 		`, tenantID, sID, subject2ID)
 	}
 
-	// Configurar Workspaces para Materia 1:
+	// Configurar PracticeEnvironments para Materia 1:
 	// - 2 estudiantes con heartbeat fresco (< 1 minuto) -> active_now = 2
-	// - 1 estudiante con workspace OOM_Killed
+	// - 1 estudiante con environment OOM_Killed
 	// - 1 estudiante con heartbeat viejo (> 5 min)
 	wsFresh1 := uuid.NewString()
 	wsFresh2 := uuid.NewString()
@@ -146,7 +146,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	wsOld := uuid.NewString()
 
 	_, err = db.GetDB().Exec(`
-		INSERT INTO workspaces (id, student_id, subject_id, status, type, access_url, last_heartbeat_at, last_oom_killed_at, tenant_id)
+		INSERT INTO environments (id, student_id, subject_id, status, type, access_url, last_heartbeat_at, last_oom_killed_at, tenant_id)
 		VALUES 
 			($1, $5, $9, 'running', 'IDE_PERSISTENTE', 'http://ws1.local', NOW(), NULL, $10),
 			($2, $6, $9, 'running', 'IDE_PERSISTENTE', 'http://ws2.local', NOW(), NULL, $10),
@@ -154,7 +154,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 			($4, $8, $9, 'running', 'IDE_PERSISTENTE', 'http://ws4.local', NOW() - INTERVAL '10 minutes', NULL, $10)
 	`, wsFresh1, wsFresh2, wsOOM, wsOld, studentsSub1[0], studentsSub1[1], studentsSub1[2], studentsSub1[3], subject1ID, tenantID)
 	if err != nil {
-		t.Fatalf("Failed to insert test workspaces: %v", err)
+		t.Fatalf("Failed to insert test environments: %v", err)
 	}
 
 	var seedTemplateID string

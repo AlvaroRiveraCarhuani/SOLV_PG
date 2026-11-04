@@ -53,7 +53,7 @@ func (h *EnvTestHandler) StartEnvTest(w http.ResponseWriter, r *http.Request) {
 }
 
 // StartPracticeEnvTest inicia la prueba de una práctica IDE con sus satélites y su
-// repositorio base, sin crear entregas ni workspaces.
+// repositorio base, sin crear entregas ni environments.
 // POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test
 func (h *EnvTestHandler) StartPracticeEnvTest(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {

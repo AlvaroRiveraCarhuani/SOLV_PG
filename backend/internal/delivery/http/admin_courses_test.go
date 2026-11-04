@@ -17,10 +17,10 @@ func (f *fakeStudentDirectory) ListStudentsDirectory(_ context.Context, _, _, _,
 	return f.items, f.err
 }
 
-// fakeMetricsOrchestrator implementa WorkspaceOrchestrator embebiendo la
+// fakeMetricsOrchestrator implementa PracticeEnvironmentOrchestrator embebiendo la
 // interfaz (nil) y sobrescribiendo solo GetContainerMetrics.
 type fakeMetricsOrchestrator struct {
-	domain.WorkspaceOrchestrator
+	domain.PracticeEnvironmentOrchestrator
 	metrics *domain.ContainerMetrics
 	err     error
 }
@@ -92,7 +92,7 @@ func TestStudentIdentitiesDirectorioConErrorNoRompeYNoExponeUUID(t *testing.T) {
 
 func TestContainerUsageMBSinOrchestratorNoInventaMemoria(t *testing.T) {
 	h := &AdminHandler{}
-	ws := &domain.WorkspaceInstance{ContainerID: &[]string{"abc123"}[0]}
+	ws := &domain.PracticeEnvironment{ContainerID: &[]string{"abc123"}[0]}
 
 	mb, available := h.containerUsageMB(context.Background(), ws)
 	if mb != 0 || available {
@@ -111,7 +111,7 @@ func TestContainerUsageMBLeeUsoRealDeDocker(t *testing.T) {
 			},
 		},
 	}
-	ws := &domain.WorkspaceInstance{ContainerID: &containerID}
+	ws := &domain.PracticeEnvironment{ContainerID: &containerID}
 
 	mb, available := h.containerUsageMB(context.Background(), ws)
 	if !available {
@@ -129,7 +129,7 @@ func TestContainerUsageMBContenedorDetenidoNoDisponible(t *testing.T) {
 			metrics: &domain.ContainerMetrics{IsRunning: false},
 		},
 	}
-	ws := &domain.WorkspaceInstance{ContainerID: &containerID}
+	ws := &domain.PracticeEnvironment{ContainerID: &containerID}
 
 	if _, available := h.containerUsageMB(context.Background(), ws); available {
 		t.Error("contenedor detenido no debe reportar métricas disponibles")

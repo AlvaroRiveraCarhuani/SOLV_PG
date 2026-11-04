@@ -180,7 +180,7 @@ func (s *AdvanceSnapshotStore) GetVerified(ctx context.Context, key, expectedSHA
 // Files devuelve los archivos del snapshot emitido, después de verificar su
 // hash. Si el objeto no coincide con lo emitido no se entrega nada: es preferible
 // un error a copiar al alumno un archivo alterado o truncado.
-func (s *AdvanceSnapshotStore) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func (s *AdvanceSnapshotStore) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	data, err := s.GetVerified(ctx, key, expectedSHA256)
 	if err != nil {
 		return nil, err

@@ -18,7 +18,7 @@ type PracticeSatelliteProvision struct {
 }
 
 // PracticeSatelliteProvisioner asegura los satélites de una práctica con una
-// identidad de prueba estable, sin crear un workspace ni una entrega.
+// identidad de prueba estable, sin crear un environment ni una entrega.
 type PracticeSatelliteProvisioner interface {
 	ProvisionPracticeSatellites(ctx context.Context, exercise *domain.Exercise, template *domain.Template, subjectID string) (PracticeSatelliteProvision, error)
 }
@@ -36,7 +36,7 @@ func practiceTestStudentID(exerciseID string) string {
 // ProvisionPracticeSatellites levanta los motores declarados por la plantilla y aplica
 // el db_init_script del ejercicio en modo hard-fail. La base de prueba queda aislada por
 // práctica y se reutiliza entre pruebas; nunca se mezcla con la de un alumno.
-func (s *WorkspaceService) ProvisionPracticeSatellites(
+func (s *PracticeEnvironmentService) ProvisionPracticeSatellites(
 	ctx context.Context,
 	exercise *domain.Exercise,
 	template *domain.Template,

@@ -128,7 +128,7 @@ type StackConfig struct {
 	AddonIDs          []string                `json:"addon_ids,omitempty"`          // IDs o slugs de los complementos seleccionados
 	Services          []StackServiceSelection `json:"services,omitempty"`           // Bindings por rol; reemplaza a DatabaseID
 	DatabaseID        string                  `json:"database_id,omitempty"`        // Alias heredado de un único servicio primario
-	WorkspaceFolders  []string                `json:"workspace_folders,omitempty"`  // Carpetas iniciales en /home/workspace
+	PracticeEnvironmentFolders  []string                `json:"environment_folders,omitempty"`  // Carpetas iniciales en /home/workspace
 	DockerfileContent string                  `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
@@ -136,15 +136,15 @@ func (sc StackConfig) Value() (driver.Value, error) {
 	if sc.AddonIDs == nil {
 		sc.AddonIDs = []string{}
 	}
-	if sc.WorkspaceFolders == nil {
-		sc.WorkspaceFolders = []string{}
+	if sc.PracticeEnvironmentFolders == nil {
+		sc.PracticeEnvironmentFolders = []string{}
 	}
 	return json.Marshal(sc)
 }
 
 func (sc *StackConfig) Scan(value interface{}) error {
 	if value == nil {
-		*sc = StackConfig{AddonIDs: []string{}, WorkspaceFolders: []string{}}
+		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}}
 		return nil
 	}
 	b, ok := value.([]byte)
@@ -152,7 +152,7 @@ func (sc *StackConfig) Scan(value interface{}) error {
 		return fmt.Errorf("failed to scan StackConfig: expected []byte, got %T", value)
 	}
 	if len(b) == 0 {
-		*sc = StackConfig{AddonIDs: []string{}, WorkspaceFolders: []string{}}
+		*sc = StackConfig{AddonIDs: []string{}, PracticeEnvironmentFolders: []string{}}
 		return nil
 	}
 	return json.Unmarshal(b, sc)

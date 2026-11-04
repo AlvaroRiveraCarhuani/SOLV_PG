@@ -35,13 +35,13 @@ type PracticeEnvTestRequest struct {
 	ExerciseID string
 }
 
-// PracticeEnvTestService valida una práctica IDE sin crear entregas ni workspaces:
+// PracticeEnvTestService valida una práctica IDE sin crear entregas ni environments:
 // aprovisiona sus satélites, ejecuta el setup de la plantilla sobre un volumen temporal
 // y reporta el resultado con el vocabulario de EnvTestStatus.
 type PracticeEnvTestService struct {
 	repo       domain.EnvTestJobRepository
 	registry   domain.ImageRegistryPort
-	runner     domain.WorkspaceTestRunnerPort
+	runner     domain.PracticeEnvironmentTestRunnerPort
 	satellites PracticeSatelliteProvisioner
 	exercises  domain.ExerciseRepository
 	subjects   domain.SubjectRepository
@@ -56,7 +56,7 @@ type PracticeEnvTestService struct {
 func NewPracticeEnvTestService(
 	repo domain.EnvTestJobRepository,
 	registry domain.ImageRegistryPort,
-	runner domain.WorkspaceTestRunnerPort,
+	runner domain.PracticeEnvironmentTestRunnerPort,
 	satellites PracticeSatelliteProvisioner,
 	exercises domain.ExerciseRepository,
 	subjects domain.SubjectRepository,
@@ -316,7 +316,7 @@ func (s *PracticeEnvTestService) execute(ctx context.Context, jobID string, exer
 		// el contenedor es efímero y no publica puertos.
 		networkName = "bridge"
 	}
-	result, runErr := s.runner.RunWorkspaceSetupTest(ctx, domain.WorkspaceSetupTestSpec{
+	result, runErr := s.runner.RunPracticeEnvironmentSetupTest(ctx, domain.PracticeEnvironmentSetupTestSpec{
 		Image:         image,
 		VolumeName:    volumeName,
 		NetworkName:   networkName,
@@ -327,14 +327,14 @@ func (s *PracticeEnvTestService) execute(ctx context.Context, jobID string, exer
 	})
 	if runErr != nil {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, "La prueba del workspace superó el tiempo total de ejecución")
+			_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, "La prueba del environment superó el tiempo total de ejecución")
 			return
 		}
 		if errors.Is(runErr, context.Canceled) || ctx.Err() != nil {
 			_ = s.repo.Cancel(context.Background(), jobID)
 			return
 		}
-		_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("La prueba del workspace no terminó: %v", runErr))
+		_ = s.repo.Fail(context.Background(), jobID, domain.EnvTestErrTestCrash, fmt.Sprintf("La prueba del environment no terminó: %v", runErr))
 		return
 	}
 
@@ -377,7 +377,7 @@ func (s *PracticeEnvTestService) attachResult(jobID string, result *domain.EnvTe
 	_ = s.repo.Save(context.Background(), job)
 }
 
-func setupFailureMessage(result domain.WorkspaceSetupTestResult) string {
+func setupFailureMessage(result domain.PracticeEnvironmentSetupTestResult) string {
 	output := setupLogExcerpt(result.Output)
 	if len(output) > 600 {
 		output = "…" + output[len(output)-600:]

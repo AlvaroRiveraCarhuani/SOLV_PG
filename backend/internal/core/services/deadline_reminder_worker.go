@@ -82,7 +82,7 @@ func (w *DeadlineReminderWorker) ProcessReminders(ctx context.Context, now time.
 			baseDomain = "localhost:4200"
 		}
 
-		workspaceURL := fmt.Sprintf("https://%s/student/courses/%s/assignments/%s", baseDomain, c.SubjectID, c.ExerciseID)
+		environmentURL := fmt.Sprintf("https://%s/student/courses/%s/assignments/%s", baseDomain, c.SubjectID, c.ExerciseID)
 		formattedDate := c.DueDate.Format("02/01/2006 15:04")
 
 		htmlBody, textBody := mailer.BuildDeadlineReminderEmail(
@@ -91,8 +91,8 @@ func (w *DeadlineReminderWorker) ProcessReminders(ctx context.Context, now time.
 			c.ExerciseTitle,
 			c.SubjectName,
 			formattedDate,
-			c.HasStartedWorkspace,
-			workspaceURL,
+			c.HasStartedPracticeEnvironment,
+			environmentURL,
 		)
 
 		w.mailer.SendAsync(&domain.EmailMessage{

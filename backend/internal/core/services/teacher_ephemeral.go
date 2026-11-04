@@ -23,7 +23,7 @@ func (s *TeacherService) RunEphemeral(ctx context.Context, tenantID, teacherID, 
 		return nil, err
 	}
 
-	if review.EnvironmentType == domain.WorkspaceTypeIDEPersistente {
+	if review.EnvironmentType == domain.PracticeEnvironmentTypeIDEPersistente {
 		return nil, domain.ErrEphemeralNotSupportedForIDE
 	}
 

@@ -22,11 +22,11 @@ type ClassAdvanceService struct {
 	audit     domain.ClassAuditRecorder
 	history   domain.ClassHistoryStore
 	retention domain.AdvanceSnapshotRetentionStore
-	// Snapshots, workspaces y volumes se cablean con WithApplier: la emisión no
+	// Snapshots, environments y volumes se cablean con WithApplier: la emisión no
 	// los necesita, la aplicación en el entorno del alumno sí.
 	snapshots  domain.AdvanceSnapshotStore
-	workspaces domain.WorkspaceRepository
-	volumes    domain.WorkspaceVolumeStore
+	environments domain.PracticeEnvironmentRepository
+	volumes    domain.PracticeEnvironmentVolumeStore
 	// applySlots limita cuántas aplicaciones leen y escriben volúmenes a la vez.
 	// Las demás esperan su turno en cola; ninguna se rechaza por esto.
 	applySlots chan struct{}

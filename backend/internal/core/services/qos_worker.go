@@ -17,8 +17,8 @@ type containerStatsHistory struct {
 }
 
 type QoSOrchestratorWorker struct {
-	repo              domain.WorkspaceRepository
-	docker            domain.WorkspaceOrchestrator
+	repo              domain.PracticeEnvironmentRepository
+	docker            domain.PracticeEnvironmentOrchestrator
 	hostMonitor       domain.HostMonitor
 	inactivityTimeout time.Duration
 	checkInterval     time.Duration
@@ -35,8 +35,8 @@ type QoSOrchestratorWorker struct {
 }
 
 func NewQoSOrchestratorWorker(
-	repo domain.WorkspaceRepository,
-	docker domain.WorkspaceOrchestrator,
+	repo domain.PracticeEnvironmentRepository,
+	docker domain.PracticeEnvironmentOrchestrator,
 	hostMonitor domain.HostMonitor,
 	inactivityTimeout time.Duration,
 	checkInterval time.Duration,
@@ -114,13 +114,13 @@ func (w *QoSOrchestratorWorker) effectiveInactivityTimeout(ctx context.Context) 
 func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 	inactivityTimeout := w.effectiveInactivityTimeout(ctx)
 
-	activeWorkspaces, err := w.repo.GetActiveWorkspaces(ctx)
+	activePracticeEnvironments, err := w.repo.GetActivePracticeEnvironments(ctx)
 	if err != nil {
-		log.Printf("[QoS Worker] Error fetching active workspaces: %v", err)
+		log.Printf("[QoS Worker] Error fetching active environments: %v", err)
 		return
 	}
 
-	for _, ws := range activeWorkspaces {
+	for _, ws := range activePracticeEnvironments {
 		if ws.ContainerID == nil || *ws.ContainerID == "" {
 			continue
 		}
@@ -135,7 +135,7 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 		// 1. Detección de OOMKilled / Exit 137
 		if !metrics.IsRunning {
 			if metrics.OOMKilled || metrics.ExitCode == 137 {
-				log.Printf("[QoS Worker] Container %s (Workspace %s) was OOMKilled (Exit 137). Incrementing strike.", containerID, ws.ID)
+				log.Printf("[QoS Worker] Container %s (PracticeEnvironment %s) was OOMKilled (Exit 137). Incrementing strike.", containerID, ws.ID)
 				_ = w.repo.IncrementOOMStrike(ctx, ws.ID)
 			}
 			continue
@@ -156,10 +156,10 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 				if w.hostMonitor.CanAllocateMemory(neededMB) {
 					if err := w.docker.UpdateContainerMemory(ctx, containerID, targetMemoryMB); err == nil {
 						_ = w.repo.UpdateMemoryLimit(ctx, ws.ID, targetMemoryMB)
-						log.Printf("[QoS Auto-Bursting] Workspace %s scaled UP from %d MB to %d MB (Usage: %.2f%%)", ws.ID, currentLimitMB, targetMemoryMB, usagePct)
+						log.Printf("[QoS Auto-Bursting] PracticeEnvironment %s scaled UP from %d MB to %d MB (Usage: %.2f%%)", ws.ID, currentLimitMB, targetMemoryMB, usagePct)
 					}
 				} else {
-					log.Printf("[QoS Auto-Bursting GUARD] Skipped scale UP for workspace %s: Host memory depleted (< 15%% free)", ws.ID)
+					log.Printf("[QoS Auto-Bursting GUARD] Skipped scale UP for environment %s: Host memory depleted (< 15%% free)", ws.ID)
 				}
 			}
 		}
@@ -207,9 +207,9 @@ func (w *QoSOrchestratorWorker) runCycle(ctx context.Context) {
 		}
 
 		if shouldHibernate {
-			log.Printf("[QoS Hibernation] Hibernating container %s (Workspace %s). Reason: IntentionTimeout=%v, RealityTimeout=%v", containerID, ws.ID, intentionTimeout, realityTimeout)
+			log.Printf("[QoS Hibernation] Hibernating container %s (PracticeEnvironment %s). Reason: IntentionTimeout=%v, RealityTimeout=%v", containerID, ws.ID, intentionTimeout, realityTimeout)
 			if err := w.docker.StopAndRemoveContainer(ctx, containerID); err == nil {
-				_ = w.repo.UpdateStatus(ctx, ws.ID, domain.WorkspaceStatusHibernated)
+				_ = w.repo.UpdateStatus(ctx, ws.ID, domain.PracticeEnvironmentStatusHibernated)
 				w.mu.Lock()
 				delete(w.history, ws.ID)
 				w.mu.Unlock()

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -71,7 +72,7 @@ func (s *advanceEdgeSnapshots) PutFiles(ctx context.Context, key string, files m
 	return hex.EncodeToString(hash.Sum(nil)), size, len(files), nil
 }
 
-func (s *advanceEdgeSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.WorkspaceVolumeFile, error) {
+func (s *advanceEdgeSnapshots) Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	files, ok := s.objects[key]
@@ -83,9 +84,9 @@ func (s *advanceEdgeSnapshots) Files(ctx context.Context, key, expectedSHA256 st
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
-	out := make([]domain.WorkspaceVolumeFile, 0, len(paths))
+	out := make([]domain.PracticeEnvironmentVolumeFile, 0, len(paths))
 	for _, path := range paths {
-		out = append(out, domain.WorkspaceVolumeFile{Path: path, Content: []byte(files[path])})
+		out = append(out, domain.PracticeEnvironmentVolumeFile{Path: path, Content: []byte(files[path])})
 	}
 	return out, nil
 }
@@ -136,7 +137,7 @@ func (v *advanceEdgeVolumes) replace(volume string, files map[string]string) {
 	v.seed(volume, files)
 }
 
-func (v *advanceEdgeVolumes) SnapshotWorkspaceVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.WorkspaceVolumeFile, error) {
+func (v *advanceEdgeVolumes) SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeName string, maxBytes int64) ([]domain.PracticeEnvironmentVolumeFile, error) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	files := v.files[volumeName]
@@ -145,14 +146,14 @@ func (v *advanceEdgeVolumes) SnapshotWorkspaceVolume(ctx context.Context, volume
 		paths = append(paths, path)
 	}
 	sort.Strings(paths)
-	out := make([]domain.WorkspaceVolumeFile, 0, len(paths))
+	out := make([]domain.PracticeEnvironmentVolumeFile, 0, len(paths))
 	for _, path := range paths {
-		out = append(out, domain.WorkspaceVolumeFile{Path: path, Content: []byte(files[path])})
+		out = append(out, domain.PracticeEnvironmentVolumeFile{Path: path, Content: []byte(files[path])})
 	}
 	return out, nil
 }
 
-func (v *advanceEdgeVolumes) WriteWorkspaceVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error {
+func (v *advanceEdgeVolumes) WritePracticeEnvironmentVolumeFiles(ctx context.Context, volumeName string, files map[string]string) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	if v.files[volumeName] == nil {
@@ -199,7 +200,12 @@ type advanceEdgeFixture struct {
 	practiceID    string
 	examID        string
 	sessionID     string
-	students      []string
+	// noPracticeSessionID es un aula abierta sin práctica asociada: no puede
+	// emitir ni recibir avances. Vive en su propia materia porque solo hay un
+	// aula abierta por materia.
+	noPracticeSessionID string
+	noPracticeSubjectID string
+	students            []string
 	outsiderID    string
 	teacherVolume string
 }
@@ -243,8 +249,10 @@ func setupAdvanceEdgeFixture(t *testing.T) *advanceEdgeFixture {
 		subjectID:    uuid.NewString(),
 		practiceID:   uuid.NewString(),
 		examID:       uuid.NewString(),
-		sessionID:    uuid.NewString(),
-		students:     []string{uuid.NewString(), uuid.NewString()},
+		sessionID:           uuid.NewString(),
+		noPracticeSessionID: uuid.NewString(),
+		noPracticeSubjectID: uuid.NewString(),
+		students:            []string{uuid.NewString(), uuid.NewString()},
 		outsiderID:   uuid.NewString(),
 	}
 
@@ -274,6 +282,12 @@ func setupAdvanceEdgeFixture(t *testing.T) *advanceEdgeFixture {
 	mustExec(`INSERT INTO class_sessions (id, tenant_id, subject_id, exercise_id, status, opens_at, ends_at)
 		VALUES ($1, $2, $3, $4, 'open', NOW(), NOW() + INTERVAL '90 minutes')`,
 		f.sessionID, f.tenantID, f.subjectID, f.practiceID)
+	mustExec(`INSERT INTO subjects (id, tenant_id, name, code, teacher_id)
+		VALUES ($1, $2, 'Materia sin práctica', $3, $4)`,
+		f.noPracticeSubjectID, f.tenantID, "AVS-"+f.noPracticeSubjectID[:8], f.teacherID)
+	mustExec(`INSERT INTO class_sessions (id, tenant_id, subject_id, exercise_id, status, opens_at, ends_at)
+		VALUES ($1, $2, $3, NULL, 'open', NOW(), NOW() + INTERVAL '90 minutes')`,
+		f.noPracticeSessionID, f.tenantID, f.noPracticeSubjectID)
 
 	for i, studentID := range f.students {
 		mustExec(`INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
@@ -284,25 +298,25 @@ func setupAdvanceEdgeFixture(t *testing.T) *advanceEdgeFixture {
 			f.tenantID, studentID, f.subjectID)
 		mustExec(`INSERT INTO class_session_participants (session_id, student_id, tenant_id)
 			VALUES ($1, $2, $3)`, f.sessionID, studentID, f.tenantID)
-		mustExec(`INSERT INTO workspaces (id, student_id, subject_id, tenant_id, status, type, access_url)
-			VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
-			uuid.NewString(), studentID, f.subjectID, f.tenantID)
+		mustExec(`INSERT INTO environments (id, student_id, subject_id, exercise_id, tenant_id, status, type, access_url)
+			VALUES ($1, $2, $3, $4, $5, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
+			uuid.NewString(), studentID, f.subjectID, f.practiceID, f.tenantID)
 	}
 	mustExec(`INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
 		VALUES ($1, 'Alumno', 'Ajeno', $2, 'student', $3)`,
 		f.outsiderID, fmt.Sprintf("alumno_ajeno_borde_%s@uab.edu.bo", f.outsiderID[:8]), f.tenantID)
-	mustExec(`INSERT INTO workspaces (id, student_id, subject_id, tenant_id, status, type, access_url)
-		VALUES ($1, $2, $3, $4, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
-		uuid.NewString(), f.teacherID, f.subjectID, f.tenantID)
+	mustExec(`INSERT INTO environments (id, student_id, subject_id, exercise_id, tenant_id, status, type, access_url)
+		VALUES ($1, $2, $3, $4, $5, 'running', 'IDE_PERSISTENTE', 'http://127.0.0.1:3000')`,
+		uuid.NewString(), f.teacherID, f.subjectID, f.practiceID, f.tenantID)
 
-	f.teacherVolume = fmt.Sprintf("solv_workspace_%s_%s", f.teacherID, f.subjectID)
+	f.teacherVolume = fmt.Sprintf("solv_workspace_%s_%s_%s", f.teacherID, f.subjectID, f.practiceID)
 	f.volumes.seed(f.teacherVolume, map[string]string{"main.py": "version-1\n"})
 
 	sessions := postgres.NewPostgresClassSessionRepository(conn)
 	advances := postgres.NewPostgresClassAdvanceRepository(conn, sessions)
-	workspaces := postgres.NewPostgresWorkspaceRepository(conn)
+	environments := postgres.NewPostgresPracticeEnvironmentRepository(conn)
 	service := services.NewClassAdvanceService(advances, sessions).
-		WithApplier(f.snapshots, workspaces, f.volumes)
+		WithApplier(f.snapshots, environments, f.volumes)
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -363,9 +377,9 @@ func advanceEdgeExpectStatus(t *testing.T, res *http.Response, want int, label s
 	}
 }
 
-func (f *advanceEdgeFixture) emit(t *testing.T, userID, role, exerciseID, scope string, studentIDs []string) advanceEdgeEmitResponse {
+func (f *advanceEdgeFixture) emit(t *testing.T, userID, role, scope string, studentIDs []string) advanceEdgeEmitResponse {
 	t.Helper()
-	payload := map[string]any{"exercise_id": exerciseID, "scope": scope}
+	payload := map[string]any{"scope": scope}
 	if len(studentIDs) > 0 {
 		payload["student_ids"] = studentIDs
 	}
@@ -392,7 +406,7 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 
 	t.Run("un docente ajeno no emite ni congela", func(t *testing.T) {
 		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
-			f.otherTeacher, "teacher", map[string]any{"exercise_id": f.practiceID, "scope": "class"})
+			f.otherTeacher, "teacher", map[string]any{"scope": "class"})
 		advanceEdgeExpectStatus(t, res, http.StatusNotFound, "emisión ajena")
 
 		res = f.do(t, http.MethodPatch, "/api/v1/teacher/sessions/"+f.sessionID+"/freeze",
@@ -415,20 +429,24 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 
 	t.Run("un alumno no emite avances", func(t *testing.T) {
 		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
-			f.students[0], "student", map[string]any{"exercise_id": f.practiceID, "scope": "class"})
+			f.students[0], "student", map[string]any{"scope": "class"})
 		advanceEdgeExpectStatus(t, res, http.StatusForbidden, "emisión de un alumno")
 	})
 
-	t.Run("el examen responde 409 y no deja snapshot", func(t *testing.T) {
-		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
-			f.teacherID, "teacher", map[string]any{"exercise_id": f.examID, "scope": "class"})
-		advanceEdgeExpectStatus(t, res, http.StatusConflict, "emisión en examen")
-
-		if got := f.snapshots.count(); got != 0 {
-			t.Fatalf("el snapshot de un examen no debía quedar guardado, quedaron %d", got)
+	t.Run("un aula sin práctica responde 409 y no deja snapshot", func(t *testing.T) {
+		before := f.snapshots.count()
+		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.noPracticeSessionID+"/advances",
+			f.teacherID, "teacher", map[string]any{"scope": "class"})
+		body, _ := io.ReadAll(res.Body)
+		_ = res.Body.Close()
+		if res.StatusCode != http.StatusConflict {
+			t.Fatalf("emisión sin práctica: se esperaba 409, hubo %d: %s", res.StatusCode, string(body))
 		}
-		if got := f.snapshots.deletedCount(); got == 0 {
-			t.Fatal("el snapshot armado para el examen debía borrarse al rechazar la emisión")
+		if !strings.Contains(string(body), "práctica asociada") {
+			t.Fatalf("la respuesta debía nombrar la práctica faltante: %s", string(body))
+		}
+		if got := f.snapshots.count(); got != before {
+			t.Fatalf("el aula sin práctica no debía empaquetar: antes %d, después %d", before, got)
 		}
 	})
 
@@ -438,7 +456,7 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 		advanceEdgeExpectStatus(t, res, http.StatusOK, "congelar")
 
 		res = f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
-			f.teacherID, "teacher", map[string]any{"exercise_id": f.practiceID, "scope": "class"})
+			f.teacherID, "teacher", map[string]any{"scope": "class"})
 		advanceEdgeExpectStatus(t, res, http.StatusConflict, "emisión congelada")
 		if got := f.snapshots.count(); got != 0 {
 			t.Fatalf("con la clase congelada no se empaqueta nada, quedaron %d snapshots", got)
@@ -448,7 +466,7 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 			f.teacherID, "teacher", nil)
 		advanceEdgeExpectStatus(t, res, http.StatusOK, "descongelar")
 
-		emitted := f.emit(t, f.teacherID, "teacher", f.practiceID, "class", nil)
+		emitted := f.emit(t, f.teacherID, "teacher", "class", nil)
 		if len(emitted.Data.Recipients) != len(f.students) {
 			t.Fatalf("la emisión a toda la clase debía llegar a %d alumnos, llegó a %d",
 				len(f.students), len(emitted.Data.Recipients))
@@ -472,7 +490,6 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 		before := f.snapshots.count()
 		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
 			f.teacherID, "teacher", map[string]any{
-				"exercise_id": f.practiceID,
 				"scope":       "selected",
 				"student_ids": []string{f.outsiderID},
 			})
@@ -489,7 +506,7 @@ func TestClassAdvanceEdges_EmissionRules(t *testing.T) {
 
 		before := f.snapshots.count()
 		res := f.do(t, http.MethodPost, "/api/v1/teacher/sessions/"+f.sessionID+"/advances",
-			f.teacherID, "teacher", map[string]any{"exercise_id": f.practiceID, "scope": "class"})
+			f.teacherID, "teacher", map[string]any{"scope": "class"})
 		advanceEdgeExpectStatus(t, res, http.StatusConflict, "emisión con el aula cerrada")
 		if got := f.snapshots.count(); got != before {
 			t.Fatalf("el aula cerrada no debía empaquetar: antes %d, después %d", before, got)
@@ -506,9 +523,9 @@ func TestClassAdvanceEdges_StudentIsolationWindowAndSnapshot(t *testing.T) {
 		return
 	}
 	ctx := context.Background()
-	studentVolume := fmt.Sprintf("solv_workspace_%s_%s", f.students[0], f.subjectID)
+	studentVolume := fmt.Sprintf("solv_workspace_%s_%s_%s", f.students[0], f.subjectID, f.practiceID)
 
-	first := f.emit(t, f.teacherID, "teacher", f.practiceID, "selected", []string{f.students[0]})
+	first := f.emit(t, f.teacherID, "teacher", "selected", []string{f.students[0]})
 	if len(first.Data.Recipients) != 1 || first.Data.Recipients[0] != f.students[0] {
 		t.Fatalf("la emisión seleccionada debía quedar solo para el primer alumno: %v", first.Data.Recipients)
 	}
@@ -538,7 +555,7 @@ func TestClassAdvanceEdges_StudentIsolationWindowAndSnapshot(t *testing.T) {
 		}
 	})
 
-	second := f.emit(t, f.teacherID, "teacher", f.practiceID, "selected", []string{f.students[0]})
+	second := f.emit(t, f.teacherID, "teacher", "selected", []string{f.students[0]})
 	res := f.do(t, http.MethodPost, "/api/v1/class-advances/"+second.Data.Advance.ID+"/apply",
 		f.students[0], "student", nil)
 	advanceEdgeExpectStatus(t, res, http.StatusOK, "aplicación del segundo avance")
@@ -548,8 +565,8 @@ func TestClassAdvanceEdges_StudentIsolationWindowAndSnapshot(t *testing.T) {
 
 	// Dos avances quedan pendientes cuando se cierra el aula: el docente los ve
 	// vencidos sin que el alumno abra el laboratorio.
-	third := f.emit(t, f.teacherID, "teacher", f.practiceID, "selected", []string{f.students[0]})
-	fourth := f.emit(t, f.teacherID, "teacher", f.practiceID, "selected", []string{f.students[0]})
+	third := f.emit(t, f.teacherID, "teacher", "selected", []string{f.students[0]})
+	fourth := f.emit(t, f.teacherID, "teacher", "selected", []string{f.students[0]})
 
 	if _, err := f.sessions.CloseSession(ctx, f.tenantID, f.teacherID, f.sessionID); err != nil {
 		t.Fatalf("no se pudo cerrar el aula: %v", err)

@@ -18,7 +18,7 @@ import (
 
 // ReviewEnvironmentService abre un preview inmutable de una entrega IDE. Cada
 // clic crea un volumen propio con el snapshot y un contenedor que solo ejecuta la
-// app; nunca monta ni reinicia el workspace vivo del alumno.
+// app; nunca monta ni reinicia el environment vivo del alumno.
 type ReviewEnvironmentService struct {
 	repo         domain.ReviewEnvironmentRepository
 	source       domain.ReviewEnvironmentSource
@@ -113,7 +113,7 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 	if err != nil {
 		return nil, err
 	}
-	if reviewCtx.EnvironmentType != domain.WorkspaceTypeIDEPersistente {
+	if reviewCtx.EnvironmentType != domain.PracticeEnvironmentTypeIDEPersistente {
 		return nil, domain.ErrReviewEnvironmentRequiresIDE
 	}
 	if strings.TrimSpace(reviewCtx.TemplateImage) == "" {
@@ -149,7 +149,7 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 	envID := uuid.NewString()
 	compactID := shortReviewID(strings.ReplaceAll(envID, "-", ""))
 	baseDomain := getBaseDomain()
-	hostPort, portErr := reserveWorkspaceHostPort()
+	hostPort, portErr := reservePracticeEnvironmentHostPort()
 	if portErr != nil {
 		if baseDomain == "" {
 			return nil, fmt.Errorf("%w: %v", domain.ErrReviewEnvironmentStartFailed, portErr)
@@ -186,7 +186,7 @@ func (s *ReviewEnvironmentService) Start(ctx context.Context, tenantID, teacherI
 	for _, file := range files {
 		fileMap[file.Path] = file.Content
 	}
-	if err := s.orchestrator.WriteWorkspaceVolumeFiles(workCtx, volumeName, fileMap); err != nil {
+	if err := s.orchestrator.WritePracticeEnvironmentVolumeFiles(workCtx, volumeName, fileMap); err != nil {
 		return nil, s.fail(workCtx, env, "snapshot_write_failed", err)
 	}
 

@@ -142,13 +142,13 @@ func TestGradeFeedbackEmail(t *testing.T) {
 	}
 }
 
-func TestDeadlineReminderEmail_WithAndWithoutWorkspace(t *testing.T) {
+func TestDeadlineReminderEmail_WithAndWithoutPracticeEnvironment(t *testing.T) {
 	branding := domain.EmailBranding{
 		InstitutionName: "Universidad Adventista de Bolivia",
 		BaseDomain:      "solv.uab.edu.bo",
 	}
 
-	// Caso 1: Estudiante con workspace iniciado (borrador guardado)
+	// Caso 1: Estudiante con environment iniciado (borrador guardado)
 	htmlWithWs, textWithWs := mailer.BuildDeadlineReminderEmail(
 		branding,
 		"Lucas Silva",
@@ -156,7 +156,7 @@ func TestDeadlineReminderEmail_WithAndWithoutWorkspace(t *testing.T) {
 		"Sistemas Operativos II",
 		"27 de Octubre, 23:59 (GMT-4)",
 		true,
-		"https://solv.uab.edu.bo/student/workspace/42",
+		"https://solv.uab.edu.bo/student/environment/42",
 	)
 
 	if !strings.Contains(htmlWithWs, "Registramos avances guardados") {
@@ -169,7 +169,7 @@ func TestDeadlineReminderEmail_WithAndWithoutWorkspace(t *testing.T) {
 		t.Errorf("htmlWithWs should contain formatted deadline")
 	}
 
-	// Caso 2: Estudiante sin workspace iniciado
+	// Caso 2: Estudiante sin environment iniciado
 	htmlNoWs, textNoWs := mailer.BuildDeadlineReminderEmail(
 		branding,
 		"Lucas Silva",
@@ -177,7 +177,7 @@ func TestDeadlineReminderEmail_WithAndWithoutWorkspace(t *testing.T) {
 		"Sistemas Operativos II",
 		"27 de Octubre, 23:59 (GMT-4)",
 		false,
-		"https://solv.uab.edu.bo/student/workspace/42",
+		"https://solv.uab.edu.bo/student/environment/42",
 	)
 
 	if !strings.Contains(htmlNoWs, "no registra actividad ni entrega enviada") {

@@ -10,6 +10,12 @@ type Subject struct {
 	TenantID          string    `db:"tenant_id" json:"tenant_id"`
 	Name              string    `db:"name" json:"name"`
 	Code              string    `db:"code" json:"code"`
+	// CatalogID identifica la materia en el plan de estudios, más allá del
+	// periodo en que se dicta. Name y Code son el snapshot de este curso.
+	CatalogID *string `db:"subject_catalog_id" json:"subject_catalog_id,omitempty"`
+	// Section es el paralelo o comisión dentro del periodo; vacío si hay una
+	// sola oferta.
+	Section *string `db:"section" json:"section,omitempty"`
 	TeacherID         *string   `db:"teacher_id" json:"teacher_id,omitempty"`
 	TeacherName       *string   `db:"teacher_name" json:"teacher_name,omitempty"`
 	AcademicPeriodID  *string   `db:"academic_period_id" json:"academic_period_id,omitempty"`
@@ -33,7 +39,7 @@ type Submission struct {
 	TenantID           string          `db:"tenant_id" json:"tenant_id"`
 	ExerciseID         string          `db:"exercise_id" json:"exercise_id"`
 	StudentID          string          `db:"student_id" json:"student_id"`
-	WorkspaceID        *string         `db:"workspace_id" json:"workspace_id,omitempty"`
+	EnvironmentID        *string         `db:"environment_id" json:"environment_id,omitempty"`
 	Code               string          `db:"code" json:"code"`
 	Verdict            string          `db:"verdict" json:"verdict"`
 	ReviewStatus       string          `db:"review_status" json:"review_status"`

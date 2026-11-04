@@ -17,7 +17,7 @@ type Handlers struct {
 	TemplateHandler               *TemplateHandler
 	AuthHandler                   *AuthHandler
 	EvaluationHandler             *EvaluationHandler
-	WorkspaceHandler              *WorkspaceHandler
+	PracticeEnvironmentHandler              *PracticeEnvironmentHandler
 	MetricsHandler                *MetricsHandler
 	ConfigHandler                 *ConfigHandler
 	SubjectHandler                *SubjectHandler
@@ -54,7 +54,7 @@ func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerAuthRoutes(mux, deps)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
 	registerLanguageProfileRoutes(mux, deps)
-	registerWorkspaceRoutes(mux, deps.WorkspaceHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
+	registerPracticeEnvironmentRoutes(mux, deps.PracticeEnvironmentHandler, deps.TenantMiddleware, deps.RateLimitMiddleware)
 	registerMetricsRoutes(mux, deps.MetricsHandler)
 	registerConfigRoutes(mux, deps.ConfigHandler)
 	registerAcademicRoutes(mux, deps)
@@ -215,9 +215,9 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		mux.Handle("GET /api/v1/admin/dashboard/courses-load", tm(http.HandlerFunc(deps.AdminHandler.GetCoursesLoad)))
 		mux.Handle("GET /api/v1/admin/dashboard/incidents", tm(http.HandlerFunc(deps.AdminHandler.GetIncidents)))
 		mux.Handle("GET /api/v1/admin/dashboard/containers", tm(http.HandlerFunc(deps.AdminHandler.GetContainers)))
-		mux.Handle("GET /api/v1/admin/courses/{id}/workspaces", tm(http.HandlerFunc(deps.AdminHandler.GetCourseWorkspaces)))
-		mux.Handle("GET /api/v1/admin/workspaces/{id}/logs", tm(http.HandlerFunc(deps.AdminHandler.GetWorkspaceLogs)))
-		mux.Handle("POST /api/v1/admin/workspaces/{id}/resolve", am(tm(http.HandlerFunc(deps.AdminHandler.ResolveIncident))))
+		mux.Handle("GET /api/v1/admin/courses/{id}/environments", tm(http.HandlerFunc(deps.AdminHandler.GetCoursePracticeEnvironments)))
+		mux.Handle("GET /api/v1/admin/environments/{id}/logs", tm(http.HandlerFunc(deps.AdminHandler.GetPracticeEnvironmentLogs)))
+		mux.Handle("POST /api/v1/admin/environments/{id}/resolve", am(tm(http.HandlerFunc(deps.AdminHandler.ResolveIncident))))
 	}
 
 	if deps.AdminAcademicHandler != nil {
@@ -294,8 +294,8 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 	// IDE de una práctica: el docente abre el repositorio de esa práctica en una
 	// pestaña nueva, con su plantilla y su volumen, sin pasar por el entorno de
 	// la materia.
-	if deps.WorkspaceHandler != nil {
-		mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide", am(tm(http.HandlerFunc(deps.WorkspaceHandler.OpenPracticeIDE))))
+	if deps.PracticeEnvironmentHandler != nil {
+		mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide", am(tm(http.HandlerFunc(deps.PracticeEnvironmentHandler.OpenPracticeIDE))))
 	}
 }
 
@@ -491,7 +491,7 @@ func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("PUT /api/v1/admin/judge/profiles/{language}", am(tm(http.HandlerFunc(deps.LanguageProfileHandler.UpdateProfile))))
 }
 
-func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {
+func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmentHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {
 	if h == nil {
 		return
 	}
@@ -499,23 +499,21 @@ func registerWorkspaceRoutes(mux *http.ServeMux, h *WorkspaceHandler, tenantMidd
 		rateLimitMiddleware = func(next http.Handler) http.Handler { return next }
 	}
 	if tenantMiddleware != nil {
-		mux.Handle("GET /api/v1/workspaces", tenantMiddleware(http.HandlerFunc(h.GetWorkspaceForSubject)))
-		mux.Handle("POST /api/v1/workspaces/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
-		mux.Handle("POST /api/v1/workspaces/{id}/pause", tenantMiddleware(http.HandlerFunc(h.PauseWorkspace)))
-		mux.Handle("DELETE /api/v1/workspaces/{id}", tenantMiddleware(http.HandlerFunc(h.TerminateWorkspace)))
-		mux.Handle("GET /api/v1/workspaces/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
-		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
-		mux.Handle("POST /api/v1/workspaces/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartWorkspace)))
-		mux.Handle("POST /api/v1/workspaces/{id}/submit", tenantMiddleware(WithAuth(http.HandlerFunc(h.SubmitWorkspaceProject))))
+		mux.Handle("POST /api/v1/environments/start", tenantMiddleware(rateLimitMiddleware(http.HandlerFunc(h.StartPracticeEnvironment))))
+		mux.Handle("POST /api/v1/environments/{id}/pause", tenantMiddleware(http.HandlerFunc(h.PausePracticeEnvironment)))
+		mux.Handle("DELETE /api/v1/environments/{id}", tenantMiddleware(http.HandlerFunc(h.TerminatePracticeEnvironment)))
+		mux.Handle("GET /api/v1/environments/{id}/audit", tenantMiddleware(http.HandlerFunc(h.GetSemgrepAudit)))
+		mux.Handle("POST /api/v1/environments/{id}/heartbeat", tenantMiddleware(http.HandlerFunc(h.Heartbeat)))
+		mux.Handle("POST /api/v1/environments/{id}/restart", tenantMiddleware(http.HandlerFunc(h.RestartPracticeEnvironment)))
+		mux.Handle("POST /api/v1/environments/{id}/submit", tenantMiddleware(WithAuth(http.HandlerFunc(h.SubmitPracticeEnvironmentProject))))
 	} else {
-		mux.Handle("GET /api/v1/workspaces", WithAuth(http.HandlerFunc(h.GetWorkspaceForSubject)))
-		mux.Handle("POST /api/v1/workspaces/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartWorkspace))))
-		mux.Handle("POST /api/v1/workspaces/{id}/pause", WithAuth(http.HandlerFunc(h.PauseWorkspace)))
-		mux.Handle("DELETE /api/v1/workspaces/{id}", WithAuth(http.HandlerFunc(h.TerminateWorkspace)))
-		mux.Handle("GET /api/v1/workspaces/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
-		mux.Handle("POST /api/v1/workspaces/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
-		mux.Handle("POST /api/v1/workspaces/{id}/restart", WithAuth(http.HandlerFunc(h.RestartWorkspace)))
-		mux.Handle("POST /api/v1/workspaces/{id}/submit", WithAuth(http.HandlerFunc(h.SubmitWorkspaceProject)))
+		mux.Handle("POST /api/v1/environments/start", WithAuth(rateLimitMiddleware(http.HandlerFunc(h.StartPracticeEnvironment))))
+		mux.Handle("POST /api/v1/environments/{id}/pause", WithAuth(http.HandlerFunc(h.PausePracticeEnvironment)))
+		mux.Handle("DELETE /api/v1/environments/{id}", WithAuth(http.HandlerFunc(h.TerminatePracticeEnvironment)))
+		mux.Handle("GET /api/v1/environments/{id}/audit", WithAuth(http.HandlerFunc(h.GetSemgrepAudit)))
+		mux.Handle("POST /api/v1/environments/{id}/heartbeat", WithAuth(http.HandlerFunc(h.Heartbeat)))
+		mux.Handle("POST /api/v1/environments/{id}/restart", WithAuth(http.HandlerFunc(h.RestartPracticeEnvironment)))
+		mux.Handle("POST /api/v1/environments/{id}/submit", WithAuth(http.HandlerFunc(h.SubmitPracticeEnvironmentProject)))
 	}
 }
 
@@ -553,6 +551,7 @@ func registerTeacherRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/overview", tm(http.HandlerFunc(deps.TeacherHandler.GetOverview)))
 	mux.Handle("GET /api/v1/teacher/courses/{id}/labs", tm(http.HandlerFunc(deps.TeacherHandler.GetCourseLabs)))
 	mux.Handle("GET /api/v1/teacher/exercises/bank", tm(http.HandlerFunc(deps.TeacherHandler.GetExerciseBank)))
+	mux.Handle("POST /api/v1/teacher/exercises/{id}/duplicate", am(tm(http.HandlerFunc(deps.TeacherHandler.DuplicateExercise))))
 	mux.Handle("GET /api/v1/teacher/reviews", tm(http.HandlerFunc(deps.TeacherHandler.GetReviewQueue)))
 	mux.Handle("PATCH /api/v1/teacher/submissions/{id}/review", am(tm(http.HandlerFunc(deps.TeacherHandler.UpdateSubmissionReview))))
 	mux.Handle("PUT /api/v1/teacher/grades/{studentId}/exercises/{exerciseId}", am(tm(http.HandlerFunc(deps.TeacherHandler.SetExerciseGrade))))

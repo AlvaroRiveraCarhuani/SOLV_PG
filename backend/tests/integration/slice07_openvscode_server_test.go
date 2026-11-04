@@ -25,9 +25,9 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
 	}
 
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())
 	hostMonitor := systeminfra.NewGopsutilHostMonitor(-1.0)
-	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
+	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor)
 
 	studentID := uuid.NewString()
 	subjectID := "00000000-0000-0000-0000-000000000001"
@@ -41,9 +41,9 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Iniciar nuevo entorno con OpenVSCode Server
-	wsInstance, err := workspaceService.StartWorkspace(ctx, studentID, subjectID)
+	wsInstance, err := environmentService.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
 	if err != nil {
-		t.Fatalf("Failed to start OpenVSCode workspace: %v", err)
+		t.Fatalf("Failed to start OpenVSCode environment: %v", err)
 	}
 
 	defer func() {
@@ -53,13 +53,13 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	}()
 
 	// 2. Verificar que el registro en DB tiene estado 'running'
-	fetched, err := workspaceRepo.GetByID(ctx, wsInstance.ID)
+	fetched, err := environmentRepo.GetByID(ctx, wsInstance.ID)
 	if err != nil || fetched == nil {
-		t.Fatalf("Failed to fetch workspace instance from DB: %v", err)
+		t.Fatalf("Failed to fetch environment instance from DB: %v", err)
 	}
 
-	if fetched.Status != domain.WorkspaceStatusRunning {
-		t.Errorf("Expected workspace status 'running', got %s", fetched.Status)
+	if fetched.Status != domain.PracticeEnvironmentStatusRunning {
+		t.Errorf("Expected environment status 'running', got %s", fetched.Status)
 	}
 
 	t.Logf("Ticket 1 PASSED! OpenVSCode Server instantiated cleanly: ID=%s, AccessURL=%s, Port=3000, Mount=/home/workspace",

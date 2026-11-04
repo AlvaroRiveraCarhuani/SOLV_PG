@@ -93,7 +93,7 @@ func (s *PostgresDumpContentSource) WriteBackup(ctx context.Context, tenantID st
 		{tableName: "lab_templates", tenantCol: "tenant_id"},
 		{tableName: "exercises", tenantCol: "tenant_id"},
 		{tableName: "submissions", tenantCol: "tenant_id"},
-		{tableName: "workspaces", tenantCol: "tenant_id"},
+		{tableName: "environments", tenantCol: "tenant_id"},
 		{tableName: "backup_configs", tenantCol: "tenant_id"},
 		{tableName: "audit_logs", tenantCol: "tenant_id"},
 	}

@@ -31,10 +31,10 @@ func (r *PostgresDeadlineReminderRepository) FindPendingReminders(ctx context.Co
 			TRIM(u.first_name || ' ' || u.last_name) AS student_name,
 			u.email AS student_email,
 			EXISTS (
-				SELECT 1 FROM workspaces w 
+				SELECT 1 FROM environments w 
 				WHERE w.student_id = u.id 
 				  AND w.subject_id = e.subject_id
-			) AS has_started_workspace
+			) AS has_started_environment
 		FROM exercises e
 		JOIN subjects s ON s.id = e.subject_id
 		JOIN enrollments en ON en.subject_id = e.subject_id AND en.tenant_id = e.tenant_id

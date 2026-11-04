@@ -14,14 +14,14 @@ import (
 )
 
 const (
-	ActionTerminateAll = "terminate_all_workspaces"
-	ActionHibernateAll = "hibernate_all_workspaces"
+	ActionTerminateAll = "terminate_all_environments"
+	ActionHibernateAll = "hibernate_all_environments"
 	ActionKillZombies  = "kill_zombies"
 	ActionDockerPrune  = "docker_prune"
 	ActionResetPools   = "reset_pools"
 
-	PhraseTerminateAll = "TERMINAR TODOS LOS WORKSPACES"
-	PhraseHibernateAll = "HIBERNAR TODOS LOS WORKSPACES"
+	PhraseTerminateAll = "TERMINAR TODOS LOS ENTORNOS"
+	PhraseHibernateAll = "HIBERNAR TODOS LOS ENTORNOS"
 	PhraseKillZombies  = "LIMPIAR ZOMBIES DOCKER"
 	PhraseDockerPrune  = "PURGAR CAPAS HUERFANAS"
 	PhraseResetPools   = "REINICIAR POOLS"
@@ -79,25 +79,25 @@ func (s *AdminGovernanceService) ExecuteEmergencyAction(
 	switch action {
 	case ActionTerminateAll:
 		var count int64
-		count, err = s.govRepo.TerminateAllWorkspaces(ctx, tenantID)
+		count, err = s.govRepo.TerminateAllPracticeEnvironments(ctx, tenantID)
 		if err == nil {
 			result = &domain.EmergencyActionResult{
 				Action:        action,
 				AffectedCount: count,
 				ExecutedBy:    adminID,
-				Message:       fmt.Sprintf("Se terminaron forzosamente %d workspaces activos", count),
+				Message:       fmt.Sprintf("Se terminaron forzosamente %d environments activos", count),
 			}
 		}
 
 	case ActionHibernateAll:
 		var count int64
-		count, err = s.govRepo.HibernateAllWorkspaces(ctx, tenantID)
+		count, err = s.govRepo.HibernateAllPracticeEnvironments(ctx, tenantID)
 		if err == nil {
 			result = &domain.EmergencyActionResult{
 				Action:        action,
 				AffectedCount: count,
 				ExecutedBy:    adminID,
-				Message:       fmt.Sprintf("Se hibernaron exitosamente %d workspaces activos", count),
+				Message:       fmt.Sprintf("Se hibernaron exitosamente %d environments activos", count),
 			}
 		}
 

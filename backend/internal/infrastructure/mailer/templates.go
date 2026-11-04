@@ -194,8 +194,8 @@ func BuildDeadlineReminderEmail(
 	assignmentTitle,
 	subjectName,
 	formattedDueDate string,
-	hasStartedWorkspace bool,
-	workspaceURL string,
+	hasStartedPracticeEnvironment bool,
+	environmentURL string,
 ) (htmlBody, textBody string) {
 	instName := strings.TrimSpace(branding.InstitutionName)
 	if instName == "" {
@@ -212,10 +212,10 @@ func BuildDeadlineReminderEmail(
 	escapedAssignment := html.EscapeString(strings.TrimSpace(assignmentTitle))
 	escapedSubject := html.EscapeString(strings.TrimSpace(subjectName))
 	escapedDueDate := html.EscapeString(strings.TrimSpace(formattedDueDate))
-	escapedURL := html.EscapeString(strings.TrimSpace(workspaceURL))
+	escapedURL := html.EscapeString(strings.TrimSpace(environmentURL))
 
 	var stateTextHTML, stateTextPlain string
-	if hasStartedWorkspace {
+	if hasStartedPracticeEnvironment {
 		stateTextPlain = "Registramos avances guardados en su entorno de trabajo, pero la entrega final aún no ha sido confirmada en el sistema. Le recordamos verificar sus archivos y remitir la entrega antes del plazo límite."
 		stateTextHTML = `<p style="margin: 0; color: #334155;"><strong>Estado actual:</strong> Registramos avances guardados en su entorno de trabajo, pero la entrega definitiva aún no ha sido confirmada en el sistema. Le recordamos verificar sus archivos y confirmar el envío a tiempo.</p>`
 	} else {
@@ -238,7 +238,7 @@ Si ya realizó su entrega recientemente, puede desestimar este recordatorio.
 
 Atentamente,
 Servicios Académicos — %s
-`, greetingName, assignmentTitle, subjectName, formattedDueDate, stateTextPlain, workspaceURL, instName)
+`, greetingName, assignmentTitle, subjectName, formattedDueDate, stateTextPlain, environmentURL, instName)
 
 	contentHTML := fmt.Sprintf(`
       <div class="greeting">Estimado/a %s:</div>

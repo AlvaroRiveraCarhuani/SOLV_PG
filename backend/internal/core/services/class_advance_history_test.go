@@ -170,9 +170,9 @@ func TestClassAdvanceAudit_RecordsStudentApplyAndDismiss(t *testing.T) {
 	volumes := &fakeAdvanceVolumes{}
 	audit := &recordingAudit{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
-		}}, newRunningWorkspace(t), volumes)
+		}}, newRunningPracticeEnvironment(t), volumes)
 	svc.SetAuditRepository(audit)
 
 	ctx := context.Background()

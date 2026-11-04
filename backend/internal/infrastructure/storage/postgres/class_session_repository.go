@@ -293,7 +293,7 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 		),
 		env AS (
 			SELECT DISTINCT ON (w.student_id) w.student_id, w.id, w.status
-			FROM workspaces w
+			FROM environments w
 			JOIN s ON w.subject_id = s.subject_id AND w.tenant_id = s.tenant_id
 			WHERE w.status IN ('running', 'active', 'pending')
 			ORDER BY w.student_id, w.last_heartbeat_at DESC NULLS LAST
@@ -306,8 +306,8 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 				p.joined_at,
 				p.last_seen_at,
 				COALESCE(p.last_seen_at >= NOW() - INTERVAL '120 seconds', FALSE) AS present,
-				env.id AS workspace_id,
-				env.status AS workspace_status,
+				env.id AS environment_id,
+				env.status AS environment_status,
 				l.submitted_at,
 				l.verdict,
 				l.review_status,
@@ -352,8 +352,8 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 		JoinedAt        sql.NullTime   `db:"joined_at"`
 		LastSeenAt      sql.NullTime   `db:"last_seen_at"`
 		Present         bool           `db:"present"`
-		WorkspaceID     sql.NullString `db:"workspace_id"`
-		WorkspaceStatus sql.NullString `db:"workspace_status"`
+		EnvironmentID     sql.NullString `db:"environment_id"`
+		PracticeEnvironmentStatus sql.NullString `db:"environment_status"`
 		SubmittedAt     sql.NullTime   `db:"submitted_at"`
 		Verdict         sql.NullString `db:"verdict"`
 		ReviewStatus    sql.NullString `db:"review_status"`
@@ -387,13 +387,13 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 			seen := row.LastSeenAt.Time
 			student.LastSeenAt = &seen
 		}
-		if row.WorkspaceID.Valid {
-			id := row.WorkspaceID.String
-			student.WorkspaceID = &id
+		if row.EnvironmentID.Valid {
+			id := row.EnvironmentID.String
+			student.EnvironmentID = &id
 		}
-		if row.WorkspaceStatus.Valid {
-			status := row.WorkspaceStatus.String
-			student.WorkspaceStatus = &status
+		if row.PracticeEnvironmentStatus.Valid {
+			status := row.PracticeEnvironmentStatus.String
+			student.PracticeEnvironmentStatus = &status
 		}
 		if row.SubmittedAt.Valid {
 			submitted := row.SubmittedAt.Time
@@ -461,8 +461,14 @@ func (r *PostgresClassSessionRepository) OpenSessionsForStudent(ctx context.Cont
 			cs.opens_at,
 			cs.ends_at,
 			cs.closes_at,
-			0 AS enrolled,
-			0 AS present
+			(SELECT COUNT(*)
+			   FROM enrollments e2
+			  WHERE e2.tenant_id = cs.tenant_id AND e2.subject_id = cs.subject_id) AS enrolled,
+			(SELECT COUNT(*)
+			   FROM class_session_participants p
+			  WHERE p.session_id = cs.id
+			    AND p.tenant_id = cs.tenant_id
+			    AND p.last_seen_at >= NOW() - INTERVAL '120 seconds') AS present
 		FROM class_sessions cs
 		JOIN subjects s ON s.id = cs.subject_id
 		JOIN enrollments en
@@ -532,10 +538,10 @@ func (r *PostgresClassSessionRepository) TouchParticipant(ctx context.Context, t
 	return nil
 }
 
-// AttachWorkspaceToOpenSession deja constancia de en qué aula nació el entorno y
+// AttachPracticeEnvironmentToOpenSession deja constancia de en qué aula nació el entorno y
 // marca la presencia del alumno. Si la materia no tiene aula abierta no hace
 // nada: el trabajo fuera de clase sigue siendo trabajo, sin sesión.
-func (r *PostgresClassSessionRepository) AttachWorkspaceToOpenSession(ctx context.Context, tenantID, studentID, subjectID, workspaceID string) error {
+func (r *PostgresClassSessionRepository) AttachPracticeEnvironmentToOpenSession(ctx context.Context, tenantID, studentID, subjectID, environmentID string) error {
 	// Un entorno que nace después del fin de clase no pertenece a esa sesión.
 	if err := r.expireSessions(ctx, tenantID); err != nil {
 		return err
@@ -552,24 +558,24 @@ func (r *PostgresClassSessionRepository) AttachWorkspaceToOpenSession(ctx contex
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}
-		return fmt.Errorf("failed to resolve open session for workspace: %w", err)
+		return fmt.Errorf("failed to resolve open session for environment: %w", err)
 	}
 
 	if _, err := r.db.ExecContext(ctx, `
-		UPDATE workspaces
+		UPDATE environments
 		SET session_id = $1::uuid
 		WHERE id = $2::uuid AND tenant_id = $3 AND session_id IS NULL
-	`, sessionID, workspaceID, tenantID); err != nil {
-		return fmt.Errorf("failed to link workspace to session: %w", err)
+	`, sessionID, environmentID, tenantID); err != nil {
+		return fmt.Errorf("failed to link environment to session: %w", err)
 	}
 
 	if _, err := r.db.ExecContext(ctx, `
-		INSERT INTO class_session_participants (session_id, student_id, tenant_id, joined_at, last_seen_at, workspace_id)
+		INSERT INTO class_session_participants (session_id, student_id, tenant_id, joined_at, last_seen_at, environment_id)
 		VALUES ($1::uuid, $2::uuid, $3, NOW(), NOW(), $4::uuid)
 		ON CONFLICT (session_id, student_id)
-		DO UPDATE SET last_seen_at = NOW(), left_at = NULL, workspace_id = EXCLUDED.workspace_id
-	`, sessionID, studentID, tenantID, workspaceID); err != nil {
-		return fmt.Errorf("failed to record session presence for workspace: %w", err)
+		DO UPDATE SET last_seen_at = NOW(), left_at = NULL, environment_id = EXCLUDED.environment_id
+	`, sessionID, studentID, tenantID, environmentID); err != nil {
+		return fmt.Errorf("failed to record session presence for environment: %w", err)
 	}
 	return nil
 }

@@ -88,7 +88,7 @@ func (r *stubTeacherRepoForKeystroke) AddComment(_ context.Context, _ *domain.Su
 func (r *stubTeacherRepoForKeystroke) GetCommentsBySubmission(_ context.Context, _, _ string) ([]*domain.SubmissionComment, error) {
 	return nil, nil
 }
-func (r *stubTeacherRepoForKeystroke) GetLiveWorkspaceSessions(_ context.Context, _, _ string) ([]*domain.LiveWorkspaceSession, error) {
+func (r *stubTeacherRepoForKeystroke) GetLivePracticeEnvironmentSessions(_ context.Context, _, _ string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForKeystroke) GetCourseGradesMatrix(_ context.Context, _, _, _ string) (*domain.CourseGradesMatrix, error) {
@@ -100,7 +100,7 @@ func (r *stubTeacherRepoForKeystroke) GetExerciseSubmissionsForPlagiarism(_ cont
 func (r *stubTeacherRepoForKeystroke) GetPlagiarismPairSubmissions(_ context.Context, _, _, _, _ string) ([]*domain.PlagiarismPairSubmission, error) {
 	return nil, nil
 }
-func (r *stubTeacherRepoForKeystroke) ListLiveWorkspaceSessions(_ context.Context, _, _ string) ([]*domain.LiveWorkspaceSession, error) {
+func (r *stubTeacherRepoForKeystroke) ListLivePracticeEnvironmentSessions(_ context.Context, _, _ string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	return nil, nil
 }
 func (r *stubTeacherRepoForKeystroke) GetCourseAnalytics(_ context.Context, _, _, _ string) (*domain.CourseAnalytics, error) {

@@ -25,8 +25,8 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
 	}
 
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
-	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())
+	semgrepWorker := services.NewSemgrepWorker(environmentRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 
 	ctx := context.Background()
 
@@ -36,17 +36,17 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 		INSERT INTO subjects (id, tenant_id, name, code) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101') ON CONFLICT (id) DO NOTHING;
 	`)
 
-	// 1. Crear un registro de workspace simulado en DB
+	// 1. Crear un registro de environment simulado en DB
 	wsID := uuid.NewString()
 	studentID := uuid.NewString()
 	volumeName := "solv_test_semgrep_vol_" + wsID[:8]
 
-	instance := &domain.WorkspaceInstance{
+	instance := &domain.PracticeEnvironment{
 		ID:              wsID,
 		TenantID:        "00000000-0000-0000-0000-000000000001",
 		StudentID:       studentID,
 		SubjectID:       "00000000-0000-0000-0000-000000000001",
-		Status:          domain.WorkspaceStatusRunning,
+		Status:          domain.PracticeEnvironmentStatusRunning,
 		AccessURL:       "http://" + wsID + ".solv.local",
 		MemoryLimitMB:   256,
 		LastHeartbeatAt: time.Now(),
@@ -54,8 +54,8 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 		UpdatedAt:       time.Now(),
 	}
 
-	if err := workspaceRepo.Create(ctx, instance); err != nil {
-		t.Fatalf("Failed to insert dummy workspace record in DB: %v", err)
+	if err := environmentRepo.Create(ctx, instance); err != nil {
+		t.Fatalf("Failed to insert dummy environment record in DB: %v", err)
 	}
 
 	// 2. Asegurar existencia del volumen de prueba
@@ -64,7 +64,7 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 	}
 
 	// 3. Ejecutar auditoría AST con SemgrepWorker
-	auditJSON, err := semgrepWorker.AuditWorkspace(ctx, wsID, volumeName)
+	auditJSON, err := semgrepWorker.AuditPracticeEnvironment(ctx, wsID, volumeName)
 	if err != nil {
 		t.Fatalf("Semgrep worker audit failed: %v", err)
 	}
@@ -76,9 +76,9 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 	}
 
 	// 4. Verificar persistencia en columna JSONB en PostgreSQL
-	fetched, err := workspaceRepo.GetByID(ctx, wsID)
+	fetched, err := environmentRepo.GetByID(ctx, wsID)
 	if err != nil || fetched == nil {
-		t.Fatalf("Failed to fetch audited workspace from DB: %v", err)
+		t.Fatalf("Failed to fetch audited environment from DB: %v", err)
 	}
 
 	t.Logf("Ticket 2 PASSED! SemgrepWorker executed in read-only mode, output captured and persisted to PostgreSQL JSONB successfully.")

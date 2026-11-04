@@ -170,7 +170,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 	}
 
 	environmentType := normalizeReviewEnvironment(row.EnvironmentType)
-	isJudge := environmentType == domain.WorkspaceTypeJuezEfimero
+	isJudge := environmentType == domain.PracticeEnvironmentTypeJuezEfimero
 
 	review := &domain.TeacherSubmissionReviewDTO{
 		ID:                 row.ID,
@@ -346,10 +346,10 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 // a una de las dos modalidades que la vista sabe renderizar. El fallback es el
 // evaluador automático, igual que el default del esquema.
 func normalizeReviewEnvironment(raw string) string {
-	if strings.TrimSpace(raw) == domain.WorkspaceTypeIDEPersistente {
-		return domain.WorkspaceTypeIDEPersistente
+	if strings.TrimSpace(raw) == domain.PracticeEnvironmentTypeIDEPersistente {
+		return domain.PracticeEnvironmentTypeIDEPersistente
 	}
-	return domain.WorkspaceTypeJuezEfimero
+	return domain.PracticeEnvironmentTypeJuezEfimero
 }
 
 func (r *PostgresTeacherRepository) AddComment(ctx context.Context, comment *domain.SubmissionComment) error {

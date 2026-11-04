@@ -28,7 +28,7 @@ func (m *mockSlice12Docker) EnsureVolumeExists(ctx context.Context, volumeName s
 func (m *mockSlice12Docker) EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error {
 	return nil
 }
-func (m *mockSlice12Docker) StartWorkspaceContainer(ctx context.Context, config domain.WorkspaceContainerConfig) (string, error) {
+func (m *mockSlice12Docker) StartPracticeEnvironmentContainer(ctx context.Context, config domain.PracticeEnvironmentContainerConfig) (string, error) {
 	return "mock-container-lote1", nil
 }
 func (m *mockSlice12Docker) UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error {
@@ -110,7 +110,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
@@ -121,7 +121,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
 	subService := services.NewSubmissionService(submissionRepo)
-	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor)
+	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor)
 	subjectService := services.NewSubjectService(subjectRepo)
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
 
@@ -130,8 +130,8 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, nil)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
+	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, environmentRepo, subjectRepo, hostMonitor)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, environmentRepo, submissionRepo, exerciseRepo)
 
 	evalHandler := httpdelivery.NewEvaluationHandler(evalService, nil)
 	evalHandler.SetWebSocketHub(wsHub)
@@ -151,7 +151,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 		TemplateHandler:          httpdelivery.NewTemplateHandler(db, nil),
 		AuthHandler:              nil,
 		EvaluationHandler:        evalHandler,
-		WorkspaceHandler:         httpdelivery.NewWorkspaceHandler(workspaceService, nil),
+		PracticeEnvironmentHandler:         httpdelivery.NewPracticeEnvironmentHandler(environmentService, nil),
 		MetricsHandler:           nil,
 		ConfigHandler:            httpdelivery.NewConfigHandler(tenantRepo),
 		SubjectHandler:           httpdelivery.NewSubjectHandler(subjectService),
@@ -289,14 +289,14 @@ func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 	}
 }
 
-func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
+func TestSlice12_PausePracticeEnvironmentEndpoint(t *testing.T) {
 	server, db, _ := setupSlice12TestServer(t)
 	defer server.Close()
 
 	tenantID := "00000000-0000-0000-0000-000000000001"
 	studentID := "77777777-7777-4777-a777-777777777777"
 	subjectID := "88888888-8888-4888-a888-888888888888"
-	workspaceID := "99999999-9999-4999-a999-999999999999"
+	environmentID := "99999999-9999-4999-a999-999999999999"
 
 	_, _ = db.GetDB().Exec(`
 		INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
@@ -311,15 +311,15 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	`, subjectID, tenantID)
 
 	if _, err := db.GetDB().Exec(`
-		INSERT INTO workspaces (id, student_id, subject_id, status, type, access_url, memory_limit_mb, tenant_id)
-		VALUES ($1, $2, $3, 'running', 'IDE_PERSISTENTE', 'http://workspace.local', 256, $4)
+		INSERT INTO environments (id, student_id, subject_id, status, type, access_url, memory_limit_mb, tenant_id)
+		VALUES ($1, $2, $3, 'running', 'IDE_PERSISTENTE', 'http://environment.local', 256, $4)
 		ON CONFLICT (id) DO UPDATE SET status = 'running';
-	`, workspaceID, studentID, subjectID, tenantID); err != nil {
-		t.Fatalf("Failed to insert test workspace: %v", err)
+	`, environmentID, studentID, subjectID, tenantID); err != nil {
+		t.Fatalf("Failed to insert test environment: %v", err)
 	}
 
 	// 1. Intento por usuario no autorizado -> 403 Forbidden
-	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
+	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/environments/"+environmentID+"/pause", nil)
 	req.Header.Set("X-User-Id", "intruder-id-123")
 	req.Header.Set("X-User-Role", "student")
 
@@ -334,7 +334,7 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	}
 
 	// 2. Intento por el estudiante dueño -> 200 OK
-	req, _ = http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/workspaces/"+workspaceID+"/pause", nil)
+	req, _ = http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/environments/"+environmentID+"/pause", nil)
 	req.Header.Set("X-User-Id", studentID)
 	req.Header.Set("X-User-Role", "student")
 
@@ -351,7 +351,7 @@ func TestSlice12_PauseWorkspaceEndpoint(t *testing.T) {
 	_ = json.NewDecoder(resp.Body).Decode(&body)
 	data := body["data"].(map[string]interface{})
 	if data["status"] != "hibernated" {
-		t.Errorf("Expected workspace status to be 'hibernated', got %v", data["status"])
+		t.Errorf("Expected environment status to be 'hibernated', got %v", data["status"])
 	}
 }
 

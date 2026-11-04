@@ -295,7 +295,7 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 			Mode:             "visual",
 			RuntimeID:        "",
 			WebPlatformID:    "web-angular-standard",
-			WorkspaceFolders: []string{"src", "public"},
+			PracticeEnvironmentFolders: []string{"src", "public"},
 		})
 		if err != nil {
 			t.Fatalf("unexpected error composing standard solo frontend: %v", err)
@@ -322,7 +322,7 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 			t.Errorf("expected 1024 MB for Solo Frontend, got %d", plan.RecommendedRamMB)
 		}
 		if !strings.Contains(plan.SetupScript, "mkdir -p /home/workspace/src /home/workspace/public") {
-			t.Errorf("expected workspace directories in setup script, got %q", plan.SetupScript)
+			t.Errorf("expected environment directories in setup script, got %q", plan.SetupScript)
 		}
 	})
 
@@ -545,12 +545,12 @@ func TestAdversarial_JudgeEnvironmentStress(t *testing.T) {
 		}
 	})
 
-	t.Run("Strips Web, DB, and Workspaces in Judge Environment", func(t *testing.T) {
+	t.Run("Strips Web, DB, and PracticeEnvironments in Judge Environment", func(t *testing.T) {
 		plan, err := composer.Compose(ctx, "default", "JUEZ_EFIMERO", domain.StackConfig{
 			RuntimeID:        "rt-python-debian",
 			WebPlatformID:    "web-angular-standard",
 			DatabaseID:       "db-postgres",
-			WorkspaceFolders: []string{"src", "eval"},
+			PracticeEnvironmentFolders: []string{"src", "eval"},
 			AddonIDs:         []string{"ad-fastapi"},
 		})
 		if err != nil {
@@ -569,7 +569,7 @@ func TestAdversarial_JudgeEnvironmentStress(t *testing.T) {
 			t.Errorf("judge environment must have 0 coupled database services, got %+v", plan.ServicesConfig)
 		}
 		if strings.Contains(plan.SetupScript, "mkdir -p") {
-			t.Errorf("judge environment must not create IDE workspace folders, got %q", plan.SetupScript)
+			t.Errorf("judge environment must not create IDE environment folders, got %q", plan.SetupScript)
 		}
 		if strings.Contains(plan.DockerfileContent, "COPY --from=") || strings.Contains(plan.DockerfileContent, "@angular/cli") {
 			t.Errorf("judge environment must strip web build layer snippets, got:\n%s", plan.DockerfileContent)

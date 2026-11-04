@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-// Client implementa la interfaz domain.ContainerOrchestrator y domain.WorkspaceOrchestrator
+// Client implementa la interfaz domain.ContainerOrchestrator y domain.PracticeEnvironmentOrchestrator
 type Client struct {
 	cli       *client.Client
 	pullGroup singleflight.Group

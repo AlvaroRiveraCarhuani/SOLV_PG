@@ -12,45 +12,45 @@ import (
 // counterOnlyRepo embebe la interfaz completa para satisfacer el contrato sin
 // reimplementar quince metodos que esta prueba no ejercita.
 type counterOnlyRepo struct {
-	domain.WorkspaceRepository
+	domain.PracticeEnvironmentRepository
 	counts map[string]int
 	err    error
 }
 
-func (r *counterOnlyRepo) CountWorkspacesByStatus(context.Context, string) (map[string]int, error) {
+func (r *counterOnlyRepo) CountPracticeEnvironmentsByStatus(context.Context, string) (map[string]int, error) {
 	return r.counts, r.err
 }
 
 type plainRepo struct {
-	domain.WorkspaceRepository
+	domain.PracticeEnvironmentRepository
 }
 
-func TestWorkspaceStatusCountsUsesAggregate(t *testing.T) {
-	handler := &AdminHandler{workspaceRepo: &counterOnlyRepo{
+func TestPracticeEnvironmentStatusCountsUsesAggregate(t *testing.T) {
+	handler := &AdminHandler{environmentRepo: &counterOnlyRepo{
 		counts: map[string]int{"running": 2, "hibernated": 5, "ran": 0},
 	}}
 
-	counts := handler.workspaceStatusCounts(context.Background(), "tenant-1")
+	counts := handler.environmentStatusCounts(context.Background(), "tenant-1")
 	if counts["hibernated"] != 5 {
-		t.Fatalf("expected 5 hibernated workspaces, got %d", counts["hibernated"])
+		t.Fatalf("expected 5 hibernated environments, got %d", counts["hibernated"])
 	}
 	if counts["running"] != 2 {
-		t.Fatalf("expected 2 running workspaces, got %d", counts["running"])
+		t.Fatalf("expected 2 running environments, got %d", counts["running"])
 	}
 }
 
-func TestWorkspaceStatusCountsDegradesWhenAggregateFails(t *testing.T) {
-	handler := &AdminHandler{workspaceRepo: &counterOnlyRepo{err: errors.New("db down")}}
+func TestPracticeEnvironmentStatusCountsDegradesWhenAggregateFails(t *testing.T) {
+	handler := &AdminHandler{environmentRepo: &counterOnlyRepo{err: errors.New("db down")}}
 
-	if counts := handler.workspaceStatusCounts(context.Background(), "tenant-1"); counts != nil {
+	if counts := handler.environmentStatusCounts(context.Background(), "tenant-1"); counts != nil {
 		t.Fatalf("expected a nil breakdown on aggregate failure, got %+v", counts)
 	}
 }
 
-func TestWorkspaceStatusCountsDegradesWhenAggregateMissing(t *testing.T) {
-	handler := &AdminHandler{workspaceRepo: &plainRepo{}}
+func TestPracticeEnvironmentStatusCountsDegradesWhenAggregateMissing(t *testing.T) {
+	handler := &AdminHandler{environmentRepo: &plainRepo{}}
 
-	if counts := handler.workspaceStatusCounts(context.Background(), "tenant-1"); counts != nil {
+	if counts := handler.environmentStatusCounts(context.Background(), "tenant-1"); counts != nil {
 		t.Fatalf("expected a nil breakdown when the repository lacks the aggregate, got %+v", counts)
 	}
 }

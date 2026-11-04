@@ -58,7 +58,7 @@ func (c *Client) PruneOrphans(ctx context.Context) (containersPruned int64, spac
 		isSolvManaged := cnt.Labels["solv.managed"] == "true"
 		if !isSolvManaged {
 			for _, name := range cnt.Names {
-				if strings.Contains(name, "solv-workspace-") {
+				if strings.Contains(name, "solv-environment-") {
 					isSolvManaged = true
 					break
 				}

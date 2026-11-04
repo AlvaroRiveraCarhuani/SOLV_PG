@@ -275,10 +275,10 @@ func (r *PostgresTeacherRepository) GetPlagiarismPairSubmissions(ctx context.Con
 	return list, nil
 }
 
-func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LiveWorkspaceSession, error) {
+func (r *PostgresTeacherRepository) ListLivePracticeEnvironmentSessions(ctx context.Context, tenantID, teacherID string) ([]*domain.LivePracticeEnvironmentSession, error) {
 	query := `
 		SELECT 
-			w.id AS workspace_id,
+			w.id AS environment_id,
 			COALESCE(w.container_id, '') AS container_id,
 			w.student_id,
 			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), u.email) AS student_name,
@@ -289,7 +289,7 @@ func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Contex
 			w.memory_limit_mb,
 			w.oom_strike_count AS oom_strikes,
 			COALESCE(w.last_heartbeat_at, w.created_at) AS last_heartbeat
-		FROM workspaces w
+		FROM environments w
 		JOIN users u ON w.student_id = u.id
 		JOIN subjects s ON w.subject_id = s.id
 		WHERE w.tenant_id = $1
@@ -298,14 +298,14 @@ func (r *PostgresTeacherRepository) ListLiveWorkspaceSessions(ctx context.Contex
 		ORDER BY w.last_heartbeat_at DESC NULLS LAST
 	`
 
-	var sessions []*domain.LiveWorkspaceSession
+	var sessions []*domain.LivePracticeEnvironmentSession
 	err := r.db.SelectContext(ctx, &sessions, query, tenantID, teacherID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query live workspace sessions: %w", err)
+		return nil, fmt.Errorf("failed to query live environment sessions: %w", err)
 	}
 
 	if sessions == nil {
-		sessions = make([]*domain.LiveWorkspaceSession, 0)
+		sessions = make([]*domain.LivePracticeEnvironmentSession, 0)
 	}
 
 	for _, s := range sessions {

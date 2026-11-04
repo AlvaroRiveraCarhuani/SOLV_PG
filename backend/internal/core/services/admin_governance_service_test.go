@@ -77,10 +77,10 @@ func (m *mockAdminGovernanceRepo) CreateOfficialTemplate(ctx context.Context, te
 		ResourceProfile:   *dto.ResourceProfile,
 	}, nil
 }
-func (m *mockAdminGovernanceRepo) TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockAdminGovernanceRepo) TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
-func (m *mockAdminGovernanceRepo) HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error) {
+func (m *mockAdminGovernanceRepo) HibernateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error) {
 	return 0, nil
 }
 func (m *mockAdminGovernanceRepo) ListPendingAuditTemplates(ctx context.Context) ([]*domain.AdminTemplateReviewItem, error) {

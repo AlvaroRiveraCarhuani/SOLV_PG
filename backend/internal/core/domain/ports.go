@@ -109,26 +109,25 @@ type HostMonitor interface {
 	CanAllocateMemory(requiredMB int64) bool
 }
 
-type WorkspaceRepository interface {
-	GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*WorkspaceInstance, error)
-	GetByID(ctx context.Context, id string) (*WorkspaceInstance, error)
-	Create(ctx context.Context, workspace *WorkspaceInstance) error
+type PracticeEnvironmentRepository interface {
+	GetByID(ctx context.Context, id string) (*PracticeEnvironment, error)
+	Create(ctx context.Context, environment *PracticeEnvironment) error
 	UpdateContainerID(ctx context.Context, id string, containerID string) error
 	UpdateStatus(ctx context.Context, id string, status string) error
 	UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error
 	RecordHeartbeat(ctx context.Context, id string) error
 	IncrementOOMStrike(ctx context.Context, id string) error
 	ResetOOMStrikes(ctx context.Context, id string) error
-	GetActiveWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
-	GetAllRunningWorkspaces(ctx context.Context) ([]*WorkspaceInstance, error)
-	GetByType(ctx context.Context, workspaceType string) ([]*WorkspaceInstance, error)
+	GetActivePracticeEnvironments(ctx context.Context) ([]*PracticeEnvironment, error)
+	GetAllRunningPracticeEnvironments(ctx context.Context) ([]*PracticeEnvironment, error)
+	GetByType(ctx context.Context, environmentType string) ([]*PracticeEnvironment, error)
 	SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error
 }
 
-type WorkspaceOrchestrator interface {
+type PracticeEnvironmentOrchestrator interface {
 	EnsureVolumeExists(ctx context.Context, volumeName string) error
 	EnsureICCDisabledNetworkExists(ctx context.Context, networkName string) error
-	StartWorkspaceContainer(ctx context.Context, config WorkspaceContainerConfig) (string, error)
+	StartPracticeEnvironmentContainer(ctx context.Context, config PracticeEnvironmentContainerConfig) (string, error)
 	UpdateContainerMemory(ctx context.Context, containerID string, newMemoryMB int64) error
 	GetContainerMetrics(ctx context.Context, containerID string) (*ContainerMetrics, error)
 	StopAndRemoveContainer(ctx context.Context, containerID string) error
@@ -170,7 +169,7 @@ type ManagedSatelliteEndpoint struct {
 
 // ManagedSatelliteOrchestrator es una capacidad opcional del orquestador: levanta,
 // detiene y ejecuta comandos en los contenedores satélite gestionados del nodo.
-// Se resuelve por type-assertion para no ampliar WorkspaceOrchestrator ni romper sus
+// Se resuelve por type-assertion para no ampliar PracticeEnvironmentOrchestrator ni romper sus
 // implementaciones y mocks.
 type ManagedSatelliteOrchestrator interface {
 	EnsureManagedSatelliteRunning(ctx context.Context, spec ManagedSatelliteSpec) (*ManagedSatelliteEndpoint, error)
@@ -235,8 +234,8 @@ type AdminGovernanceRepository interface {
 	UpdateAuditResults(ctx context.Context, templateID string, smokeStatus, smokeOutput, secStatus string, cveCritical, cveHigh int, secReportJSON []byte, finalStatus string) error
 	DuplicateTemplate(ctx context.Context, tenantID, templateID, adminID string) (*AdminTemplateReviewItem, error)
 	UpdateEOLStatus(ctx context.Context, templateID string, status, eolDate, message string) error
-	TerminateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
-	HibernateAllWorkspaces(ctx context.Context, tenantID string) (int64, error)
+	TerminateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error)
+	HibernateAllPracticeEnvironments(ctx context.Context, tenantID string) (int64, error)
 	ListTemplateCategories(ctx context.Context, tenantID string) ([]*TemplateCategory, error)
 	CreateTemplateCategory(ctx context.Context, tenantID string, dto CreateCategoryDTO) (*TemplateCategory, error)
 	UpdateTemplateCategory(ctx context.Context, tenantID, categoryID string, dto UpdateCategoryDTO) (*TemplateCategory, error)
@@ -311,7 +310,7 @@ type TeacherRepository interface {
 	GetCourseGradesMatrix(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseGradesMatrix, error)
 	GetExerciseSubmissionsForPlagiarism(ctx context.Context, tenantID, teacherID, subjectID, exerciseID string) ([]*SubmissionForPlagiarism, error)
 	GetPlagiarismPairSubmissions(ctx context.Context, tenantID, teacherID, submissionA, submissionB string) ([]*PlagiarismPairSubmission, error)
-	ListLiveWorkspaceSessions(ctx context.Context, tenantID, teacherID string) ([]*LiveWorkspaceSession, error)
+	ListLivePracticeEnvironmentSessions(ctx context.Context, tenantID, teacherID string) ([]*LivePracticeEnvironmentSession, error)
 	GetCourseAnalytics(ctx context.Context, tenantID, teacherID, subjectID string) (*CourseAnalytics, error)
 }
 
@@ -362,9 +361,9 @@ type ContainerRunnerPort interface {
 	RunJudgeSmokeTest(ctx context.Context, imageRef string, entrypoint string, sampleInput string, timeoutMS int, memoryLimitMB int64) (output string, durationMs int64, exitCode int, err error)
 }
 
-// WorkspaceSetupTestSpec describe la prueba efímera de una práctica IDE: el setup de
+// PracticeEnvironmentSetupTestSpec describe la prueba efímera de una práctica IDE: el setup de
 // la plantilla se ejecuta sobre un volumen temporal, con los satélites ya inyectados.
-type WorkspaceSetupTestSpec struct {
+type PracticeEnvironmentSetupTestSpec struct {
 	Image         string
 	VolumeName    string
 	NetworkName   string
@@ -374,8 +373,8 @@ type WorkspaceSetupTestSpec struct {
 	TimeoutMS     int
 }
 
-// WorkspaceSetupTestResult es el reporte de la prueba de preparación del workspace.
-type WorkspaceSetupTestResult struct {
+// PracticeEnvironmentSetupTestResult es el reporte de la prueba de preparación del environment.
+type PracticeEnvironmentSetupTestResult struct {
 	ExitCode       int
 	DurationMs     int64
 	Output         string
@@ -383,10 +382,10 @@ type WorkspaceSetupTestResult struct {
 	OpenVSCodeSeen bool
 }
 
-// WorkspaceTestRunnerPort ejecuta el setup de una práctica en un contenedor efímero.
+// PracticeEnvironmentTestRunnerPort ejecuta el setup de una práctica en un contenedor efímero.
 // El contenedor y el volumen temporal se eliminan al terminar, incluso si falla.
-type WorkspaceTestRunnerPort interface {
-	RunWorkspaceSetupTest(ctx context.Context, spec WorkspaceSetupTestSpec) (WorkspaceSetupTestResult, error)
+type PracticeEnvironmentTestRunnerPort interface {
+	RunPracticeEnvironmentSetupTest(ctx context.Context, spec PracticeEnvironmentSetupTestSpec) (PracticeEnvironmentSetupTestResult, error)
 }
 
 // ImageBuilderPort abstrae la construcción local determinista de imágenes compuestas y la poda de imágenes huérfanas.
@@ -472,7 +471,7 @@ type DeadlineReminderCandidate struct {
 	StudentID           string    `db:"student_id"`
 	StudentName         string    `db:"student_name"`
 	StudentEmail        string    `db:"student_email"`
-	HasStartedWorkspace bool      `db:"has_started_workspace"`
+	HasStartedPracticeEnvironment bool      `db:"has_started_environment"`
 }
 
 // DeadlineReminderRepository gestiona la búsqueda y deduplicación de avisos de vencimiento

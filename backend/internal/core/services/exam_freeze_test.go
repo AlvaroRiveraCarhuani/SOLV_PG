@@ -11,7 +11,7 @@ import (
 
 type fakeExamFreezeStore struct {
 	isExam       bool
-	participants []domain.ExamFreezeWorkspace
+	participants []domain.ExamFreezePracticeEnvironment
 	closed       []domain.ExamSessionRef
 	frozenMarks  map[string]bool
 	markErr      error
@@ -21,7 +21,7 @@ func (f *fakeExamFreezeStore) SessionIsExam(context.Context, string, string) (bo
 	return f.isExam, nil
 }
 
-func (f *fakeExamFreezeStore) ParticipantWorkspaces(context.Context, string, string) ([]domain.ExamFreezeWorkspace, error) {
+func (f *fakeExamFreezeStore) ParticipantPracticeEnvironments(context.Context, string, string) ([]domain.ExamFreezePracticeEnvironment, error) {
 	return f.participants, nil
 }
 
@@ -29,14 +29,14 @@ func (f *fakeExamFreezeStore) ClosedExamSessions(context.Context, int) ([]domain
 	return f.closed, nil
 }
 
-func (f *fakeExamFreezeStore) SetWorkspaceFrozen(_ context.Context, _, workspaceID string, frozen bool, _ time.Time) error {
+func (f *fakeExamFreezeStore) SetPracticeEnvironmentFrozen(_ context.Context, _, environmentID string, frozen bool, _ time.Time) error {
 	if f.markErr != nil {
 		return f.markErr
 	}
 	if f.frozenMarks == nil {
 		f.frozenMarks = map[string]bool{}
 	}
-	f.frozenMarks[workspaceID] = frozen
+	f.frozenMarks[environmentID] = frozen
 	return nil
 }
 
@@ -49,11 +49,11 @@ func (f *fakeExamSessions) GetSession(context.Context, string, string, string) (
 	return f.session, f.err
 }
 
-type fakeExamWorkspaces struct {
-	byID map[string]*domain.WorkspaceInstance
+type fakeExamPracticeEnvironments struct {
+	byID map[string]*domain.PracticeEnvironment
 }
 
-func (f *fakeExamWorkspaces) GetByID(_ context.Context, id string) (*domain.WorkspaceInstance, error) {
+func (f *fakeExamPracticeEnvironments) GetByID(_ context.Context, id string) (*domain.PracticeEnvironment, error) {
 	instance, ok := f.byID[id]
 	if !ok {
 		// Igual que el repositorio: una fila que no existe se informa como
@@ -64,7 +64,7 @@ func (f *fakeExamWorkspaces) GetByID(_ context.Context, id string) (*domain.Work
 }
 
 type mountCall struct {
-	workspaceID string
+	environmentID string
 	readOnly    bool
 }
 
@@ -73,11 +73,11 @@ type fakeMounts struct {
 	err   error
 }
 
-func (f *fakeMounts) SetWorkspaceMount(_ context.Context, instance *domain.WorkspaceInstance, readOnly bool) error {
+func (f *fakeMounts) SetPracticeEnvironmentMount(_ context.Context, instance *domain.PracticeEnvironment, readOnly bool) error {
 	if f.err != nil {
 		return f.err
 	}
-	f.calls = append(f.calls, mountCall{workspaceID: instance.ID, readOnly: readOnly})
+	f.calls = append(f.calls, mountCall{environmentID: instance.ID, readOnly: readOnly})
 	return nil
 }
 
@@ -94,9 +94,9 @@ func newExamFreezeFixture(t *testing.T) (*ExamFreezeService, *fakeExamFreezeStor
 	t.Helper()
 	store := &fakeExamFreezeStore{
 		isExam: true,
-		participants: []domain.ExamFreezeWorkspace{
-			{WorkspaceID: "ws-a", StudentID: "student-a"},
-			{WorkspaceID: "ws-b", StudentID: "student-b"},
+		participants: []domain.ExamFreezePracticeEnvironment{
+			{EnvironmentID: "ws-a", StudentID: "student-a"},
+			{EnvironmentID: "ws-b", StudentID: "student-b"},
 		},
 	}
 	sessions := &fakeExamSessions{session: &domain.ClassSession{
@@ -104,14 +104,14 @@ func newExamFreezeFixture(t *testing.T) (*ExamFreezeService, *fakeExamFreezeStor
 		Status:    domain.ClassSessionStatusClosed,
 		CreatedBy: "teacher-1",
 	}}
-	workspaces := &fakeExamWorkspaces{byID: map[string]*domain.WorkspaceInstance{
+	environments := &fakeExamPracticeEnvironments{byID: map[string]*domain.PracticeEnvironment{
 		"ws-a": {ID: "ws-a", StudentID: "student-a", SubjectID: "subject-1"},
 		"ws-b": {ID: "ws-b", StudentID: "student-b", SubjectID: "subject-1"},
 	}}
 	mounts := &fakeMounts{}
 	audit := &fakeExamAudit{}
 
-	service := NewExamFreezeService(store, sessions, workspaces, mounts).
+	service := NewExamFreezeService(store, sessions, environments, mounts).
 		SetAuditRepository(audit).
 		WithClock(func() time.Time { return time.Date(2026, 11, 1, 10, 0, 0, 0, time.UTC) })
 	return service, store, mounts, audit
@@ -129,13 +129,13 @@ func TestFreezeSession_MountsReadOnlyAndSkipsFrozen(t *testing.T) {
 	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
 		t.Fatalf("conteo inesperado: %+v", report)
 	}
-	if len(mounts.calls) != 1 || mounts.calls[0].workspaceID != "ws-a" || !mounts.calls[0].readOnly {
+	if len(mounts.calls) != 1 || mounts.calls[0].environmentID != "ws-a" || !mounts.calls[0].readOnly {
 		t.Fatalf("se esperaba un solo montaje en solo lectura de ws-a: %+v", mounts.calls)
 	}
 	if !store.frozenMarks["ws-a"] {
 		t.Fatalf("ws-a debía quedar marcado como congelado: %v", store.frozenMarks)
 	}
-	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamWorkspaceFrozen {
+	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamPracticeEnvironmentFrozen {
 		t.Fatalf("se esperaba una entrada de auditoría de congelamiento: %+v", audit.logs)
 	}
 }
@@ -168,9 +168,9 @@ func TestFreezeSession_RejectsClassSession(t *testing.T) {
 
 // Un participante cuyo laboratorio ya no existe no es un fallo del cierre: no
 // hay volumen que congelar y el barrido no tiene que reintentarlo.
-func TestFreezeSession_SkipsWorkspaceThatNoLongerExists(t *testing.T) {
+func TestFreezeSession_SkipsPracticeEnvironmentThatNoLongerExists(t *testing.T) {
 	service, store, mounts, _ := newExamFreezeFixture(t)
-	delete(service.workspaces.(*fakeExamWorkspaces).byID, "ws-b")
+	delete(service.environments.(*fakeExamPracticeEnvironments).byID, "ws-b")
 
 	report, err := service.FreezeSession(context.Background(), "tenant-1", "teacher-1", "teacher", "11111111-1111-1111-1111-111111111111")
 	if err != nil {
@@ -179,7 +179,7 @@ func TestFreezeSession_SkipsWorkspaceThatNoLongerExists(t *testing.T) {
 	if report.Frozen != 1 || report.Skipped != 1 || report.Failed != 0 {
 		t.Fatalf("conteo inesperado: %+v", report)
 	}
-	if len(mounts.calls) != 1 || mounts.calls[0].workspaceID != "ws-a" {
+	if len(mounts.calls) != 1 || mounts.calls[0].environmentID != "ws-a" {
 		t.Fatalf("solo el laboratorio existente debía montarse: %+v", mounts.calls)
 	}
 	if len(store.frozenMarks) != 1 || !store.frozenMarks["ws-a"] {
@@ -222,7 +222,7 @@ func TestUnfreezeStudent_RemountsReadWrite(t *testing.T) {
 	service, store, mounts, audit := newExamFreezeFixture(t)
 	frozenAt := time.Date(2026, 11, 1, 9, 0, 0, 0, time.UTC)
 	store.participants[0].FrozenAt = &frozenAt
-	store.participants[0].Status = domain.WorkspaceStatusFrozen
+	store.participants[0].Status = domain.PracticeEnvironmentStatusFrozen
 
 	report, err := service.UnfreezeStudent(context.Background(), "tenant-1", "teacher-1", "teacher", "11111111-1111-1111-1111-111111111111", "student-a", "se le cortó la luz")
 	if err != nil {
@@ -237,7 +237,7 @@ func TestUnfreezeStudent_RemountsReadWrite(t *testing.T) {
 	if store.frozenMarks["ws-a"] {
 		t.Fatal("ws-a debía quedar sin marca de congelado")
 	}
-	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamWorkspaceUnfrozen {
+	if len(audit.logs) != 1 || audit.logs[0].Action != domain.AuditExamPracticeEnvironmentUnfrozen {
 		t.Fatalf("se esperaba la auditoría de reapertura: %+v", audit.logs)
 	}
 }

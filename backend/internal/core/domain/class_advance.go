@@ -66,6 +66,9 @@ var (
 	ErrAdvanceFrozen = errors.New("la clase está congelada, no se emiten avances")
 	// ErrAdvanceSessionClosed: el aula no está abierta; no se emite.
 	ErrAdvanceSessionClosed = errors.New("el aula no está abierta")
+	// ErrAdvancePracticeRequired: el avance pertenece a la práctica del aula y
+	// una sesión sin práctica no tiene entorno que emitir ni recibir.
+	ErrAdvancePracticeRequired = errors.New("el aula necesita una práctica asociada para emitir o aplicar avances")
 	// ErrAdvanceExamBlocked: el ejercicio es de examen; no se emite ni se aplica.
 	ErrAdvanceExamBlocked = errors.New("los avances no se emiten en examen")
 	// ErrAdvanceGraceExpired: la ventana de rezago venció.
@@ -96,8 +99,8 @@ var (
 	ErrAdvanceRollbackNotApplied = errors.New("el avance no está aplicado, no hay nada que deshacer")
 	// ErrAdvanceBackupMissing: no quedó respaldo de los archivos que el avance reemplazó.
 	ErrAdvanceBackupMissing = errors.New("el avance no tiene respaldo para deshacer")
-	// ErrAdvanceWorkspaceStopped: aplicar exige el laboratorio del alumno en ejecución.
-	ErrAdvanceWorkspaceStopped = errors.New("el laboratorio debe estar en ejecución para aplicar el avance")
+	// ErrAdvancePracticeEnvironmentStopped: aplicar exige el laboratorio del alumno en ejecución.
+	ErrAdvancePracticeEnvironmentStopped = errors.New("el laboratorio debe estar en ejecución para aplicar el avance")
 	// ErrAdvanceSnapshotInvalid: el snapshot no se pudo leer o no coincide con su hash.
 	ErrAdvanceSnapshotInvalid = errors.New("el snapshot del avance está corrupto o incompleto")
 	// ErrAdvanceSourceMissing: el docente no tiene entorno de clase abierto en la
@@ -260,7 +263,7 @@ type AdvanceSnapshotStore interface {
 	PutFiles(ctx context.Context, key string, files map[string]string) (sha256Hex string, size int64, fileCount int, err error)
 	// Files verifica el hash del objeto y devuelve sus archivos. El adaptador
 	// nunca entrega un archivo que no coincida con lo emitido.
-	Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]WorkspaceVolumeFile, error)
+	Files(ctx context.Context, key, expectedSHA256 string, maxFiles int) ([]PracticeEnvironmentVolumeFile, error)
 	// Delete elimina el objeto. Es idempotente.
 	Delete(ctx context.Context, key string) error
 }

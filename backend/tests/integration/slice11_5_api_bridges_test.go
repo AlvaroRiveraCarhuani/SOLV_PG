@@ -33,7 +33,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	auditRepo := postgres.NewAuditLogRepository(db.GetDB())
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
@@ -41,8 +41,8 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
 	subService := services.NewSubmissionService(submissionRepo)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, workspaceRepo, subjectRepo, nil)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo)
+	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, environmentRepo, subjectRepo, nil)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, environmentRepo, submissionRepo, exerciseRepo)
 	evalHandler := httpdelivery.NewEvaluationHandler(evalService, nil)
 	subHandler := httpdelivery.NewSubmissionHandler(subService)
 

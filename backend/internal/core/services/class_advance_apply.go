@@ -44,9 +44,9 @@ type AdvanceApplyResult struct {
 // WithApplier habilita la aplicación de un avance en el entorno del alumno: el
 // almacén de snapshots (A3), el repositorio de entornos y la capacidad de
 // operar el volumen. Sin esto, emitir y congelar siguen funcionando.
-func (s *ClassAdvanceService) WithApplier(snapshots domain.AdvanceSnapshotStore, workspaces domain.WorkspaceRepository, volumes domain.WorkspaceVolumeStore) *ClassAdvanceService {
+func (s *ClassAdvanceService) WithApplier(snapshots domain.AdvanceSnapshotStore, environments domain.PracticeEnvironmentRepository, volumes domain.PracticeEnvironmentVolumeStore) *ClassAdvanceService {
 	s.snapshots = snapshots
-	s.workspaces = workspaces
+	s.environments = environments
 	s.volumes = volumes
 	return s
 }
@@ -101,7 +101,7 @@ func (s *ClassAdvanceService) Preview(ctx context.Context, tenantID, studentID, 
 	if err := requireStudentIdentity(tenantID, studentID); err != nil {
 		return nil, err
 	}
-	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
+	if s.snapshots == nil || s.environments == nil || s.volumes == nil {
 		return nil, ErrAdvanceStorageUnavailable
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(advanceID)); err != nil {
@@ -123,9 +123,9 @@ func (s *ClassAdvanceService) Preview(ctx context.Context, tenantID, studentID, 
 		return nil, domain.ErrAdvanceGraceExpired
 	}
 
-	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
-	if err != nil || workspace == nil {
-		return nil, domain.ErrAdvanceWorkspaceStopped
+	environment, err := s.studentPracticeEnvironment(ctx, studentID, delivery)
+	if err != nil || environment == nil {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
 	}
 
 	// Tampoco aquí se exige el contenedor en ejecución: leer el volumen no lo
@@ -134,7 +134,7 @@ func (s *ClassAdvanceService) Preview(ctx context.Context, tenantID, studentID, 
 	if err != nil {
 		return nil, err
 	}
-	current, err := s.volumeFiles(ctx, workspaceVolumeName(workspace))
+	current, err := s.volumeFiles(ctx, environmentVolumeName(environment))
 	if err != nil {
 		return nil, fmt.Errorf("failed to read student volume before previewing advance: %w", err)
 	}
@@ -191,7 +191,7 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 	if err := requireStudentIdentity(tenantID, studentID); err != nil {
 		return nil, err
 	}
-	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
+	if s.snapshots == nil || s.environments == nil || s.volumes == nil {
 		return nil, ErrAdvanceStorageUnavailable
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(advanceID)); err != nil {
@@ -208,6 +208,11 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 	if delivery.Purpose == "exam" {
 		return nil, domain.ErrAdvanceExamBlocked
 	}
+	// Sin práctica no hay entorno al que aplicar: se responde antes de descargar
+	// el snapshot para no hacer trabajo que no puede terminar.
+	if strings.TrimSpace(delivery.ExerciseID) == "" {
+		return nil, domain.ErrAdvancePracticeRequired
+	}
 
 	now := s.now()
 	if !delivery.Appliable(now) {
@@ -217,12 +222,12 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 		return nil, domain.ErrAdvanceGraceExpired
 	}
 
-	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
-	if err != nil || workspace == nil {
-		return nil, domain.ErrAdvanceWorkspaceStopped
+	environment, err := s.studentPracticeEnvironment(ctx, studentID, delivery)
+	if err != nil || environment == nil {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
 	}
-	if workspace.Status != domain.WorkspaceStatusRunning {
-		return nil, domain.ErrAdvanceWorkspaceStopped
+	if environment.Status != domain.PracticeEnvironmentStatusRunning {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
 	}
 
 	// Las aplicaciones simultáneas se acotan aquí: el resto espera su turno.
@@ -250,7 +255,7 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 		}
 	}
 
-	volumeName := workspaceVolumeName(workspace)
+	volumeName := environmentVolumeName(environment)
 
 	// El respaldo se arma antes de tocar el volumen: si no se puede leer el
 	// estado previo, no se escribe nada.
@@ -271,13 +276,13 @@ func (s *ClassAdvanceService) ApplySelection(ctx context.Context, tenantID, stud
 		}
 		// Si el respaldo no se escribe, el código del alumno sigue intacto: el
 		// aviso queda pendiente en lugar de fallar de forma definitiva.
-		if err := s.volumes.WriteWorkspaceVolumeFiles(ctx, volumeName, backupFiles); err != nil {
+		if err := s.volumes.WritePracticeEnvironmentVolumeFiles(ctx, volumeName, backupFiles); err != nil {
 			return nil, fmt.Errorf("failed to back up student files before applying advance: %w", err)
 		}
 		backupPath = &root
 	}
 
-	if err := s.volumes.WriteWorkspaceVolumeFiles(ctx, volumeName, incoming); err != nil {
+	if err := s.volumes.WritePracticeEnvironmentVolumeFiles(ctx, volumeName, incoming); err != nil {
 		s.decideBestEffort(ctx, tenantID, studentID, delivery.ID, domain.AdvanceRecipientFailed, backupPath)
 		return nil, fmt.Errorf("failed to write advance into student volume: %w", err)
 	}
@@ -324,7 +329,7 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 	if err := requireStudentIdentity(tenantID, studentID); err != nil {
 		return nil, err
 	}
-	if s.snapshots == nil || s.workspaces == nil || s.volumes == nil {
+	if s.snapshots == nil || s.environments == nil || s.volumes == nil {
 		return nil, ErrAdvanceStorageUnavailable
 	}
 	if _, err := uuid.Parse(strings.TrimSpace(advanceID)); err != nil {
@@ -339,12 +344,12 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 		return nil, domain.ErrAdvanceRollbackNotApplied
 	}
 
-	workspace, err := s.studentWorkspace(ctx, studentID, delivery)
-	if err != nil || workspace == nil {
-		return nil, domain.ErrAdvanceWorkspaceStopped
+	environment, err := s.studentPracticeEnvironment(ctx, studentID, delivery)
+	if err != nil || environment == nil {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
 	}
-	if workspace.Status != domain.WorkspaceStatusRunning {
-		return nil, domain.ErrAdvanceWorkspaceStopped
+	if environment.Status != domain.PracticeEnvironmentStatusRunning {
+		return nil, domain.ErrAdvancePracticeEnvironmentStopped
 	}
 
 	select {
@@ -354,7 +359,7 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 	}
 	defer func() { <-s.applySlots }()
 
-	volumeName := workspaceVolumeName(workspace)
+	volumeName := environmentVolumeName(environment)
 	backupRoot := advanceBackupRoot + "/" + delivery.ID
 	current, err := s.volumeFiles(ctx, volumeName)
 	if err != nil {
@@ -366,7 +371,7 @@ func (s *ClassAdvanceService) Rollback(ctx context.Context, tenantID, studentID,
 		return nil, err
 	}
 
-	if err := s.volumes.WriteWorkspaceVolumeFiles(ctx, volumeName, restored); err != nil {
+	if err := s.volumes.WritePracticeEnvironmentVolumeFiles(ctx, volumeName, restored); err != nil {
 		return nil, fmt.Errorf("failed to restore advance backup into student volume: %w", err)
 	}
 
@@ -425,11 +430,11 @@ func advanceBackupFiles(current map[string]string, backupRoot string) (map[strin
 // best-effort: si el almacén no ofrece la poda, el respaldo queda en disco y no
 // afecta al rollback que ya terminó.
 func (s *ClassAdvanceService) dropAdvanceBackup(ctx context.Context, volumeName, backupRoot string) {
-	pruner, ok := s.volumes.(domain.WorkspaceBackupPruner)
+	pruner, ok := s.volumes.(domain.PracticeEnvironmentBackupPruner)
 	if !ok {
 		return
 	}
-	if err := pruner.DeleteWorkspaceVolumePaths(ctx, volumeName, []string{backupRoot}); err != nil {
+	if err := pruner.DeletePracticeEnvironmentVolumePaths(ctx, volumeName, []string{backupRoot}); err != nil {
 		log.Printf("[Advance Rollback] no se pudo borrar el respaldo %s de %s: %v", backupRoot, volumeName, err)
 	}
 }
@@ -481,11 +486,11 @@ func normalizeAdvancePath(raw string) (string, error) {
 // los que exceden el tope. Si el almacén no ofrece la capacidad de poda, no se
 // hace nada: la aplicación sigue funcionando.
 func (s *ClassAdvanceService) pruneAdvanceBackups(ctx context.Context, volumeName string) {
-	pruner, ok := s.volumes.(domain.WorkspaceBackupPruner)
+	pruner, ok := s.volumes.(domain.PracticeEnvironmentBackupPruner)
 	if !ok {
 		return
 	}
-	dirs, err := pruner.ListWorkspaceBackupDirs(ctx, volumeName, advanceBackupRoot)
+	dirs, err := pruner.ListPracticeEnvironmentBackupDirs(ctx, volumeName, advanceBackupRoot)
 	if err != nil {
 		log.Printf("[Advance Backup] no se pudieron listar los respaldos de %s: %v", volumeName, err)
 		return
@@ -494,36 +499,36 @@ func (s *ClassAdvanceService) pruneAdvanceBackups(ctx context.Context, volumeNam
 		return
 	}
 	stale := dirs[maxAdvanceBackups:]
-	if err := pruner.DeleteWorkspaceVolumePaths(ctx, volumeName, stale); err != nil {
+	if err := pruner.DeletePracticeEnvironmentVolumePaths(ctx, volumeName, stale); err != nil {
 		log.Printf("[Advance Backup] no se pudieron podar %d respaldos de %s: %v", len(stale), volumeName, err)
 	}
 }
 
-// workspaceVolumeName arma el nombre del volumen del alumno en la materia, que
+// environmentVolumeName arma el nombre del volumen del alumno en la materia, que
 // es el mismo que usa el ciclo de vida de los entornos.
-func workspaceVolumeName(workspace *domain.WorkspaceInstance) string {
-	return workspace.VolumeName()
+func environmentVolumeName(environment *domain.PracticeEnvironment) string {
+	return environment.VolumeName()
 }
 
-// studentWorkspace elige el entorno del alumno para el avance. Con práctica se
-// prefiere el de esa práctica (ADR-059), que es el que el alumno abre hoy; el
-// entorno por materia queda como respaldo de laboratorios anteriores.
-func (s *ClassAdvanceService) studentWorkspace(ctx context.Context, studentID string, delivery *domain.AdvanceDelivery) (*domain.WorkspaceInstance, error) {
-	if exerciseID := strings.TrimSpace(delivery.ExerciseID); exerciseID != "" {
-		if repo, ok := s.workspaces.(workspaceExerciseRepository); ok {
-			workspace, err := repo.GetByStudentSubjectExercise(ctx, studentID, delivery.SubjectID, exerciseID)
-			if err == nil && workspace != nil {
-				return workspace, nil
-			}
-		}
+// studentPracticeEnvironment devuelve el entorno del alumno en la práctica del avance. El
+// avance se aplica sobre esa práctica y sobre ninguna otra: no hay respaldo por
+// materia.
+func (s *ClassAdvanceService) studentPracticeEnvironment(ctx context.Context, studentID string, delivery *domain.AdvanceDelivery) (*domain.PracticeEnvironment, error) {
+	exerciseID := strings.TrimSpace(delivery.ExerciseID)
+	if exerciseID == "" {
+		return nil, domain.ErrAdvancePracticeRequired
 	}
-	return s.workspaces.GetByStudentAndSubject(ctx, studentID, delivery.SubjectID)
+	repo, ok := s.environments.(environmentExerciseRepository)
+	if !ok {
+		return nil, ErrAdvanceStorageUnavailable
+	}
+	return repo.GetByStudentSubjectExercise(ctx, studentID, delivery.SubjectID, exerciseID)
 }
 
 // volumeFiles lee el estado vigente del volumen del alumno, acotado al mismo
 // tope que el respaldo. Es el lado contra el que se compara el snapshot.
 func (s *ClassAdvanceService) volumeFiles(ctx context.Context, volumeName string) (map[string]string, error) {
-	existing, err := s.volumes.SnapshotWorkspaceVolume(ctx, volumeName, maxAdvanceBackupBytes)
+	existing, err := s.volumes.SnapshotPracticeEnvironmentVolume(ctx, volumeName, maxAdvanceBackupBytes)
 	if err != nil {
 		return nil, err
 	}

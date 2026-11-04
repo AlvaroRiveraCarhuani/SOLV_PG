@@ -136,8 +136,8 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 		t.Fatalf("GetTeacherSubmissionReview devolvió error: %v", err)
 	}
 
-	if review.EnvironmentType != domain.WorkspaceTypeIDEPersistente {
-		t.Errorf("environment_type: esperado %s, obtenido %q", domain.WorkspaceTypeIDEPersistente, review.EnvironmentType)
+	if review.EnvironmentType != domain.PracticeEnvironmentTypeIDEPersistente {
+		t.Errorf("environment_type: esperado %s, obtenido %q", domain.PracticeEnvironmentTypeIDEPersistente, review.EnvironmentType)
 	}
 	if review.Language != "javascript" {
 		t.Errorf("language: esperado javascript, obtenido %q", review.Language)

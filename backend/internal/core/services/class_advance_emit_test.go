@@ -10,7 +10,10 @@ import (
 	"solv-backend/internal/core/services"
 )
 
-const advanceTeacherID = "77777777-7777-7777-7777-777777777777"
+const (
+	advanceTeacherID  = "77777777-7777-7777-7777-777777777777"
+	advanceExerciseID = "11111111-1111-1111-1111-111111111111"
+)
 
 // fakeAdvanceSessions devuelve siempre la sesión preparada por la prueba.
 type fakeAdvanceSessions struct {
@@ -52,17 +55,21 @@ func (f *fakeAdvanceSessions) TouchParticipant(ctx context.Context, tenantID, st
 	return nil
 }
 
-func (f *fakeAdvanceSessions) AttachWorkspaceToOpenSession(ctx context.Context, tenantID, studentID, subjectID, workspaceID string) error {
+func (f *fakeAdvanceSessions) AttachPracticeEnvironmentToOpenSession(ctx context.Context, tenantID, studentID, subjectID, environmentID string) error {
 	return nil
 }
 
+// newOpenSession crea un aula atada a una práctica: el avance se emite desde el
+// entorno de esa práctica y no desde uno de materia.
 func newOpenSession() *domain.ClassSession {
+	exerciseID := advanceExerciseID
 	return &domain.ClassSession{
-		ID:        "55555555-5555-5555-5555-555555555555",
-		TenantID:  advanceTenantID,
-		SubjectID: advanceSubjectID,
-		Status:    domain.ClassSessionStatusOpen,
-		OpensAt:   time.Now(),
+		ID:         "55555555-5555-5555-5555-555555555555",
+		TenantID:   advanceTenantID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &exerciseID,
+		Status:     domain.ClassSessionStatusOpen,
+		OpensAt:    time.Now(),
 	}
 }
 
@@ -71,31 +78,32 @@ func TestEmitAdvance_StoresSnapshotAndIssuesTheAdvance(t *testing.T) {
 		participants: []string{advanceStudentID, "88888888-8888-8888-8888-888888888888"},
 		purpose:      "class",
 	}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "solucion.py", Content: []byte("print(1)\n")},
 		{Path: "helpers.py", Content: []byte("x = 1\n")},
 	}}
 	snapshots := &fakeAdvanceSnapshotsFiles{}
-	workspaces := newMockWorkspaceRepo()
-	if err := workspaces.Create(context.Background(), &domain.WorkspaceInstance{
-		ID:        "99999999-9999-9999-9999-999999999999",
-		StudentID: advanceTeacherID,
-		SubjectID: advanceSubjectID,
-		Status:    domain.WorkspaceStatusRunning,
+	environments := newMockPracticeEnvironmentRepo()
+	teacherPractice := advanceExerciseID
+	if err := environments.Create(context.Background(), &domain.PracticeEnvironment{
+		ID:         "99999999-9999-9999-9999-999999999999",
+		StudentID:  advanceTeacherID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &teacherPractice,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}); err != nil {
 		t.Fatalf("no se pudo preparar el entorno del docente: %v", err)
 	}
 
 	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: newOpenSession()}).
-		WithApplier(snapshots, workspaces, volumes)
+		WithApplier(snapshots, environments, volumes)
 
 	advance, recipients, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
 		TenantID:   advanceTenantID,
 		TeacherID:  advanceTeacherID,
 		Role:       "teacher",
-		SessionID:  newOpenSession().ID,
-		ExerciseID: "11111111-1111-1111-1111-111111111111",
-		Scope:      domain.AdvanceScopeClass,
+		SessionID: newOpenSession().ID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if err != nil {
 		t.Fatalf("error inesperado al emitir: %v", err)
@@ -127,14 +135,13 @@ func TestEmitAdvance_RejectsClosedSessionBeforePackaging(t *testing.T) {
 	session.Status = domain.ClassSessionStatusClosed
 	snapshots := &fakeAdvanceSnapshotsFiles{}
 	svc := services.NewClassAdvanceService(&fakeAdvanceStore{}, &fakeAdvanceSessions{session: session}).
-		WithApplier(snapshots, newRunningWorkspace(t), &fakeAdvanceVolumes{})
+		WithApplier(snapshots, newRunningPracticeEnvironment(t), &fakeAdvanceVolumes{})
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
 		TenantID:   advanceTenantID,
 		TeacherID:  advanceTeacherID,
 		Role:       "teacher",
 		SessionID:  session.ID,
-		ExerciseID: "11111111-1111-1111-1111-111111111111",
 		Scope:      domain.AdvanceScopeClass,
 	})
 	if !errors.Is(err, domain.ErrAdvanceSessionClosed) {
@@ -148,15 +155,14 @@ func TestEmitAdvance_RejectsClosedSessionBeforePackaging(t *testing.T) {
 func TestEmitAdvance_RequiresTheTeacherEnvironment(t *testing.T) {
 	snapshots := &fakeAdvanceSnapshotsFiles{}
 	svc := services.NewClassAdvanceService(&fakeAdvanceStore{}, &fakeAdvanceSessions{session: newOpenSession()}).
-		WithApplier(snapshots, newMockWorkspaceRepo(), &fakeAdvanceVolumes{})
+		WithApplier(snapshots, newMockPracticeEnvironmentRepo(), &fakeAdvanceVolumes{})
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
 		TenantID:   advanceTenantID,
 		TeacherID:  advanceTeacherID,
 		Role:       "teacher",
-		SessionID:  newOpenSession().ID,
-		ExerciseID: "11111111-1111-1111-1111-111111111111",
-		Scope:      domain.AdvanceScopeClass,
+		SessionID: newOpenSession().ID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if !errors.Is(err, domain.ErrAdvanceSourceMissing) {
 		t.Fatalf("esperado entorno del docente ausente, obtenido: %v", err)
@@ -166,34 +172,59 @@ func TestEmitAdvance_RequiresTheTeacherEnvironment(t *testing.T) {
 	}
 }
 
+// El avance vive en la práctica del aula: sin práctica no hay entorno que
+// empaquetar y el motivo es de dominio, no un fallo de almacenamiento.
+func TestEmitAdvance_RequiresPracticeInSession(t *testing.T) {
+	session := newOpenSession()
+	session.ExerciseID = nil
+	snapshots := &fakeAdvanceSnapshotsFiles{}
+	svc := services.NewClassAdvanceService(&fakeAdvanceStore{}, &fakeAdvanceSessions{session: session}).
+		WithApplier(snapshots, newRunningPracticeEnvironment(t), &fakeAdvanceVolumes{})
+
+	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
+		TenantID:  advanceTenantID,
+		TeacherID: advanceTeacherID,
+		Role:      "teacher",
+		SessionID: session.ID,
+		Scope:     domain.AdvanceScopeClass,
+	})
+	if !errors.Is(err, domain.ErrAdvancePracticeRequired) {
+		t.Fatalf("esperado aula sin práctica, obtenido: %v", err)
+	}
+	if snapshots.putKey != "" {
+		t.Error("sin práctica no se empaqueta nada")
+	}
+}
+
 func TestEmitAdvance_DeletesSnapshotWhenRecipientsAreRejected(t *testing.T) {
 	store := &fakeAdvanceStore{
 		participants: []string{advanceStudentID},
 		purpose:      "class",
 	}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "solucion.py", Content: []byte("print(1)\n")},
 	}}
 	snapshots := &fakeAdvanceSnapshotsFiles{}
-	workspaces := newMockWorkspaceRepo()
-	if err := workspaces.Create(context.Background(), &domain.WorkspaceInstance{
-		ID:        "99999999-9999-9999-9999-999999999999",
-		StudentID: advanceTeacherID,
-		SubjectID: advanceSubjectID,
-		Status:    domain.WorkspaceStatusRunning,
+	environments := newMockPracticeEnvironmentRepo()
+	teacherPractice := advanceExerciseID
+	if err := environments.Create(context.Background(), &domain.PracticeEnvironment{
+		ID:         "99999999-9999-9999-9999-999999999999",
+		StudentID:  advanceTeacherID,
+		SubjectID:  advanceSubjectID,
+		ExerciseID: &teacherPractice,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}); err != nil {
 		t.Fatalf("no se pudo preparar el entorno del docente: %v", err)
 	}
 
 	svc := services.NewClassAdvanceService(store, &fakeAdvanceSessions{session: newOpenSession()}).
-		WithApplier(snapshots, workspaces, volumes)
+		WithApplier(snapshots, environments, volumes)
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
 		TenantID:   advanceTenantID,
 		TeacherID:  advanceTeacherID,
 		Role:       "teacher",
 		SessionID:  newOpenSession().ID,
-		ExerciseID: "11111111-1111-1111-1111-111111111111",
 		Scope:      domain.AdvanceScopeSelected,
 		StudentIDs: []string{"88888888-8888-8888-8888-888888888888"},
 	})
@@ -216,19 +247,19 @@ func TestEmitAdvance_ReadsThePracticeEnvironment(t *testing.T) {
 		participants: []string{advanceStudentID},
 		purpose:      "class",
 	}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "practica.py", Content: []byte("print(2)\n")},
 	}}
 	snapshots := &fakeAdvanceSnapshotsFiles{}
 
-	practice := &domain.WorkspaceInstance{
+	practice := &domain.PracticeEnvironment{
 		ID:         "99999999-9999-9999-9999-999999999998",
 		StudentID:  advanceTeacherID,
 		SubjectID:  advanceSubjectID,
 		ExerciseID: &exerciseID,
-		Status:     domain.WorkspaceStatusRunning,
+		Status:     domain.PracticeEnvironmentStatusRunning,
 	}
-	repo := newPracticeWorkspaceRepo()
+	repo := newPracticePracticeEnvironmentRepo()
 	if err := repo.Create(context.Background(), practice); err != nil {
 		t.Fatalf("no se pudo preparar el entorno de la práctica: %v", err)
 	}
@@ -240,9 +271,8 @@ func TestEmitAdvance_ReadsThePracticeEnvironment(t *testing.T) {
 		TenantID:   advanceTenantID,
 		TeacherID:  advanceTeacherID,
 		Role:       "teacher",
-		SessionID:  session.ID,
-		ExerciseID: exerciseID,
-		Scope:      domain.AdvanceScopeClass,
+		SessionID: session.ID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if err != nil {
 		t.Fatalf("error inesperado al emitir: %v", err)

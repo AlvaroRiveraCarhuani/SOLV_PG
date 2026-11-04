@@ -103,13 +103,13 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 	}
 
 	// 2. Probar reconciliador de contenedores huérfanos (Zombie Collector)
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
-	zombieWorker := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 1*time.Second)
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())
+	zombieWorker := services.NewZombieCollectorWorker(environmentRepo, dockerClient, 1*time.Second)
 
 	// Crear contenedor huérfano simulado
-	orphanConfig := domain.WorkspaceContainerConfig{
+	orphanConfig := domain.PracticeEnvironmentContainerConfig{
 		Image:         "gitpod/openvscode-server:latest",
-		ContainerName: "solv-workspace-orphan-test-12345",
+		ContainerName: "solv-environment-orphan-test-12345",
 		VolumeName:    "solv_test_vol_orphan",
 		MemoryLimitMB: 256,
 		NetworkName:   netName,
@@ -119,7 +119,7 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 	}
 
 	_ = dockerClient.EnsureVolumeExists(ctx, orphanConfig.VolumeName)
-	orphanID, err := dockerClient.StartWorkspaceContainer(ctx, orphanConfig)
+	orphanID, err := dockerClient.StartPracticeEnvironmentContainer(ctx, orphanConfig)
 	if err != nil {
 		t.Fatalf("Failed to create dummy orphan container: %v", err)
 	}
@@ -153,11 +153,11 @@ func TestSlice6PrometheusMetricsEndpoint(t *testing.T) {
 		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
 	}
 
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(dbInstance.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())
 	hostMonitor := systeminfra.NewGopsutilHostMonitor(15.0)
-	zombieWorker := services.NewZombieCollectorWorker(workspaceRepo, nil, 10*time.Second)
+	zombieWorker := services.NewZombieCollectorWorker(environmentRepo, nil, 10*time.Second)
 
-	metricsHandler := httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieWorker)
+	metricsHandler := httpdelivery.NewMetricsHandler(environmentRepo, hostMonitor, zombieWorker)
 
 	req := httptest.NewRequestWithContext(context.Background(), "GET", "/metrics", nil)
 	rr := httptest.NewRecorder()
@@ -177,7 +177,7 @@ func TestSlice6PrometheusMetricsEndpoint(t *testing.T) {
 	t.Logf("/metrics Response Body:\n%s", bodyStr)
 
 	requiredMetrics := []string{
-		"solv_active_workspaces_total",
+		"solv_active_environments_total",
 		"solv_host_available_memory_bytes",
 		"solv_host_oom_guard_bytes",
 		"solv_orphan_containers_reclaimed_total",

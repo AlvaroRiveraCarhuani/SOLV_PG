@@ -9,26 +9,26 @@ import (
 	"solv-backend/internal/core/services"
 )
 
-// practiceWorkspaceRepo recuerda los entornos del docente por práctica, que es
+// practicePracticeEnvironmentRepo recuerda los entornos del docente por práctica, que es
 // la clave con la que el servicio los busca antes de levantar uno nuevo.
-type practiceWorkspaceRepo struct {
-	*mockWorkspaceRepo
-	byPractice map[string]*domain.WorkspaceInstance
+type practicePracticeEnvironmentRepo struct {
+	*mockPracticeEnvironmentRepo
+	byPractice map[string]*domain.PracticeEnvironment
 }
 
-func newPracticeWorkspaceRepo() *practiceWorkspaceRepo {
-	return &practiceWorkspaceRepo{
-		mockWorkspaceRepo: newMockWorkspaceRepo(),
-		byPractice:        make(map[string]*domain.WorkspaceInstance),
+func newPracticePracticeEnvironmentRepo() *practicePracticeEnvironmentRepo {
+	return &practicePracticeEnvironmentRepo{
+		mockPracticeEnvironmentRepo: newMockPracticeEnvironmentRepo(),
+		byPractice:        make(map[string]*domain.PracticeEnvironment),
 	}
 }
 
-func (r *practiceWorkspaceRepo) GetByStudentSubjectExercise(_ context.Context, studentID, subjectID, exerciseID string) (*domain.WorkspaceInstance, error) {
+func (r *practicePracticeEnvironmentRepo) GetByStudentSubjectExercise(_ context.Context, studentID, subjectID, exerciseID string) (*domain.PracticeEnvironment, error) {
 	return r.byPractice[studentID+":"+subjectID+":"+exerciseID], nil
 }
 
-func (r *practiceWorkspaceRepo) Create(ctx context.Context, ws *domain.WorkspaceInstance) error {
-	if err := r.mockWorkspaceRepo.Create(ctx, ws); err != nil {
+func (r *practicePracticeEnvironmentRepo) Create(ctx context.Context, ws *domain.PracticeEnvironment) error {
+	if err := r.mockPracticeEnvironmentRepo.Create(ctx, ws); err != nil {
 		return err
 	}
 	if ws.ExerciseID != nil {
@@ -59,7 +59,7 @@ const (
 	ideJudgeID   = "cccccccc-cccc-4ccc-8ccc-cccccccccccc"
 )
 
-func newPracticeIDEService(owner string) (*services.WorkspaceService, *practiceWorkspaceRepo, *mockOrchestrator) {
+func newPracticeIDEService(owner string) (*services.PracticeEnvironmentService, *practicePracticeEnvironmentRepo, *mockOrchestrator) {
 	subject := &domain.Subject{ID: ideSubjectID, Name: "Estructuras de Datos", TeacherID: &owner}
 	subjectID := ideSubjectID
 
@@ -91,9 +91,9 @@ func newPracticeIDEService(owner string) (*services.WorkspaceService, *practiceW
 		"tpl-b": {ID: "tpl-b", Name: "Python Grafos", DockerImage: "solv/python:3.12-graph", BaseRamMB: 512},
 	}
 
-	repo := newPracticeWorkspaceRepo()
+	repo := newPracticePracticeEnvironmentRepo()
 	orch := &mockOrchestrator{}
-	svc := services.NewWorkspaceService(repo, orch, &mockHostMonitor{}).
+	svc := services.NewPracticeEnvironmentService(repo, orch, &mockHostMonitor{}).
 		WithProvisioning(&mockSubjectRepo{subjects: map[string]*domain.Subject{ideSubjectID: subject}}, &mockTemplateRepo{templates: templates}).
 		WithExerciseSubmission(&practiceExerciseMapRepo{exercises: exercises}, &fakeSubmissionRepo{})
 	return svc, repo, orch
@@ -101,10 +101,10 @@ func newPracticeIDEService(owner string) (*services.WorkspaceService, *practiceW
 
 // Abrir el IDE de una práctica del docente usa el volumen y la plantilla de esa
 // práctica: dos prácticas de la misma materia no comparten repositorio.
-func TestStartTeacherPracticeWorkspace_ScopesVolumeAndTemplateToPractice(t *testing.T) {
+func TestStartTeacherPracticePracticeEnvironment_ScopesVolumeAndTemplateToPractice(t *testing.T) {
 	svc, _, orch := newPracticeIDEService(ideTeacherID)
 
-	first, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
+	first, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
 	if err != nil {
 		t.Fatalf("la práctica del docente debía abrir: %v", err)
 	}
@@ -125,7 +125,7 @@ func TestStartTeacherPracticeWorkspace_ScopesVolumeAndTemplateToPractice(t *test
 		t.Error("el entorno debía exponer una URL de acceso para abrirlo en otra pestaña")
 	}
 
-	second, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", idePracticeB, "teacher")
+	second, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", idePracticeB, "teacher")
 	if err != nil {
 		t.Fatalf("la segunda práctica debía abrir: %v", err)
 	}
@@ -142,16 +142,16 @@ func TestStartTeacherPracticeWorkspace_ScopesVolumeAndTemplateToPractice(t *test
 
 // Volver a abrir la misma práctica devuelve el entorno que ya existe en vez de
 // levantar un contenedor nuevo.
-func TestStartTeacherPracticeWorkspace_ReusesExistingPracticeEnvironment(t *testing.T) {
+func TestStartTeacherPracticePracticeEnvironment_ReusesExistingPracticeEnvironment(t *testing.T) {
 	svc, _, _ := newPracticeIDEService(ideTeacherID)
 
-	first, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
+	first, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
 	if err != nil {
 		t.Fatalf("la práctica debía abrir: %v", err)
 	}
-	first.Status = domain.WorkspaceStatusRunning
+	first.Status = domain.PracticeEnvironmentStatusRunning
 
-	again, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
+	again, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
 	if err != nil {
 		t.Fatalf("reabrir la misma práctica no debía fallar: %v", err)
 	}
@@ -161,20 +161,20 @@ func TestStartTeacherPracticeWorkspace_ReusesExistingPracticeEnvironment(t *test
 }
 
 // Un docente no abre el IDE de una práctica de la materia de otro.
-func TestStartTeacherPracticeWorkspace_RejectsForeignTeacher(t *testing.T) {
+func TestStartTeacherPracticePracticeEnvironment_RejectsForeignTeacher(t *testing.T) {
 	svc, _, _ := newPracticeIDEService(ideOtherID)
 
-	_, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
+	_, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", idePracticeA, "teacher")
 	if !errors.Is(err, services.ErrPracticeTestForbidden) {
 		t.Fatalf("esperado ErrPracticeTestForbidden, obtenido: %v", err)
 	}
 }
 
 // Una práctica del juez no tiene repositorio persistente que abrir.
-func TestStartTeacherPracticeWorkspace_RejectsJudgePractice(t *testing.T) {
+func TestStartTeacherPracticePracticeEnvironment_RejectsJudgePractice(t *testing.T) {
 	svc, _, _ := newPracticeIDEService(ideTeacherID)
 
-	_, err := svc.StartTeacherPracticeWorkspace(context.Background(), ideTeacherID, "", ideJudgeID, "teacher")
+	_, err := svc.StartTeacherPracticePracticeEnvironment(context.Background(), ideTeacherID, "", ideJudgeID, "teacher")
 	if !errors.Is(err, services.ErrPracticeIDENotProject) {
 		t.Fatalf("esperado ErrPracticeIDENotProject, obtenido: %v", err)
 	}

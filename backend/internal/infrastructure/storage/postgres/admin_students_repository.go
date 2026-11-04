@@ -34,7 +34,7 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 			COUNT(*) FILTER (WHERE w.status = 'running') AS active_count,
 			COALESCE(MAX(w.oom_strike_count), 0) AS total_strikes,
 			MAX(w.last_oom_killed_at) AS last_oom_killed
-		FROM workspaces w
+		FROM environments w
 		WHERE w.tenant_id = $1
 		GROUP BY w.student_id
 	`
@@ -53,7 +53,7 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 				COUNT(*) FILTER (WHERE w.status = 'running') AS active_count,
 				COALESCE(MAX(w.oom_strike_count), 0) AS total_strikes,
 				MAX(w.last_oom_killed_at) AS last_oom_killed
-			FROM workspaces w
+			FROM environments w
 			LEFT JOIN subjects s ON s.id = w.subject_id
 			WHERE w.tenant_id = $1 AND (s.academic_period_id = $%d::uuid OR w.subject_id IS NULL)
 			GROUP BY w.student_id
@@ -72,7 +72,7 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 			COALESCE(u.status, 'active') AS status,
 			u.suspension_reason,
 			COALESCE(e_count.total_enrolled, 0) AS enrolled_courses_count,
-			COALESCE(w_stats.active_count, 0) AS active_workspaces_count,
+			COALESCE(w_stats.active_count, 0) AS active_environments_count,
 			COALESCE(w_stats.total_strikes, 0) AS oom_strike_count,
 			w_stats.last_oom_killed
 		FROM users u
@@ -121,7 +121,7 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 		Status                string         `db:"status"`
 		SuspensionReason      sql.NullString `db:"suspension_reason"`
 		EnrolledCoursesCount  int            `db:"enrolled_courses_count"`
-		ActiveWorkspacesCount int            `db:"active_workspaces_count"`
+		ActivePracticeEnvironmentsCount int            `db:"active_environments_count"`
 		OOMStrikeCount        int            `db:"oom_strike_count"`
 		LastOOMKilledAt       sql.NullTime   `db:"last_oom_killed"`
 	}
@@ -163,7 +163,7 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 			SuspensionReason:      suspReason,
 			AcademicStatus:        acadStatus,
 			EnrolledCoursesCount:  row.EnrolledCoursesCount,
-			ActiveWorkspacesCount: row.ActiveWorkspacesCount,
+			ActivePracticeEnvironmentsCount: row.ActivePracticeEnvironmentsCount,
 			OOMStrikeCount:        row.OOMStrikeCount,
 			LastOOMKilledAt:       lastOOM,
 		}
@@ -203,7 +203,7 @@ func (r *PostgresAdminGovernanceRepository) CreateStudent(
 		Role:                  "student",
 		Status:                "active",
 		EnrolledCoursesCount:  0,
-		ActiveWorkspacesCount: 0,
+		ActivePracticeEnvironmentsCount: 0,
 		OOMStrikeCount:        0,
 	}, nil
 }
@@ -244,15 +244,15 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 			s.name AS subject_name,
 			COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Sin asignar') AS teacher_name,
 			e.enrolled_at,
-			w.id AS workspace_id,
-			w.status AS workspace_status,
+			w.id AS environment_id,
+			w.status AS environment_status,
 			w.memory_limit_mb,
 			w.oom_strike_count,
 			w.last_oom_killed_at
 		FROM enrollments e
 		JOIN subjects s ON s.id = e.subject_id AND s.tenant_id = e.tenant_id
 		LEFT JOIN users u ON u.id = s.teacher_id
-		LEFT JOIN workspaces w ON w.student_id = e.student_id AND w.subject_id = e.subject_id AND w.tenant_id = e.tenant_id
+		LEFT JOIN environments w ON w.student_id = e.student_id AND w.subject_id = e.subject_id AND w.tenant_id = e.tenant_id
 		WHERE e.tenant_id = $1 AND e.student_id = $2
 		ORDER BY s.name ASC
 	`
@@ -263,8 +263,8 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 		SubjectName     string         `db:"subject_name"`
 		TeacherName     string         `db:"teacher_name"`
 		EnrolledAt      time.Time      `db:"enrolled_at"`
-		WorkspaceID     sql.NullString `db:"workspace_id"`
-		WorkspaceStatus sql.NullString `db:"workspace_status"`
+		EnvironmentID     sql.NullString `db:"environment_id"`
+		PracticeEnvironmentStatus sql.NullString `db:"environment_status"`
 		MemoryLimitMB   sql.NullInt64  `db:"memory_limit_mb"`
 		OOMStrikeCount  sql.NullInt64  `db:"oom_strike_count"`
 		LastOOMKilledAt sql.NullTime   `db:"last_oom_killed_at"`
@@ -282,11 +282,11 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 		var memLimit, oomStrikes *int
 		var lastOOM *time.Time
 
-		if row.WorkspaceID.Valid {
-			wsID = &row.WorkspaceID.String
+		if row.EnvironmentID.Valid {
+			wsID = &row.EnvironmentID.String
 		}
-		if row.WorkspaceStatus.Valid {
-			wsStatus = &row.WorkspaceStatus.String
+		if row.PracticeEnvironmentStatus.Valid {
+			wsStatus = &row.PracticeEnvironmentStatus.String
 		}
 		if row.MemoryLimitMB.Valid {
 			v := int(row.MemoryLimitMB.Int64)
@@ -307,8 +307,8 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 			SubjectName:     row.SubjectName,
 			TeacherName:     row.TeacherName,
 			EnrolledAt:      row.EnrolledAt,
-			WorkspaceID:     wsID,
-			WorkspaceStatus: wsStatus,
+			EnvironmentID:     wsID,
+			PracticeEnvironmentStatus: wsStatus,
 			MemoryLimitMB:   memLimit,
 			OOMStrikeCount:  oomStrikes,
 			LastOOMKilledAt: lastOOM,
@@ -330,9 +330,9 @@ func (r *PostgresAdminGovernanceRepository) ResetStudentOOM(ctx context.Context,
 		return 0, fmt.Errorf("student not found")
 	}
 
-	// 2. Resetear strikes y fecha de OOM en todos los workspaces del estudiante
+	// 2. Resetear strikes y fecha de OOM en todos los environments del estudiante
 	resetQuery := `
-		UPDATE workspaces
+		UPDATE environments
 		SET oom_strike_count = 0, last_oom_killed_at = NULL, updated_at = NOW()
 		WHERE tenant_id = $1 AND student_id = $2
 	`

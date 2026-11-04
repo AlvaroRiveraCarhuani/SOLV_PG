@@ -12,10 +12,10 @@ func TestNormalizeReviewEnvironment(t *testing.T) {
 		raw  string
 		want string
 	}{
-		{name: "IDE", raw: "IDE_PERSISTENTE", want: domain.WorkspaceTypeIDEPersistente},
-		{name: "juez", raw: "JUEZ_EFIMERO", want: domain.WorkspaceTypeJuezEfimero},
-		{name: "vacío cae en juez", raw: "", want: domain.WorkspaceTypeJuezEfimero},
-		{name: "desconocido cae en juez", raw: "OTRA_MODALIDAD", want: domain.WorkspaceTypeJuezEfimero},
+		{name: "IDE", raw: "IDE_PERSISTENTE", want: domain.PracticeEnvironmentTypeIDEPersistente},
+		{name: "juez", raw: "JUEZ_EFIMERO", want: domain.PracticeEnvironmentTypeJuezEfimero},
+		{name: "vacío cae en juez", raw: "", want: domain.PracticeEnvironmentTypeJuezEfimero},
+		{name: "desconocido cae en juez", raw: "OTRA_MODALIDAD", want: domain.PracticeEnvironmentTypeJuezEfimero},
 	}
 
 	for _, tc := range cases {

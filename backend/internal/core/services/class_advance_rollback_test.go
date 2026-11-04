@@ -34,31 +34,31 @@ type pruningVolumes struct {
 	deleted [][]string
 }
 
-func (v *pruningVolumes) ListWorkspaceBackupDirs(context.Context, string, string) ([]string, error) {
+func (v *pruningVolumes) ListPracticeEnvironmentBackupDirs(context.Context, string, string) ([]string, error) {
 	return nil, nil
 }
 
-func (v *pruningVolumes) DeleteWorkspaceVolumePaths(_ context.Context, _ string, paths []string) error {
+func (v *pruningVolumes) DeletePracticeEnvironmentVolumePaths(_ context.Context, _ string, paths []string) error {
 	v.deleted = append(v.deleted, paths)
 	return nil
 }
 
-func previewService(t *testing.T, store *fakeAdvanceStore, snapshots map[string]string, current []domain.WorkspaceVolumeFile) (*services.ClassAdvanceService, *fakeAdvanceVolumes) {
+func previewService(t *testing.T, store *fakeAdvanceStore, snapshots map[string]string, current []domain.PracticeEnvironmentVolumeFile) (*services.ClassAdvanceService, *fakeAdvanceVolumes) {
 	t.Helper()
 	volumes := &fakeAdvanceVolumes{existing: current}
-	files := make([]domain.WorkspaceVolumeFile, 0, len(snapshots))
+	files := make([]domain.PracticeEnvironmentVolumeFile, 0, len(snapshots))
 	for path, content := range snapshots {
-		files = append(files, domain.WorkspaceVolumeFile{Path: path, Content: []byte(content)})
+		files = append(files, domain.PracticeEnvironmentVolumeFile{Path: path, Content: []byte(content)})
 	}
 	return services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: files}, newRunningWorkspace(t), volumes), volumes
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: files}, newRunningPracticeEnvironment(t), volumes), volumes
 }
 
 func TestPreviewAdvance_ReturnsFileContents(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)}
 	svc, _ := previewService(t, store,
 		map[string]string{"main.py": "nuevo\n", "utils.py": "helper\n"},
-		[]domain.WorkspaceVolumeFile{{Path: "main.py", Content: []byte("viejo\n")}},
+		[]domain.PracticeEnvironmentVolumeFile{{Path: "main.py", Content: []byte("viejo\n")}},
 	)
 
 	preview, err := svc.Preview(context.Background(), advanceTenantID, advanceStudentID, advanceID)
@@ -78,16 +78,16 @@ func TestPreviewAdvance_ReturnsFileContents(t *testing.T) {
 
 func TestApplyAdvance_SelectedFilesOnly(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("viejo\n")},
 		{Path: "utils.py", Content: []byte("viejo helper\n")},
 	}}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
 			{Path: "utils.py", Content: []byte("helper\n")},
 			{Path: "docs/readme.md", Content: []byte("# guía\n")},
-		}}, newRunningWorkspace(t), volumes)
+		}}, newRunningPracticeEnvironment(t), volumes)
 
 	result, err := svc.ApplySelection(context.Background(), advanceTenantID, advanceStudentID, advanceID, []string{"main.py"})
 	if err != nil {
@@ -117,10 +117,10 @@ func TestApplyAdvance_EmptySelectionAppliesEverything(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
 			{Path: "utils.py", Content: []byte("helper\n")},
-		}}, newRunningWorkspace(t), volumes)
+		}}, newRunningPracticeEnvironment(t), volumes)
 
 	result, err := svc.ApplySelection(context.Background(), advanceTenantID, advanceStudentID, advanceID, nil)
 	if err != nil {
@@ -138,9 +138,9 @@ func TestApplyAdvance_RejectsFilesOutsideSnapshot(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.WorkspaceVolumeFile{
+		WithApplier(&fakeAdvanceSnapshotsFiles{files: []domain.PracticeEnvironmentVolumeFile{
 			{Path: "main.py", Content: []byte("nuevo\n")},
-		}}, newRunningWorkspace(t), volumes)
+		}}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.ApplySelection(context.Background(), advanceTenantID, advanceStudentID, advanceID,
 		[]string{"main.py", "../../etc/passwd"})
@@ -158,12 +158,12 @@ func TestApplyAdvance_RejectsFilesOutsideSnapshot(t *testing.T) {
 func TestRollbackAdvance_RestoresBackupAndReopensRecipient(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
 	audit := &rollbackAudit{}
-	volumes := &pruningVolumes{fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &pruningVolumes{fakeAdvanceVolumes: fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("avance\n")},
 		{Path: ".solv_backups/" + advanceID + "/main.py", Content: []byte("version previa\n")},
 	}}}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 	svc.SetAuditRepository(audit)
 
 	result, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
@@ -202,7 +202,7 @@ func TestRollbackAdvance_RequiresAppliedRecipient(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientPending, "practice", domain.ClassSessionStatusOpen, nil)}
 	volumes := &fakeAdvanceVolumes{}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if !errors.Is(err, domain.ErrAdvanceRollbackNotApplied) {
@@ -215,11 +215,11 @@ func TestRollbackAdvance_RequiresAppliedRecipient(t *testing.T) {
 
 func TestRollbackAdvance_WithoutBackupReportsMissing(t *testing.T) {
 	store := &fakeAdvanceStore{delivery: newAdvanceDelivery(domain.AdvanceRecipientApplied, "practice", domain.ClassSessionStatusOpen, nil)}
-	volumes := &fakeAdvanceVolumes{existing: []domain.WorkspaceVolumeFile{
+	volumes := &fakeAdvanceVolumes{existing: []domain.PracticeEnvironmentVolumeFile{
 		{Path: "main.py", Content: []byte("avance\n")},
 	}}
 	svc := services.NewClassAdvanceService(store, nil).
-		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningWorkspace(t), volumes)
+		WithApplier(&fakeAdvanceSnapshotsFiles{}, newRunningPracticeEnvironment(t), volumes)
 
 	_, err := svc.Rollback(context.Background(), advanceTenantID, advanceStudentID, advanceID)
 	if !errors.Is(err, domain.ErrAdvanceBackupMissing) {

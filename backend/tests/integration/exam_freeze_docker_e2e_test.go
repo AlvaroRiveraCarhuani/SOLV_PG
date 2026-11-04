@@ -53,28 +53,29 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()
-	workspaceID := uuid.NewString()
+	environmentID := uuid.NewString()
 	exerciseID := uuid.NewString()
-	volumeName := fmt.Sprintf("solv_workspace_%s_%s", studentID, subjectID)
-	containerName := fmt.Sprintf("solv-workspace-%s", workspaceID)
+	volumeName := fmt.Sprintf("solv_workspace_%s_%s_%s", studentID, subjectID, exerciseID)
+	containerName := fmt.Sprintf("solv-environment-%s", environmentID)
 
-	instance := &domain.WorkspaceInstance{
-		ID:            workspaceID,
+	instance := &domain.PracticeEnvironment{
+		ID:            environmentID,
 		TenantID:      tenantID,
 		StudentID:     studentID,
 		SubjectID:     subjectID,
-		Type:          domain.WorkspaceTypeIDEPersistente,
-		Status:        domain.WorkspaceStatusRunning,
+		ExerciseID:    &exerciseID,
+		Type:          domain.PracticeEnvironmentTypeIDEPersistente,
+		Status:        domain.PracticeEnvironmentStatusRunning,
 		MemoryLimitMB: 512,
 	}
-	repo := &e2eWorkspaceRepo{instance: instance}
+	repo := &e2ePracticeEnvironmentRepo{instance: instance}
 	submissions := &e2eSubmissionRepo{}
-	workspaces := services.NewWorkspaceService(repo, client, nil).
+	environments := services.NewPracticeEnvironmentService(repo, client, nil).
 		WithExerciseSubmission(&e2eExamExerciseRepo{subjectID: subjectID}, submissions)
 
 	store := &e2eFreezeStore{instance: instance}
-	freezer := services.NewExamFreezeService(store, &e2eFreezeSessions{}, repo, workspaces)
-	workspaces.SetExamSubmissionFreezer(freezer)
+	freezer := services.NewExamFreezeService(store, &e2eFreezeSessions{}, repo, environments)
+	environments.SetExamSubmissionFreezer(freezer)
 
 	if err := client.EnsureVolumeExists(ctx, volumeName); err != nil {
 		t.Fatalf("no se pudo crear el volumen %s: %v", volumeName, err)
@@ -85,19 +86,19 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 	})
 
 	// 1. El alumno arranca con el volumen en escritura y guarda su trabajo.
-	if err := workspaces.SetWorkspaceMount(ctx, instance, false); err != nil {
+	if err := environments.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
 		t.Fatalf("no se pudo montar el volumen en escritura: %v", err)
 	}
 	editableContainer := *instance.ContainerID
 	waitContainerRunning(t, raw, editableContainer)
 
-	execInWorkspace(t, raw, editableContainer, "printf 'package main\\n' > /home/workspace/main.go")
-	if got := execInWorkspace(t, raw, editableContainer, "cat /home/workspace/main.go"); !strings.Contains(got, "package main") {
+	execInPracticeEnvironment(t, raw, editableContainer, "printf 'package main\\n' > /home/workspace/main.go")
+	if got := execInPracticeEnvironment(t, raw, editableContainer, "cat /home/workspace/main.go"); !strings.Contains(got, "package main") {
 		t.Fatalf("el alumno debía poder escribir antes de entregar, se leyó %q", got)
 	}
 
 	// 2. La entrega es la que dispara el congelamiento: solo ese volumen.
-	submission, err := workspaces.SubmitWorkspaceProject(ctx, workspaceID, studentID, exerciseID, map[string]string{
+	submission, err := environments.SubmitPracticeEnvironmentProject(ctx, environmentID, studentID, exerciseID, map[string]string{
 		"notas.txt": "entrega del examen",
 	})
 	if err != nil {
@@ -109,7 +110,7 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 	if !strings.Contains(submission.Code, "# === FILE: main.go ===") {
 		t.Fatalf("el snapshot debía incluir el archivo del alumno: %s", submission.Code)
 	}
-	if instance.FrozenAt == nil || instance.Status != domain.WorkspaceStatusFrozen {
+	if instance.FrozenAt == nil || instance.Status != domain.PracticeEnvironmentStatusFrozen {
 		t.Fatalf("la entrega debía marcar el volumen como congelado: %+v", instance)
 	}
 	if instance.ContainerID == nil || *instance.ContainerID == editableContainer {
@@ -130,16 +131,16 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 	if !strings.Contains(strings.ToLower(stderr), "read-only file system") {
 		t.Fatalf("la escritura debía fallar por el sistema de archivos, no por otra causa: %q", stderr)
 	}
-	if got := execInWorkspace(t, raw, frozenContainer, "cat /home/workspace/main.go"); !strings.Contains(got, "package main") {
+	if got := execInPracticeEnvironment(t, raw, frozenContainer, "cat /home/workspace/main.go"); !strings.Contains(got, "package main") {
 		t.Fatalf("el contenido entregado debía seguir legible: %q", got)
 	}
 
 	// 4. Un contenedor efímero con el volumen en solo lectura, que es como lo lee
 	// el juez, tampoco puede escribir.
-	if got := runEphemeralVolumeCommand(t, ctx, raw, volumeName, true, "cat /workspace/main.go"); !strings.Contains(got, "package main") {
+	if got := runEphemeralVolumeCommand(t, ctx, raw, volumeName, true, "cat /environment/main.go"); !strings.Contains(got, "package main") {
 		t.Fatalf("el contenedor efímero debía leer lo entregado: %q", got)
 	}
-	_, stderr, code, err = runEphemeralVolumeCommandResult(ctx, raw, volumeName, true, "echo intruso > /workspace/efimero.txt")
+	_, stderr, code, err = runEphemeralVolumeCommandResult(ctx, raw, volumeName, true, "echo intruso > /environment/efimero.txt")
 	if err != nil {
 		t.Fatalf("no se pudo ejecutar la escritura efímera: %v", err)
 	}
@@ -149,13 +150,13 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 
 	// 5. Volver a entregar tampoco es una vía para escribir: el servidor rechaza
 	// la entrega antes de tocar el volumen.
-	_, err = workspaces.SubmitWorkspaceProject(ctx, workspaceID, studentID, exerciseID, map[string]string{
+	_, err = environments.SubmitPracticeEnvironmentProject(ctx, environmentID, studentID, exerciseID, map[string]string{
 		"tarde.txt": "fuera de plazo",
 	})
-	if !errors.Is(err, domain.ErrWorkspaceFrozen) {
+	if !errors.Is(err, domain.ErrPracticeEnvironmentFrozen) {
 		t.Fatalf("una entrega sobre un volumen congelado debía rechazarse, se obtuvo %v", err)
 	}
-	_, _, code, err = runEphemeralVolumeCommandResult(ctx, raw, volumeName, true, "test ! -e /workspace/tarde.txt")
+	_, _, code, err = runEphemeralVolumeCommandResult(ctx, raw, volumeName, true, "test ! -e /environment/tarde.txt")
 	if err != nil {
 		t.Fatalf("no se pudo comprobar el volumen: %v", err)
 	}
@@ -164,34 +165,34 @@ func TestExamFreezeDockerE2E(t *testing.T) {
 	}
 
 	// 6. Reabrir vuelve a habilitar la escritura en el mismo volumen.
-	if err := workspaces.SetWorkspaceMount(ctx, instance, false); err != nil {
+	if err := environments.SetPracticeEnvironmentMount(ctx, instance, false); err != nil {
 		t.Fatalf("no se pudo reabrir el volumen: %v", err)
 	}
 	reopened := *instance.ContainerID
 	waitContainerRunning(t, raw, reopened)
-	execInWorkspace(t, raw, reopened, "printf 'reenviado\\n' > /home/workspace/tarde.txt")
-	if got := execInWorkspace(t, raw, reopened, "cat /home/workspace/tarde.txt"); !strings.Contains(got, "reenviado") {
+	execInPracticeEnvironment(t, raw, reopened, "printf 'reenviado\\n' > /home/workspace/tarde.txt")
+	if got := execInPracticeEnvironment(t, raw, reopened, "cat /home/workspace/tarde.txt"); !strings.Contains(got, "reenviado") {
 		t.Fatalf("tras reabrir el alumno debía poder escribir otra vez: %q", got)
 	}
 }
 
-// e2eWorkspaceRepo es el repositorio mínimo que el servicio de entornos necesita:
+// e2ePracticeEnvironmentRepo es el repositorio mínimo que el servicio de entornos necesita:
 // la fila viva del laboratorio y la actualización del contenedor reconstruido.
-type e2eWorkspaceRepo struct {
-	domain.WorkspaceRepository
-	instance *domain.WorkspaceInstance
+type e2ePracticeEnvironmentRepo struct {
+	domain.PracticeEnvironmentRepository
+	instance *domain.PracticeEnvironment
 }
 
-func (r *e2eWorkspaceRepo) GetByID(context.Context, string) (*domain.WorkspaceInstance, error) {
+func (r *e2ePracticeEnvironmentRepo) GetByID(context.Context, string) (*domain.PracticeEnvironment, error) {
 	return r.instance, nil
 }
 
-func (r *e2eWorkspaceRepo) UpdateContainerID(_ context.Context, _, containerID string) error {
+func (r *e2ePracticeEnvironmentRepo) UpdateContainerID(_ context.Context, _, containerID string) error {
 	r.instance.ContainerID = &containerID
 	return nil
 }
 
-func (r *e2eWorkspaceRepo) UpdateAccessURL(_ context.Context, _, accessURL string) error {
+func (r *e2ePracticeEnvironmentRepo) UpdateAccessURL(_ context.Context, _, accessURL string) error {
 	r.instance.AccessURL = accessURL
 	return nil
 }
@@ -226,14 +227,14 @@ func (r *e2eExamExerciseRepo) GetByIDAndTenant(_ context.Context, exerciseID, _ 
 // e2eFreezeStore marca la fila viva para que la misma instancia refleje el
 // congelamiento, igual que haría PostgreSQL.
 type e2eFreezeStore struct {
-	instance *domain.WorkspaceInstance
+	instance *domain.PracticeEnvironment
 }
 
 func (s *e2eFreezeStore) SessionIsExam(context.Context, string, string) (bool, error) {
 	return true, nil
 }
 
-func (s *e2eFreezeStore) ParticipantWorkspaces(context.Context, string, string) ([]domain.ExamFreezeWorkspace, error) {
+func (s *e2eFreezeStore) ParticipantPracticeEnvironments(context.Context, string, string) ([]domain.ExamFreezePracticeEnvironment, error) {
 	return nil, nil
 }
 
@@ -241,14 +242,14 @@ func (s *e2eFreezeStore) ClosedExamSessions(context.Context, int) ([]domain.Exam
 	return nil, nil
 }
 
-func (s *e2eFreezeStore) SetWorkspaceFrozen(_ context.Context, _, _ string, frozen bool, at time.Time) error {
+func (s *e2eFreezeStore) SetPracticeEnvironmentFrozen(_ context.Context, _, _ string, frozen bool, at time.Time) error {
 	if !frozen {
 		s.instance.FrozenAt = nil
-		s.instance.Status = domain.WorkspaceStatusRunning
+		s.instance.Status = domain.PracticeEnvironmentStatusRunning
 		return nil
 	}
 	s.instance.FrozenAt = &at
-	s.instance.Status = domain.WorkspaceStatusFrozen
+	s.instance.Status = domain.PracticeEnvironmentStatusFrozen
 	return nil
 }
 
@@ -276,9 +277,9 @@ func waitContainerRunning(t *testing.T, raw *dockerclient.Client, containerID st
 	}
 }
 
-// execInWorkspace ejecuta un comando como root y devuelve la salida. Root evita
+// execInPracticeEnvironment ejecuta un comando como root y devuelve la salida. Root evita
 // que un permiso de directorio se confunda con el bloqueo del montaje.
-func execInWorkspace(t *testing.T, cli *dockerclient.Client, containerID, script string) string {
+func execInPracticeEnvironment(t *testing.T, cli *dockerclient.Client, containerID, script string) string {
 	t.Helper()
 	stdout, _, code, err := execResult(context.Background(), cli, containerID, script)
 	if err != nil {
@@ -358,7 +359,7 @@ func runEphemeralVolumeCommandResult(ctx context.Context, cli *dockerclient.Clie
 		User:  "0",
 		Cmd:   []string{"sh", "-c", script},
 	}, &container.HostConfig{
-		Binds:       []string{fmt.Sprintf("%s:/workspace:%s", volumeName, mode)},
+		Binds:       []string{fmt.Sprintf("%s:/environment:%s", volumeName, mode)},
 		NetworkMode: "none",
 	}, nil, nil, "")
 	if err != nil {

@@ -86,22 +86,13 @@ func (m *MockUserRepoForMT) CreateUserFromSSO(ctx context.Context, user *domain.
 	return user.ID, nil
 }
 
-type MockWorkspaceRepoForMT struct {
-	workspaces map[string]*coredomain.WorkspaceInstance
+type MockPracticeEnvironmentRepoForMT struct {
+	environments map[string]*coredomain.PracticeEnvironment
 }
 
-func (m *MockWorkspaceRepoForMT) GetByStudentAndSubject(ctx context.Context, studentID string, subjectID string) (*coredomain.WorkspaceInstance, error) {
+func (m *MockPracticeEnvironmentRepoForMT) GetByID(ctx context.Context, id string) (*coredomain.PracticeEnvironment, error) {
 	tenantID := coredomain.GetTenantID(ctx)
-	for _, ws := range m.workspaces {
-		if ws.StudentID == studentID && ws.SubjectID == subjectID && ws.TenantID == tenantID {
-			return ws, nil
-		}
-	}
-	return nil, nil
-}
-func (m *MockWorkspaceRepoForMT) GetByID(ctx context.Context, id string) (*coredomain.WorkspaceInstance, error) {
-	tenantID := coredomain.GetTenantID(ctx)
-	if ws, exists := m.workspaces[id]; exists {
+	if ws, exists := m.environments[id]; exists {
 		if ws.TenantID != tenantID {
 			return nil, errors.New("forbidden: access denied to other tenant resource")
 		}
@@ -109,45 +100,45 @@ func (m *MockWorkspaceRepoForMT) GetByID(ctx context.Context, id string) (*cored
 	}
 	return nil, nil
 }
-func (m *MockWorkspaceRepoForMT) Create(ctx context.Context, workspace *coredomain.WorkspaceInstance) error {
-	m.workspaces[workspace.ID] = workspace
+func (m *MockPracticeEnvironmentRepoForMT) Create(ctx context.Context, environment *coredomain.PracticeEnvironment) error {
+	m.environments[environment.ID] = environment
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) UpdateContainerID(ctx context.Context, id string, containerID string) error {
+func (m *MockPracticeEnvironmentRepoForMT) UpdateContainerID(ctx context.Context, id string, containerID string) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) UpdateStatus(ctx context.Context, id string, status string) error {
+func (m *MockPracticeEnvironmentRepoForMT) UpdateStatus(ctx context.Context, id string, status string) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error {
+func (m *MockPracticeEnvironmentRepoForMT) UpdateMemoryLimit(ctx context.Context, id string, memoryMB int64) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) RecordHeartbeat(ctx context.Context, id string) error {
+func (m *MockPracticeEnvironmentRepoForMT) RecordHeartbeat(ctx context.Context, id string) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) IncrementOOMStrike(ctx context.Context, id string) error {
+func (m *MockPracticeEnvironmentRepoForMT) IncrementOOMStrike(ctx context.Context, id string) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) ResetOOMStrikes(ctx context.Context, id string) error {
+func (m *MockPracticeEnvironmentRepoForMT) ResetOOMStrikes(ctx context.Context, id string) error {
 	return nil
 }
-func (m *MockWorkspaceRepoForMT) GetActiveWorkspaces(ctx context.Context) ([]*coredomain.WorkspaceInstance, error) {
+func (m *MockPracticeEnvironmentRepoForMT) GetActivePracticeEnvironments(ctx context.Context) ([]*coredomain.PracticeEnvironment, error) {
 	tenantID := coredomain.GetTenantID(ctx)
-	var list []*coredomain.WorkspaceInstance
-	for _, ws := range m.workspaces {
+	var list []*coredomain.PracticeEnvironment
+	for _, ws := range m.environments {
 		if ws.TenantID == tenantID {
 			list = append(list, ws)
 		}
 	}
 	return list, nil
 }
-func (m *MockWorkspaceRepoForMT) GetAllRunningWorkspaces(ctx context.Context) ([]*coredomain.WorkspaceInstance, error) {
+func (m *MockPracticeEnvironmentRepoForMT) GetAllRunningPracticeEnvironments(ctx context.Context) ([]*coredomain.PracticeEnvironment, error) {
 	return nil, nil
 }
-func (m *MockWorkspaceRepoForMT) GetByType(ctx context.Context, workspaceType string) ([]*coredomain.WorkspaceInstance, error) {
+func (m *MockPracticeEnvironmentRepoForMT) GetByType(ctx context.Context, environmentType string) ([]*coredomain.PracticeEnvironment, error) {
 	return nil, nil
 }
-func (m *MockWorkspaceRepoForMT) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
+func (m *MockPracticeEnvironmentRepoForMT) SaveSemgrepAudit(ctx context.Context, id string, auditJSON []byte) error {
 	return nil
 }
 
@@ -174,8 +165,8 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		},
 	}
 
-	workspaceRepo := &MockWorkspaceRepoForMT{
-		workspaces: map[string]*coredomain.WorkspaceInstance{
+	environmentRepo := &MockPracticeEnvironmentRepoForMT{
+		environments: map[string]*coredomain.PracticeEnvironment{
 			"ws-uab-1": {
 				ID:        "ws-uab-1",
 				StudentID: "student-uab",
@@ -265,7 +256,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 			_, _ = w.Write([]byte(tenantID))
 		})
 
-		reqUAB := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-uab-1", nil)
+		reqUAB := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/environments/ws-uab-1", nil)
 		reqUAB.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		recUAB := httptest.NewRecorder()
 
@@ -288,7 +279,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenUMSA := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsUMSA)
 		tokenStrUMSA, _ := tokenUMSA.SignedString(jwtSecret)
 
-		reqUMSA := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-umsa-1", nil)
+		reqUMSA := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/environments/ws-umsa-1", nil)
 		reqUMSA.Header.Set("Authorization", "Bearer "+tokenStrUMSA)
 		recUMSA := httptest.NewRecorder()
 
@@ -310,7 +301,7 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenInvalid := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsInvalid)
 		tokenStrInvalid, _ := tokenInvalid.SignedString(jwtSecret)
 
-		reqInvalid := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-uab-1", nil)
+		reqInvalid := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/environments/ws-uab-1", nil)
 		reqInvalid.Header.Set("Authorization", "Bearer "+tokenStrInvalid)
 		recInvalid := httptest.NewRecorder()
 
@@ -320,13 +311,13 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		}
 	})
 
-	// 3. Test Isolation /api/v1/workspaces logic (Test 3 & 4)
+	// 3. Test Isolation /api/v1/environments logic (Test 3 & 4)
 	t.Run("Tenant data isolation", func(t *testing.T) {
 		tenantMiddleware := middleware.WithTenant(tenantRepo, jwtSecret)
 
-		// Test 3: Consultar workspaces de UAB como usuario UAB sólo retorna UAB
+		// Test 3: Consultar environments de UAB como usuario UAB sólo retorna UAB
 		nextHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			list, _ := workspaceRepo.GetActiveWorkspaces(r.Context())
+			list, _ := environmentRepo.GetActivePracticeEnvironments(r.Context())
 			_ = json.NewEncoder(w).Encode(list)
 		})
 
@@ -340,23 +331,23 @@ func TestMultiTenancyIsolation(t *testing.T) {
 		tokenUAB := jwt.NewWithClaims(jwt.SigningMethodHS256, claimsUAB)
 		tokenStrUAB, _ := tokenUAB.SignedString(jwtSecret)
 
-		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces", nil)
+		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/environments", nil)
 		req.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		rec := httptest.NewRecorder()
 
 		tenantMiddleware(nextHandler).ServeHTTP(rec, req)
 
-		var res []*coredomain.WorkspaceInstance
+		var res []*coredomain.PracticeEnvironment
 		_ = json.Unmarshal(rec.Body.Bytes(), &res)
 
 		if len(res) != 1 || res[0].ID != "ws-uab-1" {
-			t.Errorf("Data leakage: returned workspaces from another tenant!")
+			t.Errorf("Data leakage: returned environments from another tenant!")
 		}
 
-		// Test 4: UAB student trying to query UMSA workspace ID directly -> fails with error
+		// Test 4: UAB student trying to query UMSA environment ID directly -> fails with error
 		nextSingleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			wsID := "ws-umsa-1" // Solicita explícitamente UMSA
-			ws, err := workspaceRepo.GetByID(r.Context(), wsID)
+			ws, err := environmentRepo.GetByID(r.Context(), wsID)
 			if err != nil || ws == nil {
 				http.Error(w, "Forbidden", http.StatusForbidden)
 				return
@@ -364,13 +355,13 @@ func TestMultiTenancyIsolation(t *testing.T) {
 			_, _ = w.Write([]byte("OK"))
 		})
 
-		reqSingle := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/workspaces/ws-umsa-1", nil)
+		reqSingle := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/environments/ws-umsa-1", nil)
 		reqSingle.Header.Set("Authorization", "Bearer "+tokenStrUAB)
 		recSingle := httptest.NewRecorder()
 
 		tenantMiddleware(nextSingleHandler).ServeHTTP(recSingle, reqSingle)
 		if recSingle.Code != http.StatusForbidden {
-			t.Errorf("Expected 403 Forbidden on foreign tenant workspace access, got %d", recSingle.Code)
+			t.Errorf("Expected 403 Forbidden on foreign tenant environment access, got %d", recSingle.Code)
 		}
 	})
 }

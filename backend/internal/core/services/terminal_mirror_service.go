@@ -11,10 +11,10 @@ import (
 
 // TerminalMirrorService gestiona la inspeccion de terminales en tiempo real (Shadow Mode) y comandos de asistencia tutorial.
 type TerminalMirrorService struct {
-	orchestrator domain.WorkspaceOrchestrator
+	orchestrator domain.PracticeEnvironmentOrchestrator
 }
 
-func NewTerminalMirrorService(orchestrator domain.WorkspaceOrchestrator) *TerminalMirrorService {
+func NewTerminalMirrorService(orchestrator domain.PracticeEnvironmentOrchestrator) *TerminalMirrorService {
 	return &TerminalMirrorService{
 		orchestrator: orchestrator,
 	}
@@ -54,7 +54,7 @@ func (s *TerminalMirrorService) GetInitialTerminalBuffer(ctx context.Context, co
 
 	if s.orchestrator == nil {
 		// Mock buffer para tests y modo offline
-		return fmt.Sprintf("[SOLV Shadow Mode] Conectado a contenedor %s\n$ Solv workspace active. Listening for events...\n", containerID), nil
+		return fmt.Sprintf("[SOLV Shadow Mode] Conectado a contenedor %s\n$ Solv environment active. Listening for events...\n", containerID), nil
 	}
 
 	logs, err := s.orchestrator.GetContainerLogs(ctx, containerID, tailLines)
@@ -96,7 +96,7 @@ func (s *TerminalMirrorService) ExecuteTutorCommand(ctx context.Context, contain
 		}, nil
 	}
 
-	err := s.orchestrator.ExecuteCommandInBackground(ctx, containerID, "/workspace", cmdParts)
+	err := s.orchestrator.ExecuteCommandInBackground(ctx, containerID, "/environment", cmdParts)
 	if err != nil {
 		return nil, fmt.Errorf("error al ejecutar comando en contenedor %s: %w", containerID, err)
 	}
@@ -104,7 +104,7 @@ func (s *TerminalMirrorService) ExecuteTutorCommand(ctx context.Context, contain
 	return &domain.TutorCommandResponse{
 		ContainerID: containerID,
 		Command:     cmdTrimmed,
-		Output:      fmt.Sprintf("Comando enviado al workspace: %s", cmdTrimmed),
+		Output:      fmt.Sprintf("Comando enviado al environment: %s", cmdTrimmed),
 		ExitCode:    0,
 		ExecutedAt:  executedAt,
 	}, nil

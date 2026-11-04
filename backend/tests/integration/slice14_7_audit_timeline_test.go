@@ -64,8 +64,8 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 		err := auditRepo.Create(ctx, &domain.AuditLog{
 			TenantID:     tenantID,
 			ActorID:      actorOrphan,
-			Action:       "WORKSPACE_HIBERNATED",
-			ResourceType: "workspace_instance",
+			Action:       "PRACTICE_ENVIRONMENT_HIBERNATED",
+			ResourceType: "environment_instance",
 			StatusCode:   http.StatusOK,
 		})
 		if err != nil {

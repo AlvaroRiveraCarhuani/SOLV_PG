@@ -119,7 +119,7 @@ func (f *fakeReviewEnvironmentOrchestrator) EnsureICCDisabledNetworkExists(_ con
 	return nil
 }
 
-func (f *fakeReviewEnvironmentOrchestrator) WriteWorkspaceVolumeFiles(_ context.Context, _ string, files map[string]string) error {
+func (f *fakeReviewEnvironmentOrchestrator) WritePracticeEnvironmentVolumeFiles(_ context.Context, _ string, files map[string]string) error {
 	f.writtenFiles = files
 	return nil
 }
@@ -179,7 +179,7 @@ func newReviewEnvironmentFixture(t *testing.T) (*ReviewEnvironmentService, *fake
 		context: &domain.ReviewEnvironmentContext{
 			SubmissionID:     "11111111-1111-1111-1111-111111111111",
 			ExerciseID:       "22222222-2222-2222-2222-222222222222",
-			EnvironmentType:  domain.WorkspaceTypeIDEPersistente,
+			EnvironmentType:  domain.PracticeEnvironmentTypeIDEPersistente,
 			Code:             "# === FILE: main.js ===\nconsole.log('hola')\n\n# === FILE: lib/util.js ===\nexport const x = 1\n",
 			Language:         "javascript",
 			AppRunCommand:    "node main.js",
@@ -214,7 +214,7 @@ func TestReviewEnvironmentStartRequiresRunCommand(t *testing.T) {
 
 func TestReviewEnvironmentStartRejectsJudgeModality(t *testing.T) {
 	svc, _, source, orchestrator := newReviewEnvironmentFixture(t)
-	source.context.EnvironmentType = domain.WorkspaceTypeJuezEfimero
+	source.context.EnvironmentType = domain.PracticeEnvironmentTypeJuezEfimero
 
 	_, err := svc.Start(context.Background(), "tenant-1", "teacher-1", source.context.SubmissionID)
 	if !errors.Is(err, domain.ErrReviewEnvironmentRequiresIDE) {
@@ -257,7 +257,7 @@ func TestReviewEnvironmentStartCreatesIsolatedPreview(t *testing.T) {
 	if !strings.HasPrefix(repo.env.VolumeName, "solv-review-env-") {
 		t.Fatalf("expected review volume, got %q", repo.env.VolumeName)
 	}
-	if strings.Contains(repo.env.VolumeName, "solv-workspace") {
+	if strings.Contains(repo.env.VolumeName, "solv-environment") {
 		t.Fatalf("el preview nunca debe usar el volumen del alumno: %q", repo.env.VolumeName)
 	}
 	if len(orchestrator.writtenFiles) != 2 || strings.TrimSpace(orchestrator.writtenFiles["main.js"]) != "console.log('hola')" {

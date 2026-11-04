@@ -12,7 +12,7 @@ import (
 
 type StudentHandler struct {
 	subjectRepo    domain.SubjectRepository
-	workspaceRepo  domain.WorkspaceRepository
+	environmentRepo  domain.PracticeEnvironmentRepository
 	submissionRepo domain.SubmissionRepository
 	exerciseRepo   domain.ExerciseRepository
 	commentReader  domain.SubmissionCommentReader
@@ -20,14 +20,14 @@ type StudentHandler struct {
 
 func NewStudentHandler(
 	subjectRepo domain.SubjectRepository,
-	workspaceRepo domain.WorkspaceRepository,
+	environmentRepo domain.PracticeEnvironmentRepository,
 	submissionRepo domain.SubmissionRepository,
 	exerciseRepo domain.ExerciseRepository,
 	commentReaders ...domain.SubmissionCommentReader,
 ) *StudentHandler {
 	handler := &StudentHandler{
 		subjectRepo:    subjectRepo,
-		workspaceRepo:  workspaceRepo,
+		environmentRepo:  environmentRepo,
 		submissionRepo: submissionRepo,
 		exerciseRepo:   exerciseRepo,
 	}
@@ -37,12 +37,14 @@ func NewStudentHandler(
 	return handler
 }
 
+// StudentSubjectItem resume una materia para el inicio del alumno. No lleva
+// entorno: el entorno es de una práctica y el inicio no elige práctica; se
+// abre desde la práctica o desde el aula (ADR-059).
 type StudentSubjectItem struct {
-	Subject            *domain.Subject           `json:"subject"`
-	ActiveWorkspace    *domain.WorkspaceInstance `json:"active_workspace,omitempty"`
-	TotalExercises     int                       `json:"total_exercises"`
-	CompletedExercises int                       `json:"completed_exercises"`
-	ProgressPercent    int                       `json:"progress_percent"`
+	Subject            *domain.Subject `json:"subject"`
+	TotalExercises     int             `json:"total_exercises"`
+	CompletedExercises int             `json:"completed_exercises"`
+	ProgressPercent    int             `json:"progress_percent"`
 }
 
 // StudentRecentSubmissionItem enriquece una entrega con el titulo del
@@ -172,13 +174,8 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 			progressPercent = int(math.Round(float64(completedExercises) * 100.0 / float64(totalExercises)))
 		}
 
-		var ws *domain.WorkspaceInstance
-		if h.workspaceRepo != nil {
-			ws, _ = h.workspaceRepo.GetByStudentAndSubject(r.Context(), userID, subj.ID)
-		}
 		subjectItems = append(subjectItems, StudentSubjectItem{
 			Subject:            subj,
-			ActiveWorkspace:    ws,
 			TotalExercises:     totalExercises,
 			CompletedExercises: completedExercises,
 			ProgressPercent:    progressPercent,

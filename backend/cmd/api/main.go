@@ -59,7 +59,7 @@ func main() {
 	hostMonitor := system.NewGopsutilHostMonitor(15.0)
 
 	exerciseRepo := postgres.NewPostgresExerciseRepository(db.GetDB())
-	workspaceRepo := postgres.NewPostgresWorkspaceRepository(db.GetDB())
+	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(db.GetDB())
 	tenantRepo := postgres.NewPostgresTenantRepository(db.GetDB())
 	subjectRepo := postgres.NewPostgresSubjectRepository(db.GetDB())
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
@@ -70,14 +70,14 @@ func main() {
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
-	semgrepWorker := services.NewSemgrepWorker(workspaceRepo, dockerClient, "internal/infrastructure/semgrep/rules")
+	semgrepWorker := services.NewSemgrepWorker(environmentRepo, dockerClient, "internal/infrastructure/semgrep/rules")
 	evaluationService := services.NewEvaluationService(exerciseRepo, astAnalyzer, semgrepWorker, dockerRunner)
 	generatedCaseSnapshotRepo := postgres.NewPostgresGeneratedCaseSnapshotRepository(db.GetDB())
 	evaluationService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
 	scriptSandboxRunner := docker.NewDockerScriptSandboxRunner(cli)
 	evaluationService.SetScriptSandboxRunner(scriptSandboxRunner)
 	templateRepo := postgres.NewPostgresTemplateRepository(db.GetDB())
-	workspaceService := services.NewWorkspaceService(workspaceRepo, dockerClient, hostMonitor).
+	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor).
 		WithProvisioning(subjectRepo, templateRepo).
 		WithExerciseSubmission(exerciseRepo, submissionRepo)
 	subjectService := services.NewSubjectService(subjectRepo)
@@ -89,9 +89,9 @@ func main() {
 	defer func() { _ = smtpMailer.Close() }()
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo, smtpMailer)
 
-	zombieCollector := services.NewZombieCollectorWorker(workspaceRepo, dockerClient, 30*time.Second)
+	zombieCollector := services.NewZombieCollectorWorker(environmentRepo, dockerClient, 30*time.Second)
 
-	qosWorker := services.NewQoSOrchestratorWorker(workspaceRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
+	qosWorker := services.NewQoSOrchestratorWorker(environmentRepo, dockerClient, hostMonitor, 15*time.Minute, 10*time.Second)
 
 	// Preview efímero de SpeedGrader: el QoS worker es su único dueño temporal.
 	reviewEnvRepo := postgres.NewPostgresReviewEnvironmentRepository(db.GetDB())
@@ -99,10 +99,10 @@ func main() {
 	qosWorker.SetReviewEnvironmentReaper(reviewEnvService.ReapExpired)
 
 	serverPoliciesService := services.NewServerPoliciesService(tenantRepo)
-	workspaceService.SetPoliciesService(serverPoliciesService)
+	environmentService.SetPoliciesService(serverPoliciesService)
 	// Scale-to-Zero de motores de base de datos auto-orquestados: el worker de QoS apaga
 	// los satélites (mysql, mariadb, mongodb, redis) que ya no usa ningún laboratorio.
-	qosWorker.SetManagedSatelliteReconciler(workspaceService.ReconcileIdleManagedSatellitesScheduled)
+	qosWorker.SetManagedSatelliteReconciler(environmentService.ReconcileIdleManagedSatellitesScheduled)
 	qosWorker.SetPoliciesProvider(func(ctx context.Context) (int, bool) {
 		policies, err := serverPoliciesService.Get(ctx, domain.DefaultTenantID)
 		if err != nil {
@@ -126,7 +126,7 @@ func main() {
 	// Reconciliacion bidireccional (D2, ADR-049): el collector saca contenedores
 	// sin registro; el reconciler marca registros sin contenedor (orphaned) y
 	// daemon caido (unknown), dentro del mismo ciclo de 30 s del collector.
-	stateReconciler := services.NewWorkspaceStateReconciler(workspaceRepo, dockerClient)
+	stateReconciler := services.NewPracticeEnvironmentStateReconciler(environmentRepo, dockerClient)
 	stateReconciler.SetAuditRepository(auditLogRepo)
 	zombieCollector.SetStateReconciler(stateReconciler)
 
@@ -135,7 +135,7 @@ func main() {
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
-	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, workspaceRepo, subjectRepo, hostMonitor)
+	adminHandler := httpdelivery.NewAdminHandler(auditLogRepo, tenantRepo, environmentRepo, subjectRepo, hostMonitor)
 	// Telemetria unica del host para el panel de salud: mide /proc via
 	// gopsutil y el daemon de Docker, desacoplada de la capa HTTP. El mismo
 	// origen alimenta al sampler persistido (D1) y al handler del panel.
@@ -147,7 +147,7 @@ func main() {
 	// los ultimos samples reales desde la base tras un reinicio.
 	metricsSampleRepo := postgres.NewPostgresHostMetricsSampleRepository(db.GetDB())
 	hostMetricsSampler := services.NewHostMetricsSampler(metricsSampleRepo, hostTelemetry, func(ctx context.Context) (int, error) {
-		running, err := workspaceRepo.GetAllRunningWorkspaces(ctx)
+		running, err := environmentRepo.GetAllRunningPracticeEnvironments(ctx)
 		if err != nil {
 			return 0, err
 		}
@@ -175,25 +175,25 @@ func main() {
 	aiCopilotHandler := httpdelivery.NewAICopilotHandler(aiCopilotService)
 	tenantLogoHandler := httpdelivery.NewTenantLogoHandler(tenantRepo)
 	adminHandler.SetOrchestrator(dockerClient)
-	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, workspaceRepo, submissionRepo, exerciseRepo, teacherRepo)
+	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, environmentRepo, submissionRepo, exerciseRepo, teacherRepo)
 
 	// Aula de la clase: sesión, presencia y tablero. El ciclo de vida del entorno
 	// se enlaza al aula cuando nace dentro de una sesión abierta.
 	classSessionRepo := postgres.NewPostgresClassSessionRepository(db.GetDB())
 	classSessionService := services.NewClassSessionService(classSessionRepo)
 	classSessionHandler := httpdelivery.NewClassSessionHandler(classSessionService)
-	workspaceService.WithClassSessions(classSessionRepo)
+	environmentService.WithClassSessions(classSessionRepo)
 
 	// Congelamiento del examen (ADR-005 §5): al cerrar el aula de un examen, el
 	// volumen del alumno se reconstruye montado en solo lectura. El worker cubre
 	// el cierre por vencimiento y lo que quedó pendiente con el backend apagado.
 	examFreezeRepo := postgres.NewPostgresExamFreezeRepository(db.GetDB())
-	examFreezeService := services.NewExamFreezeService(examFreezeRepo, classSessionRepo, workspaceRepo, workspaceService)
+	examFreezeService := services.NewExamFreezeService(examFreezeRepo, classSessionRepo, environmentRepo, environmentService)
 	examFreezeService.SetAuditRepository(auditLogRepo)
 	classSessionService.WithExamFreezer(examFreezeService)
 	// Entrega anticipada: el alumno que termina antes cierra solo su volumen y
 	// la clase sigue escribiendo para los demás (ADR-005 §5.2).
-	workspaceService.SetExamSubmissionFreezer(examFreezeService)
+	environmentService.SetExamSubmissionFreezer(examFreezeService)
 	go services.NewExamFreezeWorker(examFreezeService).Start(ctx)
 
 	// Avance voluntario del docente (ADR-058). Emitir y congelar viven en el
@@ -203,9 +203,9 @@ func main() {
 	classAdvanceService := services.NewClassAdvanceService(classAdvanceRepo, classSessionRepo)
 	classAdvanceService.SetAuditRepository(auditLogRepo)
 	classAdvanceService.SetHistoryStore(classAdvanceRepo)
-	var advanceVolumes domain.WorkspaceVolumeStore = dockerClient
+	var advanceVolumes domain.PracticeEnvironmentVolumeStore = dockerClient
 	if snapshots := newAdvanceSnapshotStore(ctx); snapshots != nil {
-		classAdvanceService.WithApplier(snapshots, workspaceRepo, advanceVolumes)
+		classAdvanceService.WithApplier(snapshots, environmentRepo, advanceVolumes)
 		classAdvanceService.SetApplyConcurrency(envInt("ADVANCE_APPLY_CONCURRENCY", 4))
 		classAdvanceService.SetRetentionStore(classAdvanceRepo)
 		retentionWorker := services.NewAdvanceRetentionWorker(classAdvanceService)
@@ -222,7 +222,7 @@ func main() {
 	teacherService.SetMailer(smtpMailer)
 	teacherService.SetTenantRepository(tenantRepo)
 	teacherService.SetAuditRepository(auditLogRepo)
-	metricsSnapshotService := services.NewMetricsSnapshotService(workspaceRepo, dockerClient, 5*time.Second)
+	metricsSnapshotService := services.NewMetricsSnapshotService(environmentRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
 	teacherHandler.SetReviewEnvironmentService(reviewEnvService)
@@ -341,7 +341,7 @@ func main() {
 		envTestJobRepo,
 		envTestAdapter,
 		envTestAdapter,
-		workspaceService,
+		environmentService,
 		exerciseRepo,
 		subjectRepo,
 		templateRepo,
@@ -384,8 +384,8 @@ func main() {
 		LanguageProfileHandler:        langProfileHandler,
 		CourseModuleHandler:           courseModuleHandler,
 		RubricHandler:                 rubricHandler,
-		WorkspaceHandler:              httpdelivery.NewWorkspaceHandler(workspaceService, v),
-		MetricsHandler:                httpdelivery.NewMetricsHandler(workspaceRepo, hostMonitor, zombieCollector),
+		PracticeEnvironmentHandler:              httpdelivery.NewPracticeEnvironmentHandler(environmentService, v),
+		MetricsHandler:                httpdelivery.NewMetricsHandler(environmentRepo, hostMonitor, zombieCollector),
 		ConfigHandler:                 httpdelivery.NewConfigHandler(tenantRepo),
 		SubjectHandler:                httpdelivery.NewSubjectHandler(subjectService),
 		SubmissionHandler:             subHandler,

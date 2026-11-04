@@ -134,8 +134,8 @@ type ClassSessionStudent struct {
 	Present         bool       `db:"present" json:"present"`
 	JoinedAt        *time.Time `db:"joined_at" json:"joined_at"`
 	LastSeenAt      *time.Time `db:"last_seen_at" json:"last_seen_at"`
-	WorkspaceID     *string    `db:"workspace_id" json:"workspace_id"`
-	WorkspaceStatus *string    `db:"workspace_status" json:"workspace_status"`
+	EnvironmentID     *string    `db:"environment_id" json:"environment_id"`
+	PracticeEnvironmentStatus *string    `db:"environment_status" json:"environment_status"`
 	SubmittedAt     *time.Time `db:"submitted_at" json:"submitted_at"`
 	Verdict         *string    `db:"verdict" json:"verdict"`
 	ReviewStatus    *string    `db:"review_status" json:"review_status"`
@@ -180,14 +180,14 @@ type ClassSessionStore interface {
 	OpenSessionsForStudent(ctx context.Context, tenantID, studentID string) ([]ClassSession, error)
 	// TouchParticipant registra o refresca la presencia del alumno en el aula.
 	TouchParticipant(ctx context.Context, tenantID, studentID, sessionID string) error
-	// AttachWorkspaceToOpenSession enlaza el entorno con el aula abierta de la
+	// AttachPracticeEnvironmentToOpenSession enlaza el entorno con el aula abierta de la
 	// materia, si existe, y marca la presencia del alumno.
-	AttachWorkspaceToOpenSession(ctx context.Context, tenantID, studentID, subjectID, workspaceID string) error
+	AttachPracticeEnvironmentToOpenSession(ctx context.Context, tenantID, studentID, subjectID, environmentID string) error
 }
 
-// ClassSessionWorkspaceLinker es la capacidad que el servicio de workspaces
+// ClassSessionPracticeEnvironmentLinker es la capacidad que el servicio de environments
 // consume para dejar constancia de en qué aula nació un entorno. Se declara
 // aparte para no acoplar el ciclo de vida de Docker a la sesión.
-type ClassSessionWorkspaceLinker interface {
-	AttachWorkspaceToOpenSession(ctx context.Context, tenantID, studentID, subjectID, workspaceID string) error
+type ClassSessionPracticeEnvironmentLinker interface {
+	AttachPracticeEnvironmentToOpenSession(ctx context.Context, tenantID, studentID, subjectID, environmentID string) error
 }

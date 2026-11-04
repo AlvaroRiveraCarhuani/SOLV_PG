@@ -77,7 +77,7 @@ func (m *mockTenantRepoForTeacher) GetByID(ctx context.Context, id string) (*dom
 func ideReviewFixture() *domain.TeacherSubmissionReviewDTO {
 	return &domain.TeacherSubmissionReviewDTO{
 		ID:              "sub-1",
-		EnvironmentType: domain.WorkspaceTypeIDEPersistente,
+		EnvironmentType: domain.PracticeEnvironmentTypeIDEPersistente,
 		FilesAvailable:  true,
 		Code:            "# === FILE: src/app.js ===\nline1\nline2\nline3\nline4\n",
 		Files: []domain.ProjectFile{
@@ -180,7 +180,7 @@ func TestTeacherService_AddComment_RejectsMismatchedAnchor(t *testing.T) {
 func TestTeacherService_AddComment_JudgeKeepsGlobalAnchor(t *testing.T) {
 	repo := &mockTeacherSubmissionsRepo{reviewResult: &domain.TeacherSubmissionReviewDTO{
 		ID:              "sub-2",
-		EnvironmentType: domain.WorkspaceTypeJuezEfimero,
+		EnvironmentType: domain.PracticeEnvironmentTypeJuezEfimero,
 		FilesAvailable:  false,
 		Code:            "print(1)\nprint(2)\n",
 	}}

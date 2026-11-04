@@ -4,9 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
 
 	"solv-backend/internal/core/domain"
 )
@@ -250,6 +254,38 @@ func (s *AICopilotService) buildCompactCatalogSummary(ctx context.Context, tenan
 	}
 
 	return sb.String()
+}
+
+type templateLister interface {
+	ListTemplates(ctx context.Context, tenantID, status, search string) ([]*domain.AdminTemplateReviewItem, error)
+}
+
+func (s *AICopilotService) buildApprovedTemplatesSummary(ctx context.Context, tenantID string) (string, []*domain.AdminTemplateReviewItem) {
+	if s.compRepo == nil {
+		return "", nil
+	}
+	lister, ok := s.compRepo.(templateLister)
+	if !ok {
+		return "", nil
+	}
+	items, err := lister.ListTemplates(ctx, tenantID, "approved", "")
+	if err != nil || len(items) == 0 {
+		return "", nil
+	}
+	var b strings.Builder
+	var valid []*domain.AdminTemplateReviewItem
+	for _, it := range items {
+		if it.Status != "approved" {
+			continue
+		}
+		targetEnv := strings.ToUpper(strings.TrimSpace(it.TargetEnvironment))
+		if targetEnv != "" && targetEnv != string(domain.TargetEnvironmentIDEPersistente) && targetEnv != string(domain.TargetEnvironmentAmbos) && targetEnv != "WORKSPACE" {
+			continue
+		}
+		valid = append(valid, it)
+		b.WriteString(fmt.Sprintf("- ID: %s | Nombre: %s | Descripción: %s\n", it.ID, it.Name, it.Description))
+	}
+	return b.String(), valid
 }
 
 func suggestTemplateSystemPrompt(catalogSummary string) string {
@@ -612,6 +648,12 @@ func (s *AICopilotService) GenerateExerciseDraft(ctx context.Context, tenantID, 
 			Message: "prompt debe tener entre 5 y 1500 caracteres",
 		}
 	}
+
+	envType := strings.ToUpper(strings.TrimSpace(req.EnvironmentType))
+	if envType == string(domain.TargetEnvironmentIDEPersistente) || envType == "WORKSPACE" {
+		return s.generateIdeExerciseDraft(ctx, tenantID, userID, req, prompt)
+	}
+
 	language := strings.TrimSpace(req.Language)
 	if language == "" {
 		return nil, &AISettingsValidationError{
@@ -685,6 +727,7 @@ func (s *AICopilotService) GenerateExerciseDraft(ctx context.Context, tenantID, 
 
 	draft.Difficulty = difficulty
 	draft.Language = CanonicalLanguage(language)
+	draft.EnvironmentType = string(domain.TargetEnvironmentJuezEfimero)
 	draft.LatencyMS = latencyMS
 
 	// Sello determinista del Juez: la salida esperada es la del runner, nunca
@@ -754,6 +797,278 @@ func (s *AICopilotService) sealTestCasesWithRunner(
 	if !allVerified {
 		draft.VerificationWarning = strings.Join(warnings, "; ")
 	}
+}
+
+func (s *AICopilotService) generateIdeExerciseDraft(
+	ctx context.Context,
+	tenantID, userID string,
+	req domain.AIGenerateExerciseRequestDTO,
+	prompt string,
+) (*domain.AIGenerateExerciseResponseDTO, error) {
+	difficulty := strings.ToLower(strings.TrimSpace(req.Difficulty))
+	switch domain.ExerciseDifficulty(difficulty) {
+	case domain.ExerciseDifficultyEasy, domain.ExerciseDifficultyMedium, domain.ExerciseDifficultyHard:
+	default:
+		difficulty = string(domain.ExerciseDifficultyMedium)
+	}
+
+	templatesSummary, approvedTemplates := s.buildApprovedTemplatesSummary(ctx, tenantID)
+	systemPrompt := generateIdeExerciseSystemPrompt(templatesSummary)
+	userPrompt := fmt.Sprintf("Dificultad: %s\nConsigna del docente:\n%s", difficulty, prompt)
+
+	raw, latencyMS, err := s.aiSettings.CompleteJSON(ctx, tenantID, userID, "generate-ide-exercise", systemPrompt, userPrompt)
+	if err != nil {
+		return nil, err
+	}
+
+	var payload struct {
+		Title             string `json:"title"`
+		Description       string `json:"description"`
+		Difficulty        string `json:"difficulty"`
+		Language          string `json:"language"`
+		TemplateID        string `json:"template_id"`
+		MissingTechnology string `json:"missing_technology"`
+		RubricCriteria    []struct {
+			Name        string  `json:"name"`
+			Description string  `json:"description"`
+			Weight      float64 `json:"weight"`
+		} `json:"rubric_criteria"`
+	}
+	if err := json.Unmarshal([]byte(cleanJSONFence(raw)), &payload); err != nil {
+		return nil, &AISettingsValidationError{
+			Code:    "ai_response_invalid",
+			Message: "el motor de IA devolvió JSON inválido para la práctica de desarrollo",
+		}
+	}
+
+	title := strings.TrimSpace(payload.Title)
+	if title == "" {
+		title = "Práctica de Desarrollo"
+	}
+	description := strings.TrimSpace(payload.Description)
+	if description == "" {
+		description = prompt
+	}
+
+	language := strings.TrimSpace(payload.Language)
+	if language == "" {
+		language = strings.TrimSpace(req.Language)
+	}
+	if language == "" {
+		language = "desarrollo"
+	}
+
+	draft := &domain.AIGenerateExerciseResponseDTO{
+		Title:             title,
+		Description:       description,
+		Difficulty:        difficulty,
+		Language:          language,
+		EnvironmentType:   string(domain.TargetEnvironmentIDEPersistente),
+		LatencyMS:         latencyMS,
+		RunnerVerifiedAll: true,
+	}
+
+	// Filtro 1: Resolución determinista de Plantilla homologada y detección de tecnologías faltantes
+	selectedTemplateID, selectedTemplateName, missingTech := s.resolveIdeTemplate(payload.TemplateID, payload.MissingTechnology, prompt, approvedTemplates)
+	draft.TemplateID = selectedTemplateID
+	draft.TemplateName = selectedTemplateName
+	draft.MissingTechnology = missingTech
+
+	// Filtro 2: Normalización matemática de rúbrica a 100% exacto con niveles institucionales
+	var rawCriteria []rawRubricCriterion
+	for _, c := range payload.RubricCriteria {
+		rawCriteria = append(rawCriteria, rawRubricCriterion{
+			Name:        c.Name,
+			Description: c.Description,
+			Weight:      c.Weight,
+		})
+	}
+	draft.Rubric = normalizeRubricCriteria(rawCriteria)
+
+	return draft, nil
+}
+
+func (s *AICopilotService) resolveIdeTemplate(
+	suggestedID, suggestedMissing, prompt string,
+	approvedTemplates []*domain.AdminTemplateReviewItem,
+) (templateID, templateName, missingTech string) {
+	if len(approvedTemplates) == 0 {
+		return strings.TrimSpace(suggestedID), "", strings.TrimSpace(suggestedMissing)
+	}
+
+	suggestedID = strings.TrimSpace(suggestedID)
+	// 1. Coincidencia exacta por ID
+	if suggestedID != "" {
+		for _, tmpl := range approvedTemplates {
+			if tmpl.ID == suggestedID {
+				return tmpl.ID, tmpl.Name, strings.TrimSpace(suggestedMissing)
+			}
+		}
+	}
+
+	// 2. Coincidencia por texto/nombre de la plantilla en el prompt o en suggestedID
+	promptLower := strings.ToLower(prompt)
+	var bestMatch *domain.AdminTemplateReviewItem
+	for _, tmpl := range approvedTemplates {
+		nameLower := strings.ToLower(tmpl.Name)
+		if strings.Contains(promptLower, nameLower) || (suggestedID != "" && strings.Contains(nameLower, strings.ToLower(suggestedID))) {
+			bestMatch = tmpl
+			break
+		}
+	}
+
+	if bestMatch != nil {
+		return bestMatch.ID, bestMatch.Name, strings.TrimSpace(suggestedMissing)
+	}
+
+	// 3. Si no hubo coincidencia directa, asignar la primera plantilla homologada disponible y alertar
+	fallback := approvedTemplates[0]
+	missing := strings.TrimSpace(suggestedMissing)
+	if missing == "" {
+		missing = "Tecnología solicitada fuera de catálogo homologado"
+	}
+	return fallback.ID, fallback.Name, missing
+}
+
+type rawRubricCriterion struct {
+	Name        string
+	Description string
+	Weight      float64
+}
+
+func normalizeRubricCriteria(raw []rawRubricCriterion) *domain.Rubric {
+	var cleaned []rawRubricCriterion
+	for _, r := range raw {
+		name := strings.TrimSpace(r.Name)
+		if name != "" {
+			cleaned = append(cleaned, rawRubricCriterion{
+				Name:        name,
+				Description: strings.TrimSpace(r.Description),
+				Weight:      r.Weight,
+			})
+		}
+	}
+	if len(cleaned) == 0 {
+		cleaned = []rawRubricCriterion{
+			{Name: "Funcionalidades Principales y Lógica de Negocio", Description: "Implementación completa de los requerimientos pedidos.", Weight: 40},
+			{Name: "Estructura del Proyecto y Buenas Prácticas", Description: "Organización modular, legibilidad y estándares de código.", Weight: 30},
+			{Name: "Manejo de Errores y Validaciones", Description: "Control de excepciones y validación de entradas de usuario.", Weight: 30},
+		}
+	}
+
+	if len(cleaned) == 1 {
+		cleaned[0].Weight = 100
+	} else {
+		var sum float64
+		for _, c := range cleaned {
+			if c.Weight > 0 {
+				sum += c.Weight
+			}
+		}
+
+		n := len(cleaned)
+		if sum <= 0 {
+			base := 100 / n
+			remainder := 100 % n
+			for i := range cleaned {
+				w := base
+				if i < remainder {
+					w++
+				}
+				cleaned[i].Weight = float64(w)
+			}
+		} else {
+			totalAllocated := 0
+			maxIdx := 0
+			maxVal := -1.0
+			for i, c := range cleaned {
+				scaled := int(math.Round((c.Weight / sum) * 100.0))
+				if scaled < 1 {
+					scaled = 1
+				}
+				cleaned[i].Weight = float64(scaled)
+				totalAllocated += scaled
+				if c.Weight > maxVal {
+					maxVal = c.Weight
+					maxIdx = i
+				}
+			}
+			diff := 100 - totalAllocated
+			cleaned[maxIdx].Weight += float64(diff)
+		}
+	}
+
+	rubricID := uuid.New()
+	criteria := make([]domain.RubricCriterion, len(cleaned))
+	for i, c := range cleaned {
+		critID := uuid.NewString()
+		criteria[i] = domain.RubricCriterion{
+			ID:          critID,
+			Name:        c.Name,
+			Description: c.Description,
+			Weight:      c.Weight,
+			Levels: []domain.RubricLevel{
+				{
+					Name:        "Logrado",
+					Score:       100.0,
+					Description: "Cumple completamente con los requisitos del criterio.",
+				},
+				{
+					Name:        "Parcial",
+					Score:       50.0,
+					Description: "Cumple parcialmente con la funcionalidad o presenta observaciones menores.",
+				},
+				{
+					Name:        "No logrado",
+					Score:       0.0,
+					Description: "No cumple con los requisitos o no presenta la funcionalidad solicitada.",
+				},
+			},
+		}
+	}
+
+	rubric := &domain.Rubric{
+		ID:        rubricID,
+		Criteria:  criteria,
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+	}
+	_ = rubric.Validate()
+	return rubric
+}
+
+func generateIdeExerciseSystemPrompt(approvedTemplatesSummary string) string {
+	catalogClause := ""
+	if approvedTemplatesSummary != "" {
+		catalogClause = fmt.Sprintf("\nPlantillas de desarrollo homologadas disponibles en el servidor:\n%s\nDebes elegir la plantilla que mejor se adapte al ejercicio e incluir su ID exacto en 'template_id'. Si la tecnología pedida no está en la lista, selecciona la plantilla base más cercana y reporta el nombre de la tecnología faltante en 'missing_technology'.", approvedTemplatesSummary)
+	}
+	return fmt.Sprintf(`Sos el copiloto pedagógico de prácticas de desarrollo (IDE persistente) de SOLV, la plataforma académica de laboratorios virtuales.
+Tu objetivo es generar una práctica de desarrollo completa, clara y motivante para estudiantes universitarios de informática.
+Respondé EXCLUSIVAMENTE con un objeto JSON válido (sin Markdown, sin fences, sin comentarios) con esta forma exacta:
+{
+  "title": "",
+  "description": "",
+  "difficulty": "easy|medium|hard",
+  "language": "",
+  "template_id": "",
+  "missing_technology": "",
+  "rubric_criteria": [
+    {
+      "name": "Nombre conciso del criterio de evaluación",
+      "description": "Qué se evalúa en este punto",
+      "weight": 25
+    }
+  ]
+}
+Reglas innegociables:
+- title: Título académico claro y representativo de la práctica (ej: "Sistema de Gestión de Alumnos con NestJS y PostgreSQL").
+- description: Enunciado detallado en Markdown estructurado con:
+  - ## Contexto y Objetivos
+  - ## Requerimientos Funcionales (con especificación de endpoints, vistas o módulos paso a paso)
+  - ## Criterios de Entrega y Estructura esperada
+- difficulty: "easy", "medium" o "hard".
+- language: Lenguaje o framework principal (ej: typescript, python, java, etc.).
+- rubric_criteria: Entre 3 y 6 criterios pedagógicos claros que cubran la práctica. La suma de sus pesos (weight) debe ser aproximadamente 100.%s`, catalogClause)
 }
 
 // cleanJSONFence recorta los bloques Markdown (```json ... ```) que muchos
