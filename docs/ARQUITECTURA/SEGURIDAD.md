@@ -6,7 +6,7 @@
 - **Aislamiento Inter-Contenedor (ICC):** Red Docker `solv_net` aislada. Los contenedores de ejecución de código arbitrario no poseen acceso a la red (`NetworkMode: "none"`).
 
 ## 2. Politicas de Endurecimiento en Runtimes Docker
-- **No-New-Privileges:** Todos los contenedores levantados por la plataforma (`StartContainer` y `StartWorkspaceContainer`) incluyen la directiva de seguridad:
+- **No-New-Privileges:** Todos los contenedores levantados por la plataforma (`StartContainer` y `StartEnvironmentContainer`) incluyen la directiva de seguridad:
   ```json
   "SecurityOpt": ["no-new-privileges:true"]
   ```

@@ -64,7 +64,7 @@ This document details standard operational procedures for incident response, dat
 
 ### Scenario 4: Image Pull Latency or Docker Hub Rate Limit (HTTP 429)
 1. **Symptoms**:
-   - Workspace creation times out (>30s) or student requests fail during morning peak.
+   - Environment creation times out (>30s) or student requests fail during morning peak.
    - Docker daemon logs report `toomanyrequests: You have reached your unauthenticated pull rate limit`.
 2. **Immediate Remediation (Host Cache Pre-warming)**:
    - Trigger mass warming from Admin UI (*Calentar Caché* button) or via terminal on the Asus host:

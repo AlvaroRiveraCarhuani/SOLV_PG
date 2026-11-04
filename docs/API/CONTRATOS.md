@@ -33,9 +33,9 @@ El presente documento establece la especificación formal del contrato de interf
 
 ---
 
-## 2. Workspaces y Orquestación Unificada (`/api/v1/workspaces`)
+## 2. Environments y Orquestación Unificada (`/api/v1/environments`)
 
-### 2.1 `POST /api/v1/workspaces/start`
+### 2.1 `POST /api/v1/environments/start`
 * **Propósito:** Instanciar un entorno interactivo (`type: "IDE_PERSISTENTE"`) o efímero de evaluación (`type: "JUEZ_EFIMERO"`).
 * **Cabeceras:** `Authorization: Bearer <token_jwt>`, `X-Tenant-ID: <uuid>` (opcional).
 * **Cuerpo:**
@@ -68,14 +68,14 @@ El presente documento establece la especificación formal del contrato de interf
   * `Content-Type: application/json`
 ```json
 {
-  "error": "Rate limit exceeded. Please wait before starting another workspace."
+  "error": "Rate limit exceeded. Please wait before starting another environment."
 }
 ```
 
-### 2.2 `DELETE /api/v1/workspaces/{id}`
-* **Propósito:** Finalizar el workspace, recálculo EWMA y escaneo AST Semgrep en solo lectura (`:ro`).
+### 2.2 `DELETE /api/v1/environments/{id}`
+* **Propósito:** Finalizar el entorno, recálculo EWMA y escaneo AST Semgrep en solo lectura (`:ro`).
 
-### 2.3 `GET /api/v1/workspaces/{id}/audit`
+### 2.3 `GET /api/v1/environments/{id}/audit`
 * **Propósito:** Obtener la auditoría semántica AST generada por `SemgrepWorker` (`semgrep_audit JSONB`).
 
 ---
@@ -157,7 +157,7 @@ export interface Submission {
   tenant_id: string;
   exercise_id: string;
   student_id: string;
-  workspace_id?: string;
+  environment_id?: string;
   code: string;
   verdict: 'AC' | 'WA' | 'TLE' | 'RE' | 'AST_BLOCKED';
   ast_result: any;

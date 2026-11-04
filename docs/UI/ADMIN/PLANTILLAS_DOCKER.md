@@ -37,7 +37,7 @@ sequenceDiagram
         A->>A: Abre modal de suspensión en catálogo
         A->>A: Ingresa motivo obligatorio (mínimo 10 caracteres)
         A->>B: PUT /api/v1/admin/templates/{id}/review (status: SUSPENDIDA, rejection_reason)
-        B->>B: Actualiza estado a SUSPENDIDA e inhabilita nuevos workspaces
+        B->>B: Actualiza estado a SUSPENDIDA e inhabilita nuevos environments
     end
 ```
 
@@ -197,15 +197,15 @@ Permite supervisar los entornos en producción y desactivar versiones obsoletas:
    - Transición `APROBADA` -> `SUSPENDIDA` o `paused`:
      - Disparada únicamente por el Administrador con **motivo obligatorio de al menos 10 caracteres**.
      - Registra evento en el log de auditoría (`TEMPLATE_REVIEWED` con status `SUSPENDIDA` y justificación SEC-04).
-     - **Efecto operativo:** Bloquea inmediatamente nuevas asignaciones a materias y la creación de nuevos workspaces con esa plantilla.
-     - **Grandfathering:** No destruye ni altera workspaces existentes que estuvieran utilizándola. Es invisible para docentes en el selector de nuevos labs.
+     - **Efecto operativo:** Bloquea inmediatamente nuevas asignaciones a materias y la creación de nuevos environments con esa plantilla.
+     - **Grandfathering:** No destruye ni altera environments existentes que estuvieran utilizándola. Es invisible para docentes en el selector de nuevos labs.
    - Transición `PENDIENTE_AUDITORIA` -> `RECHAZADA`:
      - Requiere justificación técnica obligatoria de al menos 10 caracteres, visible para el docente.
    - Transición `SUSPENDIDA` -> `APROBADA` (Reactivación):
      - Requiere pasar obligatoriamente por la verificación técnica completa: ejecución satisfactoria de prueba de entorno (prueba de arranque) y auditoría CVE sin vulnerabilidades críticas.
 6. **Cómputo de Uso Institucional de Imágenes OCI:**
    - Para evitar métricas distorsionadas, el conteo de uso de una imagen (`usage_count` y `usage_map`) considera únicamente plantillas que fueron efectivamente válidas u operativas.
-   - **Exclusión explícita:** Las plantillas con estado `RECHAZADA` nunca llegaron a desplegar un laboratorio ni workspace docente, por lo que quedan estrictamente excluidas del conteo (`WHERE status != 'RECHAZADA'`).
+   - **Exclusión explícita:** Las plantillas con estado `RECHAZADA` nunca llegaron a desplegar un laboratorio ni environment docente, por lo que quedan estrictamente excluidas del conteo (`WHERE status != 'RECHAZADA'`).
    - **Inclusión de suspendidas:** Las plantillas en estado `SUSPENDIDA` (o `paused`) sí se contabilizan, puesto que existieron, fueron aprobadas y operaron activamente en el entorno institucional antes de su deprecación preventiva.
 
 ---

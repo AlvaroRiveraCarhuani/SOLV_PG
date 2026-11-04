@@ -222,7 +222,7 @@ Toda la fila de cada laboratorio en la lista abre su ficha en `/teacher/cursos/{
 - **Abrir IDE (solo IDE)** abre en una pestaña nueva el entorno del docente para esa práctica. El backend levanta un contenedor acotado a la práctica: volumen propio por ejercicio (`solv_workspace_<docente>_<materia>_<práctica>`), plantilla y `db_init_script` del ejercicio, sin mezclar el código con otra práctica de la misma materia. Si el entorno ya existe corriendo, devuelve el mismo y no duplica contenedores. La pestaña se abre antes de esperar la respuesta y se cierra si la apertura falla, para no dejar una pestaña en blanco ni una ventana emergente bloqueada.
   - Solo abre prácticas `IDE_PERSISTENTE` de la materia del docente: una práctica del juez responde `400` y la materia de otro docente `403`.
   - Un fallo se informa en la misma cabecera de la ficha y el botón vuelve a su estado normal.
-- **Probar Entorno (solo IDE)** inicia un job efímero: resuelve la plantilla del ejercicio, aprovisiona sus satélites con una base de prueba aislada, ejecuta el `setup_script` sobre un volumen temporal, comprueba que `/home/workspace` sea escribible y que la imagen traiga OpenVSCode Server. No crea una entrega ni un workspace persistente, y no es el botón que abre VS Code. La ficha muestra el estado del último job (`Sin pruebas`, en cola, descargando imagen, validando, listo o falló) con su hora y permite cancelarlo mientras corre.
+- **Probar Entorno (solo IDE)** inicia un job efímero: resuelve la plantilla del ejercicio, aprovisiona sus satélites con una base de prueba aislada, ejecuta el `setup_script` sobre un volumen temporal, comprueba que `/home/workspace` sea escribible y que la imagen traiga OpenVSCode Server. No crea una entrega ni un entorno persistente, y no es el botón que abre VS Code. La ficha muestra el estado del último job (`Sin pruebas`, en cola, descargando imagen, validando, listo o falló) con su hora y permite cancelarlo mientras corre.
 - El estado de la prueba no se confunde con la publicación: el badge de la cabecera sigue diciendo `Publicado` o `Borrador`.
 
 ---
@@ -328,8 +328,8 @@ El panel del docente se alimenta de endpoints reales con autenticación basada e
 | `PUT` | `/api/v1/teacher/grades/{studentId}/exercises/{exerciseId}` | `{selected_submission_id, score?, reason?}` | Fija qué entrega cuenta para la nota de la práctica. |
 | `GET` | `/api/v1/courses/{id}/labs` | — | Lista de guías y laboratorios asignados con métricas de entrega. |
 | `POST` | `/api/v1/courses/{id}/pause-all` | — | Acción masiva de contingencia: hiberna todos los contenedores de la clase. |
-| `POST` | `/api/v1/courses/{id}/teacher-workspace` | — | Aprovisiona o reanuda el contenedor propio del docente para la clase. |
-| `POST` | `/api/v1/workspaces/{id}/broadcast-snapshot`| `{ "lab_id": "...", "note": "..." }` | Emite snapshot del código docente a los alumnos (ADR-007). |
+| `POST` | `/api/v1/courses/{id}/teacher-environment` | — | Aprovisiona o reanuda el contenedor propio del docente para la clase. |
+| `POST` | `/api/v1/environments/{id}/broadcast-snapshot`| `{ "lab_id": "...", "note": "..." }` | Emite snapshot del código docente a los alumnos (ADR-007). |
 | `GET` | `/api/v1/courses/{id}/submissions` | `?status=pending_review` | Lista de entregas para la cola de revisión. |
 | `POST` | `/api/v1/courses/{id}/sync-classroom` | — | Sincronización de nómina mediante Google Classroom API. |
 | `GET` | `/api/v1/courses/{id}/grades-matrix` | `?format=csv` / `?format=json` | Matriz global de notas para visualización y exportación. |

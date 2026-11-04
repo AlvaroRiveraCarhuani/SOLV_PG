@@ -13,7 +13,7 @@ Este documento mapea las 24 capacidades de endurecimiento de la plataforma **SOL
 | **03** | Perfiles Seccomp y AppArmor para Ejecución | Aplicación de filtros de llamadas al sistema para mitigar escalada de privilegios en el host. | Slice 9 | - | **PENDIENTE** |
 | **04** | Multi-Tenancy Lógico con Discriminador `tenant_id` | Columna `tenant_id` en PostgreSQL y middleware HTTP en Go para aislamiento por inquilino. | Slice 8 | ADR-018 | **COMPLETADO** |
 | **05** | Autenticación ForwardAuth HttpOnly en Traefik v3 | Endpoint `GET /api/v1/auth/verify` para validación perimetral de cookies `solv_session` en `iframes` (<50ms). | Slice 8 | ADR-017 | **COMPLETADO** |
-| **06** | Unificación del Modelo de Workspaces | Consolidación de laboratorios e IDEs efímeros en la tabla `workspaces` con discriminador `type`. | Slice 8 | ADR-019 | **COMPLETADO** |
+| **06** | Unificación del Modelo de Environments | Consolidación de laboratorios e IDEs efímeros en la tabla `environments` con discriminador `type`. | Slice 8 | ADR-019 | **COMPLETADO** |
 | **07** | Sanitización y Truncado de Entradas/Salidas | Límite a 64KB en buffers `stdin`/`stdout` del Juez Virtual para prevenir consumo masivo de memoria. | Slice 9 | - | **PENDIENTE** |
 | **08** | Cuotas de Disco por Volumen de Estudiante | Limitación de capacidad de almacenamiento en volúmenes Docker nombrados. | Slice 9 | ADR-001 | **PARCIAL** |
 | **09** | Rate Limiting Perimetral en Traefik v3 | Limitación de tasa de solicitudes HTTP por IP y por Tenant en Traefik v3. | Slice 10 | - | **PENDIENTE** |

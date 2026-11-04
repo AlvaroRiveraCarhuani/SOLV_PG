@@ -85,7 +85,7 @@ SOLV_PG/
   * `TeacherInvitationHandler` (`teacher_invitation_handler.go`) — *Implementado*
   * `TemplateHandler` (`template_handler.go`) — *Implementado*
   * `UserHandler` (`user_handler.go`) — *Implementado*
-  * `WorkspaceHandler` (`workspace_handler.go`) — *Implementado*
+  * `EnvironmentHandler` (`environment_handler.go`) — *Implementado*
   * `WebSocketHandler` (`websocket_handler.go` — ADR-037) — *Implementado*
 * **Middlewares de Entrada (`backend/internal/delivery/http/middleware/`)**:
   * `TenantMiddleware` (`tenant_middleware.go`) — *Implementado*
@@ -107,7 +107,7 @@ SOLV_PG/
   * `SubmissionService` (`submission_service.go`)
   * `TeacherInvitationService` (`teacher_invitation_service.go`)
   * `WebSocketHub` (`delivery/http/websocket_hub.go` — ADR-037 / Slice 12)
-  * `WorkspaceService` (`workspace_service.go`)
+  * `PracticeEnvironmentService` (`environment_service.go`)
   * `ZombieCollectorWorker` (`zombie_collector.go`)
 * **Aprobados Pendientes de Implementación:**
   * `AcademicPeriodService` — *Aprobado (ADR-029 / Slice 14)*
@@ -124,12 +124,12 @@ SOLV_PG/
 * `Enrollment` (`academic.go`)
 * `Exercise`, `ExerciseType`, `Verdict`, `ScanViolation`, `ScanResult`, `TestCase`, `AlgorithmConfig`, `DatabaseConfig`, `ExerciseConfig`, `EvaluationResult`, `EvaluationRunConfig`, `TestCaseRunResult`, `DBEvaluationRunConfig`, `DBEvaluationResult` (`exercise.go`)
 * `LabInstance` (`lab_instance.go`)
-* `LabTemplate` (`workspace.go`)
+* `LabTemplate` (`environment.go`)
 * `Subject` (`academic.go`)
 * `Submission` (`academic.go`)
 * `TeacherInvitation` (`academic.go`)
 * `Tenant` (`tenant.go`)
-* `WorkspaceInstance`, `WorkspaceContainerConfig`, `ContainerMetrics`, `EWMAState`, `ResourceProfile` (`workspace.go`)
+* `PracticeEnvironment`, `EnvironmentContainerConfig`, `ContainerMetrics`, `EWMAState`, `ResourceProfile` (`environment.go`)
 
 ### 2.4 Puertos / Interfaces (`backend/internal/core/domain/ports.go`, `audit_log.go`, `lab_instance.go`)
 * `ASTAnalyzer` (`ports.go`)
@@ -150,8 +150,8 @@ SOLV_PG/
 * `TeacherInvitationRepository` (`ports.go`)
 * `TemplateRepository` (`ports.go`)
 * `TenantRepository` (`ports.go`)
-* `WorkspaceOrchestrator` (`ports.go`)
-* `WorkspaceRepository` (`ports.go`)
+* `EnvironmentOrchestrator` (`ports.go`)
+* `EnvironmentRepository` (`ports.go`)
 
 ### 2.5 Adaptadores Salientes (Driven / Secondary)
 * **Persistencia PostgreSQL (`backend/internal/infrastructure/storage/postgres/`)**:
@@ -162,9 +162,9 @@ SOLV_PG/
   * `PostgresSubmissionRepository` (`submission_repository.go`)
   * `PostgresTeacherInvitationRepository` (`teacher_invitation_repository.go`)
   * `PostgresTenantRepository` (`tenant_repository.go`)
-  * `PostgresWorkspaceRepository` (`workspace_repository.go`)
+  * `PostgresEnvironmentRepository` (`environment_repository.go`)
 * **Orquestación de Contenedores Docker (`backend/internal/infrastructure/docker/`)**:
-  * `Client` (`client.go`) - Implementa `domain.ContainerOrchestrator` y `domain.WorkspaceOrchestrator`.
+  * `Client` (`client.go`) - Implementa `domain.ContainerOrchestrator` y `domain.EnvironmentOrchestrator`.
 
 ---
 
@@ -191,7 +191,7 @@ SOLV_PG/
 | **ADR-016** | Motor de Auditoría Semántica AST con SemgrepWorker | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-016-auditoria-semantica-ast-semgrep.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-016-auditoria-semantica-ast-semgrep.md) |
 | **ADR-017** | Autenticación Perimetral ForwardAuth vía Cookie HttpOnly Cross-Subdomain (D1) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-017-autenticacion-perimetral-forwardauth-httponly.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-017-autenticacion-perimetral-forwardauth-httponly.md) |
 | **ADR-018** | Automatización TLS Wildcard y Certificados SSL vía ACME DNS-01 | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-018-renovacion-automatica-tls-wildcard-acme-dns01.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-018-renovacion-automatica-tls-wildcard-acme-dns01.md) |
-| **ADR-019** | Consolidación del Modelo de Dominio de Workspaces y Discriminador `type` (D3) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-019-consolidacion-modelo-workspaces-type-discriminator.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-019-consolidacion-modelo-workspaces-type-discriminator.md) |
+| **ADR-019** | Consolidación del Modelo de Dominio de Environments y Discriminador `type` (D3) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-019-consolidacion-modelo-environments-type-discriminator.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-019-consolidacion-modelo-environments-type-discriminator.md) |
 | **ADR-020** | Motor de Auditoría Semántica AST Inmutable con Montaje de Solo Lectura (D4) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-020-auditoria-semantica-ast-inmutable-solo-lectura.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-020-auditoria-semantica-ast-inmutable-solo-lectura.md) |
 | **ADR-021** | Registro Abierto OpenVSX para Entornos Interactivos (D5) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-021-integracion-registro-abierto-openvsx.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-021-integracion-registro-abierto-openvsx.md) |
 | **ADR-022** | Integración y Sincronización Unidireccional con Google Classroom (D6) | Aprobado | [`docs/ARQUITECTURA/ADR/ADR-022-sincronizacion-unidireccional-google-classroom.md`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/docs/ARQUITECTURA/ADR/ADR-022-sincronizacion-unidireccional-google-classroom.md) |

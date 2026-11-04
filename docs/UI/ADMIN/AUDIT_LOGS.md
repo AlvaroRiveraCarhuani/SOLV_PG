@@ -101,8 +101,8 @@ confirmación (frase exacta + motivo >= 10 caracteres) e historial de las
 
 | Acción | Impacto | Frase de confirmación |
 | :--- | :--- | :--- |
-| Terminar todos los workspaces | Destructiva | `TERMINAR TODOS LOS WORKSPACES` |
-| Hibernar todos los workspaces | Operativa | `HIBERNAR TODOS LOS WORKSPACES` |
+| Terminar todos los entornos | Destructiva | `TERMINAR TODOS LOS ENTORNOS` |
+| Hibernar todos los entornos | Operativa | `HIBERNAR TODOS LOS ENTORNOS` |
 | Limpiar zombies Docker | Operativa | `LIMPIAR ZOMBIES DOCKER` |
 | Purgar capas huérfanas | Operativa | `PURGAR CAPAS HUERFANAS` |
 | Reiniciar pools | Operativa | `REINICIAR POOLS` |

@@ -71,3 +71,4 @@ Este documento consolida todas las Decisiones de Arquitectura (ADRs) tomadas dur
 
 | 063 | [Solicitud de Entorno del Docente como Intención y Receta](ADR-063-solicitud-de-entorno-del-docente.md) | Implementado | Docencia |
 | 064 | [Presupuesto de Tiempo Adaptativo por Motor de IA](ADR-064-presupuesto-de-tiempo-adaptativo-de-ia.md) | Implementado | Core |
+| 065 | [Vocabulario de Entorno de Práctica](ADR-065-vocabulario-entorno-de-practica.md) | Implementado | Core |

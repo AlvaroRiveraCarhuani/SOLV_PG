@@ -33,7 +33,7 @@ Validar que el sistema SOLV esté listo para el piloto con usuarios reales, cubr
 ## Caso 2: IDE_PERSISTENTE (Desarrollo Web)
 1. **Crear ejercicio:**
    - Ingresar como docente
-   - Crear ejercicio "API REST con FastAPI" con modalidad "Workspace Interactivo"
+   - Crear ejercicio "API REST con FastAPI" con modalidad "Environment Interactivo"
    - Seleccionar plantilla aprobada "Python Web + PostgreSQL"
    - Definir rúbrica con 2 criterios (Endpoints REST 50%, Documentación 50%)
    - Configurar fecha límite
@@ -42,7 +42,7 @@ Validar que el sistema SOLV esté listo para el piloto con usuarios reales, cubr
 2. **Resolver como estudiante:**
    - Ingresar como estudiante
    - Abrir ejercicio, ver rúbrica de evaluación
-   - Iniciar workspace (OpenVSCode Server)
+   - Iniciar environment (OpenVSCode Server)
    - Escribir código de la API
    - Entregar snapshot
 

@@ -36,7 +36,7 @@ El HTML y el CSS son nativos y usan solo variables `--vscode-*`: se adaptan a te
 La extensión registra un `TextDocumentContentProvider` con el esquema virtual `solv-advance:`. Para comparar un archivo:
 
 ```typescript
-const localUri = vscode.Uri.joinPath(workspaceUri, relativePath);
+const localUri = vscode.Uri.joinPath(environmentUri, relativePath);
 const virtualUri = vscode.Uri.from({
   scheme: 'solv-advance',
   path: `/advances/${advanceId}/${relativePath}`
@@ -44,13 +44,13 @@ const virtualUri = vscode.Uri.from({
 await vscode.commands.executeCommand('vscode.diff', localUri, virtualUri, `${relativePath} — Tu versión y el avance del docente`);
 ```
 
-El contenido llega desde `GET /api/v1/class-advances/{id}/files`, en el mapa `files`. No se escriben archivos temporales en el volumen del alumno. Antes de abrir el diff o aplicar se ejecuta `workspace.saveAll(false)`.
+El contenido llega desde `GET /api/v1/class-advances/{id}/files`, en el mapa `files`. No se escriben archivos temporales en el volumen del alumno. Antes de abrir el diff o aplicar se ejecuta `environment.saveAll(false)`.
 
 ## Contexto de la materia y estado de la entrega
 
 El panel toma materia, práctica y estado de la entrega de `GET /api/v1/student/submissions`. Una entrega con nota se muestra como `Calificada N/100`; una entrega registrada sin nota, como `Entregada`; sin entregas, como `Borrador`. Si la consulta falla, el panel conserva lo que venga por entorno o configuración.
 
-Al arrancar, la extensión escribe `files.exclude` en `.vscode/settings.json` para `**/.git`, `**/.cache`, `**/.openvscode-server` y `**/.solv_backups`. Solo agrega claves ausentes: una preferencia explícita del workspace se respeta.
+Al arrancar, la extensión escribe `files.exclude` en `.vscode/settings.json` para `**/.git`, `**/.cache`, `**/.openvscode-server` y `**/.solv_backups`. Solo agrega claves ausentes: una preferencia explícita del entorno se respeta.
 
 ## Aplicación selectiva
 
@@ -68,7 +68,7 @@ Con lista, el backend respalda y sobrescribe solo esos archivos. Sin lista, apli
 
 ## Entrega con pre-flight
 
-`SOLV: Entregar práctica` evalúa `vscode.languages.getDiagnostics()`. Si hay errores de severidad `Error`, muestra una advertencia con dos salidas: `Revisar errores` (abre el archivo y posiciona el cursor en el primer error) o `Entregar igualmente`. Después pide confirmación, guarda todas las pestañas y entrega con `POST /api/v1/workspaces/{id}/submit`; la práctica se resuelve por `solv.workspaceId` o consultando el entorno de la materia.
+`SOLV: Entregar práctica` evalúa `vscode.languages.getDiagnostics()`. Si hay errores de severidad `Error`, muestra una advertencia con dos salidas: `Revisar errores` (abre el archivo y posiciona el cursor en el primer error) o `Entregar igualmente`. Después pide confirmación, guarda todas las pestañas y entrega con `POST /api/v1/environments/{id}/submit`; la práctica se resuelve por `solv.environmentId` o consultando el entorno de la materia.
 
 ## Emisión y Gestión del Aula por el Docente
 
@@ -105,7 +105,7 @@ Para el rol `student`, la extensión consulta `GET /api/v1/student/sessions/acti
 | `solv.role` | `student` | Rol del editor; `SOLV_USER_ROLE` tiene prioridad |
 | `solv.sessionId` | vacío | Aula abierta |
 | `solv.exerciseId` | vacío | Práctica en curso |
-| `solv.subjectId` / `solv.workspaceId` | vacío | Materia y entorno para entregar |
+| `solv.subjectId` / `solv.environmentId` | vacío | Materia y entorno para entregar |
 | `solv.subjectCode` / `solv.subjectTitle` / `solv.teacherName` | vacío | Cabecera del panel |
 | `solv.assignmentTitle` / `solv.assignmentSummary` / `solv.assignmentCriteria` | vacío | Consigna |
 | `solv.speedGraderUrl` | vacío | Evaluación del docente |
@@ -126,7 +126,7 @@ El token se guarda en `SecretStorage` y nunca se escribe en `settings.json`, en 
 
 ## Telemetría
 
-- Solo se capturan documentos con esquema `file` dentro de una carpeta del workspace.
+- Solo se capturan documentos con esquema `file` dentro de una carpeta del entorno.
 - Cada cambio produce un evento `insert`, `delete` o `paste`. Un bloque igual o mayor al umbral, o un reemplazo multilínea de al menos 10 caracteres, se marca como pegado.
 - El búfer se limita a 5000 eventos y se envía en lotes de 200 cada 5 segundos y al guardar.
 - El contenido del evento se recorta a 4000 caracteres. El backend sigue aplicando su propio tope de 10 000 eventos por entrega.

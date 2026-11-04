@@ -92,4 +92,4 @@ Una vez completadas las vistas del Administrador Institucional, el desarrollo co
 
 2. **Fase 3 — Experiencia Estudiante (Slice 12):**
    - `/student/dashboard`: Vista de materias (los cuadernos), tareas próximas y entrega de ejercicios.
-   - `/student/workspace/:id`: IDE web OpenVSCode embebido, consola de ejecución y veredicto del Juez Virtual vía WebSocket en tiempo real.
+   - `/student/environment/:id`: IDE web OpenVSCode embebido, consola de ejecución y veredicto del Juez Virtual vía WebSocket en tiempo real.

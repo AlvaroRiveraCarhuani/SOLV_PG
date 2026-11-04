@@ -145,7 +145,7 @@ Requisitos técnicos                                   [Mostrar]
 ## 8. Copia visible
 
 - "Entorno", "herramientas", "qué incluye", "editor persistente", "juez automático".
-- No: "imagen Docker", "cgroup", "OOM", "contenedor", "workspace", "stack" en la capa 1.
+- No: "imagen Docker", "cgroup", "OOM", "contenedor", "environment", "stack" en la capa 1.
 - "Imagen" y "memoria" solo dentro de "Requisitos técnicos".
 - Los botones llevan verbo: "Usar en laboratorio", "Solicitar entorno", "Ver detalle".
 - La insignia "Oficial" no se usa si no significa que alguien lo revisó.

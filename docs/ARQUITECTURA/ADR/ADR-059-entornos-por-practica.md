@@ -67,24 +67,36 @@ el navegador bloqueó la ventana, el entorno se abre en la pestaña actual en lu
 `StartWorkspaceForExercise` acota el entorno al ejercicio cuando llega `exercise_id`. La clave de
 reutilización es `(alumno, materia, práctica)` y el volumen `solv_workspace_<alumno>_<materia>_<práctica>`.
 Abrir la práctica 2 ya no devuelve el entorno de la materia ni escribe en su volumen: cada práctica
-tiene su propio repositorio, igual que el del docente. `StartWorkspace` (sin práctica) conserva el
-entorno por materia para el tablero del alumno y los laboratorios anteriores. El chequeo de presencia
-y el enlace con el aula se saltan solo en el camino del docente: el alumno sí es participante.
+tiene su propio repositorio, igual que el del docente. El chequeo de presencia y el enlace con el
+aula se saltan solo en el camino del docente: el alumno sí es participante.
 
-El avance del docente (ADR-058) se aplica entonces en el volumen de la práctica que el alumno abrió,
-que es el que tiene delante en el laboratorio. Sin práctica, el avance conserva el respaldo del
-entorno por materia.
+El avance del docente (ADR-058) se aplica en el volumen de la práctica que el alumno abrió, que es el
+que tiene delante en el laboratorio.
+
+**Actualización (2026-11-04).** El entorno por materia se retiró del todo. En el área del alumno se
+eliminaron `/student/workspaces` y `/student/workspaces/:subjectId` con sus componentes, y el aviso
+de avance llega al solver de la práctica, que filtra por `exercise_id`. En el backend se eliminaron
+`GET /api/v1/workspaces`, `WorkspaceForSubject`, `GetByStudentAndSubject` y el arranque sin práctica:
+`POST /api/v1/workspaces/start` exige `subject_id` y `exercise_id`, y `WorkspaceVolumeName` ya no
+compone el nombre por materia. El módulo docente dejó de cargar y pausar entornos por materia: solo
+abre el IDE de una práctica. El avance del aula usa `session.ExerciseID` como única fuente; el modal
+no ofrece selector y un aula sin práctica responde `409` con `ErrAdvancePracticeRequired`. Se
+eliminaron los volúmenes `solv_workspace_<alumno>_<materia>` y sus filas en `workspaces`, sin
+migrarlos: eran datos de prueba.
 
 ## Consecuencias
 
 - El docente prepara cada práctica en su propio repositorio, y el código de una práctica no aparece en
   otra de la misma materia.
 - Un docente con varias prácticas activas ocupa un contenedor por práctica: el cupo `max_containers`,
-  la admisión por RAM del host y la hibernación por inactividad siguen aplicando igual. Al alumno le
-  pasa lo mismo si abre una práctica y además el entorno por materia; el camino del laboratorio abre
-  solo el de la práctica.
-- Los volúmenes nuevos se crean al abrir cada práctica; no se migra código del volumen por materia al
-  volumen por práctica. El docente empieza con el repositorio base de la plantilla.
+  la admisión por RAM del host y la hibernación por inactividad siguen aplicando igual. El alumno abre
+  solo el entorno de la práctica que está resolviendo.
+- Los volúmenes nuevos se crean al abrir cada práctica. No queda ningún volumen por materia del
+  alumno: los que existían se eliminaron y el inicio ya no puede crearlos.
+- El inicio del alumno se rehízo sobre ese modelo: muestra la clase abierta, las entregas próximas y
+  el avance por materia, sin tarjetas de entorno ni personalización de widgets. `StudentSubjectItem`
+  perdió `active_workspace`; la lista y el detalle de materia dejaron de anunciar un entorno propio y
+  remiten a cada práctica.
 - `GetByIDAndTenant` de ejercicios tolera `description` nula (`COALESCE`), porque el camino del IDE
   lee el ejercicio completo y una práctica sin descripción dejaba de resolverse.
 

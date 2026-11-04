@@ -86,16 +86,16 @@ curl -X GET "http://localhost:3000/api/v1/student/assignments/due" \
 
 ---
 
-### 3. Hibernación Manual de Workspace (`POST /api/v1/workspaces/{id}/pause`)
+### 3. Hibernación Manual de Entorno (`POST /api/v1/environments/{id}/pause`)
 
-Pausa un contenedor activo de OpenVSCode Server liberando memoria RAM en el servidor host y actualizando el estado de la instancia a `hibernated`. Requiere que el solicitante sea el dueño del workspace o tenga rol docente/admin.
+Pausa un contenedor activo de OpenVSCode Server liberando memoria RAM en el servidor host y actualizando el estado de la instancia a `hibernated`. Requiere que el solicitante sea el dueño del entorno o tenga rol docente/admin.
 
 - **Método:** `POST`
-- **Ruta:** `/api/v1/workspaces/{id}/pause`
+- **Ruta:** `/api/v1/environments/{id}/pause`
 - **Headers Requeridos:**
   - `X-User-Id: <uuid_del_usuario>`
   - `X-User-Role: student | teacher | admin`
-- **Respuestas:** `200` con el entorno en `hibernated`; `404 workspace_not_found` cuando el laboratorio no existe (un id desconocido no es un fallo interno); `500` solo si Docker o la persistencia fallan de verdad.
+- **Respuestas:** `200` con el entorno en `hibernated`; `404 environment_not_found` cuando el laboratorio no existe (un id desconocido no es un fallo interno); `500` solo si Docker o la persistencia fallan de verdad.
 
 #### Ejemplo de Respuesta (`200 OK`)
 ```json
@@ -109,13 +109,13 @@ Pausa un contenedor activo de OpenVSCode Server liberando memoria RAM en el serv
     "memory_limit_mb": 256
   },
   "error": "",
-  "message": "Workspace hibernado exitosamente"
+  "message": "Environment hibernado exitosamente"
 }
 ```
 
 #### Comando `curl` de Prueba
 ```bash
-curl -X POST "http://localhost:3000/api/v1/workspaces/99999999-9999-4999-a999-999999999999/pause" \
+curl -X POST "http://localhost:3000/api/v1/environments/99999999-9999-4999-a999-999999999999/pause" \
      -H "X-User-Id: 77777777-7777-4777-a777-777777777777" \
      -H "X-User-Role: student" \
      -H "Content-Type: application/json"
@@ -295,7 +295,7 @@ Retorna el desglose de métricas, entregas y veredictos para cada laboratorio de
 
 ### 7.1 Prueba de entorno de una práctica IDE (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`)
 
-Valida una práctica `IDE_PERSISTENTE` sin crear entregas ni un workspace persistente. El servidor resuelve la plantilla del ejercicio (con la de la materia como respaldo), aprovisiona sus bases satélite con una identidad de prueba aislada, ejecuta el `setup_script` de la plantilla sobre un volumen temporal, comprueba que `/home/workspace` se puede escribir y que la imagen trae OpenVSCode Server. El montaje del volumen es la comprobación de repositorio base: un volumen no escribible falla el job, igual que un setup con error.
+Valida una práctica `IDE_PERSISTENTE` sin crear entregas ni un entorno persistente. El servidor resuelve la plantilla del ejercicio (con la de la materia como respaldo), aprovisiona sus bases satélite con una identidad de prueba aislada, ejecuta el `setup_script` de la plantilla sobre un volumen temporal, comprueba que `/home/workspace` se puede escribir y que la imagen trae OpenVSCode Server. El montaje del volumen es la comprobación de repositorio base: un volumen no escribible falla el job, igual que un setup con error.
 
 - **Método:** `POST`
 - **Ruta:** `/api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test`
@@ -357,15 +357,15 @@ Abre el entorno del docente acotado a una práctica y devuelve la URL para abrir
   - `400 not_project_practice`: la práctica es del juez virtual y no tiene repositorio persistente.
   - `403 forbidden`: la materia no está asignada a ese docente.
   - `404 practice_not_found`: la práctica o su materia no existen en el tenant.
-  - `409 workspace_frozen`: el entorno de esa práctica quedó en solo lectura.
+  - `409 environment_frozen`: el entorno de esa práctica quedó en solo lectura.
   - `503 host_memory_exhausted` / `503 max_containers_reached`: el host o el cupo del tenant no admiten otro contenedor.
-  - `503 workspace_url_unavailable`: el contenedor arrancó pero no se pudo resolver su URL.
+  - `503 environment_url_unavailable`: el contenedor arrancó pero no se pudo resolver su URL.
 
 #### Ejemplo de Respuesta
 ```json
 {
   "data": {
-    "workspace_id": "b7c1e5f2-9a53-4f0e-9a5b-3f5b0f0e7c11",
+    "environment_id": "b7c1e5f2-9a53-4f0e-9a5b-3f5b0f0e7c11",
     "exercise_id": "exercise-uuid",
     "subject_id": "subject-uuid",
     "template_id": "template-uuid",
@@ -637,7 +637,7 @@ Ejecuta código en el sandbox efímero sin persistir una nueva entrega en la bas
 
 ### 13. Entorno de Prueba en Vivo de una Entrega IDE (`POST /api/v1/teacher/submissions/{id}/test-environment`)
 
-Crea un contenedor efímero con una copia del snapshot de la entrega y devuelve la URL para abrir la aplicación en una pestaña nueva. El contenedor no monta el workspace vivo del alumno y el QoS Worker lo apaga por inactividad; no existe un endpoint de «detener».
+Crea un contenedor efímero con una copia del snapshot de la entrega y devuelve la URL para abrir la aplicación en una pestaña nueva. El contenedor no monta el entorno vivo del alumno y el QoS Worker lo apaga por inactividad; no existe un endpoint de «detener».
 
 - **Método:** `POST`
 - **Ruta:** `/api/v1/teacher/submissions/{id}/test-environment`
@@ -798,7 +798,7 @@ Permite transferir la titularidad docente de una materia sin perder el historial
 
 ### 6. Directorio Institucional de Estudiantes (`GET /api/v1/admin/students`)
 
-Provee al administrador un listado consolidado de estudiantes con métricas agregadas de cursos matriculados, workspaces activos y penalizaciones por consumo de memoria.
+Provee al administrador un listado consolidado de estudiantes con métricas agregadas de cursos matriculados, entornos activos y penalizaciones por consumo de memoria.
 
 - **Método:** `GET`
 - **Ruta:** `/api/v1/admin/students?search=Perez&subject_id=<uuid>&status=strikes`
@@ -815,7 +815,7 @@ Provee al administrador un listado consolidado de estudiantes con métricas agre
       "email": "juan@uab.edu.bo",
       "role": "student",
       "enrolled_courses_count": 3,
-      "active_workspaces_count": 1,
+      "active_environments_count": 1,
       "oom_strike_count": 0,
       "last_oom_killed_at": null
     }
@@ -846,7 +846,7 @@ Permite al administrador resetear a 0 los strikes de penalización por exceso de
 {
   "data": {
     "student_id": "stu-uuid-1",
-    "workspaces_reset_count": 1,
+    "environments_reset_count": 1,
     "message": "Penalizaciones OOM reseteadas exitosamente"
   },
   "error": "",
@@ -927,14 +927,14 @@ Permite al administrador ejecutar comandos de pánico para salvaguardar la estab
 
 - **Método:** `POST`
 - **Rutas soportadas:**
-  - `/api/v1/admin/emergency/terminate_all_workspaces` (Frase: `"TERMINAR TODOS LOS WORKSPACES"`)
-  - `/api/v1/admin/emergency/hibernate_all_workspaces` (Frase: `"HIBERNAR TODOS LOS WORKSPACES"`)
+  - `/api/v1/admin/emergency/terminate_all_environments` (Frase: `"TERMINAR TODOS LOS ENTORNOS"`)
+  - `/api/v1/admin/emergency/hibernate_all_environments` (Frase: `"HIBERNAR TODOS LOS ENTORNOS"`)
   - `/api/v1/admin/emergency/kill_zombies` (Frase: `"LIMPIAR ZOMBIES DOCKER"`)
 - **Headers:** `X-User-Role: admin`, `X-User-Id: <admin_uuid>`, `X-Tenant-Id: <tenant_uuid>`
 - **Payload:**
 ```json
 {
-  "confirmation_phrase": "TERMINAR TODOS LOS WORKSPACES",
+  "confirmation_phrase": "TERMINAR TODOS LOS ENTORNOS",
   "reason": "Saturación de memoria por procesos descontrolados"
 }
 ```
@@ -943,13 +943,13 @@ Permite al administrador ejecutar comandos de pánico para salvaguardar la estab
 ```json
 {
   "data": {
-    "action": "terminate_all_workspaces",
+    "action": "terminate_all_environments",
     "affected_count": 5,
     "executed_by": "admin-uuid-1",
-    "message": "Se terminaron forzosamente 5 workspaces activos"
+    "message": "Se terminaron forzosamente 5 entornos activos"
   },
   "error": "",
-  "message": "Se terminaron forzosamente 5 workspaces activos"
+  "message": "Se terminaron forzosamente 5 entornos activos"
 }
 ```
   - `422 Unprocessable Entity`: Si la frase de confirmación no coincide exactamente o la acción no existe.
@@ -981,14 +981,14 @@ Consulta el historial de notificaciones del usuario autenticado ordenadas cronol
       "channel": "in_app",
       "severity": "critical",
       "title": "Alerta de Consumo OOM",
-      "message": "Tu workspace fue suspendido por superar el límite de memoria",
+      "message": "Tu entorno fue suspendido por superar el límite de memoria",
       "event_type": "oom_warning",
       "metadata": {},
       "is_read": false,
       "read_at": null,
       "email_sent_at": null,
       "occurrence_count": 1,
-      "link": "/student/workspaces",
+      "link": "/student/courses",
       "created_at": "2026-09-03T06:00:00Z"
     }
   ],
@@ -1945,7 +1945,7 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
   "orphaned_labs": 1,
   "total_ram_alloc_mb": 1536,
   "health_status": "critical",
-  "health_reasons": ["orphaned_workspaces", "oom_killed_workspaces"],
+  "health_reasons": ["orphaned_environments", "oom_killed_environments"],
   "uptime_seconds": 123456,
   "host_hardware": {
     "ram_used_bytes": 6227705856,
@@ -1984,10 +1984,10 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
 
 | Campo | Significado |
 |-------|-------------|
-| `running_labs` | Conteo real de `workspaces.status = 'running'` del tenant. |
-| `hibernated_labs`, `oom_killed_labs`, `unknown_labs`, `orphaned_labs` | Desglose por estado del agregado `CountWorkspacesByStatus` (nunca un filtro de una lista de running). |
+| `running_labs` | Conteo real de `environments.status = 'running'` del tenant. |
+| `hibernated_labs`, `oom_killed_labs`, `unknown_labs`, `orphaned_labs` | Desglose por estado del agregado `CountEnvironmentsByStatus` (nunca un filtro de una lista de running). |
 | `health_status` | `operational \| degraded \| critical`. `critical` si `docker.healthy == false` o `orphaned_labs > 0`; `degraded` si `oom_killed_labs > 0`, `unknown_labs > 0` o RAM sobre el techo de seguridad. |
-| `health_reasons` | Códigos estables: `docker_unreachable`, `orphaned_workspaces`, `oom_killed_workspaces`, `unknown_workspaces`, `ram_above_safety_ceiling`. |
+| `health_reasons` | Códigos estables: `docker_unreachable`, `orphaned_environments`, `oom_killed_environments`, `unknown_environments`, `ram_above_safety_ceiling`. |
 | `host_hardware` | Lectura medida del nodo (RAM, CPU, disco con su ruta real `disk_path`). Ausente si la telemetría no está inyectada. |
 | `docker` | `server_version`, `storage_driver` y `healthy` del daemon real. Ausente si la telemetría no está inyectada. |
 | `load_history` | Últimos samples reales persistidos por el worker (1 fila/min, retención 7 días). `timestamp` es RFC3339 del momento de la medición. **Nunca** se siembra historia sintética. |
@@ -1995,11 +1995,11 @@ Devuelve el estado del nodo y del tenant desde **hechos medidos** (ADR-049): tel
 | `capacity_basis` | `"policy"` (mandó `max_containers`, o no se pudo medir RAM) \| `"mem_available"` (mandó la RAM disponible). |
 | `host_safety_ceiling_pct` | Techo de seguridad de la política vigente del tenant (75–90). |
 
-#### Estados de workspace nuevos (ADR-049)
+#### Estados de environment nuevos (ADR-049)
 
 | Estado | Origen | Efecto |
 |--------|--------|--------|
-| `unknown` | El daemon de Docker no respondió durante la reconciliación (ciclo 30 s). | No destruye nada; retiene cupo en `GetActiveWorkspaces`; alerta de auditoría si persiste > 5 ciclos; reintenta en el siguiente ciclo. |
+| `unknown` | El daemon de Docker no respondió durante la reconciliación (ciclo 30 s). | No destruye nada; retiene cupo en `GetActiveEnvironments`; alerta de auditoría si persiste > 5 ciclos; reintenta en el siguiente ciclo. |
 | `orphaned` | El daemon respondió y el contenedor del registro ya no existe. | Libera cupo; el alumno lo recrea con restart; transición auditada. |
 
 `GET /api/v1/admin/dashboard/containers` expone ambos estados en `status` del DTO (ya no colapsan a `hibernated`).
@@ -2179,7 +2179,7 @@ Al terminar un examen, el volumen de cada alumno se monta en solo lectura y el l
 
 Las respuestas de sesión (`GET /teacher/sessions/open`, `POST /teacher/sessions`, `GET /teacher/sessions/{id}/board` y `PATCH /close`) incluyen `purpose`, que vale `exam` cuando la práctica de la sesión es un examen y `class` en el resto de los casos, incluida un aula sin práctica. La pantalla del docente usa ese campo para mostrar los controles del examen.
 
-**Aula y laboratorio: 400 no es 404.** Los endpoints del aula y del entorno distinguen dos casos. Un identificador con formato inválido responde `400` con `identificador con formato inválido`: en el cuerpo de `POST /teacher/sessions` (`subject_id`, `exercise_id`) y en el `subject_id` de consulta de `GET /api/v1/workspaces` y del entorno por práctica. Un aula o una materia que no existe responde `404`: el id del aula no corresponde a ninguna fila, o el almacén no encuentra la materia del entorno. Así el panel no confunde "no existe" con "el servidor falló" ni con "la petición está mal armada".
+**Aula y laboratorio: 400 no es 404.** Los endpoints del aula y del entorno distinguen dos casos. Un identificador con formato inválido responde `400` con `identificador con formato inválido`: en el cuerpo de `POST /teacher/sessions` (`subject_id`, `exercise_id`) y en el `exercise_id` del entorno por práctica. Un aula o una materia que no existe responde `404`: el id del aula no corresponde a ninguna fila, o el almacén no encuentra la materia del entorno. Así el panel no confunde "no existe" con "el servidor falló" ni con "la petición está mal armada".
 
 ### `GET /api/v1/teacher/sessions/last-closed`
 
@@ -2211,7 +2211,7 @@ Excepción individual: devuelve la escritura al laboratorio de un alumno de ese 
 - Responde `200` con el mismo conteo.
 - `400` sin motivo o con un identificador de ruta mal formado; `404` si el alumno no participó de esa aula o si su laboratorio ya no existe.
 
-### Entrega anticipada: `POST /api/v1/workspaces/{id}/submit`
+### Entrega anticipada: `POST /api/v1/environments/{id}/submit`
 
 La entrega del proyecto de un examen cierra solo el volumen de ese alumno (ADR-005 §5.2). El cuerpo sigue siendo el de la entrega del IDE:
 
@@ -2239,54 +2239,32 @@ Un aula de práctica no congela volúmenes y responde sin `freeze_report`.
 
 ### Estado del laboratorio
 
-`GET /api/v1/workspaces?subject_id={uuid}` y el dashboard del alumno incluyen `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/workspaces/start` o `POST /api/v1/workspaces/{id}/restart` con el volumen congelado, la respuesta es `409` con `El examen terminó: tu entorno quedó en solo lectura`.
+El dashboard del alumno incluye `status: "frozen"` y `frozen_at`. Al intentar `POST /api/v1/environments/start` o `POST /api/v1/environments/{id}/restart` con el volumen congelado, la respuesta es `409` con `El examen terminó: tu entorno quedó en solo lectura`.
 
-**Entorno por práctica del alumno.** `POST /api/v1/workspaces/start` acepta `exercise_id`. Con práctica, el entorno y el volumen se acotan a `(alumno, materia, práctica)` y la respuesta incluye `exercise_id`; abrir otra práctica no reutiliza el entorno de la materia ni escribe en su volumen. Reabrir la misma práctica devuelve el mismo entorno. Sin `exercise_id` se conserva el entorno por materia. La emisión y la aplicación de avances (ADR-058) usan el volumen de la práctica cuando existe.
+**Entorno por práctica del alumno.** `POST /api/v1/environments/start` exige `subject_id` y `exercise_id`: el entorno y el volumen se acotan siempre a `(alumno, materia, práctica)` y la respuesta incluye `exercise_id`. Abrir otra práctica no reutiliza ningún entorno ni escribe en su volumen; reabrir la misma devuelve el mismo entorno. El modelo por materia se retiró: ya no hay entorno sin práctica ni `GET /api/v1/environments`. La emisión y la aplicación de avances (ADR-058) usan el volumen de la práctica de la sesión.
+
+### Aula abierta del alumno
+
+`GET /api/v1/student/sessions/active` devuelve las aulas abiertas de las materias del alumno con `subject_code`, `subject_name`, `exercise_id`, `exercise_title`, `purpose`, `status`, `opens_at`, `ends_at`, `enrolled` y `present`. La vista `/student/aula` muestra la clase y la práctica de la sesión; con `exercise_id` ofrece abrir la práctica y sin él avisa que no se emiten avances.
+
+`POST /api/v1/student/sessions/{id}/heartbeat` registra la presencia. El layout del alumno lo envía cada minuto mientras la pestaña está visible; un aula cerrada responde `409` y el cliente deja de insistir.
+
+Los avisos se leen de `GET /api/v1/class-advances/pending` y el aula filtra por `session_id`: muestra solo los de su sesión y los aplica con el mismo modal de la práctica (`GET /api/v1/class-advances/{id}/files` y `POST /api/v1/class-advances/{id}/apply`).
 
 ---
 
 ## Entorno de clase del docente
 
-El avance que se emite desde el aula sale del entorno del docente de la práctica de la sesión (ADR-058 §5, ADR-059). Ese entorno se abre desde la ficha de la práctica (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`); la pantalla `/teacher/entorno` se retiró y su ruta redirige a Hoy. La lectura por materia que describe este apartado sigue disponible para consultar el entorno vigente sin levantar contenedores.
+El avance que se emite desde el aula sale del entorno del docente de la práctica de la sesión (ADR-058 §5, ADR-059). Ese entorno se abre desde la ficha de la práctica (`POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`), que reutiliza el contenedor si ya existe; la pantalla `/teacher/entorno` se retiró y su ruta redirige a Hoy. Ya no hay lectura por materia: el entorno pertenece a una práctica y se consulta por el identificador del entorno.
 
-### `GET /api/v1/workspaces?subject_id={uuid}`
-
-- Sin cuerpo. La identidad se resuelve desde la sesión (`X-User-Id` o el token): el parámetro elige la materia, nunca a la persona.
-- Responde `200` con el entorno vigente en esa materia, o con `data: null` si el usuario todavía no abrió uno. Un entorno leído no levanta contenedores.
-- `400` si falta `subject_id` o no es un UUID.
-- `404` si el almacén no encuentra la materia indicada.
-- `401` si no se puede resolver la identidad.
-
-```json
-{
-  "data": {
-    "workspace_id": "uuid",
-    "student_id": "uuid",
-    "subject_id": "uuid",
-    "status": "running",
-    "access_url": "https://<workspace-id>.<dominio-base>",
-    "memory_limit_mb": 512,
-    "last_heartbeat_at": "2026-10-31T15:04:05Z"
-  },
-  "error": "",
-  "message": "Entorno de la materia obtenido"
-}
-```
-
-Sin entorno en la materia:
-
-```json
-{ "data": null, "error": "", "message": "No hay entorno en esta materia" }
-```
-
-### Rutas que usa la pantalla para operar el entorno
+### Rutas del entorno
 
 | Método | Ruta | Efecto |
 | --- | --- | --- |
-| `POST` | `/api/v1/workspaces/start` | Abre el entorno de la materia con `{ "subject_id": "uuid" }`. Con uno corriendo devuelve el mismo; con uno en pausa lo reanuda. |
-| `POST` | `/api/v1/workspaces/{id}/pause` | Lo deja en `hibernated` sin perder el volumen: el código del docente queda guardado. |
+| `POST` | `/api/v1/environments/start` | Abre el entorno de una práctica con `{ "subject_id": "uuid", "exercise_id": "uuid" }`; ambos son obligatorios. Con uno corriendo devuelve el mismo; con uno en pausa lo reanuda. |
+| `POST` | `/api/v1/environments/{id}/pause` | Lo deja en `hibernated` sin perder el volumen: el código del docente queda guardado. |
 
-El entorno vive sobre el volumen `solv_workspace_<usuario>_<materia>`, que es exactamente el que lee la emisión de avances. Por eso lo que el docente escribe en esta pantalla es lo que se copia al aula, y sin entorno abierto la emisión responde `409`.
+El entorno vive sobre el volumen `solv_workspace_<usuario>_<materia>_<práctica>`, que es exactamente el que lee la emisión de avances. Por eso lo que el docente escribe en esa práctica es lo que se copia al aula, y sin entorno abierto la emisión responde `409`.
 
 ---
 

@@ -312,7 +312,7 @@ Un read model por pregunta. Ninguno devuelve listas crudas para que el cliente l
       "student_id": "uuid", "name": "Luis Mamani", "email": "luis@dominio",
       "state": "trabado", "present": true,
       "joined_at": "2026-10-30T10:02:00Z", "last_seen_at": "2026-10-30T10:14:40Z",
-      "workspace_id": "uuid", "workspace_status": "running",
+      "environment_id": "uuid", "environment_status": "running",
       "submitted_at": "2026-10-30T10:14:00Z", "verdict": "RE",
       "review_status": "pending", "attempts": 3
     }
@@ -431,7 +431,7 @@ Estado verificado en el árbol al 2026-10-30:
 
 ### 12.1 Qué dejó la etapa 2
 
-`class_sessions` con un aula abierta por materia (índice parcial único), hora de fin (`ends_at`) y cierre por vencimiento, participantes con `joined_at`/`last_seen_at`/`left_at` y `workspaces.session_id`. El docente abre y cierra desde `/teacher/aula`; el alumno consulta sus aulas abiertas cada minuto y late mientras la pestaña está visible; el panel toma la fila de sesión del mismo almacén que el aula. La navegación y los contratos están en §5.2 y §6.
+`class_sessions` con un aula abierta por materia (índice parcial único), hora de fin (`ends_at`) y cierre por vencimiento, participantes con `joined_at`/`last_seen_at`/`left_at` y `environments.session_id`. El docente abre y cierra desde `/teacher/aula`; el alumno consulta sus aulas abiertas cada minuto y late mientras la pestaña está visible; el panel toma la fila de sesión del mismo almacén que el aula. La navegación y los contratos están en §5.2 y §6.
 
 Queda pendiente, y no se declara hecho:
 

@@ -121,11 +121,11 @@ erDiagram
 * **`tenants`**: Identidad del campus/cliente B2B (`id`, `name`, `slug`, `allowed_domains`, `config`, `created_at`).
 * **`users`**: Usuarios y credenciales de acceso (`id`, `tenant_id`, `email`, `first_name`, `last_name`, `role`, `created_at`).
 * **`templates`**: Plantillas globales de entorno (`id`, `name`, `docker_image`, `description`, `created_at`).
-* **`workspaces`**: Instancias de OpenVSCode Server (`id`, `student_id`, `subject_id`, `status`, `type`, `container_id`, `access_url`, `memory_limit_mb`, `last_heartbeat_at`, `oom_strike_count`, `semgrep_audit`, `tenant_id`).
+* **`environments`**: Instancias de OpenVSCode Server (`id`, `student_id`, `subject_id`, `status`, `type`, `container_id`, `access_url`, `memory_limit_mb`, `last_heartbeat_at`, `oom_strike_count`, `semgrep_audit`, `tenant_id`).
 * **`exercises`**: Ejercicios del Juez Virtual (`id`, `subject_id`, `title`, `description`, `type`, `due_date`, `config`, `tenant_id`).
 * **`subjects`**: Materias institucionales (`id`, `tenant_id`, `name`, `code`, `classroom_course_id`, `created_at`).
 * **`enrollments`**: Matrícula estudiante-materia (`id`, `tenant_id`, `student_id`, `subject_id`, `enrolled_at`).
-* **`submissions`**: Entregas procesadas por el juez (`id`, `tenant_id`, `exercise_id`, `student_id`, `workspace_id`, `code`, `verdict`, `ast_result`, `execution_time_ms`, `memory_used_mb`, `submitted_at`).
+* **`submissions`**: Entregas procesadas por el juez (`id`, `tenant_id`, `exercise_id`, `student_id`, `environment_id`, `code`, `verdict`, `ast_result`, `execution_time_ms`, `memory_used_mb`, `submitted_at`).
 * **`teacher_invitations`**: Tokens de invitación docente (`id`, `tenant_id`, `token`, `email`, `used`, `expires_at`, `created_at`).
 * **`audit_logs`**: Auditoría inmutable de eventos (`id`, `tenant_id`, `user_id`, `user_role`, `action`, `resource`, `resource_id`, `details`, `ip_address`, `status_code`, `created_at`).
 

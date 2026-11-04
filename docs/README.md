@@ -44,6 +44,8 @@
 * [`GOBERNANZA/INVENTARIO_BAAS.md`](GOBERNANZA/INVENTARIO_BAAS.md): Catálogo oficial de las 24 Capacidades Técnicas BaaS.
 * [`GOBERNANZA/BACKLOG_COSTURAS.md`](GOBERNANZA/BACKLOG_COSTURAS.md): Registro de costuras técnicas y tareas post-MVP (COST-01 al COST-06).
 * [`GOBERNANZA/CONVENCIONES.md`](GOBERNANZA/CONVENCIONES.md): Convenciones de código, estándares de commit humano y vocabulario de delatores de IA prohibido.
+* [`GOBERNANZA/AUDITORIA_TERMINOLOGIA.md`](GOBERNANZA/AUDITORIA_TERMINOLOGIA.md): Auditoría del lenguaje de dominio (2026-11): conceptos estandarizados, ambigüedades, correspondencia entre capas y propuestas de nombres canónicos pendientes de aprobación.
+* [`GOBERNANZA/PROPUESTA_VOCABULARIO_DOMINIO.md`](GOBERNANZA/PROPUESTA_VOCABULARIO_DOMINIO.md): Propuesta de vocabulario de dominio (2026-11): principios, glosario conceptual, contratos de estados y veredictos, y decisiones pendientes de aprobación.
 
 ## 6. Historial de Rebanadas Verticales (Slices 1 al 16)
 La carpeta [`SLICES/`](SLICES/) contiene la especificación ejecutada y probada de cada slice completado del backend.

@@ -55,17 +55,25 @@ graph TD
 │   ├── /teacher/por-calificar .......... Cola de corrección agrupada por práctica
 │   ├── /teacher/cursos/:id ............. Materia: prácticas, entregas, alumnos y libreta
 │   ├── /teacher/revision/:submissionId . SpeedGrader: revisión de una entrega
-│   ├── /teacher/exercises .............. Banco de ejercicios del docente
+│   ├── /teacher/exercises .............. Banco de ejercicios del docente (catálogo; acción Duplicar a otra materia)
 │   ├── /teacher/templates .............. Catálogo de plantillas de entorno
 │   ├── /teacher/anti-plagio ............ Redirige a Por calificar (el listado global se retiró)
 │   ├── /teacher/cursos/:courseId/practicas/:exerciseId/similitud
 │   │                                      Auditoría de similitud en tres columnas (pares, diff y cadencia), con la base restada
 │   └── /teacher/configuracion .......... Preferencias de asistencia con IA
 │
-└── /estudiante (Rol: Estudiante)
-    ├── /estudiante/dashboard ........... Cuaderno académico (cursos, hojas de trabajo y entregas)
-    ├── /estudiante/laboratorios/:id .... Modo Inmersivo: OpenVSCode Server (95%+ viewport)
-    └── /estudiante/juez/:ejercicioId ... Juez Virtual: Monaco Editor, AST Semgrep y veredictos
+└── /student (Rol: Estudiante)
+    ├── /student ........................ Cuaderno académico (materias, prácticas y entregas)
+    ├── /student/aula ................... Aula abierta: práctica de la sesión, horario, presencia y avances
+    ├── /student/courses ................ Mis materias
+    ├── /student/courses/:courseId ...... Materia: prácticas y entregas
+    ├── /student/evaluations ............ Evaluaciones
+    ├── /student/history ................ Historial
+    └── /student/exercises/:exerciseId .. Práctica: enunciado, juez y entorno IDE acotado a esa práctica
+
+> El laboratorio por materia se retiró: el entorno, el volumen y el avance del aula se acotan a una
+> práctica. El alumno abre su IDE desde la práctica, no desde la materia, y el aviso de avance del
+> docente llega a esa misma pantalla.
 ```
 
 ---
@@ -187,7 +195,7 @@ graph TD
 ### 4.5. Entorno de Clase (`/teacher/entorno`) — retirada
 * **Estado:** la pantalla se retiró. El entorno del docente se abre desde la ficha de cada práctica con `[Abrir IDE]`, acotado a esa práctica y no a la materia (ADR-059). `/teacher/entorno` redirige a Hoy para no romper marcadores ni enlaces anteriores.
 * **Motivo:** un curso no tiene un entorno monolítico; cada práctica trae su plantilla y su stack. El código que se emite en el aula sale del entorno de la práctica de la sesión (ADR-058 §5).
-* **Contratos que siguen vivos:** `GET /api/v1/workspaces?subject_id=` (lectura por materia, sin levantar contenedores) y, al abrir o reanudar, `POST /api/v1/workspaces/start`. La ficha usa `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`.
+* **Contratos que siguen vivos:** `POST /api/v1/environments/start` con `subject_id` y `exercise_id` (obligatorios) para abrir o reanudar un entorno de práctica. La lectura por materia se retiró con el modelo anterior. La ficha usa `POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/ide`.
 * **Dónde vive ahora cada acción:** abrir o reanudar el entorno, en la ficha de la práctica y, durante la clase, con `[Abrir mi IDE]` en el aula; emitir el avance, congelar la clase y extender la ventana, en el aula.
 * **Fuera de alcance:** los reinicios y los recursos son acciones del administrador.
 
@@ -206,32 +214,45 @@ graph TD
 
 ## 5. Rol Estudiante: Fichas Técnicas de Pantallas
 
-### 5.1. Dashboard del Estudiante (`/estudiante/dashboard`)
-* **Propósito:** Centro de mando organizado bajo el modelo mental del **Cuaderno Académico**.
+### 5.1. Inicio del Estudiante (`/student`)
+* **Propósito:** Responde al entrar qué clase está abierta, qué se entrega pronto y cómo va en sus materias. No es un tablero configurable ni un panel de contenedores.
 * **Información que muestra:**
-  * Banner de Próximas Entregas: Alertas claras de laboratorios o ejercicios con fecha límite cercana.
-  * Sección de Cursos: Cada materia funciona como una libreta donde se agrupan cronológicamente sus hojas de trabajo (laboratorios).
-  * Estado de cada Laboratorio: Etiqueta semántica (*No iniciado*, *En progreso*, *Entregado*, *Calificado*).
+  * Saludo por franja horaria y un resumen de una línea (clase abierta, entregas próximas o ausencia de ellas). Un fallo al leer las entregas no se dibuja como "al día".
+  * **Aula ahora:** materia y código, estado de la sesión, práctica del aula, horario y presencia (`present` de `enrolled`).
+  * **Próximas entregas:** hasta cuatro, con materia y fecha límite.
+  * **Tus materias:** código, nombre, prácticas completadas sobre el total y barra de avance, con el porcentaje global del semestre.
+  * **Últimas entregas:** tres, con veredicto y fecha compacta.
 * **Acciones:**
-  * `[Iniciar Laboratorio]` / `[Continuar Trabajo]` — Abre la vista inmersiva del laboratorio activo.
-  * `[Ver Retroalimentación]` — Muestra los comentarios y la nota otorgada por el docente.
-* **Presencia en el aula:** el layout del estudiante consulta cada minuto si sus materias tienen un aula abierta (`GET /api/v1/student/sessions/active`) y emite su señal (`POST /api/v1/student/sessions/{id}/heartbeat`) mientras la pestaña está visible. Esa señal es la que el docente ve como "dentro" en `/teacher/aula`; se corta al cerrarse el aula o al dejar de estar matriculado.
+  * `[Entrar al aula]` — Va a `/student/aula`; si hay más clases, un enlace indica cuántas hay.
+  * `[Ver mis prácticas]` — `/student/courses` cuando no hay clase abierta.
+  * `[Mis entregas]` y `Historial` — `/student/history`.
+  * Cada entrega enlaza a `/student/exercises/:exerciseId`; cada materia, a su mapa curricular.
+* **Lo que no hace:** no abre ni reanuda entornos (son de la práctica, ADR-059) y no lista avances del docente, que viven en el aula y en la práctica.
+* **Presencia en el aula:** el layout del estudiante consulta cada minuto las aulas abiertas (`GET /api/v1/student/sessions/active`) y emite su señal (`POST /api/v1/student/sessions/{id}/heartbeat`) mientras la pestaña está visible. Esa señal es la que el docente ve como "dentro" en `/teacher/aula`; se corta al cerrarse el aula o al dejar de estar matriculado.
 
-### 5.2. Laboratorio Activo en Modo Inmersivo (`/estudiante/laboratorios/:id`)
-* **Propósito:** Espacio de desarrollo libre de distracciones donde el 95%+ del área visual corresponde a **OpenVSCode Server**.
+### 5.2. Aula del Estudiante (`/student/aula`)
+* **Propósito:** Unir la clase en vivo con la práctica que el docente abrió: qué materia, qué práctica, en qué horario y qué código compartió.
+* **Información que muestra:**
+  * Materia con su código y estado del aula (abierta, congelada, cerrada).
+  * Práctica de la sesión (`exercise_title`) o el aviso de que el aula no tiene práctica asociada.
+  * Horario de la clase y presencia (`present` de `enrolled` en el aula).
+  * Avances pendientes **de esa sesión**: cuántos archivos trae y cuándo se emitió.
+* **Acciones:**
+  * `[Abrir práctica]` — Va a `/student/exercises/:exerciseId`, el entorno de la práctica del aula.
+  * `[Revisar y aplicar]` — Abre el mismo modal de confirmación de la práctica, con los archivos que se reemplazan y los que se agregan.
+  * `[Actualizar]` — Relee el aula y los avisos sin esperar al ciclo de un minuto.
+* **Estados vacíos:** sin aula abierta, dice que no hay clase y ofrece `[Ver mis prácticas]`. Un aula sin práctica se muestra sin botón de avance, porque en ese estado el docente tampoco puede emitir.
+
+### 5.3. Práctica (`/student/exercises/:exerciseId`)
+* **Propósito:** Resolver la práctica con su enunciado, su juez y su entorno IDE acotado a esa práctica.
 * **Componentes de la Pantalla:**
-  * **Topbar Mínimo Superior:**
-    * Nombre de la materia y número de laboratorio.
-    * Indicador de tiempo restante de la sesión.
-    * Botón `[Extender Tiempo]` (añade tiempo si las políticas del laboratorio lo permiten).
-    * Botón `[Guardar y Salir]` (hiberna el contenedor de forma segura y regresa al dashboard).
+  * **Topbar de la práctica:** materia, título de la práctica, tiempo restante de la sesión y `[Abrir entorno]` (levanta o reanuda el contenedor de esa práctica).
   * **Franja de avance del docente:** una por aviso pendiente, sobre el editor. Dice que el docente emitió un avance, cuántos archivos trae y que puede tardar hasta un minuto en aparecer (la consulta es cada minuto, ADR-058 §8). Con `[Ver archivos]` y `[Descartar]`.
   * **Confirmación del avance:** modal con dos listas, los archivos que se reemplazan —en ámbar, con el aviso de que la versión actual queda respaldada— y los que se agregan, y `[Aplicar avance]`. Después informa cuántos archivos se escribieron y dónde quedó la copia anterior.
   * **Aviso de examen cerrado:** con el estado `frozen`, el área del editor se reemplaza por el motivo y la hora del cierre, sin `[Iniciar entorno]` ni enlace al editor (ADR-005 §5).
-  * **Área Central Completa:**
-    * Iframe seguro comunicándose mediante `window.postMessage` para sincronización de estado, sin exponer identificadores de contenedor, puertos ni consumo interno.
+  * **Área Central Completa:** iframe seguro de OpenVSCode que se comunica mediante `window.postMessage`, sin exponer identificadores de contenedor, puertos ni consumo interno.
 
-### 5.3. Juez Virtual — Resolución y Evaluación (`/estudiante/juez/:ejercicioId`)
+### 5.4. Juez Virtual — Resolución y Evaluación (`/student/exercises/:exerciseId`)
 * **Propósito:** Resolución de problemas de lógica y algoritmos con evaluación formativa instantánea.
 * **Componentes de la Pantalla:**
   * **Panel Izquierdo:** Consigna del problema, ejemplos de entrada/salida y restricciones de diseño pedagógico (lo que está permitido o prohibido usar).

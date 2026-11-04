@@ -165,7 +165,7 @@ stateDiagram-v2
 * **Efecto Operativo:**
   * La consulta del selector de duplicación ([`template-create-modal.component.ts:339`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts#L339)) filtra explícitamente `status === 'approved' || status === 'APROBADA'`. Las plantillas `SUSPENDIDA` quedan ocultas.
   * El listado de materias del docente no permite asociar plantillas suspendidas.
-* **Grandfathering:** En [`backend/internal/core/services/workspace_service.go`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/backend/internal/core/services/workspace_service.go), los workspaces que ya estaban corriendo con esa plantilla continúan operando normalmente. No hay borrado en cascada ni apagado forzoso.
+* **Grandfathering:** En [`backend/internal/core/services/practice_environment_service.go`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/backend/internal/core/services/practice_environment_service.go), los entornos que ya estaban corriendo con esa plantilla continúan operando normalmente. No hay borrado en cascada ni apagado forzoso.
 
 ---
 
@@ -292,7 +292,7 @@ stateDiagram-v2
 | **Adenda 5 (Reset matrix propósito)** | **Implementado** | [`template-create-modal.component.ts:639`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts#L639): Diálogo de confirmación antes de cambiar propósito si hay datos sucios. |
 | **Adenda 6 (Capacidades dinámicas host)** | **Implementado** | [`admin_academic_handler.go`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/backend/internal/delivery/http/admin_academic_handler.go): Endpoint `GET /capabilities` entrega RAM física real; frontend no usa los 32 GB hardcodeados. |
 | **INV-01 (Tag :latest prohibido)** | **Implementado** | [`template-create-modal.component.ts`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/src/app/features/admin/templates/components/template-create-modal/template-create-modal.component.ts): Validación dura en cliente; rechazo con código 400 en backend. |
-| **INV-04 (Grandfathering al suspender)** | **Implementado** | [`workspace_service.go`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/backend/internal/core/services/workspace_service.go): Workspaces preexistentes no se interrumpen; la plantilla se oculta para nuevos labs. |
+| **INV-04 (Grandfathering al suspender)** | **Implementado** | [`practice_environment_service.go`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/backend/internal/core/services/practice_environment_service.go): Entornos preexistentes no se interrumpen; la plantilla se oculta para nuevos labs. |
 | **INV-10 (Copy deck exhaustivo)** | **Implementado** | Textos sincronizados en [`messages.json`](file:///home/alvarorivera/Documentos/Desarrollo/SOLV_PG/frontend/messages.json), incluyendo Anterior (`@@NV-01`), Siguiente (`@@NV-02`) y familia `CA-*` para categorías. |
 | **PU-01 a PU-21 (Copy y flujo Juez)** | **Implementado** | Textos e interpolaciones de evaluaciones concurrentes implementados en template. |
 | **MO-05 ("{count} plantillas basadas en este modelo")** | **Implementado** | Renderizado en tarjeta con dato real calculado dinámicamente desde la base de datos vía `COUNT(lt.id)`. |

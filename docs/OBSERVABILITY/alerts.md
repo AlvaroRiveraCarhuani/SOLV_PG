@@ -75,14 +75,14 @@ Este documento define el catálogo estándar de alertas Prometheus recomendadas 
 
 ---
 
-## 5. ReconciledWorkspaceStates (ADR-049)
+## 5. ReconciledEnvironmentStates (ADR-049)
 
-* **Origen:** `WorkspaceStateReconciler` (cielo de 30 s del `ZombieCollectorWorker`) y `domain.EvaluateHealth` del panel `GET /api/v1/admin/metrics/health`.
+* **Origen:** `EnvironmentStateReconciler` (cielo de 30 s del `ZombieCollectorWorker`) y `domain.EvaluateHealth` del panel `GET /api/v1/admin/metrics/health`.
 * **Severidad:** `warning` (unknown persistente) / `critical` (orphaned o daemon caído).
 * **Disparo (panel, `health_status` + `health_reasons`):**
-  - `critical` — `docker_unreachable` (Docker `healthy == false`) u `orphaned_workspaces` (`orphaned_labs > 0`).
-  - `degraded` — `oom_killed_workspaces`, `unknown_workspaces` o `ram_above_safety_ceiling` (RAM del host sobre el techo de seguridad de la política).
-* **Eventos de auditoría registrados por el reconciliador** con `ResourceType: "workspace"`:
+  - `critical` — `docker_unreachable` (Docker `healthy == false`) u `orphaned_environments` (`orphaned_labs > 0`).
+  - `degraded` — `oom_killed_environments`, `unknown_environments` o `ram_above_safety_ceiling` (RAM del host sobre el techo de seguridad de la política).
+* **Eventos de auditoría registrados por el reconciliador** con `ResourceType: "environment"`:
   - `WORKSPACE_RECONCILED_ORPHANED` — contenedor ausente, cupo liberado.
   - `WORKSPACE_RECONCILED_UNKNOWN_PERSISTENT` — daemon no respondió más de 5 ciclos (~2,5 min); se emite una sola vez por regresión.
   - `WORKSPACE_RECONCILED_RECOVERED` — daemon vuelto y contenedor presente, registro restaurado a `running`.

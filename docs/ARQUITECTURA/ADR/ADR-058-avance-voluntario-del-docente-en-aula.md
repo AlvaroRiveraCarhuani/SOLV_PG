@@ -84,7 +84,7 @@ Se copian los archivos de código del ejercicio del docente. Se excluyen las rut
 
 La lista de exclusión vive en configuración del backend, no en código fijo. Las dos últimas rutas importan porque el IDE escribe su runtime dentro del propio volumen del ejercicio: sin excluirlas, el avance reemplazaría el identificador de dispositivo y la configuración del editor del alumno con los del docente.
 
-**Origen del código.** El snapshot sale del entorno de clase del docente de la práctica de la sesión (`solv_workspace_<docente>_<materia>_<práctica>`, ADR-059), que es donde programa en vivo. No se copia desde una carpeta aparte ni desde la base: lo que se emite es lo que el docente tiene abierto. Sin ese entorno la emisión responde 409, porque no hay código que mostrar. El entorno se abre desde la ficha de la práctica (**Abrir IDE**), que reutiliza el contenedor si ya existe; la lectura por materia (`GET /api/v1/workspaces?subject_id=`) sigue disponible para consultar el entorno vigente sin levantar contenedores. Una sesión sin práctica conserva el respaldo del entorno por materia.
+**Origen del código.** El snapshot sale del entorno de clase del docente de la práctica de la sesión (`solv_workspace_<docente>_<materia>_<práctica>`, ADR-059), que es donde programa en vivo. No se copia desde una carpeta aparte ni desde la base: lo que se emite es lo que el docente tiene abierto. Sin ese entorno la emisión responde 409, porque no hay código que mostrar. El entorno se abre desde la ficha de la práctica (**Abrir IDE**) y, durante la clase, con `[Abrir mi IDE]` en el aula; ambos reutilizan el contenedor si ya existe. La práctica del avance es siempre `session.exercise_id`: el docente no elige otra desde el modal y la lectura por materia se retiró. Una sesión sin práctica no emite ni aplica: responde `409` con `el aula necesita una práctica asociada para emitir o aplicar avances`.
 
 ### 6. Snapshot al emitir
 
@@ -125,7 +125,7 @@ El cliente del alumno consulta cada minuto sus avances pendientes, con el mismo 
 
 La consulta solo entrega avisos que todavía se pueden aplicar. Uno cuya ventana de disponibilidad venció se cierra como `expired` en ese momento, de modo que deja de mostrarse sin esperar a que el alumno lo intente. Un aviso de examen se oculta pero no se marca vencido: es una prohibición, no un plazo.
 
-El aviso aparece en la pantalla donde el alumno trabaja: el solver de la práctica muestra solo los avisos de su `exercise_id` y los aplica en el volumen de esa práctica (ADR-059). La pantalla de laboratorio por materia conserva la franja general de la materia. Ambas superficies comparten la consulta periódica y el mismo modal de confirmación.
+El aviso aparece en la pantalla donde el alumno trabaja: el solver de la práctica muestra solo los avisos de su `exercise_id` y los aplica en el volumen de esa práctica (ADR-059). El aula del alumno (`/student/aula`) junta esos mismos avisos con la sesión abierta, filtrados por `session_id`, y ofrece abrirlos en el mismo modal. La pantalla de laboratorio por materia se retiró con el modelo anterior. Las dos superficies comparten la consulta periódica y el modal de confirmación.
 
 ### 9. Modelo de datos
 
@@ -143,7 +143,7 @@ El aviso aparece en la pantalla donde el alumno trabaja: el solver de la prácti
 | `id` | uuid | PK |
 | `tenant_id` | uuid | Aislamiento multi-tenant |
 | `session_id` | uuid | FK a `class_sessions` |
-| `exercise_id` | uuid | Ejercicio cuyo código se emite |
+| `exercise_id` | uuid | Práctica de la sesión; el snapshot se lee y el avance se registra bajo ese id |
 | `scope` | varchar(10) | `class` o `selected` |
 | `snapshot_key` | text | Clave del objeto en SeaweedFS (`class-advances/<tenant_id>/<avance_id>.tar.gz`) |
 | `snapshot_sha256` | char(64) | Hash del tar.gz; se verifica antes de copiar |

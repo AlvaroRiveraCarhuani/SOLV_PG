@@ -60,7 +60,7 @@ La decisión es una sola ruta y un solo shell, con dos paneles de revisión seg�
 | Diff contra la base | Sí, con el `boilerplate` real del ejercicio | Sí, por archivo contra `base_files` | El proyecto base se edita en el paso de publicación y viaja en el payload; si falta, el diff no se muestra. |
 | Evolución temporal | Sí, si hay datos | Sí, si hay datos | Mantener en ambas. |
 | Auditoría de escritura | Sí, si hay datos | Sí, si hay datos | Mantener en ambas. |
-| Consola del estudiante | No | Solo con un workspace real | Quitar la sesión fabricada; ocultar si no hay workspace vivo. |
+| Consola del estudiante | No | Solo con un entorno real | Quitar la sesión fabricada; ocultar si no hay environment vivo. |
 | Re-ejecutar sandbox | Sí, con el lenguaje del ejercicio | No | Ocultar en IDE. El endpoint responde 409 en IDE. |
 | Probar aplicación viva | No | Sí, si la práctica declara `app_run_command` | Contenedor efímero sobre una copia del snapshot; se abre en pestaña nueva y el QoS lo apaga por inactividad. |
 | Comentarios inline | Sí | Sí, por archivo visible | Mantener el número de línea global, traducir en la vista y permitir bloques con `end_line_number`. |
@@ -71,7 +71,7 @@ Notas de la matriz:
 
 - En IDE, el `verdict` almacenado sigue siendo un detalle de persistencia. La interfaz no lo presenta como veredicto oficial.
 - Un juez con 0 casos es un error de configuración, no un "no aplica". Su estado vacío debe decir que faltan casos, no que la modalidad no los usa.
-- La consola del estudiante no se puede construir con los datos de la entrega. Hoy `currentLiveSession` inventa un workspace `running`; eso se elimina.
+- La consola del estudiante no se puede construir con los datos de la entrega. Hoy `currentLiveSession` inventa un entorno `running`; eso se elimina.
 
 ---
 
@@ -101,7 +101,7 @@ Tres columnas:
 - **Izquierda:** árbol de archivos ordenado por ruta, carpetas colapsables, archivo seleccionado marcado. Las rutas usan `font-mono`; las etiquetas humanas, `--font-sans`.
 - **Centro:** encabezado con ruta, lenguaje y cantidad de líneas; editor de solo lectura; comentarios inline de la línea seleccionada.
 - **Derecha:** criterios y niveles de la rúbrica, comentarios generales, score ponderado y botón de guardado. La columna queda fija y con scroll independiente.
-- **Header:** sin "Re-ejecutar". La acción primaria es **Probar aplicación viva**: pide el preview, lo abre en una pestaña nueva y muestra hasta qué hora sigue activo. El menú de herramientas oculta complejidad; replay y auditoría quedan si hay datos; la consola solo aparece con un workspace real.
+- **Header:** sin "Re-ejecutar". La acción primaria es **Probar aplicación viva**: pide el preview, lo abre en una pestaña nueva y muestra hasta qué hora sigue activo. El menú de herramientas oculta complejidad; replay y auditoría quedan si hay datos; la consola solo aparece con un entorno real.
 - **Sin rúbrica:** estado vacío explícito, guardado deshabilitado y enlace a la práctica para configurarla.
 - **Sin archivos reconocibles:** se cae al visor plano de `code` con un aviso discreto; no se inventa un árbol.
 
@@ -261,7 +261,7 @@ Ejemplo abreviado:
 
 `POST /api/v1/teacher/submissions/{id}/test-environment` devuelve `{ url, expires_at }` para abrir la app en una pestaña nueva.
 
-- El contenedor se crea desde `submissions.code` en un volumen propio (`solv-review-env-<id>`); nunca monta el workspace del alumno.
+- El contenedor se crea desde `submissions.code` en un volumen propio (`solv-review-env-<id>`); nunca monta el entorno del alumno.
 - La receta sale de `exercises.config.ide`: `app_run_command` obligatorio y `app_port` con default 3000. Sin comando, la respuesta es `409 app_run_command_missing` y el botón no inventa una ejecución.
 - La pestaña se reserva en el clic (para que el navegador no la bloquee) y se navega cuando llega la URL. No se usa iframe.
 - El TTL es de 15 minutos por inactividad de red; el QoS Worker renueva o apaga el preview. No hay botón «Detener».
@@ -295,7 +295,7 @@ Ejemplo abreviado:
 
 ### 6.1 Formato de entrada
 
-El writer de `workspace_submission.go` genera:
+El writer de `environment_submission.go` genera:
 
 ```text
 # === FILE: app.js ===
@@ -367,7 +367,7 @@ import express from "express";
 - [x] **AC-06:** Un comentario en la línea local 3 de `src/app.js` se guarda con la línea global correcta, reaparece en la misma línea al recargar y se lista en los comentarios. Un comentario de juez sigue funcionando.
 - [x] **AC-07:** Guardar la rúbrica devuelve `200` solo después de escribir `score`, `review_status = graded`, `reviewed_at`, `reviewed_by` y la celda de `exercise_grades`. La entrega sale de la cola de pendientes y el banner de éxito aparece solo en ese caso.
 - [x] **AC-08:** Si la práctica IDE no tiene rúbrica, el panel muestra un estado vacío explícito y deshabilita el guardado. No queda un panel en blanco ni un `500` sin tratar.
-- [x] **AC-09:** `currentLiveSession` no fabrica un workspace. "Consola del Estudiante" se oculta en IDE salvo que exista un workspace real.
+- [x] **AC-09:** `currentLiveSession` no fabrica un entorno. "Consola del Estudiante" se oculta en IDE salvo que exista un entorno real.
 - [x] **AC-10:** El flujo e2e J08 sigue pasando y suma aserciones de revisión IDE: sin bloques de juez, árbol visible, cambio de archivo y guardado de rúbrica. J07 cubre la regresión de juez.
 - [x] **AC-11:** La migración `00043_submission_comment_ranges.sql` es idempotente y agrega `end_line_number` sin backfill. `code`, `line_number` y los comentarios existentes siguen siendo compatibles.
 - [x] **AC-12:** Pasan los tests de Go de los paquetes tocados, los tests de Angular de los componentes modificados y los dos flujos e2e. No se agregan imágenes `:latest` ni dominios hardcodeados.
@@ -381,7 +381,7 @@ import express from "express";
 - [x] **AC-20:** Sin `app_run_command` la API responde `409 app_run_command_missing` y no crea recursos. Si el host no tiene RAM, responde `503 oom_guard` antes del volumen.
 - [x] **AC-21:** El QoS renueva el TTL cuando crece el tráfico de red y apaga/borra el preview sin tráfico. No existe un botón ni un endpoint de detener.
 
-Verificación de la fase 2 (2026-11-01): pasan `npm run build`, los specs del SpeedGrader (21 tests, incluidos el árbol y la traducción de líneas), Template Studio (72 tests, incluida la inyección de OpenVSCode), `npm run lint:styles`, `go build ./...`, `go test` de los paquetes tocados y `go vet` con los tests de integración compilados. J08 se ejecutó contra el stack local con Docker real y pasó completo (1.5 min): plantilla IDE verificada y publicada, workspace iniciado, entrega `PENDING`, reconexión idempotente y SpeedGrader con árbol, cambio de archivo, ausencia de bloques de juez y rúbrica guardada. J07 también pasó (1.4 min): prueba efímera, comentario por línea, override auditado y detección anti-plagio.
+Verificación de la fase 2 (2026-11-01): pasan `npm run build`, los specs del SpeedGrader (21 tests, incluidos el árbol y la traducción de líneas), Template Studio (72 tests, incluida la inyección de OpenVSCode), `npm run lint:styles`, `go build ./...`, `go test` de los paquetes tocados y `go vet` con los tests de integración compilados. J08 se ejecutó contra el stack local con Docker real y pasó completo (1.5 min): plantilla IDE verificada y publicada, environment iniciado, entrega `PENDING`, reconexión idempotente y SpeedGrader con árbol, cambio de archivo, ausencia de bloques de juez y rúbrica guardada. J07 también pasó (1.4 min): prueba efímera, comentario por línea, override auditado y detección anti-plagio.
 
 Verificación de la fase 3 (2026-11-01): pasan `npm run build`, `npm run lint:styles` y los 26 tests del SpeedGrader (`speed-grader.component.spec.ts`, `review-line-map.spec.ts`, árbol de archivos y repetición de teclas). En backend pasan `go build ./...` y las suites completas de `internal/core/domain`, `internal/core/services`, `internal/delivery/http` e `internal/infrastructure/storage/postgres`, más Slice 13 de integración contra `solv_test` con las migraciones 42 y 43 aplicadas. J08 pasó completo (1.5 min) con árbol de dos archivos, diff nativo contra `base_files` y comentario de bloque L2–L5 guardado con `end_line_number`; J07 pasó (1.2 min) con prueba efímera, comentario por línea, override auditado y detección anti-plagio.
 
@@ -427,7 +427,7 @@ Notas de implementación:
 
 ## 10. Fuera de alcance y decisiones abiertas
 
-- **Entorno de prueba del alumno:** resuelto en la fase 4 con contenedor efímero desde el snapshot, pestaña nueva y TTL por inactividad (ADR-061). No se monta el workspace vivo ni se usa iframe.
+- **Entorno de prueba del alumno:** resuelto en la fase 4 con contenedor efímero desde el snapshot, pestaña nueva y TTL por inactividad (ADR-061). No se monta el entorno vivo ni se usa iframe.
 - **Diff sin proyecto base:** una práctica IDE creada antes de esta fase no tiene `boilerplate` multiarchivo. El diff no se muestra; el docente puede cargar la base desde el paso de publicación, pero no se infiere desde la plantilla Docker ni desde la primera entrega.
 - **Anclaje por archivo de comentarios:** implementado con `file_path` y `local_line_number` (migración `00045`). No hay backfill: el ancla se deriva al leer y la global se conserva.
 - **Tercera modalidad:** si aparece, introducir un `review_mode` explícito en lugar de repartir otro booleano por el componente.

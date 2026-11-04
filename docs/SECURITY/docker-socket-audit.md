@@ -16,8 +16,8 @@ The SOLV platform orchestrates dynamic virtual lab containers and code evaluatio
 
 ### Security Controls & Mitigation
 1. **No Docker Socket Mounting in Runner Containers:**
-   - Ephemeral student evaluation containers and OpenVSCode workspace containers are strictly **forbidden** from having `/var/run/docker.sock` mounted into their filesystems.
-   - Container breakout attempts inside student/workspace containers cannot access the Docker daemon API.
+   - Ephemeral student evaluation containers and OpenVSCode environment containers are strictly **forbidden** from having `/var/run/docker.sock` mounted into their filesystems.
+   - Container breakout attempts inside student/environment containers cannot access the Docker daemon API.
 
 2. **Backend API Scope Isolation:**
    - Only the trusted backend API daemon interacts with the Docker SDK (`github.com/docker/docker/client`).
@@ -39,10 +39,10 @@ Evaluation containers executed by the judge service enforce the following securi
 
 ---
 
-## 3. Workspace Container Isolation
+## 3. Environment Container Isolation
 
-OpenVSCode Server workspace containers are isolated per student session:
+OpenVSCode Server environment containers are isolated per student session:
 
 - **Port Binding:** Ports are bound strictly to `127.0.0.1` (localhost) and reverse-proxied through Traefik with authentication verification.
-- **Storage Volumes:** Ephemeral volume mounts restricted to the user's specific workspace directory (`/home/coder/workspace`). Host filesystem mounts outside workspace boundaries are prohibited.
-- **Lifetime & Cleanup:** Inactive workspace containers are automatically paused or terminated by the QoS worker and zombie collector workers.
+- **Storage Volumes:** Ephemeral volume mounts restricted to the user's specific environment directory (`/home/coder/environment`). Host filesystem mounts outside environment boundaries are prohibited.
+- **Lifetime & Cleanup:** Inactive environment containers are automatically paused or terminated by the QoS worker and zombie collector workers.
