@@ -75,7 +75,7 @@ jobs:
       - name: Run Vitest Quality Gates
         run: |
           cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs
 
   # Stage 2: Tests del Backend con Postgres Efímero
   test-backend:
@@ -145,7 +145,7 @@ jobs:
       - name: Run Frontend Vitest Gates
         run: |
           cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs
 
   # Stage 4: Build Backend & Frontend
   build:
