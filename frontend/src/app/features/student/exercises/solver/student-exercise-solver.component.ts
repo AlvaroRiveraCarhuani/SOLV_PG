@@ -26,20 +26,20 @@ import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
-import { WorkspaceInstance } from '@core/models/workspace.model';
+import { PracticeEnvironment } from '@core/models/environment.model';
 import {
   StudentEvaluationResultDTO,
   StudentPublicExerciseDTO,
   StudentPublicTestCaseDTO,
   StudentService,
-  WorkspaceProjectSubmissionDTO
+  PracticeEnvironmentProjectSubmissionDTO
 } from '@core/services/student.service';
 import { AuthService } from '@core/services/auth.service';
 import {
   ClassAdvanceNoticeService,
   PendingClassAdvance
 } from '../../services/class-advance-notice.service';
-import { AdvanceConfirmModalComponent } from '../../workspaces/active-lab/advance-confirm-modal/advance-confirm-modal.component';
+import { AdvanceConfirmModalComponent } from './advance-confirm-modal/advance-confirm-modal.component';
 
 interface KeystrokeEventPayload {
   event_type: 'insert' | 'delete' | 'paste';
@@ -110,13 +110,13 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   private readonly keystrokeBuffer: KeystrokeEventPayload[] = [];
 
-  // IDE Persistente: workspace del alumno, archivos del proyecto y entrega a SpeedGrader.
-  readonly workspace = signal<WorkspaceInstance | null>(null);
-  readonly isStartingWorkspace = signal<boolean>(false);
-  readonly workspaceError = signal<string | null>(null);
+  // IDE Persistente: environment del alumno, archivos del proyecto y entrega a SpeedGrader.
+  readonly environment = signal<PracticeEnvironment | null>(null);
+  readonly isStartingEnvironment = signal<boolean>(false);
+  readonly environmentError = signal<string | null>(null);
   readonly isSubmittingProject = signal<boolean>(false);
   readonly projectError = signal<string | null>(null);
-  readonly projectSubmission = signal<WorkspaceProjectSubmissionDTO | null>(null);
+  readonly projectSubmission = signal<PracticeEnvironmentProjectSubmissionDTO | null>(null);
   readonly projectSubmittedAt = signal<Date | null>(null);
   /**
    * Entrega de un examen: el primer clic pide confirmación porque el volumen
@@ -161,20 +161,20 @@ export class StudentExerciseSolverComponent implements OnInit {
     const ex = this.exercise();
     return (
       ex?.type === 'project' ||
-      ex?.type === 'workspace' ||
+      ex?.type === 'environment' ||
       ex?.environment_type === 'IDE_PERSISTENTE' ||
-      ex?.environment_type === 'workspace'
+      ex?.environment_type === 'environment'
     );
   });
 
-  readonly workspaceIsRunning = computed<boolean>(() => this.workspace()?.status === 'running');
+  readonly environmentIsRunning = computed<boolean>(() => this.environment()?.status === 'running');
 
   readonly canResubmitProject = computed<boolean>(() => this.exercise()?.allow_resubmit ?? true);
 
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
 
   readonly canSubmitProject = computed<boolean>(() => {
-    if (!this.workspaceIsRunning() || this.isSubmittingProject()) {
+    if (!this.environmentIsRunning() || this.isSubmittingProject()) {
       return false;
     }
     // En un examen la entrega es final: el volumen queda en solo lectura, así
@@ -285,32 +285,32 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
   }
 
-  async startIdeWorkspace(): Promise<void> {
+  async startIdeEnvironment(): Promise<void> {
     const ex = this.exercise();
-    if (!ex || this.isStartingWorkspace()) {
+    if (!ex || this.isStartingEnvironment()) {
       return;
     }
     const subjectId = ex.subject_id;
     if (!subjectId) {
-      this.workspaceError.set('El ejercicio no tiene una materia asociada para iniciar el workspace.');
+      this.environmentError.set('El ejercicio no tiene una materia asociada para iniciar el environment.');
       return;
     }
 
-    this.isStartingWorkspace.set(true);
-    this.workspaceError.set(null);
+    this.isStartingEnvironment.set(true);
+    this.environmentError.set(null);
 
     try {
-      const workspace = await this.studentService.startWorkspace(subjectId, ex.id);
-      this.workspace.set(workspace);
+      const environment = await this.studentService.startEnvironment(subjectId, ex.id);
+      this.environment.set(environment);
     } catch {
-      this.workspaceError.set('No se pudo iniciar el IDE. Intentá de nuevo en unos segundos.');
+      this.environmentError.set('No se pudo iniciar el IDE. Intentá de nuevo en unos segundos.');
     } finally {
-      this.isStartingWorkspace.set(false);
+      this.isStartingEnvironment.set(false);
     }
   }
 
   openIdeInNewTab(): void {
-    const url = this.workspace()?.access_url;
+    const url = this.environment()?.access_url;
     if (!url) {
       return;
     }
@@ -338,8 +338,8 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   async submitProject(): Promise<void> {
     const ex = this.exercise();
-    const workspace = this.workspace();
-    if (!ex || !workspace || !this.canSubmitProject()) {
+    const environment = this.environment();
+    if (!ex || !environment || !this.canSubmitProject()) {
       return;
     }
 
@@ -350,7 +350,7 @@ export class StudentExerciseSolverComponent implements OnInit {
       // La entrega es el volumen de la práctica: el backend lo fotografía tal
       // como está. No se mandan archivos desde el navegador, para no pisar lo
       // que el alumno escribió en el IDE.
-      const submission = await this.studentService.submitWorkspaceProject(workspace.id, {
+      const submission = await this.studentService.submitPracticeEnvironmentProject(environment.id, {
         exercise_id: ex.id
       });
       this.examSubmitPending.set(false);

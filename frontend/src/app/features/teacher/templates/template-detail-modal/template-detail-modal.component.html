@@ -1,11 +1,11 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   [title]="template().name"
   [subtitle]="template().environment_type | environmentLabel"
   maxWidth="640px"
   (close)="closed.emit()"
 >
   <div modal-icon class="modal-tech-icon">
-    <tech-logo [iconType]="template().primaryIcon || 'docker'" [size]="32" />
+    <tech-logo [iconType]="template().primaryIcon || 'docker'" [size]="40" />
   </div>
 
   <div class="detail-modal-content">
@@ -60,7 +60,7 @@
             @for (chip of template().techChips; track chip.name) {
               <div class="tool-item">
                 @if (chip.iconKey) {
-                  <tech-logo [iconType]="chip.iconKey" [size]="24" />
+                  <tech-logo [iconType]="chip.iconKey" [size]="28" />
                 }
                 <div class="tool-info">
                   <strong class="tool-name">{{ chip.name }}</strong>

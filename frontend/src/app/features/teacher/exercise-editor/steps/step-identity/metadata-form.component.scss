@@ -115,25 +115,21 @@ input.form-input.has-warning {
   margin-top: 2px;
 }
 
-.ram-chip-display {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  height: 38px;
-  padding: 0 var(--space-3);
-  background-color: var(--color-bg-subtle, var(--tenant-primary-subtle));
-  border: 1px solid var(--border-color);
+.advanced-limit-details {
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
 
-  .ram-badge {
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--text-primary);
-  }
-
-  .governance-tag {
+  .advanced-summary {
+    cursor: pointer;
     font-size: var(--text-xs);
-    color: var(--text-muted);
-    font-style: italic;
+    font-weight: 600;
+    color: var(--text-secondary);
+    user-select: none;
+
+    &:hover {
+      color: var(--text-primary);
+    }
   }
 }

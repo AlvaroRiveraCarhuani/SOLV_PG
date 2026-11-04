@@ -26,14 +26,14 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
   ],
   template: `
 
-    <aside class="summary-card" aria-label="Resumen del ejercicio">
+    <aside class="summary-card" aria-label="Resumen de la práctica">
       <div class="summary-header">
         <div class="header-badge">
           <svg lucideLayers class="badge-icon"></svg>
           <span class="summary-title">Resumen</span>
         </div>
         <span class="status-pill" [class.published]="store.status() === 'published'">
-          {{ store.status() === 'published' ? 'Publicado' : 'Borrador' }}
+          {{ store.status() === 'published' ? 'Publicada' : 'Borrador' }}
         </span>
       </div>
 
@@ -64,9 +64,10 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
         </div>
       </div>
 
-      <!-- Sección: Recursos y Límites -->
+      <!-- Sección: Recursos y Límites (solo evaluación automática) -->
+      @if (store.metadata().environment_type !== 'IDE_PERSISTENTE') {
       <div class="summary-section">
-        <h4 class="section-heading">Límites de Ejecución</h4>
+        <h4 class="section-heading">Recursos de ejecución</h4>
         <div class="metrics-grid">
           <div class="metric-box">
             <div class="metric-header">
@@ -84,6 +85,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
           </div>
         </div>
       </div>
+      }
 
       <!-- Sección: Evaluación Según Modalidad -->
       @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
@@ -98,7 +100,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
             <span class="row-value font-mono" machineData>{{ totalRubricWeight() }}% / 100%</span>
           </div>
           <div class="summary-row">
-            <span class="row-label">Plantilla IDE:</span>
+            <span class="row-label">Entorno:</span>
             <span class="row-value truncate" machineData>{{ store.metadata().template?.name || store.metadata().template_id || 'Sin asignar' }}</span>
           </div>
           @if (store.metadata().due_date) {

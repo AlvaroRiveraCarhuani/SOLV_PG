@@ -7,10 +7,6 @@ import { CourseColorService } from '@core/services/course-color.service';
 import { StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 
-const RUNNING_WORKSPACE = { id: 'w1', status: 'running' } as unknown as NonNullable<
-  StudentDashboardData['subjects'][number]['active_workspace']
->;
-
 const DASHBOARD: StudentDashboardData = {
   student_id: 'u1',
   tenant_id: 't1',
@@ -31,8 +27,7 @@ const DASHBOARD: StudentDashboardData = {
       subject: { id: 's3', code: 'MAT-101', name: 'Cálculo I' },
       total_exercises: 5,
       completed_exercises: 5,
-      progress_percent: 100,
-      active_workspace: RUNNING_WORKSPACE
+      progress_percent: 100
     }
   ],
   recent_submissions: []
@@ -149,21 +144,20 @@ describe('StudentCoursesComponent', () => {
     expect(cards().length).toBe(3);
   });
 
-  it('enlaza cada materia con su mapa curricular y su laboratorio', async () => {
+  it('enlaza cada materia con su mapa curricular y no ofrece un laboratorio por materia', async () => {
     await setup();
 
     const firstCard = cards().find((card) => card.textContent?.includes('Estructuras de Datos'));
     expect(firstCard).toBeTruthy();
 
     const primary = firstCard?.querySelector<HTMLAnchorElement>('.action-link-primary');
-    const secondary = firstCard?.querySelector<HTMLAnchorElement>('.action-link-secondary');
     expect(primary?.getAttribute('href')).toBe('/student/courses/s1');
     expect(primary?.textContent).toContain('Ver mapa curricular');
-    expect(secondary?.getAttribute('href')).toBe('/student/workspaces/s1');
-    expect(secondary?.textContent).toContain('Abrir laboratorio');
+    // El entorno es de una práctica: no hay un laboratorio único por materia.
+    expect(firstCard?.querySelector('.action-link-secondary')).toBeNull();
   });
 
-  it('muestra la próxima entrega como fecha semántica y el estado del entorno', async () => {
+  it('muestra la próxima entrega como fecha semántica y remite el entorno a cada práctica', async () => {
     await setup();
 
     const dataCard = cards().find((card) => card.textContent?.includes('Estructuras de Datos'));
@@ -171,10 +165,12 @@ describe('StudentCoursesComponent', () => {
     const time = dataCard?.querySelector('time');
     expect(time?.getAttribute('datetime')).toBe('2026-11-02T23:59:00');
     expect(time?.textContent?.trim()).toBe('02 nov');
-    expect(dataCard?.textContent).toContain('Entorno disponible bajo demanda');
+    expect(dataCard?.textContent).toContain('El entorno se abre desde cada práctica');
 
-    const activeCard = cards().find((card) => card.textContent?.includes('Cálculo I'));
-    expect(activeCard?.textContent).toContain('Activo');
-    expect(activeCard?.textContent).toContain('Entorno de práctica listo');
+    // Ninguna materia anuncia un entorno propio: el estado del contenedor
+    // pertenece a la práctica y se consulta ahí.
+    for (const card of cards()) {
+      expect(card.querySelector('status-badge')).toBeNull();
+    }
   });
 });

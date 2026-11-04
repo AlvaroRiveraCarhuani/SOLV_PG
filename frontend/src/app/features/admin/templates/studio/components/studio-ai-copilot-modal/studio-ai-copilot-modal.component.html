@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Copiloto IA para Arquitectura de Entornos"
   subtitle="Revise y ajuste la propuesta antes de sincronizarla con el constructor"
   intent="info"
@@ -29,7 +29,7 @@
       <div class="prompt-actions-row">
         @if (isSuggesting()) {
           <div class="ai-running-telemetry" role="status">
-            <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+            <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
             <span>Diseñando arquitectura...</span>
             <span class="font-mono" machineData>{{ elapsedSeconds() }} s</span>
             <button type="button" class="btn-cancel-ai" (click)="cancelSuggest.emit()">

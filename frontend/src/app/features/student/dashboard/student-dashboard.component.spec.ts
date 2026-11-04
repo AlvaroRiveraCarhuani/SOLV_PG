@@ -1,12 +1,28 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { provideHttpClient } from '@angular/common/http';
-import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { StudentDashboardComponent, STUDENT_DEFAULT_WIDGETS, STUDENT_DASHBOARD_STORAGE_KEY } from './student-dashboard.component';
-import { StudentService, StudentDashboardData } from '@core/services/student.service';
+import { signal } from '@angular/core';
+import { StudentDashboardComponent } from './student-dashboard.component';
+import { StudentService, StudentDashboardData, DueAssignment } from '@core/services/student.service';
 import { AuthService } from '@core/services/auth.service';
-import { DashboardLayoutService } from '@core/services/dashboard-layout.service';
-import { CourseColorService } from '@core/services/course-color.service';
+import { StudentAulaService, StudentAula } from '../services/student-aula.service';
+
+const AULA: StudentAula = {
+  id: 'sesion-1',
+  subject_id: 's1',
+  subject_code: 'SIS-211',
+  subject_name: 'Estructuras de Datos',
+  exercise_id: 'ex-1',
+  exercise_title: 'Árboles binarios',
+  purpose: 'class',
+  status: 'open',
+  opens_at: '2026-11-04T08:00:00',
+  ends_at: '2026-11-04T10:00:00',
+  closes_at: '2026-11-04T10:00:00',
+  frozen_at: null,
+  grace_until: null,
+  enrolled: 28,
+  present: 21
+};
 
 const FULL_DASHBOARD: StudentDashboardData = {
   student_id: 'u1',
@@ -40,6 +56,18 @@ const FULL_DASHBOARD: StudentDashboardData = {
   ]
 };
 
+const DUE: DueAssignment[] = [
+  {
+    exercise_id: 'ex-9',
+    title: 'Listas enlazadas',
+    subject_id: 's1',
+    subject_name: 'Estructuras de Datos',
+    subject_code: 'SIS-211',
+    due_date: '2026-11-06T23:59:00',
+    type: 'tarea'
+  }
+];
+
 const EMPTY_DASHBOARD: StudentDashboardData = {
   student_id: 'u1',
   tenant_id: 't1',
@@ -48,12 +76,15 @@ const EMPTY_DASHBOARD: StudentDashboardData = {
 };
 
 describe('StudentDashboardComponent', () => {
-  let component: StudentDashboardComponent;
   let fixture: ComponentFixture<StudentDashboardComponent>;
-  let layoutService: DashboardLayoutService;
 
-  async function setup(dashboard: StudentDashboardData): Promise<void> {
-    localStorage.clear();
+  async function setup(options: {
+    dashboard?: StudentDashboardData;
+    aulas?: StudentAula[];
+    due?: DueAssignment[];
+    dueFailed?: boolean;
+    aulaError?: string | null;
+  } = {}): Promise<void> {
     TestBed.resetTestingModule();
 
     const mockAuthService = {
@@ -61,107 +92,119 @@ describe('StudentDashboardComponent', () => {
     };
 
     const mockStudentService = {
-      dashboardData: () => dashboard,
-      dueAssignments: () => [],
-      loadDashboard: () => Promise.resolve(),
-      startWorkspace: () => Promise.resolve()
+      dashboardData: signal(options.dashboard ?? FULL_DASHBOARD),
+      dueAssignments: signal(options.due ?? DUE),
+      dueLoadFailed: signal(options.dueFailed ?? false),
+      loadDashboard: () => Promise.resolve()
+    };
+
+    const mockAulaService = {
+      aulas: signal(options.aulas ?? [AULA]),
+      loading: signal(false),
+      error: signal(options.aulaError ?? null),
+      load: () => Promise.resolve()
     };
 
     await TestBed.configureTestingModule({
       imports: [StudentDashboardComponent],
       providers: [
         provideRouter([]),
-        provideHttpClient(),
-        provideHttpClientTesting(),
         { provide: AuthService, useValue: mockAuthService },
         { provide: StudentService, useValue: mockStudentService },
-        DashboardLayoutService,
-        CourseColorService
+        { provide: StudentAulaService, useValue: mockAulaService }
       ]
     }).compileComponents();
 
     fixture = TestBed.createComponent(StudentDashboardComponent);
-    component = fixture.componentInstance;
-    layoutService = TestBed.inject(DashboardLayoutService);
+    fixture.detectChanges();
+    await fixture.whenStable();
     fixture.detectChanges();
   }
 
-  afterEach(() => {
-    localStorage.clear();
+  function text(): string {
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  function links(): HTMLAnchorElement[] {
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('a'));
+  }
+
+  it('saluda al alumno y resume la clase abierta', async () => {
+    await setup();
+
+    expect(text()).toContain('Mateo');
+    expect(text()).toContain('Tienes clase abierta de Estructuras de Datos.');
   });
 
-  it('should initialize student greeting, default widgets, and course colors', async () => {
-    await setup(FULL_DASHBOARD);
+  it('muestra la práctica, el horario y la presencia del aula', async () => {
+    await setup();
 
-    expect(component).toBeTruthy();
-    expect(component.studentFirstName()).toBe('Mateo');
-    expect(component.widgets().length).toBe(STUDENT_DEFAULT_WIDGETS.length);
-    const color = component.getCourseColor('s1', 'SIS-211');
-    expect(color).toBeTruthy();
+    expect(text()).toContain('Árboles binarios');
+    expect(text()).toContain('21');
+    expect(text()).toContain('de');
+    expect(text()).toContain('28');
+
+    const times = (fixture.nativeElement as HTMLElement).querySelectorAll('.aula-meta time');
+    expect(times.length).toBe(2);
+    expect(times[0].textContent?.trim()).toBe('08:00');
+
+    const aulaLink = links().find(a => a.textContent?.includes('Entrar al aula'));
+    expect(aulaLink?.getAttribute('href')).toBe('/student/aula');
   });
 
-  it('should toggle customize mode and widget visibility', async () => {
-    await setup(FULL_DASHBOARD);
+  it('avisa cuando hay más de una clase abierta', async () => {
+    await setup({ aulas: [AULA, { ...AULA, id: 'sesion-2', subject_name: 'Álgebra' }] });
 
-    expect(component.isCustomizing()).toBe(false);
-    component.toggleCustomize();
-    expect(component.isCustomizing()).toBe(true);
-
-    component.toggleWidgetVisibility('agenda');
-    const agenda = component.widgets().find(w => w.id === 'agenda');
-    expect(agenda?.visible).toBe(false);
+    expect(text()).toContain('Ver las 2 clases');
   });
 
-  it('should update colSpan and persist layout in storage', async () => {
-    await setup(FULL_DASHBOARD);
+  it('sin clase abierta invita a las prácticas y no afirma que está al día si falló la carga', async () => {
+    await setup({ aulas: [], dueFailed: true });
 
-    component.setWidgetColSpan('labs', 12);
-    const labs = component.widgets().find(w => w.id === 'labs');
-    expect(labs?.colSpan).toBe(12);
+    expect(text()).toContain('No tienes clase abierta');
+    expect(text()).toContain('No pudimos revisar tus entregas pendientes.');
 
-    const saved = layoutService.loadLayout(STUDENT_DASHBOARD_STORAGE_KEY, STUDENT_DEFAULT_WIDGETS);
-    expect(saved.find(w => w.id === 'labs')?.colSpan).toBe(12);
+    const practicas = links().find(a => a.textContent?.includes('Ver mis prácticas'));
+    expect(practicas?.getAttribute('href')).toBe('/student/courses');
   });
 
-  it('should compute global progress from enrolled subjects and render their percentages', async () => {
-    await setup(FULL_DASHBOARD);
+  it('lista las entregas próximas con su fecha y enlace a la práctica', async () => {
+    await setup();
 
-    expect(component.globalProgressPercent()).toBe(50);
+    const row = (fixture.nativeElement as HTMLElement).querySelector('.row-link') as HTMLAnchorElement;
+    expect(row.textContent).toContain('Listas enlazadas');
+    expect(row.textContent).toContain('SIS-211');
+    expect(row.getAttribute('href')).toBe('/student/exercises/ex-9');
 
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('50% Global');
-    expect(text).toContain('Estructuras de Datos');
-    expect(text).toContain('75%');
+    const time = row.querySelector('time');
+    expect(time?.getAttribute('datetime')).toBe('2026-11-06T23:59:00');
+    expect(time?.textContent?.trim()).toBe('06/11/2026 23:59');
+  });
+
+  it('muestra el avance por materia y el total del semestre', async () => {
+    await setup();
+
+    const rows = (fixture.nativeElement as HTMLElement).querySelectorAll('.course-row');
+    expect(rows.length).toBe(2);
+    expect(rows[0].textContent).toContain('3/4');
 
     const fills = (fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.progress-fill');
-    expect(fills.length).toBe(2);
     expect(fills[0].style.width).toBe('75%');
     expect(fills[1].style.width).toBe('0%');
+    expect(text()).toContain('50%');
   });
 
-  it('should render recent submissions with title, verdict and formatted date', async () => {
-    await setup(FULL_DASHBOARD);
+  it('cierra con las últimas entregas y sus estados vacíos', async () => {
+    await setup();
 
-    expect(component.recentSubmissions().length).toBe(1);
+    const recent = (fixture.nativeElement as HTMLElement).querySelectorAll('.recent-item');
+    expect(recent.length).toBe(1);
+    expect(recent[0].textContent).toContain('Árboles binarios');
+    expect(recent[0].textContent).toContain('Cumple');
 
-    const items = (fixture.nativeElement as HTMLElement).querySelectorAll('.recent-item');
-    expect(items.length).toBe(1);
-    expect(items[0].textContent).toContain('Árboles binarios');
-    expect(items[0].textContent).toContain('Cumple');
+    await setup({ dashboard: EMPTY_DASHBOARD, aulas: [], due: [] });
 
-    const time = items[0].querySelector('time');
-    expect(time?.getAttribute('datetime')).toBe('2026-10-20T14:05:00');
-    expect(time?.textContent?.trim()).toBe('20/10 14:05:00');
-  });
-
-  it('should show empty states when the student has no subjects or submissions', async () => {
-    await setup(EMPTY_DASHBOARD);
-
-    expect(component.globalProgressPercent()).toBe(0);
-    expect(component.recentSubmissions()).toEqual([]);
-
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('Sin progreso registrado en materias activas.');
-    expect(text).toContain('Aún no registras entregas recientes.');
+    expect(text()).toContain('No tienes materias matriculadas.');
+    expect(text()).toContain('Aún no registras entregas.');
   });
 });

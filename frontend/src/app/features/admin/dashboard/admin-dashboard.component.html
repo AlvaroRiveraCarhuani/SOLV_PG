@@ -50,7 +50,7 @@
         (click)="refresh()" 
         [disabled]="isLoading() || refreshCooldown() > 0"
         title="Recargar Métricas">
-        <svg lucideRefreshCw class="btn-icon" [class.spin]="isLoading()"></svg>
+        <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="isLoading()"></svg>
         <span>{{ refreshCooldown() > 0 ? 'Actualizar (' + refreshCooldown() + 's)' : 'Actualizar' }}</span>
       </button>
 
@@ -172,7 +172,7 @@
                   <incidents-panel 
                     [incidents]="health()!.incidents" 
                     (resolveIncident)="onResolveIncident($event)"
-                    (restartWorkspace)="onRestartWorkspace($event)"
+                    (restartEnvironment)="onRestartEnvironment($event)"
                     (viewLogs)="onViewLogs($event)"
                   />
                 }
@@ -192,7 +192,7 @@
               </button>
 
               @if (showAllContainers() && health()?.containers) {
-                <div class="collapsible-content">
+                <div class="collapsible-content motion-rise">
                   <container-table 
                     [containers]="health()!.containers" 
                     (stopContainer)="requestStopContainer($event)" 
@@ -208,13 +208,13 @@
 
   <!-- Modales Contextuales -->
   @if (selectedCourse()) {
-    <course-workspaces-modal 
+    <course-environments-modal animate.leave="motion-modal-out" 
       [course]="selectedCourse()!"
-      [workspacesInput]="health()?.containers || []"
+      [environmentsInput]="health()?.containers || []"
       [reloadToken]="wsReloadToken()"
       (closed)="selectedCourse.set(null)"
-      (restartWorkspace)="onRestartWorkspace($event)"
-      (pauseWorkspace)="onPauseWorkspace($event)"
+      (restartEnvironment)="onRestartEnvironment($event)"
+      (pauseEnvironment)="onPauseEnvironment($event)"
     />
   }
 

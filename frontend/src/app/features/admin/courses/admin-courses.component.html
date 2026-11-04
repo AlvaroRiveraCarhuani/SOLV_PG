@@ -92,7 +92,7 @@
     </div>
     @if (coursesService.isLoading()) {
       <div class="loading-box">
-        <div class="spinner"></div>
+        <div class="spinner motion-spin"></div>
         <span>Cargando catálogo de materias y periodos...</span>
       </div>
     } @else {
@@ -215,7 +215,7 @@
    <!-- Modales -->
 
   @if (showCreateCourseModal()) {
-    <course-create-modal 
+    <course-create-modal animate.leave="motion-modal-out" 
       [periods]="coursesService.periods()"
       [teachers]="coursesService.teachers()"
       [templates]="coursesService.templates()"
@@ -226,7 +226,7 @@
   }
 
   @if (selectedCourseForReassign(); as course) {
-    <course-reassign-modal 
+    <course-reassign-modal animate.leave="motion-modal-out" 
       [course]="course"
       [teachers]="coursesService.teachers()"
       (closed)="closeReassignModal()"
@@ -236,7 +236,7 @@
 
   <!-- Modal de Edición de Curso -->
   @if (editingCourse(); as course) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       title="Editar Materia"
       subtitle="Modificar nombre y código oficial de la materia."
       (close)="closeEditCourseModal()"

@@ -98,7 +98,6 @@ $mut: var(--text-secondary);
   border: 3px solid var(--tenant-primary-border);
   border-top-color: $p;
   border-radius: 50%;
-  animation: spin 700ms linear infinite;
 }
 
 .tenant-spinner-sm {
@@ -107,15 +106,7 @@ $mut: var(--text-secondary);
   border: 2px solid var(--tenant-primary-border);
   border-top-color: $p;
   border-radius: 50%;
-  animation: spin 700ms linear infinite;
 }
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .teachers-table {
   width: 100%;
   border-collapse: collapse;

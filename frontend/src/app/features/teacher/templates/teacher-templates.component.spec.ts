@@ -129,19 +129,19 @@ describe('TeacherTemplatesComponent', () => {
     httpMock.expectOne('/api/v1/teacher/environment-requests').flush({ data: [] });
   });
 
-  it('prefills the request text and pieces when asking for a variant', () => {
+  it('carries the base environment and its pieces when asking for a variant', () => {
     component.requestVariant(mockTemplates[0]);
-    expect(component.requestPreset()).toContain(mockTemplates[0].name);
+    expect(component.variantBaseName()).toBe(mockTemplates[0].name);
     expect(component.requestPresetStack()?.runtime_id).toBe('python-312');
     expect(component.isRequestModalOpen()).toBe(true);
   });
 
-  it('clears the preset pieces when opening the form from scratch', () => {
+  it('clears the base environment and pieces when opening the form from scratch', () => {
     component.requestVariant(mockTemplates[0]);
     component.closeRequestModal();
 
     component.openRequestModal();
-    expect(component.requestPreset()).toBe('');
+    expect(component.variantBaseName()).toBe('');
     expect(component.requestPresetStack()).toBeNull();
   });
 

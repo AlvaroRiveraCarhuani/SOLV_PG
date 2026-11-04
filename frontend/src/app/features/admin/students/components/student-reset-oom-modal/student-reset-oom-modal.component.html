@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Desbloqueo de Penalizaciones OOM"
   intent="warning"
   [disableClose]="isSubmitting()"
@@ -24,7 +24,7 @@
     </div>
     <div class="summary-item">
       <span class="summary-label">Entornos activos en ejecución:</span>
-      <span class="summary-value">{{ student().active_workspaces_count }}</span>
+      <span class="summary-value">{{ student().active_environments_count }}</span>
     </div>
   </div>
 

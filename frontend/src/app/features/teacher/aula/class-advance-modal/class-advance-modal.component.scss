@@ -1,8 +1,20 @@
 // Contenido del modal de emisión: la cabecera, el pie y el fondo los pone
-// modal-shell. Aquí solo la elección de práctica y de destinatarios.
+// modal-shell. Aquí la práctica que fija el aula y la elección de destinatarios.
 
 :host {
   display: block;
+}
+
+.practice-line {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+
+  strong {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
 }
 
 .field-label {

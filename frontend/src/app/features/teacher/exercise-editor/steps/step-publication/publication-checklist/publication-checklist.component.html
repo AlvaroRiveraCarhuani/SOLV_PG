@@ -10,7 +10,7 @@
 
       @if (store.isChecklistLoading()) {
         <div class="header-analyzing-tag">
-          <svg lucideRefreshCw class="btn-icon spin-icon"></svg>
+          <svg lucideRefreshCw class="btn-icon motion-spin"></svg>
           <span>Analizando...</span>
         </div>
       }
@@ -94,7 +94,7 @@
         <div class="section-content">
           @if (hasWarnings()) {
             <ul class="items-list">
-              @for (item of structuredWarnings(); track item.id) {
+              @for (item of visibleWarnings(); track item.id) {
                 <li class="item-row item-warning">
                   <div class="item-main">
                     <svg lucideAlertTriangle class="item-icon"></svg>
@@ -113,19 +113,13 @@
               }
             </ul>
 
-            <!-- Confirmación explícita de advertencias -->
             <div class="warning-acknowledgement">
-              <label class="ack-label">
-                <input
-                  type="checkbox"
-                  class="ack-checkbox"
-                  [ngModel]="store.acceptedWarnings()"
-                  (ngModelChange)="onAcceptWarnings($event)"
-                />
-                <span class="ack-text">
-                  He revisado las advertencias pedagógicas anteriores y confirmo proceder con la publicación del ejercicio.
-                </span>
-              </label>
+              <span class="ack-text">
+                @if (hiddenWarningsCount() > 0) {
+                  y {{ hiddenWarningsCount() }} advertencia{{ hiddenWarningsCount() === 1 ? '' : 's' }} más.
+                }
+                Las advertencias no bloquean la publicación; podés resolverlas después.
+              </span>
             </div>
           } @else {
             <div class="empty-status">
@@ -194,26 +188,7 @@
             title="Debes resolver los problemas bloqueantes antes de publicar"
           >
             <svg lucideGlobe class="btn-icon"></svg>
-            <span>Publicar Ejercicio</span>
-          </button>
-        </div>
-      } @else if (hasWarnings() && !store.acceptedWarnings()) {
-        <div class="status-box box-warning">
-          <div class="status-box-main">
-            <svg lucideAlertTriangle class="box-icon"></svg>
-            <div class="box-content">
-              <span class="box-title">Requiere Confirmación</span>
-              <span class="box-desc">Marca la casilla de confirmación de advertencias para habilitar el botón de publicación.</span>
-            </div>
-          </div>
-          <button
-            type="button"
-            class="btn-publish-action disabled"
-            disabled
-            title="Confirma la revisión de advertencias arriba para habilitar la publicación"
-          >
-            <svg lucideGlobe class="btn-icon"></svg>
-            <span>Publicar Ejercicio</span>
+            <span>Publicar práctica</span>
           </button>
         </div>
       } @else {
@@ -222,10 +197,10 @@
             <svg lucideShieldCheck class="box-icon"></svg>
             <div class="box-content">
               <span class="box-title">
-                {{ store.status() === 'published' ? 'Ejercicio Publicado' : 'Ejercicio Listo para Publicar' }}
+                {{ store.status() === 'published' ? 'Práctica publicada' : 'Práctica lista para publicar' }}
               </span>
               <span class="box-desc">
-                {{ store.status() === 'published' ? 'El ejercicio está activo y disponible para los estudiantes.' : 'Todos los criterios de calidad y seguridad fueron validados satisfactoriamente.' }}
+                {{ store.status() === 'published' ? 'La práctica está activa y disponible para los estudiantes.' : 'No quedan bloqueos: la práctica se puede publicar.' }}
               </span>
             </div>
           </div>
@@ -249,11 +224,11 @@
                 title="Publicar este ejercicio para los estudiantes"
               >
                 @if (store.isPublishing()) {
-                  <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                   <span>Publicando...</span>
                 } @else {
                   <svg lucideGlobe class="btn-icon"></svg>
-                  <span>Publicar Ejercicio</span>
+                  <span>Publicar práctica</span>
                 }
               </button>
             }

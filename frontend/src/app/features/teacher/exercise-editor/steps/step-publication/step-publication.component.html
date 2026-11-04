@@ -1,67 +1,35 @@
 <div class="step-publication-layout">
-  @if (store.metadata().environment_type !== 'IDE_PERSISTENTE') {
-    <!-- Sección 1: Restricciones Didácticas de Código -->
-    <section class="form-section">
-      <div class="section-header">
-        <div class="header-left">
-          <div class="title-row">
-            <svg lucideShield class="section-icon"></svg>
-            <h3 class="section-title">1. Restricciones Didácticas de Código</h3>
-          </div>
-          <p class="section-desc">
-            Limita el uso de librerías automáticas o estructuras para asegurar que el estudiante resuelva el problema con lógica algorítmica genuina.
-          </p>
-        </div>
+  <!-- Restricciones Didácticas de Código (Opcional colapsado) -->
+  <details class="advanced-section-details form-section">
+    <summary class="advanced-section-summary">
+      <div class="summary-left">
+        <svg lucideShield class="section-icon"></svg>
+        <span class="summary-title">Restricciones didácticas de código (opcional)</span>
       </div>
-
+      <span class="summary-hint">Limita el uso de ciertas librerías o módulos</span>
+    </summary>
+    <div class="details-content">
+      <p class="section-desc">
+        Configura prohibiciones de imports o llamadas a funciones para forzar que el estudiante resuelva el ejercicio con lógica algorítmica propia.
+      </p>
       <ast-rules-builder />
-    </section>
-  }
-
-  <!-- Proyecto base del IDE o plantilla inicial del juez -->
-  <section class="form-section">
-    <div class="section-header">
-      <div class="header-left">
-        <div class="title-row">
-          <svg lucideCode2 class="section-icon"></svg>
-          <h3 class="section-title">
-            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? '1' : '2' }}.
-            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? 'Proyecto Base para el Diff' : 'Plantilla de Código Inicial' }}
-          </h3>
-        </div>
-        <p class="section-desc">
-          @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
-            Código de partida del proyecto. SpeedGrader compara cada archivo entregado contra este proyecto para mostrar el diff de la revisión.
-          } @else {
-            Plantilla base por lenguaje permitido que se presentará al estudiante en el editor.
-          }
-        </p>
-      </div>
     </div>
+  </details>
 
-    @if (store.metadata().environment_type === 'IDE_PERSISTENTE') {
-      <ide-base-snapshot />
-    } @else {
+  <!-- Código inicial para el estudiante (Opcional colapsado) -->
+  <details class="advanced-section-details form-section">
+    <summary class="advanced-section-summary">
+      <div class="summary-left">
+        <svg lucideCode2 class="section-icon"></svg>
+        <span class="summary-title">Código inicial para el estudiante (opcional)</span>
+      </div>
+      <span class="summary-hint">Plantilla de partida en el editor</span>
+    </summary>
+    <div class="details-content">
+      <p class="section-desc">
+        Si deseas proveer una estructura de código o firma de función predefinida que el estudiante verá al abrir el ejercicio.
+      </p>
       <boilerplate-tabs />
-    }
-  </section>
-
-  <!-- Verificación Previa a la Publicación -->
-  <section class="form-section">
-    <div class="section-header">
-      <div class="header-left">
-        <div class="title-row">
-          <svg lucideCheckSquare class="section-icon"></svg>
-          <h3 class="section-title">
-            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? '2' : '3' }}. Verificación Previa a la Publicación
-          </h3>
-        </div>
-        <p class="section-desc">
-          Verificación de requisitos técnicos, advertencias pedagógicas y calibración de límites.
-        </p>
-      </div>
     </div>
-
-    <publication-checklist />
-  </section>
+  </details>
 </div>

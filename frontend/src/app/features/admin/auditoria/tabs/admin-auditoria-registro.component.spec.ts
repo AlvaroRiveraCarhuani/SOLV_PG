@@ -56,7 +56,7 @@ describe('AdminAuditoriaRegistroComponent', () => {
       data: [
         makeLog({ action: 'POST /api/v1/subjects', status_code: 201 }),
         makeLog({ action: 'PUT /api/v1/admin/branding', status_code: 200 }),
-        makeLog({ action: 'DELETE /api/v1/workspaces/abc', status_code: 403 })
+        makeLog({ action: 'DELETE /api/v1/environments/abc', status_code: 403 })
       ]
     }));
     fixture.detectChanges();

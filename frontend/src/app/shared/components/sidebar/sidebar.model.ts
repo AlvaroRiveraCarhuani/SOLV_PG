@@ -10,10 +10,12 @@ export type SidebarIconName =
   | 'users'
   | 'layers'
   | 'boxes'
+  | 'inbox'
   | 'sliders'
   | 'shield-alert'
   | 'file-text'
   | 'graduation-cap'
+  | 'presentation'
   | 'sparkles';
 
 export interface NavItem {

@@ -5,15 +5,15 @@ import { of, throwError } from 'rxjs';
 import { vi, describe, beforeEach, it, expect } from 'vitest';
 import { ShadowTerminalModalComponent } from './shadow-terminal-modal.component';
 import { TeacherLiveService } from '../../services/teacher-live.service';
-import { LiveWorkspaceSession, TutorCommandResponse } from '../../models/teacher.models';
+import { LivePracticeEnvironmentSession, TutorCommandResponse } from '../../models/teacher.models';
 
 describe('ShadowTerminalModalComponent', () => {
   let component: ShadowTerminalModalComponent;
   let fixture: ComponentFixture<ShadowTerminalModalComponent>;
   let liveService: TeacherLiveService;
 
-  const mockSession: LiveWorkspaceSession = {
-    workspace_id: 'ws-101',
+  const mockSession: LivePracticeEnvironmentSession = {
+    environment_id: 'ws-101',
     container_id: 'cnt-live-101',
     student_id: 'std-202',
     student_name: 'Estudiante Prueba',

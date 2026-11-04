@@ -77,19 +77,10 @@
         width: 0.875rem;
         height: 0.875rem;
 
-        &.spin {
-          animation: spin 1s linear infinite;
-        }
       }
     }
   }
 }
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .overall-progress-card {
   display: flex;
   flex-direction: column;

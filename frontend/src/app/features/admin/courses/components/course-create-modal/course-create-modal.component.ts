@@ -49,6 +49,8 @@ export class CourseCreateModalComponent implements OnInit {
   // Campos del formulario
   name = signal<string>('');
   code = signal<string>('');
+  /** Paralelo o comisión. Vacío significa que la materia se dicta una sola vez. */
+  section = signal<string>('');
   selectedPeriodId = signal<string>('');
   selectedTeacherId = signal<string>('');
   selectedTemplateId = signal<string>('');
@@ -56,6 +58,19 @@ export class CourseCreateModalComponent implements OnInit {
 
   isSubmitting = signal<boolean>(false);
   formError = signal<string | null>(null);
+
+  /**
+   * Código que va a identificar al curso. Se muestra mientras se escribe porque
+   * la sección no se ve en ninguna otra parte del formulario y el alta es el
+   * único momento en que el administrador puede advertir que va a quedar
+   * "SIS-211-1" y no "SIS-211".
+   */
+  composedCode = computed<string>(() => {
+    const code = this.code().trim().toUpperCase();
+    const section = this.section().trim().toUpperCase();
+    if (!code) return '';
+    return section ? `${code}-${section}` : code;
+  });
 
   periodComboboxOptions = computed<ComboboxOption[]>(() => {
     return [
@@ -149,6 +164,7 @@ export class CourseCreateModalComponent implements OnInit {
     const payload: CreateCoursePayload = {
       name: this.name().trim(),
       code: this.code().trim().toUpperCase(),
+      section: this.section().trim().toUpperCase() || undefined,
       teacher_id: this.selectedTeacherId() ? this.selectedTeacherId() : undefined,
       academic_period_id: this.selectedPeriodId() ? this.selectedPeriodId() : undefined,
       template_id: this.selectedTemplateId() ? this.selectedTemplateId() : undefined

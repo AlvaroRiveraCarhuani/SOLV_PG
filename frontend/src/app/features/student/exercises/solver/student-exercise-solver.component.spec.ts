@@ -3,7 +3,7 @@ import { provideRouter, ActivatedRoute } from '@angular/router';
 import { of } from 'rxjs';
 import { StudentExerciseSolverComponent } from './student-exercise-solver.component';
 import { StudentService } from '@core/services/student.service';
-import { WorkspaceInstance } from '@core/models/workspace.model';
+import { PracticeEnvironment } from '@core/models/environment.model';
 import { AuthService } from '@core/services/auth.service';
 import { signal } from '@angular/core';
 import {
@@ -65,12 +65,12 @@ describe('StudentExerciseSolverComponent', () => {
       submitCalls.push(payload);
       return Promise.resolve({ id: 'sub-909' });
     },
-    submitWorkspaceProject: (workspaceId: string, payload: unknown) => {
-      projectSubmitCalls.push(workspaceId);
+    submitPracticeEnvironmentProject: (environmentId: string, payload: unknown) => {
+      projectSubmitCalls.push(environmentId);
       projectSubmitPayloads.push(payload);
       return Promise.resolve({
         submission_id: 'sub-exam',
-        workspace_id: workspaceId,
+        environment_id: environmentId,
         exercise_id: 'ex-101',
         verdict: 'PENDING'
       });
@@ -164,7 +164,7 @@ describe('StudentExerciseSolverComponent', () => {
       type: 'project',
       environment_type: 'IDE_PERSISTENTE'
     });
-    component.workspace.set({ id: 'ws-1', status: 'running' } as unknown as WorkspaceInstance);
+    component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
 
     expect(fixture.nativeElement.querySelector('.project-editor-body')).toBeNull();
@@ -185,7 +185,7 @@ describe('StudentExerciseSolverComponent', () => {
       type: 'project',
       environment_type: 'IDE_PERSISTENTE'
     });
-    component.workspace.set({ id: 'ws-1', status: 'running' } as unknown as WorkspaceInstance);
+    component.environment.set({ id: 'ws-1', status: 'running' } as unknown as PracticeEnvironment);
     fixture.detectChanges();
 
     expect(component.isExamProject()).toBe(true);

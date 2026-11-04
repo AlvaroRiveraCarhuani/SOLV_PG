@@ -1,5 +1,5 @@
-<div class="modal-backdrop" (click)="onBackdrop()" role="dialog" aria-modal="true">
-  <div class="modal-dialog" [style.max-width]="maxWidth()" (click)="$event.stopPropagation()">
+<div class="modal-backdrop motion-backdrop" (click)="onBackdrop()" role="dialog" aria-modal="true">
+  <div class="modal-dialog motion-panel" [style.max-width]="maxWidth()" (click)="$event.stopPropagation()">
     <header class="modal-header">
       <div class="header-left">
         @if (showIcon()) {

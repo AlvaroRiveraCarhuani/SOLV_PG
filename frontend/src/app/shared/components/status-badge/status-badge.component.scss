@@ -95,3 +95,10 @@
     opacity: 0.4;
   }
 }
+
+// El estado se lee por el texto y el color; el pulso es refuerzo visual.
+@media (prefers-reduced-motion: reduce) {
+  .status-running .status-indicator {
+    animation: none;
+  }
+}

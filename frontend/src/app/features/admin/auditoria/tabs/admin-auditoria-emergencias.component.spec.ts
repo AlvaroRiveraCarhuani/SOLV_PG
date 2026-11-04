@@ -53,7 +53,7 @@ describe('AdminAuditoriaEmergenciasComponent', () => {
     expect(cards.length).toBe(5);
     const destructive = fixture.nativeElement.querySelectorAll('.action-card.destructive');
     expect(destructive.length).toBe(1);
-    expect(destructive[0].textContent).toContain('Terminar todos los workspaces');
+    expect(destructive[0].textContent).toContain('Terminar todos los environments');
   });
 
   it('el modal exige la frase exacta y un motivo de al menos 10 caracteres', () => {

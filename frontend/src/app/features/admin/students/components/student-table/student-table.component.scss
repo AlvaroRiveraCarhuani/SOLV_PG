@@ -279,7 +279,7 @@
   }
 }
 
-.active-workspaces-badge {
+.active-environments-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
@@ -296,7 +296,7 @@
   }
 }
 
-.idle-workspaces-badge {
+.idle-environments-badge {
   font-size: var(--text-xs);
   color: var(--text-muted);
   font-style: italic;
@@ -519,9 +519,4 @@
   border: 3px solid var(--border-subtle);
   border-top-color: var(--tenant-primary);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
 }

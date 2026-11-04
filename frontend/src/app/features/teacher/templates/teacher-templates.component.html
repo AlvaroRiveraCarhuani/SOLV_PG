@@ -7,7 +7,7 @@
     </div>
 
     <div class="header-actions">
-      <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+      <button type="button" class="btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Solicitar entorno</span>
       </button>
@@ -84,19 +84,19 @@
   @if (isLoading()) {
     <skeleton-loader variant="cards" [count]="6" />
   } @else if (filteredTemplates().length === 0) {
-    <div class="empty-state">
+    <div class="empty-state motion-fade">
       <svg lucideLayers class="empty-icon"></svg>
       <h3>No se encontraron entornos</h3>
       <p>Ajustá los filtros o solicitá una nueva tecnología al administrador.</p>
-      <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+      <button type="button" class="btn-primary" (click)="openRequestModal()">
         <svg lucidePlus class="btn-icon"></svg>
         <span>Solicitar Entorno</span>
       </button>
     </div>
   } @else {
     <div class="templates-grid">
-      @for (tpl of filteredTemplates(); track tpl.id) {
-        <article class="template-card">
+      @for (tpl of filteredTemplates(); track tpl.id; let i = $index) {
+        <article class="template-card motion-rise motion-stagger" [style.--motion-index]="i">
           <!-- Card Header -->
           <div class="card-header">
             <div class="category-meta">
@@ -123,7 +123,7 @@
           <div class="card-body">
             <div class="card-main-info">
               <div class="logo-wrapper">
-                <tech-logo [iconType]="tpl.primaryIcon || 'docker'" [size]="40" />
+                <tech-logo [iconType]="tpl.primaryIcon || 'docker'" [size]="56" />
               </div>
               <div class="title-wrap">
                 <h2 class="template-title">{{ tpl.name }}</h2>
@@ -140,7 +140,7 @@
                 @for (chip of tpl.techChips; track chip.name) {
                   <span class="tech-chip">
                     @if (chip.iconKey) {
-                      <tech-logo [iconType]="chip.iconKey" [size]="16" />
+                      <tech-logo [iconType]="chip.iconKey" [size]="24" />
                     }
                     <span class="chip-label">{{ chip.name }}</span>
                   </span>
@@ -153,33 +153,35 @@
           <div class="card-footer">
             <button
               type="button"
-              class="btn-detail"
-              (click)="openDetailModal(tpl)"
-              title="Ver especificaciones y herramientas detalladas"
-            >
-              <svg lucideInfo class="btn-icon-xs"></svg>
-              <span>Ver detalle</span>
-            </button>
-
-            <button
-              type="button"
-              class="btn-use-template"
+              class="btn-primary btn-use-template"
               (click)="createLabFromTemplate(tpl)"
               title="Crear un nuevo laboratorio con este entorno"
             >
-              <svg lucideSparkles class="btn-icon-xs"></svg>
-              <span>Usar en Laboratorio</span>
+              <svg lucideSparkles class="btn-icon"></svg>
+              <span>Usar en laboratorio</span>
             </button>
 
-            <button
-              type="button"
-              class="btn-variant"
-              (click)="requestVariant(tpl)"
-              title="Pedir un entorno parecido, cambiando alguna herramienta"
-            >
-              <svg lucideWand2 class="btn-icon-xs"></svg>
-              <span>Algo así, pero con…</span>
-            </button>
+            <div class="card-footer-secondary">
+              <button
+                type="button"
+                class="btn-outline btn-detail"
+                (click)="openDetailModal(tpl)"
+                title="Ver especificaciones y herramientas detalladas"
+              >
+                <svg lucideInfo class="btn-icon"></svg>
+                <span>Ver detalle</span>
+              </button>
+
+              <button
+                type="button"
+                class="btn-variant"
+                (click)="requestVariant(tpl)"
+                title="Pedir un entorno parecido a este, cambiando alguna herramienta"
+              >
+                <svg lucideWand2 class="btn-icon"></svg>
+                <span>Pedir una variante</span>
+              </button>
+            </div>
           </div>
         </article>
       }
@@ -191,19 +193,19 @@
     @if (requestsLoading()) {
       <skeleton-loader variant="cards" [count]="3" />
     } @else if (requests().length === 0) {
-      <div class="empty-state">
+      <div class="empty-state motion-fade">
         <svg lucideInbox class="empty-icon"></svg>
         <h3>Todavía no pediste ningún entorno</h3>
         <p>Cuando necesites herramientas que no están en el catálogo, cuéntanos qué deben hacer tus estudiantes.</p>
-        <button type="button" class="btn btn-primary" (click)="openRequestModal()">
+        <button type="button" class="btn-primary" (click)="openRequestModal()">
           <svg lucidePlus class="btn-icon"></svg>
           <span>Solicitar entorno</span>
         </button>
       </div>
     } @else {
       <div class="requests-list">
-        @for (req of requests(); track req.id) {
-          <article class="request-card">
+        @for (req of requests(); track req.id; let i = $index) {
+          <article class="request-card motion-rise motion-stagger" [style.--motion-index]="i">
             <div class="request-card-head">
               <div class="request-title-wrap">
                 <h3 class="request-card-title">{{ req.title }}</h3>
@@ -235,9 +237,9 @@
                 </span>
               }
               @if (req.status === 'APROBADA') {
-                <button type="button" class="btn-detail" (click)="setTab('catalog')">
+                <button type="button" class="btn-outline btn-see-catalog" (click)="setTab('catalog')">
                   <span>Ver en el catálogo</span>
-                  <svg lucideArrowRight class="btn-icon-xs"></svg>
+                  <svg lucideArrowRight class="btn-icon"></svg>
                 </button>
               }
             </div>
@@ -258,7 +260,7 @@
 
 <!-- Modal de Detalle de Entorno (Pedagógico + Técnico) -->
 @if (selectedTemplateForDetail(); as detailTpl) {
-  <template-detail-modal
+  <template-detail-modal animate.leave="motion-modal-out"
     [template]="detailTpl"
     (closed)="closeDetailModal()"
     (useTemplate)="onUseFromDetail($event)"
@@ -268,7 +270,7 @@
 <!-- Modal de Solicitud de Plantilla al Admin -->
 @if (isRequestModalOpen()) {
   <template-request-modal
-    [presetText]="requestPreset()"
+    [variantBase]="variantBaseName()"
     [presetStack]="requestPresetStack()"
     (closed)="closeRequestModal()"
     (requested)="onRequestSubmitted()"
@@ -277,7 +279,7 @@
 
 <!-- Modal Selector de Materia para Crear Actividad -->
 @if (isCoursePickerOpen() && targetTemplateForCourse(); as targetTpl) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="Seleccionar Curso"
     subtitle="Elige la materia en la que deseas crear una nueva actividad con este entorno."
     maxWidth="520px"

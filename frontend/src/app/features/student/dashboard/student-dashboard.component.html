@@ -1,308 +1,186 @@
-<div class="dashboard-container">
-  <!-- 1. HeaderGreeting: Saludo dinámico con prioridad y barra de personalización -->
-  <section class="greeting-banner">
-    <div class="greeting-content">
-      <h1 class="greeting-title">
-        {{ timeGreeting() }}, {{ studentFirstName() }}.
-      </h1>
-      <p class="greeting-subtitle">
-        @if (dueCount() > 0) {
-          Tienes <span class="highlight">{{ dueCount() }} entregas pendientes</span> para esta semana.
-        } @else {
-          Estás al día con todos tus laboratorios y evaluaciones prácticas.
-        }
-      </p>
+<section class="home">
+  <header class="home-header">
+    <div>
+      <h1>{{ timeGreeting() }}, {{ studentFirstName() }}.</h1>
+      <p class="home-summary">{{ summary() }}</p>
     </div>
+    <a class="btn btn-secondary" routerLink="/student/history">
+      <svg lucideHistory></svg>
+      <span>Mis entregas</span>
+    </a>
+  </header>
 
-    <div class="header-actions">
-      <button 
-        type="button" 
-        class="btn-customize" 
-        [class.active]="isCustomizing()"
-        (click)="toggleCustomize()"
-        [title]="isCustomizing() ? 'Guardar disposición' : 'Personalizar distribución de widgets'"
-        aria-label="Personalizar vista"
-      >
-        <svg lucideSliders class="btn-icon"></svg>
-        <span>{{ isCustomizing() ? 'Listo' : 'Personalizar' }}</span>
-      </button>
+  <div class="home-grid">
+    <div class="home-main">
+      <article class="home-card aula-now">
+        <header class="card-head">
+          <h2 class="card-title">Aula ahora</h2>
+          @if (primaryAula(); as clase) {
+            <span class="aula-state" [class]="'state-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
+          }
+        </header>
 
-      @if (isCustomizing()) {
-        <button 
-          type="button" 
-          class="btn-reset" 
-          (click)="resetLayout()"
-          title="Restablecer disposición original"
-          aria-label="Restablecer disposición"
-        >
-          <svg lucideRotateCcw class="btn-icon"></svg>
-          <span>Restablecer</span>
-        </button>
-      }
-    </div>
-  </section>
+        @if (aulaLoadError(); as message) {
+          <field-message variant="error" [message]="message" />
+        } @else if (primaryAula(); as clase) {
+          <div class="aula-identity">
+            <code class="subject-code">{{ clase.subject_code }}</code>
+            <h3>{{ clase.subject_name }}</h3>
+          </div>
 
-  <!-- 2. Bento Grid Drag & Drop Container -->
-  <div 
-    class="bento-grid-12" 
-    cdkDropList 
-    (cdkDropListDropped)="onDropWidget($event)"
-    [cdkDropListDisabled]="!isCustomizing()"
-  >
-    @for (widget of visibleWidgets(); track widget.id) {
-      <div 
-        class="bento-widget col-span-{{ widget.colSpan }}"
-        [class.widget-editing]="isCustomizing()"
-        [class.widget-hidden]="!widget.visible"
-        cdkDrag
-      >
-        <!-- Toolbar de Personalización (visible sólo en modo edición) -->
-        @if (isCustomizing()) {
-          <div class="widget-customize-toolbar">
-            <div class="drag-handle" cdkDragHandle title="Arrastrar para reordenar">
-              <svg lucideGripVertical class="drag-icon"></svg>
-              <span class="widget-title-preview">{{ widget.title }}</span>
-            </div>
-
-            <div class="widget-controls">
-              <!-- Selector de Ancho (Pills de Colspan) -->
-              <div class="colspan-pills">
-                <button 
-                  type="button" 
-                  class="pill-btn" 
-                  [class.active]="widget.colSpan === 4" 
-                  (click)="setWidgetColSpan(widget.id, 4)"
-                  title="33% de ancho"
-                >33%</button>
-                <button 
-                  type="button" 
-                  class="pill-btn" 
-                  [class.active]="widget.colSpan === 6" 
-                  (click)="setWidgetColSpan(widget.id, 6)"
-                  title="50% de ancho"
-                >50%</button>
-                <button 
-                  type="button" 
-                  class="pill-btn" 
-                  [class.active]="widget.colSpan === 8" 
-                  (click)="setWidgetColSpan(widget.id, 8)"
-                  title="66% de ancho"
-                >66%</button>
-                <button 
-                  type="button" 
-                  class="pill-btn" 
-                  [class.active]="widget.colSpan === 12" 
-                  (click)="setWidgetColSpan(widget.id, 12)"
-                  title="100% de ancho completo"
-                >100%</button>
-              </div>
-
-              <!-- Toggle Visibilidad -->
-              <button 
-                type="button" 
-                class="btn-visibility" 
-                [class.hidden-state]="!widget.visible"
-                (click)="toggleWidgetVisibility(widget.id)"
-                [title]="widget.visible ? 'Ocultar widget' : 'Mostrar widget'"
-                [attr.aria-label]="widget.visible ? 'Ocultar widget' : 'Mostrar widget'"
-              >
-                @if (widget.visible) {
-                  <svg lucideEye class="ctrl-icon"></svg>
+          <dl class="aula-meta">
+            <div>
+              <dt>Práctica</dt>
+              <dd>
+                @if (clase.exercise_title) {
+                  {{ clase.exercise_title }}
                 } @else {
-                  <svg lucideEyeOff class="ctrl-icon"></svg>
+                  Sin práctica asociada
                 }
-              </button>
+              </dd>
             </div>
+            <div>
+              <dt>Horario</dt>
+              <dd>
+                <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText:'time' }}</time>
+                –
+                <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText:'time' }}</time>
+              </dd>
+            </div>
+            <div>
+              <dt>En el aula</dt>
+              <dd>
+                <span machineData>{{ clase.present }}</span> de
+                <span machineData>{{ clase.enrolled }}</span>
+              </dd>
+            </div>
+          </dl>
+
+          <div class="card-actions">
+            <a class="btn btn-primary" routerLink="/student/aula">Entrar al aula</a>
+            @if (otherAulaCount() > 0) {
+              <a class="link-quiet" routerLink="/student/aula">
+                Ver las <span machineData>{{ aulas().length }}</span> clases
+              </a>
+            }
+          </div>
+        } @else {
+          <p class="empty-copy">
+            No tienes clase abierta. Cuando el docente abra el aula de una práctica, aparece acá con su horario.
+          </p>
+          <div class="card-actions">
+            <a class="btn btn-secondary" routerLink="/student/courses">
+              <svg lucideBookOpen></svg>
+              <span>Ver mis prácticas</span>
+            </a>
           </div>
         }
+      </article>
 
-        <!-- Contenido del Widget según ID -->
-        @switch (widget.id) {
-          @case ('labs') {
-            <div class="card widget-labs">
-              <div class="card-header">
-                <div class="header-title">
-                  <svg lucideBookOpen class="header-icon"></svg>
-                  <h2>Mis Laboratorios Activos</h2>
-                </div>
-                <span class="badge-counter">{{ subjects().length }} Materias</span>
-              </div>
-
-              <div class="labs-list">
-                @for (item of subjects(); track item.subject.id) {
-                  <div 
-                    class="lab-item"
-                    [style.--course-accent]="getCourseColor(item.subject.id, item.subject.code)"
-                    [style.--course-accent-bg]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBg"
-                    [style.--course-accent-border]="getCourseThemeStyle(item.subject.id, item.subject.code).accentBorder"
-                  >
-                    @if (activeColorPickerCourseId() === item.subject.id) {
-                      <div 
-                        class="course-color-popover" 
-                        dismissible 
-                        [dismissExclude]="subjectIdentityBtn"
-                        (dismiss)="activeColorPickerCourseId.set(null)"
-                      >
-                        <course-color-picker
-                          [courseId]="item.subject.id"
-                          [courseCode]="item.subject.code"
-                          [selectedColor]="getCourseColor(item.subject.id, item.subject.code)"
-                          (colorChange)="onCourseColorChanged(item.subject.id, $event)"
-                        ></course-color-picker>
-                      </div>
-                    }
-
-                    <div class="lab-main">
-                      <div class="lab-meta">
-                        <button 
-                          #subjectIdentityBtn
-                          type="button"
-                          class="subject-identity-btn"
-                          (click)="toggleCourseColorPicker(item.subject.id, $event)"
-                          title="Click para cambiar el color de la materia"
-                          aria-label="Cambiar color del curso"
-                        >
-                          <span class="course-color-dot"></span>
-                          <span class="subject-code" machineData>{{ item.subject.code }}</span>
-                          <svg lucidePalette class="color-picker-hint-icon"></svg>
-                        </button>
-                        <a [routerLink]="['/student/courses', item.subject.id]" class="subject-name-link" title="Ver detalle del curso y mapa curricular">
-                          <span class="subject-name">{{ item.subject.name }}</span>
-                        </a>
-                      </div>
-
-                      <div class="lab-status">
-                        @if (item.active_workspace) {
-                          <status-badge [status]="item.active_workspace.status" />
-                          <span class="lab-details">Entorno de práctica listo</span>
-                        } @else {
-                          <span class="no-workspace-text">Sin entorno instanciado</span>
-                        }
-                      </div>
-                    </div>
-
-                    <!-- Botón con Dualidad de Estado Absorbida -->
-                    <div class="lab-action">
-                      @if (item.active_workspace) {
-                        @switch (item.active_workspace.status) {
-                          @case ('running') {
-                            <button class="btn btn-running" (click)="openIDE(item)">
-                              <svg lucidePlay class="btn-icon"></svg>
-                              <span>Abrir IDE</span>
-                            </button>
-                          }
-                          @case ('hibernated') {
-                            <button class="btn btn-hibernated" (click)="resumeIDE(item)" [disabled]="isActionLoading()">
-                              <svg lucideRotateCw class="btn-icon"></svg>
-                              <span>Reanudar</span>
-                            </button>
-                          }
-                          @default {
-                            <button class="btn btn-neutral" (click)="resumeIDE(item)">
-                              <svg lucideRotateCw class="btn-icon"></svg>
-                              <span>Reiniciar</span>
-                            </button>
-                          }
-                        }
-                      } @else {
-                        <button class="btn btn-primary" (click)="startNewWorkspace(item)" [disabled]="isActionLoading()">
-                          <svg lucidePlus class="btn-icon"></svg>
-                          <span>Iniciar Entorno</span>
-                        </button>
-                      }
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="empty-state">
-                    <p>No tienes materias matriculadas actualmente.</p>
-                  </div>
-                }
-              </div>
-            </div>
+      <article class="home-card">
+        <header class="card-head">
+          <h2 class="card-title">Próximas entregas</h2>
+          @if (dueCount() > 0) {
+            <span class="card-count" machineData>{{ dueCount() }}</span>
           }
+        </header>
 
-          @case ('agenda') {
-            <div class="card widget-agenda">
-              <div class="card-header">
-                <div class="header-title">
-                  <svg lucideClock class="header-icon text-warning"></svg>
-                  <h3>Para Hoy &bull; Próximas Entregas</h3>
-                </div>
-              </div>
-
-              <div class="agenda-list">
-                @for (due of dueAssignments(); track due.exercise_id) {
-                  <div class="agenda-item">
-                    <div class="agenda-urgency">
-                      <span class="due-tag">Entrega</span>
-                    </div>
-                    <div class="agenda-body">
-                      <span class="agenda-title">{{ due.title }}</span>
-                      <span class="agenda-sub">{{ due.subject_name }} (<span machineData>{{ due.subject_code }}</span>)</span>
-                      <span class="agenda-date">
-                        <svg lucideClock class="date-icon"></svg>
-                        <time [attr.datetime]="due.due_date">{{ due.due_date | dateText:'datetime' }}</time>
-                      </span>
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="empty-state">
-                    <p>No hay entregas urgentes pendientes.</p>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          @case ('progress') {
-            <div class="card widget-progress">
-              <div class="card-header">
-                <h3>Mi Progreso (Semestre Activo)</h3>
-                <span class="badge-counter" machineData>{{ globalProgressPercent() }}% Global</span>
-              </div>
-              <div class="progress-bars">
-                @for (item of subjects(); track item.subject.id) {
-                  <div class="progress-item">
-                    <div class="progress-label">
-                      <span>{{ item.subject.name }} (<span machineData>{{ item.subject.code }}</span>)</span>
-                      <span class="progress-val" machineData>{{ item.progress_percent ?? 0 }}%</span>
-                    </div>
-                    <div class="progress-track">
-                      <div class="progress-fill" [style.width.%]="item.progress_percent ?? 0"></div>
-                    </div>
-                  </div>
-                } @empty {
-                  <div class="empty-state">
-                    <p>Sin progreso registrado en materias activas.</p>
-                  </div>
-                }
-              </div>
-            </div>
-          }
-
-          @case ('recent') {
-            <div class="card widget-recent">
-              <div class="card-header">
-                <h3>Accesos Recientes</h3>
-              </div>
-              <ul class="recent-list">
-                @for (sub of recentSubmissions(); track sub.id) {
-                  <li class="recent-item">
-                    <span class="recent-bullet"></span>
-                    <span class="recent-text">{{ sub.exercise_title || 'Ejercicio' }}</span>
-                    <verdict-badge [verdict]="sub.verdict" size="sm" />
-                    <time class="recent-time" [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
-                  </li>
-                } @empty {
-                  <li class="empty-state">
-                    <p>Aún no registras entregas recientes.</p>
-                  </li>
-                }
-              </ul>
-            </div>
-          }
+        @if (dueLoadFailed()) {
+          <field-message variant="error" message="No pudimos leer tus entregas pendientes." />
+        } @else if (dueSoon().length === 0) {
+          <p class="empty-copy">No hay entregas próximas.</p>
+        } @else {
+          <ul class="row-list">
+            @for (due of dueSoon(); track due.exercise_id) {
+              <li>
+                <a class="row-link" [routerLink]="['/student/exercises', due.exercise_id]">
+                  <span class="row-main">
+                    <span class="row-title">{{ due.title }}</span>
+                    <span class="row-sub">{{ due.subject_name }} <code>{{ due.subject_code }}</code></span>
+                  </span>
+                  <time class="row-time" [attr.datetime]="due.due_date">
+                    {{ due.due_date | dateText:'datetime' }}
+                  </time>
+                  <svg lucideArrowRight class="row-arrow"></svg>
+                </a>
+              </li>
+            }
+          </ul>
         }
-      </div>
-    }
+      </article>
+
+      <article class="home-card">
+        <header class="card-head">
+          <h2 class="card-title">Tus materias</h2>
+          <span class="card-count">
+            <span machineData>{{ globalProgressPercent() }}%</span> del semestre
+          </span>
+        </header>
+
+        @if (subjects().length === 0) {
+          <p class="empty-copy">No tienes materias matriculadas.</p>
+        } @else {
+          <ul class="row-list">
+            @for (item of subjects(); track item.subject.id) {
+              <li>
+                <a class="course-row" [routerLink]="['/student/courses', item.subject.id]">
+                  <span class="course-main">
+                    <code class="subject-code">{{ item.subject.code }}</code>
+                    <span class="row-title">{{ item.subject.name }}</span>
+                  </span>
+                  <span class="course-progress">
+                    <span machineData>{{ item.completed_exercises ?? 0 }}/{{ item.total_exercises ?? 0 }}</span>
+                    <span class="progress-track">
+                      <span class="progress-fill" [style.width.%]="item.progress_percent ?? 0"></span>
+                    </span>
+                  </span>
+                </a>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+    </div>
+
+    <aside class="home-side">
+      <article class="home-card">
+        <header class="card-head">
+          <h2 class="card-title">Últimas entregas</h2>
+          <a class="link-quiet" routerLink="/student/history">Historial</a>
+        </header>
+
+        @if (recent().length === 0) {
+          <p class="empty-copy">Aún no registras entregas.</p>
+        } @else {
+          <ul class="recent-list">
+            @for (sub of recent(); track sub.id) {
+              <li class="recent-item">
+                <span class="row-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                <span class="recent-meta">
+                  <verdict-badge [verdict]="sub.verdict" size="sm" />
+                  <time [attr.datetime]="sub.submitted_at">
+                    {{ sub.submitted_at | dateText:'compact-datetime' }}
+                  </time>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      <article class="home-card reminder">
+        <div class="reminder-head">
+          <svg lucideUsers></svg>
+          <h2 class="card-title">Mientras estás en clase</h2>
+        </div>
+        <p class="empty-copy">
+          Tu presencia se envía sola mientras la pestaña está abierta, así el docente sabe quién está en el aula.
+        </p>
+        <div class="reminder-foot">
+          <svg lucideCalendarClock></svg>
+          <span>Los avances del docente se aplican desde el aula o desde la práctica.</span>
+        </div>
+      </article>
+    </aside>
   </div>
-</div>
+</section>

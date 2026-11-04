@@ -28,15 +28,15 @@ export interface EmergencyActionResult {
 /** Acciones de emergencia reales del backend (ADR-032). */
 export const EMERGENCY_ACTIONS = [
   {
-    id: 'terminate_all_workspaces',
-    label: 'Terminar todos los workspaces',
+    id: 'terminate_all_environments',
+    label: 'Terminar todos los environments',
     phrase: 'TERMINAR TODOS LOS WORKSPACES',
     impact: 'destructiva' as const,
     description: 'Detiene y destruye todos los contenedores activos del tenant.'
   },
   {
-    id: 'hibernate_all_workspaces',
-    label: 'Hibernar todos los workspaces',
+    id: 'hibernate_all_environments',
+    label: 'Hibernar todos los environments',
     phrase: 'HIBERNAR TODOS LOS WORKSPACES',
     impact: 'operativa' as const,
     description: 'Pausa todos los contenedores activos preservando su estado.'

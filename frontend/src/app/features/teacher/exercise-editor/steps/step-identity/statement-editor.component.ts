@@ -127,7 +127,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
       }
 
       <!-- Contenedor Principal de Edición y Visualización -->
-      <div class="editor-workspace" [class]="'mode-' + viewMode()">
+      <div class="editor-environment" [class]="'mode-' + viewMode()">
         <!-- Panel Editor -->
         @if (viewMode() === 'edit' || viewMode() === 'split') {
           <div class="editor-pane">

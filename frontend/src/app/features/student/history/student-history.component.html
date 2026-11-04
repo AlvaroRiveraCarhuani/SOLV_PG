@@ -104,7 +104,7 @@
   }
 
   @if (selectedSubmission(); as selected) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       [title]="selected.exercise_title || 'Detalle de entrega'"
       [subtitle]="selected.subject_name"
       maxWidth="720px"

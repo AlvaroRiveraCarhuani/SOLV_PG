@@ -119,17 +119,11 @@
           }
 
           <div class="course-status">
-            @if (item.active_workspace) {
-              <status-badge [status]="item.active_workspace.status" />
-              <span class="course-status-text">Entorno de práctica listo</span>
-            } @else {
-              <span class="course-status-text">Entorno disponible bajo demanda</span>
-            }
+            <span class="course-status-text">El entorno se abre desde cada práctica</span>
           </div>
 
           <footer class="course-actions">
             <a class="action-link action-link-primary" [routerLink]="['/student/courses', item.subject.id]">Ver mapa curricular</a>
-            <a class="action-link action-link-secondary" [routerLink]="['/student/workspaces', item.subject.id]">Abrir laboratorio</a>
           </footer>
         </article>
       }

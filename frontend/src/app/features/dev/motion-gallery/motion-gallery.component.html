@@ -1,0 +1,622 @@
+<div class="motion-gallery" [attr.data-motion-demo]="mode()">
+
+  <header class="gallery-header">
+    <div class="gallery-heading">
+      <p class="gallery-kicker">Herramienta interna de desarrollo</p>
+      <h1 class="gallery-title">Galería de animaciones</h1>
+      <p class="gallery-subtitle">
+        Las primitivas que ya existen en el sistema, con su clase, su duración y su comportamiento
+        con movimiento reducido. Antes de escribir una animación nueva, se busca aquí la que cubre el caso.
+      </p>
+    </div>
+
+    <a class="gallery-link" routerLink="/admin/dashboard">
+      <svg lucideArrowLeft class="gallery-link-icon"></svg>
+      Volver al panel
+    </a>
+  </header>
+
+  <div class="gallery-toolbar-slot">
+    <div class="gallery-toolbar">
+      <div class="mode-control" role="group" aria-label="Modo de movimiento de la galería">
+        <span class="mode-label">Movimiento</span>
+        <button
+          type="button"
+          class="mode-option"
+          [class.is-active]="mode() === 'normal'"
+          [attr.aria-pressed]="mode() === 'normal'"
+          (click)="setMode('normal')"
+        >
+          Normal
+        </button>
+        <button
+          type="button"
+          class="mode-option"
+          [class.is-active]="mode() === 'reduced'"
+          [attr.aria-pressed]="mode() === 'reduced'"
+          (click)="setMode('reduced')"
+        >
+          Reducido
+        </button>
+      </div>
+
+      <div class="toolbar-actions">
+        <button type="button" class="toolbar-button" (click)="playEntries()">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir entradas
+        </button>
+        <button type="button" class="toolbar-button" (click)="playExits()">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir salidas
+        </button>
+        <button type="button" class="toolbar-button" (click)="resetDemos()">
+          <svg lucideRotateCcw class="toolbar-icon"></svg>
+          Reiniciar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <p class="gallery-note">
+    @if (systemPrefersReduced()) {
+      <span class="note-flag">Tu sistema pide movimiento reducido</span>
+      y la galería arrancó en ese modo.
+    }
+    El modo reducido replica solo dentro de esta página las reglas de
+    <code>prefers-reduced-motion: reduce</code> que ya aplica SOLV; el resto de la aplicación
+    sigue obedeciendo la preferencia real del sistema, no este control.
+  </p>
+
+  <!-- A. Indicadores de carga -->
+  <section class="gallery-section" aria-labelledby="section-loading">
+    <header class="section-header">
+      <h2 class="section-title" id="section-loading">Indicadores de carga</h2>
+      <p class="section-subtitle">
+        Comunican que algo está en curso. Son las únicas animaciones en bucle admitidas.
+      </p>
+    </header>
+
+    <div class="card-grid">
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-spin</code>
+          <span class="card-tag">bucle</span>
+        </header>
+        <p class="card-purpose">
+          La única forma de girar un icono. Siempre acompañado de un texto que dice qué se está cargando.
+        </p>
+        <div class="card-stage stage-center">
+          <svg lucideLoader2 class="motion-spin stage-spinner"></svg>
+          <span class="stage-caption">Cargando el panel…</span>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>1 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>linear</code></dd></div>
+        </dl>
+        <p class="card-note">En movimiento reducido sigue girando: es la señal de la operación, no decoración.</p>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">skeleton · shimmer</code>
+          <span class="card-tag">bucle</span>
+        </header>
+        <p class="card-purpose">
+          Marcador de contenido mientras llega la respuesta. El barrido va en el componente compartido
+          <code>skeleton</code>, con <code>animation="shimmer"</code>.
+        </p>
+        <div class="card-stage stage-stack stage-skeleton">
+          <skeleton width="100%" height="0.75rem"></skeleton>
+          <skeleton width="72%" height="0.75rem"></skeleton>
+          <skeleton width="48%" height="0.75rem"></skeleton>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>2 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>linear</code></dd></div>
+        </dl>
+        <p class="card-note">En reducido conserva la forma y pierde el barrido.</p>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">skeleton · pulse</code>
+          <span class="card-tag">bucle</span>
+        </header>
+        <p class="card-purpose">
+          La misma pieza compartida con <code>animation="pulse"</code>, para listas y tarjetas que
+          prefieren latido suave en vez de barrido.
+        </p>
+        <div class="card-stage stage-stack stage-skeleton">
+          <skeleton width="100%" height="0.75rem" [animation]="'pulse'"></skeleton>
+          <skeleton width="64%" height="0.75rem" [animation]="'pulse'"></skeleton>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>1.5 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>ease-in-out</code></dd></div>
+        </dl>
+        <p class="card-note">En reducido se apaga y queda el bloque en su tono plano.</p>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">status-badge</code>
+          <span class="card-tag">bucle</span>
+        </header>
+        <p class="card-purpose">
+          Punto de estado de un environment. Solo <code>running</code> late; los demás estados quedan fijos
+          para no confundir un estado detenido con uno activo.
+        </p>
+        <div class="card-stage stage-center stage-row">
+          <status-badge status="running"></status-badge>
+          <status-badge status="pending"></status-badge>
+          <status-badge status="hibernated"></status-badge>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>2 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>ease-in-out</code></dd></div>
+        </dl>
+        <p class="card-note">En reducido el latido se apaga; la etiqueta y el color siguen explicando el estado.</p>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">typing-dot</code>
+          <span class="card-tag">local</span>
+        </header>
+        <p class="card-purpose">
+          Tres puntos de “escribiendo” en la telemetría del aula. Vive dentro de su componente y solo
+          aparece con datos de sesión reales, así que aquí no se reproduce.
+        </p>
+        <div class="card-stage stage-note">
+          <p class="stage-note-title">Sin vista previa</p>
+          <p class="stage-note-text">
+            El efecto está en <code>aula-telemetry-widget.component.scss</code> y se ve en el aula cuando
+            un estudiante está escribiendo. No se copia acá para no duplicar la animación.
+          </p>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>1.4 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>ease-in-out</code></dd></div>
+        </dl>
+        <p class="card-note">En reducido se apaga; el texto “Escribiendo” sigue visible.</p>
+      </article>
+    </div>
+  </section>
+
+  <!-- B. Entradas -->
+  <section class="gallery-section" aria-labelledby="section-enter">
+    <header class="section-header">
+      <h2 class="section-title" id="section-enter">Animaciones de entrada</h2>
+      <p class="section-subtitle">
+        Se aplican al aparecer el elemento. Viven en <code>_animations.scss</code> y no se redefinen por vista.
+      </p>
+    </header>
+
+    <div class="card-grid">
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-fade</code>
+        </header>
+        <p class="card-purpose">Aparece solo con opacidad. Para bloques que ya están en su lugar.</p>
+        <div class="card-stage stage-center">
+          @for (run of tokenOf('fade'); track run) {
+            <div class="stage-tile motion-fade">Bloque visible</div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-standard</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-fade" (click)="playEntry('fade')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-rise</code>
+        </header>
+        <p class="card-purpose">Entra desde abajo con un desplazamiento corto. Contenido, tarjetas y filas.</p>
+        <div class="card-stage stage-center">
+          @for (run of tokenOf('rise'); track run) {
+            <div class="stage-tile motion-rise">Tarjeta que entra</div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>220 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-enter</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-rise" (click)="playEntry('rise')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-panel</code>
+        </header>
+        <p class="card-purpose">Diálogos y paneles que se abren sobre la vista, con escala leve.</p>
+        <div class="card-stage stage-center">
+          @for (run of tokenOf('panel'); track run) {
+            <div class="stage-panel motion-panel">
+              <span class="stage-panel-title">Diálogo</span>
+              <span class="stage-panel-text">Entra con escala y opacidad.</span>
+            </div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>220 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-enter</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-panel" (click)="playEntry('panel')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-backdrop</code>
+        </header>
+        <p class="card-purpose">Fondo de un overlay. Se usa junto al panel que abre.</p>
+        <div class="card-stage stage-screen">
+          <div class="stage-underlay">
+            <span class="stage-screen-text">Contenido de la vista</span>
+          </div>
+          @for (run of tokenOf('backdrop'); track run) {
+            <div class="stage-backdrop motion-backdrop"></div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>linear</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-backdrop" (click)="playEntry('backdrop')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.animate-dropdown</code>
+        </header>
+        <p class="card-purpose">Menús y popovers. Comparte la clase histórica con <code>.dropdown-enter</code>.</p>
+        <div class="card-stage stage-dropdown">
+          @for (run of tokenOf('dropdown'); track run) {
+            <div class="stage-menu animate-dropdown">
+              <span class="stage-menu-item">Editar</span>
+              <span class="stage-menu-item">Duplicar</span>
+              <span class="stage-menu-item">Archivar</span>
+            </div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-enter</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de animate-dropdown" (click)="playEntry('dropdown')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-drawer</code>
+        </header>
+        <p class="card-purpose">Cajón lateral que entra desde el borde derecho.</p>
+        <div class="card-stage stage-clip">
+          @for (run of tokenOf('drawer'); track run) {
+            <div class="stage-drawer motion-drawer">
+              <span class="stage-panel-title">Índice</span>
+              <span class="stage-panel-text">Contenido del manual</span>
+            </div>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-enter</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-drawer" (click)="playEntry('drawer')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-chip</code>
+        </header>
+        <p class="card-purpose">Pieza que se suma a una lista que ya está visible.</p>
+        <div class="card-stage stage-center">
+          @for (run of tokenOf('chip'); track run) {
+            <span class="stage-chip motion-chip">Precálculo</span>
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-enter</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la entrada de motion-chip" (click)="playEntry('chip')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-stagger</code>
+          <span class="card-tag">modificador</span>
+        </header>
+        <p class="card-purpose">
+          No anima por sí solo: retrasa cada elemento de una lista. Se combina con
+          <code>.motion-rise</code> y <code>[style.--motion-index]</code>.
+        </p>
+        <div class="card-stage stage-stack">
+          @for (run of tokenOf('stagger'); track run) {
+            @for (row of staggerRows; track row) {
+              <div class="stage-bar motion-rise motion-stagger" [style.--motion-index]="row">
+                Fila {{ row + 1 }}
+              </div>
+            }
+          }
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Espera</dt><dd><code>40 ms</code> por fila</dd></div>
+          <div class="meta-item"><dt>Tope</dt><dd><code>320 ms</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir el escalonado de las filas" (click)="playEntry('stagger')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+    </div>
+  </section>
+
+  <!-- C. Salidas -->
+  <section class="gallery-section" aria-labelledby="section-exit">
+    <header class="section-header">
+      <h2 class="section-title" id="section-exit">Animaciones de salida</h2>
+      <p class="section-subtitle">
+        Se activan con <code>animate.leave</code> sobre el elemento que el template retira. Salen más
+        rápido que las entradas y bloquean los clics mientras duran.
+      </p>
+    </header>
+
+    <div class="card-grid">
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-fade-out</code>
+        </header>
+        <p class="card-purpose">Pérdida simple de opacidad. Para bloques que solo desaparecen.</p>
+        <div class="card-stage stage-center">
+          <div class="stage-tile" [class.motion-fade-out]="exiting()['fade-out']">Bloque que se va</div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-fade-out" (click)="playExit('fade-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-backdrop-out</code>
+        </header>
+        <p class="card-purpose">Fondo de un overlay propio que se retira.</p>
+        <div class="card-stage stage-screen">
+          <div class="stage-underlay">
+            <span class="stage-screen-text">Contenido de la vista</span>
+          </div>
+          <div class="stage-backdrop" [class.motion-backdrop-out]="exiting()['backdrop-out']"></div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-backdrop-out" (click)="playExit('backdrop-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-panel-out</code>
+        </header>
+        <p class="card-purpose">Panel o diálogo que se cierra con una escala leve hacia abajo.</p>
+        <div class="card-stage stage-center">
+          <div class="stage-panel" [class.motion-panel-out]="exiting()['panel-out']">
+            <span class="stage-panel-title">Diálogo</span>
+            <span class="stage-panel-text">Se cierra con escala.</span>
+          </div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-panel-out" (click)="playExit('panel-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-drawer-out</code>
+        </header>
+        <p class="card-purpose">Cajón lateral que vuelve hacia su borde.</p>
+        <div class="card-stage stage-clip">
+          <div class="stage-drawer" [class.motion-drawer-out]="exiting()['drawer-out']">
+            <span class="stage-panel-title">Índice</span>
+            <span class="stage-panel-text">Se retira a la derecha</span>
+          </div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-drawer-out" (click)="playExit('drawer-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-dropdown-out</code>
+        </header>
+        <p class="card-purpose">Menú o popover que se cierra. Es la salida más corta del catálogo.</p>
+        <div class="card-stage stage-dropdown">
+          <div class="stage-menu" [class.motion-dropdown-out]="exiting()['dropdown-out']">
+            <span class="stage-menu-item">Editar</span>
+            <span class="stage-menu-item">Duplicar</span>
+            <span class="stage-menu-item">Archivar</span>
+          </div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>80 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-dropdown-out" (click)="playExit('dropdown-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.motion-modal-out</code>
+        </header>
+        <p class="card-purpose">
+          Modal completo: el elemento marcado aporta la duración, el fondo se funde y el diálogo
+          acompaña con escala. Es la clase que llevan los <code>modal-shell</code>.
+        </p>
+        <div class="card-stage stage-screen">
+          <span class="stage-screen-text">Contenido de la vista</span>
+          <div class="stage-modal" [class.motion-modal-out]="exiting()['modal-out']">
+            <div class="modal-backdrop stage-modal-backdrop"></div>
+            <div class="modal-dialog stage-modal-dialog">
+              <span class="stage-panel-title">Registrar docente</span>
+              <span class="stage-panel-text">Fondo y diálogo salen juntos.</span>
+            </div>
+          </div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>150 ms</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>--motion-ease-exit</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Reproducir la salida de motion-modal-out" (click)="playExit('modal-out')">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Reproducir
+        </button>
+      </article>
+    </div>
+  </section>
+
+  <!-- D. Otros efectos -->
+  <section class="gallery-section" aria-labelledby="section-other">
+    <header class="section-header">
+      <h2 class="section-title" id="section-other">Otros efectos</h2>
+      <p class="section-subtitle">
+        Efectos funcionales que siguen en uso. Los globales se pueden probar acá; los locales viven
+        dentro de su vista y se consultan en el archivo que se indica.
+      </p>
+    </header>
+
+    <div class="card-grid">
+      <article class="motion-card">
+        <header class="card-header">
+          <code class="card-token">.highlight-target-pulse</code>
+          <span class="card-tag">global</span>
+        </header>
+        <p class="card-purpose">
+          Enfoque asistido: resalta durante 1.8 s el campo al que llevó un enlace de diagnóstico.
+          Se usa en la lista de publicación del editor de ejercicios.
+        </p>
+        <div class="card-stage stage-center">
+          <div class="stage-target" [class.highlight-target-pulse]="highlighting()">
+            Campo de diagnóstico
+          </div>
+        </div>
+        <dl class="card-meta">
+          <div class="meta-item"><dt>Duración</dt><dd><code>1.4 s</code></dd></div>
+          <div class="meta-item"><dt>Curva</dt><dd><code>ease-out</code></dd></div>
+        </dl>
+        <button type="button" class="card-replay" aria-label="Resaltar el campo de diagnóstico" (click)="highlight()">
+          <svg lucidePlay class="toolbar-icon"></svg>
+          Resaltar
+        </button>
+      </article>
+    </div>
+
+    <div class="local-effects">
+      <h3 class="local-effects-title">Efectos locales por vista</h3>
+      <p class="local-effects-text">
+        No tienen clase compartida: pertenecen al componente que los usa y solo se reproducen allí.
+        Si un caso nuevo se parece a uno de estos, se reutiliza el componente antes de escribir otro keyframe.
+      </p>
+
+      <table class="effects-table">
+        <thead>
+          <tr>
+            <th scope="col">Efecto</th>
+            <th scope="col">Dónde vive</th>
+            <th scope="col">Para qué</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>pulse-indicator</code></td>
+            <td><code>status-badge.component.scss</code></td>
+            <td>Estado <code>running</code> de un environment</td>
+          </tr>
+          <tr>
+            <td><code>skeleton-shimmer</code> · <code>skeleton-pulse</code></td>
+            <td><code>skeleton.component.scss</code></td>
+            <td>Marcadores de carga con barrido o latido</td>
+          </tr>
+          <tr>
+            <td><code>typing-dot</code> · <code>executing-pulse</code> · <code>live-pulse-ring</code></td>
+            <td><code>aula-telemetry-widget.component.scss</code></td>
+            <td>Actividad de la sesión en el aula</td>
+          </tr>
+          <tr>
+            <td><code>blink</code></td>
+            <td><code>shadow-terminal-modal.component.scss</code></td>
+            <td>Cursor de la terminal del estudiante</td>
+          </tr>
+          <tr>
+            <td><code>bannerSlideDown</code> · <code>pulseLiveDot</code></td>
+            <td><code>admin-dashboard.component.scss</code></td>
+            <td>Aviso superior y punto de sesión en vivo</td>
+          </tr>
+          <tr>
+            <td><code>shimmer</code></td>
+            <td><code>login.component.scss</code></td>
+            <td>Barrido del inicio de sesión</td>
+          </tr>
+          <tr>
+            <td><code>pulse</code></td>
+            <td><code>recommendations-panel.component.scss</code></td>
+            <td>Recomendación que pide atención</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer class="gallery-footer">
+    <p>
+      Para una animación nueva, primero se busca la primitiva acá. Si ninguna cubre el caso, se agrega a
+      <code>_animations.scss</code> con su salida y su regla de movimiento reducido, y se documenta en
+      <code>docs/UI/GUIA_ESTILOS_TOKENS.md</code>.
+    </p>
+  </footer>
+</div>

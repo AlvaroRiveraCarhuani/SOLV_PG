@@ -2,140 +2,134 @@
   <div class="section-header-row">
     <div class="title-with-icon">
       <svg lucideClipboardList class="header-icon"></svg>
-      <h3 class="card-title">Rúbrica de Evaluación Cualitativa</h3>
+      <div>
+        <h3 class="card-title">Criterios de Evaluación y Rúbrica</h3>
+        <p class="section-desc">
+          Definí los aspectos a calificar. Se aplica la escala estándar automáticamente sin redactar textos repetitivos.
+        </p>
+      </div>
     </div>
-    <div class="rubric-header-actions">
-      <combobox
-        [options]="rubricPresetOptions()"
-        [placeholder]="'Cargar plantilla de rúbrica...'"
-        [compact]="true"
-        [showSearchIcon]="false"
-        (optionSelected)="presetSelected.emit($event.value)"
-        inputAriaLabel="Cargar plantilla de rúbrica"
-      />
-      <button type="button" class="btn-primary btn-sm" (click)="addCriterion.emit()">
-        <svg lucidePlus class="btn-icon"></svg>
-        <span>Agregar criterio</span>
-      </button>
+
+    <div class="rubric-status-badges">
+      <span class="rubric-scale-badge">
+        Escala: <strong>Logrado (100%) · Parcial (50%) · No logrado (0%)</strong>
+      </span>
+      <span
+        class="rubric-balance-badge font-mono"
+        [class.valid]="totalRubricWeight() === 100"
+        [class.invalid]="totalRubricWeight() !== 100"
+        machineData
+      >
+        @if (totalRubricWeight() === 100) {
+          <svg lucideCheckCircle2 class="badge-icon icon-success"></svg>
+          <span>Total: 100% · Balanceado ✓</span>
+        } @else {
+          <svg lucideAlertTriangle class="badge-icon icon-danger"></svg>
+          <span>Total: {{ totalRubricWeight() }}% · Debe sumar 100%</span>
+        }
+      </span>
+
+      @if (totalRubricWeight() !== 100 && (rubric()?.criteria?.length || 0) > 0) {
+        <button type="button" class="btn-balance-action" (click)="balanceEqually.emit()" title="Repartir pesos equitativamente para sumar 100%">
+          <svg lucideScale class="btn-icon-xs"></svg>
+          <span>Balancear al 100%</span>
+        </button>
+      }
     </div>
-  </div>
-
-  <p class="section-desc">
-    Define los criterios de evaluación cualitativa y sus niveles de logro. La suma de pesos de los criterios debe ser exactamente 100%.
-  </p>
-
-  <div class="weight-total-banner" [class.valid]="totalRubricWeight() === 100" [class.invalid]="totalRubricWeight() !== 100">
-    @if (totalRubricWeight() === 100) {
-      <svg lucideCheckCircle2 class="banner-icon icon-success"></svg>
-      <span>Ponderación total balanceada: <strong machineData>100%</strong></span>
-    } @else {
-      <svg lucideAlertTriangle class="banner-icon icon-danger"></svg>
-      <span>Suma de pesos actual: <strong machineData>{{ totalRubricWeight() }}%</strong>. La suma debe ser exactamente 100%.</span>
-    }
   </div>
 
   @if (!rubric() || rubric()?.criteria?.length === 0) {
     <div class="empty-rubric-box">
       <svg lucideClipboardList class="empty-icon"></svg>
-      <p>No se han agregado criterios a la rúbrica.</p>
-      <button type="button" class="btn-outline btn-sm" (click)="presetSelected.emit('api-rest')">
-        <svg lucideClipboardList class="btn-icon"></svg>
-        <span>Cargar Plantilla API REST</span>
+      <p class="empty-text">No has definido criterios de evaluación para este laboratorio.</p>
+      <button type="button" class="btn-add-initial" (click)="addCriterion.emit()">
+        <svg lucidePlus class="btn-icon"></svg>
+        <span>Agregar primer criterio</span>
       </button>
     </div>
   } @else {
     <div class="criteria-list">
       @for (criterion of rubric()?.criteria; track $index; let i = $index) {
-        <div class="criterion-card">
-          <div class="criterion-card-header">
-            <span class="criterion-badge font-mono" machineData>Criterio {{ i + 1 }}</span>
-            <button type="button" class="btn-icon-danger" (click)="removeCriterion.emit(i)" title="Eliminar criterio">
-              <svg lucideTrash2 class="btn-icon-sm"></svg>
-            </button>
-          </div>
+        <div class="criterion-row">
+          <div class="criterion-main">
+            <span class="criterion-index font-mono" machineData>{{ i + 1 }}.</span>
+            <input
+              type="text"
+              class="criterion-input-title"
+              placeholder="Aspecto o requerimiento a calificar (ej. CRUD con NestJS, Formulario de registro...)"
+              [ngModel]="criterion.name"
+              (ngModelChange)="updateCriterion.emit({ index: i, update: { name: $event } })"
+            />
 
-          <div class="criterion-form-grid">
-            <div class="form-group flex-2">
-              <label class="form-label">Nombre del Criterio</label>
-              <input
-                type="text"
-                class="form-input"
-                placeholder="Ej: Arquitectura de carpetas, Endpoints REST..."
-                [ngModel]="criterion.name"
-                (ngModelChange)="updateCriterion.emit({ index: i, update: { name: $event } })"
-              />
-            </div>
-
-            <div class="form-group flex-1">
-              <label class="form-label">Peso (%)</label>
+            <div class="criterion-weight-box">
               <input
                 type="number"
-                class="form-input font-mono"
+                class="criterion-weight-input font-mono"
                 min="0"
                 max="100"
                 [ngModel]="criterion.weight"
                 (ngModelChange)="updateCriterion.emit({ index: i, update: { weight: +$event } })"
               />
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Descripción del Criterio</label>
-            <textarea
-              class="form-textarea"
-              rows="2"
-              placeholder="Descripción detallada de lo que se evaluará en este criterio..."
-              [ngModel]="criterion.description"
-              (ngModelChange)="updateCriterion.emit({ index: i, update: { description: $event } })"
-            ></textarea>
-          </div>
-
-          <div class="levels-container">
-            <div class="levels-header-row">
-              <span class="levels-title">Niveles de Logro</span>
-              <button type="button" class="btn-ghost btn-xs" (click)="addLevelToCriterion.emit(i)">
-                <svg lucidePlus class="btn-icon-xs"></svg>
-                <span>Agregar nivel</span>
-              </button>
+              <span class="criterion-weight-unit">%</span>
             </div>
 
-            <div class="levels-list">
-              @for (level of criterion.levels; track $index; let j = $index) {
-                <div class="level-card">
-                  <div class="level-inputs-row">
-                    <input
-                      type="text"
-                      class="form-input level-name-input"
-                      placeholder="Ej: Excelente, Bueno..."
-                      [ngModel]="level.name"
-                      (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { name: $event } })"
-                    />
-                    <input
-                      type="number"
-                      class="form-input font-mono level-score-input"
-                      placeholder="Score (0-100)"
-                      min="0"
-                      max="100"
-                      [ngModel]="level.score"
-                      (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { score: +$event } })"
-                    />
-                    <button type="button" class="btn-icon-danger" (click)="removeLevelFromCriterion.emit({ criterionIndex: i, levelIndex: j })" title="Eliminar nivel">
-                      <svg lucideTrash2 class="btn-icon-xs"></svg>
-                    </button>
-                  </div>
-                  <textarea
-                    class="form-textarea level-desc-input"
-                    rows="1"
-                    placeholder="Descripción del nivel de logro..."
-                    [ngModel]="level.description"
-                    (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { description: $event } })"
-                  ></textarea>
-                </div>
+            <button
+              type="button"
+              class="btn-toggle-levels"
+              (click)="toggleLevels(i)"
+              [class.active]="isExpanded(i)"
+              title="Ajustar descripciones cualitativas de este criterio"
+            >
+              @if (isExpanded(i)) {
+                <svg lucideChevronUp class="btn-icon-xs"></svg>
+                <span>Ocultar niveles</span>
+              } @else {
+                <svg lucideChevronDown class="btn-icon-xs"></svg>
+                <span>Ajustar niveles</span>
               }
-            </div>
+            </button>
+
+            <button
+              type="button"
+              class="btn-delete-criterion"
+              (click)="removeCriterion.emit(i)"
+              title="Eliminar este criterio"
+            >
+              <svg lucideTrash2 class="btn-icon-sm"></svg>
+            </button>
           </div>
+
+          @if (isExpanded(i)) {
+            <div class="levels-drawer">
+              <div class="levels-drawer-header">
+                <span>Descriptores cualitativos para este criterio (Opcional):</span>
+              </div>
+              <div class="classroom-cards-row">
+                @for (level of criterion.levels; track $index; let j = $index) {
+                  <div class="classroom-level-card">
+                    <div class="level-card-top">
+                      <span class="level-name-label">{{ level.name }}</span>
+                      <span class="level-pts-badge font-mono" machineData>{{ level.score }}%</span>
+                    </div>
+                    <textarea
+                      class="level-desc-input"
+                      rows="2"
+                      placeholder="Descripción del nivel..."
+                      [ngModel]="level.description"
+                      (ngModelChange)="updateLevel.emit({ criterionIndex: i, levelIndex: j, update: { description: $event } })"
+                    ></textarea>
+                  </div>
+                }
+              </div>
+            </div>
+          }
         </div>
       }
     </div>
+
+    <button type="button" class="btn-add-criterion" (click)="addCriterion.emit()">
+      <svg lucidePlus class="btn-icon-sm"></svg>
+      <span>+ Agregar aspecto a evaluar</span>
+    </button>
   }
 </section>

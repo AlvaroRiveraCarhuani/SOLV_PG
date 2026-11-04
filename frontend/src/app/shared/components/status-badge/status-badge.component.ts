@@ -1,6 +1,6 @@
 import { Component, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { WorkspaceStatus } from '@core/models/workspace.model';
+import { EnvironmentStatus } from '@core/models/environment.model';
 
 @Component({
   selector: 'status-badge',
@@ -15,7 +15,7 @@ import { WorkspaceStatus } from '@core/models/workspace.model';
   styleUrl: './status-badge.component.scss',
 })
 export class StatusBadgeComponent {
-  status = input.required<WorkspaceStatus | string>();
+  status = input.required<EnvironmentStatus | string>();
 
   badgeClass = computed(() => {
     const s = this.status().toLowerCase();

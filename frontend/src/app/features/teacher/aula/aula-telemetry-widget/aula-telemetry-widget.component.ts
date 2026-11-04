@@ -12,7 +12,7 @@ import {
   LucideAlertCircle, 
   LucideAlertTriangle 
 } from '@lucide/angular';
-import { LiveWorkspaceSession } from '../../models/teacher.models';
+import { LivePracticeEnvironmentSession } from '../../models/teacher.models';
 import { SparklineComponent } from '@shared/components/sparkline/sparkline.component';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -41,14 +41,14 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AulaTelemetryWidgetComponent {
-  readonly sessions = input<LiveWorkspaceSession[]>([]);
+  readonly sessions = input<LivePracticeEnvironmentSession[]>([]);
   readonly isLoading = input<boolean>(false);
   readonly isPollingActive = input<boolean>(true);
   readonly pollingRateMs = input<number>(3000);
 
   readonly pollingRateChange = output<number>();
   readonly refresh = output<void>();
-  readonly openTerminal = output<LiveWorkspaceSession>();
+  readonly openTerminal = output<LivePracticeEnvironmentSession>();
 
   readonly liveSearchTerm = signal<string>('');
   readonly liveViewMode = signal<'matrix' | 'table'>(
@@ -77,7 +77,7 @@ export class AulaTelemetryWidgetComponent {
     );
   });
 
-  getMemoryPercent(session: LiveWorkspaceSession): number {
+  getMemoryPercent(session: LivePracticeEnvironmentSession): number {
     if (!session.memory_limit_mb || session.memory_limit_mb === 0) return 0;
     const used = session.memory_used_mb || 0;
     return Math.min(100, Math.round((used / session.memory_limit_mb) * 100));

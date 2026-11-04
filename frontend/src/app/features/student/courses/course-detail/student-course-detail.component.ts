@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterLink, ActivatedRoute } from '@angular/router';
 import {
   LucideArrowLeft,
-  LucideCode
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { StudentService } from '@core/services/student.service';
@@ -17,7 +16,6 @@ import { CurricularMapComponent } from './curricular-map/curricular-map.componen
     CommonModule,
     RouterLink,
     LucideArrowLeft,
-    LucideCode,
     MachineDataDirective,
     RecommendationsPanelComponent,
     CurricularMapComponent

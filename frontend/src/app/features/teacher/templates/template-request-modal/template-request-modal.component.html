@@ -51,6 +51,19 @@
               </div>
             </div>
 
+            @if (variantBase()) {
+              <div class="variant-context">
+                <svg lucideWand2 class="banner-icon"></svg>
+                <div class="banner-body">
+                  <strong>Partís de «{{ variantBase() }}»</strong>
+                  <span>
+                    Dejamos sus herramientas cargadas más abajo. Cambiá la que necesites y contanos
+                    qué van a hacer tus estudiantes con ese entorno.
+                  </span>
+                </div>
+              </div>
+            }
+
             <div class="field">
               <label class="form-label" for="practice-text">
                 ¿Qué van a hacer tus estudiantes?
@@ -62,7 +75,11 @@
                 class="form-textarea practice-text"
                 rows="4"
                 maxlength="600"
-                placeholder="Ej: Construyen una API con Django sobre PostgreSQL, la prueban desde Postman y comparan resultados entre dos motores."
+                [placeholder]="
+                  variantBase()
+                    ? 'Ej: Lo mismo que en ' + variantBase() + ', pero comparando dos motores de bases de datos.'
+                    : 'Ej: Construyen una API con Django sobre PostgreSQL, la prueban desde Postman y comparan resultados entre dos motores.'
+                "
                 [ngModel]="description()"
                 (ngModelChange)="description.set($event)"
               ></textarea>
@@ -140,7 +157,7 @@
                   @for (chip of chips(); track chip.id) {
                     <span class="chip" [class.missing]="chip.missing">
                       @if (!chip.missing) {
-                        <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="16" />
+                        <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="22" />
                       }
                       <span class="chip-name">{{ chip.name }}</span>
                       @if (chip.missing) {
@@ -342,7 +359,7 @@
                 @for (chip of chips(); track chip.id) {
                   <li [class.missing]="chip.missing">
                     @if (!chip.missing) {
-                      <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="14" />
+                      <tech-logo [iconType]="chip.iconKey || 'docker'" [size]="20" />
                     }
                     {{ chip.name }}
                     @if (chip.missing) {
@@ -471,7 +488,7 @@
                     [attr.title]="isPieceCompatible(item) ? null : incompatibleHint(item)"
                     (click)="addPiece(item)"
                   >
-                    <tech-logo [iconType]="item.icon_key || 'docker'" [size]="20" />
+                    <tech-logo [iconType]="item.icon_key || 'docker'" [size]="24" />
                     <span class="picker-name">{{ item.name }}</span>
                     @if (isPieceSelected(item)) {
                       <svg lucideCheck class="picker-check"></svg>

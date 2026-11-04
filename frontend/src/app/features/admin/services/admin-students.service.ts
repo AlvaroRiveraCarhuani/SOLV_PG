@@ -12,7 +12,7 @@ export interface AdminStudentItem {
   suspension_reason?: string | null;
   academic_status: string;
   enrolled_courses_count: number;
-  active_workspaces_count: number;
+  active_environments_count: number;
   oom_strike_count: number;
   last_oom_killed_at?: string | null;
 }
@@ -23,8 +23,8 @@ export interface AdminStudentCourseItem {
   subject_name: string;
   teacher_name: string;
   enrolled_at: string;
-  workspace_id?: string | null;
-  workspace_status?: string | null;
+  environment_id?: string | null;
+  environment_status?: string | null;
   memory_limit_mb?: number | null;
   oom_strike_count?: number | null;
   last_oom_killed_at?: string | null;
@@ -32,7 +32,7 @@ export interface AdminStudentCourseItem {
 
 export interface ResetOOMResult {
   student_id: string;
-  workspaces_reset_count: number;
+  environments_reset_count: number;
   message: string;
 }
 
@@ -146,14 +146,14 @@ export class AdminStudentsService {
     );
   }
 
-  restartWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<unknown>(`/api/v1/workspaces/${workspaceId}/restart`, {}).pipe(
+  restartEnvironment(environmentId: string): Observable<void> {
+    return this.http.post<unknown>(`/api/v1/environments/${environmentId}/restart`, {}).pipe(
       map(() => void 0)
     );
   }
 
-  pauseWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<unknown>(`/api/v1/workspaces/${workspaceId}/pause`, {}).pipe(
+  pauseEnvironment(environmentId: string): Observable<void> {
+    return this.http.post<unknown>(`/api/v1/environments/${environmentId}/pause`, {}).pipe(
       map(() => void 0)
     );
   }

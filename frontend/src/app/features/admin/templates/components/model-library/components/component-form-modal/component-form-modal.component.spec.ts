@@ -1040,7 +1040,7 @@ describe('ComponentFormModalComponent', () => {
       expect(gridText).toContain('mongo:7.0');
       expect(gridText).toContain('redis:7.2-alpine');
       expect(gridText).toContain('PostgreSQL 18');
-      expect(gridText).toContain('Embebido en workspace (+0 MB)');
+      expect(gridText).toContain('Embebido en environment (+0 MB)');
     });
 
     it('should fill image, engine, classification and memory in 1 click from an official engine', () => {

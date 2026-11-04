@@ -526,7 +526,7 @@
   }
 
   @if (showNewModelModal()) {
-    <model-new-modal
+    <model-new-modal animate.leave="motion-modal-out"
       [approvedTemplates]="approvedTemplates()"
       [categories]="categories()"
       (closed)="closeNewModelModal()"
@@ -536,7 +536,7 @@
   }
 
   @if (editingModel(); as model) {
-    <model-edit-modal
+    <model-edit-modal animate.leave="motion-modal-out"
       [model]="model"
       [categories]="categories()"
       (closed)="closeModelModal()"
@@ -545,7 +545,7 @@
   }
 
   @if (showCategoryModal()) {
-    <category-form-modal
+    <category-form-modal animate.leave="motion-modal-out"
       [category]="editingCategory()"
       (closed)="closeCategoryModal()"
       (saved)="handleCategorySaved($event)"
@@ -553,7 +553,7 @@
   }
 
   @if (categoryToDelete(); as cat) {
-    <category-delete-modal
+    <category-delete-modal animate.leave="motion-modal-out"
       [category]="cat"
       (cancelled)="cancelDeleteCategory()"
       (deleted)="handleCategoryDeleted($event)"
@@ -561,7 +561,7 @@
   }
 
   @if (showComponentModal()) {
-    <component-form-modal
+    <component-form-modal animate.leave="motion-modal-out"
       [defaultLayer]="defaultComponentLayer()"
       [defaultSubCategory]="defaultComponentSubCategory()"
       [defaultCompatibleRuntime]="defaultCompatibleRuntime()"

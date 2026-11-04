@@ -3,7 +3,6 @@ import { HttpClient } from '@angular/common/http';
 import { ExerciseEditorStore, RubricCriterionDTO, RubricLevelDTO } from '../../exercise-editor.store';
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TemplateRequestModalComponent } from '../../../templates/template-request-modal/template-request-modal.component';
-import { RUBRIC_PRESETS } from '@shared/rubric-presets';
 import { IdeTemplateSelectorComponent } from './components/ide-template-selector/ide-template-selector.component';
 import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db-init-script.component';
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
@@ -45,9 +44,9 @@ export interface ApprovedTemplate {
   template: `
     <div class="ide-step-container">
       <header class="step-header">
-        <h2 class="step-title">Entorno de Ejecución y Entrega</h2>
+        <h2 class="step-title">Entorno y entrega</h2>
         <p class="step-subtitle">
-          Configura la plantilla de desarrollo interactivo (OpenVSCode) y las reglas de entrega para los estudiantes.
+          Elegí el entorno de desarrollo y definí cómo entregan los estudiantes.
         </p>
       </header>
 
@@ -59,18 +58,25 @@ export interface ApprovedTemplate {
         (requestTemplate)="openRequestModal()"
       />
 
-      <ide-db-init-script
-        [dbInitScript]="store.metadata().db_init_script || ''"
-        [hasDatabaseService]="hasDatabaseService()"
-        (initScriptChange)="onInitScriptChange($event)"
-      />
+      <details class="advanced-settings">
+        <summary class="advanced-summary">Ajustes técnicos del entorno</summary>
+        <p class="advanced-hint">
+          Solo si el entorno lo requiere. El comando, el puerto y los datos iniciales los administra el entorno del catálogo.
+        </p>
 
-      <ide-preview-config
-        [appRunCommand]="store.metadata().app_run_command || ''"
-        [appPort]="store.metadata().app_port || 0"
-        (appRunCommandChange)="onAppRunCommandChange($event)"
-        (appPortChange)="onAppPortChange($event)"
-      />
+        <ide-db-init-script
+          [dbInitScript]="store.metadata().db_init_script || ''"
+          [hasDatabaseService]="hasDatabaseService()"
+          (initScriptChange)="onInitScriptChange($event)"
+        />
+
+        <ide-preview-config
+          [appRunCommand]="store.metadata().app_run_command || ''"
+          [appPort]="store.metadata().app_port || 0"
+          (appRunCommandChange)="onAppRunCommandChange($event)"
+          (appPortChange)="onAppPortChange($event)"
+        />
+      </details>
 
       <ide-delivery-config
         [dueDate]="store.metadata().due_date || ''"
@@ -83,15 +89,14 @@ export interface ApprovedTemplate {
 
       <ide-rubric-editor
         [rubric]="store.rubric()"
-        [rubricPresetOptions]="rubricPresetOptions"
         [totalRubricWeight]="totalRubricWeight()"
-        (presetSelected)="applyRubricPreset($event)"
         (addCriterion)="addCriterion()"
         (removeCriterion)="removeCriterion($event)"
         (updateCriterion)="updateCriterion($event.index, $event.update)"
         (addLevelToCriterion)="addLevelToCriterion($event)"
         (removeLevelFromCriterion)="removeLevelFromCriterion($event.criterionIndex, $event.levelIndex)"
         (updateLevel)="updateLevel($event.criterionIndex, $event.levelIndex, $event.update)"
+        (balanceEqually)="distributeWeightsEqually()"
       />
 
       @if (showRequestModal()) {
@@ -141,8 +146,10 @@ export class StepIdeEnvironmentComponent implements OnInit {
         id: t.id,
         label: t.name,
         value: t.id,
-        badge: `${t.base_ram_mb} MB`,
-        description: `${t.docker_image}${databaseEngine ? ' • BD ' + databaseEngine : ''}`
+        badge: databaseEngine ? `BD ${databaseEngine}` : 'Entorno aprobado',
+        description: databaseEngine
+          ? `Incluye base de datos ${databaseEngine}`
+          : 'Sin base de datos incluida'
       };
     });
   });
@@ -265,38 +272,60 @@ export class StepIdeEnvironmentComponent implements OnInit {
     return rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
   });
 
-  applyRubricPreset(presetKey: string): void {
-    if (!presetKey || !RUBRIC_PRESETS[presetKey]) return;
-    const preset = RUBRIC_PRESETS[presetKey];
-    this.store.setRubric({
-      criteria: JSON.parse(JSON.stringify(preset.criteria))
-    });
+  distributeWeightsEqually(): void {
+    const current = this.store.rubric();
+    if (!current || !current.criteria || current.criteria.length === 0) return;
+    const n = current.criteria.length;
+    const base = Math.floor(100 / n);
+    const remainder = 100 - base * n;
+    const balanced = current.criteria.map((c, i) => ({
+      ...c,
+      weight: i < remainder ? base + 1 : base
+    }));
+    this.store.setRubric({ ...current, criteria: balanced });
   }
 
   addCriterion(): void {
     const current = this.store.rubric() || { criteria: [] };
+    const existing = current.criteria || [];
+    const count = existing.length + 1;
     const newCriterion: RubricCriterionDTO = {
-      name: 'Nuevo Criterio',
-      description: 'Descripción del criterio de evaluación',
-      weight: 25,
+      name: `Criterio ${count}`,
+      description: '',
+      weight: 0,
       levels: [
-        { name: 'Excelente', score: 100, description: 'Cumple con excelencia los requisitos.' },
-        { name: 'Bueno', score: 75, description: 'Cumple satisfactoriamente.' },
-        { name: 'Regular', score: 50, description: 'Cumple parcialmente.' },
-        { name: 'Deficiente', score: 25, description: 'No cumple con los requisitos.' }
+        { name: 'Logrado', score: 100, description: 'Cumple completamente con los requerimientos solicitados.' },
+        { name: 'Parcial', score: 50, description: 'Cumple parcialmente o presenta observaciones menores.' },
+        { name: 'No logrado', score: 0, description: 'No cumple con los requerimientos.' }
       ]
     };
-    this.store.setRubric({
-      ...current,
-      criteria: [...(current.criteria || []), newCriterion]
-    });
+    const nextList = [...existing, newCriterion];
+    const n = nextList.length;
+    const base = Math.floor(100 / n);
+    const remainder = 100 - base * n;
+    const balanced = nextList.map((c, i) => ({
+      ...c,
+      weight: i < remainder ? base + 1 : base
+    }));
+    this.store.setRubric({ ...current, criteria: balanced });
   }
 
   removeCriterion(index: number): void {
     const current = this.store.rubric();
-    if (!current) return;
-    const nextCriteria = current.criteria.filter((_, i) => i !== index);
-    this.store.setRubric({ ...current, criteria: nextCriteria });
+    if (!current || !current.criteria) return;
+    const filtered = current.criteria.filter((_, i) => i !== index);
+    if (filtered.length > 0) {
+      const n = filtered.length;
+      const base = Math.floor(100 / n);
+      const remainder = 100 - base * n;
+      const balanced = filtered.map((c, i) => ({
+        ...c,
+        weight: i < remainder ? base + 1 : base
+      }));
+      this.store.setRubric({ ...current, criteria: balanced });
+    } else {
+      this.store.setRubric({ ...current, criteria: [] });
+    }
   }
 
   updateCriterion(index: number, update: Partial<RubricCriterionDTO>): void {

@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, Input, Output, EventEmitter, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { AutoGrowDirective } from '@shared/directives/auto-grow.directive';
@@ -8,8 +8,7 @@ import {
   LucideShieldCheck,
   LucideKeyRound,
   LucideChevronDown,
-  LucideChevronUp,
-  LucideLoader2
+  LucideChevronUp
 } from '@lucide/angular';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
@@ -54,7 +53,6 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
     LucideKeyRound,
     LucideChevronDown,
     LucideChevronUp,
-    LucideLoader2,
     ModalShellComponent,
     FormFieldComponent,
     MachineDataDirective,
@@ -69,8 +67,19 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
 
   @Input() defaultLanguage = 'python';
 
+  private readonly _environmentType = signal<'JUEZ_EFIMERO' | 'IDE_PERSISTENTE'>('JUEZ_EFIMERO');
+  @Input()
+  set environmentType(val: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE') {
+    this._environmentType.set(val || 'JUEZ_EFIMERO');
+  }
+  get environmentType(): 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE' {
+    return this._environmentType();
+  }
+
   @Output() closed = new EventEmitter<void>();
   @Output() applied = new EventEmitter<AIGenerateExerciseResponse>();
+
+  readonly isIde = computed(() => this._environmentType() === 'IDE_PERSISTENTE');
 
   readonly languageOptions = LANGUAGE_OPTIONS;
   readonly difficultyOptions = DIFFICULTY_OPTIONS;
@@ -160,14 +169,16 @@ export class AiExerciseGeneratorModalComponent implements OnInit {
     }
 
     this.errorMessage.set(null);
+    const isIdeMode = this.isIde();
     this.operation.run(
       this.copilotService.generateExercise({
         prompt,
-        language: this.language(),
+        language: isIdeMode ? undefined : this.language(),
         difficulty: this.difficulty(),
-        public_cases_count: this.publicCasesCount(),
-        hidden_cases_count: this.hiddenCasesCount(),
-        verify_with_runner: true
+        environment_type: this.environmentType,
+        public_cases_count: isIdeMode ? 0 : this.publicCasesCount(),
+        hidden_cases_count: isIdeMode ? 0 : this.hiddenCasesCount(),
+        verify_with_runner: !isIdeMode
       })
     );
   }

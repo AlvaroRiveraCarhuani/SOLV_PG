@@ -1,4 +1,4 @@
-<div class="modal-backdrop" (click)="closed.emit()">
+<div class="modal-backdrop motion-backdrop" (click)="closed.emit()">
   <div class="modal-dialog" (click)="$event.stopPropagation()">
     <!-- Header -->
     <header class="modal-header">
@@ -34,7 +34,7 @@
 
       <div class="toolbar-actions">
         <button class="btn-scan" [disabled]="isLoading()" (click)="runScan()">
-          <svg lucideRefreshCw class="icon-sm" [class.spinning]="isLoading()"></svg>
+          <svg lucideRefreshCw class="icon-sm" [class.motion-spin]="isLoading()"></svg>
           <span>Escanear Ahora</span>
         </button>
       </div>

@@ -15,8 +15,8 @@ interface MockAdminMetricsService {
   hibernateAll: ReturnType<typeof vi.fn>;
   stopContainer: ReturnType<typeof vi.fn>;
   autoRefreshActive: ReturnType<typeof vi.fn>;
-  pauseWorkspace: ReturnType<typeof vi.fn>;
-  restartWorkspace: ReturnType<typeof vi.fn>;
+  pauseEnvironment: ReturnType<typeof vi.fn>;
+  restartEnvironment: ReturnType<typeof vi.fn>;
 }
 
 const makeHealth = (overrides: Partial<HostSystemHealth> = {}): HostSystemHealth => ({
@@ -59,8 +59,8 @@ describe('AdminDashboardComponent', () => {
       hibernateAll: vi.fn(),
       stopContainer: vi.fn(),
       autoRefreshActive: vi.fn().mockReturnValue(false),
-      pauseWorkspace: vi.fn().mockReturnValue(of(undefined)),
-      restartWorkspace: vi.fn().mockReturnValue(of(undefined))
+      pauseEnvironment: vi.fn().mockReturnValue(of(undefined)),
+      restartEnvironment: vi.fn().mockReturnValue(of(undefined))
     };
 
     await TestBed.configureTestingModule({
@@ -104,30 +104,30 @@ describe('AdminDashboardComponent', () => {
     expect(component.selectedCourse()).toBeNull();
   });
 
-  it('onPauseWorkspace incrementa el recargo del modal en éxito', () => {
+  it('onPauseEnvironment incrementa el recargo del modal en éxito', () => {
     expect(component.wsReloadToken()).toBe(0);
 
-    component.onPauseWorkspace('ws-1');
+    component.onPauseEnvironment('ws-1');
 
-    expect(mockMetricsService.pauseWorkspace).toHaveBeenCalledWith('ws-1');
+    expect(mockMetricsService.pauseEnvironment).toHaveBeenCalledWith('ws-1');
     expect(component.wsReloadToken()).toBe(1);
   });
 
-  it('onPauseWorkspace no recarga el modal si la pausa falla', () => {
-    mockMetricsService.pauseWorkspace.mockReturnValue(throwError(() => new Error('404')));
+  it('onPauseEnvironment no recarga el modal si la pausa falla', () => {
+    mockMetricsService.pauseEnvironment.mockReturnValue(throwError(() => new Error('404')));
 
-    component.onPauseWorkspace('ws-1');
+    component.onPauseEnvironment('ws-1');
 
     expect(component.wsReloadToken()).toBe(0);
   });
 
-  it('onRestartWorkspace recarga el modal en éxito y avisa si falla', () => {
-    component.onRestartWorkspace('ws-1');
-    expect(mockMetricsService.restartWorkspace).toHaveBeenCalledWith('ws-1');
+  it('onRestartEnvironment recarga el modal en éxito y avisa si falla', () => {
+    component.onRestartEnvironment('ws-1');
+    expect(mockMetricsService.restartEnvironment).toHaveBeenCalledWith('ws-1');
     expect(component.wsReloadToken()).toBe(1);
 
-    mockMetricsService.restartWorkspace.mockReturnValue(throwError(() => new Error('404')));
-    component.onRestartWorkspace('ws-1');
+    mockMetricsService.restartEnvironment.mockReturnValue(throwError(() => new Error('404')));
+    component.onRestartEnvironment('ws-1');
     expect(component.wsReloadToken()).toBe(1);
   });
 
@@ -164,18 +164,18 @@ describe('AdminDashboardComponent', () => {
     expect(component.selectedIncidentForLogs()).toBeNull();
   });
 
-  it('onViewLogs construye incidencia de respaldo con el workspace solicitado', () => {
+  it('onViewLogs construye incidencia de respaldo con el environment solicitado', () => {
     component.onViewLogs('ws-1');
     const incident = component.selectedIncidentForLogs();
     expect(incident).not.toBeNull();
-    expect(incident?.workspace_id).toBe('ws-1');
+    expect(incident?.environment_id).toBe('ws-1');
   });
 
   it('onViewLogs localiza la incidencia existente cuando health la contiene', () => {
     const existing: TechnicalIncident = {
       id: 'inc-1',
       type: 'oom_killed',
-      workspace_id: 'ws-9',
+      environment_id: 'ws-9',
       student_name: 'Ana',
       course_name: 'Prog',
       description: 'OOM',

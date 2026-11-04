@@ -78,6 +78,12 @@ export class TeacherExercisesComponent implements OnInit {
   isFuzzingOpen = signal<boolean>(false);
   exerciseForFuzzing = signal<EnrichedLabItem | null>(null);
 
+  // Duplicado a otra materia
+  duplicatingLab = signal<EnrichedLabItem | null>(null);
+  duplicateTargetId = signal<string>('');
+  isDuplicating = signal<boolean>(false);
+  duplicateError = signal<string>('');
+
   // Computeds
   filteredExercises = computed(() => {
     let items = this.allExercises();
@@ -117,9 +123,21 @@ export class TeacherExercisesComponent implements OnInit {
     const total = list.length;
     const published = list.filter(e => e.status === 'published').length;
     const drafts = list.filter(e => e.status === 'draft').length;
-    const totalSubmissions = list.reduce((acc, curr) => acc + (curr.submissions_count || 0), 0);
 
-    return { total, published, drafts, totalSubmissions };
+    return { total, published, drafts };
+  });
+
+  // Materias a las que se puede copiar el laboratorio en curso (todas menos la de origen).
+  duplicateTargetOptions = computed<ComboboxOption[]>(() => {
+    const lab = this.duplicatingLab();
+    return this.courses()
+      .filter(c => c.id !== lab?.subject_id)
+      .map(c => ({ id: c.id, label: `${c.code} — ${c.name}`, value: c.id }));
+  });
+
+  duplicateTargetLabel = computed(() => {
+    const match = this.courses().find(c => c.id === this.duplicateTargetId());
+    return match ? `${match.code} — ${match.name}` : 'Selecciona una materia...';
   });
 
   courseComboboxOptions = computed<ComboboxOption[]>(() => {
@@ -249,5 +267,44 @@ export class TeacherExercisesComponent implements OnInit {
   onFuzzingApplied(): void {
     this.closeFuzzingModal();
     this.loadData();
+  }
+
+  openDuplicateModal(lab: EnrichedLabItem): void {
+    this.duplicatingLab.set(lab);
+    this.duplicateTargetId.set('');
+    this.duplicateError.set('');
+  }
+
+  closeDuplicateModal(): void {
+    if (this.isDuplicating()) {
+      return;
+    }
+    this.duplicatingLab.set(null);
+    this.duplicateError.set('');
+  }
+
+  onDuplicateTargetSelected(opt: ComboboxOption): void {
+    this.duplicateTargetId.set(opt.value);
+  }
+
+  confirmDuplicate(): void {
+    const lab = this.duplicatingLab();
+    const targetId = this.duplicateTargetId();
+    if (!lab || !targetId || this.isDuplicating()) {
+      return;
+    }
+    this.isDuplicating.set(true);
+    this.duplicateError.set('');
+    this.courseService.duplicateExercise(lab.id, targetId).subscribe({
+      next: () => {
+        this.isDuplicating.set(false);
+        this.duplicatingLab.set(null);
+        this.loadData();
+      },
+      error: () => {
+        this.isDuplicating.set(false);
+        this.duplicateError.set('No se pudo duplicar el laboratorio. Intenta de nuevo.');
+      }
+    });
   }
 }

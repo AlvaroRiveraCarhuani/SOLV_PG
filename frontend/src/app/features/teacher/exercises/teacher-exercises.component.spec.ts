@@ -117,7 +117,15 @@ describe('TeacherExercisesComponent', () => {
     expect(stats.total).toBe(3);
     expect(stats.published).toBe(2);
     expect(stats.drafts).toBe(1);
-    expect(stats.totalSubmissions).toBe(35);
+    expect(stats).not.toHaveProperty('totalSubmissions');
+  });
+
+  it('should offer only the other subjects when duplicating a lab', () => {
+    component.openDuplicateModal(component.allExercises()[0]);
+    const sourceSubject = component.allExercises()[0].subject_id;
+    const ids = component.duplicateTargetOptions().map(o => o.value);
+    expect(ids).not.toContain(sourceSubject);
+    expect(ids.length).toBe(component.courses().length - 1);
   });
 
   it('should filter exercises by course', () => {

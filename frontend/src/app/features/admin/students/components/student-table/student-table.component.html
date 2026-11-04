@@ -51,7 +51,7 @@
 <section class="table-container">
   @if (isLoading()) {
     <div class="loading-state">
-      <div class="spinner"></div>
+      <div class="spinner motion-spin"></div>
       <span>Cargando directorio de estudiantes...</span>
     </div>
   } @else if (students().length === 0) {
@@ -135,13 +135,13 @@
 
             <!-- Entornos Activos -->
             <td>
-              @if (student.active_workspaces_count > 0) {
-                <span class="active-workspaces-badge">
+              @if (student.active_environments_count > 0) {
+                <span class="active-environments-badge">
                   <span class="pulse-dot"></span>
-                  <span>{{ student.active_workspaces_count }} en ejecución</span>
+                  <span>{{ student.active_environments_count }} en ejecución</span>
                 </span>
               } @else {
-                <span class="idle-workspaces-badge">En reposo</span>
+                <span class="idle-environments-badge">En reposo</span>
               }
             </td>
 

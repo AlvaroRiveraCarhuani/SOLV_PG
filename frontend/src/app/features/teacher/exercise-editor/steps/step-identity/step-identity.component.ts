@@ -17,19 +17,19 @@ import { StatementEditorComponent } from './statement-editor.component';
     <div class="step-identity-layout">
       <!-- Sección: Modalidad y Propósito -->
       <section class="form-section">
-        <h3 class="section-title">1. Modalidad y Propósito Pedagógico</h3>
+        <h3 class="section-title">Modalidad y propósito</h3>
         <modality-purpose-cards />
       </section>
 
       <!-- Sección: Metadatos -->
       <section class="form-section">
-        <h3 class="section-title">2. Identidad y Parámetros Técnicos</h3>
+        <h3 class="section-title">Título y datos de la práctica</h3>
         <metadata-form />
       </section>
 
       <!-- Sección: Enunciado -->
       <section class="form-section">
-        <h3 class="section-title">3. Enunciado y Especificación del Problema</h3>
+        <h3 class="section-title">Consigna</h3>
         <statement-editor />
       </section>
     </div>

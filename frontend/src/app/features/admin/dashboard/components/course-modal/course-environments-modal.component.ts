@@ -10,7 +10,7 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
 import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@lucide/angular';
 
 @Component({
-  selector: 'course-workspaces-modal',
+  selector: 'course-environments-modal',
   standalone: true,
   imports: [
     CommonModule,
@@ -24,25 +24,25 @@ import { LucideSearch, LucideRotateCcw, LucidePause, LucideTerminal } from '@luc
     LucidePause,
     LucideTerminal
   ],
-  templateUrl: './course-workspaces-modal.component.html',
-  styleUrl: './course-workspaces-modal.component.scss'
+  templateUrl: './course-environments-modal.component.html',
+  styleUrl: './course-environments-modal.component.scss'
 })
-export class CourseWorkspacesModalComponent implements OnInit {
+export class CourseEnvironmentsModalComponent implements OnInit {
   private metricsService = inject(AdminMetricsService);
 
   course = input.required<CourseLoadSummary>();
-  workspacesInput = input<DockerContainerSummary[]>([]);
+  environmentsInput = input<DockerContainerSummary[]>([]);
 
   closed = output<void>();
-  restartWorkspace = output<string>();
-  pauseWorkspace = output<string>();
+  restartEnvironment = output<string>();
+  pauseEnvironment = output<string>();
 
   // El dashboard lo incrementa tras cada pausa para recargar esta lista.
   reloadToken = input<number>(0);
 
   searchTerm = signal<string>('');
   statusFilter = signal<string>('all');
-  workspaces = signal<DockerContainerSummary[]>([]);
+  environments = signal<DockerContainerSummary[]>([]);
   isLoading = signal<boolean>(false);
 
   readonly statusOptions: ComboboxOption[] = [
@@ -64,38 +64,38 @@ export class CourseWorkspacesModalComponent implements OnInit {
     effect(() => {
       const c = this.course();
       if (c && c.id) {
-        this.fetchWorkspaces();
+        this.fetchEnvironments();
       }
     });
 
     effect(() => {
       const token = this.reloadToken();
       if (token > 0) {
-        this.fetchWorkspaces();
+        this.fetchEnvironments();
       }
     });
   }
 
   ngOnInit(): void {
-    this.fetchWorkspaces();
+    this.fetchEnvironments();
   }
 
-  fetchWorkspaces(): void {
+  fetchEnvironments(): void {
     const c = this.course();
     if (!c || !c.id) return;
 
     this.isLoading.set(true);
-    this.metricsService.getCourseWorkspaces(c.id, this.searchTerm(), this.statusFilter()).subscribe({
+    this.metricsService.getCourseEnvironments(c.id, this.searchTerm(), this.statusFilter()).subscribe({
       next: (list) => {
         this.isLoading.set(false);
-        this.workspaces.set(list || []);
+        this.environments.set(list || []);
       },
       error: () => {
         this.isLoading.set(false);
         // Fallback al filtrado en memoria si hubiera problemas de red
         const term = this.searchTerm().toLowerCase().trim();
         const filter = this.statusFilter();
-        const fallback = (this.workspacesInput() || []).filter(ws => {
+        const fallback = (this.environmentsInput() || []).filter(ws => {
           const matchCourse = ws.course_name.toLowerCase() === c.course_name.toLowerCase();
           if (!matchCourse) return false;
           if (filter !== 'all' && ws.status !== filter) return false;
@@ -106,7 +106,7 @@ export class CourseWorkspacesModalComponent implements OnInit {
           }
           return true;
         });
-        this.workspaces.set(fallback);
+        this.environments.set(fallback);
       }
     });
   }
@@ -123,13 +123,13 @@ export class CourseWorkspacesModalComponent implements OnInit {
     this.searchTerm.set(term);
     if (this.searchDebounceTimer) clearTimeout(this.searchDebounceTimer);
     this.searchDebounceTimer = setTimeout(() => {
-      this.fetchWorkspaces();
+      this.fetchEnvironments();
     }, 250);
   }
 
   onStatusChange(status: string): void {
     this.statusFilter.set(status);
-    this.fetchWorkspaces();
+    this.fetchEnvironments();
   }
 
   onStatusSelected(opt: ComboboxOption): void {

@@ -29,6 +29,13 @@ export const routes: Routes = [
           import('@features/student/dashboard/student-dashboard.component').then((m) => m.StudentDashboardComponent)
       },
       {
+        path: 'aula',
+        loadComponent: () =>
+          import('@features/student/aula/student-aula.component').then(
+            (m) => m.StudentAulaComponent
+          )
+      },
+      {
         path: 'courses',
         loadComponent: () =>
           import('@features/student/courses/course-list/student-courses.component').then(
@@ -40,20 +47,6 @@ export const routes: Routes = [
         loadComponent: () =>
           import('@features/student/courses/course-detail/student-course-detail.component').then(
             (m) => m.StudentCourseDetailComponent
-          )
-      },
-      {
-        path: 'workspaces',
-        loadComponent: () =>
-          import('@features/student/workspaces/workspace-list/student-workspaces.component').then(
-            (m) => m.StudentWorkspacesComponent
-          )
-      },
-      {
-        path: 'workspaces/:subjectId',
-        loadComponent: () =>
-          import('@features/student/workspaces/active-lab/student-active-lab.component').then(
-            (m) => m.StudentActiveLabComponent
           )
       },
       {
@@ -84,6 +77,19 @@ export const routes: Routes = [
       {
         path: 'ejercicios/:exerciseId',
         redirectTo: 'exercises/:exerciseId'
+      }
+    ]
+  },
+  {
+    // Herramienta interna: no se enlaza desde la navegación y no forma parte
+    // de las vistas de estudiante ni de docente.
+    path: 'dev',
+    canActivate: [authGuard, adminGuard],
+    children: [
+      {
+        path: 'animaciones',
+        loadComponent: () =>
+          import('@features/dev/motion-gallery/motion-gallery.component').then((m) => m.MotionGalleryComponent)
       }
     ]
   },

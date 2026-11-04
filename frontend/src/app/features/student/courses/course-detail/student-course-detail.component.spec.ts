@@ -20,8 +20,7 @@ describe('StudentCourseDetailComponent', () => {
         tenant_id: 'uab',
         subjects: [
           {
-            subject: { id: 'course-101', name: 'Programación II', code: 'SIS-211' },
-            active_workspace: { id: 'ws-1', status: 'running', type: 'IDE_PERSISTENTE' }
+            subject: { id: 'course-101', name: 'Programación II', code: 'SIS-211' }
           }
         ],
         recent_submissions: []

@@ -211,7 +211,8 @@ export class TeacherTemplatesComponent implements OnInit {
   activeTab = signal<'catalog' | 'requests'>('catalog');
   requests = signal<EnvironmentRequest[]>([]);
   requestsLoading = signal<boolean>(false);
-  requestPreset = signal<string>('');
+  /** Entorno del que parte una variante; se muestra como contexto, no como práctica. */
+  variantBaseName = signal<string>('');
   requestPresetStack = signal<EnvironmentRequestStackConfig | null>(null);
 
   readonly pendingRequestsCount = computed(
@@ -349,9 +350,7 @@ export class TeacherTemplatesComponent implements OnInit {
 
   /** Pide una variante de un entorno que el docente ya conoce. */
   requestVariant(template: PublishedTemplate): void {
-    this.requestPreset.set(
-      `Quiero un entorno como «${template.name}», pero con…`
-    );
+    this.variantBaseName.set(template.name);
     this.requestPresetStack.set(template.stack_config || null);
     this.isRequestModalOpen.set(true);
   }
@@ -406,7 +405,7 @@ export class TeacherTemplatesComponent implements OnInit {
   }
 
   openRequestModal(): void {
-    this.requestPreset.set('');
+    this.variantBaseName.set('');
     this.requestPresetStack.set(null);
     this.isRequestModalOpen.set(true);
   }

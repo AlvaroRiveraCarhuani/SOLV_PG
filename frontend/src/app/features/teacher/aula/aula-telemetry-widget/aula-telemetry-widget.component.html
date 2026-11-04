@@ -116,7 +116,7 @@
   } @else if (liveViewMode() === 'matrix') {
     <!-- VISTA 1: MATRIZ VISUAL DE AULA EN TIEMPO REAL -->
     <div class="telemetry-matrix-grid">
-      @for (session of filteredSessions(); track session.workspace_id) {
+      @for (session of filteredSessions(); track session.environment_id) {
         <div 
           class="telemetry-student-card" 
           [class.card-oom-risk]="getMemoryPercent(session) >= 90 || session.oom_strikes > 0"
@@ -211,7 +211,7 @@
           </tr>
         </thead>
         <tbody>
-          @for (session of filteredSessions(); track session.workspace_id) {
+          @for (session of filteredSessions(); track session.environment_id) {
             <tr [class.row-alert]="getMemoryPercent(session) >= 90">
               <td>
                 <div class="student-info">

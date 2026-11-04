@@ -61,7 +61,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
 
           @if (notifMenuOpen()) {
             <div 
-              class="notif-dropdown"
+              class="notif-dropdown animate-dropdown"
               dismissible
               [dismissExclude]="notifBtn"
               (dismiss)="notifMenuOpen.set(false)"
@@ -109,7 +109,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
 
           @if (profileMenuOpen()) {
             <div 
-              class="profile-dropdown"
+              class="profile-dropdown animate-dropdown"
               dismissible
               [dismissExclude]="profileBtn"
               (dismiss)="profileMenuOpen.set(false)"

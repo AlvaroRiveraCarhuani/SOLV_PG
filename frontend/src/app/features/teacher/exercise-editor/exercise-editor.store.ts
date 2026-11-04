@@ -48,7 +48,7 @@ export interface ExerciseMetadata {
   title: string;
   difficulty: 'easy' | 'medium' | 'hard' | null;
   tags: string[];
-  modality: 'judge' | 'workspace' | 'database';
+  modality: 'judge' | 'environment' | 'database';
   environment_type: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
   template_id: string | null;
   template: ExerciseTemplateSummary | null;
@@ -84,6 +84,7 @@ export class ExerciseEditorStore {
 
   // Context
   readonly courseId = signal<string>('');
+  readonly moduleId = signal<string | null>(null);
   readonly exerciseId = signal<string | null>(null);
   readonly status = signal<'draft' | 'published'>('draft');
   readonly isSaving = signal<boolean>(false);
@@ -100,6 +101,7 @@ export class ExerciseEditorStore {
   // Rubrica (IDE Persistente)
 
   readonly rubric = signal<RubricDTO | null>(null);
+  readonly isIde = computed(() => this.metadata().environment_type === 'IDE_PERSISTENTE' || this.metadata().modality === 'environment');
 
   // Paso 1: Identidad y Pedagogía
   readonly metadata = signal<ExerciseMetadata>({
@@ -417,17 +419,42 @@ export class ExerciseEditorStore {
     };
   });
 
-  readonly canPublish = computed(() => {
-    const s1 = this.step1Validation();
-    const s2 = this.step2Validation();
-    const s3 = this.step3Validation();
-    if (!s1.isValid || !s2.isValid || !s3.isValid) return false;
+  readonly missingPublishRequirements = computed<string[]>(() => {
+    const list: string[] = [];
+    const m = this.metadata();
+    const s = this.statement();
+    if (!m.title.trim()) {
+      list.push('Ingresar un título para la práctica.');
+    }
+    if (!s.description.trim()) {
+      list.push('Redactar la consigna o descripción de la práctica.');
+    }
+    if (m.environment_type === 'IDE_PERSISTENTE') {
+      if (!m.template_id) {
+        list.push('Seleccionar un entorno tecnológico (stack) para el laboratorio.');
+      }
+      const rub = this.rubric();
+      if (!rub || !rub.criteria || rub.criteria.length === 0) {
+        list.push('Definir al menos un criterio de evaluación en la rúbrica.');
+      } else {
+        const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
+        if (Math.abs(totalWeight - 100) > 0.01) {
+          list.push(`Ajustar la ponderación de la rúbrica: suma ${totalWeight}%, debe sumar exactamente 100%.`);
+        }
+      }
+    } else {
+      if (!m.language) {
+        list.push('Seleccionar un lenguaje de ejecución.');
+      }
+      if (this.cases().length === 0) {
+        list.push('Agregar al menos un caso de prueba para la evaluación automática.');
+      }
+    }
+    return list;
+  });
 
-    const cl = this.checklistReport();
-    if (!cl) return true;
-    if (cl.blockers.length > 0) return false;
-    if (cl.warnings.length > 0 && !this.acceptedWarnings()) return false;
-    return true;
+  readonly canPublish = computed(() => {
+    return this.missingPublishRequirements().length === 0;
   });
 
   // Mutaciones
@@ -616,6 +643,10 @@ export class ExerciseEditorStore {
 
   setCourseId(id: string) {
     this.courseId.set(id);
+  }
+
+  setModuleId(id: string | null) {
+    this.moduleId.set(id);
   }
 
   setStep(step: 1 | 2 | 3) {
@@ -855,12 +886,12 @@ export class ExerciseEditorStore {
       next: (ex: ExerciseDetailDTO) => {
         if (ex) {
           this.status.set(ex.status === 'published' ? 'published' : 'draft');
-          const isIDE = ex.environment_type === 'IDE_PERSISTENTE' || ex.type === 'workspace' || ex.type === 'project';
+          const isIDE = ex.environment_type === 'IDE_PERSISTENTE' || ex.type === 'environment' || ex.type === 'project';
           this.metadata.set({
             title: ex.title || '',
             difficulty: (ex.difficulty as 'easy' | 'medium' | 'hard' | null) || null,
             tags: ex.tags || [],
-            modality: isIDE ? 'workspace' : ((ex.type as 'judge' | 'workspace' | 'database') || 'judge'),
+            modality: isIDE ? 'environment' : ((ex.type as 'judge' | 'environment' | 'database') || 'judge'),
             environment_type: isIDE ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO',
             template_id: ex.template_id || null,
             template: ex.template || null,
@@ -871,8 +902,8 @@ export class ExerciseEditorStore {
             auto_checkpoint: ex.config?.ide?.auto_checkpoint ?? true,
             purpose: (ex.purpose as 'class' | 'exam') || 'class',
             per_student_seed: !!ex.per_student_seed,
-            language: ex.language || 'python',
-            allowed_languages: [ex.language || 'python'],
+            language: ex.language || '',
+            allowed_languages: ex.language ? [ex.language] : [],
             time_limit_ms: ex.time_limit_ms || 1000,
             memory_limit_mb: ex.template?.base_ram_mb || ex.memory_limit_mb || 128,
             due_date: ex.due_date ? ex.due_date.substring(0, 16) : '',
@@ -1006,6 +1037,9 @@ export class ExerciseEditorStore {
       const created = await firstValueFrom(this.courseService.createExercise(payload));
       const newId = created?.id;
       if (newId) {
+        if (this.moduleId()) {
+          await firstValueFrom(this.courseService.assignExerciseModule(newId, this.moduleId())).catch(() => undefined);
+        }
         await this.persistIdeRubric(newId).catch(() => undefined);
         this.exerciseId.set(newId);
         this.initialSnapshot.set(this.serializeState());
@@ -1046,6 +1080,10 @@ export class ExerciseEditorStore {
       }
       this.lastSavedAt.set(new Date());
 
+      if (this.moduleId()) {
+        await firstValueFrom(this.courseService.assignExerciseModule(exerciseIdToPublish, this.moduleId())).catch(() => undefined);
+      }
+
       step = 'rubric';
       await this.persistIdeRubric(exerciseIdToPublish);
 
@@ -1077,9 +1115,18 @@ export class ExerciseEditorStore {
       title: draft.title,
       difficulty: (draft.difficulty as 'easy' | 'medium' | 'hard') || 'medium',
       language: draft.language || m.language || 'python',
-      allowed_languages: draft.language ? [draft.language] : m.allowed_languages
+      allowed_languages: draft.language ? [draft.language] : m.allowed_languages,
+      template_id: draft.template_id || m.template_id,
+      environment_type: draft.environment_type || m.environment_type,
+      modality: draft.environment_type === 'IDE_PERSISTENTE' ? 'environment' : m.modality
     }));
     this.statement.update((s) => ({ ...s, description: draft.description }));
+    if (draft.rubric) {
+      this.rubric.set(draft.rubric);
+    }
+    if (draft.template_id) {
+      this.preselectTemplate(draft.template_id);
+    }
     this.referenceSolution.set(draft.reference_solution || '');
     this.boilerplate.set(draft.boilerplate || '');
     if (draft.language) {

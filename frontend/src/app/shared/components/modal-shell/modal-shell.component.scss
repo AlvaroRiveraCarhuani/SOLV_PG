@@ -28,12 +28,6 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: modalEnter 150ms ease-out;
-}
-
-@keyframes modalEnter {
-  from { opacity: 0; transform: scale(0.98); }
-  to { opacity: 1; transform: scale(1); }
 }
 
 .modal-header {
@@ -153,3 +147,6 @@
     display: none;
   }
 }
+
+// La salida la define la clase global `.motion-modal-out` de `_animations.scss`,
+// aplicada con `animate.leave` en el elemento que el template retira.

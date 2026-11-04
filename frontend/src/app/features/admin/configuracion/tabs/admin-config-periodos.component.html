@@ -38,7 +38,7 @@
 
     @if (isLoading()) {
       <div class="loading-state">
-        <div class="spinner"></div>
+        <div class="spinner motion-spin"></div>
         <span>Cargando períodos académicos...</span>
       </div>
     } @else if (loadError()) {
@@ -140,7 +140,7 @@
 
 <!-- ================= Modal: Alta / Edición ================= -->
 @if (formOpen()) {
-  <modal-shell [title]="formTitle()" subtitle="Define el ciclo lectivo institucional" (close)="closeForm()">
+  <modal-shell animate.leave="motion-modal-out" [title]="formTitle()" subtitle="Define el ciclo lectivo institucional" (close)="closeForm()">
     <svg modal-icon lucideCalendar class="icon"></svg>
 
     <form-field label="Nombre del Semestre / Ciclo" [error]="name().trim() === '' ? 'El nombre es obligatorio.' : ''">
@@ -202,7 +202,7 @@
 
 <!-- ================= Modal: Archivo fuerte ================= -->
 @if (archiving(); as target) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="¿Archivar {{ target.name }} ({{ target.code }})?"
     subtitle="Acción de congelamiento institucional del ciclo lectivo"
     intent="warning"
@@ -254,7 +254,7 @@
 
 <!-- ================= Modal: Activación ================= -->
 @if (activating(); as target) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="¿Activar {{ target.name }} ({{ target.code }})?"
     subtitle="Se convertirá en el único ciclo lectivo vigente de la universidad"
     [intent]="activatingExpired() ? 'warning' : 'info'"
@@ -296,7 +296,7 @@
 
 <!-- ================= Modal: Borrado ================= -->
 @if (deleting(); as target) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="¿Eliminar {{ target.name }} ({{ target.code }})?"
     subtitle="Esta acción no se puede deshacer"
     intent="error"

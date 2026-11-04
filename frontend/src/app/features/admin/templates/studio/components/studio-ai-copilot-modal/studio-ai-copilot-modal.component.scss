@@ -98,16 +98,7 @@
   color: var(--text-primary);
   font-size: var(--text-xs);
 
-  .spin {
-    animation: spin 1s linear infinite;
-  }
 }
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .btn-cancel-ai {
   display: inline-flex;
   align-items: center;
@@ -467,8 +458,3 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .spin {
-    animation: none;
-  }
-}

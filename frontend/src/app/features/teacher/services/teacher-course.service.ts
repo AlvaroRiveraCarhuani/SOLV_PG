@@ -61,6 +61,14 @@ export class TeacherCourseService {
     );
   }
 
+  /** Copia un laboratorio del docente a otra de sus materias (nace en borrador). */
+  duplicateExercise(exerciseId: string, targetSubjectId: string): Observable<unknown> {
+    return this.http.post<ApiResponse<unknown>>(
+      `/api/v1/teacher/exercises/${exerciseId}/duplicate`,
+      { subject_id: targetSubjectId }
+    );
+  }
+
   getCourseSubmissions(
     subjectId: string,
     filters?: { verdict?: string; exercise_id?: string }

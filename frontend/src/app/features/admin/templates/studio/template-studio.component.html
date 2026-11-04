@@ -867,7 +867,7 @@
   </div>
 
   @if (showComponentModal()) {
-    <component-form-modal
+    <component-form-modal animate.leave="motion-modal-out"
       [defaultLayer]="modalDefaultLayer()"
       [defaultSubCategory]="modalDefaultSubCategory()"
       [defaultCompatibleRuntime]="modalDefaultCompatibleRuntime()"
@@ -881,14 +881,14 @@
   }
 
   @if (isTechGraphOpen()) {
-    <tech-graph-modal
+    <tech-graph-modal animate.leave="motion-modal-out"
       [components]="techComponents()"
       (dismiss)="isTechGraphOpen.set(false)"
     />
   }
 
   @if (aiEnabled() && isAiCopilotModalOpen()) {
-    <studio-ai-copilot-modal
+    <studio-ai-copilot-modal animate.leave="motion-modal-out"
       [isOpen]="isAiCopilotModalOpen()"
       [prompt]="aiPrompt()"
       [isSuggesting]="isSuggestingWithAi()"
@@ -909,7 +909,7 @@
   }
 
   @if (showScopeInfoModal()) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       [title]="targetEnvironment() === 'AMBOS' ? 'Modo Dual (Laboratorio + Evaluador)' : 'Evaluador Automático de Ejercicios'"
       subtitle="Especificación técnica de ejecución y servicios"
       intent="info"

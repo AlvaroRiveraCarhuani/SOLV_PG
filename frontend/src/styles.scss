@@ -145,8 +145,6 @@ body {
   overflow: hidden;
 }
 
-
-
 // Fuentes Monoespaciadas para Código, Hashes y Números Tabulares
 code, pre, kbd, samp, .font-mono {
   font-family: var(--font-mono);
@@ -713,21 +711,6 @@ h4, .subsection-title {
 .reload-icon {
   width: 15px;
   height: 15px;
-
-  &.spinning {
-    animation: spin 1s linear infinite;
-  }
-}
-
-.spin-icon,
-.spinning {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
 }
 
 // -----------------------------------------------------------------------------
@@ -1280,5 +1263,15 @@ textarea[autoGrow] {
   }
   100% {
     box-shadow: none;
+  }
+}
+
+// Accesibilidad: los estilos globales heredados también respetan la preferencia.
+// El subrayado de foco y el color de estado siguen visibles sin la animación.
+@media (prefers-reduced-motion: reduce) {
+  .toast-notification,
+  .highlight-target-pulse,
+  .animate-pulse-subtle {
+    animation: none;
   }
 }

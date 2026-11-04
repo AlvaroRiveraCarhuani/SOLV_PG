@@ -1,0 +1,125 @@
+<section class="student-aula">
+  <header class="page-header">
+    <div>
+      <h1>Aula</h1>
+      <p class="page-subtitle">Tu clase en vivo, la práctica que abrió el docente y el código que comparte contigo.</p>
+    </div>
+    <button type="button" class="btn btn-secondary" (click)="refresh()" [disabled]="isLoading()">
+      <svg lucideRefreshCw></svg>
+      <span>{{ isLoading() ? 'Actualizando…' : 'Actualizar' }}</span>
+    </button>
+  </header>
+
+  @if (isLoading() && aulas().length === 0) {
+    <skeleton-loader variant="cards" [count]="1" />
+  } @else if (loadError(); as message) {
+    <field-message variant="error" [message]="message" />
+  } @else if (aulas().length === 0) {
+    <div class="aula-empty">
+      <svg lucideInbox></svg>
+      <div>
+        <p class="empty-title">No tienes clase abierta en este momento</p>
+        <p class="empty-copy">
+          Cuando el docente abra el aula de una práctica, aparece acá con su horario y sus avances.
+        </p>
+        <a class="btn btn-secondary" routerLink="/student/courses">
+          <svg lucideBookOpen></svg>
+          <span>Ver mis prácticas</span>
+        </a>
+      </div>
+    </div>
+  } @else {
+    @for (clase of aulas(); track clase.id) {
+      <article class="aula-card">
+        <div class="aula-head">
+          <div class="aula-identity">
+            <code class="subject-code">{{ clase.subject_code }}</code>
+            <h2>{{ clase.subject_name }}</h2>
+          </div>
+          <span class="status-pill" [class]="'status-' + statusTone(clase.status)">{{ statusLabel(clase.status) }}</span>
+        </div>
+
+        <dl class="aula-meta">
+          <div class="meta-item">
+            <dt><svg lucideBookOpen></svg> Práctica</dt>
+            <dd>
+              @if (clase.exercise_id) {
+                {{ clase.exercise_title || 'Práctica del aula' }}
+              } @else {
+                Sin práctica asociada
+              }
+            </dd>
+          </div>
+          <div class="meta-item">
+            <dt><svg lucideCalendarClock></svg> Horario</dt>
+            <dd>
+              <time [attr.datetime]="clase.opens_at">{{ clase.opens_at | dateText }}</time>
+              –
+              <time [attr.datetime]="clase.ends_at">{{ clase.ends_at | dateText }}</time>
+            </dd>
+          </div>
+          <div class="meta-item">
+            <dt><svg lucideUsers></svg> Presencia</dt>
+            <dd>
+              <span machineData>{{ clase.present }}</span> de
+              <span machineData>{{ clase.enrolled }}</span> en el aula
+            </dd>
+          </div>
+        </dl>
+
+        @if (clase.exercise_id) {
+          <a class="btn btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">
+            <svg lucideBookOpen></svg>
+            <span>Abrir práctica</span>
+          </a>
+        } @else {
+          <p class="aula-note">
+            Esta aula no tiene una práctica asociada, así que el docente no puede emitir avances.
+          </p>
+        }
+
+        <section class="advances" aria-labelledby="advances-title-{{ clase.id }}">
+          <h2 [id]="'advances-title-' + clase.id">Avances del docente</h2>
+
+          @if (pendingFor(clase.id).length === 0) {
+            <div class="advances-empty">
+              <svg lucideInbox></svg>
+              <div>
+                <p class="empty-title">Sin avances pendientes</p>
+                <p class="empty-copy">
+                  Cuando el docente emita el código de la clase, aparece acá para que lo apliques en tu práctica.
+                </p>
+              </div>
+            </div>
+          } @else {
+            <ul class="advance-list">
+              @for (advance of pendingFor(clase.id); track advance.id) {
+                <li class="advance-item">
+                  <div class="advance-copy">
+                    <p class="advance-title">Código nuevo del docente</p>
+                    <p class="advance-meta">
+                      <span machineData>{{ advance.file_count }}</span> archivos ·
+                      <time [attr.datetime]="advance.created_at">{{ advance.created_at | dateText }}</time>
+                    </p>
+                  </div>
+                  <button type="button" class="btn btn-primary" (click)="openAdvance(advance)">
+                    Revisar y aplicar
+                  </button>
+                </li>
+              }
+            </ul>
+          }
+        </section>
+      </article>
+    }
+  }
+
+  @if (selectedAdvance(); as advance) {
+    <advance-confirm-modal
+      animate.leave="motion-modal-out"
+      [advance]="advance"
+      (closed)="closeAdvance()"
+      (applied)="onApplied()"
+    />
+  }
+</section>

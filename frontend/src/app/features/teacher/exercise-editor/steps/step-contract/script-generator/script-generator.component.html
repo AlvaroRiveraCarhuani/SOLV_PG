@@ -52,7 +52,7 @@
             [disabled]="isExecuting() || !scriptCode().trim()"
           >
             @if (isExecuting()) {
-              <svg lucideRefreshCw class="spin-icon"></svg>
+              <svg lucideRefreshCw class="motion-spin"></svg>
               <span>Ejecutando en sandbox...</span>
             } @else {
               <svg lucidePlay></svg>
@@ -90,7 +90,7 @@
                   [disabled]="isImporting()"
                 >
                   @if (isImporting()) {
-                    <svg lucideRefreshCw class="spin-icon"></svg>
+                    <svg lucideRefreshCw class="motion-spin"></svg>
                     <span>Guardando casos...</span>
                   } @else {
                     <svg lucideCheck></svg>

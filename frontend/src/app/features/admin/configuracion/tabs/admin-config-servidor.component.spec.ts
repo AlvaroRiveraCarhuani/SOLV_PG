@@ -141,7 +141,7 @@ describe('AdminConfigServidorComponent', () => {
     expect(mockService.loadAll).toHaveBeenCalled();
   });
 
-  it('guardado de políticas: valores del catálogo se envían y confirman efecto en workspaces nuevos', async () => {
+  it('guardado de políticas: valores del catálogo se envían y confirman efecto en environments nuevos', async () => {
     await setup();
 
     component.selectedCeilingPct.set(90);

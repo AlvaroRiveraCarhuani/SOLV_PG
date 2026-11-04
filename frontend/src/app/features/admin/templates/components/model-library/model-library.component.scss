@@ -848,6 +848,11 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .filters-bar,
+  .components-grid {
+    animation: none;
+  }
+
   .tech-card {
     animation: none;
 

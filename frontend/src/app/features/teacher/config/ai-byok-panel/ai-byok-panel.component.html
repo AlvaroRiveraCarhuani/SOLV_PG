@@ -1,6 +1,6 @@
 @if (loading()) {
   <div class="panel-loading">
-    <svg lucideLoader2 class="spin-icon"></svg>
+    <svg lucideLoader2 class="motion-spin"></svg>
     <span>Cargando tu configuración de IA...</span>
   </div>
 } @else {
@@ -145,7 +145,7 @@
           class="btn-catalog"
           [disabled]="loadingModels() || !canFetchModels()"
           (click)="fetchModels()">
-          <svg lucideRefreshCw class="btn-icon" [class.spinning]="loadingModels()"></svg>
+          <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="loadingModels()"></svg>
           <span>{{ loadingModels() ? 'Consultando...' : 'Listar modelos' }}</span>
         </button>
       </div>
@@ -227,7 +227,7 @@
         [disabled]="testing() || saving() || !canTestConnection()"
         (click)="testConnection()">
         @if (testing()) {
-          <svg lucideLoader2 class="spin-icon"></svg>
+          <svg lucideLoader2 class="motion-spin"></svg>
         } @else {
           <svg lucideWifi class="btn-icon"></svg>
         }

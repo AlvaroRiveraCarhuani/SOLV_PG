@@ -35,7 +35,7 @@
   <student-kpi-cards
     [enrolledStudentsCount]="enrolledStudentsCount()"
     [totalStudents]="totalStudents()"
-    [activeWorkspacesTotal]="activeWorkspacesTotal()"
+    [activeEnvironmentsTotal]="activeEnvironmentsTotal()"
     [strikesStudentsCount]="strikesStudentsCount()"
     [blockedStudentsCount]="blockedStudentsCount()"
   />
@@ -72,7 +72,7 @@
 
   <!-- Modales -->
   @if (showRegisterModal()) {
-    <student-register-modal
+    <student-register-modal animate.leave="motion-modal-out"
       [isSubmitting]="isRegistering()"
       (studentCreated)="onStudentCreated($event)"
       (batchSubmit)="onBatchCreated($event)"
@@ -81,7 +81,7 @@
   }
 
   @if (showRosterEnrollModal()) {
-    <student-enroll-roster-modal
+    <student-enroll-roster-modal animate.leave="motion-modal-out"
       [subjects]="subjects()"
       [isSubmitting]="isEnrollingRoster()"
       (rosterSubmit)="onRosterEnrolled($event)"
@@ -103,19 +103,19 @@
   }
 
   @if (studentForCourses(); as st) {
-    <student-courses-modal
+    <student-courses-modal animate.leave="motion-modal-out"
       [student]="st"
       [courses]="studentCourses()"
       [isLoading]="isLoadingCourses()"
-      [actionInProgressId]="actionInProgressWorkspaceId()"
-      (restartWorkspace)="onRestartWorkspace($event)"
-      (pauseWorkspace)="onPauseWorkspace($event)"
+      [actionInProgressId]="actionInProgressEnvironmentId()"
+      (restartEnvironment)="onRestartEnvironment($event)"
+      (pauseEnvironment)="onPauseEnvironment($event)"
       (closed)="closeCoursesModal()">
     </student-courses-modal>
   }
 
   @if (studentForReset(); as st) {
-    <student-reset-oom-modal
+    <student-reset-oom-modal animate.leave="motion-modal-out"
       [student]="st"
       [isSubmitting]="isResetting()"
       (confirmReset)="confirmResetOOM($event)"

@@ -112,15 +112,6 @@
   font-size: var(--text-sm);
 }
 
-.spin-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
 .preview-status-banner {
   display: flex;
   align-items: center;
@@ -267,8 +258,6 @@
     font-size: var(--text-xs);
   }
 }
-
-
 
 .btn {
   display: inline-flex;

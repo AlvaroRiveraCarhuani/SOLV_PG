@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Importación masiva de ejercicios"
   subtitle="Cargue ejercicios en formato JSON o YAML (Infrastructure-as-Code)"
   maxWidth="780px"
@@ -53,7 +53,7 @@
 
     @if (isAnalyzing()) {
       <div class="loading-state">
-        <svg lucideRefreshCw class="spin-icon"></svg>
+        <svg lucideRefreshCw class="motion-spin"></svg>
         <span>Analizando y validando estructura del archivo...</span>
       </div>
     } @else if (importPreview(); as preview) {
@@ -136,7 +136,7 @@
     @if (selectedFile() && importPreview()?.can_import) {
       <button type="button" class="btn btn-primary" (click)="confirmImport()" [disabled]="isImporting()">
         @if (isImporting()) {
-          <svg lucideRefreshCw class="spin-icon"></svg>
+          <svg lucideRefreshCw class="motion-spin"></svg>
           <span>Importando ejercicios...</span>
         } @else {
           <svg lucideUploadCloud></svg>

@@ -33,7 +33,7 @@ import {
   ClassSession,
   ClassSessionStudent,
   ClassSessionStudentState,
-  LiveWorkspaceSession,
+  LivePracticeEnvironmentSession,
   SessionAdvance
 } from '../models/teacher.models';
 import { AulaTelemetryWidgetComponent } from './aula-telemetry-widget/aula-telemetry-widget.component';
@@ -160,7 +160,7 @@ export class AulaComponent implements OnInit, OnDestroy {
   readonly selectedDuration = signal<string>(DEFAULT_DURATION);
   readonly durationOptions = DURATION_OPTIONS;
   readonly practiceOptions = signal<ComboboxOption[]>([]);
-  readonly selectedWorkspace = signal<LiveWorkspaceSession | null>(null);
+  readonly selectedEnvironment = signal<LivePracticeEnvironmentSession | null>(null);
   readonly isAdvanceModalOpen = signal<boolean>(false);
   readonly advanceDetail = signal<SessionAdvance | null>(null);
   readonly graceMinutes = signal<number | null>(DEFAULT_GRACE_MINUTES);
@@ -229,15 +229,15 @@ export class AulaComponent implements OnInit, OnDestroy {
 
   /** Alumnos del examen cerrado con entorno: los únicos que se pueden reabrir. */
   readonly examStudents = computed<ClassSessionStudent[]>(() =>
-    (this.closedBoard()?.students ?? []).filter(student => !!student.workspace_id)
+    (this.closedBoard()?.students ?? []).filter(student => !!student.environment_id)
   );
 
   readonly frozenCount = computed(
-    () => this.examStudents().filter(student => student.workspace_status === 'frozen').length
+    () => this.examStudents().filter(student => student.environment_status === 'frozen').length
   );
 
   /** Entornos de la clase abierta: la telemetría se mira una materia por vez. */
-  readonly sessionEnvironments = computed<LiveWorkspaceSession[]>(() => {
+  readonly sessionEnvironments = computed<LivePracticeEnvironmentSession[]>(() => {
     const aula = this.session();
     const sessions = this.liveSessions();
     if (!aula) {
@@ -365,14 +365,14 @@ export class AulaComponent implements OnInit, OnDestroy {
   }
 
   openConsole(student: ClassSessionStudent): void {
-    const workspace = this.liveSessions().find(item => item.workspace_id === student.workspace_id);
-    if (workspace) {
-      this.selectedWorkspace.set(workspace);
+    const environment = this.liveSessions().find(item => item.environment_id === student.environment_id);
+    if (environment) {
+      this.selectedEnvironment.set(environment);
     }
   }
 
   closeConsole(): void {
-    this.selectedWorkspace.set(null);
+    this.selectedEnvironment.set(null);
   }
 
   setPollingRate(rateMs: number): void {

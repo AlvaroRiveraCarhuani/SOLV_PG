@@ -52,7 +52,7 @@
       </header>
 
       <!-- Cuerpo Principal Dividido (Enunciado + Editor) -->
-      <div class="preview-workspace">
+      <div class="preview-environment">
         <!-- Panel Izquierdo: Enunciado del Problema -->
         <section class="statement-column">
           <div class="column-header">
@@ -194,7 +194,7 @@
         @if (isIDEEnvironment()) {
           <!-- Simulación Entorno OpenVSCode Server (IDE Persistente) -->
           <section class="editor-column ide-preview-column">
-            <div class="ide-workspace-card">
+            <div class="ide-environment-card">
               <div class="column-header">
                 <div class="header-left">
                   <svg lucideServer class="column-icon"></svg>
@@ -203,8 +203,8 @@
                 <span class="status-pill status-ready font-mono" machineData>READY</span>
               </div>
 
-              <div class="ide-workspace-body">
-                <div class="workspace-info-banner">
+              <div class="ide-environment-body">
+                <div class="environment-info-banner">
                   <svg lucideServer class="banner-icon"></svg>
                   <div class="banner-text">
                     <span class="banner-title">Espacio de Trabajo del Laboratorio</span>
@@ -339,7 +339,7 @@
                       title="Ejecutar el código en un contenedor Docker efímero del juez"
                     >
                       @if (isExecuting()) {
-                        <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                        <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                         <span>Evaluando...</span>
                       } @else {
                         <svg lucidePlay class="btn-icon"></svg>
@@ -365,7 +365,7 @@
               } @else if (isExecuting()) {
                 <div class="console-output font-mono console-executing">
                   <div class="executing-spinner-row">
-                    <svg lucideLoader2 class="executing-spin spin-icon"></svg>
+                    <svg lucideLoader2 class="executing-spin motion-spin"></svg>
                     <span>Evaluando en contenedor Docker efímero (Límite: <span class="font-mono" machineData>{{ store.metadata().time_limit_ms || 1000 }} ms</span>)...</span>
                   </div>
                 </div>

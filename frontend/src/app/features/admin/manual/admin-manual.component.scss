@@ -252,7 +252,6 @@
 .manual-toc-sidebar {
   position: sticky;
   top: var(--space-6);
-  animation: fadeInRight 0.2s ease-out;
 
   @media print {
     display: none;
@@ -374,7 +373,6 @@
     border: 3px solid var(--border-subtle);
     border-top-color: var(--tenant-primary);
     border-radius: 50%;
-    animation: spin 0.8s linear infinite;
   }
 
   .btn-retry {
@@ -424,16 +422,6 @@
     background-color: var(--tenant-primary-hover);
     transform: translateY(-2px);
   }
-}
-
-// ─── Keyframes ────────────────────────────────────────────────────────────────
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes fadeInRight {
-  from { opacity: 0; transform: translateX(8px); }
-  to   { opacity: 1; transform: translateX(0); }
 }
 
 // ─── Markdown Body (ng-deep for innerHTML) ────────────────────────────────────

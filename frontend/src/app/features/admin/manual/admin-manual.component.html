@@ -74,7 +74,7 @@
     <main class="manual-content-card">
       @if (loading()) {
         <div class="manual-loading">
-          <div class="spinner"></div>
+          <div class="spinner motion-spin"></div>
           <p>Cargando documentación operativa...</p>
         </div>
       } @else if (error()) {
@@ -98,7 +98,7 @@
 
     <!-- TOC sidebar -->
     @if (!loading() && !error() && tocItems().length > 0 && showToc() && !searchQuery()) {
-      <aside class="manual-toc-sidebar" aria-label="Tabla de contenidos">
+      <aside class="manual-toc-sidebar motion-drawer" animate.leave="motion-drawer-out" aria-label="Tabla de contenidos">
         <div class="toc-sticky-card">
           <div class="toc-header">
             <span class="toc-title">En esta página</span>

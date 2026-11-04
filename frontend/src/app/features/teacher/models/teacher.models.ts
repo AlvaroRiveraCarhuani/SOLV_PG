@@ -371,7 +371,7 @@ export interface CreateExerciseRequestDTO {
   subject_id: string;
   title: string;
   description: string;
-  type?: 'algorithm' | 'database' | 'workspace' | string;
+  type?: 'algorithm' | 'database' | 'environment' | string;
   difficulty?: 'easy' | 'medium' | 'hard';
   tags?: string[];
   purpose?: 'class' | 'exam';
@@ -393,7 +393,7 @@ export interface CreateExerciseRequestDTO {
 export interface UpdateExerciseRequestDTO {
   title?: string;
   description?: string;
-  type?: 'algorithm' | 'database' | 'workspace' | string;
+  type?: 'algorithm' | 'database' | 'environment' | string;
   difficulty?: 'easy' | 'medium' | 'hard';
   tags?: string[];
   purpose?: 'class' | 'exam';
@@ -557,8 +557,8 @@ export interface SubmissionTimeline {
   keyframes: TimelineKeyframe[];
 }
 
-export interface LiveWorkspaceSession {
-  workspace_id: string;
+export interface LivePracticeEnvironmentSession {
+  environment_id: string;
   container_id: string;
   student_id: string;
   student_name: string;
@@ -891,7 +891,7 @@ export interface ClassSession {
 export type AdvanceScope = 'class' | 'selected';
 
 export interface EmitAdvanceRequest {
-  exercise_id: string;
+  /** La práctica no se elige: es la del aula y el servidor la deriva de la sesión. */
   scope: AdvanceScope;
   /** Solo con alcance `selected`; el servidor exige que estén en el aula. */
   student_ids?: string[];
@@ -997,8 +997,8 @@ export interface ClassSessionStudent {
   present: boolean;
   joined_at: string | null;
   last_seen_at: string | null;
-  workspace_id: string | null;
-  workspace_status: string | null;
+  environment_id: string | null;
+  environment_status: string | null;
   submitted_at: string | null;
   verdict: string | null;
   review_status: string | null;

@@ -12,7 +12,7 @@
 
   @if (loading()) {
     <div class="loading-state">
-      <div class="spinner"></div>
+      <div class="spinner motion-spin"></div>
       <span>Cargando configuración de Inteligencia Artificial...</span>
     </div>
   } @else {
@@ -322,7 +322,7 @@
           <!-- Estado 2: Cargando catálogo -->
           @if (loadingModels()) {
             <div class="catalog-loading-hint">
-              <div class="spinner"></div>
+              <div class="spinner motion-spin"></div>
               <span>Descubriendo modelos disponibles del proveedor...</span>
             </div>
           }
@@ -363,7 +363,7 @@
                   class="btn-catalog"
                   (click)="fetchModels(true, false)"
                   [disabled]="loadingModels() || !canFetchModels()">
-                  <svg lucideRefreshCw class="btn-icon" [class.spinning]="loadingModels()"></svg>
+                  <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="loadingModels()"></svg>
                   <span>Actualizar lista</span>
                 </button>
               </div>

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -6,9 +6,11 @@ import {
   LucidePlus,
   LucideTrash2,
   LucideAlertTriangle,
-  LucideCheckCircle2
+  LucideCheckCircle2,
+  LucideScale,
+  LucideChevronDown,
+  LucideChevronUp
 } from '@lucide/angular';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { RubricCriterionDTO, RubricLevelDTO, RubricDTO } from '../../../../exercise-editor.store';
 
@@ -39,7 +41,9 @@ export interface LevelRemoveEvent {
     LucideTrash2,
     LucideAlertTriangle,
     LucideCheckCircle2,
-    ComboboxComponent,
+    LucideScale,
+    LucideChevronDown,
+    LucideChevronUp,
     MachineDataDirective
   ],
   templateUrl: './ide-rubric-editor.component.html',
@@ -47,14 +51,27 @@ export interface LevelRemoveEvent {
 })
 export class IdeRubricEditorComponent {
   rubric = input<RubricDTO | null>(null);
-  rubricPresetOptions = input<ComboboxOption[]>([]);
   totalRubricWeight = input<number>(0);
 
-  presetSelected = output<string>();
   addCriterion = output<void>();
   removeCriterion = output<number>();
   updateCriterion = output<RubricUpdateEvent>();
   addLevelToCriterion = output<number>();
   removeLevelFromCriterion = output<LevelRemoveEvent>();
   updateLevel = output<LevelUpdateEvent>();
+  balanceEqually = output<void>();
+
+  expandedIndex = signal<number | null>(null);
+
+  toggleLevels(index: number): void {
+    if (this.expandedIndex() === index) {
+      this.expandedIndex.set(null);
+    } else {
+      this.expandedIndex.set(index);
+    }
+  }
+
+  isExpanded(index: number): boolean {
+    return this.expandedIndex() === index;
+  }
 }

@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   [title]="isPausing() ? 'Pausar o Suspender Plantilla' : 'Reactivar Plantilla Oficial'"
   [subtitle]="isPausing() ? 'Indique el motivo técnico o de gobernanza para suspender del catálogo' : 'La plantilla volverá a estar disponible para laboratorios'"
   [intent]="isPausing() ? 'error' : 'info'"

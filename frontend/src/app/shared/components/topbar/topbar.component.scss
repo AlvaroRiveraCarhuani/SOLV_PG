@@ -130,7 +130,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  animation: dropdownFadeIn 150ms ease;
 }
 
 .notif-header {
@@ -293,18 +292,6 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   padding: var(--space-2);
   z-index: 100;
-  animation: dropdownFadeIn 150ms ease;
-}
-
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 .dropdown-header {

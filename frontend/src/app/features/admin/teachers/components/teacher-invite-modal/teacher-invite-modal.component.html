@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Registrar Docente"
   subtitle="Habilita el acceso docente de forma individual o importa una lista desde un archivo Excel o CSV."
   maxWidth="620px"
@@ -33,7 +33,7 @@
 
   <!-- PESTAÑA 1: REGISTRO INDIVIDUAL -->
   @if (currentTab() === 'individual') {
-    <div class="tab-panel">
+    <div class="tab-panel motion-fade">
       <form-field
         label="Correo Institucional del Docente"
         for="teacher-email-input"
@@ -55,7 +55,7 @@
         </div>
 
         @if (isExternalDomain()) {
-          <div class="domain-warning-box">
+          <div class="domain-warning-box motion-fade">
             <svg lucideAlertTriangle class="warning-icon"></svg>
             <div class="warning-content">
               <span class="warning-title">Dominio externo detectado (<span machineData>{{ enteredDomain() }}</span>)</span>
@@ -108,7 +108,7 @@
 
   <!-- PESTAÑA 2: IMPORTAR PLANILLA (EXCEL / CSV) -->
   @if (currentTab() === 'batch') {
-    <div class="tab-panel">
+    <div class="tab-panel motion-fade">
       <roster-upload
         parseEndpoint="/api/v1/teachers/parse-roster"
         recordLabel="docentes"
@@ -141,7 +141,7 @@
         (click)="onSubmitIndividual()"
       >
         @if (isSubmitting()) {
-          <div class="tenant-spinner-sm"></div>
+          <div class="tenant-spinner-sm motion-spin"></div>
           <span>Registrando...</span>
         } @else {
           <svg lucideUserCheck class="btn-icon"></svg>
@@ -157,7 +157,7 @@
         (click)="onSubmitBatch()"
       >
         @if (isSubmittingBatch()) {
-          <div class="tenant-spinner-sm"></div>
+          <div class="tenant-spinner-sm motion-spin"></div>
           <span>Importando...</span>
         } @else {
           <svg lucideUpload class="btn-icon"></svg>

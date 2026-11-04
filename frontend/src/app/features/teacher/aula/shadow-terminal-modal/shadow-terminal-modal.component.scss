@@ -8,7 +8,6 @@
   justify-content: center;
   z-index: 1000;
   padding: var(--space-4);
-  animation: fade-in 0.2s ease-out;
 }
 
 .modal-dialog {
@@ -678,11 +677,11 @@
   }
 }
 
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
+// La píldora dice "EN VIVO" y el cursor queda visible sin parpadear.
+@media (prefers-reduced-motion: reduce) {
+  .live-pill.is-live .live-indicator,
+  .cursor-pulse {
+    animation: none;
   }
 }
+

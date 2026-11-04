@@ -5,7 +5,7 @@ describe('EnvironmentLabelPipe', () => {
 
   it('transforms IDE_PERSISTENTE to full canonical label', () => {
     expect(pipe.transform('IDE_PERSISTENTE')).toBe('Entorno de Desarrollo');
-    expect(pipe.transform('workspace')).toBe('Entorno de Desarrollo');
+    expect(pipe.transform('WORKSPACE')).toBe('Entorno de Desarrollo');
     expect(pipe.transform('ide')).toBe('Entorno de Desarrollo');
   });
 

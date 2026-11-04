@@ -62,7 +62,7 @@
         </button>
 
         @if (showMoreActions()) {
-          <div class="dropdown-menu animate-dropdown">
+          <div class="dropdown-menu animate-dropdown" animate.leave="motion-dropdown-out">
             <button type="button" class="dropdown-item" (click)="openPlagiarismModal(); showMoreActions.set(false)">
               <svg lucideShieldAlert class="btn-icon-xs"></svg>
               <span>Auditoría Anti-Plagio AST</span>
@@ -196,7 +196,7 @@
                     title="Publicar para los estudiantes"
                   >
                     @if (isPublishingLab() && selectedLabToPublish()?.id === lab.id) {
-                      <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+                      <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
                       <span>Publicando...</span>
                     } @else {
                       <svg lucideGlobe class="btn-icon-sm"></svg>
@@ -353,6 +353,15 @@
                 }
                 <div class="mod-meta-row">
                   <span class="mod-pill">Aprobación mínima: <strong machineData>{{ mod.pass_score }}%</strong></span>
+                  <a
+                    class="btn-secondary btn-module-practice"
+                    [routerLink]="['/teacher/cursos', subjectId(), 'ejercicios', 'nuevo']"
+                    [queryParams]="{ module_id: mod.id }"
+                    title="Crear una práctica dentro de esta unidad"
+                  >
+                    <svg lucidePlus class="btn-icon-sm"></svg>
+                    <span>Agregar práctica</span>
+                  </a>
                   <button type="button" class="btn-icon-danger" (click)="deleteModule(mod.id)" title="Eliminar módulo">
                     <svg lucideTrash2 class="btn-icon-sm"></svg>
                   </button>
@@ -417,7 +426,7 @@
 
 <!-- Modal para Crear Módulo con Shell Estándar -->
 @if (showCreateModuleModal()) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="Nuevo Módulo Curricular"
     subtitle="Agrupe ejercicios por unidades temáticas y configure prerrequisitos"
     intent="info"
@@ -493,7 +502,7 @@
 
 @if (selectedLabToPublish(); as lab) {
   <confirm-modal
-    title="Publicar Ejercicio"
+    title="Publicar práctica"
     [message]="'¿Confirmas publicar «' + lab.title + '»? Quedará disponible inmediatamente para todos los estudiantes inscritos en el curso.'"
     confirmText="Publicar ahora"
     cancelText="Cancelar"
@@ -522,7 +531,7 @@
 }
 
 @if (showImportModal()) {
-  <import-exercises-modal
+  <import-exercises-modal animate.leave="motion-modal-out"
     [subjectId]="subjectId()"
     (closed)="closeImportModal()"
     (imported)="onExercisesImported($event)"

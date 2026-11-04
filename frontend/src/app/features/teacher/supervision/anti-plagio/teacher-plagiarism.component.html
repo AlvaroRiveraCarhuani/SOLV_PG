@@ -13,7 +13,7 @@
         [disabled]="isScanning()"
         (click)="runScan()"
       >
-        <svg lucideRefreshCw class="btn-icon" [class.spin-animate]="isScanning()"></svg>
+        <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="isScanning()"></svg>
         <span>{{ isScanning() ? 'Analizando entregas...' : 'Re-escanear Práctica' }}</span>
       </button>
     </div>

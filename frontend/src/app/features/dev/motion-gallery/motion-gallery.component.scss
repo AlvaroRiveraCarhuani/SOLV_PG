@@ -1,0 +1,690 @@
+// Galería interna del sistema de movimiento. No forma parte del producto: no se
+// enlaza desde la navegación y solo la abre administración. Las animaciones de
+// las muestras son las reales de `_animations.scss` y de los componentes
+// compartidos; acá solo se dibuja el escenario.
+// `html` está fijo a la ventana con `overflow: hidden`, así que la página toma
+// su propia altura y desplaza el contenido puertas adentro.
+.motion-gallery {
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  // Sin relleno arriba: la barra pegada tiene que llegar al borde del área que
+  // desplaza. El aire de arriba lo aporta la cabecera.
+  padding: 0 var(--space-6) var(--space-12);
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+
+  @media (max-width: 720px) {
+    padding: 0 var(--space-4) var(--space-10);
+  }
+}
+
+.gallery-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding-top: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+
+  @media (max-width: 720px) {
+    padding-top: var(--space-4);
+  }
+}
+
+.gallery-heading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-width: 720px;
+}
+
+.gallery-kicker {
+  margin: 0;
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.gallery-title {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.gallery-subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.gallery-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
+
+.gallery-link-icon {
+  width: var(--space-4);
+  height: var(--space-4);
+}
+
+// La franja queda pegada al borde y su relleno lateral tapa el contenido que
+// pasa por los costados de la tarjeta mientras se desplaza.
+.gallery-toolbar-slot {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  margin: var(--space-3) calc(var(--space-6) * -1) 0;
+  padding: var(--space-2) var(--space-6);
+  background-color: var(--bg-canvas);
+
+  @media (max-width: 720px) {
+    margin-right: calc(var(--space-4) * -1);
+    margin-left: calc(var(--space-4) * -1);
+    padding-right: var(--space-4);
+    padding-left: var(--space-4);
+  }
+}
+
+.gallery-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: var(--space-2);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  flex-wrap: wrap;
+}
+
+.mode-control {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background-color: var(--bg-surface-active);
+  border-radius: var(--radius-full);
+}
+
+.mode-label {
+  padding-left: var(--space-2);
+  padding-right: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.mode-option {
+  padding: var(--space-1) var(--space-3);
+  border: none;
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+
+  &.is-active {
+    background-color: var(--bg-surface);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-subtle);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.toolbar-button,
+.card-replay {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--bg-surface-active);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--border-focus);
+    outline-offset: 2px;
+  }
+}
+
+.toolbar-icon {
+  width: var(--space-3);
+  height: var(--space-3);
+}
+
+.gallery-note {
+  max-width: 1400px;
+  margin: var(--space-4) auto 0;
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--tenant-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.note-flag {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.gallery-section {
+  max-width: 1400px;
+  margin: var(--space-8) auto 0;
+}
+
+.section-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-bottom: var(--space-4);
+}
+
+.section-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.section-subtitle {
+  margin: 0;
+  max-width: 760px;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-4);
+}
+
+.motion-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.card-token {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.card-tag {
+  padding: 2px var(--space-2);
+  background-color: var(--bg-surface-active);
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: lowercase;
+}
+
+.card-purpose {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.card-stage {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 148px;
+  padding: var(--space-4);
+  background-color: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.stage-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.stage-row {
+  flex-direction: row;
+  gap: var(--space-3);
+}
+
+.stage-stack {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+// El marcador es un tono muy claro sobre la superficie; el escenario sube un
+// escalón para que las barras no se pierdan contra el fondo.
+.stage-skeleton {
+  background-color: var(--bg-surface-active);
+}
+
+.stage-screen {
+  position: relative;
+  padding: 0;
+  background-color: var(--bg-surface-active);
+}
+
+// Superficie de mentira debajo del fondo: así se entiende que el backdrop
+// oscurece una vista y no que pinta un rectángulo gris.
+.stage-underlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background-color: var(--bg-surface);
+}
+
+.stage-screen-text {
+  font-size: var(--text-xs);
+  color: var(--text-primary);
+}
+
+.stage-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: var(--overlay-backdrop);
+}
+
+.stage-clip {
+  position: relative;
+  padding: 0;
+  background-color: var(--bg-surface-active);
+}
+
+.stage-dropdown {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--space-3);
+}
+
+.stage-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 62%;
+  padding: var(--space-3);
+  background-color: var(--bg-surface);
+  border-left: 1px solid var(--border-subtle);
+}
+
+.stage-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 148px;
+  padding: var(--space-1);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+}
+
+.stage-menu-item {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.stage-tile {
+  padding: var(--space-4) var(--space-5);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-subtle);
+  font-size: var(--text-sm);
+}
+
+.stage-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: min(240px, 100%);
+  padding: var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+}
+
+.stage-panel-title {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.stage-panel-text {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.stage-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.stage-bar {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.stage-target {
+  padding: var(--space-3) var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.stage-note {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-1);
+  width: 100%;
+  padding: var(--space-3);
+  background-color: var(--bg-surface);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+
+.stage-note-title {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.stage-note-text {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.stage-spinner {
+  width: var(--space-6);
+  height: var(--space-6);
+  color: var(--tenant-primary);
+}
+
+.stage-caption {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.stage-modal {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+// El escenario reutiliza las clases `.modal-backdrop` y `.modal-dialog` porque
+// la salida del sistema las busca, pero las reglas globales de `styles.scss` los
+// fijan a la ventana: acá se devuelven al tamaño de la muestra.
+.stage-modal .stage-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  padding: 0;
+  backdrop-filter: none;
+  background-color: var(--overlay-backdrop);
+}
+
+.stage-modal .stage-modal-dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  width: 100%;
+  max-width: 220px;
+  max-height: none;
+  padding: var(--space-4);
+  background-color: var(--bg-surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-dropdown);
+  overflow: visible;
+}
+
+.card-meta {
+  display: flex;
+  gap: var(--space-5);
+  margin: 0;
+}
+
+.meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  dt {
+    font-size: var(--text-2xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+  }
+
+  dd {
+    margin: 0;
+    font-size: var(--text-xs);
+    color: var(--text-primary);
+  }
+}
+
+.card-note {
+  margin: 0;
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.card-replay {
+  align-self: flex-start;
+}
+
+.local-effects {
+  margin-top: var(--space-5);
+  padding: var(--space-4);
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.local-effects-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.local-effects-text {
+  margin: 0 0 var(--space-3);
+  max-width: 820px;
+  font-size: var(--text-xs);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.effects-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+
+  th,
+  td {
+    padding: var(--space-2) var(--space-3);
+    text-align: left;
+    vertical-align: top;
+  }
+
+  th {
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-strong);
+  }
+
+  td {
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+}
+
+.gallery-footer {
+  max-width: 1400px;
+  margin: var(--space-8) auto 0;
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+
+  p {
+    margin: 0;
+    max-width: 900px;
+  }
+}
+
+// --- Modo de demostración de movimiento reducido -----------------------------
+// Replica, solo dentro de la galería, la política que ya aplica SOLV: las
+// primitivas se resuelven en 1ms, los bucles locales se apagan y `.motion-spin`
+// sigue girando porque es la señal de una operación en curso.
+.motion-gallery[data-motion-demo='reduced'] {
+  .motion-fade,
+  .motion-rise,
+  .motion-panel,
+  .motion-drawer,
+  .motion-chip,
+  .motion-backdrop,
+  .motion-stagger,
+  .animate-dropdown,
+  .motion-fade-out,
+  .motion-backdrop-out,
+  .motion-panel-out,
+  .motion-drawer-out,
+  .motion-dropdown-out,
+  .motion-modal-out,
+  .motion-modal-out .modal-backdrop,
+  .motion-modal-out .modal-dialog,
+  .highlight-target-pulse {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+
+  .highlight-target-pulse {
+    animation: none;
+  }
+
+  // Los bucles de los componentes compartidos se apagan igual que en su propia
+  // hoja de estilos. Se llega con ::ng-deep porque la demostración tiene que
+  // usar el componente real, no una copia del marcador.
+  ::ng-deep .stage-stack .shimmer::after,
+  ::ng-deep .stage-stack .pulse,
+  ::ng-deep .stage-row .status-running .status-indicator {
+    animation: none;
+  }
+}

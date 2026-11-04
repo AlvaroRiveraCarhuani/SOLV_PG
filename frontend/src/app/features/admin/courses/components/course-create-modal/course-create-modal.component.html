@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Nuevo Curso Institucional"
   subtitle="Alta de materia oficial y asignación de titular docente."
   (close)="closed.emit()"
@@ -34,7 +34,25 @@
         class="form-input uppercase"
       />
     </form-field>
+
+    <form-field class="flex-1" label="Sección" for="courseSection">
+      <input
+        id="courseSection"
+        type="text"
+        placeholder="ej. 1"
+        [ngModel]="section()"
+        (ngModelChange)="section.set($event)"
+        class="form-input uppercase"
+      />
+    </form-field>
   </div>
+
+  @if (composedCode(); as identificador) {
+    <p class="section-hint">
+      El curso se identificará como <code class="font-mono">{{ identificador }}</code>.
+      Deje la sección vacía si la materia se dicta una sola vez este periodo.
+    </p>
+  }
 
   <form-field label="Periodo Académico (Semestre)">
     <combobox

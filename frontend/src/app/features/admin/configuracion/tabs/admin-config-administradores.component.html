@@ -12,7 +12,7 @@
 
   @if (isLoading()) {
     <div class="loading-state" role="status">
-      <div class="spinner"></div>
+      <div class="spinner motion-spin"></div>
       <span>Cargando lista de administradores...</span>
     </div>
   } @else if (serviceError()) {
@@ -133,7 +133,7 @@
 
   <!-- Modal: Agregar Administrador -->
   @if (isCreateModalOpen()) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       title="Agregar Administrador"
       subtitle="Pre-aprovisionamiento de credenciales con privilegios elevados"
       maxWidth="520px"
@@ -212,7 +212,7 @@
           (click)="submitCreate()"
         >
           @if (isSubmitting()) {
-            <div class="spinner-sm"></div>
+            <div class="spinner-sm motion-spin"></div>
             <span>Registrando...</span>
           } @else {
             <span>Habilitar Administrador</span>
@@ -224,7 +224,7 @@
 
   <!-- Modal: Confirmar Revocación -->
   @if (adminToRevoke(); as target) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       title="Revocar Privilegios de Administrador"
       intent="error"
       maxWidth="480px"
@@ -260,7 +260,7 @@
           (click)="executeRevoke()"
         >
           @if (isSubmitting()) {
-            <div class="spinner-sm"></div>
+            <div class="spinner-sm motion-spin"></div>
             <span>Revocando...</span>
           } @else {
             <span>Revocar Acceso</span>

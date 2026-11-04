@@ -261,3 +261,16 @@
     @extend %shimmer-block;
   }
 }
+
+// El bloque de carga conserva su forma: solo se detiene el barrido y el degradado
+// de 400px pasa a un tono plano, para que no quede una banda a medio camino.
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-container .skeleton-logo,
+  .skeleton-container .skeleton-title,
+  .skeleton-container .skeleton-subtitle,
+  .skeleton-container .skeleton-button {
+    background-image: none;
+    background-color: var(--color-gray-200);
+    animation: none;
+  }
+}

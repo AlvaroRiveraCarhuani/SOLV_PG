@@ -1,14 +1,14 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { AulaTelemetryWidgetComponent } from './aula-telemetry-widget.component';
-import { LiveWorkspaceSession } from '../../models/teacher.models';
+import { LivePracticeEnvironmentSession } from '../../models/teacher.models';
 
 describe('AulaTelemetryWidgetComponent', () => {
   let component: AulaTelemetryWidgetComponent;
   let fixture: ComponentFixture<AulaTelemetryWidgetComponent>;
 
-  const mockSessions: LiveWorkspaceSession[] = [
+  const mockSessions: LivePracticeEnvironmentSession[] = [
     {
-      workspace_id: 'ws-101',
+      environment_id: 'ws-101',
       container_id: 'cont-101',
       student_id: 'std-101',
       student_name: 'Lucía Fernández',
@@ -61,7 +61,7 @@ describe('AulaTelemetryWidgetComponent', () => {
     component.onSetPollingRate(5000);
     expect(emittedRate).toBe(5000);
 
-    let terminalSession: LiveWorkspaceSession | null = null;
+    let terminalSession: LivePracticeEnvironmentSession | null = null;
     component.openTerminal.subscribe(s => terminalSession = s);
     component.openTerminal.emit(mockSessions[0]);
     expect(terminalSession).toEqual(mockSessions[0]);

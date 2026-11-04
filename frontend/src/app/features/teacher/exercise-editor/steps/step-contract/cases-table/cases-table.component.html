@@ -21,7 +21,7 @@
         title="Ejecutar la solución de referencia en el contenedor para autocompletar las salidas esperadas"
       >
         @if (isAutoCalculating()) {
-          <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+          <svg lucideLoader2 class="btn-icon motion-spin"></svg>
           <span>Calculando...</span>
         } @else {
           <svg lucidePlay class="btn-icon"></svg>
@@ -38,7 +38,7 @@
         [disabled]="store.cases().length === 0 || isNormalizingWeights()"
       >
         @if (isNormalizingWeights()) {
-          <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+          <svg lucideLoader2 class="btn-icon motion-spin"></svg>
           <span>Equiparando...</span>
         } @else if (weightsNormalizedSuccess()) {
           <svg lucideCheck class="btn-icon"></svg>
@@ -137,7 +137,7 @@
           [disabled]="isAutoCalculating()"
         >
           @if (isAutoCalculating()) {
-            <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+            <svg lucideLoader2 class="btn-icon motion-spin"></svg>
             <span>Calculando...</span>
           } @else {
             <svg lucidePlay class="btn-icon"></svg>
@@ -274,7 +274,7 @@
                       aria-label="Calcular salida de esta fila"
                     >
                       @if (rowCalculating()[item.originalIndex]) {
-                        <svg lucideLoader2 class="row-icon spin-icon"></svg>
+                        <svg lucideLoader2 class="row-icon motion-spin"></svg>
                       } @else if (rowCalculatedSuccess()[item.originalIndex]) {
                         <svg lucideCheck class="row-icon success-icon"></svg>
                       } @else {
@@ -332,7 +332,7 @@
               <td class="col-valid">
                 @if (validationResults()[item.originalIndex]?.loading) {
                   <span class="valid-tag tag-loading" title="Validando contra el formato de entrada...">
-                    <svg lucideLoader2 class="tag-icon spin-icon"></svg>
+                    <svg lucideLoader2 class="tag-icon motion-spin"></svg>
                     <span class="tag-label">Validando</span>
                   </span>
                 } @else if (validationResults()[item.originalIndex]?.valid === false) {

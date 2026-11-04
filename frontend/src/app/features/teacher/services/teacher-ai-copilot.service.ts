@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, map } from 'rxjs';
+import { RubricDTO } from '../exercise-editor/exercise-editor.store';
 
 export interface AIAvailabilityStatus {
   enabled: boolean;
@@ -12,10 +13,11 @@ export interface AIAvailabilityStatus {
 
 export interface AIGenerateExercisePayload {
   prompt: string;
-  language: string;
+  language?: string;
   difficulty: 'easy' | 'medium' | 'hard';
-  public_cases_count: number;
-  hidden_cases_count: number;
+  environment_type?: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
+  public_cases_count?: number;
+  hidden_cases_count?: number;
   verify_with_runner?: boolean;
 }
 
@@ -56,9 +58,14 @@ export interface AIGenerateExerciseResponse {
   description: string;
   difficulty: 'easy' | 'medium' | 'hard';
   language: string;
-  boilerplate: string;
-  reference_solution: string;
-  test_cases: AIGeneratedTestCaseDTO[];
+  environment_type?: 'JUEZ_EFIMERO' | 'IDE_PERSISTENTE';
+  template_id?: string;
+  template_name?: string;
+  missing_technology?: string;
+  rubric?: RubricDTO;
+  boilerplate?: string;
+  reference_solution?: string;
+  test_cases?: AIGeneratedTestCaseDTO[];
   runner_verified_all: boolean;
   verification_warning?: string;
   latency_ms: number;

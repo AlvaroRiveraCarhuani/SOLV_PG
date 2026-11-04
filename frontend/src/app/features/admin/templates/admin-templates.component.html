@@ -30,7 +30,7 @@
         [disabled]="isWarmingAll() || activeCount() === 0"
         [title]="activeCount() === 0 ? 'No hay plantillas activas en el catálogo para preparar' : 'Verifica e instala en el servidor los entornos de las materias activas para que los alumnos no esperen descargas en clase'">
         @if (isWarmingAll()) {
-          <svg lucideRefreshCw class="btn-icon spin"></svg>
+          <svg lucideRefreshCw class="btn-icon motion-spin"></svg>
           <span>Preparando entornos...</span>
         } @else {
           <svg lucideDownloadCloud class="btn-icon"></svg>
@@ -199,7 +199,7 @@
   @if (activeTab() === 'pending') {
     @if (isLoading()) {
       <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
         <span>Cargando solicitudes de plantillas...</span>
       </div>
     } @else if (pendingTemplates().length === 0) {
@@ -404,7 +404,7 @@
   @if (activeTab() === 'catalog') {
     @if (isLoading()) {
       <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
         <span>Cargando catálogo oficial de plantillas...</span>
       </div>
     } @else if (catalogTemplates().length === 0) {
@@ -477,7 +477,7 @@
                       @if (getCacheStatus(item.id); as cache) {
                         @if (warmingTemplateIds().has(item.id)) {
                           <span class="badge-cache-warming">
-                            <svg lucideRefreshCw class="badge-icon spin"></svg>
+                            <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
                             Descargando...
                           </span>
                         } @else if (cache.is_cached) {
@@ -565,7 +565,7 @@
                   [disabled]="warmingTemplateIds().has(item.id)"
                   title="Asegurar descarga en el disco del host">
                   @if (warmingTemplateIds().has(item.id)) {
-                    <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+                    <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
                     <span>Calentando...</span>
                   } @else {
                     <svg lucideFlame class="btn-icon-xs text-warning"></svg>
@@ -701,7 +701,7 @@
                     @if (getCacheStatus(item.id); as cache) {
                       @if (warmingTemplateIds().has(item.id)) {
                         <span class="badge-cache-warming">
-                          <svg lucideRefreshCw class="badge-icon spin"></svg>
+                          <svg lucideRefreshCw class="badge-icon motion-spin"></svg>
                           Descargando...
                         </span>
                       } @else if (cache.is_cached) {
@@ -737,7 +737,7 @@
                       </button>
 
                       @if (openMenuId() === item.id) {
-                        <div class="row-actions-menu" role="menu">
+                        <div class="row-actions-menu animate-dropdown" animate.leave="motion-dropdown-out" role="menu">
                           <button type="button" class="menu-item" role="menuitem" (click)="warmTemplate(item); openMenuId.set(null)">
                             <svg lucideFlame class="menu-item-icon text-warning"></svg>
                             <span>Precalentar en Host</span>
@@ -813,7 +813,7 @@
   @if (activeTab() === 'rejected') {
     @if (isLoading()) {
       <div class="loading-state">
-        <svg lucideRefreshCw class="w-6 h-6 animate-spin text-secondary"></svg>
+        <svg lucideRefreshCw class="w-6 h-6 motion-spin text-secondary"></svg>
         <span>Cargando historial de solicitudes rechazadas...</span>
       </div>
     } @else if (rejectedTemplates().length === 0) {
@@ -989,21 +989,21 @@
 
   <!-- Modales -->
   @if (selectedTemplateForReview(); as tpl) {
-    <template-review-modal
+    <template-review-modal animate.leave="motion-modal-out"
       [template]="tpl"
       (approved)="handleApprove($event)"
       (closed)="closeReviewModal()" />
   }
 
   @if (selectedTemplateForReject(); as tpl) {
-    <template-reject-modal
+    <template-reject-modal animate.leave="motion-modal-out"
       [template]="tpl"
       (rejected)="handleReject($event)"
       (closed)="closeRejectModal()" />
   }
 
   @if (selectedTemplateForEdit(); as tpl) {
-    <template-edit-modal
+    <template-edit-modal animate.leave="motion-modal-out"
       [template]="tpl"
       (saved)="handleSaveEdit($event)"
       (closed)="closeEditModal()" />
@@ -1011,7 +1011,7 @@
 
   <!-- Modal de Suspensión / Reactivación -->
   @if (templateToToggleStatus(); as tpl) {
-    <template-status-modal
+    <template-status-modal animate.leave="motion-modal-out"
       [template]="tpl"
       (confirmed)="handleConfirmToggleStatus($event)"
       (closed)="cancelToggleStatus()"
@@ -1020,7 +1020,7 @@
 
   <!-- Diálogo Modal de Promoción a Modelo (ST-15) -->
   @if (templateToPromote(); as tpl) {
-    <template-promote-modal
+    <template-promote-modal animate.leave="motion-modal-out"
       [template]="tpl"
       (promoted)="handlePromoted($event)"
       (closed)="closePromoteModal()"

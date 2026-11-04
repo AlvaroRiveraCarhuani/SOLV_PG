@@ -39,7 +39,7 @@ describe('AdminStudentsComponent Unit Tests', () => {
       status: 'active',
       academic_status: 'enrolled',
       enrolled_courses_count: 2,
-      active_workspaces_count: 1,
+      active_environments_count: 1,
       oom_strike_count: 0
     },
     {
@@ -51,7 +51,7 @@ describe('AdminStudentsComponent Unit Tests', () => {
       status: 'active',
       academic_status: 'enrolled',
       enrolled_courses_count: 1,
-      active_workspaces_count: 0,
+      active_environments_count: 0,
       oom_strike_count: 2
     },
     {
@@ -63,7 +63,7 @@ describe('AdminStudentsComponent Unit Tests', () => {
       status: 'suspended',
       academic_status: 'inactive',
       enrolled_courses_count: 0,
-      active_workspaces_count: 0,
+      active_environments_count: 0,
       oom_strike_count: 3
     },
     {
@@ -75,7 +75,7 @@ describe('AdminStudentsComponent Unit Tests', () => {
       status: 'active',
       academic_status: 'enrolled',
       enrolled_courses_count: 3,
-      active_workspaces_count: 2,
+      active_environments_count: 2,
       oom_strike_count: 0
     }
   ];
@@ -114,8 +114,8 @@ describe('AdminStudentsComponent Unit Tests', () => {
     expect(component.totalStudents()).toBe(4);
     // enrolledStudentsCount: std-1, std-2, std-4 (3 estudiantes con enrolled_courses_count > 0)
     expect(component.enrolledStudentsCount()).toBe(3);
-    // activeWorkspacesTotal: 1 (std-1) + 0 (std-2) + 0 (std-3) + 2 (std-4) = 3
-    expect(component.activeWorkspacesTotal()).toBe(3);
+    // activeEnvironmentsTotal: 1 (std-1) + 0 (std-2) + 0 (std-3) + 2 (std-4) = 3
+    expect(component.activeEnvironmentsTotal()).toBe(3);
     // strikesStudentsCount: std-2 (2 strikes, < 3)
     expect(component.strikesStudentsCount()).toBe(1);
     // blockedStudentsCount: std-3 (>= 3 strikes)

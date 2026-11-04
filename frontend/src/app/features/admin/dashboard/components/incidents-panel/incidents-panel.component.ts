@@ -35,21 +35,21 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
 
               <div class="card-content">
                 <span class="student-info">{{ inc.student_name }}</span>
-                <span class="course-sub">{{ inc.course_name }} &bull; <span machineData>{{ inc.workspace_id }}</span></span>
+                <span class="course-sub">{{ inc.course_name }} &bull; <span machineData>{{ inc.environment_id }}</span></span>
                 <p class="incident-desc">{{ inc.description }}</p>
               </div>
 
               <div class="card-actions">
                 <button 
                   class="btn-log" 
-                  (click)="viewLogs.emit(inc.workspace_id)"
+                  (click)="viewLogs.emit(inc.environment_id)"
                   title="Inspeccionar traza del error">
                   <svg lucideFileText class="btn-icon"></svg>
                   <span>Ver Logs</span>
                 </button>
                 <button 
                   class="btn-resolve" 
-                  (click)="resolveIncident.emit(inc.workspace_id)"
+                  (click)="resolveIncident.emit(inc.environment_id)"
                   title="Restablecer contadores OOM y liberar recursos del contenedor">
                   <svg lucideCheckCircle class="btn-icon"></svg>
                   <span>Resolver</span>
@@ -83,6 +83,6 @@ import { LucideAlertTriangle, LucideCheckCircle, LucideFileText, LucideInfo } fr
 export class IncidentsPanelComponent {
   incidents = input.required<TechnicalIncident[]>();
   resolveIncident = output<string>();
-  restartWorkspace = output<string>();
+  restartEnvironment = output<string>();
   viewLogs = output<string>();
 }

@@ -7,7 +7,7 @@ import {
   CourseLoadSummary,
   TechnicalIncident,
   LoadSnapshot,
-  WorkspaceLogsResponse
+  EnvironmentLogsResponse
 } from '@core/models/admin.model';
 import { Observable, catchError, forkJoin, of, tap } from 'rxjs';
 
@@ -185,11 +185,11 @@ export class AdminMetricsService {
       );
   }
 
-  // Mismo caso que la pausa: la ruta real es /api/v1/workspaces/{id}/restart;
-  // el antiguo prefijo /admin/workspaces devolvía 404 silencioso. El error se
+  // Mismo caso que la pausa: la ruta real es /api/v1/environments/{id}/restart;
+  // el antiguo prefijo /admin/environments devolvía 404 silencioso. El error se
   // propaga para que la UI lo muestre.
-  restartWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<void>(`/api/v1/workspaces/${workspaceId}/restart`, {}).pipe(
+  restartEnvironment(environmentId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/environments/${environmentId}/restart`, {}).pipe(
       tap(() => this.fetchMetrics())
     );
   }
@@ -208,33 +208,33 @@ export class AdminMetricsService {
     });
   }
 
-  // La ruta real de pausa es /api/v1/workspaces/{id}/pause (el rol admin pasa
-  // la guarda del handler). El antiguo prefijo /admin/workspaces no existía y
+  // La ruta real de pausa es /api/v1/environments/{id}/pause (el rol admin pasa
+  // la guarda del handler). El antiguo prefijo /admin/environments no existía y
   // devolvía 404 silencioso: el error se propaga para que la UI lo muestre.
-  pauseWorkspace(workspaceId: string): Observable<void> {
-    return this.http.post<void>(`/api/v1/workspaces/${workspaceId}/pause`, {}).pipe(
+  pauseEnvironment(environmentId: string): Observable<void> {
+    return this.http.post<void>(`/api/v1/environments/${environmentId}/pause`, {}).pipe(
       tap(() => this.fetchMetrics())
     );
   }
 
-  getWorkspaceLogs(workspaceId: string): Observable<WorkspaceLogsResponse> {
-    return this.http.get<WorkspaceLogsResponse>(`/api/v1/admin/workspaces/${workspaceId}/logs`);
+  getEnvironmentLogs(environmentId: string): Observable<EnvironmentLogsResponse> {
+    return this.http.get<EnvironmentLogsResponse>(`/api/v1/admin/environments/${environmentId}/logs`);
   }
 
-  resolveIncident(workspaceId: string): Observable<{ status: string; workspace_id: string; message: string }> {
-    return this.http.post<{ status: string; workspace_id: string; message: string }>(
-      `/api/v1/admin/workspaces/${workspaceId}/resolve`, 
+  resolveIncident(environmentId: string): Observable<{ status: string; environment_id: string; message: string }> {
+    return this.http.post<{ status: string; environment_id: string; message: string }>(
+      `/api/v1/admin/environments/${environmentId}/resolve`, 
       {}
     ).pipe(
       tap(() => this.fetchMetrics())
     );
   }
 
-  getCourseWorkspaces(courseId: string, search = '', status = 'all'): Observable<DockerContainerSummary[]> {
+  getCourseEnvironments(courseId: string, search = '', status = 'all'): Observable<DockerContainerSummary[]> {
     let params = new HttpParams();
     if (search) params = params.set('search', search);
     if (status && status !== 'all') params = params.set('status', status);
-    return this.http.get<DockerContainerSummary[]>(`/api/v1/admin/courses/${courseId}/workspaces`, { params }).pipe(
+    return this.http.get<DockerContainerSummary[]>(`/api/v1/admin/courses/${courseId}/environments`, { params }).pipe(
       catchError(() => of([]))
     );
   }

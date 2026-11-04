@@ -19,8 +19,8 @@ const participants: ClassSessionStudent[] = [
     present: true,
     joined_at: '2026-10-31T15:00:00Z',
     last_seen_at: '2026-10-31T15:10:00Z',
-    workspace_id: null,
-    workspace_status: null,
+    environment_id: null,
+    environment_status: null,
     submitted_at: null,
     verdict: null,
     review_status: null,
@@ -34,8 +34,8 @@ const participants: ClassSessionStudent[] = [
     present: false,
     joined_at: null,
     last_seen_at: null,
-    workspace_id: null,
-    workspace_status: null,
+    environment_id: null,
+    environment_status: null,
     submitted_at: null,
     verdict: null,
     review_status: null,
@@ -66,7 +66,7 @@ function advanceResponse(recipients: string[]) {
 describe('ClassAdvanceModalComponent', () => {
   let httpMock: HttpTestingController;
 
-  function setup(): ClassAdvanceModalComponent {
+  function setup(practiceId: string | null = EXERCISE_ID): ClassAdvanceModalComponent {
     TestBed.configureTestingModule({
       imports: [ClassAdvanceModalComponent],
       providers: [ClassAdvanceService, provideHttpClient(), provideHttpClientTesting()]
@@ -75,30 +75,28 @@ describe('ClassAdvanceModalComponent', () => {
 
     const fixture = TestBed.createComponent(ClassAdvanceModalComponent);
     fixture.componentRef.setInput('sessionId', SESSION_ID);
-    fixture.componentRef.setInput('practices', [
-      { id: EXERCISE_ID, label: PRACTICE_LABEL, value: EXERCISE_ID }
-    ]);
     fixture.componentRef.setInput('students', participants);
-    fixture.componentRef.setInput('defaultExerciseId', EXERCISE_ID);
+    fixture.componentRef.setInput('practiceId', practiceId);
+    fixture.componentRef.setInput('practiceTitle', practiceId ? PRACTICE_LABEL : null);
     fixture.detectChanges();
     return fixture.componentInstance;
   }
 
   afterEach(() => httpMock.verify());
 
-  it('emits to the whole class with the practice selected in the aula', () => {
+  it('emits to the whole class under the practice fixed by the aula', () => {
     const component = setup();
     const emitted: string[][] = [];
     component.emitted.subscribe(emission => emitted.push(emission.recipients));
 
-    expect(component.exerciseId()).toBe(EXERCISE_ID);
+    expect(component.practiceId()).toBe(EXERCISE_ID);
     expect(component.participants().length).toBe(1);
 
     component.emit();
 
     const req = httpMock.expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/advances`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({ exercise_id: EXERCISE_ID, scope: 'class' });
+    expect(req.request.body).toEqual({ scope: 'class' });
     req.flush(advanceResponse(['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']));
 
     expect(emitted).toEqual([['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']]);
@@ -118,11 +116,20 @@ describe('ClassAdvanceModalComponent', () => {
 
     const req = httpMock.expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/advances`);
     expect(req.request.body).toEqual({
-      exercise_id: EXERCISE_ID,
       scope: 'selected',
       student_ids: ['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']
     });
     req.flush(advanceResponse(['aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa']));
+  });
+
+  it('refuses to emit when the aula has no practice', () => {
+    const component = setup(null);
+
+    expect(component.hasPractice()).toBe(false);
+    expect(component.canEmit()).toBe(false);
+
+    component.emit();
+    httpMock.expectNone(`/api/v1/teacher/sessions/${SESSION_ID}/advances`);
   });
 
   it('offers only the students who were in the aula', () => {
@@ -137,10 +144,10 @@ describe('ClassAdvanceModalComponent', () => {
     httpMock
       .expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/advances`)
       .flush(
-        { error: 'la clase está congelada', message: 'La clase está congelada: descongélala para emitir' },
+        { error: 'el aula necesita una práctica asociada', message: 'Asigna una práctica al aula' },
         { status: 409, statusText: 'Conflict' }
       );
 
-    expect(component.serviceError()).toContain('congelada');
+    expect(component.serviceError()).toContain('práctica');
   });
 });

@@ -65,7 +65,7 @@ export class AdminStudentsComponent implements OnInit {
   readonly studentForCourses = signal<AdminStudentItem | null>(null);
   readonly studentCourses = signal<AdminStudentCourseItem[]>([]);
   readonly isLoadingCourses = signal<boolean>(false);
-  readonly actionInProgressWorkspaceId = signal<string | null>(null);
+  readonly actionInProgressEnvironmentId = signal<string | null>(null);
 
   readonly toastMessage = signal<string | null>(null);
   readonly toastType = signal<'success' | 'error'>('success');
@@ -107,7 +107,7 @@ export class AdminStudentsComponent implements OnInit {
   readonly totalStudents = computed(() => this.students().length);
   readonly enrolledStudentsCount = computed(() => this.students().filter(s => s.academic_status === 'enrolled').length);
   readonly inactiveStudentsCount = computed(() => this.students().filter(s => s.academic_status === 'inactive').length);
-  readonly activeWorkspacesTotal = computed(() => this.students().reduce((sum, s) => sum + s.active_workspaces_count, 0));
+  readonly activeEnvironmentsTotal = computed(() => this.students().reduce((sum, s) => sum + s.active_environments_count, 0));
   readonly strikesStudentsCount = computed(() => this.students().filter(s => s.oom_strike_count > 0 && s.oom_strike_count < 3).length);
   readonly blockedStudentsCount = computed(() => this.students().filter(s => s.oom_strike_count >= 3).length);
 
@@ -123,7 +123,7 @@ export class AdminStudentsComponent implements OnInit {
         case 'suspended': return s.status === 'suspended';
         case 'blocked': return s.oom_strike_count >= 3;
         case 'strikes': return s.oom_strike_count > 0;
-        case 'running': return s.active_workspaces_count > 0;
+        case 'running': return s.active_environments_count > 0;
         default: return true;
       }
     });
@@ -260,7 +260,7 @@ export class AdminStudentsComponent implements OnInit {
       next: (res) => {
         this.isResetting.set(false);
         this.closeResetOOMModal();
-        this.showToast(`Penalizaciones restablecidas (${res.workspaces_reset_count} espacios actualizados)`, 'success');
+        this.showToast(`Penalizaciones restablecidas (${res.environments_reset_count} espacios actualizados)`, 'success');
         this.loadStudents();
       },
       error: (err) => {
@@ -351,33 +351,33 @@ export class AdminStudentsComponent implements OnInit {
     });
   }
 
-  onRestartWorkspace(workspaceId: string): void {
-    this.actionInProgressWorkspaceId.set(workspaceId);
-    this.studentsService.restartWorkspace(workspaceId).subscribe({
+  onRestartEnvironment(environmentId: string): void {
+    this.actionInProgressEnvironmentId.set(environmentId);
+    this.studentsService.restartEnvironment(environmentId).subscribe({
       next: () => {
-        this.actionInProgressWorkspaceId.set(null);
+        this.actionInProgressEnvironmentId.set(null);
         this.showToast('Entorno reiniciado en el servidor.', 'success');
         if (this.studentForCourses()) this.openCoursesModal(this.studentForCourses()!);
         this.loadStudents();
       },
       error: (err) => {
-        this.actionInProgressWorkspaceId.set(null);
+        this.actionInProgressEnvironmentId.set(null);
         this.showToast(err.error?.error || err.error?.message || 'Error al reiniciar entorno de trabajo.', 'error');
       }
     });
   }
 
-  onPauseWorkspace(workspaceId: string): void {
-    this.actionInProgressWorkspaceId.set(workspaceId);
-    this.studentsService.pauseWorkspace(workspaceId).subscribe({
+  onPauseEnvironment(environmentId: string): void {
+    this.actionInProgressEnvironmentId.set(environmentId);
+    this.studentsService.pauseEnvironment(environmentId).subscribe({
       next: () => {
-        this.actionInProgressWorkspaceId.set(null);
+        this.actionInProgressEnvironmentId.set(null);
         this.showToast('Entorno pausado y memoria RAM liberada.', 'success');
         if (this.studentForCourses()) this.openCoursesModal(this.studentForCourses()!);
         this.loadStudents();
       },
       error: (err) => {
-        this.actionInProgressWorkspaceId.set(null);
+        this.actionInProgressEnvironmentId.set(null);
         this.showToast(err.error?.error || err.error?.message || 'Error al pausar entorno de trabajo.', 'error');
       }
     });

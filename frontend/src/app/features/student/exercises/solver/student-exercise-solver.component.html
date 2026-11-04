@@ -171,20 +171,20 @@
             <div class="editor-toolbar">
               <div class="toolbar-left">
                 <svg lucideTerminal class="toolbar-icon"></svg>
-                <span class="file-label">Workspace del alumno</span>
+                <span class="file-label">Entorno del alumno</span>
               </div>
               <div class="toolbar-actions">
                 <button
                   type="button"
                   class="btn-outline"
                   data-testid="btn-start-ide"
-                  [disabled]="isStartingWorkspace()"
-                  (click)="startIdeWorkspace()"
+                  [disabled]="isStartingEnvironment()"
+                  (click)="startIdeEnvironment()"
                 >
-                  <svg lucideRefreshCw class="btn-icon" [class.spin-icon]="isStartingWorkspace()"></svg>
-                  <span>{{ workspace() ? 'Reconectar' : 'Iniciar IDE' }}</span>
+                  <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="isStartingEnvironment()"></svg>
+                  <span>{{ environment() ? 'Reconectar' : 'Iniciar IDE' }}</span>
                 </button>
-                @if (workspace()?.access_url) {
+                @if (environment()?.access_url) {
                   <button type="button" class="btn-primary" data-testid="btn-open-ide" (click)="openIdeInNewTab()">
                     <svg lucideExternalLink class="btn-icon"></svg>
                     <span>Abrir IDE</span>
@@ -194,9 +194,9 @@
             </div>
 
             <div class="editor-body">
-              @if (isStartingWorkspace()) {
-                <p class="empty-note">Aprovisionando el workspace del ejercicio...</p>
-              } @else if (workspace(); as ws) {
+              @if (isStartingEnvironment()) {
+                <p class="empty-note">Aprovisionando el environment del ejercicio...</p>
+              } @else if (environment(); as ws) {
                 <div class="ide-status-grid">
                   <div class="ide-status-item">
                     <span class="ide-status-label">Estado</span>
@@ -215,18 +215,18 @@
                     </div>
                   }
                   <div class="ide-status-item">
-                    <span class="ide-status-label">Workspace</span>
+                    <span class="ide-status-label">Entorno</span>
                     <span class="ide-status-value font-mono" machineData>{{ ws.id }}</span>
                   </div>
                 </div>
               } @else {
                 <p class="empty-note">
-                  El workspace se inicia bajo demanda y conserva tus archivos entre sesiones.
+                  El environment se inicia bajo demanda y conserva tus archivos entre sesiones.
                 </p>
               }
 
-              @if (workspaceError()) {
-                <p class="ide-error" role="alert">{{ workspaceError() }}</p>
+              @if (environmentError()) {
+                <p class="ide-error" role="alert">{{ environmentError() }}</p>
               }
             </div>
           </div>
@@ -246,7 +246,7 @@
                   (click)="requestSubmitProject()"
                 >
                   @if (isSubmittingProject()) {
-                    <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                     <span>Entregando...</span>
                   } @else if (examSubmitPending()) {
                     <svg lucidePlay class="btn-icon"></svg>
@@ -334,7 +334,7 @@
                 [disabled]="isSubmitting() || !sourceCode().trim()"
               >
                 @if (isSubmitting()) {
-                  <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                   <span>Evaluando...</span>
                 } @else {
                   <svg lucidePlay class="btn-icon"></svg>
@@ -414,6 +414,6 @@
   }
 
   @if (selectedAdvance(); as advance) {
-    <advance-confirm-modal [advance]="advance" (closed)="closeAdvanceModal()" />
+    <advance-confirm-modal animate.leave="motion-modal-out" [advance]="advance" (closed)="closeAdvanceModal()" />
   }
 </div>

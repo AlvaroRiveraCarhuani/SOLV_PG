@@ -63,9 +63,6 @@
         width: 14px;
         height: 14px;
 
-        &.spin-icon {
-          animation: spin 1s linear infinite;
-        }
       }
     }
 
@@ -343,9 +340,6 @@
         height: 14px;
       }
 
-      .spin-icon {
-        animation: spin 1s linear infinite;
-      }
     }
 
     .btn-dismiss {
@@ -602,10 +596,6 @@
           height: 10px;
         }
 
-        .spin-icon {
-          animation: spin 1s linear infinite;
-        }
-
         &.calc-success {
           background-color: var(--status-running-bg, var(--bg-surface-subtle));
           border-color: var(--status-running-text, var(--tenant-primary));
@@ -717,10 +707,6 @@
     .tag-icon {
       width: 13px;
       height: 13px;
-    }
-
-    .spin-icon {
-      animation: spin 1s linear infinite;
     }
 
     &.tag-neutral {
@@ -872,18 +858,5 @@
         height: 14px;
       }
     }
-  }
-}
-
-.spin-icon {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
   }
 }

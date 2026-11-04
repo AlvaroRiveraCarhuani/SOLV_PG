@@ -207,6 +207,10 @@ export class PublicationChecklistComponent {
     });
   });
 
+  /** La revisión muestra como máximo tres advertencias; el resto se resume. */
+  readonly visibleWarnings = computed<PreFlightItem[]>(() => this.structuredWarnings().slice(0, 3));
+  readonly hiddenWarningsCount = computed<number>(() => Math.max(0, this.structuredWarnings().length - 3));
+
   readonly infoItems = computed(() => this.store.checklistReport()?.info || []);
 
   readonly hasBlockers = computed(() => this.structuredBlockers().length > 0);

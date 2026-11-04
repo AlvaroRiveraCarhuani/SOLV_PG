@@ -27,6 +27,18 @@
   gap: var(--space-3);
 }
 
+// El identificador compuesto se muestra antes de enviar el alta: es la única
+// advertencia de que el curso va a quedar como "SIS-211-1" y no como "SIS-211".
+.section-hint {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+
+  code {
+    font-size: inherit;
+  }
+}
+
 .flex-1 {
   flex: 1;
   min-width: 0;

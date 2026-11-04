@@ -122,7 +122,7 @@
 </div>
 
 @if (showOverrideModal()) {
-  <speed-grader-override-modal
+  <speed-grader-override-modal animate.leave="motion-modal-out"
     [overrideVerdict]="overrideVerdict()"
     [overrideScore]="overrideScore()"
     [overrideReason]="overrideReason()"
@@ -140,7 +140,7 @@
 }
 
 @if (showKeystrokeReplay()) {
-  <keystroke-replay-modal
+  <keystroke-replay-modal animate.leave="motion-modal-out"
     [submissionId]="submissionId()"
     (closed)="closeKeystrokeReplay()"
   />

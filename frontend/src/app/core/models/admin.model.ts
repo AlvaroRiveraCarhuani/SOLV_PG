@@ -48,7 +48,7 @@ export interface CourseLoadSummary {
 export interface TechnicalIncident {
   id: string;
   type: 'oom_killed' | 'start_failure' | 'qos_warning';
-  workspace_id: string;
+  environment_id: string;
   student_name: string;
   course_name: string;
   description: string;
@@ -77,7 +77,7 @@ export interface HostSystemHealth {
   docker: DockerDaemonInfo;
   /** Línea formateada para el encabezado, derivada de docker (S7: sin literales). */
   docker_version?: string;
-  /** Códigos estables del backend: docker_unreachable, orphaned_workspaces, ... */
+  /** Códigos estables del backend: docker_unreachable, orphaned_environments, ... */
   health_reasons?: string[];
   uptime_seconds: number;
   metrics: HostHardwareMetrics;
@@ -87,8 +87,8 @@ export interface HostSystemHealth {
   load_history?: LoadSnapshot[];
 }
 
-export interface WorkspaceLogsResponse {
-  workspace_id: string;
+export interface EnvironmentLogsResponse {
+  environment_id: string;
   container_id: string;
   student_id: string;
   status: string;

@@ -2,8 +2,8 @@
   <!-- Header Principal -->
   <header class="exercises-header">
     <div class="header-titles">
-      <h1 class="page-title">Banco Global de Ejercicios y Laboratorios</h1>
-      <p class="page-subtitle">Gestiona, edita y genera casos de prueba para todos los laboratorios de tus materias.</p>
+      <h1 class="page-title">Catálogo de Laboratorios</h1>
+      <p class="page-subtitle">Prácticas reutilizables de tus materias. Edítalas, genera casos de prueba o duplícalas a otra materia.</p>
     </div>
 
     <div class="header-actions">
@@ -33,10 +33,6 @@
     <div class="kpi-box">
       <span class="kpi-label">Borradores en Edición</span>
       <span class="kpi-val text-warning" machineData>{{ kpiStats().drafts }}</span>
-    </div>
-    <div class="kpi-box">
-      <span class="kpi-label">Entregas Recibidas</span>
-      <span class="kpi-val text-primary" machineData>{{ kpiStats().totalSubmissions }}</span>
     </div>
   </div>
 
@@ -169,32 +165,6 @@
               }
             </div>
 
-            <div class="activity-stats">
-              <div class="stat-item">
-                <svg lucideUsers class="stat-icon"></svg>
-                <span class="stat-text">
-                  <strong machineData>{{ lab.submissions_count }}</strong> entregas
-                </span>
-              </div>
-
-              @if (lab.review_pending > 0) {
-                <div class="stat-item text-warning">
-                  <svg lucideClock class="stat-icon"></svg>
-                  <span class="stat-text">
-                    <strong machineData>{{ lab.review_pending }}</strong> por revisar
-                  </span>
-                </div>
-              }
-
-              @if (lab.due_date) {
-                <div class="stat-item">
-                  <span class="due-label">Vence:</span>
-                  <time class="due-date font-mono">
-                    {{ lab.due_date | dateText:'compact-datetime' }}
-                  </time>
-                </div>
-              }
-            </div>
           </div>
 
           <!-- Card Footer Actions -->
@@ -221,6 +191,16 @@
               <span>Editar</span>
             </button>
 
+            <button
+              type="button"
+              class="btn-card-action"
+              (click)="openDuplicateModal(lab)"
+              title="Copiar este laboratorio a otra de tus materias"
+            >
+              <svg lucideLayers class="action-icon"></svg>
+              <span>Duplicar</span>
+            </button>
+
             <a
               [routerLink]="['/teacher/cursos', lab.subject_id]"
               class="btn-card-action-link"
@@ -237,6 +217,43 @@
 </div>
 
 
+
+<!-- Modal de Duplicado a otra materia -->
+@if (duplicatingLab(); as lab) {
+  <div class="duplicate-backdrop" (click)="closeDuplicateModal()">
+    <div class="duplicate-dialog" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
+      <h2 class="duplicate-title">Duplicar laboratorio</h2>
+      <p class="duplicate-text">
+        Se creará una copia de <strong>{{ lab.title }}</strong> como borrador, sin entregas.
+      </p>
+      <div class="filter-item">
+        <label class="filter-label">Materia destino:</label>
+        <combobox
+          [compact]="true"
+          [showSearchIcon]="false"
+          [value]="duplicateTargetLabel()"
+          [options]="duplicateTargetOptions()"
+          placeholder="Selecciona una materia..."
+          (optionSelected)="onDuplicateTargetSelected($event)"
+        />
+      </div>
+      @if (duplicateError()) {
+        <p class="duplicate-error" role="alert">{{ duplicateError() }}</p>
+      }
+      <div class="duplicate-actions">
+        <button type="button" class="btn btn-secondary" [disabled]="isDuplicating()" (click)="closeDuplicateModal()">Cancelar</button>
+        <button
+          type="button"
+          class="btn btn-primary"
+          [disabled]="!duplicateTargetId() || isDuplicating()"
+          (click)="confirmDuplicate()"
+        >
+          <span>{{ isDuplicating() ? 'Duplicando...' : 'Duplicar' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+}
 
 <!-- Modal de Fuzzing -->
 @if (isFuzzingOpen() && exerciseForFuzzing(); as lab) {

@@ -65,9 +65,29 @@
   --text-xl:   1.25rem;   // 20px
   --text-2xl:  1.5rem;    // 24px
 
-  // Movimiento (transiciones estándar del sistema)
-  --transition-fast: 150ms ease;
-  --transition-normal: 300ms ease;
+  // Movimiento: duraciones y curvas son la única fuente de verdad.
+  // Los componentes no escriben "200ms" ni "cubic-bezier(...)" a mano.
+  --motion-instant: 80ms;   // feedback inmediato (press, toggle)
+  --motion-fast:    150ms;  // cambios de estado y controles
+  --motion-base:    220ms;  // entrada de contenido y tarjetas
+  --motion-slow:    300ms;  // paneles grandes, drawers
+
+  --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);   // de A a B
+  --motion-ease-enter:    cubic-bezier(0.16, 1, 0.3, 1); // algo que aparece
+  --motion-ease-exit:     cubic-bezier(0.4, 0, 1, 1);    // algo que se va
+
+  // Distancias de entrada y ritmo del escalonado de listas
+  --motion-rise:          8px;
+  --motion-stagger-step:  40ms;
+  --motion-stagger-max:   320ms;
+
+  // Bucle funcional: giro de espera. No entra en la escala de arriba porque
+  // no es una transición, es una rotación continua.
+  --motion-spin-duration: 1s;
+
+  // Alias históricos: conservan su nombre pero salen de los tokens de arriba.
+  --transition-fast: var(--motion-fast) var(--motion-ease-standard);
+  --transition-normal: var(--motion-slow) var(--motion-ease-standard);
 
   --leading-tight: 1.25;
   --leading-normal: 1.5;

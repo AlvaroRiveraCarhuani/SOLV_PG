@@ -1,4 +1,4 @@
-export type WorkspaceStatus =
+export type EnvironmentStatus =
   | 'running'
   | 'pending'
   | 'hibernated'
@@ -7,14 +7,17 @@ export type WorkspaceStatus =
   | 'terminated'
   | 'frozen';
 
-export interface Workspace {
+export interface Environment {
   id: string;
-  workspace_id?: string;
+  environment_id?: string;
   student_id: string;
   subject_id?: string;
+  /** Práctica a la que está acotado el entorno. Siempre presente en el modelo
+   * por práctica: dos prácticas de la misma materia no comparten repositorio. */
+  exercise_id?: string | null;
   tenant_id?: string;
   template_id?: string;
-  status: WorkspaceStatus;
+  status: EnvironmentStatus;
   subdomain?: string;
   url?: string;
   access_url?: string;
@@ -30,4 +33,4 @@ export interface Workspace {
   created_at: string;
 }
 
-export type WorkspaceInstance = Workspace;
+export type PracticeEnvironment = Environment;

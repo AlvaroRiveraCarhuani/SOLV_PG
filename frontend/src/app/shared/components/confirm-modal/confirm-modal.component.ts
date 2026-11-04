@@ -43,7 +43,7 @@ import { LucideAlertTriangle, LucideHelpCircle, LucideLoader2, LucideX } from '@
             [disabled]="isLoading"
             (click)="onConfirm()">
             @if (isLoading) {
-              <svg lucideLoader2 class="spin-icon"></svg>
+              <svg lucideLoader2 class="motion-spin"></svg>
             }
             {{ confirmText }}
           </button>

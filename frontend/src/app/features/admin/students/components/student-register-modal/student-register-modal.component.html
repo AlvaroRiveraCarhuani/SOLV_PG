@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Registrar Estudiante"
   subtitle="Alta manual institucional o importación masiva desde una planilla Excel o CSV."
   maxWidth="620px"
@@ -121,7 +121,7 @@
         (click)="confirmBatch()"
       >
         @if (isSubmitting()) {
-          <div class="tenant-spinner-sm"></div>
+          <div class="tenant-spinner-sm motion-spin"></div>
           <span>Registrando...</span>
         } @else {
           <svg lucideFileSpreadsheet class="btn-icon"></svg>

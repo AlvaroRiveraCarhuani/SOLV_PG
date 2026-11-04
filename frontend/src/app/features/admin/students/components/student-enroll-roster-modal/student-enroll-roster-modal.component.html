@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Cargar Nómina del Curso"
   subtitle="Matricula estudiantes en una materia a partir de una planilla de correos."
   maxWidth="640px"
@@ -34,7 +34,7 @@
       (click)="confirm()"
     >
       @if (isSubmitting()) {
-        <div class="tenant-spinner-sm"></div>
+        <div class="tenant-spinner-sm motion-spin"></div>
         <span>Matriculando...</span>
       } @else {
         <svg lucideBookOpen class="btn-icon"></svg>

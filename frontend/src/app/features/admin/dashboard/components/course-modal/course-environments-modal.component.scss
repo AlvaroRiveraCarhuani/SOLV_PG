@@ -117,13 +117,7 @@
   border: 2.5px solid hsla(var(--tenant-primary-h), var(--tenant-primary-s, 83%), var(--tenant-primary-l, 53%), 0.2);
   border-top-color: var(--tenant-primary);
   border-radius: 50%;
-  animation: spin 800ms linear infinite;
 }
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 .modal-table {
   width: 100%;
   border-collapse: collapse;

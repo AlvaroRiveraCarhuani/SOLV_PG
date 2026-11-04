@@ -1,4 +1,4 @@
-<div class="modal-backdrop" (click)="onClose()">
+<div class="modal-backdrop motion-backdrop" (click)="onClose()">
   <div class="modal-dialog" [class.is-fullscreen]="isFullscreen()" (click)="$event.stopPropagation()">
     <!-- Header Principal -->
     <header class="modal-header">
@@ -229,7 +229,7 @@
           <svg lucideTerminal class="prompt-icon"></svg>
           <span class="prompt-user font-mono" machineData>tutor@solv</span>
           <span class="prompt-sep font-mono">:</span>
-          <span class="prompt-path font-mono" machineData>~/workspace$</span>
+          <span class="prompt-path font-mono" machineData>~/environment$</span>
         </div>
         <input 
           #promptInputField

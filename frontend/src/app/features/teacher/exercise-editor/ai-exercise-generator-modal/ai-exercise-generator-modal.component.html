@@ -1,6 +1,6 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Generar Borrador con Copiloto IA"
-  subtitle="Crea enunciado, solución de referencia y casos de prueba sellados por el Evaluador Automático"
+  [subtitle]="isIde() ? 'Crea la consigna estructurada y la rúbrica de evaluación balanceada al 100%' : 'Crea enunciado, solución de referencia y casos de prueba sellados por el Evaluador Automático'"
   maxWidth="640px"
   [disableClose]="isGenerating()"
   (close)="closed.emit()"
@@ -69,9 +69,18 @@
           <div class="preview-title-row">
             <h4 class="preview-title">{{ res.title }}</h4>
             <div class="preview-badges">
-              <span class="chip-lang font-mono" machineData>{{ res.language }}</span>
+              @if (res.environment_type === 'IDE_PERSISTENTE' || isIde()) {
+                <span class="chip-lang font-mono" machineData>IDE Persistente</span>
+                @if (res.template_name || res.template_id) {
+                  <span class="chip-lang font-mono" machineData>{{ res.template_name || res.template_id }}</span>
+                }
+              } @else {
+                <span class="chip-lang font-mono" machineData>{{ res.language }}</span>
+                @if (res.test_cases) {
+                  <span class="chip-cases font-mono" machineData>{{ res.test_cases.length }} casos de prueba</span>
+                }
+              }
               <span class="chip-difficulty" [class]="res.difficulty">{{ res.difficulty }}</span>
-              <span class="chip-cases font-mono" machineData>{{ res.test_cases.length }} casos de prueba</span>
               <span class="chip-latency font-mono" machineData>{{ res.latency_ms }} ms</span>
             </div>
           </div>
@@ -79,7 +88,32 @@
 
         <p class="preview-desc">{{ res.description }}</p>
 
-        @if (res.runner_verified_all) {
+        @if (res.missing_technology) {
+          <div class="seal-banner seal-warning" role="alert">
+            <svg lucideAlertTriangle class="seal-icon"></svg>
+            <span>Tecnología fuera de catálogo: <strong>{{ res.missing_technology }}</strong>. Se asignó la plantilla base {{ res.template_name || 'disponible' }}.</span>
+          </div>
+        }
+
+        @if (res.rubric) {
+          <div class="preview-rubric-section">
+            <div class="rubric-header-line">
+              <span class="rubric-header-title">Criterios de Evaluación Pedagógica</span>
+              <span class="rubric-header-weight font-mono" machineData>Total: 100% (Balanceado)</span>
+            </div>
+            <div class="rubric-criteria-list">
+              @for (c of res.rubric.criteria; track c.name) {
+                <div class="rubric-criterion-item">
+                  <div class="criterion-main">
+                    <span class="criterion-name">{{ c.name }}</span>
+                    <span class="criterion-desc">{{ c.description }}</span>
+                  </div>
+                  <span class="criterion-weight font-mono" machineData>{{ c.weight }}%</span>
+                </div>
+              }
+            </div>
+          </div>
+        } @else if (res.runner_verified_all) {
           <div class="seal-banner seal-ok" role="status">
             <svg lucideShieldCheck class="seal-icon"></svg>
             <span>Salidas esperadas selladas por el ejecutor del Evaluador Automático (100% casos verificados)</span>
@@ -95,7 +129,12 @@
   } @else {
     <!-- Paso A: formulario de generación -->
     <div class="modal-body-form">
-      <form-field label="Consigna pedagógica" for="ai-prompt" [required]="true" hint="Describe el tema del ejercicio (5 a 1500 caracteres). Presioná Ctrl + Enter para generar.">
+      <form-field
+        label="Consigna pedagógica"
+        for="ai-prompt"
+        [required]="true"
+        [hint]="isIde() ? 'Describe la práctica de desarrollo que deseas enseñar. Presioná Ctrl + Enter para generar.' : 'Describe el tema del ejercicio (5 a 1500 caracteres). Presioná Ctrl + Enter para generar.'"
+      >
         <textarea
           id="ai-prompt"
           class="form-textarea"
@@ -103,7 +142,7 @@
           autoGrow
           [minRows]="3"
           [maxRows]="5"
-          placeholder="Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos..."
+          [placeholder]="isIde() ? 'Ej.: Práctica de NestJS: crear un CRUD de materias con formulario y tabla de materias registradas...' : 'Ej.: Suma de los N primeros números primos, con límite de tiempo y casos extremos...'"
           [ngModel]="prompt()"
           (ngModelChange)="onPromptChange($event)"
           (keydown)="onPromptKeydown($event)"
@@ -111,22 +150,24 @@
         ></textarea>
       </form-field>
 
-      <form-field label="Lenguaje de ejecución" for="ai-language">
-        <div class="chip-group" role="radiogroup" aria-label="Lenguaje de ejecución">
-          @for (lang of languageOptions; track lang) {
-            <button
-              type="button"
-              class="choice-chip"
-              [class.selected]="language() === lang"
-              role="radio"
-              [attr.aria-checked]="language() === lang"
-              (click)="language.set(lang)"
-            >
-              {{ lang }}
-            </button>
-          }
-        </div>
-      </form-field>
+      @if (!isIde()) {
+        <form-field label="Lenguaje de ejecución" for="ai-language">
+          <div class="chip-group" role="radiogroup" aria-label="Lenguaje de ejecución">
+            @for (lang of languageOptions; track lang) {
+              <button
+                type="button"
+                class="choice-chip"
+                [class.selected]="language() === lang"
+                role="radio"
+                [attr.aria-checked]="language() === lang"
+                (click)="language.set(lang)"
+              >
+                {{ lang }}
+              </button>
+            }
+          </div>
+        </form-field>
+      }
 
       <form-field label="Dificultad" for="ai-difficulty">
         <div class="pill-group" role="radiogroup" aria-label="Dificultad">
@@ -145,39 +186,46 @@
         </div>
       </form-field>
 
-      <div class="count-row">
-        <form-field label="Casos públicos" for="ai-public-count" hint="1 a 5">
-          <input
-            id="ai-public-count"
-            type="number"
-            min="1"
-            max="5"
-            class="form-input"
-            [ngModel]="publicCasesCount()"
-            (ngModelChange)="onPublicCountChange(+$event)"
-            name="publicCasesCount"
-          />
-        </form-field>
+      @if (!isIde()) {
+        <div class="count-row">
+          <form-field label="Casos públicos" for="ai-public-count" hint="1 a 5">
+            <input
+              id="ai-public-count"
+              type="number"
+              min="1"
+              max="5"
+              class="form-input"
+              [ngModel]="publicCasesCount()"
+              (ngModelChange)="onPublicCountChange(+$event)"
+              name="publicCasesCount"
+            />
+          </form-field>
 
-        <form-field label="Casos ocultos" for="ai-hidden-count" hint="1 a 10">
-          <input
-            id="ai-hidden-count"
-            type="number"
-            min="1"
-            max="10"
-            class="form-input"
-            [ngModel]="hiddenCasesCount()"
-            (ngModelChange)="onHiddenCountChange(+$event)"
-            name="hiddenCasesCount"
-          />
-        </form-field>
-      </div>
+          <form-field label="Casos ocultos" for="ai-hidden-count" hint="1 a 10">
+            <input
+              id="ai-hidden-count"
+              type="number"
+              min="1"
+              max="10"
+              class="form-input"
+              [ngModel]="hiddenCasesCount()"
+              (ngModelChange)="onHiddenCountChange(+$event)"
+              name="hiddenCasesCount"
+            />
+          </form-field>
+        </div>
+      }
 
       @if (isGenerating()) {
         <div class="generation-progress-box">
-          <div class="progress-info">
-            <svg lucideLoader2 class="spin-icon"></svg>
-            <span>Generando y sellando casos de prueba... <code class="font-mono" machineData>{{ elapsedSeconds() }} s</code></span>
+          <div class="ai-progress-container">
+            <div class="ai-progress" role="progressbar" aria-label="Generando borrador">
+              <span class="ai-progress-bar"></span>
+            </div>
+            <div class="progress-info">
+              <span>{{ isIde() ? 'Generando consigna estructurada y balanceando rúbrica...' : 'Generando y sellando casos de prueba...' }}</span>
+              <span class="ai-elapsed font-mono" machineData>{{ elapsedSeconds() }} s</span>
+            </div>
           </div>
           <button type="button" class="btn-cancel-gen" (click)="cancelGeneration()">
             Cancelar
@@ -206,9 +254,9 @@
         (click)="generate()"
       >
         @if (isGenerating()) {
-          Generando y verificando...
+          Generando...
         } @else {
-          Generar y Verificar con el Evaluador Automático
+          {{ isIde() ? 'Generar Práctica y Rúbrica con IA' : 'Generar y Verificar con el Evaluador Automático' }}
         }
       </button>
     }

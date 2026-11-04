@@ -40,3 +40,11 @@
     opacity: 0.4;
   }
 }
+
+// La forma del marcador ya anuncia la carga; sin barrido ni latido.
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after,
+  .pulse {
+    animation: none;
+  }
+}

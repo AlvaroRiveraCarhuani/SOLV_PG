@@ -12,7 +12,7 @@
 
   @if (isLoading()) {
     <div class="loading-state">
-      <div class="spinner"></div>
+      <div class="spinner motion-spin"></div>
       <span>Cargando configuración del servidor...</span>
     </div>
   } @else if (loadError()) {
@@ -328,7 +328,7 @@
 
 <!-- ================= Modal: confirmación de mantenimiento ================= -->
 @if (maintenanceModalOpen()) {
-  <modal-shell
+  <modal-shell animate.leave="motion-modal-out"
     title="{{ maintenance()?.maintenance_mode ? 'Desactivar' : 'Activar' }} Modo Mantenimiento"
     subtitle="Acción operativa global de la plataforma"
     [intent]="maintenance()?.maintenance_mode ? 'success' : 'warning'"

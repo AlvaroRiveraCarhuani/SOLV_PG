@@ -76,7 +76,7 @@
           @if (isIde()) {
             <button type="button" class="btn-primary" [disabled]="isOpeningIde()" (click)="openIde()">
               @if (isOpeningIde()) {
-                <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                 <span>Abriendo IDE…</span>
               } @else {
                 <svg lucideLaptop class="btn-icon"></svg>
@@ -90,7 +90,7 @@
               (click)="startEnvTest()"
             >
               @if (isEnvTestRunning()) {
-                <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                 <span>Probando entorno…</span>
               } @else {
                 <svg lucideTerminal class="btn-icon"></svg>
@@ -176,7 +176,7 @@
         >
           <span class="env-test-icon">
             @if (envTestTone() === 'running') {
-              <svg lucideLoader2 class="env-test-icon-svg spin-icon"></svg>
+              <svg lucideLoader2 class="env-test-icon-svg motion-spin"></svg>
             } @else if (envTestTone() === 'success') {
               <svg lucideCheckCircle class="env-test-icon-svg"></svg>
             } @else if (envTestTone() === 'error') {
@@ -225,8 +225,8 @@
             </span>
             <div>
               <div class="param-value">{{ templateName() ?? 'Sin plantilla asignada' }}</div>
-              @if (dockerImage(); as image) {
-                <div class="param-hint"><code machineData>{{ image }}</code></div>
+              @if (language(); as lang) {
+                <div class="param-hint"><span class="font-mono" machineData>{{ lang }}</span></div>
               }
             </div>
           </div>

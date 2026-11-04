@@ -18,28 +18,8 @@
 
   <!-- Layout de dos columnas -->
   <div class="course-layout-grid">
-    <!-- Columna principal: Asignaciones y estado del workspace -->
+    <!-- Columna principal: asignaciones y mapa curricular -->
     <main class="course-main-content">
-      <section class="content-card workspace-status-card">
-        <div class="card-header">
-          <div class="card-header-title">
-            <svg lucideCode class="section-icon"></svg>
-            <h3>Entorno de desarrollo</h3>
-          </div>
-        </div>
-        <div class="workspace-body">
-          @if (subjectItem()?.active_workspace; as ws) {
-            <div class="ws-info">
-              <span class="status-indicator" [class.running]="ws.status === 'running'"></span>
-              <span>Estado: {{ ws.status === 'running' ? 'Activo' : 'En pausa' }}</span>
-              <span class="ws-type" machineData>{{ ws.type }}</span>
-            </div>
-          } @else {
-            <p class="no-ws-text">No hay un entorno activo actualmente para este curso.</p>
-          }
-        </div>
-      </section>
-
       <!-- Mapa Curricular del Curso -->
       <section class="content-card curricular-map-section">
         <curricular-map [courseId]="effectiveCourseId()"></curricular-map>

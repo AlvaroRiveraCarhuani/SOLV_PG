@@ -6,7 +6,6 @@ import { CourseColorService, CourseThemeStyle } from '@core/services/course-colo
 import { KpiGridComponent, KpiCardComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
-import { StatusBadgeComponent } from '@shared/components/status-badge/status-badge.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { CourseColorPickerComponent } from '@shared/components/course-color-picker/course-color-picker.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
@@ -32,7 +31,6 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
     KpiCardComponent,
     SearchBarComponent,
     StatusTabsComponent,
-    StatusBadgeComponent,
     SkeletonLoaderComponent,
     CourseColorPickerComponent,
     MachineDataDirective,

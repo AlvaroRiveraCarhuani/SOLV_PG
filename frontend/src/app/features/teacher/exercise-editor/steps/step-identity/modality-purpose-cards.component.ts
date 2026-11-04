@@ -54,16 +54,16 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
             </div>
           </div>
 
-          <!-- Card: Workspace Docker -->
+          <!-- Card: Environment Docker -->
           <div
             class="choice-card"
-            [class.selected]="store.metadata().modality === 'workspace'"
-            (click)="selectModality('workspace')"
+            [class.selected]="store.metadata().modality === 'environment'"
+            (click)="selectModality('environment')"
             tabindex="0"
-            (keydown.enter)="selectModality('workspace')"
+            (keydown.enter)="selectModality('environment')"
           >
             <div class="card-radio">
-              @if (store.metadata().modality === 'workspace') {
+              @if (store.metadata().modality === 'environment') {
                 <span class="radio-dot"></span>
               }
             </div>
@@ -142,7 +142,8 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         [class.active]="store.metadata().purpose === 'exam' && store.metadata().per_student_seed"
         [class.inactive]="store.metadata().purpose !== 'exam' || !store.metadata().per_student_seed"
         (click)="onSeedContainerClick()"
-        tabindex="0"
+        [attr.tabindex]="store.metadata().purpose === 'exam' ? 0 : -1"
+        [attr.aria-disabled]="store.metadata().purpose !== 'exam'"
         (keydown.enter)="onSeedContainerClick()"
       >
         <div class="seed-toggle-header">
@@ -164,7 +165,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         @if (store.metadata().purpose !== 'exam') {
           <div class="seed-disabled-hint">
             <svg lucideAlertCircle class="hint-icon"></svg>
-            <span>Haz clic para activar el modo <strong>Examen / Calificado</strong> y habilitar esta opción.</span>
+            <span>Disponible solo en evaluaciones calificadas. Elegí <strong>Examen / Calificado</strong> para habilitarla.</span>
           </div>
         }
       </div>
@@ -175,7 +176,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 export class ModalityPurposeCardsComponent {
   readonly store = inject(ExerciseEditorStore);
 
-  selectModality(modality: 'judge' | 'workspace') {
+  selectModality(modality: 'judge' | 'environment') {
     if (modality === 'judge') {
       this.store.updateMetadata({ modality, environment_type: 'JUEZ_EFIMERO' });
     } else {
@@ -198,10 +199,8 @@ export class ModalityPurposeCardsComponent {
 
   onSeedContainerClick() {
     if (this.store.metadata().purpose !== 'exam') {
-      this.store.updateMetadata({ purpose: 'exam', per_student_seed: true });
-    } else {
-      const current = this.store.metadata().per_student_seed;
-      this.store.updateMetadata({ per_student_seed: !current });
+      return;
     }
+    this.store.updateMetadata({ per_student_seed: !this.store.metadata().per_student_seed });
   }
 }

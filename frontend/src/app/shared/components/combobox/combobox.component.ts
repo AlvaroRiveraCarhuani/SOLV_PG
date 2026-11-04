@@ -94,7 +94,7 @@ export interface ComboboxGroup {
 
       @if (isOpen() && !suppressListbox()) {
         <div 
-          class="combobox-overlay" 
+          class="combobox-overlay animate-dropdown" 
           [id]="listboxId" 
           role="listbox"
           tabindex="-1"

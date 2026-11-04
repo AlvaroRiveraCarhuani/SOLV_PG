@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { WorkspaceInstance } from '@core/models/workspace.model';
+import { PracticeEnvironment } from '@core/models/environment.model';
 
 export interface StudentSubjectItem {
   subject: {
@@ -9,7 +9,6 @@ export interface StudentSubjectItem {
     name: string;
     code: string;
   };
-  active_workspace?: WorkspaceInstance;
   total_exercises?: number;
   completed_exercises?: number;
   progress_percent?: number;
@@ -160,9 +159,9 @@ export interface StudentPublicExerciseDTO {
   auto_checkpoint?: boolean;
 }
 
-export interface WorkspaceProjectSubmissionDTO {
+export interface PracticeEnvironmentProjectSubmissionDTO {
   submission_id: string;
-  workspace_id: string;
+  environment_id: string;
   exercise_id: string;
   verdict: string;
   score?: number | null;
@@ -210,15 +209,24 @@ export class StudentService {
   submissionsHistory = signal<StudentSubmissionHistoryItem[]>([]);
   loading = signal<boolean>(false);
   error = signal<string | null>(null);
+  /**
+   * Las entregas por vencer se cargan aparte del resumen. Si ese pedido falla no
+   * se puede afirmar que el alumno esté al día: la lista vacía es un fallo, no
+   * un cero.
+   */
+  dueLoadFailed = signal<boolean>(false);
 
-  async loadDashboard(): Promise<void> {
-    this.loading.set(true);
-    this.error.set(null);
+  async loadDashboard(): Promise<void> {      this.loading.set(true);
+      this.error.set(null);
+      this.dueLoadFailed.set(false);
 
     try {
       const [dash, due] = await Promise.all([
         firstValueFrom(this.http.get<StudentDashboardData>('/api/v1/student/dashboard', { withCredentials: true })).catch(() => null),
-        firstValueFrom(this.http.get<DueAssignment[] | { data?: DueAssignment[] }>('/api/v1/student/assignments/due', { withCredentials: true })).catch(() => null)
+        firstValueFrom(this.http.get<DueAssignment[] | { data?: DueAssignment[] }>('/api/v1/student/assignments/due', { withCredentials: true })).catch(() => {
+          this.dueLoadFailed.set(true);
+          return null;
+        })
       ]);
 
       if (dash) {
@@ -274,45 +282,45 @@ export class StudentService {
     }
   }
 
-  async startWorkspace(subjectId: string, exerciseId?: string): Promise<WorkspaceInstance> {
+  async startEnvironment(subjectId: string, exerciseId?: string): Promise<PracticeEnvironment> {
     const payload = {
       subject_id: subjectId,
       ...(exerciseId ? { exercise_id: exerciseId } : {})
     };
     const resp = await firstValueFrom(
-      this.http.post<WorkspaceInstance | { data?: WorkspaceInstance }>(
-        '/api/v1/workspaces/start',
+      this.http.post<PracticeEnvironment | { data?: PracticeEnvironment }>(
+        '/api/v1/environments/start',
         payload,
         { withCredentials: true }
       )
     );
-    const raw = resp && 'data' in resp && resp.data ? resp.data : (resp as WorkspaceInstance);
-    const normalized: WorkspaceInstance = {
+    const raw = resp && 'data' in resp && resp.data ? resp.data : (resp as PracticeEnvironment);
+    const normalized: PracticeEnvironment = {
       ...raw,
-      id: raw.id || raw.workspace_id || '',
+      id: raw.id || raw.environment_id || '',
       last_activity_at: raw.last_activity_at || raw.last_heartbeat_at
     };
     await this.loadDashboard();
     return normalized;
   }
 
-  async submitWorkspaceProject(
-    workspaceId: string,
+  async submitPracticeEnvironmentProject(
+    environmentId: string,
     payload: { exercise_id: string; files?: Record<string, string> }
-  ): Promise<WorkspaceProjectSubmissionDTO> {
+  ): Promise<PracticeEnvironmentProjectSubmissionDTO> {
     const resp = await firstValueFrom(
-      this.http.post<WorkspaceProjectSubmissionDTO | { data?: WorkspaceProjectSubmissionDTO }>(
-        `/api/v1/workspaces/${workspaceId}/submit`,
+      this.http.post<PracticeEnvironmentProjectSubmissionDTO | { data?: PracticeEnvironmentProjectSubmissionDTO }>(
+        `/api/v1/environments/${environmentId}/submit`,
         payload,
         { withCredentials: true }
       )
     );
-    return resp && 'data' in resp && resp.data ? resp.data : (resp as WorkspaceProjectSubmissionDTO);
+    return resp && 'data' in resp && resp.data ? resp.data : (resp as PracticeEnvironmentProjectSubmissionDTO);
   }
 
-  async pauseWorkspace(workspaceId: string): Promise<void> {
+  async pauseEnvironment(environmentId: string): Promise<void> {
     await firstValueFrom(
-      this.http.post(`/api/v1/workspaces/${workspaceId}/pause`, {})
+      this.http.post(`/api/v1/environments/${environmentId}/pause`, {})
     );
     await this.loadDashboard();
   }

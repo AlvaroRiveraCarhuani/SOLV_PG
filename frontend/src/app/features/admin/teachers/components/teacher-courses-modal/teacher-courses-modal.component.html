@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Materias Asignadas"
   maxWidth="620px"
   (close)="dismiss.emit()"
@@ -11,7 +11,7 @@
   <div class="courses-scroll">
     @if (isLoadingCourses()) {
       <div class="courses-loading">
-        <div class="tenant-spinner-sm"></div>
+        <div class="tenant-spinner-sm motion-spin"></div>
         <span>Consultando materias asignadas...</span>
       </div>
     } @else if (teacherCourses().length > 0) {
@@ -105,7 +105,7 @@
           <div class="assign-new-panel">
             @if (isLoadingAvailableCourses()) {
               <div class="courses-loading">
-                <div class="tenant-spinner-sm"></div>
+                <div class="tenant-spinner-sm motion-spin"></div>
                 <span>Consultando catálogo de materias...</span>
               </div>
             } @else {

@@ -29,6 +29,7 @@ import {
   LucideSearch,
   LucideSend,
   LucideWand,
+  LucideWand2,
   LucideWrench,
   LucideX
 } from '@lucide/angular';
@@ -103,6 +104,7 @@ interface PickerGroup {
     LucideSearch,
     LucideSend,
     LucideWand,
+    LucideWand2,
     LucideWrench,
     LucideX,
     TechLogoComponent
@@ -121,8 +123,12 @@ export class TemplateRequestModalComponent implements OnInit {
 
   subjectId = input<string>('');
   subjectName = input<string>('');
-  /** Texto inicial cuando el docente parte de un entorno que ya conoce. */
-  presetText = input<string>('');
+  /**
+   * Entorno del que parte una variante. Se muestra como contexto: la práctica
+   * la sigue escribiendo el docente, porque el pedido es qué van a hacer los
+   * estudiantes y no una frase armada por el catálogo.
+   */
+  variantBase = input<string>('');
   /** Piezas de la plantilla de origen, ya resueltas contra el catálogo. */
   presetStack = input<EnvironmentRequestStackConfig | null>(null);
 
@@ -386,10 +392,6 @@ export class TemplateRequestModalComponent implements OnInit {
       this.subjectIdSelected.set(this.subjectId());
       this.subjectNameSelected.set(this.subjectName());
     }
-    if (this.presetText()) {
-      this.description.set(this.presetText());
-    }
-
     if (!this.subjects().length) {
       this.dashboardService.loadDashboardData().subscribe({ next: () => this.syncSubjectName(), error: () => undefined });
     } else {

@@ -72,6 +72,8 @@ export interface AdminCourseItem {
 export interface CreateCoursePayload {
   name: string;
   code: string;
+  /** Paralelo o comisión. El código del curso se compone como CODIGO-SECCION. */
+  section?: string;
   teacher_id?: string;
   academic_period_id?: string;
   classroom_course_id?: string;

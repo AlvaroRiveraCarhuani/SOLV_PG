@@ -46,7 +46,7 @@ const EVALUATIONS: StudentEvaluationItem[] = [
     title: 'Práctica de árboles',
     description: 'Implementa un árbol binario',
     type: 'ide',
-    environment_type: 'ide_workspace',
+    environment_type: 'ide_environment',
     purpose: 'class',
     difficulty: 'hard',
     subject_id: 's1',
@@ -212,7 +212,7 @@ describe('StudentEvaluationsComponent', () => {
     expect(itemFor('Recorrido de listas')?.querySelector('verdict-badge')).toBeNull();
   });
 
-  it('enruta al solver o al laboratorio según la actividad', async () => {
+  it('enruta cada actividad a la práctica que le corresponde', async () => {
     await setup();
 
     const solverLink = itemFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('.action-link');
@@ -222,9 +222,10 @@ describe('StudentEvaluationsComponent', () => {
     expect(itemFor('Examen de grafos')?.querySelector('.action-link')?.textContent).toContain('Continuar');
     expect(itemFor('Examen de ordenamiento')?.querySelector('.action-link')?.textContent).toContain('Resolver');
 
+    // Una práctica con IDE abre su propio solver: el entorno se acota a la
+    // práctica, no a la materia.
     const labLink = itemFor('Práctica de árboles')?.querySelector<HTMLAnchorElement>('.action-link');
-    expect(labLink?.getAttribute('href')).toBe('/student/workspaces/s1');
-    expect(labLink?.textContent).toContain('Abrir en laboratorio');
+    expect(labLink?.getAttribute('href')).toBe('/student/exercises/e3');
   });
 
   it('renderiza fechas como time semántico', async () => {

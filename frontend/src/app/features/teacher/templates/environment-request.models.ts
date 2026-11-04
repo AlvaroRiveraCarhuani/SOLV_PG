@@ -97,7 +97,7 @@ export interface EnvironmentRequestStackConfig {
   web_platform_id?: string;
   addon_ids?: string[];
   database_id?: string;
-  workspace_folders?: string[];
+  environment_folders?: string[];
 }
 
 export interface CreateEnvironmentRequestPayload {

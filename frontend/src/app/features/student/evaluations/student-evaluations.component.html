@@ -128,11 +128,7 @@
           </div>
 
           <div class="evaluation-action">
-            @if (item.environment_type === 'ide_workspace') {
-              <a class="action-link" [routerLink]="['/student/workspaces', item.subject_id]">Abrir en laboratorio</a>
-            } @else {
-              <a class="action-link" [routerLink]="['/student/exercises', item.exercise_id]">{{ actionLabel(item) }}</a>
-            }
+            <a class="action-link" [routerLink]="['/student/exercises', item.exercise_id]">{{ actionLabel(item) }}</a>
           </div>
         </li>
       }

@@ -17,7 +17,9 @@ import {
   LucideFileText,
   LucideGraduationCap,
   LucideBoxes,
-  LucideSparkles
+  LucideSparkles,
+  LucideInbox,
+  LucidePresentation
 } from '@lucide/angular';
 import { NavSection } from './sidebar.model';
 
@@ -26,7 +28,7 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     title: 'PRINCIPAL',
     items: [
       { label: 'Inicio', route: '/student', iconName: 'home', exact: true },
-      { label: 'Laboratorios', route: '/student/workspaces', iconName: 'terminal' },
+      { label: 'Aula', route: '/student/aula', iconName: 'presentation' },
       { label: 'Mis Materias', route: '/student/courses', iconName: 'book' }
     ]
   },
@@ -60,7 +62,9 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
     LucideFileText,
     LucideGraduationCap,
     LucideBoxes,
-    LucideSparkles
+    LucideSparkles,
+    LucideInbox,
+    LucidePresentation
   ],
   template: `
     <aside class="sidebar" [class.collapsed]="collapsed()">
@@ -93,6 +97,8 @@ export const DEFAULT_STUDENT_SECTIONS: NavSection[] = [
                   @case ('graduation-cap') { <svg lucideGraduationCap class="nav-icon"></svg> }
                   @case ('layers') { <svg lucideLayers class="nav-icon"></svg> }
                   @case ('boxes') { <svg lucideBoxes class="nav-icon"></svg> }
+                  @case ('inbox') { <svg lucideInbox class="nav-icon"></svg> }
+                  @case ('presentation') { <svg lucidePresentation class="nav-icon"></svg> }
                   @case ('sliders') { <svg lucideSliders class="nav-icon"></svg> }
                   @case ('shield-alert') { <svg lucideShieldAlert class="nav-icon"></svg> }
                   @case ('file-text') { <svg lucideFileText class="nav-icon"></svg> }

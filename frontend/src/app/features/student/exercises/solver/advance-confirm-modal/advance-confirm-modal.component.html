@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Avance de la clase"
   subtitle="Revisa qué archivos cambian en tu laboratorio antes de aplicarlo."
   intent="info"
@@ -42,7 +42,7 @@
     }
   } @else if (isLoading()) {
     <p class="advance-loading">
-      <svg lucideRefreshCw class="spin-icon"></svg>
+      <svg lucideRefreshCw class="motion-spin"></svg>
       <span>Revisando qué archivos cambian...</span>
     </p>
   } @else if (loadError(); as message) {
@@ -101,7 +101,7 @@
         [disabled]="isLoading() || isApplying() || !!loadError()"
       >
         @if (isApplying()) {
-          <svg lucideRefreshCw class="btn-icon spin-icon"></svg>
+          <svg lucideRefreshCw class="btn-icon motion-spin"></svg>
           <span>Aplicando...</span>
         } @else {
           <svg lucideFileCode class="btn-icon"></svg>

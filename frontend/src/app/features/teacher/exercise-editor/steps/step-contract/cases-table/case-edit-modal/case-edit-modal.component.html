@@ -1,6 +1,6 @@
 @if (isOpen) {
-  <div class="modal-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
-    <div class="modal-container" role="dialog" aria-modal="true" [attr.aria-labelledby]="'modal-title'">
+  <div class="modal-backdrop motion-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
+    <div class="modal-container motion-panel" role="dialog" aria-modal="true" [attr.aria-labelledby]="'modal-title'">
       <!-- Header -->
       <div class="modal-header">
         <div class="header-info">
@@ -65,7 +65,7 @@
                     title="Calcular salida ejecutando la solución de referencia"
                   >
                     @if (isCalculating) {
-                      <svg lucideLoader2 class="btn-icon spin-icon"></svg>
+                      <svg lucideLoader2 class="btn-icon motion-spin"></svg>
                       <span>Calculando...</span>
                     } @else {
                       <svg lucidePlay class="btn-icon"></svg>

@@ -39,15 +39,15 @@ export class StudentCoursesModalComponent {
   actionInProgressId = input<string | null>(null);
 
   closed = output<void>();
-  restartWorkspace = output<string>();
-  pauseWorkspace = output<string>();
+  restartEnvironment = output<string>();
+  pauseEnvironment = output<string>();
 
   formatDate(dateStr?: string | null): string {
     if (!dateStr || dateStr.trim() === '') return 'Sin fecha';
     return formatSolvDate(dateStr, 'daymonthyear') ?? dateStr;
   }
 
-  getWorkspaceBadgeClass(status?: string | null): string {
+  getEnvironmentBadgeClass(status?: string | null): string {
     if (!status) return 'status-none';
     switch (status.toLowerCase()) {
       case 'running':
@@ -62,7 +62,7 @@ export class StudentCoursesModalComponent {
     }
   }
 
-  getWorkspaceLabel(status?: string | null): string {
+  getEnvironmentLabel(status?: string | null): string {
     if (!status) return 'Sin contenedor';
     switch (status.toLowerCase()) {
       case 'running':

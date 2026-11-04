@@ -10,8 +10,8 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
   standalone: true,
   imports: [CommonModule, MachineDataDirective, LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw],
   template: `
-    <div class="modal-backdrop" (click)="closed.emit()">
-      <div class="modal-card" (click)="$event.stopPropagation()">
+    <div class="modal-backdrop motion-backdrop" (click)="closed.emit()">
+      <div class="modal-card motion-panel" (click)="$event.stopPropagation()">
         <!-- Header -->
         <div class="modal-header">
           <div class="header-left">
@@ -19,13 +19,13 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
             <div class="title-group">
               <h3 class="modal-title">Registro de Ejecución (Logs del Contenedor)</h3>
               <span class="modal-subtitle">
-                Instancia: <span machineData>{{ incident()?.workspace_id || 'WS-CONTAINER' }}</span> &bull; Salida en vivo de Docker daemon
+                Instancia: <span machineData>{{ incident()?.environment_id || 'WS-CONTAINER' }}</span> &bull; Salida en vivo de Docker daemon
               </span>
             </div>
           </div>
           <div class="header-actions">
             <button class="btn-action" (click)="loadLogs()" [disabled]="isLoading()" title="Recargar logs">
-              <svg lucideRefreshCw class="action-icon" [class.spin]="isLoading()"></svg>
+              <svg lucideRefreshCw class="action-icon" [class.motion-spin]="isLoading()"></svg>
               <span>Refrescar</span>
             </button>
             <button class="btn-action" (click)="copyLogs()" title="Copiar logs al portapapeles">
@@ -47,7 +47,7 @@ import { LucideX, LucideTerminal, LucideCopy, LucideCheck, LucideRefreshCw } fro
         <div class="terminal-body">
           @if (isLoading()) {
             <div class="terminal-loading">
-              <svg lucideRefreshCw class="loading-spinner spin"></svg>
+              <svg lucideRefreshCw class="loading-spinner motion-spin"></svg>
               <span>Consultando registros en el motor Docker del host...</span>
             </div>
           } @else if (logsContent()) {
@@ -90,7 +90,7 @@ export class LogViewerModalComponent {
   constructor() {
     effect(() => {
       const inc = this.incident();
-      if (inc?.workspace_id) {
+      if (inc?.environment_id) {
         this.loadLogs();
       }
     });
@@ -98,10 +98,10 @@ export class LogViewerModalComponent {
 
   loadLogs(): void {
     const inc = this.incident();
-    if (!inc?.workspace_id) return;
+    if (!inc?.environment_id) return;
 
     this.isLoading.set(true);
-    this.metricsService.getWorkspaceLogs(inc.workspace_id).subscribe({
+    this.metricsService.getEnvironmentLogs(inc.environment_id).subscribe({
       next: (res) => {
         this.isLoading.set(false);
         this.logsContent.set(res.logs || 'Sin registros en el búfer de Docker daemon.');

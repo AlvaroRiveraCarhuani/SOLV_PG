@@ -134,6 +134,9 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
     return Boolean(config?.database?.init_script || config?.ide?.db_init_script);
   });
   hasLimits = computed(() => {
+    if (this.isIde()) {
+      return false;
+    }
     const exercise = this.exercise();
     return Boolean(exercise?.time_limit_ms || exercise?.memory_limit_mb);
   });

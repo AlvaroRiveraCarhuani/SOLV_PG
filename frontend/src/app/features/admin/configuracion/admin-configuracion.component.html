@@ -28,19 +28,19 @@
   <div class="config-tab-panel" role="tabpanel">
     @switch (activeTab()) {
       @case ('periodos') {
-        <admin-config-periodos />
+        <admin-config-periodos animate.leave="motion-modal-out" />
       }
       @case ('identidad') {
         <admin-config-identidad />
       }
       @case ('servidor') {
-        <admin-config-servidor />
+        <admin-config-servidor animate.leave="motion-modal-out" />
       }
       @case ('ia') {
         <admin-config-ia />
       }
       @case ('administradores') {
-        <admin-config-administradores />
+        <admin-config-administradores animate.leave="motion-modal-out" />
       }
     }
   </div>

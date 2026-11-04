@@ -8,7 +8,6 @@
   align-items: center;
   justify-content: center;
   padding: var(--space-4);
-  animation: fadeIn 150ms ease-out;
 }
 
 .modal-container {
@@ -21,7 +20,6 @@
   max-height: 85vh;
   display: flex;
   flex-direction: column;
-  animation: slideUp 200ms ease-out;
   outline: none;
 }
 
@@ -201,10 +199,6 @@
           width: 12px;
           height: 12px;
         }
-
-        .spin-icon {
-          animation: spin 1s linear infinite;
-        }
       }
     }
 
@@ -322,18 +316,3 @@
   }
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}

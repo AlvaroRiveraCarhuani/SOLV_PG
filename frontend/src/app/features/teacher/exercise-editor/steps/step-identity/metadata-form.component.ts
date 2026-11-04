@@ -25,14 +25,14 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
       <!-- Título del ejercicio -->
       <div class="form-group full-width">
         <label for="exercise-title" class="form-label">
-          Título del ejercicio <span class="required">*</span>
+          Título de la práctica <span class="required">*</span>
         </label>
         <input 
           id="exercise-title"
           type="text" 
           class="form-input" 
           [class.has-error]="showTitleError()"
-          placeholder="Ej: Suma de Dos Números, Inversión de Matrices..."
+          placeholder="Ej: API de productos, inversión de matrices..."
           [ngModel]="store.metadata().title"
           (ngModelChange)="onTitleChange($event)"
           (blur)="onTitleBlur()"
@@ -40,7 +40,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           required
         />
         @if (showTitleError()) {
-          <field-message variant="error" [message]="'El título del ejercicio es obligatorio'"></field-message>
+          <field-message variant="error" [message]="'El título de la práctica es obligatorio'"></field-message>
         }
       </div>
 
@@ -97,49 +97,32 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           }
         </div>
 
-        <!-- Tiempo Límite por Caso -->
-        <div class="form-group">
-          <label for="time-limit" class="form-label">
-            Tiempo límite por caso (ms) <span class="required">*</span>
-          </label>
-          <input 
-            id="time-limit"
-            type="text" 
-            class="form-input font-mono" 
-            [class.has-error]="showTimeLimitError()"
-            [value]="rawTimeLimit()"
-            (input)="onTimeLimitInput($event)"
-            (blur)="onTimeLimitBlur()"
-            placeholder="Ej: 1000"
-            maxlength="7"
-          />
-          @if (showTimeLimitError()) {
-            <field-message variant="error" [message]="timeLimitError()!"></field-message>
-          } @else {
-            <span class="field-hint">Tiempo máximo de ejecución para cada caso individual (100 - 30.000 ms)</span>
-          }
-        </div>
+        <!-- Tiempo Límite por Caso (Avanzado) -->
+        <details class="advanced-limit-details form-group full-width">
+          <summary class="advanced-summary">Ajuste de tiempo límite por caso (opcional)</summary>
+          <div class="form-group" style="margin-top: var(--space-2); max-width: 320px;">
+            <label for="time-limit" class="form-label">
+              Tiempo límite por caso (ms)
+            </label>
+            <input 
+              id="time-limit"
+              type="text" 
+              class="form-input font-mono" 
+              [class.has-error]="showTimeLimitError()"
+              [value]="rawTimeLimit()"
+              (input)="onTimeLimitInput($event)"
+              (blur)="onTimeLimitBlur()"
+              placeholder="Ej: 1000"
+              maxlength="7"
+            />
+            @if (showTimeLimitError()) {
+              <field-message variant="error" [message]="timeLimitError()!"></field-message>
+            } @else {
+              <span class="field-hint">Tiempo máximo para cada caso individual (por defecto 1000 ms)</span>
+            }
+          </div>
+        </details>
       }
-
-      <!-- Límite de Memoria RAM (Solo Lectura) -->
-      <div class="form-group">
-        <label for="memory-limit-display" class="form-label">
-          Memoria RAM asignada
-        </label>
-        <div class="ram-chip-display" id="memory-limit-display">
-          <span class="ram-badge font-mono" machineData>
-            {{ store.metadata().template?.base_ram_mb || store.metadata().memory_limit_mb || 128 }} MB
-          </span>
-          <span class="governance-tag">
-            {{ store.metadata().environment_type === 'JUEZ_EFIMERO' ? 'Límite estándar de evaluación' : 'Definida en la plantilla del catálogo' }}
-          </span>
-        </div>
-        <span class="field-hint">
-          {{ store.metadata().environment_type === 'JUEZ_EFIMERO' 
-            ? 'Límite de memoria asignado al contenedor de ejecución de pruebas' 
-            : 'Límite de memoria asignado por la plantilla técnica seleccionada' }}
-        </span>
-      </div>
 
       <!-- Fecha y hora de entrega (Opcional con selector previo) -->
       <div class="form-group due-date-group">

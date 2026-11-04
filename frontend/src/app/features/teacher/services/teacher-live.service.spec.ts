@@ -3,15 +3,15 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { firstValueFrom } from 'rxjs';
 import { TeacherLiveService } from './teacher-live.service';
-import { LiveWorkspaceSession } from '../models/teacher.models';
+import { LivePracticeEnvironmentSession } from '../models/teacher.models';
 
 describe('TeacherLiveService', () => {
   let service: TeacherLiveService;
   let httpMock: HttpTestingController;
 
-  const mockSessions: LiveWorkspaceSession[] = [
+  const mockSessions: LivePracticeEnvironmentSession[] = [
     {
-      workspace_id: 'ws-1',
+      environment_id: 'ws-1',
       container_id: 'cont-1',
       student_id: 'std-1',
       student_name: 'Ana García',

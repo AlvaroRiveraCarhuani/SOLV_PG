@@ -53,7 +53,7 @@
         title="Ejecutar prueba rápida en contenedor"
       >
         @if (isRunningEphemeral()) {
-          <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+          <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
           <span>Ejecutando...</span>
         } @else {
           <svg lucidePlay class="btn-icon-sm"></svg>
@@ -72,7 +72,7 @@
         title="Ejecutar la entrega en un contenedor efímero y abrir la app en una pestaña nueva"
       >
         @if (isStartingLiveApp()) {
-          <svg lucideLoader2 class="btn-icon-sm spin-icon"></svg>
+          <svg lucideLoader2 class="btn-icon-sm motion-spin"></svg>
           <span>Iniciando app...</span>
         } @else {
           <svg lucideExternalLink class="btn-icon-sm"></svg>
@@ -96,7 +96,7 @@
       </button>
 
       @if (showToolsMenu()) {
-        <div class="dropdown-menu animate-dropdown">
+        <div class="dropdown-menu animate-dropdown" animate.leave="motion-dropdown-out">
           @if (diffAvailable()) {
             <button
               type="button"

@@ -1,11 +1,9 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LucideSend } from '@lucide/angular';
 
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
-import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import { FieldMessageComponent } from '@shared/components/field-message/field-message.component';
-import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 
 import { ClassAdvanceService } from '../../services/class-advance.service';
 import {
@@ -16,9 +14,9 @@ import {
 } from '../../models/teacher.models';
 
 /**
- * Emisión de un avance del aula (ADR-058). El docente elige la práctica y a
- * quién le llega; lo que se emite es el código de su entorno de clase tal como
- * está en este momento, no una copia que siga sus ediciones posteriores.
+ * Emisión de un avance del aula (ADR-058). La práctica la fija el aula: lo que
+ * se empaqueta se lee y se registra bajo la práctica de la sesión, así que el
+ * docente solo elige a quién le llega. Un aula sin práctica no emite.
  *
  * Solo los alumnos que pasaron por el aula son destinatarios posibles: el
  * servidor rechaza a cualquier otro, así que la lista no los ofrece.
@@ -26,24 +24,17 @@ import {
 @Component({
   selector: 'class-advance-modal',
   standalone: true,
-  imports: [
-    CommonModule,
-    LucideSend,
-    ModalShellComponent,
-    FormFieldComponent,
-    FieldMessageComponent,
-    ComboboxComponent
-  ],
+  imports: [CommonModule, LucideSend, ModalShellComponent, FieldMessageComponent],
   templateUrl: './class-advance-modal.component.html',
   styleUrl: './class-advance-modal.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class ClassAdvanceModalComponent implements OnInit {
+export class ClassAdvanceModalComponent {
   readonly sessionId = input.required<string>();
-  readonly practices = input<ComboboxOption[]>([]);
   readonly students = input<ClassSessionStudent[]>([]);
-  /** Práctica del aula, si la tiene: se ofrece ya elegida. */
-  readonly defaultExerciseId = input<string | null>(null);
+  /** Práctica de la sesión: única fuente de verdad del avance. */
+  readonly practiceId = input<string | null>(null);
+  readonly practiceTitle = input<string | null>(null);
 
   readonly closed = output<void>();
   readonly emitted = output<ClassAdvanceEmission>();
@@ -53,9 +44,11 @@ export class ClassAdvanceModalComponent implements OnInit {
   readonly isEmitting = this.advances.isEmitting;
   readonly serviceError = this.advances.error;
 
-  readonly exerciseId = signal<string>('');
   readonly scope = signal<AdvanceScope>('class');
   readonly selectedIds = signal<string[]>([]);
+
+  /** Sin práctica asociada el aula no tiene entorno que emitir ni recibir. */
+  readonly hasPractice = computed(() => Boolean(this.practiceId()?.trim()));
 
   /** Alumnos que pasaron por el aula, en orden alfabético para elegir sin buscar. */
   readonly participants = computed<ClassSessionStudent[]>(() =>
@@ -67,7 +60,7 @@ export class ClassAdvanceModalComponent implements OnInit {
   readonly selectedCount = computed(() => this.selectedIds().length);
 
   readonly canEmit = computed(() => {
-    if (this.isEmitting() || !this.exerciseId()) {
+    if (this.isEmitting() || !this.hasPractice()) {
       return false;
     }
     if (this.scope() === 'selected') {
@@ -75,13 +68,6 @@ export class ClassAdvanceModalComponent implements OnInit {
     }
     return this.participants().length > 0;
   });
-
-  ngOnInit(): void {
-    const preselected = this.defaultExerciseId();
-    if (preselected) {
-      this.exerciseId.set(preselected);
-    }
-  }
 
   setScope(scope: AdvanceScope): void {
     this.scope.set(scope);
@@ -102,15 +88,12 @@ export class ClassAdvanceModalComponent implements OnInit {
       return;
     }
     const scope = this.scope();
-    const request: EmitAdvanceRequest = {
-      exercise_id: this.exerciseId(),
-      scope
-    };
+    const request: EmitAdvanceRequest = { scope };
     if (scope === 'selected') {
       request.student_ids = this.selectedIds();
     }
 
-    this.advances.emit(this.sessionId(), request, this.practiceTitle()).subscribe({
+    this.advances.emit(this.sessionId(), request, this.practiceTitle() ?? 'la práctica').subscribe({
       next: emission => this.emitted.emit(emission),
       error: () => undefined
     });
@@ -121,10 +104,5 @@ export class ClassAdvanceModalComponent implements OnInit {
       return;
     }
     this.closed.emit();
-  }
-
-  private practiceTitle(): string {
-    const id = this.exerciseId();
-    return this.practices().find(option => option.id === id)?.label ?? 'la práctica';
   }
 }

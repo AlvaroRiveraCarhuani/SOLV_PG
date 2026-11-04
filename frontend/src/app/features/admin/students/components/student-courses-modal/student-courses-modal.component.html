@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Materias Asignadas"
   maxWidth="720px"
   (close)="closed.emit()"
@@ -10,7 +10,7 @@
 
   @if (isLoading()) {
     <div class="loading-state">
-      <div class="spinner"></div>
+      <div class="spinner motion-spin"></div>
       <span>Consultando materias y espacios de trabajo...</span>
     </div>
   } @else if (courses().length === 0) {
@@ -35,8 +35,8 @@
           <div class="course-tech-details">
             <div class="tech-item">
               <span class="tech-label">Espacio de trabajo:</span>
-              <span class="status-pill" [ngClass]="getWorkspaceBadgeClass(course.workspace_status)">
-                {{ getWorkspaceLabel(course.workspace_status) }}
+              <span class="status-pill" [ngClass]="getEnvironmentBadgeClass(course.environment_status)">
+                {{ getEnvironmentLabel(course.environment_status) }}
               </span>
             </div>
 
@@ -67,24 +67,24 @@
               }
             </div>
 
-            @if (course.workspace_id) {
-              <div class="tech-item workspace-actions">
+            @if (course.environment_id) {
+              <div class="tech-item environment-actions">
                 <button
                   class="btn-ws-action restart"
-                  (click)="restartWorkspace.emit(course.workspace_id!)"
-                  [disabled]="actionInProgressId() === course.workspace_id"
+                  (click)="restartEnvironment.emit(course.environment_id!)"
+                  [disabled]="actionInProgressId() === course.environment_id"
                   title="Reiniciar contenedor en Docker">
-                  <svg lucideRotateCcw class="ws-action-icon" [class.spin]="actionInProgressId() === course.workspace_id"></svg>
-                  <span>{{ actionInProgressId() === course.workspace_id ? 'Procesando...' : 'Reiniciar' }}</span>
+                  <svg lucideRotateCcw class="ws-action-icon" [class.motion-spin]="actionInProgressId() === course.environment_id"></svg>
+                  <span>{{ actionInProgressId() === course.environment_id ? 'Procesando...' : 'Reiniciar' }}</span>
                 </button>
-                @if (course.workspace_status === 'running') {
+                @if (course.environment_status === 'running') {
                   <button
                     class="btn-ws-action pause"
-                    (click)="pauseWorkspace.emit(course.workspace_id!)"
-                    [disabled]="actionInProgressId() === course.workspace_id"
+                    (click)="pauseEnvironment.emit(course.environment_id!)"
+                    [disabled]="actionInProgressId() === course.environment_id"
                     title="Pausar contenedor para liberar RAM">
                     <svg lucidePause class="ws-action-icon"></svg>
-                    <span>{{ actionInProgressId() === course.workspace_id ? 'Pausando...' : 'Pausar' }}</span>
+                    <span>{{ actionInProgressId() === course.environment_id ? 'Pausando...' : 'Pausar' }}</span>
                   </button>
                 }
               </div>

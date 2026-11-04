@@ -59,7 +59,7 @@
 
   <!-- Modal de Registro de Docentes -->
   @if (showInviteModal()) {
-    <teacher-invite-modal
+    <teacher-invite-modal animate.leave="motion-modal-out"
       (closed)="showInviteModal.set(false)"
       (directSubmit)="onDirectTeacherSubmitted($event)"
       (batchSubmit)="onBatchTeachersSubmitted($event)"
@@ -68,7 +68,7 @@
 
   <!-- Modal de Feedback de Invitación -->
   @if (tokenFeedback(); as feedback) {
-    <teacher-invite-feedback
+    <teacher-invite-feedback animate.leave="motion-modal-out"
       [feedback]="feedback"
       [copied]="copied()"
       (dismiss)="tokenFeedback.set(null)"
@@ -78,7 +78,7 @@
 
   <!-- Modal: Materias Asignadas y Reasignación de Docente -->
   @if (selectedTeacherForCourses(); as teacher) {
-    <teacher-courses-modal
+    <teacher-courses-modal animate.leave="motion-modal-out"
       [teacher]="teacher"
       [teacherCourses]="teacherCourses()"
       [isLoadingCourses]="isLoadingCourses()"

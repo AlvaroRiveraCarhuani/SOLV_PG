@@ -54,7 +54,6 @@
   border: 3px solid var(--border-subtle);
   border-top-color: var(--tenant-primary);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
 
 .spinner-sm {
@@ -63,15 +62,7 @@
   border: 2px solid currentcolor;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
 }
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .admin-card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);

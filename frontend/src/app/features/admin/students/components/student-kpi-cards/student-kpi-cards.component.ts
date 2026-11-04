@@ -21,7 +21,7 @@ import { LucideUsers, LucideCpu, LucideAlertTriangle, LucideShieldAlert } from '
 export class StudentKpiCardsComponent {
   readonly enrolledStudentsCount = input<number>(0);
   readonly totalStudents = input<number>(0);
-  readonly activeWorkspacesTotal = input<number>(0);
+  readonly activeEnvironmentsTotal = input<number>(0);
   readonly strikesStudentsCount = input<number>(0);
   readonly blockedStudentsCount = input<number>(0);
 }

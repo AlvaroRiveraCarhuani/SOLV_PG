@@ -1,6 +1,6 @@
 @if (isOpen) {
-  <div class="modal-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
-    <div class="modal-container" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div class="modal-backdrop motion-backdrop" (click)="onBackdropClick($event)" (keydown)="onKeyDown($event)" tabindex="0">
+    <div class="modal-container motion-panel" role="dialog" aria-modal="true" aria-labelledby="modal-title">
       <!-- Header -->
       <div class="modal-header">
         <div class="header-info">
@@ -271,7 +271,7 @@
                 <svg
                   lucideRefreshCw
                   class="refresh-icon"
-                  [class.spin-icon]="isLoadingPreview()"
+                  [class.motion-spin]="isLoadingPreview()"
                 ></svg>
                 <span>Actualizar Preview</span>
               </button>
@@ -280,7 +280,7 @@
             <div class="preview-list">
               @if (isLoadingPreview()) {
                 <div class="preview-loading">
-                  <svg lucideRefreshCw class="spin-icon loading-icon"></svg>
+                  <svg lucideRefreshCw class="motion-spin loading-icon"></svg>
                   <span>Generando casos de muestra según el formato...</span>
                 </div>
               } @else {
@@ -349,7 +349,7 @@
               [disabled]="isExecutingScript() || !scriptCode().trim()"
             >
               @if (isExecutingScript()) {
-                <svg lucideRefreshCw class="spin-icon btn-icon"></svg>
+                <svg lucideRefreshCw class="motion-spin btn-icon"></svg>
                 <span>Ejecutando en sandbox...</span>
               } @else {
                 <svg lucidePlay class="btn-icon"></svg>

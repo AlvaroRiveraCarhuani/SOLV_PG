@@ -444,9 +444,6 @@
         cursor: not-allowed;
       }
 
-      .spin-icon {
-        animation: spin 1s linear infinite;
-      }
     }
 
   }
@@ -606,6 +603,26 @@
 }
 
 /* Módulos y Currícula */
+.btn-module-practice {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover {
+    color: var(--tenant-primary);
+    border-color: var(--tenant-primary);
+  }
+}
+
 .modules-view {
   display: flex;
   flex-direction: column;

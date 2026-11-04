@@ -17,7 +17,7 @@
   @if (ramCritical()) {
     <div class="critical-banner" role="alert">
       <svg lucideTriangleAlert aria-hidden="true"></svg>
-      <span>La memoria del host supera el 90%. Considera hibernar workspaces antes de una acción destructiva.</span>
+      <span>La memoria del host supera el 90%. Considera hibernar environments antes de una acción destructiva.</span>
     </div>
   }
 
@@ -82,7 +82,7 @@
   }
 
   @if (confirmTarget(); as target) {
-    <modal-shell
+    <modal-shell animate.leave="motion-modal-out"
       [title]="target.label"
       [subtitle]="'Acción de impacto ' + target.impact"
       [intent]="confirmIntent()"

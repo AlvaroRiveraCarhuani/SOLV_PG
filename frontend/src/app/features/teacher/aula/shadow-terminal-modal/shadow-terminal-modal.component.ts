@@ -29,7 +29,7 @@ import {
   LucideSearch,
   LucidePlay
 } from '@lucide/angular';
-import { LiveWorkspaceSession } from '../../models/teacher.models';
+import { LivePracticeEnvironmentSession } from '../../models/teacher.models';
 import { TeacherLiveService } from '../../services/teacher-live.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe, formatSolvDate } from '@shared/pipes/date-text.pipe';
@@ -74,7 +74,7 @@ export interface MacroPreset {
   styleUrl: './shadow-terminal-modal.component.scss'
 })
 export class ShadowTerminalModalComponent implements OnInit, OnDestroy {
-  @Input({ required: true }) session!: LiveWorkspaceSession;
+  @Input({ required: true }) session!: LivePracticeEnvironmentSession;
   @Output() closed = new EventEmitter<void>();
 
   private liveService = inject(TeacherLiveService);
@@ -106,7 +106,7 @@ export class ShadowTerminalModalComponent implements OnInit, OnDestroy {
   readonly macroPresets: MacroPreset[] = [
     { label: 'git status', command: 'git status', category: 'diag', description: 'Estado de archivos modificados' },
     { label: 'git diff', command: 'git diff', category: 'diag', description: 'Diferencias no commiteadas' },
-    { label: 'ls -la', command: 'ls -la', category: 'diag', description: 'Árbol detallado del workspace' },
+    { label: 'ls -la', command: 'ls -la', category: 'diag', description: 'Árbol detallado del environment' },
     { label: 'pytest', command: 'pytest -v', category: 'test', description: 'Ejecutar suite de tests Python' },
     { label: 'python3 main.py', command: 'python3 main.py', category: 'test', description: 'Ejecutar script principal' },
     { label: 'npm test', command: 'npm test', category: 'test', description: 'Ejecutar tests JS/TS' },

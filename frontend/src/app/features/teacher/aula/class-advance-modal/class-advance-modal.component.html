@@ -1,4 +1,4 @@
-<modal-shell
+<modal-shell animate.leave="motion-modal-out"
   title="Emitir avance"
   subtitle="Se guarda el código de tu entorno de clase y llega al aula tal como está ahora."
   [disableClose]="isEmitting()"
@@ -6,25 +6,15 @@
 >
   <svg modal-icon lucideSend></svg>
 
-  <form-field
-    label="Práctica"
-    for="advance-practice"
-    [required]="true"
-    hint="El alumno recibe el código de esta práctica. Las prácticas de examen no se emiten."
-  >
-    <combobox
-      id="advance-practice"
-      [options]="practices()"
-      [value]="exerciseId()"
-      (valueChange)="exerciseId.set($event)"
-      placeholder="Elegir práctica"
-      [compact]="true"
-      [showSearchIcon]="false"
+  @if (hasPractice()) {
+    <p class="practice-line">
+      Práctica del aula: <strong>{{ practiceTitle() ?? 'sin título' }}</strong>
+    </p>
+  } @else {
+    <field-message
+      variant="warning"
+      message="Esta aula no tiene una práctica asociada: asígnala antes de emitir avances."
     />
-  </form-field>
-
-  @if (practices().length === 0) {
-    <field-message variant="warning" message="Esta materia no tiene prácticas publicadas." />
   }
 
   <div class="scope-block">

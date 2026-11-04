@@ -1,24 +1,73 @@
-// Keyframes reutilizables globales.
-// Se nombran con prefijo `solv-` porque @keyframes es global en CSS aunque
-// viva en un parcial: varios componentes ya declaran su propio `fadeIn`
-// local y la última definición inyectada ganaría en tiempo de ejecución.
+// =============================================================================
+// MOVIMIENTO COMPARTIDO
+// Una primitiva por intención. Los componentes no declaran sus propios
+// keyframes: eligen una de estas, y si el ritmo no encaja se agrega acá.
+// Los nombres llevan prefijo `solv-` porque @keyframes es global en CSS aunque
+// viva en un parcial: dos definiciones con el mismo nombre se pisan según el
+// orden de inyección.
+// =============================================================================
+
+// --- Primitivas de entrada ---------------------------------------------------
+
 @keyframes solv-fade-in {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
 }
 
+// Contenido que aparece: tarjetas, bloques de formulario, listas.
 @keyframes solv-fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(var(--motion-rise));
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+// Diálogos y paneles que se abren sobre la vista.
+@keyframes solv-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+// Cajones laterales (selector de herramientas, filtros desplegables).
+@keyframes solv-drawer-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+// Pieza que se suma a una lista ya visible: chip, fila, etiqueta.
+@keyframes solv-chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 
@@ -27,15 +76,197 @@
     opacity: 0;
     transform: translateY(-4px) scale(0.98);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
 
-// Utilidad global para menús desplegables y popovers
+// --- Primitivas de salida -----------------------------------------------------
+// Se activan con `animate.leave`: el valor del atributo es la clase de aquí.
+// Salen más rápido que entran y con la curva de salida, para que el cierre se
+// sienta como una respuesta y no como otra entrada.
+
+@keyframes solv-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes solv-panel-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes solv-drawer-out {
+  to {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+@keyframes solv-dropdown-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+
+// No pinta nada: solo da a Angular una duración que esperar cuando el elemento
+// marcado con `animate.leave` es un envoltorio sin caja propia
+// (`display: contents`), donde un fundido no tendría efecto.
+@keyframes solv-modal-wait {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+
+// --- Estados de espera -------------------------------------------------------
+// Animaciones en bucle: solo admitidas para comunicar que algo está en curso.
+
+// Giro indeterminado. Es la única forma de indicar "cargando" en el sistema:
+// no se declara un `@keyframes` propio en un componente.
+@keyframes solv-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes solv-progress-indeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(285%);
+  }
+}
+
+// --- Utilidades --------------------------------------------------------------
+// `both` deja el estado final fijo y evita el salto al terminar.
+
+.motion-fade {
+  animation: solv-fade-in var(--motion-fast) var(--motion-ease-standard) both;
+}
+
+.motion-rise {
+  animation: solv-fade-in-up var(--motion-base) var(--motion-ease-enter) both;
+}
+
+.motion-panel {
+  animation: solv-panel-in var(--motion-base) var(--motion-ease-enter) both;
+}
+
+.motion-drawer {
+  animation: solv-drawer-in var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+.motion-chip {
+  animation: solv-chip-in var(--motion-fast) var(--motion-ease-enter) both;
+}
+
+.motion-backdrop {
+  animation: solv-fade-in var(--motion-fast) linear both;
+}
+
+// Spinner. Queda fuera del bloque de `prefers-reduced-motion` a propósito:
+// congelar el giro dejaría la pantalla sin señal de que algo está cargando.
+.motion-spin {
+  animation: solv-spin var(--motion-spin-duration) linear infinite;
+}
+
+// Escalonado: el elemento se numera con `--motion-index` y el sistema calcula
+// la espera. El tope evita que la décima tarjeta tarde medio segundo en entrar.
+.motion-stagger {
+  animation-delay: min(
+    calc(var(--motion-index, 0) * var(--motion-stagger-step)),
+    var(--motion-stagger-max)
+  );
+}
+
+// Utilidad histórica para menús desplegables y popovers.
 .animate-dropdown,
 .dropdown-enter {
   transform-origin: top right;
-  animation: solv-dropdown-enter 120ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: solv-dropdown-enter var(--motion-fast) var(--motion-ease-enter) forwards;
+}
+
+// Salidas. `pointer-events: none` evita que el elemento que se está yendo siga
+// interceptando clics durante su animación.
+.motion-fade-out,
+.motion-backdrop-out {
+  animation: solv-fade-out var(--motion-fast) var(--motion-ease-exit) forwards;
+  pointer-events: none;
+}
+
+.motion-panel-out {
+  animation: solv-panel-out var(--motion-fast) var(--motion-ease-exit) forwards;
+  pointer-events: none;
+}
+
+.motion-drawer-out {
+  animation: solv-drawer-out var(--motion-fast) var(--motion-ease-exit) forwards;
+  pointer-events: none;
+}
+
+.motion-dropdown-out {
+  animation: solv-dropdown-out var(--motion-instant) var(--motion-ease-exit) forwards;
+  pointer-events: none;
+}
+
+// Salida de un modal completo. Va en el elemento que el template retira de
+// verdad: el `<modal-shell>` cuando está en la misma plantilla, o el componente
+// que lo envuelve (`<teacher-invite-modal>`) cuando el modal es un componente
+// propio. El host solo marca el tiempo (puede ser `display: contents`); el
+// fundido visible lo hacen el fondo y el diálogo, que acompañan con escala.
+.motion-modal-out {
+  animation: solv-modal-wait var(--motion-fast) var(--motion-ease-exit) forwards;
+  pointer-events: none;
+
+  .modal-backdrop {
+    animation: solv-fade-out var(--motion-fast) var(--motion-ease-exit) forwards;
+  }
+
+  .modal-dialog {
+    animation: solv-panel-out var(--motion-fast) var(--motion-ease-exit) forwards;
+  }
+}
+
+// Accesibilidad: con movimiento reducido las entradas decorativas se resuelven
+// en un frame y el elemento queda en su estado final. Las animaciones locales
+// de cada componente (pulsos de estado, shimmer) se apagan en su propio SCSS.
+// Excepciones deliberadas: `.motion-spin` sigue girando porque es la señal de una
+// operación en curso, y las barras indeterminadas pierden el barrido y pasan a una
+// pista tramada estática donde se usan (nunca a un relleno completo).
+@media (prefers-reduced-motion: reduce) {
+  .motion-fade,
+  .motion-rise,
+  .motion-panel,
+  .motion-drawer,
+  .motion-chip,
+  .motion-backdrop,
+  .motion-stagger,
+  .animate-dropdown,
+  .dropdown-enter {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
+
+  // Salidas: 1ms y no `none`, porque Angular retira el elemento al recibir el
+  // evento de fin. Sin animación no habría evento y el nodo quedaría colgado.
+  .motion-fade-out,
+  .motion-backdrop-out,
+  .motion-panel-out,
+  .motion-drawer-out,
+  .motion-dropdown-out,
+  .motion-modal-out,
+  .motion-modal-out .modal-backdrop,
+  .motion-modal-out .modal-dialog {
+    animation-duration: 1ms;
+    animation-delay: 0ms;
+  }
 }

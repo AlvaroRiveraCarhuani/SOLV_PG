@@ -137,8 +137,8 @@ describe('ClassSessionService', () => {
           present: false,
           joined_at: null,
           last_seen_at: null,
-          workspace_id: 'workspace-1',
-          workspace_status: 'frozen',
+          environment_id: 'environment-1',
+          environment_status: 'frozen',
           submitted_at: null,
           verdict: 'AC',
           review_status: null,
@@ -150,7 +150,7 @@ describe('ClassSessionService', () => {
     service.loadClosedBoard(SESSION_ID).subscribe();
     httpMock.expectOne(`/api/v1/teacher/sessions/${SESSION_ID}/board`).flush({ data: board });
 
-    expect(service.closedBoard()?.students[0].workspace_status).toBe('frozen');
+    expect(service.closedBoard()?.students[0].environment_status).toBe('frozen');
     expect(service.session()).toBeNull();
     expect(service.isLoadingClosedBoard()).toBe(false);
   });

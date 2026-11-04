@@ -5,7 +5,7 @@ import { AdminMetricsService } from '../services/admin-metrics.service';
 import { HardwareKpiComponent } from './components/hardware-kpi/hardware-kpi.component';
 import { CourseLoadComponent } from './components/course-load/course-load.component';
 import { IncidentsPanelComponent } from './components/incidents-panel/incidents-panel.component';
-import { CourseWorkspacesModalComponent } from './components/course-modal/course-workspaces-modal.component';
+import { CourseEnvironmentsModalComponent } from './components/course-modal/course-environments-modal.component';
 import { ContainerTableComponent } from './components/container-table/container-table.component';
 import { LogViewerModalComponent } from './components/log-viewer-modal/log-viewer-modal.component';
 import { LoadHistoryChartComponent } from './components/load-history-chart/load-history-chart.component';
@@ -42,7 +42,7 @@ export const DEFAULT_BLOCK_ORDER: DashboardSectionId[] = ['kpis', 'chart', 'spli
     HardwareKpiComponent, 
     CourseLoadComponent, 
     IncidentsPanelComponent,
-    CourseWorkspacesModalComponent,
+    CourseEnvironmentsModalComponent,
     ContainerTableComponent, 
     LogViewerModalComponent,
     LoadHistoryChartComponent,
@@ -335,8 +335,8 @@ export class AdminDashboardComponent implements OnDestroy {
     this.selectedCourse.set(course);
   }
 
-  onRestartWorkspace(workspaceId: string): void {
-    this.metricsService.restartWorkspace(workspaceId).subscribe({
+  onRestartEnvironment(environmentId: string): void {
+    this.metricsService.restartEnvironment(environmentId).subscribe({
       next: () => {
         this.showFeedback('success', 'El contenedor fue reiniciado y el clúster quedó actualizado.');
         this.wsReloadToken.update(value => value + 1);
@@ -347,19 +347,19 @@ export class AdminDashboardComponent implements OnDestroy {
     });
   }
 
-  onResolveIncident(workspaceId: string): void {
-    this.metricsService.resolveIncident(workspaceId).subscribe({
+  onResolveIncident(environmentId: string): void {
+    this.metricsService.resolveIncident(environmentId).subscribe({
       next: () => {
-        this.showFeedback('success', `Incidencia de la instancia ${workspaceId} resuelta y contadores OOM normalizados.`);
+        this.showFeedback('success', `Incidencia de la instancia ${environmentId} resuelta y contadores OOM normalizados.`);
       },
       error: () => {
-        this.showFeedback('warning', `No se pudo resolver la incidencia de la instancia ${workspaceId}.`);
+        this.showFeedback('warning', `No se pudo resolver la incidencia de la instancia ${environmentId}.`);
       }
     });
   }
 
-  onPauseWorkspace(workspaceId: string): void {
-    this.metricsService.pauseWorkspace(workspaceId).subscribe({
+  onPauseEnvironment(environmentId: string): void {
+    this.metricsService.pauseEnvironment(environmentId).subscribe({
       next: () => {
         this.showFeedback('success', 'La instancia pasó a reposo y el clúster quedó actualizado.');
         this.wsReloadToken.update(value => value + 1);
@@ -370,11 +370,11 @@ export class AdminDashboardComponent implements OnDestroy {
     });
   }
 
-  onViewLogs(workspaceId: string): void {
-    const inc = this.health()?.incidents.find(i => i.workspace_id === workspaceId) || {
+  onViewLogs(environmentId: string): void {
+    const inc = this.health()?.incidents.find(i => i.environment_id === environmentId) || {
       id: 'inc-manual',
       type: 'oom_killed' as const,
-      workspace_id: workspaceId,
+      environment_id: environmentId,
       student_name: 'Estudiante',
       course_name: 'Laboratorio de Programación',
       description: 'Excedió cuota de memoria configurada (Exit code 137)',
@@ -399,11 +399,11 @@ export function healthReasonLabel(reason: string): string {
   switch (reason) {
     case 'docker_unreachable':
       return 'Daemon de Docker inaccesible';
-    case 'orphaned_workspaces':
+    case 'orphaned_environments':
       return 'Contenedores huérfanos detectados';
-    case 'oom_killed_workspaces':
+    case 'oom_killed_environments':
       return 'Laboratorios detenidos por límite de memoria';
-    case 'unknown_workspaces':
+    case 'unknown_environments':
       return 'Estados sin verificar (Docker no respondió)';
     case 'ram_above_safety_ceiling':
       return 'RAM del host sobre el umbral de seguridad';

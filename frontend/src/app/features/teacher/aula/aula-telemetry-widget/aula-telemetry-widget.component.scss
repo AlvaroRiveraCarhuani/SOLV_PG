@@ -650,3 +650,13 @@
     margin: 0;
   }
 }
+
+// Cada chip conserva su etiqueta ("Tipeando", "Ejecutando", "En espera"):
+// el punto queda fijo y el estado se sigue leyendo.
+@media (prefers-reduced-motion: reduce) {
+  .live-pulse-container.is-pulsing .pulse-dot::after,
+  .activity-status-chip.status-typing .dot-typing,
+  .activity-status-chip.status-executing .dot-executing {
+    animation: none;
+  }
+}

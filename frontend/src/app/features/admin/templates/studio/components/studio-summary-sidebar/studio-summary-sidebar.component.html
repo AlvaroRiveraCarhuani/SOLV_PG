@@ -186,7 +186,7 @@
                         </button>
                       } @else {
                         <div class="ai-repair-loading-row">
-                          <svg lucideRefreshCw class="btn-icon-xs spin"></svg>
+                          <svg lucideRefreshCw class="btn-icon-xs motion-spin"></svg>
                           <span>Diagnosticando y reparando entorno...</span>
                           <span class="font-mono text-xs" machineData>Transcurrido: {{ repairElapsedSeconds() }} s</span>
                           <button
@@ -213,7 +213,7 @@
               </div>
             } @else {
               <div class="verif-row">
-                <svg lucideRefreshCw class="verif-icon spin"></svg>
+                <svg lucideRefreshCw class="verif-icon motion-spin"></svg>
                 <div class="verif-details">
                   <strong>Preparando y comprobando tecnologías...</strong>
                   <p>{{ job.progress.current_action || 'Verificando programas incluidos...' }}</p>
@@ -280,7 +280,7 @@
         [disabled]="!canRunVerification()"
         (click)="runVerification.emit()"
       >
-        <svg lucidePlay class="btn-icon-xs" [class.spin]="isVerifying()"></svg>
+        <svg lucidePlay class="btn-icon-xs" [class.motion-spin]="isVerifying()"></svg>
         <span>{{ isVerifying() ? 'Comprobando funcionamiento...' : 'Comprobar funcionamiento' }}</span>
       </button>
 

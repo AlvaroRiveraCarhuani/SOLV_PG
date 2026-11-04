@@ -134,6 +134,7 @@ describe('AiExerciseGeneratorModalComponent', () => {
       prompt: 'Suma de los primos hasta N con casos extremos',
       language: 'python',
       difficulty: 'hard',
+      environment_type: 'JUEZ_EFIMERO',
       public_cases_count: 3,
       hidden_cases_count: 4,
       verify_with_runner: true
@@ -152,6 +153,24 @@ describe('AiExerciseGeneratorModalComponent', () => {
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
     expect(seal?.textContent).toContain('selladas por el ejecutor del Evaluador Automático');
+  });
+
+  it('debe invocar generateExercise en modo IDE sin lenguaje ni casos de juez', () => {
+    component.environmentType = 'IDE_PERSISTENTE';
+    component.prompt.set('Práctica de NestJS con base de datos');
+    component.difficulty.set('medium');
+
+    component.generate();
+
+    expect(mockService.generateExercise).toHaveBeenCalledWith({
+      prompt: 'Práctica de NestJS con base de datos',
+      language: undefined,
+      difficulty: 'medium',
+      environment_type: 'IDE_PERSISTENTE',
+      public_cases_count: 0,
+      hidden_cases_count: 0,
+      verify_with_runner: false
+    });
   });
 
   it('debe cancelar la generación en curso al llamar cancelGeneration()', () => {

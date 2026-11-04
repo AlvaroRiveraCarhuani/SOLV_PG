@@ -28,16 +28,11 @@
   @if (selectedTemplate(); as tpl) {
     <div class="template-detail-card">
       <div class="detail-row">
-        <span class="detail-label">Nombre de la plantilla:</span>
-        <span class="detail-value font-bold">{{ tpl.name }}</span>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Imagen Docker:</span>
-        <code class="detail-code" machineData>{{ tpl.docker_image }}</code>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Memoria RAM Asignada:</span>
-        <span class="detail-chip" machineData>{{ tpl.base_ram_mb }} MB (Heredada del Admin)</span>
+        <span class="detail-label">Stack tecnológico:</span>
+        <div class="stack-identity-row">
+          <tech-logo [iconType]="deriveTechIcon(tpl)" [size]="20"></tech-logo>
+          <span class="detail-value font-bold">{{ tpl.name }}</span>
+        </div>
       </div>
       <div class="detail-row">
         <span class="detail-label">Servicios Satélite:</span>
@@ -45,7 +40,7 @@
           @if (tpl.services_config?.database?.enabled) {
             <span class="satellite-badge active">
               <svg lucideDatabase class="badge-icon"></svg>
-              <span>Base de datos ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
+              <span>Base de datos activa ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
             </span>
           } @else {
             <span class="satellite-badge neutral">Sin base de datos satélite</span>

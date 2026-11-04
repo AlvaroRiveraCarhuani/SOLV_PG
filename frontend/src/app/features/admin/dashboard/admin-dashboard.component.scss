@@ -188,10 +188,6 @@
     width: 14px;
     height: 14px;
     color: var(--text-secondary);
-
-    &.spin {
-      animation: spin 1s linear infinite;
-    }
   }
 }
 
@@ -224,11 +220,6 @@
     width: 14px;
     height: 14px;
   }
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }
 
 /* Barra Superior de Modo Personalización */
@@ -508,11 +499,10 @@
   }
 }
 
-.collapsible-content {
-  animation: fadeIn 200ms ease;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: translateY(0); }
+@media (prefers-reduced-motion: reduce) {
+  .customizing-bar,
+  .feedback-banner,
+  .live-dot-pulse.on {
+    animation: none;
+  }
 }
