@@ -1,26 +1,10 @@
 <section class="student-evaluations">
   <header class="page-header">
-    <h1>Evaluaciones y prácticas</h1>
+    <div class="header-titles">
+      <h1 class="page-title">Evaluaciones y prácticas</h1>
+      <p class="page-subtitle">Consulta tus actividades publicadas, su estado y tu último resultado.</p>
+    </div>
   </header>
-
-  <div class="info-banner" role="note">
-    Consulta tus actividades publicadas, su estado y tu último resultado.
-  </div>
-
-  <kpi-grid [columns]="4">
-    <kpi-card label="Pendientes" [value]="counts().pending" variant="primary">
-      <svg lucideClock kpi-icon></svg>
-    </kpi-card>
-    <kpi-card label="En progreso" [value]="counts().in_progress" variant="warning">
-      <svg lucideLoader2 kpi-icon></svg>
-    </kpi-card>
-    <kpi-card label="Completadas" [value]="counts().completed" variant="running">
-      <svg lucideCheckCircle2 kpi-icon></svg>
-    </kpi-card>
-    <kpi-card label="Vencidas" [value]="counts().overdue" variant="danger">
-      <svg lucideAlertTriangle kpi-icon></svg>
-    </kpi-card>
-  </kpi-grid>
 
   <status-tabs
     [tabs]="statusTabs()"

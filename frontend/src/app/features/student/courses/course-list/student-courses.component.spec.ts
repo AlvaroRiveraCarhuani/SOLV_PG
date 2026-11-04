@@ -50,7 +50,7 @@ describe('StudentCoursesComponent', () => {
   let fixture: ComponentFixture<StudentCoursesComponent>;
 
   function cards(): HTMLElement[] {
-    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.course-card'));
+    return Array.from((fixture.nativeElement as HTMLElement).querySelectorAll<HTMLElement>('.course-item'));
   }
 
   function statusTabs(): StatusTabsComponent {
@@ -90,14 +90,13 @@ describe('StudentCoursesComponent', () => {
     localStorage.clear();
   });
 
-  it('muestra los KPIs y una tarjeta por materia inscrita', async () => {
+  it('muestra una fila por materia inscrita sin indicadores agregados', async () => {
     await setup();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(fixture.nativeElement.querySelectorAll('kpi-card').length).toBe(3);
-    expect(text).toContain('Materias inscritas');
-    expect(text).toContain('Ejercicios resueltos');
-    expect(text).toContain('Entregas próximas');
+    // Los totales del semestre viven en el inicio; repetirlos acá no agrega lectura.
+    expect(fixture.nativeElement.querySelectorAll('kpi-card').length).toBe(0);
+    expect(text).not.toContain('Ejercicios resueltos');
 
     expect(cards().length).toBe(3);
     expect(text).toContain('SIS-211');
@@ -144,17 +143,15 @@ describe('StudentCoursesComponent', () => {
     expect(cards().length).toBe(3);
   });
 
-  it('enlaza cada materia con su mapa curricular y no ofrece un laboratorio por materia', async () => {
+  it('enlaza cada materia con sus prácticas y no ofrece un laboratorio por materia', async () => {
     await setup();
 
     const firstCard = cards().find((card) => card.textContent?.includes('Estructuras de Datos'));
     expect(firstCard).toBeTruthy();
 
-    const primary = firstCard?.querySelector<HTMLAnchorElement>('.action-link-primary');
-    expect(primary?.getAttribute('href')).toBe('/student/courses/s1');
-    expect(primary?.textContent).toContain('Ver mapa curricular');
-    // El entorno es de una práctica: no hay un laboratorio único por materia.
-    expect(firstCard?.querySelector('.action-link-secondary')).toBeNull();
+    const action = firstCard?.querySelector<HTMLAnchorElement>('.course-action');
+    expect(action?.getAttribute('href')).toBe('/student/courses/s1');
+    expect(action?.textContent).toContain('Ver prácticas');
   });
 
   it('muestra la próxima entrega como fecha semántica y remite el entorno a cada práctica', async () => {
@@ -165,12 +162,19 @@ describe('StudentCoursesComponent', () => {
     const time = dataCard?.querySelector('time');
     expect(time?.getAttribute('datetime')).toBe('2026-11-02T23:59:00');
     expect(time?.textContent?.trim()).toBe('02 nov');
-    expect(dataCard?.textContent).toContain('El entorno se abre desde cada práctica');
 
     // Ninguna materia anuncia un entorno propio: el estado del contenedor
     // pertenece a la práctica y se consulta ahí.
     for (const card of cards()) {
       expect(card.querySelector('status-badge')).toBeNull();
     }
+  });
+
+  it('distingue una materia sin entregas próximas', async () => {
+    await setup();
+
+    const dataCard = cards().find((card) => card.textContent?.includes('Sistemas Operativos'));
+    expect(dataCard?.textContent).toContain('Sin entregas próximas');
+    expect(dataCard?.querySelector('time')).toBeNull();
   });
 });

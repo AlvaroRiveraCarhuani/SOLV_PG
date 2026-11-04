@@ -1,32 +1,43 @@
-<div class="student-course-container">
-  <!-- Header / Breadcrumb -->
+<div class="student-course">
   <header class="course-header">
-    <a routerLink="/student" class="back-link">
-      <svg lucideArrowLeft class="back-icon"></svg>
-      <span>Volver al panel</span>
+    <a routerLink="/student/courses" class="back-link">
+      <svg lucideArrowLeft class="back-icon" aria-hidden="true"></svg>
+      <span>Mis materias</span>
     </a>
-    <div class="course-title-section">
-      <div class="title-with-code">
-        <h1 class="course-title">{{ subjectName() }}</h1>
-        @if (subjectCode()) {
-          <span class="subject-code-badge" machineData>{{ subjectCode() }}</span>
-        }
+
+    <div class="course-heading">
+      <div class="course-heading-text">
+        <div class="course-title-row">
+          <h1 class="page-title">{{ subjectName() }}</h1>
+          @if (subjectCode()) {
+            <span class="subject-code-badge" machineData>{{ subjectCode() }}</span>
+          }
+        </div>
+
+        <p class="page-subtitle">
+          @if (totalExercises() > 0) {
+            <span machineData>{{ completedExercises() }}</span> de
+            <span machineData>{{ totalExercises() }}</span> prácticas completadas
+            <span class="subtitle-separator" aria-hidden="true">·</span>
+            <span machineData>{{ progressPercent() }}%</span> del curso
+          } @else {
+            Esta materia todavía no tiene prácticas publicadas.
+          }
+        </p>
       </div>
-      <p class="course-subtitle">Panel académico del estudiante y asignaciones</p>
+
+      <button type="button" class="btn-outline btn-refresh refresh-button" (click)="refresh()">
+        <svg lucideRefreshCw class="refresh-icon" aria-hidden="true"></svg>
+        <span>Actualizar</span>
+      </button>
     </div>
   </header>
 
-  <!-- Layout de dos columnas -->
   <div class="course-layout-grid">
-    <!-- Columna principal: asignaciones y mapa curricular -->
     <main class="course-main-content">
-      <!-- Mapa Curricular del Curso -->
-      <section class="content-card curricular-map-section">
-        <curricular-map [courseId]="effectiveCourseId()"></curricular-map>
-      </section>
+      <curricular-map [courseId]="effectiveCourseId()" [refreshTick]="refreshTick()"></curricular-map>
     </main>
 
-    <!-- Columna lateral: Panel de recomendaciones de refuerzo -->
     <aside class="course-sidebar">
       <recommendations-panel [courseId]="effectiveCourseId()"></recommendations-panel>
     </aside>

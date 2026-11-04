@@ -1,18 +1,9 @@
 .student-evaluations {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  max-width: 1400px;
+  gap: var(--space-5);
+  max-width: 1200px;
   margin: 0 auto;
-}
-
-.page-header {
-  h1 {
-    margin: 0;
-    font-size: var(--text-xl);
-    font-weight: 700;
-    color: var(--text-primary);
-  }
 }
 
 .evaluations-toolbar {

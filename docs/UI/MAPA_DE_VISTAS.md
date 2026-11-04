@@ -223,7 +223,7 @@ graph TD
   * **Tus materias:** código, nombre, prácticas completadas sobre el total y barra de avance, con el porcentaje global del semestre.
   * **Últimas entregas:** tres, con veredicto y fecha compacta.
 * **Acciones:**
-  * `[Entrar al aula]` — Va a `/student/aula`; si hay más clases, un enlace indica cuántas hay.
+  * `[Abrir práctica]` — Va directo a `/student/exercises/:exerciseId` cuando la sesión tiene práctica; `Ver el aula` queda como enlace secundario y, si hay más clases, indica cuántas hay. Sin práctica asociada, `[Entrar al aula]` va a `/student/aula`.
   * `[Ver mis prácticas]` — `/student/courses` cuando no hay clase abierta.
   * `[Mis entregas]` y `Historial` — `/student/history`.
   * Cada entrega enlaza a `/student/exercises/:exerciseId`; cada materia, a su mapa curricular.
@@ -243,17 +243,21 @@ graph TD
   * `[Actualizar]` — Relee el aula y los avisos sin esperar al ciclo de un minuto.
 * **Estados vacíos:** sin aula abierta, dice que no hay clase y ofrece `[Ver mis prácticas]`. Un aula sin práctica se muestra sin botón de avance, porque en ese estado el docente tampoco puede emitir.
 
-### 5.3. Práctica (`/student/exercises/:exerciseId`)
-* **Propósito:** Resolver la práctica con su enunciado, su juez y su entorno IDE acotado a esa práctica.
+### 5.3. Práctica de entorno (`/student/exercises/:exerciseId`)
+* **Propósito:** Resolver la práctica dentro de su entorno de desarrollo y entregar el proyecto al docente.
+* **Formato común con el juez:** topbar, enunciado a la izquierda y área de trabajo a la derecha. Cambia la herramienta: entorno en pestaña nueva para la práctica de IDE, editor embebido para la de juez.
 * **Componentes de la Pantalla:**
-  * **Topbar de la práctica:** materia, título de la práctica, tiempo restante de la sesión y `[Abrir entorno]` (levanta o reanuda el contenedor de esa práctica).
-  * **Franja de avance del docente:** una por aviso pendiente, sobre el editor. Dice que el docente emitió un avance, cuántos archivos trae y que puede tardar hasta un minuto en aparecer (la consulta es cada minuto, ADR-058 §8). Con `[Ver archivos]` y `[Descartar]`.
+  * **Topbar:** `[Volver a la materia]`, título de la práctica y sello de examen.
+  * **Franja de metadatos:** dificultad traducida (Fácil / Medio / Difícil) y, sólo en el juez, el límite de tiempo en segundos. No se muestran la memoria del contenedor, el identificador del entorno ni su URL.
+  * **Franja de avance del docente:** una por aviso pendiente, sobre el área de trabajo. Dice que el docente emitió un avance, cuántos archivos trae y que puede tardar hasta un minuto en aparecer (la consulta es cada minuto, ADR-058 §8). Con `[Ver archivos]` y `[Descartar]`.
   * **Confirmación del avance:** modal con dos listas, los archivos que se reemplazan —en ámbar, con el aviso de que la versión actual queda respaldada— y los que se agregan, y `[Aplicar avance]`. Después informa cuántos archivos se escribieron y dónde quedó la copia anterior.
-  * **Aviso de examen cerrado:** con el estado `frozen`, el área del editor se reemplaza por el motivo y la hora del cierre, sin `[Iniciar entorno]` ni enlace al editor (ADR-005 §5).
-  * **Área Central Completa:** iframe seguro de OpenVSCode que se comunica mediante `window.postMessage`, sin exponer identificadores de contenedor, puertos ni consumo interno.
+  * **Entorno de la práctica:** una sola acción `[Abrir entorno]` que arranca o reanuda el contenedor de esa práctica y abre la pestaña, igual que el IDE del docente. Con el entorno en marcha muestra `Entorno listo para trabajar.`; un fallo deja un mensaje accionable en la tarjeta.
+  * **Entrega del proyecto:** `[Entregar Proyecto]` envía el volumen de la práctica; en un examen pide confirmación porque el volumen queda en solo lectura. El comprobante muestra el veredicto en lenguaje humano y la hora.
+  * **Aviso de examen cerrado:** con el estado `frozen`, el área de trabajo se reemplaza por el motivo y la hora del cierre, sin acciones de entorno (ADR-005 §5).
 
 ### 5.4. Juez Virtual — Resolución y Evaluación (`/student/exercises/:exerciseId`)
 * **Propósito:** Resolución de problemas de lógica y algoritmos con evaluación formativa instantánea.
+* **Formato:** el mismo de 5.3. El enunciado ocupa la columna izquierda y el área de trabajo la derecha; los límites se muestran sin memoria y solo para este tipo de práctica.
 * **Componentes de la Pantalla:**
   * **Panel Izquierdo:** Consigna del problema, ejemplos de entrada/salida y restricciones de diseño pedagógico (lo que está permitido o prohibido usar).
   * **Panel Superior Derecho:** Monaco Editor interactivo con resaltado de sintaxis y autocompletado para el lenguaje configurado.
@@ -266,6 +270,12 @@ graph TD
       * `TLE` (Tiempo Límite Excedido): Ámbar.
       * `RE` (Error de Ejecución): Naranja.
       * `AST_BLOCKED` (Restricción de Código Violada): Rojo intenso con explicación constructiva de la regla infringida.
+
+### 5.5. Mis materias y ficha de materia (`/student/courses`, `/student/courses/:subjectId`)
+* **Propósito:** el índice de materias inscritas y, dentro de cada una, el mapa curricular con sus prácticas.
+* **Mis materias:** encabezado con subtítulo, pestañas con conteo (Todas, En curso, Completadas) y búsqueda; una fila por materia con código, próxima entrega, avance y `[Ver prácticas]`. Sin banners ni tarjetas de KPI.
+* **Ficha de materia:** enlace de vuelta, nombre, código y avance real; `[Actualizar]` relee el mapa y las prácticas. Panel **Mapa curricular** sólo si hay módulos; panel **Prácticas de la materia** (sin módulos) o **Ejercicios generales** (con módulos) con mejor puntaje y `[Resolver]`. Columna lateral con la práctica de refuerzo opcional.
+* **Detalle completo:** [MATERIAS.md](ESTUDIANTE/MATERIAS.md).
 
 ---
 

@@ -74,7 +74,8 @@ export async function openCurricularMap(page, courseId, { timeout = 45000, attem
       await page.goto(`/student/courses/${courseId}`, { waitUntil: 'domcontentloaded' });
     } else {
       await page.waitForTimeout(RATE_LIMIT_RETRY_DELAY_MS);
-      const refresh = map.locator('button.btn-refresh');
+      // La ficha de materia tiene un solo botón de refresco, en su encabezado.
+      const refresh = page.locator('button.btn-refresh').first();
       if (await refresh.count()) {
         await refresh.click();
       } else {

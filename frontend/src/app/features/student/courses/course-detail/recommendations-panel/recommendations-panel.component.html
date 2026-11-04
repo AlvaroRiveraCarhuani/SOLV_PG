@@ -1,68 +1,58 @@
-<aside class="recommendations-container" [class.is-collapsed]="isCollapsed()">
-  <!-- Header con botón colapsable -->
+<aside class="recommendations-panel" [class.is-collapsed]="isCollapsed()">
   <header class="panel-header">
-    <div class="header-main">
-      <div class="header-title-row">
-        <svg lucideLightbulb class="panel-icon"></svg>
-        <div class="title-group">
-          <h3 class="panel-title">Práctica de refuerzo</h3>
-          <span class="optional-badge">Opcional</span>
-        </div>
+    <div class="panel-heading">
+      <div class="panel-title-row">
+        <svg lucideLightbulb class="panel-icon" aria-hidden="true"></svg>
+        <h2 class="panel-title">Práctica de refuerzo</h2>
+        <span class="optional-badge">Opcional</span>
       </div>
       <p class="panel-subtitle">Ejercicios sugeridos según tu progreso</p>
     </div>
+
     <button
       type="button"
-      class="collapse-btn"
+      class="collapse-button"
       (click)="toggleCollapse()"
       [attr.aria-expanded]="!isCollapsed()"
-      [attr.aria-label]="isCollapsed() ? 'Expandir panel de refuerzo' : 'Colapsar panel de refuerzo'"
+      [attr.aria-label]="isCollapsed() ? 'Expandir el panel de refuerzo' : 'Colapsar el panel de refuerzo'"
     >
       @if (isCollapsed()) {
-        <svg lucideChevronDown class="btn-icon"></svg>
+        <svg lucideChevronDown class="collapse-icon" aria-hidden="true"></svg>
       } @else {
-        <svg lucideChevronUp class="btn-icon"></svg>
+        <svg lucideChevronUp class="collapse-icon" aria-hidden="true"></svg>
       }
     </button>
   </header>
 
-  <!-- Cuerpo del panel -->
   @if (!isCollapsed()) {
     <div class="panel-body">
       @if (loading()) {
-        <div class="panel-state loading-state">
-          <div class="skeleton-card"></div>
-          <div class="skeleton-card"></div>
+        <div class="panel-loading animate-pulse-subtle" aria-hidden="true">
+          <span class="loading-line"></span>
+          <span class="loading-line is-short"></span>
         </div>
       } @else if (!hasEnoughData()) {
-        <!-- Estado: Menos de 5 submissions -->
-        <div class="panel-state empty-state">
-          <div class="state-icon-wrapper info-icon">
-            <svg lucideInfo class="state-icon"></svg>
-          </div>
+        <div class="panel-state">
+          <svg lucideInfo class="state-icon" aria-hidden="true"></svg>
           <p class="state-message">
-            {{ message() || 'Completa algunos ejercicios para recibir sugerencias personalizadas' }}
+            {{ message() || 'Completa algunos ejercicios para recibir sugerencias personalizadas.' }}
           </p>
         </div>
       } @else if (!hasRecommendations()) {
-        <!-- Estado: Sin sugerencias / Al día -->
-        <div class="panel-state success-state">
-          <div class="state-icon-wrapper success-icon">
-            <svg lucideCheckCircle2 class="state-icon"></svg>
-          </div>
-          <p class="state-message success-message">
-            {{ message() || '¡Vas al día! No hay refuerzos sugeridos.' }}
+        <div class="panel-state">
+          <svg lucideCheckCircle2 class="state-icon is-success" aria-hidden="true"></svg>
+          <p class="state-message is-success">
+            {{ message() || 'Vas al día: no hay refuerzos sugeridos.' }}
           </p>
         </div>
       } @else {
-        <!-- Estado: Lista de recomendaciones -->
         @if (weakTags().length > 0) {
-          <div class="focus-areas-banner">
-            <span class="focus-label">Áreas de enfoque:</span>
+          <div class="focus-areas">
+            <span class="focus-label">Áreas de enfoque</span>
             <div class="focus-tags">
               @for (wt of weakTags(); track wt.tag) {
-                <span class="focus-tag-chip">
-                  <svg lucideTag class="chip-icon"></svg>
+                <span class="focus-tag">
+                  <svg lucideTag class="focus-tag-icon" aria-hidden="true"></svg>
                   <span machineData>{{ wt.tag }}</span>
                 </span>
               }
@@ -70,46 +60,35 @@
           </div>
         }
 
-        <div class="recommendations-list">
+        <ul class="recommendation-list">
           @for (item of recommendations(); track item.exercise_id) {
-            <article class="recommendation-card">
-              <div class="card-header">
-                <div class="badges-left">
-                  <span class="difficulty-badge" [ngClass]="getDifficultyClass(item.difficulty)">
-                    {{ getDifficultyLabel(item.difficulty) }}
-                  </span>
-                  <span class="card-optional-badge">
-                    <svg lucideInfo class="badge-icon"></svg>
-                    <span>Opcional</span>
-                  </span>
-                </div>
+            <li class="recommendation-item">
+              <div class="recommendation-badges">
+                <span class="difficulty-badge" [ngClass]="getDifficultyClass(item.difficulty)">
+                  {{ getDifficultyLabel(item.difficulty) }}
+                </span>
                 @if (item.matched_tag) {
-                  <span class="matched-tag-badge">
-                    <svg lucideTag class="tag-icon"></svg>
+                  <span class="matched-tag">
+                    <svg lucideTag class="matched-tag-icon" aria-hidden="true"></svg>
                     <span machineData>{{ item.matched_tag }}</span>
                   </span>
                 }
               </div>
 
-              <h4 class="exercise-title">{{ item.title }}</h4>
+              <h3 class="recommendation-title">{{ item.title }}</h3>
 
-              <p class="pedagogical-reason">
-                <svg lucideSparkles class="reason-icon"></svg>
+              <p class="recommendation-reason">
+                <svg lucideInfo class="reason-icon" aria-hidden="true"></svg>
                 <span>{{ item.reason }}</span>
               </p>
 
-              <div class="card-action">
-                <a
-                  [routerLink]="['/student/exercises', item.exercise_id]"
-                  class="start-exercise-link"
-                >
-                  <span>Practicar</span>
-                  <svg lucideArrowRight class="link-icon"></svg>
-                </a>
-              </div>
-            </article>
+              <a class="recommendation-link" [routerLink]="['/student/exercises', item.exercise_id]">
+                <span>Practicar</span>
+                <svg lucideArrowRight class="link-icon" aria-hidden="true"></svg>
+              </a>
+            </li>
           }
-        </div>
+        </ul>
       }
     </div>
   }

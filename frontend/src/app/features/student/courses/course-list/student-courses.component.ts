@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { StudentService, DueAssignment } from '@core/services/student.service';
 import { CourseColorService, CourseThemeStyle } from '@core/services/course-color.service';
-import { KpiGridComponent, KpiCardComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabsComponent, StatusTabItem } from '@shared/components/status-tabs/status-tabs.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
@@ -13,13 +12,20 @@ import { DismissibleDirective } from '@shared/directives/dismissible.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
   LucideBookOpen,
-  LucideListChecks,
+  LucideChevronRight,
   LucideClock,
   LucidePalette
 } from '@lucide/angular';
 
 type FilterMode = 'all' | 'in_progress' | 'completed';
 
+/**
+ * Mis materias: el listado de materias inscritas del alumno.
+ *
+ * Cada fila responde tres cosas: qué materia es, cuánto avanzó y qué entrega
+ * pronto. Los indicadores agregados del semestre viven en el inicio; repetirlos
+ * acá como tarjetas no agregaba lectura y ensanchaba la vista sin motivo.
+ */
 @Component({
   selector: 'student-courses',
   standalone: true,
@@ -27,8 +33,6 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
   imports: [
     CommonModule,
     RouterLink,
-    KpiGridComponent,
-    KpiCardComponent,
     SearchBarComponent,
     StatusTabsComponent,
     SkeletonLoaderComponent,
@@ -37,7 +41,7 @@ type FilterMode = 'all' | 'in_progress' | 'completed';
     DismissibleDirective,
     DateTextPipe,
     LucideBookOpen,
-    LucideListChecks,
+    LucideChevronRight,
     LucideClock,
     LucidePalette
   ],
@@ -55,14 +59,6 @@ export class StudentCoursesComponent implements OnInit {
   subjects = computed(() => this.studentService.dashboardData()?.subjects ?? []);
   dueAssignments = computed(() => this.studentService.dueAssignments());
   isLoading = computed(() => this.studentService.loading());
-
-  completedExercises = computed(() =>
-    this.subjects().reduce((acc, item) => acc + (item.completed_exercises ?? 0), 0)
-  );
-
-  totalExercises = computed(() =>
-    this.subjects().reduce((acc, item) => acc + (item.total_exercises ?? 0), 0)
-  );
 
   statusTabs = computed<StatusTabItem[]>(() => {
     const all = this.subjects();
@@ -101,6 +97,11 @@ export class StudentCoursesComponent implements OnInit {
 
   setFilterMode(mode: string): void {
     this.filterMode.set(mode as FilterMode);
+  }
+
+  clearFilters(): void {
+    this.searchQuery.set('');
+    this.filterMode.set('all');
   }
 
   getCourseColor(courseId: string, courseCode?: string): string {

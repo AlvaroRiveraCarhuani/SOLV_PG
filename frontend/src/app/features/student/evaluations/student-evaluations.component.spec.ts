@@ -136,14 +136,13 @@ describe('StudentEvaluationsComponent', () => {
     fixture.detectChanges();
   }
 
-  it('muestra los cuatro KPIs y todas las actividades publicadas', async () => {
+  it('muestra todas las actividades publicadas sin tarjetas de totales', async () => {
     await setup();
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(fixture.nativeElement.querySelectorAll('kpi-card').length).toBe(4);
+    // Los conteos por estado ya viven en las pestañas del filtro.
+    expect(fixture.nativeElement.querySelectorAll('kpi-card').length).toBe(0);
     expect(text).toContain('Pendientes');
-    expect(text).toContain('En progreso');
-    expect(text).toContain('Completadas');
     expect(text).toContain('Vencidas');
 
     expect(items().length).toBe(5);

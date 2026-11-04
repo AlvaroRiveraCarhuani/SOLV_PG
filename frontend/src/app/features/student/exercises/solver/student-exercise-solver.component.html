@@ -1,9 +1,9 @@
 <div class="solver-page-container">
   <header class="solver-topbar">
     <div class="topbar-left">
-      <a [routerLink]="backCourseLink()" class="btn-back" title="Volver al curso">
+      <a [routerLink]="backCourseLink()" class="btn-back" title="Volver a la materia">
         <svg lucideArrowLeft class="topbar-icon"></svg>
-        <span>Volver al Curso</span>
+        <span>Volver a la materia</span>
       </a>
 
       <div class="title-meta">
@@ -73,19 +73,20 @@
     <div class="solver-split-grid">
       <!-- Columna izquierda: Consigna y ejemplos públicos -->
       <section class="statement-panel">
-        <div class="meta-strip">
-          @if (ex.difficulty) {
-            <span class="meta-badge" machineData>{{ ex.difficulty }}</span>
-          }
-          <span class="meta-badge" machineData>
-            <svg lucideClock class="meta-icon"></svg>
-            <span>{{ effectiveTimeLimitMs() }} ms</span>
-          </span>
-          <span class="meta-badge" machineData>
-            <svg lucideCpu class="meta-icon"></svg>
-            <span>{{ effectiveMemoryLimitMb() }} MB</span>
-          </span>
-        </div>
+        @if (difficultyLabel() || !isIdeExercise()) {
+          <div class="meta-strip">
+            @if (difficultyLabel(); as difficulty) {
+              <span class="meta-badge">{{ difficulty }}</span>
+            }
+            @if (!isIdeExercise()) {
+              <span class="meta-badge">
+                <svg lucideClock class="meta-icon" aria-hidden="true"></svg>
+                <span>Límite</span>
+                <span machineData>{{ timeLimitLabel() }}</span>
+              </span>
+            }
+          </div>
+        }
 
         <article class="statement-card">
           <div class="section-heading">
@@ -149,7 +150,7 @@
             </p>
             <ul class="ide-rules-list">
               <li>Se entrega el entorno de esta práctica tal como está en el IDE; no hay que copiar archivos.</li>
-              <li>La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta la calificación docente.</li>
+              <li>La entrega queda pendiente de calificación hasta que el docente la revise con la rúbrica.</li>
               <li>
                 @if (isExamProject()) {
                   Al entregar, tu entorno queda en solo lectura. El docente puede reabrirte con un motivo.
@@ -170,58 +171,38 @@
           <div class="editor-card">
             <div class="editor-toolbar">
               <div class="toolbar-left">
-                <svg lucideTerminal class="toolbar-icon"></svg>
-                <span class="file-label">Entorno del alumno</span>
+                <svg lucideTerminal class="toolbar-icon" aria-hidden="true"></svg>
+                <span class="file-label">Entorno de la práctica</span>
               </div>
               <div class="toolbar-actions">
                 <button
                   type="button"
-                  class="btn-outline"
+                  class="btn-primary"
                   data-testid="btn-start-ide"
                   [disabled]="isStartingEnvironment()"
-                  (click)="startIdeEnvironment()"
+                  (click)="openEnvironment()"
                 >
-                  <svg lucideRefreshCw class="btn-icon" [class.motion-spin]="isStartingEnvironment()"></svg>
-                  <span>{{ environment() ? 'Reconectar' : 'Iniciar IDE' }}</span>
+                  @if (isStartingEnvironment()) {
+                    <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
+                    <span>Abriendo entorno…</span>
+                  } @else {
+                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                    <span>Abrir entorno</span>
+                  }
                 </button>
-                @if (environment()?.access_url) {
-                  <button type="button" class="btn-primary" data-testid="btn-open-ide" (click)="openIdeInNewTab()">
-                    <svg lucideExternalLink class="btn-icon"></svg>
-                    <span>Abrir IDE</span>
-                  </button>
-                }
               </div>
             </div>
 
             <div class="editor-body">
-              @if (isStartingEnvironment()) {
-                <p class="empty-note">Aprovisionando el environment del ejercicio...</p>
-              } @else if (environment(); as ws) {
-                <div class="ide-status-grid">
-                  <div class="ide-status-item">
-                    <span class="ide-status-label">Estado</span>
-                    <span class="ide-status-value font-mono" machineData>{{ ws.status }}</span>
-                  </div>
-                  @if (ws.access_url) {
-                    <div class="ide-status-item ide-status-item-wide">
-                      <span class="ide-status-label">URL de acceso</span>
-                      <code class="ide-url font-mono" machineData>{{ ws.access_url }}</code>
-                    </div>
-                  }
-                  @if (ws.last_activity_at) {
-                    <div class="ide-status-item">
-                      <span class="ide-status-label">Última actividad</span>
-                      <time class="ide-status-value font-mono" machineData>{{ ws.last_activity_at | dateText:'compact-datetime' }}</time>
-                    </div>
-                  }
-                  <div class="ide-status-item">
-                    <span class="ide-status-label">Entorno</span>
-                    <span class="ide-status-value font-mono" machineData>{{ ws.id }}</span>
-                  </div>
-                </div>
-              } @else {
-                <p class="empty-note">
-                  El environment se inicia bajo demanda y conserva tus archivos entre sesiones.
+              <p class="empty-note">
+                Tu entorno se abre en una pestaña nueva y conserva los archivos de esta práctica
+                entre sesiones.
+              </p>
+
+              @if (environmentIsRunning()) {
+                <p class="ide-ready">
+                  <svg lucideCheckCircle2 class="ide-ready-icon" aria-hidden="true"></svg>
+                  <span>Entorno listo para trabajar.</span>
                 </p>
               }
 
@@ -280,7 +261,7 @@
                   </span>
                 </div>
                 <div class="verdict-metrics">
-                  <span class="metric-chip font-mono" machineData>verdict: {{ submission.verdict }}</span>
+                  <verdict-badge [verdict]="submission.verdict" size="sm" />
                   @if (projectSubmittedAt(); as submittedAt) {
                     <time class="metric-chip font-mono" machineData>{{ submittedAt | dateText:'long-datetime' }}</time>
                   }
@@ -298,7 +279,7 @@
                   archivos a mano: lo que está en el IDE es lo que recibe el docente.
                 </p>
                 <p class="empty-note">
-                  La entrega queda en estado <code class="font-mono" machineData>PENDING</code> hasta que el docente la califique con la rúbrica.
+                  La entrega queda pendiente de calificación hasta que el docente la revise con la rúbrica.
                 </p>
               }
 

@@ -57,11 +57,22 @@
           </dl>
 
           <div class="card-actions">
-            <a class="btn btn-primary" routerLink="/student/aula">Entrar al aula</a>
-            @if (otherAulaCount() > 0) {
+            @if (clase.exercise_id) {
+              <a class="btn btn-primary" [routerLink]="['/student/exercises', clase.exercise_id]">Abrir práctica</a>
               <a class="link-quiet" routerLink="/student/aula">
-                Ver las <span machineData>{{ aulas().length }}</span> clases
+                @if (otherAulaCount() > 0) {
+                  Ver las <span machineData>{{ aulas().length }}</span> clases
+                } @else {
+                  Ver el aula
+                }
               </a>
+            } @else {
+              <a class="btn btn-primary" routerLink="/student/aula">Entrar al aula</a>
+              @if (otherAulaCount() > 0) {
+                <a class="link-quiet" routerLink="/student/aula">
+                  Ver las <span machineData>{{ aulas().length }}</span> clases
+                </a>
+              }
             }
           </div>
         } @else {

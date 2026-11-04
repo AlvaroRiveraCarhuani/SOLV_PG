@@ -1,22 +1,25 @@
-import { Component, OnInit, inject, input, signal, computed, effect } from '@angular/core';
+import { Component, inject, input, signal, computed, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import {
   LucideLock,
-  LucideUnlock,
-  LucideCheckCircle2,
-  LucidePlay,
   LucideBookOpen,
   LucideAlertCircle,
   LucideFileCode2,
   LucideChevronRight,
-  LucideRefreshCw,
-  LucideSparkles,
   LucideLayers
 } from '@lucide/angular';
 import { StudentService, CourseCurricularMap, CurricularModuleMap } from '@core/services/student.service';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 
+/**
+ * Prácticas de una materia, ordenadas por el mapa curricular cuando el docente
+ * definió módulos.
+ *
+ * El mapa y las prácticas viven en paneles separados: una materia sin módulos
+ * no dibuja un estado vacío enorme antes de sus prácticas, y una materia con
+ * módulos no mezcla el desbloqueo académico con los ejercicios sueltos.
+ */
 @Component({
   selector: 'curricular-map',
   standalone: true,
@@ -25,30 +28,31 @@ import { MachineDataDirective } from '@shared/directives/machine-data.directive'
     RouterModule,
     MachineDataDirective,
     LucideLock,
-    LucideUnlock,
-    LucideCheckCircle2,
-    LucidePlay,
     LucideBookOpen,
     LucideAlertCircle,
     LucideFileCode2,
     LucideChevronRight,
-    LucideRefreshCw,
-    LucideSparkles,
     LucideLayers
   ],
   templateUrl: './curricular-map.component.html',
   styleUrl: './curricular-map.component.scss'
 })
-export class CurricularMapComponent implements OnInit {
+export class CurricularMapComponent {
   private studentService = inject(StudentService);
 
   courseId = input.required<string>();
+  /** El encabezado de la ficha incrementa este valor para releer el mapa. */
+  refreshTick = input(0);
 
   mapData = signal<CourseCurricularMap | null>(null);
   isLoading = signal<boolean>(true);
   loadError = signal<string | null>(null);
 
   totalModules = computed(() => this.mapData()?.modules.length || 0);
+  hasModules = computed(() => this.totalModules() > 0);
+
+  unassignedExercises = computed(() => this.mapData()?.unassigned_exercises ?? []);
+
   completedModules = computed(() => {
     const mods = this.mapData()?.modules || [];
     return mods.filter(m => m.state === 'completed').length;
@@ -56,24 +60,19 @@ export class CurricularMapComponent implements OnInit {
 
   overallProgressPercent = computed(() => {
     const total = this.totalModules();
-    if (total === 0) return 100;
+    if (total === 0) return 0;
     return Math.round((this.completedModules() / total) * 100);
   });
 
   constructor() {
     effect(() => {
       const id = this.courseId();
-      if (id) {
-        this.loadCurricularMap(id);
+      this.refreshTick();
+      if (!id) {
+        return;
       }
+      void this.loadCurricularMap(id);
     });
-  }
-
-  ngOnInit(): void {
-    const id = this.courseId();
-    if (id && !this.mapData()) {
-      this.loadCurricularMap(id);
-    }
   }
 
   async loadCurricularMap(id: string): Promise<void> {
@@ -83,7 +82,7 @@ export class CurricularMapComponent implements OnInit {
       const data = await this.studentService.getCourseCurricularMap(id);
       this.mapData.set(data);
     } catch {
-      this.loadError.set('No se pudo cargar el mapa curricular.');
+      this.loadError.set('No se pudieron leer las prácticas de esta materia.');
     } finally {
       this.isLoading.set(false);
     }

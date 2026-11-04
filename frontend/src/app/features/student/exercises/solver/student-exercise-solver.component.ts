@@ -11,7 +11,6 @@ import {
   LucideTerminal,
   LucideFileText,
   LucideClock,
-  LucideCpu,
   LucideAlertTriangle,
   LucideCheckCircle2,
   LucideLoader2,
@@ -71,7 +70,6 @@ function encodeUtf8Base64(text: string): string {
     LucideTerminal,
     LucideFileText,
     LucideClock,
-    LucideCpu,
     LucideAlertTriangle,
     LucideCheckCircle2,
     LucideLoader2,
@@ -185,13 +183,36 @@ export class StudentExerciseSolverComponent implements OnInit {
     return true;
   });
 
-  readonly effectiveMemoryLimitMb = computed<number>(() => {
-    const ex = this.exercise();
-    return ex?.memory_limit_mb || ex?.memory_mb || 128;
+  /**
+   * El límite de tiempo pertenece al juez: mostrarlo en una práctica de IDE
+   * habla de un recurso que esa práctica no usa. La memoria del contenedor es
+   * del nodo, no del alumno, y tampoco se muestra.
+   */
+  readonly timeLimitLabel = computed<string>(() => {
+    const ms = this.exercise()?.time_limit_ms || 1000;
+    if (ms >= 1000) {
+      const seconds = ms / 1000;
+      return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} s`;
+    }
+    return `${ms} ms`;
   });
 
-  readonly effectiveTimeLimitMs = computed<number>(() => {
-    return this.exercise()?.time_limit_ms || 1000;
+  readonly difficultyLabel = computed<string>(() => {
+    switch ((this.exercise()?.difficulty || '').toLowerCase()) {
+      case 'easy':
+      case 'facil':
+      case 'fácil':
+        return 'Fácil';
+      case 'medium':
+      case 'medio':
+        return 'Medio';
+      case 'hard':
+      case 'dificil':
+      case 'difícil':
+        return 'Difícil';
+      default:
+        return this.exercise()?.difficulty || '';
+    }
   });
 
   readonly backCourseLink = computed<string[]>(() => {
@@ -285,15 +306,26 @@ export class StudentExerciseSolverComponent implements OnInit {
     }
   }
 
-  async startIdeEnvironment(): Promise<void> {
+  /**
+   * Abre el entorno de la práctica en un solo paso, como el docente: pide el
+   * arranque (que reanuda si ya existía) y lleva la pestaña a la URL cuando el
+   * backend la entrega. La pestaña se abre dentro del gesto del usuario para
+   * que el navegador no la bloquee.
+   */
+  async openEnvironment(): Promise<void> {
     const ex = this.exercise();
     if (!ex || this.isStartingEnvironment()) {
       return;
     }
     const subjectId = ex.subject_id;
     if (!subjectId) {
-      this.environmentError.set('El ejercicio no tiene una materia asociada para iniciar el environment.');
+      this.environmentError.set('El ejercicio no tiene una materia asociada para abrir el entorno.');
       return;
+    }
+
+    const tab = typeof window !== 'undefined' ? window.open('', '_blank') : null;
+    if (tab) {
+      tab.opener = null;
     }
 
     this.isStartingEnvironment.set(true);
@@ -302,19 +334,25 @@ export class StudentExerciseSolverComponent implements OnInit {
     try {
       const environment = await this.studentService.startEnvironment(subjectId, ex.id);
       this.environment.set(environment);
+
+      const url = environment.access_url;
+      if (!url) {
+        tab?.close();
+        this.environmentError.set('Tu entorno se está preparando. Probá de nuevo en unos segundos.');
+        return;
+      }
+
+      if (tab) {
+        tab.location.href = url;
+      } else {
+        window.open(url, '_blank');
+      }
     } catch {
-      this.environmentError.set('No se pudo iniciar el IDE. Intentá de nuevo en unos segundos.');
+      tab?.close();
+      this.environmentError.set('No se pudo abrir tu entorno. Intentá de nuevo en unos segundos.');
     } finally {
       this.isStartingEnvironment.set(false);
     }
-  }
-
-  openIdeInNewTab(): void {
-    const url = this.environment()?.access_url;
-    if (!url) {
-      return;
-    }
-    window.open(url, '_blank', 'noopener');
   }
 
   /**

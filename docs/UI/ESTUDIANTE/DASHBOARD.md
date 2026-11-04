@@ -32,7 +32,7 @@ Queda fuera de esta vista cualquier métrica de contenedores, CPU, RAM, IDs o no
 │ Práctica   Árboles binarios                   │                              │
 │ Horario    08:00 – 10:00                      ├──────────────────────────────┤
 │ En el aula 21 de 28                           │ Mientras estás en clase      │
-│ [ Entrar al aula ]                            │ Tu presencia se envía sola…  │
+│ [ Abrir práctica ]   Ver el aula              │ Tu presencia se envía sola…  │
 ├───────────────────────────────────────────────┤                              │
 │ Próximas entregas                          1  │                              │
 │ Listas enlazadas · SIS-211   06/11/2026 23:59 │                              │
@@ -53,7 +53,8 @@ Queda fuera de esta vista cualquier métrica de contenedores, CPU, RAM, IDs o no
 - Práctica de la sesión (`exercise_title`) o `Sin práctica asociada`.
 - Horario como dos `<time>` con el pipe `dateText` en formato `time`.
 - Presencia: `present` de `enrolled`, calculada por el latido de los últimos 120 segundos.
-- `[ Entrar al aula ]` navega a `/student/aula`. Si hay más de una clase, un enlace secundario indica cuántas hay; la vista de aula las muestra todas.
+- Con práctica en la sesión, la acción principal es `[ Abrir práctica ]` y navega a `/student/exercises/:exerciseId`; `Ver el aula` queda como enlace secundario y, si hay más de una clase, indica cuántas hay. Sin práctica asociada, la acción es `[ Entrar al aula ]` hacia `/student/aula`.
+- El aula es contexto (presencia y avances), no un paso obligatorio antes de la práctica: la presencia la emite el layout y el aviso de avance aparece también en la práctica.
 - Sin clase abierta: texto explicativo y `[ Ver mis prácticas ]`. Un fallo de carga se muestra como error dentro de la tarjeta, no como ausencia de clase.
 
 Los avances del docente **no** se listan acá: viven en el aula y en la práctica. Duplicarlos permitiría aplicar un avance desde un lugar que no muestra su contexto.
@@ -118,4 +119,4 @@ El resumen de materias **no** trae `active_environment`: ese campo se retiró de
 
 1. Sin materias: "No tienes materias matriculadas." en *Tus materias*, y el aula ofrece `[ Ver mis prácticas ]`.
 2. Con materias y sin clase: el inicio muestra las entregas y el avance; el aula se anuncia cuando el docente la abre.
-3. Al abrirse el aula, el alumno entra por *Aula ahora* o por el ítem **Aula** del sidebar.
+3. Al abrirse el aula, *Aula ahora* lleva directo a la práctica de la sesión; el ítem **Aula** del sidebar sigue disponible para ver presencia y avances.

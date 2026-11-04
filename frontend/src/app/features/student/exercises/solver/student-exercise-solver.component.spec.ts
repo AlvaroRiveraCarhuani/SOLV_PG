@@ -32,6 +32,7 @@ describe('StudentExerciseSolverComponent', () => {
   let submitCalls: unknown[] = [];
   let projectSubmitCalls: string[] = [];
   let projectSubmitPayloads: unknown[] = [];
+  let startEnvironmentCalls: string[][] = [];
 
   const mockStudentService = {
     getPublicExercise: () =>
@@ -75,6 +76,14 @@ describe('StudentExerciseSolverComponent', () => {
         verdict: 'PENDING'
       });
     },
+    startEnvironment: (subjectId: string, exerciseId: string) => {
+      startEnvironmentCalls.push([subjectId, exerciseId]);
+      return Promise.resolve({
+        id: 'ws-1',
+        status: 'running',
+        access_url: 'http://localhost:3000/ide'
+      } as unknown as PracticeEnvironment);
+    },
     saveKeystrokeEvents: () => Promise.resolve()
   };
 
@@ -115,6 +124,7 @@ describe('StudentExerciseSolverComponent', () => {
     submitCalls = [];
     projectSubmitCalls = [];
     projectSubmitPayloads = [];
+    startEnvironmentCalls = [];
     mockNotices.pending.set([]);
 
     await TestBed.configureTestingModule({
@@ -206,6 +216,32 @@ describe('StudentExerciseSolverComponent', () => {
     expect(component.projectSubmission()?.submission_id).toBe('sub-exam');
     expect(component.examSubmitPending()).toBe(false);
     expect(component.canSubmitProject()).toBe(false);
+  });
+
+  it('abre el entorno de la práctica en un solo paso y sin exponer la URL', async () => {
+    const fakeTab = {
+      opener: null,
+      location: { href: '' },
+      close: vi.fn()
+    } as unknown as Window;
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(fakeTab);
+
+    component.exercise.set({
+      ...component.exercise()!,
+      type: 'project',
+      environment_type: 'IDE_PERSISTENTE'
+    });
+    fixture.detectChanges();
+
+    await component.openEnvironment();
+    fixture.detectChanges();
+
+    expect(startEnvironmentCalls).toEqual([['subj-101', 'ex-101']]);
+    expect(fakeTab.location.href).toBe('http://localhost:3000/ide');
+    expect(component.environment()?.status).toBe('running');
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('http://localhost:3000/ide');
+
+    openSpy.mockRestore();
   });
 
   it('should load public exercise without hidden test cases and submit solution through the judge', async () => {

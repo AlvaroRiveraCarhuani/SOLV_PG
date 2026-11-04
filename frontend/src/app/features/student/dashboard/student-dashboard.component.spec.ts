@@ -148,8 +148,21 @@ describe('StudentDashboardComponent', () => {
     expect(times.length).toBe(2);
     expect(times[0].textContent?.trim()).toBe('08:00');
 
+    // Con práctica asociada, la tarjeta lleva directo a la práctica: el aula es
+    // el contexto (presencia y avances), no un paso intermedio obligatorio.
+    const practiceLink = links().find(a => a.textContent?.includes('Abrir práctica'));
+    expect(practiceLink?.getAttribute('href')).toBe('/student/exercises/ex-1');
+
+    const aulaLink = links().find(a => a.textContent?.includes('Ver el aula'));
+    expect(aulaLink?.getAttribute('href')).toBe('/student/aula');
+  });
+
+  it('sin práctica asociada entra al aula como única acción', async () => {
+    await setup({ aulas: [{ ...AULA, exercise_id: null, exercise_title: undefined }] });
+
     const aulaLink = links().find(a => a.textContent?.includes('Entrar al aula'));
     expect(aulaLink?.getAttribute('href')).toBe('/student/aula');
+    expect(text()).not.toContain('Abrir práctica');
   });
 
   it('avisa cuando hay más de una clase abierta', async () => {

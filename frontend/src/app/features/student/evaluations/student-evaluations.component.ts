@@ -2,17 +2,10 @@ import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } 
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
-  LucideAlertTriangle,
-  LucideCheckCircle2,
-  LucideClock,
-  LucideLoader2
-} from '@lucide/angular';
-import {
   StudentAcademicStatus,
   StudentEvaluationItem,
   StudentService
 } from '@core/services/student.service';
-import { KpiCardComponent, KpiGridComponent } from '@shared/components/kpi-card/kpi-card.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { StatusTabItem, StatusTabsComponent } from '@shared/components/status-tabs/status-tabs.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
@@ -44,12 +37,6 @@ const ACADEMIC_STATUS_LABELS: Record<StudentAcademicStatus, string> = {
   imports: [
     CommonModule,
     RouterLink,
-    LucideAlertTriangle,
-    LucideCheckCircle2,
-    LucideClock,
-    LucideLoader2,
-    KpiCardComponent,
-    KpiGridComponent,
     SearchBarComponent,
     StatusTabsComponent,
     ComboboxComponent,
