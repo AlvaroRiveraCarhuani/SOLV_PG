@@ -284,14 +284,20 @@ describe('AdminTemplatesComponent Spec', () => {
       variant: 'judge'
     });
     expect(component.getPurposeBadge('AMBOS')).toEqual({
-      label: 'Dual: Desarrollo + Evaluación',
-      shortLabel: 'DUAL',
+      label: 'Entorno de Desarrollo y Evaluación',
+      shortLabel: 'DESARROLLO Y EVALUACIÓN',
       variant: 'dual'
     });
+    // Un valor sin modalidad no se presenta como Desarrollo ni como Evaluación.
     expect(component.getPurposeBadge()).toEqual({
-      label: 'Entorno de Desarrollo',
-      shortLabel: 'DESARROLLO',
-      variant: 'ide'
+      label: 'Modalidad sin reconocer',
+      shortLabel: 'SIN RECONOCER',
+      variant: 'unknown'
+    });
+    expect(component.getPurposeBadge('OTRO_VALOR')).toEqual({
+      label: 'Modalidad sin reconocer',
+      shortLabel: 'SIN RECONOCER',
+      variant: 'unknown'
     });
   });
 
@@ -327,14 +333,13 @@ describe('AdminTemplatesComponent Spec', () => {
     expect(component.catalogTemplates().length).toBe(1);
     expect(component.catalogTemplates()[0].id).toBe('tpl-dual');
 
-    // Con filtro 'JUEZ_EFIMERO', solo devuelve el evaluador
+    // Con filtro 'JUEZ_EFIMERO', devuelve el evaluador y la plantilla dual
     component.selectedPurpose.set('JUEZ_EFIMERO');
-    expect(component.catalogTemplates().length).toBe(1);
-    expect(component.catalogTemplates()[0].id).toBe('tpl-judge');
+    expect(component.catalogTemplates().map(t => t.id).sort()).toEqual(['tpl-dual', 'tpl-judge']);
 
-    // Con filtro 'IDE_PERSISTENTE', devuelve tpl-1 y tpl-4
+    // Con filtro 'IDE_PERSISTENTE', devuelve tpl-1, tpl-4 y la plantilla dual
     component.selectedPurpose.set('IDE_PERSISTENTE');
-    expect(component.catalogTemplates().length).toBe(2);
+    expect(component.catalogTemplates().map(t => t.id).sort()).toEqual(['tpl-1', 'tpl-4', 'tpl-dual']);
   });
 
   it('detectTemplateTech prioriza stack_config.runtime_id y web_platform_id sobre el nombre genérico', () => {

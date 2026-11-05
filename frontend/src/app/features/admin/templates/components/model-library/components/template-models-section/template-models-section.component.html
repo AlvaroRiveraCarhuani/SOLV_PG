@@ -63,17 +63,11 @@
 
                 <span
                   class="purpose-badge"
-                  [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
-                  [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
-                  [class.purpose-both]="m.target_environment === 'AMBOS'"
+                  [class.purpose-ide]="isTargetEnvironment(m.target_environment, 'IDE_PERSISTENTE')"
+                  [class.purpose-judge]="isTargetEnvironment(m.target_environment, 'JUEZ_EFIMERO')"
+                  [class.purpose-both]="isTargetEnvironment(m.target_environment, 'AMBOS')"
                 >
-                  @if (m.target_environment === 'AMBOS') {
-                    DUAL
-                  } @else if (m.target_environment === 'IDE_PERSISTENTE') {
-                    DESARROLLO
-                  } @else {
-                    EVALUACIÓN
-                  }
+                  {{ m.target_environment | environmentLabel:'short' }}
                 </span>
 
                 <span class="ram-badge"><span machineData>{{ m.base_ram_mb }} MB</span></span>
@@ -170,17 +164,11 @@
               <td>
                 <span
                   class="purpose-badge"
-                  [class.purpose-ide]="m.target_environment === 'IDE_PERSISTENTE'"
-                  [class.purpose-judge]="m.target_environment === 'JUEZ_VIRTUAL' || m.target_environment === 'JUEZ_EFIMERO'"
-                  [class.purpose-both]="m.target_environment === 'AMBOS'"
+                  [class.purpose-ide]="isTargetEnvironment(m.target_environment, 'IDE_PERSISTENTE')"
+                  [class.purpose-judge]="isTargetEnvironment(m.target_environment, 'JUEZ_EFIMERO')"
+                  [class.purpose-both]="isTargetEnvironment(m.target_environment, 'AMBOS')"
                 >
-                  @if (m.target_environment === 'AMBOS') {
-                    Dual (Desarrollo y Evaluación)
-                  } @else if (m.target_environment === 'IDE_PERSISTENTE') {
-                    Entorno de Desarrollo
-                  } @else {
-                    Entorno de Evaluación
-                  }
+                  {{ m.target_environment | environmentLabel }}
                 </span>
               </td>
               <td>

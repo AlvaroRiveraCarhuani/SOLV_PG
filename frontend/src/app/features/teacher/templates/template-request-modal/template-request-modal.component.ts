@@ -12,6 +12,7 @@ import {
   viewChild
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { FormsModule } from '@angular/forms';
 import { TimeoutError, timeout } from 'rxjs';
 import { AiOperations } from '@shared/services/ai-operation';
@@ -107,7 +108,8 @@ interface PickerGroup {
     LucideWand2,
     LucideWrench,
     LucideX,
-    TechLogoComponent
+    TechLogoComponent,
+    EnvironmentLabelPipe
   ],
   templateUrl: './template-request-modal.component.html',
   styleUrl: './template-request-modal.component.scss',

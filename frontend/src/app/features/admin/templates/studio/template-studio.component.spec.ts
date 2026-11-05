@@ -1566,7 +1566,7 @@ describe('TemplateStudioComponent', () => {
     expect(component.selectedDatabaseId()).toBe('db-none');
     expect(component.selectedWebComponent()).toBeNull();
     expect(component.selectedDatabaseOption()).toBeNull();
-    expect(component.name()).toContain('Entorno Dual: ');
+    expect(component.name()).toContain('Desarrollo y Evaluación: ');
     expect(component.entrypoint()).toBe('python3 solution.py');
     expect(component.setupScript()).toBe('echo "export PYTHONUNBUFFERED=1" >> ~/.bashrc');
   });

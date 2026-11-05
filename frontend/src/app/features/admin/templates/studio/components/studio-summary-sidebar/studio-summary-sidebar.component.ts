@@ -18,9 +18,12 @@ import { EnvTestJob } from '../../../../services/env-test-job.service';
 import { TechLogoComponent } from '../../../components/tech-logo/tech-logo.component';
 import { StudioActionBlocker } from '../../template-studio.utils';
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'studio-summary-sidebar',
   imports: [
+    EnvironmentLabelPipe,
     CodeEditorComponent,
     MachineDataDirective,
     TechLogoComponent,

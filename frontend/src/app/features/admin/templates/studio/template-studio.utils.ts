@@ -4,6 +4,7 @@ import {
   TemplateComponent
 } from '../../services/admin-templates.service';
 import { AIMissingComponent } from '../../configuracion/admin-config-ia.service';
+import { ENVIRONMENT_TYPES } from '@shared/constants/environment-types.constants';
 
 // --- Resolución de propuestas del Copiloto contra el catálogo real del tenant ---
 
@@ -808,7 +809,11 @@ export function synthesizeVisualStackState(params: {
   if (web) parts.push(web.name);
   for (const a of addons) parts.push(a.name.split(' ')[0]);
   if (db) parts.push(db.name.split(' ')[0]);
-  const prefix = isDual ? 'Entorno Dual: ' : isJudge ? 'Evaluador: ' : 'Laboratorio: ';
+  const prefix = isDual
+    ? `${ENVIRONMENT_TYPES.AMBOS.short}: `
+    : isJudge
+      ? `${ENVIRONMENT_TYPES.JUEZ_EFIMERO.short}: `
+      : 'Laboratorio: ';
   const suggestedName = prefix + parts.join(' + ');
 
   const buildLayers: string[] = [];

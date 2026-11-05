@@ -104,7 +104,7 @@ export class CatalogTreeComponent {
       {
         id: 'web',
         label: 'Interfaces Web',
-        hint: 'Plataformas disponibles en el IDE persistente',
+        hint: 'Plataformas web disponibles para la práctica',
         ...pick((c) => c.layer === 'runtime' && c.sub_category === 'web')
       },
       {

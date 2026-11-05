@@ -5,6 +5,8 @@
 > **Origen:** `docs/GOBERNANZA/AUDITORIA_TERMINOLOGIA.md` (auditoría de solo lectura). Este documento convierte sus hallazgos en definiciones, contrastes y decisiones explícitas. La auditoría original queda intacta.
 >
 > **Fecha:** noviembre de 2026.
+>
+> **Terminología vigente:** ADR-067. Las tablas de comparación de este documento conservan los nombres candidatos que se descartaron; no son etiquetas de interfaz.
 
 ---
 

@@ -20,6 +20,11 @@ import { TeacherDashboardService } from '../services/teacher-dashboard.service';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import {
+  EnvironmentTypeKey,
+  environmentTypeOptions,
+  isEnvironmentType,
+} from '@shared/constants/environment-types.constants';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { TechLogoComponent } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
@@ -237,7 +242,10 @@ export class TeacherTemplatesComponent implements OnInit {
     }
 
     if (envType !== 'all') {
-      items = items.filter(t => t.environment_type === envType);
+      // Una plantilla dual sirve a las dos modalidades: aparece en ambos filtros.
+      items = items.filter(
+        t => isEnvironmentType(t.environment_type, envType as EnvironmentTypeKey) || isEnvironmentType(t.environment_type, 'AMBOS')
+      );
     }
 
     if (query) {
@@ -286,18 +294,14 @@ export class TeacherTemplatesComponent implements OnInit {
     return current;
   });
 
-  envTypeComboboxOptions = computed<ComboboxOption[]>(() => [
-    { id: 'all', label: 'Todas las modalidades', value: 'all' },
-    { id: 'IDE_PERSISTENTE', label: 'Entorno de Desarrollo', value: 'IDE_PERSISTENTE' },
-    { id: 'JUEZ_EFIMERO', label: 'Entorno de Evaluación', value: 'JUEZ_EFIMERO' }
-  ]);
+  envTypeComboboxOptions = computed<ComboboxOption[]>(() =>
+    environmentTypeOptions({ includeAll: true, include: ['IDE_PERSISTENTE', 'JUEZ_EFIMERO'] })
+  );
 
   selectedEnvTypeLabel = computed<string>(() => {
     const current = this.envTypeFilter();
-    if (current === 'all') return 'Todas las modalidades';
-    if (current === 'IDE_PERSISTENTE') return 'Entorno de Desarrollo';
-    if (current === 'JUEZ_EFIMERO') return 'Entorno de Evaluación';
-    return current;
+    const option = this.envTypeComboboxOptions().find(o => o.value === current);
+    return option?.label ?? current;
   });
 
   onCategorySelected(opt: ComboboxOption): void {
@@ -340,12 +344,6 @@ export class TeacherTemplatesComponent implements OnInit {
 
   statusTone(status: string): string {
     return ENVIRONMENT_REQUEST_STATUS_TONE[status as EnvironmentRequest['status']] || 'neutral';
-  }
-
-  environmentLabel(environment: string): string {
-    if (environment === 'AMBOS') return 'Desarrollo y evaluación';
-    if (environment === 'JUEZ_EFIMERO') return 'Evaluación';
-    return 'Desarrollo';
   }
 
   /** Pide una variante de un entorno que el docente ya conoce. */

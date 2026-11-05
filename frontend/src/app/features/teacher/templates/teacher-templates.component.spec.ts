@@ -106,6 +106,36 @@ describe('TeacherTemplatesComponent', () => {
     expect(component.filteredTemplates()[0].id).toBe('tpl-1');
   });
 
+  it('shows a dual template under both environment filters', () => {
+    const dual: PublishedTemplate = {
+      id: 'tpl-dual',
+      name: 'Dual Python',
+      description: 'Sirve para las dos modalidades.',
+      docker_image: 'solv/python:3.12',
+      default_memory_mb: 1024,
+      default_cpu_cores: 2,
+      category: 'Programación',
+      environment_type: 'AMBOS',
+      is_official: true,
+      is_active: true
+    };
+    component.templates.set([...mockTemplates, dual]);
+
+    component.envTypeFilter.set('IDE_PERSISTENTE');
+    expect(component.filteredTemplates().map(t => t.id)).toContain('tpl-dual');
+
+    component.envTypeFilter.set('JUEZ_EFIMERO');
+    expect(component.filteredTemplates().map(t => t.id)).toContain('tpl-dual');
+  });
+
+  it('resolves the historical JUEZ_VIRTUAL alias when filtering', () => {
+    const legacy = { ...mockTemplates[1], id: 'tpl-legacy', environment_type: 'JUEZ_VIRTUAL' as unknown as PublishedTemplate['environment_type'] };
+    component.templates.set([legacy]);
+
+    component.envTypeFilter.set('JUEZ_EFIMERO');
+    expect(component.filteredTemplates().map(t => t.id)).toEqual(['tpl-legacy']);
+  });
+
   it('should filter templates by search query', () => {
     component.searchTerm.set('datascience');
     expect(component.filteredTemplates().length).toBe(1);

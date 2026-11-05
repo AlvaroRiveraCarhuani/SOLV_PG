@@ -62,10 +62,13 @@ export interface ToastNotification {
   type: 'success' | 'error' | 'warning' | 'info';
 }
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'admin-templates',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     MachineDataDirective,
@@ -524,7 +527,11 @@ export class AdminTemplatesComponent implements OnInit {
     return detectTech(name, image);
   }
 
-  getPurposeBadge(targetEnv?: string): { label: string; shortLabel: string; variant: 'ide' | 'judge' | 'dual' } {
+  getPurposeBadge(targetEnv?: string): {
+    label: string;
+    shortLabel: string;
+    variant: 'ide' | 'judge' | 'dual' | 'unknown';
+  } {
     return getTemplatePurposeBadge(targetEnv);
   }
 

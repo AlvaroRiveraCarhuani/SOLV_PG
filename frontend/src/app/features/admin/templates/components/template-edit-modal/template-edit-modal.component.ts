@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { AdminTemplateItem, AdminTemplatesService, RamPresetSuggestion, RuntimeCapabilities } from '../../../services/admin-templates.service';
 import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { environmentBadge, isEnvironmentType } from '@shared/constants/environment-types.constants';
 import { FormFieldComponent } from '@shared/components/form-field/form-field.component';
 import {
   LucideHardDrive,
@@ -21,6 +23,7 @@ import {
     MachineDataDirective,
     ModalShellComponent,
     FormFieldComponent,
+    EnvironmentLabelPipe,
     LucideHardDrive,
     LucideLayers,
     LucideSave,
@@ -52,12 +55,14 @@ export class TemplateEditModalComponent implements OnInit {
   ramPresets = signal<RamPresetSuggestion[]>([]);
 
   isDual = computed<boolean>(() => {
-    return this.templateItem()?.target_environment === 'AMBOS';
+    return isEnvironmentType(this.templateItem()?.target_environment, 'AMBOS');
   });
 
+  /** Un valor desconocido se presenta como estado neutro, nunca como una modalidad. */
+  purposeBadge = computed(() => environmentBadge(this.templateItem()?.target_environment));
+
   isJudge = computed<boolean>(() => {
-    const env = this.templateItem()?.target_environment;
-    return env === 'JUEZ_EFIMERO' || env === 'JUEZ_VIRTUAL';
+    return isEnvironmentType(this.templateItem()?.target_environment, 'JUEZ_EFIMERO');
   });
 
   derivedJudgeRamMB = computed<number>(() => {
@@ -139,13 +144,15 @@ export class TemplateEditModalComponent implements OnInit {
       this.selectedRam.set(this.template.base_ram_mb || 512);
       this.description.set(this.template.description || '');
     }
-    const judge = this.isJudge();
-    this.ramPresets.set(this.getDefaultPresets(judge));
+    const variant = this.purposeBadge().variant;
+    const judge = variant === 'judge';
+    // Con una modalidad sin reconocer no se proponen presets de ninguna modalidad.
+    this.ramPresets.set(variant === 'unknown' ? [] : this.getDefaultPresets(judge));
     this.templatesService?.getRuntimeCapabilities().subscribe({
       next: (caps) => {
         if (caps) {
           this.runtimeCapabilities.set(caps);
-          const suggestions = judge ? caps.judge_presets : caps.ide_presets;
+          const suggestions = variant === 'unknown' ? null : judge ? caps.judge_presets : caps.ide_presets;
           if (suggestions && suggestions.length > 0) {
             this.ramPresets.set(suggestions);
           }

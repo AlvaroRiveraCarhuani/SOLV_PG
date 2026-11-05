@@ -15,9 +15,13 @@ import {
   TemplateModelItem
 } from '@features/admin/models/admin-templates.models';
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { EnvironmentTypeKey, isEnvironmentType } from '@shared/constants/environment-types.constants';
+
 @Component({
   selector: 'template-models-section',
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     ComboboxComponent,
     SearchBarComponent,
@@ -54,5 +58,10 @@ export class TemplateModelsSectionComponent {
     if (!categoryId) return 'Sin categoría';
     const found = this.categories().find(c => c.id === categoryId);
     return found ? found.name : 'Sin categoría';
+  }
+
+  /** Resuelve alias históricos antes de comparar con el tipo. */
+  isTargetEnvironment(value: string | null | undefined, key: EnvironmentTypeKey): boolean {
+    return isEnvironmentType(value, key);
   }
 }

@@ -13,8 +13,8 @@
 
 El SpeedGrader responde dos preguntas distintas con la misma pantalla:
 
-- **Juez (`JUEZ_EFIMERO`, "Evaluador Automático"):** ¿el algoritmo cumple los casos de prueba y los límites de ejecución?
-- **IDE (`IDE_PERSISTENTE`, "Entorno de Desarrollo"):** ¿el proyecto cumple la rúbrica y se sostiene como sistema?
+- **Entorno de Evaluación (`JUEZ_EFIMERO`):** ¿el algoritmo cumple los casos de prueba y los límites de ejecución?
+- **Entorno de Desarrollo (`IDE_PERSISTENTE`):** ¿el proyecto cumple la rúbrica y se sostiene como sistema?
 
 Hoy la pantalla no distingue. Una entrega IDE muestra "Casos de Prueba (0)", "0 ms", "0 MB", análisis de complejidad y un botón "Re-ejecutar" que no aplican. El código de un proyecto multiarchivo se presenta como un texto continuo con cabeceras `# === FILE: ... ===`, sin árbol para navegar. La rúbrica queda en la misma columna que esos bloques vacíos.
 
@@ -419,7 +419,7 @@ Notas de implementación:
 - **Esta especificación:** `docs/UI/DOCENTE/REVISION_POR_MODALIDAD.md`.
 - **ADR:** [ADR-060](../../ARQUITECTURA/ADR/ADR-060-diff-nativo-y-comentarios-por-rango.md) documenta el diff nativo, el proyecto base y `end_line_number`. [ADR-061](../../ARQUITECTURA/ADR/ADR-061-preview-efimero-de-entrega-desde-speedgrader.md) documenta el preview efímero y su ciclo de vida.
 - **Contrato de API:** `docs/API_CONTRACTS.md` incluye `base_files[]`, `base_files_available` y `end_line_number`.
-- **IDE persistente:** `docs/ARQUITECTURA/IDE_PERSISTENTE.md` documenta `base_files[]` y los bloques de comentarios.
+- **Componente del IDE persistente:** `docs/ARQUITECTURA/IDE_PERSISTENTE.md` documenta `base_files[]` y los bloques de comentarios.
 - **Mapa de vistas:** no cambia la ruta; solo se ajusta la descripción si el alcance de la vista cambia.
 - **E2E:** ampliar `frontend/e2e/flows/02-medium/J08-persistent-ide-lifecycle.spec.mjs` y mantener J07 como regresión de juez.
 

@@ -4,6 +4,8 @@
 > **Fecha:** 2026-11-02
 > **Ámbito:** Docencia, auditoría de similitud, modalidad dual
 > **Relacionado:** ADR-052 (banco de ejercicios y modalidad), ADR-059 (entornos por práctica), ADR-060 (comentarios por rango), [REVISION_POR_MODALIDAD](../../UI/DOCENTE/REVISION_POR_MODALIDAD.md)
+>
+> **Terminología vigente:** ADR-067. Los nombres de modalidad que aparecen en este ADR son los de su fecha y no se reescriben.
 
 ---
 

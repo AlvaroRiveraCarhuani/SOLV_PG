@@ -48,6 +48,23 @@ Cargar solo la skill que matchee la intención del trabajo; no cargar todas por 
 running=success · pending=warning · hibernated=neutral · failed/oom_killed=error
 Veredictos juez: AC=verde · WA=rojo · TLE=ámbar · RE=naranja · AST_BLOCKED=rojo intenso
 
+## Terminología de entornos (UI, documentación y agentes)
+
+Correspondencia obligatoria entre el identificador interno y el nombre visible:
+
+| Identificador interno (no se traduce) | Nombre visible |
+| :--- | :--- |
+| `JUEZ_EFIMERO` | Entorno de Evaluación |
+| `IDE_PERSISTENTE` | Entorno de Desarrollo |
+| `AMBOS` | Entorno de Desarrollo y Evaluación |
+
+- Identificador, nombre visible y concepto técnico son tres capas distintas. El identificador es valor de contrato: no se renombra, no se traduce y no se escribe como etiqueta humana.
+- «Juez Virtual» nombra el motor que evalúa soluciones. No se usa como nombre de modalidad en la interfaz del estudiante ni como sustituto de «Entorno de Evaluación».
+- Toda etiqueta de modalidad sale de `@shared/constants/environment-types.constants.ts` a través del pipe `environmentLabel` (`@shared/pipes/environment-label.pipe.ts`) o de `environmentTypeOptions()` para filtros y selectores. PROHIBIDO escribir literales de modalidad en plantillas, componentes o utilidades.
+- Un `environment_type` desconocido se muestra con el estado neutro del catálogo (`environmentBadge`); no se asume Entorno de Desarrollo ni Entorno de Evaluación.
+- La política y sus excepciones están en `docs/ARQUITECTURA/ADR/ADR-067-politica-terminologica-de-modalidades.md`. El gate clasifica por forma (no por lista de palabras) y solo admite nombres antiguos en documentos históricos que referencian esa decisión.
+- Gate `terminology-gate` en `npm run lint:styles` y en CI: falla ante etiquetas de modalidad fuera del catálogo, ante el catálogo incompleto y ante instrucciones de agentes desalineadas.
+
 ## Vocabulario PROHIBIDO (Evitar delatores de IA)
 
 - **NO usar** -> **Usar en su lugar**:

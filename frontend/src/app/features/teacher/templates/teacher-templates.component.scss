@@ -193,6 +193,12 @@
         color: var(--text-secondary);
         border-color: var(--border-subtle);
       }
+
+      &.env-dual {
+        background-color: var(--bg-surface-subtle);
+        color: var(--text-secondary);
+        border-color: var(--border-strong);
+      }
     }
   }
 

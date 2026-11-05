@@ -43,10 +43,14 @@ interface ApiResponse<T> {
  * el juez automático muestra sus casos y el IDE persistente su plantilla y su
  * rúbrica. Todo sale del ejercicio y de las métricas que ya expone la materia.
  */
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { environmentBadge } from '@shared/constants/environment-types.constants';
+
 @Component({
   selector: 'practice-detail',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     RouterLink,
     DateTextPipe,
@@ -95,8 +99,10 @@ export class PracticeDetailComponent implements OnInit, OnDestroy {
   isOpeningIde = signal<boolean>(false);
   ideError = signal<string | null>(null);
 
-  isIde = computed(() => this.exercise()?.environment_type === 'IDE_PERSISTENTE');
-  isJudge = computed(() => !this.isIde());
+  /** Presentación neutra para un valor que no corresponde a una modalidad conocida. */
+  envBadge = computed(() => environmentBadge(this.exercise()?.environment_type));
+  isIde = computed(() => this.envBadge().variant === 'ide');
+  isJudge = computed(() => this.envBadge().variant === 'judge');
 
   testCases = computed<TestCaseDTO[]>(() => {
     const exercise = this.exercise();

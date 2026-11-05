@@ -3,9 +3,11 @@ import { FormsModule } from '@angular/forms';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { TargetEnvironment } from '@features/admin/models/admin-templates.models';
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'studio-purpose-step',
-  imports: [FormsModule, ComboboxComponent],
+  imports: [EnvironmentLabelPipe, FormsModule, ComboboxComponent],
   templateUrl: './studio-purpose-step.component.html',
   styleUrls: ['./studio-purpose-step.component.scss']
 })

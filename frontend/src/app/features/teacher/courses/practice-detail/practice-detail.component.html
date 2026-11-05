@@ -32,11 +32,10 @@
             <span class="badge badge-mode">
               @if (isIde()) {
                 <svg lucideLaptop class="badge-icon"></svg>
-                Entorno de Desarrollo
-              } @else {
+              } @else if (isJudge()) {
                 <svg lucideTerminal class="badge-icon"></svg>
-                Evaluador Automático
               }
+              {{ envBadge().label }}
             </span>
 
             @if (language(); as lang) {

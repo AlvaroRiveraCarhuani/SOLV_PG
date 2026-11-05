@@ -67,7 +67,7 @@
     </kpi-card>
 
     <kpi-card
-      label="Entornos IDE"
+      label="{{ 'IDE_PERSISTENTE' | environmentLabel }}"
       [value]="ideModelsCount()"
       detail="Laboratorios interactivos"
       variant="purple"
@@ -76,7 +76,7 @@
     </kpi-card>
 
     <kpi-card
-      label="Entornos Evaluador Automático"
+      label="{{ 'JUEZ_EFIMERO' | environmentLabel }}"
       [value]="judgeModelsCount()"
       detail="Sandboxes de evaluación"
       variant="warning"

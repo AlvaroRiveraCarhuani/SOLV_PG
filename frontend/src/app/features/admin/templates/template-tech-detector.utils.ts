@@ -1,5 +1,6 @@
 import { AdminTemplateItem } from '../services/admin-templates.service';
 import { CURATED_TECH_ICONS, TechIconKey } from './components/tech-logo/tech-logo.component';
+import { environmentBadge, isEnvironmentType } from '@shared/constants/environment-types.constants';
 
 export interface TechMeta {
   id: string;
@@ -152,18 +153,17 @@ export function isPausedTemplateStatus(status?: string): boolean {
   return status === 'paused' || status === 'suspended' || status === 'SUSPENDIDA';
 }
 
+/**
+ * Presentación de la modalidad de una plantilla. Un valor desconocido devuelve
+ * el estado neutro del catálogo, nunca Desarrollo ni Evaluación.
+ */
 export function getTemplatePurposeBadge(targetEnv?: string): {
   label: string;
   shortLabel: string;
-  variant: 'ide' | 'judge' | 'dual';
+  variant: 'ide' | 'judge' | 'dual' | 'unknown';
 } {
-  if (targetEnv === 'AMBOS') {
-    return { label: 'Dual: Desarrollo + Evaluación', shortLabel: 'DUAL', variant: 'dual' };
-  }
-  if (targetEnv === 'JUEZ_EFIMERO' || targetEnv === 'JUEZ_VIRTUAL') {
-    return { label: 'Entorno de Evaluación', shortLabel: 'EVALUACIÓN', variant: 'judge' };
-  }
-  return { label: 'Entorno de Desarrollo', shortLabel: 'DESARROLLO', variant: 'ide' };
+  const badge = environmentBadge(targetEnv);
+  return { label: badge.label, shortLabel: badge.short.toUpperCase(), variant: badge.variant };
 }
 
 export function formatByteSize(bytes: number): string {
@@ -198,10 +198,23 @@ export function filterAdminTemplatesForView(params: {
   return templates.filter(t => {
     if (!statusPredicate(t)) return false;
     if (purpose !== 'ALL') {
-      const env = t.target_environment || 'IDE_PERSISTENTE';
-      if (purpose === 'IDE_PERSISTENTE' && env !== 'IDE_PERSISTENTE') return false;
-      if (purpose === 'JUEZ_EFIMERO' && env !== 'JUEZ_EFIMERO' && env !== 'JUEZ_VIRTUAL') return false;
-      if (purpose === 'AMBOS' && env !== 'AMBOS') return false;
+      const env = t.target_environment;
+      if (purpose === 'AMBOS' && !isEnvironmentType(env, 'AMBOS')) return false;
+      // Una plantilla dual sirve a las dos modalidades y aparece en ambos filtros.
+      if (
+        purpose === 'IDE_PERSISTENTE' &&
+        !isEnvironmentType(env, 'IDE_PERSISTENTE') &&
+        !isEnvironmentType(env, 'AMBOS')
+      ) {
+        return false;
+      }
+      if (
+        purpose === 'JUEZ_EFIMERO' &&
+        !isEnvironmentType(env, 'JUEZ_EFIMERO') &&
+        !isEnvironmentType(env, 'AMBOS')
+      ) {
+        return false;
+      }
     }
     if (tech !== 'all') {
       const itemTech = detectTemplateTech(t);

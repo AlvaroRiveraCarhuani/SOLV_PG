@@ -27,15 +27,7 @@
         <div class="bp-block">
           <span class="bp-label">Nombre del Entorno</span>
           <strong class="bp-env-name">{{ name() || 'Sin nombre definido' }}</strong>
-          <span class="bp-meta-pill">
-            @if (targetEnvironment() === 'AMBOS') {
-              Dual: Desarrollo + Evaluación
-            } @else if (targetEnvironment() === 'IDE_PERSISTENTE') {
-              Entorno de Desarrollo
-            } @else {
-              Entorno de Evaluación
-            }
-          </span>
+          <span class="bp-meta-pill">{{ targetEnvironment() | environmentLabel }}</span>
         </div>
 
         <div class="bp-block">

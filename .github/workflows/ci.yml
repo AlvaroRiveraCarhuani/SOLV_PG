@@ -3,8 +3,10 @@ name: SOLV Pipeline CI/CD
 on:
   push:
     branches: [ main, develop ]
+  # Toda rama de PR pasa por el gate, no solo las que apuntan a main o develop.
   pull_request:
-    branches: [ main, develop ]
+    branches:
+      - '**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -75,7 +77,7 @@ jobs:
       - name: Run Vitest Quality Gates
         run: |
           cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs
 
   # Stage 2: Tests del Backend con Postgres Efímero
   test-backend:
@@ -145,7 +147,7 @@ jobs:
       - name: Run Frontend Vitest Gates
         run: |
           cd frontend
-          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs
+          npx vitest run scripts/date-format-gate.test.mjs scripts/machine-data-gate.test.mjs scripts/machine-data-catalog.test.mjs scripts/motion-gate.test.mjs scripts/terminology-gate.test.mjs
 
   # Stage 4: Build Backend & Frontend
   build:

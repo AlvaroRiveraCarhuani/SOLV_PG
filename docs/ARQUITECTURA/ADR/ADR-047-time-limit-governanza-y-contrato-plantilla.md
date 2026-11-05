@@ -4,6 +4,8 @@
 - **Fecha:** 2026-10-25
 - **Contexto:** Core / Evaluación y Gobernanza de Plantillas
 
+> **Terminología vigente:** ADR-067. Los nombres de modalidad que cita este ADR son los de su fecha y no se reescriben.
+
 ## Contexto y Problema
 
 Una auditoría del Constructor de Entornos (`TemplateStudioComponent` y su resumen lateral) reveló que el campo `timeout_ms` de `lab_templates` era **metadata muerta**:

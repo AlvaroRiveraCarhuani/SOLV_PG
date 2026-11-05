@@ -30,6 +30,11 @@ import { TemplateCategoriesManagerComponent } from './components/template-catego
 import { CatalogTreeComponent } from './components/catalog-tree/catalog-tree.component';
 import { TechLogoComponent } from '../tech-logo/tech-logo.component';
 import {
+  ALL_ENVIRONMENT_TYPE_KEYS,
+  environmentTypeOptions,
+  isEnvironmentType,
+} from '@shared/constants/environment-types.constants';
+import {
   LucideBoxes,
   LucideTag,
   LucidePlus,
@@ -53,10 +58,13 @@ import {
   isOrphanAddonInCatalog
 } from './model-library.utils';
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'model-library',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     RouterModule,
@@ -115,16 +123,16 @@ export class ModelLibraryComponent implements OnInit {
   readonly totalModelsCount = computed(() => this.models().length);
   readonly activeModelsCount = computed(() => this.models().filter(m => m.is_active !== false).length);
   readonly ideModelsCount = computed(() =>
-    this.models().filter(m => m.target_environment === 'IDE_PERSISTENTE' || m.target_environment === 'AMBOS').length
+    this.models().filter(m => this.servesEnvironment(m.target_environment, 'IDE_PERSISTENTE')).length
   );
   readonly judgeModelsCount = computed(() =>
-    this.models().filter(
-      m =>
-        m.target_environment === 'JUEZ_VIRTUAL' ||
-        m.target_environment === 'JUEZ_EFIMERO' ||
-        m.target_environment === 'AMBOS'
-    ).length
+    this.models().filter(m => this.servesEnvironment(m.target_environment, 'JUEZ_EFIMERO')).length
   );
+
+  /** Una plantilla dual sirve a las dos modalidades; un alias histórico cuenta como su tipo. */
+  private servesEnvironment(value: string | null | undefined, key: 'IDE_PERSISTENTE' | 'JUEZ_EFIMERO'): boolean {
+    return isEnvironmentType(value, key) || isEnvironmentType(value, 'AMBOS');
+  }
   readonly categoriesCount = computed(() => this.categories().length);
   readonly techComponentsCount = computed(() => this.techComponents().length);
 
@@ -155,9 +163,7 @@ export class ModelLibraryComponent implements OnInit {
 
   readonly purposeFilterComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'ALL', label: 'Todos los propósitos', value: 'ALL' },
-    { id: 'IDE_PERSISTENTE', label: 'Entorno de Desarrollo', value: 'IDE_PERSISTENTE' },
-    { id: 'JUEZ_VIRTUAL', label: 'Entorno de Evaluación', value: 'JUEZ_VIRTUAL' },
-    { id: 'AMBOS', label: 'Dual (Desarrollo y Evaluación)', value: 'AMBOS' }
+    ...environmentTypeOptions({ include: ALL_ENVIRONMENT_TYPE_KEYS })
   ]);
 
   readonly selectedPurposeFilterLabel = computed<string>(() => {

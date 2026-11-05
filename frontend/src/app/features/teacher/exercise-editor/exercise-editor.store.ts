@@ -14,6 +14,7 @@ import {
 } from '../models/teacher.models';
 import { ExerciseContract } from './steps/step-contract/format-builder/format-builder.models';
 import type { AIGenerateExerciseResponse } from '../services/teacher-ai-copilot.service';
+import { isEnvironmentType } from '@shared/constants/environment-types.constants';
 
 interface ApiResponse<T> {
   data: T;
@@ -24,25 +25,8 @@ type RunnerTemplatesApiResponse =
   | ExerciseTemplateSummary[]
   | { data?: ExerciseTemplateSummary[] | { data?: ExerciseTemplateSummary[] } };
 
-export interface RubricLevelDTO {
-  name: string;
-  score: number;
-  description: string;
-}
-
-export interface RubricCriterionDTO {
-  id?: string;
-  name: string;
-  description: string;
-  weight: number;
-  levels: RubricLevelDTO[];
-}
-
-export interface RubricDTO {
-  id?: string;
-  exercise_id?: string;
-  criteria: RubricCriterionDTO[];
-}
+import type { RubricLevelDTO, RubricCriterionDTO, RubricDTO } from '@core/models/rubric.model';
+export type { RubricLevelDTO, RubricCriterionDTO, RubricDTO };
 
 export interface ExerciseMetadata {
   title: string;
@@ -521,7 +505,7 @@ export class ExerciseEditorStore {
 
       const rub = this.rubric();
       if (!rub || !rub.criteria || rub.criteria.length === 0) {
-        warnings.push('Rúbrica de evaluación no definida para este laboratorio de IDE Persistente.');
+        warnings.push('Rúbrica de evaluación no definida para este laboratorio.');
       } else {
         const totalWeight = rub.criteria.reduce((sum, c) => sum + (c.weight || 0), 0);
         if (Math.abs(totalWeight - 100) > 0.01) {
@@ -725,7 +709,8 @@ export class ExerciseEditorStore {
 
         const runners = items.filter(t => {
           const env = t.target_environment || t.environment_type || '';
-          const isJudgeCompatible = env === 'JUEZ_EFIMERO' || env === 'JUEZ_VIRTUAL' || env === 'AMBOS';
+          const isJudgeCompatible =
+            isEnvironmentType(env, 'JUEZ_EFIMERO') || isEnvironmentType(env, 'AMBOS');
           const isApproved = t.status === 'approved' || t.status === 'APROBADA' || !t.status;
           return isJudgeCompatible && isApproved;
         });

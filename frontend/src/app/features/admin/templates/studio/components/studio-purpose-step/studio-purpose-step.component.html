@@ -14,7 +14,7 @@
       (click)="selectPrimaryMode('IDE_PERSISTENTE')"
     >
       <div class="purpose-top">
-        <strong class="purpose-title">Entorno de Desarrollo (Con Editor VS Code)</strong>
+        <strong class="purpose-title">{{ 'IDE_PERSISTENTE' | environmentLabel }} (Con Editor VS Code)</strong>
         @if (targetEnvironment() === 'IDE_PERSISTENTE' || targetEnvironment() === 'AMBOS') {
           <span class="status-pill-active">Seleccionado</span>
         }
@@ -31,7 +31,7 @@
       (click)="selectPrimaryMode('JUEZ_EFIMERO')"
     >
       <div class="purpose-top">
-        <strong class="purpose-title">Entorno de Evaluación (Corrección Automática)</strong>
+        <strong class="purpose-title">{{ 'JUEZ_EFIMERO' | environmentLabel }} (Corrección Automática)</strong>
         @if (targetEnvironment() === 'JUEZ_EFIMERO') {
           <span class="status-pill-active">Seleccionado</span>
         }
@@ -54,7 +54,7 @@
         />
         <div class="dual-text-wrap">
           <div class="dual-title-row">
-            <strong class="dual-title">Habilitar también para Entorno de Evaluación (Corrección de ejercicios)</strong>
+            <strong class="dual-title">Habilitar también para {{ 'JUEZ_EFIMERO' | environmentLabel }} (Corrección de ejercicios)</strong>
             @if (targetEnvironment() === 'AMBOS') {
               <span class="status-pill-dual">Modo Dual Activo</span>
             }

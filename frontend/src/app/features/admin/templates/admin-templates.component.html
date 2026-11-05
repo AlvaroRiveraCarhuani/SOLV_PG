@@ -130,14 +130,14 @@
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'IDE_PERSISTENTE'"
         (click)="selectedPurpose.set('IDE_PERSISTENTE')">
-        Entorno de Desarrollo
+        {{ 'IDE_PERSISTENTE' | environmentLabel }}
       </button>
       <button
         type="button"
         class="purpose-chip"
         [class.active]="selectedPurpose() === 'JUEZ_EFIMERO'"
         (click)="selectedPurpose.set('JUEZ_EFIMERO')">
-        Evaluador Automático
+        {{ 'JUEZ_EFIMERO' | environmentLabel }}
       </button>
       <button
         type="button"
@@ -346,7 +346,7 @@
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">Evaluador Automático:</span>
+                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
                             <code machineData>{{ item.entrypoint }}</code>
                           </div>
                         }
@@ -629,7 +629,7 @@
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">Evaluador Automático:</span>
+                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
                             <code machineData>{{ item.entrypoint }}</code>
                           </div>
                         }
@@ -934,7 +934,7 @@
                         </div>
                         @if ((item.target_environment === 'JUEZ_EFIMERO' || item.target_environment === 'AMBOS') && item.entrypoint) {
                           <div class="judge-entrypoint-subtle">
-                            <span class="judge-label">Evaluador Automático:</span>
+                            <span class="judge-label">{{ 'JUEZ_EFIMERO' | environmentLabel }}:</span>
                             <code machineData>{{ item.entrypoint }}</code>
                           </div>
                         }

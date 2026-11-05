@@ -25,6 +25,7 @@ import { AdminConfigIaService, AIMissingComponent, AIRepairTemplateResponse, AIS
 import { ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { CodeEditorComponent } from '@shared/components/code-editor/code-editor.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import {
   LucideArrowLeft,
   LucideCheckCircle2,
@@ -90,6 +91,7 @@ export type { CapacityOption, StudioDatabaseOption, StudioActionBlocker };
 @Component({
   selector: 'template-studio',
   imports: [
+    EnvironmentLabelPipe,
     FormsModule,
     TechLogoComponent,
     ComponentFormModalComponent,

@@ -16,15 +16,7 @@
     </div>
     <div class="summary-row">
       <span class="summary-label">Propósito:</span>
-      <span class="summary-value">
-        @if (isDual()) {
-          Entorno Dual (Entorno de Desarrollo + Evaluador Automático)
-        } @else if (isJudge()) {
-          Evaluador Automático
-        } @else {
-          Entorno de Desarrollo
-        }
-      </span>
+      <span class="summary-value">{{ purposeBadge().label }}</span>
     </div>
     @if (template.requested_by_name) {
       <div class="summary-row">
@@ -58,7 +50,7 @@
       <div class="validation-alert alert-info">
         <svg lucideInfo class="alert-icon"></svg>
         <span>
-          Esta plantilla es de <strong>modalidad dual</strong>. La cuota asignada aquí aplica al <strong>Entorno de Desarrollo</strong> persistente. Para evaluaciones automáticas de alumnos, el <strong>Evaluador Automático</strong> utilizará automáticamente un sandbox de <span machineData>{{ derivedJudgeRamMB() }} MB</span>.
+          Esta plantilla sirve al <strong>{{ 'AMBOS' | environmentLabel }}</strong>. La cuota asignada aquí aplica al <strong>{{ 'IDE_PERSISTENTE' | environmentLabel }}</strong> persistente. Para evaluaciones automáticas de alumnos, el <strong>{{ 'JUEZ_EFIMERO' | environmentLabel }}</strong> utilizará automáticamente un sandbox de <span machineData>{{ derivedJudgeRamMB() }} MB</span>.
         </span>
       </div>
     }
@@ -66,7 +58,7 @@
     @if (isRamBelowFloor()) {
       <div class="validation-alert alert-danger">
         <svg lucideAlertTriangle class="alert-icon"></svg>
-        <span>Asignación inferior al mínimo permitido (<span machineData>{{ minimumFloorMB() }} MB</span> para {{ isJudge() ? 'Entorno de Evaluación' : 'Entorno de Desarrollo' }}). Aumente el valor para aprobar.</span>
+        <span>Asignación inferior al mínimo permitido (<span machineData>{{ minimumFloorMB() }} MB</span> para {{ (isJudge() ? 'JUEZ_EFIMERO' : 'IDE_PERSISTENTE') | environmentLabel }}). Aumente el valor para aprobar.</span>
       </div>
     }
     @if (isRamExceedingHost()) {

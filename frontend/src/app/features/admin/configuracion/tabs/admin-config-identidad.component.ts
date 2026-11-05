@@ -30,6 +30,7 @@ import {
   LucideAlertCircle,
   LucideType
 } from '@lucide/angular';
+import { EVALUATION_ENGINE_NAME } from '@shared/constants/environment-types.constants';
 
 @Component({
   selector: 'admin-config-identidad',
@@ -54,6 +55,9 @@ import {
 export class AdminConfigIdentidadComponent implements OnInit {
   private readonly identidadService = inject(AdminConfigIdentidadService);
   private readonly tenantService = inject(TenantService);
+
+  /** Nombre visible del motor; sale del catálogo y no se escribe en la plantilla. */
+  readonly evaluationEngineName = EVALUATION_ENGINE_NAME;
 
   readonly isSaving = this.identidadService.isSaving;
 

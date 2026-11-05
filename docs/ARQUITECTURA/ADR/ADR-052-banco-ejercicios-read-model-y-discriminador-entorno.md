@@ -1,5 +1,8 @@
 # ADR-052: Banco de Ejercicios como Read Model y Discriminador de Modalidad por Entorno
 
+> **Terminología vigente:** los nombres visibles de tipo de entorno son «Entorno de Desarrollo» (`IDE_PERSISTENTE`), «Entorno de Evaluación» (`JUEZ_EFIMERO`) y «Entorno de Desarrollo y Evaluación» (`AMBOS`), según `AGENTS.md`. Terminología vigente: ADR-067. Las etiquetas históricas de este ADR se conservan sin cambios.
+
+
 ## Estado
 Aprobado
 

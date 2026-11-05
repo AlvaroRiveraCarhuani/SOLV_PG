@@ -9,6 +9,7 @@ import {
   LucideCheck
 } from '@lucide/angular';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { ExerciseEditorStore } from '../exercise-editor.store';
 
 @Component({
@@ -22,7 +23,8 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
     LucideAlertCircle,
     LucideLayers,
     LucideCheck,
-    MachineDataDirective
+    MachineDataDirective,
+    EnvironmentLabelPipe
   ],
   template: `
 
@@ -42,9 +44,7 @@ import { ExerciseEditorStore } from '../exercise-editor.store';
         <h4 class="section-heading">Configuración General</h4>
         <div class="summary-row">
           <span class="row-label">Modalidad:</span>
-          <span class="row-value font-mono" machineData>
-            {{ store.metadata().environment_type === 'IDE_PERSISTENTE' ? 'WORKSPACE' : 'JUEZ VIRTUAL' }}
-          </span>
+          <span class="row-value truncate">{{ store.metadata().environment_type | environmentLabel }}</span>
         </div>
         <div class="summary-row">
           <span class="row-label">Propósito:</span>

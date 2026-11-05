@@ -205,7 +205,7 @@
                   <svg lucideGraduationCap></svg>
                 </span>
                 <span class="use-body">
-                  <span class="use-title">Entorno de desarrollo</span>
+                  <span class="use-title">{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
                   <span class="use-desc">
                     Para practicar en clase: editor, terminal y sus archivos, mientras trabajan.
                   </span>
@@ -229,7 +229,7 @@
                   <svg lucideFlaskConical></svg>
                 </span>
                 <span class="use-body">
-                  <span class="use-title">Entorno de evaluación</span>
+                  <span class="use-title">{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
                   <span class="use-desc">
                     Para entregar y calificar: sin editor; el sistema ejecuta la solución y corre los tests.
                   </span>
@@ -378,10 +378,10 @@
             } @else {
               <ul class="summary-list">
                 @if (isUseSelected('practice')) {
-                  <li>Entorno de desarrollo</li>
+                  <li>{{ 'IDE_PERSISTENTE' | environmentLabel }}</li>
                 }
                 @if (isUseSelected('grade')) {
-                  <li>Entorno de evaluación</li>
+                  <li>{{ 'JUEZ_EFIMERO' | environmentLabel }}</li>
                 }
               </ul>
             }

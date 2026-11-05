@@ -12,13 +12,23 @@ describe('EnvironmentLabelPipe', () => {
   it('transforms JUEZ_EFIMERO to full canonical label', () => {
     expect(pipe.transform('JUEZ_EFIMERO')).toBe('Entorno de Evaluación');
     expect(pipe.transform('JUEZ_VIRTUAL')).toBe('Entorno de Evaluación');
-    expect(pipe.transform('')).toBe('Entorno de Evaluación');
-    expect(pipe.transform(null)).toBe('Entorno de Evaluación');
+  });
+
+  it('transforms AMBOS to its own canonical label', () => {
+    expect(pipe.transform('AMBOS')).toBe('Entorno de Desarrollo y Evaluación');
+  });
+
+  it('does not present unknown values as an evaluation environment', () => {
+    expect(pipe.transform('')).toBe('');
+    expect(pipe.transform(null)).toBe('');
+    expect(pipe.transform(undefined)).toBe('');
+    expect(pipe.transform('OTRO_VALOR')).toBe('');
   });
 
   it('returns short format correctly', () => {
     expect(pipe.transform('IDE_PERSISTENTE', 'short')).toBe('Desarrollo');
     expect(pipe.transform('JUEZ_EFIMERO', 'short')).toBe('Evaluación');
+    expect(pipe.transform('AMBOS', 'short')).toBe('Desarrollo y Evaluación');
   });
 
   it('returns description format correctly', () => {
@@ -29,5 +39,6 @@ describe('EnvironmentLabelPipe', () => {
   it('returns badgeClass format correctly', () => {
     expect(pipe.transform('IDE_PERSISTENTE', 'badgeClass')).toBe('env-desarrollo');
     expect(pipe.transform('JUEZ_EFIMERO', 'badgeClass')).toBe('env-evaluacion');
+    expect(pipe.transform('AMBOS', 'badgeClass')).toBe('env-dual');
   });
 });

@@ -2,7 +2,9 @@
 
 > **Tipo:** auditoría de solo lectura. **Fecha de corte:** 2026-11-03.
 > **Estado:** hallazgos y propuestas **pendientes de aprobación**. Este documento no renombra nada: describe lo que el repositorio dice hoy.
-> **Fuentes:** código de `backend/` y `frontend/`, migraciones SQL, `docs/`, `AGENTS.md` y `.agents/skills/`. No se ejecutó la aplicación: el backend y PostgreSQL no estaban disponibles durante la revisión, así que los nombres de tablas se leen de `backend/migrations/`.
+> **Fuentes:** código de `backend/` y `frontend/`, migraciones SQL, `docs/`, `AGENTS.md` y `.agents/skills/`.
+
+> **Estado (2026-11-05):** la terminología de los tipos de entorno es normativa. Terminología vigente: ADR-067. Este documento conserva los nombres que encontró y no se reescribe; los nombres antiguos aparecen entrecomillados como citas. `AGENTS.md` y la skill `solv-context` fijan la correspondencia `JUEZ_EFIMERO` → «Entorno de Evaluación», `IDE_PERSISTENTE` → «Entorno de Desarrollo» y `AMBOS` → «Entorno de Desarrollo y Evaluación». Las etiquetas salen del catálogo `environment-types.constants.ts` a través del pipe `environmentLabel`, y el gate `terminology-gate` (en `npm run lint:styles` y en CI) rechaza los literales de modalidad, un catálogo incompleto y las instrucciones de agentes desalineadas. El resto de los hallazgos de esta auditoría sigue pendiente de aprobación. No se ejecutó la aplicación: el backend y PostgreSQL no estaban disponibles durante la revisión, así que los nombres de tablas se leen de `backend/migrations/`.
 
 ---
 

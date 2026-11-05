@@ -164,8 +164,17 @@ describe('ModelLibraryComponent Spec', () => {
     component.filterPurpose.set('IDE_PERSISTENTE');
     expect(component.filteredModels().length).toBe(2);
 
-    component.filterPurpose.set('JUEZ_VIRTUAL');
+    component.filterPurpose.set('JUEZ_EFIMERO');
     expect(component.filteredModels().length).toBe(0);
+  });
+
+  it('debe reconocer un modelo guardado con el alias JUEZ_VIRTUAL al filtrar por Entorno de Evaluación', () => {
+    component.models.set([
+      ...mockModels,
+      { ...mockModels[0], id: 'm-legacy-judge', target_environment: 'JUEZ_VIRTUAL' }
+    ]);
+    component.filterPurpose.set('JUEZ_EFIMERO');
+    expect(component.filteredModels().map(m => m.id)).toEqual(['m-legacy-judge']);
   });
 
   it('debe llamar a deactivateModel al alternar estado de un modelo activo', () => {
@@ -382,8 +391,8 @@ describe('ModelLibraryComponent Spec', () => {
     component.filterPurpose.set('IDE_PERSISTENTE');
     expect(component.filteredModels().some(m => m.id === 'm-dual-1')).toBe(true);
 
-    // Filtrar por JUEZ_VIRTUAL debe incluir también los modelos AMBOS
-    component.filterPurpose.set('JUEZ_VIRTUAL');
+    // Filtrar por JUEZ_EFIMERO debe incluir también los modelos AMBOS
+    component.filterPurpose.set('JUEZ_EFIMERO');
     expect(component.filteredModels().some(m => m.id === 'm-dual-1')).toBe(true);
   });
 

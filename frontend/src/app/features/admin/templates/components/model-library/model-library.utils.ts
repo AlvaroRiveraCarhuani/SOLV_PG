@@ -2,6 +2,7 @@ import {
   TemplateComponent,
   TemplateModelItem
 } from '@features/admin/models/admin-templates.models';
+import { resolveEnvironmentType } from '@shared/constants/environment-types.constants';
 
 export function filterModelsForLibrary(params: {
   models: TemplateModelItem[];
@@ -22,19 +23,10 @@ export function filterModelsForLibrary(params: {
     }
 
     if (filterPurpose !== 'ALL') {
-      if (filterPurpose === 'JUEZ_VIRTUAL') {
-        if (
-          m.target_environment !== 'JUEZ_VIRTUAL' &&
-          m.target_environment !== 'JUEZ_EFIMERO' &&
-          m.target_environment !== 'AMBOS'
-        ) {
-          return false;
-        }
-      } else if (filterPurpose === 'IDE_PERSISTENTE') {
-        if (m.target_environment !== 'IDE_PERSISTENTE' && m.target_environment !== 'AMBOS') {
-          return false;
-        }
-      } else if (m.target_environment !== filterPurpose) {
+      const modelType = resolveEnvironmentType(m.target_environment);
+      if (filterPurpose === 'AMBOS') {
+        if (modelType !== 'AMBOS') return false;
+      } else if (modelType !== filterPurpose && modelType !== 'AMBOS') {
         return false;
       }
     }

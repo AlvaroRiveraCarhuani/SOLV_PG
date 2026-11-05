@@ -22,9 +22,22 @@ Roles: student (solo ve sus laboratorios/ejercicios), teacher (crea plantillas/l
 
 ## Editores y Visualizadores de Código
 
-- **Fase A (Juez Virtual)**: Monaco nativo (componente Angular, sin iframe).
+- **Fase A (Entorno de Evaluación)**: Monaco nativo (componente Angular, sin iframe).
 - **Fase B (Laboratorios)**: iframe OpenVSCode a pantalla completa con topbar mínimo.
 - **Revisión Congelada**: iframe read-only + banner informativo ámbar.
+
+## Terminología de entornos
+
+| Identificador interno | Nombre visible |
+| :--- | :--- |
+| `JUEZ_EFIMERO` | Entorno de Evaluación |
+| `IDE_PERSISTENTE` | Entorno de Desarrollo |
+| `AMBOS` | Entorno de Desarrollo y Evaluación |
+
+- El identificador no se traduce ni se muestra como etiqueta. «Juez Virtual» es el motor que evalúa, no el nombre de la modalidad.
+- Consultar `frontend/src/app/shared/constants/environment-types.constants.ts` y usar el pipe `environmentLabel`; nunca escribir la etiqueta a mano.
+- El gate `terminology-gate` (en `npm run lint:styles` y CI) clasifica por forma: rechaza literales y celdas con forma de modalidad, variantes de mayúsculas o acentos, y nombres nuevos como «Entorno de Programación». Los nombres antiguos solo se aceptan en registros históricos que referencian la decisión vigente **ADR-067**.
+- Un valor de `environment_type` que no se reconoce se muestra como estado neutro; nunca se asume Entorno de Desarrollo ni Entorno de Evaluación.
 
 ## Stack de Tecnologías (NO cambiar)
 

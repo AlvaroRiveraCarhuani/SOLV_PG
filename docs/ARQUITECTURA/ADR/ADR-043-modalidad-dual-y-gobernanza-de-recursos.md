@@ -1,5 +1,7 @@
 # ADR-043: Modalidad Dual y Gobernanza de Recursos vía Catálogo de Plantillas
 
+> **Terminología vigente:** ADR-067. Los nombres de modalidad de este ADR son los de su fecha y no se reescriben.
+
 ## Estado
 Aprobado
 
