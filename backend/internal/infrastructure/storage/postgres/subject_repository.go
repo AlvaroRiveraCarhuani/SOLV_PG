@@ -3,8 +3,8 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"strings"
 	"solv-backend/internal/core/domain"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 )

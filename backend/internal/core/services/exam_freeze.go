@@ -63,12 +63,12 @@ type ExamAuditWriter interface {
 // cada laboratorio de los participantes queda montado en solo lectura y el
 // estado se guarda en la base (ADR-005 §5).
 type ExamFreezeService struct {
-	store      domain.ExamFreezeStore
-	sessions   ExamSessionReader
+	store        domain.ExamFreezeStore
+	sessions     ExamSessionReader
 	environments ExamPracticeEnvironmentReader
-	mounts     PracticeEnvironmentMountSetter
-	audit      ExamAuditWriter
-	now        func() time.Time
+	mounts       PracticeEnvironmentMountSetter
+	audit        ExamAuditWriter
+	now          func() time.Time
 }
 
 func NewExamFreezeService(
@@ -78,11 +78,11 @@ func NewExamFreezeService(
 	mounts PracticeEnvironmentMountSetter,
 ) *ExamFreezeService {
 	return &ExamFreezeService{
-		store:      store,
-		sessions:   sessions,
+		store:        store,
+		sessions:     sessions,
 		environments: environments,
-		mounts:     mounts,
-		now:        time.Now,
+		mounts:       mounts,
+		now:          time.Now,
 	}
 }
 
@@ -222,9 +222,9 @@ func (s *ExamFreezeService) UnfreezeStudent(ctx context.Context, tenantID, teach
 
 	reason = strings.TrimSpace(reason)
 	s.recordAudit(ctx, tenantID, teacherID, domain.AuditExamPracticeEnvironmentUnfrozen, sessionID, map[string]any{
-		"student_id":   target.StudentID,
+		"student_id":     target.StudentID,
 		"environment_id": target.EnvironmentID,
-		"reason":       reason,
+		"reason":         reason,
 	})
 	return report, nil
 }
@@ -331,7 +331,7 @@ func (s *ExamFreezeService) freezeParticipants(ctx context.Context, tenantID, se
 		report.Frozen++
 
 		s.recordAudit(ctx, tenantID, actor, domain.AuditExamPracticeEnvironmentFrozen, sessionID, map[string]any{
-			"student_id":   row.StudentID,
+			"student_id":     row.StudentID,
 			"environment_id": row.EnvironmentID,
 		})
 	}

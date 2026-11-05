@@ -16,7 +16,7 @@ import (
 // activas y registra las transiciones pedidas.
 type reconcilerRepo struct {
 	domain.PracticeEnvironmentRepository
-	environments   []*domain.PracticeEnvironment
+	environments []*domain.PracticeEnvironment
 	updates      []statusChange
 	oomStrikes   []string
 	getActiveErr error

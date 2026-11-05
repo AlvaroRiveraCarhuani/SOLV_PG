@@ -292,9 +292,9 @@ func TestAdversarial_SoloFrontendTopologies(t *testing.T) {
 
 	t.Run("Standard Angular as sole primary", func(t *testing.T) {
 		plan, err := composer.Compose(ctx, "default", "IDE_PERSISTENTE", domain.StackConfig{
-			Mode:             "visual",
-			RuntimeID:        "",
-			WebPlatformID:    "web-angular-standard",
+			Mode:                       "visual",
+			RuntimeID:                  "",
+			WebPlatformID:              "web-angular-standard",
 			PracticeEnvironmentFolders: []string{"src", "public"},
 		})
 		if err != nil {
@@ -547,11 +547,11 @@ func TestAdversarial_JudgeEnvironmentStress(t *testing.T) {
 
 	t.Run("Strips Web, DB, and PracticeEnvironments in Judge Environment", func(t *testing.T) {
 		plan, err := composer.Compose(ctx, "default", "JUEZ_EFIMERO", domain.StackConfig{
-			RuntimeID:        "rt-python-debian",
-			WebPlatformID:    "web-angular-standard",
-			DatabaseID:       "db-postgres",
+			RuntimeID:                  "rt-python-debian",
+			WebPlatformID:              "web-angular-standard",
+			DatabaseID:                 "db-postgres",
 			PracticeEnvironmentFolders: []string{"src", "eval"},
-			AddonIDs:         []string{"ad-fastapi"},
+			AddonIDs:                   []string{"ad-fastapi"},
 		})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)

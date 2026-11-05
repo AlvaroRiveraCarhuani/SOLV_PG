@@ -64,13 +64,13 @@ func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, s
 }
 
 type CreateSubmissionDTO struct {
-	ExerciseID         string          `json:"exercise_id"`
-	StudentID          string          `json:"student_id"`
-	EnvironmentID        *string         `json:"environment_id,omitempty"`
-	Code               string          `json:"code"`
+	ExerciseID    string  `json:"exercise_id"`
+	StudentID     string  `json:"student_id"`
+	EnvironmentID *string `json:"environment_id,omitempty"`
+	Code          string  `json:"code"`
 	// Verdict se conserva para clientes anteriores, pero el servidor no lo usa:
 	// el veredicto sale del recibo firmado por la evaluación.
-	Verdict            string          `json:"verdict"`
+	Verdict string `json:"verdict"`
 	// EvaluationReceipt viaja en la respuesta de POST /api/v1/evaluations.
 	EvaluationReceipt  string          `json:"evaluation_receipt,omitempty"`
 	ASTResult          json.RawMessage `json:"ast_result"`
@@ -124,13 +124,13 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 	// mismo recibo devuelve la entrega ya registrada, no crea otra.
 	subID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(dto.EvaluationReceipt)).String()
 	sub := &domain.Submission{
-		ID:           subID,
-		TenantID:     tenantID,
-		ExerciseID:   dto.ExerciseID,
-		StudentID:    dto.StudentID,
+		ID:            subID,
+		TenantID:      tenantID,
+		ExerciseID:    dto.ExerciseID,
+		StudentID:     dto.StudentID,
 		EnvironmentID: dto.EnvironmentID,
-		Code:         dto.Code,
-		Verdict:      receipt.Verdict,
+		Code:          dto.Code,
+		Verdict:       receipt.Verdict,
 		// El origen lo respalda la evaluación del servidor que firmó el recibo.
 		VerdictOrigin:      domain.VerdictOriginJudge,
 		ReviewStatus:       string(domain.ReviewNotRequired),

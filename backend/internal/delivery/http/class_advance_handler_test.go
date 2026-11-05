@@ -193,8 +193,8 @@ func openClassSessionForHTTP() *domain.ClassSession {
 		SubjectID:  "44444444-4444-4444-4444-444444444444",
 		ExerciseID: &exerciseID,
 		Status:     domain.ClassSessionStatusOpen,
-		OpensAt:   now,
-		EndsAt:    now.Add(90 * time.Minute),
+		OpensAt:    now,
+		EndsAt:     now.Add(90 * time.Minute),
 	}
 }
 

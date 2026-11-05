@@ -385,7 +385,7 @@ func main() {
 		LanguageProfileHandler:        langProfileHandler,
 		CourseModuleHandler:           courseModuleHandler,
 		RubricHandler:                 rubricHandler,
-		PracticeEnvironmentHandler:              httpdelivery.NewPracticeEnvironmentHandler(environmentService, v),
+		PracticeEnvironmentHandler:    httpdelivery.NewPracticeEnvironmentHandler(environmentService, v),
 		MetricsHandler:                httpdelivery.NewMetricsHandler(environmentRepo, hostMonitor, zombieCollector),
 		ConfigHandler:                 httpdelivery.NewConfigHandler(tenantRepo),
 		SubjectHandler:                httpdelivery.NewSubjectHandler(subjectService),

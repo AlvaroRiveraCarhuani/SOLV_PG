@@ -19,7 +19,7 @@ type practicePracticeEnvironmentRepo struct {
 func newPracticePracticeEnvironmentRepo() *practicePracticeEnvironmentRepo {
 	return &practicePracticeEnvironmentRepo{
 		mockPracticeEnvironmentRepo: newMockPracticeEnvironmentRepo(),
-		byPractice:        make(map[string]*domain.PracticeEnvironment),
+		byPractice:                  make(map[string]*domain.PracticeEnvironment),
 	}
 }
 

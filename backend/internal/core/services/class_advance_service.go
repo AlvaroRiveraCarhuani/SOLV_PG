@@ -24,9 +24,9 @@ type ClassAdvanceService struct {
 	retention domain.AdvanceSnapshotRetentionStore
 	// Snapshots, environments y volumes se cablean con WithApplier: la emisión no
 	// los necesita, la aplicación en el entorno del alumno sí.
-	snapshots  domain.AdvanceSnapshotStore
+	snapshots    domain.AdvanceSnapshotStore
 	environments domain.PracticeEnvironmentRepository
-	volumes    domain.PracticeEnvironmentVolumeStore
+	volumes      domain.PracticeEnvironmentVolumeStore
 	// applySlots limita cuántas aplicaciones leen y escriben volúmenes a la vez.
 	// Las demás esperan su turno en cola; ninguna se rechaza por esto.
 	applySlots chan struct{}

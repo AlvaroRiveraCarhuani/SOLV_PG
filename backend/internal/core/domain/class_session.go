@@ -127,19 +127,19 @@ func (s ClassSessionSummary) HasExceptions() bool {
 // distintas: se puede estar en clase sin entorno vivo (juez efímero, o el
 // contenedor hibernado) y se puede tener entorno vivo fuera de clase.
 type ClassSessionStudent struct {
-	StudentID       string     `db:"student_id" json:"student_id"`
-	Name            string     `db:"name" json:"name"`
-	Email           string     `db:"email" json:"email"`
-	State           string     `db:"state" json:"state"`
-	Present         bool       `db:"present" json:"present"`
-	JoinedAt        *time.Time `db:"joined_at" json:"joined_at"`
-	LastSeenAt      *time.Time `db:"last_seen_at" json:"last_seen_at"`
-	EnvironmentID     *string    `db:"environment_id" json:"environment_id"`
+	StudentID                 string     `db:"student_id" json:"student_id"`
+	Name                      string     `db:"name" json:"name"`
+	Email                     string     `db:"email" json:"email"`
+	State                     string     `db:"state" json:"state"`
+	Present                   bool       `db:"present" json:"present"`
+	JoinedAt                  *time.Time `db:"joined_at" json:"joined_at"`
+	LastSeenAt                *time.Time `db:"last_seen_at" json:"last_seen_at"`
+	EnvironmentID             *string    `db:"environment_id" json:"environment_id"`
 	PracticeEnvironmentStatus *string    `db:"environment_status" json:"environment_status"`
-	SubmittedAt     *time.Time `db:"submitted_at" json:"submitted_at"`
-	Verdict         *string    `db:"verdict" json:"verdict"`
-	ReviewStatus    *string    `db:"review_status" json:"review_status"`
-	Attempts        int        `db:"attempts" json:"attempts"`
+	SubmittedAt               *time.Time `db:"submitted_at" json:"submitted_at"`
+	Verdict                   *string    `db:"verdict" json:"verdict"`
+	ReviewStatus              *string    `db:"review_status" json:"review_status"`
+	Attempts                  int        `db:"attempts" json:"attempts"`
 }
 
 // IsStuckVerdict expone la misma regla que usa el tablero para que la vista no

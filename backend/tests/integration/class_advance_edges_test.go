@@ -188,26 +188,26 @@ func (v *advanceEdgeVolumes) writeCount() int {
 // el servicio completos. El único doble es el almacenamiento de snapshots y los
 // volúmenes, que evita depender de Docker y SeaweedFS en una prueba de reglas.
 type advanceEdgeFixture struct {
-	db            *database.Database
-	server        *httptest.Server
-	volumes       *advanceEdgeVolumes
-	snapshots     *advanceEdgeSnapshots
-	sessions      *postgres.PostgresClassSessionRepository
-	tenantID      string
-	teacherID     string
-	otherTeacher  string
-	subjectID     string
-	practiceID    string
-	examID        string
-	sessionID     string
+	db           *database.Database
+	server       *httptest.Server
+	volumes      *advanceEdgeVolumes
+	snapshots    *advanceEdgeSnapshots
+	sessions     *postgres.PostgresClassSessionRepository
+	tenantID     string
+	teacherID    string
+	otherTeacher string
+	subjectID    string
+	practiceID   string
+	examID       string
+	sessionID    string
 	// noPracticeSessionID es un aula abierta sin práctica asociada: no puede
 	// emitir ni recibir avances. Vive en su propia materia porque solo hay un
 	// aula abierta por materia.
 	noPracticeSessionID string
 	noPracticeSubjectID string
 	students            []string
-	outsiderID    string
-	teacherVolume string
+	outsiderID          string
+	teacherVolume       string
 }
 
 type advanceEdgeEmitResponse struct {
@@ -240,20 +240,20 @@ func setupAdvanceEdgeFixture(t *testing.T) *advanceEdgeFixture {
 	}
 
 	f := &advanceEdgeFixture{
-		db:           db,
-		volumes:      newAdvanceEdgeVolumes(),
-		snapshots:    newAdvanceEdgeSnapshots(),
-		tenantID:     "00000000-0000-0000-0000-000000000001",
-		teacherID:    uuid.NewString(),
-		otherTeacher: uuid.NewString(),
-		subjectID:    uuid.NewString(),
-		practiceID:   uuid.NewString(),
-		examID:       uuid.NewString(),
+		db:                  db,
+		volumes:             newAdvanceEdgeVolumes(),
+		snapshots:           newAdvanceEdgeSnapshots(),
+		tenantID:            "00000000-0000-0000-0000-000000000001",
+		teacherID:           uuid.NewString(),
+		otherTeacher:        uuid.NewString(),
+		subjectID:           uuid.NewString(),
+		practiceID:          uuid.NewString(),
+		examID:              uuid.NewString(),
 		sessionID:           uuid.NewString(),
 		noPracticeSessionID: uuid.NewString(),
 		noPracticeSubjectID: uuid.NewString(),
 		students:            []string{uuid.NewString(), uuid.NewString()},
-		outsiderID:   uuid.NewString(),
+		outsiderID:          uuid.NewString(),
 	}
 
 	mustExec := func(query string, args ...any) {

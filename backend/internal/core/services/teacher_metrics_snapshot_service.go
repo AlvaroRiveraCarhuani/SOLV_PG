@@ -10,7 +10,7 @@ import (
 )
 
 type ContainerMetricsSnapshot struct {
-	EnvironmentID      string
+	EnvironmentID    string
 	ContainerID      string
 	StudentID        string
 	StudentName      string
@@ -166,7 +166,7 @@ func (s *MetricsSnapshotService) updateSnapshots(ctx context.Context) {
 			}
 
 			snap = ContainerMetricsSnapshot{
-				EnvironmentID:      wsID,
+				EnvironmentID:    wsID,
 				ContainerID:      containerID,
 				StudentID:        studentID,
 				StudentName:      studentName,

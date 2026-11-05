@@ -23,10 +23,10 @@ func TestPracticeEnvironmentService_FrozenPracticeEnvironmentCannotBeResumed(t *
 		ExerciseID: &practiceID,
 		Status:     domain.PracticeEnvironmentStatusFrozen,
 		FrozenAt:   &frozenAt,
-		AccessURL: "http://127.0.0.1:3999",
-		TenantID:  domain.DefaultTenantID,
-		UpdatedAt: frozenAt,
-		CreatedAt: frozenAt,
+		AccessURL:  "http://127.0.0.1:3999",
+		TenantID:   domain.DefaultTenantID,
+		UpdatedAt:  frozenAt,
+		CreatedAt:  frozenAt,
 	}
 
 	orch := &mockOrchestrator{}

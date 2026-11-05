@@ -35,9 +35,9 @@ const (
 // examen. Solo se usa para congelar y reabrir; no es la vista del aula.
 type ExamFreezePracticeEnvironment struct {
 	EnvironmentID string     `db:"environment_id"`
-	StudentID   string     `db:"student_id"`
-	Status      string     `db:"status"`
-	FrozenAt    *time.Time `db:"frozen_at"`
+	StudentID     string     `db:"student_id"`
+	Status        string     `db:"status"`
+	FrozenAt      *time.Time `db:"frozen_at"`
 }
 
 // IsFrozen dice si el laboratorio ya quedó en solo lectura.

@@ -17,7 +17,7 @@ type Handlers struct {
 	TemplateHandler               *TemplateHandler
 	AuthHandler                   *AuthHandler
 	EvaluationHandler             *EvaluationHandler
-	PracticeEnvironmentHandler              *PracticeEnvironmentHandler
+	PracticeEnvironmentHandler    *PracticeEnvironmentHandler
 	MetricsHandler                *MetricsHandler
 	ConfigHandler                 *ConfigHandler
 	SubjectHandler                *SubjectHandler

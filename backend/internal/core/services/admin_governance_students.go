@@ -87,9 +87,9 @@ func (s *AdminGovernanceService) ResetStudentOOM(
 	}
 
 	return &domain.ResetOOMResult{
-		StudentID:            studentID,
+		StudentID:                      studentID,
 		PracticeEnvironmentsResetCount: affectedRows,
-		Message:              "Penalizaciones OOM reseteadas exitosamente",
+		Message:                        "Penalizaciones OOM reseteadas exitosamente",
 	}, nil
 }
 

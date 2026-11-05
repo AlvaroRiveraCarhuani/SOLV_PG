@@ -99,9 +99,9 @@ func TestEmitAdvance_StoresSnapshotAndIssuesTheAdvance(t *testing.T) {
 		WithApplier(snapshots, environments, volumes)
 
 	advance, recipients, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
-		TenantID:   advanceTenantID,
-		TeacherID:  advanceTeacherID,
-		Role:       "teacher",
+		TenantID:  advanceTenantID,
+		TeacherID: advanceTeacherID,
+		Role:      "teacher",
 		SessionID: newOpenSession().ID,
 		Scope:     domain.AdvanceScopeClass,
 	})
@@ -138,11 +138,11 @@ func TestEmitAdvance_RejectsClosedSessionBeforePackaging(t *testing.T) {
 		WithApplier(snapshots, newRunningPracticeEnvironment(t), &fakeAdvanceVolumes{})
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
-		TenantID:   advanceTenantID,
-		TeacherID:  advanceTeacherID,
-		Role:       "teacher",
-		SessionID:  session.ID,
-		Scope:      domain.AdvanceScopeClass,
+		TenantID:  advanceTenantID,
+		TeacherID: advanceTeacherID,
+		Role:      "teacher",
+		SessionID: session.ID,
+		Scope:     domain.AdvanceScopeClass,
 	})
 	if !errors.Is(err, domain.ErrAdvanceSessionClosed) {
 		t.Fatalf("esperado aula cerrada, obtenido: %v", err)
@@ -158,9 +158,9 @@ func TestEmitAdvance_RequiresTheTeacherEnvironment(t *testing.T) {
 		WithApplier(snapshots, newMockPracticeEnvironmentRepo(), &fakeAdvanceVolumes{})
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
-		TenantID:   advanceTenantID,
-		TeacherID:  advanceTeacherID,
-		Role:       "teacher",
+		TenantID:  advanceTenantID,
+		TeacherID: advanceTeacherID,
+		Role:      "teacher",
 		SessionID: newOpenSession().ID,
 		Scope:     domain.AdvanceScopeClass,
 	})
@@ -268,9 +268,9 @@ func TestEmitAdvance_ReadsThePracticeEnvironment(t *testing.T) {
 		WithApplier(snapshots, repo, volumes)
 
 	_, _, err := svc.Emit(context.Background(), services.EmitAdvanceInput{
-		TenantID:   advanceTenantID,
-		TeacherID:  advanceTeacherID,
-		Role:       "teacher",
+		TenantID:  advanceTenantID,
+		TeacherID: advanceTeacherID,
+		Role:      "teacher",
 		SessionID: session.ID,
 		Scope:     domain.AdvanceScopeClass,
 	})

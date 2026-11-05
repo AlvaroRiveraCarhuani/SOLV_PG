@@ -17,7 +17,7 @@ const testPracticeID = "practice-1"
 
 type mockPracticeEnvironmentRepo struct {
 	environments map[string]*domain.PracticeEnvironment
-	active     []*domain.PracticeEnvironment
+	active       []*domain.PracticeEnvironment
 }
 
 func newMockPracticeEnvironmentRepo() *mockPracticeEnvironmentRepo {

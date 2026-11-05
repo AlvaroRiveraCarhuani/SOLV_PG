@@ -164,12 +164,12 @@ func (h *PracticeEnvironmentHandler) OpenPracticeIDE(w http.ResponseWriter, r *h
 
 	SendJSON(w, http.StatusOK, map[string]any{
 		"environment_id": instance.ID,
-		"exercise_id":  instance.ExerciseID,
-		"subject_id":   instance.SubjectID,
-		"template_id":  instance.TemplateID,
-		"status":       instance.Status,
-		"access_url":   instance.AccessURL,
-		"volume_name":  instance.VolumeName(),
+		"exercise_id":    instance.ExerciseID,
+		"subject_id":     instance.SubjectID,
+		"template_id":    instance.TemplateID,
+		"status":         instance.Status,
+		"access_url":     instance.AccessURL,
+		"volume_name":    instance.VolumeName(),
 	}, "IDE de la práctica listo")
 }
 
@@ -210,9 +210,9 @@ func (h *PracticeEnvironmentHandler) GetSemgrepAudit(w http.ResponseWriter, r *h
 	}
 
 	SendJSON(w, http.StatusOK, map[string]interface{}{
-		"environment_id":  ws.ID,
-		"audit_status":  "completed",
-		"semgrep_audit": ws.SemgrepAudit,
+		"environment_id": ws.ID,
+		"audit_status":   "completed",
+		"semgrep_audit":  ws.SemgrepAudit,
 	}, "Auditoría AST obtenida exitosamente")
 }
 

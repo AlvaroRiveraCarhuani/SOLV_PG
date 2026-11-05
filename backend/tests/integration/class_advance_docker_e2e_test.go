@@ -191,9 +191,9 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 		WithApplier(store, environments, dockerClient)
 
 	advance, recipients, err := svc.Emit(ctx, services.EmitAdvanceInput{
-		TenantID:   tenantID,
-		TeacherID:  teacherID,
-		Role:       "teacher",
+		TenantID:  tenantID,
+		TeacherID: teacherID,
+		Role:      "teacher",
 		SessionID: sessionID,
 		Scope:     domain.AdvanceScopeClass,
 	})
@@ -325,9 +325,9 @@ func TestClassAdvanceDockerE2E(t *testing.T) {
 	// Segundo aviso, esta vez sin aplicar: al cerrar y vencer la ventana el
 	// sistema lo marca vencido y no vuelve a tocar el volumen.
 	second, secondRecipients, err := svc.Emit(ctx, services.EmitAdvanceInput{
-		TenantID:   tenantID,
-		TeacherID:  teacherID,
-		Role:       "teacher",
+		TenantID:  tenantID,
+		TeacherID: teacherID,
+		Role:      "teacher",
 		SessionID: sessionID,
 		Scope:     domain.AdvanceScopeClass,
 	})

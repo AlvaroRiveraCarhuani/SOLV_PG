@@ -65,7 +65,7 @@ func (f *fakeExamPracticeEnvironments) GetByID(_ context.Context, id string) (*d
 
 type mountCall struct {
 	environmentID string
-	readOnly    bool
+	readOnly      bool
 }
 
 type fakeMounts struct {

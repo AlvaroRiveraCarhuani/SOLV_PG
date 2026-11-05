@@ -113,17 +113,17 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 	baseQuery += ` ORDER BY u.last_name ASC, u.first_name ASC`
 
 	type rowStruct struct {
-		ID                    string         `db:"id"`
-		FirstName             string         `db:"first_name"`
-		LastName              string         `db:"last_name"`
-		Email                 string         `db:"email"`
-		Role                  string         `db:"role"`
-		Status                string         `db:"status"`
-		SuspensionReason      sql.NullString `db:"suspension_reason"`
-		EnrolledCoursesCount  int            `db:"enrolled_courses_count"`
+		ID                              string         `db:"id"`
+		FirstName                       string         `db:"first_name"`
+		LastName                        string         `db:"last_name"`
+		Email                           string         `db:"email"`
+		Role                            string         `db:"role"`
+		Status                          string         `db:"status"`
+		SuspensionReason                sql.NullString `db:"suspension_reason"`
+		EnrolledCoursesCount            int            `db:"enrolled_courses_count"`
 		ActivePracticeEnvironmentsCount int            `db:"active_environments_count"`
-		OOMStrikeCount        int            `db:"oom_strike_count"`
-		LastOOMKilledAt       sql.NullTime   `db:"last_oom_killed"`
+		OOMStrikeCount                  int            `db:"oom_strike_count"`
+		LastOOMKilledAt                 sql.NullTime   `db:"last_oom_killed"`
 	}
 
 	var rows []rowStruct
@@ -154,18 +154,18 @@ func (r *PostgresAdminGovernanceRepository) ListStudentsDirectory(
 		}
 
 		results[i] = &domain.AdminStudentDirectoryItem{
-			ID:                    row.ID,
-			FirstName:             row.FirstName,
-			LastName:              row.LastName,
-			Email:                 row.Email,
-			Role:                  row.Role,
-			Status:                row.Status,
-			SuspensionReason:      suspReason,
-			AcademicStatus:        acadStatus,
-			EnrolledCoursesCount:  row.EnrolledCoursesCount,
+			ID:                              row.ID,
+			FirstName:                       row.FirstName,
+			LastName:                        row.LastName,
+			Email:                           row.Email,
+			Role:                            row.Role,
+			Status:                          row.Status,
+			SuspensionReason:                suspReason,
+			AcademicStatus:                  acadStatus,
+			EnrolledCoursesCount:            row.EnrolledCoursesCount,
 			ActivePracticeEnvironmentsCount: row.ActivePracticeEnvironmentsCount,
-			OOMStrikeCount:        row.OOMStrikeCount,
-			LastOOMKilledAt:       lastOOM,
+			OOMStrikeCount:                  row.OOMStrikeCount,
+			LastOOMKilledAt:                 lastOOM,
 		}
 	}
 
@@ -196,15 +196,15 @@ func (r *PostgresAdminGovernanceRepository) CreateStudent(
 	}
 
 	return &domain.AdminStudentDirectoryItem{
-		ID:                    newID,
-		FirstName:             firstName,
-		LastName:              lastName,
-		Email:                 email,
-		Role:                  "student",
-		Status:                "active",
-		EnrolledCoursesCount:  0,
+		ID:                              newID,
+		FirstName:                       firstName,
+		LastName:                        lastName,
+		Email:                           email,
+		Role:                            "student",
+		Status:                          "active",
+		EnrolledCoursesCount:            0,
 		ActivePracticeEnvironmentsCount: 0,
-		OOMStrikeCount:        0,
+		OOMStrikeCount:                  0,
 	}, nil
 }
 
@@ -258,16 +258,16 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 	`
 
 	type courseRow struct {
-		SubjectID       string         `db:"subject_id"`
-		SubjectCode     string         `db:"subject_code"`
-		SubjectName     string         `db:"subject_name"`
-		TeacherName     string         `db:"teacher_name"`
-		EnrolledAt      time.Time      `db:"enrolled_at"`
-		EnvironmentID     sql.NullString `db:"environment_id"`
+		SubjectID                 string         `db:"subject_id"`
+		SubjectCode               string         `db:"subject_code"`
+		SubjectName               string         `db:"subject_name"`
+		TeacherName               string         `db:"teacher_name"`
+		EnrolledAt                time.Time      `db:"enrolled_at"`
+		EnvironmentID             sql.NullString `db:"environment_id"`
 		PracticeEnvironmentStatus sql.NullString `db:"environment_status"`
-		MemoryLimitMB   sql.NullInt64  `db:"memory_limit_mb"`
-		OOMStrikeCount  sql.NullInt64  `db:"oom_strike_count"`
-		LastOOMKilledAt sql.NullTime   `db:"last_oom_killed_at"`
+		MemoryLimitMB             sql.NullInt64  `db:"memory_limit_mb"`
+		OOMStrikeCount            sql.NullInt64  `db:"oom_strike_count"`
+		LastOOMKilledAt           sql.NullTime   `db:"last_oom_killed_at"`
 	}
 
 	var rows []courseRow
@@ -302,16 +302,16 @@ func (r *PostgresAdminGovernanceRepository) GetStudentCourses(
 		}
 
 		results[i] = &domain.AdminStudentCourseItem{
-			SubjectID:       row.SubjectID,
-			SubjectCode:     row.SubjectCode,
-			SubjectName:     row.SubjectName,
-			TeacherName:     row.TeacherName,
-			EnrolledAt:      row.EnrolledAt,
-			EnvironmentID:     wsID,
+			SubjectID:                 row.SubjectID,
+			SubjectCode:               row.SubjectCode,
+			SubjectName:               row.SubjectName,
+			TeacherName:               row.TeacherName,
+			EnrolledAt:                row.EnrolledAt,
+			EnvironmentID:             wsID,
 			PracticeEnvironmentStatus: wsStatus,
-			MemoryLimitMB:   memLimit,
-			OOMStrikeCount:  oomStrikes,
-			LastOOMKilledAt: lastOOM,
+			MemoryLimitMB:             memLimit,
+			OOMStrikeCount:            oomStrikes,
+			LastOOMKilledAt:           lastOOM,
 		}
 	}
 

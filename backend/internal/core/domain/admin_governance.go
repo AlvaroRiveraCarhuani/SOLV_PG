@@ -317,18 +317,18 @@ type ReassignCourseDTO struct {
 
 // AdminStudentDirectoryItem DTO para el listado institucional de estudiantes (ADR-033)
 type AdminStudentDirectoryItem struct {
-	ID                    string     `db:"id" json:"id"`
-	FirstName             string     `db:"first_name" json:"first_name"`
-	LastName              string     `db:"last_name" json:"last_name"`
-	Email                 string     `db:"email" json:"email"`
-	Role                  string     `db:"role" json:"role"`
-	Status                string     `db:"status" json:"status"`
-	SuspensionReason      *string    `db:"suspension_reason" json:"suspension_reason,omitempty"`
-	AcademicStatus        string     `db:"academic_status" json:"academic_status"`
-	EnrolledCoursesCount  int        `db:"enrolled_courses_count" json:"enrolled_courses_count"`
+	ID                              string     `db:"id" json:"id"`
+	FirstName                       string     `db:"first_name" json:"first_name"`
+	LastName                        string     `db:"last_name" json:"last_name"`
+	Email                           string     `db:"email" json:"email"`
+	Role                            string     `db:"role" json:"role"`
+	Status                          string     `db:"status" json:"status"`
+	SuspensionReason                *string    `db:"suspension_reason" json:"suspension_reason,omitempty"`
+	AcademicStatus                  string     `db:"academic_status" json:"academic_status"`
+	EnrolledCoursesCount            int        `db:"enrolled_courses_count" json:"enrolled_courses_count"`
 	ActivePracticeEnvironmentsCount int        `db:"active_environments_count" json:"active_environments_count"`
-	OOMStrikeCount        int        `db:"oom_strike_count" json:"oom_strike_count"`
-	LastOOMKilledAt       *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
+	OOMStrikeCount                  int        `db:"oom_strike_count" json:"oom_strike_count"`
+	LastOOMKilledAt                 *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 }
 
 // UpdateStudentStatusDTO DTO para suspender o reactivar una cuenta de estudiante
@@ -362,16 +362,16 @@ type RosterEnrollResult struct {
 
 // AdminStudentCourseItem DTO para el detalle de materias y espacios de trabajo del estudiante
 type AdminStudentCourseItem struct {
-	SubjectID       string     `db:"subject_id" json:"subject_id"`
-	SubjectCode     string     `db:"subject_code" json:"subject_code"`
-	SubjectName     string     `db:"subject_name" json:"subject_name"`
-	TeacherName     string     `db:"teacher_name" json:"teacher_name"`
-	EnrolledAt      time.Time  `db:"enrolled_at" json:"enrolled_at"`
-	EnvironmentID     *string    `db:"environment_id" json:"environment_id,omitempty"`
+	SubjectID                 string     `db:"subject_id" json:"subject_id"`
+	SubjectCode               string     `db:"subject_code" json:"subject_code"`
+	SubjectName               string     `db:"subject_name" json:"subject_name"`
+	TeacherName               string     `db:"teacher_name" json:"teacher_name"`
+	EnrolledAt                time.Time  `db:"enrolled_at" json:"enrolled_at"`
+	EnvironmentID             *string    `db:"environment_id" json:"environment_id,omitempty"`
 	PracticeEnvironmentStatus *string    `db:"environment_status" json:"environment_status,omitempty"`
-	MemoryLimitMB   *int       `db:"memory_limit_mb" json:"memory_limit_mb,omitempty"`
-	OOMStrikeCount  *int       `db:"oom_strike_count" json:"oom_strike_count,omitempty"`
-	LastOOMKilledAt *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
+	MemoryLimitMB             *int       `db:"memory_limit_mb" json:"memory_limit_mb,omitempty"`
+	OOMStrikeCount            *int       `db:"oom_strike_count" json:"oom_strike_count,omitempty"`
+	LastOOMKilledAt           *time.Time `db:"last_oom_killed_at" json:"last_oom_killed_at,omitempty"`
 }
 
 // ResetOOMDTO DTO para solicitar el reseteo manual de penalizaciones por OOM-Killed (ADR-033)
@@ -381,9 +381,9 @@ type ResetOOMDTO struct {
 
 // ResetOOMResult resultado tras resetear strikes OOM
 type ResetOOMResult struct {
-	StudentID            string `json:"student_id"`
+	StudentID                      string `json:"student_id"`
 	PracticeEnvironmentsResetCount int64  `json:"environments_reset_count"`
-	Message              string `json:"message"`
+	Message                        string `json:"message"`
 }
 
 // ReviewTemplateDTO DTO para aprobar o rechazar plantillas Docker (ADR-030)

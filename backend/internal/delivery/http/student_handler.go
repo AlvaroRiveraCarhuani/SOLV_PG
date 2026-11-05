@@ -11,11 +11,11 @@ import (
 )
 
 type StudentHandler struct {
-	subjectRepo    domain.SubjectRepository
-	environmentRepo  domain.PracticeEnvironmentRepository
-	submissionRepo domain.SubmissionRepository
-	exerciseRepo   domain.ExerciseRepository
-	commentReader  domain.SubmissionCommentReader
+	subjectRepo     domain.SubjectRepository
+	environmentRepo domain.PracticeEnvironmentRepository
+	submissionRepo  domain.SubmissionRepository
+	exerciseRepo    domain.ExerciseRepository
+	commentReader   domain.SubmissionCommentReader
 }
 
 func NewStudentHandler(
@@ -26,10 +26,10 @@ func NewStudentHandler(
 	commentReaders ...domain.SubmissionCommentReader,
 ) *StudentHandler {
 	handler := &StudentHandler{
-		subjectRepo:    subjectRepo,
-		environmentRepo:  environmentRepo,
-		submissionRepo: submissionRepo,
-		exerciseRepo:   exerciseRepo,
+		subjectRepo:     subjectRepo,
+		environmentRepo: environmentRepo,
+		submissionRepo:  submissionRepo,
+		exerciseRepo:    exerciseRepo,
 	}
 	if len(commentReaders) > 0 {
 		handler.commentReader = commentReaders[0]
@@ -333,9 +333,9 @@ type StudentEvaluationItem struct {
 	LastVerdict     string     `json:"last_verdict,omitempty"`
 	// LastVerdictOrigin acompaña al último resultado: sin él, un proyecto
 	// corregido con rúbrica se leería como una evaluación del juez.
-	LastVerdictOrigin string   `json:"last_verdict_origin,omitempty"`
-	LastSubmittedAt *time.Time `json:"last_submitted_at,omitempty"`
-	AcademicStatus  string     `json:"academic_status"`
+	LastVerdictOrigin string     `json:"last_verdict_origin,omitempty"`
+	LastSubmittedAt   *time.Time `json:"last_submitted_at,omitempty"`
+	AcademicStatus    string     `json:"academic_status"`
 }
 
 // StudentSubmissionHistoryItem enriquece una entrega con los datos del
@@ -356,14 +356,14 @@ type StudentSubmissionHistoryItem struct {
 
 // submissionAggregation acumula las entregas de un alumno por ejercicio.
 type submissionAggregation struct {
-	AttemptsCount   int
-	MaxScore        *int
-	HasACUngraded   bool
-	LastVerdict     string
+	AttemptsCount int
+	MaxScore      *int
+	HasACUngraded bool
+	LastVerdict   string
 	// LastVerdictOrigin viaja con LastVerdict: ambos son de la misma entrega.
 	LastVerdictOrigin string
-	LastSubmittedAt *time.Time
-	IsCompleted     bool
+	LastSubmittedAt   *time.Time
+	IsCompleted       bool
 }
 
 const (
@@ -465,23 +465,23 @@ func (h *StudentHandler) GetEvaluations(w http.ResponseWriter, r *http.Request) 
 			}
 
 			items = append(items, StudentEvaluationItem{
-				ExerciseID:      ex.ID,
-				Title:           ex.Title,
-				Description:     ex.Description,
-				Type:            string(ex.Type),
-				EnvironmentType: ex.EnvironmentType,
-				Purpose:         ex.Purpose,
-				Difficulty:      ex.Difficulty,
-				DueDate:         ex.DueDate,
-				SubjectID:       subj.ID,
-				SubjectName:     subj.Name,
-				SubjectCode:     subj.Code,
-				AttemptsCount:   agg.AttemptsCount,
+				ExerciseID:        ex.ID,
+				Title:             ex.Title,
+				Description:       ex.Description,
+				Type:              string(ex.Type),
+				EnvironmentType:   ex.EnvironmentType,
+				Purpose:           ex.Purpose,
+				Difficulty:        ex.Difficulty,
+				DueDate:           ex.DueDate,
+				SubjectID:         subj.ID,
+				SubjectName:       subj.Name,
+				SubjectCode:       subj.Code,
+				AttemptsCount:     agg.AttemptsCount,
 				BestScore:         bestScore,
 				LastVerdict:       agg.LastVerdict,
 				LastVerdictOrigin: agg.LastVerdictOrigin,
 				LastSubmittedAt:   agg.LastSubmittedAt,
-				AcademicStatus:  academicStatus(agg, ex.DueDate),
+				AcademicStatus:    academicStatus(agg, ex.DueDate),
 			})
 		}
 	}

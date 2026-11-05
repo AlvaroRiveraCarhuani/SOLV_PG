@@ -13,7 +13,7 @@ import (
 type TechnicalIncidentDTO struct {
 	ID            string `json:"id"`
 	Type          string `json:"type"`
-	EnvironmentID   string `json:"environment_id"`
+	EnvironmentID string `json:"environment_id"`
 	StudentName   string `json:"student_name"`
 	CourseName    string `json:"course_name"`
 	Description   string `json:"description"`
@@ -61,7 +61,7 @@ func (h *AdminHandler) GetIncidents(w http.ResponseWriter, r *http.Request) {
 			incidents = append(incidents, TechnicalIncidentDTO{
 				ID:            "inc-" + wsID,
 				Type:          "oom_killed",
-				EnvironmentID:   ws.ID,
+				EnvironmentID: ws.ID,
 				StudentName:   identities[ws.StudentID].Name,
 				CourseName:    courseNames[ws.SubjectID],
 				Description:   desc,
@@ -170,8 +170,8 @@ func (h *AdminHandler) GetPracticeEnvironmentLogs(w http.ResponseWriter, r *http
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"environment_id": environmentID,
-			"status":       "not_found",
-			"logs":         fmt.Sprintf("[%s] [solv:audit] No se encontraron registros para la instancia %s en la base de datos.", time.Now().Format("2006-01-02 15:04:05.000"), environmentID),
+			"status":         "not_found",
+			"logs":           fmt.Sprintf("[%s] [solv:audit] No se encontraron registros para la instancia %s en la base de datos.", time.Now().Format("2006-01-02 15:04:05.000"), environmentID),
 		})
 		return
 	}
@@ -202,10 +202,10 @@ func (h *AdminHandler) GetPracticeEnvironmentLogs(w http.ResponseWriter, r *http
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"environment_id": ws.ID,
-		"container_id": containerID,
-		"student_id":   ws.StudentID,
-		"status":       ws.Status,
-		"logs":         logs,
+		"container_id":   containerID,
+		"student_id":     ws.StudentID,
+		"status":         ws.Status,
+		"logs":           logs,
 	})
 }
 
@@ -233,8 +233,8 @@ func (h *AdminHandler) ResolveIncident(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":       "resolved",
+		"status":         "resolved",
 		"environment_id": environmentID,
-		"message":      "Incidencia técnica resuelta y contadores OOM normalizados.",
+		"message":        "Incidencia técnica resuelta y contadores OOM normalizados.",
 	})
 }

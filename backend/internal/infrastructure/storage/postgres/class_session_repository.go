@@ -346,19 +346,19 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 	`
 
 	type boardRow struct {
-		StudentID       string         `db:"student_id"`
-		Name            string         `db:"name"`
-		Email           string         `db:"email"`
-		JoinedAt        sql.NullTime   `db:"joined_at"`
-		LastSeenAt      sql.NullTime   `db:"last_seen_at"`
-		Present         bool           `db:"present"`
-		EnvironmentID     sql.NullString `db:"environment_id"`
+		StudentID                 string         `db:"student_id"`
+		Name                      string         `db:"name"`
+		Email                     string         `db:"email"`
+		JoinedAt                  sql.NullTime   `db:"joined_at"`
+		LastSeenAt                sql.NullTime   `db:"last_seen_at"`
+		Present                   bool           `db:"present"`
+		EnvironmentID             sql.NullString `db:"environment_id"`
 		PracticeEnvironmentStatus sql.NullString `db:"environment_status"`
-		SubmittedAt     sql.NullTime   `db:"submitted_at"`
-		Verdict         sql.NullString `db:"verdict"`
-		ReviewStatus    sql.NullString `db:"review_status"`
-		Attempts        int            `db:"attempts"`
-		State           string         `db:"state"`
+		SubmittedAt               sql.NullTime   `db:"submitted_at"`
+		Verdict                   sql.NullString `db:"verdict"`
+		ReviewStatus              sql.NullString `db:"review_status"`
+		Attempts                  int            `db:"attempts"`
+		State                     string         `db:"state"`
 	}
 
 	var rows []boardRow

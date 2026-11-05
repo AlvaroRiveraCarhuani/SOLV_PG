@@ -155,8 +155,8 @@ func (f *fakeExerciseRepo) GetByIDAndTenant(_ context.Context, _, _ string) (*do
 }
 
 type environmentFreezeCall struct {
-	tenantID    string
-	actorID     string
+	tenantID      string
+	actorID       string
 	environmentID string
 }
 

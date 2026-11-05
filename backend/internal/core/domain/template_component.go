@@ -122,14 +122,14 @@ type StackServiceSelection struct {
 
 // StackConfig configuración de componentes tecnológicos persistida junto con la plantilla o modelo.
 type StackConfig struct {
-	Mode              string                  `json:"mode,omitempty"`               // "visual" | "code"
-	RuntimeID         string                  `json:"runtime_id,omitempty"`         // ID o slug del lenguaje principal
-	WebPlatformID     string                  `json:"web_platform_id,omitempty"`    // ID o slug del framework web opcional (Angular/React/Vue)
-	AddonIDs          []string                `json:"addon_ids,omitempty"`          // IDs o slugs de los complementos seleccionados
-	Services          []StackServiceSelection `json:"services,omitempty"`           // Bindings por rol; reemplaza a DatabaseID
-	DatabaseID        string                  `json:"database_id,omitempty"`        // Alias heredado de un único servicio primario
-	PracticeEnvironmentFolders  []string                `json:"environment_folders,omitempty"`  // Carpetas iniciales en /home/workspace
-	DockerfileContent string                  `json:"dockerfile_content,omitempty"` // Contenido del Dockerfile para auto-healing y reproducibilidad
+	Mode                       string                  `json:"mode,omitempty"`                // "visual" | "code"
+	RuntimeID                  string                  `json:"runtime_id,omitempty"`          // ID o slug del lenguaje principal
+	WebPlatformID              string                  `json:"web_platform_id,omitempty"`     // ID o slug del framework web opcional (Angular/React/Vue)
+	AddonIDs                   []string                `json:"addon_ids,omitempty"`           // IDs o slugs de los complementos seleccionados
+	Services                   []StackServiceSelection `json:"services,omitempty"`            // Bindings por rol; reemplaza a DatabaseID
+	DatabaseID                 string                  `json:"database_id,omitempty"`         // Alias heredado de un único servicio primario
+	PracticeEnvironmentFolders []string                `json:"environment_folders,omitempty"` // Carpetas iniciales en /home/workspace
+	DockerfileContent          string                  `json:"dockerfile_content,omitempty"`  // Contenido del Dockerfile para auto-healing y reproducibilidad
 }
 
 func (sc StackConfig) Value() (driver.Value, error) {

@@ -19,13 +19,13 @@ type LoadSnapshot struct {
 }
 
 type AdminHandler struct {
-	auditRepo     domain.AuditLogRepository
-	tenantRepo    domain.TenantRepository
+	auditRepo       domain.AuditLogRepository
+	tenantRepo      domain.TenantRepository
 	environmentRepo domain.PracticeEnvironmentRepository
-	subjectRepo   domain.SubjectRepository
-	hostMonitor   domain.HostMonitor
-	orchestrator  domain.PracticeEnvironmentOrchestrator
-	studentDir    StudentDirectorySource
+	subjectRepo     domain.SubjectRepository
+	hostMonitor     domain.HostMonitor
+	orchestrator    domain.PracticeEnvironmentOrchestrator
+	studentDir      StudentDirectorySource
 
 	policiesService *services.ServerPoliciesService
 	telemetry       domain.HostTelemetry
@@ -82,11 +82,11 @@ func NewAdminHandler(
 	hostMonitor domain.HostMonitor,
 ) *AdminHandler {
 	return &AdminHandler{
-		auditRepo:     auditRepo,
-		tenantRepo:    tenantRepo,
+		auditRepo:       auditRepo,
+		tenantRepo:      tenantRepo,
 		environmentRepo: environmentRepo,
-		subjectRepo:   subjectRepo,
-		hostMonitor:   hostMonitor,
+		subjectRepo:     subjectRepo,
+		hostMonitor:     hostMonitor,
 	}
 }
 

@@ -15,14 +15,14 @@ import (
 )
 
 type MetricsHandler struct {
-	environmentRepo   domain.PracticeEnvironmentRepository
+	environmentRepo domain.PracticeEnvironmentRepository
 	hostMonitor     domain.HostMonitor
 	zombieCollector *services.ZombieCollectorWorker
 }
 
 func NewMetricsHandler(environmentRepo domain.PracticeEnvironmentRepository, hostMonitor domain.HostMonitor, zombieCollector *services.ZombieCollectorWorker) *MetricsHandler {
 	return &MetricsHandler{
-		environmentRepo:   environmentRepo,
+		environmentRepo: environmentRepo,
 		hostMonitor:     hostMonitor,
 		zombieCollector: zombieCollector,
 	}

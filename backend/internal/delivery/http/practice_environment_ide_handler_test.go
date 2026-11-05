@@ -48,7 +48,9 @@ func (r *idePracticeEnvironmentRepo) Create(_ context.Context, environment *doma
 	return nil
 }
 
-func (r *idePracticeEnvironmentRepo) UpdateContainerID(_ context.Context, _, _ string) error { return nil }
+func (r *idePracticeEnvironmentRepo) UpdateContainerID(_ context.Context, _, _ string) error {
+	return nil
+}
 
 func (r *idePracticeEnvironmentRepo) UpdateStatus(_ context.Context, _, _ string) error { return nil }
 
@@ -168,11 +170,11 @@ func ideaCtx(userID, role string) context.Context {
 type ideResponse struct {
 	Data struct {
 		EnvironmentID string  `json:"environment_id"`
-		ExerciseID  *string `json:"exercise_id"`
-		SubjectID   string  `json:"subject_id"`
-		Status      string  `json:"status"`
-		AccessURL   string  `json:"access_url"`
-		VolumeName  string  `json:"volume_name"`
+		ExerciseID    *string `json:"exercise_id"`
+		SubjectID     string  `json:"subject_id"`
+		Status        string  `json:"status"`
+		AccessURL     string  `json:"access_url"`
+		VolumeName    string  `json:"volume_name"`
 	} `json:"data"`
 	Error   string `json:"error"`
 	Message string `json:"message"`

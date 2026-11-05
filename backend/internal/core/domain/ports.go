@@ -470,15 +470,15 @@ type Mailer interface {
 
 // DeadlineReminderCandidate contiene los datos necesarios para despachar un recordatorio de vencimiento
 type DeadlineReminderCandidate struct {
-	TenantID            string    `db:"tenant_id"`
-	ExerciseID          string    `db:"exercise_id"`
-	ExerciseTitle       string    `db:"exercise_title"`
-	SubjectID           string    `db:"subject_id"`
-	SubjectName         string    `db:"subject_name"`
-	DueDate             time.Time `db:"due_date"`
-	StudentID           string    `db:"student_id"`
-	StudentName         string    `db:"student_name"`
-	StudentEmail        string    `db:"student_email"`
+	TenantID                      string    `db:"tenant_id"`
+	ExerciseID                    string    `db:"exercise_id"`
+	ExerciseTitle                 string    `db:"exercise_title"`
+	SubjectID                     string    `db:"subject_id"`
+	SubjectName                   string    `db:"subject_name"`
+	DueDate                       time.Time `db:"due_date"`
+	StudentID                     string    `db:"student_id"`
+	StudentName                   string    `db:"student_name"`
+	StudentEmail                  string    `db:"student_email"`
 	HasStartedPracticeEnvironment bool      `db:"has_started_environment"`
 }
 
