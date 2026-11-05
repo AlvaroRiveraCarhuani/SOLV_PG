@@ -29,3 +29,6 @@ frontend/test-results//backup/
 
 # Respaldos locales de base de datos y volúmenes (datos sensibles)
 /.solv_backups/
+
+# Adjuntos de conversaciones importadas por la herramienta de desarrollo
+/.cloud-attachments/

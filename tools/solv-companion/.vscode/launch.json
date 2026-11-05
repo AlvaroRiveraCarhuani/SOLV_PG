@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "SOLV Companion: Estudiante",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "env": {
+        "SOLV_USER_ROLE": "student",
+        "SOLV_SUBJECT_CODE": "SIS-420",
+        "SOLV_SUBJECT_TITLE": "Desarrollo Web Fullstack",
+        "SOLV_TEACHER_NAME": "Ing. Carlos Mendoza",
+        "SOLV_ASSIGNMENT_TITLE": "Práctica 1: API REST y Microservicios",
+        "SOLV_ASSIGNMENT_SUMMARY": "Implementar endpoints en Go con PostgreSQL y pruebas unitarias.",
+        "SOLV_API_URL": "http://localhost:8080"
+      },
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    },
+    {
+      "name": "SOLV Companion: Docente",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "env": {
+        "SOLV_USER_ROLE": "teacher",
+        "SOLV_SUBJECT_CODE": "SIS-420",
+        "SOLV_SUBJECT_TITLE": "Desarrollo Web Fullstack",
+        "SOLV_TEACHER_NAME": "Ing. Carlos Mendoza",
+        "SOLV_SPEEDGRADER_URL": "http://localhost:4200/teacher/evaluaciones",
+        "SOLV_API_URL": "http://localhost:8080"
+      },
+      "outFiles": [
+        "${workspaceFolder}/out/**/*.js"
+      ],
+      "preLaunchTask": "npm: compile"
+    }
+  ]
+}
