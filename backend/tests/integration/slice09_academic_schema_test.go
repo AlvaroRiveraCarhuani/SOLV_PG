@@ -7,8 +7,10 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -31,13 +33,19 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 
 	sqlDB := db.GetDB()
 
-	// 1. Limpieza de datos de prueba previos
-	_, _ = sqlDB.Exec("DELETE FROM submissions")
-	_, _ = sqlDB.Exec("DELETE FROM enrollments")
-	_, _ = sqlDB.Exec("DELETE FROM environments")
-	_, _ = sqlDB.Exec("DELETE FROM subjects")
-	_, _ = sqlDB.Exec("DELETE FROM teacher_invitations")
-	_, _ = sqlDB.Exec("DELETE FROM users WHERE email LIKE '%@test-academic.edu.bo'")
+	// 1. Limpieza de datos de prueba previos. Solo se borra lo de estas dos
+	// instituciones sintéticas: una limpieza global deja a otras pruebas sin
+	// las materias y usuarios que siembra la migración base.
+	const academicTenants = `'10000000-0000-0000-0000-000000000001', '20000000-0000-0000-0000-000000000002'`
+	_, _ = sqlDB.Exec("DELETE FROM submission_comments WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM submissions WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM exercise_grades WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM exercises WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM enrollments WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM environments WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM subjects WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM teacher_invitations WHERE tenant_id IN (" + academicTenants + ")")
+	_, _ = sqlDB.Exec("DELETE FROM users WHERE email LIKE '%@test-academic.edu.bo' OR tenant_id IN (" + academicTenants + ")")
 	_, _ = sqlDB.Exec("DELETE FROM tenants WHERE slug LIKE 'academic-tenant-%'")
 
 	// 2. Crear 2 Tenants de prueba para verificar aislamiento
@@ -75,6 +83,7 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 
 	subjectService := services.NewSubjectService(subjectRepo)
 	submissionService := services.NewSubmissionService(submissionRepo)
+	submissionService.SetExerciseRepository(postgres.NewPostgresExerciseRepository(sqlDB))
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
 
 	ctxA := context.Background()
@@ -97,40 +106,74 @@ func TestAcademicSchemaAndMultiTenancy(t *testing.T) {
 		t.Fatalf("Expected 2 enrolled students, got %d (err: %v)", len(studentsEnrolled), err)
 	}
 
-	// 4. Registrar 3 Submissions con distintos veredictos (AC, WA, TLE)
-	exerciseID := "e1e1e1e1-e1e1-4e1e-a1e1-e1e1e1e1e1e1"
+	// 4. Registrar 3 Submissions con distintos veredictos (AC, WA, TLE).
+	// El ejercicio es propio de esta institución de prueba: la entrega del juez
+	// valida modalidad y pertenencia antes de aceptar un veredicto.
+	exerciseID := uuid.NewString()
+	// El endpoint de entrega solo acepta un veredicto emitido por el servidor:
+	// cada entrega viaja con el recibo firmado de su evaluación.
+	var templateID string
+	_ = sqlDB.Get(&templateID, `SELECT id FROM lab_templates LIMIT 1`)
+	if _, err := sqlDB.Exec(`
+		INSERT INTO exercises (id, subject_id, title, description, type, status, config,
+		                       tenant_id, template_id, environment_type, language)
+		VALUES ($1, $2, 'Practica de schema', 'x', 'algorithm', 'published', '{}'::jsonb,
+		        $3, $4, 'JUEZ_EFIMERO', 'python')
+		ON CONFLICT (id) DO NOTHING
+	`, exerciseID, subjA.ID, tenantA.ID, templateID); err != nil {
+		t.Fatalf("Failed to seed exercise: %v", err)
+	}
+	signReceipt := func(studentID, verdict, code string) string {
+		token, err := services.SignEvaluationReceipt(services.EvaluationReceipt{
+			TenantID:        tenantA.ID,
+			ExerciseID:      exerciseID,
+			StudentID:       studentID,
+			Verdict:         verdict,
+			ExecutionTimeMS: 12,
+			MemoryUsedMB:    16,
+			CodeHash:        services.HashEvaluatedCode(code),
+			IssuedAt:        time.Now().Unix(),
+		})
+		if err != nil {
+			t.Fatalf("Failed to sign receipt: %v", err)
+		}
+		return token
+	}
 
 	sub1, err := submissionService.CreateSubmission(ctxA, tenantA.ID, services.CreateSubmissionDTO{
-		ExerciseID:      exerciseID,
-		StudentID:       student1ID,
-		Code:            "print(a + b)",
-		Verdict:         "AC",
-		ExecutionTimeMS: 12,
-		MemoryUsedMB:    16,
+		ExerciseID:        exerciseID,
+		StudentID:         student1ID,
+		Code:              "print(a + b)",
+		Verdict:           "AC",
+		EvaluationReceipt: signReceipt(student1ID, "AC", "print(a + b)"),
+		ExecutionTimeMS:   12,
+		MemoryUsedMB:      16,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create submission 1: %v", err)
 	}
 
 	sub2, err := submissionService.CreateSubmission(ctxA, tenantA.ID, services.CreateSubmissionDTO{
-		ExerciseID:      exerciseID,
-		StudentID:       student1ID,
-		Code:            "print(a - b)",
-		Verdict:         "WA",
-		ExecutionTimeMS: 15,
-		MemoryUsedMB:    16,
+		ExerciseID:        exerciseID,
+		StudentID:         student1ID,
+		Code:              "print(a - b)",
+		Verdict:           "WA",
+		EvaluationReceipt: signReceipt(student1ID, "WA", "print(a - b)"),
+		ExecutionTimeMS:   15,
+		MemoryUsedMB:      16,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create submission 2: %v", err)
 	}
 
 	sub3, err := submissionService.CreateSubmission(ctxA, tenantA.ID, services.CreateSubmissionDTO{
-		ExerciseID:      exerciseID,
-		StudentID:       student2ID,
-		Code:            "while True: pass",
-		Verdict:         "TLE",
-		ExecutionTimeMS: 2000,
-		MemoryUsedMB:    32,
+		ExerciseID:        exerciseID,
+		StudentID:         student2ID,
+		Code:              "while True: pass",
+		Verdict:           "TLE",
+		EvaluationReceipt: signReceipt(student2ID, "TLE", "while True: pass"),
+		ExecutionTimeMS:   2000,
+		MemoryUsedMB:      32,
 	})
 	if err != nil {
 		t.Fatalf("Failed to create submission 3: %v", err)
@@ -215,6 +258,7 @@ func TestAcademicHTTPAPIEndToEnd(t *testing.T) {
 
 	subjectService := services.NewSubjectService(subjectRepo)
 	submissionService := services.NewSubmissionService(submissionRepo)
+	submissionService.SetExerciseRepository(postgres.NewPostgresExerciseRepository(sqlDB))
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
 
 	jwtSecret := []byte("secret")

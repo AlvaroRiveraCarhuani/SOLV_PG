@@ -427,12 +427,20 @@ type RubricRepository interface {
 	CreateOrUpdate(ctx context.Context, rubric *Rubric) error
 }
 
+// RubricActor identifica a quien califica. La nota de una rúbrica es una
+// decisión docente: el alumno no puede emitirla y un docente solo alcanza las
+// materias que tiene asignadas.
+type RubricActor struct {
+	UserID  string
+	IsAdmin bool
+}
+
 // RubricService orquesta la creación, validación y evaluación de rúbricas
 type RubricService interface {
 	GetByExerciseID(ctx context.Context, exerciseID uuid.UUID) (*Rubric, error)
 	CreateOrUpdate(ctx context.Context, rubric *Rubric) error
 	CalculateScore(criteria []RubricCriterion, selections map[string]string) (float64, []CriterionBreakdown, error)
-	EvaluateSubmission(ctx context.Context, submissionID uuid.UUID, req RubricEvaluationRequest) (*RubricEvaluationResponse, error)
+	EvaluateSubmission(ctx context.Context, submissionID uuid.UUID, req RubricEvaluationRequest, actor RubricActor) (*RubricEvaluationResponse, error)
 }
 
 // EmailAttachment representa un archivo adjunto o recurso inline (CID) para correos

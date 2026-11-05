@@ -98,6 +98,7 @@ type ExerciseGradeCell struct {
 	SelectedSubmissionID *string `json:"selected_submission_id,omitempty"`
 	Score                *int    `json:"score"`
 	Source               string  `json:"source"`
+	OverriddenBy         string  `json:"overridden_by,omitempty"`
 	Reason               string  `json:"reason,omitempty"`
 }
 
@@ -107,8 +108,14 @@ type ExerciseGradeCell struct {
 type TeacherReviewStore interface {
 	ListPendingReviewGroups(ctx context.Context, tenantID, teacherID, subjectID string) ([]*ReviewQueueGroup, error)
 	GetSubmissionReviewState(ctx context.Context, tenantID, teacherID, submissionID string) (ReviewStatus, error)
+	// GetSubmissionEnvironmentType identifica el entorno de la entrega para
+	// aplicar reglas de transición propias de cada modalidad.
+	GetSubmissionEnvironmentType(ctx context.Context, tenantID, teacherID, submissionID string) (string, error)
 	UpdateSubmissionReview(ctx context.Context, tenantID, teacherID, submissionID string, current, next ReviewStatus, feedback string, score *int, actorID string) error
-	RecordGradeFromSubmission(ctx context.Context, tenantID, submissionID string) error
+	// GetSubmissionGradeCell lee la celda que seleccionó esta entrega, para
+	// exigir justificación antes de cambiar una nota de otro docente.
+	GetSubmissionGradeCell(ctx context.Context, tenantID, submissionID string) (*ExerciseGradeCell, error)
+	RecordGradeFromSubmission(ctx context.Context, tenantID, submissionID, actorID, reason string) error
 	SetExerciseGrade(ctx context.Context, tenantID, teacherID, studentID, exerciseID, selectedSubmissionID string, requestedScore *int, reason, actorID string) (*int, error)
 	GetExerciseGradeCell(ctx context.Context, tenantID, studentID, exerciseID string) (*ExerciseGradeCell, error)
 }

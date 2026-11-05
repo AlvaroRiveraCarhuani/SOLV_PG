@@ -33,8 +33,26 @@ func (m *MockPracticeEnvironmentRepository) GetByID(ctx context.Context, id stri
 	return nil, nil
 }
 
+// GetByStudentSubjectExercise satisface la capacidad opcional que el servicio
+// usa para reutilizar el entorno de un ejercicio concreto. El doble no necesita
+// base de datos: busca sobre lo que ya registró Create.
+func (m *MockPracticeEnvironmentRepository) GetByStudentSubjectExercise(ctx context.Context, studentID, subjectID, exerciseID string) (*domain.PracticeEnvironment, error) {
+	for _, ws := range m.environments {
+		if ws.StudentID != studentID || ws.SubjectID != subjectID {
+			continue
+		}
+		if ws.ExerciseID != nil && *ws.ExerciseID == exerciseID {
+			return ws, nil
+		}
+	}
+	return nil, nil
+}
+
 func (m *MockPracticeEnvironmentRepository) Create(ctx context.Context, environment *domain.PracticeEnvironment) error {
 	key := environment.StudentID + ":" + environment.SubjectID
+	if environment.ExerciseID != nil {
+		key += ":" + *environment.ExerciseID
+	}
 	m.environments[key] = environment
 	m.environments[environment.ID] = environment
 	return nil
@@ -151,7 +169,7 @@ func TestSlice04PracticeEnvironmentLifecycle(t *testing.T) {
 	subjectID := uuid.NewString()
 
 	// 1. Iniciar Entorno de Desarrollo Interactivo (Code-Server)
-	ws1, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	ws1, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err != nil {
 		t.Fatalf("StartPracticeEnvironment failed: %v", err)
 	}
@@ -177,7 +195,7 @@ func TestSlice04PracticeEnvironmentLifecycle(t *testing.T) {
 	}
 
 	// 2. Verificar Idempotencia (segunda solicitud devuelve la misma instancia)
-	ws2, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	ws2, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err != nil {
 		t.Fatalf("Second StartPracticeEnvironment call failed: %v", err)
 	}

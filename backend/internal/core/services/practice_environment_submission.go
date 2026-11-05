@@ -17,8 +17,6 @@ import (
 const (
 	// maxProjectSnapshotBytes acota el snapshot entregado a SpeedGrader.
 	maxProjectSnapshotBytes = 512 * 1024
-
-	projectSubmissionVerdict = "PENDING"
 )
 
 var (
@@ -99,10 +97,11 @@ func (s *PracticeEnvironmentService) SubmitPracticeEnvironmentProject(ctx contex
 		TenantID:           tenantID,
 		ExerciseID:         exerciseID,
 		StudentID:          environment.StudentID,
-		EnvironmentID:        &environment.ID,
-		Code:               snapshot,
-		Verdict:            projectSubmissionVerdict,
-		ReviewStatus:       string(domain.ReviewPending),
+		EnvironmentID:        &environment.ID,			Code:               snapshot,
+			// Un proyecto de IDE no lo evalúa el juez: no tiene veredicto. La
+			// ausencia se guarda como ausencia y el trabajo queda en revisión.
+			Verdict:      "",
+			ReviewStatus: string(domain.ReviewPending),
 		ASTResult:          json.RawMessage("{}"),
 		GeneratedCases:     json.RawMessage("{}"),
 		ComplexityAnalysis: json.RawMessage("{}"),

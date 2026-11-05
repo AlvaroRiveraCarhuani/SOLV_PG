@@ -79,6 +79,15 @@ const (
 	VerdictASTBlocked   Verdict = "AST_BLOCKED"   // AST Security Violation (Semgrep)
 )
 
+// Origen del veredicto guardado en una entrega. 'legacy' agrupa las filas
+// históricas que no se pueden atribuir a un camino concreto del código.
+const (
+	VerdictOriginJudge    = "judge"
+	VerdictOriginRubric   = "rubric"
+	VerdictOriginOverride = "override"
+	VerdictOriginLegacy   = "legacy"
+)
+
 // ScanViolation represents a single Semgrep finding
 type ScanViolation struct {
 	RuleID  string `json:"rule_id"`
@@ -242,6 +251,18 @@ var (
 	ErrExerciseStale                     = errors.New("el ejercicio tiene cambios pendientes y requiere un dry-run exitoso antes de ser publicado")
 	ErrPayloadMismatchForEnvironmentType = errors.New("payload_mismatch_for_environment_type: los campos del payload no coinciden con el tipo de entorno (environment_type) seleccionado")
 	ErrTestCasesRequireJudge             = errors.New("test_cases_require_judge_environment: los casos de prueba I/O solo aplican a ejercicios de juez virtual (JUEZ_EFIMERO); los laboratorios IDE se corrigen con rúbrica en SpeedGrader")
+	// ErrOverrideRequiresJudge: el veredicto es una salida del juez. Un proyecto
+	// de IDE se califica con nota y rúbrica, nunca asignándole un veredicto.
+	ErrOverrideRequiresJudge = errors.New("verdict_override_requires_judge: un proyecto de IDE se califica con nota y rúbrica, no con veredicto")
+	// ErrEvaluationRequiresJudge: la evaluación automática solo existe donde hay
+	// juez. Un proyecto de IDE no se ejecuta contra casos de prueba.
+	ErrEvaluationRequiresJudge = errors.New("evaluation_requires_judge_environment: la evaluación automática solo aplica a ejercicios de juez virtual (JUEZ_EFIMERO)")
+	// ErrInvalidEvaluationReceipt: el veredicto de una entrega de juez solo puede
+	// venir de la evaluación que emitió el servidor, no de un valor del navegador.
+	ErrInvalidEvaluationReceipt = errors.New("invalid_evaluation_receipt: la entrega requiere una evaluación vigente del servidor")
+	// ErrDuplicateSubmission: un recibo registra una entrega. Reintentar el
+	// envío devuelve la entrega ya creada, no una segunda.
+	ErrDuplicateSubmission = errors.New("duplicate_submission: la evaluación ya tiene una entrega registrada")
 )
 
 type DryRunJobStatus string
@@ -376,6 +397,9 @@ type EvaluationResult struct {
 	ExpectedJSON       string              `json:"expected_json,omitempty"`
 	GeneratedCases     []TestCase          `json:"generated_cases,omitempty"`
 	ComplexityAnalysis *ComplexityAnalysis `json:"complexity_analysis,omitempty"`
+	// Receipt firma el resultado para que la entrega del juez no acepte un
+	// veredicto declarado por el navegador. Ver EvaluationReceipt.
+	Receipt string `json:"evaluation_receipt,omitempty"`
 }
 
 // CaseResult es el resultado de un unico caso de prueba.

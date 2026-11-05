@@ -53,6 +53,18 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 
 	sub, err := h.service.CreateSubmission(r.Context(), tenantID, submissionDTO)
 	if err != nil {
+		if errors.Is(err, domain.ErrEvaluationRequiresJudge) {
+			SendError(w, http.StatusUnprocessableEntity, "evaluation_requires_judge", "Un proyecto de IDE se corrige con rúbrica: no admite veredicto del juez")
+			return
+		}
+		if errors.Is(err, domain.ErrInvalidEvaluationReceipt) {
+			SendError(w, http.StatusUnprocessableEntity, "invalid_evaluation_receipt", "La entrega requiere una evaluación vigente del servidor")
+			return
+		}
+		if errors.Is(err, domain.ErrNotFound) {
+			SendError(w, http.StatusNotFound, "exercise_not_found", "El ejercicio no existe en esta institución")
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
@@ -215,6 +227,10 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 		}
 		if errors.Is(err, domain.ErrNotFound) {
 			SendError(w, http.StatusNotFound, "submission_not_found", "La entrega no existe en esta institución")
+			return
+		}
+		if errors.Is(err, domain.ErrOverrideRequiresJudge) {
+			SendError(w, http.StatusUnprocessableEntity, "override_requires_judge", "Un proyecto se califica con nota y rúbrica: no admite veredicto del juez")
 			return
 		}
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar override de calificacion")

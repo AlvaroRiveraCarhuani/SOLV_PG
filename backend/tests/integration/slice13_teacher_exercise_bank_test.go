@@ -112,12 +112,13 @@ func TestSlice13_TeacherExerciseBank(t *testing.T) {
 		VALUES ($1, $2, $3)
 	`, tenantID, student, subjectIDE)
 
-	// Entregas: 1 WA sin override (juez -> por revisar) y 1 PENDING (IDE -> por revisar).
+	// Entregas: 1 WA sin override (juez -> por revisar) y 1 proyecto de IDE sin
+	// veredicto que espera corrección (review_status pending).
 	_, _ = db.GetDB().Exec(`
-		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, code, verdict, execution_time_ms, memory_used_mb, manual_override)
+		INSERT INTO submissions (id, tenant_id, exercise_id, student_id, code, verdict, review_status, execution_time_ms, memory_used_mb, manual_override)
 		VALUES
-			($1, $4, $2, $5, 'code', 'WA', 10, 5, FALSE),
-			($3, $4, $6, $5, 'code', 'PENDING', 0, 0, FALSE)
+			($1, $4, $2, $5, 'code', 'WA', 'not_required', 10, 5, FALSE),
+			($3, $4, $6, $5, 'code', NULL, 'pending', 0, 0, FALSE)
 		ON CONFLICT (id) DO NOTHING;
 	`, uuid.NewString(), judgeEx, uuid.NewString(), tenantID, student, ideEx)
 
@@ -176,9 +177,9 @@ func TestSlice13_TeacherExerciseBank(t *testing.T) {
 	if ideItem.EnvironmentType != "IDE_PERSISTENTE" || ideItem.Language != "typescript" {
 		t.Errorf("IDE item: esperado IDE_PERSISTENTE/typescript, got %s/%s", ideItem.EnvironmentType, ideItem.Language)
 	}
-	// Semántica IDE: entrega PENDING cuenta como por revisar (cola SpeedGrader).
+	// Semántica IDE: lo pendiente lo declara review_status, no el veredicto.
 	if ideItem.ReviewPending != 1 {
-		t.Errorf("IDE item review_pending esperado 1 (PENDING), got %d", ideItem.ReviewPending)
+		t.Errorf("IDE item review_pending esperado 1 (review_status pending), got %d", ideItem.ReviewPending)
 	}
 	if ideItem.StudentsCount != 1 {
 		t.Errorf("IDE item students_count esperado 1, got %d", ideItem.StudentsCount)

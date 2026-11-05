@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"solv-backend/internal/core/domain"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -14,6 +15,7 @@ type SubmissionService struct {
 	repo          domain.SubmissionRepository
 	keystrokeRepo domain.KeystrokeRepository
 	snapshotRepo  domain.GeneratedCaseSnapshotRepository
+	exerciseRepo  domain.ExerciseRepository
 }
 
 func NewSubmissionService(repo domain.SubmissionRepository) *SubmissionService {
@@ -29,6 +31,12 @@ func (s *SubmissionService) SetGeneratedCaseSnapshotRepository(repo domain.Gener
 
 func (s *SubmissionService) SetKeystrokeRepository(kr domain.KeystrokeRepository) {
 	s.keystrokeRepo = kr
+}
+
+// SetExerciseRepository conecta el catálogo de ejercicios. La entrega del juez
+// necesita saber la modalidad antes de aceptar un veredicto.
+func (s *SubmissionService) SetExerciseRepository(repo domain.ExerciseRepository) {
+	s.exerciseRepo = repo
 }
 
 func (s *SubmissionService) SaveKeystrokeEvents(ctx context.Context, tenantID, submissionID string, events []domain.SubmissionKeystrokeEvent) (int, error) {
@@ -60,7 +68,11 @@ type CreateSubmissionDTO struct {
 	StudentID          string          `json:"student_id"`
 	EnvironmentID        *string         `json:"environment_id,omitempty"`
 	Code               string          `json:"code"`
+	// Verdict se conserva para clientes anteriores, pero el servidor no lo usa:
+	// el veredicto sale del recibo firmado por la evaluación.
 	Verdict            string          `json:"verdict"`
+	// EvaluationReceipt viaja en la respuesta de POST /api/v1/evaluations.
+	EvaluationReceipt  string          `json:"evaluation_receipt,omitempty"`
 	ASTResult          json.RawMessage `json:"ast_result"`
 	GeneratedCases     json.RawMessage `json:"generated_cases,omitempty"`
 	ExecutionTimeMS    int             `json:"execution_time_ms"`
@@ -69,26 +81,64 @@ type CreateSubmissionDTO struct {
 }
 
 func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID string, dto CreateSubmissionDTO) (*domain.Submission, error) {
-	if dto.ExerciseID == "" || dto.StudentID == "" || dto.Verdict == "" {
-		return nil, errors.New("exercise_id, student_id and verdict are required")
+	if dto.ExerciseID == "" || dto.StudentID == "" {
+		return nil, errors.New("exercise_id and student_id are required")
 	}
+	if s.exerciseRepo == nil {
+		return nil, errors.New("submission service has no exercise repository")
+	}
+
+	// La modalidad manda antes que el payload: un proyecto de IDE no recibe
+	// veredictos por esta vía, ni siquiera si el navegador los inventa.
+	exercise, err := s.exerciseRepo.GetByIDAndTenant(ctx, dto.ExerciseID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load exercise: %w", err)
+	}
+	if exercise == nil {
+		return nil, domain.ErrNotFound
+	}
+	if exercise.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) {
+		return nil, domain.ErrEvaluationRequiresJudge
+	}
+
+	// El veredicto y las métricas salen del recibo firmado al evaluar. El
+	// payload del navegador no puede alterarlos.
+	receipt, err := ParseEvaluationReceipt(dto.EvaluationReceipt, time.Now())
+	if err != nil {
+		return nil, err
+	}
+	if receipt.ExerciseID != dto.ExerciseID || receipt.StudentID != dto.StudentID {
+		return nil, domain.ErrInvalidEvaluationReceipt
+	}
+	if receipt.TenantID != "" && tenantID != "" && receipt.TenantID != tenantID {
+		return nil, domain.ErrInvalidEvaluationReceipt
+	}
+	if receipt.CodeHash != HashEvaluatedCode(dto.Code) {
+		return nil, domain.ErrInvalidEvaluationReceipt
+	}
+
 	if len(dto.ASTResult) == 0 {
 		dto.ASTResult = json.RawMessage("{}")
 	}
+	// La entrega se identifica por la evaluación que la respalda: reenviar el
+	// mismo recibo devuelve la entrega ya registrada, no crea otra.
+	subID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(dto.EvaluationReceipt)).String()
 	sub := &domain.Submission{
-		ID:                 uuid.New().String(),
-		TenantID:           tenantID,
-		ExerciseID:         dto.ExerciseID,
-		StudentID:          dto.StudentID,
-		EnvironmentID:        dto.EnvironmentID,
-		Code:               dto.Code,
-		Verdict:            dto.Verdict,
+		ID:           subID,
+		TenantID:     tenantID,
+		ExerciseID:   dto.ExerciseID,
+		StudentID:    dto.StudentID,
+		EnvironmentID: dto.EnvironmentID,
+		Code:         dto.Code,
+		Verdict:      receipt.Verdict,
+		// El origen lo respalda la evaluación del servidor que firmó el recibo.
+		VerdictOrigin:      domain.VerdictOriginJudge,
 		ReviewStatus:       string(domain.ReviewNotRequired),
 		ASTResult:          dto.ASTResult,
 		GeneratedCases:     dto.GeneratedCases,
 		ComplexityAnalysis: dto.ComplexityAnalysis,
-		ExecutionTimeMS:    dto.ExecutionTimeMS,
-		MemoryUsedMB:       dto.MemoryUsedMB,
+		ExecutionTimeMS:    receipt.ExecutionTimeMS,
+		MemoryUsedMB:       receipt.MemoryUsedMB,
 	}
 
 	// El snapshot del servidor manda sobre el payload del cliente: es la única
@@ -101,6 +151,15 @@ func (s *SubmissionService) CreateSubmission(ctx context.Context, tenantID strin
 	}
 
 	if err := s.repo.Create(ctx, sub); err != nil {
+		if errors.Is(err, domain.ErrDuplicateSubmission) {
+			// Reintento del mismo envío: la respuesta es la entrega que ya
+			// existe, para que el cliente no pierda el identificador.
+			existing, getErr := s.repo.GetByID(ctx, tenantID, subID)
+			if getErr != nil {
+				return nil, getErr
+			}
+			return existing, nil
+		}
 		return nil, fmt.Errorf("failed to create submission: %w", err)
 	}
 	return sub, nil

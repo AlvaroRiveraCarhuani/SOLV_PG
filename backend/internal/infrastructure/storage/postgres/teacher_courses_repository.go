@@ -165,8 +165,11 @@ func (r *PostgresTeacherRepository) GetTeacherExerciseBank(ctx context.Context, 
 			(SELECT COUNT(DISTINCT en.student_id) FROM enrollments en WHERE en.subject_id = e.subject_id AND en.tenant_id = $1) AS students_count,
 			CASE
 				WHEN e.environment_type = 'IDE_PERSISTENTE' THEN
+					-- Un proyecto de IDE no tiene veredicto: lo pendiente es lo que
+					-- espera corrección, y eso lo declara review_status.
 					(SELECT COUNT(*) FROM submissions su
-					 WHERE su.exercise_id = e.id AND su.tenant_id = $1 AND su.verdict = 'PENDING')
+					 WHERE su.exercise_id = e.id AND su.tenant_id = $1
+					   AND su.review_status IN ('pending', 'in_review'))
 				ELSE
 					(SELECT COUNT(*) FROM submissions su
 					 WHERE su.exercise_id = e.id AND su.tenant_id = $1
@@ -299,11 +302,14 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 			WHERE exercise_id = $1 AND tenant_id = $2
 		`, ex.ID, tenantID)
 
-		// Auto graded (AC o con manual override)
+		// Calificadas automáticamente: solo el juez califica solo. En IDE la
+		// nota siempre la pone el docente, así que no cuenta como automática.
 		_ = r.db.GetContext(ctx, &stat.AutoGraded, `
-			SELECT COUNT(*) FROM submissions
-			WHERE exercise_id = $1 AND tenant_id = $2
-			  AND (verdict = 'AC' OR manual_override = TRUE)
+			SELECT COUNT(*) FROM submissions su
+			JOIN exercises ex ON ex.id = su.exercise_id
+			WHERE su.exercise_id = $1 AND su.tenant_id = $2
+			  AND COALESCE(ex.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
+			  AND (su.verdict = 'AC' OR su.manual_override = TRUE)
 		`, ex.ID, tenantID)
 
 		// Pendientes de corrección: estado de revisión declarado (ADR-053), no veredicto.
@@ -338,7 +344,7 @@ func (r *PostgresTeacherRepository) GetCourseLabsStats(ctx context.Context, tena
 		}
 		var vRows []vRow
 		_ = r.db.SelectContext(ctx, &vRows, `
-			SELECT verdict, COUNT(*) as count
+			SELECT COALESCE(verdict, '') AS verdict, COUNT(*) as count
 			FROM submissions
 			WHERE exercise_id = $1 AND tenant_id = $2
 			GROUP BY verdict

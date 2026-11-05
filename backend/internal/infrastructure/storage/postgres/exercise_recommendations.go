@@ -15,6 +15,9 @@ func (r *PostgresExerciseRepository) GetStudentRecommendations(ctx context.Conte
 		Recommendations: []domain.RecommendationItem{},
 	}
 
+	// Las sugerencias de refuerzo se apoyan en el resultado del juez. Un
+	// proyecto de IDE no tiene veredicto ni casos de prueba: su nota vive en la
+	// libreta y no alimenta esta serie.
 	// 1. Verificar si el estudiante tiene al menos 5 submissions en el curso
 	countQuery := `
 		SELECT COUNT(*)
@@ -22,6 +25,7 @@ func (r *PostgresExerciseRepository) GetStudentRecommendations(ctx context.Conte
 		JOIN exercises e ON e.id = s.exercise_id
 		WHERE e.subject_id = $1 AND s.student_id = $2
 		  AND ($3 = '' OR s.tenant_id = $3)
+		  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 	`
 	var totalSubmissions int
 	if err := r.db.GetContext(ctx, &totalSubmissions, countQuery, subjectID, studentID, tenantID); err != nil {
@@ -48,6 +52,7 @@ func (r *PostgresExerciseRepository) GetStudentRecommendations(ctx context.Conte
 		WHERE e.subject_id = $1
 		  AND s.student_id = $2
 		  AND ($3 = '' OR s.tenant_id = $3)
+		  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 		GROUP BY tag
 		HAVING COUNT(*) >= 3
 		   AND AVG(CASE WHEN s.verdict = 'AC' OR s.score = 100 THEN 1.0 ELSE 0.0 END) < 0.6

@@ -278,7 +278,7 @@ func (r *PostgresClassSessionRepository) Board(ctx context.Context, tenantID, te
 		),
 		latest AS (
 			SELECT DISTINCT ON (sub.student_id)
-				sub.student_id, sub.verdict, sub.review_status, sub.submitted_at
+				sub.student_id, COALESCE(sub.verdict, '') AS verdict, sub.review_status, sub.submitted_at
 			FROM submissions sub
 			JOIN s ON sub.exercise_id = s.exercise_id AND sub.tenant_id = s.tenant_id
 			WHERE sub.submitted_at >= s.opens_at

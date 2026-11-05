@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 
@@ -85,6 +86,18 @@ func (h *RubricHandler) SaveRubric(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *RubricHandler) EvaluateSubmission(w http.ResponseWriter, r *http.Request) {
+	// Calificar es una decisión docente: el rol se exige antes de leer nada.
+	role := strings.TrimSpace(r.Header.Get("X-User-Role"))
+	if role != "teacher" && role != "admin" {
+		SendError(w, http.StatusForbidden, "Forbidden", "Solo docentes y administradores pueden calificar con rúbrica")
+		return
+	}
+	teacherID := strings.TrimSpace(r.Header.Get("X-User-Id"))
+	if teacherID == "" {
+		SendError(w, http.StatusUnauthorized, "unauthorized", "Falta la identidad del docente")
+		return
+	}
+
 	submissionIDStr := r.PathValue("id")
 	if submissionIDStr == "" {
 		SendError(w, http.StatusBadRequest, "submission ID is required", "ID de la entrega requerido")
@@ -103,10 +116,17 @@ func (h *RubricHandler) EvaluateSubmission(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	res, err := h.rubricService.EvaluateSubmission(r.Context(), submissionID, req)
+	res, err := h.rubricService.EvaluateSubmission(r.Context(), submissionID, req, domain.RubricActor{
+		UserID:  teacherID,
+		IsAdmin: role == "admin",
+	})
 	if err != nil {
 		if errors.Is(err, domain.ErrRubricSelectionMissing) {
 			SendError(w, http.StatusBadRequest, err.Error(), "Falta seleccionar una opción para cada criterio de la rúbrica")
+			return
+		}
+		if errors.Is(err, domain.ErrGradeReasonRequired) {
+			SendError(w, http.StatusUnprocessableEntity, "Reason required", "Para cambiar la nota de otro docente debes indicar un motivo de al menos 10 caracteres")
 			return
 		}
 		if errors.Is(err, domain.ErrNotFound) {

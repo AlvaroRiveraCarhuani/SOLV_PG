@@ -331,6 +331,9 @@ type StudentEvaluationItem struct {
 	AttemptsCount   int        `json:"attempts_count"`
 	BestScore       *int       `json:"best_score,omitempty"`
 	LastVerdict     string     `json:"last_verdict,omitempty"`
+	// LastVerdictOrigin acompaña al último resultado: sin él, un proyecto
+	// corregido con rúbrica se leería como una evaluación del juez.
+	LastVerdictOrigin string   `json:"last_verdict_origin,omitempty"`
 	LastSubmittedAt *time.Time `json:"last_submitted_at,omitempty"`
 	AcademicStatus  string     `json:"academic_status"`
 }
@@ -339,12 +342,16 @@ type StudentEvaluationItem struct {
 // ejercicio y de la materia para el historial completo del estudiante.
 type StudentSubmissionHistoryItem struct {
 	*domain.Submission
-	ExerciseTitle   string `json:"exercise_title,omitempty"`
-	ExerciseType    string `json:"exercise_type,omitempty"`
-	ExercisePurpose string `json:"exercise_purpose,omitempty"`
-	SubjectID       string `json:"subject_id,omitempty"`
-	SubjectCode     string `json:"subject_code,omitempty"`
-	SubjectName     string `json:"subject_name,omitempty"`
+	ExerciseTitle   string               `json:"exercise_title,omitempty"`
+	ExerciseType    string               `json:"exercise_type,omitempty"`
+	ExercisePurpose string               `json:"exercise_purpose,omitempty"`
+	EnvironmentType string               `json:"environment_type,omitempty"`
+	Language        string               `json:"language,omitempty"`
+	Files           []domain.ProjectFile `json:"files,omitempty"`
+	FilesAvailable  bool                 `json:"files_available"`
+	SubjectID       string               `json:"subject_id,omitempty"`
+	SubjectCode     string               `json:"subject_code,omitempty"`
+	SubjectName     string               `json:"subject_name,omitempty"`
 }
 
 // submissionAggregation acumula las entregas de un alumno por ejercicio.
@@ -353,6 +360,8 @@ type submissionAggregation struct {
 	MaxScore        *int
 	HasACUngraded   bool
 	LastVerdict     string
+	// LastVerdictOrigin viaja con LastVerdict: ambos son de la misma entrega.
+	LastVerdictOrigin string
 	LastSubmittedAt *time.Time
 	IsCompleted     bool
 }
@@ -413,6 +422,7 @@ func (h *StudentHandler) GetEvaluations(w http.ResponseWriter, r *http.Request) 
 		}
 		if agg.LastSubmittedAt == nil || sub.SubmittedAt.After(*agg.LastSubmittedAt) {
 			agg.LastVerdict = sub.Verdict
+			agg.LastVerdictOrigin = sub.VerdictOrigin
 			submittedAt := sub.SubmittedAt
 			agg.LastSubmittedAt = &submittedAt
 		}
@@ -467,9 +477,10 @@ func (h *StudentHandler) GetEvaluations(w http.ResponseWriter, r *http.Request) 
 				SubjectName:     subj.Name,
 				SubjectCode:     subj.Code,
 				AttemptsCount:   agg.AttemptsCount,
-				BestScore:       bestScore,
-				LastVerdict:     agg.LastVerdict,
-				LastSubmittedAt: agg.LastSubmittedAt,
+				BestScore:         bestScore,
+				LastVerdict:       agg.LastVerdict,
+				LastVerdictOrigin: agg.LastVerdictOrigin,
+				LastSubmittedAt:   agg.LastSubmittedAt,
 				AcademicStatus:  academicStatus(agg, ex.DueDate),
 			})
 		}
@@ -544,6 +555,17 @@ func (h *StudentHandler) GetSubmissions(w http.ResponseWriter, r *http.Request) 
 			item.ExerciseTitle = exercise.Title
 			item.ExerciseType = string(exercise.Type)
 			item.ExercisePurpose = exercise.Purpose
+			item.EnvironmentType = exercise.EnvironmentType
+			item.Language = exercise.Language
+			if item.EnvironmentType == "" {
+				item.EnvironmentType = string(domain.EnvironmentTypeJuezEfimero)
+			}
+			if item.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) && sub.Code != "" {
+				if files, ok := domain.ParseProjectSnapshot(sub.Code, exercise.Language); ok {
+					item.Files = files
+					item.FilesAvailable = true
+				}
+			}
 			if exercise.SubjectID != nil {
 				if subj, found := subjectByID[*exercise.SubjectID]; found && subj != nil {
 					item.SubjectID = subj.ID

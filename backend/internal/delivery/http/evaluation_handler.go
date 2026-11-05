@@ -65,6 +65,10 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 			SendError(w, http.StatusForbidden, "MODULE_LOCKED", "El módulo curricular se encuentra bloqueado")
 			return
 		}
+		if errors.Is(err, domain.ErrEvaluationRequiresJudge) {
+			SendError(w, http.StatusUnprocessableEntity, "evaluation_requires_judge", "La evaluación automática solo aplica a ejercicios de juez virtual; un proyecto se corrige con rúbrica")
+			return
+		}
 		if h.wsHub != nil && userID != "" {
 			h.wsHub.EmitToUser(userID, WebSocketMessage{
 				Event: "EVALUATION_PROGRESS",

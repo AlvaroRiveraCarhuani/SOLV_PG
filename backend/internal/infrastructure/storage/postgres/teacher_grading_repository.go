@@ -31,7 +31,8 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 		SELECT sub.id, sub.exercise_id, ex.title AS exercise_title, sub.student_id,
 		       COALESCE(u.first_name || ' ' || u.last_name, 'Estudiante') AS student_name,
 		       COALESCE(u.email, '') AS student_email,
-		       sub.verdict, sub.score, COALESCE(sub.manual_override, FALSE) AS manual_override,
+		       COALESCE(sub.verdict, '') AS verdict, COALESCE(sub.verdict_origin, '') AS verdict_origin,
+		       sub.score, COALESCE(sub.manual_override, FALSE) AS manual_override,
 		       sub.execution_time_ms, sub.memory_used_mb, sub.submitted_at,
 		       COALESCE(sub.review_status, 'not_required') AS review_status,
 		       (SELECT COUNT(*) FROM submission_comments sc WHERE sc.submission_id = sub.id) AS comments_count
@@ -52,6 +53,7 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 		StudentName     string        `db:"student_name"`
 		StudentEmail    string        `db:"student_email"`
 		Verdict         string        `db:"verdict"`
+		VerdictOrigin   string        `db:"verdict_origin"`
 		Score           sql.NullInt64 `db:"score"`
 		ManualOverride  bool          `db:"manual_override"`
 		ExecutionTimeMS int           `db:"execution_time_ms"`
@@ -76,6 +78,7 @@ func (r *PostgresTeacherRepository) ListCourseSubmissions(ctx context.Context, t
 			StudentName:     row.StudentName,
 			StudentEmail:    row.StudentEmail,
 			Verdict:         row.Verdict,
+			VerdictOrigin:   row.VerdictOrigin,
 			ManualOverride:  row.ManualOverride,
 			ExecutionTimeMS: row.ExecutionTimeMS,
 			MemoryUsedMB:    row.MemoryUsedMB,
@@ -115,6 +118,7 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		Boilerplate        string         `db:"boilerplate"`
 		Code               string         `db:"code"`
 		Verdict            string         `db:"verdict"`
+		VerdictOrigin      string         `db:"verdict_origin"`
 		Score              sql.NullInt64  `db:"score"`
 		ManualOverride     sql.NullBool   `db:"manual_override"`
 		OverrideReason     sql.NullString `db:"override_reason"`
@@ -137,7 +141,8 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		       COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
 		       COALESCE(ex.language, '') AS language,
 		       COALESCE(ex.boilerplate, '') AS boilerplate,
-		       sub.code, sub.verdict, sub.score, sub.manual_override, sub.override_reason,
+		       sub.code, COALESCE(sub.verdict, '') AS verdict, COALESCE(sub.verdict_origin, '') AS verdict_origin,
+		       sub.score, sub.manual_override, sub.override_reason,
 		       sub.graded_by, COALESCE(g.first_name || ' ' || g.last_name, '') AS graded_by_name,
 		       sub.execution_time_ms, sub.memory_used_mb, sub.ast_result, sub.generated_cases,
 		       ex.expected_complexity, sub.complexity_analysis, sub.submitted_at
@@ -186,10 +191,13 @@ func (r *PostgresTeacherRepository) GetTeacherSubmissionReview(ctx context.Conte
 		Boilerplate:        row.Boilerplate,
 		Code:               row.Code,
 		Verdict:            row.Verdict,
+		VerdictOrigin:      row.VerdictOrigin,
 		MetricsAvailable:   isJudge && strings.TrimSpace(row.Verdict) != "" && row.Verdict != "PENDING",
 		FilesAvailable:     false,
-		Files:              nil,
-		BaseFiles:          nil,
+		// Contrato de modalidad: el juez viaja sin archivos, pero la lista va
+		// vacía y no nula, para que el visor no tenga que distinguir ambos casos.
+		Files:     []domain.ProjectFile{},
+		BaseFiles: []domain.ProjectFile{},
 		ManualOverride:     row.ManualOverride.Valid && row.ManualOverride.Bool,
 		ExecutionTimeMS:    row.ExecutionTimeMS,
 		MemoryUsedMB:       row.MemoryUsedMB,

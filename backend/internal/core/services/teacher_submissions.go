@@ -195,7 +195,7 @@ func (s *TeacherService) syncReviewAfterOverride(ctx context.Context, tenantID, 
 		}
 	}
 
-	_ = s.reviewStore.RecordGradeFromSubmission(ctx, tenantID, submissionID)
+	_ = s.reviewStore.RecordGradeFromSubmission(ctx, tenantID, submissionID, actorID, reason)
 
 	s.auditReviewAction(ctx, tenantID, actorID, "SUBMISSION_GRADE_OVERRIDDEN", submissionID, map[string]interface{}{
 		"reason": reason,

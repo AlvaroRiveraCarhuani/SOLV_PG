@@ -155,7 +155,7 @@ func (r *PostgresTeacherRepository) GetExerciseSubmissionsForPlagiarism(ctx cont
 			sub.code AS code,
 			COALESCE(ex.boilerplate, '') AS boilerplate,
 			COALESCE(ex.environment_type, 'JUEZ_EFIMERO') AS environment_type,
-			sub.verdict,
+			COALESCE(sub.verdict, '') AS verdict,
 			sub.submitted_at
 		FROM submissions sub
 		JOIN exercises ex ON sub.exercise_id = ex.id
@@ -326,6 +326,9 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 		SubmissionsTimeline:           make([]domain.TimelineMetric, 0),
 	}
 
+	// Las tasas de éxito y los casos fallados son métricas del juez: se apoyan
+	// en el veredicto de los casos de prueba. Un proyecto de IDE no se evalúa
+	// así y su nota vive en la libreta, no en estas series.
 	// 1. Distribución por dificultad
 	type diffRow struct {
 		Difficulty  string  `db:"difficulty"`
@@ -341,6 +344,7 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 		FROM exercises e
 		LEFT JOIN submissions s ON s.exercise_id = e.id
 		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND e.difficulty IS NOT NULL AND e.difficulty != ''
+		  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 		GROUP BY e.difficulty
 	`
 	if err := r.db.SelectContext(ctx, &diffRows, diffQuery, tenantID, subjectID); err == nil {
@@ -368,6 +372,7 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 		CROSS JOIN LATERAL unnest(e.tags) AS t(tag)
 		LEFT JOIN submissions s ON s.exercise_id = e.id
 		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND t.tag != ''
+		  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 		GROUP BY t.tag
 		ORDER BY exercise_count DESC, success_rate ASC
 		LIMIT 10
@@ -397,6 +402,7 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 		FROM run_metrics rm
 		JOIN exercises e ON rm.exercise_id = e.id
 		WHERE e.tenant_id = $1 AND e.subject_id = $2 AND rm.verdict != 'AC'
+		  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 		GROUP BY e.id, e.title, rm.case_index
 		ORDER BY fail_count DESC
 		LIMIT 5
@@ -419,6 +425,7 @@ func (r *PostgresTeacherRepository) GetCourseAnalytics(ctx context.Context, tena
 			FROM submissions s
 			JOIN exercises e ON s.exercise_id = e.id
 			WHERE e.tenant_id = $1 AND e.subject_id = $2 AND s.verdict != 'AC'
+			  AND COALESCE(e.environment_type, 'JUEZ_EFIMERO') = 'JUEZ_EFIMERO'
 			GROUP BY e.id, e.title
 			ORDER BY fail_count DESC
 			LIMIT 5

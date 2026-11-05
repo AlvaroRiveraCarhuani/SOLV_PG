@@ -33,14 +33,28 @@ func (f *fakeVolumeOrchestrator) SnapshotPracticeEnvironmentVolume(ctx context.C
 
 type fakeSubmissionRepo struct {
 	created *domain.Submission
+	stored  map[string]*domain.Submission
+	creates int
 }
 
 func (f *fakeSubmissionRepo) Create(ctx context.Context, submission *domain.Submission) error {
+	f.creates++
+	if f.stored != nil {
+		if _, exists := f.stored[submission.ID]; exists {
+			return domain.ErrDuplicateSubmission
+		}
+		f.stored[submission.ID] = submission
+	}
 	f.created = submission
 	return nil
 }
 
 func (f *fakeSubmissionRepo) GetByID(ctx context.Context, tenantID, id string) (*domain.Submission, error) {
+	if f.stored != nil {
+		if sub, ok := f.stored[id]; ok {
+			return sub, nil
+		}
+	}
 	return nil, nil
 }
 
@@ -107,8 +121,8 @@ func TestSubmitPracticeEnvironmentProject_CreatesPendingSubmissionWithSnapshot(t
 	if subRepo.created == nil {
 		t.Fatal("esperada submission persistida")
 	}
-	if subRepo.created.Verdict != "PENDING" {
-		t.Errorf("esperado verdict PENDING, obtenido: %s", subRepo.created.Verdict)
+	if subRepo.created.Verdict != "" {
+		t.Errorf("una entrega de IDE no lleva veredicto del juez, obtenido: %q", subRepo.created.Verdict)
 	}
 	if subRepo.created.ReviewStatus != string(domain.ReviewPending) {
 		t.Errorf("esperado review_status pending para una entrega IDE, obtenido: %q", subRepo.created.ReviewStatus)

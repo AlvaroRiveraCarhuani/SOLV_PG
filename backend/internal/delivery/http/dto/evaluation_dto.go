@@ -45,6 +45,9 @@ type StudentEvaluationResponse struct {
 	ActualJSON         string                     `json:"actual_json,omitempty"`
 	GeneratedCases     []StudentGeneratedCaseDTO  `json:"generated_cases,omitempty"`
 	ComplexityAnalysis *domain.ComplexityAnalysis `json:"complexity_analysis,omitempty"`
+	// Receipt respalda el veredicto ante POST /api/v1/submissions. No revela
+	// nada del ejercicio: solo firma el resultado que el alumno ya recibió.
+	EvaluationReceipt string `json:"evaluation_receipt,omitempty"`
 }
 
 // ToStudentEvaluationResponse sanitiza el resultado de evaluación para el rol
@@ -63,6 +66,7 @@ func ToStudentEvaluationResponse(result *domain.EvaluationResult) *StudentEvalua
 		CaseResults:        result.CaseResults,
 		ActualJSON:         result.ActualJSON,
 		ComplexityAnalysis: result.ComplexityAnalysis,
+		EvaluationReceipt:  result.Receipt,
 	}
 
 	if failed := result.FailedTestCase; failed != nil {

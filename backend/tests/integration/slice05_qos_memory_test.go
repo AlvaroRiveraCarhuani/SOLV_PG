@@ -79,7 +79,7 @@ func TestHostAdmissionControl15PercentMargin(t *testing.T) {
 	studentID := uuid.NewString()
 	subjectID := uuid.NewString()
 
-	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err == nil {
 		t.Fatalf("Expected ErrHostMemoryExhausted when host RAM < 15%%, got nil error")
 	}
@@ -106,7 +106,7 @@ func TestOOMKilledThreeStrikePenalty(t *testing.T) {
 	subjectID := uuid.NewString()
 
 	// 1. Iniciar environment
-	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err != nil {
 		t.Fatalf("StartPracticeEnvironment failed: %v", err)
 	}
@@ -118,7 +118,7 @@ func TestOOMKilledThreeStrikePenalty(t *testing.T) {
 	ws.Status = domain.PracticeEnvironmentStatusOOMKilled
 
 	// 3. Intentar reiniciar inmediatamente -> Debe ser rechazado por la penalización de 5 minutos
-	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	_, err = service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err == nil {
 		t.Fatalf("Expected ErrOOMKilledCooldownPenalty when 3 strikes reached, got nil error")
 	}
@@ -157,7 +157,7 @@ func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
 	subjectID := uuid.NewString()
 
 	// 1. Arrancar contenedor con 256MB base
-	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	ws, err := service.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err != nil {
 		t.Fatalf("StartPracticeEnvironment failed: %v", err)
 	}

@@ -93,6 +93,27 @@ func (r *PostgresTeacherRepository) GetSubmissionReviewState(ctx context.Context
 	return domain.ReviewStatus(status), nil
 }
 
+// GetSubmissionEnvironmentType devuelve el entorno del ejercicio de la entrega,
+// con el mismo control de pertenencia a la materia que el resto de la revisión.
+func (r *PostgresTeacherRepository) GetSubmissionEnvironmentType(ctx context.Context, tenantID, teacherID, submissionID string) (string, error) {
+	const query = `
+		SELECT COALESCE(ex.environment_type, '')
+		FROM submissions sub
+		JOIN exercises ex ON ex.id = sub.exercise_id
+		JOIN subjects s ON s.id = ex.subject_id
+		WHERE sub.id = $1 AND sub.tenant_id = $2
+		  AND ($3 = '' OR s.teacher_id::text = $3)
+	`
+	var environmentType string
+	if err := r.db.GetContext(ctx, &environmentType, query, submissionID, tenantID, teacherID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", domain.ErrNotFound
+		}
+		return "", fmt.Errorf("failed to load submission environment type: %w", err)
+	}
+	return environmentType, nil
+}
+
 // UpdateSubmissionReview persiste el nuevo estado de revisión. La transición se
 // valida antes en el servicio; aquí se exige que el estado no haya cambiado
 // entre la lectura y la escritura para que dos docentes no pisen la corrección.
@@ -107,12 +128,15 @@ func (r *PostgresTeacherRepository) UpdateSubmissionReview(
 ) error {
 	const query = `
 		UPDATE submissions sub
-		SET review_status = $4,
+		SET review_status = $4::text,
 		    reviewed_at = NOW(),
 		    reviewed_by = NULLIF($5, '')::uuid,
 		    feedback_summary = $6,
-		    returned_at = CASE WHEN $4 = 'returned' THEN NOW() ELSE sub.returned_at END,
-		    score = COALESCE($7, sub.score)
+		    returned_at = CASE WHEN $4::text = 'returned' THEN NOW() ELSE sub.returned_at END,
+		    score = COALESCE($7::int, sub.score),
+		    -- Quien asigna la nota vigente es quien califica ahora, no quien lo
+		    -- hizo antes: una recorrección de otro docente reemplaza la autoría.
+		    graded_by = CASE WHEN $7::int IS NULL THEN sub.graded_by ELSE NULLIF($5, '')::uuid END
 		FROM exercises ex
 		JOIN subjects s ON s.id = ex.subject_id
 		WHERE sub.exercise_id = ex.id
@@ -135,11 +159,14 @@ func (r *PostgresTeacherRepository) UpdateSubmissionReview(
 
 // RecordGradeFromSubmission refleja en la celda de nota la entrega recién
 // calificada, sin pisar una selección manual del docente.
-func (r *PostgresTeacherRepository) RecordGradeFromSubmission(ctx context.Context, tenantID, submissionID string) error {
+func (r *PostgresTeacherRepository) RecordGradeFromSubmission(ctx context.Context, tenantID, submissionID, actorID, reason string) error {
+	// La procedencia de la celda sale de la entrega: si tiene docente que asignó
+	// la nota, la celda es manual y conserva su identidad. Sin docente, la nota
+	// vino del juez y la celda es automática.
 	const query = `
 		INSERT INTO exercise_grades (
 		    student_id, exercise_id, subject_id, tenant_id,
-		    selected_submission_id, score, source, updated_at
+		    selected_submission_id, score, source, overridden_by, reason, updated_at
 		)
 		SELECT sub.student_id,
 		       sub.exercise_id,
@@ -147,7 +174,13 @@ func (r *PostgresTeacherRepository) RecordGradeFromSubmission(ctx context.Contex
 		       sub.tenant_id,
 		       sub.id,
 		       COALESCE(sub.score, CASE WHEN sub.verdict = 'AC' OR COALESCE(sub.manual_override, FALSE) THEN 100 ELSE NULL END),
-		       'auto',
+		       CASE WHEN sub.graded_by IS NOT NULL THEN 'manual' ELSE 'auto' END,
+		       sub.graded_by,
+		       CASE
+		           WHEN sub.graded_by IS NULL THEN ''
+		           WHEN $3 <> '' THEN $3
+		           ELSE 'Corrección docente'
+		       END,
 		       NOW()
 		FROM submissions sub
 		JOIN exercises ex ON ex.id = sub.exercise_id
@@ -155,10 +188,20 @@ func (r *PostgresTeacherRepository) RecordGradeFromSubmission(ctx context.Contex
 		ON CONFLICT (student_id, exercise_id) DO UPDATE
 		SET selected_submission_id = EXCLUDED.selected_submission_id,
 		    score = EXCLUDED.score,
+		    source = CASE WHEN exercise_grades.source = 'manual' THEN 'manual' ELSE EXCLUDED.source END,
+		    overridden_by = COALESCE(EXCLUDED.overridden_by, exercise_grades.overridden_by),
+		    -- El motivo de una nota manual existente no se borra con un ajuste del
+		    -- mismo docente que no trae uno nuevo.
+		    reason = CASE
+		        WHEN EXCLUDED.reason = '' THEN exercise_grades.reason
+		        WHEN $3 = '' AND exercise_grades.source = 'manual' THEN exercise_grades.reason
+		        ELSE EXCLUDED.reason
+		    END,
 		    updated_at = NOW()
 		WHERE exercise_grades.source <> 'manual'
+		   OR exercise_grades.selected_submission_id = EXCLUDED.selected_submission_id
 	`
-	if _, err := r.db.ExecContext(ctx, query, submissionID, tenantID); err != nil {
+	if _, err := r.db.ExecContext(ctx, query, submissionID, tenantID, strings.TrimSpace(reason)); err != nil {
 		return fmt.Errorf("failed to record grade from submission: %w", err)
 	}
 	return nil
@@ -189,7 +232,7 @@ func (r *PostgresTeacherRepository) SetExerciseGrade(
 	}
 
 	const submissionQuery = `
-		SELECT sub.verdict, sub.score, COALESCE(sub.manual_override, FALSE) AS manual_override
+		SELECT COALESCE(sub.verdict, '') AS verdict, sub.score, COALESCE(sub.manual_override, FALSE) AS manual_override
 		FROM submissions sub
 		WHERE sub.id = $1
 		  AND sub.student_id = $2
@@ -262,10 +305,11 @@ func (r *PostgresTeacherRepository) GetExerciseGradeCell(ctx context.Context, te
 		SelectedSubmissionID sql.NullString `db:"selected_submission_id"`
 		Score                sql.NullInt64  `db:"score"`
 		Source               string         `db:"source"`
+		OverriddenBy         sql.NullString `db:"overridden_by"`
 		Reason               string         `db:"reason"`
 	}
 	const query = `
-		SELECT selected_submission_id, score, source, reason
+		SELECT selected_submission_id, score, source, overridden_by::text, reason
 		FROM exercise_grades
 		WHERE student_id = $1 AND exercise_id = $2 AND tenant_id = $3
 	`
@@ -278,9 +322,51 @@ func (r *PostgresTeacherRepository) GetExerciseGradeCell(ctx context.Context, te
 	}
 
 	cell := &domain.ExerciseGradeCell{Source: row.Source, Reason: row.Reason}
+	if row.OverriddenBy.Valid {
+		cell.OverriddenBy = row.OverriddenBy.String
+	}
 	if row.SelectedSubmissionID.Valid {
 		submissionID := row.SelectedSubmissionID.String
 		cell.SelectedSubmissionID = &submissionID
+	}
+	if row.Score.Valid {
+		score := int(row.Score.Int64)
+		cell.Score = &score
+	}
+	return cell, nil
+}
+
+// GetSubmissionGradeCell devuelve la celda que tiene seleccionada esta entrega.
+// Se usa antes de calificar para respetar la nota y el motivo de otro docente.
+func (r *PostgresTeacherRepository) GetSubmissionGradeCell(ctx context.Context, tenantID, submissionID string) (*domain.ExerciseGradeCell, error) {
+	type cellRow struct {
+		SelectedSubmissionID sql.NullString `db:"selected_submission_id"`
+		Score                sql.NullInt64  `db:"score"`
+		Source               string         `db:"source"`
+		OverriddenBy         sql.NullString `db:"overridden_by"`
+		Reason               string         `db:"reason"`
+	}
+	const query = `
+		SELECT eg.selected_submission_id, eg.score, eg.source, eg.overridden_by::text, eg.reason
+		FROM exercise_grades eg
+		JOIN submissions sub ON sub.id = eg.selected_submission_id
+		WHERE eg.tenant_id = $1 AND eg.selected_submission_id = $2
+	`
+	var row cellRow
+	if err := r.db.GetContext(ctx, &row, query, tenantID, submissionID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrGradeCellNotFound
+		}
+		return nil, fmt.Errorf("failed to load submission grade cell: %w", err)
+	}
+
+	cell := &domain.ExerciseGradeCell{Source: row.Source, Reason: row.Reason}
+	if row.SelectedSubmissionID.Valid {
+		selected := row.SelectedSubmissionID.String
+		cell.SelectedSubmissionID = &selected
+	}
+	if row.OverriddenBy.Valid {
+		cell.OverriddenBy = row.OverriddenBy.String
 	}
 	if row.Score.Valid {
 		score := int(row.Score.Int64)

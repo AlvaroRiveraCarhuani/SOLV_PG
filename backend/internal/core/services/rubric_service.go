@@ -118,18 +118,25 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	ctx context.Context,
 	submissionID uuid.UUID,
 	req domain.RubricEvaluationRequest,
+	actor domain.RubricActor,
 ) (*domain.RubricEvaluationResponse, error) {
 	var subMeta struct {
 		ExerciseID uuid.UUID      `db:"exercise_id"`
 		TenantID   uuid.UUID      `db:"tenant_id"`
 		SubjectID  sql.NullString `db:"subject_id"`
 	}
+	// La entrega se busca dentro de la institución del docente y de una materia
+	// que tenga asignada. Un administrador conserva el alcance de su tenant.
+	tenantID := domain.GetTenantID(ctx)
 	err := s.db.GetContext(ctx, &subMeta, `
 		SELECT sub.exercise_id, sub.tenant_id, ex.subject_id::text AS subject_id
 		FROM submissions sub
 		JOIN exercises ex ON ex.id = sub.exercise_id
+		LEFT JOIN subjects s ON s.id = ex.subject_id
 		WHERE sub.id = $1
-	`, submissionID)
+		  AND ($2 = '' OR sub.tenant_id::text = $2)
+		  AND ($3 OR (s.teacher_id IS NOT NULL AND s.teacher_id::text = $4))
+	`, submissionID, tenantID, actor.IsAdmin, actor.UserID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("%w: la entrega %s no existe en esta institución", domain.ErrNotFound, submissionID)
@@ -164,12 +171,39 @@ func (s *DefaultRubricService) EvaluateSubmission(
 	}
 	defer func() { _ = tx.Rollback() }()
 
+	// Una nota manual de otro docente no se reemplaza sin justificación. La
+	// celda se bloquea para que dos docentes no la cambien a la vez, y el
+	// motivo queda escrito cuando la recorrección la hace otra persona.
+	justification := ""
+	var existingCell struct {
+		Source       string         `db:"source"`
+		OverriddenBy sql.NullString `db:"overridden_by"`
+		Score        sql.NullInt64  `db:"score"`
+	}
+	cellErr := tx.GetContext(ctx, &existingCell, `
+		SELECT source, overridden_by::text, score
+		FROM exercise_grades
+		WHERE selected_submission_id = $1 AND tenant_id = $2
+		FOR UPDATE
+	`, submissionID, subMeta.TenantID)
+	if cellErr != nil && !errors.Is(cellErr, sql.ErrNoRows) {
+		return nil, fmt.Errorf("failed to load grade cell: %w", cellErr)
+	}
+	if cellErr == nil && existingCell.Source == "manual" && existingCell.OverriddenBy.Valid &&
+		existingCell.OverriddenBy.String != actor.UserID &&
+		(!existingCell.Score.Valid || int(existingCell.Score.Int64) != roundedScoreInt) {
+		if len(feedback) < 10 {
+			return nil, domain.ErrGradeReasonRequired
+		}
+		justification = feedback
+	}
+
+	// La rúbrica es una decisión académica del docente: escribe la nota y el
+	// estado de revisión, nunca el veredicto. El veredicto pertenece al juez y
+	// una entrega de IDE no tiene ninguno.
 	result, err := tx.ExecContext(ctx, `
 		UPDATE submissions
 		SET score = $1,
-		    verdict = 'AC',
-		    manual_override = TRUE,
-		    override_reason = 'Evaluado por rúbrica',
 		    graded_by = COALESCE($3, graded_by),
 		    review_status = 'graded',
 		    reviewed_at = NOW(),
@@ -195,10 +229,13 @@ func (s *DefaultRubricService) EvaluateSubmission(
 
 	// La nota de la entrega y la celda de la libreta se escriben en la misma
 	// transacción: si la libreta falla, la entrega no queda como calificada.
+	// La celda declara procedencia humana: la nota la puso un docente con
+	// criterios, no el sistema. La recorrección del mismo docente vuelve a
+	// escribir la celda, para que corregir no quede bloqueado por sí mismo.
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO exercise_grades (
 		    student_id, exercise_id, subject_id, tenant_id,
-		    selected_submission_id, score, source, updated_at
+		    selected_submission_id, score, source, overridden_by, reason, updated_at
 		)
 		SELECT sub.student_id,
 		       sub.exercise_id,
@@ -206,7 +243,9 @@ func (s *DefaultRubricService) EvaluateSubmission(
 		       sub.tenant_id,
 		       sub.id,
 		       $1,
-		       'auto',
+		       'manual',
+		       $4,
+		       CASE WHEN $5 <> '' THEN $5 ELSE 'Evaluado por rúbrica' END,
 		       NOW()
 		FROM submissions sub
 		JOIN exercises ex ON ex.id = sub.exercise_id
@@ -214,9 +253,13 @@ func (s *DefaultRubricService) EvaluateSubmission(
 		ON CONFLICT (student_id, exercise_id) DO UPDATE
 		SET selected_submission_id = EXCLUDED.selected_submission_id,
 		    score = EXCLUDED.score,
+		    source = EXCLUDED.source,
+		    overridden_by = EXCLUDED.overridden_by,
+		    reason = EXCLUDED.reason,
 		    updated_at = NOW()
 		WHERE exercise_grades.source <> 'manual'
-	`, roundedScoreInt, submissionID, subMeta.TenantID); err != nil {
+		   OR exercise_grades.selected_submission_id = EXCLUDED.selected_submission_id
+	`, roundedScoreInt, submissionID, subMeta.TenantID, authorID, justification); err != nil {
 		return nil, fmt.Errorf("failed to update gradebook: %w", err)
 	}
 

@@ -46,6 +46,7 @@ type SubmissionQueueItem struct {
 	StudentName     string    `json:"student_name" db:"student_name"`
 	StudentEmail    string    `json:"student_email" db:"student_email"`
 	Verdict         string    `json:"verdict" db:"verdict"`
+	VerdictOrigin   string    `json:"verdict_origin,omitempty" db:"verdict_origin"`
 	Score           *int      `json:"score,omitempty" db:"score"`
 	ManualOverride  bool      `json:"manual_override" db:"manual_override"`
 	ExecutionTimeMS int       `json:"execution_time_ms" db:"execution_time_ms"`
@@ -79,6 +80,7 @@ type TeacherSubmissionReviewDTO struct {
 	Boilerplate        string              `json:"boilerplate,omitempty" db:"boilerplate"`
 	Code               string              `json:"code,omitempty" db:"code"`
 	Verdict            string              `json:"verdict" db:"verdict"`
+	VerdictOrigin      string              `json:"verdict_origin,omitempty" db:"verdict_origin"`
 	Score              *int                `json:"score,omitempty" db:"score"`
 	ManualOverride     bool                `json:"manual_override" db:"manual_override"`
 	OverrideReason     string              `json:"override_reason,omitempty" db:"override_reason"`

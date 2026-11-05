@@ -85,6 +85,7 @@ func main() {
 	submissionService := services.NewSubmissionService(submissionRepo)
 	submissionService.SetKeystrokeRepository(keystrokeRepo)
 	submissionService.SetGeneratedCaseSnapshotRepository(generatedCaseSnapshotRepo)
+	submissionService.SetExerciseRepository(exerciseRepo)
 	smtpMailer := mailer.NewSMTPMailerFromEnv()
 	defer func() { _ = smtpMailer.Close() }()
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo, smtpMailer)

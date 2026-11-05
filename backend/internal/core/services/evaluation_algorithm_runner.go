@@ -47,6 +47,12 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 		return nil, fmt.Errorf("ejercicio no encontrado (ID: %s): %w", exerciseID, err)
 	}
 
+	// El juez solo evalúa ejercicios de su modalidad. Un proyecto de IDE se
+	// corrige con rúbrica y su entrega nunca pasa por aquí.
+	if exercise.EnvironmentType == string(domain.EnvironmentTypeIDEPersistente) {
+		return nil, domain.ErrEvaluationRequiresJudge
+	}
+
 	// 2.5 Verificar si el módulo está bloqueado para el estudiante (fail-closed, salvaguarda de examen)
 	if exercise.ModuleID != nil && *exercise.ModuleID != "" && exercise.Purpose != string(domain.ExercisePurposeExam) && s.moduleRepo != nil {
 		tenantID := domain.GetTenantID(ctx)
@@ -87,6 +93,21 @@ func (s *EvaluationService) Evaluate(ctx context.Context, exerciseID string, lan
 			slog.Float64("memory_used_mb", result.MemoryUsedMB),
 			slog.Float64("duration_ms", float64(evalDuration.Microseconds())/1000.0),
 		)
+
+		// El resultado viaja con su recibo firmado: la entrega del juez acepta
+		// este veredicto y no el que declare el navegador por su cuenta.
+		if receipt, err := SignEvaluationReceipt(EvaluationReceipt{
+			TenantID:        domain.GetTenantID(ctx),
+			ExerciseID:      exerciseID,
+			StudentID:       studentID,
+			Verdict:         verdict,
+			ExecutionTimeMS: result.ExecutionTimeMS,
+			MemoryUsedMB:    int(result.MemoryUsedMB),
+			CodeHash:        HashEvaluatedCode(sourceCode),
+			IssuedAt:        time.Now().Unix(),
+		}); err == nil {
+			result.Receipt = receipt
+		}
 	}
 
 	return result, evalErr

@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 
 	"solv-backend/internal/core/domain"
@@ -59,18 +60,45 @@ func (s *TeacherService) UpdateSubmissionReview(ctx context.Context, tenantID, t
 	if err != nil {
 		return nil, err
 	}
-	if err := domain.ValidateReviewTransition(current, next); err != nil {
+	if current == domain.ReviewNotRequired && next == domain.ReviewGraded {
+		// Una entrega IDE anterior a la separación de modalidades pudo quedar
+		// en 'not_required' con la nota vacía. El docente debe poder corregirla
+		// igual. En juez la transición sigue cerrada: ahí el estado lo fija el
+		// propio juez.
+		env, envErr := store.GetSubmissionEnvironmentType(ctx, tenantID, teacherID, submissionID)
+		if envErr != nil {
+			return nil, envErr
+		}
+		if env != domain.PracticeEnvironmentTypeIDEPersistente {
+			return nil, domain.ErrInvalidReviewTransition
+		}
+	} else if err := domain.ValidateReviewTransition(current, next); err != nil {
 		return nil, err
 	}
 
 	feedback := strings.TrimSpace(req.FeedbackSummary)
+
+	// Una nota manual de otro docente no se cambia sin motivo. Se valida antes
+	// de escribir para que un intento rechazado no deje la revisión a medias.
+	if req.Score != nil {
+		cell, cellErr := store.GetSubmissionGradeCell(ctx, tenantID, submissionID)
+		if cellErr != nil && !errors.Is(cellErr, domain.ErrGradeCellNotFound) {
+			return nil, cellErr
+		}
+		if cellErr == nil && cell != nil && cell.Source == "manual" &&
+			cell.OverriddenBy != "" && cell.OverriddenBy != teacherID &&
+			(cell.Score == nil || *cell.Score != *req.Score) && len(feedback) < 10 {
+			return nil, domain.ErrGradeReasonRequired
+		}
+	}
+
 	if err := store.UpdateSubmissionReview(ctx, tenantID, teacherID, submissionID, current, next, feedback, req.Score, teacherID); err != nil {
 		return nil, err
 	}
 
 	if next == domain.ReviewGraded || next == domain.ReviewReturned {
 		// Calificar alimenta la libreta; el error no invalida la corrección.
-		_ = store.RecordGradeFromSubmission(ctx, tenantID, submissionID)
+		_ = store.RecordGradeFromSubmission(ctx, tenantID, submissionID, teacherID, feedback)
 	}
 	if next == domain.ReviewReturned {
 		s.notifyGradePublished(ctx, tenantID, submissionID, &teacherID)

@@ -177,12 +177,22 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 			Type:      domain.ExerciseType("code"),
 			Status:    "draft",
 		},
+		{
+			ID:              "ex-project",
+			SubjectID:       &subjectID,
+			Title:           "Proyecto integrador",
+			Type:            domain.ExerciseType("project"),
+			Status:          "published",
+			EnvironmentType: string(domain.EnvironmentTypeIDEPersistente),
+		},
 	}
 
 	now := time.Now()
 	submissions := []*domain.Submission{
-		{ID: "sub-1", ExerciseID: "ex-completed", Verdict: "AC", SubmittedAt: now.Add(-time.Hour)},
+		{ID: "sub-1", ExerciseID: "ex-completed", Verdict: "AC", VerdictOrigin: domain.VerdictOriginJudge, SubmittedAt: now.Add(-time.Hour)},
 		{ID: "sub-2", ExerciseID: "ex-in-progress", Verdict: "WA", SubmittedAt: now.Add(-30 * time.Minute)},
+		// Un proyecto corregido con rúbrica: el último resultado no es del juez.
+		{ID: "sub-3", ExerciseID: "ex-project", Verdict: "AC", VerdictOrigin: domain.VerdictOriginRubric, SubmittedAt: now.Add(-10 * time.Minute)},
 	}
 
 	handler := httpdelivery.NewStudentHandler(
@@ -197,6 +207,7 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 				"ex-in-progress": exercises[2],
 				"ex-pending":     exercises[3],
 				"ex-draft":       exercises[4],
+				"ex-project":     exercises[5],
 			},
 		},
 	)
@@ -217,8 +228,8 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 	var items []httpdelivery.StudentEvaluationItem
 	decodeStudentData(t, rr.Body.Bytes(), &items)
 
-	if len(items) != 4 {
-		t.Fatalf("expected 4 published exercises, got %d: %+v", len(items), items)
+	if len(items) != 5 {
+		t.Fatalf("expected 5 published exercises, got %d: %+v", len(items), items)
 	}
 
 	statusByExercise := make(map[string]httpdelivery.StudentEvaluationItem, len(items))
@@ -236,11 +247,13 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 		wantAttempts   int
 		wantBestScore  *int
 		wantLastResult string
+		wantLastOrigin string
 	}{
-		{exerciseID: "ex-completed", wantStatus: "completed", wantAttempts: 1, wantBestScore: intPtr(100), wantLastResult: "AC"},
+		{exerciseID: "ex-completed", wantStatus: "completed", wantAttempts: 1, wantBestScore: intPtr(100), wantLastResult: "AC", wantLastOrigin: domain.VerdictOriginJudge},
 		{exerciseID: "ex-overdue", wantStatus: "overdue", wantAttempts: 0},
 		{exerciseID: "ex-in-progress", wantStatus: "in_progress", wantAttempts: 1, wantLastResult: "WA"},
 		{exerciseID: "ex-pending", wantStatus: "pending", wantAttempts: 0},
+		{exerciseID: "ex-project", wantStatus: "completed", wantAttempts: 1, wantBestScore: intPtr(100), wantLastResult: "AC", wantLastOrigin: domain.VerdictOriginRubric},
 	}
 
 	for _, tc := range cases {
@@ -256,6 +269,9 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 		}
 		if tc.wantLastResult != "" && item.LastVerdict != tc.wantLastResult {
 			t.Errorf("exercise %s: expected last verdict %q, got %q", tc.exerciseID, tc.wantLastResult, item.LastVerdict)
+		}
+		if tc.wantLastOrigin != "" && item.LastVerdictOrigin != tc.wantLastOrigin {
+			t.Errorf("exercise %s: expected last verdict origin %q, got %q", tc.exerciseID, tc.wantLastOrigin, item.LastVerdictOrigin)
 		}
 		if tc.wantBestScore == nil {
 			if item.BestScore != nil {
@@ -335,6 +351,71 @@ func TestGetStudentSubmissionsReturnsFullHistory(t *testing.T) {
 		if item.ExerciseType != "code" || item.ExercisePurpose != "class" {
 			t.Errorf("unexpected exercise enrichment %q %q", item.ExerciseType, item.ExercisePurpose)
 		}
+		if item.EnvironmentType != string(domain.EnvironmentTypeJuezEfimero) {
+			t.Errorf("expected default environment_type JUEZ_EFIMERO, got %q", item.EnvironmentType)
+		}
+	}
+}
+
+func TestGetStudentSubmissionsParsesIDEProjectFiles(t *testing.T) {
+	subjectID := "subj-2"
+	subject := &domain.Subject{ID: subjectID, Name: "Desarrollo Web", Code: "WEB-201"}
+	exercise := &domain.Exercise{
+		ID:              "ex-ide",
+		SubjectID:       &subjectID,
+		Title:           "API REST",
+		Type:            domain.ExerciseType("code"),
+		Purpose:         "class",
+		EnvironmentType: string(domain.EnvironmentTypeIDEPersistente),
+		Language:        "javascript",
+	}
+
+	snapshotCode := "# === FILE: package.json ===\n{\"name\": \"api\"}\n\n# === FILE: index.js ===\nconsole.log(\"hello\");\n"
+	submission := &domain.Submission{
+		ID:          "sub-ide-1",
+		ExerciseID:  "ex-ide",
+		Verdict:     "PENDING",
+		Code:        snapshotCode,
+		SubmittedAt: time.Now(),
+	}
+
+	handler := httpdelivery.NewStudentHandler(
+		&mockSubjectRepoForStudent{subjects: []*domain.Subject{subject}},
+		nil,
+		&mockSubmissionRepoForStudent{submissions: []*domain.Submission{submission}},
+		&mockExerciseRepoForStudent{
+			byID: map[string]*domain.Exercise{"ex-ide": exercise},
+		},
+	)
+
+	router := http.NewServeMux()
+	router.HandleFunc("GET /api/v1/student/submissions", handler.GetSubmissions)
+
+	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/submissions", nil)
+	req.Header.Set("X-Tenant-Id", "tenant-test")
+	req.Header.Set("X-User-Id", "student-1")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d: %s", rr.Code, rr.Body.String())
+	}
+
+	var items []httpdelivery.StudentSubmissionHistoryItem
+	decodeStudentData(t, rr.Body.Bytes(), &items)
+
+	if len(items) != 1 {
+		t.Fatalf("expected 1 submission, got %d", len(items))
+	}
+	item := items[0]
+	if item.EnvironmentType != string(domain.EnvironmentTypeIDEPersistente) {
+		t.Fatalf("expected IDE_PERSISTENTE, got %q", item.EnvironmentType)
+	}
+	if !item.FilesAvailable || len(item.Files) != 2 {
+		t.Fatalf("expected 2 files parsed, got available=%v, len=%d", item.FilesAvailable, len(item.Files))
+	}
+	if item.Files[0].Path != "index.js" || item.Files[1].Path != "package.json" {
+		t.Errorf("unexpected file paths: %+v", item.Files)
 	}
 }
 

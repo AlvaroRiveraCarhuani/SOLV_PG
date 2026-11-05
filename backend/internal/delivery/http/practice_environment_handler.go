@@ -346,10 +346,11 @@ func (h *PracticeEnvironmentHandler) SubmitPracticeEnvironmentProject(w http.Res
 	}
 
 	SendJSON(w, http.StatusCreated, map[string]any{
-		"submission_id": submission.ID,
-		"environment_id":  environmentID,
-		"exercise_id":   submission.ExerciseID,
-		"verdict":       submission.Verdict,
-		"score":         submission.Score,
+		"submission_id":  submission.ID,
+		"environment_id": environmentID,
+		"exercise_id":    submission.ExerciseID,
+		"verdict":        submission.Verdict,
+		"verdict_origin": submission.VerdictOrigin,
+		"score":          submission.Score,
 	}, "Proyecto entregado correctamente")
 }

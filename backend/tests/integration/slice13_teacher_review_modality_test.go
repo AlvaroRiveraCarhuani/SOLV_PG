@@ -3,6 +3,7 @@ package integration
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -105,7 +106,7 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 			id, tenant_id, exercise_id, student_id, code, verdict, review_status,
 			ast_result, generated_cases, complexity_analysis, submitted_at
 		)
-		VALUES ($1, $2, $3, $4, $5, 'PENDING', 'pending',
+		VALUES ($1, $2, $3, $4, $5, NULL, 'pending',
 		        '{}'::jsonb, '{}'::jsonb, '{}'::jsonb, NOW())
 	`, submissionID, tenantID, exerciseID, studentID, code); err != nil {
 		t.Fatalf("no se pudo sembrar la entrega IDE: %v", err)
@@ -224,7 +225,7 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 	result, err := rubricService.EvaluateSubmission(ctx, uuid.MustParse(submissionID), domain.RubricEvaluationRequest{
 		Selections: map[string]string{"c1": "Cumple", "c2": "No cumple"},
 		Comments:   "Arquitectura correcta; falta endurecer la validación del body.",
-	})
+	}, domain.RubricActor{UserID: teacherID})
 	if err != nil {
 		t.Fatalf("EvaluateSubmission devolvió error: %v", err)
 	}
@@ -234,7 +235,7 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 
 	var submission struct {
 		Score          sql.NullInt64  `db:"score"`
-		Verdict        string         `db:"verdict"`
+		Verdict        sql.NullString `db:"verdict"`
 		ReviewStatus   string         `db:"review_status"`
 		ReviewedAt     sql.NullTime   `db:"reviewed_at"`
 		ReviewedBy     sql.NullString `db:"reviewed_by"`
@@ -262,23 +263,49 @@ func TestSlice13_TeacherReviewModalityAndRubricClosure(t *testing.T) {
 	if submission.Feedback == "" {
 		t.Error("feedback_summary no quedó escrito")
 	}
-	if !submission.ManualOverride.Valid || !submission.ManualOverride.Bool {
-		t.Error("manual_override debe quedar en true tras la rúbrica")
+	// Separación de capas: la rúbrica califica y no toca el veredicto. Un
+	// proyecto de IDE no tiene veredicto del juez ni antes ni después.
+	if submission.Verdict.Valid {
+		t.Errorf("una entrega de IDE no debe llevar veredicto, obtenido %q", submission.Verdict.String)
+	}
+	if submission.ManualOverride.Valid && submission.ManualOverride.Bool {
+		t.Error("la rúbrica no marca manual_override: no modifica ningún veredicto")
 	}
 
 	var cell struct {
-		SelectedSubmissionID string `db:"selected_submission_id"`
-		Score                int    `db:"score"`
-		Source               string `db:"source"`
-		SubjectID            string `db:"subject_id"`
+		SelectedSubmissionID string         `db:"selected_submission_id"`
+		Score                int            `db:"score"`
+		Source               string         `db:"source"`
+		SubjectID            string         `db:"subject_id"`
+		OverriddenBy         sql.NullString `db:"overridden_by"`
 	}
 	if err := db.GetDB().Get(&cell, `
-		SELECT selected_submission_id, score, source, subject_id
+		SELECT selected_submission_id, score, source, subject_id, overridden_by
 		FROM exercise_grades WHERE student_id = $1 AND exercise_id = $2
 	`, studentID, exerciseID); err != nil {
 		t.Fatalf("no se escribió la celda de la libreta: %v", err)
 	}
-	if cell.SelectedSubmissionID != submissionID || cell.Score != 50 || cell.Source != "auto" || cell.SubjectID != subjectID {
+	// La celda declara procedencia humana: la nota la puso el docente.
+	if cell.SelectedSubmissionID != submissionID || cell.Score != 50 || cell.Source != "manual" || cell.SubjectID != subjectID {
 		t.Errorf("celda de libreta inesperada: %+v", cell)
+	}
+	if !cell.OverriddenBy.Valid || cell.OverriddenBy.String != teacherID {
+		t.Errorf("overridden_by: esperado %s, obtenido %+v", teacherID, cell.OverriddenBy)
+	}
+
+	// Invariante de modalidad: el override de veredictos es del juez. Una
+	// entrega de IDE lo rechaza y conserva su ausencia de veredicto.
+	subRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
+	score := 80
+	overrideErr := subRepo.UpdateOverride(context.Background(), tenantID, submissionID, "AC", "Intento de veredicto en un proyecto", &score, &teacherID)
+	if !errors.Is(overrideErr, domain.ErrOverrideRequiresJudge) {
+		t.Errorf("override en IDE: esperado ErrOverrideRequiresJudge, obtenido %v", overrideErr)
+	}
+	var verdictAfterOverride sql.NullString
+	if err := db.GetDB().Get(&verdictAfterOverride, `SELECT verdict FROM submissions WHERE id = $1`, submissionID); err != nil {
+		t.Fatalf("no se pudo releer el veredicto: %v", err)
+	}
+	if verdictAfterOverride.Valid {
+		t.Errorf("el override rechazado no debe escribir veredicto, obtenido %q", verdictAfterOverride.String)
 	}
 }

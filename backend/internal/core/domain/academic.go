@@ -42,6 +42,9 @@ type Submission struct {
 	EnvironmentID        *string         `db:"environment_id" json:"environment_id,omitempty"`
 	Code               string          `db:"code" json:"code"`
 	Verdict            string          `db:"verdict" json:"verdict"`
+	// VerdictOrigin declara quién escribió el veredicto: el juez, la rúbrica,
+	// un ajuste docente, o nada (fila histórica no atribuible).
+	VerdictOrigin      string          `db:"verdict_origin" json:"verdict_origin,omitempty"`
 	ReviewStatus       string          `db:"review_status" json:"review_status"`
 	ASTResult          json.RawMessage `db:"ast_result" json:"ast_result"`
 	GeneratedCases     json.RawMessage `db:"generated_cases" json:"generated_cases,omitempty"`

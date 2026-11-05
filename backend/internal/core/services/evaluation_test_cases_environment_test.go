@@ -2,6 +2,7 @@ package services_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"testing"
 
@@ -58,4 +59,29 @@ func TestBulkAddTestCases_EnvironmentGuard(t *testing.T) {
 
 	t.Run("juez acepta casos", func(t *testing.T) { run(t, "JUEZ_EFIMERO", false) })
 	t.Run("IDE rechaza casos", func(t *testing.T) { run(t, "IDE_PERSISTENTE", true) })
+}
+
+// La modalidad no es solo configuración de la práctica: el endpoint de
+// evaluación automática rechaza un ejercicio de IDE antes de intentar ejecutar
+// nada, aunque tenga una configuración de algoritmia heredada.
+func TestEvaluate_RejectsIDEExercise(t *testing.T) {
+	repo := &mockExerciseRepo{
+		exercises: map[string]*domain.Exercise{
+			"ex-ide": {
+				ID:              "ex-ide",
+				Title:           "Proyecto",
+				EnvironmentType: "IDE_PERSISTENTE",
+				Language:        "python",
+				Config: domain.ExerciseConfig{
+					Algorithm: &domain.AlgorithmConfig{TimeLimitMS: 1000, MemoryLimitMB: 64},
+				},
+			},
+		},
+	}
+	svc := services.NewEvaluationService(repo, nil, nil, &checklistMockRunner{})
+
+	_, err := svc.Evaluate(context.Background(), "ex-ide", "python", base64.StdEncoding.EncodeToString([]byte("print(1)")))
+	if !errors.Is(err, domain.ErrEvaluationRequiresJudge) {
+		t.Fatalf("esperado ErrEvaluationRequiresJudge, obtenido %v", err)
+	}
 }

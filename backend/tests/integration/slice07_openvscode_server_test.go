@@ -32,16 +32,24 @@ func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
 	studentID := uuid.NewString()
 	subjectID := "00000000-0000-0000-0000-000000000001"
 
-	// Asegurar existencia de tenant y materia base para evitar fallos de clave foránea
+	// Asegurar existencia de tenant, materia, plantilla y ejercicio base para
+	// evitar fallos de clave foránea: el entorno pertenece a un ejercicio concreto
+	// y el ejercicio exige una plantilla.
 	_, _ = dbInstance.GetDB().Exec(`
 		INSERT INTO tenants (id, name, slug) VALUES ('00000000-0000-0000-0000-000000000001', 'Default', 'default') ON CONFLICT (id) DO NOTHING;
 		INSERT INTO subjects (id, tenant_id, name, code) VALUES ('00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Materia General', 'GEN-101') ON CONFLICT (id) DO NOTHING;
+		INSERT INTO lab_templates (id, tenant_id, name, docker_image, base_ram_mb)
+			VALUES ('00000000-0000-0000-0000-0000000000a1', '00000000-0000-0000-0000-000000000001', 'Plantilla de prueba', '` + domain.OpenVSCodeImage + `', 512)
+			ON CONFLICT (id) DO NOTHING;
+		INSERT INTO exercises (id, tenant_id, subject_id, title, template_id)
+			VALUES ('` + testExerciseID + `', '00000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000001', 'Práctica de prueba', '00000000-0000-0000-0000-0000000000a1')
+			ON CONFLICT (id) DO NOTHING;
 	`)
 
 	ctx := context.Background()
 
 	// 1. Iniciar nuevo entorno con OpenVSCode Server
-	wsInstance, err := environmentService.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testPracticeID)
+	wsInstance, err := environmentService.StartPracticeEnvironmentForExercise(ctx, studentID, subjectID, testExerciseID)
 	if err != nil {
 		t.Fatalf("Failed to start OpenVSCode environment: %v", err)
 	}
