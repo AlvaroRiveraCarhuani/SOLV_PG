@@ -457,7 +457,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
     if (this.studioMode() === 'visual') {
       if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.selectedRuntimeComponent()) {
         return {
-          reason: 'Seleccione un Lenguaje Principal en la Columna 1 para configurar el Evaluador Automático.',
+          reason: 'Seleccione un Lenguaje Principal en la Columna 1 para configurar la evaluación automática.',
           tone: 'neutral'
         };
       }
@@ -475,7 +475,7 @@ export class TemplateStudioComponent implements OnInit, OnDestroy {
 
     if ((this.targetEnvironment() === 'JUEZ_EFIMERO' || this.targetEnvironment() === 'AMBOS') && !this.entrypoint().trim()) {
       return {
-        reason: 'Indique el comando de compilación y ejecución del Evaluador Automático.',
+        reason: 'Indique el comando de compilación y ejecución del entorno de evaluación.',
         tone: 'warning'
       };
     }

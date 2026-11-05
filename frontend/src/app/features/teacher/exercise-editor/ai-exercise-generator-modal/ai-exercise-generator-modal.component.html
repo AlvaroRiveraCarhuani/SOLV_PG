@@ -1,6 +1,6 @@
 <modal-shell animate.leave="motion-modal-out"
   title="Generar Borrador con Copiloto IA"
-  [subtitle]="isIde() ? 'Crea la consigna estructurada y la rúbrica de evaluación balanceada al 100%' : 'Crea enunciado, solución de referencia y casos de prueba sellados por el Evaluador Automático'"
+  [subtitle]="isIde() ? 'Crea la consigna estructurada y la rúbrica de evaluación balanceada al 100%' : 'Crea enunciado, solución de referencia y casos de prueba sellados por el motor de evaluación'"
   maxWidth="640px"
   [disableClose]="isGenerating()"
   (close)="closed.emit()"
@@ -70,7 +70,7 @@
             <h4 class="preview-title">{{ res.title }}</h4>
             <div class="preview-badges">
               @if (res.environment_type === 'IDE_PERSISTENTE' || isIde()) {
-                <span class="chip-lang font-mono" machineData>IDE Persistente</span>
+                <span class="chip-lang font-mono" machineData>{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
                 @if (res.template_name || res.template_id) {
                   <span class="chip-lang font-mono" machineData>{{ res.template_name || res.template_id }}</span>
                 }
@@ -116,12 +116,12 @@
         } @else if (res.runner_verified_all) {
           <div class="seal-banner seal-ok" role="status">
             <svg lucideShieldCheck class="seal-icon"></svg>
-            <span>Salidas esperadas selladas por el ejecutor del Evaluador Automático (100% casos verificados)</span>
+            <span>Salidas esperadas selladas por el ejecutor del motor de evaluación (100% casos verificados)</span>
           </div>
         } @else {
           <div class="seal-banner seal-warning" role="status">
             <svg lucideAlertTriangle class="seal-icon"></svg>
-            <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el Evaluador Automático. Revisa las salidas esperadas antes de aplicar.' }}</span>
+            <span>{{ res.verification_warning || 'Algunos casos no pudieron sellarse con el motor de evaluación. Revisa las salidas esperadas antes de aplicar.' }}</span>
           </div>
         }
       </div>
@@ -256,7 +256,7 @@
         @if (isGenerating()) {
           Generando...
         } @else {
-          {{ isIde() ? 'Generar Práctica y Rúbrica con IA' : 'Generar y Verificar con el Evaluador Automático' }}
+          {{ isIde() ? 'Generar Práctica y Rúbrica con IA' : 'Generar y verificar casos de prueba' }}
         }
       </button>
     }

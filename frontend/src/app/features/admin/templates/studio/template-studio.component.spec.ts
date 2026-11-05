@@ -1470,7 +1470,7 @@ describe('TemplateStudioComponent', () => {
 
     // 1. Without runtime selected, blocker specifies selecting runtime in Column 1
     expect(component.verificationBlocker()?.reason).toBe(
-      'Seleccione un Lenguaje Principal en la Columna 1 para configurar el Evaluador Automático.'
+      'Seleccione un Lenguaje Principal en la Columna 1 para configurar la evaluación automática.'
     );
     expect(component.verificationBlocker()?.tone).toBe('neutral');
     expect(component.canRunVerification()).toBe(false);
@@ -1491,7 +1491,7 @@ describe('TemplateStudioComponent', () => {
     // 3. Clear entrypoint: should trigger warning blocker
     component.entrypoint.set('   ');
     expect(component.verificationBlocker()?.reason).toBe(
-      'Indique el comando de compilación y ejecución del Evaluador Automático.'
+      'Indique el comando de compilación y ejecución del entorno de evaluación.'
     );
     expect(component.verificationBlocker()?.tone).toBe('warning');
     expect(component.canRunVerification()).toBe(false);

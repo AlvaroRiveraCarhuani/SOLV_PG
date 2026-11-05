@@ -20,6 +20,10 @@
 // La clasificación se hace sobre textos normalizados (minúsculas, sin acentos,
 // sin comillas ni puntuación de borde), así que «Entorno de evaluación» y
 // «ENTORNO DE EVALUACION» caen en la misma clase que «Entorno de Evaluación».
+//
+// En la interfaz también se revisan los nombres dentro de una frase: un motor
+// antiguo escrito como etiqueta («…sellados por el Evaluador Automático») falla,
+// mientras que el nombre vigente en prosa («…lo revisa el Juez Virtual») es válido.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -389,12 +393,15 @@ export function findLabelSpans(text) {
 }
 
 /**
- * Categorías que se buscan dentro de una frase. En la interfaz, el nombre de la
- * herramienta también delata una modalidad («…laboratorio de IDE Persistente»);
- * en documentación de arquitectura el IDE es un componente con nombre propio y
- * solo se revisan los nombres de modalidad.
+ * Categorías que se buscan dentro de una frase de la interfaz. El nombre de la
+ * herramienta delata una modalidad («…laboratorio de IDE Persistente») y el de
+ * un motor antiguo delata una etiqueta («…sellados por el Evaluador
+ * Automático»). El nombre vigente del motor no es un tramo reportable: este
+ * filtro solo devuelve nombres no oficiales, así que «…lo revisa el Juez
+ * Virtual» queda limpio. En documentación de arquitectura el IDE es un
+ * componente con nombre propio y solo se revisan los nombres de modalidad.
  */
-const PROSE_LABEL_CATEGORIES = new Set(['modalidad', 'herramienta']);
+const PROSE_LABEL_CATEGORIES = new Set(['modalidad', 'herramienta', 'motor']);
 
 /** Tramos con forma de etiqueta dentro de una frase, filtrados por categoría. */
 export function embeddedLabelSpans(text, categories = PROSE_LABEL_CATEGORIES) {
@@ -611,7 +618,12 @@ function collectInlineTemplates(source, file) {
 
 function formatUsages(file, usages) {
   return usages.map((usage) => {
-    const hint = usage.term.kind === 'engine' ? 'Nombra el motor en prosa, no como etiqueta.' : 'Usar environmentLabel.';
+    const hint =
+      usage.term.kind === 'engine'
+        ? 'Nombra el motor en prosa, no como etiqueta.'
+        : usage.term.category === 'motor'
+          ? 'Nombra el motor con EVALUATION_ENGINE_NAME en prosa o describe la evaluación sin nombre propio.'
+          : 'Usar environmentLabel.';
     return `${file}:${usage.line == null ? '' : usage.line + 1}: ${describeTerm(usage.term)} en ${usage.kind}. ${hint}`;
   });
 }

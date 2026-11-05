@@ -152,7 +152,7 @@ describe('AiExerciseGeneratorModalComponent', () => {
     const latency = fixture.nativeElement.querySelector('.chip-latency');
     expect(latency?.textContent).toContain('1234 ms');
     const seal = fixture.nativeElement.querySelector('.seal-banner.seal-ok');
-    expect(seal?.textContent).toContain('selladas por el ejecutor del Evaluador Automático');
+    expect(seal?.textContent).toContain('selladas por el ejecutor del motor de evaluación');
   });
 
   it('debe invocar generateExercise en modo IDE sin lenguaje ni casos de juez', () => {

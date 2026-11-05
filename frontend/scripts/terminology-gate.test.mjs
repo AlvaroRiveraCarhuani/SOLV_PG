@@ -441,6 +441,27 @@ describe('terminology-gate prose spans', () => {
     expect(validateSourceFile('hint.ts', source).join('\n')).toContain('IDE persistente');
   });
 
+  it('flags an obsolete engine name embedded in a UI literal', () => {
+    const source = "const hint = 'Casos de prueba sellados por el Evaluador Automático.';\n";
+    const errors = validateSourceFile('hint.ts', source).join('\n');
+    expect(errors).toContain('Evaluador Automático');
+    expect(errors).toContain('EVALUATION_ENGINE_NAME');
+  });
+
+  it('does not report the engine named correctly inside a UI literal', () => {
+    const source = "const hint = 'Los casos los sella el Juez Virtual antes de publicar.';\n";
+    expect(validateSourceFile('hint.ts', source)).toEqual([]);
+  });
+
+  it('flags an obsolete engine name embedded in template prose', () => {
+    const template = '<p>Los casos los sella el Evaluador Automático.</p>';
+    expect(validateSourceFile('x.component.html', template).join('\n')).toContain('Evaluador Automático');
+  });
+
+  it('does not report lowercase engine prose', () => {
+    expect(embeddedLabelSpans('El juez virtual sella los casos.')).toEqual([]);
+  });
+
   it('flags a modality name embedded in template prose', () => {
     const template = '<p>La práctica se corrige en el Entorno de Programación.</p>';
     expect(validateSourceFile('x.component.html', template).join('\n')).toContain('Entorno de Programación');

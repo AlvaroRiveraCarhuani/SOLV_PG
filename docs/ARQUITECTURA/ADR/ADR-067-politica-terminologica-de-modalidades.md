@@ -41,6 +41,12 @@ En toda la documentación (`docs/**`) el gate revisa celdas de tabla, encabezado
 
 La prosa vigente también se revisa: un nombre de modalidad escrito como etiqueta dentro de una frase («…se corrige en el Entorno de Programación…») falla aunque no ocupe la celda entera. Solo cuenta como inicio del tramo una palabra con mayúscula inicial, de modo que el uso común («el entorno de desarrollo local») no se reporta, y el tramo no atraviesa comillas, código en línea ni marcas de formato. Un nombre entrecomillado o dentro de un enlace a un ADR anterior se toma como cita; un nombre permitido seguido de más palabras no se reporta.
 
+### Reglas de interfaz
+
+En el código se revisan literales, texto y atributos de plantilla y expresiones. Además de la etiqueta completa, se revisa el nombre dentro de una frase: un motor antiguo escrito como etiqueta («…sellados por el Evaluador Automático») falla igual que un nombre de modalidad, porque presenta el motor como si fuera la evaluación. El nombre vigente del motor en prosa («…lo revisa el Juez Virtual») es válido y no se reporta, y el uso común en minúscula tampoco.
+
+El nombre del motor no se escribe en plantillas: sale de `EVALUATION_ENGINE_NAME`, expuesto por el componente cuando la interfaz necesita nombrarlo. Cuando la frase no necesita el nombre propio, se describe la evaluación («motor de evaluación», «evaluación automática») sin inventar uno nuevo.
+
 ### Excepciones
 
 Una excepción histórica debe ser explícita y verificable:
