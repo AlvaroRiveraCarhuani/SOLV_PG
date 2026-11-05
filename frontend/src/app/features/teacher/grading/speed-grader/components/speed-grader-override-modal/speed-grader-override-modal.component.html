@@ -1,6 +1,8 @@
 <modal-shell animate.leave="motion-modal-out"
   title="Modificar Calificación Manualmente"
-  subtitle="Ajuste manual de puntaje y veredicto para el alumno."
+  [subtitle]="mode() === 'project'
+    ? 'Ajuste manual de la nota del proyecto. No modifica ningún veredicto.'
+    : 'Ajuste manual de puntaje y veredicto para el alumno.'"
   maxWidth="520px"
   [disableClose]="isSubmittingOverride()"
   (close)="dismiss.emit()"
@@ -15,16 +17,18 @@
   }
 
   <div class="modal-body-form">
-    <div class="form-group">
-      <label class="form-label">Nuevo Veredicto</label>
-      <combobox
-        [options]="verdictOptions()"
-        [value]="overrideVerdict()"
-        (valueChange)="verdictChange.emit($event)"
-        [showSearchIcon]="false"
-        placeholder="Seleccionar veredicto..."
-      />
-    </div>
+    @if (mode() === 'judge') {
+      <div class="form-group">
+        <label class="form-label">Nuevo Veredicto</label>
+        <combobox
+          [options]="verdictOptions()"
+          [value]="overrideVerdict()"
+          (valueChange)="verdictChange.emit($event)"
+          [showSearchIcon]="false"
+          placeholder="Seleccionar veredicto..."
+        />
+      </div>
+    }
 
     <div class="form-group">
       <label class="form-label">Puntaje Asignado (0-100)</label>

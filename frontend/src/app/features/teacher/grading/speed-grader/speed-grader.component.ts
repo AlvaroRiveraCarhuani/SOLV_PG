@@ -16,7 +16,7 @@ import {
 } from '../../models/teacher.models';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { commentsForFile, commentsOutsideFiles, globalToLocalLine } from './review-line-map';
-import { ReviewFileTreeComponent } from './components/review-file-tree/review-file-tree.component';
+import { ReviewFileTreeComponent } from '@shared/components/review-file-tree/review-file-tree.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { KeystrokeReplayModalComponent } from './keystroke-replay-modal/keystroke-replay-modal.component';
 import { SpeedGraderHeaderComponent } from './components/speed-grader-header/speed-grader-header.component';
@@ -159,16 +159,9 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
         this.isSubmittingRubric.set(false);
         const score = res?.data?.score ?? this.calculatedRubricScore();
         this.rubricSuccessMessage.set(`Calificación guardada: ${score} / 100 pts. La entrega quedó en la libreta.`);
-        const currentRev = this.review();
-        if (currentRev) {
-          this.gradingService.currentReview.set({
-            ...currentRev,
-            score: Math.round(score),
-            verdict: 'AC',
-            manual_override: true,
-            override_reason: 'Evaluado por rúbrica'
-          });
-        }
+        // La rúbrica no escribe veredicto: se relee la entrega para mostrar lo
+        // que quedó guardado, sin inventar un resultado del juez ni un ajuste.
+        this.gradingService.getSubmissionReview(id).subscribe({ error: () => undefined });
         if (this.rubricComments().trim()) {
           this.gradingService.getComments(id).subscribe();
         }
@@ -615,7 +608,8 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
 
   openOverrideModal(): void {
     const curr = this.review();
-    this.overrideVerdict.set(curr?.verdict || 'AC');
+    // En un proyecto no hay veredicto que proponer: solo se ajusta la nota.
+    this.overrideVerdict.set(curr?.verdict || (this.isProject() ? '' : 'AC'));
     this.overrideScore.set(curr?.score ?? 100);
     this.overrideReason.set(curr?.override_reason || '');
     this.overrideError.set(null);
@@ -629,13 +623,25 @@ export class SpeedGraderComponent implements OnInit, OnDestroy {
   submitOverride(): void {
     this.overrideError.set(null);
     const reason = this.overrideReason().trim() || 'Ajuste manual docente';
+    const feedback = this.overrideReason().trim();
+    const score = this.overrideScore();
 
     this.isSubmittingOverride.set(true);
-    this.gradingService.overrideSubmission(this.submissionId(), {
-      verdict: this.overrideVerdict(),
-      override_reason: reason,
-      score: this.overrideScore()
-    }).subscribe({
+    // Un proyecto se califica, no se le asigna un veredicto: la nota viaja por
+    // la revisión docente, que es la misma vía que usa la libreta.
+    const request$ = this.isProject()
+      ? this.gradingService.updateReviewScore(this.submissionId(), {
+          status: 'graded',
+          score,
+          ...(feedback ? { feedback_summary: feedback } : {})
+        })
+      : this.gradingService.overrideSubmission(this.submissionId(), {
+          verdict: this.overrideVerdict(),
+          override_reason: reason,
+          score
+        });
+
+    request$.subscribe({
       next: () => {
         this.isSubmittingOverride.set(false);
         this.showOverrideModal.set(false);

@@ -123,6 +123,7 @@
 
 @if (showOverrideModal()) {
   <speed-grader-override-modal animate.leave="motion-modal-out"
+    [mode]="reviewMode()"
     [overrideVerdict]="overrideVerdict()"
     [overrideScore]="overrideScore()"
     [overrideReason]="overrideReason()"

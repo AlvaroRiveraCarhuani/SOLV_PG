@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { LucideCode } from '@lucide/angular';
 import { StudentService, StudentSubmissionHistoryItem } from '@core/services/student.service';
 import {
   VERDICT_FILTER_OPTIONS,
@@ -9,10 +8,10 @@ import {
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
 import { VerdictBadgeComponent } from '@shared/components/verdict-badge/verdict-badge.component';
-import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { environmentTypeOptions } from '@shared/constants/environment-types.constants';
 
 @Component({
   selector: 'student-history',
@@ -20,11 +19,9 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     RouterLink,
-    LucideCode,
     ComboboxComponent,
     SearchBarComponent,
     VerdictBadgeComponent,
-    ModalShellComponent,
     SkeletonLoaderComponent,
     MachineDataDirective,
     DateTextPipe
@@ -38,14 +35,19 @@ export class StudentHistoryComponent implements OnInit {
   readonly isLoading = signal<boolean>(true);
   readonly subjectFilter = signal<string>('all');
   readonly verdictFilter = signal<string>('all');
+  readonly environmentFilter = signal<string>('all');
   readonly searchQuery = signal<string>('');
-  readonly selectedSubmission = signal<StudentSubmissionHistoryItem | null>(null);
 
   readonly submissions = computed<StudentSubmissionHistoryItem[]>(() =>
     this.studentService.submissionsHistory()
   );
 
   readonly verdictOptions: ComboboxOption[] = VERDICT_FILTER_OPTIONS;
+
+  readonly environmentOptions: ComboboxOption[] = [
+    { id: 'all', label: 'Todos los entornos', value: 'all' },
+    ...environmentTypeOptions({ include: ['IDE_PERSISTENTE', 'JUEZ_EFIMERO'] })
+  ];
 
   readonly subjectOptions = computed<ComboboxOption[]>(() => {
     const labels = new Map<string, string>();
@@ -67,6 +69,7 @@ export class StudentHistoryComponent implements OnInit {
   readonly filteredSubmissions = computed<StudentSubmissionHistoryItem[]>(() => {
     const subject = this.subjectFilter();
     const verdict = this.verdictFilter();
+    const env = this.environmentFilter();
     const query = this.searchQuery().trim().toLowerCase();
 
     return this.submissions().filter((sub) => {
@@ -75,6 +78,12 @@ export class StudentHistoryComponent implements OnInit {
       }
       if (!matchesVerdictFilter(sub.verdict, verdict)) {
         return false;
+      }
+      if (env !== 'all') {
+        const subEnv = sub.environment_type || 'JUEZ_EFIMERO';
+        if (subEnv !== env) {
+          return false;
+        }
       }
       if (!query) {
         return true;

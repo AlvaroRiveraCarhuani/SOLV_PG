@@ -55,6 +55,8 @@ const EVALUATIONS: StudentEvaluationItem[] = [
     attempts_count: 3,
     best_score: 95,
     last_verdict: 'AC',
+    // Proyecto corregido con rúbrica: el último resultado no lo escribió el juez.
+    last_verdict_origin: 'rubric',
     last_submitted_at: '2026-10-18T09:30:00',
     academic_status: 'completed'
   },
@@ -206,7 +208,9 @@ describe('StudentEvaluationsComponent', () => {
     await setup();
 
     expect(itemFor('Examen de grafos')?.querySelector('verdict-badge')?.textContent).toContain('No cumple');
-    expect(itemFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain('Cumple');
+    expect(itemFor('Práctica de árboles')?.querySelector('verdict-badge')?.textContent).toContain(
+      'Calificado por rúbrica'
+    );
     expect(itemFor('Examen de ordenamiento')?.querySelector('verdict-badge')?.textContent).toContain('Tarda demasiado');
     expect(itemFor('Recorrido de listas')?.querySelector('verdict-badge')).toBeNull();
   });

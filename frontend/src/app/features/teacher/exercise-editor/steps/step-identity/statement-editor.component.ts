@@ -113,15 +113,27 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           <div class="toolbar-divider"></div>
 
           <div class="toolbar-group sections-group">
-            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('input')" title="Insertar sección Entrada">
-              + Entrada
-            </button>
-            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('output')" title="Insertar sección Salida">
-              + Salida
-            </button>
-            <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('constraints')" title="Insertar sección Restricciones">
-              + Restricciones
-            </button>
+            @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('input')" title="Insertar sección Entrada">
+                + Entrada
+              </button>
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('output')" title="Insertar sección Salida">
+                + Salida
+              </button>
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('constraints')" title="Insertar sección Restricciones">
+                + Restricciones
+              </button>
+            } @else {
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('requirements')" title="Insertar sección Requisitos">
+                + Requisitos
+              </button>
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('deliverables')" title="Insertar sección Entregables">
+                + Entregables
+              </button>
+              <button type="button" class="tool-chip" (mousedown)="$event.preventDefault()" (click)="insertTemplateSection('criteria')" title="Insertar sección Pautas de Evaluación">
+                + Pautas
+              </button>
+            }
           </div>
         </div>
       }
@@ -341,21 +353,31 @@ export class StatementEditorComponent {
     }
   }
 
-  insertTemplateSection(type: 'input' | 'output' | 'constraints') {
+  insertTemplateSection(type: 'input' | 'output' | 'constraints' | 'requirements' | 'deliverables' | 'criteria') {
     let header = '';
+    let body = '';
     if (type === 'input') {
       header = '### Formato de Entrada';
     } else if (type === 'output') {
       header = '### Formato de Salida';
     } else if (type === 'constraints') {
       header = '### Restricciones';
+    } else if (type === 'requirements') {
+      header = '### Requisitos';
+      body = '\n- Requisito 1\n- Requisito 2';
+    } else if (type === 'deliverables') {
+      header = '### Entregables';
+      body = '\n1. Código del proyecto en el workspace.\n2. Tests pasando.';
+    } else if (type === 'criteria') {
+      header = '### Criterios de Evaluación';
+      body = '\n- Funcionalidad (60%)\n- Calidad de código (40%)';
     }
 
     const textarea = this.editorTextarea?.nativeElement;
     const current = this.store.statement().description;
 
     if (!textarea) {
-      this.store.updateStatement({ description: current + `\n\n${header}\n\n` });
+      this.store.updateStatement({ description: current + `\n\n${header}${body}\n\n` });
       return;
     }
 
@@ -372,7 +394,7 @@ export class StatementEditorComponent {
       }
     }
 
-    const snippet = `${prefix}${header}\n`;
+    const snippet = `${prefix}${header}${body}\n`;
     const updated = current.substring(0, start) + snippet + current.substring(end);
     this.store.updateStatement({ description: updated });
 

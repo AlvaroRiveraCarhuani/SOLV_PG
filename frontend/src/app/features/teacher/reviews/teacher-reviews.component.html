@@ -112,10 +112,13 @@
                       <span class="student-email">{{ item.student_email }}</span>
                     </div>
                     <div class="submission-verdict">
-                      <verdict-badge
-                        [verdict]="item.verdict"
-                        size="sm"
-                      />
+                      @if (item.verdict || item.verdict_origin) {
+                        <verdict-badge
+                          [verdict]="item.verdict"
+                          [origin]="item.verdict_origin"
+                          size="sm"
+                        />
+                      }
                       @if (item.score !== undefined && item.score !== null) {
                         <span class="submission-score" machineData>{{ item.score }}</span>
                       }

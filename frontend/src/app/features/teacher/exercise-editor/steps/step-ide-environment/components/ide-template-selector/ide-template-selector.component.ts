@@ -2,14 +2,18 @@ import { Component, input, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  LucideServer,
   LucidePlus,
-  LucideDatabase
+  LucideDatabase,
+  LucideLayers
 } from '@lucide/angular';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { TechLogoComponent, TechIconKey } from '@features/admin/templates/components/tech-logo/tech-logo.component';
 import { ApprovedTemplate } from '../../step-ide-environment.component';
+
+export interface TechBadgeItem {
+  label: string;
+  icon: TechIconKey;
+}
 
 @Component({
   selector: 'ide-template-selector',
@@ -17,11 +21,10 @@ import { ApprovedTemplate } from '../../step-ide-environment.component';
   imports: [
     CommonModule,
     FormsModule,
-    LucideServer,
     LucidePlus,
     LucideDatabase,
+    LucideLayers,
     ComboboxComponent,
-    MachineDataDirective,
     TechLogoComponent
   ],
   templateUrl: './ide-template-selector.component.html',
@@ -58,5 +61,27 @@ export class IdeTemplateSelectorComponent {
     if (name.includes('rust') || image.includes('rust')) return 'rust';
     if (name.includes('c#') || name.includes('csharp')) return 'dotnet';
     return 'docker';
+  }
+
+  deriveTechBadges(tpl: ApprovedTemplate): TechBadgeItem[] {
+    const name = (tpl.name || '').toLowerCase();
+    const badges: TechBadgeItem[] = [];
+
+    if (name.includes('python')) badges.push({ label: 'Python', icon: 'python' });
+    if (name.includes('data science') || name.includes('ia') || name.includes('analytics')) {
+      badges.push({ label: 'Pandas', icon: 'pandas' });
+      badges.push({ label: 'NumPy', icon: 'numpy' });
+    }
+    if (name.includes('node') || name.includes('javascript')) badges.push({ label: 'Node.js', icon: 'node' });
+    if (name.includes('nest')) badges.push({ label: 'NestJS', icon: 'node' });
+    if (name.includes('react')) badges.push({ label: 'React', icon: 'react' });
+    if (name.includes('angular')) badges.push({ label: 'Angular', icon: 'angular' });
+    if (name.includes('java')) badges.push({ label: 'Java', icon: 'java' });
+    if (name.includes('spring')) badges.push({ label: 'Spring Boot', icon: 'spring' });
+    if (name.includes('c++') || name.includes('cpp')) badges.push({ label: 'C++', icon: 'cpp' });
+    if (name.includes('c/') || name.includes('concurrencia') || name.includes('operativos')) badges.push({ label: 'GCC / Linux', icon: 'c' });
+    if (name.includes('postgres') || name.includes('sql')) badges.push({ label: 'PostgreSQL', icon: 'postgres' });
+
+    return badges.length > 0 ? badges : [{ label: tpl.name, icon: this.deriveTechIcon(tpl) }];
   }
 }

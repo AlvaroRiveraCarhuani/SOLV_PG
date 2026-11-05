@@ -20,6 +20,8 @@ import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/c
   styleUrl: './speed-grader-override-modal.component.scss'
 })
 export class SpeedGraderOverrideModalComponent {
+  /** En modo proyecto no hay veredicto: solo se ajusta la nota. */
+  readonly mode = input<'judge' | 'project'>('judge');
   readonly overrideVerdict = input<string>('AC');
   readonly overrideScore = input<number>(100);
   readonly overrideReason = input<string>('');

@@ -2,173 +2,112 @@ import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  LucideCpu,
+  LucideCheckCheck,
   LucideTerminal,
   LucideBookOpen,
   LucideGraduationCap,
-  LucideDices,
-  LucideAlertCircle
+  LucideDices
 } from '@lucide/angular';
 import { ExerciseEditorStore } from '../../exercise-editor.store';
+
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 
 @Component({
   selector: 'modality-purpose-cards',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
-    LucideCpu,
+    LucideCheckCheck,
     LucideTerminal,
     LucideBookOpen,
     LucideGraduationCap,
-    LucideDices,
-    LucideAlertCircle
+    LucideDices
   ],
   template: `
-    <div class="cards-section">
-      <!-- Selección de Modalidad -->
-      <div class="selection-block">
-        <label class="block-title">Modalidad de Ejecución</label>
-        <div class="cards-grid">
-          <!-- Card: Juez Virtual -->
-          <div
-            class="choice-card"
-            [class.selected]="store.metadata().modality === 'judge'"
-            (click)="selectModality('judge')"
-            tabindex="0"
-            (keydown.enter)="selectModality('judge')"
-          >
-            <div class="card-radio">
-              @if (store.metadata().modality === 'judge') {
-                <span class="radio-dot"></span>
-              }
-            </div>
-            <div class="card-icon-box">
-              <svg lucideCpu class="choice-icon"></svg>
-            </div>
-            <div class="card-text">
-              <span class="card-name">Entorno de Evaluación</span>
-              <span class="card-desc">
-                Ejecución aislada y corrección automática de entrada/salida estándar por casos de prueba.
-              </span>
-            </div>
-          </div>
-
-          <!-- Card: Environment Docker -->
-          <div
-            class="choice-card"
-            [class.selected]="store.metadata().modality === 'environment'"
+    <div class="compact-config-bar">
+      <!-- Modalidad de Ejecución -->
+      <div class="config-cluster">
+        <span class="cluster-label">Modalidad</span>
+        <div class="segmented-control" role="radiogroup" aria-label="Modalidad de ejecución">
+          <button
+            type="button"
+            class="segment-btn"
+            [class.active]="store.metadata().modality === 'environment'"
             (click)="selectModality('environment')"
-            tabindex="0"
-            (keydown.enter)="selectModality('environment')"
+            role="radio"
+            [attr.aria-checked]="store.metadata().modality === 'environment'"
           >
-            <div class="card-radio">
-              @if (store.metadata().modality === 'environment') {
-                <span class="radio-dot"></span>
-              }
-            </div>
-            <div class="card-icon-box">
-              <svg lucideTerminal class="choice-icon"></svg>
-            </div>
-            <div class="card-text">
-              <span class="card-name">Entorno de Desarrollo</span>
-              <span class="card-desc">
-                Espacio de trabajo interactivo y continuo con editor VS Code.
-              </span>
-            </div>
-          </div>
+            <svg lucideTerminal class="segment-icon"></svg>
+            <span>{{ 'IDE_PERSISTENTE' | environmentLabel }}</span>
+          </button>
+
+          <button
+            type="button"
+            class="segment-btn"
+            [class.active]="store.metadata().modality === 'judge'"
+            (click)="selectModality('judge')"
+            role="radio"
+            [attr.aria-checked]="store.metadata().modality === 'judge'"
+          >
+            <svg lucideCheckCheck class="segment-icon"></svg>
+            <span>{{ 'JUEZ_EFIMERO' | environmentLabel }}</span>
+          </button>
         </div>
       </div>
 
-      <!-- Selección de Propósito -->
-      <div class="selection-block">
-        <label class="block-title">Propósito Pedagógico</label>
-        <div class="cards-grid">
-          <!-- Card: Clase / Práctica -->
-          <div
-            class="choice-card"
-            [class.selected]="store.metadata().purpose === 'class'"
+      <!-- Propósito Pedagógico -->
+      <div class="config-cluster">
+        <span class="cluster-label">Propósito</span>
+        <div class="segmented-control" role="radiogroup" aria-label="Propósito pedagógico">
+          <button
+            type="button"
+            class="segment-btn"
+            [class.active]="store.metadata().purpose === 'class'"
             (click)="selectPurpose('class')"
-            tabindex="0"
-            (keydown.enter)="selectPurpose('class')"
+            role="radio"
+            [attr.aria-checked]="store.metadata().purpose === 'class'"
           >
-            <div class="card-radio">
-              @if (store.metadata().purpose === 'class') {
-                <span class="radio-dot"></span>
-              }
-            </div>
-            <div class="card-icon-box">
-              <svg lucideBookOpen class="choice-icon"></svg>
-            </div>
-            <div class="card-text">
-              <span class="card-name">Clase / Formativo</span>
-              <span class="card-desc">
-                Diseñado para el aprendizaje continuo, retroalimentación detallada y práctica libre.
-              </span>
-            </div>
-          </div>
+            <svg lucideBookOpen class="segment-icon"></svg>
+            <span>Clase / Formativo</span>
+          </button>
 
-          <!-- Card: Examen / Sumativo -->
-          <div
-            class="choice-card"
-            [class.selected]="store.metadata().purpose === 'exam'"
+          <button
+            type="button"
+            class="segment-btn"
+            [class.active]="store.metadata().purpose === 'exam'"
             (click)="selectPurpose('exam')"
-            tabindex="0"
-            (keydown.enter)="selectPurpose('exam')"
+            role="radio"
+            [attr.aria-checked]="store.metadata().purpose === 'exam'"
           >
-            <div class="card-radio">
-              @if (store.metadata().purpose === 'exam') {
-                <span class="radio-dot"></span>
-              }
-            </div>
-            <div class="card-icon-box">
-              <svg lucideGraduationCap class="choice-icon"></svg>
-            </div>
-            <div class="card-text">
-              <span class="card-name">Examen / Calificado</span>
-              <span class="card-desc">
-                Evaluación con ponderación estricta, temporizadores y protección anti-trampas.
-              </span>
-            </div>
-          </div>
+            <svg lucideGraduationCap class="segment-icon"></svg>
+            <span>Examen / Calificado</span>
+          </button>
         </div>
       </div>
 
-      <!-- Toggle Avanzado: Semilla por Estudiante -->
-      <div
-        id="student-seed-toggle"
-        class="seed-toggle-container"
-        [class.disabled]="store.metadata().purpose !== 'exam'"
-        [class.active]="store.metadata().purpose === 'exam' && store.metadata().per_student_seed"
-        [class.inactive]="store.metadata().purpose !== 'exam' || !store.metadata().per_student_seed"
-        (click)="onSeedContainerClick()"
-        [attr.tabindex]="store.metadata().purpose === 'exam' ? 0 : -1"
-        [attr.aria-disabled]="store.metadata().purpose !== 'exam'"
-        (keydown.enter)="onSeedContainerClick()"
-      >
-        <div class="seed-toggle-header">
-          <div class="seed-info">
-            <div class="seed-title-row">
-              <svg lucideDices class="seed-icon"></svg>
-              <span class="seed-title">Variantes automáticas por estudiante (Anti-copia)</span>
-            </div>
-            <span class="seed-description">
-              Genera datos personalizados para cada estudiante a partir de su ID para evitar que se copien durante evaluaciones.
-            </span>
-          </div>
-
-          <div class="switch-toggle" [class.checked]="store.metadata().per_student_seed">
-            <span class="slider"></span>
-          </div>
+      <!-- Chip Contextual Anti-Copia (Solo revelado en Examen, sin carteles molestos) -->
+      @if (store.metadata().purpose === 'exam') {
+        <div
+          id="student-seed-toggle"
+          class="anticopia-chip"
+          [class.active]="store.metadata().per_student_seed"
+          [class.inactive]="!store.metadata().per_student_seed"
+          (click)="onSeedContainerClick()"
+          tabindex="0"
+          (keydown.enter)="onSeedContainerClick()"
+          role="switch"
+          [attr.aria-checked]="store.metadata().per_student_seed"
+          title="Genera datos y parámetros únicos por estudiante a partir de su ID para evitar plagio"
+        >
+          <svg lucideDices class="chip-icon"></svg>
+          <span class="chip-text">
+            Anti-copia:
+            <strong>{{ store.metadata().per_student_seed ? 'Activado (Semilla única)' : 'Desactivado' }}</strong>
+          </span>
         </div>
-
-        @if (store.metadata().purpose !== 'exam') {
-          <div class="seed-disabled-hint">
-            <svg lucideAlertCircle class="hint-icon"></svg>
-            <span>Disponible solo en evaluaciones calificadas. Elegí <strong>Examen / Calificado</strong> para habilitarla.</span>
-          </div>
-        }
-      </div>
+      }
     </div>
   `,
   styleUrl: './modality-purpose-cards.component.scss'
@@ -176,7 +115,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
 export class ModalityPurposeCardsComponent {
   readonly store = inject(ExerciseEditorStore);
 
-  selectModality(modality: 'judge' | 'environment') {
+  selectModality(modality: 'judge' | 'environment'): void {
     if (modality === 'judge') {
       this.store.updateMetadata({ modality, environment_type: 'JUEZ_EFIMERO' });
     } else {
@@ -184,7 +123,7 @@ export class ModalityPurposeCardsComponent {
     }
   }
 
-  selectPurpose(purpose: 'class' | 'exam') {
+  selectPurpose(purpose: 'class' | 'exam'): void {
     if (purpose === 'class') {
       this.store.updateMetadata({ purpose, per_student_seed: false });
     } else {
@@ -192,12 +131,7 @@ export class ModalityPurposeCardsComponent {
     }
   }
 
-  toggleSeed(event: Event) {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.store.updateMetadata({ per_student_seed: checked });
-  }
-
-  onSeedContainerClick() {
+  onSeedContainerClick(): void {
     if (this.store.metadata().purpose !== 'exam') {
       return;
     }

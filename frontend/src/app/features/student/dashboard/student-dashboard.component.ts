@@ -10,9 +10,7 @@ import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import {
   LucideArrowRight,
   LucideBookOpen,
-  LucideCalendarClock,
-  LucideHistory,
-  LucideUsers
+  LucideHistory
 } from '@lucide/angular';
 import { StudentAulaService } from '../services/student-aula.service';
 import { aulaStatusLabel, aulaStatusTone } from '../services/aula-status';
@@ -39,9 +37,7 @@ import { aulaStatusLabel, aulaStatusTone } from '../services/aula-status';
     DateTextPipe,
     LucideArrowRight,
     LucideBookOpen,
-    LucideCalendarClock,
-    LucideHistory,
-    LucideUsers
+    LucideHistory
   ],
   templateUrl: './student-dashboard.component.html',
   styleUrl: './student-dashboard.component.scss'

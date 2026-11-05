@@ -10,6 +10,7 @@ import {
 } from '@lucide/angular';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
 import { EnvironmentRequestService } from '@features/teacher/services/environment-request.service';
 import {
   ENVIRONMENT_REQUEST_STATUS_LABEL,
@@ -39,7 +40,8 @@ import { AdminTemplateItem } from '../models/admin-templates.models';
     LucideInbox,
     LucideMessageSquare,
     DateTextPipe,
-    SkeletonLoaderComponent
+    SkeletonLoaderComponent,
+    EnvironmentLabelPipe
   ],
   templateUrl: './admin-environment-requests.component.html',
   styleUrl: './admin-environment-requests.component.scss'
@@ -100,12 +102,6 @@ export class AdminEnvironmentRequestsComponent implements OnInit {
 
   statusTone(status: EnvironmentRequestStatus): string {
     return ENVIRONMENT_REQUEST_STATUS_TONE[status] || 'neutral';
-  }
-
-  environmentLabel(environment: string): string {
-    if (environment === 'AMBOS') return 'Desarrollo y evaluación';
-    if (environment === 'JUEZ_EFIMERO') return 'Evaluación';
-    return 'Desarrollo';
   }
 
   usesLabel(request: EnvironmentRequest): string {

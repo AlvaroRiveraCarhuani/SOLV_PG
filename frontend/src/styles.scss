@@ -237,6 +237,16 @@ a {
     color: var(--tenant-primary-hover);
     text-decoration: underline;
   }
+
+  &.btn,
+  &[class*="btn-"] {
+    text-decoration: none;
+
+    &:hover,
+    &:focus {
+      text-decoration: none;
+    }
+  }
 }
 
 // Elementos de Formulario Base (Tipografía Inter Obligatoria)
@@ -269,6 +279,7 @@ input, select, textarea, optgroup, option, button {
   border-radius: var(--radius-sm);
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
   transition: background-color 0.15s ease, transform 0.05s ease;
 
   &:hover:not(:disabled) {
@@ -278,6 +289,7 @@ input, select, textarea, optgroup, option, button {
     // un `<a class="btn-primary">` hereda el azul del enlace y su icono
     // `stroke="currentColor"` desaparece sobre el fondo del mismo color.
     color: var(--text-inverse);
+    text-decoration: none;
   }
 
   &:active:not(:disabled) {
@@ -309,12 +321,14 @@ input, select, textarea, optgroup, option, button {
   font-size: var(--text-sm);
   font-weight: 500;
   border-radius: var(--radius-sm);
+  text-decoration: none;
   transition: all 0.15s ease;
 
   &:hover:not(:disabled) {
     background-color: var(--bg-surface-active);
     border-color: var(--border-strong);
     color: var(--text-primary);
+    text-decoration: none;
   }
 
   &:disabled {
@@ -539,12 +553,14 @@ h4, .subsection-title {
   color: var(--text-secondary);
   cursor: pointer;
   white-space: nowrap;
+  text-decoration: none;
   transition: all 150ms ease;
 
   &:hover:not(:disabled) {
     background-color: var(--bg-surface-active);
     color: var(--text-primary);
     border-color: var(--border-strong);
+    text-decoration: none;
   }
 
   &:disabled {

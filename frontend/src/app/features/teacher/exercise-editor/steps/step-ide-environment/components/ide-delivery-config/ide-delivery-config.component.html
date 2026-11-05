@@ -1,43 +1,93 @@
 <section class="card-section">
-  <div class="title-with-icon">
-    <svg lucideCalendar class="header-icon"></svg>
-    <h3 class="card-title">Parámetros de Entrega y Checkpoint</h3>
+  <div class="section-header-row">
+    <div class="title-with-icon">
+      <svg lucideCalendar class="header-icon"></svg>
+      <div>
+        <h3 class="card-title">Entrega y sincronización</h3>
+        <span class="card-subtitle">Plazos de entrega y configuración del espacio de trabajo</span>
+      </div>
+    </div>
   </div>
 
-  <div class="delivery-grid">
-    <div class="form-group">
-      <label for="ide-due-date" class="form-label">Fecha y hora límite de entrega</label>
-      <input
-        id="ide-due-date"
-        type="datetime-local"
-        class="form-input"
-        [ngModel]="dueDate()"
-        (ngModelChange)="dueDateChange.emit($event)"
-      />
+  <div class="delivery-config-grid">
+    <!-- Plazo Límite de Entrega -->
+    <div class="config-block">
+      <div class="block-header-row">
+        <label class="form-label">Fecha y hora de entrega</label>
+        @if (hasDueDate()) {
+          <div class="preset-chips">
+            <button type="button" class="preset-pill" (click)="applyPresetDueDate(7)">+1 semana</button>
+            <button type="button" class="preset-pill" (click)="applyPresetDueDate('sunday')">Domingo 23:59</button>
+          </div>
+        }
+      </div>
+
+      <div class="toggle-segmented-row">
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="!hasDueDate()"
+          (click)="setHasDueDate(false)"
+        >
+          Sin fecha límite
+        </button>
+        <button
+          type="button"
+          class="segmented-btn"
+          [class.active]="hasDueDate()"
+          (click)="setHasDueDate(true)"
+        >
+          <svg lucideClock class="btn-icon"></svg>
+          <span>Con fecha límite</span>
+        </button>
+      </div>
+
+      @if (hasDueDate()) {
+        <div class="date-input-wrap">
+          <input
+            id="ide-due-date"
+            type="datetime-local"
+            class="form-input font-mono"
+            [ngModel]="dueDate()"
+            (ngModelChange)="onDueDateInput($event)"
+          />
+        </div>
+      }
     </div>
 
-    <div class="form-group checkbox-group">
-      <label class="checkbox-label">
-        <input
-          type="checkbox"
-          [checked]="allowResubmit()"
-          (change)="onAllowResubmit($event)"
-        />
-        <span>Permitir re-envíos después de la primera entrega</span>
-      </label>
-      <span class="field-hint">Permite al estudiante re-entregar solución hasta la fecha límite</span>
-    </div>
+    <!-- Opciones del Espacio de Trabajo -->
+    <div class="options-cluster">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-title">Permitir re-envíos</span>
+          <span class="toggle-desc">Los estudiantes pueden entregar nuevas versiones hasta la fecha límite</span>
+        </div>
+        <label class="switch-toggle" for="ide-allow-resubmit">
+          <input
+            id="ide-allow-resubmit"
+            type="checkbox"
+            [checked]="allowResubmit()"
+            (change)="onToggleResubmit($any($event.target).checked)"
+          />
+          <span class="slider"></span>
+        </label>
+      </div>
 
-    <div class="form-group checkbox-group">
-      <label class="checkbox-label">
-        <input
-          type="checkbox"
-          [checked]="autoCheckpoint()"
-          (change)="onAutoCheckpoint($event)"
-        />
-        <span>Checkpoint automático cada 5 minutos</span>
-      </label>
-      <span class="field-hint">Guarda copia del espacio de trabajo períodicamente en segundo plano</span>
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <span class="toggle-title">Puntos de control automáticos</span>
+          <span class="toggle-desc">Resguarda el progreso del workspace cada 5 minutos en segundo plano</span>
+        </div>
+        <label class="switch-toggle" for="ide-auto-checkpoint">
+          <input
+            id="ide-auto-checkpoint"
+            type="checkbox"
+            [checked]="autoCheckpoint()"
+            (change)="onToggleCheckpoint($any($event.target).checked)"
+          />
+          <span class="slider"></span>
+        </label>
+      </div>
     </div>
   </div>
 </section>

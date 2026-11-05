@@ -275,7 +275,9 @@
                 </td>
                 <td>{{ sub.exercise_title }}</td>
                 <td>
-                  <verdict-badge [verdict]="sub.verdict" size="sm" />
+                  @if (sub.verdict || sub.verdict_origin) {
+                    <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                  }
                 </td>
                 <td><span machineData>{{ sub.score !== undefined && sub.score !== null ? sub.score + ' pts' : '—' }}</span></td>
                 <td>

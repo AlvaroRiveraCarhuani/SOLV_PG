@@ -359,21 +359,21 @@ La regla de exhaustividad INV-10 ("ningún string fuera del deck") aplica al **f
 #### Configuración de Sugerencias OCI (curatedOfficialImages)
 La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim-bookworm`, `node:20-bookworm-slim`, etc.) constituye una **configuración estática semilla en cliente (allowlist)** para asistir al administrador al tipear imágenes reconocidas en el asistente de creación. No es telemetría viva ni reemplaza los modelos ni categorías dinámicos alojados en la base de datos PostgreSQL.
 
-#### Familia PU-* (Propósito del Entorno: IDE Persistente vs Juez Virtual)
+#### Familia PU-* (Propósito del Entorno: Entorno de Desarrollo vs Entorno de Evaluación)
 
 | ID | Texto / Descripción | Contexto |
 | :--- | :--- | :--- |
 | `PU-01` | "Propósito del entorno" | Título del Paso 1 del stepper |
-| `PU-02` | "Laboratorio Interactivo (IDE Persistente)" | Título tarjeta de propósito IDE |
+| `PU-02` | "Entorno de Desarrollo (Con Editor VS Code)" | Título tarjeta de propósito IDE |
 | `PU-03` | "Sesiones completas con editor web OpenVSCode, persistencia y soporte para bases de datos adicionales." | Descripción tarjeta IDE |
-| `PU-04` | "Juez Virtual (Sandbox Algorítmico)" | Título tarjeta de propósito Juez |
+| `PU-04` | "Entorno de Evaluación (Corrección Automática)" | Título tarjeta de propósito Juez |
 | `PU-05` | "Ejecución efímera aislada en terminal para evaluación automática de código y algoritmos. Sin interfaz web ni bases de datos." | Descripción tarjeta Juez |
 | `PU-06` | "Confirmar cambio de propósito" | Título diálogo de confirmación de propósito |
 | `PU-07` | "Cambiar de propósito descarta las configuraciones específicas del entorno. ¿Desea continuar?" | Mensaje advertencia al cambiar de propósito con datos sucios |
 | `PU-08` | "Comando de compilación o ejecución:" | Label de comando en Paso 4 para Juez |
 | `PU-09` | "Tiempo límite de ejecución (ms):" | Label de timeout en Paso 4 para Juez |
 | `PU-10` | "Entrada estándar de prueba (stdin - recomendada):" | Label de muestra stdin en Paso 4 para Juez |
-| `PU-11` | "≈ {$INTERPOLATION} evaluaciones concurrentes estimadas en este host" | Métrica viva de capacidad para Juez Virtual |
+| `PU-11` | "≈ {$INTERPOLATION} evaluaciones concurrentes estimadas en este host" | Métrica viva de capacidad para el Entorno de Evaluación |
 | `PU-12` | "No hay modelos de juez registrados todavía. Podés comenzar con una plantilla en blanco." | Estado vacío de modelos para Juez |
 | `PU-13` | "Completá el nombre y comando de ejecución para habilitar el guardado" | Tooltip en botón guardar borrador deshabilitado en Juez |
 | `PU-14` | "Los entornos de juez virtual no utilizan bases de datos adicionales." | Mensaje informativo en Paso 5 para Juez |
@@ -416,7 +416,7 @@ La lista de 8 imágenes Docker sugeridas en el autocompletado (`python:3.12-slim
 | `AY-13` | "Anatomía de una referencia de imagen Docker" | Título del popover de descomposición visual de imagen |
 | `AY-14` | "El tag :latest está prohibido por reproducibilidad y gobernanza." | Texto explicativo en popover de imagen |
 | `AY-15` | "Sugerencias según el propósito:" | Label para chips clickeables de herramientas cuando no hay familia detectada |
-| `AY-16` | "Comparativa de Entornos: IDE Persistente vs Juez Virtual" | Título de tabla comparativa en drawer de ayuda (Paso 1) |
+| `AY-16` | "Comparativa de Entornos: Entorno de Desarrollo vs Entorno de Evaluación" | Título de tabla comparativa en drawer de ayuda (Paso 1) |
 | `AY-17` | "Cerrar panel de ayuda" | Aria-label del botón cerrar del drawer lateral de ayuda |
 | `AY-18` | "Sugerencias según la imagen elegida:" | Label reactivo para chips clickeables cuando se detecta familia de imagen |
 | `AY-19` | "Los modelos se originan a partir de plantillas aprobadas promovidas desde el catálogo institucional o de entornos base predeterminados." | Línea informativa en la puerta Desde modelo |

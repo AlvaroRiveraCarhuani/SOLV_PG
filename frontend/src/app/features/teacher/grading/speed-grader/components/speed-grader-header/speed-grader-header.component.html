@@ -8,7 +8,7 @@
       <h1 class="page-title">{{ review().exercise_title }}</h1>
       <span class="subject-subtitle">
         {{ review().subject_name }}
-        <span class="mode-badge">{{ mode() === 'project' ? 'Entorno de Desarrollo' : 'Evaluador Automático' }}</span>
+        <span class="mode-badge">{{ (mode() === 'project' ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO') | environmentLabel }}</span>
       </span>
     </div>
   </div>

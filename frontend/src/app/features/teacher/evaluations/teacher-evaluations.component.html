@@ -163,7 +163,9 @@
                     </time>
                   </td>
                   <td>
-                    <verdict-badge [verdict]="item.verdict" size="sm" />
+                    @if (item.verdict || item.verdict_origin) {
+                      <verdict-badge [verdict]="item.verdict" [origin]="item.verdict_origin" size="sm" />
+                    }
                   </td>
                   <td>
                     @if (item.score !== undefined && item.score !== null) {

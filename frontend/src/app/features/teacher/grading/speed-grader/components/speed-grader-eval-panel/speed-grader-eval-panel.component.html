@@ -94,7 +94,7 @@
   <div class="verdict-card" [class]="'card-' + review().verdict.toLowerCase().replace('_', '-')">
     <div class="verdict-header">
       <span class="verdict-title">Veredicto Oficial</span>
-      <verdict-badge [verdict]="review().verdict" size="md" />
+      <verdict-badge [verdict]="review().verdict" [origin]="review().verdict_origin" size="md" />
     </div>
 
     <div class="verdict-meta">

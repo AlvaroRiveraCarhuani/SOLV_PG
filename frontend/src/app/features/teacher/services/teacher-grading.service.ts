@@ -62,6 +62,28 @@ export class TeacherGradingService {
     );
   }
 
+  /**
+   * Corrige la nota de una entrega sin tocar el veredicto. Es el camino de los
+   * proyectos de IDE, donde el veredicto no existe: la nota es del docente.
+   */
+  updateReviewScore(
+    submissionId: string,
+    dto: { status: string; score?: number; feedback_summary?: string }
+  ): Observable<void> {
+    return this.http.patch<ApiResponse<{ cell: unknown }>>(
+      `/api/v1/teacher/submissions/${submissionId}/review`,
+      dto
+    ).pipe(
+      map(() => void 0),
+      tap(() => {
+        const curr = this.currentReview();
+        if (curr && dto.score !== undefined) {
+          this.currentReview.set({ ...curr, score: dto.score });
+        }
+      })
+    );
+  }
+
   overrideSubmission(submissionId: string, dto: OverrideRequestDTO): Observable<void> {
     return this.http.post<ApiResponse<void>>(
       `/api/v1/submissions/${submissionId}/override`,

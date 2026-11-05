@@ -56,10 +56,13 @@ function encodeUtf8Base64(text: string): string {
   return btoa(binary);
 }
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'student-exercise-solver',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     RouterLink,
@@ -171,7 +174,14 @@ export class StudentExerciseSolverComponent implements OnInit {
 
   readonly isExamProject = computed<boolean>(() => (this.exercise()?.purpose ?? 'class') === 'exam');
 
+  readonly isExamSubmitted = computed<boolean>(() => {
+    return this.isExamProject() && !!this.lastSubmissionId();
+  });
+
   readonly canSubmitProject = computed<boolean>(() => {
+    if (this.isExamSubmitted()) {
+      return false;
+    }
     if (!this.environmentIsRunning() || this.isSubmittingProject()) {
       return false;
     }
@@ -249,13 +259,34 @@ export class StudentExerciseSolverComponent implements OnInit {
 
     this.exercise.set(data);
 
+    const history = this.studentService.submissionsHistory ? this.studentService.submissionsHistory() : [];
+    const prevSub = history.find((s) => s.exercise_id === id);
+    if (prevSub) {
+      this.lastSubmissionId.set(prevSub.id);
+      if (prevSub.code && !this.isIdeExercise()) {
+        this.sourceCode.set(prevSub.code);
+      }
+    } else if (this.studentService.loadSubmissionsHistory) {
+      void this.studentService.loadSubmissionsHistory().then((h) => {
+        const found = h?.find((s) => s.exercise_id === id);
+        if (found) {
+          this.lastSubmissionId.set(found.id);
+          if (found.code && !this.isIdeExercise()) {
+            this.sourceCode.set(found.code);
+          }
+        }
+      });
+    }
+
     if (this.isIdeExercise()) {
       return;
     }
 
     const lang = (data.language || 'python').toLowerCase();
     this.selectedLanguage.set(lang);
-    this.sourceCode.set(data.boilerplate || '');
+    if (!prevSub?.code) {
+      this.sourceCode.set(data.boilerplate || '');
+    }
   }
 
   onLanguageChange(lang: string): void {
@@ -428,7 +459,8 @@ export class StudentExerciseSolverComponent implements OnInit {
         verdict: evalResult.verdict,
         execution_time_ms: evalResult.execution_time_ms || 1,
         memory_used_mb: Math.max(1, Math.round(evalResult.memory_used_mb || 12)),
-        generated_cases: evalResult.generated_cases
+        generated_cases: evalResult.generated_cases,
+        evaluation_receipt: evalResult.evaluation_receipt
       });
 
       if (subResp.id) {

@@ -40,10 +40,13 @@ const DIFFICULTY_OPTIONS: { value: AIDifficulty; label: string }[] = [
   { value: 'hard', label: 'Difícil' }
 ];
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'ai-exercise-generator-modal',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     FormsModule,
     AutoGrowDirective,

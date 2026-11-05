@@ -2,7 +2,6 @@ import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { LucideCalendar } from '@lucide/angular';
-import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { FieldMessageComponent } from '@shared/components/field-message/field-message.component';
 import { TagInputComponent } from '@shared/components/tag-input/tag-input.component';
@@ -15,7 +14,6 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
     CommonModule,
     FormsModule,
     LucideCalendar,
-    MachineDataDirective,
     ComboboxComponent,
     FieldMessageComponent,
     TagInputComponent
@@ -25,7 +23,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
       <!-- Título del ejercicio -->
       <div class="form-group full-width">
         <label for="exercise-title" class="form-label">
-          Título de la práctica <span class="required">*</span>
+          {{ titleLabel() }} <span class="required">*</span>
         </label>
         <input 
           id="exercise-title"
@@ -40,22 +38,8 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           required
         />
         @if (showTitleError()) {
-          <field-message variant="error" [message]="'El título de la práctica es obligatorio'"></field-message>
+          <field-message variant="error" [message]="'El título es obligatorio'"></field-message>
         }
-      </div>
-
-      <!-- Dificultad sugerida (Opcional) -->
-      <div class="form-group" id="exercise-difficulty">
-        <label class="form-label">Dificultad sugerida <span class="optional-label">(opcional)</span></label>
-        <combobox
-          [options]="difficultyOptions"
-          [value]="store.metadata().difficulty || ''"
-          [placeholder]="'Selecciona un nivel o sin especificar...'"
-          [showSearchIcon]="false"
-          [compact]="true"
-          (optionSelected)="onDifficultySelect($event)"
-          inputAriaLabel="Dificultad sugerida"
-        />
       </div>
 
       @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
@@ -71,7 +55,7 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
             (optionSelected)="onComplexitySelect($event)"
             inputAriaLabel="Complejidad algorítmica esperada"
           />
-          <span class="field-hint">Si la defines, el sistema la comparará con el rendimiento del código entregado</span>
+          <span class="field-hint">Cota esperada para validar la eficiencia de la solución.</span>
         </div>
 
         <!-- Lenguaje de ejecución -->
@@ -92,8 +76,6 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
           />
           @if (showLanguageError()) {
             <field-message variant="error" [message]="'Debes seleccionar un lenguaje de ejecución'"></field-message>
-          } @else {
-            <span class="field-hint">Lenguaje en el que los estudiantes escribirán y probarán su código</span>
           }
         </div>
 
@@ -124,50 +106,64 @@ import { ExerciseEditorStore } from '../../exercise-editor.store';
         </details>
       }
 
-      <!-- Fecha y hora de entrega (Opcional con selector previo) -->
-      <div class="form-group due-date-group">
-        <label class="form-label">Fecha y hora de entrega <span class="optional-label">(opcional)</span></label>
-        <div class="due-date-toggle-row">
-          <button 
-            type="button" 
-            class="mode-toggle-btn" 
-            [class.active]="!hasDueDate()"
-            (click)="setHasDueDate(false)"
-          >
-            Sin fecha límite
-          </button>
-          <button 
-            type="button" 
-            class="mode-toggle-btn" 
-            [class.active]="hasDueDate()"
-            (click)="setHasDueDate(true)"
-          >
-            <svg lucideCalendar class="btn-icon"></svg>
-            <span>Con fecha límite</span>
-          </button>
-        </div>
-
-        @if (hasDueDate()) {
-          <div class="due-date-input-container">
-            <input 
-              id="due-date"
-              type="datetime-local" 
-              class="form-input due-date-picker" 
-              [ngModel]="store.metadata().due_date"
-              (ngModelChange)="onDueDateChange($event)"
-            />
+      <!-- Fecha y hora de entrega para Entorno de Evaluación -->
+      @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
+        <div class="form-group due-date-group full-width">
+          <div class="due-date-header-row">
+            <label class="form-label">Fecha y hora de entrega <span class="optional-label">(opcional)</span></label>
+            @if (hasDueDate()) {
+              <div class="preset-chips">
+                <button type="button" class="preset-pill" (click)="applyPresetDueDate(7)">+1 semana</button>
+                <button type="button" class="preset-pill" (click)="applyPresetDueDate('sunday')">Domingo 23:59</button>
+              </div>
+            }
           </div>
-        }
-      </div>
 
-      <!-- Tags / Etiquetas temáticas (Componente Reutilizable) -->
+          <div class="due-date-toggle-row">
+            <button 
+              type="button" 
+              class="mode-toggle-btn" 
+              [class.active]="!hasDueDate()"
+              (click)="setHasDueDate(false)"
+            >
+              Sin fecha límite
+            </button>
+            <button 
+              type="button" 
+              class="mode-toggle-btn" 
+              [class.active]="hasDueDate()"
+              (click)="setHasDueDate(true)"
+            >
+              <svg lucideCalendar class="btn-icon"></svg>
+              <span>Con fecha límite</span>
+            </button>
+          </div>
+
+          @if (hasDueDate()) {
+            <div class="due-date-input-container">
+              <input 
+                id="due-date"
+                type="datetime-local" 
+                class="form-input due-date-picker font-mono" 
+                [ngModel]="store.metadata().due_date"
+                (ngModelChange)="onDueDateChange($event)"
+              />
+            </div>
+          }
+        </div>
+      }
+
+      <!-- Tags / Etiquetas -->
       <div class="form-group full-width tags-section">
-        <label for="exercise-tag-input" class="form-label">Etiquetas temáticas (Tags)</label>
+        <label for="exercise-tag-input" class="form-label">
+          Etiquetas <span class="optional-label">(opcional)</span>
+        </label>
         <tag-input
           inputId="exercise-tag-input"
           [tags]="store.metadata().tags"
           (tagsChange)="onTagsChange($event)"
         />
+        <span class="field-hint">Para clasificar y reutilizar la práctica en tu biblioteca docente.</span>
       </div>
     </div>
   `,
@@ -178,6 +174,10 @@ export class MetadataFormComponent implements OnInit {
 
   readonly titleTouched = signal<boolean>(false);
   readonly hasDueDate = signal<boolean>(!!this.store.metadata().due_date);
+
+  readonly titleLabel = computed(() => {
+    return this.store.metadata().purpose === 'exam' ? 'Título del examen' : 'Título del laboratorio';
+  });
 
   readonly defaultLanguages: ComboboxOption<string>[] = [
     { id: 'python', label: 'Python 3.11 (Python Runner Base)', value: 'python' },
@@ -242,13 +242,6 @@ export class MetadataFormComponent implements OnInit {
     return isBlank && (this.titleTouched() || this.store.stepAttempted());
   });
 
-  readonly difficultyOptions: ComboboxOption<string>[] = [
-    { id: '', label: 'Sin especificar', value: '' },
-    { id: 'easy', label: 'Fácil (Básico / Introductorio)', value: 'easy' },
-    { id: 'medium', label: 'Medio (Intermedio / Estructuras)', value: 'medium' },
-    { id: 'hard', label: 'Difícil (Avanzado / Optimización)', value: 'hard' }
-  ];
-
   readonly complexityOptions: ComboboxOption<string>[] = [
     { id: '', label: 'Sin especificar', value: '' },
     { id: 'O(1)', label: 'O(1) - Constante', value: 'O(1)' },
@@ -261,36 +254,31 @@ export class MetadataFormComponent implements OnInit {
     this.store.loadRunnerTemplates();
   }
 
-  onTitleBlur() {
+  onTitleBlur(): void {
     this.titleTouched.set(true);
     this.store.markFieldTouched('title');
   }
 
-  onTimeLimitBlur() {
+  onTimeLimitBlur(): void {
     this.timeLimitTouched.set(true);
     this.store.markFieldTouched('time_limit');
   }
 
-  onTitleChange(title: string) {
+  onTitleChange(title: string): void {
     this.store.updateMetadata({ title });
   }
 
-  onDifficultySelect(option: ComboboxOption<string>) {
-    const val = (option.value || null) as 'easy' | 'medium' | 'hard' | null;
-    this.store.updateMetadata({ difficulty: val });
-  }
-
-  onComplexitySelect(option: ComboboxOption<string>) {
+  onComplexitySelect(option: ComboboxOption<string>): void {
     this.store.updateMetadata({ expected_complexity: option.value || undefined });
   }
 
-  onLanguageSelect(option: ComboboxOption<string>) {
+  onLanguageSelect(option: ComboboxOption<string>): void {
     this.languageTouched.set(true);
     const language = option.value || '';
     this.store.setLanguageAndSyncTemplate(language);
   }
 
-  onTimeLimitInput(event: Event) {
+  onTimeLimitInput(event: Event): void {
     const val = (event.target as HTMLInputElement).value;
     this.rawTimeLimit.set(val);
     const trimmed = val.trim();
@@ -304,18 +292,41 @@ export class MetadataFormComponent implements OnInit {
     this.store.updateMetadata({ time_limit_ms: -1 });
   }
 
-  setHasDueDate(enabled: boolean) {
+  setHasDueDate(enabled: boolean): void {
     this.hasDueDate.set(enabled);
     if (!enabled) {
       this.store.updateMetadata({ due_date: undefined });
+    } else if (!this.store.metadata().due_date) {
+      this.applyPresetDueDate(7);
     }
   }
 
-  onDueDateChange(due_date: string) {
+  applyPresetDueDate(days: number | 'sunday'): void {
+    const d = new Date();
+    if (days === 'sunday') {
+      const diff = (7 - d.getDay()) % 7 || 7;
+      d.setDate(d.getDate() + diff);
+    } else {
+      d.setDate(d.getDate() + days);
+    }
+    d.setHours(23, 59, 0, 0);
+
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const mins = String(d.getMinutes()).padStart(2, '0');
+    const localIso = `${year}-${month}-${day}T${hours}:${mins}`;
+
+    this.hasDueDate.set(true);
+    this.store.updateMetadata({ due_date: localIso });
+  }
+
+  onDueDateChange(due_date: string): void {
     this.store.updateMetadata({ due_date: due_date || undefined });
   }
 
-  onTagsChange(tags: string[]) {
+  onTagsChange(tags: string[]): void {
     this.store.updateMetadata({ tags });
   }
 }

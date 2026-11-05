@@ -61,7 +61,7 @@
               <span class="request-meta">
                 {{ request.requester_name || 'Docente de la institución' }}
                 · <time>{{ request.created_at | dateText }}</time>
-                · {{ environmentLabel(request.target_environment) }}
+                · {{ request.target_environment | environmentLabel }}
               </span>
             </div>
             <span class="request-status" [class]="statusTone(request.status)">

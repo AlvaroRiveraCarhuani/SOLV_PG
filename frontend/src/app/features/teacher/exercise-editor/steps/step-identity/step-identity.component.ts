@@ -1,8 +1,9 @@
-import { Component } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MetadataFormComponent } from './metadata-form.component';
 import { ModalityPurposeCardsComponent } from './modality-purpose-cards.component';
 import { StatementEditorComponent } from './statement-editor.component';
+import { ExerciseEditorStore } from '../../exercise-editor.store';
 
 @Component({
   selector: 'step-identity',
@@ -15,25 +16,26 @@ import { StatementEditorComponent } from './statement-editor.component';
   ],
   template: `
     <div class="step-identity-layout">
-      <!-- Sección: Modalidad y Propósito -->
+      <!-- Sección 1: Modalidad y Propósito Compacto -->
       <section class="form-section">
-        <h3 class="section-title">Modalidad y propósito</h3>
         <modality-purpose-cards />
       </section>
 
-      <!-- Sección: Metadatos -->
+      <!-- Sección 2: Identidad y Datos del Laboratorio -->
       <section class="form-section">
-        <h3 class="section-title">Título y datos de la práctica</h3>
         <metadata-form />
       </section>
 
-      <!-- Sección: Enunciado -->
-      <section class="form-section">
-        <h3 class="section-title">Consigna</h3>
-        <statement-editor />
-      </section>
+      <!-- Sección 3: Consigna Pedagógica (solo cuando es Entorno de Evaluación) -->
+      @if (store.metadata().environment_type === 'JUEZ_EFIMERO') {
+        <section class="form-section">
+          <statement-editor />
+        </section>
+      }
     </div>
   `,
   styleUrl: './step-identity.component.scss'
 })
-export class StepIdentityComponent {}
+export class StepIdentityComponent {
+  readonly store = inject(ExerciseEditorStore);
+}

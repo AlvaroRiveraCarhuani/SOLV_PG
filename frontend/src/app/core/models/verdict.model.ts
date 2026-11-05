@@ -148,6 +148,24 @@ export function matchesVerdictFilter(verdict: string | undefined | null, filter:
   return normalizedVerdict === normalizedFilter;
 }
 
+/**
+ * Etiqueta de procedencia para un veredicto que no escribió el juez.
+ * Devuelve null cuando el veredicto es del juez o no hay veredicto: en ese caso
+ * manda la tabla canónica de resultados.
+ */
+export function verdictOriginLabel(origin: string | undefined | null): string | null {
+  switch ((origin || '').trim().toLowerCase()) {
+    case 'rubric':
+      return 'Calificado por rúbrica';
+    case 'override':
+      return 'Ajuste docente';
+    case 'legacy':
+      return 'Resultado heredado';
+    default:
+      return null;
+  }
+}
+
 /** Orden de los filtros de resultados en las vistas de entregas. */
 const FILTER_OUTCOME_KEYS: OutcomeKey[] = ['PENDING', 'AC', 'WA', 'TLE', 'RE', 'AST_BLOCKED'];
 

@@ -31,6 +31,18 @@
         inputAriaLabel="Filtrar por resultado"
       />
     </div>
+    <div class="toolbar-field">
+      <span class="toolbar-label">Entorno</span>
+      <combobox
+        [options]="environmentOptions"
+        [value]="environmentFilter()"
+        (valueChange)="environmentFilter.set($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todos los entornos"
+        inputAriaLabel="Filtrar por tipo de entorno"
+      />
+    </div>
     <div class="toolbar-search">
       <search-bar
         [query]="searchQuery()"
@@ -65,13 +77,23 @@
         <tbody>
           @for (sub of filteredSubmissions(); track sub.id) {
             <tr>
-              <td class="cell-exercise">{{ sub.exercise_title || 'Ejercicio' }}</td>
+              <td class="cell-exercise">
+                <div class="exercise-name-wrapper">
+                  <span class="exercise-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                  @if (sub.environment_type === 'IDE_PERSISTENTE') {
+                    <span class="modality-badge">Proyecto</span>
+                  }
+                </div>
+              </td>
               <td class="cell-subject">
                 <span class="subject-code" machineData>{{ sub.subject_code }}</span>
                 <span class="subject-name">{{ sub.subject_name }}</span>
               </td>
               <td class="cell-verdict">
-                <verdict-badge [verdict]="sub.verdict" size="sm" />
+                <!-- Un proyecto no tiene veredicto del juez: la nota es la que habla. -->
+                @if (sub.verdict || sub.verdict_origin) {
+                  <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                }
                 @if (sub.manual_override) {
                   <span class="manual-review">Revisado por docente</span>
                 }
@@ -83,64 +105,25 @@
                   <span class="no-score">—</span>
                 }
               </td>
-              <td class="cell-time"><span machineData>{{ sub.execution_time_ms }} ms</span></td>
+              <td class="cell-time">
+                @if (sub.environment_type === 'IDE_PERSISTENTE') {
+                  <span class="no-time" title="No aplica a proyectos de desarrollo">—</span>
+                } @else {
+                  <span machineData>{{ sub.execution_time_ms }} ms</span>
+                }
+              </td>
               <td class="cell-date">
                 <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
               </td>
               <td class="cell-actions">
-                <div class="actions-row">
-                  <button type="button" class="btn-view-code" (click)="selectedSubmission.set(sub)">
-                    Ver código enviado
-                  </button>
-                  <a class="action-link" [routerLink]="['/student/exercises', sub.exercise_id]">Ir al ejercicio</a>
-                </div>
+                <a class="action-link" [routerLink]="['/student/history', sub.id]">
+                  Ver entrega
+                </a>
               </td>
             </tr>
           }
         </tbody>
       </table>
     </div>
-  }
-
-  @if (selectedSubmission(); as selected) {
-    <modal-shell animate.leave="motion-modal-out"
-      [title]="selected.exercise_title || 'Detalle de entrega'"
-      [subtitle]="selected.subject_name"
-      maxWidth="720px"
-      (close)="selectedSubmission.set(null)"
-    >
-      <svg modal-icon lucideCode class="icon"></svg>
-
-      <div class="modal-meta">
-        <verdict-badge [verdict]="selected.verdict" size="sm" />
-        @if (selected.score !== null && selected.score !== undefined) {
-          <span class="meta-item">
-            <span class="meta-label">Nota</span>
-            <span class="meta-value" machineData>{{ selected.score }} pts</span>
-          </span>
-        }
-        <span class="meta-item">
-          <span class="meta-label">Tiempo</span>
-          <span class="meta-value" machineData>{{ selected.execution_time_ms }} ms</span>
-        </span>
-        <span class="meta-item">
-          <span class="meta-label">Fecha</span>
-          <time [attr.datetime]="selected.submitted_at">{{ selected.submitted_at | dateText:'compact-datetime' }}</time>
-        </span>
-      </div>
-
-      @if (selected.manual_override && selected.override_reason) {
-        <div class="override-note">
-          <span class="override-label">Observación del docente</span>
-          <p>{{ selected.override_reason }}</p>
-        </div>
-      }
-
-      <pre class="submission-code font-mono"><code>{{ selected.code }}</code></pre>
-
-      <ng-container modal-footer>
-        <button type="button" class="btn-outline" (click)="selectedSubmission.set(null)">Cerrar</button>
-      </ng-container>
-    </modal-shell>
   }
 </section>

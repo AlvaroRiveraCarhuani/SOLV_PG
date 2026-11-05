@@ -29,17 +29,13 @@ Queda fuera de esta vista cualquier métrica de contenedores, CPU, RAM, IDs o no
 │ Aula ahora                        [ Abierta ] │ Últimas entregas   Historial │
 │ SIS-211                                       │ Árboles binarios    AC       │
 │ Estructuras de Datos                          │            20/10 14:05:00   │
-│ Práctica   Árboles binarios                   │                              │
-│ Horario    08:00 – 10:00                      ├──────────────────────────────┤
-│ En el aula 21 de 28                           │ Mientras estás en clase      │
-│ [ Abrir práctica ]   Ver el aula              │ Tu presencia se envía sola…  │
+│ Práctica   Árboles binarios                   ├──────────────────────────────┤
+│ Horario    08:00 – 10:00                      │ Tus materias    50% semestre │
+│ En el aula 21 de 28                           │ SIS-211 Estructuras  3/4 ▓▓▓░│
+│ [ Abrir práctica ]   Ver el aula              │ SIS-312 Sistemas     0/2 ░░░░│
 ├───────────────────────────────────────────────┤                              │
 │ Próximas entregas                          1  │                              │
 │ Listas enlazadas · SIS-211   06/11/2026 23:59 │                              │
-├───────────────────────────────────────────────┤                              │
-│ Tus materias                    50% semestre  │                              │
-│ SIS-211 Estructuras de Datos     3/4 ▓▓▓░     │                              │
-│ SIS-312 Sistemas Operativos      0/2 ░░░░     │                              │
 └───────────────────────────────────────────────┴──────────────────────────────┘
 ```
 
@@ -64,14 +60,14 @@ Los avances del docente **no** se listan acá: viven en el aula y en la práctic
 - Cada fila enlaza a `/student/exercises/:exerciseId`.
 - Fallo de carga: mensaje de error explícito. Lista vacía: texto de estado vacío, sin botón.
 
-### 2.4. Tus materias
+### 2.4. Últimas entregas
+- Las tres entregas más recientes con veredicto y fecha compacta.
+- `Historial` lleva a `/student/history`.
+
+### 2.5. Tus materias
 - Una fila por materia: código, nombre, prácticas completadas sobre el total y barra de avance.
 - El encabezado muestra el porcentaje global del semestre como dato técnico.
 - Cada fila enlaza a `/student/courses/:subjectId` (mapa curricular).
-
-### 2.5. Últimas entregas
-- Las tres entregas más recientes con veredicto y fecha compacta.
-- `Historial` lleva a `/student/history`.
 
 ---
 
@@ -103,7 +99,8 @@ El resumen de materias **no** trae `active_environment`: ese campo se retiró de
 - Superficie `var(--bg-surface)`, borde `var(--border-subtle)`, radio `var(--radius-lg)`.
 - Estado del aula: verde para abierta, ámbar para congelada, neutro para cerrada.
 - Barra de avance con `var(--tenant-primary)` sobre `var(--bg-surface-active)`.
-- Sin animaciones locales: la vista no declara `@keyframes`. En pantallas menores a 960px la grilla pasa a una columna.
+- Movimiento: tarjetas con primitiva global `.motion-rise` y escalonamiento `.motion-stagger` vía `[style.--motion-index]`. Sin `@keyframes` locales.
+- En pantallas menores a 960px la grilla pasa a una columna.
 
 ---
 

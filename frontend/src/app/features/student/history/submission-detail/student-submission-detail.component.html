@@ -1,0 +1,260 @@
+<div class="submission-detail-container">
+  @if (isLoading()) {
+    <header class="detail-topbar">
+      <div class="topbar-left">
+        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
+          <svg lucideArrowLeft class="icon-back"></svg>
+          <span>Volver al historial</span>
+        </a>
+      </div>
+    </header>
+    <div class="detail-loading-state">
+      <skeleton-loader variant="cards" [count]="3" />
+    </div>
+  } @else if (loadError()) {
+    <header class="detail-topbar">
+      <div class="topbar-left">
+        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
+          <svg lucideArrowLeft class="icon-back"></svg>
+          <span>Volver al historial</span>
+        </a>
+      </div>
+    </header>
+    <div class="detail-error-card" role="alert">
+      <svg lucideAlertCircle class="error-icon"></svg>
+      <p class="error-text">{{ loadError() }}</p>
+    </div>
+  } @else if (submission(); as sub) {
+    <header class="detail-topbar">
+      <div class="topbar-left">
+        <a routerLink="/student/history" class="btn-back" title="Volver al historial">
+          <svg lucideArrowLeft class="icon-back"></svg>
+          <span>Volver al historial</span>
+        </a>
+
+        <div class="title-group">
+          <div class="title-with-badge">
+            <h1 class="page-title">{{ sub.exercise_title || 'Detalle de entrega' }}</h1>
+            <span class="modality-pill">
+              {{ (isProject() ? 'IDE_PERSISTENTE' : 'JUEZ_EFIMERO') | environmentLabel }}
+            </span>
+          </div>
+
+          <p class="meta-subtitle">
+            <span class="subject-code" machineData>{{ sub.subject_code }}</span>
+            <span class="meta-dot">·</span>
+            <span class="subject-name">{{ sub.subject_name }}</span>
+            <span class="meta-dot">·</span>
+            <span class="date-label">Entregado el</span>
+            <time [attr.datetime]="sub.submitted_at">{{ sub.submitted_at | dateText:'compact-datetime' }}</time>
+          </p>
+        </div>
+      </div>
+
+      <div class="topbar-right">
+        <a [routerLink]="['/student/exercises', sub.exercise_id]" class="btn-action">
+          <svg lucideExternalLink class="btn-icon"></svg>
+          <span>Ir a la práctica</span>
+        </a>
+      </div>
+    </header>
+
+    <div class="detail-layout" [class.detail-layout-project]="isProject()">
+      @if (isProject()) {
+        <!-- Left: File Tree -->
+        <aside class="detail-tree-pane" aria-label="Árbol de archivos del proyecto">
+          <review-file-tree
+            [files]="projectFiles()"
+            [selectedPath]="selectedFilePath()"
+            (fileSelected)="onFileSelected($event)"
+          />
+        </aside>
+
+        <!-- Center: Code Viewer with CodeMirror & Comments -->
+        <main class="detail-code-pane" aria-label="Visor de código del proyecto">
+          @if (activeFile(); as file) {
+            <div class="code-pane-header">
+              <div class="file-info">
+                <svg lucideFileCode class="file-icon"></svg>
+                <span class="file-path font-mono" machineData>{{ file.path }}</span>
+              </div>
+              <span class="file-lines" machineData>{{ file.line_count }} líneas</span>
+            </div>
+
+            <div class="code-viewport">
+              <code-editor
+                [value]="file.content"
+                [language]="fileLanguage()"
+                [readonly]="true"
+                minHeight="460px"
+                maxHeight="none"
+              />
+
+              @if (activeFileComments().length > 0) {
+                <div class="comments-list-section">
+                  <div class="comments-list-header">
+                    <span class="comments-count-badge font-mono">{{ activeFileComments().length }} comentarios del docente</span>
+                  </div>
+                  @for (comm of activeFileComments(); track comm.id) {
+                    <div class="comment-bubble">
+                      <div class="comment-header">
+                        <span class="comment-author">{{ comm.author_name || 'Docente' }}</span>
+                        @if (comm.line_number) {
+                          <span class="comment-line-badge font-mono">Línea {{ comm.line_number }}</span>
+                        }
+                        <time [attr.datetime]="comm.created_at">{{ comm.created_at | dateText:'compact-datetime' }}</time>
+                      </div>
+                      <p class="comment-text">{{ comm.comment }}</p>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="empty-code-placeholder">
+              <p>Selecciona un archivo del árbol para ver su contenido.</p>
+            </div>
+          }
+        </main>
+      } @else {
+        <!-- Single File Evaluation Environment Code Viewer -->
+        <main class="detail-code-pane detail-code-pane-single" aria-label="Visor de código">
+          <div class="code-pane-header">
+            <div class="file-info">
+              <svg lucideFileCode class="file-icon"></svg>
+              <span class="file-path font-mono">solucion.{{ singleCodeLanguage() }}</span>
+            </div>
+            <span class="file-lines" machineData>{{ (sub.code || '').split('\n').length }} líneas</span>
+          </div>
+
+          <div class="code-viewport">
+            <code-editor
+              [value]="sub.code || ''"
+              [language]="singleCodeLanguage()"
+              [readonly]="true"
+              minHeight="380px"
+              maxHeight="none"
+            />
+
+            @if (comments().length > 0) {
+              <div class="comments-list-section">
+                <div class="comments-list-header">
+                  <span class="comments-count-badge font-mono">{{ comments().length }} comentarios del docente</span>
+                </div>
+                @for (comm of comments(); track comm.id) {
+                  <div class="comment-bubble">
+                    <div class="comment-header">
+                      <span class="comment-author">{{ comm.author_name || 'Docente' }}</span>
+                      @if (comm.line_number) {
+                        <span class="comment-line-badge font-mono">Línea {{ comm.line_number }}</span>
+                      }
+                      <time [attr.datetime]="comm.created_at">{{ comm.created_at | dateText:'compact-datetime' }}</time>
+                    </div>
+                    <p class="comment-text">{{ comm.comment }}</p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        </main>
+      }
+
+      <!-- Right: Evaluation & Rubric Panel -->
+      <aside class="detail-eval-pane" aria-label="Evaluación y resultados">
+        <!-- Score Card -->
+        <section class="eval-card score-card">
+          <h2 class="card-heading">Resultado de la entrega</h2>
+
+          <div class="score-display">
+            @if (sub.score !== null && sub.score !== undefined) {
+              <div class="score-box">
+                <span class="score-value" machineData>{{ sub.score }}</span>
+                <span class="score-total">/ 100 pts</span>
+              </div>
+            } @else {
+              <div class="score-pending-box">
+                <span class="pending-pill">Sin calificar</span>
+                <p class="pending-subtext">Tu entrega está pendiente de revisión por el docente.</p>
+              </div>
+            }
+
+            <div class="verdict-wrapper">
+              @if (sub.verdict || sub.verdict_origin) {
+                <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="md" />
+              }
+              @if (sub.manual_override) {
+                <span class="manual-badge">Revisado por docente</span>
+              }
+            </div>
+          </div>
+
+          @if (!isProject()) {
+            <div class="metrics-row">
+              <div class="metric-item">
+                <span class="metric-label">Tiempo de ejecución</span>
+                <span class="metric-val" machineData>{{ sub.execution_time_ms }} ms</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-label">Memoria utilizada</span>
+                <span class="metric-val" machineData>{{ sub.memory_used_mb }} MB</span>
+              </div>
+            </div>
+          }
+        </section>
+
+        <!-- Teacher Observation Card -->
+        @if (sub.override_reason || generalComments().length > 0) {
+          <section class="eval-card feedback-card">
+            <h2 class="card-heading">Observaciones del docente</h2>
+            @if (sub.override_reason) {
+              <p class="feedback-quote">{{ sub.override_reason }}</p>
+            }
+            @for (comm of generalComments(); track comm.id) {
+              <div class="general-comment-entry">
+                <div class="comment-header">
+                  <span class="comment-author">{{ comm.author_name || 'Docente' }}</span>
+                  <time [attr.datetime]="comm.created_at">{{ comm.created_at | dateText:'compact-datetime' }}</time>
+                </div>
+                <p class="comment-text">{{ comm.comment }}</p>
+              </div>
+            }
+          </section>
+        }
+
+        <!-- Rubric Card -->
+        @if (rubric(); as rub) {
+          <section class="eval-card rubric-card">
+            <div class="rubric-header">
+              <h2 class="card-heading">Evaluación por Rúbrica</h2>
+              <span class="rubric-count" machineData>{{ rub.criteria.length }} criterios</span>
+            </div>
+
+            <div class="criteria-container">
+              @for (crit of rub.criteria; track crit.id || crit.name) {
+                <div class="criterion-box">
+                  <div class="criterion-top">
+                    <span class="criterion-name">{{ crit.name }}</span>
+                    <span class="criterion-weight" machineData>{{ crit.weight }}%</span>
+                  </div>
+
+                  @if (crit.description) {
+                    <p class="criterion-desc">{{ crit.description }}</p>
+                  }
+
+                  <div class="levels-list">
+                    @for (lvl of crit.levels; track lvl.name) {
+                      <div class="level-badge">
+                        <span class="level-name">{{ lvl.name }}</span>
+                        <span class="level-score" machineData>{{ lvl.score }}%</span>
+                      </div>
+                    }
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
+      </aside>
+    </div>
+  }
+</div>

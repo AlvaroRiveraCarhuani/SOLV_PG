@@ -6,8 +6,8 @@ import { TemplateRequestModalComponent } from '../../../templates/template-reque
 import { IdeTemplateSelectorComponent } from './components/ide-template-selector/ide-template-selector.component';
 import { IdeDbInitScriptComponent } from './components/ide-db-init-script/ide-db-init-script.component';
 import { IdeDeliveryConfigComponent } from './components/ide-delivery-config/ide-delivery-config.component';
-import { IdePreviewConfigComponent } from './components/ide-preview-config/ide-preview-config.component';
 import { IdeRubricEditorComponent } from './components/ide-rubric-editor/ide-rubric-editor.component';
+import { StatementEditorComponent } from '../step-identity/statement-editor.component';
 
 export interface ApprovedTemplate {
   id: string;
@@ -36,68 +36,66 @@ export interface ApprovedTemplate {
   imports: [
     IdeTemplateSelectorComponent,
     IdeDbInitScriptComponent,
+    StatementEditorComponent,
     IdeDeliveryConfigComponent,
-    IdePreviewConfigComponent,
     IdeRubricEditorComponent,
     TemplateRequestModalComponent
   ],
   template: `
     <div class="ide-step-container">
-      <header class="step-header">
-        <h2 class="step-title">Entorno y entrega</h2>
-        <p class="step-subtitle">
-          Elegí el entorno de desarrollo y definí cómo entregan los estudiantes.
-        </p>
-      </header>
-
-      <ide-template-selector
-        [approvedTemplates]="approvedTemplates()"
-        [selectedTemplate]="selectedTemplate()"
-        [templateOptions]="templateOptions()"
-        (templateSelected)="onTemplateSelected($event)"
-        (requestTemplate)="openRequestModal()"
-      />
-
-      <details class="advanced-settings">
-        <summary class="advanced-summary">Ajustes técnicos del entorno</summary>
-        <p class="advanced-hint">
-          Solo si el entorno lo requiere. El comando, el puerto y los datos iniciales los administra el entorno del catálogo.
-        </p>
-
-        <ide-db-init-script
-          [dbInitScript]="store.metadata().db_init_script || ''"
-          [hasDatabaseService]="hasDatabaseService()"
-          (initScriptChange)="onInitScriptChange($event)"
+      <!-- 1. Entorno de Trabajo (Stack Tecnológico) -->
+      <section class="form-section">
+        <ide-template-selector
+          [approvedTemplates]="approvedTemplates()"
+          [selectedTemplate]="selectedTemplate()"
+          [templateOptions]="templateOptions()"
+          (templateSelected)="onTemplateSelected($event)"
+          (requestTemplate)="openRequestModal()"
         />
+      </section>
 
-        <ide-preview-config
-          [appRunCommand]="store.metadata().app_run_command || ''"
-          [appPort]="store.metadata().app_port || 0"
-          (appRunCommandChange)="onAppRunCommandChange($event)"
-          (appPortChange)="onAppPortChange($event)"
+      <!-- 2. Script de Base de Datos Satélite (si aplica) -->
+      @if (hasDatabaseService()) {
+        <section class="form-section">
+          <ide-db-init-script
+            [dbInitScript]="store.metadata().db_init_script || ''"
+            [hasDatabaseService]="true"
+            (initScriptChange)="onInitScriptChange($event)"
+          />
+        </section>
+      }
+
+      <!-- 3. Consigna Pedagógica (Enunciado sobre el entorno ya seleccionado) -->
+      <section class="form-section">
+        <statement-editor />
+      </section>
+
+      <!-- 4. Parámetros de Entrega y Sincronización -->
+      <section class="form-section">
+        <ide-delivery-config
+          [dueDate]="store.metadata().due_date || ''"
+          [allowResubmit]="store.metadata().allow_resubmit || false"
+          [autoCheckpoint]="store.metadata().auto_checkpoint || false"
+          (dueDateChange)="onDueDateChange($event)"
+          (allowResubmitChange)="onAllowResubmitChange($event)"
+          (autoCheckpointChange)="onAutoCheckpointChange($event)"
         />
-      </details>
+      </section>
 
-      <ide-delivery-config
-        [dueDate]="store.metadata().due_date || ''"
-        [allowResubmit]="store.metadata().allow_resubmit || false"
-        [autoCheckpoint]="store.metadata().auto_checkpoint || false"
-        (dueDateChange)="onDueDateChange($event)"
-        (allowResubmitChange)="onAllowResubmitChange($event)"
-        (autoCheckpointChange)="onAutoCheckpointChange($event)"
-      />
-
-      <ide-rubric-editor
-        [rubric]="store.rubric()"
-        [totalRubricWeight]="totalRubricWeight()"
-        (addCriterion)="addCriterion()"
-        (removeCriterion)="removeCriterion($event)"
-        (updateCriterion)="updateCriterion($event.index, $event.update)"
-        (addLevelToCriterion)="addLevelToCriterion($event)"
-        (removeLevelFromCriterion)="removeLevelFromCriterion($event.criterionIndex, $event.levelIndex)"
-        (updateLevel)="updateLevel($event.criterionIndex, $event.levelIndex, $event.update)"
-        (balanceEqually)="distributeWeightsEqually()"
-      />
+      <!-- 5. Rúbrica Pedagógica de Evaluación -->
+      <section class="form-section">
+        <ide-rubric-editor
+          [rubric]="store.rubric()"
+          [totalRubricWeight]="totalRubricWeight()"
+          (addCriterion)="addCriterion()"
+          (removeCriterion)="removeCriterion($event)"
+          (updateCriterion)="updateCriterion($event.index, $event.update)"
+          (addLevelToCriterion)="addLevelToCriterion($event)"
+          (removeLevelFromCriterion)="removeLevelFromCriterion($event.criterionIndex, $event.levelIndex)"
+          (updateLevel)="updateLevel($event.criterionIndex, $event.levelIndex, $event.update)"
+          (balanceEqually)="distributeWeightsEqually()"
+        />
+      </section>
 
       @if (showRequestModal()) {
         <template-request-modal

@@ -1,13 +1,16 @@
 import { describe, it, expect } from 'vitest';
+import { TestBed } from '@angular/core/testing';
 import {
   OUTCOME_COPY,
   getVerdictHumanLabel,
   getVerdictBadgeClass,
   getVerdictOutcomeDetail,
   matchesVerdictFilter,
+  verdictOriginLabel,
   VERDICT_FILTER_OPTIONS,
   VERDICT_OVERRIDE_OPTIONS
 } from '../../../core/models/verdict.model';
+import { VerdictBadgeComponent } from './verdict-badge.component';
 
 describe('VerdictBadge mapping logic', () => {
   it('debe mapear AC a Cumple y clase verdict-ac', () => {
@@ -95,6 +98,64 @@ describe('Vocabulario derivado de la tabla canónica', () => {
       OUTCOME_COPY.RE.label,
       OUTCOME_COPY.TLE.label
     ]);
+  });
+});
+
+describe('Procedencia del veredicto', () => {
+  it('declara la procedencia cuando el veredicto no lo escribió el juez', () => {
+    expect(verdictOriginLabel('rubric')).toBe('Calificado por rúbrica');
+    expect(verdictOriginLabel('override')).toBe('Ajuste docente');
+    expect(verdictOriginLabel('legacy')).toBe('Resultado heredado');
+    expect(verdictOriginLabel(' LEGACY ')).toBe('Resultado heredado');
+  });
+
+  it('no declara procedencia para el juez ni para una entrega sin veredicto', () => {
+    expect(verdictOriginLabel('judge')).toBeNull();
+    expect(verdictOriginLabel('')).toBeNull();
+    expect(verdictOriginLabel(null)).toBeNull();
+    expect(verdictOriginLabel(undefined)).toBeNull();
+  });
+
+  it('conserva el resultado técnico y lo acompaña con la procedencia heredada', () => {
+    const fixture = TestBed.createComponent(VerdictBadgeComponent);
+    fixture.componentRef.setInput('verdict', 'AC');
+    fixture.componentRef.setInput('origin', 'legacy');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Cumple');
+    expect(text).toContain('Resultado heredado');
+  });
+
+  it('no presenta un veredicto escrito por la rúbrica como resultado del juez', () => {
+    const fixture = TestBed.createComponent(VerdictBadgeComponent);
+    fixture.componentRef.setInput('verdict', 'AC');
+    fixture.componentRef.setInput('origin', 'rubric');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Calificado por rúbrica');
+    expect(text).not.toContain('Cumple');
+  });
+
+  it('no atribuye procedencia cuando todavía no hay resultado', () => {
+    const fixture = TestBed.createComponent(VerdictBadgeComponent);
+    fixture.componentRef.setInput('verdict', 'PENDING');
+    fixture.componentRef.setInput('origin', 'legacy');
+    fixture.detectChanges();
+
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Sin calificar');
+    expect(text).not.toContain('Resultado heredado');
+  });
+
+  it('usa el resultado canónico cuando el veredicto es del juez', () => {
+    const fixture = TestBed.createComponent(VerdictBadgeComponent);
+    fixture.componentRef.setInput('verdict', 'AC');
+    fixture.componentRef.setInput('origin', 'judge');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Cumple');
   });
 });
 

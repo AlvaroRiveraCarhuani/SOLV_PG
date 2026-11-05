@@ -19,10 +19,13 @@ import {
 } from '@lucide/angular';
 import { ReviewMode, TeacherSubmissionReviewDTO } from '../../../../models/teacher.models';
 
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+
 @Component({
   selector: 'speed-grader-header',
   standalone: true,
   imports: [
+    EnvironmentLabelPipe,
     CommonModule,
     RouterLink,
     LucideArrowLeft,

@@ -2,10 +2,10 @@
   <section class="card-section">
     <div class="title-with-icon">
       <svg lucideDatabase class="header-icon"></svg>
-      <h3 class="card-title">Script de Inicialización de Base de Datos (DDL / DML)</h3>
+      <h3 class="card-title">Script inicial de base de datos</h3>
     </div>
     <p class="section-desc">
-      Este script SQL se ejecutará automáticamente durante el aprovisionamiento de la base de datos satélite del laboratorio.
+      Sentencias SQL para crear tablas o cargar datos al iniciar el laboratorio.
     </p>
 
     <div class="form-group">
@@ -16,7 +16,7 @@
         [ngModel]="dbInitScript()"
         (ngModelChange)="initScriptChange.emit($event)"
       ></textarea>
-      <span class="field-hint">Sentencias SQL separadas por punto y coma (;)</span>
+      <span class="field-hint">Sentencias separadas por punto y coma (;).</span>
     </div>
   </section>
 }

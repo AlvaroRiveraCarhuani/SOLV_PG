@@ -141,7 +141,7 @@
           <article class="statement-card">
             <div class="section-heading">
               <svg lucideTerminal class="section-icon"></svg>
-              <h2 class="section-title">Proyecto en Entorno de Desarrollo</h2>
+              <h2 class="section-title">Proyecto en {{ 'IDE_PERSISTENTE' | environmentLabel }}</h2>
             </div>
             <p class="ide-hint">
               El ejercicio se resuelve dentro de tu entorno de desarrollo. Trabajá en el IDE y
@@ -175,21 +175,28 @@
                 <span class="file-label">Entorno de la práctica</span>
               </div>
               <div class="toolbar-actions">
-                <button
-                  type="button"
-                  class="btn-primary"
-                  data-testid="btn-start-ide"
-                  [disabled]="isStartingEnvironment()"
-                  (click)="openEnvironment()"
-                >
-                  @if (isStartingEnvironment()) {
-                    <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
-                    <span>Abriendo entorno…</span>
-                  } @else {
-                    <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
-                    <span>Abrir entorno</span>
-                  }
-                </button>
+                @if (isExamSubmitted()) {
+                  <span class="exam-locked-pill">Examen entregado</span>
+                  <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
+                    Ver entrega enviada
+                  </a>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    data-testid="btn-start-ide"
+                    [disabled]="isStartingEnvironment()"
+                    (click)="openEnvironment()"
+                  >
+                    @if (isStartingEnvironment()) {
+                      <svg lucideRefreshCw class="btn-icon motion-spin" aria-hidden="true"></svg>
+                      <span>Abriendo entorno…</span>
+                    } @else {
+                      <svg lucideExternalLink class="btn-icon" aria-hidden="true"></svg>
+                      <span>Abrir entorno</span>
+                    }
+                  </button>
+                }
               </div>
             </div>
 
@@ -219,28 +226,38 @@
                 <span class="file-label">Entrega del proyecto</span>
               </div>
               <div class="toolbar-actions">
-                <button
-                  type="button"
-                  class="btn-primary"
-                  data-testid="btn-submit-project"
-                  [disabled]="!canSubmitProject()"
-                  (click)="requestSubmitProject()"
-                >
-                  @if (isSubmittingProject()) {
-                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                    <span>Entregando...</span>
-                  } @else if (examSubmitPending()) {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Confirmar entrega</span>
-                  } @else {
-                    <svg lucidePlay class="btn-icon"></svg>
-                    <span>Entregar Proyecto</span>
-                  }
-                </button>
+                @if (isExamSubmitted()) {
+                  <span class="exam-locked-pill">Examen entregado</span>
+                } @else {
+                  <button
+                    type="button"
+                    class="btn-primary"
+                    data-testid="btn-submit-project"
+                    [disabled]="!canSubmitProject()"
+                    (click)="requestSubmitProject()"
+                  >
+                    @if (isSubmittingProject()) {
+                      <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                      <span>Entregando...</span>
+                    } @else if (examSubmitPending()) {
+                      <svg lucidePlay class="btn-icon"></svg>
+                      <span>Confirmar entrega</span>
+                    } @else {
+                      <svg lucidePlay class="btn-icon"></svg>
+                      <span>Entregar Proyecto</span>
+                    }
+                  </button>
+                }
               </div>
             </div>
 
             <div class="editor-body">
+              @if (isExamSubmitted()) {
+                <div class="exam-locked-banner" role="status">
+                  <svg lucideCheckCircle2 class="locked-icon"></svg>
+                  <span>Has entregado este examen. Tu entorno de desarrollo ha quedado congelado en solo lectura para la evaluación por rúbrica.</span>
+                </div>
+              }
               @if (examSubmitPending()) {
                 <div class="exam-submit-warning" role="alert">
                   <p class="exam-submit-text">
@@ -261,7 +278,9 @@
                   </span>
                 </div>
                 <div class="verdict-metrics">
-                  <verdict-badge [verdict]="submission.verdict" size="sm" />
+                  @if (submission.verdict || submission.verdict_origin) {
+                    <verdict-badge [verdict]="submission.verdict" [origin]="submission.verdict_origin" size="sm" />
+                  }
                   @if (projectSubmittedAt(); as submittedAt) {
                     <time class="metric-chip font-mono" machineData>{{ submittedAt | dateText:'long-datetime' }}</time>
                   }
@@ -297,39 +316,54 @@
             </div>
 
             <div class="toolbar-actions">
-              <button
-                type="button"
-                class="btn-outline btn-reset-code"
-                (click)="resetBoilerplate()"
-                title="Restaurar plantilla inicial"
-              >
-                <svg lucideRotateCcw class="btn-icon"></svg>
-                <span>Reiniciar</span>
-              </button>
+              @if (isExamSubmitted()) {
+                <span class="exam-locked-pill">Examen entregado</span>
+                <a [routerLink]="['/student/history', lastSubmissionId()]" class="btn-outline btn-view-submission">
+                  Ver entrega enviada
+                </a>
+              } @else {
+                <button
+                  type="button"
+                  class="btn-outline btn-reset-code"
+                  (click)="resetBoilerplate()"
+                  title="Restaurar plantilla inicial"
+                >
+                  <svg lucideRotateCcw class="btn-icon"></svg>
+                  <span>Reiniciar</span>
+                </button>
 
-              <button
-                type="button"
-                class="btn-primary btn-submit-solution"
-                data-testid="btn-submit-solution"
-                (click)="submitSolution()"
-                [disabled]="isSubmitting() || !sourceCode().trim()"
-              >
-                @if (isSubmitting()) {
-                  <svg lucideLoader2 class="btn-icon motion-spin"></svg>
-                  <span>Evaluando...</span>
-                } @else {
-                  <svg lucidePlay class="btn-icon"></svg>
-                  <span>Enviar a Evaluación</span>
-                }
-              </button>
+                <button
+                  type="button"
+                  class="btn-primary btn-submit-solution"
+                  data-testid="btn-submit-solution"
+                  (click)="submitSolution()"
+                  [disabled]="isSubmitting() || !sourceCode().trim()"
+                >
+                  @if (isSubmitting()) {
+                    <svg lucideLoader2 class="btn-icon motion-spin"></svg>
+                    <span>Evaluando...</span>
+                  } @else {
+                    <svg lucidePlay class="btn-icon"></svg>
+                    <span>Enviar a Evaluación</span>
+                  }
+                </button>
+              }
             </div>
           </div>
 
           <div class="editor-body">
+            @if (isExamSubmitted()) {
+              <div class="exam-locked-banner" role="status">
+                <svg lucideCheckCircle2 class="locked-icon"></svg>
+                <span>Has entregado este examen. Las entregas de examen son definitivas y el código se encuentra en modo solo lectura.</span>
+              </div>
+            }
+
             @defer {
               <code-editor
                 [value]="sourceCode()"
                 [language]="selectedLanguage()"
+                [readonly]="isExamSubmitted()"
                 minHeight="280px"
                 (valueChange)="onCodeChange($event)"
               />
@@ -338,6 +372,7 @@
                 class="form-textarea font-mono"
                 rows="10"
                 [ngModel]="sourceCode()"
+                [disabled]="isExamSubmitted()"
                 (ngModelChange)="onCodeChange($event)"
                 aria-label="Editor de código"
               ></textarea>

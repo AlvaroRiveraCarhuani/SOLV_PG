@@ -1,4 +1,6 @@
 import type { ExerciseContract } from '../exercise-editor/steps/step-contract/format-builder/format-builder.models';
+import type { ProjectFile } from '@core/models/project-file.model';
+import type { SubmissionComment } from '@core/models/submission-comment.model';
 
 export interface AcademicPeriod {
   id: string;
@@ -139,21 +141,7 @@ export interface TeacherExerciseBankItem {
   review_pending: number;
 }
 
-export interface SubmissionComment {
-  id: string;
-  tenant_id?: string;
-  submission_id: string;
-  author_id: string;
-  author_name: string;
-  line_number: number;
-  /** Cierre opcional del bloque comentado; la línea inicial sigue siendo global. */
-  end_line_number?: number;
-  /** Ancla por archivo en modalidad IDE; nula en juez. */
-  file_path?: string;
-  local_line_number?: number;
-  comment: string;
-  created_at: string;
-}
+export type { SubmissionComment };
 
 export interface SubmissionQueueItem {
   id: string;
@@ -163,6 +151,8 @@ export interface SubmissionQueueItem {
   student_name: string;
   student_email: string;
   verdict: string;
+  /** judge | rubric | override | legacy. Ausente cuando no hay veredicto. */
+  verdict_origin?: string | null;
   score?: number;
   manual_override: boolean;
   execution_time_ms: number;
@@ -215,13 +205,7 @@ export interface TestCaseReview {
   passed: boolean;
 }
 
-export interface ProjectFile {
-  path: string;
-  language: string;
-  content: string;
-  start_line: number;
-  line_count: number;
-}
+export type { ProjectFile };
 
 export interface TeacherSubmissionReviewDTO {
   id: string;
@@ -238,6 +222,7 @@ export interface TeacherSubmissionReviewDTO {
   boilerplate?: string;
   code?: string;
   verdict: string;
+  verdict_origin?: string | null;
   score?: number;
   manual_override: boolean;
   override_reason?: string;

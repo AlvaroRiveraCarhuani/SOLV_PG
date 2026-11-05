@@ -566,7 +566,7 @@ export class TemplateRequestModalComponent implements OnInit {
     return targets.some(target => matchesRuntimeEcosystem(runtime, target));
   }
 
-  incompatibleHint(item: TemplateComponent): string {
+  incompatibleHint(_item: TemplateComponent): string {
     const runtime = this.selectedRuntime();
     return runtime ? `No aplica a ${runtime.name}` : 'No aplica al lenguaje elegido';
   }

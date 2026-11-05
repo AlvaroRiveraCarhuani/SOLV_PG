@@ -154,7 +154,7 @@ Toda la fila de cada laboratorio en la lista abre su ficha en `/teacher/cursos/{
 ```text
 ┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
 │ [< Volver a la materia]  Práctica 1: Búsqueda Binaria  [Probar Solución] [Fuzzing de Casos]  │
-│ Publicado · Juez Virtual (Algoritmia) · Python · Vence: 13 nov · Tiempo: 2000 ms · O(log n)      │
+│ Publicado · Entorno de Evaluación (Algoritmia) · Python · Vence: 13 nov · Tiempo: 2000 ms · O(log n)      │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤
 │ 12 entregas registradas · 35 estudiantes · [4] pendientes de revisión   → Ir a Entregas          │
 ├──────────────────────────────────────────────────────────────────────────────────────────────────┤

@@ -84,6 +84,7 @@ describe('StudentExerciseSolverComponent', () => {
         access_url: 'http://localhost:3000/ide'
       } as unknown as PracticeEnvironment);
     },
+    submissionsHistory: signal([]),
     saveKeystrokeEvents: () => Promise.resolve()
   };
 

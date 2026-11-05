@@ -1,56 +1,68 @@
 <section class="card-section" id="template-section">
   <div class="section-header-row">
     <div class="title-with-icon">
-      <svg lucideServer class="header-icon"></svg>
-      <h3 class="card-title">Plantilla del Catálogo Homologado</h3>
+      <svg lucideLayers class="header-icon"></svg>
+      <div>
+        <h3 class="card-title">Entorno de trabajo</h3>
+        <span class="card-subtitle">Stack tecnológico y servicios del workspace</span>
+      </div>
     </div>
     <button type="button" class="btn-outline btn-sm" (click)="requestTemplate.emit()">
       <svg lucidePlus class="btn-icon"></svg>
-      <span>Solicitar nueva plantilla</span>
+      <span>Solicitar nuevo entorno</span>
     </button>
   </div>
 
   <div class="form-group">
     <label class="form-label">
-      Seleccionar plantilla aprobada <span class="required">*</span>
+      Entorno homologado <span class="required">*</span>
     </label>
     <combobox
       [options]="templateOptions()"
       [value]="selectedTemplate()?.id || ''"
-      [placeholder]="'Buscar o seleccionar plantilla homologada...'"
+      [placeholder]="'Buscar o seleccionar entorno...'"
       [showSearchIcon]="true"
       [compact]="false"
       (optionSelected)="onTemplateOptionSelected($event)"
-      inputAriaLabel="Seleccionar plantilla aprobada"
+      inputAriaLabel="Seleccionar entorno homologado"
     />
   </div>
 
   @if (selectedTemplate(); as tpl) {
     <div class="template-detail-card">
-      <div class="detail-row">
-        <span class="detail-label">Stack tecnológico:</span>
-        <div class="stack-identity-row">
-          <tech-logo [iconType]="deriveTechIcon(tpl)" [size]="20"></tech-logo>
-          <span class="detail-value font-bold">{{ tpl.name }}</span>
+      <div class="stack-identity-block">
+        <div class="avatar-box">
+          <tech-logo [iconType]="deriveTechIcon(tpl)" [size]="28"></tech-logo>
         </div>
-      </div>
-      <div class="detail-row">
-        <span class="detail-label">Servicios Satélite:</span>
-        <div class="satellites-list">
-          @if (tpl.services_config?.database?.enabled) {
-            <span class="satellite-badge active">
-              <svg lucideDatabase class="badge-icon"></svg>
-              <span>Base de datos activa ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
-            </span>
-          } @else {
-            <span class="satellite-badge neutral">Sin base de datos satélite</span>
-          }
+
+        <div class="stack-meta-info">
+          <div class="stack-name-row">
+            <span class="stack-name">{{ tpl.name }}</span>
+            <span class="category-chip">Catálogo oficial</span>
+          </div>
+
+          <!-- Chips con Iconos Oficiales -->
+          <div class="tech-badges-list">
+            @for (badge of deriveTechBadges(tpl); track badge.label) {
+              <span class="tech-chip">
+                <tech-logo [iconType]="badge.icon" [size]="14"></tech-logo>
+                <span>{{ badge.label }}</span>
+              </span>
+            }
+
+            @if (tpl.services_config?.database?.enabled) {
+              <span class="satellite-badge active">
+                <svg lucideDatabase class="badge-icon"></svg>
+                <span>Base de datos activa ({{ tpl.services_config?.database?.engine || 'PostgreSQL' }})</span>
+              </span>
+            }
+          </div>
         </div>
       </div>
     </div>
   } @else {
     <div class="empty-template-hint">
-      <span>Selecciona una plantilla del catálogo oficial para desplegar el entorno OpenVSCode.</span>
+      <span>Elegí un entorno del catálogo para configurar el espacio de trabajo en VS Code.</span>
     </div>
   }
 </section>

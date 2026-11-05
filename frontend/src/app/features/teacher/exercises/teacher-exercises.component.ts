@@ -21,6 +21,8 @@ import { TeacherExerciseBankItem, TeacherLabStats } from '../models/teacher.mode
 import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { DateTextPipe } from '@shared/pipes/date-text.pipe';
 import { SkeletonLoaderComponent } from '@shared/components/skeleton/skeleton-loader.component';
+import { EnvironmentLabelPipe } from '@shared/pipes/environment-label.pipe';
+import { environmentTypeOptions } from '@shared/constants/environment-types.constants';
 import { ComboboxComponent, ComboboxOption } from '@shared/components/combobox/combobox.component';
 import { FuzzingModalComponent } from '../evaluations/fuzzing-modal/fuzzing-modal.component';
 
@@ -48,7 +50,8 @@ export type EnrichedLabItem = TeacherExerciseBankItem;
     DateTextPipe,
     SkeletonLoaderComponent,
     ComboboxComponent,
-    FuzzingModalComponent
+    FuzzingModalComponent,
+    EnvironmentLabelPipe
   ],
   templateUrl: './teacher-exercises.component.html',
   styleUrl: './teacher-exercises.component.scss'
@@ -159,15 +162,12 @@ export class TeacherExercisesComponent implements OnInit {
 
   modalityComboboxOptions = computed<ComboboxOption[]>(() => [
     { id: 'all', label: 'Todos', value: 'all' },
-    { id: 'JUEZ_EFIMERO', label: 'Evaluador Automático', value: 'JUEZ_EFIMERO' },
-    { id: 'IDE_PERSISTENTE', label: 'Entorno de Desarrollo (IDE)', value: 'IDE_PERSISTENTE' }
+    ...environmentTypeOptions({ include: ['JUEZ_EFIMERO', 'IDE_PERSISTENTE'] })
   ]);
 
   selectedModalityLabel = computed(() => {
     const sel = this.modalityFilter();
-    if (sel === 'JUEZ_EFIMERO') return 'Evaluador Automático';
-    if (sel === 'IDE_PERSISTENTE') return 'Entorno de Desarrollo (IDE)';
-    return 'Todos';
+    return this.modalityComboboxOptions().find(o => o.value === sel)?.label ?? 'Todos';
   });
 
   statusComboboxOptions = computed<ComboboxOption[]>(() => [

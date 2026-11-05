@@ -12,7 +12,8 @@ import {
   JudgeVerdict,
   getVerdictBadgeClass,
   getVerdictHumanLabel,
-  getVerdictOutcomeDetail
+  getVerdictOutcomeDetail,
+  verdictOriginLabel
 } from '../../../core/models/verdict.model';
 import { MachineDataDirective } from '../../directives/machine-data.directive';
 
@@ -32,6 +33,11 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
     MachineDataDirective
   ],
   template: `
+    @if (originLabel(); as originText) {
+      <span class="verdict-badge verdict-origin" [ngClass]="sizeClass()" [attr.title]="originText">
+        <span class="verdict-human-label">{{ originText }}</span>
+      </span>
+    } @else {
     <span class="verdict-badge" [ngClass]="[badgeClass(), sizeClass()]" [attr.title]="fullTitle()">
       @switch (normalizedVerdict()) {
         @case ('AC') {
@@ -76,18 +82,62 @@ export { getVerdictBadgeClass, getVerdictHumanLabel };
       @if (showAcronym()) {
         <code class="verdict-acronym font-mono" machineData>{{ acronym() }}</code>
       }
+
+      @if (legacyLabel(); as legacyText) {
+        <span class="verdict-origin-tag">{{ legacyText }}</span>
+      }
     </span>
+    }
   `,
   styleUrl: './verdict-badge.component.scss'
 })
 export class VerdictBadgeComponent {
   readonly verdict = input.required<JudgeVerdict | string>();
+  /**
+   * Origen del veredicto guardado. Cuando no lo escribió el juez, el badge
+   * declara la procedencia en lugar de presentarlo como resultado verificado.
+   */
+  readonly origin = input<string | null | undefined>(undefined);
   readonly showAcronym = input<boolean>(false);
   readonly showHumanLabel = input<boolean>(true);
   readonly size = input<'sm' | 'md' | 'lg'>('md');
 
   readonly normalizedVerdict = computed<string>(() => {
     return (this.verdict() || '').trim().toUpperCase();
+  });
+
+  private readonly normalizedOrigin = computed<string>(() => {
+    return (this.origin() || '').trim().toLowerCase();
+  });
+
+  /**
+   * La procedencia reemplaza al resultado cuando el veredicto guardado lo
+   * escribió otro camino y presentarlo como evaluación del juez sería falso:
+   * la rúbrica histórica y el ajuste docente. Una entrega sin veredicto, o con
+   * el centinela histórico 'PENDING', no tiene resultado que atribuir.
+   */
+  readonly originLabel = computed<string | null>(() => {
+    const verdict = this.normalizedVerdict();
+    if (verdict === '' || verdict === 'PENDING') {
+      return null;
+    }
+    const origin = this.normalizedOrigin();
+    if (origin !== 'rubric' && origin !== 'override') {
+      return null;
+    }
+    return verdictOriginLabel(origin);
+  });
+
+  /**
+   * Un registro heredado no tiene procedencia demostrable, pero su código
+   * técnico es un dato real: se conserva y se acompaña con la etiqueta.
+   */
+  readonly legacyLabel = computed<string | null>(() => {
+    const verdict = this.normalizedVerdict();
+    if (verdict === '' || verdict === 'PENDING') {
+      return null;
+    }
+    return this.normalizedOrigin() === 'legacy' ? verdictOriginLabel('legacy') : null;
   });
 
   readonly badgeClass = computed<string>(() => {

@@ -64,6 +64,17 @@ export const routes: Routes = [
           )
       },
       {
+        path: 'history/:submissionId',
+        loadComponent: () =>
+          import(
+            '@features/student/history/submission-detail/student-submission-detail.component'
+          ).then((m) => m.StudentSubmissionDetailComponent)
+      },
+      {
+        path: 'submissions/:submissionId',
+        redirectTo: 'history/:submissionId'
+      },
+      {
         path: 'cursos/:courseId',
         redirectTo: 'courses/:courseId'
       },

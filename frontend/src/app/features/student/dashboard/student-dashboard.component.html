@@ -12,7 +12,7 @@
 
   <div class="home-grid">
     <div class="home-main">
-      <article class="home-card aula-now">
+      <article class="home-card aula-now motion-rise">
         <header class="card-head">
           <h2 class="card-title">Aula ahora</h2>
           @if (primaryAula(); as clase) {
@@ -88,7 +88,7 @@
         }
       </article>
 
-      <article class="home-card">
+      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="1">
         <header class="card-head">
           <h2 class="card-title">Próximas entregas</h2>
           @if (dueCount() > 0) {
@@ -99,7 +99,7 @@
         @if (dueLoadFailed()) {
           <field-message variant="error" message="No pudimos leer tus entregas pendientes." />
         } @else if (dueSoon().length === 0) {
-          <p class="empty-copy">No hay entregas próximas.</p>
+          <p class="empty-copy">No tienes entregas con fecha límite próxima.</p>
         } @else {
           <ul class="row-list">
             @for (due of dueSoon(); track due.exercise_id) {
@@ -119,8 +119,37 @@
           </ul>
         }
       </article>
+    </div>
 
-      <article class="home-card">
+    <aside class="home-side">
+      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="1">
+        <header class="card-head">
+          <h2 class="card-title">Últimas entregas</h2>
+          <a class="link-quiet" routerLink="/student/history">Historial</a>
+        </header>
+
+        @if (recent().length === 0) {
+          <p class="empty-copy">Aún no registras entregas.</p>
+        } @else {
+          <ul class="recent-list">
+            @for (sub of recent(); track sub.id) {
+              <li class="recent-item">
+                <span class="row-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
+                <span class="recent-meta">
+                  @if (sub.verdict || sub.verdict_origin) {
+                    <verdict-badge [verdict]="sub.verdict" [origin]="sub.verdict_origin" size="sm" />
+                  }
+                  <time [attr.datetime]="sub.submitted_at">
+                    {{ sub.submitted_at | dateText:'compact-datetime' }}
+                  </time>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </article>
+
+      <article class="home-card motion-rise motion-stagger" [style.--motion-index]="2">
         <header class="card-head">
           <h2 class="card-title">Tus materias</h2>
           <span class="card-count">
@@ -150,47 +179,6 @@
             }
           </ul>
         }
-      </article>
-    </div>
-
-    <aside class="home-side">
-      <article class="home-card">
-        <header class="card-head">
-          <h2 class="card-title">Últimas entregas</h2>
-          <a class="link-quiet" routerLink="/student/history">Historial</a>
-        </header>
-
-        @if (recent().length === 0) {
-          <p class="empty-copy">Aún no registras entregas.</p>
-        } @else {
-          <ul class="recent-list">
-            @for (sub of recent(); track sub.id) {
-              <li class="recent-item">
-                <span class="row-title">{{ sub.exercise_title || 'Ejercicio' }}</span>
-                <span class="recent-meta">
-                  <verdict-badge [verdict]="sub.verdict" size="sm" />
-                  <time [attr.datetime]="sub.submitted_at">
-                    {{ sub.submitted_at | dateText:'compact-datetime' }}
-                  </time>
-                </span>
-              </li>
-            }
-          </ul>
-        }
-      </article>
-
-      <article class="home-card reminder">
-        <div class="reminder-head">
-          <svg lucideUsers></svg>
-          <h2 class="card-title">Mientras estás en clase</h2>
-        </div>
-        <p class="empty-copy">
-          Tu presencia se envía sola mientras la pestaña está abierta, así el docente sabe quién está en el aula.
-        </p>
-        <div class="reminder-foot">
-          <svg lucideCalendarClock></svg>
-          <span>Los avances del docente se aplican desde el aula o desde la práctica.</span>
-        </div>
       </article>
     </aside>
   </div>

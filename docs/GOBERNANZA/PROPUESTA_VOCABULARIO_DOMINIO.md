@@ -14,7 +14,7 @@
 
 ### 0.1 Qué resuelve este documento
 
-Define el vocabulario de dominio de SOLV en tres capas separadas —visible, conceptual y técnica—, contrasta cada concepto con los que se le parecen y deja por escrito qué decisiones faltan. No propone renombrar código: propone qué palabra usar para cada cosa y por qué.
+Define el vocabulario de dominio de SOLV en cuatro capas separadas —visible, conceptual, técnica y almacenada—, contrasta cada concepto con los que se le parecen y deja por escrito qué decisiones faltan. No propone renombrar código: propone qué palabra usar para cada cosa y por qué.
 
 ### 0.2 Cómo se investigó
 
@@ -37,7 +37,7 @@ Cuando el código no alcanza para decidir, se marca **pendiente de decisión** y
 | **Técnico** | Identificador de código, DTO, ruta o tipo | Go, TypeScript, endpoints | inglés |
 | **Almacenado** | Valor persistido o transmitido por API | PostgreSQL, JSON | códigos en mayúsculas o inglés |
 
-La cuarta capa se agrega porque en SOLV no siempre coincide con la técnica: `JUEZ_EFIMERO` es el valor guardado, `EnvironmentType` el tipo de código y «Entorno de Evaluación» la etiqueta visible.
+La cuarta capa se agrega porque en SOLV no siempre coincide con la técnica: `JUEZ_EFIMERO` es el valor guardado, `PracticeEnvironmentTypeJuezEfimero` el identificador de código y «Entorno de Evaluación» la etiqueta visible.
 
 ### 0.4 Niveles de certeza usados
 
@@ -47,7 +47,7 @@ La cuarta capa se agrega porque en SOLV no siempre coincide con la técnica: `JU
 
 ### 0.5 Límites
 
-- El backend y PostgreSQL no estaban disponibles durante el relevamiento: no se consultaron valores reales de `target_environment`, `status` ni `verdict`. Las listas de valores provienen de constantes, validaciones y restricciones `CHECK`.
+- El backend y PostgreSQL no estaban disponibles durante el relevamiento: no se consultaron valores reales de `target_environment`, `status` ni `verdict`. Las listas de valores provienen de constantes, validaciones y restricciones `CHECK`. Lo que sí se confirmó en el código es qué valores escribe cada servicio, no cuántas filas los tienen hoy.
 - No se ejecutaron flujos con usuarios reales ni se midió qué interpreta una persona frente a cada pantalla.
 - La memoria del proyecto de grado se entrega como PDF y no forma parte de esta revisión.
 - No se modificaron `AGENTS.md`, skills, código ni etiquetas; no se implementó ningún gate; no se crearon alias.
@@ -93,8 +93,8 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | Identificador técnico | `Exercise`, tabla `exercises`, rutas `/api/v1/.../exercises` |
 | Categoría | Entidad |
 | Definición funcional | Unidad de trabajo evaluable que un docente publica en una materia: tiene enunciado, tipo, modalidad de entorno, plantilla asociada y una forma de corrección (casos de prueba o revisión con rúbrica). Es lo que el alumno resuelve y lo que genera entregas. |
-| Qué no debe confundirse | No es la **práctica** de una sesión (es el mismo objeto visto desde el aula), no es el **laboratorio** (el entorno en ejecución), no es la **plantilla** (la receta técnica) y no es una **actividad** genérica. |
-| Sinónimos permitidos en prosa | «práctica» cuando el texto habla de lo que se resuelve en clase («la práctica de la sesión»); «consigna» para el enunciado |
+| Qué no debe confundirse | No es el **laboratorio** (el entorno en ejecución), no es la **plantilla** (la receta técnica) y no es una **actividad** genérica. «Práctica» no designa otra entidad del dominio: es un sinónimo coloquial del mismo ejercicio, habitual cuando se habla de lo que se resuelve en clase. |
+| Sinónimos permitidos en prosa | «práctica» como sinónimo coloquial del mismo objeto («la práctica de la sesión» es el ejercicio que el aula referencia); «consigna» para el enunciado |
 | Evitar en interfaz | «Laboratorio», «Actividad», «Práctica» en títulos, menús, botones y filtros |
 | Evidencia | `backend/internal/core/domain/exercise.go:278-306` (estructura), `:17-20` (tipos), `:25-26` (modalidades), `:71-79` (veredictos); `backend/migrations/00001_baseline.sql:205`; UI contradictoria en `frontend/src/app/features/teacher/exercises/teacher-exercises.component.html:5-6,18` |
 | Certeza | Confirmado en dominio y API; **pendiente de decisión** el reemplazo de las etiquetas visibles |
@@ -184,8 +184,8 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | Categoría | Entidad |
 | Definición funcional | Apertura acotada de una materia durante una clase: nace abierta con una duración y muere cerrada. Mientras está abierta reúne la presencia de los alumnos, el ejercicio de la sesión y los avances. |
 | Qué no debe confundirse | No es la **sesión de autenticación** (el inicio de sesión con Google y el token JWT), no es la **vida del laboratorio** («entre sesiones» en la copia) y no es la **materia**: una materia puede tener un aula abierta a la vez. |
-| Sinónimos permitidos en prosa | «clase» cuando se habla del encuentro; «sesión de clase» en documentación conceptual |
-| Evitar en interfaz | «Sesión» sola para el aula |
+| Sinónimos permitidos en prosa | «clase» cuando se habla del encuentro; «sesión de clase» como expresión descriptiva («la sesión de clase de hoy»), nunca como nombre de la entidad |
+| Evitar en interfaz | «Sesión» sola como nombre del aula o de cualquier entidad académica |
 | Evidencia | `backend/internal/core/domain/class_session.go:9-12` (estados), `:16-31` (estados del alumno), `:78-100` (estructura); `ErrSessionAlreadyOpen` en `:44` |
 | Certeza | Confirmado |
 
@@ -203,7 +203,7 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | Qué no debe confundirse | No es el **modelo del catálogo** (una copia curada y categorizada, pensada para reutilizar), no es el **laboratorio** (la instancia en ejecución) y no es «Docker»: la imagen es un detalle de implementación. |
 | Sinónimos permitidos en prosa | «plantilla de entorno» en documentación de infraestructura |
 | Evitar en interfaz | «Plantilla Docker», «Entorno» a secas, «Imagen» |
-| Evidencia | `backend/internal/core/domain/environment.go:173-183`; `backend/migrations/00001_baseline.sql:68-101`; estados y modalidad en la misma tabla; `TemplateSupportsEnvironment` en `backend/internal/core/domain/admin_governance.go:58-63` |
+| Evidencia | `backend/internal/core/domain/practice_environment.go:179`; `backend/migrations/00001_baseline.sql:68-101`; estados y modalidad en la misma tabla; `TemplateSupportsEnvironment` en `backend/internal/core/domain/admin_governance.go:58-63` |
 | Certeza | Confirmado |
 
 #### 2.2.2 Modelo del catálogo
@@ -235,6 +235,14 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | Evitar en interfaz | «Herramienta» para el ítem del catálogo; «Componente» y «Tecnología» en la misma pantalla |
 | Evidencia | `backend/internal/core/domain/template_component.go:14-22` (capas), `:50-74` (estructura), `:55` (subcategorías); tres prefijos de ruta en `backend/internal/delivery/http/router.go:251-258`; etiquetas visibles en `frontend/.../model-library.component.html:35,116` y `.../catalog-tree.component.html:8,48` |
 | Certeza | Confirmado el objeto y la etiqueta dominante; **pendiente de decisión** el nombre visible definitivo |
+
+**Por qué «Tecnología» y «componente técnico» no se contradicen.** Nombran el mismo objeto en dos capas distintas, y cada palabra describe una parte diferente de lo que ese objeto hace:
+
+- **«Tecnología» describe qué aporta al entorno**: un runtime, un complemento o un motor de base de datos. Es la palabra que ya usa la pantalla del catálogo y la que entiende quien arma una plantilla.
+- **«Componente técnico» describe cómo se usa**: una pieza que el constructor combina con otras para componer una plantilla. Es la palabra del modelo de datos (`TemplateComponent`) y de la documentación de arquitectura.
+- **No compiten en la misma frase**: la interfaz dice «Tecnología»; el código y los ADR dicen «componente». Lo que hay que evitar es mezclar ambas en una misma pantalla, que es lo que ocurre hoy con «Herramienta», «Componente» y «Tecnología».
+
+Dicho de otro modo: «componente» es la función que cumple dentro del sistema; «tecnología» es el nombre que recibe esa función cuando se muestra el catálogo. La elección del nombre visible sigue pendiente en D3.
 
 #### 2.2.4 Categoría de plantilla
 
@@ -273,7 +281,7 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | Campo | Valor |
 | :--- | :--- |
 | Nombre canónico | Entorno de práctica |
-| Nombre visible recomendado | **Entorno** (con «de práctica» cuando el contexto no lo aclara) |
+| Nombre visible recomendado | **Laboratorio** (recomendación de D1, pendiente de aprobación); «entorno» solo con calificador en documentación |
 | Identificador técnico | `PracticeEnvironment`, tabla `environments`, columna `environment_id`, rutas `/api/v1/environments` |
 | Categoría | Instancia |
 | Definición funcional | Entorno de ejecución concreto de un alumno para una práctica: contenedor, volumen nombrado propio, URL de acceso y estado. Nace de una plantilla, se acota a la práctica (volumen separado) y se hiberna o congela según su ciclo de vida. |
@@ -289,7 +297,7 @@ Cada ficha describe un concepto, no una clase. La columna de categoría distingu
 | :--- | :--- |
 | Nombre canónico | Juez Virtual (evaluador automático) |
 | Nombre visible recomendado | **Juez Virtual** |
-| Identificador técnico | valor almacenado `JUEZ_EFIMERO`; alias aceptado `JUEZ_VIRTUAL`; código `EnvironmentTypeJuezEfimero` |
+| Identificador técnico | valor almacenado `JUEZ_EFIMERO`; alias aceptado `JUEZ_VIRTUAL`; constante `PracticeEnvironmentTypeJuezEfimero` |
 | Categoría | Servicio del dominio |
 | Definición funcional | Componente que ejecuta el código o la consulta de un alumno contra casos de prueba, aplica los filtros de seguridad y emite un veredicto por caso y uno global. Corre en contenedores efímeros, sin volumen del alumno. |
 | Qué no debe confundirse | No es el **entorno de evaluación** (la modalidad declarada en una plantilla o modelo) ni el **veredicto** (el resultado). «Juez Evaluador (Sandbox)» del manual es una tercera forma de nombrarlo. |
@@ -349,11 +357,11 @@ No son conceptos con identidad propia: son valores de vocabularios cerrados que 
 | Categoría | Categoría | Categoría | `TemplateCategory` | `template_categories` | Estandarizado |
 | Solicitud de entorno | Solicitud de entorno | Solicitud de entorno | `EnvironmentRequest` | `environment_requests` | Parcial: menú y página distintos |
 | Laboratorio | Laboratorio | Entorno de ejecución | `PracticeEnvironment` | `environments`, `/environments` | Parcial: «environment» e «instancia» |
-| Juez Virtual | Juez Virtual | Evaluador automático | `EnvironmentTypeJuezEfimero` | `JUEZ_EFIMERO` (+ alias) | Contradictoria |
+| Juez Virtual | Juez Virtual | Evaluador automático | `PracticeEnvironmentTypeJuezEfimero` | `JUEZ_EFIMERO` (+ alias) | Contradictoria |
 | Entorno de revisión | Vista previa del proyecto | Entorno de revisión | `ReviewEnvironment` | `review_test_environments`, `/test-environment` | Débil: sin etiqueta única |
 | Modalidad | Entorno de Desarrollo / de Evaluación / dual | Modalidad de entorno | `target_environment` | `IDE_PERSISTENTE`, `JUEZ_EFIMERO`, `AMBOS` | Parcial: «dual» sin etiqueta propia |
 | Estado del laboratorio | Las ocho etiquetas del badge | Estado del laboratorio | `EnvironmentStatus` | 8 códigos | Incompleta en la referencia |
-| Veredicto | Las etiquetas de `OUTCOME_COPY` | Resultado de la evaluación | `Verdict` | 9 códigos (+ `PENDING`) | Contrato incompleto |
+| Veredicto | Las etiquetas de `OUTCOME_COPY` | Resultado de la evaluación | `Verdict` | 9 códigos del juez + `PENDING` persistido | Contrato incompleto |
 | Estado de revisión | Pendiente / En revisión / Calificada / Devuelta | Estado de revisión | `ReviewStatus` | 5 códigos | Estandarizado |
 | Estado de plantilla | Pendiente de auditoría / Aprobada / Rechazada / Suspendida | Estado de gobernanza | `lab_templates.status` | 4 canónicos + alias | Parcial: «Pausada» y «Suspendida» |
 
@@ -365,10 +373,10 @@ Las decisiones de esta sección son las que la auditoría dejó abiertas. Cada u
 
 ### 4.1 Ejercicio, práctica, laboratorio y actividad
 
-Son tres objetos distintos y una palabra sobrante:
+Hay dos objetos distintos, un sinónimo coloquial y una palabra sobrante:
 
 - **Ejercicio**: la consigna evaluable. Tiene tipo, modalidad, plantilla, casos o rúbrica, fecha y estado de publicación. Es lo que se crea en el banco y lo que genera entregas.
-- **Práctica**: la misma consigna vista desde el aula. «La práctica de la sesión» es un ejercicio asignado a un aula. No es un objeto nuevo: es una relación. Por eso puede quedarse en la prosa y no en los títulos.
+- **Práctica**: sinónimo coloquial de «ejercicio», no una entidad aparte. «La práctica de la sesión» es el ejercicio que el aula referencia en su columna `exercise_id` (`class_session.go:81`): la relación existe, pero se llama asignación al aula, no «práctica». Por eso la palabra puede quedarse en la prosa y no en los títulos.
 - **Laboratorio**: el entorno en ejecución que abre el alumno. Tiene contenedor, volumen y estado. No tiene enunciado ni se califica.
 - **Actividad**: palabra comodín que hoy aparece en la vista de evaluaciones del estudiante (`student-evaluations.component.html:7,45,52,71`). No aporta precisión: se reemplaza por «ejercicio» o «entrega» según lo que la fila represente.
 
@@ -396,7 +404,7 @@ La página del docente incumple hoy las tres: el menú dice «Banco de Ejercicio
 
 ### 4.4 Entorno de práctica, instancia y entorno de revisión
 
-- **Laboratorio** es la instancia persistente del alumno: contenedor más volumen nombrado, con URL y estado. Puede estar acotado a un ejercicio, en cuyo caso el volumen es propio de esa práctica (`environment.go:74-90`).
+- **Laboratorio** es la instancia persistente del alumno: contenedor más volumen nombrado, con URL y estado. Puede estar acotado a un ejercicio, en cuyo caso el volumen es propio de esa práctica (`practice_environment.go:73-86`).
 - **Environment** es el nombre técnico de esa instancia. No se muestra.
 - **Instancia** es una palabra genérica que hoy aparece en la administración para contar laboratorios. No se usa como nombre de objeto.
 - **Entorno de revisión** es otra instancia, de vida corta, que abre el docente sobre una entrega para ver la aplicación funcionando. No tiene volumen del alumno y no evalúa casos.
@@ -421,7 +429,7 @@ La página del docente incumple hoy las tres: el menú dice «Banco de Ejercicio
 3. **Vida del laboratorio**: «entre sesiones», en comentarios de configuración del entorno.
 4. **Examen o clase congelada**: «eventos de pegado en la sesión», en la copia de integridad.
 
-**Regla:** «sesión» se reserva para autenticación. El aula se llama «aula»; la vida del laboratorio se describe como «mientras está abierto» o «al reabrir»; el examen se nombra como examen.
+**Regla:** la funcionalidad se llama **Aula** y ese es su nombre visible. «Sesión de clase» es una expresión descriptiva válida en prosa y en documentación conceptual, pero no es el nombre de la entidad. «Sesión» sin calificativo no se usa como nombre de una entidad académica: queda reservada para autenticación («iniciar sesión»). La vida del laboratorio se describe como «mientras está abierto» o «al reabrir», y el examen se nombra como examen.
 
 ### 4.7 Veredicto, estado de revisión, nota y veredicto global
 
@@ -458,7 +466,7 @@ Son cuatro cosas distintas que suelen confundirse:
 | Modelo | pantalla del catálogo | fuera del catálogo | Modelo del catálogo |
 | Componente | documentación técnica | interfaz | Tecnología |
 | Herramienta | binario verificado (`tools_provided`) | ítem del catálogo | Tecnología |
-| Sesión | autenticación | aula, laboratorio, examen | Aula |
+| Sesión | autenticación; «sesión de clase» como expresión descriptiva en prosa | «Sesión» sola como nombre del aula o de una entidad académica | Aula |
 | Test environment | — | contratos y documentos nuevos | Entorno de revisión |
 | Activo / Iniciando / En Pausa / Examen cerrado | badge de estado del laboratorio | cualquier otro texto de estado | La etiqueta canónica del badge |
 
@@ -468,26 +476,54 @@ Son cuatro cosas distintas que suelen confundirse:
 
 ### 6.1 Veredictos del juez
 
-Los nueve códigos del dominio (`exercise.go:71-79`) tienen una tabla visible propia en el frontend, `OUTCOME_COPY` (`frontend/src/app/core/models/verdict.model.ts:31-96`), que es hoy la fuente única del lenguaje humano. Esta propuesta la adopta como capa visible y no inventa etiquetas nuevas.
+Conviene separar tres cosas que la tabla visible reúne en un solo mapa: los **códigos del dominio**, el **valor persistido** que no emite el juez y los **estados de presentación**. `OUTCOME_COPY` (`frontend/src/app/core/models/verdict.model.ts:42-94`) es la fuente de las etiquetas visibles; no es el contrato del dominio ni la lista de valores que la API puede devolver. Cambiar una etiqueta ahí no cambia ningún código, y agregar una clave nueva no crea un veredicto.
 
-| Código | Etiqueta visible | Significado | Condición que lo produce | Color | ¿Llega al alumno? |
+#### 6.1.1 Códigos del dominio (nueve)
+
+Los define `domain.Verdict` (`exercise.go:68-79`) y son los que el juez puede emitir. Ocho tienen entrada propia en `OUTCOME_COPY`; el noveno se presenta con la etiqueta de su alias.
+
+| Código | Etiqueta visible | Significado | Condición que lo produce | Clase visual | Origen |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| `AC` | Cumple | Pasa todos los casos | Todos los casos ejecutados dan `AC` | Verde | Sí |
-| `WA` | No cumple | Ejecutó y el resultado no coincide | Al menos un caso difiere de la salida esperada | Rojo | Sí |
-| `TLE` | Tarda demasiado | Superó el tiempo permitido | El runner corta por tiempo | Ámbar | Sí |
-| `MLE` | Se quedó sin memoria | Superó la memoria del cgroup | Contenedor terminado por OOM (exit 137) | Ámbar (comparte con `TLE`) | Sí |
-| `RE` | Se cae al ejecutar | Error durante la ejecución | El programa termina con error | Naranja | Sí |
-| `CE` | No compila | Error de compilación | El compilador falla antes de ejecutar | Naranja (comparte con `RE`) | Sí |
-| `VE` | Caso de prueba inválido | La prueba tiene un problema, no el código | El checker del docente falla o expira (`comparators/custom.go:86-92`) | Naranja (comparte con `RE`) | Sí |
-| `AST_VIOLATION` | Usó algo no permitido | Restricción detectada por regex | Filtro AST previo a la ejecución (`evaluation_algorithm_runner.go:129-147`) | Rojo intenso | Sí, con la etiqueta de `AST_BLOCKED` |
-| `AST_BLOCKED` | Usó algo no permitido | Restricción detectada por análisis semántico | Semgrep o regla declarada por el docente (`:149-200`) | Rojo intenso | Sí |
+| `AC` | Cumple | Pasa todos los casos | Todos los casos ejecutados dan `AC` | `verdict-ac` | Runner |
+| `WA` | No cumple | Ejecutó y el resultado no coincide | Al menos un caso difiere de la salida esperada | `verdict-wa` | Comparador |
+| `TLE` | Tarda demasiado | Superó el tiempo permitido | El runner corta por tiempo | `verdict-tle` | Runner |
+| `MLE` | Se quedó sin memoria | Superó la memoria del cgroup | El contenedor queda marcado con `OOMKilled` | `verdict-tle` (comparte con `TLE`) | Runner |
+| `RE` | Se cae al ejecutar | Error durante la ejecución | Salida distinta de cero sin OOM | `verdict-re` | Runner |
+| `CE` | No compila | Error de compilación | El compilador falla antes de ejecutar | `verdict-re` (comparte con `RE` y `VE`) | Runner |
+| `VE` | Caso de prueba inválido | La prueba tiene un problema, no el código | El checker del docente falla, expira o sale con error (`comparators/custom.go:86-92`) | `verdict-re` | Comparador |
+| `AST_VIOLATION` | Usó algo no permitido | Restricción detectada por regex | Filtro AST previo a la ejecución (`evaluation_algorithm_runner.go:138-146`) | `verdict-ast` | Filtro de seguridad |
+| `AST_BLOCKED` | Usó algo no permitido | Restricción detectada por análisis semántico | Semgrep o regla declarada por el docente (`:148-204`) | `verdict-ast` | Filtro de seguridad |
 
 Notas de contrato:
 
-- `AST_VIOLATION` no tiene etiqueta propia: es un alias de `AST_BLOCKED` en la tabla visible (`OUTCOME_ALIASES` en `verdict.model.ts`). Unificar la presentación no elimina el código del dominio, que se conserva para auditoría.
-- `PENDING` y `UNKNOWN` no son veredictos: son estados de presentación de la tabla visible. `PENDING` significa «sin calificar» y `UNKNOWN` «sin evaluar». No existen en el dominio.
-- `SYSTEM_ERROR` aparece declarado en `frontend/src/app/core/services/student.service.ts:173,179` pero no existe en el backend ni en la tabla visible: cualquier valor así cae en `UNKNOWN`. Es una inconsistencia de tipos, no un veredicto.
-- `AGENTS.md:49` documenta cinco veredictos (`AC`, `WA`, `TLE`, `RE`, `AST_BLOCKED`) y omite `MLE`, `CE`, `VE` y `AST_VIOLATION`. `docs/API/CONTRATOS.md:162` declara cinco en la interfaz `Submission`.
+- `AST_VIOLATION` no tiene entrada propia en `OUTCOME_COPY`: `OUTCOME_ALIASES` lo resuelve a `AST_BLOCKED` (`verdict.model.ts:96-98`). Unificar la presentación no elimina el código del dominio, que se conserva para auditoría.
+- `MLE` se distingue de `RE` por la marca de OOM, no por el código de salida: el mapeo está en `base_runner.go:38-45` y la salida 137 sin `OOMKilled` cae en `RE`.
+- `VE` señala un problema de la prueba, no del código del alumno; la etiqueta visible ya lo dice así.
+- La interfaz resuelve el código a etiqueta con `resolveOutcomeKey` (`verdict.model.ts:104-116`), que también aplica el alias; el código solo se muestra como dato técnico cuando el componente lo pide con `showAcronym`.
+
+#### 6.1.2 Valor persistido que no es veredicto del juez
+
+`PENDING` no lo emite el juez, pero sí se guarda: las entregas de proyecto de un laboratorio IDE se crean con `verdict = 'PENDING'` mientras esperan corrección (`practice_environment_submission.go:21`), y la migración `00035_teacher_review_correction.sql:17,31` lo trata como «entrega sin corregir». `teacher_grading_repository.go:189` lo excluye de las métricas del juez.
+
+Tiene dos papeles a la vez: es un **valor persistido** en `submissions.verdict` y una **clave de presentación** en `OUTCOME_COPY` («Sin calificar», `verdict.model.ts:83-87`). No es un resultado del juez y no debe documentarse como uno de los nueve códigos. La unión `JudgeVerdict` (`verdict.model.ts:1-10`) lo incluye junto a los nueve códigos, y por eso el tipo no sirve como contrato de lo que devuelve el juez.
+
+#### 6.1.3 Estados de presentación
+
+Solo hay uno puro. `PENDING` también tiene etiqueta visible, pero como además se persiste se trata en 6.1.2, para no confundir un valor guardado con un estado de la tabla.
+
+| Clave | Etiqueta | Naturaleza | Evidencia |
+| :--- | :--- | :--- | :--- |
+| `UNKNOWN` | Sin evaluar | Solo presentación: no existe en el backend | `verdict.model.ts:88-92`; `:104-116` |
+
+- `UNKNOWN` no es un estado del dominio: es el fallback del badge cuando el valor viene vacío o no reconocido.
+- `SYSTEM_ERROR` aparece en las uniones de `StudentCaseResultDTO` y `StudentEvaluationResultDTO` (`student.service.ts:179,185`) pero no existe ni en el backend ni en `OUTCOME_COPY`: cualquier valor así cae en «Sin evaluar». Es una inconsistencia de tipos, no un veredicto.
+
+#### 6.1.4 Documentación incompleta
+
+- `AGENTS.md:49` documenta cinco veredictos (`AC`, `WA`, `TLE`, `RE`, `AST_BLOCKED`) y omite `MLE`, `CE`, `VE` y `AST_VIOLATION`.
+- `docs/API/CONTRATOS.md:162` declara cinco en la interfaz `Submission`.
+
+Ninguna de las dos listas es un contrato cerrado: la primera es una guía de semántica de color, la segunda un DTO desactualizado. Actualizarlas es una decisión pendiente (sección 8.3), no un cambio de esta propuesta.
 
 ### 6.2 Agregación del veredicto
 
@@ -497,27 +533,35 @@ Consecuencias que el contrato debe declarar:
 
 - Dos entregas con los mismos fallos en distinto orden pueden mostrar veredictos globales distintos.
 - Los filtros de seguridad (`AST_*`) se aplican antes de ejecutar casos y devuelven un resultado único, sin `CaseResults`.
-- El dry-run de la solución de referencia usa otra regla: `AC` si todos los casos dan `AC`; `WA` en cualquier otro caso (`evaluation_dryrun.go:122-132`).
+- El dry-run de la solución de referencia usa otra regla: `AC` si todos los casos dan `AC`; `WA` en cualquier otro caso (`evaluation_dryrun.go:122-124`).
 - Los casos de prueba I/O solo aplican a `JUEZ_EFIMERO`; un ejercicio de desarrollo se corrige con rúbrica (`exercise.go:244`).
 
 **Pendiente de decisión:** si el orden de los casos debe determinar el veredicto global o si conviene una precedencia explícita. Cambiarlo afecta datos históricos.
 
 ### 6.3 Estados del laboratorio
 
-Ocho valores en `environment.go:10-27`, con etiqueta canónica en `status-badge.component.ts:43-64`.
+Los ocho valores son **estados persistidos**: viven en la columna `status` de la tabla `environments` (`practice_environment.go:12-27`). No hay estados que solo existan en una respuesta; lo que cambia es **quién los escribe** y **de qué hecho derivan**.
 
-| Código | Etiqueta visible | Significado | Quién lo asigna | Efecto |
+| Código | Etiqueta visible | Significado | Quién lo escribe | Clase visual |
 | :--- | :--- | :--- | :--- | :--- |
-| `pending` | Iniciando | Registro creado, contenedor en arranque | Servicio de laboratorios (`environment_service.go:566-580`) | Retiene cupo mientras arranca |
-| `running` | Activo | Contenedor operativo y con latido | Servicio y reconciliador | Uso normal |
-| `hibernated` | En Pausa | Contenedor retirado por inactividad o salida limpia; el volumen se conserva | Reconciliador (`environment_state_reconciler.go:114-124`) | Se reactiva al reabrir; no pierde código |
-| `oom_killed` | Límite de Memoria | Terminado por falta de memoria | Reconciliador y worker de QoS | Suma un strike; al tercero hay penalización (`environment.go:35`) |
-| `failed` | Error | Falló la provisión o el arranque | Servicio de laboratorios | Requiere reintento o intervención |
-| `unknown` | Sin Verificar | No se pudo verificar el estado (daemon inaccesible) | Reconciliador (`:143-160`) | No destruye nada; conserva el cupo y reintenta |
-| `orphaned` | Huérfano | El contenedor ya no existe en el daemon | Reconciliador (`:96-101`) | Libera cupo; el alumno puede recrear el laboratorio |
-| `frozen` | Examen cerrado | Examen terminado; volumen en solo lectura | Cierre de examen (`exam_freeze_repository.go:100`) | Estado buscado, no fallo; no se reabre solo |
+| `pending` | Iniciando | Registro creado, contenedor en arranque | Servicio, al crear (`practice_environment_service.go:557-566`) | `status-pending` |
+| `running` | Activo | Contenedor operativo y con latido | Servicio y reconciliador | `status-running` |
+| `hibernated` | En Pausa | Contenedor retirado por inactividad o salida limpia; el volumen se conserva | Reconciliador (`practice_environment_state_reconciler.go:112-124`) | `status-hibernated` |
+| `oom_killed` | Límite de Memoria | Terminado por falta de memoria | Reconciliador y worker de QoS (salida 137 con OOM) | `status-oom-killed` |
+| `failed` | Error | Falló la provisión o el arranque | Servicio de laboratorios | `status-failed` |
+| `unknown` | Sin Verificar | No se pudo verificar el estado (daemon inaccesible) | Reconciliador, `markUnknown` (`:142-160`) | `status-unknown` |
+| `orphaned` | Huérfano | El contenedor ya no existe en el daemon | Reconciliador (`:99`) | `status-orphaned` |
+| `frozen` | Examen cerrado | Examen terminado; volumen en solo lectura | Cierre de examen (`exam_freeze_repository.go:94-110`) | `status-frozen` |
 
-`AGENTS.md:48` describe cinco de estos estados. `unknown`, `orphaned` y `frozen` no tienen semántica de color asignada; hoy heredan la clase por defecto del badge. **Pendiente de decisión.**
+Tres precisiones que conviene dejar por escrito:
+
+- **`unknown` y `orphaned` se derivan, pero se persisten.** El reconciliador compara el registro con el daemon y, cuando no puede verificar o el contenedor ya no existe, escribe el estado con `UpdateStatus` y deja una acción de auditoría (`PRACTICE_ENVIRONMENT_RECONCILED_UNKNOWN_PERSISTENT`, `..._ORPHANED`). Son estados guardados que nacen de una observación, no cálculos de cada lectura.
+- **`unknown` no es `failed`, y `orphaned` tampoco.** El comentario del dominio lo dice: `unknown` no destruye el registro, reintenta el ciclo siguiente y retiene el cupo de `max_containers`; `orphaned` libera el cupo y deja el registro para que el alumno lo recree (`practice_environment.go:17-23`). `failed` exige reintento o intervención.
+- **`frozen` no es un fallo.** Es el estado buscado al cerrar un examen: volumen en solo lectura y `ErrPracticeEnvironmentFrozen` al intentar reabrir (`practice_environment.go:24-27,93-96`). Comparte el token neutral con `hibernated` justamente porque ninguno de los dos es un error.
+
+Las etiquetas salen de `status-badge.component.ts:43-66` y las clases de `:20-40`. En el SCSS, `hibernated`, `frozen` y `unknown` usan el token neutral (`--status-hibernated-*`), mientras que `orphaned` usa el ámbar de pendiente (`--status-pending-*`) (`status-badge.component.scss:28-66`).
+
+`AGENTS.md:48` describe cinco de estos estados (`running`, `pending`, `hibernated`, `failed`, `oom_killed`) y no asigna semántica a `unknown`, `orphaned` ni `frozen`. Completar esa lista es la decisión D8; esta propuesta no unifica ningún estado.
 
 ### 6.4 Estado de revisión
 
@@ -570,9 +614,9 @@ Lo que el código demuestra:
 - `exercises.environment_type` solo acepta dos valores (`00020_dual_modality_and_template_governance.sql:42`). Un ejercicio nunca es dual: elige un modo.
 - `environment_requests.target_environment` acepta los tres (`00046_environment_requests.sql:39`).
 - `TemplateSupportsEnvironment` expande `AMBOS` a cualquiera de los dos modos pedidos (`admin_governance.go:58-63`).
-- La pantalla del catálogo envía `JUEZ_VIRTUAL` como valor de filtro y muestra «Dual (Desarrollo y Evaluación)» para `AMBOS` (`model-library.component.ts:157-161`).
+- La pantalla del catálogo envía `JUEZ_VIRTUAL` como valor de filtro y muestra «Dual (Desarrollo y Evaluación)» para `AMBOS` (`model-library.component.ts:155-162`).
 - El pipe `environmentLabel` resuelve como «Entorno de Evaluación» todo valor que no sea `IDE_PERSISTENTE` (ni sus alias `WORKSPACE`, `IDE` y `PROJECT`) (`environment-types.constants.ts:33-39`), de modo que `AMBOS` se muestra hoy como evaluación, no como dual.
-- `environments.type` existe y tiene constantes, pero la creación del laboratorio no lo fija (`environment_service.go:566-580`): la columna queda en su valor por defecto y hoy no discrimina nada.
+- `environments.type` existe y tiene constantes, pero la creación del laboratorio no lo fija (`practice_environment_service.go:557-580`): la columna queda en su valor por defecto y hoy no discrimina nada.
 
 **Regla propuesta:** «modalidad» para la capacidad declarada en una configuración; «tipo de entorno» para el modo concreto de un ejercicio. `AMBOS` no se asigna a ejercicios ni a laboratorios.
 
@@ -661,7 +705,7 @@ Ninguna de estas decisiones se aplicó. Cada una indica la recomendación y qué
 
 - **Opciones:** (a) fijarlo explícitamente al crear el laboratorio; (b) declararlo legado y no usarlo.
 - **Recomendación:** (a) si se planea abrir laboratorios de evaluación persistentes; (b) mientras tanto, no leerlo como discriminador.
-- **Evidencia:** la creación no lo asigna (`environment_service.go:566-580`); la constante `EnvironmentTypeJuezEfimero` existe sin uso en creación.
+- **Evidencia:** la creación no lo asigna (`practice_environment_service.go:557-580`); la constante `PracticeEnvironmentTypeJuezEfimero` existe sin uso en creación.
 
 ### D12. «Actividad» en la vista de evaluaciones del estudiante
 
@@ -684,9 +728,9 @@ Ninguna de estas decisiones se aplicó. Cada una indica la recomendación y qué
 
 ## 8. Recomendaciones para actualizar `AGENTS.md`, skills y documentación
 
-### 8.1 Bloque propuesto para `AGENTS.md`
+### 8.1 Bloque propuesto para `AGENTS.md` (pendiente de aprobación)
 
-Se propone insertar una sección después de «Semántica de estados», sin reemplazarla:
+Este bloque es un **borrador de redacción**, no una regla vigente. Se propone insertarlo después de «Semántica de estados», sin reemplazarla. Varias de sus líneas dependen de decisiones que siguen abiertas (D1, D2, D3, D4, D5, D6 y D8), y se marcan más abajo.
 
 ```markdown
 ## Vocabulario de dominio
@@ -705,15 +749,15 @@ Se propone insertar una sección después de «Semántica de estados», sin reem
 | Entorno de revisión | Vista previa del proyecto | review_environment |
 
 Reglas:
-- «Práctica» solo en prosa; nunca en títulos, menús ni botones.
+- «Práctica» solo como sinónimo coloquial de «ejercicio» en prosa; nunca en títulos, menús ni botones.
 - «Curso» solo para el curso de Google Classroom.
-- «Sesión» solo para autenticación; el aula se llama aula.
+- «Sesión» sola solo para autenticación; la funcionalidad se llama «Aula» y «sesión de clase» es una expresión descriptiva.
 - «Entorno» siempre con calificador: de desarrollo, de evaluación o de revisión.
-- Los códigos del juez no se escriben a mano: salen de `OUTCOME_COPY`.
+- Las etiquetas de veredicto salen de `OUTCOME_COPY`; los códigos son valores técnicos y no se escriben como texto de interfaz.
 - No se crean alias nuevos; los existentes se listan en `docs/GOBERNANZA/PROPUESTA_VOCABULARIO_DOMINIO.md`.
 ```
 
-No se aplicó este cambio: la fase prohíbe modificar `AGENTS.md`.
+No se aplicó este cambio: la fase prohíbe modificar `AGENTS.md` y ninguna de estas líneas está aprobada. Dependencias por decisión: «Laboratorio» (D1), alias `JUEZ_VIRTUAL` (D2), «Tecnología» (D3), «Curso» (D4), «Pausada/Suspendida» (D5), «Modelo» (D6) y los estados sin semántica en `AGENTS.md` (D8). Hasta que esas decisiones se cierren, el bloque es una propuesta de redacción.
 
 ### 8.2 Skills
 
@@ -726,7 +770,7 @@ No se aplicó este cambio: la fase prohíbe modificar `AGENTS.md`.
 
 | Documento | Cambio recomendado |
 | :--- | :--- |
-| `docs/API/CONTRATOS.md` | Reemplazar la unión de cinco veredictos por los nueve códigos y aclarar que `AST_VIOLATION` comparte etiqueta con `AST_BLOCKED` |
+| `docs/API/CONTRATOS.md` | Reemplazar la unión de cinco veredictos por los nueve códigos del juez y el valor persistido `PENDING`, y aclarar que `AST_VIOLATION` comparte etiqueta con `AST_BLOCKED` |
 | `docs/API/CONTRATOS.md` | Documentar los ocho estados de laboratorio y el estado de revisión como eje separado |
 | `docs/UI/MAPA_DE_VISTAS.md` | Corregir las rutas `/docente/*` y `/estudiante/*`, y la palabra «hojas de trabajo» |
 | `docs/MANUAL_ADMIN.md` | Unificar «Juez Virtual» y «Entorno de Evaluación»; revisar «Juez Evaluador (Sandbox)» |
@@ -754,7 +798,7 @@ Para cualquier cambio que agregue una etiqueta, un estado o un concepto:
 **Dominio y servicios del backend**
 
 - `backend/internal/core/domain/exercise.go` — tipos, modalidades, propósito, visibilidad, veredictos, estructura del ejercicio.
-- `backend/internal/core/domain/environment.go` — estados, tipos, instancia, volumen, plantilla.
+- `backend/internal/core/domain/practice_environment.go` — estados, tipos, instancia, volumen y congelamiento.
 - `backend/internal/core/domain/academic.go` — materia, inscripción, entrega.
 - `backend/internal/core/domain/course_module.go` — módulo y mapa curricular.
 - `backend/internal/core/domain/class_session.go` — aula, estados, ventanas.
@@ -765,11 +809,14 @@ Para cualquier cambio que agregue una etiqueta, un estado o un concepto:
 - `backend/internal/core/domain/admin_governance.go` — constantes de modalidad, `TemplateSupportsEnvironment`, DTO de modelo.
 - `backend/internal/core/services/evaluation_algorithm_runner.go` — orden de ejecución, filtros AST, veredicto global.
 - `backend/internal/core/services/evaluation_dryrun.go` — agregación del dry-run.
-- `backend/internal/core/services/environment_state_reconciler.go` — transiciones a `unknown`, `orphaned`, `hibernated`, `running`.
-- `backend/internal/core/services/environment_service.go` — creación de la instancia y estado inicial.
+- `backend/internal/core/services/practice_environment_state_reconciler.go` — transiciones a `unknown`, `orphaned`, `hibernated` y `running`, y su persistencia con auditoría.
+- `backend/internal/core/services/practice_environment_service.go` — creación de la instancia y estado inicial.
+- `backend/internal/core/services/practice_environment_submission.go` — entrega de proyecto creada con `verdict = 'PENDING'`.
 - `backend/internal/core/services/template_composer_service.go` y `admin_governance_templates.go` — tolerancia del alias `JUEZ_VIRTUAL`.
 - `backend/internal/infrastructure/storage/postgres/admin_templates_repository.go` — normalización de estados de plantilla.
 - `backend/internal/infrastructure/storage/postgres/exam_freeze_repository.go` — estado congelado.
+- `backend/internal/infrastructure/storage/postgres/teacher_grading_repository.go` — exclusión de `PENDING` de las métricas del juez.
+- `backend/internal/core/services/comparators/custom.go` — `VE` cuando el checker falla, expira o sale con error.
 
 **Esquema y contratos**
 
@@ -778,13 +825,16 @@ Para cualquier cambio que agregue una etiqueta, un estado o un concepto:
 - `00033_enforce_exercise_type_environment.sql` — tipos de ejercicio.
 - `00044_review_test_environments.sql` — tabla del entorno de revisión.
 - `00046_environment_requests.sql:39` — modalidad de la solicitud.
+- `00035_teacher_review_correction.sql:17,31` — `verdict = 'PENDING'` como entrega sin corregir.
 - `docs/API/CONTRATOS.md:162` — unión de veredictos en la interfaz `Submission`.
 - `AGENTS.md:46-49` — semántica de estados y veredictos.
 
 **Frontend**
 
-- `frontend/src/app/core/models/verdict.model.ts` — tabla visible de resultados y alias.
-- `frontend/src/app/shared/components/status-badge/status-badge.component.ts:43-64` — etiquetas de estado.
+- `frontend/src/app/core/models/verdict.model.ts` — tabla visible de resultados, alias y fallback.
+- `frontend/src/app/shared/components/verdict-badge/verdict-badge.component.ts` — resolución de etiqueta y alias por `resolveOutcomeKey`.
+- `frontend/src/app/shared/components/status-badge/status-badge.component.ts:20-66` — etiquetas y clases de estado.
+- `frontend/src/app/shared/components/status-badge/status-badge.component.scss:28-66` — tokens de color de los ocho estados.
 - `frontend/src/app/shared/constants/environment-types.constants.ts` — etiquetas de modalidad y fallback.
 - `frontend/src/app/features/admin/templates/...` — catálogo, modelos, tecnologías, filtros y estados de plantilla.
 - `frontend/src/app/features/teacher/exercises/teacher-exercises.component.html` — contradicción ejercicio/laboratorio.
@@ -796,6 +846,7 @@ Para cualquier cambio que agregue una etiqueta, un estado o un concepto:
 **Método**
 
 - Lectura directa de archivos y búsquedas de texto sobre el repositorio; sin ejecución de la aplicación ni consulta a la base (backend y PostgreSQL no disponibles durante el relevamiento).
+- Las referencias de archivo y línea se volvieron a verificar contra el árbol de trabajo el 2026-11-05; las que habían quedado con nombres anteriores (`environment.go`, `environment_service.go`) se corrigieron a los nombres reales.
 
 ---
 
@@ -805,7 +856,7 @@ Para cualquier cambio que agregue una etiqueta, un estado o un concepto:
 2. **¿Se crean laboratorios para ejercicios de evaluación?** La creación no fija `type` y el juez usa contenedores efímeros, pero no se verificó en ejecución que no existan filas con `JUEZ_EFIMERO` en `environments.type`.
 3. **¿«Laboratorio» es la instancia o el producto?** El repositorio usa ambas lecturas. Es una decisión de producto, no de código.
 4. **¿«Pausada» o «Suspendida»?** La base y la interfaz no coinciden y ninguna es claramente anterior. Requiere decisión editorial.
-5. **¿`VE` debe llegar al alumno como resultado?** La tabla visible lo muestra; la semántica («el problema es de la prueba») sugiere otra cosa.
+5. **¿`VE` debe mostrarse al alumno como resultado?** `OUTCOME_COPY` le da una etiqueta visible («Caso de prueba inválido»), pero no se verificó qué pantallas del alumno lo renderizan; la semántica («el problema es de la prueba») sugiere que quizá no debería contar como resultado suyo.
 6. **¿El orden de los casos debe definir el veredicto global?** Hoy lo define, y cambiarlo afecta datos históricos. La decisión exige una regla de migración, no solo de código.
 
 ---

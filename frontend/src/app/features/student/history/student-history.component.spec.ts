@@ -5,7 +5,6 @@ import { StudentHistoryComponent } from './student-history.component';
 import { StudentService, StudentSubmissionHistoryItem } from '@core/services/student.service';
 import { ComboboxComponent } from '@shared/components/combobox/combobox.component';
 import { SearchBarComponent } from '@shared/components/search-bar/search-bar.component';
-import { ModalShellComponent } from '@shared/components/modal-shell/modal-shell.component';
 
 const SUBMISSIONS: StudentSubmissionHistoryItem[] = [
   {
@@ -65,6 +64,21 @@ const SUBMISSIONS: StudentSubmissionHistoryItem[] = [
     manual_override: true,
     override_reason: 'Revisión manual: la solución cumple el enunciado.',
     submitted_at: '2026-10-23T11:15:00'
+  },
+  {
+    id: 'sub-5',
+    exercise_id: 'e5',
+    exercise_title: 'API REST con autenticación',
+    subject_id: 's3',
+    subject_code: 'SIS-420',
+    subject_name: 'Desarrollo Web Fullstack',
+    environment_type: 'IDE_PERSISTENTE',
+    code: '# === FILE: main.go ===\npackage main\n\nfunc main() {}\n# === FILE: router.go ===\npackage main\n\nfunc router() {}\n',
+    verdict: 'AC',
+    score: 100,
+    execution_time_ms: 0,
+    memory_used_mb: 0,
+    submitted_at: '2026-10-24T10:00:00'
   }
 ];
 
@@ -90,16 +104,6 @@ describe('StudentHistoryComponent', () => {
 
   function searchBar(): SearchBarComponent {
     return fixture.debugElement.query(By.directive(SearchBarComponent)).componentInstance as SearchBarComponent;
-  }
-
-  function modal(): ModalShellComponent | null {
-    const debugElement = fixture.debugElement.query(By.directive(ModalShellComponent));
-    return debugElement ? (debugElement.componentInstance as ModalShellComponent) : null;
-  }
-
-  function modalText(): string {
-    const element = (fixture.nativeElement as HTMLElement).querySelector('modal-shell');
-    return element?.textContent ?? '';
   }
 
   async function setup(): Promise<void> {
@@ -129,7 +133,7 @@ describe('StudentHistoryComponent', () => {
     await setup();
 
     expect(component.isLoading()).toBe(false);
-    expect(rows().length).toBe(4);
+    expect(rows().length).toBe(5);
 
     const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Recorrido de listas');
@@ -153,13 +157,14 @@ describe('StudentHistoryComponent', () => {
     expect(time?.textContent?.trim()).toBe('20/10 14:05:00');
 
     const exerciseLink = rowFor('Recorrido de listas')?.querySelector<HTMLAnchorElement>('a.action-link');
-    expect(exerciseLink?.getAttribute('href')).toBe('/student/exercises/e1');
+    expect(exerciseLink?.getAttribute('href')).toBe('/student/history/sub-1');
+    expect(exerciseLink?.textContent?.trim()).toBe('Ver entrega');
   });
 
   it('filtra por materia desde el combobox', async () => {
     await setup();
 
-    expect(rows().length).toBe(4);
+    expect(rows().length).toBe(5);
 
     const [subjectCombo] = comboboxes();
     subjectCombo.valueChange.emit('s2');
@@ -172,7 +177,7 @@ describe('StudentHistoryComponent', () => {
 
     subjectCombo.valueChange.emit('all');
     fixture.detectChanges();
-    expect(rows().length).toBe(4);
+    expect(rows().length).toBe(5);
   });
 
   it('filtra por resultado y AST_BLOCKED incluye AST_VIOLATION', async () => {
@@ -182,8 +187,9 @@ describe('StudentHistoryComponent', () => {
 
     verdictCombo.valueChange.emit('AC');
     fixture.detectChanges();
-    expect(rows().length).toBe(1);
+    expect(rows().length).toBe(2);
     expect(rows()[0].textContent).toContain('Recorrido de listas');
+    expect(rows()[1].textContent).toContain('API REST con autenticación');
 
     verdictCombo.valueChange.emit('AST_BLOCKED');
     fixture.detectChanges();
@@ -193,7 +199,7 @@ describe('StudentHistoryComponent', () => {
 
     verdictCombo.valueChange.emit('all');
     fixture.detectChanges();
-    expect(rows().length).toBe(4);
+    expect(rows().length).toBe(5);
   });
 
   it('filtra por título de ejercicio desde el buscador', async () => {
@@ -206,46 +212,29 @@ describe('StudentHistoryComponent', () => {
 
     searchBar().cleared.emit();
     fixture.detectChanges();
-    expect(rows().length).toBe(4);
+    expect(rows().length).toBe(5);
   });
 
-  it('abre el modal con el código enviado y lo cierra', async () => {
+  it('renderiza la acción única "Ver entrega" que navega al detalle de la entrega', async () => {
     await setup();
 
-    expect(modal()).toBeNull();
-
-    const openButton = Array.from(
-      rowFor('Práctica de árboles')?.querySelectorAll<HTMLButtonElement>('button') ?? []
-    ).find((button) => button.textContent?.includes('Ver código enviado'));
-    expect(openButton).toBeTruthy();
-
-    openButton?.dispatchEvent(new Event('click'));
-    fixture.detectChanges();
-
-    expect(component.selectedSubmission()?.id).toBe('sub-3');
-    expect(modal()).not.toBeNull();
-
-    expect(modalText()).toContain('class Nodo:');
-    expect(modalText()).toContain('Práctica de árboles');
-    expect(modal()?.title()).toBe('Práctica de árboles');
-
-    modal()?.close.emit();
-    fixture.detectChanges();
-
-    expect(component.selectedSubmission()).toBeNull();
-    expect(modal()).toBeNull();
+    const link = rowFor('Práctica de árboles')?.querySelector<HTMLAnchorElement>('a.action-link');
+    expect(link).toBeTruthy();
+    expect(link?.textContent?.trim()).toBe('Ver entrega');
+    expect(link?.getAttribute('href')).toBe('/student/history/sub-3');
   });
 
-  it('muestra la observación del docente cuando hubo revisión manual', async () => {
+  it('muestra badge de Proyecto y oculta tiempo de ejecución en la tabla para proyectos IDE', async () => {
     await setup();
 
-    const openButton = Array.from(
-      rowFor('Examen de ordenamiento')?.querySelectorAll<HTMLButtonElement>('button') ?? []
-    ).find((button) => button.textContent?.includes('Ver código enviado'));
-    openButton?.dispatchEvent(new Event('click'));
-    fixture.detectChanges();
+    const projectRow = rowFor('API REST con autenticación');
+    expect(projectRow).toBeTruthy();
+    expect(projectRow?.querySelector('.modality-badge')?.textContent?.trim()).toBe('Proyecto');
+    expect(projectRow?.querySelector('.no-time')?.textContent?.trim()).toBe('—');
+    expect(projectRow?.textContent).not.toContain('0 ms');
 
-    expect(modalText()).toContain('Observación del docente');
-    expect(modalText()).toContain('Revisión manual: la solución cumple el enunciado.');
+    const projectLink = projectRow?.querySelector<HTMLAnchorElement>('a.action-link');
+    expect(projectLink?.getAttribute('href')).toBe('/student/history/sub-5');
+    expect(projectLink?.textContent?.trim()).toBe('Ver entrega');
   });
 });

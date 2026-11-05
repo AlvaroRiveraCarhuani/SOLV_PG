@@ -2,6 +2,9 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import { PracticeEnvironment } from '@core/models/environment.model';
+import { ProjectFile } from '@core/models/project-file.model';
+import { RubricDTO } from '@core/models/rubric.model';
+import { SubmissionComment } from '@core/models/submission-comment.model';
 
 export interface StudentSubjectItem {
   subject: {
@@ -20,6 +23,8 @@ export interface StudentRecentSubmission {
   exercise_title?: string;
   subject_code?: string;
   verdict: string;
+  /** judge | rubric | override | legacy. Ausente cuando no hay veredicto. */
+  verdict_origin?: string | null;
   score?: number | null;
   execution_time_ms: number;
   memory_used_mb: number;
@@ -60,6 +65,8 @@ export interface StudentEvaluationItem {
   attempts_count: number;
   best_score?: number | null;
   last_verdict?: string;
+  /** judge | rubric | override | legacy, del mismo registro que `last_verdict`. */
+  last_verdict_origin?: string | null;
   last_submitted_at?: string | null;
   academic_status: StudentAcademicStatus;
 }
@@ -70,11 +77,17 @@ export interface StudentSubmissionHistoryItem {
   exercise_title?: string;
   exercise_type?: string;
   exercise_purpose?: string;
+  environment_type?: string;
+  language?: string;
+  files?: ProjectFile[];
+  files_available?: boolean;
   subject_id?: string;
   subject_code?: string;
   subject_name?: string;
   code: string;
   verdict: string;
+  /** judge | rubric | override | legacy. Ausente cuando no hay veredicto. */
+  verdict_origin?: string | null;
   score?: number | null;
   execution_time_ms: number;
   memory_used_mb: number;
@@ -164,6 +177,7 @@ export interface PracticeEnvironmentProjectSubmissionDTO {
   environment_id: string;
   exercise_id: string;
   verdict: string;
+  verdict_origin?: string | null;
   score?: number | null;
 }
 
@@ -185,6 +199,8 @@ export interface StudentEvaluationResultDTO {
   };
   case_results?: StudentCaseResultDTO[];
   generated_cases?: unknown;
+  /** Firma del servidor que respalda el veredicto al registrar la entrega. */
+  evaluation_receipt?: string;
 }
 
 export interface CreateStudentSubmissionPayload {
@@ -195,6 +211,7 @@ export interface CreateStudentSubmissionPayload {
   execution_time_ms: number;
   memory_used_mb: number;
   generated_cases?: unknown;
+  evaluation_receipt?: string;
 }
 
 @Injectable({
@@ -435,6 +452,52 @@ export class StudentService {
     );
     const id = resp?.id || resp?.data?.id || '';
     return { id };
+  }
+
+  async getSubmissionReview(submissionId: string): Promise<StudentSubmissionHistoryItem | null> {
+    if (!submissionId) return null;
+    let item = this.submissionsHistory().find((s) => s.id === submissionId);
+    if (!item) {
+      const history = await this.loadSubmissionsHistory();
+      item = history.find((s) => s.id === submissionId);
+    }
+    return item ?? null;
+  }
+
+  async getSubmissionComments(submissionId: string): Promise<SubmissionComment[]> {
+    if (!submissionId) return [];
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<SubmissionComment[] | { data?: SubmissionComment[] }>(
+          `/api/v1/student/submissions/${submissionId}/comments`,
+          { withCredentials: true }
+        )
+      );
+      return Array.isArray(resp) ? resp : (resp?.data ?? []);
+    } catch {
+      return [];
+    }
+  }
+
+  async getExerciseRubric(exerciseId: string): Promise<RubricDTO | null> {
+    if (!exerciseId) return null;
+    try {
+      const resp = await firstValueFrom(
+        this.http.get<RubricDTO | { data?: RubricDTO }>(
+          `/api/v1/exercises/${exerciseId}/rubric`,
+          { withCredentials: true }
+        )
+      );
+      if (resp && 'criteria' in resp) {
+        return resp as RubricDTO;
+      }
+      if (resp && 'data' in resp && resp.data) {
+        return resp.data;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 }
 

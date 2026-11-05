@@ -101,7 +101,7 @@
             @if (item.last_verdict) {
               <span class="stat">
                 <span class="stat-label">Último resultado</span>
-                <verdict-badge [verdict]="item.last_verdict" size="sm" />
+                <verdict-badge [verdict]="item.last_verdict" [origin]="item.last_verdict_origin" size="sm" />
               </span>
               @if (item.last_submitted_at) {
                 <time class="stat-date" [attr.datetime]="item.last_submitted_at">

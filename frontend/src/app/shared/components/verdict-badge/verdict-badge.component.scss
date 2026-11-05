@@ -29,6 +29,17 @@
     font-variant-numeric: tabular-nums;
   }
 
+  // Un registro heredado conserva su resultado técnico: la etiqueta de
+  // procedencia lo acompaña en lugar de reemplazarlo.
+  .verdict-origin-tag {
+    margin-left: var(--space-1);
+    padding-left: var(--space-1);
+    border-left: 1px solid currentcolor;
+    font-size: var(--text-xs);
+    font-weight: 500;
+    opacity: 0.85;
+  }
+
   // Tamaños
   &.size-sm {
     padding: 2px 6px;
@@ -119,6 +130,14 @@
     .verdict-acronym {
       color: var(--color-warning);
     }
+  }
+
+  // Procedencia, no resultado: un veredicto heredado o de rúbrica se anuncia
+  // como tal y usa el tono neutro, sin sugerir una evaluación del juez.
+  &.verdict-origin {
+    background-color: var(--status-hibernated-bg);
+    color: var(--status-hibernated-color);
+    border-color: var(--status-hibernated-border);
   }
 
   &.verdict-unknown {

@@ -10,8 +10,8 @@ Guía operativa, técnica y de gestión para administradores de la plataforma SO
 La plataforma SOLV está diseñada para centralizar la gestión, ejecución y evaluación de laboratorios virtuales de programación en entornos académicos. Permite a las instituciones educativas proporcionar a sus estudiantes entornos de desarrollo listos para usar y sistemas de calificación automática de código, manteniendo el control de los recursos del servidor y la seguridad de la infraestructura.
 
 ### 1.2 Glosario de Términos
-- **Laboratorio Interactivo (IDE):** Entorno de desarrollo completo basado en navegador web (OpenVSCode Server) con terminal integrada, explorador de archivos y persistencia de código durante el semestre.
-- **Juez Evaluador (Sandbox):** Entorno de ejecución rápida y aislada que compila y ejecuta código fuente frente a casos de prueba predefinidos para emitir una calificación automática.
+- **Entorno de Desarrollo:** Entorno de trabajo completo basado en navegador web (OpenVSCode Server) con terminal integrada, explorador de archivos y persistencia de código durante el semestre.
+- **Entorno de Evaluación:** Entorno de ejecución rápida y aislada que compila y ejecuta código fuente frente a casos de prueba predefinidos para emitir una calificación automática.
 - **Contenedor Docker:** Unidad ligera y aislada que empaqueta el sistema operativo base, los compiladores, intérpretes y herramientas necesarias para cada práctica.
 - **Límite de Recursos (cgroups v2):** Mecanismo del kernel de Linux que restringe la cantidad de memoria RAM y procesador (CPU) que un contenedor puede utilizar.
 - **Análisis Estático (Semgrep):** Verificación previa del código fuente para detectar llamadas al sistema o librerías prohibidas antes de permitir su compilación.
@@ -30,7 +30,7 @@ La plataforma SOLV está diseñada para centralizar la gestión, ejecución y ev
 ### 2.1 Comparativa Técnica de Entornos
 SOLV ofrece dos modalidades de ejecución según la necesidad pedagógica:
 
-| Característica | Laboratorio Interactivo (IDE) | Juez Evaluador (Sandbox) |
+| Característica | Entorno de Desarrollo | Entorno de Evaluación |
 | :--- | :--- | :--- |
 | **Objetivo** | Desarrollo de proyectos, tareas extensas y aprendizaje guiado. | Exámenes cronometrados y evaluación automática de algoritmos. |
 | **Interfaz** | Editor visual completo en el navegador web con terminal. | Sin interfaz gráfica. Proceso automatizado por API. |
@@ -58,11 +58,11 @@ $$\text{Límite Máximo Duro } (memory.max) = \text{base\_ram\_mb} \times 2$$
 - Límite absoluto de corte (OOM): 2048 MB.
 
 ### 2.3 Perfiles Recomendados por Lenguaje
-- **C / C++:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
-- **Python:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
-- **Java / OpenJDK:** 1024 MB en Juez Evaluador / 1536 MB a 2048 MB en Laboratorio Interactivo (por la reserva de memoria de la JVM).
-- **Node.js / TypeScript:** 1536 MB a 2048 MB en Laboratorio Interactivo (para soportar `node_modules` y compilación en segundo plano).
-- **Go:** 512 MB en Juez Evaluador / 1024 MB en Laboratorio Interactivo.
+- **C / C++:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
+- **Python:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
+- **Java / OpenJDK:** 1024 MB en el Entorno de Evaluación / 1536 MB a 2048 MB en el Entorno de Desarrollo (por la reserva de memoria de la JVM).
+- **Node.js / TypeScript:** 1536 MB a 2048 MB en el Entorno de Desarrollo (para soportar `node_modules` y compilación en segundo plano).
+- **Go:** 512 MB en el Entorno de Evaluación / 1024 MB en el Entorno de Desarrollo.
 
 ---
 
