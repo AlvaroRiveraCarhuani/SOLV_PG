@@ -50,7 +50,7 @@ type Handlers struct {
 
 func SetupRoutes(mux *http.ServeMux, deps *Handlers) {
 	registerUserRoutes(mux, deps)
-	registerTemplateRoutes(mux, deps.TemplateHandler)
+	registerTemplateRoutes(mux, deps)
 	registerAuthRoutes(mux, deps)
 	registerEvaluationRoutes(mux, deps.EvaluationHandler, deps.TenantMiddleware, deps.AuditMiddleware)
 	registerLanguageProfileRoutes(mux, deps)
@@ -83,10 +83,12 @@ func registerServerPoliciesRoutes(mux *http.ServeMux, deps *Handlers) {
 	if am == nil {
 		am = func(next http.Handler) http.Handler { return next }
 	}
+	admin := func(next http.Handler) http.Handler { return tm(adminOnly(next)) }
+	adminAudited := func(next http.Handler) http.Handler { return tm(am(adminOnly(next))) }
 
 	if deps.ServerPoliciesHandler != nil {
-		mux.Handle("GET /api/v1/admin/server/policies", tm(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
-		mux.Handle("PUT /api/v1/admin/server/policies", am(tm(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies))))
+		mux.Handle("GET /api/v1/admin/server/policies", admin(http.HandlerFunc(deps.ServerPoliciesHandler.GetPolicies)))
+		mux.Handle("PUT /api/v1/admin/server/policies", adminAudited(http.HandlerFunc(deps.ServerPoliciesHandler.UpdatePolicies)))
 	}
 }
 
@@ -105,10 +107,12 @@ func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.AISettingsHandler != nil {
-		mux.Handle("GET /api/v1/admin/ai/settings", tm(http.HandlerFunc(deps.AISettingsHandler.GetSettings)))
-		mux.Handle("PUT /api/v1/admin/ai/settings", am(tm(http.HandlerFunc(deps.AISettingsHandler.UpdateSettings))))
-		mux.Handle("POST /api/v1/admin/ai/test-connection", am(tm(http.HandlerFunc(deps.AISettingsHandler.TestConnection))))
-		mux.Handle("POST /api/v1/admin/ai/models", am(tm(http.HandlerFunc(deps.AISettingsHandler.ListModels))))
+		admin := func(next http.Handler) http.Handler { return tm(adminOnly(next)) }
+		adminAudited := func(next http.Handler) http.Handler { return tm(am(adminOnly(next))) }
+		mux.Handle("GET /api/v1/admin/ai/settings", admin(http.HandlerFunc(deps.AISettingsHandler.GetSettings)))
+		mux.Handle("PUT /api/v1/admin/ai/settings", adminAudited(http.HandlerFunc(deps.AISettingsHandler.UpdateSettings)))
+		mux.Handle("POST /api/v1/admin/ai/test-connection", adminAudited(http.HandlerFunc(deps.AISettingsHandler.TestConnection)))
+		mux.Handle("POST /api/v1/admin/ai/models", adminAudited(http.HandlerFunc(deps.AISettingsHandler.ListModels)))
 		mux.Handle("GET /api/v1/ai/status", tm(http.HandlerFunc(deps.AISettingsHandler.Status)))
 		mux.Handle("GET /api/v1/ai/my-settings", tm(http.HandlerFunc(deps.AISettingsHandler.GetMySettings)))
 		mux.Handle("PUT /api/v1/ai/my-settings", am(tm(http.HandlerFunc(deps.AISettingsHandler.UpdateMySettings))))
@@ -117,10 +121,11 @@ func registerAIRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.AICopilotHandler != nil {
-		mux.Handle("POST /api/v1/admin/ai/suggest-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestTemplate))))
+		adminAudited := func(next http.Handler) http.Handler { return tm(am(adminOnly(next))) }
+		mux.Handle("POST /api/v1/admin/ai/suggest-template", adminAudited(http.HandlerFunc(deps.AICopilotHandler.SuggestTemplate)))
 		mux.Handle("POST /api/v1/teacher/ai/suggest-environment", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestEnvironmentForTeacher))))
-		mux.Handle("POST /api/v1/admin/ai/suggest-component", am(tm(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent))))
-		mux.Handle("POST /api/v1/admin/ai/repair-template", am(tm(http.HandlerFunc(deps.AICopilotHandler.RepairTemplate))))
+		mux.Handle("POST /api/v1/admin/ai/suggest-component", adminAudited(http.HandlerFunc(deps.AICopilotHandler.SuggestComponent)))
+		mux.Handle("POST /api/v1/admin/ai/repair-template", adminAudited(http.HandlerFunc(deps.AICopilotHandler.RepairTemplate)))
 		mux.Handle("POST /api/v1/teacher/ai/generate-exercise", am(tm(http.HandlerFunc(deps.AICopilotHandler.GenerateExerciseDraft))))
 	}
 }
@@ -138,7 +143,7 @@ func registerTenantLogoRoutes(mux *http.ServeMux, deps *Handlers) {
 	}
 
 	if deps.TenantLogoHandler != nil {
-		mux.Handle("POST /api/v1/tenants/logo", am(tm(http.HandlerFunc(deps.TenantLogoHandler.UploadLogo))))
+		mux.Handle("POST /api/v1/tenants/logo", tm(am(adminOnly(http.HandlerFunc(deps.TenantLogoHandler.UploadLogo)))))
 		mux.Handle("GET /api/v1/public/branding/logo/{filename}", http.HandlerFunc(deps.TenantLogoHandler.ServePublicLogo))
 	}
 }
@@ -207,84 +212,88 @@ func registerAdminRoutes(mux *http.ServeMux, deps *Handlers) {
 		am = func(next http.Handler) http.Handler { return next }
 	}
 
+	admin := func(next http.Handler) http.Handler { return tm(adminOnly(next)) }
+	adminAudited := func(next http.Handler) http.Handler { return tm(am(adminOnly(next))) }
+	staff := func(next http.Handler) http.Handler { return tm(staffOnly(next)) }
+
 	if deps.AdminHandler != nil {
-		mux.Handle("GET /api/v1/admin/audit-logs", tm(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
-		mux.Handle("GET /api/v1/admin/audit-logs/actors/{actorId}/timeline", tm(http.HandlerFunc(deps.AdminHandler.GetActorTimeline)))
-		mux.Handle("PUT /api/v1/admin/branding", am(tm(http.HandlerFunc(deps.AdminHandler.UpdateBranding))))
-		mux.Handle("GET /api/v1/admin/metrics/health", tm(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
-		mux.Handle("GET /api/v1/admin/dashboard/courses-load", tm(http.HandlerFunc(deps.AdminHandler.GetCoursesLoad)))
-		mux.Handle("GET /api/v1/admin/dashboard/incidents", tm(http.HandlerFunc(deps.AdminHandler.GetIncidents)))
-		mux.Handle("GET /api/v1/admin/dashboard/containers", tm(http.HandlerFunc(deps.AdminHandler.GetContainers)))
-		mux.Handle("GET /api/v1/admin/courses/{id}/environments", tm(http.HandlerFunc(deps.AdminHandler.GetCoursePracticeEnvironments)))
-		mux.Handle("GET /api/v1/admin/environments/{id}/logs", tm(http.HandlerFunc(deps.AdminHandler.GetPracticeEnvironmentLogs)))
-		mux.Handle("POST /api/v1/admin/environments/{id}/resolve", am(tm(http.HandlerFunc(deps.AdminHandler.ResolveIncident))))
+		mux.Handle("GET /api/v1/admin/audit-logs", admin(http.HandlerFunc(deps.AdminHandler.ListAuditLogs)))
+		mux.Handle("GET /api/v1/admin/audit-logs/actors/{actorId}/timeline", admin(http.HandlerFunc(deps.AdminHandler.GetActorTimeline)))
+		mux.Handle("PUT /api/v1/admin/branding", adminAudited(http.HandlerFunc(deps.AdminHandler.UpdateBranding)))
+		mux.Handle("GET /api/v1/admin/metrics/health", admin(http.HandlerFunc(deps.AdminHandler.GetHealthMetrics)))
+		mux.Handle("GET /api/v1/admin/dashboard/courses-load", admin(http.HandlerFunc(deps.AdminHandler.GetCoursesLoad)))
+		mux.Handle("GET /api/v1/admin/dashboard/incidents", admin(http.HandlerFunc(deps.AdminHandler.GetIncidents)))
+		mux.Handle("GET /api/v1/admin/dashboard/containers", admin(http.HandlerFunc(deps.AdminHandler.GetContainers)))
+		mux.Handle("GET /api/v1/admin/courses/{id}/environments", admin(http.HandlerFunc(deps.AdminHandler.GetCoursePracticeEnvironments)))
+		mux.Handle("GET /api/v1/admin/environments/{id}/logs", admin(http.HandlerFunc(deps.AdminHandler.GetPracticeEnvironmentLogs)))
+		mux.Handle("POST /api/v1/admin/environments/{id}/resolve", adminAudited(http.HandlerFunc(deps.AdminHandler.ResolveIncident)))
 	}
 
 	if deps.AdminAcademicHandler != nil {
-		mux.Handle("POST /api/v1/admin/maintenance/enable", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.EnableMaintenance))))
-		mux.Handle("POST /api/v1/admin/maintenance/disable", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DisableMaintenance))))
-		mux.Handle("GET /api/v1/admin/maintenance/status", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetMaintenanceStatus)))
-		mux.Handle("GET /api/v1/admin/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
-		mux.Handle("GET /api/v1/academic-periods", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
-		mux.Handle("POST /api/v1/admin/academic-periods", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreatePeriod))))
-		mux.Handle("PUT /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdatePeriod))))
-		mux.Handle("POST /api/v1/admin/academic-periods/{id}/archive", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ArchivePeriod))))
-		mux.Handle("DELETE /api/v1/admin/academic-periods/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeletePeriod))))
-		mux.Handle("POST /api/v1/admin/courses/{id}/reassign", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReassignCourse))))
-		mux.Handle("GET /api/v1/admin/students", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ListStudents))))
-		mux.Handle("POST /api/v1/admin/students", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateStudent))))
-		mux.Handle("GET /api/v1/admin/students/{id}/courses", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.GetStudentCourses))))
-		mux.Handle("PUT /api/v1/admin/students/{id}/status", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateStudentStatus))))
-		mux.Handle("POST /api/v1/admin/students/{id}/reset-oom", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ResetStudentOOM))))
-		mux.Handle("POST /api/v1/admin/students/parse-roster", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ParseStudentRoster))))
-		mux.Handle("POST /api/v1/admin/students/batch", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.BatchCreateStudents))))
-		mux.Handle("POST /api/v1/admin/subjects/{id}/enroll-batch", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.EnrollStudentsBatch))))
-		mux.Handle("POST /api/v1/admin/subjects/{id}/roster", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.RosterEnroll))))
-		mux.Handle("GET /api/v1/admin/administrators", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListAdministrators)))
-		mux.Handle("POST /api/v1/admin/administrators", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateAdministrator))))
-		mux.Handle("POST /api/v1/admin/administrators/{id}/revoke", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.RevokeAdministrator))))
-		mux.Handle("GET /api/v1/admin/templates", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplates)))
-		mux.Handle("GET /api/v1/admin/templates/capabilities", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetRuntimeCapabilities)))
-		mux.Handle("POST /api/v1/admin/templates", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplate))))
-		mux.Handle("PUT /api/v1/admin/templates/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateOfficialTemplate))))
-		mux.Handle("POST /api/v1/admin/templates/compose-preview", tm(http.HandlerFunc(deps.AdminAcademicHandler.ComposeTemplatePreview)))
-		mux.Handle("GET /api/v1/admin/template-components", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateComponents)))
-		mux.Handle("POST /api/v1/admin/template-components", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateComponent))))
-		mux.Handle("PUT /api/v1/admin/template-components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("PATCH /api/v1/admin/template-components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("PUT /api/v1/admin/tech-components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("PATCH /api/v1/admin/tech-components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("PUT /api/v1/admin/components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("PATCH /api/v1/admin/components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent))))
-		mux.Handle("DELETE /api/v1/admin/template-components/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateComponent))))
-		mux.Handle("POST /api/v1/admin/templates/drafts", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.SaveDraft))))
-		mux.Handle("GET /api/v1/admin/templates/drafts", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.GetDraftByUser))))
-		mux.Handle("DELETE /api/v1/admin/templates/drafts", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeleteDraft))))
-		mux.Handle("PUT /api/v1/admin/templates/{id}/review", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReviewTemplate))))
-		mux.Handle("GET /api/v1/admin/templates/local-images", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ListLocalImages))))
-		mux.Handle("POST /api/v1/admin/templates/verify-image", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.VerifyImage))))
-		mux.Handle("GET /api/v1/admin/templates/verify-image", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.VerifyImage))))
-		mux.Handle("POST /api/v1/admin/templates/{id}/duplicate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate))))
-		mux.Handle("POST /api/v1/plantillas/{id}/duplicar", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate))))
-		mux.Handle("POST /api/v1/admin/templates/{id}/promote-to-model", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.PromoteTemplateToModel))))
-		mux.Handle("GET /api/v1/admin/templates/cache-status", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.GetTemplatesCacheStatus))))
-		mux.Handle("POST /api/v1/admin/templates/{id}/warm", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.WarmTemplate))))
-		mux.Handle("POST /api/v1/admin/templates/warm-all", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.WarmAllTemplates))))
-		mux.Handle("GET /api/v1/admin/template-categories", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateCategories)))
-		mux.Handle("GET /api/v1/admin/manual", tm(http.HandlerFunc(deps.AdminAcademicHandler.GetAdminManual)))
-		mux.Handle("POST /api/v1/admin/template-categories", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateCategory))))
-		mux.Handle("PUT /api/v1/admin/template-categories/reorder", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReorderTemplateCategories))))
-		mux.Handle("PUT /api/v1/admin/template-categories/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateCategory))))
-		mux.Handle("DELETE /api/v1/admin/template-categories/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateCategory))))
-		mux.Handle("GET /api/v1/admin/template-models", tm(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateModels)))
-		mux.Handle("PUT /api/v1/admin/template-models/{id}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateModel))))
-		mux.Handle("POST /api/v1/admin/template-models/{id}/deactivate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.DeactivateTemplateModel))))
-		mux.Handle("POST /api/v1/admin/template-models/{id}/reactivate", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ReactivateTemplateModel))))
-		mux.Handle("POST /api/v1/admin/emergency/{action}", am(tm(http.HandlerFunc(deps.AdminAcademicHandler.ExecuteEmergencyAction))))
+		mux.Handle("POST /api/v1/admin/maintenance/enable", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.EnableMaintenance)))
+		mux.Handle("POST /api/v1/admin/maintenance/disable", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DisableMaintenance)))
+		mux.Handle("GET /api/v1/admin/maintenance/status", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetMaintenanceStatus)))
+		mux.Handle("GET /api/v1/admin/academic-periods", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
+		mux.Handle("GET /api/v1/academic-periods", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListPeriods)))
+		mux.Handle("POST /api/v1/admin/academic-periods", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreatePeriod)))
+		mux.Handle("PUT /api/v1/admin/academic-periods/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdatePeriod)))
+		mux.Handle("POST /api/v1/admin/academic-periods/{id}/archive", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ArchivePeriod)))
+		mux.Handle("DELETE /api/v1/admin/academic-periods/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeletePeriod)))
+		mux.Handle("POST /api/v1/admin/courses/{id}/reassign", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ReassignCourse)))
+		mux.Handle("GET /api/v1/admin/students", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListStudents)))
+		mux.Handle("POST /api/v1/admin/students", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateStudent)))
+		mux.Handle("GET /api/v1/admin/students/{id}/courses", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetStudentCourses)))
+		mux.Handle("PUT /api/v1/admin/students/{id}/status", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateStudentStatus)))
+		mux.Handle("POST /api/v1/admin/students/{id}/reset-oom", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ResetStudentOOM)))
+		mux.Handle("POST /api/v1/admin/students/parse-roster", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ParseStudentRoster)))
+		mux.Handle("POST /api/v1/admin/students/batch", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.BatchCreateStudents)))
+		mux.Handle("POST /api/v1/admin/subjects/{id}/enroll-batch", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.EnrollStudentsBatch)))
+		mux.Handle("POST /api/v1/admin/subjects/{id}/roster", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.RosterEnroll)))
+		mux.Handle("GET /api/v1/admin/administrators", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListAdministrators)))
+		mux.Handle("POST /api/v1/admin/administrators", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateAdministrator)))
+		mux.Handle("POST /api/v1/admin/administrators/{id}/revoke", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.RevokeAdministrator)))
+		mux.Handle("GET /api/v1/admin/templates", staff(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplates)))
+		mux.Handle("GET /api/v1/admin/templates/capabilities", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetRuntimeCapabilities)))
+		mux.Handle("POST /api/v1/admin/templates", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplate)))
+		mux.Handle("PUT /api/v1/admin/templates/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateOfficialTemplate)))
+		mux.Handle("POST /api/v1/admin/templates/compose-preview", admin(http.HandlerFunc(deps.AdminAcademicHandler.ComposeTemplatePreview)))
+		mux.Handle("GET /api/v1/admin/template-components", staff(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateComponents)))
+		mux.Handle("POST /api/v1/admin/template-components", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateComponent)))
+		mux.Handle("PUT /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("PATCH /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("PUT /api/v1/admin/tech-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("PATCH /api/v1/admin/tech-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("PUT /api/v1/admin/components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("PATCH /api/v1/admin/components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateComponent)))
+		mux.Handle("DELETE /api/v1/admin/template-components/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateComponent)))
+		mux.Handle("POST /api/v1/admin/templates/drafts", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.SaveDraft)))
+		mux.Handle("GET /api/v1/admin/templates/drafts", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetDraftByUser)))
+		mux.Handle("DELETE /api/v1/admin/templates/drafts", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeleteDraft)))
+		mux.Handle("PUT /api/v1/admin/templates/{id}/review", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ReviewTemplate)))
+		mux.Handle("GET /api/v1/admin/templates/local-images", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListLocalImages)))
+		mux.Handle("POST /api/v1/admin/templates/verify-image", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.VerifyImage)))
+		mux.Handle("GET /api/v1/admin/templates/verify-image", admin(http.HandlerFunc(deps.AdminAcademicHandler.VerifyImage)))
+		mux.Handle("POST /api/v1/admin/templates/{id}/duplicate", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate)))
+		mux.Handle("POST /api/v1/plantillas/{id}/duplicar", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DuplicateTemplate)))
+		mux.Handle("POST /api/v1/admin/templates/{id}/promote-to-model", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.PromoteTemplateToModel)))
+		mux.Handle("GET /api/v1/admin/templates/cache-status", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetTemplatesCacheStatus)))
+		mux.Handle("POST /api/v1/admin/templates/{id}/warm", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.WarmTemplate)))
+		mux.Handle("POST /api/v1/admin/templates/warm-all", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.WarmAllTemplates)))
+		mux.Handle("GET /api/v1/admin/template-categories", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateCategories)))
+		mux.Handle("GET /api/v1/admin/manual", admin(http.HandlerFunc(deps.AdminAcademicHandler.GetAdminManual)))
+		mux.Handle("POST /api/v1/admin/template-categories", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.CreateTemplateCategory)))
+		mux.Handle("PUT /api/v1/admin/template-categories/reorder", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ReorderTemplateCategories)))
+		mux.Handle("PUT /api/v1/admin/template-categories/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateCategory)))
+		mux.Handle("DELETE /api/v1/admin/template-categories/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeleteTemplateCategory)))
+		mux.Handle("GET /api/v1/admin/template-models", admin(http.HandlerFunc(deps.AdminAcademicHandler.ListTemplateModels)))
+		mux.Handle("PUT /api/v1/admin/template-models/{id}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.UpdateTemplateModel)))
+		mux.Handle("POST /api/v1/admin/template-models/{id}/deactivate", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.DeactivateTemplateModel)))
+		mux.Handle("POST /api/v1/admin/template-models/{id}/reactivate", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ReactivateTemplateModel)))
+		mux.Handle("POST /api/v1/admin/emergency/{action}", adminAudited(http.HandlerFunc(deps.AdminAcademicHandler.ExecuteEmergencyAction)))
 	}
 
 	if deps.EnvTestHandler != nil {
-		mux.Handle("POST /api/v1/jobs/env-test", am(tm(http.HandlerFunc(deps.EnvTestHandler.StartEnvTest))))
+		mux.Handle("POST /api/v1/jobs/env-test", staff(http.HandlerFunc(deps.EnvTestHandler.StartEnvTest)))
 		mux.Handle("GET /api/v1/jobs/env-test/{id}", tm(http.HandlerFunc(deps.EnvTestHandler.GetEnvTest)))
 		mux.Handle("POST /api/v1/jobs/env-test/{id}/cancel", am(tm(http.HandlerFunc(deps.EnvTestHandler.CancelEnvTest))))
 		mux.Handle("POST /api/v1/teacher/courses/{courseId}/exercises/{exerciseId}/env-test", am(tm(http.HandlerFunc(deps.EnvTestHandler.StartPracticeEnvTest))))
@@ -390,16 +399,30 @@ func registerUserRoutes(mux *http.ServeMux, deps *Handlers) {
 	if tm == nil {
 		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
 	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
 
-	mux.HandleFunc("POST /api/v1/users", deps.UserHandler.Create)
+	mux.Handle("POST /api/v1/users", am(tm(http.HandlerFunc(deps.UserHandler.Create))))
 	mux.Handle("GET /api/v1/users/me", tm(http.HandlerFunc(deps.UserHandler.GetMe)))
 }
 
-func registerTemplateRoutes(mux *http.ServeMux, h *TemplateHandler) {
-	if h != nil {
-		mux.HandleFunc("POST /api/v1/templates", h.Create)
-		mux.HandleFunc("GET /api/v1/templates", h.GetAll)
+func registerTemplateRoutes(mux *http.ServeMux, deps *Handlers) {
+	if deps.TemplateHandler == nil {
+		return
 	}
+	tm := deps.TenantMiddleware
+	if tm == nil {
+		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
+	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
+
+	mux.Handle("POST /api/v1/templates", am(tm(http.HandlerFunc(deps.TemplateHandler.Create))))
+	mux.Handle("GET /api/v1/templates", tm(http.HandlerFunc(deps.TemplateHandler.GetAll)))
 }
 
 // registerEnvironmentRequestRoutes expone el pedido de entorno del docente.
@@ -425,8 +448,8 @@ func registerEnvironmentRequestRoutes(mux *http.ServeMux, deps *Handlers) {
 	mux.Handle("GET /api/v1/teacher/environment-requests", tm(http.HandlerFunc(h.ListMine)))
 	mux.Handle("GET /api/v1/teacher/environment-requests/{id}", tm(http.HandlerFunc(h.GetByID)))
 
-	mux.Handle("GET /api/v1/admin/environment-requests", tm(http.HandlerFunc(h.ListForReview)))
-	mux.Handle("PATCH /api/v1/admin/environment-requests/{id}", am(tm(http.HandlerFunc(h.Review))))
+	mux.Handle("GET /api/v1/admin/environment-requests", tm(adminOnly(http.HandlerFunc(h.ListForReview))))
+	mux.Handle("PATCH /api/v1/admin/environment-requests/{id}", tm(am(adminOnly(http.HandlerFunc(h.Review)))))
 }
 
 func registerAuthRoutes(mux *http.ServeMux, deps *Handlers) {
@@ -437,6 +460,7 @@ func registerAuthRoutes(mux *http.ServeMux, deps *Handlers) {
 		}
 		mux.Handle("POST /api/v1/auth/login", loginRL(http.HandlerFunc(deps.AuthHandler.HandleGoogleLogin)))
 		mux.Handle("GET /auth/google/login", loginRL(http.HandlerFunc(deps.AuthHandler.HandleGoogleLogin)))
+		mux.HandleFunc("GET /api/v1/auth/callback", deps.AuthHandler.HandleGoogleCallback)
 		mux.HandleFunc("GET /auth/google/callback", deps.AuthHandler.HandleGoogleCallback)
 		mux.HandleFunc("GET /api/v1/auth/verify", deps.AuthHandler.VerifyAuth)
 		mux.HandleFunc("POST /api/v1/auth/logout", deps.AuthHandler.HandleLogout)
@@ -488,7 +512,7 @@ func registerLanguageProfileRoutes(mux *http.ServeMux, deps *Handlers) {
 
 	mux.Handle("GET /api/v1/judge/profiles", http.HandlerFunc(deps.LanguageProfileHandler.ListProfiles))
 	mux.Handle("GET /api/v1/judge/profiles/{language}", http.HandlerFunc(deps.LanguageProfileHandler.GetProfile))
-	mux.Handle("PUT /api/v1/admin/judge/profiles/{language}", am(tm(http.HandlerFunc(deps.LanguageProfileHandler.UpdateProfile))))
+	mux.Handle("PUT /api/v1/admin/judge/profiles/{language}", tm(am(adminOnly(http.HandlerFunc(deps.LanguageProfileHandler.UpdateProfile)))))
 }
 
 func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmentHandler, tenantMiddleware func(http.Handler) http.Handler, rateLimitMiddleware func(http.Handler) http.Handler) {
@@ -518,7 +542,7 @@ func registerPracticeEnvironmentRoutes(mux *http.ServeMux, h *PracticeEnvironmen
 }
 
 func registerMetricsRoutes(mux *http.ServeMux, h *MetricsHandler) {
-	mux.Handle("GET /metrics", promhttp.Handler())
+	mux.Handle("GET /metrics", metricsAccessMiddleware(promhttp.Handler()))
 }
 
 func registerConfigRoutes(mux *http.ServeMux, h *ConfigHandler) {
@@ -603,13 +627,17 @@ func registerBackupRoutes(mux *http.ServeMux, deps *Handlers) {
 	if tm == nil {
 		tm = func(next http.Handler) http.Handler { return WithAuth(next) }
 	}
+	am := deps.AuditMiddleware
+	if am == nil {
+		am = func(next http.Handler) http.Handler { return next }
+	}
 
-	mux.Handle("GET /api/v1/admin/backups/config", tm(http.HandlerFunc(deps.BackupHandler.GetConfig)))
-	mux.Handle("PUT /api/v1/admin/backups/config", tm(http.HandlerFunc(deps.BackupHandler.UpdateConfig)))
-	mux.Handle("GET /api/v1/admin/backups", tm(http.HandlerFunc(deps.BackupHandler.List)))
-	mux.Handle("POST /api/v1/admin/backups/trigger", tm(http.HandlerFunc(deps.BackupHandler.Trigger)))
-	mux.Handle("POST /api/v1/admin/backups/{id}/verify", tm(http.HandlerFunc(deps.BackupHandler.Verify)))
-	mux.Handle("GET /api/v1/admin/backups/{id}/download", tm(http.HandlerFunc(deps.BackupHandler.Download)))
+	mux.Handle("GET /api/v1/admin/backups/config", tm(adminOnly(http.HandlerFunc(deps.BackupHandler.GetConfig))))
+	mux.Handle("PUT /api/v1/admin/backups/config", tm(am(adminOnly(http.HandlerFunc(deps.BackupHandler.UpdateConfig)))))
+	mux.Handle("GET /api/v1/admin/backups", tm(adminOnly(http.HandlerFunc(deps.BackupHandler.List))))
+	mux.Handle("POST /api/v1/admin/backups/trigger", tm(am(adminOnly(http.HandlerFunc(deps.BackupHandler.Trigger)))))
+	mux.Handle("POST /api/v1/admin/backups/{id}/verify", tm(am(adminOnly(http.HandlerFunc(deps.BackupHandler.Verify)))))
+	mux.Handle("GET /api/v1/admin/backups/{id}/download", tm(adminOnly(http.HandlerFunc(deps.BackupHandler.Download))))
 }
 
 func registerCourseModuleRoutes(mux *http.ServeMux, deps *Handlers) {

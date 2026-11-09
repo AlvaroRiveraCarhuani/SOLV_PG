@@ -65,8 +65,11 @@ func main() {
 	submissionRepo := postgres.NewPostgresSubmissionRepository(db.GetDB())
 	teacherInvRepo := postgres.NewPostgresTeacherInvitationRepository(db.GetDB())
 	teacherRepo := postgres.NewPostgresTeacherRepository(db.GetDB())
+	revocationRepo := postgres.NewPostgresSessionRevocationRepository(db.GetDB())
 
-	authService := services.NewAuthService(db, tenantRepo).WithTeacherInvitationRepo(teacherInvRepo)
+	authService := services.NewAuthService(db, tenantRepo).
+		WithTeacherInvitationRepo(teacherInvRepo).
+		WithSessionRevocationRepository(revocationRepo)
 
 	astAnalyzer := services.NewStaticASTAnalyzer()
 	dockerRunner := docker.NewDockerEvaluationRunner(cli)
@@ -133,6 +136,24 @@ func main() {
 
 	wsHub := httpdelivery.NewWebSocketHub()
 	go wsHub.Run()
+	wsHub.StartRevocationSync(ctx, revocationRepo, services.SessionRevocationPollInterval)
+	go func() {
+		if err := revocationRepo.DeleteExpiredSessions(ctx); err != nil {
+			log.Printf("No se pudieron limpiar revocaciones vencidas al iniciar: %v", err)
+		}
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := revocationRepo.DeleteExpiredSessions(ctx); err != nil {
+					log.Printf("No se pudieron limpiar revocaciones vencidas: %v", err)
+				}
+			}
+		}
+	}()
 
 	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
@@ -226,6 +247,8 @@ func main() {
 	metricsSnapshotService := services.NewMetricsSnapshotService(environmentRepo, dockerClient, 5*time.Second)
 	metricsSnapshotService.Start(ctx)
 	teacherHandler := httpdelivery.NewTeacherHandler(teacherService, metricsSnapshotService)
+	teacherHandler.SetAuthService(authService)
+	teacherHandler.SetTerminalAuthorizer(teacherService)
 	teacherHandler.SetReviewEnvironmentService(reviewEnvService)
 	govService := services.NewAdminGovernanceService(subjectRepo, govRepo)
 	govService.SetAuditRepo(auditLogRepo)
@@ -272,7 +295,7 @@ func main() {
 		WithImageService(imageVerificationService).
 		WithAuditLogRepo(auditLogRepo).
 		WithCacheService(templateCacheService)
-	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
+	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo, authService)
 
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
 	templateAuditWorker.Start(ctx)
@@ -427,6 +450,11 @@ func main() {
 			),
 		),
 	)
+	handler = middleware.SessionRevocationMiddleware(authService)(handler)
+	// La identidad solo puede entrar por el JWT/cookie. Las cabeceras de
+	// propagación interna se eliminan antes de cualquier middleware y vuelven a
+	// fijarse desde los claims verificados.
+	handler = middleware.SanitizeIdentityHeaders(handler)
 
 	port := os.Getenv("PORT")
 	if port == "" {

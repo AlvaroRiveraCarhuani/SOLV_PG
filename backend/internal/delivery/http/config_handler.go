@@ -20,6 +20,21 @@ type cacheEntry struct {
 	expiresAt time.Time
 }
 
+// publicTenantConfig es la lista blanca de campos que puede consumir una
+// sesión anónima. tenants.config contiene configuración interna (IA, QoS y
+// credenciales cifradas); nunca se serializa completo en este endpoint.
+type publicTenantConfig struct {
+	TenantID           string `json:"tenant_id"`
+	Slug               string `json:"slug"`
+	InstitutionName    string `json:"institution_name"`
+	LogoURL            string `json:"logo_url"`
+	TenantPrimaryColor string `json:"tenant_primary_color,omitempty"`
+	BaseDomain         string `json:"base_domain,omitempty"`
+	SupportEmail       string `json:"support_email,omitempty"`
+	FontSansFamily     string `json:"font_sans_family,omitempty"`
+	FontMonoFamily     string `json:"font_mono_family,omitempty"`
+}
+
 func NewConfigHandler(tenantRepo domain.TenantRepository) *ConfigHandler {
 	return &ConfigHandler{
 		tenantRepo: tenantRepo,
@@ -29,12 +44,9 @@ func NewConfigHandler(tenantRepo domain.TenantRepository) *ConfigHandler {
 
 func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) {
 	slug := r.URL.Query().Get("slug")
-	tenantID := r.Header.Get("X-Tenant-Id")
 	cacheKey := "default"
 	if slug != "" {
 		cacheKey = "slug:" + slug
-	} else if tenantID != "" {
-		cacheKey = "tenant:" + tenantID
 	}
 
 	// 1. Intentar leer de la caché
@@ -52,8 +64,6 @@ func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) 
 	var err error
 	if slug != "" {
 		tenant, err = h.tenantRepo.GetBySlug(r.Context(), slug)
-	} else if tenantID != "" {
-		tenant, err = h.tenantRepo.GetByID(r.Context(), tenantID)
 	} else {
 		tenant, err = h.tenantRepo.GetByID(r.Context(), domain.DefaultTenantID)
 	}
@@ -63,21 +73,27 @@ func (h *ConfigHandler) GetPublicConfig(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// 3. Enriquecer configuración con tenant_id y slug
-	var configMap map[string]interface{}
+	// 3. Copiar solo los campos públicos; el config interno no sale de aquí.
+	var stored publicTenantConfig
 	if len(tenant.Config) > 0 {
-		_ = json.Unmarshal(tenant.Config, &configMap)
+		_ = json.Unmarshal(tenant.Config, &stored)
 	}
-	if configMap == nil {
-		configMap = make(map[string]interface{})
+	public := publicTenantConfig{
+		TenantID:           tenant.ID,
+		Slug:               tenant.Slug,
+		InstitutionName:    stored.InstitutionName,
+		LogoURL:            stored.LogoURL,
+		TenantPrimaryColor: stored.TenantPrimaryColor,
+		BaseDomain:         stored.BaseDomain,
+		SupportEmail:       stored.SupportEmail,
+		FontSansFamily:     stored.FontSansFamily,
+		FontMonoFamily:     stored.FontMonoFamily,
 	}
-	configMap["tenant_id"] = tenant.ID
-	configMap["slug"] = tenant.Slug
-	if _, ok := configMap["institution_name"]; !ok {
-		configMap["institution_name"] = tenant.Name
+	if public.InstitutionName == "" {
+		public.InstitutionName = tenant.Name
 	}
 
-	data, err := json.Marshal(configMap)
+	data, err := json.Marshal(public)
 	if err != nil {
 		http.Error(w, `{"error":"serialization_error"}`, http.StatusInternalServerError)
 		return

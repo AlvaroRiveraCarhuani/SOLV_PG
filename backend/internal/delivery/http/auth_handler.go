@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,12 +40,67 @@ func getCookieDomain(r *http.Request) string {
 	return strings.TrimSpace(os.Getenv("COOKIE_DOMAIN"))
 }
 
+const oauthStateCookieName = "solv_oauth_state"
+const oauthStateCookieMaxAge = 600
+
+func secureCookieRequest(r *http.Request) bool {
+	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
+	return !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
+}
+
+// sessionCookie construye la cookie de sesión con los atributos de seguridad
+// que comparten login y logout.
+func sessionCookie(r *http.Request, token string, maxAge int) *http.Cookie {
+	cookie := &http.Cookie{
+		Name:     "solv_session",
+		Value:    token,
+		Path:     "/",
+		Domain:   getCookieDomain(r),
+		HttpOnly: true,
+		Secure:   secureCookieRequest(r),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   maxAge,
+	}
+	if maxAge < 0 {
+		cookie.MaxAge = -1
+		cookie.Expires = time.Unix(0, 0)
+	}
+	return cookie
+}
+
+func oauthStateCookie(r *http.Request, state string, maxAge int) *http.Cookie {
+	cookie := &http.Cookie{
+		Name:     oauthStateCookieName,
+		Value:    state,
+		Path:     "/",
+		Domain:   getCookieDomain(r),
+		HttpOnly: true,
+		Secure:   secureCookieRequest(r),
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   maxAge,
+	}
+	if maxAge < 0 {
+		cookie.MaxAge = -1
+		cookie.Expires = time.Unix(0, 0)
+	}
+	return cookie
+}
+
 func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
-	url := h.authService.GetLoginURL()
+	url, state, err := h.authService.BeginGoogleLogin()
+	if err != nil {
+		http.Error(w, "failed to start oauth login", http.StatusInternalServerError)
+		return
+	}
+	http.SetCookie(w, oauthStateCookie(r, state, oauthStateCookieMaxAge))
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
 func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Request) {
+	// La cookie de state se invalida en toda respuesta del callback, incluso si
+	// el state no coincide o el código falta.
+	http.SetCookie(w, oauthStateCookie(r, "", -1))
+
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		h.recordAuthFailure(r)
@@ -52,10 +108,19 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if err := h.validateOAuthState(r); err != nil {
+		h.recordAuthFailure(r)
+		http.Error(w, "invalid oauth state", http.StatusForbidden)
+		return
+	}
+
 	token, err := h.authService.CallbackGoogle(r.Context(), code)
 	if err != nil {
 		h.recordAuthFailure(r)
-		if errors.Is(err, services.ErrUnauthorizedDomain) || strings.Contains(err.Error(), "unauthorized: email domain not allowed") {
+		if errors.Is(err, services.ErrUnauthorizedDomain) ||
+			errors.Is(err, services.ErrEmailNotVerified) ||
+			strings.Contains(err.Error(), "unauthorized: email domain not allowed") ||
+			strings.Contains(err.Error(), "google email is not verified") {
 			http.Error(w, err.Error(), http.StatusForbidden)
 			return
 		}
@@ -64,23 +129,7 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Seteo de la cookie HttpOnly solv_session adaptable a entorno local vs producción
-	cookieDomain := getCookieDomain(r)
-	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
-	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
-
-	// Atributos de cookie configurados explicitamente (Secure adaptativo, HttpOnly y SameSite Lax).
-	//nolint:gosec
-	cookie := &http.Cookie{
-		Name:     "solv_session",
-		Value:    token,
-		Path:     "/",
-		Domain:   cookieDomain,
-		HttpOnly: true,
-		Secure:   isSecure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   86400, // 24 horas
-	}
-	http.SetCookie(w, cookie)
+	http.SetCookie(w, sessionCookie(r, token, 86400))
 
 	// Si un cliente API o test solicita JSON explícitamente
 	if r.Header.Get("Accept") == "application/json" {
@@ -94,7 +143,7 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 
 	// Extraer el rol del usuario desde los claims del token
 	targetRole := "student"
-	if claims, err := h.authService.ValidateSessionToken(token); err == nil {
+	if claims, err := h.authService.ValidateSessionTokenContext(r.Context(), token); err == nil {
 		if rVal, ok := claims["role"].(string); ok && rVal != "" {
 			targetRole = rVal
 		}
@@ -116,6 +165,24 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 	http.Redirect(w, r, redirectURL, http.StatusTemporaryRedirect)
 }
 
+// validateOAuthState compara el state del callback con el valor guardado en la
+// cookie HttpOnly y consume el state del almacén de un solo uso. La comparación
+// es de tiempo constante.
+func (h *AuthHandler) validateOAuthState(r *http.Request) error {
+	state := strings.TrimSpace(r.URL.Query().Get("state"))
+	cookie, err := r.Cookie(oauthStateCookieName)
+	if state == "" || err != nil || strings.TrimSpace(cookie.Value) == "" {
+		return services.ErrOAuthStateMissing
+	}
+	if subtle.ConstantTimeCompare([]byte(state), []byte(cookie.Value)) != 1 {
+		return services.ErrOAuthStateInvalid
+	}
+	if h.authService == nil {
+		return services.ErrOAuthStateInvalid
+	}
+	return h.authService.ConsumeOAuthState(state)
+}
+
 func (h *AuthHandler) VerifyAuth(w http.ResponseWriter, r *http.Request) {
 	var tokenStr string
 	cookie, err := r.Cookie("solv_session")
@@ -133,7 +200,7 @@ func (h *AuthHandler) VerifyAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := h.authService.ValidateSessionToken(tokenStr)
+	claims, err := h.authService.ValidateSessionTokenContext(r.Context(), tokenStr)
 	if err != nil {
 		if errors.Is(err, services.ErrJWTExpired) {
 			SendError(w, http.StatusForbidden, "session expired", "La sesión ha expirado")
@@ -155,23 +222,24 @@ func (h *AuthHandler) VerifyAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
-	cookieDomain := getCookieDomain(r)
-	isLocal := strings.Contains(r.Host, "localhost") || strings.Contains(r.Host, "127.0.0.1")
-	isSecure := !isLocal && (r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https")
-	// Atributos de cookie de logout configurados explicitamente (Secure adaptativo, HttpOnly y SameSite Lax).
-	//nolint:gosec
-	cookie := &http.Cookie{
-		Name:     "solv_session",
-		Value:    "",
-		Path:     "/",
-		Domain:   cookieDomain,
-		HttpOnly: true,
-		Secure:   isSecure,
-		SameSite: http.SameSiteLaxMode,
-		MaxAge:   -1,
-		Expires:  time.Unix(0, 0),
+	var tokenString string
+	if cookie, err := r.Cookie("solv_session"); err == nil && cookie.Value != "" {
+		tokenString = cookie.Value
+	} else if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		tokenString = strings.TrimPrefix(authHeader, "Bearer ")
 	}
-	http.SetCookie(w, cookie)
+	if tokenString != "" {
+		if h.authService == nil {
+			SendError(w, http.StatusServiceUnavailable, "session_revocation_unavailable", "No se pudo revocar la sesión; intenta de nuevo")
+			return
+		}
+		if err := h.authService.RevokeSessionToken(r.Context(), tokenString); err != nil {
+			SendError(w, http.StatusServiceUnavailable, "session_revocation_unavailable", "No se pudo revocar la sesión; intenta de nuevo")
+			return
+		}
+	}
+
+	http.SetCookie(w, sessionCookie(r, "", -1))
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "logged_out"}, "Sesión cerrada exitosamente")
 }

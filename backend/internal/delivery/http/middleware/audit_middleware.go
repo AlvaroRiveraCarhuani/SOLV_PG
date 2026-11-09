@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"bufio"
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -25,6 +28,29 @@ func (w *statusCapturingResponseWriter) Write(b []byte) (int, error) {
 		w.statusCode = http.StatusOK
 	}
 	return w.ResponseWriter.Write(b)
+}
+
+// Hijack delegates to the underlying ResponseWriter when it implements
+// http.Hijacker. WebSocket upgrades (gorilla/websocket) require this.
+func (w *statusCapturingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("statusCapturingResponseWriter: underlying ResponseWriter of type %T does not implement http.Hijacker", w.ResponseWriter)
+	}
+	return hijacker.Hijack()
+}
+
+// Flush delegates to the underlying ResponseWriter when it implements
+// http.Flusher; otherwise it is a no-op so streaming handlers never panic.
+func (w *statusCapturingResponseWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped writer to http.ResponseController and helpers.
+func (w *statusCapturingResponseWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 func AuditMiddleware(pool *AuditWorkerPool) func(http.Handler) http.Handler {
@@ -67,7 +93,7 @@ func AuditMiddleware(pool *AuditWorkerPool) func(http.Handler) http.Handler {
 				Action:       r.Method + " " + r.URL.Path,
 				ResourceType: resourceType,
 				StatusCode:   rec.statusCode,
-				Metadata:     bodyBytes,
+				Metadata:     sanitizeAuditBody(bodyBytes),
 				IPAddress:    ipAddress,
 				UserAgent:    r.Header.Get("User-Agent"),
 			}
@@ -96,4 +122,66 @@ func extractIP(r *http.Request) string {
 		return host
 	}
 	return r.RemoteAddr
+}
+
+// sanitizeAuditBody elimina secretos del cuerpo antes de persistirlo. Los
+// cuerpos que no son JSON se descartan: no se puede garantizar una redacción
+// segura sobre texto libre y el log conserva igualmente acción, actor y estado.
+func sanitizeAuditBody(body []byte) []byte {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) == 0 {
+		return nil
+	}
+
+	var payload any
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	decoder.UseNumber()
+	if err := decoder.Decode(&payload); err != nil {
+		return nil
+	}
+
+	redacted := redactAuditValue(payload)
+	encoded, err := json.Marshal(redacted)
+	if err != nil {
+		return nil
+	}
+	return encoded
+}
+
+func redactAuditValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		out := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			if isSensitiveAuditKey(key) {
+				out[key] = "[REDACTED]"
+				continue
+			}
+			out[key] = redactAuditValue(nested)
+		}
+		return out
+	case []any:
+		out := make([]any, len(typed))
+		for i, nested := range typed {
+			out[i] = redactAuditValue(nested)
+		}
+		return out
+	default:
+		return value
+	}
+}
+
+func isSensitiveAuditKey(key string) bool {
+	compact := strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToLower(strings.TrimSpace(key)))
+	if compact == "" {
+		return false
+	}
+	switch compact {
+	case "apikey", "encryptedapikey", "accesstoken", "refreshtoken", "idtoken", "bearertoken", "token", "password", "passwd", "secret", "clientsecret", "authorization":
+		return true
+	}
+	return strings.Contains(compact, "apikey") ||
+		strings.Contains(compact, "secret") ||
+		strings.HasSuffix(compact, "password") ||
+		strings.HasSuffix(compact, "token")
 }

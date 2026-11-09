@@ -35,10 +35,37 @@ type StartPracticeEnvironmentRequest struct {
 // resolveRequestStudentID prioriza la identidad del JWT y cae al header inyectado
 // por ForwardAuth cuando el request ya viene autenticado aguas arriba.
 func resolveRequestStudentID(r *http.Request) string {
-	if userID := strings.TrimSpace(domain.GetUserID(r.Context())); userID != "" {
-		return userID
+	return requestUserID(r)
+}
+
+// canAccessPracticeEnvironment aplica la política de propiedad del ciclo de
+// vida: el alumno solo opera su entorno; docentes y administradores conservan
+// la capacidad de gestión que ya usa Pause. El tenant lo valida el repositorio.
+func canAccessPracticeEnvironment(r *http.Request, ws *domain.PracticeEnvironment) bool {
+	if ws == nil {
+		return false
 	}
-	return strings.TrimSpace(r.Header.Get("X-User-Id"))
+	role := requestRole(r)
+	if role == "admin" || role == "teacher" {
+		return true
+	}
+	userID := requestUserID(r)
+	return userID != "" && ws.StudentID == userID
+}
+
+// authorizeEnvironment resuelve el entorno por id y comprueba la propiedad
+// antes de que el handler ejecute una operación con efectos secundarios.
+func (h *PracticeEnvironmentHandler) authorizeEnvironment(w http.ResponseWriter, r *http.Request, environmentID string) (*domain.PracticeEnvironment, bool) {
+	ws, err := h.service.GetPracticeEnvironmentByID(r.Context(), environmentID)
+	if err != nil || ws == nil {
+		SendError(w, http.StatusNotFound, "environment_not_found", "El laboratorio no existe o ya fue eliminado")
+		return nil, false
+	}
+	if !canAccessPracticeEnvironment(r, ws) {
+		SendError(w, http.StatusForbidden, "environment_forbidden", "No tiene permisos para operar este environment")
+		return nil, false
+	}
+	return ws, true
 }
 
 func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWriter, r *http.Request) {
@@ -52,10 +79,7 @@ func (h *PracticeEnvironmentHandler) StartPracticeEnvironment(w http.ResponseWri
 	// sobrescribirla con rol admin/teacher. Un alumno que intenta iniciar el
 	// environment de otro recibe 403.
 	authStudentID := resolveRequestStudentID(r)
-	role := strings.TrimSpace(domain.GetUserRole(r.Context()))
-	if role == "" {
-		role = strings.TrimSpace(r.Header.Get("X-User-Role"))
-	}
+	role := requestRole(r)
 	bodyStudentID := strings.TrimSpace(req.StudentID)
 
 	if role == "admin" || role == "teacher" {
@@ -114,10 +138,7 @@ func (h *PracticeEnvironmentHandler) OpenPracticeIDE(w http.ResponseWriter, r *h
 		return
 	}
 
-	role := strings.TrimSpace(domain.GetUserRole(r.Context()))
-	if role == "" {
-		role = strings.TrimSpace(r.Header.Get("X-User-Role"))
-	}
+	role := requestRole(r)
 	if role != "teacher" && role != "admin" {
 		SendError(w, http.StatusForbidden, "forbidden", "Solo docentes y administradores pueden abrir el IDE de una práctica")
 		return
@@ -179,6 +200,9 @@ func (h *PracticeEnvironmentHandler) TerminatePracticeEnvironment(w http.Respons
 		SendError(w, http.StatusBadRequest, "Missing environment ID", "Se requiere el ID del environment")
 		return
 	}
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
+		return
+	}
 
 	if err := h.service.TerminatePracticeEnvironment(r.Context(), environmentID); err != nil {
 		if errors.Is(err, domain.ErrNotFound) {
@@ -196,6 +220,9 @@ func (h *PracticeEnvironmentHandler) GetSemgrepAudit(w http.ResponseWriter, r *h
 	environmentID := r.PathValue("id")
 	if environmentID == "" {
 		SendError(w, http.StatusBadRequest, "Missing environment ID", "Se requiere el ID del environment")
+		return
+	}
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
 		return
 	}
 
@@ -222,6 +249,9 @@ func (h *PracticeEnvironmentHandler) Heartbeat(w http.ResponseWriter, r *http.Re
 		SendError(w, http.StatusBadRequest, "Missing environment ID", "Se requiere el ID del environment")
 		return
 	}
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
+		return
+	}
 
 	if err := h.service.RecordHeartbeat(r.Context(), environmentID); err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al registrar el latido (heartbeat)")
@@ -235,6 +265,9 @@ func (h *PracticeEnvironmentHandler) RestartPracticeEnvironment(w http.ResponseW
 	environmentID := r.PathValue("id")
 	if environmentID == "" {
 		SendError(w, http.StatusBadRequest, "Missing environment ID", "Se requiere el ID del environment")
+		return
+	}
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
 		return
 	}
 
@@ -270,16 +303,7 @@ func (h *PracticeEnvironmentHandler) PausePracticeEnvironment(w http.ResponseWri
 		return
 	}
 
-	ws, err := h.service.GetPracticeEnvironmentByID(r.Context(), environmentID)
-	if err != nil {
-		SendError(w, http.StatusNotFound, "PracticeEnvironment not found", "PracticeEnvironment no encontrado")
-		return
-	}
-
-	userID := r.Header.Get("X-User-Id")
-	userRole := r.Header.Get("X-User-Role")
-	if userRole != "admin" && userRole != "teacher" && (userID != "" && ws.StudentID != userID) {
-		SendError(w, http.StatusForbidden, "Unauthorized to pause this environment", "No tiene permisos para pausar este environment")
+	if _, ok := h.authorizeEnvironment(w, r, environmentID); !ok {
 		return
 	}
 

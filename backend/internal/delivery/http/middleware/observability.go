@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"bufio"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"time"
@@ -29,6 +32,29 @@ func (w *responseWriterInterceptor) Write(b []byte) (int, error) {
 	n, err := w.ResponseWriter.Write(b)
 	w.bytesWritten += n
 	return n, err
+}
+
+// Hijack delegates to the underlying ResponseWriter when it implements
+// http.Hijacker. WebSocket upgrades (gorilla/websocket) require this.
+func (w *responseWriterInterceptor) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hijacker, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("responseWriterInterceptor: underlying ResponseWriter of type %T does not implement http.Hijacker", w.ResponseWriter)
+	}
+	return hijacker.Hijack()
+}
+
+// Flush delegates to the underlying ResponseWriter when it implements
+// http.Flusher; otherwise it is a no-op so streaming handlers never panic.
+func (w *responseWriterInterceptor) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+// Unwrap exposes the wrapped writer to http.ResponseController and helpers.
+func (w *responseWriterInterceptor) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
 
 // ObservabilityMiddleware handles trace_id injection, Prometheus HTTP metrics, and structured request logging.
