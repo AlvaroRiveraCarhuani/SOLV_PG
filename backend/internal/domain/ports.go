@@ -11,8 +11,8 @@ type UserRepository interface {
 }
 
 type TemplateRepository interface {
-	CreateTemplate(ctx context.Context, dto CreateTemplateDTO) (string, error)
-	GetAllTemplates(ctx context.Context) ([]TemplateResponseDTO, error)
+	CreateTemplate(ctx context.Context, tenantID string, dto CreateTemplateDTO) (string, error)
+	GetAllTemplates(ctx context.Context, tenantID string) ([]TemplateResponseDTO, error)
 	GetTemplateByID(ctx context.Context, id string) (TemplateResponseDTO, error)
 }
 

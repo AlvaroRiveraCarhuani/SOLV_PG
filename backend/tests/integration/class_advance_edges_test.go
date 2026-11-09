@@ -320,11 +320,11 @@ func setupAdvanceEdgeFixture(t *testing.T) *advanceEdgeFixture {
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
+			tenantID := r.Header.Get("X-Test-Tenant-Id")
 			if tenantID == "" {
 				tenantID = f.tenantID
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), domain.TenantIDKey, tenantID)))
+			next.ServeHTTP(w, withTestIdentity(r, tenantID, r.Header.Get("X-Test-User-Id"), r.Header.Get("X-Test-User-Role")))
 		})
 	}
 	handlers := httpdelivery.Handlers{
@@ -358,9 +358,9 @@ func (f *advanceEdgeFixture) do(t *testing.T, method, path, userID, role string,
 		t.Fatalf("no se pudo armar la petición: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-Id", f.tenantID)
-	req.Header.Set("X-User-Id", userID)
-	req.Header.Set("X-User-Role", role)
+	req.Header.Set("X-Test-Tenant-Id", f.tenantID)
+	req.Header.Set("X-Test-User-Id", userID)
+	req.Header.Set("X-Test-User-Role", role)
 	res, err := f.server.Client().Do(req)
 	if err != nil {
 		t.Fatalf("la petición %s %s falló: %v", method, path, err)

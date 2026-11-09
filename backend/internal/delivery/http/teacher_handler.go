@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -17,7 +18,15 @@ type TeacherHandler struct {
 	metricsSnapshotService   *services.MetricsSnapshotService
 	reviewEnvironmentService *services.ReviewEnvironmentService
 	authService              *services.AuthService
+	terminalAuthorizer       TerminalSessionAuthorizer
 	upgrader                 websocket.Upgrader
+}
+
+// TerminalSessionAuthorizer valida en el servidor que el docente pueda
+// observar y ejecutar comandos en un contenedor concreto. No se alimenta de
+// cabeceras del cliente.
+type TerminalSessionAuthorizer interface {
+	AuthorizeTerminal(ctx context.Context, tenantID, teacherID, containerID string) error
 }
 
 func NewTeacherHandler(service *services.TeacherService, metricsSnapshotService *services.MetricsSnapshotService) *TeacherHandler {
@@ -32,6 +41,10 @@ func (h *TeacherHandler) SetAuthService(authService *services.AuthService) {
 	h.authService = authService
 }
 
+func (h *TeacherHandler) SetTerminalAuthorizer(authorizer TerminalSessionAuthorizer) {
+	h.terminalAuthorizer = authorizer
+}
+
 // SetReviewEnvironmentService habilita el preview efímero de una entrega IDE.
 // Sin el servicio, la ruta responde 503 en lugar de fallar con un nil pointer.
 func (h *TeacherHandler) SetReviewEnvironmentService(service *services.ReviewEnvironmentService) {
@@ -39,15 +52,14 @@ func (h *TeacherHandler) SetReviewEnvironmentService(service *services.ReviewEnv
 }
 
 func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	periodID := r.URL.Query().Get("period_id")
 
@@ -71,14 +83,13 @@ func (h *TeacherHandler) GetCourses(w http.ResponseWriter, r *http.Request) {
 // GetOverview devuelve el resumen del panel docente: aula, cola de corrección,
 // entornos abiertos y materias con sus conteos, en una sola respuesta.
 func (h *TeacherHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	periodID := r.URL.Query().Get("period_id")
 
 	if periodID != "" {
@@ -100,14 +111,13 @@ func (h *TeacherHandler) GetOverview(w http.ResponseWriter, r *http.Request) {
 // GetExerciseBank devuelve el read model del banco de ejercicios del docente
 // con semántica de revisión por entorno (juez vs IDE).
 func (h *TeacherHandler) GetExerciseBank(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	items, err := h.service.GetTeacherExerciseBank(r.Context(), tenantID, teacherID)
 	if err != nil {
@@ -119,8 +129,7 @@ func (h *TeacherHandler) GetExerciseBank(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *TeacherHandler) GetCourseLabs(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
@@ -133,7 +142,7 @@ func (h *TeacherHandler) GetCourseLabs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	stats, err := h.service.GetCourseLabsStats(r.Context(), tenantID, teacherID, subjectID)
 	if err != nil {
@@ -150,14 +159,13 @@ func (h *TeacherHandler) GetCourseLabs(w http.ResponseWriter, r *http.Request) {
 
 // DuplicateExercise copia un laboratorio del docente a otra de sus materias.
 func (h *TeacherHandler) DuplicateExercise(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	exerciseID := r.PathValue("id")
 	if exerciseID == "" {
 		SendError(w, http.StatusBadRequest, "Missing exercise ID", "El identificador del laboratorio es requerido")
@@ -190,14 +198,13 @@ func (h *TeacherHandler) DuplicateExercise(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *TeacherHandler) GetLiveSessionsMetrics(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	metrics, err := h.metricsSnapshotService.GetPracticeEnvironmentMetrics(r.Context(), tenantID, teacherID)
 	if err != nil {

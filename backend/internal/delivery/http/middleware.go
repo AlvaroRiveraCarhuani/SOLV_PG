@@ -43,11 +43,6 @@ func WithAuth(next http.Handler) http.Handler {
 		}
 
 		if tokenString == "" {
-			// Si el request ya viene autenticado aguas arriba por ForwardAuth
-			if r.Header.Get("X-User-Id") != "" {
-				next.ServeHTTP(w, r)
-				return
-			}
 			http.Error(w, "missing or invalid authorization header or session cookie", http.StatusUnauthorized)
 			return
 		}
@@ -80,12 +75,11 @@ func WithAuth(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), UserIDKey, userID)
 		ctx = context.WithValue(ctx, domain.UserIDKey, userID)
-		if tokenString != "" {
-			ctx = context.WithValue(ctx, domain.UserTokenKey, tokenString)
-		}
+		ctx = context.WithValue(ctx, domain.UserTokenKey, tokenString)
 		r.Header.Set("X-User-Id", userID)
 
 		if email, ok := claims["email"].(string); ok && email != "" {
+			ctx = context.WithValue(ctx, domain.UserEmailKey, email)
 			r.Header.Set("X-User-Email", email)
 		}
 		if tenantID, ok := claims["tenant_id"].(string); ok && tenantID != "" {

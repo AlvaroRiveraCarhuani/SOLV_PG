@@ -11,6 +11,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
+	"solv-backend/internal/infrastructure/storage/memory"
 )
 
 type MockUserRepository struct{}
@@ -37,7 +38,8 @@ func setupForwardAuthTestServer(t *testing.T, jwtSecret string) (*http.ServeMux,
 	_ = os.Setenv("JWT_SECRET", jwtSecret)
 	_ = os.Setenv("COOKIE_DOMAIN", ".solv.uab.edu.bo")
 
-	authService := services.NewAuthService(nil, nil)
+	authService := services.NewAuthService(nil, nil).
+		WithSessionRevocationRepository(memory.NewSessionRevocationRepository())
 	authHandler := httpdelivery.NewAuthHandler(authService)
 
 	mux := http.NewServeMux()

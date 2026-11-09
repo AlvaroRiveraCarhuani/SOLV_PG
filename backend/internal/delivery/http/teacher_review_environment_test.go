@@ -14,7 +14,7 @@ import (
 func TestStartReviewEnvironmentRejectsStudents(t *testing.T) {
 	handler := &TeacherHandler{}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teacher/submissions/abc/test-environment", nil)
-	req.Header.Set("X-User-Role", "student")
+	req = withTestIdentity(req, "", "", "student")
 	rec := httptest.NewRecorder()
 
 	handler.StartReviewEnvironment(rec, req)
@@ -28,8 +28,7 @@ func TestStartReviewEnvironmentWithoutServiceReportsUnavailable(t *testing.T) {
 	handler := &TeacherHandler{}
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/teacher/submissions/abc/test-environment", nil)
 	req.SetPathValue("id", "abc")
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-User-Id", "teacher-1")
+	req = withTestIdentity(req, "teacher-1", "", "teacher")
 	rec := httptest.NewRecorder()
 
 	handler.StartReviewEnvironment(rec, req)

@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -47,12 +46,7 @@ func setupSlice147EmergencyServer(t *testing.T) (*httptest.Server, *database.Dat
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = domain.DefaultTenantID
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -107,8 +101,8 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 			payload := fmt.Sprintf(`{"confirmation_phrase": %q, "reason": %q}`, tc.phrase, reason)
 			req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/"+tc.action, bytes.NewBufferString(payload))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-User-Role", "admin")
-			req.Header.Set("X-Tenant-Id", tenantID)
+			req.Header.Set("X-Test-User-Role", "admin")
+			req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 			resp, err := client.Do(req)
 			if err != nil {
@@ -154,8 +148,8 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	badPayload := `{"confirmation_phrase": "por favor borrar todo", "reason": "prueba de frase invalida"}`
 	reqBad, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/docker_prune", bytes.NewBufferString(badPayload))
 	reqBad.Header.Set("Content-Type", "application/json")
-	reqBad.Header.Set("X-User-Role", "admin")
-	reqBad.Header.Set("X-Tenant-Id", tenantID)
+	reqBad.Header.Set("X-Test-User-Role", "admin")
+	reqBad.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	respBad, err := client.Do(reqBad)
 	if err != nil {
@@ -175,8 +169,8 @@ func TestSlice147_EmergencyActionsADR032(t *testing.T) {
 	unknownPayload := `{"confirmation_phrase": "ACCION_INEXISTENTE"}`
 	reqUnknown, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBufferString(unknownPayload))
 	reqUnknown.Header.Set("Content-Type", "application/json")
-	reqUnknown.Header.Set("X-User-Role", "admin")
-	reqUnknown.Header.Set("X-Tenant-Id", tenantID)
+	reqUnknown.Header.Set("X-Test-User-Role", "admin")
+	reqUnknown.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	respUnknown, err := client.Do(reqUnknown)
 	if err != nil {

@@ -139,7 +139,7 @@ func (h *AISettingsHandler) Status(w http.ResponseWriter, r *http.Request) {
 
 // requireStaffRole admite solo teacher y admin. student recibe 403.
 func requireStaffRole(w http.ResponseWriter, r *http.Request) bool {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role == "" {
 		role = domain.GetUserRole(r.Context())
 	}

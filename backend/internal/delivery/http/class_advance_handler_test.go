@@ -211,11 +211,10 @@ func advanceSessionRequest(method, role, sessionID, body string) *http.Request {
 	if body != "" {
 		reader = strings.NewReader(body)
 	}
-	request := httptest.NewRequestWithContext(context.Background(), method, "/api/v1/teacher/sessions/"+sessionID, reader)
+	ctx := context.WithValue(context.Background(), domain.TenantIDKey, advanceHTTPTenantID)
+	request := httptest.NewRequestWithContext(ctx, method, "/api/v1/teacher/sessions/"+sessionID, reader)
 	request.SetPathValue("id", sessionID)
-	request.Header.Set("X-User-Id", advanceHTTPTeacherID)
-	request.Header.Set("X-User-Role", role)
-	return request
+	return withTestIdentity(request, advanceHTTPTeacherID, advanceHTTPTenantID, role)
 }
 
 func decodeSessionResponse(t *testing.T, recorder *httptest.ResponseRecorder) domain.ClassSession {

@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -44,12 +43,7 @@ func setupSlice14ReassignAndStudentsServer(t *testing.T) (*httptest.Server, *dat
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -109,8 +103,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		payloadStudent := []byte(fmt.Sprintf(`{"new_teacher_id": "%s", "reason": "Intento invalido"}`, notATeacherID))
 		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadStudent))
 		reqInvalid.Header.Set("Content-Type", "application/json")
-		reqInvalid.Header.Set("X-User-Role", "admin")
-		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
+		reqInvalid.Header.Set("X-Test-User-Role", "admin")
+		reqInvalid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
 		defer func() { _ = respInvalid.Body.Close() }()
@@ -122,8 +116,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		payloadValid := []byte(fmt.Sprintf(`{"new_teacher_id": "%s", "reason": "Cambio de titular por inicio de semestre"}`, teacherB_ID))
 		reqValid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
 		reqValid.Header.Set("Content-Type", "application/json")
-		reqValid.Header.Set("X-User-Role", "admin")
-		reqValid.Header.Set("X-Tenant-Id", tenantID)
+		reqValid.Header.Set("X-Test-User-Role", "admin")
+		reqValid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respValid, err := client.Do(reqValid)
 		if err != nil {
@@ -143,7 +137,7 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		// 1.4 Seguridad: Estudiante intentando reasignar curso -> 403 Forbidden
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/courses/%s/reassign", server.URL, subjectID), bytes.NewBuffer(payloadValid))
-		reqStudent.Header.Set("X-User-Role", "student")
+		reqStudent.Header.Set("X-Test-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
@@ -208,8 +202,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		// 2.1 Consultar directorio completo -> 200 OK
 		reqDir, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/students", nil)
-		reqDir.Header.Set("X-User-Role", "admin")
-		reqDir.Header.Set("X-Tenant-Id", tenantID)
+		reqDir.Header.Set("X-Test-User-Role", "admin")
+		reqDir.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDir, err := client.Do(reqDir)
 		if err != nil {
@@ -251,8 +245,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		// 2.2 Filtro de Búsqueda: search=uniqueLastName -> Solo Maria GomezUniq
 		reqSearch, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/admin/students?search=%s", server.URL, uniqueLastName), nil)
-		reqSearch.Header.Set("X-User-Role", "admin")
-		reqSearch.Header.Set("X-Tenant-Id", tenantID)
+		reqSearch.Header.Set("X-Test-User-Role", "admin")
+		reqSearch.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respSearch, _ := client.Do(reqSearch)
 		defer func() { _ = respSearch.Body.Close() }()
@@ -265,8 +259,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 
 		// 2.3 Filtro de Estado: status=strikes -> Devuelve a Maria Gomez (strike count > 0)
 		reqStrikes, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/students?status=strikes", nil)
-		reqStrikes.Header.Set("X-User-Role", "admin")
-		reqStrikes.Header.Set("X-Tenant-Id", tenantID)
+		reqStrikes.Header.Set("X-Test-User-Role", "admin")
+		reqStrikes.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respStrikes, _ := client.Do(reqStrikes)
 		defer func() { _ = respStrikes.Body.Close() }()
@@ -294,8 +288,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		payloadShort := []byte(`{"reason": "perdon"}`)
 		reqShort, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadShort))
 		reqShort.Header.Set("Content-Type", "application/json")
-		reqShort.Header.Set("X-User-Role", "admin")
-		reqShort.Header.Set("X-Tenant-Id", tenantID)
+		reqShort.Header.Set("X-Test-User-Role", "admin")
+		reqShort.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respShort, _ := client.Do(reqShort)
 		defer func() { _ = respShort.Body.Close() }()
@@ -307,8 +301,8 @@ func TestSlice14_CourseReassignmentAndStudentDirectory(t *testing.T) {
 		payloadReset := []byte(`{"reason": "El alumno solucionó la fuga de memoria en sus punteros C++"}`)
 		reqReset, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/students/%s/reset-oom", server.URL, stu2ID), bytes.NewBuffer(payloadReset))
 		reqReset.Header.Set("Content-Type", "application/json")
-		reqReset.Header.Set("X-User-Role", "admin")
-		reqReset.Header.Set("X-Tenant-Id", tenantID)
+		reqReset.Header.Set("X-Test-User-Role", "admin")
+		reqReset.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respReset, err := client.Do(reqReset)
 		if err != nil {

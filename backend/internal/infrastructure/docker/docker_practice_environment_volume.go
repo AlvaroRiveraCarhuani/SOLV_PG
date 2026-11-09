@@ -83,9 +83,10 @@ func (c *Client) SnapshotPracticeEnvironmentVolume(ctx context.Context, volumeNa
 		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 	containerConfig := &container.Config{
-		Image: environmentVolumeHelperImage,
-		User:  "0",
-		Cmd:   []string{"sh", "-c", environmentSnapshotTarCmd},
+		Image:  environmentVolumeHelperImage,
+		User:   "0",
+		Labels: TestRunLabels(),
+		Cmd:    []string{"sh", "-c", environmentSnapshotTarCmd},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
@@ -148,9 +149,10 @@ func (c *Client) WritePracticeEnvironmentVolumeFiles(ctx context.Context, volume
 		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 	containerConfig := &container.Config{
-		Image: environmentVolumeHelperImage,
-		User:  "0",
-		Cmd:   []string{"sh", "-c", "sleep 60"},
+		Image:  environmentVolumeHelperImage,
+		User:   "0",
+		Labels: TestRunLabels(),
+		Cmd:    []string{"sh", "-c", "sleep 60"},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
@@ -254,9 +256,10 @@ func (c *Client) runPracticeEnvironmentVolumeShell(ctx context.Context, volumeNa
 		SecurityOpt: []string{"no-new-privileges:true"},
 	}
 	containerConfig := &container.Config{
-		Image: environmentVolumeHelperImage,
-		User:  "0",
-		Cmd:   []string{"sh", "-c", script},
+		Image:  environmentVolumeHelperImage,
+		User:   "0",
+		Labels: TestRunLabels(),
+		Cmd:    []string{"sh", "-c", script},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")

@@ -20,6 +20,15 @@ func NewTemplateHandler(repo domain.TemplateRepository, validate *validator.Vali
 }
 
 func (h *TemplateHandler) Create(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	if tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "missing_tenant", "La sesión no identifica una institución")
+		return
+	}
+
 	var dto domain.CreateTemplateDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid JSON body", "Cuerpo de la petición inválido")
@@ -31,7 +40,7 @@ func (h *TemplateHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := h.repo.CreateTemplate(r.Context(), dto)
+	id, err := h.repo.CreateTemplate(r.Context(), tenantID, dto)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudo crear la plantilla")
 		return
@@ -52,6 +61,16 @@ type PaginatedResponse struct {
 }
 
 func (h *TemplateHandler) GetAll(w http.ResponseWriter, r *http.Request) {
+	if !hasAnyRole(r, "teacher", "admin") {
+		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: solo docentes y administradores pueden consultar plantillas")
+		return
+	}
+	tenantID := getTenantFromCtx(r)
+	if tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "missing_tenant", "La sesión no identifica una institución")
+		return
+	}
+
 	pageStr := r.URL.Query().Get("page")
 	limitStr := r.URL.Query().Get("limit")
 
@@ -65,7 +84,7 @@ func (h *TemplateHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 		limit = l
 	}
 
-	templates, err := h.repo.GetAllTemplates(r.Context())
+	templates, err := h.repo.GetAllTemplates(r.Context(), tenantID)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "No se pudieron obtener las plantillas")
 		return

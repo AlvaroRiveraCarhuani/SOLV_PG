@@ -90,15 +90,21 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 		return domain.DBEvaluationResult{}, fmt.Errorf("failed to start MySQL container: %w", err)
 	}
 
-	// Ready check: espera a que la BD evaldb esté disponible en MySQL (backoff 500ms->2s->4s, máx 60s)
+	// Ready check: espera a que la BD evaldb esté disponible en MySQL. La
+	// inicialización en frío de MySQL 8.4 tarda más de un minuto bajo cuotas de
+	// memoria ajustadas; 60s producía un RE falso antes de que el motor abriera
+	// el socket. El probe usa TCP para no aceptar el servidor temporal que el
+	// entrypoint levanta con --skip-networking durante la inicialización: ese
+	// servidor responde por socket y desaparece antes de que arranque el final.
+	// El backoff llega a 4s y el límite es 180s.
 	var lastErrStr string
 	ready := false
 	startTimeReady := time.Now()
 	sleepDur := 500 * time.Millisecond
 
-	for time.Since(startTimeReady) < 60*time.Second {
+	for time.Since(startTimeReady) < 180*time.Second {
 		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-			Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "-e", "SELECT 1;"},
+			Cmd:          []string{"mysql", "-h127.0.0.1", "--protocol=TCP", "-u", "root", "-pevalpass", "-e", "SELECT 1;"},
 			AttachStdout: true,
 			AttachStderr: true,
 		})
@@ -162,7 +168,7 @@ func (s *MySQLStrategy) ExecuteEvaluation(ctx context.Context, config domain.DBE
 	}
 
 	execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "evaldb", "-B", "-e", valQuery},
+		Cmd:          []string{"mysql", "-h127.0.0.1", "--protocol=TCP", "-u", "root", "-pevalpass", "evaldb", "-B", "-e", valQuery},
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -210,7 +216,7 @@ func (s *MySQLStrategy) execMySQL(ctx context.Context, containerID string, sqlCo
 	var lastErr error
 	for attempt := 1; attempt <= 3; attempt++ {
 		execResp, err := s.cli.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-			Cmd:          []string{"mysql", "-u", "root", "-pevalpass", "evaldb", "-e", sqlCommand},
+			Cmd:          []string{"mysql", "-h127.0.0.1", "--protocol=TCP", "-u", "root", "-pevalpass", "evaldb", "-e", sqlCommand},
 			AttachStdout: true,
 			AttachStderr: true,
 		})

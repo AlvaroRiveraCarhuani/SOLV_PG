@@ -32,7 +32,7 @@ type emitAdvanceRequest struct {
 // PostAdvance emite un avance: empaqueta el código del entorno de clase del
 // docente, lo guarda como snapshot y lo deja como aviso para los destinatarios.
 func (h *ClassAdvanceHandler) PostAdvance(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores emiten avances")
 		return
 	}
@@ -82,7 +82,7 @@ func (h *ClassAdvanceHandler) GetPendingAdvances(w http.ResponseWriter, r *http.
 // GetSessionAdvances devuelve las emisiones del aula con el estado de cada
 // destinatario: quién aplicó, quién descartó y quién sigue pendiente.
 func (h *ClassAdvanceHandler) GetSessionAdvances(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores ven el estado de los avances")
 		return
 	}
@@ -104,7 +104,7 @@ func (h *ClassAdvanceHandler) GetSessionAdvances(w http.ResponseWriter, r *http.
 // GetSessionHistory devuelve el historial del aula: quién emitió, congeló,
 // descongeló, ajustó la ventana, aplicó o descartó un avance. El alumno no lo ve.
 func (h *ClassAdvanceHandler) GetSessionHistory(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores ven el historial de la clase")
 		return
 	}
@@ -213,7 +213,7 @@ func (h *ClassAdvanceHandler) UnfreezeSession(w http.ResponseWriter, r *http.Req
 }
 
 func (h *ClassAdvanceHandler) setFrozen(w http.ResponseWriter, r *http.Request, frozen bool) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores congelan la clase")
 		return
 	}
@@ -254,7 +254,7 @@ type graceAdvanceRequest struct {
 // minutos, fija una fecha límite para una tarea o la cierra en el momento.
 // Solo aplica con el aula cerrada; con la clase en curso responde 409.
 func (h *ClassAdvanceHandler) ExtendGrace(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores ajustan la ventana")
 		return
 	}

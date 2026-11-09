@@ -12,7 +12,7 @@ import (
 
 // StartDryRun maneja POST /api/v1/exercises/{id}/dry-run -> 202 Accepted
 func (h *EvaluationHandler) StartDryRun(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "FORBIDDEN", "No tiene permisos para ejecutar comprobación previa")
 		return
@@ -68,7 +68,7 @@ func (h *EvaluationHandler) GetDryRunJob(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *EvaluationHandler) CalculateOutputs(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para calcular salidas de prueba")
 		return

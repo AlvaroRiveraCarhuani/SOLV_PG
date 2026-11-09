@@ -21,6 +21,7 @@ func (c *Client) EnsureICCDisabledNetworkExists(ctx context.Context, networkName
 
 	_, err = c.cli.NetworkCreate(ctx, networkName, network.CreateOptions{
 		Driver: "bridge",
+		Labels: TestRunLabels(),
 		Options: map[string]string{
 			"com.docker.network.bridge.enable_icc": "false",
 		},

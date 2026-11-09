@@ -41,7 +41,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 	// El rol student solo puede registrar entregas propias y nunca puede
 	// declarar la salida esperada de los casos generados (GOB-SEGURO-04).
 	if isStudentRole(r) {
-		if userID := r.Header.Get("X-User-Id"); userID != "" {
+		if userID := requestUserID(r); userID != "" {
 			submissionDTO.StudentID = userID
 		}
 		if submissionDTO.StudentID == "" {
@@ -72,7 +72,7 @@ func (h *SubmissionHandler) CreateSubmission(w http.ResponseWriter, r *http.Requ
 	}
 
 	if h.wsHub != nil && submissionDTO.StudentID != "" {
-		h.wsHub.EmitToUser(submissionDTO.StudentID, WebSocketMessage{
+		h.wsHub.EmitToUserInTenant(tenantID, submissionDTO.StudentID, WebSocketMessage{
 			Event:        "EVALUATION_COMPLETED",
 			SubmissionID: sub.ID,
 			Stage:        "COMPLETED",
@@ -108,8 +108,8 @@ func (h *SubmissionHandler) ListSubmissionsByExercise(w http.ResponseWriter, r *
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
-	userRole := r.Header.Get("X-User-Role")
+	userID := requestUserID(r)
+	userRole := requestRole(r)
 	if userID == "" {
 		userID = "anonymous"
 	}
@@ -165,7 +165,7 @@ func (h *SubmissionHandler) GetSubmissionByID(w http.ResponseWriter, r *http.Req
 
 	// El rol student solo puede leer sus propias entregas.
 	if isStudentRole(r) {
-		userID := r.Header.Get("X-User-Id")
+		userID := requestUserID(r)
 		if userID == "" || userID != sub.StudentID {
 			http.Error(w, `{"error":"Forbidden"}`, http.StatusForbidden)
 			return
@@ -183,8 +183,7 @@ type OverrideSubmissionDTO struct {
 }
 
 func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden modificar calificaciones")
 		return
 	}
@@ -214,7 +213,7 @@ func (h *SubmissionHandler) OverrideSubmission(w http.ResponseWriter, r *http.Re
 	}
 
 	var gradedBy *string
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID != "" {
 		gradedBy = &userID
 	}

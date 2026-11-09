@@ -14,15 +14,16 @@ import (
 )
 
 func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
+	requireDocker(t)
 	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
-		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+		skipOrFailInfra(t, "PostgreSQL no disponible para la integración: %v", err)
 	}
 
 	dockerClient, err := dockerinfra.NewClient()
 	if err != nil {
-		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
+		skipOrFailInfra(t, "Docker no disponible para la integración: %v", err)
 	}
 
 	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())
@@ -62,6 +63,9 @@ func TestTicket2SemgrepWorkerAuditAndJSONBPersistence(t *testing.T) {
 	if err := dockerClient.EnsureVolumeExists(ctx, volumeName); err != nil {
 		t.Fatalf("Failed to create test volume: %v", err)
 	}
+	t.Cleanup(func() {
+		_ = dockerClient.RemoveVolume(context.Background(), volumeName)
+	})
 
 	// 3. Ejecutar auditoría AST con SemgrepWorker
 	auditJSON, err := semgrepWorker.AuditPracticeEnvironment(ctx, wsID, volumeName)

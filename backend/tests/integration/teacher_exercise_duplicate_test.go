@@ -2,7 +2,6 @@ package integration
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -42,8 +40,12 @@ func TestTeacherExerciseDuplicate(t *testing.T) {
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, "00000000-0000-0000-0000-000000000001")
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentity(
+				r,
+				"00000000-0000-0000-0000-000000000001",
+				r.Header.Get("X-Test-User-Id"),
+				r.Header.Get("X-Test-User-Role"),
+			))
 		})
 	}
 
@@ -113,8 +115,8 @@ func TestTeacherExerciseDuplicate(t *testing.T) {
 		body, _ := json.Marshal(map[string]string{"subject_id": targetSubject})
 		req, _ := http.NewRequest(http.MethodPost, server.URL+"/api/v1/teacher/exercises/"+exerciseID+"/duplicate", bytes.NewReader(body))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-User-Id", asTeacher)
-		req.Header.Set("X-User-Role", "teacher")
+		req.Header.Set("X-Test-User-Id", asTeacher)
+		req.Header.Set("X-Test-User-Role", "teacher")
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatalf("request failed: %v", err)

@@ -150,9 +150,6 @@ func SubmissionRateLimitMiddleware(rl *RateLimiter) func(http.Handler) http.Hand
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			studentID := domain.GetUserID(r.Context())
 			if studentID == "" {
-				studentID = r.Header.Get("X-User-Id")
-			}
-			if studentID == "" {
 				studentID = r.RemoteAddr
 			}
 

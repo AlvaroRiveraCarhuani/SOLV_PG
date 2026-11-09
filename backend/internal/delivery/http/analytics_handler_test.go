@@ -90,8 +90,7 @@ func TestGetCourseAnalyticsEndpoint(t *testing.T) {
 	t.Run("Teacher can get aggregated course analytics", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/teacher/courses/course-123/analytics", nil)
 		req.SetPathValue("id", "course-123")
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-ID", "00000000-0000-0000-0000-000000000001")
+		req = withTestIdentity(req, "teacher-1", "00000000-0000-0000-0000-000000000001", "teacher")
 
 		w := httptest.NewRecorder()
 		handler.GetCourseAnalytics(w, req)
@@ -124,8 +123,7 @@ func TestGetCourseAnalyticsEndpoint(t *testing.T) {
 	t.Run("Student is forbidden from viewing course analytics", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/teacher/courses/course-123/analytics", nil)
 		req.SetPathValue("id", "course-123")
-		req.Header.Set("X-User-Role", "student")
-		req.Header.Set("X-Tenant-ID", "00000000-0000-0000-0000-000000000001")
+		req = withTestIdentity(req, "student-1", "00000000-0000-0000-0000-000000000001", "student")
 
 		w := httptest.NewRecorder()
 		handler.GetCourseAnalytics(w, req)

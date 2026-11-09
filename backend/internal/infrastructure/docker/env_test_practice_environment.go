@@ -95,6 +95,7 @@ func (a *EnvTestDockerAdapter) RunPracticeEnvironmentSetupTest(ctx context.Conte
 
 	containerConfig := &container.Config{
 		Image:      spec.Image,
+		Labels:     TestRunLabels(),
 		Env:        env,
 		Entrypoint: []string{"/bin/sh", "-c"},
 		Cmd:        []string{environmentSetupTestScript},
@@ -168,7 +169,7 @@ func (a *EnvTestDockerAdapter) ensureTestVolume(ctx context.Context, name string
 	_, err := a.cli.VolumeCreate(ctx, volume.CreateOptions{
 		Name:   name,
 		Driver: "local",
-		Labels: map[string]string{"solv.purpose": "practice-env-test"},
+		Labels: mergeTestRunLabels(map[string]string{"solv.purpose": "practice-env-test"}),
 	})
 	if err != nil {
 		return fmt.Errorf("error al crear el volumen temporal de la prueba: %w", err)

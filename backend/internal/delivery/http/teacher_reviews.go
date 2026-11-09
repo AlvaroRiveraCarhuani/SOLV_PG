@@ -11,13 +11,13 @@ import (
 // GetReviewQueue devuelve las entregas que esperan corrección agrupadas por
 // práctica. Es la cola real: se apoya en review_status, no en el veredicto.
 func (h *TeacherHandler) GetReviewQueue(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-User-Role") == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a la cola de revisión")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	subjectID := r.URL.Query().Get("subject_id")
 
 	groups, err := h.service.ListPendingReviewGroups(r.Context(), tenantID, teacherID, subjectID)
@@ -31,13 +31,13 @@ func (h *TeacherHandler) GetReviewQueue(w http.ResponseWriter, r *http.Request) 
 
 // UpdateSubmissionReview cambia el estado de revisión de una entrega.
 func (h *TeacherHandler) UpdateSubmissionReview(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-User-Role") == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden revisar entregas")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
 		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")
@@ -65,13 +65,13 @@ func (h *TeacherHandler) UpdateSubmissionReview(w http.ResponseWriter, r *http.R
 
 // SetExerciseGrade fija qué entrega cuenta para la nota de la práctica.
 func (h *TeacherHandler) SetExerciseGrade(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-User-Role") == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden cambiar la nota de una práctica")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	studentID := r.PathValue("studentId")
 	exerciseID := r.PathValue("exerciseId")
 	if studentID == "" || exerciseID == "" {

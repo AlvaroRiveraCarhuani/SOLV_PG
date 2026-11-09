@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,14 +14,30 @@ import (
 	"solv-backend/internal/core/domain"
 )
 
+func (h *TeacherHandler) authorizeTerminal(ctx context.Context, tenantID, userID, role, containerID string) error {
+	if role != "teacher" && role != "admin" {
+		return domain.ErrNotFound
+	}
+	authorizer := h.terminalAuthorizer
+	if authorizer == nil && h.service != nil {
+		authorizer = h.service
+	}
+	if authorizer == nil {
+		return domain.ErrNotFound
+	}
+	return authorizer.AuthorizeTerminal(ctx, tenantID, userID, containerID)
+}
+
 func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
-		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden ejecutar el runner efímero")
+	if !requireRole(w, r, "teacher", "admin") {
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
+	if tenantID == "" {
+		SendError(w, http.StatusUnauthorized, "invalid session", "La sesión no identifica una institución")
+		return
+	}
 
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
@@ -33,7 +50,11 @@ func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&dto)
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := getUserIDFromCtx(r)
+	if teacherID == "" {
+		SendError(w, http.StatusUnauthorized, "invalid session", "La sesión no identifica al docente")
+		return
+	}
 
 	result, err := h.service.RunEphemeral(r.Context(), tenantID, teacherID, submissionID, dto.Code, dto.Language)
 	if err != nil {
@@ -57,9 +78,27 @@ func (h *TeacherHandler) RunEphemeral(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TeacherHandler) PostTutorExec(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	role, _ := r.Context().Value(domain.UserRoleKey).(string)
+	if role != "teacher" && role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
+		return
+	}
+	if h.authService == nil {
+		SendError(w, http.StatusServiceUnavailable, "session_revocation_unavailable", "No se pudo comprobar la revocación de la sesión")
+		return
+	}
+	token, _ := r.Context().Value(domain.UserTokenKey).(string)
+	if strings.TrimSpace(token) == "" {
+		SendError(w, http.StatusUnauthorized, "invalid session", "La sesión no tiene un token verificable")
+		return
+	}
+	revoked, revErr := h.authService.IsSessionRevokedContext(r.Context(), token)
+	if revErr != nil {
+		SendError(w, http.StatusServiceUnavailable, "session_revocation_unavailable", "No se pudo comprobar la revocación de la sesión")
+		return
+	}
+	if revoked {
+		SendError(w, http.StatusUnauthorized, "invalid session", "La sesión fue revocada")
 		return
 	}
 
@@ -75,8 +114,16 @@ func (h *TeacherHandler) PostTutorExec(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	tenantID, _ := r.Context().Value(domain.TenantIDKey).(string)
+	teacherID, _ := r.Context().Value(domain.UserIDKey).(string)
+	if tenantID == "" || teacherID == "" {
+		SendError(w, http.StatusUnauthorized, "invalid session", "Sesión sin tenant o usuario")
+		return
+	}
+	if err := h.authorizeTerminal(r.Context(), tenantID, teacherID, role, containerID); err != nil {
+		SendError(w, http.StatusForbidden, "forbidden", "El docente no tiene acceso a esta sesión")
+		return
+	}
 
 	resp, err := h.service.ExecuteTutorCommand(r.Context(), tenantID, teacherID, containerID, req.Command)
 	if err != nil {
@@ -88,42 +135,24 @@ func (h *TeacherHandler) PostTutorExec(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TeacherHandler) HandleTerminalWebSocket(w http.ResponseWriter, r *http.Request) {
+	if !websocketOriginAllowed(r) {
+		SendError(w, http.StatusForbidden, "forbidden origin", "Origen no permitido para WebSocket")
+		return
+	}
+
+	principal, err := websocketSession(r, h.authService)
+	if err != nil {
+		SendError(w, http.StatusUnauthorized, "invalid session token", "Token de sesión inválido para WebSocket")
+		return
+	}
+
 	containerID := r.PathValue("id")
 	if containerID == "" {
 		containerID = r.URL.Query().Get("container_id")
 	}
-
-	var tokenStr string
-	if qToken := r.URL.Query().Get("token"); qToken != "" {
-		tokenStr = qToken
-	} else if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-		tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-	} else if cookie, err := r.Cookie("solv_session"); err == nil && cookie.Value != "" {
-		tokenStr = cookie.Value
-	}
-
-	userID := "anonymous"
-	tenantID := domain.DefaultTenantID
-
-	if tokenStr != "" && h.authService != nil {
-		claims, err := h.authService.ValidateSessionToken(tokenStr)
-		if err != nil {
-			SendError(w, http.StatusUnauthorized, "invalid session token", "Token de sesión inválido para WebSocket")
-			return
-		}
-		if uID, ok := claims["user_id"].(string); ok && uID != "" {
-			userID = uID
-		}
-		if tID, ok := claims["tenant_id"].(string); ok && tID != "" {
-			tenantID = tID
-		}
-	} else {
-		if hUID := r.Header.Get("X-User-Id"); hUID != "" {
-			userID = hUID
-		}
-		if hTID := r.Header.Get("X-Tenant-Id"); hTID != "" {
-			tenantID = hTID
-		}
+	if err := h.authorizeTerminal(r.Context(), principal.tenantID, principal.userID, principal.role, containerID); err != nil {
+		SendError(w, http.StatusForbidden, "forbidden", "El docente no tiene acceso a esta sesión")
+		return
 	}
 
 	conn, err := h.upgrader.Upgrade(w, r, nil)
@@ -132,6 +161,45 @@ func (h *TeacherHandler) HandleTerminalWebSocket(w http.ResponseWriter, r *http.
 		return
 	}
 	defer func() { _ = conn.Close() }()
+	if !principal.expiresAt.IsZero() {
+		timer := time.AfterFunc(time.Until(principal.expiresAt), func() {
+			_ = conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session expired"),
+				time.Now().Add(writeWait),
+			)
+			_ = conn.Close()
+		})
+		defer timer.Stop()
+	}
+	if h.authService != nil {
+		unregister := h.authService.RegisterTokenRevocationListener(principal.sessionID, func() {
+			_ = conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session revoked"),
+				time.Now().Add(writeWait),
+			)
+			_ = conn.Close()
+		})
+		defer unregister()
+		revoked, revErr := h.authService.IsSessionIDRevokedContext(r.Context(), principal.sessionID)
+		if revErr != nil || revoked {
+			_ = conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session revoked"),
+				time.Now().Add(writeWait),
+			)
+			return
+		}
+		h.authService.WatchSessionRevocation(r.Context(), principal.sessionID, func() {
+			_ = conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session revoked"),
+				time.Now().Add(writeWait),
+			)
+			_ = conn.Close()
+		})
+	}
 
 	// 1. Enviar frame inicial de bienvenida y buffer reciente
 	initBuffer, _ := h.service.GetInitialTerminalBuffer(r.Context(), containerID, 100)
@@ -139,8 +207,8 @@ func (h *TeacherHandler) HandleTerminalWebSocket(w http.ResponseWriter, r *http.
 	welcomePayload := map[string]interface{}{
 		"type":         "init",
 		"container_id": containerID,
-		"user_id":      userID,
-		"tenant_id":    tenantID,
+		"user_id":      principal.userID,
+		"tenant_id":    principal.tenantID,
 		"buffer":       initBuffer,
 		"timestamp":    time.Now().UTC().Format(time.RFC3339),
 		"mode":         "SHADOW_MIRROR",
@@ -166,7 +234,20 @@ func (h *TeacherHandler) HandleTerminalWebSocket(w http.ResponseWriter, r *http.
 				if incoming.Type == "ping" {
 					_ = conn.WriteJSON(map[string]string{"type": "pong"})
 				} else if incoming.Type == "exec" && incoming.Command != "" {
-					resp, execErr := h.service.ExecuteTutorCommand(r.Context(), tenantID, userID, containerID, incoming.Command)
+					if h.authService != nil {
+						revoked, revErr := h.authService.IsSessionIDRevokedContext(r.Context(), principal.sessionID)
+						if revErr != nil || revoked {
+							_ = conn.WriteJSON(map[string]interface{}{"type": "error", "error": "session revoked"})
+							_ = conn.Close()
+							return
+						}
+					}
+					if err := h.authorizeTerminal(r.Context(), principal.tenantID, principal.userID, principal.role, containerID); err != nil {
+						_ = conn.WriteJSON(map[string]interface{}{"type": "error", "error": "forbidden"})
+						_ = conn.Close()
+						return
+					}
+					resp, execErr := h.service.ExecuteTutorCommand(r.Context(), principal.tenantID, principal.userID, containerID, incoming.Command)
 					if execErr != nil {
 						_ = conn.WriteJSON(map[string]interface{}{
 							"type":  "error",

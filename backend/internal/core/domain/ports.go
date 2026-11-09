@@ -89,6 +89,17 @@ type GeneratedCaseSnapshotRepository interface {
 	GetGeneratedCaseSnapshot(ctx context.Context, exerciseID, studentID string) ([]TestCase, error)
 }
 
+// SessionRevocationRepository conserva las sesiones revocadas fuera del
+// proceso para que sobrevivan reinicios y las compartan todas las instancias.
+// El identificador nunca contiene el JWT completo: es el jti o, para tokens
+// heredados sin jti, un hash SHA-256 del token.
+type SessionRevocationRepository interface {
+	RevokeSession(ctx context.Context, sessionID string, expiresAt time.Time) error
+	IsSessionRevoked(ctx context.Context, sessionID string) (bool, error)
+	ListRevokedSessions(ctx context.Context) ([]string, error)
+	DeleteExpiredSessions(ctx context.Context) error
+}
+
 type LanguageStrategy interface {
 	ExecuteTestCase(ctx context.Context, config EvaluationRunConfig) (TestCaseRunResult, error)
 }

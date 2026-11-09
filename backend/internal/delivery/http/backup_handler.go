@@ -23,15 +23,6 @@ func NewBackupHandler(service *services.BackupService) *BackupHandler {
 	return &BackupHandler{service: service}
 }
 
-func requireAdminRole(w http.ResponseWriter, r *http.Request) bool {
-	role := r.Header.Get("X-User-Role")
-	if role != "" && role != "admin" {
-		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: se requiere rol de administrador")
-		return false
-	}
-	return true
-}
-
 func (h *BackupHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	if !requireAdminRole(w, r) {
 		return

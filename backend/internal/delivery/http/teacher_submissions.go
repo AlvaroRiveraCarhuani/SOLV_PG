@@ -10,8 +10,7 @@ import (
 )
 
 func (h *TeacherHandler) GetCourseSubmissions(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
@@ -24,7 +23,7 @@ func (h *TeacherHandler) GetCourseSubmissions(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	exerciseID := r.URL.Query().Get("exercise_id")
 	verdict := r.URL.Query().Get("verdict")
 
@@ -42,8 +41,7 @@ func (h *TeacherHandler) GetCourseSubmissions(w http.ResponseWriter, r *http.Req
 }
 
 func (h *TeacherHandler) GetSubmissionReview(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: los estudiantes no pueden acceder a la vista de revisión de casos privados")
 		return
 	}
@@ -56,7 +54,7 @@ func (h *TeacherHandler) GetSubmissionReview(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	review, err := h.service.GetTeacherSubmissionReview(r.Context(), tenantID, teacherID, submissionID)
 	if err != nil {
@@ -92,8 +90,7 @@ func sanitizeReviewPayload(review *domain.TeacherSubmissionReviewDTO) {
 }
 
 func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden agregar comentarios de feedback")
 		return
 	}
@@ -117,7 +114,7 @@ func (h *TeacherHandler) AddSubmissionComment(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	authorID := r.Header.Get("X-User-Id")
+	authorID := requestUserID(r)
 	if authorID == "" {
 		authorID = domain.DefaultTenantID
 	}

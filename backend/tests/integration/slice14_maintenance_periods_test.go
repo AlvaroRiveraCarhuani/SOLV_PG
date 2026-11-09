@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -49,16 +48,11 @@ func setupSlice14MaintenancePeriodsServer(t *testing.T) (*httptest.Server, *data
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
-	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo)
+	maintenanceMiddleware := httpdelivery.MaintenanceMiddleware(tenantRepo, nil)
 
 	handlers := httpdelivery.Handlers{
 		AdminAcademicHandler:  adminAcademicHandler,
@@ -115,8 +109,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBuffer(enablePayload))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-User-Role", "admin")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -129,9 +123,9 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 1.2 Petición de estudiante a ruta no-admin -> 503 Service Unavailable
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/dashboard", nil)
-		reqStudent.Header.Set("X-User-Id", studentID)
-		reqStudent.Header.Set("X-User-Role", "student")
-		reqStudent.Header.Set("X-Tenant-Id", tenantID)
+		reqStudent.Header.Set("X-Test-User-Id", studentID)
+		reqStudent.Header.Set("X-Test-User-Role", "student")
+		reqStudent.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respStudent, err := client.Do(reqStudent)
 		if err != nil {
@@ -150,8 +144,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 1.3 Bypass: Petición a ruta administrativa -> 200 OK
 		reqAdminStatus, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/maintenance/status", nil)
-		reqAdminStatus.Header.Set("X-User-Role", "admin")
-		reqAdminStatus.Header.Set("X-Tenant-Id", tenantID)
+		reqAdminStatus.Header.Set("X-Test-User-Role", "admin")
+		reqAdminStatus.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respAdminStatus, err := client.Do(reqAdminStatus)
 		if err != nil {
@@ -164,9 +158,9 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 1.4 Bypass: Admin accediendo a ruta protegida no-admin -> Pasa el middleware
 		reqAdminOnStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/dashboard", nil)
-		reqAdminOnStudent.Header.Set("X-User-Id", studentID)
-		reqAdminOnStudent.Header.Set("X-User-Role", "admin")
-		reqAdminOnStudent.Header.Set("X-Tenant-Id", tenantID)
+		reqAdminOnStudent.Header.Set("X-Test-User-Id", studentID)
+		reqAdminOnStudent.Header.Set("X-Test-User-Role", "admin")
+		reqAdminOnStudent.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respAdminOnStudent, _ := client.Do(reqAdminOnStudent)
 		defer func() { _ = respAdminOnStudent.Body.Close() }()
@@ -176,8 +170,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 1.5 Desactivar mantenimiento
 		reqDisable, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/disable", nil)
-		reqDisable.Header.Set("X-User-Role", "admin")
-		reqDisable.Header.Set("X-Tenant-Id", tenantID)
+		reqDisable.Header.Set("X-Test-User-Role", "admin")
+		reqDisable.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDisable, _ := client.Do(reqDisable)
 		defer func() { _ = respDisable.Body.Close() }()
@@ -230,8 +224,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		}`)
 		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(invalidPayload))
 		reqInvalid.Header.Set("Content-Type", "application/json")
-		reqInvalid.Header.Set("X-User-Role", "admin")
-		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
+		reqInvalid.Header.Set("X-Test-User-Role", "admin")
+		reqInvalid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
 		defer func() { _ = respInvalid.Body.Close() }()
@@ -249,8 +243,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		}`)
 		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(validPayload))
 		reqCreate.Header.Set("Content-Type", "application/json")
-		reqCreate.Header.Set("X-User-Role", "admin")
-		reqCreate.Header.Set("X-Tenant-Id", tenantID)
+		reqCreate.Header.Set("X-Test-User-Role", "admin")
+		reqCreate.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respCreate, err := client.Do(reqCreate)
 		if err != nil {
@@ -278,8 +272,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		}`)
 		reqCreateFuture, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/academic-periods", bytes.NewBuffer(futurePayload))
 		reqCreateFuture.Header.Set("Content-Type", "application/json")
-		reqCreateFuture.Header.Set("X-User-Role", "admin")
-		reqCreateFuture.Header.Set("X-Tenant-Id", tenantID)
+		reqCreateFuture.Header.Set("X-Test-User-Role", "admin")
+		reqCreateFuture.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respCreateFuture, err := client.Do(reqCreateFuture)
 		if err != nil {
@@ -297,8 +291,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 2.3 Listar periodos -> 200 OK
 		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/academic-periods", nil)
-		reqList.Header.Set("X-User-Role", "admin")
-		reqList.Header.Set("X-Tenant-Id", tenantID)
+		reqList.Header.Set("X-Test-User-Role", "admin")
+		reqList.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respList, _ := client.Do(reqList)
 		defer func() { _ = respList.Body.Close() }()
@@ -315,8 +309,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 
 		// 2.4 Aislamiento Cross-Tenant: Admin de Tenant B no ve el periodo de Tenant A
 		reqListB, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/academic-periods", nil)
-		reqListB.Header.Set("X-User-Role", "admin")
-		reqListB.Header.Set("X-Tenant-Id", tenantB)
+		reqListB.Header.Set("X-Test-User-Role", "admin")
+		reqListB.Header.Set("X-Test-Tenant-Id", tenantB)
 
 		respListB, _ := client.Do(reqListB)
 		defer func() { _ = respListB.Body.Close() }()
@@ -341,8 +335,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		}`)
 		reqUpdateArchived, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, archivedPeriodID), bytes.NewBuffer(updatePayload))
 		reqUpdateArchived.Header.Set("Content-Type", "application/json")
-		reqUpdateArchived.Header.Set("X-User-Role", "admin")
-		reqUpdateArchived.Header.Set("X-Tenant-Id", tenantID)
+		reqUpdateArchived.Header.Set("X-Test-User-Role", "admin")
+		reqUpdateArchived.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respUpdateArchived, _ := client.Do(reqUpdateArchived)
 		defer func() { _ = respUpdateArchived.Body.Close() }()
@@ -360,8 +354,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		}`)
 		reqUpdate, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), bytes.NewBuffer(updatePayload))
 		reqUpdate.Header.Set("Content-Type", "application/json")
-		reqUpdate.Header.Set("X-User-Role", "admin")
-		reqUpdate.Header.Set("X-Tenant-Id", tenantID)
+		reqUpdate.Header.Set("X-Test-User-Role", "admin")
+		reqUpdate.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respUpdate, _ := client.Do(reqUpdate)
 		defer func() { _ = respUpdate.Body.Close() }()
@@ -377,8 +371,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		`, subjectID, tenantID, periodID)
 
 		reqDeleteConflict, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
-		reqDeleteConflict.Header.Set("X-User-Role", "admin")
-		reqDeleteConflict.Header.Set("X-Tenant-Id", tenantID)
+		reqDeleteConflict.Header.Set("X-Test-User-Role", "admin")
+		reqDeleteConflict.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDeleteConflict, _ := client.Do(reqDeleteConflict)
 		defer func() { _ = respDeleteConflict.Body.Close() }()
@@ -390,8 +384,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		_, _ = db.GetDB().Exec(`DELETE FROM subjects WHERE id = $1`, subjectID)
 
 		reqDeleteSuccess, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/academic-periods/%s", server.URL, periodID), nil)
-		reqDeleteSuccess.Header.Set("X-User-Role", "admin")
-		reqDeleteSuccess.Header.Set("X-Tenant-Id", tenantID)
+		reqDeleteSuccess.Header.Set("X-Test-User-Role", "admin")
+		reqDeleteSuccess.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDeleteSuccess, _ := client.Do(reqDeleteSuccess)
 		defer func() { _ = respDeleteSuccess.Body.Close() }()
@@ -455,8 +449,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		postEnable := func(payload string) (int, map[string]interface{}) {
 			req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/maintenance/enable", bytes.NewBufferString(payload))
 			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("X-User-Role", "admin")
-			req.Header.Set("X-Tenant-Id", tenantID)
+			req.Header.Set("X-Test-User-Role", "admin")
+			req.Header.Set("X-Test-Tenant-Id", tenantID)
 			resp, err := client.Do(req)
 			if err != nil {
 				t.Fatalf("Enable request failed: %v", err)
@@ -496,8 +490,8 @@ func TestSlice14_MaintenancePeriods(t *testing.T) {
 		// Vigencia vencida: la lectura la apaga (lazy-clear) y reporta off.
 		_, _ = db.GetDB().Exec(`UPDATE tenants SET maintenance_mode = true, maintenance_until = $1 WHERE id = $2`, past, tenantID)
 		reqStatus, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/maintenance/status", nil)
-		reqStatus.Header.Set("X-User-Role", "admin")
-		reqStatus.Header.Set("X-Tenant-Id", tenantID)
+		reqStatus.Header.Set("X-Test-User-Role", "admin")
+		reqStatus.Header.Set("X-Test-Tenant-Id", tenantID)
 		respStatus, _ := client.Do(reqStatus)
 		var statusBody map[string]interface{}
 		_ = json.NewDecoder(respStatus.Body).Decode(&statusBody)

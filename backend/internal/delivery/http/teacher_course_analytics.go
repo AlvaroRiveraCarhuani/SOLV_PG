@@ -8,8 +8,7 @@ import (
 )
 
 func (h *TeacherHandler) GetCourseAnalytics(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
@@ -25,7 +24,7 @@ func (h *TeacherHandler) GetCourseAnalytics(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	analytics, err := h.service.GetCourseAnalytics(r.Context(), tenantID, teacherID, subjectID)
 	if err != nil {

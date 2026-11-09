@@ -64,6 +64,7 @@ func (s *stubTenantRepo) GetMaintenance(ctx context.Context, tenantID string) (*
 }
 
 func TestHostAdmissionControl15PercentMargin(t *testing.T) {
+	requireDocker(t)
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
 	if err != nil {
@@ -92,6 +93,7 @@ func TestHostAdmissionControl15PercentMargin(t *testing.T) {
 }
 
 func TestOOMKilledThreeStrikePenalty(t *testing.T) {
+	requireDocker(t)
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
 	if err != nil {
@@ -131,6 +133,7 @@ func TestOOMKilledThreeStrikePenalty(t *testing.T) {
 }
 
 func TestQoSAutoBurstingAndDualValidation(t *testing.T) {
+	requireDocker(t)
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
 	if err != nil {

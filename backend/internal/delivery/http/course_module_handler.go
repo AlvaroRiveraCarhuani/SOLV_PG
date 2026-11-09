@@ -212,7 +212,7 @@ func (h *CourseModuleHandler) AssignExerciseModule(w http.ResponseWriter, r *htt
 func (h *CourseModuleHandler) GetStudentCurricularMap(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
+		tenantID = requestTenantID(r)
 	}
 	if tenantID == "" {
 		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
@@ -224,7 +224,7 @@ func (h *CourseModuleHandler) GetStudentCurricularMap(w http.ResponseWriter, r *
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
 			userID = ctxUserID

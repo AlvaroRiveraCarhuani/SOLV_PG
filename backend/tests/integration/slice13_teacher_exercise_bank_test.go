@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,12 +39,7 @@ func TestSlice13_TeacherExerciseBank(t *testing.T) {
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -123,9 +117,9 @@ func TestSlice13_TeacherExerciseBank(t *testing.T) {
 	`, uuid.NewString(), judgeEx, uuid.NewString(), tenantID, student, ideEx)
 
 	req, _ := http.NewRequest(http.MethodGet, server.URL+"/api/v1/teacher/exercises/bank", nil)
-	req.Header.Set("X-User-Id", teacherID)
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-Tenant-Id", tenantID)
+	req.Header.Set("X-Test-User-Id", teacherID)
+	req.Header.Set("X-Test-User-Role", "teacher")
+	req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

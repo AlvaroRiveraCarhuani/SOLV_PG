@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -43,12 +42,7 @@ func setupSlice14EmergencyServer(t *testing.T) (*httptest.Server, *database.Data
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -105,8 +99,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadWrong := []byte(`{"confirmation_phrase": "terminar todo por favor", "reason": "emergencia"}`)
 		reqWrong, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadWrong))
 		reqWrong.Header.Set("Content-Type", "application/json")
-		reqWrong.Header.Set("X-User-Role", "admin")
-		reqWrong.Header.Set("X-Tenant-Id", tenantID)
+		reqWrong.Header.Set("X-Test-User-Role", "admin")
+		reqWrong.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respWrong, _ := client.Do(reqWrong)
 		defer func() { _ = respWrong.Body.Close() }()
@@ -118,8 +112,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadUnknown := []byte(`{"confirmation_phrase": "ACCION_INEXISTENTE"}`)
 		reqUnknown, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/reboot_datacenter", bytes.NewBuffer(payloadUnknown))
 		reqUnknown.Header.Set("Content-Type", "application/json")
-		reqUnknown.Header.Set("X-User-Role", "admin")
-		reqUnknown.Header.Set("X-Tenant-Id", tenantID)
+		reqUnknown.Header.Set("X-Test-User-Role", "admin")
+		reqUnknown.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respUnknown, _ := client.Do(reqUnknown)
 		defer func() { _ = respUnknown.Body.Close() }()
@@ -131,8 +125,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadValid := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS ENTORNOS"}`)
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadValid))
 		reqStudent.Header.Set("Content-Type", "application/json")
-		reqStudent.Header.Set("X-User-Role", "student")
-		reqStudent.Header.Set("X-Tenant-Id", tenantID)
+		reqStudent.Header.Set("X-Test-User-Role", "student")
+		reqStudent.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
@@ -159,9 +153,9 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadTerm := []byte(`{"confirmation_phrase": "TERMINAR TODOS LOS ENTORNOS", "reason": "Saturación crítica de memoria en host"}`)
 		reqTerm, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/terminate_all_environments", bytes.NewBuffer(payloadTerm))
 		reqTerm.Header.Set("Content-Type", "application/json")
-		reqTerm.Header.Set("X-User-Role", "admin")
-		reqTerm.Header.Set("X-User-Id", adminID)
-		reqTerm.Header.Set("X-Tenant-Id", tenantID)
+		reqTerm.Header.Set("X-Test-User-Role", "admin")
+		reqTerm.Header.Set("X-Test-User-Id", adminID)
+		reqTerm.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respTerm, err := client.Do(reqTerm)
 		if err != nil {
@@ -204,8 +198,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadHib := []byte(`{"confirmation_phrase": "HIBERNAR TODOS LOS ENTORNOS"}`)
 		reqHib, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/hibernate_all_environments", bytes.NewBuffer(payloadHib))
 		reqHib.Header.Set("Content-Type", "application/json")
-		reqHib.Header.Set("X-User-Role", "admin")
-		reqHib.Header.Set("X-Tenant-Id", tenantID)
+		reqHib.Header.Set("X-Test-User-Role", "admin")
+		reqHib.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respHib, _ := client.Do(reqHib)
 		defer func() { _ = respHib.Body.Close() }()
@@ -223,8 +217,8 @@ func TestSlice14_EmergencyActions(t *testing.T) {
 		payloadZombies := []byte(`{"confirmation_phrase": "LIMPIAR ZOMBIES DOCKER"}`)
 		reqZombies, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/emergency/kill_zombies", bytes.NewBuffer(payloadZombies))
 		reqZombies.Header.Set("Content-Type", "application/json")
-		reqZombies.Header.Set("X-User-Role", "admin")
-		reqZombies.Header.Set("X-Tenant-Id", tenantID)
+		reqZombies.Header.Set("X-Test-User-Role", "admin")
+		reqZombies.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respZombies, _ := client.Do(reqZombies)
 		defer func() { _ = respZombies.Body.Close() }()

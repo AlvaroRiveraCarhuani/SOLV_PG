@@ -53,7 +53,7 @@ func (h *LanguageProfileHandler) GetProfile(w http.ResponseWriter, r *http.Reque
 
 // UpdateProfile maneja PUT /api/v1/admin/judge/profiles/{language} (restringido a admin, auditado)
 func (h *LanguageProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "admin" {
 		SendError(w, http.StatusForbidden, "FORBIDDEN", "Se requiere rol de administrador para modificar perfiles")
 		return

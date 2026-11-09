@@ -146,7 +146,12 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	SetupRoutes(mux, &Handlers{
 		SubmissionHandler: subHandler,
 		TeacherHandler:    teacherHandler,
-		TenantMiddleware:  func(next http.Handler) http.Handler { return next },
+		TenantMiddleware: func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := context.WithValue(r.Context(), domain.TenantIDKey, domain.DefaultTenantID)
+				next.ServeHTTP(w, r.WithContext(ctx))
+			})
+		},
 	})
 
 	// 1. Post keystroke events as student
@@ -169,8 +174,8 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 	payloadBytes, _ := json.Marshal(payload)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/submissions/sub-http-1/keystroke-events", bytes.NewReader(payloadBytes))
+	req = withTestIdentity(req, "", domain.DefaultTenantID, "student")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Role", "student")
 	w := httptest.NewRecorder()
 
 	mux.ServeHTTP(w, req)
@@ -181,7 +186,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 
 	// 2. Query as student -> must be Forbidden (403)
 	getReqStudent := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
-	getReqStudent.Header.Set("X-User-Role", "student")
+	getReqStudent = withTestIdentity(getReqStudent, "", domain.DefaultTenantID, "student")
 	wStudent := httptest.NewRecorder()
 
 	mux.ServeHTTP(wStudent, getReqStudent)
@@ -191,8 +196,7 @@ func TestKeystrokeHandler_SaveAndGetEvents(t *testing.T) {
 
 	// 3. Query as teacher -> must be 200 OK with report
 	getReqTeacher := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/teacher/submissions/sub-http-1/keystroke-events", nil)
-	getReqTeacher.Header.Set("X-User-Role", "teacher")
-	getReqTeacher.Header.Set("X-User-Id", "teacher-1")
+	getReqTeacher = withTestIdentity(getReqTeacher, "teacher-1", domain.DefaultTenantID, "teacher")
 	wTeacher := httptest.NewRecorder()
 
 	mux.ServeHTTP(wTeacher, getReqTeacher)

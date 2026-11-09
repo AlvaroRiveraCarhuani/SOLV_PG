@@ -90,40 +90,47 @@ func satelliteNetworkName(spec domain.ManagedSatelliteSpec) string {
 // ensureSatelliteNetwork asegura la red bridge de satélites. El DNS interno de Docker
 // queda habilitado por defecto, de modo que un laboratorio resuelve 'solv-sat-<engine>'
 // sin conocer direcciones IP.
-func (c *Client) ensureSatelliteNetwork(ctx context.Context, networkName string) error {
+func (c *Client) ensureSatelliteNetwork(ctx context.Context, networkName string) (bool, error) {
 	_, err := c.cli.NetworkInspect(ctx, networkName, network.InspectOptions{})
 	if err == nil {
-		return nil
+		return false, nil
 	}
 	if !errdefs.IsNotFound(err) {
-		return fmt.Errorf("failed to inspect satellite network %q: %w", networkName, err)
+		return false, fmt.Errorf("failed to inspect satellite network %q: %w", networkName, err)
 	}
 
 	_, err = c.cli.NetworkCreate(ctx, networkName, network.CreateOptions{
 		Driver: "bridge",
-		Labels: map[string]string{"solv.managed": "true", "solv.purpose": "satellites"},
+		Labels: mergeTestRunLabels(map[string]string{"solv.managed": "true", "solv.purpose": "satellites"}),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to create satellite network %q: %w", networkName, err)
+		return false, fmt.Errorf("failed to create satellite network %q: %w", networkName, err)
 	}
 	log.Printf("[Satellites] Red interna %q creada para motores auto-orquestados", networkName)
-	return nil
+	return true, nil
 }
 
 // ensureSatellitesNetworkExists asegura la red interna canónica que comparten los
 // motores auto-orquestados y los laboratorios que los usan.
 func (c *Client) ensureSatellitesNetworkExists(ctx context.Context) error {
-	return c.ensureSatelliteNetwork(ctx, satellitesNetworkName)
+	_, err := c.ensureSatelliteNetwork(ctx, satellitesNetworkName)
+	return err
 }
 
 // attachContainerToSatellitesNetwork conecta un contenedor ya iniciado a la red interna
 // de satélites. Es idempotente: un contenedor ya conectado no vuelve a engancharse.
 func (c *Client) attachContainerToSatellitesNetwork(ctx context.Context, containerID string) error {
-	if err := c.ensureSatellitesNetworkExists(ctx); err != nil {
+	networkCreated, err := c.ensureSatelliteNetwork(ctx, satellitesNetworkName)
+	if err != nil {
 		return err
 	}
-	err := c.cli.NetworkConnect(ctx, satellitesNetworkName, containerID, nil)
+	err = c.cli.NetworkConnect(ctx, satellitesNetworkName, containerID, nil)
 	if err != nil && !strings.Contains(err.Error(), "already exists") {
+		if networkCreated {
+			if removeErr := c.cli.NetworkRemove(context.Background(), satellitesNetworkName); removeErr != nil {
+				return fmt.Errorf("failed to connect container %s to %s: %w; rollback de red falló: %v", containerID, satellitesNetworkName, err, removeErr)
+			}
+		}
 		return fmt.Errorf("failed to connect container %s to %s: %w", containerID, satellitesNetworkName, err)
 	}
 	return nil
@@ -146,7 +153,8 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 	}
 	networkName := satelliteNetworkName(spec)
 
-	if err := c.ensureSatelliteNetwork(ctx, networkName); err != nil {
+	networkCreated, err := c.ensureSatelliteNetwork(ctx, networkName)
+	if err != nil {
 		return nil, err
 	}
 
@@ -163,10 +171,11 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 		}
 		log.Printf("[Satellites] Satélite %s estaba detenido: reactivando por demanda", containerName)
 		if startErr := c.cli.ContainerStart(ctx, inspect.ID, container.StartOptions{}); startErr != nil {
-			return nil, fmt.Errorf("failed to restart managed satellite %q: %w", containerName, startErr)
+			return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated,
+				fmt.Errorf("failed to restart managed satellite %q: %w", containerName, startErr))
 		}
 		if readyErr := c.waitManagedSatelliteReady(ctx, inspect.ID, spec.ReadyCmd); readyErr != nil {
-			return nil, readyErr
+			return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated, readyErr)
 		}
 		return &domain.ManagedSatelliteEndpoint{
 			Engine:      engine,
@@ -175,18 +184,20 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 			ContainerID: inspect.ID,
 		}, nil
 	case !errdefs.IsNotFound(err):
-		return nil, fmt.Errorf("failed to inspect managed satellite %q: %w", containerName, err)
+		return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated,
+			fmt.Errorf("failed to inspect managed satellite %q: %w", containerName, err))
 	}
 
 	// El contenedor no existe: primera creación bajo demanda.
 	cached, _, inspectErr := c.InspectLocalImage(ctx, spec.Image)
 	if inspectErr != nil {
-		return nil, fmt.Errorf("failed to inspect image %q: %w", spec.Image, inspectErr)
+		return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated,
+			fmt.Errorf("failed to inspect image %q: %w", spec.Image, inspectErr))
 	}
 	if !cached {
 		log.Printf("[SingleFlight] Image %q not found locally. Initiating single-flight pull...", spec.Image)
 		if pullErr := c.PullImage(ctx, spec.Image); pullErr != nil {
-			return nil, pullErr
+			return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated, pullErr)
 		}
 	}
 
@@ -194,8 +205,9 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 	if volumeName == "" {
 		volumeName = "solv_sat_data_" + engine
 	}
-	if err := c.EnsureVolumeExists(ctx, volumeName); err != nil {
-		return nil, err
+	volumeCreated, err := c.ensureVolumeExists(ctx, volumeName)
+	if err != nil {
+		return nil, c.rollbackSatelliteResources(context.Background(), "", "", false, networkName, networkCreated, err)
 	}
 
 	memLimitMB := spec.MemoryLimitMB
@@ -221,20 +233,22 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 		Image:  spec.Image,
 		Env:    spec.Env,
 		Cmd:    spec.Cmd,
-		Labels: map[string]string{"solv.managed": "true", "solv.satellite": engine},
+		Labels: mergeTestRunLabels(map[string]string{"solv.managed": "true", "solv.satellite": engine}),
 	}
 	containerConfig.StopSignal = managedSatelliteStopSignal(engine)
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, containerName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create managed satellite %q: %w", containerName, err)
+		return nil, c.rollbackSatelliteResources(context.Background(), "", volumeName, volumeCreated, networkName, networkCreated,
+			fmt.Errorf("failed to create managed satellite %q: %w", containerName, err))
 	}
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		return nil, fmt.Errorf("failed to start managed satellite %q: %w", containerName, err)
+		return nil, c.rollbackSatelliteResources(context.Background(), resp.ID, volumeName, volumeCreated, networkName, networkCreated,
+			fmt.Errorf("failed to start managed satellite %q: %w", containerName, err))
 	}
 
 	if err := c.waitManagedSatelliteReady(ctx, resp.ID, spec.ReadyCmd); err != nil {
-		return nil, err
+		return nil, c.rollbackSatelliteResources(context.Background(), resp.ID, volumeName, volumeCreated, networkName, networkCreated, err)
 	}
 
 	log.Printf("[Satellites] Motor %s listo en %s (%d MB, volumen %s)", engine, containerName, memLimitMB, volumeName)
@@ -244,6 +258,44 @@ func (c *Client) EnsureManagedSatelliteRunning(ctx context.Context, spec domain.
 		Port:        spec.Port,
 		ContainerID: resp.ID,
 	}, nil
+}
+
+type satelliteResourceRemover interface {
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+	VolumeRemove(ctx context.Context, volumeID string, force bool) error
+	NetworkRemove(ctx context.Context, networkID string) error
+}
+
+// rollbackSatelliteResources revierte solo los recursos creados por esta
+// llamada. Un volumen o una red preexistentes pueden pertenecer a otro satélite
+// o a otro run y no se tocan.
+func (c *Client) rollbackSatelliteResources(ctx context.Context, containerID, volumeName string, volumeCreated bool, networkName string, networkCreated bool, cause error) error {
+	return rollbackSatelliteResources(ctx, c.cli, containerID, volumeName, volumeCreated, networkName, networkCreated, cause)
+}
+
+func rollbackSatelliteResources(ctx context.Context, remover satelliteResourceRemover, containerID, volumeName string, volumeCreated bool, networkName string, networkCreated bool, cause error) error {
+	cleanupCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	var cleanupErrors []error
+	if containerID != "" {
+		if err := remover.ContainerRemove(cleanupCtx, containerID, container.RemoveOptions{Force: true, RemoveVolumes: false}); err != nil && !errdefs.IsNotFound(err) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("eliminar contenedor %s: %w", containerID, err))
+		}
+	}
+	if volumeCreated {
+		if err := remover.VolumeRemove(cleanupCtx, volumeName, true); err != nil && !errdefs.IsNotFound(err) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("eliminar volumen %s: %w", volumeName, err))
+		}
+	}
+	if networkCreated {
+		if err := remover.NetworkRemove(cleanupCtx, networkName); err != nil && !errdefs.IsNotFound(err) {
+			cleanupErrors = append(cleanupErrors, fmt.Errorf("eliminar red %s: %w", networkName, err))
+		}
+	}
+	if len(cleanupErrors) > 0 {
+		return fmt.Errorf("%w; rollback de satélite falló: %v", cause, errors.Join(cleanupErrors...))
+	}
+	return cause
 }
 
 // waitManagedSatelliteReady sondea el motor dentro del contenedor con backoff hasta que

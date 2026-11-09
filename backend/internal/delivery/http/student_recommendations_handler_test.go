@@ -91,8 +91,7 @@ func TestGetStudentRecommendationsEndpoint(t *testing.T) {
 
 	t.Run("Student receives recommendations when weak tags exist", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/courses/subj-123/recommendations", nil)
-		req.Header.Set("X-Tenant-Id", "tenant-test")
-		req.Header.Set("X-User-Id", "student-user-1")
+		req = withTestIdentity(req, "student-user-1", "tenant-test", "student")
 
 		rr := httptest.NewRecorder()
 		router.ServeHTTP(rr, req)

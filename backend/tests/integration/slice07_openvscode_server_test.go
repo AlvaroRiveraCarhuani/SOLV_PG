@@ -14,15 +14,16 @@ import (
 )
 
 func TestTicket1OpenVSCodeServerMigration(t *testing.T) {
+	requireDocker(t)
 	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
-		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+		skipOrFailInfra(t, "PostgreSQL no disponible para la integración: %v", err)
 	}
 
 	dockerClient, err := dockerinfra.NewClient()
 	if err != nil {
-		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
+		skipOrFailInfra(t, "Docker no disponible para la integración: %v", err)
 	}
 
 	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())

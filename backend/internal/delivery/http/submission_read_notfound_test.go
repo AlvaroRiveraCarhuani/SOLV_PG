@@ -33,9 +33,7 @@ func readSubmissionRequest(submissionID string) *http.Request {
 	req.SetPathValue("id", submissionID)
 	ctx := context.WithValue(req.Context(), domain.TenantIDKey, domain.DefaultTenantID)
 	req = req.WithContext(ctx)
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-User-Id", "teacher-grades")
-	return req
+	return withTestIdentity(req, "teacher-grades", "", "teacher")
 }
 
 // Una entrega inexistente es un 404, igual que en el override.
@@ -101,7 +99,7 @@ func TestSaveKeystrokeEvents_MissingSubmissionReturnsNotFound(t *testing.T) {
 	req.SetPathValue("id", "0a4f0b52-3d1c-4f8e-9a4a-3c1d2b5e6f70")
 	ctx := context.WithValue(req.Context(), domain.TenantIDKey, domain.DefaultTenantID)
 	req = req.WithContext(ctx)
-	req.Header.Set("X-User-Role", "student")
+	req = withTestIdentity(req, "student-1", "", "student")
 	req.Header.Set("Content-Type", "application/json")
 
 	rec := httptest.NewRecorder()

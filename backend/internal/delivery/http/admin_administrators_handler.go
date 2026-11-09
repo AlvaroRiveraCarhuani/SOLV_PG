@@ -10,7 +10,7 @@ import (
 
 // ListAdministrators devuelve todos los operadores con rol admin del tenant actual.
 func (h *AdminAcademicHandler) ListAdministrators(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: se requiere rol de administrador")
 		return
@@ -37,7 +37,7 @@ func (h *AdminAcademicHandler) ListAdministrators(w http.ResponseWriter, r *http
 
 // CreateAdministrator procesa el alta o promoción de un usuario con privilegios administrativos.
 func (h *AdminAcademicHandler) CreateAdministrator(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: se requiere rol de administrador")
 		return
@@ -75,7 +75,7 @@ func (h *AdminAcademicHandler) CreateAdministrator(w http.ResponseWriter, r *htt
 
 // RevokeAdministrator procesa la revocación de privilegios administrativos de un usuario.
 func (h *AdminAcademicHandler) RevokeAdministrator(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: se requiere rol de administrador")
 		return

@@ -24,7 +24,7 @@ type ValidateInputResponseDTO struct {
 }
 
 func (h *EvaluationHandler) ValidateInputFormat(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para validar formato de entrada")
 		return
@@ -57,7 +57,7 @@ type ExerciseChecklistRequestDTO struct {
 }
 
 func (h *EvaluationHandler) GetExerciseChecklist(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para consultar el checklist de publicación")
 		return
@@ -99,7 +99,7 @@ type GenerateCasesResponseDTO struct {
 }
 
 func (h *EvaluationHandler) GenerateCases(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para generar casos de prueba")
 		return

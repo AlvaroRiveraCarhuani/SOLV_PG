@@ -116,8 +116,7 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 		AdminHandler: adminHandler,
 		TenantMiddleware: func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				tenantCtx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-				next.ServeHTTP(w, r.WithContext(tenantCtx))
+				next.ServeHTTP(w, withTestIdentity(r, tenantID, r.Header.Get("X-Test-User-Id"), r.Header.Get("X-Test-User-Role")))
 			})
 		},
 	}
@@ -217,8 +216,7 @@ func TestSlice147_AuditUnifiedSearchAndCount(t *testing.T) {
 		AdminHandler: adminHandler,
 		TenantMiddleware: func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				tenantCtx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-				next.ServeHTTP(w, r.WithContext(tenantCtx))
+				next.ServeHTTP(w, withTestIdentity(r, tenantID, r.Header.Get("X-Test-User-Id"), r.Header.Get("X-Test-User-Role")))
 			})
 		},
 	})

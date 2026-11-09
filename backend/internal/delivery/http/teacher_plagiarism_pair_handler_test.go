@@ -30,10 +30,7 @@ func pairRequest(submissionA, submissionB, role string) *http.Request {
 	)
 	req.SetPathValue("submission_a", submissionA)
 	req.SetPathValue("submission_b", submissionB)
-	req.Header.Set("X-User-Role", role)
-	req.Header.Set("X-User-Id", "teacher-1")
-	req.Header.Set("X-Tenant-ID", "00000000-0000-0000-0000-000000000001")
-	return req
+	return withTestIdentity(req, "teacher-1", "00000000-0000-0000-0000-000000000001", role)
 }
 
 func TestGetPlagiarismPairHandlerRejectsForeignSubmission(t *testing.T) {

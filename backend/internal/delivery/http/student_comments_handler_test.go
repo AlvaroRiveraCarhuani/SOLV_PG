@@ -36,9 +36,7 @@ func commentsRequest(submissionID, userID string) *http.Request {
 		nil,
 	)
 	req.SetPathValue("id", submissionID)
-	req.Header.Set("X-Tenant-Id", "tenant-1")
-	req.Header.Set("X-User-Id", userID)
-	return req
+	return withTestIdentity(req, userID, "tenant-1", "student")
 }
 
 func TestStudentGetsCommentsOfOwnSubmission(t *testing.T) {

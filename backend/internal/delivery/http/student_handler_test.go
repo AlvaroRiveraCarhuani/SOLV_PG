@@ -216,8 +216,7 @@ func TestGetStudentEvaluationsClassifiesAcademicStatus(t *testing.T) {
 	router.HandleFunc("GET /api/v1/student/evaluations", handler.GetEvaluations)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/evaluations", nil)
-	req.Header.Set("X-Tenant-Id", "tenant-test")
-	req.Header.Set("X-User-Id", "student-1")
+	req = withTestIdentity(req, "student-1", "tenant-test", "student")
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
@@ -322,8 +321,7 @@ func TestGetStudentSubmissionsReturnsFullHistory(t *testing.T) {
 	router.HandleFunc("GET /api/v1/student/submissions", handler.GetSubmissions)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/submissions", nil)
-	req.Header.Set("X-Tenant-Id", "tenant-test")
-	req.Header.Set("X-User-Id", "student-1")
+	req = withTestIdentity(req, "student-1", "tenant-test", "student")
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 
@@ -392,8 +390,7 @@ func TestGetStudentSubmissionsParsesIDEProjectFiles(t *testing.T) {
 	router.HandleFunc("GET /api/v1/student/submissions", handler.GetSubmissions)
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/submissions", nil)
-	req.Header.Set("X-Tenant-Id", "tenant-test")
-	req.Header.Set("X-User-Id", "student-1")
+	req = withTestIdentity(req, "student-1", "tenant-test", "student")
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)
 

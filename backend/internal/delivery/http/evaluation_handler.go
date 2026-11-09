@@ -50,9 +50,10 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
+	tenantID := getTenantFromCtx(r)
 	if h.wsHub != nil && userID != "" {
-		h.wsHub.EmitToUser(userID, WebSocketMessage{
+		h.wsHub.EmitToUserInTenant(tenantID, userID, WebSocketMessage{
 			Event: "EVALUATION_PROGRESS",
 			Stage: "QUEUED",
 			Data:  map[string]string{"exercise_id": req.ExerciseID, "language": req.Language},
@@ -70,7 +71,7 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if h.wsHub != nil && userID != "" {
-			h.wsHub.EmitToUser(userID, WebSocketMessage{
+			h.wsHub.EmitToUserInTenant(tenantID, userID, WebSocketMessage{
 				Event: "EVALUATION_PROGRESS",
 				Stage: "ERROR",
 				Data:  map[string]string{"error": err.Error()},
@@ -88,7 +89,7 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.wsHub != nil && userID != "" {
-		h.wsHub.EmitToUser(userID, WebSocketMessage{
+		h.wsHub.EmitToUserInTenant(tenantID, userID, WebSocketMessage{
 			Event: "EVALUATION_COMPLETED",
 			Stage: "COMPLETED",
 			Data:  payload,
@@ -100,7 +101,7 @@ func (h *EvaluationHandler) Evaluate(w http.ResponseWriter, r *http.Request) {
 
 // isStudentRole indica si la petición la realiza el rol student.
 func isStudentRole(r *http.Request) bool {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role == "" {
 		role = "student"
 	}
@@ -120,7 +121,7 @@ func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole == "" {
 		userRole = "student"
 	}
@@ -136,7 +137,7 @@ func (h *EvaluationHandler) GetExerciseByID(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para crear ejercicios")
 		return
@@ -199,7 +200,7 @@ func (h *EvaluationHandler) CreateExercise(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para modificar ejercicios")
 		return
@@ -268,7 +269,7 @@ func (h *EvaluationHandler) UpdateExercise(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "Unauthorized: teacher role required", "No tiene permisos para gestionar casos de prueba")
 		return
@@ -366,7 +367,7 @@ func (h *EvaluationHandler) BulkTestCases(w http.ResponseWriter, r *http.Request
 }
 
 func (h *EvaluationHandler) PublishExercise(w http.ResponseWriter, r *http.Request) {
-	userRole := r.Header.Get("X-User-Role")
+	userRole := requestRole(r)
 	if userRole != "teacher" && userRole != "admin" {
 		SendError(w, http.StatusForbidden, "FORBIDDEN", "No tiene permisos para publicar ejercicios")
 		return

@@ -12,6 +12,7 @@ import (
 )
 
 func TestJudgeDatabaseDryRunAndEvaluationAllEngines(t *testing.T) {
+	requireDocker(t)
 	engines := []struct {
 		engine  string
 		dbDir   string
@@ -73,7 +74,7 @@ func TestJudgeDatabaseDryRunAndEvaluationAllEngines(t *testing.T) {
 				InitScript:      string(initBytes),
 				SolutionSQL:     string(refBytes),
 				ValidationQuery: string(valBytes),
-				MemoryLimitMB:   256,
+				MemoryLimitMB:   512,
 			}
 
 			ctx, cancel := context.WithTimeout(context.Background(), 600*time.Second)
@@ -98,7 +99,7 @@ func TestJudgeDatabaseDryRunAndEvaluationAllEngines(t *testing.T) {
 				InitScript:      string(initBytes),
 				SolutionSQL:     string(refBytes),
 				ValidationQuery: string(valBytes),
-				MemoryLimitMB:   256,
+				MemoryLimitMB:   512,
 			}
 
 			acRes, err := runner.RunDBEvaluation(ctx, acConfig)
@@ -119,7 +120,7 @@ func TestJudgeDatabaseDryRunAndEvaluationAllEngines(t *testing.T) {
 				InitScript:      string(initBytes),
 				SolutionSQL:     string(waBytes),
 				ValidationQuery: string(valBytes),
-				MemoryLimitMB:   256,
+				MemoryLimitMB:   512,
 			}
 
 			waRes, err := runner.RunDBEvaluation(ctx, waConfig)

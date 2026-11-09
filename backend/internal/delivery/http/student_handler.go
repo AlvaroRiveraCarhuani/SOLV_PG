@@ -69,7 +69,7 @@ type StudentDashboardResponse struct {
 func studentIdentity(r *http.Request) (string, string) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
+		tenantID = requestTenantID(r)
 	}
 	if tenantID == "" {
 		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
@@ -77,7 +77,7 @@ func studentIdentity(r *http.Request) (string, string) {
 		}
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
 			userID = ctxUserID
@@ -90,7 +90,7 @@ func studentIdentity(r *http.Request) (string, string) {
 func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
+		tenantID = requestTenantID(r)
 	}
 	if tenantID == "" {
 		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
@@ -102,7 +102,7 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
 			userID = ctxUserID
@@ -224,7 +224,7 @@ func (h *StudentHandler) GetDashboard(w http.ResponseWriter, r *http.Request) {
 func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
+		tenantID = requestTenantID(r)
 	}
 	if tenantID == "" {
 		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
@@ -236,7 +236,7 @@ func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
 			userID = ctxUserID
@@ -263,7 +263,7 @@ func (h *StudentHandler) GetDueAssignments(w http.ResponseWriter, r *http.Reques
 func (h *StudentHandler) GetRecommendations(w http.ResponseWriter, r *http.Request) {
 	tenantID, err := middleware.GetTenantIDFromContext(r.Context())
 	if err != nil || tenantID == "" {
-		tenantID = r.Header.Get("X-Tenant-Id")
+		tenantID = requestTenantID(r)
 	}
 	if tenantID == "" {
 		if ctxTenantID, ok := r.Context().Value(domain.TenantIDKey).(string); ok && ctxTenantID != "" {
@@ -275,7 +275,7 @@ func (h *StudentHandler) GetRecommendations(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if ctxUserID, ok := r.Context().Value(domain.UserIDKey).(string); ok && ctxUserID != "" {
 			userID = ctxUserID

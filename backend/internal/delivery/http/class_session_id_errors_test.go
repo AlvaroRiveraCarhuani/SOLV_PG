@@ -31,8 +31,6 @@ func closeAulaRequest(sessionID, role string) *http.Request {
 	ctx = context.WithValue(ctx, domain.UserIDKey, "teacher-aula")
 	ctx = context.WithValue(ctx, domain.UserRoleKey, role)
 	req = req.WithContext(ctx)
-	req.Header.Set("X-User-Id", "teacher-aula")
-	req.Header.Set("X-User-Role", role)
 	return req
 }
 
@@ -77,8 +75,6 @@ func TestOpenAula_MalformedSubjectReturnsBadRequest(t *testing.T) {
 	ctx = context.WithValue(ctx, domain.UserIDKey, "teacher-aula")
 	ctx = context.WithValue(ctx, domain.UserRoleKey, "teacher")
 	req = req.WithContext(ctx)
-	req.Header.Set("X-User-Id", "teacher-aula")
-	req.Header.Set("X-User-Role", "teacher")
 	req.Header.Set("Content-Type", "application/json")
 	req.Body = io.NopCloser(strings.NewReader(`{"subject_id":"no-es-un-uuid"}`))
 

@@ -128,7 +128,7 @@ func TestAISettingsHandlerGetAndUpdateSettingsWithAdminRole(t *testing.T) {
 	}`
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/admin/ai/settings", strings.NewReader(body))
-	req.Header.Set("X-User-Role", "admin")
+	req = withTestIdentity(req, "admin-1", "t-test", "admin")
 	req.Header.Set("Content-Type", "application/json")
 	ctx := context.WithValue(req.Context(), domain.TenantIDKey, "t-test")
 	req = req.WithContext(ctx)
@@ -155,7 +155,7 @@ func TestAISettingsHandlerGetAndUpdateSettingsWithAdminRole(t *testing.T) {
 
 	// GET /api/v1/admin/ai/settings
 	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/admin/ai/settings", nil)
-	getReq.Header.Set("X-User-Role", "admin")
+	getReq = withTestIdentity(getReq, "admin-1", "t-test", "admin")
 	getReq = getReq.WithContext(ctx)
 	getRec := httptest.NewRecorder()
 

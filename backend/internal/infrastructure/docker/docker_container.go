@@ -54,7 +54,7 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 
 	containerConfig := &container.Config{
 		Image:  config.Image,
-		Labels: config.Labels,
+		Labels: mergeTestRunLabels(config.Labels),
 	}
 
 	networkingConfig := &network.NetworkingConfig{}
@@ -76,6 +76,9 @@ func (c *Client) StartContainer(ctx context.Context, config domain.LabContainerC
 	}
 
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		// Un contenedor creado que no arranca no debe quedar como residuo. Se usa
+		// un contexto propio porque el de la petición puede estar cancelado.
+		_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true, RemoveVolumes: true})
 		return "", fmt.Errorf("failed to start container %q (ID: %s): %w", config.ContainerName, resp.ID, err)
 	}
 
@@ -153,7 +156,7 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 
 	containerConfig := &container.Config{
 		Image:        config.Image,
-		Labels:       config.Labels,
+		Labels:       mergeTestRunLabels(config.Labels),
 		Env:          envList,
 		ExposedPorts: nat.PortSet{nat.Port(environmentServerPort): struct{}{}},
 	}
@@ -194,6 +197,9 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 	}
 
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		// La creación pudo completarse aunque el arranque falle (por ejemplo, una
+		// red inexistente). El contenedor se elimina antes de devolver el error.
+		_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true, RemoveVolumes: true})
 		return "", fmt.Errorf("failed to start environment container %q: %w", config.ContainerName, err)
 	}
 
@@ -203,7 +209,7 @@ func (c *Client) StartPracticeEnvironmentContainer(ctx context.Context, config d
 	// silenciosa más adelante.
 	if config.AttachSatellitesNet {
 		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
-			_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
 			return "", fmt.Errorf("failed to attach environment container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
 		}
 	}
@@ -276,7 +282,7 @@ func (c *Client) StartReviewEnvironmentContainer(ctx context.Context, config dom
 
 	containerConfig := &container.Config{
 		Image:        config.Image,
-		Labels:       config.Labels,
+		Labels:       mergeTestRunLabels(config.Labels),
 		Env:          envList,
 		WorkingDir:   "/home/workspace",
 		Cmd:          []string{"/bin/sh", "-c", script},
@@ -301,13 +307,13 @@ func (c *Client) StartReviewEnvironmentContainer(ctx context.Context, config dom
 	}
 
 	if err := c.cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true, RemoveVolumes: true})
 		return "", fmt.Errorf("failed to start review environment container %q: %w", config.ContainerName, err)
 	}
 
 	if config.AttachSatellitesNet {
 		if netErr := c.attachContainerToSatellitesNetwork(ctx, resp.ID); netErr != nil {
-			_ = c.cli.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+			_ = c.cli.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true})
 			return "", fmt.Errorf("failed to attach review container %q to %s: %w", config.ContainerName, satellitesNetworkName, netErr)
 		}
 	}
@@ -452,8 +458,9 @@ func (c *Client) ExecuteDryRun(ctx context.Context, image string) (int64, error)
 	}
 
 	containerConfig := &container.Config{
-		Image: image,
-		Cmd:   []string{"sh", "-c", "echo test && sleep 1"},
+		Image:  image,
+		Labels: TestRunLabels(),
+		Cmd:    []string{"sh", "-c", "echo test && sleep 1"},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")
@@ -556,8 +563,9 @@ func (c *Client) RunSemgrepScanOnVolume(ctx context.Context, volumeName string) 
 	}
 
 	containerConfig := &container.Config{
-		Image: semgrepImage,
-		Cmd:   []string{"semgrep", "scan", "--json", "--config", "auto", "/src"},
+		Image:  semgrepImage,
+		Labels: TestRunLabels(),
+		Cmd:    []string{"semgrep", "scan", "--json", "--config", "auto", "/src"},
 	}
 
 	resp, err := c.cli.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, "")

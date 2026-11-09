@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -39,12 +38,7 @@ func setupTeacherRunnerAndExportTestServer(t *testing.T) (*httptest.Server, *dat
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -187,9 +181,9 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 		payload := []byte(`{"code": "def solution(): return 42", "language": "python"}`)
 		req, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -220,7 +214,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 
 		// Seguridad: Estudiante no puede ejecutar runner efímero
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/run-ephemeral", server.URL, sub1ID), bytes.NewBuffer(payload))
-		reqStudent.Header.Set("X-User-Role", "student")
+		reqStudent.Header.Set("X-Test-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
@@ -233,9 +227,9 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("2. Exportación de Calificaciones CSV - Matriz, Headers y UTF-8 BOM", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -323,7 +317,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 
 		// 2.3 Seguridad: Estudiante intentando exportar notas -> 403 Forbidden
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/grades/export?format=csv", server.URL, subjectID), nil)
-		reqStudent.Header.Set("X-User-Role", "student")
+		reqStudent.Header.Set("X-Test-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {

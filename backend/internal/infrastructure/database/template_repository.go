@@ -7,15 +7,15 @@ import (
 	"solv-backend/internal/domain"
 )
 
-func (db *Database) CreateTemplate(ctx context.Context, dto domain.CreateTemplateDTO) (string, error) {
+func (db *Database) CreateTemplate(ctx context.Context, tenantID string, dto domain.CreateTemplateDTO) (string, error) {
 	query := `
-		INSERT INTO lab_templates (name, docker_image, base_ram_mb)
-		VALUES ($1, $2, $3)
+		INSERT INTO lab_templates (tenant_id, name, docker_image, base_ram_mb)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id
 	`
 
 	var id string
-	err := db.db.QueryRowContext(ctx, query, dto.Name, dto.DockerImage, dto.BaseRamMB).Scan(&id)
+	err := db.db.QueryRowContext(ctx, query, tenantID, dto.Name, dto.DockerImage, dto.BaseRamMB).Scan(&id)
 	if err != nil {
 		return "", fmt.Errorf("failed to create lab template: %w", err)
 	}
@@ -23,7 +23,7 @@ func (db *Database) CreateTemplate(ctx context.Context, dto domain.CreateTemplat
 	return id, nil
 }
 
-func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateResponseDTO, error) {
+func (db *Database) GetAllTemplates(ctx context.Context, tenantID string) ([]domain.TemplateResponseDTO, error) {
 	query := `
 		SELECT 
 			lt.id, 
@@ -40,9 +40,10 @@ func (db *Database) GetAllTemplates(ctx context.Context) ([]domain.TemplateRespo
 			COALESCE(lt.stack_config, '{}'::jsonb)
 		FROM lab_templates lt
 		LEFT JOIN template_categories tc ON tc.id = lt.category_id
+		WHERE lt.tenant_id = $1
 	`
 
-	rows, err := db.db.QueryContext(ctx, query)
+	rows, err := db.db.QueryContext(ctx, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query lab templates: %w", err)
 	}

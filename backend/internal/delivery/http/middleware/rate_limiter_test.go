@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"solv-backend/internal/core/domain"
 )
 
 func TestRateLimiter_GlobalIPLimit(t *testing.T) {
@@ -97,7 +99,7 @@ func TestRateLimiter_SubmissionRateLimit(t *testing.T) {
 	// Burst = 5
 	for i := 0; i < 5; i++ {
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions", nil)
-		req.Header.Set("X-User-Id", studentID)
+		req = req.WithContext(context.WithValue(req.Context(), domain.UserIDKey, studentID))
 		rr := httptest.NewRecorder()
 		handler.ServeHTTP(rr, req)
 
@@ -108,7 +110,7 @@ func TestRateLimiter_SubmissionRateLimit(t *testing.T) {
 
 	// La peticion 6 debe fallar con 429
 	req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions", nil)
-	req.Header.Set("X-User-Id", studentID)
+	req = req.WithContext(context.WithValue(req.Context(), domain.UserIDKey, studentID))
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, req)
 

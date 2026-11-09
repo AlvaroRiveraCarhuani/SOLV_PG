@@ -12,7 +12,7 @@ import (
 // docente recibe una URL para abrir en una pestaña nueva; el QoS Worker apaga el
 // contenedor cuando la app deja de tener tráfico.
 func (h *TeacherHandler) StartReviewEnvironment(w http.ResponseWriter, r *http.Request) {
-	if r.Header.Get("X-User-Role") == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden probar la aplicación de una entrega")
 		return
 	}
@@ -26,7 +26,7 @@ func (h *TeacherHandler) StartReviewEnvironment(w http.ResponseWriter, r *http.R
 		SendError(w, http.StatusBadRequest, "missing_submission_id", "El identificador de la entrega es requerido")
 		return
 	}
-	teacherID := strings.TrimSpace(r.Header.Get("X-User-Id"))
+	teacherID := requestUserID(r)
 	if teacherID == "" {
 		SendError(w, http.StatusUnauthorized, "missing_user", "La sesión no identifica al docente que abre el entorno")
 		return

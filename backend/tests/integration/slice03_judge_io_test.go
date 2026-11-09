@@ -29,6 +29,7 @@ func setupDockerRunner(t *testing.T) (domain.EvaluationRunner, func()) {
 }
 
 func TestJudgeIOAcceptedAllLanguages(t *testing.T) {
+	requireDocker(t)
 	languages := []struct {
 		lang     string
 		codeFile string
@@ -91,6 +92,7 @@ func TestJudgeIOAcceptedAllLanguages(t *testing.T) {
 }
 
 func TestJudgeIOWrongAnswerAllLanguages(t *testing.T) {
+	requireDocker(t)
 	languages := []struct {
 		lang     string
 		codeFile string

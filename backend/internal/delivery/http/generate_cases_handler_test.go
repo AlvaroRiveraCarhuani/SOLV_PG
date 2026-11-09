@@ -36,7 +36,7 @@ func TestGenerateCasesEndpoint(t *testing.T) {
 		body, _ := json.Marshal(payload)
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/generate-cases", bytes.NewBuffer(body))
-		req.Header.Set("X-User-Role", "teacher")
+		req = withTestIdentity(req, "teacher-1", "tenant-test", "teacher")
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
@@ -79,12 +79,12 @@ func TestGenerateCasesEndpoint(t *testing.T) {
 		body, _ := json.Marshal(payload)
 
 		req1 := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/generate-cases", bytes.NewBuffer(body))
-		req1.Header.Set("X-User-Role", "teacher")
+		req1 = withTestIdentity(req1, "teacher-1", "tenant-test", "teacher")
 		w1 := httptest.NewRecorder()
 		handler.GenerateCases(w1, req1)
 
 		req2 := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/generate-cases", bytes.NewBuffer(body))
-		req2.Header.Set("X-User-Role", "teacher")
+		req2 = withTestIdentity(req2, "teacher-1", "tenant-test", "teacher")
 		w2 := httptest.NewRecorder()
 		handler.GenerateCases(w2, req2)
 
@@ -102,7 +102,7 @@ func TestGenerateCasesEndpoint(t *testing.T) {
 		body, _ := json.Marshal(payload)
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises/generate-cases", bytes.NewBuffer(body))
-		req.Header.Set("X-User-Role", "teacher")
+		req = withTestIdentity(req, "teacher-1", "tenant-test", "teacher")
 
 		w := httptest.NewRecorder()
 		handler.GenerateCases(w, req)

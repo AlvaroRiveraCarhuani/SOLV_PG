@@ -63,12 +63,7 @@ func setupSlice13TestServer(t *testing.T) (*httptest.Server, *database.Database)
 		EvaluationHandler: evalHandler,
 		TenantMiddleware: func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				tenantID := r.Header.Get("X-Tenant-Id")
-				if tenantID == "" {
-					tenantID = domain.DefaultTenantID
-				}
-				ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 			})
 		},
 		AuditMiddleware: func(next http.Handler) http.Handler {
@@ -119,8 +114,8 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	jsonBytes := buildExerciseRequest(t, payload)
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(jsonBytes))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-Tenant-Id", tenantID)
+	req.Header.Set("X-Test-User-Role", "teacher")
+	req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -204,8 +199,8 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 	createJSON := buildExerciseRequest(t, zeroPubExercise)
 	req1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(createJSON))
 	req1.Header.Set("Content-Type", "application/json")
-	req1.Header.Set("X-User-Role", "teacher")
-	req1.Header.Set("X-Tenant-Id", tenantID)
+	req1.Header.Set("X-Test-User-Role", "teacher")
+	req1.Header.Set("X-Test-Tenant-Id", tenantID)
 	resp1, err := http.DefaultClient.Do(req1)
 	if err != nil {
 		t.Fatalf("POST /api/v1/exercises zeroPubExercise failed: %v", err)
@@ -219,8 +214,8 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 
 	// Intentar publicar ejercicio con 0 casos públicos -> DEBE RETORNAR 422
 	pubReq1, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exZeroPublicID+"/publish", nil)
-	pubReq1.Header.Set("X-User-Role", "teacher")
-	pubReq1.Header.Set("X-Tenant-Id", tenantID)
+	pubReq1.Header.Set("X-Test-User-Role", "teacher")
+	pubReq1.Header.Set("X-Test-Tenant-Id", tenantID)
 	pubResp1, err := http.DefaultClient.Do(pubReq1)
 	if err != nil {
 		t.Fatalf("POST /publish failed: %v", err)
@@ -253,8 +248,8 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 	validJSON := buildExerciseRequest(t, validExercise)
 	req2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(validJSON))
 	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("X-User-Role", "teacher")
-	req2.Header.Set("X-Tenant-Id", tenantID)
+	req2.Header.Set("X-Test-User-Role", "teacher")
+	req2.Header.Set("X-Test-Tenant-Id", tenantID)
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil {
 		t.Fatalf("POST /api/v1/exercises validExercise failed: %v", err)
@@ -268,8 +263,8 @@ func TestSlice13_Commit1_PublishTransitionsAndZeroPublicValidation(t *testing.T)
 
 	// Publicar ejercicio válido -> DEBE RETORNAR 200 OK
 	pubReq2, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+validExID+"/publish", nil)
-	pubReq2.Header.Set("X-User-Role", "teacher")
-	pubReq2.Header.Set("X-Tenant-Id", tenantID)
+	pubReq2.Header.Set("X-Test-User-Role", "teacher")
+	pubReq2.Header.Set("X-Test-Tenant-Id", tenantID)
 	pubResp2, err := http.DefaultClient.Do(pubReq2)
 	if err != nil {
 		t.Fatalf("POST /publish failed: %v", err)
@@ -308,8 +303,8 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 	exBytes := buildExerciseRequest(t, ex)
 	reqInit, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(exBytes))
 	reqInit.Header.Set("Content-Type", "application/json")
-	reqInit.Header.Set("X-User-Role", "teacher")
-	reqInit.Header.Set("X-Tenant-Id", tenantID)
+	reqInit.Header.Set("X-Test-User-Role", "teacher")
+	reqInit.Header.Set("X-Test-Tenant-Id", tenantID)
 	respInit, err := http.DefaultClient.Do(reqInit)
 	if err != nil {
 		t.Fatalf("POST /api/v1/exercises base failed: %v", err)
@@ -329,8 +324,8 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 
 	reqBad, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvMalformed))
 	reqBad.Header.Set("Content-Type", "text/csv")
-	reqBad.Header.Set("X-User-Role", "teacher")
-	reqBad.Header.Set("X-Tenant-Id", tenantID)
+	reqBad.Header.Set("X-Test-User-Role", "teacher")
+	reqBad.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	respBad, err := http.DefaultClient.Do(reqBad)
 	if err != nil {
@@ -350,8 +345,8 @@ func TestSlice13_Commit1_BulkImportCSV_MalformedAndQuoting(t *testing.T) {
 
 	reqGood, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/test-cases/bulk", strings.NewReader(csvValid))
 	reqGood.Header.Set("Content-Type", "text/csv")
-	reqGood.Header.Set("X-User-Role", "teacher")
-	reqGood.Header.Set("X-Tenant-Id", tenantID)
+	reqGood.Header.Set("X-Test-User-Role", "teacher")
+	reqGood.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	respGood, err := http.DefaultClient.Do(reqGood)
 	if err != nil {
@@ -405,8 +400,8 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	stBytes := buildExerciseRequest(t, studentPayload)
 	reqStudent, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
 	reqStudent.Header.Set("Content-Type", "application/json")
-	reqStudent.Header.Set("X-User-Role", "student") // ROL STUDENT
-	reqStudent.Header.Set("X-Tenant-Id", tenantA)
+	reqStudent.Header.Set("X-Test-User-Role", "student") // ROL STUDENT
+	reqStudent.Header.Set("X-Test-Tenant-Id", tenantA)
 
 	respStudent, err := http.DefaultClient.Do(reqStudent)
 	if err != nil {
@@ -421,8 +416,8 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	// 2. Docente de Tenant A crea el ejercicio exitosamente
 	reqTeacher, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises", bytes.NewBuffer(stBytes))
 	reqTeacher.Header.Set("Content-Type", "application/json")
-	reqTeacher.Header.Set("X-User-Role", "teacher")
-	reqTeacher.Header.Set("X-Tenant-Id", tenantA)
+	reqTeacher.Header.Set("X-Test-User-Role", "teacher")
+	reqTeacher.Header.Set("X-Test-Tenant-Id", tenantA)
 	respTeacher, err := http.DefaultClient.Do(reqTeacher)
 	if err != nil {
 		t.Fatalf("POST /api/v1/exercises teacher failed: %v", err)
@@ -441,8 +436,8 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 	upBytes, _ := json.Marshal(updatePayload)
 	reqCross, _ := http.NewRequestWithContext(context.Background(), "PUT", ts.URL+"/api/v1/exercises/"+exerciseID, bytes.NewBuffer(upBytes))
 	reqCross.Header.Set("Content-Type", "application/json")
-	reqCross.Header.Set("X-User-Role", "teacher")
-	reqCross.Header.Set("X-Tenant-Id", tenantB) // TENANT B
+	reqCross.Header.Set("X-Test-User-Role", "teacher")
+	reqCross.Header.Set("X-Test-Tenant-Id", tenantB) // TENANT B
 
 	respCross, err := http.DefaultClient.Do(reqCross)
 	if err != nil {
@@ -456,8 +451,8 @@ func TestSlice13_Commit1_AuthorizationAndCrossTenantIsolation(t *testing.T) {
 
 	// 4. Docente de Tenant B intenta publicar ejercicio de Tenant A -> 404 Not Found
 	reqPubCross, _ := http.NewRequestWithContext(context.Background(), "POST", ts.URL+"/api/v1/exercises/"+exerciseID+"/publish", nil)
-	reqPubCross.Header.Set("X-User-Role", "teacher")
-	reqPubCross.Header.Set("X-Tenant-Id", tenantB) // TENANT B
+	reqPubCross.Header.Set("X-Test-User-Role", "teacher")
+	reqPubCross.Header.Set("X-Test-Tenant-Id", tenantB) // TENANT B
 
 	respPubCross, err := http.DefaultClient.Do(reqPubCross)
 	if err != nil {

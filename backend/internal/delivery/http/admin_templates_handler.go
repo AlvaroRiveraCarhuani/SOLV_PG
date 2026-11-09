@@ -31,8 +31,7 @@ func (h *AdminAcademicHandler) GetRuntimeCapabilities(w http.ResponseWriter, r *
 }
 
 func (h *AdminAcademicHandler) ListTemplates(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores y docentes pueden consultar plantillas")
 		return
 	}
@@ -56,7 +55,7 @@ func (h *AdminAcademicHandler) ListTemplates(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden revisar plantillas")
 		return
@@ -69,7 +68,7 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -130,14 +129,14 @@ func (h *AdminAcademicHandler) ReviewTemplate(w http.ResponseWriter, r *http.Req
 }
 
 func (h *AdminAcademicHandler) CreateTemplate(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden registrar plantillas oficiales")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -264,7 +263,7 @@ func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.R
 	if h.notificationService != nil {
 		adminID := getUserIDFromCtx(r)
 		if adminID == "" {
-			adminID = r.Header.Get("X-User-Id")
+			adminID = requestUserID(r)
 		}
 		if adminID != "" {
 			msg := fmt.Sprintf("Entornos preparados: %d descargados, %d ya listos en el servidor.", summary.WarmedCount, summary.AlreadyWarm)
@@ -287,7 +286,7 @@ func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.R
 }
 
 func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden duplicar plantillas")
 		return
@@ -300,7 +299,7 @@ func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 		return
 	}
 
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -347,7 +346,7 @@ func (h *AdminAcademicHandler) DuplicateTemplate(w http.ResponseWriter, r *http.
 // -----------------------------------------------------------------------------
 
 func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
+	role := requestRole(r)
 	if role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden ejecutar acciones de emergencia")
 		return
@@ -360,7 +359,7 @@ func (h *AdminAcademicHandler) ExecuteEmergencyAction(w http.ResponseWriter, r *
 		return
 	}
 
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -473,7 +472,7 @@ func (h *AdminAcademicHandler) VerifyImage(w http.ResponseWriter, r *http.Reques
 			"bypass":    "force_verification",
 			"reason":    "Bypass manual de verificación de imagen Docker",
 		})
-		adminID := r.Header.Get("X-User-Id")
+		adminID := requestUserID(r)
 		if adminID == "" {
 			adminID = domain.DefaultTenantID
 		}

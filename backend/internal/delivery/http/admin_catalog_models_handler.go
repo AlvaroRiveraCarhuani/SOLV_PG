@@ -90,7 +90,7 @@ func (h *AdminAcademicHandler) DeleteTemplateCategory(w http.ResponseWriter, r *
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de categoría requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -195,7 +195,7 @@ func (h *AdminAcademicHandler) DeactivateTemplateModel(w http.ResponseWriter, r 
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de modelo requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid
@@ -217,7 +217,7 @@ func (h *AdminAcademicHandler) ReactivateTemplateModel(w http.ResponseWriter, r 
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de modelo requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid
@@ -239,7 +239,7 @@ func (h *AdminAcademicHandler) PromoteTemplateToModel(w http.ResponseWriter, r *
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de plantilla requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
 	}
@@ -281,7 +281,7 @@ func (h *AdminAcademicHandler) SaveDraft(w http.ResponseWriter, r *http.Request)
 	}
 
 	tenantID := getTenantFromCtx(r)
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			userID = uid
@@ -322,7 +322,7 @@ func (h *AdminAcademicHandler) GetDraftByUser(w http.ResponseWriter, r *http.Req
 	}
 
 	tenantID := getTenantFromCtx(r)
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			userID = uid
@@ -360,7 +360,7 @@ func (h *AdminAcademicHandler) DeleteDraft(w http.ResponseWriter, r *http.Reques
 	}
 
 	tenantID := getTenantFromCtx(r)
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			userID = uid

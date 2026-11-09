@@ -73,9 +73,6 @@ func EndpointRateLimitMiddleware(limiter *UserRateLimiter, endpointName string) 
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			key := domain.GetUserID(r.Context())
 			if key == "" {
-				key = r.Header.Get("X-User-Id")
-			}
-			if key == "" {
 				key = getClientIP(r)
 			}
 

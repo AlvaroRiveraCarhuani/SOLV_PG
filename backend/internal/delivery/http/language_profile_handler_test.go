@@ -100,7 +100,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 		"reason":            "test",
 	})
 	req = httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
-	req.Header.Set("X-User-Role", "teacher")
+	req = withTestIdentity(req, "teacher-1", "tenant-test", "teacher")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
@@ -109,8 +109,7 @@ func TestLanguageProfileEndpoints(t *testing.T) {
 
 	// 4. PUT /api/v1/admin/judge/profiles/python con admin -> 200 OK
 	req = httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/judge/profiles/python", bytes.NewReader(bodyBytes))
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-user-1")
+	req = withTestIdentity(req, "admin-user-1", "tenant-test", "admin")
 	rec = httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {

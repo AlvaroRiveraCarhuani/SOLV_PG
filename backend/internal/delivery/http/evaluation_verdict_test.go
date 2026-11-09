@@ -139,9 +139,7 @@ func TestEvaluate_ComputesVerdictOnServerAndIgnoresClientVerdict(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/evaluations", bytes.NewReader(payload))
-	req = req.WithContext(context.WithValue(req.Context(), domain.UserIDKey, "student-1"))
-	req.Header.Set("X-User-Role", "student")
-	req.Header.Set("X-User-Id", "student-1")
+	req = withTestIdentity(req, "student-1", "tenant-test", "student")
 
 	rr := httptest.NewRecorder()
 	handler.Evaluate(rr, req)

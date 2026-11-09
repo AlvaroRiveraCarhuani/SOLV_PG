@@ -31,7 +31,7 @@ type openAulaRequest struct {
 // OpenAula abre el aula de una materia. Responde con el aula creada para que la
 // pantalla no tenga que volver a preguntar cuál quedó abierta.
 func (h *ClassSessionHandler) OpenAula(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden abrir un aula")
 		return
 	}
@@ -75,7 +75,7 @@ type closeAulaResponse struct {
 
 // CloseAula cierra el aula de la materia. Cerrar dos veces responde lo mismo.
 func (h *ClassSessionHandler) CloseAula(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden cerrar un aula")
 		return
 	}
@@ -104,7 +104,7 @@ type unfreezeExamRequest struct {
 // responde el conteo real: cuántos quedaron en solo lectura, cuántos ya estaban
 // y cuántos fallaron.
 func (h *ClassSessionHandler) FreezeExam(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden cerrar un examen")
 		return
 	}
@@ -120,7 +120,7 @@ func (h *ClassSessionHandler) FreezeExam(w http.ResponseWriter, r *http.Request)
 // UnfreezeExamStudent es la excepción individual: devuelve la escritura al
 // laboratorio de un alumno con un motivo que queda registrado.
 func (h *ClassSessionHandler) UnfreezeExamStudent(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden reabrir un entorno")
 		return
 	}
@@ -157,7 +157,7 @@ func (h *ClassSessionHandler) GetCurrentAula(w http.ResponseWriter, r *http.Requ
 // GetLastClosedAula devuelve el aula cerrada más reciente del docente, con su
 // ventana de disponibilidad. Sin aula cerrada, data es nulo.
 func (h *ClassSessionHandler) GetLastClosedAula(w http.ResponseWriter, r *http.Request) {
-	if role := requestRole(r); role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden consultar la última aula cerrada")
 		return
 	}
@@ -215,16 +215,6 @@ func (h *ClassSessionHandler) PostHeartbeat(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	SendJSON(w, http.StatusOK, map[string]bool{"ok": true}, "Presencia registrada")
-}
-
-// requestRole lee el rol de la sesión con el mismo fallback que el resto de los
-// handlers, para que las pruebas y los proxies que solo copian cabeceras sigan
-// funcionando.
-func requestRole(r *http.Request) string {
-	if role := strings.TrimSpace(domain.GetUserRole(r.Context())); role != "" {
-		return role
-	}
-	return strings.TrimSpace(r.Header.Get("X-User-Role"))
 }
 
 func (h *ClassSessionHandler) writeSessionError(w http.ResponseWriter, err error, message string) {

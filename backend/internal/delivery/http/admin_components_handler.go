@@ -36,7 +36,7 @@ func (h *AdminAcademicHandler) CreateTemplateComponent(w http.ResponseWriter, r 
 		return
 	}
 	tenantID := getTenantFromCtx(r)
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid
@@ -76,7 +76,7 @@ func (h *AdminAcademicHandler) UpdateTemplateComponent(w http.ResponseWriter, r 
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de componente requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 
 	var dto domain.UpdateTemplateComponentDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
@@ -159,7 +159,7 @@ func (h *AdminAcademicHandler) UpdateOfficialTemplate(w http.ResponseWriter, r *
 		SendError(w, http.StatusBadRequest, "missing_id", "ID de plantilla requerido")
 		return
 	}
-	adminID := r.Header.Get("X-User-Id")
+	adminID := requestUserID(r)
 	if adminID == "" {
 		if uid, ok := r.Context().Value(domain.UserIDKey).(string); ok && uid != "" {
 			adminID = uid

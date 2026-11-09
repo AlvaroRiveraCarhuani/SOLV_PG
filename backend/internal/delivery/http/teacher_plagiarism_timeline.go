@@ -8,14 +8,13 @@ import (
 )
 
 func (h *TeacherHandler) AnalyzePlagiarism(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	subjectID := r.URL.Query().Get("subject_id")
 	if subjectID == "" {
@@ -45,14 +44,14 @@ func (h *TeacherHandler) AnalyzePlagiarism(w http.ResponseWriter, r *http.Reques
 // tramos compartidos y la telemetría resumida. No expone casos de prueba,
 // rúbrica ni comentarios.
 func (h *TeacherHandler) GetPlagiarismPair(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
+	role := requestRole(r)
 	if role == "admin" {
 		teacherID = ""
 	} else if teacherID == "" {
@@ -90,14 +89,13 @@ func (h *TeacherHandler) GetPlagiarismPair(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *TeacherHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
 		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")
@@ -122,14 +120,13 @@ func (h *TeacherHandler) GetTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TeacherHandler) GetKeystrokeEvents(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes y administradores pueden acceder a este recurso")
 		return
 	}
 
 	tenantID := getTenantFromCtx(r)
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 	submissionID := r.PathValue("id")
 	if submissionID == "" {
 		SendError(w, http.StatusBadRequest, "Missing submission ID", "El identificador de la entrega es requerido")

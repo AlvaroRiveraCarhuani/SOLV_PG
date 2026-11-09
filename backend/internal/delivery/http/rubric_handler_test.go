@@ -46,12 +46,7 @@ func callRubricEvaluation(t *testing.T, service domain.RubricService, role, user
 		"/api/v1/submissions/"+uuid.NewString()+"/rubric-evaluation",
 		strings.NewReader(`{"selections":{"c1":"Logrado"},"comments":"Corrección del docente"}`),
 	)
-	if role != "" {
-		req.Header.Set("X-User-Role", role)
-	}
-	if userID != "" {
-		req.Header.Set("X-User-Id", userID)
-	}
+	req = withTestIdentity(req, userID, "tenant-test", role)
 
 	rr := httptest.NewRecorder()
 	router.ServeHTTP(rr, req)

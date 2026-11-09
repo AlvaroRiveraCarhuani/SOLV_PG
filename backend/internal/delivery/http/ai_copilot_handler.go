@@ -58,11 +58,7 @@ func (h *AICopilotHandler) SuggestTemplate(w http.ResponseWriter, r *http.Reques
 // Reutiliza el mismo prompt del copiloto: el docente no ve Dockerfiles, solo
 // nombres de herramientas.
 func (h *AICopilotHandler) SuggestEnvironmentForTeacher(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "" {
-		role = domain.GetUserRole(r.Context())
-	}
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: el copiloto de entornos no está disponible para estudiantes")
 		return
 	}
@@ -90,7 +86,7 @@ func (h *AICopilotHandler) SuggestComponent(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	tenantID := getTenantFromCtx(r)
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		userID = "admin"
 	}
@@ -112,16 +108,12 @@ func (h *AICopilotHandler) SuggestComponent(w http.ResponseWriter, r *http.Reque
 
 // GenerateExerciseDraft genera un borrador de ejercicio sellado por el runner.
 func (h *AICopilotHandler) GenerateExerciseDraft(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "" {
-		role = domain.GetUserRole(r.Context())
-	}
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: el copiloto de ejercicios no está disponible para estudiantes")
 		return
 	}
 	tenantID := getTenantFromCtx(r)
-	userID := r.Header.Get("X-User-Id")
+	userID := requestUserID(r)
 	if userID == "" {
 		userID = "teacher"
 	}

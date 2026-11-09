@@ -155,7 +155,7 @@ func (r *PostgresAdminGovernanceRepository) ListTemplates(
 		FROM lab_templates lt
 		LEFT JOIN users u ON u.id = lt.requested_by
 		LEFT JOIN template_categories tc ON tc.id = lt.category_id
-		WHERE (lt.tenant_id = $1 OR lt.tenant_id IS NULL)
+		WHERE ($1 = '' OR lt.tenant_id = NULLIF($1, '')::uuid OR lt.tenant_id IS NULL)
 	`
 	args := []interface{}{tenantID}
 	argIdx := 2
@@ -212,7 +212,7 @@ func (r *PostgresAdminGovernanceRepository) ReviewTemplate(
 				)
 				ELSE resource_profile
 			END
-		WHERE id = $5 AND (tenant_id = $6 OR tenant_id IS NULL)
+		WHERE id = $5 AND ($6 = '' OR tenant_id = NULLIF($6, '')::uuid OR tenant_id IS NULL)
 		RETURNING 
 			id,
 			tenant_id,

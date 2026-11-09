@@ -63,8 +63,7 @@ func TestAICopilotHandlerRepairTemplateTimeoutIs504(t *testing.T) {
 
 	body := `{"name":"Laboratorio","docker_image":"python:3.12-slim","error_message":"el contenedor superó el tiempo de arranque"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/ai/repair-template", strings.NewReader(body))
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "u-admin")
+	req = withTestIdentity(req, "u-admin", "", "admin")
 
 	reqCtx, cancel := context.WithTimeout(context.WithValue(req.Context(), domain.TenantIDKey, "t-test"), 60*time.Millisecond)
 	defer cancel()
@@ -115,8 +114,7 @@ func TestAICopilotHandlerRepairTemplateSuccess(t *testing.T) {
 	handler := NewAICopilotHandler(services.NewAICopilotService(settingsSvc, nil))
 	body := `{"name":"Estadística","docker_image":"python:3.12-slim","dockerfile_content":"FROM python:3.12-slim","tools_declared":["python3"],"base_ram_mb":1024,"error_message":"gcc: not found"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/ai/repair-template", strings.NewReader(body))
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "u-admin")
+	req = withTestIdentity(req, "u-admin", "", "admin")
 	req = req.WithContext(context.WithValue(req.Context(), domain.TenantIDKey, "t-test"))
 	rec := httptest.NewRecorder()
 
@@ -148,7 +146,7 @@ func TestAICopilotHandlerRepairTemplateRejectsNonAdmin(t *testing.T) {
 	handler := NewAICopilotHandler(services.NewAICopilotService(services.NewAISettingsService(repo), nil))
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/ai/repair-template", strings.NewReader(`{}`))
-	req.Header.Set("X-User-Role", "teacher")
+	req = withTestIdentity(req, "", "", "teacher")
 	rec := httptest.NewRecorder()
 
 	handler.RepairTemplate(rec, req)
@@ -205,8 +203,7 @@ func TestAISettingsMySettingsRejectsStudent(t *testing.T) {
 	}
 	for name, endpoint := range endpoints {
 		req := httptest.NewRequest(http.MethodPost, "/api/v1/ai/my-settings", strings.NewReader(`{}`))
-		req.Header.Set("X-User-Role", "student")
-		req.Header.Set("X-User-Id", "u-student")
+		req = withTestIdentity(req, "u-student", "", "student")
 		req = req.WithContext(context.WithValue(req.Context(), domain.TenantIDKey, "t-test"))
 		rec := httptest.NewRecorder()
 
@@ -218,8 +215,7 @@ func TestAISettingsMySettingsRejectsStudent(t *testing.T) {
 
 	// El docente sí consulta su propia configuración.
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/ai/my-settings", nil)
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-User-Id", "u-teacher")
+	req = withTestIdentity(req, "u-teacher", "", "teacher")
 	req = req.WithContext(context.WithValue(req.Context(), domain.TenantIDKey, "t-test"))
 	rec := httptest.NewRecorder()
 	handler.GetMySettings(rec, req)

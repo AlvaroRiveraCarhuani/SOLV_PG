@@ -167,8 +167,15 @@ func TestAdminAcademicHandler_UpdateTemplateComponentAndAliases(t *testing.T) {
 
 	deps := &Handlers{
 		AdminAcademicHandler: handler,
-		TenantMiddleware:     func(next http.Handler) http.Handler { return next },
-		AuditMiddleware:      func(next http.Handler) http.Handler { return next },
+		TenantMiddleware: func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				ctx := context.WithValue(r.Context(), domain.UserRoleKey, "admin")
+				ctx = context.WithValue(ctx, domain.UserIDKey, "admin-test")
+				ctx = context.WithValue(ctx, domain.TenantIDKey, "tenant-test")
+				next.ServeHTTP(w, r.WithContext(ctx))
+			})
+		},
+		AuditMiddleware: func(next http.Handler) http.Handler { return next },
 	}
 	mux := http.NewServeMux()
 	registerAdminRoutes(mux, deps)

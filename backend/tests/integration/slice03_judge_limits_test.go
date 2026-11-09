@@ -11,6 +11,7 @@ import (
 )
 
 func TestJudgeLimitsTimeLimitExceededAllLanguages(t *testing.T) {
+	requireDocker(t)
 	languages := []struct {
 		lang     string
 		codeFile string

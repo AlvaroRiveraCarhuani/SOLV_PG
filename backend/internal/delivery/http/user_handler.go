@@ -20,6 +20,10 @@ func NewUserHandler(repo domain.UserRepository, validate *validator.Validate) *U
 }
 
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
+	if !requireAdminRole(w, r) {
+		return
+	}
+
 	var dto domain.CreateUserDTO
 	if err := json.NewDecoder(r.Body).Decode(&dto); err != nil {
 		SendError(w, http.StatusBadRequest, "Invalid JSON body", "Cuerpo de la petición inválido")
@@ -45,12 +49,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
-	userID := r.Header.Get("X-User-Id")
-	if userID == "" {
-		if ctxUserID, ok := r.Context().Value(UserIDKey).(string); ok && ctxUserID != "" {
-			userID = ctxUserID
-		}
-	}
+	userID := requestUserID(r)
 	if userID == "" {
 		SendError(w, http.StatusUnauthorized, "Missing user ID in headers", "Usuario no autenticado")
 		return

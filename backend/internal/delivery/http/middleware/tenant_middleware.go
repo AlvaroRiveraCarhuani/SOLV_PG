@@ -21,20 +21,6 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 			}
 
 			if tokenString == "" {
-				// Si ya viene pre-autenticado por ForwardAuth o proxy interno
-				if userID := r.Header.Get("X-User-Id"); userID != "" {
-					tenantID := r.Header.Get("X-Tenant-Id")
-					if tenantID == "" {
-						tenantID = domain.DefaultTenantID
-					}
-					ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-					ctx = context.WithValue(ctx, domain.UserIDKey, userID)
-					if role := r.Header.Get("X-User-Role"); role != "" {
-						ctx = context.WithValue(ctx, domain.UserRoleKey, role)
-					}
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
 				http.Error(w, "missing or invalid authorization header or session cookie", http.StatusUnauthorized)
 				return
 			}
@@ -78,13 +64,12 @@ func WithTenant(tenantRepo domain.TenantRepository, jwtSecret []byte) func(http.
 
 			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
 			ctx = context.WithValue(ctx, domain.UserIDKey, userID)
-			if tokenString != "" {
-				ctx = context.WithValue(ctx, domain.UserTokenKey, tokenString)
-			}
+			ctx = context.WithValue(ctx, domain.UserTokenKey, tokenString)
 			r.Header.Set("X-User-Id", userID)
 			r.Header.Set("X-Tenant-Id", tenantID)
 
 			if userEmail, _ := claims["email"].(string); userEmail != "" {
+				ctx = context.WithValue(ctx, domain.UserEmailKey, userEmail)
 				r.Header.Set("X-User-Email", userEmail)
 			}
 			if userRole, _ := claims["role"].(string); userRole != "" {

@@ -52,12 +52,7 @@ func setupSliceCategoriesModelsServer(t *testing.T) (*httptest.Server, *database
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -97,8 +92,8 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	req.Header.Set("X-Test-User-Role", "admin")
+	req.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -114,8 +109,8 @@ func TestSlice_CreateTemplate_NoSilentOverwrite_409Conflict(t *testing.T) {
 	// Segundo intento con el MISMO nombre: debe retornar 409 Conflict, nunca sobreescribir silenciosamente
 	req2, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("X-User-Role", "admin")
-	req2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	req2.Header.Set("X-Test-User-Role", "admin")
+	req2.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil {
@@ -150,8 +145,8 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	body, _ := json.Marshal(payload)
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	req.Header.Set("X-Test-User-Role", "admin")
+	req.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != http.StatusCreated {
@@ -167,8 +162,8 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 
 	// Primera duplicación -> (Copia) uniqueName
 	dupReq1, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
-	dupReq1.Header.Set("X-User-Role", "admin")
-	dupReq1.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	dupReq1.Header.Set("X-Test-User-Role", "admin")
+	dupReq1.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	dupResp1, err := http.DefaultClient.Do(dupReq1)
 	if err != nil || dupResp1.StatusCode != http.StatusCreated {
@@ -178,8 +173,8 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 
 	// Segunda duplicación -> (Copia 2) uniqueName (no debe fallar con 500)
 	dupReq2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplID), nil)
-	dupReq2.Header.Set("X-User-Role", "admin")
-	dupReq2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	dupReq2.Header.Set("X-Test-User-Role", "admin")
+	dupReq2.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	dupResp2, err := http.DefaultClient.Do(dupReq2)
 	if err != nil || dupResp2.StatusCode != http.StatusCreated {
@@ -198,8 +193,8 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	longBody, _ := json.Marshal(longPayload)
 	longReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(longBody))
 	longReq.Header.Set("Content-Type", "application/json")
-	longReq.Header.Set("X-User-Role", "admin")
-	longReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	longReq.Header.Set("X-Test-User-Role", "admin")
+	longReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	longResp, err := http.DefaultClient.Do(longReq)
 	if err != nil || longResp.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create long name template: %v", err)
@@ -214,8 +209,8 @@ func TestSlice_DuplicateTemplate_TwiceWithout500(t *testing.T) {
 	currID := longRes.Data.ID
 	for d := 1; d <= 3; d++ {
 		dReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, currID), nil)
-		dReq.Header.Set("X-User-Role", "admin")
-		dReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+		dReq.Header.Set("X-Test-User-Role", "admin")
+		dReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 		dResp, err := http.DefaultClient.Do(dReq)
 		if err != nil || dResp.StatusCode != http.StatusCreated {
 			t.Fatalf("Duplication %d of long name template failed: status %d", d, dResp.StatusCode)
@@ -252,8 +247,8 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	catBody, _ := json.Marshal(catPayload)
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(catBody))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	req.Header.Set("X-Test-User-Role", "admin")
+	req.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != http.StatusCreated {
@@ -278,8 +273,8 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	tplBody, _ := json.Marshal(tplPayload)
 	tplReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
 	tplReq.Header.Set("Content-Type", "application/json")
-	tplReq.Header.Set("X-User-Role", "admin")
-	tplReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	tplReq.Header.Set("X-Test-User-Role", "admin")
+	tplReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	tplResp, err := http.DefaultClient.Do(tplReq)
 	if err != nil || tplResp.StatusCode != http.StatusCreated {
@@ -289,8 +284,8 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 
 	// 3. Intentar eliminar categoría en uso -> debe retornar 409 Conflict
 	delReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, catID), nil)
-	delReq.Header.Set("X-User-Role", "admin")
-	delReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	delReq.Header.Set("X-Test-User-Role", "admin")
+	delReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	delResp, err := http.DefaultClient.Do(delReq)
 	if err != nil || delResp.StatusCode != http.StatusConflict {
@@ -305,8 +300,8 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	orphanBody, _ := json.Marshal(orphanPayload)
 	oReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(orphanBody))
 	oReq.Header.Set("Content-Type", "application/json")
-	oReq.Header.Set("X-User-Role", "admin")
-	oReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	oReq.Header.Set("X-Test-User-Role", "admin")
+	oReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	oResp, _ := http.DefaultClient.Do(oReq)
 	defer func() { _ = oResp.Body.Close() }()
 	var oRes struct {
@@ -315,8 +310,8 @@ func TestSlice_CategoryCRUD_And_DeleteInUse_409(t *testing.T) {
 	_ = json.NewDecoder(oResp.Body).Decode(&oRes)
 
 	delOrphanReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, oRes.Data.ID), nil)
-	delOrphanReq.Header.Set("X-User-Role", "admin")
-	delOrphanReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	delOrphanReq.Header.Set("X-Test-User-Role", "admin")
+	delOrphanReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	delOrphanResp, err := http.DefaultClient.Do(delOrphanReq)
 	if err != nil || delOrphanResp.StatusCode != http.StatusOK {
 		t.Fatalf("Expected 200 OK deleting unused category, got: %d", delOrphanResp.StatusCode)
@@ -354,8 +349,8 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	tplBody, _ := json.Marshal(tplPayload)
 	tplReq, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewReader(tplBody))
 	tplReq.Header.Set("Content-Type", "application/json")
-	tplReq.Header.Set("X-User-Role", "admin")
-	tplReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	tplReq.Header.Set("X-Test-User-Role", "admin")
+	tplReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	tplResp, _ := http.DefaultClient.Do(tplReq)
 	defer func() { _ = tplResp.Body.Close() }()
@@ -374,8 +369,8 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	pBody, _ := json.Marshal(promotePayload)
 	pReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
 	pReq.Header.Set("Content-Type", "application/json")
-	pReq.Header.Set("X-User-Role", "admin")
-	pReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	pReq.Header.Set("X-Test-User-Role", "admin")
+	pReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	pResp, _ := http.DefaultClient.Do(pReq)
 	defer func() { _ = pResp.Body.Close() }()
@@ -392,8 +387,8 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	// 4. Promover ahora -> debe responder 201 Created y retornar el modelo
 	pReq2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/promote-to-model", server.URL, tplID), bytes.NewReader(pBody))
 	pReq2.Header.Set("Content-Type", "application/json")
-	pReq2.Header.Set("X-User-Role", "admin")
-	pReq2.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	pReq2.Header.Set("X-Test-User-Role", "admin")
+	pReq2.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 
 	pResp2, err := http.DefaultClient.Do(pReq2)
 	if err != nil || pResp2.StatusCode != http.StatusCreated {
@@ -403,7 +398,7 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 
 	// 5. Consultar GET /api/v1/admin/template-models y validar que el modelo aparece con usage_count >= 1
 	mReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
-	mReq.Header.Set("X-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	mReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
 	mResp, err := http.DefaultClient.Do(mReq)
 	if err != nil || mResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list template models: %v", err)
@@ -459,7 +454,7 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 	b1, _ := json.Marshal(c1Payload)
 	req1, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b1))
 	req1.Header.Set("Content-Type", "application/json")
-	req1.Header.Set("X-User-Role", "admin")
+	req1.Header.Set("X-Test-User-Role", "admin")
 	resp1, err := http.DefaultClient.Do(req1)
 	if err != nil || resp1.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create cat A: %v", err)
@@ -472,7 +467,7 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 	b2, _ := json.Marshal(c2Payload)
 	req2, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/template-categories", bytes.NewReader(b2))
 	req2.Header.Set("Content-Type", "application/json")
-	req2.Header.Set("X-User-Role", "admin")
+	req2.Header.Set("X-Test-User-Role", "admin")
 	resp2, err := http.DefaultClient.Do(req2)
 	if err != nil || resp2.StatusCode != http.StatusCreated {
 		t.Fatalf("Failed to create cat B: %v", err)
@@ -489,7 +484,7 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 	reorderBody, _ := json.Marshal(reorderItems)
 	rReq, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/template-categories/reorder", bytes.NewReader(reorderBody))
 	rReq.Header.Set("Content-Type", "application/json")
-	rReq.Header.Set("X-User-Role", "admin")
+	rReq.Header.Set("X-Test-User-Role", "admin")
 	rResp, err := http.DefaultClient.Do(rReq)
 	if err != nil || rResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to reorder categories: status %d, err %v", rResp.StatusCode, err)
@@ -535,7 +530,7 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 	}
 
 	delReq, _ := http.NewRequestWithContext(context.Background(), "DELETE", fmt.Sprintf("%s/api/v1/admin/template-categories/%s", server.URL, res2.Data.ID), nil)
-	delReq.Header.Set("X-User-Role", "admin")
+	delReq.Header.Set("X-Test-User-Role", "admin")
 	delResp, err := http.DefaultClient.Do(delReq)
 	if err != nil || delResp.StatusCode != http.StatusConflict {
 		t.Fatalf("Expected 409 Conflict when deleting category with models, got status: %d", delResp.StatusCode)
@@ -590,7 +585,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 	upBody, _ := json.Marshal(upPayload)
 	upReq, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/template-models/%s", server.URL, modelID), bytes.NewReader(upBody))
 	upReq.Header.Set("Content-Type", "application/json")
-	upReq.Header.Set("X-User-Role", "admin")
+	upReq.Header.Set("X-Test-User-Role", "admin")
 	upResp, err := http.DefaultClient.Do(upReq)
 	if err != nil || upResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to update template model: status %d, err %v", upResp.StatusCode, err)
@@ -599,7 +594,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 
 	// 4. POST /api/v1/admin/template-models/{id}/deactivate
 	deactReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/deactivate", server.URL, modelID), nil)
-	deactReq.Header.Set("X-User-Role", "admin")
+	deactReq.Header.Set("X-Test-User-Role", "admin")
 	deactResp, err := http.DefaultClient.Do(deactReq)
 	if err != nil || deactResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to deactivate template model: status %d, err %v", deactResp.StatusCode, err)
@@ -663,7 +658,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 
 	// 8. POST /api/v1/admin/template-models/{id}/reactivate
 	reactReq, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/template-models/%s/reactivate", server.URL, modelID), nil)
-	reactReq.Header.Set("X-User-Role", "admin")
+	reactReq.Header.Set("X-Test-User-Role", "admin")
 	reactResp, err := http.DefaultClient.Do(reactReq)
 	if err != nil || reactResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to reactivate template model: status %d, err %v", reactResp.StatusCode, err)

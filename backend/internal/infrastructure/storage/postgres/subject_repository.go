@@ -107,7 +107,7 @@ func (r *PostgresSubjectRepository) ListByTenant(ctx context.Context, tenantID s
 		FROM subjects s
 		LEFT JOIN users u ON s.teacher_id = u.id
 		WHERE s.tenant_id = $1 
-		ORDER BY s.name ASC
+		ORDER BY s.created_at DESC
 	`
 	err := r.db.SelectContext(ctx, &list, query, tenantID)
 	if err != nil {

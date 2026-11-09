@@ -132,9 +132,9 @@ func TestSlice18_TeacherOverview_ReadModel(t *testing.T) {
 
 	newRequest := func(teacher, query, role string) *http.Request {
 		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/api/v1/teacher/overview"+query, nil)
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", teacher)
-		req.Header.Set("X-User-Role", role)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacher)
+		req.Header.Set("X-Test-User-Role", role)
 		return req
 	}
 

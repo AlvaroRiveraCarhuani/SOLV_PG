@@ -177,8 +177,8 @@ func (h *TeacherInvitationHandler) buildInviteURL(r *http.Request, token string)
 func (h *TeacherInvitationHandler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
 
-	userID := r.Header.Get("X-User-Id")
-	userEmail := r.Header.Get("X-User-Email")
+	userID := requestUserID(r)
+	userEmail := requestUserEmail(r)
 
 	var req struct {
 		Token string `json:"token"`

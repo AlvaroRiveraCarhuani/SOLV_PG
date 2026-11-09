@@ -60,12 +60,7 @@ func setupSlice16BackupsServer(t *testing.T) (*httptest.Server, *database.Databa
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -125,9 +120,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	t.Run("1. Configuración de Políticas - Consulta y Modificación de Retención", func(t *testing.T) {
 		// 1.1 GET Config inicial por defecto
 		reqGet, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/backups/config", nil)
-		reqGet.Header.Set("X-User-Id", adminID)
-		reqGet.Header.Set("X-User-Role", "admin")
-		reqGet.Header.Set("X-Tenant-Id", tenantID)
+		reqGet.Header.Set("X-Test-User-Id", adminID)
+		reqGet.Header.Set("X-Test-User-Role", "admin")
+		reqGet.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respGet, err := client.Do(reqGet)
 		if err != nil || respGet.StatusCode != http.StatusOK {
@@ -156,9 +151,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		raw, _ := json.Marshal(updateDTO)
 
 		reqPut, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
-		reqPut.Header.Set("X-User-Id", adminID)
-		reqPut.Header.Set("X-User-Role", "admin")
-		reqPut.Header.Set("X-Tenant-Id", tenantID)
+		reqPut.Header.Set("X-Test-User-Id", adminID)
+		reqPut.Header.Set("X-Test-User-Role", "admin")
+		reqPut.Header.Set("X-Test-Tenant-Id", tenantID)
 		reqPut.Header.Set("Content-Type", "application/json")
 
 		respPut, err := client.Do(reqPut)
@@ -190,9 +185,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("2. Ejecución Manual de Respaldo - Generación Gzip y Checksum SHA-256", func(t *testing.T) {
 		reqTrigger, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/backups/trigger", nil)
-		reqTrigger.Header.Set("X-User-Id", adminID)
-		reqTrigger.Header.Set("X-User-Role", "admin")
-		reqTrigger.Header.Set("X-Tenant-Id", tenantID)
+		reqTrigger.Header.Set("X-Test-User-Id", adminID)
+		reqTrigger.Header.Set("X-Test-User-Role", "admin")
+		reqTrigger.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respTrigger, err := client.Do(reqTrigger)
 		if err != nil || respTrigger.StatusCode != http.StatusCreated {
@@ -233,8 +228,8 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 		for attempt := 0; attempt < 10; attempt++ {
 			time.Sleep(50 * time.Millisecond)
 			reqNotif, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications?limit=5", nil)
-			reqNotif.Header.Set("X-User-Id", adminID)
-			reqNotif.Header.Set("X-Tenant-Id", tenantID)
+			reqNotif.Header.Set("X-Test-User-Id", adminID)
+			reqNotif.Header.Set("X-Test-Tenant-Id", tenantID)
 
 			respNotif, err := client.Do(reqNotif)
 			if err == nil {
@@ -267,9 +262,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("4. Historial de Respaldos - Listado Cronológico y Totalizador", func(t *testing.T) {
 		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/backups?page=1&limit=10", nil)
-		reqList.Header.Set("X-User-Id", adminID)
-		reqList.Header.Set("X-User-Role", "admin")
-		reqList.Header.Set("X-Tenant-Id", tenantID)
+		reqList.Header.Set("X-Test-User-Id", adminID)
+		reqList.Header.Set("X-Test-User-Role", "admin")
+		reqList.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respList, err := client.Do(reqList)
 		if err != nil || respList.StatusCode != http.StatusOK {
@@ -294,9 +289,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("5. Verificación Criptográfica - Recálculo de SHA-256 contra Archivo en Disco", func(t *testing.T) {
 		reqVerify, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/backups/%s/verify", server.URL, createdExecutionID), nil)
-		reqVerify.Header.Set("X-User-Id", adminID)
-		reqVerify.Header.Set("X-User-Role", "admin")
-		reqVerify.Header.Set("X-Tenant-Id", tenantID)
+		reqVerify.Header.Set("X-Test-User-Id", adminID)
+		reqVerify.Header.Set("X-Test-User-Role", "admin")
+		reqVerify.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respVerify, err := client.Do(reqVerify)
 		if err != nil || respVerify.StatusCode != http.StatusOK {
@@ -321,9 +316,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("6. Descarga Directa - Headers de Attachment y Stream Gzip", func(t *testing.T) {
 		reqDown, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/admin/backups/%s/download", server.URL, createdExecutionID), nil)
-		reqDown.Header.Set("X-User-Id", adminID)
-		reqDown.Header.Set("X-User-Role", "admin")
-		reqDown.Header.Set("X-Tenant-Id", tenantID)
+		reqDown.Header.Set("X-Test-User-Id", adminID)
+		reqDown.Header.Set("X-Test-User-Role", "admin")
+		reqDown.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDown, err := client.Do(reqDown)
 		if err != nil || respDown.StatusCode != http.StatusOK {
@@ -349,9 +344,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("7. Control de Acceso por Rol - 403 Forbidden para No Administradores", func(t *testing.T) {
 		reqNoAuth, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/backups/trigger", nil)
-		reqNoAuth.Header.Set("X-User-Id", studentID)
-		reqNoAuth.Header.Set("X-User-Role", "student") // Rol estudiante
-		reqNoAuth.Header.Set("X-Tenant-Id", tenantID)
+		reqNoAuth.Header.Set("X-Test-User-Id", studentID)
+		reqNoAuth.Header.Set("X-Test-User-Role", "student") // Rol estudiante
+		reqNoAuth.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respNoAuth, err := client.Do(reqNoAuth)
 		if err != nil || respNoAuth.StatusCode != http.StatusForbidden {
@@ -368,9 +363,9 @@ func TestSlice16_Backups_CompleteSuite(t *testing.T) {
 			dto := domain.UpdateBackupConfigDTO{LocalFrequencyHours: freq, LocalRetentionDays: retention}
 			raw, _ := json.Marshal(dto)
 			req, _ := http.NewRequestWithContext(context.Background(), "PUT", server.URL+"/api/v1/admin/backups/config", bytes.NewBuffer(raw))
-			req.Header.Set("X-User-Id", adminID)
-			req.Header.Set("X-User-Role", "admin")
-			req.Header.Set("X-Tenant-Id", tenantID)
+			req.Header.Set("X-Test-User-Id", adminID)
+			req.Header.Set("X-Test-User-Role", "admin")
+			req.Header.Set("X-Test-Tenant-Id", tenantID)
 			req.Header.Set("Content-Type", "application/json")
 			resp, err := client.Do(req)
 			if err != nil {
@@ -435,9 +430,9 @@ func TestSlice16_Backups_VerifyPersistence(t *testing.T) {
 	}
 	do := func(method, path string, want int) json.RawMessage {
 		req, _ := http.NewRequestWithContext(context.Background(), method, server.URL+path, nil)
-		req.Header.Set("X-User-Id", adminID)
-		req.Header.Set("X-User-Role", "admin")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", adminID)
+		req.Header.Set("X-Test-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal(err)

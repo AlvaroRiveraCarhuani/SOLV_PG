@@ -175,7 +175,7 @@ func TestHTTP_ListAdministrators_ForbiddenForNonAdmin(t *testing.T) {
 	_, mux := setupAdminHandler(&mockAdminGovRepoForHTTP{})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/administrators", nil)
-	req.Header.Set("X-User-Role", "student")
+	req = withTestIdentity(req, "", "", "student")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -194,8 +194,7 @@ func TestHTTP_ListAdministrators_Success(t *testing.T) {
 	_, mux := setupAdminHandler(repo)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/administrators", nil)
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-Tenant-Id", "tenant-1")
+	req = withTestIdentity(req, "admin-1", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -224,8 +223,7 @@ func TestHTTP_CreateAdministrator_ValidationErrors(t *testing.T) {
 		Email:     "no-valid-email",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators", bytes.NewReader(body))
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-super")
+	req = withTestIdentity(req, "admin-super", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -241,8 +239,7 @@ func TestHTTP_CreateAdministrator_ValidationErrors(t *testing.T) {
 		Email:     "juan@uab.edu.bo",
 	})
 	req2 := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators", bytes.NewReader(bodyEmptyName))
-	req2.Header.Set("X-User-Role", "admin")
-	req2.Header.Set("X-User-Id", "admin-super")
+	req2 = withTestIdentity(req2, "admin-super", "tenant-1", "admin")
 	rec2 := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec2, req2)
@@ -262,8 +259,7 @@ func TestHTTP_CreateAdministrator_Success(t *testing.T) {
 		Email:     "ana.rios@uab.edu.bo",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators", bytes.NewReader(body))
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-super")
+	req = withTestIdentity(req, "admin-super", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -278,8 +274,7 @@ func TestHTTP_RevokeAdministrator_CannotRevokeSelf(t *testing.T) {
 	_, mux := setupAdminHandler(repo)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators/admin-self/revoke", nil)
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-self")
+	req = withTestIdentity(req, "admin-self", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -294,8 +289,7 @@ func TestHTTP_RevokeAdministrator_LastAdministratorBlocked(t *testing.T) {
 	_, mux := setupAdminHandler(repo)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators/admin-target/revoke", nil)
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-super")
+	req = withTestIdentity(req, "admin-super", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)
@@ -310,8 +304,7 @@ func TestHTTP_RevokeAdministrator_Success(t *testing.T) {
 	_, mux := setupAdminHandler(repo)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/administrators/admin-target/revoke", nil)
-	req.Header.Set("X-User-Role", "admin")
-	req.Header.Set("X-User-Id", "admin-super")
+	req = withTestIdentity(req, "admin-super", "tenant-1", "admin")
 	rec := httptest.NewRecorder()
 
 	mux.ServeHTTP(rec, req)

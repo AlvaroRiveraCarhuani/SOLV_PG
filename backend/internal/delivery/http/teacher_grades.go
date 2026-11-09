@@ -10,8 +10,7 @@ import (
 )
 
 func (h *TeacherHandler) GetCourseGradesMatrix(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden consultar la matriz de calificaciones")
 		return
 	}
@@ -24,7 +23,7 @@ func (h *TeacherHandler) GetCourseGradesMatrix(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	matrix, err := h.service.GetCourseGradesMatrix(r.Context(), tenantID, teacherID, subjectID)
 	if err != nil {
@@ -40,8 +39,7 @@ func (h *TeacherHandler) GetCourseGradesMatrix(w http.ResponseWriter, r *http.Re
 }
 
 func (h *TeacherHandler) ExportGrades(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo docentes pueden exportar calificaciones")
 		return
 	}
@@ -54,7 +52,7 @@ func (h *TeacherHandler) ExportGrades(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teacherID := r.Header.Get("X-User-Id")
+	teacherID := requestUserID(r)
 
 	csvData, filename, err := h.service.ExportCourseGradesCSV(r.Context(), tenantID, teacherID, subjectID)
 	if err != nil {

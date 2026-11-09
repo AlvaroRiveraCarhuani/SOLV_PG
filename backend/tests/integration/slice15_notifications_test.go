@@ -36,12 +36,7 @@ func setupSlice15NotificationsServer(t *testing.T) (*httptest.Server, *database.
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -113,8 +108,8 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("1. Paginación y Orden Temporal - Consulta Paginada y Metadatos", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications?page=1&limit=2", nil)
-		req.Header.Set("X-User-Id", userA_ID)
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userA_ID)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -154,8 +149,8 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("2. Contador Ultraliviano de No Leídas para Campana UI", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/notifications/unread-count", nil)
-		req.Header.Set("X-User-Id", userA_ID)
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userA_ID)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -182,8 +177,8 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 
 		// 3.1 Usuario B intenta marcar como leída la notificación de Usuario A -> 404 Not Found
 		reqCross, _ := http.NewRequestWithContext(context.Background(), "PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
-		reqCross.Header.Set("X-User-Id", userB_ID) // Usuario incorrecto
-		reqCross.Header.Set("X-Tenant-Id", tenantID)
+		reqCross.Header.Set("X-Test-User-Id", userB_ID) // Usuario incorrecto
+		reqCross.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respCross, _ := client.Do(reqCross)
 		defer func() { _ = respCross.Body.Close() }()
@@ -193,8 +188,8 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 
 		// 3.2 Usuario A marca su propia notificación -> 200 OK
 		reqValid, _ := http.NewRequestWithContext(context.Background(), "PATCH", fmt.Sprintf("%s/api/v1/notifications/%s/read", server.URL, targetID), nil)
-		reqValid.Header.Set("X-User-Id", userA_ID)
-		reqValid.Header.Set("X-Tenant-Id", tenantID)
+		reqValid.Header.Set("X-Test-User-Id", userA_ID)
+		reqValid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respValid, err := client.Do(reqValid)
 		if err != nil {
@@ -228,8 +223,8 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("4. Lectura Masiva - Marcar Todas como Leídas en Una Sola Operación", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/notifications/mark-all-read", nil)
-		req.Header.Set("X-User-Id", userA_ID)
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userA_ID)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -273,12 +268,22 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 			EventType:       "judge_verdict",
 		})
 
-		// Esperar que el worker procese el canal
-		time.Sleep(50 * time.Millisecond)
-
-		count, err := notifService.GetUnreadCount(context.Background(), tenantID, asyncUser)
-		if err != nil || count.UnreadCount != 1 {
-			t.Errorf("Expected async notification to be saved by worker, count=%d, err=%v", count.UnreadCount, err)
+		// El worker procesa el canal en otra goroutine. Un sleep fijo de 50ms
+		// falla bajo carga; se espera el resultado con un límite explícito.
+		deadline := time.Now().Add(2 * time.Second)
+		for {
+			count, err := notifService.GetUnreadCount(context.Background(), tenantID, asyncUser)
+			if err == nil && count != nil && count.UnreadCount == 1 {
+				break
+			}
+			if time.Now().After(deadline) {
+				var countValue int64
+				if count != nil {
+					countValue = count.UnreadCount
+				}
+				t.Fatalf("Expected async notification to be saved by worker, count=%d, err=%v", countValue, err)
+			}
+			time.Sleep(20 * time.Millisecond)
 		}
 	})
 

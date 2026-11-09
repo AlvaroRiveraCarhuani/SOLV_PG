@@ -21,11 +21,7 @@ func NewEnvironmentRequestHandler(service *services.EnvironmentRequestService) *
 }
 
 func (h *EnvironmentRequestHandler) requireTeacherRole(w http.ResponseWriter, r *http.Request) bool {
-	role := r.Header.Get("X-User-Role")
-	if role == "" {
-		role = domain.GetUserRole(r.Context())
-	}
-	if role == "student" {
+	if !hasAnyRole(r, "teacher", "admin") {
 		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: solo docentes y administradores pueden solicitar entornos")
 		return false
 	}

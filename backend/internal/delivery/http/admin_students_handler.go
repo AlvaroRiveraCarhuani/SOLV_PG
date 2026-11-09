@@ -15,8 +15,7 @@ import (
 // -----------------------------------------------------------------------------
 
 func (h *AdminAcademicHandler) ListStudents(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: rol student no autorizado")
 		return
 	}
@@ -46,8 +45,7 @@ func (h *AdminAcademicHandler) ListStudents(w http.ResponseWriter, r *http.Reque
 }
 
 func (h *AdminAcademicHandler) GetStudentCourses(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: rol student no autorizado")
 		return
 	}
@@ -78,8 +76,7 @@ func (h *AdminAcademicHandler) GetStudentCourses(w http.ResponseWriter, r *http.
 }
 
 func (h *AdminAcademicHandler) CreateStudent(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden registrar estudiantes")
 		return
 	}
@@ -110,8 +107,7 @@ func (h *AdminAcademicHandler) CreateStudent(w http.ResponseWriter, r *http.Requ
 }
 
 func (h *AdminAcademicHandler) UpdateStudentStatus(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden suspender o reactivar cuentas")
 		return
 	}
@@ -143,8 +139,7 @@ func (h *AdminAcademicHandler) UpdateStudentStatus(w http.ResponseWriter, r *htt
 }
 
 func (h *AdminAcademicHandler) ResetStudentOOM(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden resetear penalizaciones OOM")
 		return
 	}
@@ -192,7 +187,7 @@ func (h *AdminAcademicHandler) ResetStudentOOM(w http.ResponseWriter, r *http.Re
 // requireAdmin es un guard de rol compartido: solo administradores pueden
 // ejecutar operaciones de nómina y matrícula masiva.
 func requireAdmin(w http.ResponseWriter, r *http.Request) bool {
-	if role := r.Header.Get("X-User-Role"); role != "admin" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: se requiere rol administrador")
 		return false
 	}

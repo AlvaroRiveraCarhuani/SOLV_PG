@@ -150,6 +150,7 @@ func (m *MockPracticeEnvironmentRepository) SaveSemgrepAudit(ctx context.Context
 }
 
 func TestSlice04PracticeEnvironmentLifecycle(t *testing.T) {
+	requireDocker(t)
 	ctx := context.Background()
 	dockerClient, err := docker.NewClient()
 	if err != nil {

@@ -70,8 +70,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		StudentHandler:    studentHandler,
 		TenantMiddleware: func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				next.ServeHTTP(w, withTestIdentity(r, tenantID, r.Header.Get("X-Test-User-Id"), r.Header.Get("X-Test-User-Role")))
 			})
 		},
 	})
@@ -86,7 +85,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}`)
 
 		req := httptest.NewRequestWithContext(context.Background(), "PUT", "/api/v1/admin/branding", bytes.NewReader(brandingPayload))
-		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -163,8 +162,10 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	var createdExerciseID string
 	t.Run("4. Teacher Exercise Creation (Wizard Endpoint)", func(t *testing.T) {
 		freshExID := uuid.New().String()
+		templateID := approvedJudgeTemplateID(t, db)
 		exercisePayload := []byte(fmt.Sprintf(`{
 			"id": "%s",
+			"template_id": "%s",
 			"title": "Búsqueda Binaria Recursiva",
 			"description": "Implemente búsqueda binaria recursiva.",
 			"type": "algorithm",
@@ -173,8 +174,8 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 					"time_limit_ms": 1500,
 					"memory_limit_mb": 128,
 					"test_cases": [
-						{"input": "[1,2,3,4], 3", "expected_output": "2", "is_hidden": false},
-						{"input": "[10,20,30], 99", "expected_output": "-1", "is_hidden": true}
+						{"input": "[1,2,3,4], 3", "expected_output": "2", "visibility": "example"},
+						{"input": "[10,20,30], 99", "expected_output": "-1", "visibility": "hidden"}
 					],
 					"ast_rules": {
 						"forbidden_imports": ["os", "sys"],
@@ -182,10 +183,10 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 					}
 				}
 			}
-		}`, freshExID))
+		}`, freshExID, templateID))
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/exercises", bytes.NewReader(exercisePayload))
-		req.Header.Set("X-User-Role", "teacher")
+		req.Header.Set("X-Test-User-Role", "teacher")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -203,7 +204,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	// 5. Test Public DTO with Public Test Cases for Student
 	t.Run("5. Student Public Exercise DTO with Public Test Cases", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/exercises/"+createdExerciseID, nil)
-		req.Header.Set("X-User-Role", "student")
+		req.Header.Set("X-Test-User-Role", "student")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -249,8 +250,8 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}`)
 
 		req := httptest.NewRequestWithContext(context.Background(), "POST", "/api/v1/submissions/"+sampleSubID+"/override", bytes.NewReader(overridePayload))
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -261,6 +262,8 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 
 		// Fetch detail
 		reqGet := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/submissions/"+sampleSubID, nil)
+		reqGet.Header.Set("X-Test-User-Id", teacherID)
+		reqGet.Header.Set("X-Test-User-Role", "teacher")
 
 		rrGet := httptest.NewRecorder()
 		mux.ServeHTTP(rrGet, reqGet)
@@ -279,7 +282,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	// 7. Test Student Consolidated Dashboard
 	t.Run("7. Student Consolidated Dashboard", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/student/dashboard", nil)
-		req.Header.Set("X-User-Id", studentID)
+		req.Header.Set("X-Test-User-Id", studentID)
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)

@@ -109,7 +109,7 @@ func TestExerciseSecurityDTOFiltering(t *testing.T) {
 	t.Run("Test 1: Estudiante consulta ejercicio -> respuesta NO contiene test_cases", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/exercises/ex-sec-101", nil)
 		req.SetPathValue("id", "ex-sec-101")
-		req.Header.Set("X-User-Role", "student")
+		req = withTestIdentity(req, "00000000-0000-0000-0000-000000000001", "student-sec-1", "student")
 
 		w := httptest.NewRecorder()
 		handler.GetExerciseByID(w, req)
@@ -136,7 +136,7 @@ func TestExerciseSecurityDTOFiltering(t *testing.T) {
 	t.Run("Test 2: Docente consulta ejercicio -> respuesta SÍ contiene test_cases completosa", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/exercises/ex-sec-101", nil)
 		req.SetPathValue("id", "ex-sec-101")
-		req.Header.Set("X-User-Role", "teacher")
+		req = withTestIdentity(req, "00000000-0000-0000-0000-000000000001", "teacher-sec-1", "teacher")
 
 		w := httptest.NewRecorder()
 		handler.GetExerciseByID(w, req)
@@ -158,7 +158,7 @@ func TestExerciseSecurityDTOFiltering(t *testing.T) {
 	t.Run("Test 3: Validación estricta de estructura JSON hacia rol student", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/exercises/ex-sec-101", nil)
 		req.SetPathValue("id", "ex-sec-101")
-		req.Header.Set("X-User-Role", "student")
+		req = withTestIdentity(req, "00000000-0000-0000-0000-000000000001", "student-sec-1", "student")
 
 		w := httptest.NewRecorder()
 		handler.GetExerciseByID(w, req)

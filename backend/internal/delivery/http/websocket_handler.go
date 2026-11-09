@@ -3,19 +3,16 @@ package httpdelivery
 import (
 	"log"
 	"net/http"
-	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
 var defaultUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Permite conexiones desde cualquier origen / subdominio de tenant
-	},
+	CheckOrigin:     websocketOriginAllowed,
 }
 
 type WebSocketHandler struct {
@@ -25,6 +22,9 @@ type WebSocketHandler struct {
 }
 
 func NewWebSocketHandler(hub *WebSocketHub, authService *services.AuthService) *WebSocketHandler {
+	if hub != nil && authService != nil {
+		hub.BindSessionRevocations(authService)
+	}
 	return &WebSocketHandler{
 		hub:         hub,
 		authService: authService,
@@ -33,39 +33,15 @@ func NewWebSocketHandler(hub *WebSocketHub, authService *services.AuthService) *
 }
 
 func (h *WebSocketHandler) HandleEvaluationWS(w http.ResponseWriter, r *http.Request) {
-	var tokenStr string
-	// 1. Extraer token de Query param, Header o Cookie
-	if qToken := r.URL.Query().Get("token"); qToken != "" {
-		tokenStr = qToken
-	} else if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
-		tokenStr = strings.TrimPrefix(authHeader, "Bearer ")
-	} else if cookie, err := r.Cookie("solv_session"); err == nil && cookie.Value != "" {
-		tokenStr = cookie.Value
+	if !websocketOriginAllowed(r) {
+		SendError(w, http.StatusForbidden, "forbidden origin", "Origen no permitido para WebSocket")
+		return
 	}
 
-	userID := "anonymous"
-	tenantID := domain.DefaultTenantID
-
-	if tokenStr != "" && h.authService != nil {
-		claims, err := h.authService.ValidateSessionToken(tokenStr)
-		if err != nil {
-			SendError(w, http.StatusUnauthorized, "invalid session token", "Token de sesión inválido para WebSocket")
-			return
-		}
-		if uID, ok := claims["user_id"].(string); ok && uID != "" {
-			userID = uID
-		}
-		if tID, ok := claims["tenant_id"].(string); ok && tID != "" {
-			tenantID = tID
-		}
-	} else {
-		// Fallback para headers o testing
-		if hUID := r.Header.Get("X-User-Id"); hUID != "" {
-			userID = hUID
-		}
-		if hTID := r.Header.Get("X-Tenant-Id"); hTID != "" {
-			tenantID = hTID
-		}
+	principal, err := websocketSession(r, h.authService)
+	if err != nil {
+		SendError(w, http.StatusUnauthorized, "invalid session token", "Token de sesión inválido para WebSocket")
+		return
 	}
 
 	conn, err := h.upgrader.Upgrade(w, r, nil)
@@ -73,24 +49,42 @@ func (h *WebSocketHandler) HandleEvaluationWS(w http.ResponseWriter, r *http.Req
 		log.Printf("[WebSocketHandler] Failed to upgrade connection: %v", err)
 		return
 	}
+	if !principal.expiresAt.IsZero() {
+		timer := time.AfterFunc(time.Until(principal.expiresAt), func() {
+			_ = conn.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session expired"),
+				time.Now().Add(writeWait),
+			)
+			_ = conn.Close()
+		})
+		defer timer.Stop()
+	}
 
 	client := &WebSocketClient{
 		hub:      h.hub,
 		conn:     conn,
 		send:     make(chan []byte, 256),
-		userID:   userID,
-		tenantID: tenantID,
+		userID:   principal.userID,
+		tenantID: principal.tenantID,
 	}
 
-	h.hub.Register(client)
+	h.hub.RegisterSession(client, principal.sessionID)
+	if h.authService != nil {
+		revoked, checkErr := h.authService.IsSessionIDRevokedContext(r.Context(), principal.sessionID)
+		if checkErr != nil || revoked {
+			h.hub.CloseSession(principal.sessionID)
+			return
+		}
+	}
 
 	// Emitir confirmación de conexión inicial
-	h.hub.EmitToUser(userID, WebSocketMessage{
+	h.hub.EmitToUserInTenant(principal.tenantID, principal.userID, WebSocketMessage{
 		Event: "CONNECTION_ESTABLISHED",
 		Stage: "CONNECTED",
 		Data: map[string]string{
-			"user_id":   userID,
-			"tenant_id": tenantID,
+			"user_id":   principal.userID,
+			"tenant_id": principal.tenantID,
 			"status":    "ready",
 		},
 	})

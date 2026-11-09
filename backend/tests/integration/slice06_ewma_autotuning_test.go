@@ -24,7 +24,7 @@ func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
 	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
-		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+		skipOrFailInfra(t, "PostgreSQL no disponible para la integración: %v", err)
 	}
 
 	repo := postgres.NewPostgresLabTemplateRepository(dbInstance.GetDB())
@@ -83,15 +83,16 @@ func TestSlice6ConcurrentEWMAAndAutoLearning(t *testing.T) {
 }
 
 func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
+	requireDocker(t)
 	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
-		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+		skipOrFailInfra(t, "PostgreSQL no disponible para la integración: %v", err)
 	}
 
 	dockerClient, err := dockerinfra.NewClient()
 	if err != nil {
-		t.Skipf("Skipping integration test: Docker daemon not available: %v", err)
+		skipOrFailInfra(t, "Docker no disponible para la integración: %v", err)
 	}
 
 	ctx := context.Background()
@@ -108,7 +109,7 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 
 	// Crear contenedor huérfano simulado
 	orphanConfig := domain.PracticeEnvironmentContainerConfig{
-		Image:         "gitpod/openvscode-server:latest",
+		Image:         domain.OpenVSCodeImage,
 		ContainerName: "solv-environment-orphan-test-12345",
 		VolumeName:    "solv_test_vol_orphan",
 		MemoryLimitMB: 256,
@@ -119,6 +120,9 @@ func TestSlice6NetworkICCDisabledAndZombieCollector(t *testing.T) {
 	}
 
 	_ = dockerClient.EnsureVolumeExists(ctx, orphanConfig.VolumeName)
+	t.Cleanup(func() {
+		_ = dockerClient.RemoveVolume(context.Background(), orphanConfig.VolumeName)
+	})
 	orphanID, err := dockerClient.StartPracticeEnvironmentContainer(ctx, orphanConfig)
 	if err != nil {
 		t.Fatalf("Failed to create dummy orphan container: %v", err)
@@ -150,7 +154,7 @@ func TestSlice6PrometheusMetricsEndpoint(t *testing.T) {
 	dsn := getTestDSN()
 	dbInstance, err := database.NewPostgresDB(dsn)
 	if err != nil {
-		t.Skipf("Skipping integration test: PostgreSQL DB connection failed: %v", err)
+		skipOrFailInfra(t, "PostgreSQL no disponible para la integración: %v", err)
 	}
 
 	environmentRepo := postgres.NewPostgresPracticeEnvironmentRepository(dbInstance.GetDB())

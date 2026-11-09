@@ -83,11 +83,10 @@ func advanceApplyRequest(body string) *http.Request {
 	if body != "" {
 		reader = strings.NewReader(body)
 	}
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/class-advances/"+advanceHTTPAdvanceID+"/apply", reader)
+	ctx := context.WithValue(context.Background(), domain.TenantIDKey, advanceHTTPTenantID)
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost, "/api/v1/class-advances/"+advanceHTTPAdvanceID+"/apply", reader)
 	request.SetPathValue("id", advanceHTTPAdvanceID)
-	request.Header.Set("X-User-Id", advanceHTTPTeacherID)
-	request.Header.Set("X-User-Role", "student")
-	return request
+	return withTestIdentity(request, advanceHTTPTeacherID, advanceHTTPTenantID, "student")
 }
 
 func pendingDeliveryForHTTP() *domain.AdvanceDelivery {
@@ -198,11 +197,11 @@ func TestClassAdvanceHandler_RollbackRestoresBackup(t *testing.T) {
 		},
 	)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+	ctx := context.WithValue(context.Background(), domain.TenantIDKey, advanceHTTPTenantID)
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost,
 		"/api/v1/class-advances/"+advanceHTTPAdvanceID+"/rollback", nil)
 	request.SetPathValue("id", advanceHTTPAdvanceID)
-	request.Header.Set("X-User-Id", advanceHTTPTeacherID)
-	request.Header.Set("X-User-Role", "student")
+	request = withTestIdentity(request, advanceHTTPTeacherID, advanceHTTPTenantID, "student")
 
 	recorder := httptest.NewRecorder()
 	handler.RollbackAdvance(recorder, request)
@@ -230,11 +229,11 @@ func TestClassAdvanceHandler_RollbackRestoresBackup(t *testing.T) {
 func TestClassAdvanceHandler_RollbackRequiresAppliedAdvance(t *testing.T) {
 	handler, _, volumes := newAdvanceApplierHandler(pendingDeliveryForHTTP(), nil, nil)
 
-	request := httptest.NewRequestWithContext(context.Background(), http.MethodPost,
+	ctx := context.WithValue(context.Background(), domain.TenantIDKey, advanceHTTPTenantID)
+	request := httptest.NewRequestWithContext(ctx, http.MethodPost,
 		"/api/v1/class-advances/"+advanceHTTPAdvanceID+"/rollback", nil)
 	request.SetPathValue("id", advanceHTTPAdvanceID)
-	request.Header.Set("X-User-Id", advanceHTTPTeacherID)
-	request.Header.Set("X-User-Role", "student")
+	request = withTestIdentity(request, advanceHTTPTeacherID, advanceHTTPTenantID, "student")
 
 	recorder := httptest.NewRecorder()
 	handler.RollbackAdvance(recorder, request)

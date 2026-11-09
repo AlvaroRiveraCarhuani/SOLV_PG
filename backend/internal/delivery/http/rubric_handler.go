@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 
 	"solv-backend/internal/core/domain"
 
@@ -87,12 +86,12 @@ func (h *RubricHandler) SaveRubric(w http.ResponseWriter, r *http.Request) {
 
 func (h *RubricHandler) EvaluateSubmission(w http.ResponseWriter, r *http.Request) {
 	// Calificar es una decisión docente: el rol se exige antes de leer nada.
-	role := strings.TrimSpace(r.Header.Get("X-User-Role"))
+	role := requestRole(r)
 	if role != "teacher" && role != "admin" {
 		SendError(w, http.StatusForbidden, "Forbidden", "Solo docentes y administradores pueden calificar con rúbrica")
 		return
 	}
-	teacherID := strings.TrimSpace(r.Header.Get("X-User-Id"))
+	teacherID := requestUserID(r)
 	if teacherID == "" {
 		SendError(w, http.StatusUnauthorized, "unauthorized", "Falta la identidad del docente")
 		return

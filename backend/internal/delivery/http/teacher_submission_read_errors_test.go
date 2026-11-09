@@ -40,8 +40,7 @@ func teacherReadRequest(method, path, submissionID string) *http.Request {
 	req.SetPathValue("id", submissionID)
 	ctx := context.WithValue(req.Context(), domain.TenantIDKey, domain.DefaultTenantID)
 	req = req.WithContext(ctx)
-	req.Header.Set("X-User-Role", "teacher")
-	req.Header.Set("X-User-Id", "teacher-read")
+	req = withTestIdentity(req, "teacher-read", "", "teacher")
 	req.Header.Set("Content-Type", "application/json")
 	return req
 }

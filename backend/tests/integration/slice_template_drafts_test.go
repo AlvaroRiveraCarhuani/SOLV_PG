@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -42,22 +41,19 @@ func setupDraftTestServer(t *testing.T) (*httptest.Server, *database.Database) {
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
+			tenantID := r.Header.Get("X-Test-Tenant-Id")
 			if tenantID == "" {
 				tenantID = "00000000-0000-0000-0000-000000000001"
 			}
-			userID := r.Header.Get("X-User-Id")
+			userID := r.Header.Get("X-Test-User-Id")
 			if userID == "" {
 				userID = "00000000-0000-0000-0000-000000000001"
 			}
-			role := r.Header.Get("X-User-Role")
+			role := r.Header.Get("X-Test-User-Role")
 			if role == "" {
 				role = "admin"
 			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			ctx = context.WithValue(ctx, domain.UserIDKey, userID)
-			ctx = context.WithValue(ctx, domain.UserRoleKey, role)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentity(r, tenantID, userID, role))
 		})
 	}
 
@@ -110,9 +106,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 	// 1. GET sin borrador retorna 404
 	t.Run("1. GET sin borrador retorna 404", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userA)
-		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userA)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -140,9 +136,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userA)
-		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userA)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -157,9 +153,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 		// Leer borrador con GET
 		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
-		getReq.Header.Set("X-Tenant-Id", tenantID)
-		getReq.Header.Set("X-User-Id", userA)
-		getReq.Header.Set("X-User-Role", "admin")
+		getReq.Header.Set("X-Test-Tenant-Id", tenantID)
+		getReq.Header.Set("X-Test-User-Id", userA)
+		getReq.Header.Set("X-Test-User-Role", "admin")
 
 		getResp, err := http.DefaultClient.Do(getReq)
 		if err != nil {
@@ -198,9 +194,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 	// 3. Usuario B no puede leer borrador de Usuario A (aislamiento por user_id)
 	t.Run("3. Usuario B no puede leer borrador de Usuario A", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userB)
-		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userB)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -216,9 +212,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 	// 4. Borrar borrador y volver a leer retorna 404
 	t.Run("4. DELETE borrador y posterior GET retorna 404", func(t *testing.T) {
 		delReq, _ := http.NewRequestWithContext(context.Background(), http.MethodDelete, server.URL+"/api/v1/admin/templates/drafts", nil)
-		delReq.Header.Set("X-Tenant-Id", tenantID)
-		delReq.Header.Set("X-User-Id", userA)
-		delReq.Header.Set("X-User-Role", "admin")
+		delReq.Header.Set("X-Test-Tenant-Id", tenantID)
+		delReq.Header.Set("X-Test-User-Id", userA)
+		delReq.Header.Set("X-Test-User-Role", "admin")
 
 		delResp, err := http.DefaultClient.Do(delReq)
 		if err != nil {
@@ -232,9 +228,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 		// Verificar que ya no existe
 		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
-		getReq.Header.Set("X-Tenant-Id", tenantID)
-		getReq.Header.Set("X-User-Id", userA)
-		getReq.Header.Set("X-User-Role", "admin")
+		getReq.Header.Set("X-Test-Tenant-Id", tenantID)
+		getReq.Header.Set("X-Test-User-Id", userA)
+		getReq.Header.Set("X-Test-User-Role", "admin")
 
 		getResp, err := http.DefaultClient.Do(getReq)
 		if err != nil {
@@ -254,9 +250,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 		req, _ := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL+"/api/v1/admin/templates/drafts", bytes.NewReader(bodyBytes))
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userB)
-		req.Header.Set("X-User-Role", "admin")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userB)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
@@ -271,9 +267,9 @@ func TestTemplateDraftLifecycleAndIsolation(t *testing.T) {
 
 		// Leer borrador de User B
 		getReq, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/api/v1/admin/templates/drafts", nil)
-		getReq.Header.Set("X-Tenant-Id", tenantID)
-		getReq.Header.Set("X-User-Id", userB)
-		getReq.Header.Set("X-User-Role", "admin")
+		getReq.Header.Set("X-Test-Tenant-Id", tenantID)
+		getReq.Header.Set("X-Test-User-Id", userB)
+		getReq.Header.Set("X-Test-User-Role", "admin")
 
 		getResp, err := http.DefaultClient.Do(getReq)
 		if err != nil {

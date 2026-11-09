@@ -71,12 +71,7 @@ func setupClassSessionTestServer(t *testing.T) (*httptest.Server, *database.Data
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -168,9 +163,9 @@ func TestSlice19_ClassSession_Aula(t *testing.T) {
 			t.Fatalf("no se pudo armar la petición: %v", reqErr)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userID)
-		req.Header.Set("X-User-Role", role)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userID)
+		req.Header.Set("X-Test-User-Role", role)
 
 		res, errReq := http.DefaultClient.Do(req)
 		if errReq != nil {
@@ -477,9 +472,9 @@ func TestSlice19_LastClosedAula(t *testing.T) {
 			t.Fatalf("no se pudo armar la petición: %v", reqErr)
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Tenant-Id", tenantID)
-		req.Header.Set("X-User-Id", userID)
-		req.Header.Set("X-User-Role", role)
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", userID)
+		req.Header.Set("X-Test-User-Role", role)
 
 		res, errReq := http.DefaultClient.Do(req)
 		if errReq != nil {

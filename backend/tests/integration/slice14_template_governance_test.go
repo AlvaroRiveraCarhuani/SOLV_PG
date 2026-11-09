@@ -44,12 +44,7 @@ func setupSlice14TemplateGovServer(t *testing.T) (*httptest.Server, *database.Da
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -129,8 +124,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	t.Run("1. Listado de Plantillas - Consulta Completa, Filtros por Estado y Seguridad", func(t *testing.T) {
 		// 1.1 Listar todas las plantillas
 		reqAll, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates", nil)
-		reqAll.Header.Set("X-User-Role", "admin")
-		reqAll.Header.Set("X-Tenant-Id", tenantID)
+		reqAll.Header.Set("X-Test-User-Role", "admin")
+		reqAll.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respAll, err := client.Do(reqAll)
 		if err != nil {
@@ -152,8 +147,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 
 		// 1.2 Filtro status=pending
 		reqPending, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates?status=pending", nil)
-		reqPending.Header.Set("X-User-Role", "admin")
-		reqPending.Header.Set("X-Tenant-Id", tenantID)
+		reqPending.Header.Set("X-Test-User-Role", "admin")
+		reqPending.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respPending, _ := client.Do(reqPending)
 		defer func() { _ = respPending.Body.Close() }()
@@ -169,7 +164,7 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 
 		// 1.3 Seguridad: Estudiante no puede consultar endpoint administrativo
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/templates", nil)
-		reqStudent.Header.Set("X-User-Role", "student")
+		reqStudent.Header.Set("X-Test-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
@@ -190,9 +185,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 
 		reqApprove, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplPendingID), bytes.NewBuffer(reviewBytes))
 		reqApprove.Header.Set("Content-Type", "application/json")
-		reqApprove.Header.Set("X-User-Role", "admin")
-		reqApprove.Header.Set("X-User-Id", adminID)
-		reqApprove.Header.Set("X-Tenant-Id", tenantID)
+		reqApprove.Header.Set("X-Test-User-Role", "admin")
+		reqApprove.Header.Set("X-Test-User-Id", adminID)
+		reqApprove.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respApprove, err := client.Do(reqApprove)
 		if err != nil {
@@ -242,8 +237,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		// 3.1 Status inválido -> 422
 		reqInvalid, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "unknown"}`)))
 		reqInvalid.Header.Set("Content-Type", "application/json")
-		reqInvalid.Header.Set("X-User-Role", "admin")
-		reqInvalid.Header.Set("X-Tenant-Id", tenantID)
+		reqInvalid.Header.Set("X-Test-User-Role", "admin")
+		reqInvalid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respInvalid, _ := client.Do(reqInvalid)
 		defer func() { _ = respInvalid.Body.Close() }()
@@ -254,8 +249,8 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		// 3.2 Rechazar sin motivo -> 422 Unprocessable Entity
 		reqNoReason, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer([]byte(`{"status": "rejected", "rejection_reason": ""}`)))
 		reqNoReason.Header.Set("Content-Type", "application/json")
-		reqNoReason.Header.Set("X-User-Role", "admin")
-		reqNoReason.Header.Set("X-Tenant-Id", tenantID)
+		reqNoReason.Header.Set("X-Test-User-Role", "admin")
+		reqNoReason.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respNoReason, _ := client.Do(reqNoReason)
 		defer func() { _ = respNoReason.Body.Close() }()
@@ -267,9 +262,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		rejectionPayload := []byte(`{"status": "rejected", "rejection_reason": "La imagen Docker no cumple con las políticas de seguridad institucional"}`)
 		reqReject, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplToRejectID), bytes.NewBuffer(rejectionPayload))
 		reqReject.Header.Set("Content-Type", "application/json")
-		reqReject.Header.Set("X-User-Role", "admin")
-		reqReject.Header.Set("X-User-Id", adminID)
-		reqReject.Header.Set("X-Tenant-Id", tenantID)
+		reqReject.Header.Set("X-Test-User-Role", "admin")
+		reqReject.Header.Set("X-Test-User-Id", adminID)
+		reqReject.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respReject, err := client.Do(reqReject)
 		if err != nil {
@@ -305,9 +300,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 
 		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/admin/templates", bytes.NewBuffer(createPayload))
 		reqCreate.Header.Set("Content-Type", "application/json")
-		reqCreate.Header.Set("X-User-Role", "admin")
-		reqCreate.Header.Set("X-User-Id", adminID)
-		reqCreate.Header.Set("X-Tenant-Id", tenantID)
+		reqCreate.Header.Set("X-Test-User-Role", "admin")
+		reqCreate.Header.Set("X-Test-User-Id", adminID)
+		reqCreate.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respCreate, err := client.Do(reqCreate)
 		if err != nil {
@@ -337,9 +332,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		pausePayload := []byte(`{"status": "paused"}`)
 		reqPause, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, tplApprovedID), bytes.NewBuffer(pausePayload))
 		reqPause.Header.Set("Content-Type", "application/json")
-		reqPause.Header.Set("X-User-Role", "admin")
-		reqPause.Header.Set("X-User-Id", adminID)
-		reqPause.Header.Set("X-Tenant-Id", tenantID)
+		reqPause.Header.Set("X-Test-User-Role", "admin")
+		reqPause.Header.Set("X-Test-User-Id", adminID)
+		reqPause.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respPause, err := client.Do(reqPause)
 		if err != nil {
@@ -363,9 +358,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 	// =========================================================================
 	t.Run("6. Duplicación de Plantilla en Catálogo", func(t *testing.T) {
 		reqDup, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates/%s/duplicate", server.URL, tplApprovedID), nil)
-		reqDup.Header.Set("X-User-Role", "admin")
-		reqDup.Header.Set("X-User-Id", adminID)
-		reqDup.Header.Set("X-Tenant-Id", tenantID)
+		reqDup.Header.Set("X-Test-User-Role", "admin")
+		reqDup.Header.Set("X-Test-User-Id", adminID)
+		reqDup.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respDup, err := client.Do(reqDup)
 		if err != nil {
@@ -411,9 +406,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		bodyBytes, _ := json.Marshal(createPayload)
 		reqCreate, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/admin/templates", server.URL), bytes.NewBuffer(bodyBytes))
 		reqCreate.Header.Set("Content-Type", "application/json")
-		reqCreate.Header.Set("X-User-Role", "admin")
-		reqCreate.Header.Set("X-User-Id", adminID)
-		reqCreate.Header.Set("X-Tenant-Id", tenantID)
+		reqCreate.Header.Set("X-Test-User-Role", "admin")
+		reqCreate.Header.Set("X-Test-User-Id", adminID)
+		reqCreate.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respCreate, err := client.Do(reqCreate)
 		if err != nil {
@@ -445,9 +440,9 @@ func TestSlice14_DockerTemplateGovernance(t *testing.T) {
 		reviewBytes, _ := json.Marshal(reviewPayload)
 		reqReview, _ := http.NewRequestWithContext(context.Background(), "PUT", fmt.Sprintf("%s/api/v1/admin/templates/%s/review", server.URL, createdID), bytes.NewBuffer(reviewBytes))
 		reqReview.Header.Set("Content-Type", "application/json")
-		reqReview.Header.Set("X-User-Role", "admin")
-		reqReview.Header.Set("X-User-Id", adminID)
-		reqReview.Header.Set("X-Tenant-Id", tenantID)
+		reqReview.Header.Set("X-Test-User-Role", "admin")
+		reqReview.Header.Set("X-Test-User-Id", adminID)
+		reqReview.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respReview, err := client.Do(reqReview)
 		if err != nil {

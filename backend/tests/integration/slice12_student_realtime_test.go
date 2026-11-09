@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/websocket"
 	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
@@ -121,6 +123,7 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	evalService := services.NewEvaluationService(exerciseRepo, nil, nil, nil)
 	subService := services.NewSubmissionService(submissionRepo)
+	subService.SetExerciseRepository(exerciseRepo)
 	environmentService := services.NewPracticeEnvironmentService(environmentRepo, dockerClient, hostMonitor)
 	subjectService := services.NewSubjectService(subjectRepo)
 	teacherInvService := services.NewTeacherInvitationService(teacherInvRepo)
@@ -128,7 +131,14 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 	wsHub := httpdelivery.NewWebSocketHub()
 	go wsHub.Run()
 
-	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, nil)
+	t.Setenv("GOOGLE_CLIENT_ID", "slice12-test-client")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "slice12-test-secret")
+	t.Setenv("GOOGLE_REDIRECT_URL", "http://localhost:3000/api/v1/auth/callback")
+	t.Setenv("JWT_SECRET", slice12JWTSecret)
+	revocationRepo := postgres.NewPostgresSessionRevocationRepository(db.GetDB())
+	authService := services.NewAuthService(nil, nil).
+		WithSessionRevocationRepository(revocationRepo)
+	wsHandler := httpdelivery.NewWebSocketHandler(wsHub, authService)
 
 	adminHandler := httpdelivery.NewAdminHandler(auditRepo, tenantRepo, environmentRepo, subjectRepo, hostMonitor)
 	studentHandler := httpdelivery.NewStudentHandler(subjectRepo, environmentRepo, submissionRepo, exerciseRepo)
@@ -141,8 +151,12 @@ func setupSlice12TestServer(t *testing.T) (*httptest.Server, *database.Database,
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, "00000000-0000-0000-0000-000000000001")
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentity(
+				r,
+				"00000000-0000-0000-0000-000000000001",
+				r.Header.Get("X-Test-User-Id"),
+				r.Header.Get("X-Test-User-Role"),
+			))
 		})
 	}
 
@@ -184,7 +198,7 @@ func TestSlice12_GetMeEndpoint(t *testing.T) {
 		ON CONFLICT (id) DO NOTHING;
 	`, userID, tenantID)
 
-	// 1. Petición sin X-User-Id -> 401 Unauthorized
+	// 1. Petición sin X-Test-User-Id -> 401 Unauthorized
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/users/me", nil)
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -196,9 +210,9 @@ func TestSlice12_GetMeEndpoint(t *testing.T) {
 		t.Errorf("Expected 401 Unauthorized without header, got %d", resp.StatusCode)
 	}
 
-	// 2. Petición con X-User-Id válido -> 200 OK
+	// 2. Petición con X-Test-User-Id válido -> 200 OK
 	req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/users/me", nil)
-	req.Header.Set("X-User-Id", userID)
+	req.Header.Set("X-Test-User-Id", userID)
 	resp, err = client.Do(req)
 	if err != nil {
 		t.Fatalf("Failed request: %v", err)
@@ -254,14 +268,15 @@ func TestSlice12_GetDueAssignmentsEndpoint(t *testing.T) {
 	`, tenantID, studentID, subjectID)
 
 	futureDue := time.Now().Add(48 * time.Hour)
+	templateID := approvedJudgeTemplateID(t, db)
 	_, _ = db.GetDB().Exec(`
-		INSERT INTO exercises (id, subject_id, title, description, type, due_date, config, tenant_id)
-		VALUES ($1, $2, 'Laboratorio #01: Árboles AVL', 'Implemente balanceo AVL', 'algorithm', $3, '{}'::jsonb, $4)
-		ON CONFLICT (id) DO UPDATE SET due_date = $3, subject_id = $2;
-	`, exerciseID, subjectID, futureDue, tenantID)
+		INSERT INTO exercises (id, subject_id, title, description, type, due_date, config, tenant_id, template_id, status)
+		VALUES ($1, $2, 'Laboratorio #01: Árboles AVL', 'Implemente balanceo AVL', 'algorithm', $3, '{}'::jsonb, $4, $5, 'published')
+		ON CONFLICT (id) DO UPDATE SET due_date = $3, subject_id = $2, template_id = $5, status = 'published';
+	`, exerciseID, subjectID, futureDue, tenantID, templateID)
 
 	req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/student/assignments/due", nil)
-	req.Header.Set("X-User-Id", studentID)
+	req.Header.Set("X-Test-User-Id", studentID)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -320,8 +335,8 @@ func TestSlice12_PausePracticeEnvironmentEndpoint(t *testing.T) {
 
 	// 1. Intento por usuario no autorizado -> 403 Forbidden
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/environments/"+environmentID+"/pause", nil)
-	req.Header.Set("X-User-Id", "intruder-id-123")
-	req.Header.Set("X-User-Role", "student")
+	req.Header.Set("X-Test-User-Id", "intruder-id-123")
+	req.Header.Set("X-Test-User-Role", "student")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -335,8 +350,8 @@ func TestSlice12_PausePracticeEnvironmentEndpoint(t *testing.T) {
 
 	// 2. Intento por el estudiante dueño -> 200 OK
 	req, _ = http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/environments/"+environmentID+"/pause", nil)
-	req.Header.Set("X-User-Id", studentID)
-	req.Header.Set("X-User-Role", "student")
+	req.Header.Set("X-Test-User-Id", studentID)
+	req.Header.Set("X-Test-User-Role", "student")
 
 	resp, err = client.Do(req)
 	if err != nil {
@@ -363,10 +378,19 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	studentID := "aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa"
 	exerciseID := "bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb"
 
-	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/v1/evaluations?token=mock-token"
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") + "/ws/v1/evaluations"
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id":   studentID,
+		"tenant_id": tenantID,
+		"role":      "student",
+		"exp":       time.Now().Add(time.Hour).Unix(),
+	})
+	signedToken, err := token.SignedString([]byte(slice12JWTSecret))
+	if err != nil {
+		t.Fatalf("Failed to sign WebSocket session token: %v", err)
+	}
 	header := http.Header{}
-	header.Set("X-User-Id", studentID)
-	header.Set("X-Tenant-Id", tenantID)
+	header.Set("Authorization", "Bearer "+signedToken)
 
 	wsConn, resp, err := websocket.DefaultDialer.Dial(wsURL, header)
 	if err != nil {
@@ -392,23 +416,39 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 		ON CONFLICT (id) DO NOTHING;
 	`, studentID, tenantID)
 
+	templateID := approvedJudgeTemplateID(t, db)
 	_, _ = db.GetDB().Exec(`
-		INSERT INTO exercises (id, title, description, type, config, tenant_id)
-		VALUES ($1, 'Ejercicio WS Test', 'Suma simple', 'algorithm', '{}'::jsonb, $2)
-		ON CONFLICT (id) DO NOTHING;
-	`, exerciseID, tenantID)
+		INSERT INTO exercises (id, title, description, type, config, tenant_id, template_id)
+		VALUES ($1, 'Ejercicio WS Test', 'Suma simple', 'algorithm', '{}'::jsonb, $2, $3)
+		ON CONFLICT (id) DO UPDATE SET template_id = $3;
+	`, exerciseID, tenantID, templateID)
 
+	code := "print('hola')"
+	receipt, err := services.SignEvaluationReceipt(services.EvaluationReceipt{
+		TenantID:        tenantID,
+		ExerciseID:      exerciseID,
+		StudentID:       studentID,
+		Verdict:         "AC",
+		ExecutionTimeMS: 10,
+		MemoryUsedMB:    4,
+		CodeHash:        services.HashEvaluatedCode(code),
+		IssuedAt:        time.Now().Unix(),
+	})
+	if err != nil {
+		t.Fatalf("Failed to sign evaluation receipt: %v", err)
+	}
 	subReqBody := map[string]interface{}{
-		"exercise_id": exerciseID,
-		"student_id":  studentID,
-		"code":        "print('hola')",
-		"verdict":     "AC",
+		"exercise_id":        exerciseID,
+		"student_id":         studentID,
+		"code":               code,
+		"verdict":            "AC",
+		"evaluation_receipt": receipt,
 	}
 	subJSON, _ := json.Marshal(subReqBody)
 
 	req, _ := http.NewRequestWithContext(context.Background(), "POST", server.URL+"/api/v1/submissions", bytes.NewReader(subJSON))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Tenant-Id", tenantID)
+	req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 	client := &http.Client{}
 	httpResp, err := client.Do(req)
@@ -417,7 +457,8 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 	}
 	defer func() { _ = httpResp.Body.Close() }()
 	if httpResp.StatusCode != http.StatusCreated {
-		t.Fatalf("Expected 201 Created from submission API, got %d", httpResp.StatusCode)
+		body, _ := io.ReadAll(httpResp.Body)
+		t.Fatalf("Expected 201 Created from submission API, got %d: %s", httpResp.StatusCode, body)
 	}
 
 	// 3. Verificar que el WebSocket recibió el evento EVALUATION_COMPLETED
@@ -431,3 +472,5 @@ func TestSlice12_WebSocketHubAndEvaluation(t *testing.T) {
 		t.Errorf("Expected event EVALUATION_COMPLETED, got %v", wsEvent.Event)
 	}
 }
+
+const slice12JWTSecret = "slice12-test-jwt-secret"

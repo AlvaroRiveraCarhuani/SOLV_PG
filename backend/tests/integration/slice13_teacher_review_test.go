@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -41,12 +40,7 @@ func setupTeacherReviewTestServer(t *testing.T) (*httptest.Server, *database.Dat
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -170,9 +164,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	t.Run("1. GET /api/v1/teacher/courses/{id}/submissions - Cola con Filtros", func(t *testing.T) {
 		// 1.1 Listar todas las entregas del curso
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions", server.URL, subjectID), nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -192,9 +186,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 
 		// 1.2 Filtrar por verdict=WA (debe retornar exactamente 2 entregas)
 		reqWA, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/courses/%s/submissions?verdict=WA", server.URL, subjectID), nil)
-		reqWA.Header.Set("X-User-Id", teacherID)
-		reqWA.Header.Set("X-User-Role", "teacher")
-		reqWA.Header.Set("X-Tenant-Id", tenantID)
+		reqWA.Header.Set("X-Test-User-Id", teacherID)
+		reqWA.Header.Set("X-Test-User-Role", "teacher")
+		reqWA.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respWA, _ := client.Do(reqWA)
 		defer func() { _ = respWA.Body.Close() }()
@@ -212,9 +206,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 	t.Run("2. GET /api/v1/teacher/submissions/{id}/review - Desenmascaramiento y Punteros SpeedGrader", func(t *testing.T) {
 		// 2.1 Consulta por docente para Sub 2 (intermedia en tiempo)
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -277,7 +271,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 
 		// 2.2 Seguridad: Estudiante intentando acceder a review docente -> 403 Forbidden
 		reqStudent, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/review", server.URL, sub2ID), nil)
-		reqStudent.Header.Set("X-User-Role", "student")
+		reqStudent.Header.Set("X-Test-User-Role", "student")
 		respStudent, _ := client.Do(reqStudent)
 		defer func() { _ = respStudent.Body.Close() }()
 		if respStudent.StatusCode != http.StatusForbidden {
@@ -293,9 +287,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		shortPayload := []byte(`{"verdict": "AC", "override_reason": "ok", "score": 100}`)
 		reqShort, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
 		reqShort.Header.Set("Content-Type", "application/json")
-		reqShort.Header.Set("X-User-Id", teacherID)
-		reqShort.Header.Set("X-User-Role", "teacher")
-		reqShort.Header.Set("X-Tenant-Id", tenantID)
+		reqShort.Header.Set("X-Test-User-Id", teacherID)
+		reqShort.Header.Set("X-Test-User-Role", "teacher")
+		reqShort.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respShort, _ := client.Do(reqShort)
 		defer func() { _ = respShort.Body.Close() }()
@@ -306,7 +300,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		// 3.2 Seguridad: Estudiante intentando hacer override -> 403 Forbidden
 		reqStuOverride, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(shortPayload))
 		reqStuOverride.Header.Set("Content-Type", "application/json")
-		reqStuOverride.Header.Set("X-User-Role", "student")
+		reqStuOverride.Header.Set("X-Test-User-Role", "student")
 		respStuOverride, _ := client.Do(reqStuOverride)
 		defer func() { _ = respStuOverride.Body.Close() }()
 		if respStuOverride.StatusCode != http.StatusForbidden {
@@ -317,9 +311,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		validPayload := []byte(`{"verdict": "AC", "override_reason": "Solución correcta, contempló caso borde correctamente.", "score": 95}`)
 		reqValid, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/submissions/%s/override", server.URL, sub1ID), bytes.NewBuffer(validPayload))
 		reqValid.Header.Set("Content-Type", "application/json")
-		reqValid.Header.Set("X-User-Id", teacherID)
-		reqValid.Header.Set("X-User-Role", "teacher")
-		reqValid.Header.Set("X-Tenant-Id", tenantID)
+		reqValid.Header.Set("X-Test-User-Id", teacherID)
+		reqValid.Header.Set("X-Test-User-Role", "teacher")
+		reqValid.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respValid, err := client.Do(reqValid)
 		if err != nil {
@@ -368,9 +362,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		c1Payload := []byte(`{"line_number": 2, "comment": "Ojo con el caso base cuando n == 0"}`)
 		reqC1, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c1Payload))
 		reqC1.Header.Set("Content-Type", "application/json")
-		reqC1.Header.Set("X-User-Id", teacherID)
-		reqC1.Header.Set("X-User-Role", "teacher")
-		reqC1.Header.Set("X-Tenant-Id", tenantID)
+		reqC1.Header.Set("X-Test-User-Id", teacherID)
+		reqC1.Header.Set("X-Test-User-Role", "teacher")
+		reqC1.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respC1, err := client.Do(reqC1)
 		if err != nil {
@@ -385,9 +379,9 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 		c2Payload := []byte(`{"line_number": 4, "comment": "Excelente optimización de memoria"}`)
 		reqC2, _ := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), bytes.NewBuffer(c2Payload))
 		reqC2.Header.Set("Content-Type", "application/json")
-		reqC2.Header.Set("X-User-Id", teacherID)
-		reqC2.Header.Set("X-User-Role", "teacher")
-		reqC2.Header.Set("X-Tenant-Id", tenantID)
+		reqC2.Header.Set("X-Test-User-Id", teacherID)
+		reqC2.Header.Set("X-Test-User-Role", "teacher")
+		reqC2.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respC2, _ := client.Do(reqC2)
 		defer func() { _ = respC2.Body.Close() }()
@@ -397,7 +391,7 @@ func TestSlice13_TeacherReviewAndSpeedGraderSuite(t *testing.T) {
 
 		// 4.3 Consultar comentarios de la entrega
 		reqList, _ := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/v1/teacher/submissions/%s/comments", server.URL, sub1ID), nil)
-		reqList.Header.Set("X-Tenant-Id", tenantID)
+		reqList.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		respList, _ := client.Do(reqList)
 		defer func() { _ = respList.Body.Close() }()

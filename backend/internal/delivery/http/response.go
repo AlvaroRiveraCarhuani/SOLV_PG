@@ -3,6 +3,7 @@ package httpdelivery
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"solv-backend/internal/core/domain"
 )
@@ -33,25 +34,74 @@ func SendError(w http.ResponseWriter, status int, err string, msg string) {
 	})
 }
 
-// getTenantFromCtx resolves the tenant ID from the request context, the
-// X-Tenant-Id header, or falls back to DefaultTenantID (single-node default).
-// All handlers in this package must use this helper instead of duplicating the
-// three-step resolution inline.
-func getTenantFromCtx(r *http.Request) string {
-	if tenantID, _ := r.Context().Value(domain.TenantIDKey).(string); tenantID != "" {
-		return tenantID
-	}
-	if tenantID := r.Header.Get("X-Tenant-Id"); tenantID != "" {
-		return tenantID
-	}
-	return domain.DefaultTenantID
+// requestTenantID resuelve el tenant exclusivamente desde el contexto
+// autenticado. Los headers no son una fuente de identidad, ni siquiera como
+// compatibilidad interna: WithTenant es quien escribe el contexto.
+func requestTenantID(r *http.Request) string {
+	return strings.TrimSpace(domain.GetTenantID(r.Context()))
 }
 
-// getUserIDFromCtx resolves the user ID from the X-User-Id header or falls
-// back to DefaultTenantID as a sentinel for anonymous/system callers.
-func getUserIDFromCtx(r *http.Request) string {
-	if userID := r.Header.Get("X-User-Id"); userID != "" {
-		return userID
+// requestUserID resuelve el usuario exclusivamente desde el contexto
+// autenticado. No hay identidad anónima ni fallback a headers.
+func requestUserID(r *http.Request) string {
+	return strings.TrimSpace(domain.GetUserID(r.Context()))
+}
+
+// requestRole resuelve el rol exclusivamente desde el contexto autenticado.
+func requestRole(r *http.Request) string {
+	return strings.TrimSpace(domain.GetUserRole(r.Context()))
+}
+
+// requestUserEmail resuelve el correo exclusivamente desde el contexto
+// autenticado.
+func requestUserEmail(r *http.Request) string {
+	return strings.TrimSpace(domain.GetUserEmail(r.Context()))
+}
+
+func hasAnyRole(r *http.Request, allowed ...string) bool {
+	role := requestRole(r)
+	if role == "" {
+		return false
 	}
-	return domain.DefaultTenantID
+	for _, candidate := range allowed {
+		if role == candidate {
+			return true
+		}
+	}
+	return false
+}
+
+// requireRole aplica una allowlist explícita. Un rol vacío o desconocido no
+// pasa: no se usan exclusiones del tipo "todo menos student".
+func requireRole(w http.ResponseWriter, r *http.Request, allowed ...string) bool {
+	if hasAnyRole(r, allowed...) {
+		return true
+	}
+	SendError(w, http.StatusForbidden, "forbidden", "Acceso denegado: el rol de la sesión no está autorizado")
+	return false
+}
+
+func requireAdminRole(w http.ResponseWriter, r *http.Request) bool {
+	return requireRole(w, r, "admin")
+}
+
+// sessionTokenFromRequest extrae el token de la cookie HttpOnly o del Bearer.
+// No acepta tokens por query string.
+func sessionTokenFromRequest(r *http.Request) string {
+	if authHeader := r.Header.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
+		return strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+	}
+	if cookie, err := r.Cookie("solv_session"); err == nil {
+		return strings.TrimSpace(cookie.Value)
+	}
+	return ""
+}
+
+func getTenantFromCtx(r *http.Request) string {
+	return requestTenantID(r)
+}
+
+// getUserIDFromCtx conserva el nombre usado por los handlers existentes.
+func getUserIDFromCtx(r *http.Request) string {
+	return requestUserID(r)
 }

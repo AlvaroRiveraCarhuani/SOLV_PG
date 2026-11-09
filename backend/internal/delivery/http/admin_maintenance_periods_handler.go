@@ -76,7 +76,7 @@ func (h *AdminAcademicHandler) writeMaintenanceAudit(r *http.Request, tenantID, 
 	}
 	adminID := getUserIDFromCtx(r)
 	if adminID == "" {
-		adminID = r.Header.Get("X-User-Id")
+		adminID = requestUserID(r)
 	}
 	if adminID == "" {
 		adminID = domain.DefaultTenantID
@@ -271,8 +271,7 @@ func (h *AdminAcademicHandler) DeletePeriod(w http.ResponseWriter, r *http.Reque
 // -----------------------------------------------------------------------------
 
 func (h *AdminAcademicHandler) ReassignCourse(w http.ResponseWriter, r *http.Request) {
-	role := r.Header.Get("X-User-Role")
-	if role == "student" {
+	if !hasAnyRole(r, "admin") {
 		SendError(w, http.StatusForbidden, "Forbidden", "Acceso denegado: solo administradores pueden reasignar cursos")
 		return
 	}

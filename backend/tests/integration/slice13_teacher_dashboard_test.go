@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 	httpdelivery "solv-backend/internal/delivery/http"
 	"solv-backend/internal/infrastructure/database"
@@ -38,12 +37,7 @@ func setupTeacherDashboardTestServer(t *testing.T) (*httptest.Server, *database.
 
 	tenantMiddleware := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			tenantID := r.Header.Get("X-Tenant-Id")
-			if tenantID == "" {
-				tenantID = "00000000-0000-0000-0000-000000000001"
-			}
-			ctx := context.WithValue(r.Context(), domain.TenantIDKey, tenantID)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, withTestIdentityFromHeaders(r))
 		})
 	}
 
@@ -207,9 +201,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("1. GET /api/v1/teacher/courses - Metricas Agregadas Exactas", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -262,9 +256,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	// =========================================================================
 	t.Run("3. GET /api/v1/teacher/courses/{id}/labs - Desglose de Laboratorio", func(t *testing.T) {
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 
 		resp, err := client.Do(req)
 		if err != nil {
@@ -323,7 +317,7 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 	t.Run("4. Casos Negativos y Frontera - Permisos, Tenant y Vacíos", func(t *testing.T) {
 		// 4.1 Rol student -> 403 Forbidden
 		req, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
-		req.Header.Set("X-User-Role", "student")
+		req.Header.Set("X-Test-User-Role", "student")
 		resp, _ := client.Do(req)
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusForbidden {
@@ -332,8 +326,8 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 
 		// 4.2 Docente sin materias -> Array vacío [] (no 500 ni null)
 		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses", nil)
-		req.Header.Set("X-User-Id", otherTeacherID)
-		req.Header.Set("X-User-Role", "teacher")
+		req.Header.Set("X-Test-User-Id", otherTeacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
 		resp, _ = client.Do(req)
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {
@@ -348,9 +342,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 
 		// 4.3 Aislamiento Cross-Tenant: Docente en Tenant B consultando materia de Tenant A -> 404
 		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject1ID+"/labs", nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantB)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantB)
 		resp, _ = client.Do(req)
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusNotFound {
@@ -359,9 +353,9 @@ func TestSlice13_TeacherDashboard_CompleteSuite(t *testing.T) {
 
 		// 4.4 Materia 2 (sin laboratorios) -> Array vacío [] (no null)
 		req, _ = http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/teacher/courses/"+subject2ID+"/labs", nil)
-		req.Header.Set("X-User-Id", teacherID)
-		req.Header.Set("X-User-Role", "teacher")
-		req.Header.Set("X-Tenant-Id", tenantID)
+		req.Header.Set("X-Test-User-Id", teacherID)
+		req.Header.Set("X-Test-User-Role", "teacher")
+		req.Header.Set("X-Test-Tenant-Id", tenantID)
 		resp, _ = client.Do(req)
 		defer func() { _ = resp.Body.Close() }()
 		if resp.StatusCode != http.StatusOK {

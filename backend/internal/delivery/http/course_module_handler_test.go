@@ -216,8 +216,7 @@ func TestCourseModuleHandler_StudentCurricularMap(t *testing.T) {
 
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/student/courses/course-1/map", nil)
 	req.SetPathValue("id", "course-1")
-	req.Header.Set("X-Tenant-Id", "tenant-test")
-	req.Header.Set("X-User-Id", "student-test")
+	req = withTestIdentity(req, "student-test", "tenant-test", "student")
 	w := httptest.NewRecorder()
 	handler.GetStudentCurricularMap(w, req)
 
