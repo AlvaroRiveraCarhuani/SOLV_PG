@@ -121,3 +121,36 @@ In exams with `per_student_seed` the generated input is derived from `sha256(exe
 | :--- | :--- | :--- |
 | GOB-SEGURO-02 | The `ast-rules-builder` "Prohibir" rules were persisted as `ast_rules.custom_rules` without being evaluated by the static analyzer. | **Closed** — see section 6. |
 | GOB-SEGURO-03 | The verdict `AST_VIOLATION` was not part of `JudgeVerdict` in the frontend, so the badge rendered it as "Sin evaluar". | **Closed** — see section 7. |
+| SEC-01 | Administrative routes lack uniform `adminOnly` protection and perimeter header sanitization. | **Closed** — see section 9. |
+| SEC-02 | Audit middleware persists sensitive keys and unredacted payloads into metadata. | **Closed** — see section 9. |
+| SEC-03 | Practice environment lifecycle operations lack tenant and ownership checks. | **Closed** — see section 9. |
+| SEC-04 | Public config endpoint exposes internal tenant settings without strict allowlist. | **Closed** — see section 9. |
+
+---
+
+## 9. Functional Security Audit Closure
+
+Following an independent functional security audit, the platform received an **APPROVED** verdict closing the four functional security findings:
+
+1. **Administrative Authorization (SEC-01):**
+   - 87 administrative routes protected by `adminOnly` (`tm(adminOnly(next))` / `tm(am(adminOnly(next)))`).
+   - Catalog read routes (`GET /api/v1/admin/templates` and `GET /api/v1/admin/template-components`) and environment test jobs (`POST /api/v1/jobs/env-test`) bounded by `staffOnly` (`teacher` + `admin`).
+   - Perimeter sanitization middleware (`SanitizeIdentityHeaders`) eliminates client-supplied identity and role headers before routing.
+
+2. **Audit Secrets Redaction (SEC-02):**
+   - Recursive redaction across nested objects and arrays in `AuditMiddleware`.
+   - Key matching normalizes casing, dashes, underscores, and spaces, masking credentials and secrets as `[REDACTED]`.
+   - Non-JSON request bodies are discarded from metadata storage.
+   - Audit query endpoints restricted strictly to administrators (`GET /api/v1/admin/audit-logs`).
+
+3. **Practice Environment Ownership (SEC-03):**
+   - Strict tenant boundary in persistence layer (`WHERE id = $1 AND tenant_id = $2`).
+   - `canAccessPracticeEnvironment` ensures students only operate their own environments; teachers and administrators manage tenant environments according to academic supervision requirements.
+   - Pre-condition check `authorizeEnvironment` executed before any lifecycle mutation (`Terminate`, `GetSemgrepAudit`, `Heartbeat`, `Restart`, `Pause`).
+
+4. **Public Configuration Allowlist (SEC-04):**
+   - Output constrained to the explicit `publicTenantConfig` struct.
+   - Full `tenants.config` map serialization eliminated; sensitive parameters (`ai_settings`, `encrypted_api_key`, `server_policies`) are never exposed.
+   - Header-based tenant selection via `X-Tenant-Id` eliminated.
+
+For full audit evidence, unit test runs, and operational debt tracking, refer to `docs/SECURITY/AUDITORIA_SEGURIDAD_FUNCIONAL_CIERRE.md`.

@@ -67,7 +67,7 @@ This document details standard operational procedures for incident response, dat
    - Environment creation times out (>30s) or student requests fail during morning peak.
    - Docker daemon logs report `toomanyrequests: You have reached your unauthenticated pull rate limit`.
 2. **Immediate Remediation (Host Cache Pre-warming)**:
-   - Trigger mass warming from Admin UI (*Calentar Caché* button) or via terminal on the Asus host:
+   - Trigger mass warming from Admin UI (*Preparar entornos* button) or via terminal on the Asus host:
    ```bash
    curl -X POST "http://localhost:3000/api/v1/admin/templates/warm-all" \
         -H "X-User-Id: <admin_uuid>" \

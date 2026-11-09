@@ -17,6 +17,7 @@ Para el despliegue multi-institucional y BaaS-ready de SOLV, se requieren mecani
 ### 2. Audit Logs Asíncronos con Worker Pool (`CRIT-11`)
 - **Trazabilidad:** Registro automático de mutaciones HTTP (`POST`, `PUT`, `DELETE`) ejecutadas por roles `teacher` y `admin` en la tabla `audit_logs`.
 - **Status Code:** Inclusión y persistencia del código de estado HTTP (`status_code`) mediante un envoltorio `statusCapturingResponseWriter`.
+- **Redacción antes de persistir:** `AuditLog.Metadata` no guarda el cuerpo crudo. Solo se acepta JSON y, antes de escribir, se reemplazan por `[REDACTED]` las claves sensibles (`api_key`, `encrypted_api_key`, tokens, contraseñas y secretos) en cualquier nivel de anidamiento y sin depender de mayúsculas o guiones. Los cuerpos no JSON se descartan; la acción, el actor, el tenant, el estado y la IP siguen registrándose.
 - **Worker Pool:** Procesamiento asíncrono compuesto por un canal bufferizado de 1000 ranuras y 5 workers concurrentes fijos. Si la cola se satura, el log se descarta registrando una advertencia en los logs sin bloquear la respuesta HTTP.
 
 ### 3. Lock de Migraciones (`CRIT-19`)
@@ -26,3 +27,4 @@ Para el despliegue multi-institucional y BaaS-ready de SOLV, se requieren mecani
 ## Consecuencias
 - **Positivas:** Trazabilidad completa de operaciones docentes, protección contra agotamiento de recursos del host Asus y arranque coordinado entre réplicas.
 - **Riesgos:** Pérdida eventual de logs de auditoría únicamente bajo saturación extrema del buffer (1000 eventos pendientes).
+- **Registros anteriores:** los `audit_logs` escritos antes de la redacción pudieron persistir cuerpos con credenciales. No se modifican ni eliminan en esta corrección: requieren revisión, rotación de las claves que hayan estado expuestas y una limpieza o redacción controlada fuera de la operación normal.

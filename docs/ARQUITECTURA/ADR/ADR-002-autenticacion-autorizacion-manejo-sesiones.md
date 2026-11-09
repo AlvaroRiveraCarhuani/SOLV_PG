@@ -2,6 +2,8 @@
 
 **Aceptado**
 
+**Actualizado:** 2026-11-09 (identidad solo desde sesión verificada; allowlists de rol, aislamiento de plantillas y state OAuth de un solo uso)
+
 ---
 
 ## 1. Contexto y Origen de la Necesidad
@@ -37,7 +39,23 @@ La asignación del rol de privilegio (**DOCENTE / ADMIN**) estará estrictamente
 
 ### Gestión de Sesión
 
-- Emisión de **JSON Web Tokens (JWT)** sin estado para manejar sesiones de usuario de forma escalable.
+- Emisión de **JSON Web Tokens (JWT)** firmados; la validez de la sesión se complementa con la revocación persistida.
+- Cada JWT incluye un `jti` único. Los tokens heredados sin `jti` se identifican por un hash SHA-256 para no persistir nunca el token completo.
+- El logout persiste la revocación en `session_revocations` (PostgreSQL) con la expiración del token. La autenticación HTTP, WebSocket y del terminal consultan esa tabla; si PostgreSQL no responde, la comprobación falla cerrada.
+- Las conexiones WebSocket abiertas en otra instancia se cierran mediante un sondeo acotado de la misma tabla. La autorización posterior no depende del sondeo: vuelve a consultar el estado persistido.
+- La identidad HTTP solo se toma del JWT en `Authorization: Bearer` o de la cookie HttpOnly `solv_session`. Un middleware raíz elimina `X-User-Id`, `X-User-Role`, `X-Tenant-Id`, `X-User-Email` y cabeceras equivalentes antes de entrar al mux; `WithAuth` y `WithTenant` las vuelven a fijar únicamente desde claims verificados para la propagación interna.
+- Los handlers no leen cabeceras de identidad. `requestUserID`, `requestTenantID`, `requestRole`, `requestUserEmail`, `getUserIDFromCtx` y `getTenantFromCtx` consultan solo el contexto que escriben `WithAuth`/`WithTenant`; no existe fallback a headers aunque falte el saneador.
+- El callback de Google valida `verified_email`, compara el dominio de forma exacta contra `allowed_domains` del tenant y crea o reutiliza el usuario con `tenant_id` y rol resueltos localmente. El JWT emitido contiene `user_id`, `email`, `role`, `tenant_id`, `jti` y `exp`. El alta administrativa `POST /api/v1/users` no participa en este aprovisionamiento interno.
+- Cada intento de login inicia un `state` de 32 bytes generados con `crypto/rand` y codificados en base64url. El backend guarda el `state` en un almacén de un solo uso con vencimiento de 10 minutos y lo asocia al navegador mediante la cookie HttpOnly `solv_oauth_state` (`SameSite=Lax`, `Secure` fuera de loopback, dominio `COOKIE_DOMAIN`). El callback exige que el `state` de la URL y el de la cookie coincidan con comparación de tiempo constante, consume el valor antes del intercambio del código y rechaza con `403` los estados ausentes, incorrectos, reutilizados o vencidos. La cookie se invalida en toda respuesta del callback. El almacén vive en memoria: con varias instancias hace falta un almacén compartido para que el callback pueda completarse en una instancia distinta de la que inició el login.
+- Un rol vacío o desconocido no satisface ninguna allowlist. Las operaciones docentes exigen `teacher` o `admin`; las administrativas exigen `admin`. No se usan comprobaciones por exclusión (`rol != student`).
+- `POST /api/v1/users` y `POST /api/v1/templates` requieren sesión y rol `admin`. `GET /api/v1/templates` requiere sesión de docente o administrador y filtra por el tenant del claim. `GET /api/v1/config/public` selecciona el tenant solo por `slug` o por el tenant por defecto, nunca por header. `GET /metrics` acepta solo conexiones loopback o un `METRICS_TOKEN` configurado.
+
+### Autorización de la superficie administrativa y de los entornos
+
+- Las rutas `/api/v1/admin/...` se montan después de `WithTenant` con una allowlist explícita: `adminOnly` para las operaciones exclusivamente administrativas y `staffOnly` solo para el catálogo técnico que el docente necesita leer (`GET /api/v1/admin/templates` y `GET /api/v1/admin/template-components`). Las mutaciones conservan la auditoría, ya con el contexto autenticado disponible.
+- `POST /api/v1/jobs/env-test` exige `teacher` o `admin`; no es una operación de estudiante ni una vía alternativa para modificar plantillas oficiales.
+- `Terminate`, `GetSemgrepAudit`, `Heartbeat`, `Restart` y `Pause` de un entorno de práctica resuelven primero el entorno con el tenant del contexto. Un estudiante solo puede operar un entorno cuyo `student_id` coincide con su identidad; un docente o administrador conserva la gestión dentro de su tenant. Un entorno ajeno responde `403` y uno inexistente o de otro tenant responde `404`.
+- `GET /api/v1/config/public` serializa un DTO de lista blanca (`tenant_id`, `slug`, `institution_name`, `logo_url`, color primario, dominio base, correo de soporte y familias tipográficas). No devuelve `tenants.config` completo ni campos de IA, credenciales cifradas, `user_overrides` o políticas internas.
 
 ---
 

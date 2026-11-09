@@ -129,7 +129,7 @@ Canal dúplex en tiempo real para suscripción al ciclo de vida de evaluación a
 
 - **Protocolo:** `WSS` / `WS`
 - **Ruta:** `/ws/v1/evaluations` (Alias: `/api/v1/ws/evaluations`)
-- **Autenticación en Handshake:** Query param `?token=<JWT>`, cabecera `Authorization: Bearer <JWT>` o cookie `solv_session`.
+- **Autenticación en Handshake:** cabecera `Authorization: Bearer <JWT>` o cookie `solv_session`; el JWT en query string no se acepta.
 
 #### Ciclo de Mensajes (Eventos Servidor -> Cliente)
 * `CONNECTION_ESTABLISHED` (Stage: `CONNECTED`)
