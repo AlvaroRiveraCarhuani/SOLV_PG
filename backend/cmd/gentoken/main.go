@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
 
@@ -125,6 +126,7 @@ func main() {
 		"email":     userEmail,
 		"role":      currentRole,
 		"tenant_id": currentTenantID,
+		"jti":       uuid.NewString(),
 		"exp":       time.Now().Add(time.Duration(*days) * 24 * time.Hour).Unix(),
 	}
 
