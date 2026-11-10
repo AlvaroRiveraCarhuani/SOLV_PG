@@ -1,0 +1,110 @@
+<section class="notifications-page">
+  <header class="page-header">
+    <div class="header-titles">
+      <h1 class="page-title">Avisos</h1>
+      <p class="page-subtitle">
+        Calificaciones, vencimientos y novedades de la plataforma en un solo lugar.
+      </p>
+    </div>
+    <button
+      class="btn-mark-all"
+      type="button"
+      [disabled]="!notifService.hasUnread()"
+      (click)="markAllRead()"
+    >
+      Marcar todas como leídas
+    </button>
+  </header>
+
+  <div class="notifications-toolbar">
+    <status-tabs
+      [tabs]="tabs()"
+      [activeTab]="activeTab()"
+      (tabChange)="changeTab($event)"
+    />
+    <div class="toolbar-field">
+      <span class="toolbar-label">Severidad</span>
+      <combobox
+        [options]="severityOptions"
+        [value]="severity()"
+        (valueChange)="changeSeverity($event)"
+        [compact]="true"
+        [showSearchIcon]="false"
+        placeholder="Todas las severidades"
+        inputAriaLabel="Filtrar por severidad"
+      />
+    </div>
+  </div>
+
+  @if (error()) {
+    <p class="notifications-error" role="alert">{{ error() }}</p>
+  }
+
+  @if (loading()) {
+    <div class="notifications-list" aria-busy="true">
+      @for (placeholder of [1, 2, 3]; track placeholder) {
+        <div class="notification-card skeleton-card">
+          <span class="skeleton-line skeleton-title"></span>
+          <span class="skeleton-line skeleton-text"></span>
+        </div>
+      }
+    </div>
+  } @else {
+    <div class="notifications-list">
+      @for (item of items(); track item.id) {
+        <article [class]="'notification-card severity-' + item.severity" [class.unread]="!item.is_read">
+          <div class="notification-head">
+            <div class="notification-heading">
+              <span [class]="'severity-pill severity-' + item.severity">
+                {{ severityLabel(item.severity) }}
+              </span>
+              <h2 class="notification-title">{{ item.title }}</h2>
+            </div>
+            <time class="notification-time" [attr.datetime]="item.created_at">
+              {{ item.created_at | dateText: 'datetime' }}
+            </time>
+          </div>
+
+          <p class="notification-message">{{ item.message }}</p>
+
+          <div class="notification-foot">
+            <div class="notification-meta">
+              @if (item.event_type) {
+                <code machineData class="notification-event">{{ item.event_type }}</code>
+              }
+              @if (item.occurrence_count > 1) {
+                <span machineData class="notification-repeat">{{ item.occurrence_count }} ocurrencias</span>
+              }
+            </div>
+            @if (item.link) {
+              <button class="notification-action" type="button" (click)="open(item)">
+                Abrir
+              </button>
+            }
+          </div>
+        </article>
+      } @empty {
+        <div class="notifications-empty">
+          <p class="empty-title">No hay avisos para mostrar.</p>
+          <p class="empty-hint">
+            @if (activeTab() === 'unread') {
+              Todos los avisos están leídos.
+            } @else {
+              Cuando haya una novedad va a aparecer acá y en la campana.
+            }
+          </p>
+        </div>
+      }
+    </div>
+
+    @if (total() > pageSize) {
+      <pagination-bar
+        [currentPage]="page()"
+        [totalPages]="totalPages()"
+        [totalItems]="total()"
+        itemLabel="avisos"
+        (pageChange)="changePage($event)"
+      />
+    }
+  }
+</section>

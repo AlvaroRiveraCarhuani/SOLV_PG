@@ -122,5 +122,12 @@ export const TEACHER_ROUTES: Routes = [
     path: 'configuracion',
     loadComponent: () =>
       import('./config/teacher-ai-settings.component').then(m => m.TeacherAiSettingsComponent)
+  },
+  {
+    path: 'notifications',
+    loadComponent: () =>
+      import('@features/shared/notifications/notifications-page.component').then(
+        m => m.NotificationsPageComponent
+      )
   }
 ];

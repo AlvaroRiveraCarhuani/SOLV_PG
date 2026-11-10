@@ -18,10 +18,20 @@ type DeadlineReminderWorker struct {
 	repo       domain.DeadlineReminderRepository
 	tenantRepo domain.TenantRepository
 	mailer     domain.Mailer
+	notifier   NotificationEmitter
 	ticker     *time.Ticker
 	done       chan struct{}
 	mu         sync.Mutex
 	running    bool
+}
+
+// WithNotificationService agrega el aviso in-app al correo existente. El aviso
+// no reemplaza al correo ni relaja la deduplicación de la tabla.
+func (w *DeadlineReminderWorker) WithNotificationService(notifier NotificationEmitter) *DeadlineReminderWorker {
+	if w != nil {
+		w.notifier = notifier
+	}
+	return w
 }
 
 func NewDeadlineReminderWorker(
@@ -101,6 +111,19 @@ func (w *DeadlineReminderWorker) ProcessReminders(ctx context.Context, now time.
 			HTMLBody: htmlBody,
 			TextBody: textBody,
 		})
+
+		// El mismo evento alimenta la campana: quien ya abrió la plataforma no
+		// necesita esperar al correo para enterarse.
+		if w.notifier != nil && strings.TrimSpace(c.StudentID) != "" {
+			w.notifier.NotifyAsync(c.TenantID, domain.CreateNotificationDTO{
+				RecipientUserID: c.StudentID,
+				Title:           fmt.Sprintf("Vence pronto: %s", c.ExerciseTitle),
+				Message:         fmt.Sprintf("%s cierra el %s. Todavía no registraste una entrega.", c.SubjectName, formattedDate),
+				Severity:        domain.NotificationSeverityWarning,
+				EventType:       "deadline_reminder",
+				Link:            fmt.Sprintf("/student/exercises/%s", c.ExerciseID),
+			})
+		}
 
 		// Registrar inmediatamente para garantizar deduplicación idempotente
 		if err := w.repo.MarkReminderSent(ctx, c.TenantID, c.ExerciseID, c.StudentID); err != nil {

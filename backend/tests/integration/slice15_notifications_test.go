@@ -315,3 +315,96 @@ func TestSlice15_Notifications_CompleteSuite(t *testing.T) {
 		}
 	})
 }
+
+// TestSlice15_Notifications_FiltersAndConsolidation ejercita el SQL real de
+// filtros, la consolidación anti-fatiga y el saneo de enlaces históricos.
+func TestSlice15_Notifications_FiltersAndConsolidation(t *testing.T) {
+	server, db, notifService := setupSlice15NotificationsServer(t)
+	if server == nil {
+		return
+	}
+	defer server.Close()
+	defer notifService.Stop()
+
+	ctx := context.Background()
+	tenantID := "00000000-0000-0000-0000-000000000001"
+	userID := uuid.NewString()
+
+	if _, err := db.GetDB().Exec(`
+		INSERT INTO users (id, first_name, last_name, email, role, tenant_id)
+		VALUES ($1, 'Filtro', 'Avisos', $2, 'student', $3)
+		ON CONFLICT (id) DO NOTHING;
+	`, userID, fmt.Sprintf("filtro_%s@uab.edu.bo", userID[:6]), tenantID); err != nil {
+		t.Fatalf("no se pudo sembrar el usuario: %v", err)
+	}
+	defer func() {
+		_, _ = db.GetDB().Exec(`DELETE FROM notifications WHERE recipient_user_id = $1`, userID)
+		_, _ = db.GetDB().Exec(`DELETE FROM users WHERE id = $1`, userID)
+	}()
+
+	// Una calificación (nunca se consolida) y dos fallas de respaldo que sí.
+	if _, err := notifService.Notify(ctx, tenantID, domain.CreateNotificationDTO{
+		RecipientUserID: userID,
+		Title:           "Evaluación publicada",
+		Message:         "Tu nota está disponible.",
+		Severity:        domain.NotificationSeverityInfo,
+		EventType:       "grade_published",
+		Link:            "/student/history/sub-1",
+	}); err != nil {
+		t.Fatalf("no se pudo emitir la calificación: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := notifService.Notify(ctx, tenantID, domain.CreateNotificationDTO{
+			RecipientUserID: userID,
+			Title:           "Falla de respaldo",
+			Message:         "Sin espacio en disco.",
+			Severity:        domain.NotificationSeverityCritical,
+			EventType:       "backup_failed",
+			Link:            "https://evil.example/x",
+			Consolidate:     true,
+		}); err != nil {
+			t.Fatalf("no se pudo emitir la falla de respaldo: %v", err)
+		}
+	}
+
+	critical, total, err := notifService.List(ctx, tenantID, userID, domain.NotificationListFilter{Severity: "critical"}, 1, 20)
+	if err != nil || total != 1 || len(critical) != 1 {
+		t.Fatalf("filtro por severidad: total=%d len=%d err=%v", total, len(critical), err)
+	}
+	if critical[0].OccurrenceCount != 2 {
+		t.Errorf("esperaba occurrence_count=2, got %d", critical[0].OccurrenceCount)
+	}
+	if critical[0].Link != "" {
+		t.Errorf("el enlace externo debía descartarse, got %q", critical[0].Link)
+	}
+
+	grades, total, err := notifService.List(ctx, tenantID, userID, domain.NotificationListFilter{EventType: "grade_published"}, 1, 20)
+	if err != nil || total != 1 || len(grades) != 1 {
+		t.Fatalf("filtro por event_type: total=%d len=%d err=%v", total, len(grades), err)
+	}
+
+	// Un aviso previo con enlace inseguro se sanea al leerlo.
+	legacyID := uuid.NewString()
+	if _, err := db.GetDB().Exec(`
+		INSERT INTO notifications (id, tenant_id, recipient_user_id, channel, severity,
+			title, message, event_type, metadata, is_read, read_at, occurrence_count, link, created_at)
+		VALUES ($1, $2, $3, 'in_app', 'info', 'Aviso viejo', 'Histórico', 'manual', '{}', false, NULL, 1, '//evil.example/y', NOW());
+	`, legacyID, tenantID, userID); err != nil {
+		t.Fatalf("no se pudo sembrar el aviso histórico: %v", err)
+	}
+
+	all, total, err := notifService.List(ctx, tenantID, userID, domain.NotificationListFilter{}, 1, 20)
+	if err != nil || total != 3 || len(all) != 3 {
+		t.Fatalf("listado sin filtros: total=%d len=%d err=%v", total, len(all), err)
+	}
+	for _, item := range all {
+		if item.Link != "" && item.Link != "/student/history/sub-1" {
+			t.Errorf("enlace sin sanear: %q", item.Link)
+		}
+	}
+
+	unread, total, err := notifService.List(ctx, tenantID, userID, domain.NotificationListFilter{UnreadOnly: true}, 1, 20)
+	if err != nil || total != 3 || len(unread) != 3 {
+		t.Fatalf("filtro no leídos: total=%d len=%d err=%v", total, len(unread), err)
+	}
+}

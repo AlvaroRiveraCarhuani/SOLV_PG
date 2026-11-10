@@ -239,6 +239,7 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 				Message:         err.Error(),
 				Severity:        domain.NotificationSeverityCritical,
 				EventType:       "backup_failed",
+				Consolidate:     true,
 			})
 		}
 		return nil, err
@@ -374,7 +375,7 @@ func (s *BackupService) TriggerBackup(ctx context.Context, tenantID, adminUserID
 			Message:         fmt.Sprintf("Respaldo '%s' generado (%d bytes). Integridad aún no verificada — usar Verificar.", fileName, fileInfo.Size()),
 			Severity:        domain.NotificationSeverityInfo,
 			EventType:       "backup_created",
-			Link:            "/admin/backups",
+			Link:            "/admin/configuracion",
 		})
 	}
 

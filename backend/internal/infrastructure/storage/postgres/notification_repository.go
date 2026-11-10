@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"solv-backend/internal/core/domain"
@@ -80,7 +81,7 @@ func (r *PostgresNotificationRepository) CreateBatch(ctx context.Context, list [
 func (r *PostgresNotificationRepository) ListByRecipient(
 	ctx context.Context,
 	tenantID, recipientUserID string,
-	unreadOnly bool,
+	filter domain.NotificationListFilter,
 	limit, offset int,
 ) ([]*domain.Notification, int64, error) {
 	if limit <= 0 {
@@ -90,21 +91,33 @@ func (r *PostgresNotificationRepository) ListByRecipient(
 		offset = 0
 	}
 
-	filterClause := ""
-	if unreadOnly {
-		filterClause = " AND is_read = false"
+	conditions := []string{"tenant_id = $1", "recipient_user_id = $2"}
+	args := []interface{}{tenantID, recipientUserID}
+	if filter.UnreadOnly {
+		conditions = append(conditions, "is_read = false")
 	}
+	if filter.Severity != "" {
+		args = append(args, filter.Severity)
+		conditions = append(conditions, fmt.Sprintf("severity = $%d", len(args)))
+	}
+	if filter.EventType != "" {
+		args = append(args, filter.EventType)
+		conditions = append(conditions, fmt.Sprintf("event_type = $%d", len(args)))
+	}
+	whereClause := strings.Join(conditions, " AND ")
 
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) 
 		FROM notifications 
-		WHERE tenant_id = $1 AND recipient_user_id = $2 %s
-	`, filterClause)
+		WHERE %s
+	`, whereClause)
 
 	var total int64
-	if err := r.db.GetContext(ctx, &total, countQuery, tenantID, recipientUserID); err != nil {
+	if err := r.db.GetContext(ctx, &total, countQuery, args...); err != nil {
 		return nil, 0, fmt.Errorf("error counting notifications: %w", err)
 	}
+
+	args = append(args, limit, offset)
 
 	selectQuery := fmt.Sprintf(`
 		SELECT 
@@ -112,13 +125,13 @@ func (r *PostgresNotificationRepository) ListByRecipient(
 			title, message, event_type, COALESCE(metadata, '{}'::jsonb) AS metadata, is_read, 
 			read_at, email_sent_at, occurrence_count, COALESCE(link, '') AS link, created_at
 		FROM notifications
-		WHERE tenant_id = $1 AND recipient_user_id = $2 %s
+		WHERE %s
 		ORDER BY created_at DESC
-		LIMIT $3 OFFSET $4
-	`, filterClause)
+		LIMIT $%d OFFSET $%d
+	`, whereClause, len(args)-1, len(args))
 
 	var list []*domain.Notification
-	if err := r.db.SelectContext(ctx, &list, selectQuery, tenantID, recipientUserID, limit, offset); err != nil {
+	if err := r.db.SelectContext(ctx, &list, selectQuery, args...); err != nil {
 		return nil, 0, fmt.Errorf("error querying notifications: %w", err)
 	}
 	if list == nil {
@@ -126,6 +139,41 @@ func (r *PostgresNotificationRepository) ListByRecipient(
 	}
 
 	return list, total, nil
+}
+
+// IncrementRecentOccurrence aplica la ventana anti-fatiga de ADR-034 sin
+// agregar esquema: reutiliza la fila existente, suma la ocurrencia y vuelve a
+// marcarla como no leída para que un evento nuevo no quede escondido.
+func (r *PostgresNotificationRepository) IncrementRecentOccurrence(
+	ctx context.Context,
+	tenantID, recipientUserID, eventType string,
+	since time.Time,
+) (bool, error) {
+	query := `
+		UPDATE notifications
+		SET occurrence_count = occurrence_count + 1,
+		    is_read = false,
+		    read_at = NULL,
+		    created_at = NOW()
+		WHERE id = (
+			SELECT id FROM notifications
+			WHERE tenant_id = $1
+			  AND recipient_user_id = $2
+			  AND event_type = $3
+			  AND created_at >= $4
+			ORDER BY created_at DESC
+			LIMIT 1
+		)
+	`
+	res, err := r.db.ExecContext(ctx, query, tenantID, recipientUserID, eventType, since)
+	if err != nil {
+		return false, fmt.Errorf("error consolidating notification: %w", err)
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return false, nil
+	}
+	return rows > 0, nil
 }
 
 func (r *PostgresNotificationRepository) CountUnread(ctx context.Context, tenantID, recipientUserID string) (int64, error) {

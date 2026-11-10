@@ -328,10 +328,14 @@ type TeacherRepository interface {
 type NotificationRepository interface {
 	Create(ctx context.Context, n *Notification) error
 	CreateBatch(ctx context.Context, list []*Notification) error
-	ListByRecipient(ctx context.Context, tenantID, recipientUserID string, unreadOnly bool, limit, offset int) ([]*Notification, int64, error)
+	ListByRecipient(ctx context.Context, tenantID, recipientUserID string, filter NotificationListFilter, limit, offset int) ([]*Notification, int64, error)
 	CountUnread(ctx context.Context, tenantID, recipientUserID string) (int64, error)
 	MarkAsRead(ctx context.Context, tenantID, recipientUserID, notificationID string) error
 	MarkAllAsRead(ctx context.Context, tenantID, recipientUserID string) (int64, error)
+	// IncrementRecentOccurrence suma una ocurrencia al aviso no leído más
+	// reciente del mismo evento dentro de la ventana anti-fatiga. Devuelve false
+	// cuando no hay un aviso previo que agrupar.
+	IncrementRecentOccurrence(ctx context.Context, tenantID, recipientUserID, eventType string, since time.Time) (bool, error)
 }
 
 type BackupRepository interface {

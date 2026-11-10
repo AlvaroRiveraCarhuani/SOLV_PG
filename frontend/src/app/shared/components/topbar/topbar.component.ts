@@ -1,31 +1,40 @@
-import { Component, inject, signal, computed, output } from '@angular/core';
+import { Component, OnInit, inject, signal, computed, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TenantService } from '@core/services/tenant.service';
 import { AuthService } from '@core/services/auth.service';
+import {
+  NotificationItem,
+  NotificationService
+} from '@core/services/notification.service';
 import { UserTypographyModalComponent } from '@shared/components/user-typography-modal/user-typography-modal.component';
 import { DismissibleDirective } from '@shared/directives/dismissible.directive';
+import { DateTextPipe } from '@shared/pipes/date-text.pipe';
+import { MachineDataDirective } from '@shared/directives/machine-data.directive';
 import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } from '@lucide/angular';
 
 @Component({
   selector: 'topbar',
   standalone: true,
   imports: [
-    CommonModule, 
-    LucidePanelLeft, 
-    LucideBell, 
-    LucideLogOut, 
-    LucideUser, 
+    CommonModule,
+    RouterLink,
+    LucidePanelLeft,
+    LucideBell,
+    LucideLogOut,
+    LucideUser,
     LucideType,
     UserTypographyModalComponent,
-    DismissibleDirective
+    DismissibleDirective,
+    DateTextPipe,
+    MachineDataDirective
   ],
   template: `
     <header class="topbar">
       <div class="topbar-left">
-        <button 
-          class="btn-icon" 
-          (click)="toggleSidebar.emit()" 
+        <button
+          class="btn-icon"
+          (click)="toggleSidebar.emit()"
           title="Alternar Menú Lateral"
           aria-label="Alternar Menú Lateral">
           <svg lucidePanelLeft class="icon"></svg>
@@ -33,10 +42,10 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
 
         <div class="brand">
           @if (tenantService.config()?.logo_url && !logoFailed()) {
-            <img 
-              [src]="tenantService.config()?.logo_url" 
-              [alt]="tenantService.config()?.institution_name || 'Logo'" 
-              class="brand-logo" 
+            <img
+              [src]="tenantService.config()?.logo_url"
+              [alt]="tenantService.config()?.institution_name || 'Logo'"
+              class="brand-logo"
               (error)="logoFailed.set(true)"
             />
           } @else {
@@ -50,40 +59,64 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
       </div>
 
       <div class="topbar-right">
-        <!-- Campana de Notificaciones Proactivas -->
+        <!-- Campana de avisos (ADR-034) -->
         <div class="notif-wrapper">
-          <button #notifBtn class="btn-icon" (click)="toggleNotifMenu()" title="Notificaciones" aria-label="Notificaciones">
+          <button #notifBtn class="btn-icon" (click)="toggleNotifMenu()" title="Avisos" aria-label="Avisos">
             <svg lucideBell class="icon"></svg>
-            @if (unreadCount() > 0) {
-              <span class="notif-badge">{{ unreadCount() }}</span>
+            @if (notifService.unreadCount() > 0) {
+              <span class="notif-badge">{{ unreadBadge() }}</span>
             }
           </button>
 
           @if (notifMenuOpen()) {
-            <div 
+            <div
               class="notif-dropdown animate-dropdown"
               dismissible
               [dismissExclude]="notifBtn"
               (dismiss)="notifMenuOpen.set(false)"
             >
               <div class="notif-header">
-                <span class="notif-heading">Avisos del Sistema</span>
-                @if (notifications().length > 0) {
-                  <button class="btn-clear-notifs" (click)="clearNotifs()">Limpiar historial</button>
+                <span class="notif-heading">Avisos</span>
+                @if (notifService.unreadCount() > 0) {
+                  <button class="btn-mark-read" (click)="notifService.markAllRead()">
+                    Marcar todas como leídas
+                  </button>
                 }
               </div>
               <div class="notif-list">
-                @for (item of notifications(); track item.id) {
-                  <div class="notif-item" [class.read]="item.read">
-                    <div class="notif-title-row">
+                @for (item of notifService.recent(); track item.id) {
+                  <button
+                    [class]="notificationClass(item)"
+                    (click)="openNotification(item)"
+                  >
+                    <span class="notif-title-row">
                       <span class="notif-title">{{ item.title }}</span>
-                      <span class="notif-time">{{ item.time }}</span>
-                    </div>
-                    <span class="notif-desc">{{ item.desc }}</span>
-                  </div>
+                      @if (!item.is_read) {
+                        <span class="notif-unread-dot" aria-label="Sin leer"></span>
+                      }
+                    </span>
+                    <span class="notif-desc">{{ item.message }}</span>
+                    <span class="notif-meta">
+                      <time [attr.datetime]="item.created_at">{{ item.created_at | dateText: 'compact-datetime' }}</time>
+                      @if (item.occurrence_count > 1) {
+                        <span machineData class="notif-repeat">&times;{{ item.occurrence_count }}</span>
+                      }
+                    </span>
+                  </button>
                 } @empty {
-                  <div class="notif-empty">No hay avisos pendientes en el clúster.</div>
+                  <div class="notif-empty">
+                    @if (notifService.loadingRecent()) {
+                      Cargando avisos…
+                    } @else {
+                      No hay avisos por ahora.
+                    }
+                  </div>
                 }
+              </div>
+              <div class="notif-footer">
+                <a class="notif-see-all" [routerLink]="notificationsRoute()" (click)="notifMenuOpen.set(false)">
+                  Ver todos los avisos
+                </a>
               </div>
             </div>
           }
@@ -108,7 +141,7 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
           </div>
 
           @if (profileMenuOpen()) {
-            <div 
+            <div
               class="profile-dropdown animate-dropdown"
               dismissible
               [dismissExclude]="profileBtn"
@@ -142,9 +175,10 @@ import { LucidePanelLeft, LucideBell, LucideLogOut, LucideUser, LucideType } fro
   `,
   styleUrl: './topbar.component.scss',
 })
-export class TopbarComponent {
+export class TopbarComponent implements OnInit {
   tenantService = inject(TenantService);
   authService = inject(AuthService);
+  notifService = inject(NotificationService);
   private router = inject(Router);
 
   toggleSidebar = output<void>();
@@ -153,32 +187,16 @@ export class TopbarComponent {
   profileMenuOpen = signal<boolean>(false);
   notifMenuOpen = signal<boolean>(false);
   typographyModalOpen = signal<boolean>(false);
-  private loadInitialNotifs() {
-    if (typeof window !== 'undefined' && localStorage.getItem('solv_notifs_cleared') === 'true') {
-      return [];
-    }
-    const isRead1 = typeof window !== 'undefined' && localStorage.getItem('solv_notif_1_read') === 'true';
-    const isRead2 = typeof window !== 'undefined' && localStorage.getItem('solv_notif_2_read') === 'true';
-    return [
-      {
-        id: 'notif-1',
-        title: 'Clúster Docker conectado',
-        desc: 'Docker Engine y telemetría de host gopsutil operando correctamente.',
-        time: 'Hoy',
-        read: isRead1
-      },
-      {
-        id: 'notif-2',
-        title: 'Seguridad y Políticas',
-        desc: 'Monitoreo activo de límites de memoria (OOM killer habilitado).',
-        time: 'Hoy',
-        read: isRead2
-      }
-    ];
-  }
 
-  notifications = signal(this.loadInitialNotifs());
-  unreadCount = computed(() => this.notifications().filter(n => !n.read).length);
+  unreadBadge = computed(() => {
+    const count = this.notifService.unreadCount();
+    return count > 99 ? '99+' : String(count);
+  });
+
+  ngOnInit(): void {
+    this.notifService.startPolling();
+    void this.notifService.refreshUnread();
+  }
 
   roleLabel = () => {
     const role = this.authService.currentUser()?.role;
@@ -186,6 +204,17 @@ export class TopbarComponent {
     if (role === 'teacher') return 'Docente';
     return 'Estudiante';
   };
+
+  notificationClass(item: NotificationItem): string {
+    return `notif-item severity-${item.severity}${item.is_read ? ' read' : ''}`;
+  }
+
+  notificationsRoute(): string {
+    const role = this.authService.currentUser()?.role;
+    if (role === 'admin') return '/admin/notifications';
+    if (role === 'teacher') return '/teacher/notifications';
+    return '/student/notifications';
+  }
 
   toggleProfileMenu(): void {
     this.profileMenuOpen.update(v => !v);
@@ -199,34 +228,22 @@ export class TopbarComponent {
     this.notifMenuOpen.set(nextState);
     if (nextState) {
       this.profileMenuOpen.set(false);
-      this.markAllAsRead();
+      void this.notifService.loadRecent();
+      void this.notifService.refreshUnread();
     }
   }
 
-  markAllAsRead(): void {
-    this.notifications.update(list => list.map(n => ({ ...n, read: true })));
-    try {
-      localStorage.setItem('solv_notif_1_read', 'true');
-      localStorage.setItem('solv_notif_2_read', 'true');
-    } catch {
-      // Storage unavailable: ignore.
+  openNotification(item: NotificationItem): void {
+    this.notifMenuOpen.set(false);
+    void this.notifService.markRead(item.id);
+    if (item.link) {
+      void this.router.navigateByUrl(item.link);
     }
   }
 
   closeAllMenus(): void {
     this.notifMenuOpen.set(false);
     this.profileMenuOpen.set(false);
-  }
-
-  clearNotifs(): void {
-    this.notifications.set([]);
-    try {
-      localStorage.setItem('solv_notifs_cleared', 'true');
-      localStorage.setItem('solv_notif_1_read', 'true');
-      localStorage.setItem('solv_notif_2_read', 'true');
-    } catch {
-      // Storage unavailable: ignore.
-    }
   }
 
   formatTitleCase(text?: string | null): string {

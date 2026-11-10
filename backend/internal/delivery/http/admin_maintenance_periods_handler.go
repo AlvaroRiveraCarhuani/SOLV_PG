@@ -1,6 +1,7 @@
 package httpdelivery
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -34,6 +35,7 @@ func (h *AdminAcademicHandler) EnableMaintenance(w http.ResponseWriter, r *http.
 	}
 
 	h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_ENABLED", dto.Reason, dto.Until, http.StatusOK)
+	h.notifyMaintenanceChange(r.Context(), tenantID, true, dto)
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "maintenance_enabled"}, "Modo mantenimiento activado exitosamente")
 }
@@ -47,8 +49,50 @@ func (h *AdminAcademicHandler) DisableMaintenance(w http.ResponseWriter, r *http
 	}
 
 	h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_DISABLED", "", "", http.StatusOK)
+	h.notifyMaintenanceChange(r.Context(), tenantID, false, domain.EnableMaintenanceDTO{})
 
 	SendJSON(w, http.StatusOK, map[string]string{"status": "maintenance_disabled"}, "Modo mantenimiento desactivado exitosamente")
+}
+
+// notifyMaintenanceChange avisa a los administradores del tenant en la campana.
+// Es un aviso informativo: un fallo al notificar nunca revierte el cambio de
+// mantenimiento, que ya quedó auditado.
+func (h *AdminAcademicHandler) notifyMaintenanceChange(ctx context.Context, tenantID string, enabled bool, dto domain.EnableMaintenanceDTO) {
+	if h.notificationService == nil || h.govService == nil || strings.TrimSpace(tenantID) == "" {
+		return
+	}
+	admins, err := h.govService.ListAdministrators(ctx, tenantID)
+	if err != nil {
+		return
+	}
+
+	title := "Mantenimiento programado"
+	message := "La plataforma entra en modo mantenimiento."
+	severity := domain.NotificationSeverityWarning
+	eventType := "maintenance_enabled"
+	if !enabled {
+		title = "Mantenimiento finalizado"
+		message = "El modo mantenimiento se desactivó y la plataforma vuelve a estar disponible."
+		severity = domain.NotificationSeverityInfo
+		eventType = "maintenance_disabled"
+	} else if reason := strings.TrimSpace(dto.Reason); reason != "" {
+		message = "La plataforma entra en modo mantenimiento: " + reason
+	}
+
+	for _, admin := range admins {
+		if admin == nil || strings.TrimSpace(admin.ID) == "" {
+			continue
+		}
+		h.notificationService.NotifyAsync(tenantID, domain.CreateNotificationDTO{
+			RecipientUserID: admin.ID,
+			Title:           title,
+			Message:         message,
+			Severity:        severity,
+			EventType:       eventType,
+			Link:            "/admin/configuracion",
+			Consolidate:     enabled,
+		})
+	}
 }
 
 func (h *AdminAcademicHandler) GetMaintenanceStatus(w http.ResponseWriter, r *http.Request) {
@@ -56,6 +100,7 @@ func (h *AdminAcademicHandler) GetMaintenanceStatus(w http.ResponseWriter, r *ht
 
 	if cleared, _ := h.maintenanceService.ClearExpiredMaintenance(r.Context(), tenantID); cleared {
 		h.writeMaintenanceAudit(r, tenantID, "MAINTENANCE_AUTO_DISABLED", "vigencia vencida", "", http.StatusOK)
+		h.notifyMaintenanceChange(r.Context(), tenantID, false, domain.EnableMaintenanceDTO{})
 	}
 
 	status, err := h.maintenanceService.GetStatus(r.Context(), tenantID)

@@ -21,6 +21,7 @@ type DefaultRubricService struct {
 	db           *sqlx.DB
 	mailer       domain.Mailer
 	tenantRepo   domain.TenantRepository
+	notifier     NotificationEmitter
 }
 
 func NewDefaultRubricService(
@@ -41,6 +42,12 @@ func (s *DefaultRubricService) SetMailer(m domain.Mailer) {
 
 func (s *DefaultRubricService) SetTenantRepository(tr domain.TenantRepository) {
 	s.tenantRepo = tr
+}
+
+// SetNotificationService publica el aviso in-app de calificación publicada,
+// junto al correo que ya existía. Sin notifier, el correo sigue funcionando.
+func (s *DefaultRubricService) SetNotificationService(notifier NotificationEmitter) {
+	s.notifier = notifier
 }
 
 func (s *DefaultRubricService) GetByExerciseID(ctx context.Context, exerciseID uuid.UUID) (*domain.Rubric, error) {
@@ -278,11 +285,12 @@ func (s *DefaultRubricService) EvaluateSubmission(
 }
 
 func (s *DefaultRubricService) notifyRubricEvaluated(ctx context.Context, tenantID, submissionID, exerciseID string) {
-	if s.mailer == nil || s.db == nil {
+	if s.db == nil {
 		return
 	}
 
 	var meta struct {
+		StudentID     string  `db:"student_id"`
 		StudentEmail  string  `db:"student_email"`
 		StudentName   string  `db:"student_name"`
 		ExerciseTitle string  `db:"exercise_title"`
@@ -292,6 +300,7 @@ func (s *DefaultRubricService) notifyRubricEvaluated(ctx context.Context, tenant
 
 	query := `
 		SELECT 
+			sub.student_id::text AS student_id,
 			u.email AS student_email,
 			TRIM(u.first_name || ' ' || u.last_name) AS student_name,
 			e.title AS exercise_title,
@@ -303,7 +312,7 @@ func (s *DefaultRubricService) notifyRubricEvaluated(ctx context.Context, tenant
 		LEFT JOIN subjects s ON s.id = e.subject_id
 		WHERE sub.id = $1
 	`
-	if err := s.db.GetContext(ctx, &meta, query, submissionID); err != nil || strings.TrimSpace(meta.StudentEmail) == "" {
+	if err := s.db.GetContext(ctx, &meta, query, submissionID); err != nil {
 		return
 	}
 
@@ -331,18 +340,31 @@ func (s *DefaultRubricService) notifyRubricEvaluated(ctx context.Context, tenant
 	}
 	reviewURL := fmt.Sprintf("https://%s/student/courses/%s/assignments/%s", domainName, subjectID, exerciseID)
 
-	htmlBody, textBody := mailer.BuildGradeFeedbackEmail(
-		branding,
-		meta.StudentName,
-		meta.ExerciseTitle,
-		subjectName,
-		reviewURL,
-	)
+	if s.mailer != nil && strings.TrimSpace(meta.StudentEmail) != "" {
+		htmlBody, textBody := mailer.BuildGradeFeedbackEmail(
+			branding,
+			meta.StudentName,
+			meta.ExerciseTitle,
+			subjectName,
+			reviewURL,
+		)
 
-	s.mailer.SendAsync(&domain.EmailMessage{
-		To:       meta.StudentEmail,
-		Subject:  fmt.Sprintf("[%s] Evaluación publicada: %s — %s", branding.InstitutionName, meta.ExerciseTitle, subjectName),
-		HTMLBody: htmlBody,
-		TextBody: textBody,
-	})
+		s.mailer.SendAsync(&domain.EmailMessage{
+			To:       meta.StudentEmail,
+			Subject:  fmt.Sprintf("[%s] Evaluación publicada: %s — %s", branding.InstitutionName, meta.ExerciseTitle, subjectName),
+			HTMLBody: htmlBody,
+			TextBody: textBody,
+		})
+	}
+
+	if s.notifier != nil && strings.TrimSpace(meta.StudentID) != "" {
+		s.notifier.NotifyAsync(tenantID, domain.CreateNotificationDTO{
+			RecipientUserID: meta.StudentID,
+			Title:           fmt.Sprintf("Evaluación publicada: %s", meta.ExerciseTitle),
+			Message:         fmt.Sprintf("%s ya tiene nota y retroalimentación disponibles.", subjectName),
+			Severity:        domain.NotificationSeverityInfo,
+			EventType:       "grade_published",
+			Link:            fmt.Sprintf("/student/history/%s", submissionID),
+		})
+	}
 }

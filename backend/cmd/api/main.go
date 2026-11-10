@@ -300,8 +300,17 @@ func main() {
 	templateAuditWorker := services.NewTemplateAuditWorker(cli, govRepo)
 	templateAuditWorker.Start(ctx)
 
+	// Slice 15: Notificaciones Proactivas (ADR-034). Se crea antes del worker
+	// de vencimientos para que el recordatorio también llegue a la campana.
+	notificationRepo := postgres.NewPostgresNotificationRepository(db.GetDB())
+	notificationService := services.NewNotificationService(notificationRepo, 256)
+	defer notificationService.Stop()
+	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)
+	adminAcademicHandler.WithNotificationService(notificationService)
+
 	deadlineReminderRepo := postgres.NewPostgresDeadlineReminderRepository(db.GetDB())
-	deadlineReminderWorker := services.NewDeadlineReminderWorker(deadlineReminderRepo, tenantRepo, smtpMailer)
+	deadlineReminderWorker := services.NewDeadlineReminderWorker(deadlineReminderRepo, tenantRepo, smtpMailer).
+		WithNotificationService(notificationService)
 	deadlineReminderWorker.Start(ctx, 15*time.Minute)
 	defer deadlineReminderWorker.Stop()
 
@@ -341,13 +350,6 @@ func main() {
 
 	subHandler := httpdelivery.NewSubmissionHandler(submissionService)
 	subHandler.SetWebSocketHub(wsHub)
-
-	// Slice 15: Notificaciones Proactivas (ADR-034)
-	notificationRepo := postgres.NewPostgresNotificationRepository(db.GetDB())
-	notificationService := services.NewNotificationService(notificationRepo, 256)
-	defer notificationService.Stop()
-	notificationHandler := httpdelivery.NewNotificationHandler(notificationService)
-	adminAcademicHandler.WithNotificationService(notificationService)
 
 	// Slice 16: Backups Configurables y Retención (ADR-035)
 	backupRepo := postgres.NewPostgresBackupRepository(db.GetDB())
@@ -392,6 +394,7 @@ func main() {
 	rubricRepo := postgres.NewPostgresRubricRepository(db.GetDB())
 	rubricService := services.NewDefaultRubricService(rubricRepo, exerciseRepo, db.GetDB())
 	rubricService.SetMailer(smtpMailer)
+	rubricService.SetNotificationService(notificationService)
 	rubricService.SetTenantRepository(tenantRepo)
 	rubricHandler := httpdelivery.NewRubricHandler(rubricService)
 

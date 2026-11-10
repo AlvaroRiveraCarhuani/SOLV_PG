@@ -1,10 +1,17 @@
 # Verificación de Pruebas — SLICE 15: Notificaciones Proactivas (In-App & Email)
 
 ## 1. Estado del Slice
-- **Estado General:** Planificado (Pendiente de implementación en backend y frontend).
+- **Estado General:** In-app implementado y verificado; correo pendiente.
 
-## 2. Plan de Pruebas a Ejecutar tras Implementación
-1. **Persistencia In-App:** Emisión de evento, guardado en tabla `notifications` y consulta por el usuario destinatario.
-2. **Aislamiento Multi-Tenant:** Validación de que los usuarios no puedan leer notificaciones de otros tenants.
-3. **Cálculo de Conteo No Leídas:** Verificación de decremento atómico al marcar elementos como leídos.
-4. **Anti-Fatiga de Correo:** Comprobación de descarte o consolidación tras superar el límite de envíos por hora.
+## 2. Pruebas ejecutadas
+1. **Persistencia In-App:** emisión, guardado y consulta por el destinatario (`TestSlice15_Notifications_CompleteSuite`).
+2. **Aislamiento Multi-Tenant:** un usuario no puede marcar como leída una notificación ajena (404).
+3. **Conteo de no leídas:** decremento al marcar una o todas como leídas.
+4. **Filtros y consolidación:** severidad, tipo de evento, no leídos, agrupación de fallas de respaldo y saneo de enlaces históricos (`TestSlice15_Notifications_FiltersAndConsolidation`).
+5. **Contrato del servicio:** validaciones, consolidación opt-in y saneo de enlaces (`notification_service_test.go`).
+6. **Handler HTTP:** filtros inválidos (400) e id inválido (400) (`notification_handler_test.go`).
+7. **Recordatorio de vencimiento:** emisión in-app junto al correo (`deadline_reminder_worker_test.go`).
+8. **Frontend:** servicio, campana y página de avisos (11 specs con Vitest).
+
+## 3. Pendiente de verificar
+- Envío de correo desde el despachador y preferencias por usuario.

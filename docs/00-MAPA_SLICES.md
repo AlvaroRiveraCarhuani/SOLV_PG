@@ -31,12 +31,23 @@ Este documento define la hoja de ruta de la plataforma **SOLV** organizada en **
 | **12** | Experiencia Estudiante, Shell y Juez en Tiempo Real | ADR-012, ADR-037, ADR-029 | Implementado | En Proceso | Verificado (PostgreSQL Real) |
 | **13** | Experiencia Docente, Cursos y Creación de Laboratorios | ADR-026, ADR-029, ADR-030, ADR-037 | Implementado | **Implementado** | Verificado (Integración) |
 | **14** | Panel Administrador Institucional & Gobernanza | ADR-024, ADR-027, ADR-029, ADR-030, ADR-031, ADR-032, ADR-033, ADR-036 | Implementado | **Implementado** | Verificado (Integración) |
-| **15** | Notificaciones Proactivas (In-App & Email) | ADR-031, ADR-032, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
+| **15** | Notificaciones Proactivas (In-App & Email) | ADR-031, ADR-032, ADR-034, ADR-035 | Implementado | **Implementado** (in-app) | Verificado (Integración + PostgreSQL Real) |
 | **16** | Backups y Retención Institucional | ADR-027, ADR-034, ADR-035 | Implementado | Pendiente | Verificado (Integración) |
 
 ---
 
 ## Detalle y Estado de Ejecución por Rol
+
+### Notificaciones Proactivas (Slice 15) — In-App cerrado, correo pendiente
+
+La campana del topbar y la página de avisos (`/student/notifications`,
+`/teacher/notifications`, `/admin/notifications`) consumen los avisos reales del
+backend: calificación publicada, recordatorio de vencimiento, mantenimiento,
+respaldos y calentamiento de plantillas. El listado admite filtros por severidad,
+tipo de evento y estado de lectura, y los enlaces se limitan a rutas internas.
+
+Queda pendiente el envío de correo desde el despachador y las preferencias por
+usuario, que no bloquean el canal in-app. Detalle en ADR-034.
 
 ### Consola del Administrador Institucional (Slice 14) — Completada
 

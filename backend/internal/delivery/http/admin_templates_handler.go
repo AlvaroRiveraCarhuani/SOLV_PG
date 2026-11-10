@@ -278,6 +278,7 @@ func (h *AdminAcademicHandler) WarmAllTemplates(w http.ResponseWriter, r *http.R
 				Channel:         domain.NotificationChannelInApp,
 				EventType:       "TEMPLATE_WARMING_COMPLETED",
 				Link:            "/admin/plantillas",
+				Consolidate:     true,
 			})
 		}
 	}

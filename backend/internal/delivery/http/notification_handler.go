@@ -5,7 +5,11 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/google/uuid"
+
+	"solv-backend/internal/core/domain"
 	"solv-backend/internal/core/services"
 )
 
@@ -21,7 +25,20 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 	tenantID := getTenantFromCtx(r)
 	userID := getUserIDFromCtx(r)
 
-	unreadOnly := r.URL.Query().Get("unread_only") == "true"
+	filter := domain.NotificationListFilter{
+		UnreadOnly: r.URL.Query().Get("unread_only") == "true",
+		Severity:   strings.TrimSpace(r.URL.Query().Get("severity")),
+		EventType:  strings.TrimSpace(r.URL.Query().Get("event_type")),
+	}
+	if filter.Severity != "" && !domain.IsValidNotificationSeverity(filter.Severity) {
+		SendError(w, http.StatusBadRequest, "invalid_severity", "La severidad debe ser info, warning, error o critical")
+		return
+	}
+	if filter.EventType != "" && !domain.IsValidNotificationEventType(filter.EventType) {
+		SendError(w, http.StatusBadRequest, "invalid_event_type", "El tipo de evento no tiene un formato válido")
+		return
+	}
+
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 
@@ -32,7 +49,7 @@ func (h *NotificationHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 20
 	}
 
-	items, total, err := h.service.List(r.Context(), tenantID, userID, unreadOnly, page, limit)
+	items, total, err := h.service.List(r.Context(), tenantID, userID, filter, page, limit)
 	if err != nil {
 		SendError(w, http.StatusInternalServerError, err.Error(), "Error al obtener notificaciones")
 		return
@@ -61,6 +78,10 @@ func (h *NotificationHandler) MarkRead(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if id == "" {
 		SendError(w, http.StatusBadRequest, "missing_id", "id de notificación requerido")
+		return
+	}
+	if _, err := uuid.Parse(id); err != nil {
+		SendError(w, http.StatusBadRequest, "invalid_id", "id de notificación inválido")
 		return
 	}
 

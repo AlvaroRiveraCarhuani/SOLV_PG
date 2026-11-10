@@ -57,6 +57,13 @@ export const routes: Routes = [
           )
       },
       {
+        path: 'notifications',
+        loadComponent: () =>
+          import('@features/shared/notifications/notifications-page.component').then(
+            (m) => m.NotificationsPageComponent
+          )
+      },
+      {
         path: 'history',
         loadComponent: () =>
           import('@features/student/history/student-history.component').then(
@@ -174,6 +181,13 @@ export const routes: Routes = [
         path: 'manual',
         loadComponent: () =>
           import('@features/admin/manual/admin-manual.component').then((m) => m.AdminManualComponent)
+      },
+      {
+        path: 'notifications',
+        loadComponent: () =>
+          import('@features/shared/notifications/notifications-page.component').then(
+            (m) => m.NotificationsPageComponent
+          )
       }
     ]
   },

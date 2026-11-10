@@ -172,3 +172,53 @@ func TestDeadlineReminderWorker_NilSafety(t *testing.T) {
 		t.Errorf("expected 0, got %d", sent)
 	}
 }
+
+// fakeNotificationEmitter captura los avisos in-app que el worker emite junto
+// al correo.
+type fakeNotificationEmitter struct {
+	items []domain.CreateNotificationDTO
+}
+
+func (f *fakeNotificationEmitter) NotifyAsync(_ string, dto domain.CreateNotificationDTO) {
+	f.items = append(f.items, dto)
+}
+
+func TestDeadlineReminderWorker_EmitsInAppNotification(t *testing.T) {
+	now := time.Date(2026, 10, 27, 10, 0, 0, 0, time.UTC)
+	repo := newMockDeadlineReminderRepo()
+	repo.candidates = []*domain.DeadlineReminderCandidate{
+		{
+			TenantID:      "t-1",
+			ExerciseID:    "ex-1",
+			ExerciseTitle: "Algoritmos de Ordenamiento",
+			SubjectID:     "sub-1",
+			SubjectName:   "Estructuras de Datos I",
+			DueDate:       now.Add(11 * time.Hour),
+			StudentID:     "stu-1",
+			StudentName:   "Lucas Silva",
+			StudentEmail:  "lucas.silva@uab.edu.bo",
+		},
+	}
+	emitter := &fakeNotificationEmitter{}
+	worker := services.NewDeadlineReminderWorker(repo, nil, &mockMailer{}).WithNotificationService(emitter)
+
+	if _, err := worker.ProcessReminders(context.Background(), now); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(emitter.items) != 1 {
+		t.Fatalf("esperaba un aviso in-app, got %d", len(emitter.items))
+	}
+	notice := emitter.items[0]
+	if notice.RecipientUserID != "stu-1" {
+		t.Errorf("destinatario inesperado: %q", notice.RecipientUserID)
+	}
+	if notice.Severity != domain.NotificationSeverityWarning || notice.EventType != "deadline_reminder" {
+		t.Errorf("aviso inesperado: %#v", notice)
+	}
+	if notice.Link != "/student/exercises/ex-1" {
+		t.Errorf("enlace inesperado: %q", notice.Link)
+	}
+	if !strings.Contains(notice.Message, "Estructuras de Datos I") {
+		t.Errorf("el mensaje debe nombrar la materia: %q", notice.Message)
+	}
+}

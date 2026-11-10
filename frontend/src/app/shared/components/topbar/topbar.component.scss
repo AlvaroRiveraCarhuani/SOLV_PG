@@ -145,7 +145,7 @@
     color: var(--text-primary);
   }
 
-  .btn-clear-notifs {
+  .btn-mark-read {
     background: transparent;
     border: none;
     color: var(--tenant-primary);
@@ -168,17 +168,38 @@
 }
 
 .notif-item {
+  width: 100%;
   display: flex;
   flex-direction: column;
   gap: 3px;
   padding: var(--space-2) 10px;
-  background-color: var(--color-gray-50);
+  background-color: var(--bg-surface-subtle);
   border-radius: var(--radius-md);
+  border: 0;
   border-left: 3px solid var(--tenant-primary);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
   transition: background-color 150ms ease;
 
+  &:hover {
+    background-color: var(--bg-surface-active);
+  }
+
+  &.severity-warning {
+    border-left-color: var(--color-warning);
+  }
+
+  &.severity-error,
+  &.severity-critical {
+    border-left-color: var(--color-error);
+  }
+
+  &.severity-critical .notif-title {
+    font-weight: 700;
+  }
+
   &.read {
-    background-color: var(--color-gray-50);
     border-left-color: var(--border-subtle);
 
     .notif-title {
@@ -190,6 +211,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--space-2);
   }
 
   .notif-title {
@@ -198,15 +220,43 @@
     color: var(--text-primary);
   }
 
-  .notif-time {
-    font-size: var(--text-2xs);
-    color: var(--text-muted);
+  .notif-unread-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: var(--radius-full);
+    background-color: var(--tenant-primary);
+    flex-shrink: 0;
   }
 
   .notif-desc {
     font-size: var(--text-2xs);
     color: var(--text-secondary);
     line-height: 1.3;
+  }
+
+  .notif-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-2xs);
+    color: var(--text-muted);
+  }
+}
+
+.notif-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: var(--space-2);
+  text-align: center;
+}
+
+.notif-see-all {
+  font-size: var(--text-2xs);
+  font-weight: 600;
+  color: var(--tenant-primary);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 

@@ -1,7 +1,7 @@
 # ADR-034: Sistema de Notificaciones Proactivas (In-App y Correo)
 
 ## Estado
-Aprobado
+Aprobado. Canal in-app implementado; envío de correo y preferencias por usuario pendientes.
 
 ## Contexto
 El funcionamiento continuo de SOLV depende de eventos críticos de infraestructura y academia que requieren atención oportuna: expiración próxima de certificados SSL/TLS wildcard, umbral de almacenamiento en disco superando el 85%, tokens de Google OAuth desactualizados, detección de caída masiva de contenedores o invitaciones de docentes a punto de expirar. Depender de que el administrador revise manualmente el dashboard introduce riesgos de interrupción no planificada. Es necesario un sistema proactivo con filtros anti-fatiga que despache alertas por dos canales según la severidad.
@@ -45,14 +45,16 @@ CREATE TABLE IF NOT EXISTS notifications (
     tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
     recipient_user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     channel VARCHAR(20) NOT NULL DEFAULT 'in_app' CHECK (channel IN ('in_app', 'email', 'both')),
-    severity VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'critical')),
+    severity VARCHAR(20) NOT NULL DEFAULT 'info' CHECK (severity IN ('info', 'warning', 'error', 'critical')),
     title VARCHAR(128) NOT NULL,
     message TEXT NOT NULL,
     event_type VARCHAR(64) NOT NULL,
     metadata JSONB DEFAULT '{}',
     is_read BOOLEAN NOT NULL DEFAULT FALSE,
+    read_at TIMESTAMPTZ,
     email_sent_at TIMESTAMPTZ,
     occurrence_count INT NOT NULL DEFAULT 1,
+    link VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -67,9 +69,10 @@ ON notifications (tenant_id, event_type, created_at DESC);
 
 | Método | Ruta | Status Codes | Descripción |
 | :--- | :--- | :--- | :--- |
-| `GET` | `/api/v1/notifications` | `200 OK`, `401 Unauthorized` | Obtiene lista de notificaciones del usuario autenticado. |
-| `PATCH` | `/api/v1/notifications/{id}/read` | `200 OK`, `404 Not Found` | Marca una notificación individual como leída. |
-| `POST` | `/api/v1/notifications/read-all` | `200 OK` | Marca todas las notificaciones pendientes como leídas. |
+| `GET` | `/api/v1/notifications` | `200 OK`, `400 Bad Request`, `401 Unauthorized` | Lista paginada del usuario autenticado. Filtros: `severity`, `event_type`, `unread_only`; `X-Total-Count` informa el total. |
+| `GET` | `/api/v1/notifications/unread-count` | `200 OK`, `401 Unauthorized` | Contador de avisos no leídos para la campana. |
+| `PATCH` | `/api/v1/notifications/{id}/read` | `200 OK`, `400 Bad Request`, `404 Not Found` | Marca una notificación individual como leída. |
+| `POST` | `/api/v1/notifications/mark-all-read` | `200 OK` | Marca todas las notificaciones pendientes como leídas. |
 | `GET` | `/api/v1/admin/notifications/system` | `200 OK`, `403 Forbidden` | Consulta de alertas globales de infraestructura para el admin. |
 
 ### Ejemplo de Payload de Notificación (`GET /api/v1/notifications`)
@@ -85,11 +88,18 @@ ON notifications (tenant_id, event_type, created_at DESC);
 }
 ```
 
-## Componentes Angular Afectados
+## Componentes Angular
 
-- `shared/components/notification-bell/notification-bell.component.ts`: Dropdown de notificaciones en el Topbar con contador de no leídas.
-- `features/admin/notifications/system-alerts-view.component.ts`: Panel completo de alertas de infraestructura con filtrado por severidad.
-- `core/services/notification.service.ts`: Servicio reactivo con Signals que mantiene la lista de alertas sincronizada.
+- `shared/components/topbar/topbar.component.ts`: campana con contador real, últimos ocho avisos, marcado individual y enlace a la página completa. Ya no usa mocks ni `localStorage`.
+- `features/shared/notifications/notifications-page.component.ts`: página compartida por los tres roles en `/student/notifications`, `/teacher/notifications` y `/admin/notifications`, con filtros por severidad y estado de lectura, paginación y enlaces internos.
+- `core/services/notification.service.ts`: servicio con Signals; sondea el contador cada 60 segundos, refresca al volver a la pestaña y comparte estado entre campana y página.
+
+## Alcance implementado
+
+- **Eventos in-app emitidos:** calificación publicada (`grade_published`), recordatorio de vencimiento (`deadline_reminder`), mantenimiento activado/desactivado (`maintenance_enabled`/`maintenance_disabled`), resultados de respaldo (`backup_created`/`backup_failed`) y fin de calentamiento de plantillas (`TEMPLATE_WARMING_COMPLETED`).
+- **Anti-fatiga:** solo los eventos de infraestructura que lo solicitan se consolidan en la ventana de 30 minutos; dos calificaciones o dos recordatorios distintos nunca se funden.
+- **Enlaces:** el backend solo persiste y entrega rutas internas saneadas (`/...`); descarta URLs externas, protocolos y traversal.
+- **Pendiente:** envío de correo desde el despachador y preferencias por usuario. El canal in-app no depende de esa configuración.
 
 ## Relación con Otros ADRs
 
