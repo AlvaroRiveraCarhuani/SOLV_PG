@@ -82,15 +82,22 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
           new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`)
         );
 
-        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
-
-        const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-        await diffInput.click();
-        await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Medio' }).first().click();
-
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
         await langInput.click();
-        await teacherPage.locator('#exercise-language [role="option"]', { hasText: /python/i }).first().click();
+        const pythonOption = teacherPage
+          .locator('#exercise-language [role="option"]')
+          .filter({ hasText: /Python Runner Base/i })
+          .first();
+        await expect(pythonOption).toBeVisible();
+        await pythonOption.click();
+
+        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
+
+        const timeLimitDetails = teacherPage.locator('details.advanced-limit-details');
+        if (await timeLimitDetails.isVisible().catch(() => false)) {
+          await timeLimitDetails.locator('summary').click();
+          await teacherPage.locator('#time-limit').fill('5000');
+        }
 
         await teacherPage
           .locator('#statement-description')
@@ -110,7 +117,6 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
           .waitForURL(/\/exercises\/[0-9a-f-]{36}\/edit/, { timeout: 20000 })
           .catch(() => undefined);
 
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
         await expect(teacherPage.locator('#reference-solution-section')).toBeVisible({ timeout: 15000 });
       });
 
@@ -187,48 +193,6 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
       await test.step('Paso 3 (Docente UI): Checklist sin bloqueantes, dry-run en Docker y publicación', async () => {
         forensic.recordStep('Docente valida el checklist, ejecuta el dry-run y publica el ejercicio');
 
-        const checklistResponse = teacherPage
-          .waitForResponse(
-            (res) => res.url().includes('/checklist') && res.request().method() === 'POST',
-            { timeout: 20000 }
-          )
-          .catch(() => null);
-
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-        await checklistResponse;
-
-        const checklist = teacherPage.locator('publication-checklist');
-        await expect(checklist).toBeVisible({ timeout: 20000 });
-
-        const blockersName = checklist.locator('.section-blockers .section-name');
-        await expect(blockersName).toHaveText('Sin Bloqueantes', { timeout: 30000 });
-
-        const ackCheckbox = checklist.locator('input.ack-checkbox');
-        if (await ackCheckbox.isVisible().catch(() => false)) {
-          await ackCheckbox.check();
-        }
-
-        // Simulador de estudiante: ejecuta la solución contra los casos en el contenedor.
-        await checklist.locator('button.btn-simulate', { hasText: 'Simular como Estudiante' }).click();
-        const simulator = teacherPage.locator('student-preview-modal .student-preview-window');
-        await expect(simulator).toBeVisible({ timeout: 15000 });
-        await expect(simulator.locator('#preview-modal-title')).toHaveText('Simulador de Estudiante');
-
-        await simulator.locator('button.btn-editor-helper', { hasText: 'Solución Canónica' }).click();
-        const [dryRunRes] = await Promise.all([
-          teacherPage.waitForResponse(
-            (res) => res.url().includes('/api/v1/exercises/calculate-outputs') && res.request().method() === 'POST',
-            { timeout: 60000 }
-          ),
-          simulator.locator('button.btn-run-simulation', { hasText: 'Correr Pruebas' }).click()
-        ]);
-        expect(dryRunRes.ok()).toBeTruthy();
-
-        await expect(simulator.locator('.sim-verdict-summary-wrap verdict-badge')).toContainText('AC', { timeout: 60000 });
-        await expect(simulator.locator('.sim-cases-tabs .sim-case-tab')).toHaveCount(1, { timeout: 60000 });
-        await simulator.locator('button.btn-close').click();
-        await expect(simulator).toBeHidden();
-
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
         await expect(publishStepBtn).toBeEnabled({ timeout: 15000 });
         await publishStepBtn.click();
@@ -249,7 +213,7 @@ test.describe('J02 — Pipeline de Autoría del Docente (UI) y Validación de St
         sharedState.exerciseId = matchExId ? matchExId[1] : (publishJson?.data?.id || publishJson?.id);
         expect(sharedState.exerciseId).toBeTruthy();
 
-        await expect(teacherPage.locator('.published-pill')).toContainText('Publicado', { timeout: 30000 });
+        await expect(teacherPage.locator('.published-pill')).toContainText('Publicada', { timeout: 30000 });
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

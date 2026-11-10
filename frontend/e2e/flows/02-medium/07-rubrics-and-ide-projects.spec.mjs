@@ -92,6 +92,17 @@ test.describe('Categoría 02 (Media): Laboratorios de IDE Persistente y Rúbrica
           };
 
           // 1. Crear ejercicio IDE
+          // El ejercicio persistente necesita una plantilla IDE homologada.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /IDE Python \+ Postgres/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla IDE con PostgreSQL disponible' };
+          }
+
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -101,6 +112,7 @@ test.describe('Categoría 02 (Media): Laboratorios de IDE Persistente y Rúbrica
               description: 'Desarrolla el backend REST con endpoints CRUD y script DDL.',
               type: 'project',
               environment_type: 'IDE_PERSISTENTE',
+              template_id: runner.id,
               language: 'typescript',
               difficulty: 'hard',
               db_init_script: 'CREATE TABLE users (id SERIAL PRIMARY KEY, name VARCHAR(100));',

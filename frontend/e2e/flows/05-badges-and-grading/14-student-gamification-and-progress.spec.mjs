@@ -66,6 +66,18 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
+          const sourceCode = 'print("LEVEL_UP")\n';
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -75,18 +87,35 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
               description: 'Reto para evaluar progreso.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               language: 'python',
               difficulty: 'easy',
-              time_limit_ms: 1000,
-              reference_solution: 'print("LEVEL_UP")\n',
+              time_limit_ms: 5000,
+              reference_solution: sourceCode,
               test_cases: [
-                { input_data: '1', expected_output: 'LEVEL_UP', is_hidden: false, weight: 1.0, order_index: 1 }
+                { input: '1', expected_output: 'LEVEL_UP', is_hidden: false, weight: 1.0, order_index: 1 }
               ]
             })
           });
           const exJson = await exResp.json();
           const exerciseId = exJson.data?.id || exJson.id;
           await fetch(`/api/v1/exercises/${exerciseId}/publish`, { method: 'POST', headers });
+
+          // El veredicto sale del recibo firmado por el servidor, no del payload.
+          const evalResp = await fetch('/api/v1/evaluations', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              exercise_id: exerciseId,
+              language: 'python',
+              source_code_b64: btoa(sourceCode)
+            })
+          });
+          const evalJson = await evalResp.json();
+          const evalData = evalJson.data || evalJson;
+          if (!evalData?.evaluation_receipt) {
+            return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
+          }
 
           // Entrega del estudiante
           await fetch('/api/v1/submissions', {
@@ -95,11 +124,12 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
             body: JSON.stringify({
               exercise_id: exerciseId,
               student_id: studentId,
-              code: 'print("LEVEL_UP")\n',
-              verdict: 'AC',
+              code: sourceCode,
+              verdict: evalData.verdict,
+              evaluation_receipt: evalData.evaluation_receipt,
               score: 100,
-              execution_time_ms: 12,
-              memory_used_mb: 8
+              execution_time_ms: evalData.execution_time_ms || 12,
+              memory_used_mb: Math.round(evalData.memory_used_mb || 8)
             })
           });
 
@@ -112,6 +142,7 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
           exTitle: exerciseTitle
         });
 
+        expect(setupRes.error, JSON.stringify(setupRes)).toBeUndefined();
         sharedState.courseId = setupRes.courseId;
         sharedState.exerciseId = setupRes.exerciseId;
       });
@@ -144,22 +175,16 @@ test.describe('Categoría 05 (Badges & Calificación): Progreso del Estudiante y
 
         await studentPage.goto('/student');
 
-        // Widget "Mi Progreso": código del curso y 100% (único ejercicio publicado, resuelto con AC)
-        const progressWidget = studentPage.locator('.widget-progress');
-        await expect(progressWidget).toBeVisible();
-        await expect(progressWidget).toContainText(courseCode);
+        // "Tus materias": la materia matriculada aparece con su avance
+        const courseRow = studentPage.locator('a.course-row', { hasText: courseCode });
+        await expect(courseRow).toBeVisible();
+        await expect(courseRow.locator('.course-progress')).toContainText('1/1');
 
-        const courseProgress = progressWidget.locator('.progress-item', { hasText: courseCode });
-        await expect(courseProgress).toContainText('100%');
-
-        // Widget "Accesos Recientes": título del ejercicio, veredicto AC y marca de tiempo semántica
-        const recentWidget = studentPage.locator('.widget-recent');
-        await expect(recentWidget).toBeVisible();
-
-        const recentItem = recentWidget.locator('.recent-item', { hasText: exerciseTitle });
+        // "Últimas entregas": título del ejercicio, veredicto y tiempo semántico
+        const recentItem = studentPage.locator('.recent-item', { hasText: exerciseTitle });
         await expect(recentItem).toBeVisible();
-        await expect(recentItem.locator('.recent-verdict')).toHaveText('AC');
-        await expect(recentItem.locator('time.recent-time')).toBeVisible();
+        await expect(recentItem.locator('verdict-badge')).toContainText('Cumple');
+        await expect(recentItem.locator('time')).toBeVisible();
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

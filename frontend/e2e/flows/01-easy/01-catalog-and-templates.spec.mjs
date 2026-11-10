@@ -46,8 +46,10 @@ test.describe('Categoría 01 (Fácil): Catálogo de Tecnologías y Plantillas Of
         await adminPage.goto('/admin/plantillas/nueva');
         await expect(adminPage.locator('h1.page-title')).toContainText('Registrar Nueva Plantilla Oficial');
 
-        // Seleccionar Evaluador Automático de Ejercicios
-        const judgeCard = adminPage.locator('.purpose-option-card', { hasText: 'Evaluador Automático de Ejercicios' });
+        // Seleccionar Entorno de Evaluación
+        const judgeCard = adminPage.locator('.purpose-option-card', {
+          hasText: 'Entorno de Evaluación (Corrección Automática)'
+        });
         await expect(judgeCard).toBeVisible();
         await judgeCard.click();
 

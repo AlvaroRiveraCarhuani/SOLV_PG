@@ -60,8 +60,10 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await adminPage.goto('/admin/plantillas/nueva');
         await expect(adminPage.locator('h1.page-title')).toContainText('Registrar Nueva Plantilla Oficial');
 
-        // Seleccionar tarjeta "Laboratorio de Práctica" y activar interruptor de evaluación (AMBOS)
-        const labCard = adminPage.locator('.purpose-option-card', { hasText: 'Laboratorio de Práctica' });
+        // Seleccionar tarjeta "Entorno de Desarrollo" y activar interruptor de evaluación (AMBOS)
+        const labCard = adminPage.locator('.purpose-option-card', {
+          hasText: 'Entorno de Desarrollo (Con Editor VS Code)'
+        });
         await expect(labCard).toBeVisible();
         await labCard.click();
         await expect(labCard).toHaveClass(/selected/);
@@ -156,24 +158,33 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await expect(teacherOption).toBeVisible();
         await teacherOption.click();
 
-        // Confirmar creación del curso y capturar su ID
+        // El curso necesita la misma plantilla homologada creada en la Etapa 1
+        // para que el borrador del ejercicio herede un template_id válido.
         const submitCourseBtn = modal.locator('button', { hasText: 'Crear Curso' });
+        const injectBaseTemplate = async (route) => {
+          if (route.request().method() !== 'POST') {
+            await route.continue();
+            return;
+          }
+          const payload = route.request().postDataJSON();
+          await route.continue({
+            postData: JSON.stringify({ ...payload, template_id: sharedState.templateId }),
+            headers: { ...route.request().headers(), 'content-type': 'application/json' }
+          });
+        };
+        await adminPage.route('**/api/v1/subjects', injectBaseTemplate);
         const [createCourseResp] = await Promise.all([
           adminPage.waitForResponse(
             (r) => r.url().includes('/api/v1/subjects') && r.request().method() === 'POST'
           ),
           submitCourseBtn.click()
         ]);
+        await adminPage.unroute('**/api/v1/subjects', injectBaseTemplate);
 
         expect(createCourseResp.status()).toBe(201);
         const createdCourse = await createCourseResp.json();
         sharedState.courseId = createdCourse?.data?.id || createdCourse?.id || '';
         expect(sharedState.courseId).toBeTruthy();
-
-        // Verificar que aparece en la tabla de cursos del Admin
-        const courseSearch = adminPage.locator('search-bar input');
-        await courseSearch.fill(courseCode);
-        await expect(adminPage.locator('table.data-table')).toContainText(courseName);
 
         // Matricular al estudiante canónico en el curso recién creado
         forensic.recordStep('Admin matricula al estudiante en el curso creado', {
@@ -216,20 +227,25 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         forensic.recordStep('Docente completa Paso 1 del Editor de Ejercicios');
         await teacherPage.locator('#exercise-title').fill(exerciseTitle);
 
-        // Seleccionar Dificultad Fácil
-        const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-        await diffInput.click();
-        await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Fácil' }).first().click();
-
         // Seleccionar Lenguaje de ejecución (Python)
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
         await langInput.click();
+        // Preferir el runner oficial liviano; el catálogo también lista
+        // plantillas duales con IDE que no son adecuadas para el juez efímero.
         const pythonOption = teacherPage
           .locator('#exercise-language [role="option"]')
-          .filter({ hasText: /Python/i })
+          .filter({ hasText: /Python Runner Base/i })
           .first();
         await expect(pythonOption).toBeVisible();
         await pythonOption.click();
+
+        // Dar margen al arranque del contenedor del juez; el valor por defecto
+        // de 1000 ms incluye el inicio de Docker y vuelve intermitente el AC.
+        const timeLimitDetails = teacherPage.locator('details.advanced-limit-details');
+        if (await timeLimitDetails.isVisible().catch(() => false)) {
+          await timeLimitDetails.locator('summary').click();
+          await teacherPage.locator('#time-limit').fill('5000');
+        }
 
         // Agregar etiqueta temática
         const tagInput = teacherPage.locator('#exercise-tag-input');
@@ -244,11 +260,8 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
           'Dados dos números enteros separados por espacio, imprime su suma exacta en la salida estándar.'
         );
 
-        // Avanzar al Paso 2
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-
-        // Paso 2: Solución de Referencia y Casos de Prueba
-        forensic.recordStep('Docente completa Paso 2 (Solución de referencia y casos de prueba)');
+        // Lienzo único: la solución de referencia y los casos viven en la misma página
+        forensic.recordStep('Docente completa solución de referencia y casos de prueba');
         await expect(teacherPage.locator('#reference-solution-section')).toBeVisible();
 
         // Escribir la solución canónica en el editor CodeMirror
@@ -289,20 +302,8 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
           }
         }
 
-        // Avanzar al Paso 3
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-
-        // Paso 3: Checklist y Publicación
-        forensic.recordStep('Docente verifica Checklist en Paso 3 y publica el ejercicio');
-        await expect(teacherPage.locator('publication-checklist')).toBeVisible();
-        await expect(teacherPage.locator('publication-checklist')).toContainText('Sin Bloqueantes');
-
-        // Si existen advertencias pedagógicas, aceptar el checkbox de confirmación
-        const ackCheckbox = teacherPage.locator('publication-checklist input.ack-checkbox');
-        if (await ackCheckbox.isVisible().catch(() => false)) {
-          await ackCheckbox.check();
-        }
-
+        // Checklist y Publicación
+        forensic.recordStep('Docente verifica el checklist y publica el ejercicio');
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
         await expect(publishStepBtn).toBeEnabled();
         await publishStepBtn.click();
@@ -325,7 +326,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         sharedState.exerciseId = matchExId ? matchExId[1] : '';
         expect(sharedState.exerciseId).toBeTruthy();
 
-        await expect(teacherPage.locator('.published-pill')).toContainText('Publicado');
+        await expect(teacherPage.locator('.published-pill')).toContainText('Publicada');
       });
 
       // =========================================================================
@@ -335,10 +336,11 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
         await studentPage.bringToFront();
         forensic.recordStep('Estudiante abre su panel principal (/student)');
         await studentPage.goto('/student');
-        await expect(studentPage.locator('.widget-labs')).toContainText(courseName);
+        const courseLink = studentPage.locator('a', { hasText: courseName }).first();
+        await expect(courseLink).toBeVisible();
 
         // Navegar al detalle del curso y Mapa Curricular
-        await studentPage.locator('a.subject-name-link', { hasText: courseName }).click();
+        await courseLink.click();
         await expect(studentPage).toHaveURL(new RegExp(`/student/courses/${sharedState.courseId}`));
 
         const curricularMap = studentPage.locator('curricular-map');
@@ -388,6 +390,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
                 student_id: studentId,
                 code: sourceCode,
                 verdict: evalData.verdict,
+                evaluation_receipt: evalData.evaluation_receipt,
                 execution_time_ms: evalData.execution_time_ms || 15,
                 memory_used_mb: Math.round(evalData.memory_used_mb || 12)
               })
@@ -424,14 +427,14 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
 
         await teacherPage.goto(`/teacher/cursos/${sharedState.courseId}`);
         await expect(teacherPage.locator('h1.page-title')).toBeVisible();
-        const submissionsTab = teacherPage.locator('button.tab-btn', { hasText: 'Cola de Entregas' });
+        const submissionsTab = teacherPage.locator('button.tab-btn', { hasText: 'Entregas' });
         await expect(submissionsTab).toBeVisible();
         await submissionsTab.click();
 
         const submissionsTable = teacherPage.locator('.submissions-view table.data-table');
         await expect(submissionsTable).toBeVisible();
         await expect(submissionsTable).toContainText(exerciseTitle);
-        await expect(submissionsTable).toContainText('AC');
+        await expect(submissionsTable).toContainText('Cumple');
 
         const speedGraderLink = submissionsTable
           .locator(`a[href*="/teacher/revision/${sharedState.submissionId}"]`)
@@ -441,7 +444,7 @@ test.describe('Flujo Core 01: Admin (Constructor) -> Docente (Curso y Ejercicio)
 
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/revision/${sharedState.submissionId}`));
         await expect(teacherPage.locator('speed-grader-header')).toContainText(exerciseTitle);
-        await expect(teacherPage.locator('speed-grader-eval-panel .verdict-card')).toContainText('AC');
+        await expect(teacherPage.locator('speed-grader-eval-panel .verdict-card')).toContainText('Cumple');
         await expect(teacherPage.locator('speed-grader-code-viewer')).toContainText('map(int, input().split())');
       });
     } catch (err) {

@@ -104,7 +104,7 @@ test.describe('J06 — Importación masiva, analíticas y UTF-8 extremo', () => 
               difficulty: 'hard',
               modality: 'algorithm',
               purpose: 'class',
-              time_limit_ms: 2000
+              time_limit_ms: 15000
             },
             statement: {
               description:

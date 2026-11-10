@@ -86,7 +86,7 @@ test.describe('J04 — Barrera de Seguridad AST (código bloqueado antes de la e
       });
 
       await test.step('Setup: Matricular al estudiante canónico (no existe UI de matrícula)', async () => {
-        await enrollStudentViaAPI(studentPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
+        await enrollStudentViaAPI(adminPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
       });
 
       await test.step('Docente UI: Publicar el ejercicio declarando módulos peligrosos en el ast-rules-builder', async () => {

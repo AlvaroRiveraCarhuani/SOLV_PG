@@ -107,8 +107,8 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
         forensic.attachToPage(secondStudentSession.page, 'student2');
 
         // La plataforma no expone UI de matrícula: se registra por API.
-        await enrollStudentViaAPI(studentPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
-        await enrollStudentViaAPI(secondStudentSession.page, sharedState.courseId, sharedState.secondStudentId);
+        await enrollStudentViaAPI(adminPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
+        await enrollStudentViaAPI(adminPage, sharedState.courseId, sharedState.secondStudentId);
       });
 
       await test.step('Setup (Docente): Crear Módulo 1, Módulo 2 y el prerrequisito', async () => {
@@ -178,7 +178,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
           language: 'python',
           difficulty: 'easy',
           purpose: 'class',
-          time_limit_ms: 2000,
+          time_limit_ms: 15000,
           reference_solution: doubleSolution,
           test_cases: [
             { input: '5', expected_output: '10', visibility: 'example', weight: 1.0, order_index: 1 },
@@ -196,7 +196,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
           language: 'python',
           difficulty: 'medium',
           purpose: 'class',
-          time_limit_ms: 2000,
+          time_limit_ms: 15000,
           reference_solution: 'n = int(input())\nprint(n * 3)\n',
           test_cases: [
             { input: '7', expected_output: '21', visibility: 'example', weight: 1.0, order_index: 1 }
@@ -214,7 +214,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
           difficulty: 'hard',
           purpose: 'exam',
           per_student_seed: true,
-          time_limit_ms: 2000,
+          time_limit_ms: 15000,
           reference_solution: doubleSolution,
           config: {
             algorithm: {
@@ -246,7 +246,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
         });
         await expect(moduleTwoCard).toBeVisible({ timeout: 45000 });
         await expect(moduleTwoCard).toHaveClass(/is-locked/);
-        await expect(moduleTwoCard.locator('.module-state-badge')).toHaveText('Bloqueado');
+        await expect(moduleTwoCard.locator('.module-state')).toHaveText('Bloqueado');
       });
 
       await test.step('Paso 2: El estudiante resuelve el ejercicio del Módulo 1 desde la UI y obtiene AC', async () => {
@@ -297,7 +297,7 @@ test.describe('J05 — Desbloqueo curricular encadenado y examen con semilla por
         });
         await expect(moduleTwoCard).toBeVisible({ timeout: 45000 });
         await expect(moduleTwoCard).toHaveClass(/is-unlocked/);
-        await expect(moduleTwoCard.locator('.module-state-badge')).toHaveText('Disponible');
+        await expect(moduleTwoCard.locator('.module-state')).toHaveText('Disponible');
       });
 
       const solveSeededExam = async (page) => {

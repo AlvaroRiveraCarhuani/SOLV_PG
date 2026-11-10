@@ -66,6 +66,17 @@ test.describe('Categoría 03 (Difícil): Modo Examen con Semilla por Estudiante'
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -75,15 +86,16 @@ test.describe('Categoría 03 (Difícil): Modo Examen con Semilla por Estudiante'
               description: 'Examen de evaluación individual con variaciones aleatorias.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               purpose: 'exam',
               per_student_seed: true,
               language: 'python',
               difficulty: 'hard',
-              time_limit_ms: 1000,
+              time_limit_ms: 15000,
               reference_solution: 'import sys\nfor line in sys.stdin:\n    print(f"RES:{line.strip()}")\n',
               test_cases: [
                 {
-                  input_data: 'TEST_INPUT_1',
+                  input: 'TEST_INPUT_1',
                   expected_output: 'RES:TEST_INPUT_1',
                   is_hidden: false,
                   weight: 1.0,

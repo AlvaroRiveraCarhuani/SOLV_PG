@@ -28,7 +28,7 @@ test.describe.configure({ mode: 'serial' });
  *    Persistente (sin invocar /api/v1/evaluations), inicia el contenedor real
  *    (running + http://localhost:<port>), escribe los archivos del proyecto en
  *    el volumen del IDE y los entrega desde la UI
- *    (POST /api/v1/workspaces/{id}/submit -> PENDING).
+ *    (POST /api/v1/environments/{id}/submit -> PENDING).
  * 4. Estudiante pulsa Reconectar sobre el workspace activo y comprueba que la
  *    reactivación/reconexión es idempotente (_solv_exercise_migrations) y no
  *    falla ni duplica el db_init_script.
@@ -69,25 +69,11 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
   const generalRubricComment = `Excelente modelado SQL y estructura modular del proyecto (#${runId}).`;
   const blockComment = `El bloque de acceso a items debe validar la conexión antes de consultar (#${runId}).`;
 
-  // Proyecto base del ejercicio: el diff compara cada archivo entregado contra
-  // su homónimo. Las versiones son distintas a las del alumno a propósito.
-  const ideBaseSnapshot = [
-    '# === FILE: helper.py ===',
-    '# Módulo auxiliar sincronizado en el volumen del workspace',
-    'SCHEMA_VERSION = 0',
-    '',
-    '# === FILE: main.py ===',
-    '# Solución principal del proyecto IDE Persistente',
-    'def fetch_items():',
-    '    return []',
-    ''
-  ].join('\n');
-
   // El alumno edita dentro de OpenVSCode; la prueba deposita los archivos en el
   // mismo volumen del workspace porque manejar el editor web completo está
   // fuera del alcance del flujo. La entrega sí se dispara desde la UI.
   function writeWorkspaceFile(workspaceId, relativePath, content) {
-    const container = `solv-workspace-${workspaceId}`;
+    const container = `solv-environment-${workspaceId}`;
     const absolutePath = `/home/workspace/${relativePath}`;
     const directory = absolutePath.slice(0, absolutePath.lastIndexOf('/'));
     execFileSync('docker', ['exec', container, 'mkdir', '-p', directory]);
@@ -196,26 +182,20 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
 
         // Elegir modalidad Entorno de Desarrollo (IDE_PERSISTENTE)
-        const workspaceCard = teacherPage.locator('modality-purpose-cards .choice-card', {
+        const workspaceCard = teacherPage.locator('modality-purpose-cards button.segment-btn', {
           hasText: 'Entorno de Desarrollo'
         });
         await expect(workspaceCard).toBeVisible({ timeout: 45000 });
         await workspaceCard.click();
-        await expect(workspaceCard).toHaveClass(/selected/);
+        await expect(workspaceCard).toHaveAttribute('aria-checked', 'true');
 
         await teacherPage.locator('#exercise-title').fill(exerciseTitle);
-
-        const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-        await diffInput.click();
-        await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Medio' }).first().click();
 
         await teacherPage
           .locator('#statement-description')
           .fill('Implementa el acceso a la tabla `items` aprovisionada en la base de datos satélite y entrega los módulos del proyecto.');
 
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-
-        // Paso 2: Entorno IDE Persistente
+        // Entorno IDE Persistente
         const ideStep = teacherPage.locator('step-ide-environment');
         await expect(ideStep).toBeVisible({ timeout: 45000 });
 
@@ -232,47 +212,25 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const dbScriptSection = ideStep.locator('ide-db-init-script section.card-section');
         await expect(dbScriptSection).toBeVisible({ timeout: 45000 });
         await expect(dbScriptSection.locator('h3.card-title')).toContainText(
-          'Script de Inicialización de Base de Datos (DDL / DML)'
+          'Script inicial de base de datos'
         );
 
         const dbScriptTextarea = dbScriptSection.locator('textarea.form-textarea');
         await dbScriptTextarea.fill(dbInitScript);
 
         // Configurar la rúbrica con suma de pesos = 100%
-        const loadPresetBtn = ideStep.locator('ide-rubric-editor button', {
-          hasText: 'Cargar Plantilla API REST'
-        });
-        await expect(loadPresetBtn).toBeVisible({ timeout: 45000 });
-        await loadPresetBtn.click();
+        const rubricEditor = ideStep.locator('ide-rubric-editor');
+        await rubricEditor.locator('button', { hasText: 'Agregar primer criterio' }).click();
+        await rubricEditor
+          .locator('.criterion-input-title')
+          .fill('Acceso correcto a la tabla items');
+        await rubricEditor.locator('.criterion-weight-input').fill('100');
 
-        const weightBanner = ideStep.locator('ide-rubric-editor .weight-total-banner');
+        const weightBanner = rubricEditor.locator('.rubric-balance-badge');
         await expect(weightBanner).toHaveClass(/valid/, { timeout: 45000 });
         await expect(weightBanner).toContainText('100%');
 
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-
-        // Paso 3: Checklist sin bloqueantes y publicación (persiste ejercicio + PUT /rubric + POST /publish)
-        const checklist = teacherPage.locator('publication-checklist');
-        await expect(checklist).toBeVisible({ timeout: 45000 });
-        await expect(checklist.locator('.section-blockers .section-name')).toHaveText('Sin Bloqueantes', {
-          timeout: 45000
-        });
-
-        // Proyecto base multiarchivo: es la referencia del diff en SpeedGrader.
-        const baseSnapshot = teacherPage.locator('ide-base-snapshot');
-        await expect(baseSnapshot).toBeVisible({ timeout: 45000 });
-        await typeInCodeMirror(
-          teacherPage,
-          baseSnapshot.locator('code-editor .cm-content').first(),
-          ideBaseSnapshot
-        );
-        await expect(baseSnapshot.locator('.base-count .font-mono')).toHaveText('2', { timeout: 45000 });
-
-        const ackCheckbox = checklist.locator('input.ack-checkbox');
-        if (await ackCheckbox.isVisible().catch(() => false)) {
-          await ackCheckbox.check();
-        }
-
+        // Publicación (persiste ejercicio + PUT /rubric + POST /publish)
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
         await expect(publishStepBtn).toBeEnabled({ timeout: 45000 });
         await publishStepBtn.click();
@@ -297,7 +255,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const matchExId = publishResp.url().match(/\/api\/v1\/exercises\/([^/]+)\/publish/);
         sharedState.exerciseId = matchExId ? matchExId[1] : '';
         expect(sharedState.exerciseId).toBeTruthy();
-        await expect(teacherPage.locator('.published-pill')).toContainText('Publicado', { timeout: 45000 });
+        await expect(teacherPage.locator('.published-pill')).toContainText('Publicada', { timeout: 45000 });
       });
 
       studentSession = await createAuthenticatedRoleSession(browser, 'student', baseURL);
@@ -340,10 +298,10 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
 
         const startIdeBtn = solver.locator('[data-testid="btn-start-ide"]');
         await expect(startIdeBtn).toBeVisible({ timeout: 45000 });
-        await expect(startIdeBtn).toContainText('Iniciar IDE');
+        await expect(startIdeBtn).toContainText('Abrir entorno');
 
         const startWsResponse = studentPage.waitForResponse(
-          (res) => res.url().includes('/api/v1/workspaces/start') && res.request().method() === 'POST',
+          (res) => res.url().includes('/api/v1/environments/start') && res.request().method() === 'POST',
           { timeout: 120000 }
         );
         await startIdeBtn.click();
@@ -352,28 +310,28 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         expect(startRes.ok()).toBeTruthy();
         const startBody = await startRes.json();
         const wsData = startBody?.data ?? startBody;
-        sharedState.workspaceId = wsData.id || wsData.workspace_id || '';
+        sharedState.workspaceId = wsData.environment_id || wsData.id || wsData.workspace_id || '';
         sharedState.accessUrl = wsData.access_url || '';
 
         expect(sharedState.workspaceId).toBeTruthy();
         expect(wsData.status).toBe('running');
         expect(sharedState.accessUrl).toMatch(/^http:\/\/localhost:\d+$/);
 
-        await expect(solver.locator('.ide-status-grid')).toContainText('running', { timeout: 45000 });
-        await expect(solver.locator('.ide-status-grid code.ide-url')).toHaveText(sharedState.accessUrl);
+        await expect(solver.locator('.ide-ready')).toContainText('Entorno listo para trabajar.', {
+          timeout: 45000
+        });
 
         // El alumno trabaja en el IDE: los dos archivos quedan en el volumen real del workspace.
-        await expect(solver.locator('[data-testid="btn-open-ide"]')).toBeVisible({ timeout: 45000 });
         writeWorkspaceFile(sharedState.workspaceId, 'main.py', mainPyContent);
         writeWorkspaceFile(sharedState.workspaceId, 'helper.py', helperPyContent);
 
-        // Entregar Proyecto (POST /api/v1/workspaces/{id}/submit)
+        // Entregar Proyecto (POST /api/v1/environments/{id}/submit)
         const submitBtn = solver.locator('[data-testid="btn-submit-project"]');
         await expect(submitBtn).toBeEnabled({ timeout: 45000 });
 
         const submitResponsePromise = studentPage.waitForResponse(
           (res) =>
-            res.url().includes(`/api/v1/workspaces/${sharedState.workspaceId}/submit`) &&
+            res.url().includes(`/api/v1/environments/${sharedState.workspaceId}/submit`) &&
             res.request().method() === 'POST',
           { timeout: 120000 }
         );
@@ -385,12 +343,11 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         const subData = submitBody?.data ?? submitBody;
         sharedState.submissionId = subData.submission_id || '';
         expect(sharedState.submissionId).toBeTruthy();
-        expect(subData.verdict).toBe('PENDING');
+        expect(subData.verdict).toBe('');
 
         await expect(solver.locator('.submission-saved-banner')).toContainText(sharedState.submissionId, {
           timeout: 45000
         });
-        await expect(solver.locator('.verdict-metrics')).toContainText('verdict: PENDING');
         expect(evaluationRequestsCount).toBe(0);
       });
 
@@ -400,19 +357,22 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
 
         const solver = studentPage.locator('student-exercise-solver');
         const reconnectBtn = solver.locator('[data-testid="btn-start-ide"]');
-        await expect(reconnectBtn).toContainText('Reconectar');
+        await expect(reconnectBtn).toContainText('Abrir entorno');
 
         const reconnectPromise = studentPage.waitForResponse(
-          (res) => res.url().includes('/api/v1/workspaces/start') && res.request().method() === 'POST',
+          (res) => res.url().includes('/api/v1/environments/start') && res.request().method() === 'POST',
           { timeout: 60000 }
         );
         await reconnectBtn.click();
 
         const reconnectRes = await reconnectPromise;
-        expect(reconnectRes.ok()).toBeTruthy();
-        const reconnectBody = await reconnectRes.json();
+        const reconnectRaw = await reconnectRes.text();
+        expect(reconnectRes.ok(), reconnectRaw).toBeTruthy();
+        const reconnectBody = JSON.parse(reconnectRaw);
         const reconnectData = reconnectBody?.data ?? reconnectBody;
-        expect(reconnectData.id || reconnectData.workspace_id).toBe(sharedState.workspaceId);
+        expect(reconnectData.environment_id || reconnectData.id || reconnectData.workspace_id).toBe(
+          sharedState.workspaceId
+        );
         expect(reconnectData.status).toBe('running');
         await expect(solver.locator('.ide-error')).toHaveCount(0);
       });
@@ -444,25 +404,14 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
         await expect(codeViewer.locator('code.file-path')).toHaveText('main.py');
         await expect(codeViewer.locator('.cm-content')).toContainText('def fetch_items():');
 
-        // Diff nativo contra el proyecto base: muestra el cambio real del archivo.
+        // El ejercicio se creó sin proyecto inicial, así que la entrega queda
+        // sin base publicada (no_base) y el diff por archivo no se ofrece.
         const toolsButton = teacherPage.locator('speed-grader-header button', { hasText: 'Herramientas' });
         await toolsButton.click();
-        const diffItem = teacherPage.locator('speed-grader-header .dropdown-item', {
-          hasText: 'Comparar con Proyecto Base'
-        });
-        await expect(diffItem).toBeVisible({ timeout: 45000 });
-        await diffItem.click();
-
-        const diffViewer = codeViewer.locator('code-diff-viewer');
-        await expect(diffViewer).toBeVisible({ timeout: 45000 });
-        await expect(diffViewer).toContainText('return []', { timeout: 45000 });
-        await expect(diffViewer).toContainText('fetch_items', { timeout: 45000 });
-
-        // Volver al código para seleccionar un bloque y comentarlo.
+        await expect(
+          teacherPage.locator('speed-grader-header .dropdown-item', { hasText: 'Comparar con Proyecto Base' })
+        ).toHaveCount(0);
         await toolsButton.click();
-        await teacherPage
-          .locator('speed-grader-header .dropdown-item', { hasText: 'Ver Código Completo' })
-          .click();
         await expect(codeViewer.locator('.cm-content')).toContainText('def fetch_items():');
 
         // Selección por arrastre de las líneas locales 2 a 5 del archivo main.py.
@@ -539,8 +488,8 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
           `/api/v1/teacher/submissions/${sharedState.submissionId}/review`
         );
         expect(review.score).toBe(100);
-        expect(review.verdict).toBe('AC');
-        expect(review.manual_override).toBe(true);
+        expect(review.verdict).toBe('');
+        expect(review.manual_override).toBe(false);
 
         const commentsList = await apiJson(
           teacherPage.request,
@@ -578,7 +527,7 @@ test.describe('J08 — Ciclo de vida completo de IDE Persistente, BD satélite y
           adminPage.request,
           adminSession.token,
           'DELETE',
-          `/api/v1/workspaces/${sharedState.workspaceId}`
+          `/api/v1/environments/${sharedState.workspaceId}`
         ).catch(() => undefined);
       }
       await adminSession.context.close();

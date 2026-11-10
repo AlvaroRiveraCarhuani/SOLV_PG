@@ -97,24 +97,27 @@ test.describe('Categoría 01 (Fácil): Editor de Ejercicios en 3 Pasos y Resoluc
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
 
-        // Metadatos
-        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
-
-        // Dificultad
-        const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-        await diffInput.click();
-        await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Fácil' }).first().click();
-
-        // Lenguaje
+        // Lenguaje primero para fijar template_id antes del autoguardado
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
         await langInput.click();
-        await teacherPage.locator('#exercise-language [role="option"]', { hasText: 'Python' }).first().click();
+        const pythonOption = teacherPage
+          .locator('#exercise-language [role="option"]')
+          .filter({ hasText: /Python Runner Base/i })
+          .first();
+        await expect(pythonOption).toBeVisible();
+        await pythonOption.click();
+
+        // Metadatos
+        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
 
         // Enunciado
         await teacherPage.locator('#statement-description').fill('Calcula el producto de dos números enteros.');
 
-        // Avanzar a Paso 2
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
+        const timeLimitDetails = teacherPage.locator('details.advanced-limit-details');
+        if (await timeLimitDetails.isVisible().catch(() => false)) {
+          await timeLimitDetails.locator('summary').click();
+          await teacherPage.locator('#time-limit').fill('5000');
+        }
       });
 
       await test.step('Paso 2: Docente completa Paso 2 (Solución y Casos) y Paso 3 (Publicar)', async () => {
@@ -136,16 +139,6 @@ test.describe('Categoría 01 (Fácil): Editor de Ejercicios en 3 Pasos y Resoluc
         await caseRows.first().locator('td.col-input textarea').fill('4 5');
         await caseRows.first().locator('td.col-output textarea').fill('20');
 
-        // Avanzar a Paso 3
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-        await expect(teacherPage.locator('publication-checklist')).toBeVisible();
-
-        // Aceptar advertencias si hay
-        const ackCheckbox = teacherPage.locator('publication-checklist input.ack-checkbox');
-        if (await ackCheckbox.isVisible().catch(() => false)) {
-          await ackCheckbox.check();
-        }
-
         // Publicar
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
         await expect(publishStepBtn).toBeEnabled();
@@ -162,7 +155,7 @@ test.describe('Categoría 01 (Fácil): Editor de Ejercicios en 3 Pasos y Resoluc
         const matchExId = publishResp.url().match(/\/api\/v1\/exercises\/([^/]+)\/publish/);
         const publishJson = await publishResp.json().catch(() => ({}));
         sharedState.exerciseId = matchExId ? matchExId[1] : (publishJson.data?.id || publishJson.id);
-        await expect(teacherPage.locator('.published-pill')).toContainText('Publicado');
+        await expect(teacherPage.locator('.published-pill')).toContainText('Publicada');
       });
 
       // =========================================================================

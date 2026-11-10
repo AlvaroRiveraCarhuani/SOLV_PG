@@ -136,6 +136,9 @@ export async function createAuthenticatedActorSession(browser, actor, baseURL = 
   }, token);
 
   const page = await context.newPage();
+  // La sesión debe quedar en el origen de la app: sessionStorage no existe en
+  // about:blank y varios flujos evaluan fetch con el token guardado.
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
   return { context, page, actor, token };
 }
 

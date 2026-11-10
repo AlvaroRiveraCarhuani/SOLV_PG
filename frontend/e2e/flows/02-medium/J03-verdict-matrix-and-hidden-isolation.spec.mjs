@@ -65,7 +65,7 @@ test.describe('J03 — Matriz de Veredictos del Juez y Aislamiento de Casos Ocul
       });
 
       await test.step('Setup: Matricular al estudiante canónico (no existe UI de matrícula)', async () => {
-        await enrollStudentViaAPI(studentPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
+        await enrollStudentViaAPI(adminPage, sharedState.courseId, CANONICAL_ACTORS.student.id);
       });
 
       await test.step('Docente UI: Publicar el ejercicio con 1 caso ejemplo y 3 casos ocultos', async () => {
@@ -169,7 +169,12 @@ test.describe('J03 — Matriz de Veredictos del Juez y Aislamiento de Casos Ocul
         await solver.locator('[data-testid="btn-submit-solution"]').click();
 
         const [evalRes] = await Promise.all([evalResponse]);
-        expect(evalRes.ok()).toBeTruthy();
+        if (!evalRes.ok()) {
+          const body = await evalRes.text().catch(() => '');
+          throw new Error(
+            `La evaluación falló con status ${evalRes.status()}: ${body.slice(0, 500)}`
+          );
+        }
 
         const evalJson = await evalRes.json();
         const evalBody = evalJson?.data ?? evalJson;

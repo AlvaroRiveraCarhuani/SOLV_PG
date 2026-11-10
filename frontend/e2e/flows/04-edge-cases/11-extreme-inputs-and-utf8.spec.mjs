@@ -66,6 +66,17 @@ test.describe('Categoría 04 (Casos Borde): Entradas Extremas, Caracteres UTF-8 
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -75,13 +86,14 @@ test.describe('Categoría 04 (Casos Borde): Entradas Extremas, Caracteres UTF-8 
               description: 'Invierte cada línea manteniendo la codificación UTF-8 intacta.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               language: 'python',
               difficulty: 'hard',
-              time_limit_ms: 2000,
+              time_limit_ms: 15000,
               reference_solution: 'import sys\nfor line in sys.stdin:\n    print(line.strip()[::-1])\n',
               test_cases: [
                 {
-                  input_data: 'Hola Mundo 👋🤖\n12345678901234567890\n',
+                  input: 'Hola Mundo 👋🤖\n12345678901234567890\n',
                   expected_output: '🤖👋 odnuM aloH\n09876543210987654321',
                   is_hidden: false,
                   weight: 1.0,

@@ -114,16 +114,18 @@ export async function authorJudgeExercise(teacherPage, opts) {
   await newLabBtn.click();
   await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${courseId}/exercises/new`));
 
-  await teacherPage.locator('#exercise-title').fill(title);
-
-  const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-  await diffInput.click();
-  await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Fácil' }).first().click();
-
+  // El lenguaje primero: fija template_id antes de que el título habilite el
+  // autoguardado remoto del borrador.
   const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
   await langInput.click();
-  await teacherPage.locator('#exercise-language [role="option"]', { hasText: /python/i }).first().click();
+  const pythonOption = teacherPage
+    .locator('#exercise-language [role="option"]')
+    .filter({ hasText: /Python Runner Base/i })
+    .first();
+  await expect(pythonOption).toBeVisible();
+  await pythonOption.click();
 
+  await teacherPage.locator('#exercise-title').fill(title);
   await teacherPage.locator('#statement-description').fill(statement);
 
   // El autoguardado crea el borrador y redirige al editor del ejercicio persistido.
@@ -131,7 +133,6 @@ export async function authorJudgeExercise(teacherPage, opts) {
     .waitForURL(/\/exercises\/[0-9a-f-]{36}\/edit/, { timeout: 20000 })
     .catch(() => undefined);
 
-  await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
   await expect(teacherPage.locator('#reference-solution-section')).toBeVisible({ timeout: 45000 });
 
   await typeInCodeMirror(
@@ -163,10 +164,14 @@ export async function authorJudgeExercise(teacherPage, opts) {
     await row.locator('td.col-vis [role="option"]', { hasText: 'Oculto' }).first().click();
   }
 
-  await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-  await expect(teacherPage.locator('publication-checklist')).toBeVisible({ timeout: 45000 });
-
   if (astRules) {
+    const astSection = teacherPage.locator('details.advanced-section-details', {
+      hasText: 'Restricciones didácticas de código'
+    });
+    if ((await astSection.count()) > 0 && !(await astSection.evaluate((el) => el.open))) {
+      await astSection.locator('summary').click();
+    }
+
     const astBuilder = teacherPage.locator('ast-rules-builder');
     await expect(astBuilder).toBeVisible({ timeout: 45000 });
 
@@ -198,16 +203,6 @@ export async function authorJudgeExercise(teacherPage, opts) {
     }
   }
 
-  const checklist = teacherPage.locator('publication-checklist');
-  await expect(checklist.locator('.section-blockers .section-name')).toHaveText('Sin Bloqueantes', {
-    timeout: 45000
-  });
-
-  const ackCheckbox = checklist.locator('input.ack-checkbox');
-  if (await ackCheckbox.isVisible().catch(() => false)) {
-    await ackCheckbox.check();
-  }
-
   const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
   await expect(publishStepBtn).toBeEnabled({ timeout: 45000 });
   await publishStepBtn.click();
@@ -230,7 +225,7 @@ export async function authorJudgeExercise(teacherPage, opts) {
   if (!exerciseId) {
     throw new Error(`No se pudo obtener el exerciseId de ${publishResp.url()}`);
   }
-  await expect(teacherPage.locator('.published-pill')).toContainText('Publicado', { timeout: 45000 });
+  await expect(teacherPage.locator('.published-pill')).toContainText('Publicada', { timeout: 45000 });
 
   return exerciseId;
 }

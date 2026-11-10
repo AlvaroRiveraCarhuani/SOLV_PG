@@ -66,6 +66,17 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -75,9 +86,11 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
               description: 'Algoritmo puro sin librerías de sistema ni introspección.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               language: 'python',
               difficulty: 'hard',
-              time_limit_ms: 1000,
+              // El límite incluye el arranque del contenedor del juez.
+              time_limit_ms: 15000,
               reference_solution: 'print("SAFE")\n',
               ast_rules: {
                 block_native_sort: false,
@@ -86,7 +99,7 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
                 forbidden_functions: ['eval', 'exec', '__import__', 'open']
               },
               test_cases: [
-                { input_data: '1', expected_output: 'SAFE', is_hidden: false, weight: 1.0, order_index: 1 }
+                { input: '1', expected_output: 'SAFE', is_hidden: false, weight: 1.0, order_index: 1 }
               ]
             })
           });
@@ -108,9 +121,9 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
       });
 
       // Intento 1: Import de OS
-      await test.step('Paso 1: Intento de importar módulo OS -> AST_BLOCKED', async () => {
+      await test.step('Paso 1: Intento de importar módulo OS -> AST_VIOLATION', async () => {
         await studentPage.bringToFront();
-        forensic.recordStep('Estudiante envía import os -> AST_BLOCKED');
+        forensic.recordStep('Estudiante envía import os -> AST_VIOLATION');
 
         const badCode = 'import os\nprint("SAFE")\n';
         const res = await studentPage.evaluate(async ({ exId, code }) => {
@@ -131,12 +144,12 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
           return json.data || json;
         }, { exId: sharedState.exerciseId, code: badCode });
 
-        expect(res.verdict).toBe('AST_BLOCKED');
+        expect(res.verdict).toBe('AST_VIOLATION');
       });
 
       // Intento 2: Uso de eval
-      await test.step('Paso 2: Intento de usar eval() dinámico -> AST_BLOCKED', async () => {
-        forensic.recordStep('Estudiante envía eval() -> AST_BLOCKED');
+      await test.step('Paso 2: Intento de usar eval() dinámico -> AST_VIOLATION', async () => {
+        forensic.recordStep('Estudiante envía eval() -> AST_VIOLATION');
 
         const badCode = 'eval("print(\'SAFE\')")\n';
         const res = await studentPage.evaluate(async ({ exId, code }) => {
@@ -157,7 +170,7 @@ test.describe('Categoría 02 (Media): Reglas AST y Barrera de Seguridad Estátic
           return json.data || json;
         }, { exId: sharedState.exerciseId, code: badCode });
 
-        expect(res.verdict).toBe('AST_BLOCKED');
+        expect(res.verdict).toBe('AST_VIOLATION');
       });
 
       // Solución limpia

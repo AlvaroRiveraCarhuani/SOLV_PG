@@ -71,6 +71,17 @@ test.describe('Categoría 02 (Media): Matriz de Veredictos del Juez (AC, WA, RE,
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -80,14 +91,15 @@ test.describe('Categoría 02 (Media): Matriz de Veredictos del Juez (AC, WA, RE,
               description: 'Devuelve la suma de dos números.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               language: 'python',
               difficulty: 'medium',
-              time_limit_ms: 1000,
-              memory_limit_mb: 128,
+              // El límite incluye el arranque del contenedor del juez.
+              time_limit_ms: 15000,
               reference_solution: 'a, b = map(int, input().split())\nprint(a + b)\n',
               test_cases: [
-                { input_data: '10 20', expected_output: '30', is_hidden: false, weight: 1.0, order_index: 1 },
-                { input_data: '50 50', expected_output: '100', is_hidden: true, weight: 1.0, order_index: 2 }
+                { input: '10 20', expected_output: '30', is_hidden: false, weight: 1.0, order_index: 1 },
+                { input: '50 50', expected_output: '100', is_hidden: true, weight: 1.0, order_index: 2 }
               ]
             })
           });
@@ -166,7 +178,7 @@ test.describe('Categoría 02 (Media): Matriz de Veredictos del Juez (AC, WA, RE,
       await test.step('Paso 3: Evaluar solución con TLE (Time Limit Exceeded)', async () => {
         forensic.recordStep('Estudiante envía solución con timeout -> TLE');
 
-        const tleCode = 'import time\ntime.sleep(5)\n';
+        const tleCode = 'import time\ntime.sleep(20)\n';
         const res = await studentPage.evaluate(async ({ exId, code }) => {
           const token = window.sessionStorage.getItem('solv_token');
           const resp = await fetch('/api/v1/evaluations', {
@@ -211,7 +223,7 @@ test.describe('Categoría 02 (Media): Matriz de Veredictos del Juez (AC, WA, RE,
         }, { exId: sharedState.exerciseId, code: acCode });
 
         expect(res.verdict).toBe('AC');
-        expect(res.test_results?.length).toBe(2);
+        expect(res.case_results?.length).toBe(2);
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

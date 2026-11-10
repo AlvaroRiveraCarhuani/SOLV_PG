@@ -67,6 +67,18 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
             body: JSON.stringify({ student_id: studentId })
           });
 
+          // El juez exige una plantilla runner aprobada para crear el ejercicio.
+          const tplResp = await fetch('/api/v1/templates?limit=50', { headers });
+          const tplJson = await tplResp.json();
+          const tplItems = tplJson.data?.data ?? tplJson.data ?? tplJson;
+          const runner = (Array.isArray(tplItems) ? tplItems : []).find(
+            (t) => /Python Runner Base/i.test(t.name || '')
+          );
+          if (!runner?.id) {
+            return { error: 'No hay plantilla Python Runner Base disponible' };
+          }
+
+          const sourceCode = '# Codigo del estudiante\nprint("OK")\n# Fin\n';
           const exResp = await fetch('/api/v1/exercises', {
             method: 'POST',
             headers,
@@ -76,12 +88,13 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
               description: 'Práctica para SpeedGrader.',
               type: 'algorithm',
               environment_type: 'JUEZ_EFIMERO',
+              template_id: runner.id,
               language: 'python',
               difficulty: 'medium',
-              time_limit_ms: 1000,
+              time_limit_ms: 5000,
               reference_solution: 'print("OK")\n',
               test_cases: [
-                { input_data: '1', expected_output: 'OK', is_hidden: false, weight: 1.0, order_index: 1 }
+                { input: '1', expected_output: 'OK', is_hidden: false, weight: 1.0, order_index: 1 }
               ]
             })
           });
@@ -89,17 +102,34 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
           const exerciseId = exJson.data?.id || exJson.id;
           await fetch(`/api/v1/exercises/${exerciseId}/publish`, { method: 'POST', headers });
 
+          // El veredicto y el recibo salen de la evaluación del servidor.
+          const evalResp = await fetch('/api/v1/evaluations', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              exercise_id: exerciseId,
+              language: 'python',
+              source_code_b64: btoa(sourceCode)
+            })
+          });
+          const evalJson = await evalResp.json();
+          const evalData = evalJson.data || evalJson;
+          if (!evalData?.evaluation_receipt) {
+            return { error: `Evaluación sin recibo: ${JSON.stringify(evalData)}` };
+          }
+
           const subResp = await fetch('/api/v1/submissions', {
             method: 'POST',
             headers,
             body: JSON.stringify({
               exercise_id: exerciseId,
               student_id: studentId,
-              code: '# Codigo del estudiante\nprint("OK")\n# Fin\n',
-              verdict: 'AC',
+              code: sourceCode,
+              verdict: evalData.verdict,
+              evaluation_receipt: evalData.evaluation_receipt,
               score: 100,
-              execution_time_ms: 20,
-              memory_used_mb: 12
+              execution_time_ms: evalData.execution_time_ms || 20,
+              memory_used_mb: Math.round(evalData.memory_used_mb || 12)
             })
           });
           const subJson = await subResp.json();
@@ -114,6 +144,7 @@ test.describe('Categoría 05 (Badges & Calificación): SpeedGrader, Comentarios 
           exTitle: exerciseTitle
         });
 
+        expect(setupRes.error, JSON.stringify(setupRes)).toBeUndefined();
         sharedState.courseId = setupRes.courseId;
         sharedState.exerciseId = setupRes.exerciseId;
         sharedState.submissionId = setupRes.submissionId;

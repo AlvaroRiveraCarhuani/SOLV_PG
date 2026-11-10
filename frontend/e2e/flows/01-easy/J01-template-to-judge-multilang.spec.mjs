@@ -46,7 +46,9 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await adminPage.goto('/admin/plantillas/nueva');
         await expect(adminPage.locator('h1.page-title')).toContainText('Registrar Nueva Plantilla Oficial');
 
-        const judgeCard = adminPage.locator('.purpose-option-card', { hasText: 'Evaluador Automático de Ejercicios' });
+        const judgeCard = adminPage.locator('.purpose-option-card', {
+          hasText: 'Entorno de Evaluación (Corrección Automática)'
+        });
         await expect(judgeCard).toBeVisible();
         await judgeCard.click();
 
@@ -129,26 +131,28 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await newLabBtn.click();
         await expect(teacherPage).toHaveURL(new RegExp(`/teacher/courses/${sharedState.courseId}/exercises/new`));
 
-        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
-
-        const diffInput = teacherPage.locator('#exercise-difficulty input[role="combobox"]');
-        await diffInput.click();
-        await teacherPage.locator('#exercise-difficulty [role="option"]', { hasText: 'Fácil' }).first().click();
-
         const langInput = teacherPage.locator('#exercise-language input[role="combobox"]');
         await langInput.click();
-        await teacherPage.locator('#exercise-language [role="option"]', { hasText: 'Python' }).first().click();
+        const pythonOption = teacherPage
+          .locator('#exercise-language [role="option"]')
+          .filter({ hasText: /Python Runner Base/i })
+          .first();
+        await expect(pythonOption).toBeVisible();
+        await pythonOption.click();
 
+        await teacherPage.locator('#exercise-title').fill(exerciseTitle);
         await teacherPage.locator('#statement-description').fill('Dados dos enteros separados por espacio, imprime su suma exacta.');
 
         // El límite de tiempo del juez se aplica al ciclo completo del contenedor
-        // (arranque + ejecución). Con 1000 ms la compilación de C++ compite con el
-        // arranque de Docker y el caso muere por TLE de forma intermitente.
-        await teacherPage.locator('#time-limit').fill('5000');
+        // (arranque + ejecución). Con 1000 ms el arranque de Docker compite con el
+        // caso y muere por TLE de forma intermitente.
+        const timeLimitDetails = teacherPage.locator('details.advanced-limit-details');
+        if (await timeLimitDetails.isVisible().catch(() => false)) {
+          await timeLimitDetails.locator('summary').click();
+          await teacherPage.locator('#time-limit').fill('15000');
+        }
 
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-
-        // Paso 2: Solución de referencia y casos
+        // Solución de referencia y casos
         await expect(teacherPage.locator('#reference-solution-section')).toBeVisible();
         const cmContent = teacherPage.locator('#reference-solution-section .cm-content').first();
         await cmContent.click();
@@ -162,14 +166,6 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await expect(caseRows).toHaveCount(1);
         await caseRows.first().locator('td.col-input textarea').fill('10 25');
         await caseRows.first().locator('td.col-output textarea').fill('35');
-
-        await teacherPage.locator('button.step-btn', { hasText: 'Siguiente' }).click();
-        await expect(teacherPage.locator('publication-checklist')).toBeVisible();
-
-        const ackCheckbox = teacherPage.locator('publication-checklist input.ack-checkbox');
-        if (await ackCheckbox.isVisible().catch(() => false)) {
-          await ackCheckbox.check();
-        }
 
         const publishStepBtn = teacherPage.locator('button.btn-publish-step', { hasText: 'Publicar' });
         await expect(publishStepBtn).toBeEnabled();
@@ -187,7 +183,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         const publishJson = await publishResp.json().catch(() => ({}));
         sharedState.exerciseId = matchExId ? matchExId[1] : (publishJson.data?.id || publishJson.id);
         expect(sharedState.exerciseId).toBeTruthy();
-        await expect(teacherPage.locator('.published-pill')).toContainText('Publicado');
+        await expect(teacherPage.locator('.published-pill')).toContainText('Publicada');
       });
 
       await test.step('Paso 3 (Estudiante UI): Abre Resolver desde el Mapa Curricular y obtiene AC en C++ y en Python', async () => {
@@ -221,7 +217,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await solver.locator('[data-testid="btn-submit-solution"]').click();
         const resultPanel = solver.locator('[data-testid="judge-result-panel"]');
         await expect(resultPanel).toBeVisible({ timeout: 45000 });
-        await expect(resultPanel.locator('verdict-badge').first()).toContainText('AC');
+        await expect(resultPanel.locator('verdict-badge').first()).toContainText('Cumple');
         await expect(resultPanel.locator('.submission-saved-banner')).toContainText('Entrega registrada');
 
         // 2. Cambiar a Python y enviar solución interpretada
@@ -234,7 +230,7 @@ test.describe('J01 — Plantilla Homologada Multi-Lenguaje -> Juez Real (Python 
         await studentPage.keyboard.insertText(pythonSolution);
 
         await solver.locator('[data-testid="btn-submit-solution"]').click();
-        await expect(resultPanel.locator('verdict-badge').first()).toContainText('AC', { timeout: 45000 });
+        await expect(resultPanel.locator('verdict-badge').first()).toContainText('Cumple', { timeout: 45000 });
       });
     } catch (err) {
       await forensic.flushOnTestEnd(

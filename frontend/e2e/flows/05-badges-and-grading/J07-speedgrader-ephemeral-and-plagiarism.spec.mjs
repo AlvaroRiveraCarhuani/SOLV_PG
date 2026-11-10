@@ -120,7 +120,7 @@ test.describe('J07 — SpeedGrader, efímera, override auditado y anti-plagio', 
           language: 'python',
           difficulty: 'medium',
           purpose: 'class',
-          time_limit_ms: 2000,
+          time_limit_ms: 15000,
           reference_solution: solutionA,
           test_cases: [
             { input: '5', expected_output: '10', visibility: 'example', weight: 1.0, order_index: 1 },
