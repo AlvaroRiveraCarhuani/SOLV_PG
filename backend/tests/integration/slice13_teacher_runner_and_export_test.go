@@ -118,7 +118,7 @@ func TestSlice13_TeacherRunnerAndExportSuite(t *testing.T) {
 	lab2ID := uuid.NewString()
 
 	var seedTemplateID string
-	err = db.GetDB().Get(&seedTemplateID, "SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' LIMIT 1")
+	err = db.GetDB().Get(&seedTemplateID, "SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') LIMIT 1")
 	if err != nil {
 		t.Fatalf("Failed to fetch seed template: %v", err)
 	}

@@ -14,7 +14,7 @@ func approvedJudgeTemplateID(t *testing.T, db *database.Database) string {
 	var id string
 	err := db.GetDB().QueryRow(`
 		SELECT id FROM lab_templates
-		WHERE status = 'approved' AND target_environment = 'JUEZ_EFIMERO'
+		WHERE status IN ('approved','APROBADA') AND target_environment = 'JUEZ_EFIMERO'
 		ORDER BY created_at ASC
 		LIMIT 1
 	`).Scan(&id)

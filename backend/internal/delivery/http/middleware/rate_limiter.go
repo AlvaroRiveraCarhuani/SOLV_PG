@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +50,27 @@ func NewRateLimiter() *RateLimiter {
 	return rl
 }
 
+// ipLimitConfig toma el límite global por IP del entorno, con los valores de
+// producción como default. Sirve para que los entornos de test puedan subirlo
+// sin tocar el comportamiento normal.
+func ipLimitConfig() (rate.Limit, int) {
+	perMinute := 100.0
+	if raw := os.Getenv("RATE_LIMIT_IP_PER_MINUTE"); raw != "" {
+		if v, err := strconv.ParseFloat(raw, 64); err == nil && v > 0 {
+			perMinute = v
+		}
+	}
+
+	burst := 20
+	if raw := os.Getenv("RATE_LIMIT_IP_BURST"); raw != "" {
+		if v, err := strconv.Atoi(raw); err == nil && v > 0 {
+			burst = v
+		}
+	}
+
+	return rate.Limit(perMinute / 60.0), burst
+}
+
 func (rl *RateLimiter) GetIPLimiter(ip string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -56,7 +79,8 @@ func (rl *RateLimiter) GetIPLimiter(ip string) *rate.Limiter {
 		return limiter
 	}
 
-	limiter := rate.NewLimiter(rate.Limit(100.0/60.0), 20)
+	limit, burst := ipLimitConfig()
+	limiter := rate.NewLimiter(limit, burst)
 	rl.ipLimiters[ip] = limiter
 	return limiter
 }

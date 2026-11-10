@@ -261,7 +261,7 @@ func TestSemgrepPrecheckSuite(t *testing.T) {
 
 		var seedTemplateID string
 		err = sqlDB.Get(&seedTemplateID,
-			"SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' AND name LIKE 'Python%' LIMIT 1")
+			"SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') AND name LIKE 'Python%' LIMIT 1")
 		if err != nil {
 			t.Fatalf("Failed to fetch seed template: %v", err)
 		}

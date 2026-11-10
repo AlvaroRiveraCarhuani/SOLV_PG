@@ -152,7 +152,7 @@ func TestSlice13_Commit1_CreateAndVerifyDirectDB(t *testing.T) {
 	var expectedRAM int
 	err = db.GetDB().Get(&expectedRAM, `
 		SELECT base_ram_mb FROM lab_templates
-		WHERE target_environment='JUEZ_EFIMERO' AND status='approved' AND description='SYSTEM_SEED_RUNNER' AND name LIKE 'Python%'
+		WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') AND description='SYSTEM_SEED_RUNNER' AND name LIKE 'Python%'
 		LIMIT 1
 	`)
 	if err != nil {

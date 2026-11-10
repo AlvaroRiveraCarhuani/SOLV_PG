@@ -124,6 +124,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 		}
 
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/admin/audit-logs?action=CREATE_SUBJECT", nil)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
@@ -143,6 +144,7 @@ func TestSlice11_5BackendUIBridges(t *testing.T) {
 	// 3. Test Admin Health Metrics
 	t.Run("3. Admin Health Metrics Calculation", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(context.Background(), "GET", "/api/v1/admin/metrics/health", nil)
+		req.Header.Set("X-Test-User-Role", "admin")
 
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)

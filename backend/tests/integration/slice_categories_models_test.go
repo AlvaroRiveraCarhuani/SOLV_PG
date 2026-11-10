@@ -399,6 +399,7 @@ func TestSlice_PromoteToModel_Guards_And_UsageCount(t *testing.T) {
 	// 5. Consultar GET /api/v1/admin/template-models y validar que el modelo aparece con usage_count >= 1
 	mReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
 	mReq.Header.Set("X-Test-Tenant-Id", "00000000-0000-0000-0000-000000000001")
+	mReq.Header.Set("X-Test-User-Role", "admin")
 	mResp, err := http.DefaultClient.Do(mReq)
 	if err != nil || mResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list template models: %v", err)
@@ -493,6 +494,7 @@ func TestSlice_TemplateCategories_Reorder_And_ModelDeleteGuard(t *testing.T) {
 
 	// 3. Listar categorías y verificar persistencia del sort_order
 	listReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-categories", nil)
+	listReq.Header.Set("X-Test-User-Role", "admin")
 	listResp, err := http.DefaultClient.Do(listReq)
 	if err != nil || listResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list categories: %v", err)
@@ -603,6 +605,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 
 	// 5. GET /api/v1/admin/template-models (default: include_inactive=false) -> no debe incluir el modelo desactivado
 	listActiveReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
+	listActiveReq.Header.Set("X-Test-User-Role", "admin")
 	listActiveResp, err := http.DefaultClient.Do(listActiveReq)
 	if err != nil || listActiveResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list active models: %v", err)
@@ -620,6 +623,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 
 	// 6. GET /api/v1/admin/template-models?include_inactive=true -> debe incluir el modelo con is_active = false
 	listAllReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models?include_inactive=true", nil)
+	listAllReq.Header.Set("X-Test-User-Role", "admin")
 	listAllResp, err := http.DefaultClient.Do(listAllReq)
 	if err != nil || listAllResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list all models: %v", err)
@@ -667,6 +671,7 @@ func TestSlice_TemplateModels_Update_Deactivate_Reactivate(t *testing.T) {
 
 	// 9. Verificar que vuelve a aparecer en la lista activa
 	listAgainReq, _ := http.NewRequestWithContext(context.Background(), "GET", server.URL+"/api/v1/admin/template-models", nil)
+	listAgainReq.Header.Set("X-Test-User-Role", "admin")
 	listAgainResp, err := http.DefaultClient.Do(listAgainReq)
 	if err != nil || listAgainResp.StatusCode != http.StatusOK {
 		t.Fatalf("Failed to list active models after reactivation: %v", err)

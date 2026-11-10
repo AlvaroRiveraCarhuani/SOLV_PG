@@ -127,7 +127,12 @@ func TestSlice147_AuditActorTimeline(t *testing.T) {
 	timelineURL := fmt.Sprintf("%s/api/v1/admin/audit-logs/actors/%s/timeline", server.URL, actorWithUser)
 	// Peticion HTTP efectuada contra httptest.Server local de prueba.
 	//nolint:gosec
-	resp, err := http.Get(timelineURL)
+	timelineReq, err := http.NewRequestWithContext(ctx, "GET", timelineURL, nil)
+	if err != nil {
+		t.Fatalf("Failed to build timeline request: %v", err)
+	}
+	timelineReq.Header.Set("X-Test-User-Role", "admin")
+	resp, err := http.DefaultClient.Do(timelineReq)
 	if err != nil {
 		t.Fatalf("Failed to call timeline endpoint: %v", err)
 	}
@@ -230,7 +235,12 @@ func TestSlice147_AuditUnifiedSearchAndCount(t *testing.T) {
 		requestURL := fmt.Sprintf("%s/api/v1/admin/audit-logs?%s", server.URL, query.Encode())
 		// Peticion HTTP efectuada contra httptest.Server local de prueba.
 		//nolint:gosec
-		response, err := http.Get(requestURL)
+		request, err := http.NewRequestWithContext(ctx, "GET", requestURL, nil)
+		if err != nil {
+			t.Fatalf("Failed to build audit log request: %v", err)
+		}
+		request.Header.Set("X-Test-User-Role", "admin")
+		response, err := http.DefaultClient.Do(request)
 		if err != nil {
 			t.Fatalf("Failed to call audit log endpoint: %v", err)
 		}

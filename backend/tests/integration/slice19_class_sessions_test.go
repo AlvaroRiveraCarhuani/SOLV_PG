@@ -137,7 +137,7 @@ func TestSlice19_ClassSession_Aula(t *testing.T) {
 
 	var templateID string
 	if err := db.GetDB().GetContext(ctx, &templateID,
-		"SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status='approved' LIMIT 1"); err != nil {
+		"SELECT id FROM lab_templates WHERE target_environment='JUEZ_EFIMERO' AND status IN ('approved','APROBADA') LIMIT 1"); err != nil {
 		t.Skipf("se omite la prueba: no hay plantilla de juez aprobada: %v", err)
 	}
 

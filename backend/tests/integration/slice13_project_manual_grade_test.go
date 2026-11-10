@@ -40,7 +40,7 @@ func TestProjectManualGrade_RecordsScoreProvenanceAndAuthor(t *testing.T) {
 	var templateID string
 	if err := db.GetDB().Get(&templateID, `
 		SELECT id FROM lab_templates
-		WHERE target_environment = 'IDE_PERSISTENTE' AND status = 'approved'
+		WHERE target_environment = 'IDE_PERSISTENTE' AND status IN ('approved','APROBADA')
 		LIMIT 1
 	`); err != nil {
 		t.Skipf("Skipping integration test: no hay plantilla IDE en la base de test: %v", err)
