@@ -624,6 +624,8 @@ jobs:
     timeout-minutes: 15
     env:
       SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN: ${{ secrets.SOLV_TEST_RECEIPT_KEY_MIGRATION_CHAIN }}
+      TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
+      DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
     services:
       postgres:
         image: postgres:18
@@ -638,9 +640,6 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 5
-    env:
-      TEST_DB_DSN: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
-      DATABASE_URL: "postgres://solv_user:solv_password@localhost:55432/solv_migration_test?sslmode=disable"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -835,7 +834,6 @@ jobs:
           pattern: impact-report-*
           path: impact-reports
           merge-multiple: true
-          if-no-files-found: warn
 
       - name: Validate global coverage
         run: >-
